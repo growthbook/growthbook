@@ -1,0 +1,13 @@
+.badge {
+  background-color: var(--gray-9);
+  color: var(--gray-contrast);
+  border-radius: var(--radius-3) var(--radius-3) 0 0;
+}
+
+.badgeWon {
+  background-color: var(--green-11);
+}
+
+.badgeLost {
+  background-color: var(--red-11);
+}

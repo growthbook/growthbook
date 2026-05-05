@@ -1,20 +1,20 @@
-import {
-  findSegmentById,
-  toSegmentApiInterface,
-} from "../../models/SegmentModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { GetSegmentResponse } from "../../../types/openapi";
-import { getSegmentValidator } from "../../validators/openapi";
+import { getSegmentValidator } from "shared/validators";
+import { toSegmentApiInterface } from "back-end/src/services/segments";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
+import { createApiRequestHandler } from "back-end/src/util/handler";
 
-export const getSegment = createApiRequestHandler(getSegmentValidator)(
-  async (req): Promise<GetSegmentResponse> => {
-    const segment = await findSegmentById(req.params.id, req.organization.id);
-    if (!segment) {
-      throw new Error("Could not find segment with that id");
-    }
-
-    return {
-      segment: toSegmentApiInterface(segment),
-    };
+export const getSegment = createApiRequestHandler(getSegmentValidator)(async (
+  req,
+) => {
+  const segment = await req.context.models.segments.getById(req.params.id);
+  if (!segment) {
+    throw new Error("Could not find segment with that id");
   }
-);
+
+  return {
+    segment: await resolveOwnerEmail(
+      toSegmentApiInterface(segment),
+      req.context,
+    ),
+  };
+});

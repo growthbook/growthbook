@@ -1,7 +1,7 @@
 import path from "path";
 import nodemailer from "nodemailer";
 import nunjucks from "nunjucks";
-import { daysLeft } from "shared/dates";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   EMAIL_ENABLED,
   EMAIL_FROM,
@@ -11,9 +11,9 @@ import {
   EMAIL_PORT,
   SITE_MANAGER_EMAIL,
   APP_ORIGIN,
-} from "../util/secrets";
-import { OrganizationInterface } from "../../types/organization";
-import { getEmailFromUserId, getInviteUrl } from "./organizations";
+} from "back-end/src/util/secrets";
+import { getEmailFromUserId } from "back-end/src/models/UserModel";
+import { getInviteUrl } from "./organizations";
 
 export function isEmailEnabled(): boolean {
   return !!(EMAIL_ENABLED && EMAIL_HOST && EMAIL_PORT && EMAIL_FROM);
@@ -25,7 +25,7 @@ const env = nunjucks.configure(
   path.join(__dirname, "..", "templates", "email"),
   {
     autoescape: true,
-  }
+  },
 );
 
 env.addFilter("noHyperlink", noHyperlink);
@@ -65,12 +65,21 @@ async function sendMail({
     throw new Error("Email address must be a string");
   }
 
-  const headers: { [key: string]: string } = {};
+  const headers: { [key: string]: string } = {
+    // Required by Google for bulk senders; mailto fallback satisfies the
+    // header requirement even for transactional emails that have no real
+    // unsubscribe flow.
+    "List-Unsubscribe": `<mailto:${EMAIL_FROM}?subject=Unsubscribe>`,
+  };
 
-  // If using Sendgrid, we can bypass unsubscribe lists for important emails
+  // If using SendGrid, bypass bounce suppression so transactional emails
+  // (invites, password resets) reach users whose address previously soft-bounced.
+  // We use bypass_bounce_management instead of bypass_list_management because
+  // bypass_list_management circumvents unsubscribe lists, which is a strong
+  // spam signal for Gmail and other providers.
   if (ignoreUnsubscribes && EMAIL_HOST === "smtp.sendgrid.net") {
     headers["x-smtpapi"] =
-      '{"filters":{"bypass_list_management":{"settings":{"enable":1}}}}';
+      '{"filters":{"bypass_bounce_management":{"settings":{"enable":1}}}}';
   }
 
   await transporter.sendMail({
@@ -85,7 +94,7 @@ async function sendMail({
 
 export async function sendInviteEmail(
   organization: OrganizationInterface,
-  key: string
+  key: string,
 ) {
   const invite = organization.invites.filter((invite) => invite.key === key)[0];
   if (!invite) {
@@ -96,15 +105,14 @@ export async function sendInviteEmail(
   const html = nunjucks.render("invite.jinja", {
     inviteUrl,
     organizationName: organization.name,
+    invitedBy: invite.invitedBy || "",
   });
 
   await sendMail({
     html,
-    subject: `You've been invited to join ${noHyperlink(
-      organization.name
-    )} on GrowthBook`,
+    subject: `You're invited to join ${noHyperlink(organization.name)} on GrowthBook`,
     to: invite.email,
-    text: `Join ${organization.name} on GrowthBook by visiting ${inviteUrl}`,
+    text: `${invite.invitedBy ? `${invite.invitedBy} is inviting you to` : "You've been invited to"} use GrowthBook with ${noHyperlink(organization.name)}. Accept your invitation: ${inviteUrl}`,
     ignoreUnsubscribes: true,
   });
 }
@@ -113,7 +121,7 @@ export async function sendExperimentChangesEmail(
   userIds: string[],
   experimentId: string,
   experimentName: string,
-  experimentChanges: string[]
+  experimentChanges: string[],
 ) {
   const experimentUrl =
     APP_ORIGIN +
@@ -137,13 +145,13 @@ export async function sendExperimentChangesEmail(
         to: email,
         text:
           `The experiment '${noHyperlink(
-            experimentName
+            experimentName,
           )}' has the following metric changes:` +
           "- " +
           experimentChanges.join("\n- ") +
           `\n\nSee more details at ${experimentUrl}`,
       });
-    })
+    }),
   );
 }
 
@@ -179,7 +187,7 @@ export async function sendNewMemberEmail(
   name: string,
   email: string,
   organization: string,
-  ownerEmail: string
+  ownerEmail: string,
 ) {
   const html = nunjucks.render("new-member.jinja", {
     name,
@@ -190,11 +198,11 @@ export async function sendNewMemberEmail(
   await sendMail({
     html,
     subject: `A new user joined your GrowthBook account: ${noHyperlink(
-      name
+      name,
     )} (${email})`,
     to: ownerEmail,
     text: `Organization: ${noHyperlink(organization)}\nName: ${noHyperlink(
-      name
+      name,
     )}\nEmail: ${email}`,
   });
 }
@@ -204,7 +212,7 @@ export async function sendPendingMemberEmail(
   email: string,
   organization: string,
   ownerEmail: string,
-  teamUrl: string
+  teamUrl: string,
 ) {
   const html = nunjucks.render("pending-member.jinja", {
     name,
@@ -216,11 +224,11 @@ export async function sendPendingMemberEmail(
   await sendMail({
     html,
     subject: `A new user is requesting to join your GrowthBook account: ${noHyperlink(
-      name
+      name,
     )} (${email})`,
     to: ownerEmail,
     text: `Organization: ${noHyperlink(organization)}\nName: ${noHyperlink(
-      name
+      name,
     )}\nEmail: ${email}`,
   });
 }
@@ -229,7 +237,7 @@ export async function sendPendingMemberApprovalEmail(
   name: string,
   email: string,
   organization: string,
-  mainUrl: string
+  mainUrl: string,
 ) {
   const html = nunjucks.render("pending-member-approval.jinja", {
     name,
@@ -240,47 +248,37 @@ export async function sendPendingMemberApprovalEmail(
   await sendMail({
     html,
     subject: `You've been approved as a member with ${noHyperlink(
-      organization
+      organization,
     )} on GrowthBook`,
     to: email,
     text: `Join ${noHyperlink(organization)} on GrowthBook`,
   });
 }
 
-export async function sendStripeTrialWillEndEmail({
-  email,
-  organization,
-  endDate,
-  hasPaymentMethod,
-  billingUrl,
-}: {
-  email: string;
-  organization: string;
-  endDate: Date;
-  hasPaymentMethod: boolean;
-  billingUrl: string;
-}) {
-  const trialRemaining = Math.max(daysLeft(endDate), 1);
-  const trialDaysText = `${trialRemaining} day${
-    trialRemaining === 1 ? "" : "s"
-  }`;
-  const html = nunjucks.render("trial-will-end.jinja", {
-    trialDaysText,
-    hasPaymentMethod,
+export async function sendOwnerEmailChangeEmail(
+  email: string,
+  organization: string,
+  originalOwner: string,
+  newOwner: string,
+) {
+  const html = nunjucks.render("owner-email-change.jinja", {
+    email,
     organization,
-    billingUrl,
+    originalOwner,
+    newOwner,
   });
-
-  const text = `Your GrowthBook Pro trial will end soon in ${trialDaysText}. ${
-    hasPaymentMethod
-      ? "Your credit card will be billed automatically."
-      : "Add a credit card to avoid losing access to GrowthBook Pro."
-  }`;
 
   await sendMail({
     html,
-    subject: `Your GrowthBook Pro trial will end in ${trialDaysText}`,
-    to: email,
-    text,
+    subject: `The owner for ${organization} on GrowthBook has changed`,
+    to: originalOwner,
+    text: `The owner for ${organization} on GrowthBook has been changed to ${newOwner} by ${email}`,
+  });
+
+  await sendMail({
+    html,
+    subject: `The owner for ${organization} on GrowthBook has changed`,
+    to: newOwner,
+    text: `The owner for ${organization} on GrowthBook has been changed to ${newOwner} by ${email}`,
   });
 }

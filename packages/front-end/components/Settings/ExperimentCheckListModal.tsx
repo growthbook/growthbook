@@ -1,26 +1,36 @@
 import {
   ChecklistTask,
   ExperimentLaunchChecklistInterface,
-} from "back-end/types/experimentLaunchChecklist";
+} from "shared/types/experimentLaunchChecklist";
 import { useEffect, useState } from "react";
-import { FaPlus } from "react-icons/fa";
+import { FaPlusCircle } from "react-icons/fa";
+import { Box, Heading, Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import Modal from "@/components/Modal";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import Link from "@/ui/Link";
 import SortableExperimentChecklist from "./SortableExperimentChecklist";
-import ExperimentChecklistEmptyState from "./ExperimentChecklistEmptyState";
 import NewExperimentChecklistItem from "./NewExperimentChecklistItem";
+
+type ProjectParams = {
+  projectId: string;
+  projectName: string;
+};
 
 export default function ExperimentCheckListModal({
   close,
+  projectParams,
 }: {
   close: () => void;
+  projectParams?: ProjectParams;
 }) {
   const [loading, setLoading] = useState(true);
   const { data, mutate } = useApi<{
     checklist: ExperimentLaunchChecklistInterface;
-  }>("/experiments/launch-checklist");
+  }>(
+    `/experiments/launch-checklist?projectId=${projectParams?.projectId || ""}`,
+  );
 
   const checklist = data?.checklist;
 
@@ -29,7 +39,7 @@ export default function ExperimentCheckListModal({
     ChecklistTask[]
   >([]);
   const [newTaskInput, setNewTaskInput] = useState<ChecklistTask | undefined>(
-    undefined
+    undefined,
   );
 
   async function handleSubmit() {
@@ -45,9 +55,7 @@ export default function ExperimentCheckListModal({
     } else {
       await apiCall(`/experiments/launch-checklist`, {
         method: "POST",
-        body: JSON.stringify({
-          tasks,
-        }),
+        body: JSON.stringify({ tasks, projectId: projectParams?.projectId }),
       });
     }
     mutate();
@@ -65,61 +73,63 @@ export default function ExperimentCheckListModal({
 
   return (
     <Modal
+      trackingEventModalType=""
       open={true}
       close={close}
       size="max"
-      header={`${
-        checklist?.id ? "Edit" : "Add"
-      } Experiment Pre-Launch Checklist`}
-      cta="Save"
+      showHeaderCloseButton={false}
+      header={null}
+      cta="Confirm"
       submit={() => handleSubmit()}
     >
       {loading ? (
         <LoadingSpinner />
       ) : (
-        <>
-          <p>
-            Customize your organizations experiment pre-launch checklist to
-            ensure all experiments meet essential critera before launch. Choose
-            from our pre-defined options, or create your own custom launch
-            requirements.
-          </p>
-          <div className="d-flex align-items-center justify-content-between pb-3">
-            <h4>Pre-Launch Requirements</h4>
-            {experimentLaunchChecklist?.length ? (
-              <button
-                className="btn btn-primary"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setNewTaskInput({ task: "", completionType: "manual" });
-                }}
-              >
-                <FaPlus className="mr-2" />
-                Add Task
-              </button>
-            ) : null}
-          </div>
-          <div>
-            {!experimentLaunchChecklist?.length ? (
-              <ExperimentChecklistEmptyState
-                setNewTaskInput={setNewTaskInput}
-              />
-            ) : (
-              <SortableExperimentChecklist
+        <Box mx="2">
+          <Heading as="h4" size="4">
+            {checklist?.id ? "Edit" : "Add"} Experiment Pre-Launch Checklist
+            {projectParams?.projectName
+              ? ` for ${projectParams.projectName}`
+              : ""}
+          </Heading>
+          <Text as="p">
+            {`Customize the tasks required to complete prior to running an experiment. Checklist items will ${projectParams?.projectName ? "only apply to experiments in this project." : "apply across all experiments in your organization, unless overridden by a Project-specific checklist."}`}
+          </Text>
+          <Box m="4" mt="6" mb="6">
+            <div className="d-flex align-items-center justify-content-between pb-1">
+              <h4>Pre-Launch Requirements</h4>
+            </div>
+            <Box mb="2">
+              {!experimentLaunchChecklist?.length ? (
+                <Text as="span" className="text-muted font-italic">
+                  No tasks have been added yet.
+                </Text>
+              ) : (
+                <SortableExperimentChecklist
+                  experimentLaunchChecklist={experimentLaunchChecklist}
+                  setExperimentLaunchChecklist={setExperimentLaunchChecklist}
+                />
+              )}
+            </Box>
+            <Link
+              href="#"
+              onClick={() =>
+                setNewTaskInput({ task: "", completionType: "manual" })
+              }
+            >
+              <FaPlusCircle className="mr-2" />
+              <Text weight="medium">Add Task</Text>
+            </Link>
+            {newTaskInput ? (
+              <NewExperimentChecklistItem
                 experimentLaunchChecklist={experimentLaunchChecklist}
                 setExperimentLaunchChecklist={setExperimentLaunchChecklist}
+                newTaskInput={newTaskInput}
+                setNewTaskInput={setNewTaskInput}
               />
-            )}
-          </div>
-          {newTaskInput ? (
-            <NewExperimentChecklistItem
-              experimentLaunchChecklist={experimentLaunchChecklist}
-              setExperimentLaunchChecklist={setExperimentLaunchChecklist}
-              newTaskInput={newTaskInput}
-              setNewTaskInput={setNewTaskInput}
-            />
-          ) : null}
-        </>
+            ) : null}
+          </Box>
+        </Box>
       )}
     </Modal>
   );

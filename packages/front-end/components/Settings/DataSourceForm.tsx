@@ -5,7 +5,8 @@ import {
   ChangeEventHandler,
   ReactElement,
 } from "react";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { dataSourceConnections } from "@/services/eventSchema";
 import Button from "@/components/Button";
 import SelectField from "@/components/Forms/SelectField";
@@ -18,6 +19,10 @@ import Modal from "@/components/Modal";
 import ConnectionSettings from "@/components/Settings/ConnectionSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ensureAndReturn } from "@/types/utils";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useProjectOptions from "@/hooks/useProjectOptions";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { useUser } from "@/services/UserContext";
 import EditSchemaOptions from "./EditSchemaOptions";
 
 const typeOptions = dataSourceConnections;
@@ -44,11 +49,35 @@ const DataSourceForm: FC<{
   secondaryCTA,
 }) => {
   const { projects } = useDefinitions();
+  const { organization } = useUser();
   const [dirty, setDirty] = useState(false);
   const [datasource, setDatasource] = useState<
     Partial<DataSourceInterfaceWithParams> | undefined
   >();
   const [hasError, setHasError] = useState(false);
+  const permissionsUtil = usePermissionsUtil();
+
+  const isSampleData =
+    data.projects?.includes(
+      getDemoDatasourceProjectIdForOrganization(organization.id),
+    ) ?? false;
+
+  const permissionRequired = (project: string) => {
+    return existing
+      ? permissionsUtil.canUpdateDataSourceParams({
+          projects: [project],
+          type: datasource?.type,
+        })
+      : permissionsUtil.canCreateDataSource({
+          projects: [project],
+          type: datasource?.type,
+        });
+  };
+
+  const projectOptions = useProjectOptions(
+    permissionRequired,
+    datasource?.projects || [],
+  );
 
   useEffect(() => {
     track("View Datasource Form", {
@@ -88,7 +117,7 @@ const DataSourceForm: FC<{
           {
             method: "PUT",
             body: JSON.stringify(datasource),
-          }
+          },
         );
         if (res.status > 200) {
           throw new Error(res.message);
@@ -103,7 +132,7 @@ const DataSourceForm: FC<{
             settings: {
               ...getInitialSettings(
                 "custom",
-                ensureAndReturn(datasource.params)
+                ensureAndReturn(datasource.params),
               ),
               ...(datasource.settings || {}),
             },
@@ -130,7 +159,7 @@ const DataSourceForm: FC<{
   };
 
   const onChange: ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement> = (
-    e
+    e,
   ) => {
     setDatasource({
       ...datasource,
@@ -148,6 +177,7 @@ const DataSourceForm: FC<{
 
   return (
     <Modal
+      trackingEventModalType=""
       inline={inline}
       open={true}
       submit={handleSubmit}
@@ -156,6 +186,12 @@ const DataSourceForm: FC<{
       cta={cta}
       size="lg"
       secondaryCTA={secondaryCTA}
+      ctaEnabled={!isSampleData}
+      disabledMessage={
+        isSampleData
+          ? "You cannot edit the sample data source connection."
+          : undefined
+      }
     >
       {importSampleData && !datasource.type && (
         <div className="alert alert-info">
@@ -240,10 +276,19 @@ const DataSourceForm: FC<{
       {projects?.length > 0 && (
         <div className="form-group">
           <MultiSelectField
-            label="Projects"
+            label={
+              <>
+                Projects{" "}
+                <Tooltip
+                  body={`The dropdown below has been filtered to only include projects where you have permission to ${
+                    existing ? "update" : "create"
+                  } Data Sources.`}
+                />
+              </>
+            }
             placeholder="All projects"
             value={datasource.projects || []}
-            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            options={projectOptions}
             onChange={(v) => onManualChange("projects", v)}
             customClassName="label-overflow-ellipsis"
             helpText="Assign this data source to specific projects"

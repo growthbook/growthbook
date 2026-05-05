@@ -1,9 +1,12 @@
 import { ReactNode } from "react";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useAuth, safeLogout } from "@/services/auth";
 import WatchProvider from "@/services/WatchProvider";
 import { UserContextProvider, useUser } from "@/services/UserContext";
+import { isCloud } from "@/services/env";
 import LoadingOverlay from "./LoadingOverlay";
-import CreateOrganization from "./Auth/CreateOrganization";
+import CreateOrJoinOrganization from "./Auth/CreateOrJoinOrganization";
+import SelectInitialPlan from "./Auth/SelectInitialPlan";
 import InAppHelp from "./Auth/InAppHelp";
 import Button from "./Button";
 import TopNavLite from "./Layout/TopNavLite";
@@ -15,45 +18,50 @@ const LoggedInPageGuard = ({
   children: ReactNode;
   organizationRequired: boolean;
 }) => {
-  const { error, userId, organization } = useUser();
+  const { error, ready, organization } = useUser();
   const { organizations } = useAuth();
 
   if (error) {
     return (
       <div>
         <TopNavLite />
-        <div className="container mt-5">
-          <div className="appbox p-4" style={{ maxWidth: 500, margin: "auto" }}>
-            <h3 className="mb-3">Error Signing In</h3>
-            <div className="alert alert-danger">{error}</div>
-            <div className="d-flex">
-              <Button
-                className="ml-auto"
-                onClick={async () => {
-                  await safeLogout();
-                }}
-                color="danger"
-              >
-                Log Out
-              </Button>
-              <button
-                className="btn btn-link"
-                onClick={(e) => {
-                  e.preventDefault();
-                  window.location.reload();
-                }}
-              >
-                Reload
-              </button>
+        <main className="container">
+          <div className="mt-5 pt-5">
+            <div
+              className="appbox p-4"
+              style={{ maxWidth: 500, margin: "auto" }}
+            >
+              <h3 className="mb-3">Error Signing In</h3>
+              <div className="alert alert-danger">{error}</div>
+              <div className="d-flex">
+                <Button
+                  className="ml-auto"
+                  onClick={async () => {
+                    await safeLogout();
+                  }}
+                  color="danger"
+                >
+                  Log Out
+                </Button>
+                <button
+                  className="btn btn-link"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    window.location.reload();
+                  }}
+                >
+                  Reload
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </main>
       </div>
     );
   }
 
   // Waiting for initial authentication
-  if (!userId) {
+  if (!ready) {
     return <LoadingOverlay />;
   }
 
@@ -63,7 +71,7 @@ const LoggedInPageGuard = ({
   }
 
   // Still waiting to fetch current user/org details
-  if ((organizations || []).length > 0 && !organization) {
+  if ((organizations || []).length > 0 && !Object.keys(organization).length) {
     return <LoadingOverlay />;
   }
 
@@ -74,7 +82,20 @@ const ProtectedPage: React.FC<{
   organizationRequired: boolean;
   children: ReactNode;
 }> = ({ children, organizationRequired }) => {
-  const { orgId } = useAuth();
+  const { effectiveAccountPlan } = useUser();
+  const { orgId, initialPlanSelection } = useAuth();
+  const initialPlanSelectionEnabled = useFeatureIsOn("pro-signup-flow");
+
+  const paidPlans = ["pro", "pro_sso", "enterprise"];
+  const hasExistingPaidPlan =
+    !!effectiveAccountPlan && paidPlans.includes(effectiveAccountPlan);
+
+  const showSelectPlanFlow =
+    orgId &&
+    initialPlanSelectionEnabled &&
+    initialPlanSelection &&
+    isCloud() &&
+    !hasExistingPaidPlan;
 
   return (
     <UserContextProvider key={orgId}>
@@ -82,10 +103,12 @@ const ProtectedPage: React.FC<{
         <InAppHelp />
         {!organizationRequired ? (
           <>{children}</>
+        ) : showSelectPlanFlow ? (
+          <SelectInitialPlan />
         ) : orgId ? (
           <WatchProvider>{children}</WatchProvider>
         ) : (
-          <CreateOrganization />
+          <CreateOrJoinOrganization />
         )}
       </LoggedInPageGuard>
     </UserContextProvider>

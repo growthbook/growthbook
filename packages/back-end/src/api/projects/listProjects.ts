@@ -1,24 +1,24 @@
-import { ListProjectsResponse } from "../../../types/openapi";
+import { listProjectsValidator } from "shared/validators";
 import {
-  findAllProjectsByOrganization,
-  toProjectApiInterface,
-} from "../../models/ProjectModel";
-import { applyPagination, createApiRequestHandler } from "../../util/handler";
-import { listProjectsValidator } from "../../validators/openapi";
+  applyPagination,
+  createApiRequestHandler,
+} from "back-end/src/util/handler";
 
 export const listProjects = createApiRequestHandler(listProjectsValidator)(
-  async (req): Promise<ListProjectsResponse> => {
-    const projects = await findAllProjectsByOrganization(req.context);
+  async (req) => {
+    const projects = await req.context.models.projects.getAll();
 
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(
       projects.sort((a, b) => a.id.localeCompare(b.id)),
-      req.query
+      req.query,
     );
 
     return {
-      projects: filtered.map((project) => toProjectApiInterface(project)),
+      projects: filtered.map((project) =>
+        req.context.models.projects.toApiInterface(project),
+      ),
       ...returnFields,
     };
-  }
+  },
 );

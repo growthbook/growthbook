@@ -1,4 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { version } = require("./package.json");
 
 const esm = {
@@ -30,6 +29,7 @@ module.exports = {
     esmUnbundled: {
       ...esm,
       ignore: ["./src/auto-wrapper.ts"],
+      plugins: [["replace-import-extension", { extMapping: { "": ".mjs" } }]],
     },
     cjs: {
       ...cjs,

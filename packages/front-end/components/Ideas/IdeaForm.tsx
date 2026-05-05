@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { IdeaInterface } from "back-end/types/idea";
+import { IdeaInterface } from "shared/types/idea";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -35,7 +35,7 @@ const IdeaForm: FC<{
       {
         method: "POST",
         body: JSON.stringify(body),
-      }
+      },
     );
     mutate();
     refreshTags(value.tags);
@@ -43,6 +43,7 @@ const IdeaForm: FC<{
 
   return (
     <Modal
+      trackingEventModalType=""
       header={edit ? "Edit Idea" : "New Idea"}
       close={close}
       open={true}

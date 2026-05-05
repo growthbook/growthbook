@@ -1,139 +1,202 @@
-import mongoose from "mongoose";
-import uniqid from "uniqid";
-import { DEFAULT_STATS_ENGINE } from "shared/constants";
-import { omit } from "lodash";
-import { ApiProject } from "../../types/openapi";
-import { ProjectInterface, ProjectSettings } from "../../types/project";
-import { ReqContext } from "../../types/organization";
-import { ApiReqContext } from "../../types/api";
+import {
+  ManagedBy,
+  ProjectInterface,
+  projectValidator,
+  ApiProject,
+} from "shared/validators";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import { MakeModelClass } from "./BaseModel";
 
-const projectSchema = new mongoose.Schema({
-  id: {
-    type: String,
-    unique: true,
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+type MigratedProject = Omit<ProjectInterface, "settings"> & {
+  settings: Partial<ProjectInterface["settings"]>;
+};
+
+const BaseClass = MakeModelClass({
+  schema: projectValidator,
+  collectionName: "projects",
+  idPrefix: "prj_",
+  auditLog: {
+    entity: "project",
+    createEvent: "project.create",
+    updateEvent: "project.update",
+    deleteEvent: "project.delete",
   },
-  organization: {
-    type: String,
-    index: true,
+  globallyUniquePrimaryKeys: true,
+  defaultValues: {
+    description: "",
+    settings: {},
   },
-  name: String,
-  description: String,
-  dateCreated: Date,
-  dateUpdated: Date,
-  settings: {},
 });
 
-type ProjectDocument = mongoose.Document & ProjectInterface;
+export class ProjectModel extends BaseClass {
+  protected canRead(doc: ProjectInterface) {
+    return this.context.permissions.canReadSingleProjectResource(doc.id);
+  }
 
-const ProjectModel = mongoose.model<ProjectInterface>("Project", projectSchema);
+  protected canCreate() {
+    return this.context.permissions.canCreateProjects();
+  }
 
-function toInterface(doc: ProjectDocument): ProjectInterface {
-  const ret = doc.toJSON<ProjectDocument>();
-  ret.settings = ret.settings || {};
-  return omit(ret, ["__v", "_id"]);
-}
+  protected canUpdate(doc: ProjectInterface) {
+    return this.context.permissions.canUpdateProject(doc.id);
+  }
 
-interface CreateProjectProps {
-  name: string;
-  description?: string;
-  id?: string;
-}
+  protected canDelete(doc: ProjectInterface) {
+    return this.context.permissions.canDeleteProject(doc.id);
+  }
 
-export async function createProject(
-  organization: string,
-  data: CreateProjectProps
-) {
-  const doc = await ProjectModel.create({
-    organization: organization,
-    id: data.id || uniqid("prj_"),
-    name: data.name || "",
-    description: data.description,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-  });
-  return toInterface(doc);
-}
-export async function findAllProjectsByOrganization(
-  context: ReqContext | ApiReqContext
-) {
-  const { org } = context;
-  const docs = await ProjectModel.find({
-    organization: org.id,
-  });
+  protected migrate(doc: MigratedProject) {
+    const settings = {
+      ...(doc.settings || {}),
+    };
 
-  const projects = docs.map(toInterface);
-  return projects.filter((p) =>
-    context.permissions.canReadSingleProjectResource(p.id)
-  );
-}
-export async function findProjectById(
-  context: ReqContext | ApiReqContext,
-  projectId: string
-) {
-  const { org } = context;
-  const doc = await ProjectModel.findOne({
-    id: projectId,
-    organization: org.id,
-  });
-  if (!doc) return null;
+    return { ...doc, settings };
+  }
 
-  const project = toInterface(doc);
+  protected async beforeCreate(data: Partial<ProjectInterface>) {
+    if (!data.publicId && data.name) {
+      const baseSlug = slugify(data.name);
+      if (!baseSlug) return; // name yields no slug (e.g. non-ASCII only); leave publicId unset
+      let publicId = baseSlug;
+      let counter = 1;
+      const MAX_ATTEMPTS = 1000;
 
-  return context.permissions.canReadSingleProjectResource(project.id)
-    ? project
-    : null;
-}
-export async function deleteProjectById(id: string, organization: string) {
-  await ProjectModel.deleteOne({
-    id,
-    organization,
-  });
-}
-export async function updateProject(
-  id: string,
-  organization: string,
-  update: Partial<ProjectInterface>
-) {
-  await ProjectModel.updateOne(
-    {
-      id,
-      organization,
-    },
-    {
-      $set: update,
+      while (counter <= MAX_ATTEMPTS) {
+        const existing = await this._findOne({
+          organization: this.context.org.id,
+          publicId,
+        });
+        if (!existing) break;
+        publicId = `${baseSlug}-${counter}`;
+        counter++;
+      }
+
+      if (counter > MAX_ATTEMPTS) {
+        throw new Error(
+          `Failed to generate unique publicId for project "${data.name}" after ${MAX_ATTEMPTS} attempts`,
+        );
+      }
+
+      data.publicId = publicId;
+    } else if (data.publicId) {
+      if (!/^[a-z0-9-]+$/.test(data.publicId)) {
+        this.context.throwBadRequestError(
+          "publicId must contain only lowercase letters, numbers, and dashes",
+        );
+      }
+
+      const existing = await this._findOne({
+        organization: this.context.org.id,
+        publicId: data.publicId,
+      });
+      if (existing) {
+        this.context.throwBadRequestError(
+          `A project with publicId "${data.publicId}" already exists in this organization`,
+        );
+      }
     }
-  );
-}
+  }
 
-export async function updateProjectSettings(
-  id: string,
-  organization: string,
-  settings: Partial<ProjectSettings>
-) {
-  const update = {
-    $set: {
-      dateUpdated: new Date(),
-      settings,
-    },
-  };
-  await ProjectModel.updateOne(
-    {
-      id,
-      organization,
-    },
-    update
-  );
-}
+  protected async beforeUpdate(
+    original: ProjectInterface,
+    updates: Partial<ProjectInterface>,
+  ) {
+    if (
+      updates.publicId !== undefined &&
+      updates.publicId !== original.publicId
+    ) {
+      if (!/^[a-z0-9-]+$/.test(updates.publicId)) {
+        this.context.throwBadRequestError(
+          "publicId must contain only lowercase letters, numbers, and dashes",
+        );
+      }
 
-export function toProjectApiInterface(project: ProjectInterface): ApiProject {
-  return {
-    id: project.id,
-    name: project.name,
-    description: project.description || "",
-    dateCreated: project.dateCreated.toISOString(),
-    dateUpdated: project.dateUpdated.toISOString(),
-    settings: {
-      statsEngine: project.settings?.statsEngine || DEFAULT_STATS_ENGINE,
-    },
-  };
+      const existing = await this._findOne({
+        organization: this.context.org.id,
+        publicId: updates.publicId,
+      });
+      if (existing && existing.id !== original.id) {
+        this.context.throwBadRequestError(
+          `A project with publicId "${updates.publicId}" already exists in this organization`,
+        );
+      }
+    }
+  }
+
+  protected async afterUpdate(
+    original: ProjectInterface,
+    updates: Partial<ProjectInterface>,
+  ) {
+    if (
+      updates.publicId !== undefined &&
+      updates.publicId !== original.publicId
+    ) {
+      queueSDKPayloadRefresh({
+        context: this.context,
+        payloadKeys: getEnvironmentIdsFromOrg(this.context.org).map((env) => ({
+          environment: env,
+          project: "",
+        })),
+        treatEmptyProjectAsGlobal: true,
+        auditContext: {
+          event: "updated",
+          model: "project",
+          id: original.id,
+        },
+      });
+    }
+  }
+
+  // Warning: This function is only used internally at the moment.
+  // Make sure to add permission check if this functions gets
+  // used in a context that needs it.
+  public async removeManagedBy(managedBy: Partial<ManagedBy>) {
+    await super._dangerousGetCollection().updateMany(
+      {
+        organization: this.context.org.id,
+        managedBy,
+      },
+      {
+        $unset: {
+          managedBy: 1,
+        },
+      },
+    );
+  }
+
+  public async ensureProjectsExist(projectIds: string[]) {
+    const projects = await this.getByIds(projectIds);
+    if (projects.length !== projectIds.length) {
+      throw new Error(
+        `Invalid project ids: ${projectIds
+          .filter((id) => !projects.find((p) => p.id === id))
+          .join(", ")}`,
+      );
+    }
+  }
+
+  public toApiInterface(project: ProjectInterface): ApiProject {
+    return {
+      id: project.id,
+      name: project.name,
+      description: project.description || "",
+      publicId: project.publicId,
+      dateCreated: project.dateCreated.toISOString(),
+      dateUpdated: project.dateUpdated.toISOString(),
+      settings: {
+        statsEngine: project.settings?.statsEngine,
+        confidenceLevel: project.settings?.confidenceLevel,
+        pValueThreshold: project.settings?.pValueThreshold,
+      },
+    };
+  }
 }

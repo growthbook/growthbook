@@ -1,0 +1,30 @@
+import { getArchetypeValidator } from "shared/validators";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
+import {
+  getArchetypeById,
+  toArchetypeApiInterface,
+} from "back-end/src/models/ArchetypeModel";
+
+export const getArchetype = createApiRequestHandler(getArchetypeValidator)(
+  async (req) => {
+    const { id } = req.params;
+    const orgId = req.organization.id;
+    const archetype = await getArchetypeById(id, orgId);
+    if (!archetype) {
+      throw new Error(`An archetype with id ${id} does not exist`);
+    }
+
+    if (
+      !req.context.permissions.canReadMultiProjectResource(archetype.projects)
+    )
+      req.context.permissions.throwPermissionError();
+
+    return {
+      archetype: await resolveOwnerEmail(
+        toArchetypeApiInterface(archetype),
+        req.context,
+      ),
+    };
+  },
+);

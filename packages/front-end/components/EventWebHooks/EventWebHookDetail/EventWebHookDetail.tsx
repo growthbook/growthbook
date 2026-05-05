@@ -1,25 +1,33 @@
-import { EventWebHookInterface } from "back-end/types/event-webhook";
-import React, { FC, useCallback, useState } from "react";
+import { EventWebHookInterface } from "shared/types/event-webhook";
+import React, { FC, useRef, useCallback, useState } from "react";
 import pick from "lodash/pick";
-import { TbWebhook } from "react-icons/tb";
-import { FaAngleLeft, FaPencilAlt, FaPaperPlane } from "react-icons/fa";
-import classNames from "classnames";
 import { useRouter } from "next/router";
-import Link from "next/link";
 import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
+import { PiPencilSimpleFill } from "react-icons/pi";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { datetime } from "shared/dates";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { Flex, Box, IconButton } from "@radix-ui/themes";
+import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
-import Badge from "@/components/Badge";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import useApi from "@/hooks/useApi";
 import { useEventWebhookLogs } from "@/hooks/useEventWebhookLogs";
 import {
   EventWebHookEditParams,
   useIconForState,
+  WebhookIcon,
+  displayedEvents,
 } from "@/components/EventWebHooks/utils";
-import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import Badge from "@/ui/Badge";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 
 type EventWebHookDetailProps = {
   eventWebHook: EventWebHookInterface;
@@ -33,14 +41,8 @@ type EventWebHookDetailProps = {
 };
 
 type State =
-  | {
-      type: "danger";
-      message: string;
-    }
-  | {
-      type: "success";
-      message: string;
-    }
+  | { type: "danger"; message: string }
+  | { type: "success"; message: string }
   | { type: "loading" }
   | undefined;
 
@@ -54,19 +56,35 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   isModalOpen,
   editError,
 }) => {
+  const { getProjectById } = useDefinitions();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
   const {
     id: webhookId,
-    lastState,
     lastRunAt,
-    url,
+    payloadType,
+    enabled,
+    environments = [],
+    projects: projectIds,
+    tags = [],
     events,
     name,
     signingKey,
   } = eventWebHook;
 
+  const defined = <T,>(v: T): v is NonNullable<T> => !!v;
+  const projects = (projectIds || []).map(getProjectById).filter(defined);
+
   const { apiCall } = useAuth();
   const { mutate: mutateEventLogs } = useEventWebhookLogs(webhookId);
-  const [state, setState] = useState<State>();
+  const [state, setStateRaw] = useState<State>();
+  const stateTimeout = useRef<undefined | ReturnType<typeof setTimeout>>();
+
+  const setState = useCallback((state: State) => {
+    setStateRaw(state);
+    if (stateTimeout.current) clearTimeout(stateTimeout.current);
+    stateTimeout.current = setTimeout(() => setStateRaw(undefined), 1500);
+  }, []);
 
   const iconForState = useIconForState(eventWebHook.lastState);
 
@@ -74,176 +92,262 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
     timeout: 1500,
   });
 
-  const onTestWebhook = useCallback(async () => {
+  const onToggleWebhook = useCallback(async () => {
     setState({ type: "loading" });
-
     try {
-      const response = await apiCall<{
-        error?: string;
-        eventId?: string;
-      }>("/event-webhooks/test", {
-        method: "POST",
-        body: JSON.stringify({ webhookId }),
-      });
-
+      const response = await apiCall<{ enabled: boolean; error?: string }>(
+        "/event-webhooks/toggle",
+        { method: "POST", body: JSON.stringify({ webhookId }) },
+      );
       if (response.error) {
         setState({
           type: "danger",
-          message: `Failed to test webhook: ${
-            response.error || "Unknown error"
-          }`,
+          message: `Failed to enable or disable webhook: ${response.error}`,
         });
         return;
       }
-
-      setState({ type: "success", message: "Test event sucessfully sent!" });
-
-      setTimeout(() => {
-        mutateEventLogs();
-        mutateEventWebHook();
-      }, 1000);
+      setState({
+        type: "success",
+        message: `Webhook ${response.enabled ? "enabled" : "disabled"}`,
+      });
+      mutateEventWebHook();
     } catch (e) {
       setState({ type: "danger", message: "Unknown error" });
     }
-  }, [mutateEventLogs, mutateEventWebHook, webhookId, apiCall]);
+  }, [mutateEventWebHook, webhookId, apiCall, setState]);
+
+  const onTestWebhook = useCallback(async () => {
+    setState({ type: "loading" });
+    try {
+      const response = await apiCall<{ error?: string }>(
+        "/event-webhooks/test",
+        { method: "POST", body: JSON.stringify({ webhookId }) },
+      );
+      if (response.error) {
+        setState({
+          type: "danger",
+          message: `Failed to test webhook: ${response.error || "Unknown error"}`,
+        });
+        return;
+      }
+      setState({ type: "success", message: "Test event successfully sent!" });
+      setTimeout(() => {
+        mutateEventLogs();
+        mutateEventWebHook();
+      }, 1500);
+    } catch (e) {
+      setState({ type: "danger", message: "Unknown error" });
+    }
+  }, [setState, mutateEventLogs, mutateEventWebHook, webhookId, apiCall]);
+
+  if (!payloadType) return null;
+
+  const loading = state?.type === "loading";
 
   return (
-    <div>
-      <div className="d-sm-flex mb-3 justify-content-between">
-        <Link href="/settings/webhooks" className="p-sm-1">
-          <FaAngleLeft />
-          All Webhooks
-        </Link>
+    <Box>
+      {state && state.type !== "loading" && (
+        <Callout status={state.type === "success" ? "success" : "error"} mb="3">
+          {state.message}
+        </Callout>
+      )}
 
-        {state && state.type !== "loading" && (
-          <div className={`p-sm-1 mb-0 alert alert-${state.type}`}>
-            {state.message}
-          </div>
-        )}
-      </div>
+      <Flex align="center" justify="between" mb="3">
+        <Flex align="center" gap="3">
+          <Box p="2" className="border rounded">
+            <WebhookIcon
+              type={payloadType}
+              style={{ height: "2rem", width: "2rem" }}
+            />
+          </Box>
+          <Text as="div" size="x-large" weight="semibold">
+            {name}
+          </Text>
+          {enabled && <Badge label="Enabled" color="gray" variant="soft" />}
+        </Flex>
 
-      <div className="d-sm-flex justify-content-between mb-3 mb-sm-0">
-        <div>
-          {/* Title */}
-          <h1>{name}</h1>
-        </div>
-
-        <div>
-          {/* Actions */}
-          <button
-            onClick={onEditModalOpen}
-            className="btn btn-sm btn-outline-primary mr-1"
-          >
-            <FaPencilAlt className="mr-1" />
+        <Flex align="center" gap="4">
+          <Button icon={<PiPencilSimpleFill />} onClick={onEditModalOpen}>
             Edit
-          </button>
+          </Button>
 
-          <button
-            onClick={onTestWebhook}
-            className="btn btn-sm btn-outline-secondary mr-1"
-            disabled={state && state.type === "loading"}
-          >
-            <FaPaperPlane className="mr-1" />
-            Test
-          </button>
-
-          <DeleteButton
-            displayName={name}
-            onClick={onDelete}
-            outline={true}
-            className="btn-sm"
-            text="Delete"
-          />
-        </div>
-      </div>
-
-      <h3 className="text-muted text-break font-weight-bold">{url}</h3>
-
-      <div className="card mt-3 p-3">
-        <div className="row">
-          <div className="col-xs-12 col-md-6">
-            <div className="d-flex font-weight-bold align-items-center">
-              {/* Last run state & date */}
-              <span className="mr-2" style={{ fontSize: "1.5rem" }}>
-                {iconForState}
-              </span>
-              {lastRunAt ? (
-                <span
-                  className={classNames("", {
-                    "text-success": lastState === "success",
-                    "text-danger": lastState === "error",
-                  })}
-                >
-                  Last run on {datetime(lastRunAt)}
-                </span>
-              ) : (
-                <span className="text-muted">
-                  This webhook has not yet run.
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="col-xs-12 col-md-6 mt-2 mt-md-0">
-            <div className="d-flex align-items-center">
-              {copySupported ? (
-                <button
-                  className="btn p-0"
-                  onClick={() => performCopy(signingKey)}
-                >
-                  <span className="text-main" style={{ fontSize: "1.1rem" }}>
-                    {copySuccess ? (
-                      <HiOutlineClipboardCheck />
-                    ) : (
-                      <HiOutlineClipboard />
-                    )}
-                  </span>
-                </button>
-              ) : null}
-              <span className="ml-3">
-                <code className="text-main text-break">{signingKey}</code>
-              </span>
-
-              {copySuccess ? (
-                <SimpleTooltip position="bottom">
-                  Webhook secret copied to clipboard!
-                </SimpleTooltip>
-              ) : null}
-            </div>
-          </div>
-        </div>
-
-        <div className="row">
-          <div className="col-xs-12 col-md-6">
-            <div className="d-flex align-items-center mt-2">
-              <span
-                className="text-muted ml-1 mr-2"
-                style={{ fontSize: "1rem" }}
+          <DropdownMenu
+            trigger={
+              <IconButton
+                variant="ghost"
+                color="gray"
+                radius="full"
+                size="2"
+                highContrast
               >
-                <TbWebhook className="d-block" />
-              </span>
-              <span className="font-weight-bold">&nbsp;Events</span>
-              <div className="flex-grow-1 d-flex flex-wrap ml-3">
-                {events.map((eventName) => (
-                  <span key={eventName} className="mr-2 badge badge-purple">
-                    {eventName}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
+                <BsThreeDotsVertical size={18} />
+              </IconButton>
+            }
+            open={dropdownOpen}
+            onOpenChange={setDropdownOpen}
+            menuPlacement="end"
+            variant="soft"
+          >
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                disabled={loading}
+                onClick={() => {
+                  onTestWebhook();
+                  setDropdownOpen(false);
+                }}
+              >
+                Send Test
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={loading}
+                onClick={() => {
+                  onToggleWebhook();
+                  setDropdownOpen(false);
+                }}
+              >
+                {enabled ? "Disable" : "Enable"}
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                color="red"
+                disabled={loading}
+                confirmation={{
+                  confirmationTitle: "Delete Webhook",
+                  cta: "Delete",
+                  ctaColor: "red",
+                  submit: async () => {
+                    await onDelete();
+                    setDropdownOpen(false);
+                  },
+                }}
+              >
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenu>
+        </Flex>
+      </Flex>
 
-          <div className="col-xs-12 col-md-6">
-            <div className="mt-2">
-              {eventWebHook.enabled ? (
-                <Badge className="badge-green" content="Webhook enabled" />
+      <Box ml="2">
+        {!lastRunAt ? (
+          <Text color="text-low">No runs</Text>
+        ) : (
+          <Flex align="center" gap="2">
+            <Text weight="semibold">Last run:</Text>
+            <Text>{datetime(lastRunAt)}</Text>
+            <span style={{ fontSize: "1.5rem" }}>{iconForState}</span>
+          </Flex>
+        )}
+      </Box>
+
+      {["raw", "json"].includes(payloadType) && (
+        <Flex align="center" gap="2" ml="2" mt="2">
+          <Text weight="semibold">Secret:</Text>
+          <code className="text-main text-break">{signingKey}</code>
+          {copySupported && (
+            <IconButton
+              variant="ghost"
+              color="gray"
+              size="1"
+              onClick={() => performCopy(signingKey)}
+              aria-label="Copy signing key"
+            >
+              {copySuccess ? (
+                <HiOutlineClipboardCheck />
               ) : (
-                <Badge className="badge-red" content="Webhook disabled" />
+                <HiOutlineClipboard />
               )}
-            </div>
+            </IconButton>
+          )}
+        </Flex>
+      )}
+
+      <Box className="card mt-3 p-3 p-4">
+        <div className="row">
+          <div className="col-xs-12 col-md-6">
+            <Box mt="2">
+              <Text weight="semibold">Events enabled</Text>
+              <Box mt="1">{displayedEvents(events)}</Box>
+            </Box>
           </div>
         </div>
-      </div>
+
+        <div className="row mt-4">
+          <div className="col mt-2 mt-md-0">
+            <Box mt="2">
+              <Text weight="semibold" as="div" mb="1">
+                Environments
+              </Text>
+              {environments.length ? (
+                <Flex gap="2" wrap="wrap">
+                  {environments.map((env) => (
+                    <Badge
+                      key={env}
+                      label={env}
+                      color="purple"
+                      variant="soft"
+                    />
+                  ))}
+                </Flex>
+              ) : (
+                <Text color="text-low" fontStyle="italic">
+                  All
+                </Text>
+              )}
+            </Box>
+          </div>
+
+          <div className="col mt-2 mt-md-0">
+            <Box mt="2">
+              <Text weight="semibold" as="div" mb="1">
+                Projects
+              </Text>
+              {projects.length ? (
+                <Flex gap="2" wrap="wrap">
+                  {projects.map((proj) => (
+                    <Badge
+                      key={proj.id}
+                      label={proj.name}
+                      color="purple"
+                      variant="soft"
+                    />
+                  ))}
+                </Flex>
+              ) : (
+                <Text color="text-low" fontStyle="italic">
+                  All
+                </Text>
+              )}
+            </Box>
+          </div>
+
+          <div className="col mt-2 mt-md-0">
+            <Box mt="2">
+              <Text weight="semibold" as="div" mb="1">
+                Tags
+              </Text>
+              {tags.length ? (
+                <Flex gap="2" wrap="wrap">
+                  {tags.map((tag) => (
+                    <Badge
+                      key={tag}
+                      label={tag}
+                      color="purple"
+                      variant="soft"
+                    />
+                  ))}
+                </Flex>
+              ) : (
+                <Text color="text-low" fontStyle="italic">
+                  All
+                </Text>
+              )}
+            </Box>
+          </div>
+        </div>
+      </Box>
 
       {isModalOpen ? (
         <EventWebHookAddEditModal
@@ -254,12 +358,8 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           mode={{
             mode: "edit",
             data: {
-              tags: [],
-              environments: [],
-              projects: [],
-              payloadType: "raw",
-              method: "POST",
               ...eventWebHook,
+              events: eventWebHook.events,
               headers: eventWebHook.headers
                 ? JSON.stringify(eventWebHook.headers)
                 : "{}",
@@ -267,66 +367,56 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           }}
         />
       ) : null}
-    </div>
+    </Box>
   );
 };
 
-export const EventWebHookDetailContainer = () => {
+export const EventWebHookDetailContainer = ({
+  eventWebHook,
+  mutateEventWebHook,
+}: {
+  eventWebHook: EventWebHookInterface;
+  mutateEventWebHook: () => void;
+}) => {
   const router = useRouter();
   const { eventwebhookid: eventWebHookId } = router.query;
 
   const { apiCall } = useAuth();
 
-  const { data, error, mutate } = useApi<{
-    eventWebHook: EventWebHookInterface;
-  }>(`/event-webhooks/${eventWebHookId}`);
-
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
-  const [editError, setEditError] = useState<string | null>(null);
 
   const handleEdit = useCallback(
     async (data: EventWebHookEditParams) => {
       if (!eventWebHookId) return;
 
-      // Keep the modal open and display error
-      const handleUpdateError = (message: string) => {
-        setEditError(`Failed to update webhook: ${message}`);
-        setIsEditModalOpen(true);
-      };
+      const response = await apiCall<{ error?: string; status?: number }>(
+        `/event-webhooks/${eventWebHookId}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(
+            pick(data, [
+              "events",
+              "name",
+              "url",
+              "enabled",
+              "payloadType",
+              "projects",
+              "tags",
+              "environments",
+              "method",
+              "headers",
+            ]),
+          ),
+        },
+      );
 
-      try {
-        const response = await apiCall<{ error?: string; status?: number }>(
-          `/event-webhooks/${eventWebHookId}`,
-          {
-            method: "PUT",
-            body: JSON.stringify(
-              pick(data, [
-                "events",
-                "name",
-                "url",
-                "enabled",
-                "payloadType",
-                "projects",
-                "tags",
-                "environments",
-                "method",
-                "headers",
-              ])
-            ),
-          }
-        );
-
-        if (response.error) {
-          handleUpdateError(response.error || "Unknown error");
-        } else {
-          mutate();
-          setEditError(null);
-        }
-      } catch (e) {
-        handleUpdateError("Unknown error");
+      if (response.error) {
+        throw new Error(response.error);
       }
+
+      mutateEventWebHook();
     },
-    [mutate, apiCall, eventWebHookId]
+    [mutateEventWebHook, apiCall, eventWebHookId],
   );
 
   const handleDelete = useCallback(async () => {
@@ -340,31 +430,16 @@ export const EventWebHookDetailContainer = () => {
     router.replace("/settings/webhooks");
   }, [eventWebHookId, apiCall, router]);
 
-  if (error) {
-    return (
-      <div className="alert alert-danger">
-        Unable to fetch event web hook {eventWebHookId}
-      </div>
-    );
-  }
-
-  if (!data) {
-    return null;
-  }
-
   return (
     <EventWebHookDetail
       isModalOpen={isEditModalOpen}
       onEdit={handleEdit}
       onDelete={handleDelete}
-      onEditModalOpen={() => {
-        setIsEditModalOpen(true);
-        setEditError(null);
-      }}
+      onEditModalOpen={() => setIsEditModalOpen(true)}
       onModalClose={() => setIsEditModalOpen(false)}
-      eventWebHook={data.eventWebHook}
-      editError={editError}
-      mutateEventWebHook={mutate}
+      eventWebHook={eventWebHook}
+      editError={null}
+      mutateEventWebHook={mutateEventWebHook}
     />
   );
 };

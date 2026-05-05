@@ -1,11 +1,11 @@
-import { ProjectInterface } from "back-end/types/project";
+import { ProjectInterface } from "shared/types/project";
 import {
   getDemoDataSourceFeatureId,
   getDemoDatasourceProjectIdForOrganization,
 } from "shared/demo-datasource";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useMemo } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperiments } from "@/hooks/useExperiments";
@@ -52,7 +52,7 @@ export const useDemoDataSourceProject = (): UseDemoDataSourceProject => {
 
     return (
       datasources.find(
-        (d) => d.projects?.length === 1 && d.projects[0] === demoProjectId
+        (d) => d.projects?.length === 1 && d.projects[0] === demoProjectId,
       ) || null
     );
   }, [datasources, demoProjectId]);

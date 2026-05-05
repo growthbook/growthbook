@@ -1,5 +1,5 @@
-import { FeatureInterface } from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureInterface } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { useState } from "react";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -23,9 +23,10 @@ export default function EditRevisionCommentModal({
 
   return (
     <Modal
+      trackingEventModalType=""
       open={true}
       close={close}
-      header="Edit Revision Comment"
+      header="Edit Revision Notes"
       cta={"Save"}
       submit={async () => {
         await apiCall(`/feature/${feature.id}/${revision.version}/comment`, {
@@ -38,7 +39,7 @@ export default function EditRevisionCommentModal({
       }}
     >
       <Field
-        label="Revision Comment"
+        label="Revision Notes"
         value={comment}
         onChange={(e) => {
           setComment(e.target.value);

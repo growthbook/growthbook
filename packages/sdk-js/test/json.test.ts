@@ -11,6 +11,7 @@ import {
 } from "../src";
 import { evalCondition } from "../src/mongrule";
 import {
+  SavedGroupsValues,
   StickyAssignmentsDocument,
   StickyAttributeKey,
   VariationRange,
@@ -33,14 +34,14 @@ type Cases = {
   // name, context, experiment, value, inExperiment
   run: [string, Context, Experiment<any>, any, boolean, boolean][];
   // name, context, feature key, result
-  feature: [string, Context, string, Omit<FeatureResult, "ruleId">][];
+  feature: [string, Context, string, FeatureResult][];
   // name, condition, attribute, result
-  evalCondition: [string, any, any, boolean][];
+  evalCondition: [string, any, any, boolean, SavedGroupsValues][];
   // name, args ([numVariations, coverage, weights]), result
   getBucketRange: [
     string,
     [number, number, number[] | null],
-    VariationRange[]
+    VariationRange[],
   ][];
   // name, hash, ranges, result
   chooseVariation: [string, number, VariationRange[], number][];
@@ -59,13 +60,13 @@ type Cases = {
     StickyAssignmentsDocument[],
     string,
     Result<any>,
-    Record<StickyAttributeKey, StickyAssignmentsDocument>
+    Record<StickyAttributeKey, StickyAssignmentsDocument>,
   ][];
   // name, context, result
   urlRedirect: [
     string,
     Context,
-    { inExperiment: boolean; urlRedirect: any; urlWithParams: string }[]
+    { inExperiment: boolean; urlRedirect: any; urlWithParams: string }[],
   ][];
 };
 
@@ -89,30 +90,27 @@ describe("json test suite", () => {
     "feature[%#] %s",
     (name, ctx, key, expected) => {
       const growthbook = new GrowthBook(ctx);
-      expect(growthbook.feature(key)).toEqual({
-        ruleId: "",
-        ...expected,
-      });
+      expect(growthbook.evalFeature(key)).toEqual(expected);
       growthbook.destroy();
-    }
+    },
   );
 
   it.each((cases as Cases).evalCondition)(
     "evalCondition[%#] %s",
-    (name, condition, value, expected) => {
+    (name, condition, value, expected, savedGroups = {}) => {
       const consoleErrorMock = jest
         .spyOn(console, "error")
         .mockImplementation();
-      expect(evalCondition(value, condition)).toEqual(expected);
+      expect(evalCondition(value, condition, savedGroups)).toEqual(expected);
       consoleErrorMock.mockRestore();
-    }
+    },
   );
 
   it.each((cases as Cases).hash)(
     "hash[%#] hash(`%s`, `%s`, %s)",
     (seed, value, version, expected) => {
       expect(hash(seed, value, version)).toEqual(expected);
-    }
+    },
   );
 
   it.each((cases as Cases).getBucketRange)(
@@ -124,40 +122,40 @@ describe("json test suite", () => {
 
       expect(
         roundArrayArray(
-          getBucketRanges(inputs[0], inputs[1], inputs[2] ?? undefined)
-        )
+          getBucketRanges(inputs[0], inputs[1], inputs[2] ?? undefined),
+        ),
       ).toEqual(roundArrayArray(expected));
 
       consoleErrorMock.mockRestore();
-    }
+    },
   );
 
   it.each((cases as Cases).chooseVariation)(
     "chooseVariation[%#] %s",
     (name, n, ranges, expected) => {
       expect(chooseVariation(n, ranges)).toEqual(expected);
-    }
+    },
   );
 
   it.each((cases as Cases).getQueryStringOverride)(
     "getQueryStringOverride[%#] %s",
     (name, key, url, numVariations, expected) => {
       expect(getQueryStringOverride(key, url, numVariations)).toEqual(expected);
-    }
+    },
   );
 
   it.each((cases as Cases).inNamespace)(
     "inNamespace[%#] %s",
     (name, id, namespace, expected) => {
       expect(inNamespace(id, namespace)).toEqual(expected);
-    }
+    },
   );
 
   it.each((cases as Cases).getEqualWeights)(
     "getEqualWeights[%#] %d",
     (n, expected) => {
       expect(roundArray(getEqualWeights(n))).toEqual(roundArray(expected));
-    }
+    },
   );
 
   it.each((cases as Cases).run)(
@@ -169,7 +167,7 @@ describe("json test suite", () => {
       expect(res.inExperiment).toEqual(inExperiment);
       expect(res.hashUsed).toEqual(hashUsed);
       growthbook.destroy();
-    }
+    },
   );
 
   it.each((cases as Cases).decrypt)(
@@ -186,7 +184,7 @@ describe("json test suite", () => {
         }
       }
       expect(result).toEqual(expected);
-    }
+    },
   );
 
   it.each((cases as Cases).stickyBucket)(
@@ -197,7 +195,7 @@ describe("json test suite", () => {
       stickyBucketAssignmentDocs,
       key,
       expectedExperimentResult,
-      expectedStickyBucketAssignmentDocs
+      expectedStickyBucketAssignmentDocs,
     ) => {
       localStorage.clear();
       await clearCache();
@@ -216,13 +214,13 @@ describe("json test suite", () => {
       // arbitrary sleep to let SB docs hydrate
       await sleep(10);
       expect(growthbook.evalFeature(key).experimentResult ?? null).toEqual(
-        expectedExperimentResult
+        expectedExperimentResult,
       );
       expect(growthbook.getStickyBucketAssignmentDocs()).toEqual(
-        expectedStickyBucketAssignmentDocs
+        expectedStickyBucketAssignmentDocs,
       );
       growthbook.destroy();
-    }
+    },
   );
 
   it.each((cases as Cases).urlRedirect)(
@@ -243,6 +241,6 @@ describe("json test suite", () => {
       }));
       expect(actualResult).toEqual(result);
       growthbook.destroy();
-    }
+    },
   );
 });

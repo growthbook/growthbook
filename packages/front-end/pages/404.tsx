@@ -1,4 +1,4 @@
-import * as Sentry from "@sentry/react";
+import { captureMessage as sentryCaptureMessage } from "@sentry/nextjs";
 import { useRouter } from "next/router";
 import { useEffect } from "react";
 import { isSentryEnabled } from "@/services/env";
@@ -15,9 +15,9 @@ export default function Custom404() {
       typeof document === "undefined"
         ? "-"
         : document?.referrer
-        ? document.referrer
-        : "-";
-    Sentry.captureMessage("404: " + badPath + " from " + referrer);
+          ? document.referrer
+          : "-";
+    sentryCaptureMessage("404: " + badPath + " from " + referrer);
   }, [badPath]);
 
   return (

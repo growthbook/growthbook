@@ -6,10 +6,14 @@ toc_max_heading_level: 5
 ---
 
 import ExternalLink from '@site/src/components/ExternalLink'
+import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
 
 # Node.js
 
 We officially support Node 18 and above.
+
+<SdkResources sdk="node" />
 
 ## Installation
 
@@ -21,7 +25,94 @@ npm install --save @growthbook/growthbook
 
 ## Quick Usage
 
-GrowthBook instances are scoped to a single incoming request. The easiest way to do this is with Middleware:
+First, create and instantiate a singleton GrowthBook client. You can do this as part of your server startup script.
+
+```js
+const gbClient = new GrowthBookClient({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123"
+});
+await gbClient.init({timeout: 3000});
+```
+
+Then, you can evaluate a feature anywhere in your app by providing a feature key and a `userContext`.
+
+```js
+// User context with attributes that feature flags can use for targeting
+const userContext = {
+  attributes: {
+    id: "123",
+  }
+}
+
+// Boolean on/off flags
+if (gbClient.isOn("my-feature", userContext)) {
+  console.log("My feature is on!");
+}
+
+// String, Number, or JSON flags
+const value = gbClient.getFeatureValue("my-string-feature", "fallback", userContext);
+console.log(value);
+```
+
+### Express Middleware
+
+In Express, it can be helpful to add a user-scoped GrowthBook instance. This will let you define a `userContext` object once instead of passing it into every feature evaluation call throughout your app.
+
+This can be accomplished easily with a middleware.
+
+```js
+app.use((req, res, next) => {
+  // Define your user context once
+  const userContext = {
+    attributes: {
+      url: req.url,
+      id: req.user.id
+    }
+  }
+
+  // Create a scoped GrowthBook instance and store in req
+  req.growthbook = gbClient.createScopedInstance(userContext);
+
+  next();
+});
+```
+
+Now, you can use this scoped instance from any route without needing to pass in `userContext` again.
+
+```js
+app.get("/", (req, res) => {
+  // No need to pass in userContext to a scoped instance
+  req.growthbook.isOn("my-feature");
+  req.growthbook.getFeatureValue("my-string-feature", "fallback");
+});
+```
+
+Scoped instances were first introduced in SDK version 1.3.1.
+
+## Plugins
+
+GrowthBook comes with a number of built-in plugins that add additional functionality. You can enable these by passing them into the GrowthBook client's `createScopedInstance()` factory method or into the GrowthBook constructor.
+
+Plugins require GrowthBook version 1.4.0 or higher, released in Feb 2025.
+
+### DevTools for back-end
+
+The [GrowthBook DevTools Browser Extension](/tools/chrome-extension) now supports debugging back-end environments. This includes sending overrides (attribute, feature, and experiment) from the browser extension to the back end, and also displaying back-end logged events (feature evaluations, experiment exposure events).
+
+We provide first-class devtools support via plugins and helper functions for a variety of Node.js-based environments, including:
+
+- Next.js
+- Express
+- Node.js (platform-agnostic)
+
+See the [Implementing DevTools guide](#implementing-devtools) below for more information.
+
+### GrowthBook class (legacy)
+
+The `GrowthBookClient` class was introduced in SDK version 1.3.0 to improve performance in back-end environments by up to 3x. It does this by re-using the core instance across many different user requests.
+
+For backwards compatibility, we still support the old way of doing things with the `GrowthBook` class, where you would create a new instance for every incoming request.
 
 ```js
 // Example using Express
@@ -29,12 +120,11 @@ app.use(function(req, res, next) {
   // Create a GrowthBook instance and store in the request
   req.growthbook = new GrowthBook({
     apiHost: "https://cdn.growthbook.io",
-    clientKey: "sdk-abc123"
-  });
-
-  // TODO: Add user targeting attributes from cookies, headers, etc.
-  req.growthbook.setAttributes({
-    id: req.user?.id
+    clientKey: "sdk-abc123",
+    // Also include user/route specific settings
+    attributes: {
+      id: req.user.id
+    }
   });
 
   // Clean up at the end of the request
@@ -45,22 +135,7 @@ app.use(function(req, res, next) {
 });
 ```
 
-Then, you can access the GrowthBook instance from any route:
-
-```js
-app.get("/", (req, res) => {
-  const gb = req.growthbook;
-
-  // Boolean on/off flag
-  if (gb.isOn("my-feature")) {
-    // Do something
-  }
-
-  // String/Number/JSON flag
-  const value = gb.getFeatureValue("my-string-feature", "fallback");
-  console.log(value);
-})
-```
+The `GrowthBook` class is identical to the one used in client-side environments. Check out the [Client-side JavaScript SDK docs](/lib/js) for more info on all of the settings and methods available.
 
 ## Loading Features and Experiments
 
@@ -68,19 +143,17 @@ In order for the GrowthBook SDK to work, it needs to have feature and experiment
 
 ### Built-in Fetching and Caching
 
-If you pass an `apiHost` and `clientKey` into the GrowthBook constructor, it will handle the network requests, caching, retry logic, etc. for you automatically.
+If you pass an `apiHost` and `clientKey` into the `GrowthBookClient` constructor, it will handle the network requests, caching, retry logic, etc. for you automatically.
 
 ```ts
-const gb = new GrowthBook({
+const gbClient = new GrowthBookClient({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
 });
 
 // Wait for features to be downloaded with a timeout (in ms)
-gb.init({ timeout: 2000 }).then(() => next())
+await gbClient.init({ timeout: 2000 });
 ```
-
-The network request to download features is cached in memory and uses a stale-while-revalidate (SWR) pattern. So the first call to `gb.init()` may be slow, but all subsequent calls should resolve immediately.
 
 #### Error Handling
 
@@ -89,24 +162,27 @@ In the case of network issues that prevent the features from downloading in time
 You can still get access to the error if needed:
 
 ```ts
-const res = await gb.init({
+const res = await gbClient.init({
   timeout: 1000
 });
-console.log(res);
+
+if (res.error) {
+  throw res.error;
+}
 ```
 
-The return value has 3 properties:
+The return value of init has 3 properties:
 
-- **status** - `true` if the GrowthBook instance was populated with features/experiments. Otherwise `false`
+- **success** - `true` if the GrowthBook instance was populated with features/experiments. Otherwise `false`
 - **source** - Where this result came from. One of the following values: `network`, `cache`, `init`, `error`, or `timeout`
-- **error** - If status is `false`, this will contain an `Error` object with more details about the error
+- **error** - If success is `false`, this will contain an `Error` object with more details about the error
 
 ### Custom Integration
 
 If you prefer to handle the network and caching logic yourself, you can pass in a full JSON "payload" directly into the SDK. For example, you might store features in Postgres or Redis.
 
 ```ts
-await gb.init({
+await gbClient.init({
   payload: {
     features: {
       "feature-1": {...},
@@ -127,10 +203,27 @@ There is a alternate synchronous version of init named `initSync`, which can be 
 
 - You MUST pass in `payload`
 - The `payload` MUST NOT have encrypted features or experiments
-- If you use sticky bucketing, you MUST pass `stickyBucketAssignmentDocs` into your GrowthBook constructor
 - The return value is the GrowthBook instance to enable easy method chaining
+- If using sticky bucketing, you should use an instance of `StickyBucketServiceSync`, such as `ExpressCookieStickyBucketService`.
 
-## Streaming Updates
+```ts
+const gbClient = new GrowthBookClient().initSync({
+  payload: {
+    features: {...}
+  }
+});
+```
+
+## Refreshing Features
+
+By default, the GrowthBookClient will only fetch features once during initialization. This works great for short-running processes (e.g. serverless functions).
+
+For long-running Node.js processes, there are 2 main approaches to keeping feature defintiions up-to-date.
+
+1. Streaming
+2. Polling
+
+### Streaming Updates
 
 The GrowthBook SDK supports streaming with Server-Sent Events (SSE). When enabled, changes to features within GrowthBook will be streamed to the SDK in realtime as they are published. This is only supported on GrowthBook Cloud or if running a GrowthBook Proxy Server.
 
@@ -140,27 +233,38 @@ Node.js does not natively support SSE, but there is a small library you can inst
 npm install --save eventsource
 ```
 
-Then, do the following during app startup:
+Then, configure the polyfill and enable streaming during init:
 
 ```js
-const { setPolyfills, prefetchPayload } = require("@growthbook/growthbook");
+const { setPolyfills } = require("@growthbook/growthbook");
 
 // Configure GrowthBook to use the eventsource library
 setPolyfills({
   EventSource: require("eventsource"),
 });
 
-// Start a streaming connection
-prefetchPayload({
-  apiHost: "https://cdn.growthbook.io",
-  clientKey: "sdk-abc123",
-  streaming: true
-}).then(() => console.log("Streaming connection open!"))
+const gbClient = new GrowthBookClient({
+  clientKey: "sdk-abc123"
+});
+
+// Enable streaming in the init call
+await gbClient.init({ streaming: true });
 ```
 
 This will make an initial network request to download the features payload from the GrowthBook API. Then, it will open a streaming connection to listen to updates.
 
-When a new GrowthBook instance is created in your middleware, it will use the latest available payload. The payload for this GrowthBook instance will be locked and frozen, so you don't have to worry about the payload changing mid-request and causing weird edge cases in your app.
+Every call to evaluate feature flags will use the latest available payload.
+
+### Polling Updates
+
+If your environment doesn't support streaming updates or you want a simpler option, you can use a polling approach:
+
+```js
+// Refresh once every 5 minutes
+setInterval(() => gbClient.refreshFeatures(), 5*60*1000);
+```
+
+We don't recommend polling more often than once per minute. If you need faster updates, use Streaming (above).
 
 ## Caching
 
@@ -206,22 +310,45 @@ configureCache({
 })
 ```
 
+### Skip Cache
+
+The cache layers apply to both the `init` and `refreshFeatures` methods. Both of these accept a `skipCache: true` option to bypass the cache layers if desired.
+
 ## Experimentation (A/B Testing)
 
 In order to run A/B tests, you need to set up a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system (Segment, Mixpanel, GA, etc.).
 
+You can specify this globally in your GrowthBookClient class and/or per-request in your user context.
+
+We recommend using a global callback if you plan to track events directly from Node and using a user context callback if you plan to send events to the front-end to fire.
+
+When specified globally, the callbacks will receive an additional argument with the user context that triggered the event.
+
 ```js
-const gb = new GrowthBook({
-  apiHost: "https://cdn.growthbook.io",
-  clientKey: "sdk-abc123",
-  trackingCallback: (experiment, result) => {
-    // Example using Segment
-    analytics.track("Experiment Viewed", {
+// Callback configured globally
+const gbClient = new GrowthBookClient({
+  trackingCallback: (experiment, result, userContext) => {
+    const userId = userContext.attributes.id;
+
+    console.log("Viewed Experiment", userId, {
       experimentId: experiment.key,
-      variationId: result.key,
+      variationId: result.key
     });
-  },
+  }
 });
+
+// Callback configured in the user context
+const userContext = {
+  attributes: {
+    id: req.user.id
+  },
+  trackingCallback: (experiment, result) => {
+    console.log("Viewed Experiment", req.user.id, {
+      experimentId: experiment.key,
+      variationId: result.key
+    });
+  }
+}
 ```
 
 ### Feature Flag Experiments
@@ -231,7 +358,7 @@ There is nothing special you have to do for feature flag experiments. Just evalu
 ```js
 // If this has an active experiment and the user is included,
 // it will call trackingCallback automatically
-const newLogin = gb.isOn("new-signup-form");
+const newLogin = gbClient.isOn("new-signup-form", userContext);
 ```
 
 If the experiment came from a feature rule, `result.featureId` in the trackingCallback will contain the feature id, which may be useful for tracking/logging purposes.
@@ -240,46 +367,59 @@ If the experiment came from a feature rule, `result.featureId` in the trackingCa
 
 Sometimes, you aren't able to track analytics events from Node.js and you need to do it from the front-end instead.
 
-If that is the case for your app, do not specify a `trackingCallback` in the constructor. This will queue up tracking calls in the GrowthBook instance.
+In this case, define a trackingCallback in the user context, queue up events, and serialize it in your response. Here's an example:
 
-You can export the queued tracking calls with the `getDeferredTrackingCalls()` method. The result is a serializable JSON object:
+```js
+// Middleware
+app.use((req, res, next) => {
+  // Queue up tracking calls and store in the request
+  req.trackingData = [];
+  const userContext = {
+    attributes: {id: "123"},
+    trackingCallback: (experiment, result) => {
+      req.trackingData.push({experiment, result});
+    }
+  }
+  req.growthbook = gbClient.createScopedInstance(userContext);
+  next();
+});
 
-```ts
-const tracks = gb.getDeferredTrackingCalls();
+// Serialize and include in your response
+app.get("/", (req, res) => {
+  res.send(`<html>
+  <head>
+    <script>
+      (function() {
+        const data = ${JSON.stringify(req.trackingData)};
+
+        data.forEach(({experiment, result}) => {
+          // Example using Segment.io
+          analytics.track("Experiment Viewed", {
+            experimentId: experiment.key,
+            variationId: result.key,
+          });
+        })
+      })();
+    </script>
+    ...
+  `);
+})
 ```
 
-Send those down to your front-end and you can fire them in one of two ways:
-
-#### If Using GrowthBook on the Front-End
-
-If you are already using the JavaScript or React SDK on the front-end, you can import with `setDeferredTrackingCalls`. This does not fire them automatically. You must call `fireDeferredTrackingCalls` after.
+If you have also integrated the GrowthBook SDK on your front-end, there's a helper method you can use instead of manually firing tracking calls.
 
 ```ts
-gb.setDeferredTrackingCalls(tracks);
+gb.setDeferredTrackingCalls(data);
 gb.fireDeferredTrackingCalls();
 ```
 
 This will use the `trackingCallback` configured on your front-end GrowthBook instance.
 
-#### Standalone Tracker
-
-If you do NOT have a client-side GrowthBook instance, you can still fire these tracking calls with a small custom client-side script:
-
-```ts
-tracks.forEach(({experiment, result}) => {
-  // Example using Segment.io
-  analytics.track("Experiment Viewed", {
-    experimentId: experiment.key,
-    variationId: result.key,
-  });
-})
-```
-
 ### Sticky Bucketing
 
 Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. See the [Sticky Bucketing docs](/app/sticky-bucketing) for more information. If your organization and experiment supports sticky bucketing, you must implement an instance of the `StickyBucketService` to use Sticky Bucketing. The JS SDK exports several implementations of this service for common use cases, or you may build your own:
 
-- `ExpressCookieStickyBucketService` — For NodeJS/Express controller-level bucket persistence using browser cookies; intended to be interoperable with `BrowserCookieStickyBucketService`. Assumes `cookie-parser` is implemented (can be polyfilled). Cookie attributes can also be configured.
+- `ExpressCookieStickyBucketService` — For NodeJS/Express controller-level bucket persistence using browser cookies; intended to be interoperable with `BrowserCookieStickyBucketService`. Assumes `cookie-parser` is implemented (can be polyfilled). Cookie attributes can also be configured. The default cookie expiry is 180 days; override by passing `maxAge: {ms}` into the constructor's `cookieAttributes`.
 
 - `RedisStickyBucketService` — For NodeJS Redis-based bucket persistence. Requires an `ioredis` Redis client instance to be passed in.
 
@@ -290,17 +430,21 @@ Implementing most StickyBucketService implementations is straightforward and wor
 ```js
 const { ExpressCookieStickyBucketService } = require("@growthbook/growthbook");
 
-app.use(function(req, res, next) {
-  // Create a GrowthBook instance and store in the request
-  req.growthbook = new GrowthBook({
-    apiHost: "https://cdn.growthbook.io",
-    clientKey: "sdk-abc123",
-    stickyBucketService: new ExpressCookieStickyBucketService({
+app.use((req, res, next) => {
+  const stickyBucketService = new ExpressCookieStickyBucketService({
       req,
       res
-    }),
-  })
-})
+  });
+  const userContext = await gbClient.applyStickyBuckets({
+    attributes: {
+      id: req.user.id
+    }
+  }, stickyBucketService);
+
+  req.growthbook = gbClient.createScopedInstance(userContext);
+
+  next();
+});
 ```
 
 ## TypeScript
@@ -309,19 +453,12 @@ When used in a TypeScript project, GrowthBook includes basic type inference out 
 
 ```ts
 // Type will be `string` based on the fallback provided ("blue")
-const color = gb.getFeatureValue("button-color", "blue");
+const color = gbClient.getFeatureValue("button-color", "blue", userContext);
 
 // You can manually specify types as well
 // feature.value will be type `number`
-const feature = gb.evalFeature<number>("font-size");
+const feature = gbClient.evalFeature<number>("font-size", userContext);
 console.log(feature.value);
-
-// Experiments will use the variations to infer the return value
-// result.value will be type "string"
-const result = gb.run({
-  key: "my-test",
-  variations: ["blue", "green"],
-});
 ```
 
 ### Strict Typing
@@ -337,7 +474,7 @@ interface AppFeatures {
 }
 
 // Pass into the GrowthBook instance
-const gb = new GrowthBook<AppFeatures>({
+const gbClient = new GrowthBookClient<AppFeatures>({
   ...
 });
 ```
@@ -345,12 +482,12 @@ const gb = new GrowthBook<AppFeatures>({
 Now, all feature flag methods will be strictly typed.
 
 ```ts
-// feature.value will by type `number`
-const feature = gb.evalFeature("font-size");
+// feature.value will be type `number`
+const feature = gbClient.evalFeature("font-size", userContext);
 console.log(feature.value);
 
 // Typos will cause compile-time errors
-gb.isOn("buton-color"); // "buton" instead of "button"
+gbClient.isOn("buton-color", userContext); // "buton" instead of "button"
 ```
 
 Instead of defining the `AppFeatures` interface manually like above, you can auto-generate it from your GrowthBook account using the [GrowthBook CLI](/tools/cli).
@@ -371,7 +508,7 @@ You can specify attributes about the current user and request. These are used fo
 The following are some commonly used attributes, but use whatever makes sense for your application.
 
 ```ts
-new GrowthBook({
+const userContext = {
   attributes: {
     id: "123",
     loggedIn: true,
@@ -383,18 +520,18 @@ new GrowthBook({
     mobile: false,
     country: "US",
   },
-});
+};
 ```
 
-#### Updating Attributes
+#### Global Attributes
 
-If attributes change, you can call `setAttributes()` to update. This will completely overwrite any existing attributes. To do a partial update, use the following pattern:
+Sometimes there are global attributes that apply to all users. For example, the ip of your server. These can be specified on the GrowthBookClient instance and will be merged with any attributes in the user context.
 
 ```js
-gb.setAttributes({
-  // Only update the `url` attribute, keep the rest the same
-  ...gb.getAttributes(),
-  url: "/new-page"
+const gbClient = new GrowthBookClient({
+  globalAttributes: {
+    serverIp: "10.1.1.1"
+  }
 })
 ```
 
@@ -406,6 +543,16 @@ If your SDK Connection has secure attribute hashing enabled, you will need to ma
 
 To hash an attribute, use a cryptographic library with SHA-256 support, and compute the SHA-256 hashed value of your attribute _plus_ your organization's secure attribute salt.
 
+First, define a sha256 function using Node's built-in crypto support.
+
+```js
+function sha256(str) {
+  return crypto.createHash("sha256").update(str).digest("hex");
+}
+```
+
+Then, you can use this when setting attributes.
+
 ```js
 const salt = "f09jq3fij"; // Your organization's secure attribute salt (see Organization Settings)
 
@@ -415,18 +562,13 @@ const userEmail = sha256(salt + user.email);
 // hashing an secureString[] attribute
 const userTags = user.tags.map(tag => sha256(salt + tag));
 
-gb.setAttributes({
-  id: user.id,
-  loggedIn: true,
-  email: userEmail,
-  tags: userTags,
-});
-
-await gb.init();
-
-// In this example, we are using Node.js's built-in crypto library
-function sha256(str) {
-  return crypto.createHash("sha256").update(str).digest("hex");
+const userContext = {
+  attributes: {
+    id: user.id,
+    loggedIn: true,
+    email: userEmail,
+    tags: userTags,
+  }
 }
 ```
 
@@ -434,15 +576,25 @@ function sha256(str) {
 
 GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like NewRelic or DataDog.
 
-```ts
-new GrowthBook({
-  onFeatureUsage: (featureKey, result) => {
-    console.log("feature", featureKey, "has value", result.value);
-  },
+Like with the `trackingCallback`, this can be defined on either the GrowthBookClient instance or as part of the user context. When defined on the GrowthBookClient instance, a 3rd argument with the user context will be sent so you can identify which user evaluated a feature.
+
+```js
+// Callback configured globally
+const gbClient = new GrowthBookClient({
+  onFeatureUsage: (featureKey, result, userContext) => {
+    console.log(`${featureKey}=${result.value} for user ${userContext.attributes.id}`);
+  }
 });
+
+// Callback configured on the userContext
+const userContext ={
+  onFeatureUsage: (featureKey, result) => {
+    console.log(`${featureKey}=${result.value}`);
+  },
+};
 ```
 
-The `result` argument is the same thing returned from `gb.evalFeature`.
+The `result` argument is the same thing returned from `evalFeature`.
 
 Note: If you evaluate the same feature multiple times (and the value doesn't change), the callback will only be fired the first time.
 
@@ -452,7 +604,7 @@ In addition to the `isOn` and `getFeatureValue` helper methods, there is the `ev
 
 ```ts
 // Get detailed information about the feature evaluation
-const result = gb.evalFeature("my-feature");
+const result = gbClient.evalFeature("my-feature", userContext);
 
 // The value of the feature (or `null` if not defined)
 console.log(result.value);
@@ -473,14 +625,14 @@ console.log(result.experimentResult);
 
 ### Inline Experiments
 
-Instead of declaring all features up-front in the context and referencing them by ids in your code, you can also just run an experiment directly. This is done with the `gb.run` method:
+Instead of declaring all features up-front in the payload and referencing them by ids in your code, you can also just run an experiment directly. This is done with the `runInlineExperiment` method:
 
 ```js
 // These are the only required options
-const { value } = gb.run({
+const { value } = gbClient.runInlineExperiment({
   key: "my-experiment",
   variations: ["red", "blue", "green"],
-});
+}, userContext);
 ```
 
 #### Customizing the Traffic Split
@@ -489,17 +641,17 @@ By default, this will include all traffic and do an even split between all varia
 
 ```js
 // Option 1: Using weights and coverage
-gb.run({
+gbClient.runInlineExperiment({
   key: "my-experiment",
   variations: ["red", "blue", "green"],
   // Only include 10% of traffic
   coverage: 0.1,
   // Split the included traffic 50/25/25 instead of the default 33/33/33
   weights: [0.5, 0.25, 0.25],
-});
+}, userContext);
 
 // Option 2: Specifying ranges
-gb.run({
+gbClient.runInlineExperiment({
   key: "my-experiment",
   variations: ["red", "blue", "green"],
   // Identical to the above
@@ -509,7 +661,7 @@ gb.run({
     [0.5, 0.525],
     [0.75, 0.775],
   ],
-});
+}, userContext);
 ```
 
 #### Hashing
@@ -519,7 +671,7 @@ We use deterministic hashing to assign a variation to a user. We hash together t
 You can customize this hashing behavior:
 
 ```js
-gb.run({
+gbClient.runInlineExperiment({
   key: "my-experiment",
   variations: ["A", "B"],
 
@@ -532,7 +684,7 @@ gb.run({
 
   // Use a different user attribute (default is `id`)
   hashAttribute: "device_id",
-});
+}, userContext);
 ```
 
 **Note**: For backwards compatibility, if no `hashVersion` is specified, it will fall back to using version `1`, which is deprecated. In the future, version `2` will become the default. We recommend specifying version `2` now for all new experiments to avoid migration issues down the line.
@@ -542,7 +694,7 @@ gb.run({
 You can also define meta info for the experiment and/or variations. These do not affect the behavior, but they are passed through to the `trackingCallback`, so they can be used to annotate events.
 
 ```js
-gb.run({
+gbClient.runInlineExperiment({
   key: "results-per-page",
   variations: [10, 20],
 
@@ -561,7 +713,7 @@ gb.run({
       name: "20 Results per Page",
     },
   ]
-})
+}, userContext)
 ```
 
 #### Mutual Exclusion
@@ -572,7 +724,7 @@ We do this using deterministic hashing to assign users a value between 0 and 1 f
 
 ```js
 // Will include 60% of users - ones with a hash between 0 and 0.6
-gb.run({
+gbClient.runInlineExperiment({
   key: "experiment-1",
   variation: [0, 1],
   filters: [
@@ -582,11 +734,11 @@ gb.run({
       ranges: [[0, 0.6]]
     }
   ]
-});
+}, userContext);
 
 
 // Will include the other 40% of users - ones with a hash between 0.6 and 1
-gb.run({
+gbClient.runInlineExperiment({
   key: "experiment-2",
   variation: [0, 1],
   filters: [
@@ -596,10 +748,8 @@ gb.run({
       ranges: [[0.6, 1.0]]
     }
   ]
-});
+}, userContext);
 ```
-
-**Note** - If a user is excluded from an experiment due to a filter, the rule will be skipped and the next matching rule will be used instead.
 
 #### Holdout Groups
 
@@ -607,25 +757,25 @@ To use global holdout groups, use a nested experiment design:
 
 ```js
 // The value will be `true` if in the holdout group, otherwise `false`
-const holdout = gb.run({
+const holdout = gbClient.runInlineExperiment({
   key: "holdout",
   variations: [true, false],
   // 10% of users in the holdout group
   weights: [0.1, 0.9]
-});
+}, userContext);
 
 // Only run your main experiment if the user is NOT in the holdout
 if (!holdout.value) {
-  const res = gb.run({
+  const res = gbClient.runInlineExperiment({
     key: "my-experiment",
     variations: ["A", "B"]
-  })
+  }, userContext)
 }
 ```
 
 #### Targeting Conditions
 
-You can also define targeting conditions that limit which users are included in the experiment. These conditions are evaluated against the `attributes` passed into the GrowthBook context. The syntax for conditions is based on the MongoDB query syntax and is straightforward to read and write.
+You can also define targeting conditions that limit which users are included in the experiment. These conditions are evaluated against the `attributes` passed into the user context. The syntax for conditions is based on the MongoDB query syntax and is straightforward to read and write.
 
 For example, if the attributes are:
 
@@ -643,7 +793,7 @@ For example, if the attributes are:
 The following condition would evaluate to `true` and the user would be included in the experiment:
 
 ```js
-gb.run({
+gbClient.runInlineExperiment({
   key: "my-experiment",
   variation: [0, 1],
   condition: {
@@ -652,12 +802,12 @@ gb.run({
       "$in": ["US", "CA", "IN"]
     }
   }
-})
+}, userContext)
 ```
 
 #### Inline Experiment Return Value
 
-A call to `gb.run(experiment)` returns an object with a few useful properties:
+A call to `runInlineExperiment` returns an object with a few useful properties:
 
 ```ts
 const {
@@ -669,10 +819,10 @@ const {
   hashUsed,
   hashAttribute,
   hashValue,
-} = gb.run({
+} = gbClient.runInlineExperiment({
   key: "my-experiment",
   variations: ["A", "B"],
-});
+}, userContext);
 
 // If user is included in the experiment
 console.log(inExperiment); // true or false
@@ -688,7 +838,7 @@ console.log(key); // "0" or "1"
 console.log(name); // ""
 
 // If the variation was randomly assigned by hashing
-console.log(hashUsed);
+console.log(hashUsed); // true or false
 
 // The user attribute that was hashed
 console.log(hashAttribute); // "id"
@@ -701,308 +851,152 @@ The `inExperiment` flag will be false if the user was excluded from being part o
 
 The `hashUsed` flag will only be true if the user was randomly assigned a variation. If the user was forced into a specific variation instead, this flag will be false.
 
-## Feature Definitions (reference)
+## Implementing DevTools
 
-The feature definition JSON file contains information about all of the features in your application.
+The DevTools plugins are designed to work both GrowthBookClient and GrowthBook (legacy) SDK instances. Your SDK must be in dev mode (`enableDevMode: true`) for the plugin to work.
 
-Each feature consists of a unique key, a list of possible values, and rules for how to assign those values to users.
+### Next.js
 
-```ts
-{
-  "feature-1": {...},
-  "feature-2": {...},
-  "another-feature": {...},
-}
-```
+#### RSCs and SSR
 
-### Basic Feature
-
-An empty feature always has the value `null`:
+For RSCs (React server components) or SSR (server-side rendering), in order to apply SDK overrides from DevTools, pass the readonly request cookies and search params into the `devtoolsNextjsPlugin` plugin. In Next 15+, these may need to be awaited.
 
 ```js
-{
-  "my-feature": {}
-}
-```
+import { cookies } from "next/headers";
+import { devtoolsNextjsPlugin } from "@growthbook/growthbook/plugins";
 
-#### Default Values
+export default async function Home({ searchParams }) {
+  const requestCookies = await cookies();
+  const awaitedSearchParams = await searchParams;
 
-You can change the default assigned value with the `defaultValue` property:
-
-```js
-{
-  "my-feature": {
-    defaultValue: "green"
-  }
-}
-```
-
-### Override Rules
-
-You can override the default value with **rules**.
-
-Rules give you fine-grained control over how feature values are assigned to users. There are 2 types of feature rules: `force` and `experiment`. Force rules give the same value to everyone. Experiment rules assign values to users randomly.
-
-#### Rule Ids
-
-Rules can specify a unique identifier with the `id` property. This can help with debugging and QA by letting you see exactly why a specific value was assigned to a user.
-
-#### Rule Conditions
-
-Rules can optionally define targeting conditions that limit which users the rule applies to. These conditions are evaluated against the `attributes` passed into the GrowthBook context. The syntax for conditions is based on the MongoDB query syntax and is straightforward to read and write.
-
-For example, if the attributes are:
-
-```json
-{
-  "id": "123",
-  "browser": {
-    "vendor": "firefox",
-    "version": 94
-  },
-  "country": "CA"
-}
-```
-
-The following condition would evaluate to `true`:
-
-```json
-{
-  "browser.vendor": "firefox",
-  "country": {
-    "$in": ["US", "CA", "IN"]
-  }
-}
-```
-
-If a condition evaluates to `false`, the rule will be skipped. This means you can chain rules together with different conditions to support even the most complex use cases.
-
-#### Force Rules
-
-Force rules do what you'd expect - force a specific value for the feature
-
-```js
-// Firefox users in the US or Canada get "green"
-// Everyone else gets the default "blue"
-{
-  "button-color": {
-    defaultValue: "blue",
-    rules: [
-      {
-        id: "rule-123",
-        condition: {
-          browser: "firefox",
-          country: {
-            $in: ["US", "CA"]
-          }
-        },
-        force: "green"
-      }
+  const growthbook = new GrowthBook({
+    apiHost: "https://cdn.growthbook.io",
+    clientKey: "sdk-abc123",
+    enableDevMode: true,
+    plugins: [
+      devtoolsNextjsPlugin({ searchParams: awaitedSearchParams, requestCookies })
     ],
-  }
+  });
+
+  return (
+    <main>
+      <h1>Hello World</h1>
+      <Widget growthbook={growthbook} />
+      <DevtoolsLogger growthbook={growthbook} />
+    </main>
+  );
 }
 ```
 
-##### Gradual Rollouts
-
-You can specify a `range` for your rule, which determines what percent of users will get the rule applied to them. Users who do not get the rule applied will fall through to the next matching rule (or default value). You can also specify a `seed` that will be used for hashing.
-
-In order to figure out if a user is included or not, we use deterministic hashing. By default, we use the user attribute `id` for this, but you can override this by specifying `hashAttribute` for the rule:
-
-This is useful for gradually rolling out features to users (start with a small range and slowly increase).
+Note the component named `<DevtoolsLogger>` which is used to hydrate SDK information and log events back into the DevTools extension. When using this component, DevTools will automatically ingest any data generated by the `getDebugScriptContents()` method. You may implement it like this:
 
 ```js
-{
-  "new-feature": {
-    defaultValue: false,
-    rules: [
-      {
-        force: true,
-        hashAttribute: "device-id",
-        seed: 'new-feature-rollout-abcdef123',
-        // 20% of users
-        range: [0, 0.2]
-        // Increase to 40%:
-        // range: [0, 0.4]
-      }
-    ]
-  }
+import { getDebugScriptContents } from "@growthbook/growthbook/plugins";
+
+export function DevtoolsLogger({ growthbook }) {
+  const source = "nextjs";
+  return (
+    <script dangerouslySetInnerHTML={{ __html: getDebugScriptContents(growthbook, source) }} />
+  );
 }
 ```
 
-#### Experiment Rules
+#### Middleware and API routes
 
-Experiment rules let you adjust the percent of users who get randomly assigned to each variation. This can either be used for hypothesis-driven A/B tests or to simply mitigate risk by gradually rolling out new features to your users.
+For middleware implementations or API routes, pass the `request` object to `devtoolsNextjsPlugin` instead of searchParams and requestCookies. A middleware example is below; it can be modified to be an API route:
 
 ```js
-// Each variation gets assigned to a random 1/3rd of users
-{
-  "image-size": {
-    rules: [
-      {
-        variations: ["small", "medium", "large"]
-      }
-    ]
-  }
+import { NextResponse } from 'next/server';
+import { devtoolsNextjsPlugin } from "@growthbook/growthbook/plugins";
+
+export function middleware(request) {
+  const response = NextResponse.next();
+
+  const growthbook = new GrowthBook({
+    apiHost: "https://cdn.growthbook.io",
+    clientKey: "sdk-abc123",
+    enableDevMode: true,
+    plugins: [
+      devtoolsNextjsPlugin({ request })
+    ],
+  });
+
+  // etc...
+
+  response.headers.set(
+    "x-gbdebug-events",
+    JSON.stringify(getDebugEvent(req.growthbook, "nextjs_middleware"))
+  );
+  return response;
 }
 ```
 
-##### Customizing the Traffic Split
+For passing the debug events back to DevTools, this middleware example assumes the receiving end has access to headers. This may not always be the case (e.g. redirects); you may need to rely on cookies or an encoded URL parameter.
 
-By default, an experiment rule will include all traffic and do an even split between all variations. There are 2 ways to customize this behavior:
+For API routes or middleware redirects, you are responsible for parsing the `x-debug-events` header value on the front-end and pushing it to `window._gbdebugEvents`. You may wish to import the `getDebugScriptContents()` method on the front-end to ingest these debug events. An example integration may look like this:
 
 ```js
-// Option 1: Using weights and coverage
-{
-  variations: ["red", "blue", "green"],
-  // Only include 10% of traffic
-  coverage: 0.1,
-  // Split the included traffic 50/25/25 instead of the default 33/33/33
-  weights: [0.5, 0.25, 0.25]
-}
-
-// Option 2: Specifying ranges
-{
-  variations: ["red", "blue", "green"],
-  // Identical to the above
-  // 5% of traffic in A, 2.5% each in B and C
-  ranges: [
-    [0, 0.05],
-    [0.5, 0.525],
-    [0.75, 0.775]
-  ]
+const response = await fetch(apiUrl);
+const event = response.headers.get("x-gbdebug-events");
+if (event) {
+  window._gbdebugEvents?.push(event);
 }
 ```
 
-A user is assigned a number from 0 to 1 and whichever variation's range includes their number will be assigned to them.
+### Express
 
-##### Variation Meta Info
-
-You can use the `meta` setting to provide additional info about the variations such as name.
+In an Express.js context, in order to apply SDK overrides from DevTools, pass the request object into the `devtoolsExpressPlugin` plugin. You must use the standard Express **cookie-parser** middleware (npm: `cookie-parser`) in order to use this plugin.
 
 ```js
-{
-  "image-size": {
-    rules: [
-      {
-        variations: ["sm", "md", "lg"],
-        ranges: [
-          [0, 0.5],
-          [0.5, 0.75],
-          [0.75, 1.0]
-        ],
-        meta: [
-          {
-            key: "control",
-            name: "Small",
-          },
-          {
-            key: "v1",
-            name: "Medium",
-          },
-          {
-            key: "v2",
-            name: "Large",
-          }
-        ]
-      }
-    ]
-  }
-}
-```
+import {
+  devtoolsExpressPlugin,
+  getDebugEvent,
+} from "@growthbook/growthbook/plugins";
 
-##### Tracking Key and Name
-
-When a user is assigned a variation, we call the `trackingCallback` function so you can record the exposure with your analytics event tracking system. By default, we use the feature id to identify the experiment, but this can be overridden if needed with the `key` setting. You can also optionally provide a human-readable name.
-
-```js
-{
-  "feature-1": {
-    rules: [
-      {
-        // Use "my-experiment" as the key instead of "feature-1"
-        key: "my-experiment",
-        name: "My Experiment",
-        variations: ["A", "B"]
-      }
-    ]
-  },
-}
-```
-
-##### Hash Attribute
-
-We use deterministic hashing to make sure the same user always gets assigned the same value. By default, we use the attribute `id`, but this can be overridden with the `hashAttribute` setting:
-
-```js
-const gb = new GrowthBook({
-  attributes: {
-    id: "123",
-    company: "acme",
-  },
-  features: {
-    "my-feature": {
-      rules: [
-        // All users with the same "company" value
-        // will be assigned the same variation
-        {
-          variations: ["A", "B"],
-          hashAttribute: "company",
-        },
-        // If "company" is empty for the user (e.g. if they are logged out)
-        // The experiment will be skipped and fall through to this next rule
-        {
-          force: "A",
-        },
-      ],
+app.use((req, res, next) => {
+  const userContext = {
+    attributes: {
+      url: req.url,
+      id: req.user.id
     },
-  },
+    enableDevMode: true,
+  };
+
+  // Create a scoped GrowthBook instance and store in req
+  req.growthbook = gbClient.createScopedInstance(
+    userContext,
+    [ devtoolsExpressPlugin({ request: req }) ]
+  );
+
+  res.set("x-gbdebug-events", getDebugEvent(req.growthbook, "express"));
+
+  // etc...
+  next();
 });
 ```
 
-##### Filters
+Similar to the Next.js middleware example above, you are responsible for parsing the `x-debug-events` header value on the front-end and pushing it to `window._gbdebugEvents`. You may use `getDebugScriptContents()` on the front-end to help.
 
-Sometimes you want to run multiple conflicting experiments at the same time. You can use the `filters` setting to run mutually exclusive experiments.
+### Node.js (platform agnostic)
 
-We do this using deterministic hashing to assign users a value between 0 and 1 for each filter.
+We provide a simple `devtoolsPlugin` for other Node.js back-end implementations. This plugin is a stub for the other platform-specific plugins (Next.js, Express); however, it may be used directly.
 
-```js
-{
-  "feature1": {
-    rules: [
-      // Will include 60% of users - ones with a hash between 0 and 0.6
-      {
-        variations: [false, true],
-        filters: [
-          {
-            seed: "pricing",
-            attribute: "id",
-            ranges: [[0, 0.6]]
-          }
-        ]
-      }
-    ]
-  },
-  "feature2": {
-    rules: [
-      // Will include the other 40% of users - ones with a hash between 0.6 and 1
-      {
-        variations: [false, true],
-        filters: [
-          {
-            seed: "pricing",
-            attribute: "id",
-            ranges: [[0.6, 1.0]]
-          }
-        ]
-      },
-    ]
-  }
-}
+When using this plugin, you are responsible for building the `devtoolsState` object by parsing the `_gbdebug` cookie and the `_gbdebug` URL query parameter. `devtoolsState` represents the overrides applied to attributes, features, and experiments; it takes the form:
+
+```ts
+type DevtoolsState = {
+  attributes?: Record<string, any>;
+  features?: Record<string, any>;
+  experiments?: Record<string, number>;
+};
 ```
 
-**Note** - If a user is excluded from an experiment due to a filter, the rule will be skipped and the next matching rule will be used instead.
+Similar to the Express and Next.js middleware examples above, you can generate your own `_gbdebugEvents` payload using `getDebugEvent()`.
 
 ## Examples
 
 - [Typescript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="node" />

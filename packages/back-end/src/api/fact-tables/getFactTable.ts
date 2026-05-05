@@ -1,20 +1,23 @@
-import { GetFactTableResponse } from "../../../types/openapi";
+import { getFactTableValidator } from "shared/validators";
 import {
   getFactTable as findFactTableById,
   toFactTableApiInterface,
-} from "../../models/FactTableModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { getFactTableValidator } from "../../validators/openapi";
+} from "back-end/src/models/FactTableModel";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
+import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getFactTable = createApiRequestHandler(getFactTableValidator)(
-  async (req): Promise<GetFactTableResponse> => {
+  async (req) => {
     const factTable = await findFactTableById(req.context, req.params.id);
     if (!factTable) {
       throw new Error("Could not find factTable with that id");
     }
 
     return {
-      factTable: toFactTableApiInterface(factTable),
+      factTable: await resolveOwnerEmail(
+        toFactTableApiInterface(factTable),
+        req.context,
+      ),
     };
-  }
+  },
 );

@@ -14,25 +14,34 @@ import {
   verticalListSortingStrategy,
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Variation } from "back-end/types/experiment";
+import { Variation } from "shared/types/experiment";
 import { SortableVariation } from "./SortableFeatureVariationRow";
 
 const SortableVariationsList: FC<{
   children: ReactNode;
   variations: (SortableVariation | Variation)[];
   setVariations?: (variations: (SortableVariation | Variation)[]) => void;
+  valuesAsIds?: boolean;
+  // valuesAsIds will mean we don't show ids to be edited, only values,
+  // so by default we will renormalize variation keys on sort. however,
+  // sometimes we want to force it even in other cases where moving around
+  // variations when not editing IDs was causing clases where keys were the
+  // same for multiple variations.
+  forceRenormalizeVariationKeysOnSort?: boolean;
   sortingStrategy?: "vertical" | "rect";
 }> = ({
   children,
   variations,
   setVariations,
+  valuesAsIds = false,
+  forceRenormalizeVariationKeysOnSort = false,
   sortingStrategy = "vertical",
 }) => {
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   function getVariationIndex(id: string) {
@@ -55,11 +64,15 @@ const SortableVariationsList: FC<{
 
           if (oldIndex === -1 || newIndex === -1) return;
 
-          const newVariations = arrayMove<SortableVariation | Variation>(
-            variations,
-            oldIndex,
-            newIndex
-          );
+          const newVariations = arrayMove<
+            SortableVariation | (Variation & { value?: string })
+          >(variations, oldIndex, newIndex);
+          if (valuesAsIds || forceRenormalizeVariationKeysOnSort) {
+            newVariations.forEach((variation, i) => {
+              if (variation.value === undefined) return;
+              variation.value = i + "";
+            });
+          }
 
           setVariations(newVariations);
         }

@@ -1,0 +1,64 @@
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import { metricGroupValidator } from "shared/validators";
+import { metricGroupApiSpec } from "back-end/src/api/specs/metric-group.spec";
+import { MakeModelClass } from "./BaseModel";
+
+const BaseClass = MakeModelClass({
+  schema: metricGroupValidator,
+  collectionName: "metricgroups",
+  idPrefix: "mg_",
+  auditLog: {
+    entity: "metricGroup",
+    createEvent: "metricGroup.create",
+    updateEvent: "metricGroup.update",
+    deleteEvent: "metricGroup.delete",
+  },
+  globallyUniquePrimaryKeys: false,
+  additionalIndexes: [{ fields: { organization: 1, id: 1 } }],
+  defaultValues: {
+    owner: "",
+    tags: [],
+    archived: false,
+  },
+  apiConfig: {
+    modelKey: "metricGroups",
+    openApiSpec: metricGroupApiSpec,
+  },
+});
+
+export class MetricGroupModel extends BaseClass {
+  protected canRead(metricGroup: MetricGroupInterface): boolean {
+    return this.context.permissions.canReadMultiProjectResource(
+      metricGroup.projects,
+    );
+  }
+
+  protected canCreate(): boolean {
+    return this.context.permissions.canCreateMetricGroup();
+  }
+
+  protected canUpdate(): boolean {
+    return this.context.permissions.canUpdateMetricGroup();
+  }
+
+  protected canDelete(): boolean {
+    return this.context.permissions.canDeleteMetricGroup();
+  }
+
+  findByMetric(metricId: string): Promise<MetricGroupInterface[]> {
+    return this._find({
+      metrics: metricId,
+    });
+  }
+
+  async removeMetricFromAllGroups(metricId: string): Promise<void> {
+    await this._dangerousGetCollection().updateMany(
+      { organization: this.context.org.id, metrics: metricId },
+      {
+        // @ts-expect-error - not sure why $pull is complaining, but it works
+        $pull: { metrics: metricId },
+        $set: { dateUpdated: new Date() },
+      },
+    );
+  }
+}

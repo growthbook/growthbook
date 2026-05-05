@@ -1,14 +1,12 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { NextPage } from "next";
 import ImportFromLaunchDarkly from "@/components/importing/ImportFromLaunchDarkly/ImportFromLaunchDarkly";
-import { useFeatureDisabledRedirect } from "@/hooks/useFeatureDisabledRedirect";
+import track from "@/services/track";
 
 const ImportFromLaunchDarklyPage: NextPage = () => {
-  const { shouldRender } = useFeatureDisabledRedirect("import-from-x");
-
-  if (!shouldRender) {
-    return null;
-  }
+  useEffect(() => {
+    track("Import from LaunchDarkly clicked", { service: "launchdarkly" });
+  }, []);
 
   return (
     <div className="contents container pagecontents">

@@ -1,11 +1,16 @@
-import { Router } from "express";
+import { OpenApiRoute } from "back-end/src/util/handler";
 import { getSdkConnection } from "./getSdkConnection";
 import { listSdkConnections } from "./listSdkConnections";
+import { postSdkConnection } from "./postSdkConnection";
+import { putSdkConnection } from "./putSdkConnection";
+import { deleteSdkConnection } from "./deleteSdkConnection";
+import { lookupSdkConnectionByKey } from "./lookupSdkConnectionByKey";
 
-const router = Router();
-
-// Mounted at /api/v1/sdk-connections
-router.get("/", listSdkConnections);
-router.get("/:id", getSdkConnection);
-
-export default router;
+export const sdkConnectionsRoutes: OpenApiRoute[] = [
+  listSdkConnections,
+  postSdkConnection,
+  getSdkConnection,
+  putSdkConnection,
+  deleteSdkConnection,
+  lookupSdkConnectionByKey,
+];

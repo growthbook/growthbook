@@ -1,31 +1,31 @@
 DROP TABLE IF EXISTS pages;
 CREATE TABLE pages (
-  userId VARCHAR(8), 
-  anonymousId VARCHAR(64), 
-  sessionId VARCHAR(64), 
+  user_id VARCHAR(8), 
+  anonymous_id VARCHAR(64), 
+  session_id VARCHAR(64), 
   browser VARCHAR(20), 
   country VARCHAR(2), 
   timestamp TIMESTAMP, 
   path VARCHAR(32)
 );
 
-DROP TABLE IF EXISTS experiment_viewed;
-CREATE TABLE experiment_viewed (
-  userId VARCHAR(8), 
-  anonymousId VARCHAR(64), 
-  sessionId VARCHAR(64), 
+DROP TABLE IF EXISTS viewed_experiment;
+CREATE TABLE viewed_experiment (
+  user_id VARCHAR(8), 
+  anonymous_id VARCHAR(64), 
+  session_id VARCHAR(64), 
   browser VARCHAR(20), 
   country VARCHAR(2),
   timestamp TIMESTAMP, 
-  experimentId VARCHAR(32),
-  variationId VARCHAR(32)
+  experiment_id VARCHAR(32),
+  variation_id VARCHAR(32)
 );
 
 DROP TABLE IF EXISTS orders;
 CREATE TABLE orders (
-  userId VARCHAR(8), 
-  anonymousId VARCHAR(64), 
-  sessionId VARCHAR(64), 
+  user_id VARCHAR(8), 
+  anonymous_id VARCHAR(64), 
+  session_id VARCHAR(64), 
   browser VARCHAR(20), 
   country VARCHAR(2),
   timestamp TIMESTAMP, 
@@ -36,9 +36,9 @@ CREATE TABLE orders (
 DROP TABLE IF EXISTS events;
 CREATE TABLE events (
   value INTEGER,
-  userId VARCHAR(8), 
-  anonymousId VARCHAR(64), 
-  sessionId VARCHAR(64), 
+  user_id VARCHAR(8), 
+  anonymous_id VARCHAR(64), 
+  session_id VARCHAR(64), 
   browser VARCHAR(20), 
   country VARCHAR(2), 
   timestamp TIMESTAMP, 
@@ -47,9 +47,9 @@ CREATE TABLE events (
 
 DROP TABLE IF EXISTS sessions;
 CREATE TABLE sessions (
-  userId VARCHAR(8), 
-  anonymousId VARCHAR(64), 
-  sessionId VARCHAR(64), 
+  user_id VARCHAR(8), 
+  anonymous_id VARCHAR(64), 
+  session_id VARCHAR(64), 
   browser VARCHAR(20), 
   country VARCHAR(2), 
   sessionStart TIMESTAMP, 
@@ -62,5 +62,5 @@ CREATE TABLE sessions (
 \copy orders from '/tmp/csv/purchases.csv' WITH DELIMITER ',' CSV HEADER NULL AS '\N';
 \copy sessions from '/tmp/csv/sessions.csv' WITH DELIMITER ',' CSV HEADER;
 \copy events from '/tmp/csv/events.csv' WITH DELIMITER ',' CSV HEADER;
-\copy experiment_viewed from '/tmp/csv/experimentViews.csv' WITH DELIMITER ',' CSV HEADER;
+\copy viewed_experiment from '/tmp/csv/experimentViews.csv' WITH DELIMITER ',' CSV HEADER;
 \copy pages from '/tmp/csv/pageViews.csv' WITH DELIMITER ',' CSV HEADER;

@@ -1,7 +1,7 @@
 import express from "express";
-import z from "zod";
-import { wrapController } from "../wrapController";
-import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
+import { z } from "zod";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawArchetypeController from "./archetype.controller";
 
 const router = express.Router();
@@ -11,13 +11,13 @@ const ArchetypeController = wrapController(rawArchetypeController);
 router.get(
   "/",
   validateRequestMiddleware({}),
-  ArchetypeController.getArchetype
+  ArchetypeController.getArchetype,
 );
 
 router.get(
   "/eval/:id/:version",
   validateRequestMiddleware({}),
-  ArchetypeController.getArchetypeAndEval
+  ArchetypeController.getArchetypeAndEval,
 );
 
 router.post(
@@ -28,9 +28,10 @@ router.post(
       description: z.string(),
       isPublic: z.boolean(),
       attributes: z.string(),
+      projects: z.array(z.string()).optional(),
     }),
   }),
-  ArchetypeController.postArchetype
+  ArchetypeController.postArchetype,
 );
 
 router.put(
@@ -46,9 +47,10 @@ router.put(
       description: z.string(),
       isPublic: z.boolean(),
       attributes: z.string(),
+      projects: z.array(z.string()).optional(),
     }),
   }),
-  ArchetypeController.putArchetype
+  ArchetypeController.putArchetype,
 );
 
 router.delete(
@@ -60,7 +62,7 @@ router.delete(
       })
       .strict(),
   }),
-  ArchetypeController.deleteArchetype
+  ArchetypeController.deleteArchetype,
 );
 
 export { router as ArchetypeRouter };

@@ -1,31 +1,30 @@
 import { Response } from "express";
 import { parse, filter } from "scim2-parse-filter";
+import { isRoleValid } from "shared/permissions";
 import {
   BasicScimGroup,
   ScimError,
   ScimGroup,
   ScimGroupMember,
   ScimGroupPatchRequest,
-} from "../../../types/scim";
-import { findTeamById, updateTeamMetadata } from "../../models/TeamModel";
+} from "back-end/types/scim";
 import {
   addMembersToTeam,
   expandOrgMembers,
+  getMembersOfTeam,
   removeMembersFromTeam,
-} from "../../services/organizations";
-import { Member } from "../../../types/organization";
-import { isRoleValid } from "../users/createUser";
+} from "back-end/src/services/organizations";
 
 export async function patchGroup(
   req: ScimGroupPatchRequest,
-  res: Response<ScimGroup | ScimError>
+  res: Response<ScimGroup | ScimError>,
 ) {
   const { Operations } = req.body;
   const { id } = req.params;
 
   const org = req.organization;
 
-  const team = await findTeamById(id, org.id);
+  const team = await req.context.models.teams.getById(id);
 
   if (!team) {
     return res.status(404).json({
@@ -38,10 +37,13 @@ export async function patchGroup(
   for (const operation of Operations) {
     const { op, value, path } = operation;
 
+    const normalizedOp = op.toLowerCase();
+    const normalizedPath = path?.toLowerCase();
+
     try {
-      if (op === "remove") {
+      if (normalizedOp === "remove") {
         // Remove requested members
-        if (!path) {
+        if (!normalizedPath) {
           return res.status(400).json({
             schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
             status: "400",
@@ -59,7 +61,7 @@ export async function patchGroup(
             return { members: { value: member.id, display: member.email } };
           });
 
-        const f = filter(parse(path));
+        const f = filter(parse(normalizedPath));
         const filtered = members.filter(f);
 
         await removeMembersFromTeam({
@@ -67,22 +69,20 @@ export async function patchGroup(
           userIds: filtered.map((m) => m.members.value),
           teamId: team.id,
         });
-      } else if (op === "add" && path === "members") {
+      } else if (normalizedOp === "add" && normalizedPath === "members") {
         // Add requested members
         await addMembersToTeam({
           organization: org,
           userIds: (value as ScimGroupMember[]).map((m) => m.value),
           teamId: team.id,
         });
-      } else if (op === "replace" && path === "members") {
+      } else if (normalizedOp === "replace" && normalizedPath === "members") {
         // Replace all team members with requested members
         if (value) {
-          const prevMembers: Member[] = org.members.filter((member) =>
-            member.teams?.includes(id)
-          );
+          const prevMembers = getMembersOfTeam(org, id);
           await removeMembersFromTeam({
             organization: org,
-            userIds: prevMembers.map((m) => m.id),
+            userIds: prevMembers,
             teamId: id,
           });
 
@@ -92,11 +92,11 @@ export async function patchGroup(
             teamId: id,
           });
         }
-      } else if (op === "replace" && !path) {
+      } else if (normalizedOp === "replace" && !normalizedPath) {
         const role = (value as BasicScimGroup).growthbookRole;
 
         if (role && role !== team.role) {
-          if (!isRoleValid(role)) {
+          if (!isRoleValid(role, org)) {
             return res.status(400).json({
               schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
               status: "400",
@@ -104,11 +104,10 @@ export async function patchGroup(
             });
           }
         }
-        await updateTeamMetadata(team.id, org.id, {
-          ...team,
+        await req.context.models.teams.update(team, {
           name: (value as BasicScimGroup).displayName,
           managedByIdp: true,
-          role,
+          role: role || team.role,
         });
       } else {
         return res.status(400).json({

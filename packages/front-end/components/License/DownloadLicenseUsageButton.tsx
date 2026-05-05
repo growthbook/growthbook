@@ -1,5 +1,6 @@
 import { FC } from "react";
-import { LicenseMetaData } from "enterprise";
+import { LicenseMetaData, LicenseUserCodes } from "shared/enterprise";
+
 import { FaDownload } from "react-icons/fa";
 import { snakeCase } from "lodash";
 import { useAuth } from "@/services/auth";
@@ -15,8 +16,7 @@ const DownloadLicenseUsageButton: FC = () => {
       const res = await apiCall<{
         status: number;
         licenseMetaData: LicenseMetaData;
-        userEmailCodes: string[];
-        inviteEmailCodes: string[];
+        userEmailCodes: LicenseUserCodes;
         signature: string;
         timestamp: string;
       }>(`/license/report`, {
@@ -34,21 +34,24 @@ const DownloadLicenseUsageButton: FC = () => {
               license: license,
               licenseMetaData: res.licenseMetaData,
               userEmailCodes: res.userEmailCodes,
-              inviteEmailCodes: res.inviteEmailCodes,
-              activeSeatsUsed: res.userEmailCodes.length,
-              seatsUsed: new Set(
-                res.userEmailCodes.concat(res.inviteEmailCodes)
-              ).size,
+              seatsUsed:
+                res.userEmailCodes.fullMembers.length +
+                res.userEmailCodes.invites.length +
+                res.userEmailCodes.readOnlyMembers.length,
+              fullMemberSeatsUsed: res.userEmailCodes.fullMembers.length,
+              readOnlyMemberSeatsUsed:
+                res.userEmailCodes.readOnlyMembers.length,
+              inviteSeatsUsed: res.userEmailCodes.invites.length,
               signature: res.signature,
               timestamp: res.timestamp,
             },
             null,
-            2
+            2,
           ),
         ],
         {
           type: "application/json",
-        }
+        },
       );
       const href = window.URL.createObjectURL(blob);
       const link = document.createElement("a");

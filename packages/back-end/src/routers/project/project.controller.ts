@@ -1,41 +1,40 @@
 import type { Response } from "express";
-import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse } from "../../../types/api";
-import { getContextFromReq } from "../../services/organizations";
-import { ProjectInterface, ProjectSettings } from "../../../types/project";
-import {
-  createProject,
-  deleteProjectById,
-  findProjectById,
-  updateProject,
-  updateProjectSettings,
-} from "../../models/ProjectModel";
+import { ProjectInterface, ProjectSettings } from "shared/types/project";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
+import { stringToBoolean } from "shared/util";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { ApiErrorResponse } from "back-end/types/api";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   deleteAllDataSourcesForAProject,
   removeProjectFromDatasources,
-} from "../../models/DataSourceModel";
+} from "back-end/src/models/DataSourceModel";
 import {
   deleteAllMetricsForAProject,
   removeProjectFromMetrics,
-} from "../../models/MetricModel";
+} from "back-end/src/models/MetricModel";
 import {
   deleteAllFeaturesForAProject,
   removeProjectFromFeatures,
-} from "../../models/FeatureModel";
-import { removeProjectFromProjectRoles } from "../../models/OrganizationModel";
+} from "back-end/src/models/FeatureModel";
+import { removeProjectFromProjectRoles } from "back-end/src/models/OrganizationModel";
 import {
   deleteAllExperimentsForAProject,
   removeProjectFromExperiments,
-} from "../../models/ExperimentModel";
+} from "back-end/src/models/ExperimentModel";
 import {
   deleteAllSlackIntegrationsForAProject,
   removeProjectFromSlackIntegration,
-} from "../../models/SlackIntegrationModel";
-import { EventAuditUserForResponseLocals } from "../../events/event-types";
+} from "back-end/src/models/SlackIntegrationModel";
+import { deleteAllFactTablesForAProject } from "back-end/src/models/FactTableModel";
 
 // region POST /projects
 
-type CreateProjectRequest = AuthRequest<{ name: string; description: string }>;
+type CreateProjectRequest = AuthRequest<{
+  name: string;
+  description?: string;
+  publicId?: string;
+}>;
 
 type CreateProjectResponse = {
   status: 200;
@@ -52,20 +51,20 @@ export const postProject = async (
   req: CreateProjectRequest,
   res: Response<
     CreateProjectResponse | ApiErrorResponse,
-    EventAuditUserForResponseLocals
-  >
+    EventUserForResponseLocals
+  >,
 ) => {
   const context = getContextFromReq(req);
 
   if (!context.permissions.canCreateProjects()) {
     context.permissions.throwPermissionError();
   }
-  const { name, description } = req.body;
-  const { org } = getContextFromReq(req);
+  const { name, description, publicId } = req.body;
 
-  const doc = await createProject(org.id, {
+  const doc = await context.models.projects.create({
     name,
     description,
+    publicId,
   });
 
   res.status(200).json({
@@ -98,8 +97,8 @@ export const putProject = async (
   req: PutProjectRequest,
   res: Response<
     PutProjectResponse | ApiErrorResponse,
-    EventAuditUserForResponseLocals
-  >
+    EventUserForResponseLocals
+  >,
 ) => {
   const { id } = req.params;
 
@@ -109,7 +108,7 @@ export const putProject = async (
     context.permissions.throwPermissionError();
   }
 
-  const project = await findProjectById(context, id);
+  const project = await context.models.projects.getById(id);
 
   if (!project) {
     res.status(404).json({
@@ -118,12 +117,12 @@ export const putProject = async (
     return;
   }
 
-  const { name, description } = req.body;
+  const { name, description, publicId } = req.body;
 
-  await updateProject(id, project.organization, {
+  await context.models.projects.updateById(id, {
     name,
     description,
-    dateUpdated: new Date(),
+    publicId,
   });
 
   res.status(200).json({
@@ -139,11 +138,7 @@ type DeleteProjectRequest = AuthRequest<
   null,
   { id: string },
   {
-    deleteFeatures?: boolean;
-    deleteExperiments?: boolean;
-    deleteMetrics?: boolean;
-    deleteSlackIntegrations?: boolean;
-    deleteDataSources?: boolean;
+    deleteResources?: string;
   }
 >;
 
@@ -161,17 +156,11 @@ export const deleteProject = async (
   req: DeleteProjectRequest,
   res: Response<
     DeleteProjectResponse | ApiErrorResponse,
-    EventAuditUserForResponseLocals
-  >
+    EventUserForResponseLocals
+  >,
 ) => {
   const { id } = req.params;
-  const {
-    deleteExperiments = false,
-    deleteFeatures = false,
-    deleteMetrics = false,
-    deleteSlackIntegrations = false,
-    deleteDataSources = false,
-  } = req.query;
+  const deleteResources = stringToBoolean(req.query.deleteResources, false);
   const context = getContextFromReq(req);
 
   if (!context.permissions.canDeleteProject(id)) {
@@ -179,12 +168,14 @@ export const deleteProject = async (
   }
   const { org } = context;
 
-  await deleteProjectById(id, org.id);
+  await context.models.projects.deleteById(id);
+
+  const failedToDeleteResources: string[] = [];
 
   // Cleanup functions from other models
   // Clean up data sources
-  if (deleteDataSources) {
-    try {
+  try {
+    if (deleteResources) {
       if (!context.permissions.canDeleteDataSource({ projects: [id] })) {
         context.permissions.throwPermissionError();
       }
@@ -193,19 +184,16 @@ export const deleteProject = async (
         projectId: id,
         organizationId: org.id,
       });
-    } catch (e) {
-      return res.json({
-        status: 403,
-        message: "Failed to delete data sources",
-      });
+    } else {
+      await removeProjectFromDatasources(id, org.id);
     }
-  } else {
-    await removeProjectFromDatasources(id, org.id);
+  } catch (e) {
+    failedToDeleteResources.push("data sources");
   }
 
   // Clean up metrics
-  if (deleteMetrics) {
-    try {
+  try {
+    if (deleteResources) {
       if (!context.permissions.canDeleteMetric({ projects: [id] })) {
         context.permissions.throwPermissionError();
       }
@@ -213,19 +201,29 @@ export const deleteProject = async (
         projectId: id,
         context,
       });
-    } catch (e) {
-      return res.json({
-        status: 403,
-        message: "Failed to delete metrics",
-      });
+    } else {
+      await removeProjectFromMetrics(id, org.id);
     }
-  } else {
-    await removeProjectFromMetrics(id, org.id);
+  } catch (e) {
+    failedToDeleteResources.push("metrics");
+  }
+
+  // Clean up fact tables and metrics
+  try {
+    if (deleteResources) {
+      await deleteAllFactTablesForAProject({
+        projectId: id,
+        context,
+      });
+      await context.models.factMetrics.deleteAllFactMetricsForAProject(id);
+    }
+  } catch (e) {
+    failedToDeleteResources.push("fact tables and metrics");
   }
 
   // Clean up features
-  if (deleteFeatures) {
-    try {
+  try {
+    if (deleteResources) {
       if (!context.permissions.canDeleteFeature({ project: id })) {
         context.permissions.throwPermissionError();
       }
@@ -234,19 +232,16 @@ export const deleteProject = async (
         projectId: id,
         context,
       });
-    } catch (e) {
-      return res.json({
-        status: 403,
-        message: "Failed to delete features",
-      });
+    } else {
+      await removeProjectFromFeatures(context, id);
     }
-  } else {
-    await removeProjectFromFeatures(context, id);
+  } catch (e) {
+    failedToDeleteResources.push("features");
   }
 
   // Clean up experiments
-  if (deleteExperiments) {
-    try {
+  try {
+    if (deleteResources) {
       if (!context.permissions.canDeleteExperiment({ project: id })) {
         context.permissions.throwPermissionError();
       }
@@ -254,19 +249,16 @@ export const deleteProject = async (
         projectId: id,
         context,
       });
-    } catch (e) {
-      return res.json({
-        status: 403,
-        message: "Failed to delete experiments",
-      });
+    } else {
+      await removeProjectFromExperiments(context, id);
     }
-  } else {
-    await removeProjectFromExperiments(context, id);
+  } catch (e) {
+    failedToDeleteResources.push("experiments");
   }
 
   // Clean up Slack integrations
-  if (deleteSlackIntegrations) {
-    try {
+  try {
+    if (deleteResources) {
       if (!context.permissions.canManageIntegrations()) {
         context.permissions.throwPermissionError();
       }
@@ -275,25 +267,50 @@ export const deleteProject = async (
         projectId: id,
         organization: org,
       });
-    } catch (e) {
-      return res.json({
-        status: 403,
-        message: "Failed to delete Slack integrations",
+    } else {
+      await removeProjectFromSlackIntegration({
+        organizationId: org.id,
+        projectId: id,
       });
     }
-  } else {
-    await removeProjectFromSlackIntegration({
-      organizationId: org.id,
-      projectId: id,
-    });
+  } catch (e) {
+    failedToDeleteResources.push("Slack integrations");
   }
 
-  await removeProjectFromProjectRoles(id, org);
+  // Clean up project roles
+  try {
+    await removeProjectFromProjectRoles(id, org);
+  } catch (e) {
+    failedToDeleteResources.push("project roles");
+  }
 
+  // Clean up saved groups
+  try {
+    await context.models.savedGroups.removeProjectIdFromAllGroups(id);
+  } catch (e) {
+    failedToDeleteResources.push("saved groups");
+  }
+
+  // TODO: other resources to clean up
   // ideas?
-  // report?
   // dimensions?
-  // api endpoints & webhooks?
+  // segments?
+  // webhooks?
+  // safe rollouts?
+  // custom hooks?
+  // custom fields?
+  // pre-launch checklists?
+
+  if (deleteResources && failedToDeleteResources.length > 0) {
+    const message =
+      `Project deleted, but failed to delete the following resources: ` +
+      failedToDeleteResources.join(", ");
+    res.status(400).json({
+      status: 400,
+      message,
+    });
+    return;
+  }
 
   res.status(200).json({
     status: 200,
@@ -312,7 +329,7 @@ type PutProjectSettingsResponse = {
 };
 export const putProjectSettings = async (
   req: PutProjectSettingsRequest,
-  res: Response<PutProjectSettingsResponse | ApiErrorResponse>
+  res: Response<PutProjectSettingsResponse | ApiErrorResponse>,
 ) => {
   const { id } = req.params;
 
@@ -322,7 +339,7 @@ export const putProjectSettings = async (
     context.permissions.throwPermissionError();
   }
 
-  const project = await findProjectById(context, id);
+  const project = await context.models.projects.getById(id);
 
   if (!project) {
     res.status(404).json({
@@ -333,7 +350,7 @@ export const putProjectSettings = async (
 
   const { settings } = req.body;
 
-  await updateProjectSettings(id, project.organization, settings);
+  await context.models.projects.update(project, { settings });
 
   res.status(200).json({
     status: 200,

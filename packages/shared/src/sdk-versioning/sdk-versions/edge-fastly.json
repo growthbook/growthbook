@@ -1,0 +1,53 @@
+{
+  "versions": [
+    {
+      "version": "0.2.8"
+    },
+    {
+      "version": "0.2.7",
+      "capabilities": ["caseInsensitiveRegex", "caseInsensitiveMembership"]
+    },
+    {
+      "version": "0.2.6"
+    },
+    {
+      "version": "0.2.5"
+    },
+    {
+      "version": "0.2.4"
+    },
+    {
+      "version": "0.2.2"
+    },
+    {
+      "version": "0.2.1"
+    },
+    {
+      "version": "0.1.8"
+    },
+    {
+      "version": "0.1.7"
+    },
+    {
+      "version": "0.1.6",
+      "capabilities": ["savedGroupReferences"]
+    },
+    {
+      "version": "0.1.5",
+      "capabilities": [
+        "looseUnmarshalling",
+        "namespacesV2",
+        "encryption",
+        "streaming",
+        "bucketingV2",
+        "visualEditor",
+        "semverTargeting",
+        "visualEditorJS",
+        "visualEditorDragDrop",
+        "prerequisites",
+        "redirects",
+        "stickyBucketing"
+      ]
+    }
+  ]
+}

@@ -1,23 +1,24 @@
 import { useRouter } from "next/router";
-import { useMemo, useState } from "react";
-import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
-import { OrganizationSettings } from "back-end/types/organization";
+import { useMemo } from "react";
+import { FeatureCodeRefsInterface } from "shared/types/code-refs";
+import { OrganizationSettings } from "shared/types/organization";
 import { FaGitAlt, FaExternalLinkAlt } from "react-icons/fa";
+import { Flex, Box } from "@radix-ui/themes";
 import Code from "@/components/SyntaxHighlighting/Code";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import { useUser } from "@/services/UserContext";
 import Button from "@/components/Button";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { GBPremiumBadge } from "@/components/Icons";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import PremiumEmptyState from "@/components/PremiumEmptyState";
 
 const generatePlatformUrl = (
   platformUrl: string,
   repo: string,
   branch: string,
   filePath: string,
-  lineNumber: number
+  lineNumber: number,
 ) => {
   return `${platformUrl}/${repo}/blob/${branch}/${filePath}#L${lineNumber}`;
 };
@@ -30,13 +31,12 @@ export default function FeaturesStats({
   codeRefs: FeatureCodeRefsInterface[];
 }) {
   const router = useRouter();
-  const [upgradeModal, setUpgradeModal] = useState(false);
   const {
     codeReferencesEnabled,
     codeRefsPlatformUrl,
     codeRefsBranchesToFilter,
   } = orgSettings;
-  const { accountPlan, hasCommercialFeature } = useUser();
+  const { hasCommercialFeature } = useUser();
   const hasFeature = hasCommercialFeature("code-references");
   const permissionsUtil = usePermissionsUtil();
 
@@ -45,16 +45,32 @@ export default function FeaturesStats({
       return allCodeRefs;
     }
     return allCodeRefs.filter((codeRef) =>
-      codeRefsBranchesToFilter.includes(codeRef.branch)
+      codeRefsBranchesToFilter.includes(codeRef.branch),
     );
   }, [allCodeRefs, codeRefsBranchesToFilter]);
 
+  if (!hasFeature) {
+    return (
+      <>
+        <div className="contents container-fluid pagecontents">
+          <PremiumEmptyState
+            title="Enable Code References"
+            description="Quickly see instances of feature flags being leveraged in your
+              codebase, with direct links from GrowthBook to the platform of
+              your choice."
+            commercialFeature="code-references"
+            learnMoreLink="https://docs.growthbook.io/features/code-references"
+          />
+        </div>
+      </>
+    );
+  }
   if (!codeReferencesEnabled) {
     return (
       <>
         <div className="contents container-fluid pagecontents">
           <div
-            className="appbox bg-white"
+            className="appbox"
             style={{
               height: "18rem",
               display: "flex",
@@ -63,60 +79,44 @@ export default function FeaturesStats({
               alignItems: "center",
             }}
           >
-            <PremiumTooltip commercialFeature="code-references">
-              <span className="h2">Enable Code References</span>
-            </PremiumTooltip>
+            <h2 className="m-0 ml-1">Enable Code References</h2>
             <p style={{ width: "32rem" }}>
               Quickly see instances of feature flags being leveraged in your
               codebase, with direct links from GrowthBook to the platform of
               your choice.
             </p>
-            {hasFeature ? (
-              <Tooltip
-                shouldDisplay={!permissionsUtil.canManageOrgSettings()}
-                body="You need permission to manage organization settings to enable this feature."
+
+            <Tooltip
+              shouldDisplay={!permissionsUtil.canManageOrgSettings()}
+              body="You need permission to manage organization settings to enable this feature."
+            >
+              <Button
+                disabled={!permissionsUtil.canManageOrgSettings()}
+                onClick={async () => {
+                  router.push("/settings#configure-code-refs");
+                }}
               >
-                <Button
-                  disabled={!permissionsUtil.canManageOrgSettings()}
-                  onClick={async () => {
-                    router.push("/settings#configure-code-refs");
-                  }}
-                >
-                  Go to settings
-                </Button>
-              </Tooltip>
-            ) : (
-              <Button color="warning" onClick={() => setUpgradeModal(true)}>
-                {accountPlan === "oss" ? (
-                  <>
-                    Upgrade to Enterprise <GBPremiumBadge />
-                  </>
-                ) : (
-                  <>
-                    Upgrade to Pro <GBPremiumBadge />
-                  </>
-                )}
+                Go to settings
               </Button>
-            )}
+            </Tooltip>
           </div>
         </div>
-        {upgradeModal && (
-          <UpgradeModal
-            close={() => setUpgradeModal(false)}
-            reason=""
-            source="settings"
-          />
-        )}
       </>
     );
   }
 
   return (
     <div className="contents container-fluid pagecontents">
-      <h3>Code References</h3>
-      <div className="mb-1">
-        References to this feature flag found in your codebase.
-      </div>
+      <Flex align="start" justify="between" mt="4" mb="5" gap="4">
+        <Box flexShrink="1">
+          <Heading mb="1" size="medium" as="h3">
+            Code References
+          </Heading>
+          <Text mb="0">
+            References to this feature flag found in your codebase.
+          </Text>
+        </Box>
+      </Flex>
       {codeRefs.length > 0 ? (
         codeRefs.map((codeRef, i) => (
           <div key={i} className="appbox mb-4 p-3">
@@ -141,7 +141,7 @@ export default function FeaturesStats({
                           codeRef.branch,
                           ref.filePath,
                           ref.startingLineNumber +
-                            ((ref.lines.split("\n").length / 2) | 0)
+                            ((ref.lines.split("\n").length / 2) | 0),
                         )}
                       >
                         <FaExternalLinkAlt className="mr-2 cursor-pointer" />

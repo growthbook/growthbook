@@ -2,6 +2,7 @@ import { FC } from "react";
 import { useForm } from "react-hook-form";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
+import track from "@/services/track";
 import TagsInput from "./TagsInput";
 
 const EditTagsForm: FC<{
@@ -9,7 +10,8 @@ const EditTagsForm: FC<{
   save: (tags: string[]) => Promise<void>;
   cancel: () => void;
   mutate: () => void;
-}> = ({ tags = [], save, cancel, mutate }) => {
+  source?: string;
+}> = ({ tags = [], save, cancel, mutate, source }) => {
   const { refreshTags } = useDefinitions();
 
   const form = useForm({
@@ -20,6 +22,8 @@ const EditTagsForm: FC<{
 
   return (
     <Modal
+      trackingEventModalType="edit-tags-form"
+      trackingEventModalSource={source}
       header={"Edit Tags"}
       open={true}
       close={cancel}
@@ -27,6 +31,9 @@ const EditTagsForm: FC<{
         await save(data.tags);
         refreshTags(data.tags);
         mutate();
+        track("edit-tags", {
+          numTags: data.tags.length,
+        });
       })}
       cta="Save"
     >

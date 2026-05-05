@@ -1,40 +1,66 @@
-import { ListExperimentsResponse } from "../../../types/openapi";
-import { getAllExperiments } from "../../models/ExperimentModel";
-import { toExperimentApiInterface } from "../../services/experiments";
 import {
-  applyFilter,
+  ExperimentInterfaceExcludingHoldouts,
+  listExperimentsValidator,
+} from "shared/validators";
+import { ProjectInterface } from "shared/types/project";
+import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import { toExperimentApiInterface } from "back-end/src/services/experiments";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
+import {
   applyPagination,
   createApiRequestHandler,
-} from "../../util/handler";
-import { listExperimentsValidator } from "../../validators/openapi";
+} from "back-end/src/util/handler";
 
 export const listExperiments = createApiRequestHandler(
-  listExperimentsValidator
-)(
-  async (req): Promise<ListExperimentsResponse> => {
-    const experiments = await getAllExperiments(req.context);
-
-    // TODO: Move sorting/limiting to the database query for better performance
-    const { filtered, returnFields } = applyPagination(
-      experiments
-        .filter(
-          (exp) =>
-            applyFilter(req.query.experimentId, exp.trackingKey) &&
-            applyFilter(req.query.datasourceId, exp.datasource) &&
-            applyFilter(req.query.projectId, exp.project)
-        )
-        .sort((a, b) => a.dateCreated.getTime() - b.dateCreated.getTime()),
-      req.query
+  listExperimentsValidator,
+)(async (req) => {
+  if (req.query.trackingKey && req.query.experimentId) {
+    throw new Error(
+      "Cannot use both trackingKey and experimentId query parameters. Use trackingKey instead.",
     );
-
-    const promises = filtered.map((experiment) =>
-      toExperimentApiInterface(req.context, experiment)
-    );
-    const apiExperiments = await Promise.all(promises);
-
-    return {
-      experiments: apiExperiments,
-      ...returnFields,
-    };
   }
-);
+
+  // Filter and sort at the database level for better performance
+  // Note: type is not specified, which defaults to excluding holdouts
+  const experiments = await getAllExperiments(req.context, {
+    includeArchived: true,
+    project: req.query.projectId,
+    datasourceId: req.query.datasourceId,
+    trackingKey: req.query.trackingKey ?? req.query.experimentId,
+    status: req.query.status,
+    sortBy: { dateCreated: 1 },
+  });
+
+  // TODO: Move pagination (limit/offset) to database for better performance
+  const { filtered, returnFields } = applyPagination(experiments, req.query);
+
+  // Batch-load all projects for the filtered experiments to avoid N+1 queries
+  const projectIds = [
+    ...new Set(
+      filtered.map((exp) => exp.project).filter((p): p is string => !!p),
+    ),
+  ];
+  const projects = projectIds.length
+    ? await req.context.models.projects.getByIds(projectIds)
+    : [];
+  const projectMap = new Map<string, ProjectInterface>(
+    projects.map((p) => [p.id, p]),
+  );
+
+  const promises = filtered.map((experiment) =>
+    toExperimentApiInterface(
+      req.context,
+      experiment as ExperimentInterfaceExcludingHoldouts,
+      projectMap,
+    ),
+  );
+  const apiExperiments = await resolveOwnerEmails(
+    await Promise.all(promises),
+    req.context,
+  );
+
+  return {
+    experiments: apiExperiments,
+    ...returnFields,
+  };
+});

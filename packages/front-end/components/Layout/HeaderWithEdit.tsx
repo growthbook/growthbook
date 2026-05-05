@@ -1,53 +1,41 @@
 import clsx from "clsx";
 import { ReactElement } from "react";
-import { GBEdit } from "@/components/Icons";
+import { Box, Flex } from "@radix-ui/themes";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Button from "@/ui/Button";
 
 export interface Props {
   className?: string;
   containerClassName?: string;
   children: string | ReactElement;
   edit?: () => void;
-  editClassName?: string;
-  stopPropagation?: boolean;
+  additionalActions?: ReactElement;
   disabledMessage?: false | null | undefined | string | ReactElement;
 }
 
 export default function HeaderWithEdit({
   children,
   edit,
-  editClassName = "a",
+  additionalActions,
   className = "h3",
   containerClassName = "mb-2",
-  stopPropagation = false,
   disabledMessage = null,
 }: Props) {
   return (
-    <div className={containerClassName}>
-      <div className={clsx(className, "mb-0")}>
+    <Box className={containerClassName}>
+      <Flex align="start" justify="between" className={clsx(className, "mb-0")}>
         {children}{" "}
         {edit ? (
-          <span className="ml-1">
-            <a
-              className={editClassName}
-              role="button"
-              onClick={(e) => {
-                e.preventDefault();
-                if (stopPropagation) e.stopPropagation();
-                edit();
-              }}
-            >
-              <GBEdit />
-            </a>
-          </span>
+          <Button variant="ghost" onClick={edit}>
+            Edit
+          </Button>
         ) : disabledMessage ? (
           <span className="ml-1 text-muted">
-            <Tooltip body={disabledMessage}>
-              <GBEdit />
-            </Tooltip>
+            <Tooltip body={disabledMessage}>Edit</Tooltip>
           </span>
         ) : null}
-      </div>
-    </div>
+        {additionalActions && <div className="ml-1">{additionalActions}</div>}
+      </Flex>
+    </Box>
   );
 }

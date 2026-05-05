@@ -1,8 +1,12 @@
 import React, { FC } from "react";
 import dynamic from "next/dynamic";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { PresentationInterface } from "back-end/types/presentation";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  PresentationInterface,
+  PresentationCelebration,
+  PresentationTransition,
+} from "shared/types/presentation";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
@@ -12,7 +16,7 @@ const DynamicPresentation = dynamic<PresentationProps>(
   {
     ssr: false,
     //loading: () => (<p>Loading...</p>) // this causes a lint error
-  }
+  },
 );
 
 const Preview: FC<{
@@ -24,6 +28,11 @@ const Preview: FC<{
   textColor: string;
   headingFont?: string;
   bodyFont?: string;
+  customTheme?: {
+    logoUrl?: string;
+    celebration?: string;
+    transition?: string;
+  };
 }> = ({
   expIds,
   theme,
@@ -33,6 +42,7 @@ const Preview: FC<{
   textColor,
   headingFont,
   bodyFont,
+  customTheme: customThemeOverrides,
 }) => {
   const { data: pdata, error } = useApi<{
     status: number;
@@ -58,6 +68,7 @@ const Preview: FC<{
 
   return (
     <DynamicPresentation
+      key={`preview-${expIds}-${customThemeOverrides?.logoUrl ?? ""}-${customThemeOverrides?.celebration ?? "none"}-${customThemeOverrides?.transition ?? "fade"}`}
       experiments={pdata.experiments}
       theme={theme}
       preview={true}
@@ -68,6 +79,11 @@ const Preview: FC<{
         textColor: "#" + textColor,
         headingFont: headingFont,
         bodyFont: bodyFont,
+        logoUrl: customThemeOverrides?.logoUrl,
+        celebration: (customThemeOverrides?.celebration ??
+          "none") as PresentationCelebration,
+        transition: (customThemeOverrides?.transition ??
+          "fade") as PresentationTransition,
       }}
     />
   );

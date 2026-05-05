@@ -1,7 +1,7 @@
 import express from "express";
-import z from "zod";
-import { wrapController } from "../wrapController";
-import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
+import { z } from "zod";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawProjectController from "./project.controller";
 
 const router = express.Router();
@@ -15,10 +15,11 @@ router.post(
       .object({
         name: z.string(),
         description: z.string(),
+        publicId: z.string().optional(),
       })
       .strict(),
   }),
-  projectController.postProject
+  projectController.postProject,
 );
 
 router.put(
@@ -33,10 +34,11 @@ router.put(
       .object({
         name: z.string(),
         description: z.string(),
+        publicId: z.string().optional(),
       })
       .strict(),
   }),
-  projectController.putProject
+  projectController.putProject,
 );
 
 router.delete(
@@ -48,7 +50,7 @@ router.delete(
       })
       .strict(),
   }),
-  projectController.deleteProject
+  projectController.deleteProject,
 );
 
 router.put(
@@ -58,11 +60,13 @@ router.put(
       .object({
         settings: z.object({
           statsEngine: z.string().optional(),
+          confidenceLevel: z.number().min(0.5).max(1).optional(),
+          pValueThreshold: z.number().gt(0).max(0.5).optional(),
         }),
       })
       .strict(),
   }),
-  projectController.putProjectSettings
+  projectController.putProjectSettings,
 );
 
 export { router as projectRouter };

@@ -1,9 +1,11 @@
-import Link from "next/link";
 import { useRouter } from "next/router";
 import { ReactElement, useEffect, useState } from "react";
+import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Modal from "@/components/Modal";
 import { getApiHost, usingSSO } from "@/services/env";
+import { trackPageView } from "@/services/track";
+import Callout from "@/ui/Callout";
 
 export default function ResetPasswordPage(): ReactElement {
   const router = useRouter();
@@ -37,18 +39,24 @@ export default function ResetPasswordPage(): ReactElement {
       });
   }, [token, router.isReady]);
 
+  // This page is before the user is part of an org, so need to manually fire a page load event
+  useEffect(() => {
+    trackPageView("/reset-password");
+  }, []);
+
   if (usingSSO()) {
     return (
       <div className="container">
-        <div className="alert alert-danger">
+        <Callout status="error">
           Invalid URL. <Link href="/">Go Back</Link>
-        </div>
+        </Callout>
       </div>
     );
   }
 
   return (
     <Modal
+      trackingEventModalType=""
       open={true}
       autoCloseOnSubmit={false}
       submit={
@@ -80,13 +88,13 @@ export default function ResetPasswordPage(): ReactElement {
     >
       {loading && <LoadingOverlay />}
       {error ? (
-        <div className="alert alert-danger">{error}</div>
+        <Callout status="error">{error}</Callout>
       ) : success ? (
         <div>
           <h3 className="mb-3">Reset Password</h3>
-          <div className="alert alert-success">
+          <Callout mb="3" status="success">
             Successfully reset password for <strong>{email}</strong>
-          </div>
+          </Callout>
           <button
             className="btn btn-primary"
             onClick={(e) => {

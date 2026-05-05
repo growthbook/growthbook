@@ -1,18 +1,17 @@
-import { ReportInterface } from "back-end/types/report";
+import { ReportInterface } from "shared/types/report";
 import Link from "next/link";
 import React from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useRouter } from "next/router";
 import { ago, datetime } from "shared/dates";
 import { FaExclamationTriangle } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import { trackReport } from "@/services/track";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 
 export default function ExperimentReportsList({
   experiment,
@@ -23,7 +22,6 @@ export default function ExperimentReportsList({
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const { userId, users } = useUser();
-  const { getDatasourceById } = useDefinitions();
 
   const { data, error, mutate } = useApi<{
     reports: ReportInterface[];
@@ -39,8 +37,24 @@ export default function ExperimentReportsList({
   }
 
   const { reports } = data;
+  const isAdmin = permissionsUtil.canSuperDeleteReport();
 
-  if (!reports.length) {
+  const filteredReports = reports
+    .map((report) => {
+      const isOwner = userId === report?.userId || !report?.userId;
+      const canDelete = isOwner || isAdmin;
+      const show = isOwner
+        ? true
+        : report.type === "experiment"
+          ? report.status === "published"
+          : report.shareLevel === "public" ||
+            report.shareLevel === "organization";
+      const showDelete = report.type === "experiment" ? isAdmin : canDelete;
+      return { report, show, showDelete, isOwner };
+    })
+    .filter((fr) => fr.show);
+
+  if (!filteredReports.length) {
     return null;
   }
 
@@ -51,15 +65,27 @@ export default function ExperimentReportsList({
           <tr>
             <th>Title</th>
             <th>Description</th>
+            <th>Status</th>
             <th className="d-none d-md-table-cell">Last Updated </th>
             <th>By</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {reports.map((report) => {
+          {filteredReports.map((filteredReport) => {
+            const report = filteredReport.report;
             const user = report.userId ? users.get(report.userId) : null;
             const name = user ? user.name : "";
+            const status =
+              report.type === "experiment"
+                ? report.status === "private"
+                  ? "private"
+                  : "organization"
+                : report.shareLevel === "public"
+                  ? "public"
+                  : report.shareLevel === "private"
+                    ? "private"
+                    : "organization";
             return (
               <tr key={report.id} className="">
                 <td
@@ -70,7 +96,7 @@ export default function ExperimentReportsList({
                   }}
                 >
                   <div className="d-flex align-items-center">
-                    {report.error ? (
+                    {report.type === "experiment" && report.error ? (
                       <Tooltip
                         body={report.error}
                         className="d-flex align-items-center"
@@ -98,6 +124,17 @@ export default function ExperimentReportsList({
                     {report.description}
                   </Link>
                 </td>
+                <td>
+                  <ShareStatusBadge
+                    shareLevel={status}
+                    editLevel={
+                      report.type === "experiment-snapshot"
+                        ? report.editLevel
+                        : "organization"
+                    }
+                    isOwner={filteredReport.isOwner}
+                  />
+                </td>
                 <td
                   title={datetime(report.dateUpdated)}
                   className="d-none d-md-table-cell"
@@ -106,8 +143,7 @@ export default function ExperimentReportsList({
                 </td>
                 <td>{name}</td>
                 <td style={{ width: 50 }}>
-                  {permissionsUtil.canSuperDeleteReport() ||
-                  report.userId === userId ? (
+                  {filteredReport.showDelete ? (
                     <DeleteButton
                       displayName="Custom Report"
                       link={true}
@@ -119,14 +155,7 @@ export default function ExperimentReportsList({
                           `/report/${report.id}`,
                           {
                             method: "DELETE",
-                          }
-                        );
-                        trackReport(
-                          "delete",
-                          "ExperimentReportsList",
-                          getDatasourceById(report.args.datasource)?.type ||
-                            null,
-                          report
+                          },
                         );
                         mutate();
                       }}

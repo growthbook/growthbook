@@ -1,12 +1,20 @@
 import { ReactNode, useMemo } from "react";
-import { MemberRole, MemberRoleInfo } from "back-end/types/organization";
+import { Flex } from "@radix-ui/themes";
+import { MemberRoleInfo } from "shared/types/organization";
 import uniqid from "uniqid";
-import { roleSupportsEnvLimit } from "shared/permissions";
+import {
+  RESERVED_ROLE_IDS,
+  roleSupportsEnvLimit,
+  getRoleDisplayName,
+} from "shared/permissions";
 import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Toggle from "@/components/Forms/Toggle";
-import SelectField from "@/components/Forms/SelectField";
+import Switch from "@/ui/Switch";
+import SelectField, {
+  GroupedValue,
+  SingleValue,
+} from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 
 export default function SingleRoleSelector({
@@ -14,26 +22,100 @@ export default function SingleRoleSelector({
   setValue,
   label,
   includeAdminRole = false,
+  includeProjectAdminRole = false,
   disabled = false,
 }: {
   value: MemberRoleInfo;
   setValue: (value: MemberRoleInfo) => void;
   label: ReactNode;
   includeAdminRole?: boolean;
+  includeProjectAdminRole?: boolean;
   disabled?: boolean;
 }) {
-  const { roles, hasCommercialFeature } = useUser();
+  const { roles, hasCommercialFeature, organization } = useUser();
   const hasFeature = hasCommercialFeature("advanced-permissions");
+  const hasCustomRolesFeature = hasCommercialFeature("custom-roles");
+  const deactivatedRoles = organization.deactivatedRoles || [];
 
   const isNoAccessRoleEnabled = hasCommercialFeature("no-access-role");
+  const isProjectAdminRoleEnabled = hasCommercialFeature("project-admin-role");
 
   let roleOptions = [...roles];
 
   if (!isNoAccessRoleEnabled) {
-    roleOptions = roles.filter((r) => r.id !== "noaccess");
+    roleOptions = roleOptions.filter((r) => r.id !== "noaccess");
   }
 
-  const availableEnvs = useEnvironments();
+  if (!includeAdminRole) {
+    roleOptions = roleOptions.filter((r) => r.id !== "admin");
+  }
+
+  // If the org doesn't have the project-admin-role feature, remove the project admin role
+  if (!includeProjectAdminRole || !isProjectAdminRoleEnabled) {
+    roleOptions = roleOptions.filter((r) => r.id !== "gbDefault_projectAdmin");
+  }
+
+  // if the org has custom-roles feature and has deactivated roles, remove those from the roleOptions
+  if (hasCustomRolesFeature && deactivatedRoles.length) {
+    roleOptions = roleOptions.filter((r) => !deactivatedRoles.includes(r.id));
+  }
+
+  const standardOptions: { label: string; value: string }[] = [];
+  const customOptions: { label: string; value: string }[] = [];
+
+  roleOptions.forEach((r) => {
+    if (RESERVED_ROLE_IDS.includes(r.id)) {
+      standardOptions.push({
+        label: getRoleDisplayName(r.id, organization),
+        value: r.id,
+      });
+    } else {
+      if (hasCustomRolesFeature) {
+        customOptions.push({
+          label: getRoleDisplayName(r.id, organization),
+          value: r.id,
+        });
+      }
+    }
+  });
+
+  // Only group if we have both standard and custom options
+  const options: SingleValue[] | GroupedValue[] =
+    standardOptions.length && customOptions.length
+      ? [
+          { label: "Standard", options: standardOptions },
+          { label: "Custom", options: customOptions },
+        ]
+      : [...standardOptions, ...customOptions];
+
+  const activeEnvs = useEnvironments();
+
+  // Create a list of envs that combines current active envs, and any deleted envs that are still in the value.environments
+  const envOptions: SingleValue[] = useMemo(() => {
+    const activeEnvIds = new Set(activeEnvs.map((env) => env.id));
+    const envOptions: SingleValue[] = [...activeEnvs].map((env) => {
+      return {
+        label: env.id,
+        value: env.id,
+        tooltip: env.description,
+      };
+    });
+
+    // Add any environments from the current value that are not in activeEnvs
+    // These are likely deleted environments
+    const deletedEnvIds = value.environments.filter(
+      (envId) => !activeEnvIds.has(envId),
+    );
+
+    deletedEnvIds.forEach((envId) => {
+      envOptions.push({
+        label: `(Deleted) - ${envId}`,
+        value: envId,
+        tooltip: `Deleted environment`,
+      });
+    });
+    return envOptions;
+  }, [activeEnvs, value.environments]);
 
   const id = useMemo(() => uniqid(), []);
 
@@ -42,78 +124,69 @@ export default function SingleRoleSelector({
       <SelectField
         label={label}
         value={value.role}
-        onChange={(role: MemberRole) => {
+        onChange={(role) => {
           setValue({
             ...value,
             role,
           });
         }}
-        options={roleOptions
-          .filter((r) => includeAdminRole || r.id !== "admin")
-          .map((r) => ({
-            label: r.id,
-            value: r.id,
-          }))}
+        options={options}
         sort={false}
         formatOptionLabel={(value) => {
-          const r = roles.find((r) => r.id === value.label);
+          const r = roles.find((r) => r.id === value.value);
+          if (!r) return <span>{value.label}</span>;
           return (
-            <div className="d-flex align-items-center">
-              {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-              <strong style={{ width: 110 }}>{r.id}</strong>
-              <small className="ml-2">
-                {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                <em>{r.description}</em>
-              </small>
+            <div className="d-flex">
+              <span className="pr-2">
+                {getRoleDisplayName(r.id, organization)}
+              </span>
+              <span className="ml-auto text-muted">{r.description}</span>
             </div>
           );
         }}
         disabled={disabled}
       />
 
-      {roleSupportsEnvLimit(value.role) && availableEnvs.length > 1 && (
-        <div>
-          <div className="form-group">
-            <label htmlFor={`role-modal--${id}`}>
-              <PremiumTooltip commercialFeature="advanced-permissions">
-                Restrict Access to Specific Environments
-              </PremiumTooltip>
-            </label>
-            <div>
-              <Toggle
-                disabled={!hasFeature}
-                id={`role-modal--${id}`}
-                value={value.limitAccessByEnvironment}
-                setValue={(limitAccessByEnvironment) => {
+      {roleSupportsEnvLimit(value.role, organization) &&
+        envOptions.length > 1 && (
+          <div>
+            <div className="form-group">
+              <Flex align="center" gap="2">
+                <Switch
+                  disabled={!hasFeature}
+                  id={`role-modal--${id}`}
+                  value={value.limitAccessByEnvironment}
+                  onChange={(limitAccessByEnvironment) => {
+                    setValue({
+                      ...value,
+                      limitAccessByEnvironment,
+                    });
+                  }}
+                />
+                <label htmlFor={`role-modal--${id}`} className="mb-0">
+                  <PremiumTooltip commercialFeature="advanced-permissions">
+                    Restrict Access to Specific Environments
+                  </PremiumTooltip>
+                </label>
+              </Flex>
+            </div>
+            {value.limitAccessByEnvironment && (
+              <MultiSelectField
+                label="Environments"
+                className="mb-4"
+                helpText="Select all environments you want the person to have permissions for"
+                value={value.environments}
+                onChange={(environments) => {
                   setValue({
                     ...value,
-                    limitAccessByEnvironment,
+                    environments,
                   });
                 }}
+                options={envOptions}
               />
-            </div>
+            )}
           </div>
-          {value.limitAccessByEnvironment && (
-            <MultiSelectField
-              label="Environments"
-              className="mb-4"
-              helpText="Select all environments you want the person to have permissions for"
-              value={value.environments}
-              onChange={(environments) => {
-                setValue({
-                  ...value,
-                  environments,
-                });
-              }}
-              options={availableEnvs.map((env) => ({
-                label: env.id,
-                value: env.id,
-                tooltip: env.description,
-              }))}
-            />
-          )}
-        </div>
-      )}
+        )}
     </div>
   );
 }

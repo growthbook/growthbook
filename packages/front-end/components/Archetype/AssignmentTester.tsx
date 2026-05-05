@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FeatureInterface, FeatureTestResult } from "back-end/types/feature";
+import { FeatureInterface, FeatureTestResult } from "shared/types/feature";
+import { stemRuleId } from "shared/util";
 import { FaChevronRight } from "react-icons/fa";
-import { ArchetypeInterface } from "back-end/types/archetype";
+import { ArchetypeInterface } from "shared/types/archetype";
 import { FiAlertTriangle } from "react-icons/fi";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -13,71 +15,58 @@ import AttributeForm from "@/components/Archetype/AttributeForm";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import Toggle from "@/components/Forms/Toggle";
-import { useIncrementer } from "@/hooks/useIncrementer";
+import { useArchetype } from "@/hooks/useArchetype";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
+import DatePicker from "@/components/DatePicker";
+import Button from "@/ui/Button";
+import Frame from "@/ui/Frame";
+import Switch from "@/ui/Switch";
 import styles from "./AssignmentTester.module.scss";
 
 export interface Props {
   feature: FeatureInterface;
   version: number;
+  project?: string;
+  startOpen?: boolean;
 }
 
-export default function AssignmentTester({ feature, version }: Props) {
-  const [open, setOpen] = useState(false);
+export default function AssignmentTester({
+  feature,
+  version,
+  project,
+  startOpen = true,
+}: Props) {
+  const [open, setOpen] = useState(startOpen);
   const [formValues, setFormValues] = useState({});
-  const [data, setData] = useState<{
-    status: number;
-    archetype: ArchetypeInterface[];
-    featureResults: Record<string, FeatureTestResult[]>;
-  } | null>(null);
   const [results, setResults] = useState<null | FeatureTestResult[]>(null);
   const [expandResults, setExpandResults] = useState<number[]>([]);
-  const [
-    openArchetypeModal,
-    setOpenArchetypeModal,
-  ] = useState<null | Partial<ArchetypeInterface>>(null);
-  const [skipRulesWithPrerequisites, setSkipRulesWithPrerequisites] = useState(
-    false
-  );
+  const [openArchetypeModal, setOpenArchetypeModal] =
+    useState<null | Partial<ArchetypeInterface>>(null);
+  const [skipRulesWithPrerequisites, setSkipRulesWithPrerequisites] =
+    useState(false);
+  const [evalDate, setEvalDate] = useState<Date | undefined>(new Date());
+
+  const { data, mutate: mutateData } = useArchetype({
+    feature,
+    version,
+    project,
+    skipRulesWithPrerequisites,
+  });
+
+  const { apiCall } = useAuth();
 
   const hasPrerequisites = useMemo(() => {
     if (feature?.prerequisites?.length) return true;
-    if (
-      Object.values(feature?.environmentSettings ?? {}).some((env) =>
-        env?.rules?.some((rule) => !!rule?.prerequisites?.length)
-      )
-    )
+    if ((feature?.rules ?? []).some((rule) => !!rule?.prerequisites?.length))
       return true;
     return false;
   }, [feature]);
 
-  const [archetypeKey, forceArchetypeRefetch] = useIncrementer();
-  const { apiCall } = useAuth();
-
-  useEffect(() => {
-    apiCall<{
-      status: number;
-      archetype: ArchetypeInterface[];
-      featureResults: Record<string, FeatureTestResult[]>;
-    }>(
-      `/archetype/eval/${feature.id}/${version}?skipRulesWithPrerequisites=${
-        skipRulesWithPrerequisites ? 1 : 0
-      }`
-    )
-      .then((data) => {
-        setData(data);
-      })
-      .catch((e) => console.error(e));
-  }, [
-    formValues,
-    apiCall,
-    feature,
-    version,
-    skipRulesWithPrerequisites,
-    archetypeKey,
-  ]);
-
+  const hasScheduled = useMemo(() => {
+    return (feature?.rules ?? []).some(
+      (rule) => !!rule?.scheduleRules?.length || !!rule?.prerequisites?.length,
+    );
+  }, [feature]);
   const { hasCommercialFeature } = useUser();
   const hasArchetypeAccess = hasCommercialFeature("archetypes");
 
@@ -89,13 +78,24 @@ export default function AssignmentTester({ feature, version }: Props) {
       body: JSON.stringify({
         attributes: formValues,
         skipRulesWithPrerequisites,
+        evalDate: evalDate?.toISOString() ?? new Date().toISOString(),
       }),
     })
       .then((data) => {
         setResults(data.results);
       })
       .catch((e) => console.error(e));
-  }, [formValues, apiCall, feature, version, skipRulesWithPrerequisites]);
+  }, [
+    formValues,
+    apiCall,
+    feature,
+    version,
+    skipRulesWithPrerequisites,
+    evalDate,
+  ]);
+
+  const evalDateStr = evalDate?.toISOString().split("T")[0] ?? "";
+  const isNow = evalDateStr === new Date().toISOString().split("T")[0];
 
   const showResults = () => {
     if (!results) {
@@ -108,8 +108,15 @@ export default function AssignmentTester({ feature, version }: Props) {
           let matchedRule;
           const debugLog: string[] = [];
           if (tr?.result?.ruleId && tr?.featureDefinition?.rules) {
+            // SDK payloads strip env suffixes from rule ids (`stem__env` → `stem`)
+            // for telemetry continuity, but the UI's feature-definition mirror
+            // can carry either form depending on payload stage. Match on stem
+            // via the shared helper so we stay tolerant of both.
+            const lookupStem = stemRuleId(tr.result.ruleId);
             matchedRule = tr.featureDefinition.rules.find(
-              (r) => r.id === tr?.result?.ruleId
+              (r) =>
+                r.id === tr.result?.ruleId ||
+                stemRuleId(r.id || "") === lookupStem,
             );
           }
           let matchedRuleName = "";
@@ -136,11 +143,11 @@ export default function AssignmentTester({ feature, version }: Props) {
                 debugLog.push(
                   `Rule ${
                     n + 1
-                  }: Skipped because user did not match the rule conditions`
+                  }: Skipped because user did not match the rule conditions`,
                 );
               } else if (reason === "In experiment") {
                 debugLog.push(
-                  `Rule ${n + 1}: Included user in experiment rule`
+                  `Rule ${n + 1}: Included user in experiment rule`,
                 );
               } else if (reason === "Use default value") {
                 debugLog.push(`No rules matched, using default value`);
@@ -198,7 +205,7 @@ export default function AssignmentTester({ feature, version }: Props) {
                       onClick={() => {
                         if (expandResults.includes(i)) {
                           setExpandResults(
-                            expandResults.filter((o) => o !== i)
+                            expandResults.filter((o) => o !== i),
                           );
                         } else {
                           setExpandResults([...expandResults, i]);
@@ -237,7 +244,7 @@ export default function AssignmentTester({ feature, version }: Props) {
                               code={JSON.stringify(
                                 tr.result.experimentResult,
                                 null,
-                                2
+                                2,
                               )}
                             />
                           </div>
@@ -265,44 +272,68 @@ export default function AssignmentTester({ feature, version }: Props) {
 
   return (
     <>
-      {hasPrerequisites && (
-        <div
-          className="d-flex justify-content-end position-relative mb-2"
-          style={{ marginTop: -30, zIndex: 1 }}
-        >
-          <div>
-            <div className="text-gray">
-              <span className="font-weight-bold">Prereq evaluation:</span>{" "}
-              <span>
-                Top-level: <span className="text-success">pass</span>.
-              </span>{" "}
-              <span>
-                Override rules:{" "}
-                {skipRulesWithPrerequisites ? (
-                  <span className="text-danger">fail</span>
-                ) : (
-                  <span className="text-success">pass</span>
-                )}
-                .
-              </span>
-            </div>
-            <div className="d-flex mt-1 align-items-center">
-              <div className="flex-1" />
-              <label
-                className="mb-1 mr-2 small"
-                htmlFor="skipRulesWithPrerequisites"
-              >
-                Skip rules with prerequisite targeting
-              </label>
-              <Toggle
-                id="skipRulesWithPrerequisites"
-                value={skipRulesWithPrerequisites}
-                setValue={(v) => setSkipRulesWithPrerequisites(v)}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      <Flex align="start" justify="between" mt="4" mb="5" gap="4">
+        <Box flexShrink="1">
+          <Heading mb="1" size="4" as="h3">
+            Simulate Feature Rules
+          </Heading>
+          <Text mb="0">
+            Test how your rules will apply to users.{" "}
+            <Tooltip body="Enter attributes and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
+          </Text>
+        </Box>
+        {(hasPrerequisites || hasScheduled) && (
+          <Box flexShrink="0">
+            {hasPrerequisites && (
+              <Flex align="center" justify="end" mb="2" gap="3">
+                <span className="font-weight-bold">Prereq evaluation:</span>{" "}
+                <span>
+                  Top-level: <span className="text-success">pass</span>.
+                </span>{" "}
+                <span>
+                  Rules:{" "}
+                  {skipRulesWithPrerequisites ? (
+                    <span className="text-danger">fail</span>
+                  ) : (
+                    <span className="text-success">pass</span>
+                  )}
+                  .
+                </span>
+              </Flex>
+            )}
+            <Flex align="center">
+              {hasPrerequisites && (
+                <Switch
+                  label="Skip rules with prerequisite targeting"
+                  id="skipRulesWithPrerequisites"
+                  value={skipRulesWithPrerequisites}
+                  onChange={(c) => setSkipRulesWithPrerequisites(c)}
+                />
+              )}
+              {hasScheduled && (
+                <Box ml="2">
+                  <Flex align="center">
+                    <label
+                      className="small text-muted mr-2 mb-0 small text-muted text-ellipsis"
+                      htmlFor="evalDate"
+                      title="When there are scheduled rules, this date select lets your see what values the user will get."
+                    >
+                      Evaluation Date
+                    </label>
+                    <DatePicker
+                      id="evalDate"
+                      date={evalDate}
+                      setDate={setEvalDate}
+                      precision="date"
+                      containerClassName="d-flex align-items-end mb-0"
+                    />
+                  </Flex>
+                </Box>
+              )}
+            </Flex>
+          </Box>
+        )}
+      </Flex>
 
       <div>
         {data && data?.archetype.length > 0 && (
@@ -310,102 +341,100 @@ export default function AssignmentTester({ feature, version }: Props) {
             feature={feature}
             archetype={data.archetype}
             featureResults={data.featureResults}
-            onChange={forceArchetypeRefetch}
-            key={archetypeKey}
+            onChange={() => mutateData()}
           />
         )}
       </div>
 
-      <div className="appbox p-3">
-        <div
-          className="d-flex flex-row align-items-center justify-content-between cursor-pointer"
-          onClick={() => {
-            setOpen(!open);
-          }}
-        >
-          <div>
-            Simulate how your rules will apply to users.{" "}
-            <Tooltip body="Enter attributes and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
-          </div>
-
-          <div className="cursor-pointer">
-            <FaChevronRight
-              style={{
-                transform: `rotate(${open ? "90deg" : "0deg"})`,
-              }}
-            />
-          </div>
-        </div>
-        {open && (
-          <div>
-            {" "}
-            <hr />
-            <div className="row">
-              <div className="col-6">
-                <AttributeForm
-                  onChange={(attrs) => {
-                    setFormValues(attrs);
-                  }}
-                />
-                <div className="mt-2">
-                  <PremiumTooltip commercialFeature="archetypes">
-                    <a
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setOpenArchetypeModal({
-                          attributes: JSON.stringify(formValues),
-                        });
-                      }}
-                      href="#"
-                      className="btn btn-outline-primary"
-                    >
-                      Save Archetype
-                    </a>
-                  </PremiumTooltip>
+      <Frame>
+        <Box>
+          <Flex align="center" justify="between">
+            <Heading as="h4" size="3" mb="0">
+              Ad hoc attributes
+            </Heading>
+            <Button variant="ghost" onClick={() => setOpen(!open)}>
+              <FaChevronRight
+                style={{
+                  transform: `rotate(${open ? "90deg" : "0deg"})`,
+                }}
+              />
+            </Button>
+          </Flex>
+          {open && (
+            <div>
+              <div className="row">
+                <div className="col-6">
+                  <AttributeForm
+                    attributeValues={formValues}
+                    onChange={(attrs) => {
+                      setFormValues(attrs);
+                    }}
+                    hideTitle={true}
+                  />
+                  <div className="mt-2">
+                    <PremiumTooltip commercialFeature="archetypes">
+                      <a
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setOpenArchetypeModal({
+                            attributes: JSON.stringify(formValues),
+                          });
+                        }}
+                        href="#"
+                        className="btn btn-outline-primary"
+                      >
+                        Save Archetype
+                      </a>
+                    </PremiumTooltip>
+                  </div>
+                </div>
+                <div className="mb-2 col-6" style={{ paddingTop: "13px" }}>
+                  <h4>
+                    Results{isNow ? " " : ` for ${evalDateStr}`}{" "}
+                    <div className="text-warning float-right">
+                      <Tooltip
+                        body={
+                          <>
+                            These results use the JS SDK, which supports the V2
+                            hashing algorithm. If you use one of the older or
+                            unsupported SDKs, you may want to change the hashing
+                            algorithm of the experiment to v1 to ensure accurate
+                            results.
+                            <br />
+                            <br />
+                            The following SDK versions support V2 hashing:
+                            <MinSDKVersionsList capability="bucketingV2" />
+                          </>
+                        }
+                      >
+                        <FiAlertTriangle />
+                      </Tooltip>
+                    </div>
+                  </h4>
+                  {showResults()}
                 </div>
               </div>
-              <div className="mb-2 col-6" style={{ paddingTop: "32px" }}>
-                <h4>
-                  Results{" "}
-                  <div className="text-warning float-right">
-                    <Tooltip
-                      body={
-                        <>
-                          These results use the JS SDK, which supports the V2
-                          hashing algorithm. If you use one of the older or
-                          unsupported SDKs, you may want to change the hashing
-                          algorithm of the experiment to v1 to ensure accurate
-                          results.
-                          <br />
-                          <br />
-                          The following SDK versions support V2 hashing:
-                          <MinSDKVersionsList capability="bucketingV2" />
-                        </>
-                      }
-                    >
-                      <FiAlertTriangle />
-                    </Tooltip>
-                  </div>
-                </h4>
-                {showResults()}
-              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </Box>
+      </Frame>
       {openArchetypeModal && (
         <>
           {hasArchetypeAccess ? (
             <ArchetypeAttributesModal
               close={async () => {
-                forceArchetypeRefetch();
+                mutateData();
                 setOpenArchetypeModal(null);
               }}
               initialValues={openArchetypeModal}
               header="Save Archetype"
             />
           ) : (
-            <Modal open={true} close={() => setOpenArchetypeModal(null)}>
+            <Modal
+              trackingEventModalType=""
+              open={true}
+              close={() => setOpenArchetypeModal(null)}
+            >
               <div className="p-3">
                 Archetypes allow you set up user attribute traits to test how
                 feature will be applied to your real users. This feature is part

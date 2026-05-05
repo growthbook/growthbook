@@ -28,9 +28,11 @@ function getTextColor(bg: string): string {
 export default function LetterAvatar({
   name,
   defaultInitials = "",
+  size = "large",
 }: {
   name: string;
   defaultInitials?: string;
+  size?: "small" | "large";
 }) {
   const initials = name
     ? name
@@ -49,24 +51,31 @@ export default function LetterAvatar({
 
   const text = getTextColor(bg);
 
-  return (
-    <div
-      style={{
-        display: "inline-block",
-        marginRight: 8,
-        width: 40,
-        minWidth: 40,
-        height: 40,
-        lineHeight: "40px",
-        fontSize: name ? 18 : 15,
-        fontWeight: "bold",
-        textAlign: "center",
-        backgroundColor: bg,
-        color: text,
-        borderRadius: 8,
-      }}
-    >
-      {initials}
-    </div>
-  );
+  let defaultStyles = {
+    display: "inline-block",
+    marginRight: 8,
+    width: 40,
+    minWidth: 40,
+    height: 40,
+    lineHeight: "40px",
+    fontSize: name ? 18 : 15,
+    fontWeight: 600,
+    textAlign: "center" as const,
+    backgroundColor: bg,
+    color: text,
+    borderRadius: 7,
+  };
+  if (size === "small") {
+    defaultStyles = {
+      ...defaultStyles,
+      width: 26,
+      minWidth: 26,
+      height: 26,
+      lineHeight: "26px",
+      fontSize: 12,
+      fontWeight: 500,
+      borderRadius: 4,
+    };
+  }
+  return <div style={defaultStyles}>{initials}</div>;
 }

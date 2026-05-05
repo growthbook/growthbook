@@ -1,160 +1,203 @@
 import { z } from "zod";
 import { validateFeatureValue } from "shared/util";
-import { orgHasPremiumFeature } from "enterprise";
-import { PostFeatureResponse } from "../../../types/openapi";
-import { createApiRequestHandler } from "../../util/handler";
-import { postFeatureValidator } from "../../validators/openapi";
-import { createFeature, getFeature } from "../../models/FeatureModel";
-import { getExperimentMapForFeature } from "../../models/ExperimentModel";
-import { FeatureInterface } from "../../../types/feature";
-import { getEnabledEnvironments } from "../../util/features";
+import { postFeatureValidator } from "shared/validators";
+import { FeatureInterface } from "shared/types/feature";
+import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
+  resolveOwnerToUserId,
+  resolveOwnerEmail,
+} from "back-end/src/services/owner";
+import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
+import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
+import { getEnabledEnvironments } from "back-end/src/util/features";
+import {
+  addIdsToFlatRules,
   addIdsToRules,
+  buildFeatureRulesFromApiEnvSettings,
   createInterfaceEnvSettingsFromApiEnvSettings,
   getApiFeatureObj,
   getSavedGroupMap,
-} from "../../services/features";
-import { auditDetailsCreate } from "../../services/audit";
-import { OrganizationInterface } from "../../../types/organization";
-import { getEnvironments } from "../../services/organizations";
+} from "back-end/src/services/features";
+import { auditDetailsCreate } from "back-end/src/services/audit";
+import { getEnvironments } from "back-end/src/services/organizations";
+import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import { addTags } from "back-end/src/models/TagModel";
+import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
+import { validateCustomFields } from "./validations";
+import {
+  assertValidProjectId,
+  validateEnvRulesScheduleRules,
+} from "./v2Shared";
 
 export type ApiFeatureEnvSettings = NonNullable<
   z.infer<typeof postFeatureValidator.bodySchema>["environments"]
 >;
 
-export type ApiFeatureEnvSettingsRules = ApiFeatureEnvSettings[keyof ApiFeatureEnvSettings]["rules"];
+export type ApiFeatureEnvSettingsRules =
+  ApiFeatureEnvSettings[keyof ApiFeatureEnvSettings]["rules"];
 
 export const validateEnvKeys = (
   orgEnvKeys: string[],
-  incomingEnvKeys: string[]
+  incomingEnvKeys: string[],
 ) => {
   const invalidEnvKeys = incomingEnvKeys.filter((k) => !orgEnvKeys.includes(k));
 
   if (invalidEnvKeys.length) {
     throw new Error(
       `Environment key(s) '${invalidEnvKeys.join(
-        "', '"
-      )}' not recognized. Please create the environment or remove it from your environment settings and try again.`
+        "', '",
+      )}' not recognized. Please create the environment or remove it from your environment settings and try again.`,
     );
   }
 };
 
-export const parseJsonSchemaForEnterprise = (
-  org: OrganizationInterface,
-  jsonSchema: string | undefined
+export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
+  req,
 ) => {
-  const jsonSchemaWrapper = {
-    schema: "",
-    date: new Date(),
-    enabled: false,
-  };
-  if (!jsonSchema) return jsonSchemaWrapper;
-  if (!orgHasPremiumFeature(org, "json-validation")) return jsonSchemaWrapper;
-  try {
-    // ensure the schema is valid JSON
-    jsonSchemaWrapper.schema = JSON.stringify(JSON.parse(jsonSchema));
-    jsonSchemaWrapper.enabled = true;
-    return jsonSchemaWrapper;
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error("failed to parse json schema", e);
-    return jsonSchemaWrapper;
+  if (!req.context.permissions.canCreateFeature(req.body)) {
+    req.context.permissions.throwPermissionError();
   }
-};
 
-export const postFeature = createApiRequestHandler(postFeatureValidator)(
-  async (req): Promise<PostFeatureResponse> => {
-    if (!req.context.permissions.canCreateFeature(req.body)) {
-      req.context.permissions.throwPermissionError();
-    }
+  const existing = await getFeature(req.context, req.body.id);
+  if (existing) {
+    throw new Error(`Feature id '${req.body.id}' already exists.`);
+  }
 
-    const existing = await getFeature(req.context, req.body.id);
-    if (existing) {
-      throw new Error(`Feature id '${req.body.id}' already exists.`);
-    }
-
-    const orgEnvs = getEnvironments(req.organization);
-
-    // ensure environment keys are valid
-    validateEnvKeys(
-      orgEnvs.map((e) => e.id),
-      Object.keys(req.body.environments ?? {})
+  if (!req.body.id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
+    throw new Error(
+      "Feature keys can only include letters, numbers, hyphens, and underscores.",
     );
+  }
 
-    const feature: FeatureInterface = {
-      defaultValue: req.body.defaultValue ?? "",
-      valueType: req.body.valueType,
-      owner: req.body.owner,
-      description: req.body.description || "",
-      project: req.body.project || "",
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-      organization: req.organization.id,
-      id: req.body.id,
-      archived: !!req.body.archived,
-      version: 1,
-      environmentSettings: {},
-    };
+  const orgEnvs = getEnvironments(req.context.org);
 
-    const environmentSettings = createInterfaceEnvSettingsFromApiEnvSettings(
+  // ensure environment keys are valid
+  validateEnvKeys(
+    orgEnvs.map((e) => e.id),
+    Object.keys(req.body.environments ?? {}),
+  );
+
+  validateEnvRulesScheduleRules(req.body.environments, req.context);
+
+  if (
+    req.context.org.settings?.requireProjectForFeatures &&
+    !req.body.project
+  ) {
+    throw new Error("Must specify a project for new features");
+  }
+
+  await assertValidProjectId(req.body.project, req.context);
+
+  await validateCustomFields(
+    req.body.customFields,
+    req.context,
+    req.body.project,
+  );
+
+  const tags = req.body.tags || [];
+
+  if (tags.length > 0) {
+    await addTags(req.context.org.id, tags);
+  }
+
+  const feature: FeatureInterface = {
+    defaultValue: req.body.defaultValue ?? "",
+    valueType: req.body.valueType,
+    owner: (await resolveOwnerToUserId(req.body.owner, req.context)) ?? "",
+    description: req.body.description || "",
+    project: req.body.project || "",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    organization: req.context.org.id,
+    id: req.body.id,
+    archived: !!req.body.archived,
+    version: 1,
+    environmentSettings: {},
+    rules: [],
+    prerequisites: (req.body?.prerequisites || []).map((p) => ({
+      id: p,
+      condition: `{"value": true}`,
+    })),
+    tags,
+    customFields: req.body.customFields,
+  };
+
+  const environmentSettings = createInterfaceEnvSettingsFromApiEnvSettings(
+    feature,
+    orgEnvs,
+    req.body.environments ?? {},
+  );
+
+  feature.environmentSettings = environmentSettings;
+  // v2: rules live on feature.rules (flat array), sourced from the API's
+  // per-env payload stamped with single-env scope.
+  feature.rules = buildFeatureRulesFromApiEnvSettings(
+    feature,
+    orgEnvs,
+    req.body.environments ?? {},
+  );
+
+  const jsonSchema = parseApiJsonSchema(req.context.org, req.body.jsonSchema);
+
+  feature.jsonSchema = jsonSchema;
+
+  // ensure default value matches value type
+  feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
+
+  if (
+    !req.context.permissions.canPublishFeature(
       feature,
-      orgEnvs,
-      req.body.environments ?? {}
-    );
+      Array.from(
+        getEnabledEnvironments(
+          feature,
+          orgEnvs.map((e) => e.id),
+        ),
+      ),
+    )
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
 
-    feature.environmentSettings = environmentSettings;
+  addIdsToRules(feature.environmentSettings, feature.id);
+  addIdsToFlatRules(feature.rules, feature.id);
 
-    const jsonSchema = parseJsonSchemaForEnterprise(
-      req.organization,
-      req.body.jsonSchema
-    );
+  await createFeature(req.context, feature);
 
-    feature.jsonSchema = jsonSchema;
+  await req.audit({
+    event: "feature.create",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: auditDetailsCreate(feature),
+  });
 
-    // ensure default value matches value type
-    feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
+  const groupMap = await getSavedGroupMap(req.context);
 
-    if (
-      !req.context.permissions.canPublishFeature(
-        feature,
-        Array.from(
-          getEnabledEnvironments(
-            feature,
-            orgEnvs.map((e) => e.id)
-          )
-        )
-      )
-    ) {
-      req.context.permissions.throwPermissionError();
-    }
-
-    addIdsToRules(feature.environmentSettings, feature.id);
-
-    await createFeature(req.context, feature);
-
-    await req.audit({
-      event: "feature.create",
-      entity: {
-        object: "feature",
-        id: feature.id,
-      },
-      details: auditDetailsCreate(feature),
-    });
-
-    const groupMap = await getSavedGroupMap(req.organization);
-
-    const experimentMap = await getExperimentMapForFeature(
-      req.context,
-      feature.id
-    );
-
-    return {
-      feature: getApiFeatureObj({
+  const experimentMap = await getExperimentMapForFeature(
+    req.context,
+    feature.id,
+  );
+  const safeRolloutMap =
+    await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+  const revision = await getRevision({
+    context: req.context,
+    organization: feature.organization,
+    featureId: feature.id,
+    feature,
+    version: feature.version,
+  });
+  return {
+    feature: await resolveOwnerEmail(
+      getApiFeatureObj({
         feature,
         organization: req.organization,
         groupMap,
         experimentMap,
+        revision,
+        safeRolloutMap,
       }),
-    };
-  }
-);
+      req.context,
+    ),
+  };
+});

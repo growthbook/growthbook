@@ -1,9 +1,10 @@
-import { MemberRole } from "back-end/types/organization";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import Button from "@/components/Button";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
 import { useAuth, redirectWithTimeout } from "@/services/auth";
+import { trackPageView } from "@/services/track";
+import Callout from "@/ui/Callout";
 
 const InvitationPage = (): React.ReactElement => {
   const { apiCall } = useAuth();
@@ -11,13 +12,18 @@ const InvitationPage = (): React.ReactElement => {
   // Extract the invitation key from the querystring
   const key = useMemo(
     () => (window.location.search.match(/(^|&|\?)key=([a-zA-Z0-9]+)/) || [])[2],
-    []
+    [],
   );
+
+  // This page is before the user is part of an org, so need to manually fire a page load event
+  useEffect(() => {
+    trackPageView("/invitation");
+  }, []);
 
   // Get data about the invitation
   const { data, error: keyError } = useApi<{
     organization: string;
-    role: MemberRole;
+    role: string;
   }>(`/invite/${key}`);
 
   // Click handler for accept button
@@ -39,7 +45,7 @@ const InvitationPage = (): React.ReactElement => {
     } else {
       throw new Error(
         res.message ||
-          "There was an error accepting the invite. Please go back to your email and click the invite link again."
+          "There was an error accepting the invite. Please go back to your email and click the invite link again.",
       );
     }
   }, [apiCall]);
@@ -48,7 +54,7 @@ const InvitationPage = (): React.ReactElement => {
     ? "Missing required invite key parameter in URL. Please go back to your email and click the invite link again."
     : keyError?.message;
   if (error) {
-    return <div className="alert alert-danger">{error}</div>;
+    return <Callout status="error">{error}</Callout>;
   }
 
   if (!data) {

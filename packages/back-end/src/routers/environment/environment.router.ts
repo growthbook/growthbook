@@ -1,7 +1,14 @@
 import express from "express";
-import z from "zod";
-import { wrapController } from "../wrapController";
-import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
+import { z } from "zod";
+import {
+  createEnvValidator,
+  deleteEnvValidator,
+  updateEnvOrderValidator,
+  updateEnvValidator,
+  updateEnvsValidator,
+} from "shared/validators";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawEnvironmentController from "./environment.controller";
 
 const router = express.Router();
@@ -11,39 +18,46 @@ const environmentController = wrapController(rawEnvironmentController);
 router.put(
   "/",
   validateRequestMiddleware({
-    body: z
-      .object({
-        environments: z.array(
-          z
-            .object({
-              id: z.string(),
-              description: z.string(),
-              toggleOnList: z.boolean().optional(),
-              defaultState: z.boolean().optional(),
-            })
-            .strict()
-        ),
-      })
-      .strict(),
+    body: updateEnvsValidator,
   }),
-  environmentController.putEnvironments
+  environmentController.putEnvironments,
+);
+
+router.put(
+  "/order",
+  validateRequestMiddleware({
+    body: updateEnvOrderValidator,
+  }),
+  environmentController.putEnvironmentOrder,
 );
 
 router.post(
   "/",
   validateRequestMiddleware({
-    body: z
+    body: createEnvValidator,
+  }),
+  environmentController.postEnvironment,
+);
+
+router.put(
+  "/:id",
+  validateRequestMiddleware({
+    body: updateEnvValidator,
+    params: z
       .object({
-        environment: z.object({
-          id: z.string(),
-          description: z.string(),
-          toggleOnList: z.boolean().optional(),
-          defaultState: z.any().optional(),
-        }),
+        id: z.string(),
       })
       .strict(),
   }),
-  environmentController.postEnvironment
+  environmentController.putEnvironment,
+);
+
+router.delete(
+  "/:id",
+  validateRequestMiddleware({
+    params: deleteEnvValidator,
+  }),
+  environmentController.deleteEnvironment,
 );
 
 export { router as environmentRouter };

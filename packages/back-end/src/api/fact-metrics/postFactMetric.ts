@@ -1,26 +1,55 @@
-import z from "zod";
+import { z } from "zod";
 import { getScopedSettings } from "shared/settings";
 import {
   DEFAULT_FACT_METRIC_WINDOW,
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_METRIC_WINDOW_HOURS,
+  DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
+import { getSelectedColumnDatatype } from "shared/experiments";
+import { postFactMetricValidator } from "shared/validators";
 import {
+  ColumnRef,
   CreateFactMetricProps,
   FactTableInterface,
-} from "../../../types/fact-table";
-import { PostFactMetricResponse } from "../../../types/openapi";
-import { getFactTable } from "../../models/FactTableModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { postFactMetricValidator } from "../../validators/openapi";
-import { OrganizationInterface } from "../../../types/organization";
+} from "shared/types/fact-table";
+import { OrganizationInterface } from "shared/types/organization";
+import { getFactTable } from "back-end/src/models/FactTableModel";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { FactMetricModel } from "back-end/src/models/FactMetricModel";
+
+export function validateAggregationSpecification({
+  column,
+  factTable,
+  errorPrefix,
+}: {
+  column: ColumnRef;
+  factTable: FactTableInterface;
+  errorPrefix?: string;
+}) {
+  const datatype = getSelectedColumnDatatype({
+    factTable,
+    column: column.column,
+  });
+  if (column.aggregation === "count distinct" && datatype !== "string") {
+    throw new Error(
+      `${errorPrefix}Cannot use 'count distinct' aggregation with the special or numeric column '${column.column}'.`,
+    );
+  }
+  if (datatype === "string" && column.aggregation !== "count distinct") {
+    throw new Error(
+      `${errorPrefix}Must use 'count distinct' aggregation with string column '${column.column}'.`,
+    );
+  }
+}
 
 export async function getCreateMetricPropsFromBody(
   body: z.infer<typeof postFactMetricValidator.bodySchema>,
   organization: OrganizationInterface,
-  getFactTable: (id: string) => Promise<FactTableInterface | null>
+  getFactTable: (id: string) => Promise<FactTableInterface | null>,
 ): Promise<CreateFactMetricProps> {
   const { settings: scopedSettings } = getScopedSettings({
     organization,
@@ -36,6 +65,7 @@ export async function getCreateMetricPropsFromBody(
     cappingSettings,
     windowSettings,
     regressionAdjustmentSettings,
+    priorSettings,
     numerator,
     denominator,
     riskThresholdSuccess,
@@ -43,17 +73,23 @@ export async function getCreateMetricPropsFromBody(
     minPercentChange,
     maxPercentChange,
     minSampleSize,
+    targetMDE,
     ...otherFields
   } = body;
 
-  const cleanedNumerator = {
-    filters: [],
+  const cleanedNumerator = FactMetricModel.migrateColumnRef({
     ...numerator,
     column:
-      body.metricType === "proportion"
+      body.metricType === "proportion" || body.metricType === "retention"
         ? "$$distinctUsers"
         : body.numerator.column || "$$distinctUsers",
-  };
+  });
+
+  validateAggregationSpecification({
+    errorPrefix: "Numerator misspecified. ",
+    column: cleanedNumerator,
+    factTable: factTable,
+  });
 
   const data: CreateFactMetricProps = {
     datasource: factTable.datasource,
@@ -73,6 +109,8 @@ export async function getCreateMetricPropsFromBody(
       minPercentChange ||
       scopedSettings.metricDefaults.value.minPercentageChange ||
       0,
+    targetMDE:
+      targetMDE || scopedSettings.metricDefaults.value.targetMDE || 0.1,
     minSampleSize:
       minSampleSize ||
       scopedSettings.metricDefaults.value.minimumSampleSize ||
@@ -84,16 +122,24 @@ export async function getCreateMetricPropsFromBody(
     inverse: false,
     quantileSettings: quantileSettings ?? null,
     windowSettings: {
-      type: scopedSettings.windowType.value ?? DEFAULT_FACT_METRIC_WINDOW,
-      delayHours:
-        scopedSettings.delayHours.value ?? DEFAULT_METRIC_WINDOW_DELAY_HOURS,
-      windowValue:
-        scopedSettings.windowHours.value ?? DEFAULT_METRIC_WINDOW_HOURS,
+      type: DEFAULT_FACT_METRIC_WINDOW,
+      delayValue:
+        windowSettings?.delayValue ??
+        windowSettings?.delayHours ??
+        DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+      delayUnit: windowSettings?.delayUnit ?? "hours",
+      windowValue: DEFAULT_METRIC_WINDOW_HOURS,
       windowUnit: "hours",
     },
     cappingSettings: {
       type: "",
       value: 0,
+    },
+    priorSettings: priorSettings ?? {
+      override: false,
+      proper: false,
+      mean: 0,
+      stddev: DEFAULT_PROPER_PRIOR_STDDEV,
     },
     regressionAdjustmentOverride: false,
     regressionAdjustmentDays:
@@ -101,26 +147,37 @@ export async function getCreateMetricPropsFromBody(
     regressionAdjustmentEnabled: !!scopedSettings.regressionAdjustmentEnabled,
     numerator: cleanedNumerator,
     denominator: null,
+    metricAutoSlices: [],
     ...otherFields,
   };
 
   if (denominator) {
-    data.denominator = {
-      filters: [],
+    data.denominator = FactMetricModel.migrateColumnRef({
       ...denominator,
       column: denominator.column || "$$distinctUsers",
-    };
+    });
+    const denominatorFactTable =
+      denominator.factTableId === numerator.factTableId
+        ? factTable
+        : await getFactTable(denominator.factTableId);
+    if (!denominatorFactTable) {
+      throw new Error("Could not find denominator fact table");
+    }
+    validateAggregationSpecification({
+      errorPrefix: "Denominator misspecified. ",
+      column: data.denominator,
+      factTable: denominatorFactTable,
+    });
   }
 
   if (cappingSettings?.type && cappingSettings?.type !== "none") {
     data.cappingSettings.type = cappingSettings.type;
     data.cappingSettings.value = cappingSettings.value || 0;
+    data.cappingSettings.ignoreZeros = cappingSettings.ignoreZeros || false;
   }
+
   if (windowSettings?.type && windowSettings?.type !== "none") {
     data.windowSettings.type = windowSettings.type;
-    if (windowSettings.delayHours) {
-      data.windowSettings.delayHours = windowSettings.delayHours;
-    }
     if (windowSettings.windowValue) {
       data.windowSettings.windowValue = windowSettings.windowValue;
     }
@@ -143,19 +200,29 @@ export async function getCreateMetricPropsFromBody(
 }
 
 export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
-  async (req): Promise<PostFactMetricResponse> => {
+  async (req) => {
+    if (
+      req.body.metricAutoSlices &&
+      req.body.metricAutoSlices.length > 0 &&
+      !req.context.hasPremiumFeature("metric-slices")
+    ) {
+      throw new Error("Metric slices require an enterprise license");
+    }
+
     const lookupFactTable = async (id: string) => getFactTable(req.context, id);
 
     const data = await getCreateMetricPropsFromBody(
       req.body,
       req.organization,
-      lookupFactTable
+      lookupFactTable,
     );
-
     const factMetric = await req.context.models.factMetrics.create(data);
 
     return {
-      factMetric: req.context.models.factMetrics.toApiInterface(factMetric),
+      factMetric: await resolveOwnerEmail(
+        req.context.models.factMetrics.toApiInterface(factMetric),
+        req.context,
+      ),
     };
-  }
+  },
 );

@@ -3,8 +3,8 @@ import isEqual from "lodash/isEqual";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
-} from "back-end/types/report";
-import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
+} from "shared/types/report";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import FixVariationIds from "@/components/Experiment/FixVariationIds";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
@@ -146,7 +146,7 @@ const VariationIdWarning: FC<{
           ids:{" "}
           <CommaList
             vals={definedVariations.filter(
-              (v) => !returnedVariations.includes(v)
+              (v) => !returnedVariations.includes(v),
             )}
           />
         </div>

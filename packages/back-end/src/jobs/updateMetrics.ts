@@ -1,18 +1,18 @@
 import Agenda, { Job } from "agenda";
-import { getOrganizationsWithNorthStars } from "../models/OrganizationModel";
+import { OrganizationInterface } from "shared/types/organization";
+import { getOrganizationsWithNorthStars } from "back-end/src/models/OrganizationModel";
 import {
   DEFAULT_METRIC_ANALYSIS_DAYS,
   refreshMetric,
-} from "../services/experiments";
-import { getMetricById } from "../models/MetricModel";
-import { METRIC_REFRESH_FREQUENCY } from "../util/secrets";
-import { logger } from "../util/logger";
-import { promiseAllChunks } from "../util/promise";
+} from "back-end/src/services/experiments";
+import { getMetricById } from "back-end/src/models/MetricModel";
+import { METRIC_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
+import { logger } from "back-end/src/util/logger";
+import { promiseAllChunks } from "back-end/src/util/promise";
 import {
   getContextForAgendaJobByOrgObject,
   getOrganizationById,
-} from "../services/organizations";
-import { OrganizationInterface } from "../../types/organization";
+} from "back-end/src/services/organizations";
 
 const QUEUE_METRIC_UPDATES = "queueMetricUpdates";
 
@@ -41,13 +41,13 @@ export default async function (agenda: Agenda) {
           id: metricId,
           daysToInclude:
             org?.settings?.metricAnalysisDays || DEFAULT_METRIC_ANALYSIS_DAYS,
-        })
+        }),
       );
     });
 
     const lastRefreshDate = new Date();
     lastRefreshDate.setHours(
-      lastRefreshDate.getHours() - METRIC_REFRESH_FREQUENCY
+      lastRefreshDate.getHours() - METRIC_REFRESH_FREQUENCY,
     );
 
     const promiseCallbacks: (() => Promise<unknown>)[] = [];
@@ -57,6 +57,10 @@ export default async function (agenda: Agenda) {
 
         const metric = await getMetricById(context, id, true);
         if (!metric) return;
+
+        // Skip manual metrics
+        if (!metric.datasource) return;
+
         // Skip if metric was already refreshed recently
         if (
           metric.runStarted &&
@@ -72,12 +76,7 @@ export default async function (agenda: Agenda) {
     await promiseAllChunks(promiseCallbacks, 5);
   });
 
-  agenda.define(
-    UPDATE_SINGLE_METRIC,
-    // This job queries a datasource, which may be slow. Give it 30 minutes to complete.
-    { lockLifetime: 30 * 60 * 1000 },
-    updateSingleMetric
-  );
+  agenda.define(UPDATE_SINGLE_METRIC, updateSingleMetric);
 
   // Update experiment results
   await startUpdateJob();
@@ -92,7 +91,7 @@ export default async function (agenda: Agenda) {
   async function queueMetricUpdate(
     metricId: string,
     orgId: string,
-    daysToInclude: number
+    daysToInclude: number,
   ) {
     const job = agenda.create(UPDATE_SINGLE_METRIC, {
       metricId,
@@ -109,7 +108,7 @@ export default async function (agenda: Agenda) {
   }
 }
 
-async function updateSingleMetric(job: UpdateSingleMetricJob) {
+const updateSingleMetric = async (job: UpdateSingleMetricJob) => {
   const metricId = job.attrs.data?.metricId;
   const orgId = job.attrs.data?.orgId;
   const daysToInclude =
@@ -139,4 +138,4 @@ async function updateSingleMetric(job: UpdateSingleMetricJob) {
     logger.error(e, "Error refreshing metric: " + metricId);
     return false;
   }
-}
+};

@@ -1,7 +1,8 @@
 import React, { FC, useState, ReactElement } from "react";
-import { Invite, MemberRoleInfo } from "back-end/types/organization";
+import { Invite, MemberRoleInfo } from "shared/types/organization";
 import { FaCheck, FaTimes } from "react-icons/fa";
 import { datetime } from "shared/dates";
+import { getRoleDisplayName } from "shared/permissions";
 import ConfirmModal from "@/components/ConfirmModal";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -9,6 +10,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useEnvironments } from "@/services/features";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import ChangeRoleModal from "./ChangeRoleModal";
 
 type ChangeRoleInfo = {
@@ -31,6 +33,8 @@ const InviteList: FC<{
   const [roleModal, setRoleModal] = useState<ChangeRoleInfo>(null);
   const [resending, setResending] = useState(false);
   const [resendMessage, setResendMessage] = useState<ReactElement | null>(null);
+
+  const { organization } = useUser();
 
   const { projects } = useDefinitions();
   const environments = useEnvironments();
@@ -73,7 +77,7 @@ const InviteList: FC<{
           <div className="alert alert-danger">
             {dismissButton}
             {message || "Error re-sending the invitation"}
-          </div>
+          </div>,
         );
       } else if (!emailSent) {
         setResendMessage(
@@ -86,7 +90,7 @@ const InviteList: FC<{
             <div>
               <code>{inviteUrl}</code>
             </div>
-          </div>
+          </div>,
         );
       }
     } catch (e) {
@@ -94,7 +98,7 @@ const InviteList: FC<{
         <div className="alert alert-danger">
           {dismissButton}
           {e.message}
-        </div>
+        </div>,
       );
     }
 
@@ -145,105 +149,110 @@ const InviteList: FC<{
       />
       {resending && <LoadingOverlay />}
       {resendMessage}
-      <table className="table appbox gbtable table-hover">
-        <thead>
-          <tr>
-            <th>Email</th>
-            <th>Date Invited</th>
-            <th>{project ? "Project Role" : "Global Role"}</th>
-            {!project && <th>Project Roles</th>}
-            {environments.map((env) => (
-              <th key={env.id}>{env.id}</th>
-            ))}
-            <th style={{ width: 50 }} />
-          </tr>
-        </thead>
-        <tbody>
-          {invites.map(({ email, key, dateCreated, ...member }) => {
-            const roleInfo =
-              (project &&
-                member.projectRoles?.find((r) => r.project === project)) ||
-              member;
-            return (
-              <tr key={key}>
-                <td>{email}</td>
-                <td>{datetime(dateCreated)}</td>
-                <td>{roleInfo.role}</td>
-                {!project && (
-                  <td className="col-3">
-                    {member.projectRoles?.map((pr) => {
-                      const p = projects.find((p) => p.id === pr.project);
-                      if (p?.name) {
-                        return (
-                          <div key={`project-tags-${p.id}`}>
-                            <ProjectBadges
-                              resourceType="member"
-                              projectIds={[p.id]}
-                              className="badge-ellipsis short align-middle font-weight-normal"
-                            />{" "}
-                            — {pr.role}
-                          </div>
-                        );
-                      }
-                      return null;
-                    })}
-                  </td>
-                )}
-                {environments.map((env) => {
-                  const access = roleHasAccessToEnv(roleInfo, env.id);
-                  return (
-                    <td key={env.id}>
-                      {access === "N/A" ? (
-                        <span className="text-muted">N/A</span>
-                      ) : access === "yes" ? (
-                        <FaCheck className="text-success" />
-                      ) : (
-                        <FaTimes className="text-danger" />
-                      )}
+      <div style={{ overflowY: "auto" }}>
+        <table className="table appbox gbtable table-hover">
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Date Invited</th>
+              <th>{project ? "Project Role" : "Global Role"}</th>
+              {!project && <th>Project Roles</th>}
+              {environments.map((env) => (
+                <th key={env.id}>{env.id}</th>
+              ))}
+              <th style={{ width: 50 }} />
+            </tr>
+          </thead>
+          <tbody>
+            {invites.map(({ email, key, dateCreated, ...member }) => {
+              const roleInfo =
+                (project &&
+                  member.projectRoles?.find((r) => r.project === project)) ||
+                member;
+              return (
+                <tr key={key}>
+                  <td>{email}</td>
+                  <td>{datetime(dateCreated)}</td>
+                  <td>{getRoleDisplayName(roleInfo.role, organization)}</td>
+                  {!project && (
+                    <td className="col-3">
+                      {member.projectRoles?.map((pr) => {
+                        const p = projects.find((p) => p.id === pr.project);
+                        if (p?.name) {
+                          return (
+                            <div key={`project-tags-${p.id}`}>
+                              <ProjectBadges
+                                resourceType="member"
+                                projectIds={[p.id]}
+                              />{" "}
+                              — {getRoleDisplayName(pr.role, organization)}
+                            </div>
+                          );
+                        }
+                        return null;
+                      })}
                     </td>
-                  );
-                })}
-                <td>
-                  <MoreMenu>
-                    <button
-                      className="dropdown-item"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setRoleModal({
-                          key,
-                          displayInfo: email,
-                          roleInfo,
-                        });
-                      }}
-                    >
-                      Edit Role
-                    </button>
-                    <button
-                      className="dropdown-item"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        onResend(key, email);
-                      }}
-                    >
-                      Resend Invite
-                    </button>
-                    <button
-                      className="dropdown-item"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setDeleteInvite({ email, key });
-                        setResendMessage(null);
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </MoreMenu>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                  )}
+                  {environments.map((env) => {
+                    const access = roleHasAccessToEnv(
+                      roleInfo,
+                      env.id,
+                      organization,
+                    );
+                    return (
+                      <td key={env.id}>
+                        {access === "N/A" ? (
+                          <span className="text-muted">N/A</span>
+                        ) : access === "yes" ? (
+                          <FaCheck className="text-success" />
+                        ) : (
+                          <FaTimes className="text-danger" />
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td>
+                    <MoreMenu>
+                      <button
+                        className="dropdown-item"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setRoleModal({
+                            key,
+                            displayInfo: email,
+                            roleInfo,
+                          });
+                        }}
+                      >
+                        Edit Role
+                      </button>
+                      <button
+                        className="dropdown-item"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          onResend(key, email);
+                        }}
+                      >
+                        Resend Invite
+                      </button>
+                      <button
+                        className="dropdown-item"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setDeleteInvite({ email, key });
+                          setResendMessage(null);
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </MoreMenu>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };

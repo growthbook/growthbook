@@ -1,4 +1,6 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
+import { parseIntWithDefault } from "shared/util";
 
 export type TrackingType = "mixpanel" | "ga" | "segment" | "custom";
 
@@ -34,7 +36,7 @@ export function getTrackingCallback(
   t: TrackingType,
   param: string,
   experimentId = "e",
-  variationId = "v"
+  variationId = "v",
 ): string {
   if (t === "segment") {
     return `analytics.track("Experiment Viewed", {
@@ -52,7 +54,7 @@ export function getTrackingCallback(
   if (t === "ga") {
     return `const action = ${experimentId}, label = ${variationId};
 ga("send", "event", "experiment", action, label, { 
-  dimension${parseInt(param) || "1"}: action + "::" + label
+  dimension${parseIntWithDefault(param, 1)}: action + "::" + label
 })`;
   }
   return `console.log({
@@ -74,9 +76,9 @@ export function generateJavascriptSnippet(
   exp: ExperimentInterfaceStringDates,
   funcs: string[],
   tracking: TrackingType,
-  param: string
+  param: string,
 ): string {
-  const n = exp.variations.length;
+  const n = getLatestPhaseVariations(exp).length;
   const phase = exp.phases?.[0];
 
   const weights = phase ? phase.variationWeights : new Array(n).fill(1 / n);
@@ -97,8 +99,8 @@ export function generateJavascriptSnippet(
     trackingWrap(
       `((u,t) => {${getUrlCheck(exp)}
   const e=${JSON.stringify(exp.trackingKey)},f=${fnvHash},w=${JSON.stringify(
-        cumulativeWeights
-      )},n=(f(u+e)%1000)/1000;
+    cumulativeWeights,
+  )},n=(f(u+e)%1000)/1000;
   let i=0;for(i=0;i<w.length;i++){if(n<w[i])break}
   ${funcs
     .map((f, i) => {
@@ -107,10 +109,10 @@ export function generateJavascriptSnippet(
     .join("")}
 })(${getUserIdCode(tracking)},(e,v)=>{${getTrackingCallback(
         tracking,
-        param
+        param,
       )}})`,
       tracking,
-      param
+      param,
     ) +
     "</script>"
   );

@@ -1,5 +1,5 @@
 ---
-title: GrowthBook and Google Tag Manager
+title: How to A/B Test and Feature Flag with Google Tag Manager (GTM) and GrowthBook
 description: This guide walks you through using GrowthBook with Google Tag Manager (GTM) to track your experiments and measure their impact on your business.
 sidebar_label: Google Tag Manager (GTM)
 slug: google-tag-manager-and-growthbook
@@ -7,71 +7,104 @@ slug: google-tag-manager-and-growthbook
 
 # Using GrowthBook with Google Tag Manager (GTM)
 
-Now customers who are familiar with feature management using Google Tag Manager (GTM), yet may lack the engineering resources or capability to implement changes in their codebase, may easily use GrowthBook with GTM to power their AB tests. This setup is commonly used by marketing teams and CRO agencies.
+## Overview
 
-:::note
-GrowthBook also offers a [visual editor](https://docs.growthbook.io/app/visual) for lightweight, no-code UI changes. This approach is compatible with GTM and the examples provided on this page as long you enable the "Include Visual Experiments" toggle within your SDK Connection.
-:::
+This guide shows you how to integrate GrowthBook with Google Tag Manager (GTM) to run A/B tests and manage feature flags without having to directly modify your app's code.
 
-In this guide, we will assume familiarity with the GTM platform.
+This setup is ideal for:
 
-## Create an SDK Connection within GrowthBook
+- Marketing teams managing website experiments
+- CRO agencies handling multiple client websites
+- Teams without direct access to website code
 
-First, you need to add a new SDK Connection within GrowthBook. Choose the "Generic HTML" option when setting this up.
+### Prerequisites
 
-After you create the connection, you will be shown a script tag that contains your unique client id. Copy this script tag since you will need it for the following step.
+Before starting, ensure you have:
 
-## Creating a GTM tag for the GrowthBook SDK
+- Access to your [Google Tag Manager account](https://tagmanager.google.com/)
+- A [GrowthBook account](https://app.growthbook.io/)
+- Basic familiarity with GTM's interface
 
-Next, create a new tag in your desired GTM workspace. We will choose "Custom HTML" as the tag type. We can give it the name "GrowthBook SDK" or similar. Also, be sure to set the firing triggers to target the specific pages where we need to instrument our feature changes and experiments (or just choose "All Pages").
+## 1. Set Up GrowthBook SDK Connection
 
-Paste in the script tag from your SDK Connection in the previous step. It will look something like the following. Refer to our [Script Tag SDK docs](/lib/script-tag) for more info.
+- In GrowthBook, navigate to **SDK Configuration** &rarr; **SDK Connections**
+- Click **Add SDK Connection**
+- Add a **Name**, choose **HTML Script Tag**, and click **Save**
+- Copy the `data-client-key` value from the script tag. You'll need this for the next step
 
-```html
-<script async
-  data-client-key="YOUR_CLIENT_KEY_HERE"
-  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
-></script>
-```
+![GrowthBook SDK Connection](/images/guides/gtm-sdk.webp)
 
-To publish the SDK tag, submit our workspace changes (the blue "Submit" button on the top of the GTM application), Then ensure "Publish and Create version" is selected and click the blue "Publish" button – or use whichever GTM release strategy you are already using.
+## 2. Create GTM Tag for GrowthBook
 
-### Use Feature Flags
-
-This step is optional. If you are planning to mainly use the Visual Editor to implement experiments, you can skip ahead to the next section.
-
-To use feature flags, create another "Custom HTML" tag in your workspace, with a name like "GrowthBook Feature Flags" and set the firing trigger to the page you want to run this on.
-
-You can use the following example as a starting point:
+- Open your GTM workspace
+- Click **Tags** in the left sidebar
+- Click **New** to create a tag
+- Click **Tag Configuration** and use **Custom HTML** as the tag type
+- Paste the following script tag, replacing `YOUR_CLIENT_KEY_HERE` with the value from the previous step:
 
 ```html
 <script>
-// Wait for the GrowthBook SDK to load before running
-window.growthbook_queue = window.growthbook_queue || [];
-window.growthbook_queue.push((gb) => {
-  // Function that uses feature flags to make changes to the page
-  const applyFeatureFlags = () => {
-    if(gb.isOn("dark-mode")) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }
-
-  // Call your function initially plus whenever new data is received
-  applyFeatureFlags();
-  document.addEventListener("growthbookdata", applyFeatureFlags)
-});
+(function(s) {
+  s=document.createElement('script'); s.async=true;
+  s.dataset.clientKey="YOUR_CLIENT_KEY_HERE";
+  s.src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js";
+  document.head.appendChild(s);
+})();
 </script>
 ```
 
-The above example shows using a single feature flag called `dark-mode` and using it to modify the class name of the `<html>` element. Replace the contents of the `applyFeatureFlags` function with your own logic.
+- Click **Triggering** and choose the pages where you want to run this tag. Use **All Pages** to load it everywhere
+- Click **Save** and call your tag "GrowthBook SDK" or similar
 
-You can add multiple tags like this if needed, each with their own triggering logic.
+![GTM Tag for GrowthBook](/images/guides/gtm-growthbook-sdk-custom-tag.webp)
 
-## Tracking via DataLayer and GTM
+Be sure to click **Submit** and **Publish** to make your changes live. GrowthBook is now connected to your website via GTM 🤝
 
-The GrowthBook SDK implementation above will send an event to the DataLayer that looks like the following whenever the user views an experiment:
+## 3. Use Feature Flags and A/B Experiments
+
+It's possible to use GrowthBook in your GTM setup. This allows you to control feature flags and experiments without needing to modify your website code.
+
+:::tip
+If you're planning to use the [Visual Editor](/app/visual), [URL redirects](/app/url-redirects), or to [run experiments in code](/feature-flag-experiments), skip ahead to the next section ⏭️
+:::
+
+Create a new boolean feature flag with an A/B test. For this tutorial, we'll use a feature flag called `show-discount` to run an A/B test to show and hide an item's discount. New to feature flags in GrowthBook? Learn more about [creating them and A/B tests](/features/basics).
+
+Next, we'll use GTM to apply the feature flag to your website:
+
+- Create another Custom HTML tag in your workspace
+- Set the firing trigger to the pages you want to run this on
+- Use the following code as a starting point:
+
+```html
+<script>
+  // Wait for the GrowthBook SDK to load before running
+  window.growthbook_queue = window.growthbook_queue || [];
+  window.growthbook_queue.push(function(gb) {
+    // Function that uses feature flags to make changes to the page
+    function applyFeatureFlags() {
+      if(gb.isOn("show-discount")) {
+        var priceEl = document.getElementById("price");
+        if (!priceEl) return;
+        priceEl.classList.add("show-discount");
+      }
+    }
+    // Call your function initially plus whenever new data is received
+    applyFeatureFlags();
+    document.addEventListener("growthbookdata", applyFeatureFlags)
+  });
+</script>
+```
+
+In this example, we're using the `show-discount` feature flag to run an A/B experiment. When the experiment evaluates to `true`, we add a CSS class to the price element on the page.
+
+As seen in the image below, the control element shows the price, while the variation shows the original price with a strikethough and the discounted price in red. We can run this entire experiment straight from GTM, without needing to touch the website code!
+
+![A control element with the image and name of a couch, showing just a price, and a variation element with the same image and name, showing the original price with a strikethrough and the discounted price in red](/images/guides/gtm-ab-test.webp)
+
+## 4. Tracking via DataLayer and GTM
+
+To track experiment views, we use the `dataLayer` to capture experiment data. Whenever an experiment is viewed, we send an event with data like this:
 
 ```json
 {
@@ -81,102 +114,106 @@ The GrowthBook SDK implementation above will send an event to the DataLayer that
 }
 ```
 
-This event can be forwarded on to your analytics tool of choice. The following steps show an example of sending this to Google Analytics v4:
+In this tutorial, we'll send this data to Google Analytics 4 (GA4), which allows you to analyze experiments and their impact on your business metrics in GrowthBook. (It's also possible to forward this event to your analytics tool of choice.)
 
-### Step 1: Add a new Tag
+:::tip
+You'll need to connect GrowthBook to BigQuery to analyze your experiment data. See our guide on [configuring GrowthBook with BigQuery](/guide/bigquery) for more information.
+:::
 
-![Step 1](/images/guides/gtm-ga4-1.png)
+### Create DataLayer Variables
 
-Click “Tag Configuration”
+To capture experiment data from the `dataLayer`, create 2 new variables in GTM:
 
-![Step 2](/images/guides/gtm-ga4-2.png)
+- Go to **Variables** in the left sidebar
+- Click **New** under **User-Defined Variables**
+- Create 2 variables:
+  - **Experiment ID**
+    - Click **Variable Configuration**
+    - Select **Data Layer Variable**
+    - Enter `experiment_id` as the **Data Layer Variable Name**
+    - Name the variable something descriptive like "Experiment ID"
+    - Click **Save**
+  - **Variation ID**
+    - Repeat the these steps but use `variation_id` as the **Data Layer Variable Name** and call it something like "Variation ID"
 
-Choose “Google Analytics”
+![DataLayer Variables](/images/guides/gtm-data-layer-variables.webp)
 
-![Step 3](/images/guides/gtm-ga4-3.png)
+### Create Custom Event Trigger
 
-Then, choose “Google Analytics: GA4 Event”
+This custom trigger tells GTM when to fire the GA4 tag based on the `experiment_viewed` event.
 
-### Step 2: Start Configuring the Tag
+- Go to **Triggers** in the left sidebar
+- Click **New** and **Trigger Configuration**
+- Choose **Custom Event** as the trigger type
+- Name the trigger "Experiment Viewed Event" or similar
+- Enter `experiment_viewed` as the **Event Name**
+- Set the trigger to fire on **All Custom Events**
+- Click **Save**
 
-You will be presented with the following screen:
+![Custom Event Trigger](/images/guides/gtm-custom-trigger.webp)
 
-![Step 4](/images/guides/gtm-ga4-4.png)
+### Create GA4 Configuration Tag
 
-Fill out the following fields:
+Let's connect GTM to GA4. (Skip this step if you've already configured GA4 in your GTM container.)
 
-- Measurement ID: Your GA4 measurement id (find it in the GA4 admin settings)
-- Event Name: `experiment_viewed`
+- Create a new tag and select **Google Analytics** as the type
+- Choose **Google Tag**
+- Enter your [GA4 Measurement ID](https://support.google.com/analytics/answer/12270356?hl=en)
+- Add **Initialization - All Pages** for the trigger
+- Name the tag something like "GA4 Configuration" and save it
 
-Also, add 2 parameters, but only fill out the name. Leave the value empty for now
+![GTM GA4 Configuration Tag](/images/guides/gtm-ga4-config.webp)
 
-- `experiment_id`
-- `variation_id`
+### Create GA4 Event Tag
 
-![Step 5](/images/guides/gtm-ga4-5.png)
+Last step! Create a tag that sends the `experiment_viewed` event data to GA4.
 
-### Step 3: Add Variables for Experiment and Variation Ids
+- Create a new tag in GTM
+- Select **Google Analytics: GA4 Event**
+- Configuration:
+  - Measurement ID: Use your GA4 ID (or reference the GA4 Configuration tag)
+  - Event Name: `experiment_viewed`
+  - Event Parameters:
+    - Event Parameter: `experiment_id`
+    - Value: `{{Experiment ID}}`
+    - Event Parameter: `variation_id`
+    - Value: `{{Variation ID}}`
+- Triggering: Select the **Experiment Viewed Event** trigger
+- Name the tag (e.g., "GA4 - Experiment Viewed Event")
+- Save the tag
 
-These steps will be repeated for both the `experiment_id` and `variation_id` parameters. We will start with `experiment_id`:
+![GTM GA4 Event Tag](/images/guides/gtm-ga4-event.webp)
 
-Click the [+] icon in the Value input for `experiment_id`
+### Testing Your Setup
 
-![Step 6](/images/guides/gtm-ga4-6.png)
+1. In GTM:
+   - Click **Preview** in the top right
+   - Enter your website URL
+   - Click **Start**
 
-Click the blue “+” in the top right corner to add a new variable
+2. In Preview Mode:
+   - Look for the GrowthBook SDK tag firing
+   - Verify the `experiment_viewed` event appears
+   - Check that the event parameters contain the correct experiment and variation IDs
 
-![Step 7](/images/guides/gtm-ga4-7.png)
+![GTM Preview Mode](/images/guides/gtm-preview.webp)
 
-Click on “Variable Configuration”:
+3. In GA4 (may take 24-48 hours to appear):
+   - Go to Real-Time reports
+   - Look for the `experiment_viewed` event
+   - Verify the parameters are being received correctly
 
-![Step 8](/images/guides/gtm-ga4-8.png)
+Remember to save and publish your changes in GTM once you're ready to go live. You can now track experiment views in GA4 using GTM.
 
-Select “Data Layer Variable” and enter `experiment_id` as the Data Layer Variable Name.
+## Conclusion
 
-Also, add a descriptive name for your variable in the top left where it says “Untitled Variable” (”Experiment Id” shown below)
+You've successfully integrated GrowthBook with Google Tag Manager to run A/B tests and manage feature flags on your website. This setup allows you to control experiments without needing to modify your website code directly ✊
 
-![Step 9](/images/guides/gtm-ga4-9.png)
+### Next Steps
 
-Click the blue “Save” button.
+- Check out our guide for connecting [GrowthBook to GA4 and BigQuery](/guide/GA4-google-analytics)
+- For other analytics tools, see our guide on [connecting to your data warehouse](/warehouses)
 
-**Repeat the above steps for the `variation_id` variable**
+### Troubleshooting
 
-### Step 4: Add a Trigger
-
-You should be left with the following configuration. Add a descriptive name in the top left for your tag if you haven’t already - “GA4 - Experiment Viewed Event” shown here.
-
-![Step 10](/images/guides/gtm-ga4-10.png)
-
-Click the “Triggering” section
-
-![Step 11](/images/guides/gtm-ga4-11.png)
-
-Click the blue “+” in the top right to add a new trigger. Enter a descriptive name in the top left (”Experiment Viewed Event” shown here)
-
-![Step 12](/images/guides/gtm-ga4-12.png)
-
-Click “Trigger Configuration”
-
-![Step 13](/images/guides/gtm-ga4-13.png)
-
-Click “Custom Event”:
-
-![Step 14](/images/guides/gtm-ga4-14.png)
-
-Enter `experiment_viewed` as the Event name and click the blue “Save” button.
-
-Below is the end result of your tag configuration. Click the blue “Save” button to finish.
-
-![Step 15](/images/guides/gtm-ga4-15.png)
-
-### Step 5: Publish Your Changes
-
-Finally, publish your changes in Google Tag Manager and you’re done!
-
-## Viewing Results
-
-Once your analytics tool is successfully tracking your experiment events, the next step is to connect GrowthBook to your data warehouse and view results.
-
-If you are using Google Analytics v4, we have a dedicated guide for [Connecting GrowthBook to GA4 with BigQuery](/guide/GA4-google-analytics).
-
-For other analytics tools, refer to our general guide on [Connecting to your Data Warehouse](/warehouses).
+Please see our [Google Tag Manager (GTM) Troubleshooting Guide](/kb/google-analytics/google-tag-manager-gtm-troubleshooting) and our [GA4 Troubleshooting Guide](/kb/google-analytics/google-analytics-ga4-troubleshooting) (if relevant) for help debugging GTM and GA4 integrations with GrowthBook.

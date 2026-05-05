@@ -1,13 +1,13 @@
 import express from "express";
-import z from "zod";
-import { wrapController } from "../wrapController";
-import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
+import { z } from "zod";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as _githubIntegrationController from "./github-integration.controller";
 
 const router = express.Router();
 
 const githubIntegrationController = wrapController(
-  _githubIntegrationController
+  _githubIntegrationController,
 );
 
 router.get("/", githubIntegrationController.getGithubIntegration);
@@ -20,7 +20,7 @@ router.post(
       })
       .strict(),
   }),
-  githubIntegrationController.postGithubIntegration
+  githubIntegrationController.postGithubIntegration,
 );
 router.post(
   "/toggle-repo",
@@ -31,7 +31,7 @@ router.post(
       })
       .strict(),
   }),
-  githubIntegrationController.postRepoWatch
+  githubIntegrationController.postRepoWatch,
 );
 
 export { router as githubIntegrationRouter };

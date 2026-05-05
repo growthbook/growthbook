@@ -1,8 +1,13 @@
-import React, { FC, useCallback, useMemo, useState } from "react";
+import React, {
+  FC,
+  PropsWithChildren,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 import pick from "lodash/pick";
-import { SlackIntegrationInterface } from "back-end/types/slack-integration";
-import { TagInterface } from "back-end/types/tag";
-import Link from "next/link";
+import { SlackIntegrationInterface } from "shared/types/slack-integration";
+import { TagInterface } from "shared/types/tag";
 import {
   SlackIntegrationEditParams,
   SlackIntegrationModalMode,
@@ -13,6 +18,9 @@ import useApi from "@/hooks/useApi";
 import { SlackIntegrationAddEditModal } from "@/components/SlackIntegrations/SlackIntegrationAddEditModal/SlackIntegrationAddEditModal";
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Button from "@/ui/Button";
+import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 
 type SlackIntegrationsListViewProps = {
   onEditModalOpen: (id: string, data: SlackIntegrationEditParams) => void;
@@ -77,14 +85,14 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
           <h1>Slack Integrations</h1>
         </div>
         <p>Get alerts in Slack when your GrowthBook data is updated.</p>
-        <div className="alert alert-warning">
+        <Callout status="warning">
           <h4>Deprecated</h4>
           <p className="mb-0">
             Slack Integrations are deprecated and have been replaced by{" "}
             <Link href="/settings/webhooks">Event Webhooks</Link>, which offer
             the same functionality in a more flexible way.
           </p>
-        </div>
+        </Callout>
       </div>
 
       {/* Feedback messages */}
@@ -92,8 +100,10 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
         <div className="alert alert-danger my-3">{errorMessage}</div>
       )}
 
-      {/* Empty state */}
-      {slackIntegrations.length === 0 ? null : (
+      {/* Empty state - don't allow creating new slack integrations */}
+      {slackIntegrations.length === 0 ? (
+        null
+      ) : (
         <div>
           {/* List View */}
           {slackIntegrations.map((slackIntegration) => (
@@ -117,10 +127,8 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
 export const SlackIntegrationsListViewContainer = () => {
   const { apiCall } = useAuth();
 
-  const [
-    modalMode,
-    setModalMode,
-  ] = useState<SlackIntegrationModalMode | null>();
+  const [modalMode, setModalMode] =
+    useState<SlackIntegrationModalMode | null>();
 
   const handleOnEditModalOpen = useCallback(
     (id: string, data: SlackIntegrationEditParams) => {
@@ -130,7 +138,7 @@ export const SlackIntegrationsListViewContainer = () => {
         id,
       });
     },
-    []
+    [],
   );
 
   const handleOnCreateModalOpen = useCallback(() => {
@@ -141,7 +149,11 @@ export const SlackIntegrationsListViewContainer = () => {
 
   const [addEditError, setAddEditError] = useState<null | string>(null);
 
-  const { data, mutate, error: loadError } = useApi<{
+  const {
+    data,
+    mutate,
+    error: loadError,
+  } = useApi<{
     slackIntegrations: SlackIntegrationInterface[];
   }>("/integrations/slack");
 
@@ -160,7 +172,7 @@ export const SlackIntegrationsListViewContainer = () => {
 
       await mutate();
     },
-    [apiCall, mutate]
+    [apiCall, mutate],
   );
 
   const handleCreate = useCallback(
@@ -180,7 +192,7 @@ export const SlackIntegrationsListViewContainer = () => {
           setAddEditError(
             `Failed to create Slack integration: ${
               response.error || "Unknown error"
-            }`
+            }`,
           );
         } else {
           setAddEditError(null);
@@ -191,7 +203,7 @@ export const SlackIntegrationsListViewContainer = () => {
         setAddEditError(`Failed to create Slack integration: ${e.message}`);
       }
     },
-    [apiCall, mutate]
+    [apiCall, mutate],
   );
 
   const handleUpdate = useCallback(
@@ -215,7 +227,7 @@ export const SlackIntegrationsListViewContainer = () => {
               "slackAppId",
               "slackSigningKey",
               "slackIncomingWebHook",
-            ])
+            ]),
           ),
         });
 
@@ -223,7 +235,7 @@ export const SlackIntegrationsListViewContainer = () => {
           setAddEditError(
             `Failed to update Slack integration: ${
               response.error || "Unknown error"
-            }`
+            }`,
           );
         } else {
           setAddEditError(null);
@@ -234,7 +246,7 @@ export const SlackIntegrationsListViewContainer = () => {
         setAddEditError(`Failed to update Slack integration: ${e.message}`);
       }
     },
-    [apiCall, mutate]
+    [apiCall, mutate],
   );
 
   const environmentSettings = useEnvironments();

@@ -1,28 +1,28 @@
-import { ListSavedGroupsResponse } from "../../../types/openapi";
+import { listSavedGroupsValidator } from "shared/validators";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
-  getAllSavedGroups,
-  toSavedGroupApiInterface,
-} from "../../models/SavedGroupModel";
-import { applyPagination, createApiRequestHandler } from "../../util/handler";
-import { listSavedGroupsValidator } from "../../validators/openapi";
+  applyPagination,
+  createApiRequestHandler,
+} from "back-end/src/util/handler";
 
 export const listSavedGroups = createApiRequestHandler(
-  listSavedGroupsValidator
-)(
-  async (req): Promise<ListSavedGroupsResponse> => {
-    const savedGroups = await getAllSavedGroups(req.organization.id);
+  listSavedGroupsValidator,
+)(async (req) => {
+  const savedGroups = await req.context.models.savedGroups.getAll();
 
-    // TODO: Move sorting/limiting to the database query for better performance
-    const { filtered, returnFields } = applyPagination(
-      savedGroups.sort((a, b) => a.id.localeCompare(b.id)),
-      req.query
-    );
+  // TODO: Move sorting/limiting to the database query for better performance
+  const { filtered, returnFields } = applyPagination(
+    savedGroups.sort((a, b) => a.id.localeCompare(b.id)),
+    req.query,
+  );
 
-    return {
-      savedGroups: filtered.map((savedGroup) =>
-        toSavedGroupApiInterface(savedGroup)
+  return {
+    savedGroups: await resolveOwnerEmails(
+      filtered.map((savedGroup) =>
+        req.context.models.savedGroups.toApiInterface(savedGroup),
       ),
-      ...returnFields,
-    };
-  }
-);
+      req.context,
+    ),
+    ...returnFields,
+  };
+});

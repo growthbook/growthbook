@@ -1,14 +1,15 @@
 import type { Response } from "express";
-import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse } from "../../../types/api";
-import { getContextFromReq } from "../../services/organizations";
-import { TagInterface } from "../../../types/tag";
-import { addTag, removeTag } from "../../models/TagModel";
-import { removeTagInMetrics } from "../../models/MetricModel";
-import { removeTagInFeature } from "../../models/FeatureModel";
-import { removeTagFromSlackIntegration } from "../../models/SlackIntegrationModel";
-import { removeTagFromExperiments } from "../../models/ExperimentModel";
-import { EventAuditUserForResponseLocals } from "../../events/event-types";
+import { TagInterface } from "shared/types/tag";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { ApiErrorResponse } from "back-end/types/api";
+import { getContextFromReq } from "back-end/src/services/organizations";
+import { addTag, removeTag } from "back-end/src/models/TagModel";
+import { removeTagInMetrics } from "back-end/src/models/MetricModel";
+import { removeTagInFeature } from "back-end/src/models/FeatureModel";
+import { removeTagFromSlackIntegration } from "back-end/src/models/SlackIntegrationModel";
+import { removeTagInAttribute } from "back-end/src/services/attributes";
+import { removeTagFromExperiments } from "back-end/src/models/ExperimentModel";
 
 // region POST /tag
 
@@ -26,7 +27,7 @@ type CreateTagResponse = {
  */
 export const postTag = async (
   req: CreateTagRequest,
-  res: Response<CreateTagResponse>
+  res: Response<CreateTagResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -60,8 +61,8 @@ export const deleteTag = async (
   req: DeleteTagRequest,
   res: Response<
     DeleteTagResponse | ApiErrorResponse,
-    EventAuditUserForResponseLocals
-  >
+    EventUserForResponseLocals
+  >,
 ) => {
   const context = getContextFromReq(req);
 
@@ -82,6 +83,9 @@ export const deleteTag = async (
 
   // features
   await removeTagInFeature(context, id);
+
+  // attributes
+  await removeTagInAttribute(context, id);
 
   // Slack integrations
   await removeTagFromSlackIntegration({ organizationId: org.id, tag: id });

@@ -1,49 +1,46 @@
-import { snowflakeCreateTableOptions } from "enterprise";
-import { SnowflakeConnectionParams } from "../../types/integrations/snowflake";
-import { decryptDataSourceParams } from "../services/datasource";
-import { runSnowflakeQuery } from "../services/snowflake";
-import { QueryResponse } from "../types/Integration";
-import { FormatDialect } from "../util/sql";
+import { snowflakeCreateTableOptions } from "shared/enterprise";
+import { SqlDialect } from "shared/types/sql";
+import { QueryResponse, ExternalIdCallback } from "shared/types/integrations";
+import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import { QueryMetadata } from "shared/types/query";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { runSnowflakeQuery } from "back-end/src/services/snowflake";
 import SqlIntegration from "./SqlIntegration";
+import { snowflakeDialect } from "./dialects/snowflake";
 
 export default class Snowflake extends SqlIntegration {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  params: SnowflakeConnectionParams;
+  params!: SnowflakeConnectionParams;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<SnowflakeConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<SnowflakeConnectionParams>(encryptedParams);
+  }
+  getSqlDialect(): SqlDialect {
+    return snowflakeDialect;
   }
   isWritingTablesSupported(): boolean {
     return true;
   }
   createUnitsTableOptions() {
+    if (!this.datasource.settings.pipelineSettings) {
+      throw new Error("Pipeline settings are required to create a units table");
+    }
     return snowflakeCreateTableOptions(
-      this.datasource.settings.pipelineSettings ?? {}
+      this.datasource.settings.pipelineSettings,
     );
   }
-  getFormatDialect(): FormatDialect {
-    return "snowflake";
-  }
   getSensitiveParamKeys(): string[] {
-    return ["password"];
+    return ["password", "privateKey", "privateKeyPassword"];
   }
-  runQuery(sql: string): Promise<QueryResponse> {
-    return runSnowflakeQuery(this.params, sql);
+  runQuery(
+    sql: string,
+    setExternalId?: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
+  ): Promise<QueryResponse> {
+    return runSnowflakeQuery(this.params, sql, setExternalId, queryMetadata);
   }
-  formatDate(col: string): string {
-    return `TO_VARCHAR(${col}, 'YYYY-MM-DD')`;
-  }
-  formatDateTimeString(col: string): string {
-    return `TO_VARCHAR(${col}, 'YYYY-MM-DD HH24:MI:SS.MS')`;
-  }
-  castToString(col: string): string {
-    return `TO_VARCHAR(${col})`;
-  }
-  ensureFloat(col: string): string {
-    return `CAST(${col} AS DOUBLE)`;
+  supportsLimitZeroColumnValidation(): boolean {
+    return true;
   }
   getInformationSchemaWhereClause(): string {
     return "table_schema NOT IN ('INFORMATION_SCHEMA')";

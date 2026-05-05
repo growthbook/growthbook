@@ -1,22 +1,24 @@
+import { createHmac } from "node:crypto";
 import { Response } from "express";
-import { AuthRequest } from "../../types/AuthRequest";
-import { usingOpenId } from "../../services/auth";
-import { createUser, getUserByEmail } from "../../services/users";
-import { findOrganizationsByMemberId } from "../../models/OrganizationModel";
+import { OrganizationInterface } from "shared/types/organization";
+import { IS_CLOUD } from "back-end/src/util/secrets";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { usingOpenId } from "back-end/src/services/auth";
+import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
 import {
   addMemberFromSSOConnection,
-  findVerifiedOrgForNewUser,
+  findVerifiedOrgsForNewUser,
   getContextFromReq,
   validateLoginMethod,
-} from "../../services/organizations";
-import { UserModel } from "../../models/UserModel";
+} from "back-end/src/services/organizations";
 import {
-  deleteWatchedByEntity,
-  getWatchedByUser,
-  upsertWatch,
-} from "../../models/WatchModel";
-import { getFeature } from "../../models/FeatureModel";
-import { getExperimentById } from "../../models/ExperimentModel";
+  createUser,
+  getUserByEmail,
+  updateUser,
+} from "back-end/src/models/UserModel";
+import { getFeature } from "back-end/src/models/FeatureModel";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { findRecentAuditByUserIdAndOrganization } from "back-end/src/models/AuditModel";
 
 function isValidWatchEntityType(type: string): boolean {
   if (type === "experiment" || type === "feature") {
@@ -25,12 +27,42 @@ function isValidWatchEntityType(type: string): boolean {
     return false;
   }
 }
+export async function getHistoryByUser(req: AuthRequest<null>, res: Response) {
+  const { org, userId } = getContextFromReq(req);
+  const events = await findRecentAuditByUserIdAndOrganization(userId, org.id);
+  res.status(200).json({
+    status: 200,
+    events,
+  });
+}
+
+// Pylon doesn't do any identity verification, so this hashes a user's email with a secret
+// to prevent bad actors trying to impersonate our users or get access to their data.
+function createPylonHmacHash(email: string) {
+  const secretBytes = Buffer.from(
+    process.env.PYLON_VERIFICATION_SECRET || "",
+    "hex",
+  );
+  return createHmac("sha256", secretBytes).update(email).digest("hex");
+}
 
 export async function getUser(req: AuthRequest, res: Response) {
   // If using SSO, auto-create users in Mongo who we don't recognize yet
   if (!req.userId && usingOpenId()) {
-    const user = await createUser(req.name || "", req.email, "", req.verified);
+    let agreedToTerms = false;
+    if (IS_CLOUD) {
+      // we know if they agreed to terms if they are using Cloud SSO
+      agreedToTerms = true;
+    }
+    const user = await createUser({
+      name: req.name || "",
+      email: req.email,
+      password: "",
+      verified: req.verified,
+      agreedToTerms,
+    });
     req.userId = user.id;
+    req.currentUser = user;
   }
 
   if (!req.userId) {
@@ -73,6 +105,7 @@ export async function getUser(req: AuthRequest, res: Response) {
     userId: userId,
     userName: req.name,
     email: req.email,
+    pylonHmacHash: createPylonHmacHash(req.email),
     superAdmin: !!req.superAdmin,
     organizations: validOrgs.map((org) => {
       return {
@@ -85,22 +118,13 @@ export async function getUser(req: AuthRequest, res: Response) {
 
 export async function putUserName(
   req: AuthRequest<{ name: string }>,
-  res: Response
+  res: Response,
 ) {
   const { name } = req.body;
   const { userId } = getContextFromReq(req);
 
   try {
-    await UserModel.updateOne(
-      {
-        id: userId,
-      },
-      {
-        $set: {
-          name,
-        },
-      }
-    );
+    await updateUser(userId, { name });
     res.status(200).json({
       status: 200,
     });
@@ -112,26 +136,9 @@ export async function putUserName(
   }
 }
 
-export async function getWatchedItems(req: AuthRequest, res: Response) {
-  const { org, userId } = getContextFromReq(req);
-  try {
-    const watch = await getWatchedByUser(org.id, userId);
-    res.status(200).json({
-      status: 200,
-      experiments: watch?.experiments || [],
-      features: watch?.features || [],
-    });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e.message,
-    });
-  }
-}
-
 export async function postWatchItem(
   req: AuthRequest<null, { type: string; id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
@@ -162,9 +169,8 @@ export async function postWatchItem(
     throw new Error(`Could not find ${item}`);
   }
 
-  await upsertWatch({
+  await context.models.watch.upsertWatch({
     userId,
-    organization: org.id,
     item: id,
     type: type === "experiment" ? "experiments" : "features", // Pluralizes entity type for the Watch model,
   });
@@ -176,9 +182,10 @@ export async function postWatchItem(
 
 export async function postUnwatchItem(
   req: AuthRequest<null, { type: string; id: string }>,
-  res: Response
+  res: Response,
 ) {
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { userId } = context;
   const { type, id } = req.params;
 
   if (!isValidWatchEntityType(type)) {
@@ -190,8 +197,7 @@ export async function postUnwatchItem(
   }
 
   try {
-    await deleteWatchedByEntity({
-      organization: org.id,
+    await context.models.watch.deleteWatchedByEntity({
       userId,
       type: type === "experiment" ? "experiments" : "features", // Pluralizes entity type for the Watch model
       item: id,
@@ -208,7 +214,7 @@ export async function postUnwatchItem(
   }
 }
 
-export async function getRecommendedOrg(req: AuthRequest, res: Response) {
+export async function getRecommendedOrgs(req: AuthRequest, res: Response) {
   const { email } = req;
   const user = await getUserByEmail(email);
   if (!user?.verified) {
@@ -216,18 +222,26 @@ export async function getRecommendedOrg(req: AuthRequest, res: Response) {
       message: "no verified user found",
     });
   }
-  const org = await findVerifiedOrgForNewUser(email);
-  if (org) {
-    const currentUserIsPending = !!org?.pendingMembers?.find(
-      (m) => m.id === user.id
-    );
+  const orgs = await findVerifiedOrgsForNewUser(email);
+
+  // Filter out orgs that the user is already a member of
+  const joinableOrgs = orgs?.filter((org) => {
+    return !org.members.find((m) => m.id === user.id);
+  });
+
+  if (joinableOrgs) {
     return res.status(200).json({
-      organization: {
-        id: org.id,
-        name: org.name,
-        members: org?.members?.length || 0,
-        currentUserIsPending,
-      },
+      organizations: joinableOrgs.map((org: OrganizationInterface) => {
+        const currentUserIsPending = !!org?.pendingMembers?.find(
+          (m) => m.id === user.id,
+        );
+        return {
+          id: org.id,
+          name: org.name,
+          members: org?.members?.length || 0,
+          currentUserIsPending,
+        };
+      }),
     });
   }
   res.status(200).json({

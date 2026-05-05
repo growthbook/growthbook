@@ -1,11 +1,12 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Environment,
   NamespaceUsage,
+  OrganizationSettings,
   SDKAttributeFormat,
   SDKAttributeSchema,
   SDKAttributeType,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import {
   ExperimentRefRule,
   ExperimentRule,
@@ -15,23 +16,34 @@ import {
   FeatureValueType,
   ForceRule,
   RolloutRule,
-} from "back-end/types/feature";
+  ComputedFeatureInterface,
+} from "shared/types/feature";
 import stringify from "json-stringify-pretty-compact";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { FeatureUsageRecords } from "back-end/types/realtime";
+import dJSON from "dirty-json";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { FeatureUsageRecords } from "shared/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
 import {
+  featureHasEnvironment,
   generateVariationId,
+  getMatchingRules,
+  getRulesForEnvironment,
   validateAndFixCondition,
   validateFeatureValue,
 } from "shared/util";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import isEqual from "lodash/isEqual";
+import { SafeRolloutRule } from "shared/validators";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useApi from "@/hooks/useApi";
+import { useAddComputedFields, useSearch } from "@/services/search";
+import { useUser } from "@/services/UserContext";
+import { ALL_COUNTRY_CODES } from "@/components/Forms/CountrySelector";
+import type { SafeRolloutRuleCreateFields } from "@/components/Features/RuleModal";
 import { useDefinitions } from "./DefinitionsContext";
 
 export { generateVariationId } from "shared/util";
@@ -50,18 +62,97 @@ export interface AttributeData {
   enum: string[];
   archived: boolean;
   format?: SDKAttributeFormat;
+  disableEqualityConditions?: boolean;
 }
+
+export const STRING_VERSION_FORMAT_OPERATORS_MAP = {
+  $eq: "$veq",
+  $ne: "$vne",
+  $gt: "$vgt",
+  $gte: "$vgte",
+  $lt: "$vlt",
+  $lte: "$vlte",
+};
+export const STRING_OPERATORS = Object.keys(
+  STRING_VERSION_FORMAT_OPERATORS_MAP,
+);
+export const STRING_VERSION_OPERATORS = Object.values(
+  STRING_VERSION_FORMAT_OPERATORS_MAP,
+);
 
 export type NewExperimentRefRule = {
   type: "experiment-ref-new";
   name: string;
-  autoStart: boolean;
 } & Omit<ExperimentRule, "type">;
+
+// Sentinel for the "All environments" tab; a non-empty string keeps Radix
+// Tabs in controlled mode.
+export const FEATURE_RULES_ALL_ENVS = "__all__";
+
+// Persists the selected env tab across page loads; applies any org-level
+// `preferredEnvironment` on first visit. Returns `null` for "All environments".
+export function useFeatureRulesEnv(): [
+  string | null,
+  (v: string | null) => void,
+] {
+  const [stored, setStored] = useLocalStorage<string>(
+    "featureRulesEnv",
+    FEATURE_RULES_ALL_ENVS,
+  );
+  const { settings } = useUser();
+  const environments = useEnvironments();
+  const hasApplied = useRef(false);
+
+  useEffect(() => {
+    if (hasApplied.current) return;
+    if (!settings) return;
+    hasApplied.current = true;
+
+    const preferred = settings.preferredEnvironment;
+    // Empty string means "remember previous" — leave localStorage untouched.
+    if (!preferred) return;
+    // __all__ is a valid stored value.
+    if (preferred === FEATURE_RULES_ALL_ENVS) {
+      setStored(FEATURE_RULES_ALL_ENVS);
+      return;
+    }
+    // Only apply a specific env if it actually exists in the org.
+    if (environments.some((e) => e.id === preferred)) {
+      setStored(preferred);
+    }
+  }, [settings, environments, setStored]);
+
+  const setEnv = useCallback(
+    (v: string | null) => setStored(v ?? FEATURE_RULES_ALL_ENVS),
+    [setStored],
+  );
+
+  return [stored === FEATURE_RULES_ALL_ENVS ? null : stored, setEnv];
+}
 
 export function useEnvironmentState() {
   const [state, setState] = useLocalStorage("currentEnvironment", "dev");
-
+  const { settings } = useUser();
   const environments = useEnvironments();
+  const hasAppliedPreferredEnv = useRef(false);
+
+  // Apply any preferred environment on first load
+  useEffect(() => {
+    if (hasAppliedPreferredEnv.current) return;
+    if (!settings) return;
+
+    const preferredEnv = settings.preferredEnvironment;
+    if (!preferredEnv) {
+      hasAppliedPreferredEnv.current = true;
+      return;
+    }
+
+    const isValidEnv = environments.some((e) => e.id === preferredEnv);
+    if (isValidEnv) {
+      setState(preferredEnv);
+    }
+    hasAppliedPreferredEnv.current = true;
+  }, [settings, state, setState, environments]);
 
   if (!environments.map((e) => e.id).includes(state)) {
     return [environments[0]?.id || "production", setState] as const;
@@ -92,10 +183,139 @@ export function useEnvironments() {
 
   return environments;
 }
-export function getRules(feature: FeatureInterface, environment: string) {
-  return feature?.environmentSettings?.[environment]?.rules ?? [];
+
+export function useFeatureSearch({
+  allFeatures,
+  defaultSortField = "id",
+  filterResults,
+  environments,
+  localStorageKey = "features",
+  environmentStatus,
+  draftStates,
+  staleStates,
+}: {
+  allFeatures: FeatureInterface[];
+  defaultSortField?:
+    | "id"
+    | "description"
+    | "tags"
+    | "defaultValue"
+    | "dateCreated"
+    | "dateUpdated";
+  filterResults?: (items: FeatureInterface[]) => FeatureInterface[];
+  environments: Environment[];
+  localStorageKey?: string;
+  environmentStatus?: Record<string, Record<string, boolean>>;
+  draftStates?: Record<string, unknown>;
+  staleStates?: Record<
+    string,
+    {
+      stale: boolean;
+      neverStale: boolean;
+      envResults?: Record<string, { stale: boolean }>;
+    }
+  >;
+}) {
+  const { getOwnerDisplay } = useUser();
+  const { getProjectById } = useDefinitions();
+
+  const features = useAddComputedFields(
+    allFeatures,
+    (f) => {
+      const projectId = f.project;
+      const projectName = projectId ? getProjectById(projectId)?.name : "";
+      const projectIsDeReferenced = projectId && !projectName;
+      return {
+        ...f,
+        projectId,
+        projectName,
+        projectIsDeReferenced,
+        ownerName: getOwnerDisplay(f.owner),
+      };
+    },
+    [getOwnerDisplay, getProjectById],
+  );
+  return useSearch({
+    items: features,
+    defaultSortField: defaultSortField,
+    searchFields: ["id^3", "description"],
+    filterResults,
+    updateSearchQueryOnChange: true,
+    localStorageKey: localStorageKey,
+    searchTermFilters: {
+      is: (item) => {
+        const is: string[] = [item.valueType];
+        if (item.archived) is.push("archived");
+        if (draftStates?.[item.id]) is.push("draft");
+        if (item.valueType === "json") is.push("json");
+        if (item.valueType === "string") is.push("string");
+        if (item.valueType === "number") is.push("number");
+        if (item.valueType === "boolean") is.push("boolean");
+        // item.neverStale is authoritative — overrides staleStates cache immediately
+        if (item.neverStale) {
+          is.push("stale-disabled");
+        } else {
+          const s = staleStates?.[item.id];
+          if (s?.stale) is.push("stale");
+        }
+        return is;
+      },
+      has: (item) => {
+        const has: string[] = [];
+        if (item.project) has.push("project");
+        if (draftStates?.[item.id]) has.push("draft", "drafts");
+        if (!item.neverStale) {
+          const s = staleStates?.[item.id];
+          const hasSomeStaleEnvs = Object.values(s?.envResults ?? {}).some(
+            (e) => e.stale,
+          );
+          if (hasSomeStaleEnvs) has.push("stale-env");
+        }
+
+        // TODO: restore has:experiment/rollout/force/rule/prerequisites/savedgroup filters
+        // once rules are denormalized to a top-level rules[] field with an `environments`
+        // property (collapsing per-environment rules into a single scannable array).
+
+        return has;
+      },
+      key: (item) => item.id,
+      project: (item: ComputedFeatureInterface) => [
+        item.project,
+        item.projectName,
+      ],
+      created: (item) => new Date(item.dateCreated),
+      updated: (item) => new Date(item.dateUpdated),
+      experiment: (item) => item.linkedExperiments || [],
+      version: (item) => item.version,
+      revision: (item) => item.version,
+      owner: (item: ComputedFeatureInterface) => [item.owner, item.ownerName],
+      tag: (item) => item.tags,
+      type: (item) => item.valueType,
+      on: (item) => {
+        if (!environmentStatus) return [];
+        return environments
+          .filter((e) => featureHasEnvironment(item, e))
+          .filter((e) => environmentStatus[item.id]?.[e.id] ?? false)
+          .map((e) => e.id);
+      },
+      off: (item) => {
+        if (!environmentStatus) return [];
+        return environments
+          .filter((e) => featureHasEnvironment(item, e))
+          .filter((e) => !(environmentStatus[item.id]?.[e.id] ?? false))
+          .map((e) => e.id);
+      },
+    },
+  });
 }
-export function getFeatureDefaultValue(feature: FeatureInterface) {
+
+export function getRules(feature: FeatureInterface, environment: string) {
+  return getRulesForEnvironment(feature.rules, environment);
+}
+export function getFeatureDefaultValue(feature: {
+  defaultValue?: string;
+  valueType?: "boolean" | "string" | "number" | "json";
+}) {
   return feature.defaultValue ?? "";
 }
 export function getPrerequisites(feature: FeatureInterface) {
@@ -111,7 +331,7 @@ export function getTotalVariationWeight(weights: number[]): number {
 
 export function getVariationDefaultName(
   val: ExperimentValue,
-  type: FeatureValueType
+  type: FeatureValueType,
 ) {
   if (val.name) {
     return val.name;
@@ -128,12 +348,91 @@ export function getVariationDefaultName(
   return val.value;
 }
 
+// File size constants for JSON formatting
+export const MEDIUM_FILE_SIZE = 1 * 1024; // 1KB - disable dirty-json parsing
+export const LARGE_FILE_SIZE = 1024 * 1024; // 1MB - default to text editor
+
+// Format JSON string with pretty-printing, handling malformed JSON gracefully
+export function formatJSON(value: string): string | undefined {
+  const isMediumOrLargerJSON = value.length > MEDIUM_FILE_SIZE;
+
+  let formatted: string | undefined;
+  if (!isMediumOrLargerJSON) {
+    // Use dirty-json for small files to handle malformed JSON
+    try {
+      const parsed = dJSON.parse(value);
+      formatted = stringify(parsed);
+    } catch (e) {
+      // Fallback to native JSON.parse if dirty-json fails
+      try {
+        const parsed = JSON.parse(value);
+        formatted = stringify(parsed);
+      } catch (e2) {
+        // Ignore
+      }
+    }
+  } else {
+    // For medium+ files, only use native JSON.parse (much faster)
+    try {
+      const parsed = JSON.parse(value);
+      formatted = stringify(parsed);
+    } catch (e) {
+      // Invalid JSON - skip formatting to avoid blocking UI
+    }
+  }
+
+  return formatted;
+}
+
+export function isRuleInactive(
+  rule: FeatureRule,
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>,
+): boolean {
+  // Explicitly disabled
+  if (!rule.enabled) return true;
+
+  // Was scheduled to be disabled and that time has passed
+  const upcomingScheduleRule = getUpcomingScheduleRule(rule);
+  const scheduleCompletedAndDisabled =
+    !upcomingScheduleRule &&
+    rule?.scheduleRules?.length &&
+    rule.scheduleRules.at(-1)?.timestamp !== null;
+  if (scheduleCompletedAndDisabled) {
+    return true;
+  }
+  if (rule.type === "safe-rollout") {
+    if (rule.status === "stopped") {
+      return true;
+    }
+  }
+  // Linked experiment is missing, archived, or stopped with no temp rollout
+  if (rule.type === "experiment-ref") {
+    const linkedExperiment = experimentsMap.get(rule.experimentId);
+    if (!linkedExperiment) {
+      return true;
+    }
+    if (linkedExperiment.archived) {
+      return true;
+    }
+    if (
+      linkedExperiment.status === "stopped" &&
+      (linkedExperiment.excludeFromPayload ||
+        !linkedExperiment.releasedVariationId)
+    ) {
+      return true;
+    }
+  }
+
+  // Otherwise, it is active
+  return false;
+}
+
 type NamespaceGaps = { start: number; end: number }[];
 export function findGaps(
   namespaces: NamespaceUsage,
   namespace: string,
   featureId: string = "",
-  trackingKey: string = ""
+  trackingKey: string = "",
 ): NamespaceGaps {
   const experiments = namespaces?.[namespace] || [];
 
@@ -141,7 +440,7 @@ export function findGaps(
   const ranges = [
     ...experiments.filter(
       // Exclude the current feature/experiment
-      (e) => e.id !== featureId || e.trackingKey !== trackingKey
+      (e) => e.id !== featureId || e.trackingKey !== trackingKey,
     ),
     { start: 1, end: 1 },
   ];
@@ -163,43 +462,93 @@ export function findGaps(
   return gaps;
 }
 
-export function useFeaturesList(withProject = true) {
-  const { project } = useDefinitions();
+/**
+ * @deprecated Use `useFeatureMetaInfo` from `@/hooks/useFeatureMetaInfo` instead.
+ * Kept for ImportFromStatsig / ImportFromLaunchDarkly (explicit carve-outs).
+ */
+export function useFeaturesList({
+  project, // provided project takes precedence over useCurrentProject: true
+  useCurrentProject = true, // use the project selected in the project selector
+  includeArchived = false,
+  skipFetch = false, // skip fetching entirely (useful when waiting for data to load)
+}: {
+  project?: string;
+  useCurrentProject?: boolean;
+  includeArchived?: boolean;
+  skipFetch?: boolean;
+} = {}) {
+  const { project: currentProject } = useDefinitions();
 
-  const url = withProject ? `/feature?project=${project || ""}` : "/feature";
+  const qs = new URLSearchParams();
+  const projectToUse =
+    project ?? (useCurrentProject ? currentProject : undefined);
+  if (projectToUse) {
+    qs.set("project", projectToUse);
+  }
+  if (includeArchived) {
+    qs.set("includeArchived", "true");
+  }
+
+  const url = `/feature?${qs.toString()}`;
 
   const { data, error, mutate } = useApi<{
     features: FeatureInterface[];
-    linkedExperiments: ExperimentInterfaceStringDates[];
-  }>(url);
+    hasArchived: boolean;
+  }>(url, { shouldRun: () => !skipFetch });
+
+  const { features, hasArchived } = useMemo(() => {
+    if (data) {
+      return {
+        features: data.features,
+        hasArchived: data.hasArchived,
+      };
+    }
+    return {
+      features: [],
+      hasArchived: false,
+    };
+  }, [data]);
 
   return {
-    features: data?.features || [],
-    experiments: data?.linkedExperiments || [],
-    loading: !data,
+    features,
+    loading: !data && !skipFetch,
     error,
     mutate,
+    hasArchived,
   };
 }
 
-export function getVariationColor(i: number) {
-  const colors = [
-    "#8f66dc",
-    "#e5a6f3",
-    "#38aecc",
-    "#f5dd90",
-    "#3383ec",
-    "#80c17b",
-    "#79c4e0",
-    "#f87a7a",
-    "#6cc160",
-  ];
+export function getVariationColor(i: number, experimentTheme = false) {
+  const colors = !experimentTheme
+    ? [
+        "#8f66dc",
+        "#e5a6f3",
+        "#38aecc",
+        "#f5dd90",
+        "#3383ec",
+        "#80c17b",
+        "#79c4e0",
+        "#f87a7a",
+        "#6cc160",
+      ]
+    : [
+        /* This should match the variant colors defined in _colors.scss */
+        "var(--blue-8)",
+        "var(--teal-10)",
+        "var(--orange-10)",
+        "var(--pink-10)",
+        "var(--amber-10)",
+        "var(--mint-10)",
+        "var(--lime-11)",
+        "var(--cyan-10)",
+        "var(--red-10)",
+      ];
   return colors[i % colors.length];
 }
 
 export function useAttributeSchema(
   showArchived = false,
-  projectFilter?: string
+  projectFilter?: string,
 ) {
   const attributeSchema = useOrgSettings().attributeSchema || [];
 
@@ -220,7 +569,7 @@ export function useAttributeSchema(
 
 export function validateFeatureRule(
   rule: FeatureRule,
-  feature: FeatureInterface
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
 ): null | FeatureRule {
   let hasChanges = false;
   const ruleCopy = cloneDeep(rule);
@@ -234,7 +583,7 @@ export function validateFeatureRule(
         hasChanges = true;
         ruleCopy.condition = condition;
       },
-      false
+      false,
     );
   }
   if (rule.prerequisites) {
@@ -246,7 +595,7 @@ export function validateFeatureRule(
     const newValue = validateFeatureValue(
       feature,
       rule.value,
-      "Value to Force"
+      "Value to Force",
     );
     if (newValue !== rule.value) {
       hasChanges = true;
@@ -265,7 +614,7 @@ export function validateFeatureRule(
       const newValue = validateFeatureValue(
         feature,
         val.value,
-        "Variation #" + i
+        "Variation #" + i,
       );
       if (newValue !== val.value) {
         hasChanges = true;
@@ -277,7 +626,7 @@ export function validateFeatureRule(
 
     if (totalWeight > 1) {
       throw new Error(
-        `Sum of weights cannot be greater than 1 (currently equals ${totalWeight})`
+        `Sum of weights cannot be greater than 1 (currently equals ${totalWeight})`,
       );
     }
   } else if (rule.type === "experiment-ref") {
@@ -285,18 +634,37 @@ export function validateFeatureRule(
       const newValue = validateFeatureValue(
         feature,
         v.value,
-        "Variation #" + i
+        "Variation #" + i,
       );
       if (newValue !== v.value) {
         hasChanges = true;
         (ruleCopy as ExperimentRefRule).variations[i].value = newValue;
       }
     });
+  } else if (rule.type === "safe-rollout") {
+    const newVariationValue = validateFeatureValue(
+      feature,
+      rule.variationValue,
+      "Value to Rollout",
+    );
+    if (newVariationValue !== rule.variationValue) {
+      hasChanges = true;
+      (ruleCopy as SafeRolloutRule).variationValue = newVariationValue;
+    }
+    const newControlValue = validateFeatureValue(
+      feature,
+      rule.controlValue,
+      "Control Value",
+    );
+    if (newControlValue !== rule.controlValue) {
+      hasChanges = true;
+      (ruleCopy as SafeRolloutRule).controlValue = newControlValue;
+    }
   } else {
     const newValue = validateFeatureValue(
       feature,
       rule.value,
-      "Value to Rollout"
+      "Value to Rollout",
     );
     if (newValue !== rule.value) {
       hasChanges = true;
@@ -313,7 +681,7 @@ export function validateFeatureRule(
 
 export function getEnabledEnvironments(
   feature: FeatureInterface,
-  environments: Environment[]
+  environments: Environment[],
 ) {
   return Object.keys(feature.environmentSettings ?? {}).filter((env) => {
     if (!environments.some((e) => e.id === env)) return false;
@@ -323,7 +691,7 @@ export function getEnabledEnvironments(
 
 export function getAffectedEnvs(
   feature: FeatureInterface,
-  changedEnvs: string[]
+  changedEnvs: string[],
 ): string[] {
   const settings = feature.environmentSettings;
   if (!settings) return [];
@@ -350,14 +718,14 @@ export function getDefaultValue(valueType: FeatureValueType): string {
 export function getAffectedRevisionEnvs(
   liveFeature: FeatureInterface,
   revision: FeatureRevisionInterface,
-  environments: Environment[]
+  environments: Environment[],
 ): string[] {
   const enabledEnvs = getEnabledEnvironments(liveFeature, environments);
   if (revision.defaultValue !== liveFeature.defaultValue) return enabledEnvs;
 
   return enabledEnvs.filter((env) => {
-    const liveRules = liveFeature.environmentSettings?.[env]?.rules || [];
-    const revisionRules = revision.rules?.[env] || [];
+    const liveRules = getRulesForEnvironment(liveFeature.rules, env);
+    const revisionRules = getRulesForEnvironment(revision.rules, env);
 
     return !isEqual(liveRules, revisionRules);
   });
@@ -374,32 +742,50 @@ export function getDefaultVariationValue(defaultValue: string) {
   };
   return defaultValue in map ? map[defaultValue] : defaultValue;
 }
-
+type safeRolloutFields = Omit<
+  SafeRolloutRuleCreateFields,
+  "safeRolloutFields"
+> & {
+  safeRolloutFields: Omit<
+    SafeRolloutRuleCreateFields["safeRolloutFields"],
+    "maxDuration"
+  >;
+};
 export function getDefaultRuleValue({
   defaultValue,
   attributeSchema,
   ruleType,
+  settings,
+  datasources,
+  isSafeRolloutAutoRollbackEnabled = false,
 }: {
   defaultValue: string;
   attributeSchema?: SDKAttributeSchema;
   ruleType: string;
-}): FeatureRule | NewExperimentRefRule {
+  settings?: OrganizationSettings;
+  datasources?: DataSourceInterfaceWithParams[];
+  isSafeRolloutAutoRollbackEnabled?: boolean;
+}): FeatureRule | NewExperimentRefRule | safeRolloutFields {
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
     [];
+
   const hashAttribute = hashAttributes.includes("id")
     ? "id"
     : hashAttributes[0] || "id";
-
+  let defaultDataSource = settings?.defaultDataSource;
+  if (datasources && !defaultDataSource && datasources.length === 1) {
+    defaultDataSource = datasources[0].id;
+  }
   const value = getDefaultVariationValue(defaultValue);
-
   if (ruleType === "rollout") {
     return {
       type: "rollout",
       description: "",
       id: "",
+      allEnvironments: false,
       value,
-      coverage: 0.5,
+      coverage: 1, // we are hardcoding the coverage to 1 for now
       condition: "",
       enabled: true,
       hashAttribute,
@@ -415,11 +801,36 @@ export function getDefaultRuleValue({
       ],
     };
   }
+  if (ruleType === "safe-rollout") {
+    return {
+      type: "safe-rollout",
+      description: "",
+      id: "",
+      allEnvironments: false,
+      condition: "",
+      safeRolloutId: "",
+      enabled: true,
+      prerequisites: [],
+      controlValue: defaultValue,
+      variationValue: value,
+      hashAttribute: "id",
+      trackingKey: "",
+      seed: "",
+      status: "running",
+      safeRolloutFields: {
+        datasourceId: defaultDataSource || "",
+        exposureQueryId: "",
+        guardrailMetricIds: [],
+        autoRollback: isSafeRolloutAutoRollbackEnabled,
+      },
+    };
+  }
   if (ruleType === "experiment") {
     return {
       type: "experiment",
       description: "",
       id: "",
+      allEnvironments: false,
       condition: "",
       enabled: true,
       hashAttribute,
@@ -460,6 +871,7 @@ export function getDefaultRuleValue({
       description: "",
       experimentId: "",
       id: "",
+      allEnvironments: false,
       variations: [],
       condition: "",
       enabled: true,
@@ -478,10 +890,11 @@ export function getDefaultRuleValue({
   if (ruleType === "experiment-ref-new") {
     return {
       type: "experiment-ref-new",
+      experimentType: "standard",
       description: "",
       name: "",
-      autoStart: true,
       id: "",
+      allEnvironments: false,
       condition: "",
       enabled: true,
       hashAttribute,
@@ -490,12 +903,12 @@ export function getDefaultRuleValue({
         {
           value: defaultValue,
           weight: 0.5,
-          name: "",
+          name: "Control",
         },
         {
           value: value,
           weight: 0.5,
-          name: "",
+          name: "Variation 1",
         },
       ],
       coverage: 1,
@@ -521,6 +934,7 @@ export function getDefaultRuleValue({
       type: "force",
       description: "",
       id: "",
+      allEnvironments: false,
       value,
       enabled: true,
       condition: "",
@@ -540,61 +954,122 @@ export function getDefaultRuleValue({
   throw new Error("Unknown Rule Type: " + ruleType);
 }
 
-export function isRuleFullyCovered(rule: FeatureRule): boolean {
-  // get the schedules on any of the rules:
-  const upcomingScheduleRule = getUpcomingScheduleRule(rule);
+export function getUnreachableRuleIndex(
+  rules: FeatureRule[],
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>,
+) {
+  for (let i = 0; i < rules.length; i++) {
+    const rule = rules[i];
 
-  const scheduleCompletedAndDisabled =
-    !upcomingScheduleRule &&
-    rule?.scheduleRules?.length &&
-    rule.scheduleRules.at(-1)?.timestamp !== null;
+    // Skip over inactive rules
+    if (isRuleInactive(rule, experimentsMap)) continue;
 
-  const ruleDisabled =
-    scheduleCompletedAndDisabled ||
-    upcomingScheduleRule?.enabled ||
-    !rule.enabled;
+    // Skip rules that are conditional based on a schedule
+    const upcomingScheduleRule = getUpcomingScheduleRule(rule);
+    if (upcomingScheduleRule && upcomingScheduleRule.timestamp) {
+      continue;
+    }
 
-  if (rule?.prerequisites?.length) {
-    return false;
+    // Skip rules with targeting conditions
+    if (rule.condition && rule.condition !== "{}") {
+      continue;
+    }
+    if (rule.savedGroups?.length) {
+      continue;
+    }
+    if (rule.prerequisites?.length) {
+      continue;
+    }
+
+    // Only force rules and 100%-coverage rollouts consume all traffic
+    const isFullCoverage =
+      rule.type === "force" || (rule.type === "rollout" && rule.coverage >= 1);
+    if (!isFullCoverage) continue;
+
+    return i + 1;
   }
 
-  // rollouts and experiments at 100%:
-  if (
-    (rule.type === "rollout" || rule.type === "experiment") &&
-    rule.coverage === 1 &&
-    rule.enabled === true &&
-    (!rule.condition || rule.condition === "{}") &&
-    !rule.savedGroups?.length &&
-    !ruleDisabled
-  ) {
-    return true;
-  }
-
-  // force rule at 100%: (doesn't have coverage)
-  return (
-    rule.type === "force" &&
-    rule.condition === "{}" &&
-    !rule.savedGroups?.length &&
-    !ruleDisabled
-  );
+  // No unreachable rules
+  return 0;
 }
 
 export function jsonToConds(
   json: string,
-  attributes?: Map<string, AttributeData>
-): null | Condition[] {
+  attributes?: Map<string, AttributeData>,
+  isNested: boolean = false,
+): null | Condition[][] {
   if (!json || json === "{}") return [];
   // Advanced use case where we can't use the simple editor
-  if (json.match(/\$(or|nor|all|type)/)) return null;
+  if (json.match(/\$(nor|all|type)/)) return null;
 
   try {
     const parsed = JSON.parse(json);
-    if (parsed["$not"]) return null;
+
+    if ("$or" in parsed && Array.isArray(parsed["$or"])) {
+      if (isNested) return null;
+
+      // If there are any other top-level keys, return null
+      if (Object.keys(parsed).length > 1) return null;
+
+      const ret: Condition[][] = [];
+      for (const part of parsed["$or"]) {
+        const conds = jsonToConds(JSON.stringify(part), attributes, true);
+
+        // If any of the sub conditions could not be parsed
+        if (!conds) return null;
+        // No conditions, skip
+        if (!conds.length) continue;
+        // Nested $or - not supported
+        if (conds.length > 1) return null;
+
+        ret.push(conds[0]);
+      }
+      return ret;
+    }
 
     const conds: Condition[] = [];
     let valid = true;
 
+    if (parsed["$not"]) {
+      // Allow $savedGroups as the only key inside $not
+      const notObj = parsed["$not"];
+      if (
+        typeof notObj === "object" &&
+        Object.keys(notObj).length === 1 &&
+        "$savedGroups" in notObj
+      ) {
+        const v = notObj["$savedGroups"];
+        if (v && Array.isArray(v) && v.every((id) => typeof id === "string")) {
+          conds.push({
+            field: "$notSavedGroups",
+            operator: "$nin",
+            value: v.join(", "),
+          });
+        } else {
+          return null;
+        }
+      } else {
+        return null;
+      }
+    }
+
     Object.keys(parsed).forEach((field) => {
+      if (field === "$not") return;
+
+      if (field === "$savedGroups") {
+        const v = parsed[field];
+        if (v && Array.isArray(v) && v.every((id) => typeof id === "string")) {
+          return conds.push({
+            field,
+            operator: "$in",
+            value: v.join(", "),
+          });
+        } else {
+          valid = false;
+          return;
+        }
+      }
+
       if (attributes && !attributes.has(field)) {
         valid = false;
         return;
@@ -624,7 +1099,12 @@ export function jsonToConds(
       Object.keys(value).forEach((operator) => {
         const v = value[operator];
 
-        if (operator === "$in" || operator === "$nin") {
+        if (
+          operator === "$in" ||
+          operator === "$nin" ||
+          operator === "$ini" ||
+          operator === "$nini"
+        ) {
           if (v.some((str) => typeof str === "string" && str.includes(","))) {
             valid = false;
             return;
@@ -657,6 +1137,13 @@ export function jsonToConds(
                 field,
                 operator: "$notRegex",
                 value: v["$regex"],
+              });
+            }
+            if ("$regexi" in v && typeof v["$regexi"] === "string") {
+              return conds.push({
+                field,
+                operator: "$notRegexi",
+                value: v["$regexi"],
               });
             }
             if ("$elemMatch" in v) {
@@ -729,6 +1216,7 @@ export function jsonToConds(
             "$lt",
             "$lte",
             "$regex",
+            "$regexi",
             "$veq",
             "$vne",
             "$vgt",
@@ -759,7 +1247,7 @@ export function jsonToConds(
       });
     });
     if (!valid) return null;
-    return conds;
+    return [conds];
   } catch (e) {
     return null;
   }
@@ -767,7 +1255,7 @@ export function jsonToConds(
 
 function parseValue(
   value: string,
-  type?: "string" | "number" | "boolean" | "secureString"
+  type?: "string" | "number" | "boolean" | "secureString",
 ) {
   if (type === "number") return parseFloat(value) || 0;
   if (type === "boolean") return value === "false" ? false : true;
@@ -775,54 +1263,109 @@ function parseValue(
 }
 
 export function condToJson(
-  conds: Condition[],
-  attributes: Map<string, AttributeData>
+  conds: Condition[][],
+  attributes: Map<string, AttributeData>,
 ) {
-  const obj = {};
-  conds.forEach(({ field, operator, value }) => {
-    obj[field] = obj[field] || {};
-    if (operator === "$notRegex") {
-      obj[field]["$not"] = { $regex: value };
-    } else if (operator === "$notExists") {
-      obj[field]["$exists"] = false;
-    } else if (operator === "$exists") {
-      obj[field]["$exists"] = true;
-    } else if (operator === "$true") {
-      obj[field]["$eq"] = true;
-    } else if (operator === "$false") {
-      obj[field]["$eq"] = false;
-    } else if (operator === "$includes") {
-      obj[field]["$elemMatch"] = {
-        $eq: parseValue(value, attributes.get(field)?.datatype),
-      };
-    } else if (operator === "$notIncludes") {
-      obj[field]["$not"] = {
-        $elemMatch: { $eq: parseValue(value, attributes.get(field)?.datatype) },
-      };
-    } else if (operator === "$empty") {
-      obj[field]["$size"] = 0;
-    } else if (operator === "$notEmpty") {
-      obj[field]["$size"] = { $gt: 0 };
-    } else if (operator === "$in" || operator === "$nin") {
-      obj[field][operator] = value
-        .split(",")
-        .map((x) => x.trim())
-        .map((x) => parseValue(x, attributes.get(field)?.datatype));
-    } else if (operator === "$inGroup" || operator === "$notInGroup") {
-      obj[field][operator] = value;
-    } else {
-      obj[field][operator] = parseValue(value, attributes.get(field)?.datatype);
+  const or: unknown[] = [];
+  conds.forEach((cond) => {
+    const obj = {};
+    cond.forEach(({ field, operator, value }) => {
+      // Special handling for $savedGroups, $notSavedGroups since they're not real attributes
+      if (field === "$savedGroups" || field === "$notSavedGroups") {
+        const ids = value
+          .split(",")
+          .map((x) => x.trim())
+          .filter((x) => !!x);
+        if (!ids.length) return;
+
+        // $notSavedGroups is a shortcut for $not: { $savedGroups: [...] }
+        if (field === "$notSavedGroups") {
+          obj["$not"] = obj["$not"] || {};
+          obj["$not"]["$savedGroups"] = obj["$not"]["$savedGroups"] || [];
+          obj["$not"]["$savedGroups"] = obj["$not"]["$savedGroups"].concat(ids);
+        } else {
+          // field === "$savedGroups"
+          obj["$savedGroups"] = obj["$savedGroups"] || [];
+          obj["$savedGroups"] = obj["$savedGroups"].concat(ids);
+        }
+        return;
+      }
+
+      obj[field] = obj[field] || {};
+      if (operator === "$notRegex") {
+        obj[field]["$not"] = { $regex: value };
+      } else if (operator === "$notRegexi") {
+        obj[field]["$not"] = { $regexi: value };
+      } else if (operator === "$regexi") {
+        obj[field]["$regexi"] = value;
+      } else if (operator === "$notExists") {
+        obj[field]["$exists"] = false;
+      } else if (operator === "$exists") {
+        obj[field]["$exists"] = true;
+      } else if (operator === "$true") {
+        obj[field]["$eq"] = true;
+      } else if (operator === "$false") {
+        obj[field]["$eq"] = false;
+      } else if (operator === "$includes") {
+        obj[field]["$elemMatch"] = {
+          $eq: parseValue(value, attributes.get(field)?.datatype),
+        };
+      } else if (operator === "$notIncludes") {
+        obj[field]["$not"] = {
+          $elemMatch: {
+            $eq: parseValue(value, attributes.get(field)?.datatype),
+          },
+        };
+      } else if (operator === "$empty") {
+        obj[field]["$size"] = 0;
+      } else if (operator === "$notEmpty") {
+        obj[field]["$size"] = { $gt: 0 };
+      } else if (
+        operator === "$in" ||
+        operator === "$nin" ||
+        operator === "$ini" ||
+        operator === "$nini"
+      ) {
+        // Allow for the empty list
+        if (value === "") {
+          obj[field][operator] = [];
+        } else {
+          obj[field][operator] = value
+            .split(",")
+            .map((x) => x.trim())
+            .map((x) => parseValue(x, attributes.get(field)?.datatype));
+        }
+      } else if (operator === "$inGroup" || operator === "$notInGroup") {
+        obj[field][operator] = value;
+      } else {
+        obj[field][operator] = parseValue(
+          value,
+          attributes.get(field)?.datatype,
+        );
+      }
+    });
+
+    // Simplify {$eg: ""} rules
+    Object.keys(obj).forEach((key) => {
+      if (Object.keys(obj[key]).length === 1 && "$eq" in obj[key]) {
+        obj[key] = obj[key]["$eq"];
+      }
+    });
+
+    if (Object.keys(obj).length) {
+      or.push(obj);
     }
   });
 
-  // Simplify {$eg: ""} rules
-  Object.keys(obj).forEach((key) => {
-    if (Object.keys(obj[key]).length === 1 && "$eq" in obj[key]) {
-      obj[key] = obj[key]["$eq"];
-    }
-  });
+  // No conditions
+  if (!or.length) return "{}";
 
-  return stringify(obj);
+  // Single or condition
+  if (or.length === 1) {
+    return stringify(or[0]);
+  }
+
+  return stringify({ $or: or });
 }
 
 function getAttributeDataType(type: SDKAttributeType) {
@@ -837,7 +1380,7 @@ function getAttributeDataType(type: SDKAttributeType) {
 }
 
 export function useAttributeMap(
-  projectFilter?: string
+  projectFilter?: string,
 ): Map<string, AttributeData> {
   const attributeSchema = useAttributeSchema(true, projectFilter);
 
@@ -855,10 +1398,13 @@ export function useAttributeMap(
         enum:
           schema.datatype === "enum" && schema.enum
             ? schema.enum.split(",").map((x) => x.trim())
-            : [],
+            : schema.format === "isoCountryCode"
+              ? ALL_COUNTRY_CODES
+              : [],
         identifier: !!schema.hashAttribute,
         archived: !!schema.archived,
         format: schema.format || "",
+        disableEqualityConditions: !!schema.disableEqualityConditions,
       });
     });
 
@@ -868,37 +1414,43 @@ export function useAttributeMap(
 
 export function getExperimentDefinitionFromFeature(
   feature: FeatureInterface,
-  expRule: ExperimentRule
+  expRule: ExperimentRule,
 ) {
   const trackingKey = expRule?.trackingKey || feature.id;
   if (!trackingKey) {
     return null;
   }
 
+  const variations = expRule.values.map((v, i) => {
+    let name = i ? `Variation ${i}` : "Control";
+    if (v?.name) {
+      name = v.name;
+    } else if (feature.valueType === "boolean") {
+      name = v.value === "true" ? "On" : "Off";
+    }
+    return {
+      name,
+      key: i + "",
+      id: generateVariationId(),
+      screenshots: [],
+      description: v.value,
+    };
+  });
+  const variationWeights = expRule.values.map((v) => v.weight);
   const expDefinition: Partial<ExperimentInterfaceStringDates> = {
     trackingKey: trackingKey,
     name: trackingKey + " experiment",
     hypothesis: expRule.description || "",
     description: `Experiment analysis for the feature [**${feature.id}**](/features/${feature.id})`,
-    variations: expRule.values.map((v, i) => {
-      let name = i ? `Variation ${i}` : "Control";
-      if (v?.name) {
-        name = v.name;
-      } else if (feature.valueType === "boolean") {
-        name = v.value === "true" ? "On" : "Off";
-      }
-      return {
-        name,
-        key: i + "",
-        id: generateVariationId(),
-        screenshots: [],
-        description: v.value,
-      };
-    }),
+    variations,
     phases: [
       {
         coverage: expRule.coverage || 1,
-        variationWeights: expRule.values.map((v) => v.weight),
+        variationWeights,
+        variations: variations.map((v) => ({
+          id: v.id,
+          status: "active" as const,
+        })),
         name: "Main",
         reason: "",
         dateStarted: new Date().toISOString(),
@@ -918,11 +1470,10 @@ export function getExperimentDefinitionFromFeature(
 export function useRealtimeData(
   features: FeatureInterface[] = [],
   mock = false,
-  update = false
 ): { usage: FeatureUsageRecords; usageDomain: [number, number] } {
-  const { data, mutate } = useApi<{
-    usage: FeatureUsageRecords;
-  }>(`/usage/features`);
+  const { data, mutate } = useApi<{ usage: FeatureUsageRecords }>(
+    `/usage/features`,
+  );
 
   // Mock data
   const usage = useMemo(() => {
@@ -938,7 +1489,7 @@ export function useRealtimeData(
         usage[f.id].realtime.push({
           used: Math.floor(Math.random() * 1000 * usedRatio * volumeRatio),
           skipped: Math.floor(
-            Math.random() * 1000 * (1 - usedRatio) * volumeRatio
+            Math.random() * 1000 * (1 - usedRatio) * volumeRatio,
           ),
         });
       }
@@ -948,7 +1499,6 @@ export function useRealtimeData(
 
   // Update usage data every 10 seconds
   useEffect(() => {
-    if (!update) return;
     let timer = 0;
     const cb = async () => {
       await mutate();
@@ -958,14 +1508,14 @@ export function useRealtimeData(
     return () => {
       window.clearTimeout(timer);
     };
-  }, [update]);
+  }, []);
 
   const max = useMemo(() => {
     return Math.max(
       1,
       ...Object.values(usage).map((d) => {
         return Math.max(1, ...d.realtime.map((u) => u.used + u.skipped));
-      })
+      }),
     );
   }, [usage]);
 
@@ -977,8 +1527,39 @@ export function getDefaultOperator(attribute: AttributeData) {
     return "$true";
   } else if (attribute.array) {
     return "$includes";
+  } else if (attribute.format === "version") {
+    return "$veq";
+  } else if (attribute.disableEqualityConditions) {
+    return "$regex";
   }
   return "$eq";
+}
+
+export function getFormatEquivalentOperator(
+  operator: string,
+  desiredFormat?: SDKAttributeFormat,
+): string | null {
+  const isVersionOperator = STRING_VERSION_OPERATORS.includes(operator);
+  if (
+    (desiredFormat === "version" && isVersionOperator) ||
+    (desiredFormat !== "version" && !isVersionOperator)
+  ) {
+    return operator;
+  }
+
+  if (desiredFormat === "version" && !isVersionOperator) {
+    return STRING_VERSION_FORMAT_OPERATORS_MAP[operator];
+  }
+
+  if (desiredFormat !== "version" && isVersionOperator) {
+    return (
+      Object.keys(STRING_VERSION_FORMAT_OPERATORS_MAP).find(
+        (key) => STRING_VERSION_FORMAT_OPERATORS_MAP[key] === operator,
+      ) || null
+    );
+  }
+
+  return null;
 }
 
 export function genDuplicatedKey({ id }: FeatureInterface) {
@@ -998,4 +1579,149 @@ export function genDuplicatedKey({ id }: FeatureInterface) {
     // we failed, let the user name the key
     return "";
   }
+}
+
+export function getNewDraftExperimentsToPublish({
+  environments,
+  feature,
+  revision,
+  experimentsMap,
+}: {
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  environments: Environment[];
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+}) {
+  const environmentIds = environments.map((e) => e.id);
+
+  const liveExperimentIds = new Set(
+    getMatchingRules(
+      feature,
+      (rule) => rule.type === "experiment-ref",
+      environmentIds,
+    ).map((result) => (result.rule as ExperimentRefRule).experimentId),
+  );
+
+  function isExp(
+    exp: ExperimentInterfaceStringDates | undefined,
+  ): exp is ExperimentInterfaceStringDates {
+    return !!exp;
+  }
+
+  const draftExperiments = getMatchingRules(
+    feature,
+    (rule) => {
+      if (rule.enabled === false) return false;
+      if (rule.type !== "experiment-ref") return false;
+
+      const exp = experimentsMap.get(rule.experimentId);
+      if (!exp) return false;
+
+      // Skip experiment rules that are already live
+      if (liveExperimentIds.has(rule.experimentId)) return false;
+
+      if (exp.status !== "draft") return false;
+      if (exp.archived) return false;
+
+      // Skip experiments with visual changesets. Those need to be started from the experiment page
+      if (exp.hasVisualChangesets) return false;
+
+      return true;
+    },
+    environmentIds,
+    revision,
+  )
+    .map((result) =>
+      experimentsMap.get((result.rule as ExperimentRefRule).experimentId),
+    )
+    .filter(isExp);
+
+  return [...new Set(draftExperiments)];
+}
+
+// Returns experiments whose draft rules would go live when this revision is published.
+export function useFeatureExperimentChecklists({
+  feature,
+  revision,
+  experimentsMap,
+}: {
+  feature: FeatureInterface;
+  revision?: FeatureRevisionInterface;
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+}) {
+  const allEnvironments = useEnvironments();
+
+  const experiments = useMemo(
+    () =>
+      revision
+        ? getNewDraftExperimentsToPublish({
+            feature,
+            revision,
+            environments: allEnvironments,
+            experimentsMap,
+          })
+        : [],
+    [feature, revision, allEnvironments, experimentsMap],
+  );
+
+  return { experiments };
+}
+
+export function parseDefaultValue(
+  defaultValue: string,
+  valueType: FeatureValueType,
+): string {
+  if (valueType === "boolean") {
+    return defaultValue === "true" ? "true" : "false";
+  }
+  if (valueType === "number") {
+    return parseFloat(defaultValue) + "";
+  }
+  if (valueType === "string") {
+    return defaultValue;
+  }
+  try {
+    return JSON.stringify(JSON.parse(defaultValue), null, 2);
+  } catch (e) {
+    throw new Error(`JSON parse error for default value`);
+  }
+}
+
+/**
+ * Detects if a targeting condition has version string operator mismatches
+ * i.e. if a version string attribute is using gt instead of vgt or vice-versa
+ */
+export function getAttributesWithVersionStringMismatches(
+  condition: string,
+  attributes: Map<string, AttributeData>,
+): string[] | null {
+  const conds = jsonToConds(condition, attributes);
+  if (!conds || conds.length === 0) {
+    return null;
+  }
+
+  const mismatchedAttributes = new Set<string>();
+
+  conds.forEach((cond) =>
+    cond.forEach(({ field, operator }) => {
+      const attribute = attributes.get(field);
+      if (
+        attribute &&
+        attribute.format === "version" &&
+        STRING_OPERATORS.includes(operator)
+      ) {
+        mismatchedAttributes.add(field);
+      } else if (
+        attribute &&
+        attribute.format !== "version" &&
+        STRING_VERSION_OPERATORS.includes(operator)
+      ) {
+        mismatchedAttributes.add(field);
+      }
+    }),
+  );
+
+  return mismatchedAttributes.size > 0
+    ? Array.from(mismatchedAttributes)
+    : null;
 }

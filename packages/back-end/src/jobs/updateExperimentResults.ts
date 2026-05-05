@@ -1,36 +1,26 @@
 import Agenda, { Job } from "agenda";
 import { getScopedSettings } from "shared/settings";
-import { getSnapshotAnalysis } from "shared/util";
 import {
   getExperimentById,
   getExperimentsToUpdate,
   getExperimentsToUpdateLegacy,
   updateExperiment,
-} from "../models/ExperimentModel";
-import { getDataSourceById } from "../models/DataSourceModel";
-import { isEmailEnabled, sendExperimentChangesEmail } from "../services/email";
+} from "back-end/src/models/ExperimentModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   createSnapshot,
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
-  getExperimentMetricById,
-  getRegressionAdjustmentInfo,
-} from "../services/experiments";
-import {
-  getConfidenceLevelsForOrg,
-  getContextForAgendaJobByOrgId,
-} from "../services/organizations";
-import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
-import { ExperimentInterface } from "../../types/experiment";
-import { getMetricMap } from "../models/MetricModel";
-import { notifyAutoUpdate } from "../services/experimentNotifications";
-import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
-import { logger } from "../util/logger";
-import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
-import { findProjectById } from "../models/ProjectModel";
-import { getExperimentWatchers } from "../models/WatchModel";
-import { getFactTableMap } from "../models/FactTableModel";
-import { ApiReqContext } from "../../types/api";
+  getSettingsForSnapshotMetrics,
+  updateExperimentBanditSettings,
+} from "back-end/src/services/experiments";
+import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
+import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getMetricMap } from "back-end/src/models/MetricModel";
+import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications";
+import { EXPERIMENT_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
+import { logger } from "back-end/src/util/logger";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -55,17 +45,12 @@ export default async function (agenda: Agenda) {
     for (let i = 0; i < experiments.length; i++) {
       await queueExperimentUpdate(
         experiments[i].organization,
-        experiments[i].id
+        experiments[i].id,
       );
     }
   });
 
-  agenda.define(
-    UPDATE_SINGLE_EXP,
-    // This job queries a datasource, which may be slow. Give it 30 minutes to complete.
-    { lockLifetime: 30 * 60 * 1000 },
-    updateSingleExperiment
-  );
+  agenda.define(UPDATE_SINGLE_EXP, updateSingleExperiment);
 
   // Update experiment results
   await startUpdateJob();
@@ -79,7 +64,7 @@ export default async function (agenda: Agenda) {
     for (let i = 0; i < experiments.length; i++) {
       await queueExperimentUpdate(
         experiments[i].organization,
-        experiments[i].id
+        experiments[i].id,
       );
     }
 
@@ -95,7 +80,7 @@ export default async function (agenda: Agenda) {
 
   async function queueExperimentUpdate(
     organization: string,
-    experimentId: string
+    experimentId: string,
   ) {
     const job = agenda.create(UPDATE_SINGLE_EXP, {
       organization,
@@ -111,7 +96,7 @@ export default async function (agenda: Agenda) {
   }
 }
 
-async function updateSingleExperiment(job: UpdateSingleExpJob) {
+const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   const experimentId = job.attrs.data?.experimentId;
   const orgId = job.attrs.data?.organization;
 
@@ -126,77 +111,122 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
   let project = null;
   if (experiment.project) {
-    project = await findProjectById(context, experiment.project);
+    project = await context.models.projects.getById(experiment.project);
   }
   const { settings: scopedSettings } = getScopedSettings({
     organization: context.org,
     project: project ?? undefined,
   });
 
-  if (organization?.settings?.updateSchedule?.type === "never") return;
+  // Disable auto snapshots for the experiment so it doesn't keep trying to update if schedule is off (non-bandits only)
+  if (
+    organization?.settings?.updateSchedule?.type === "never" &&
+    experiment.type !== "multi-armed-bandit"
+  ) {
+    await updateExperiment({
+      context,
+      experiment,
+      changes: {
+        autoSnapshots: false,
+      },
+    });
+    return;
+  }
 
   try {
     logger.info("Start Refreshing Results for experiment " + experimentId);
     const datasource = await getDataSourceById(
       context,
-      experiment.datasource || ""
+      experiment.datasource || "",
     );
     if (!datasource) {
       throw new Error("Error refreshing experiment, could not find datasource");
     }
-    const lastSnapshot = await getLatestSnapshot(
-      experiment.id,
-      experiment.phases.length - 1
-    );
 
-    const {
-      regressionAdjustmentEnabled,
-      metricRegressionAdjustmentStatuses,
-    } = await getRegressionAdjustmentInfo(context, experiment);
+    const { regressionAdjustmentEnabled, settingsForSnapshotMetrics } =
+      await getSettingsForSnapshotMetrics(context, experiment);
 
-    const analysisSettings = getDefaultExperimentAnalysisSettings(
-      experiment.statsEngine || scopedSettings.statsEngine.value,
+    const metricGroups = await context.models.metricGroups.getAll();
+
+    const analysisSettings = getDefaultExperimentAnalysisSettings({
+      statsEngine: experiment.statsEngine || scopedSettings.statsEngine.value,
       experiment,
       organization,
-      regressionAdjustmentEnabled
-    );
+      regressionAdjustmentEnabled,
+      postStratificationEnabled: scopedSettings.postStratificationEnabled.value,
+      pValueThreshold: scopedSettings.pValueThreshold.value,
+      metricGroups,
+    });
 
     const metricMap = await getMetricMap(context);
     const factTableMap = await getFactTableMap(context);
+
+    let reweight =
+      experiment.type === "multi-armed-bandit" &&
+      experiment.banditStage === "exploit";
+
+    if (experiment.type === "multi-armed-bandit" && !reweight) {
+      // Quick check to see if we're about to enter "exploit" stage and will need to reweight
+      const tempChanges = updateExperimentBanditSettings({
+        experiment,
+        isScheduled: true,
+      });
+      if (tempChanges.banditStage === "exploit") {
+        reweight = true;
+      }
+    }
 
     const queryRunner = await createSnapshot({
       experiment,
       context,
       phaseIndex: experiment.phases.length - 1,
       defaultAnalysisSettings: analysisSettings,
-      additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
-        analysisSettings,
-        experiment
-      ),
-      metricRegressionAdjustmentStatuses:
-        metricRegressionAdjustmentStatuses || [],
+      additionalAnalysisSettings:
+        getAdditionalExperimentAnalysisSettings(analysisSettings),
+      settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
       metricMap,
       factTableMap,
       useCache: true,
+      type: "standard",
+      triggeredBy: "schedule",
+      reweight,
     });
     await queryRunner.waitForResults();
     const currentSnapshot = queryRunner.model;
 
     logger.info(
-      "Successfully Refreshed Results for experiment " + experimentId
+      "Successfully Refreshed Results for experiment " + experimentId,
     );
 
-    if (lastSnapshot) {
-      await sendSignificanceEmail(
+    if (experiment.type === "multi-armed-bandit") {
+      const changes = updateExperimentBanditSettings({
+        experiment,
+        snapshot: currentSnapshot,
+        reweight:
+          currentSnapshot?.banditResult?.reweight &&
+          experiment.banditStage === "exploit",
+        isScheduled: true,
+      });
+      await updateExperiment({
         context,
         experiment,
-        lastSnapshot,
-        currentSnapshot
-      );
+        changes,
+      });
     }
   } catch (e) {
+    // Lock contention is transient so we don't disable auto-updates
+    if (e instanceof ConcurrentIncrementalRefreshError) {
+      logger.info(
+        "Skipping auto-update for experiment " +
+          experimentId +
+          ": incremental refresh already in progress",
+      );
+      return;
+    }
+
     logger.error(e, "Failed to update experiment: " + experimentId);
-    // If we failed to update the experiment, turn off auto-updating for the future
+    // If we failed to update the experiment, turn off auto-updating for the future (non-bandits only)
+    if (experiment.type === "multi-armed-bandit") return;
     try {
       await updateExperiment({
         context,
@@ -212,100 +242,4 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       await notifyAutoUpdate({ context, experiment, success: false });
     }
   }
-}
-
-async function sendSignificanceEmail(
-  context: ApiReqContext,
-  experiment: ExperimentInterface,
-  lastSnapshot: ExperimentSnapshotInterface,
-  currentSnapshot: ExperimentSnapshotInterface
-) {
-  // If email is not configured, there's nothing else to do
-  if (!isEmailEnabled()) {
-    return;
-  }
-
-  const currentVariations = getSnapshotAnalysis(currentSnapshot)?.results?.[0]
-    ?.variations;
-  const lastVariations = getSnapshotAnalysis(lastSnapshot)?.results?.[0]
-    ?.variations;
-
-  if (!currentVariations || !lastVariations) {
-    return;
-  }
-
-  try {
-    // get the org confidence level settings:
-    const { ciUpper, ciLower } = await getConfidenceLevelsForOrg(
-      experiment.organization
-    );
-
-    // check this and the previous snapshot to see if anything changed:
-    const experimentChanges: string[] = [];
-    for (let i = 1; i < currentVariations.length; i++) {
-      const curVar = currentVariations[i];
-      const lastVar = lastVariations[i];
-
-      for (const m in curVar.metrics) {
-        const curMetric = curVar?.metrics?.[m];
-        const lastMetric = lastVar?.metrics?.[m];
-
-        // sanity checks:
-        if (
-          lastMetric?.chanceToWin &&
-          curMetric?.chanceToWin &&
-          curMetric?.value > 150
-        ) {
-          // checks to see if anything changed:
-          if (
-            curMetric.chanceToWin > ciUpper &&
-            lastMetric.chanceToWin < ciUpper
-          ) {
-            // this test variation has gone significant, and won
-            experimentChanges.push(
-              "The metric " +
-                (await getExperimentMetricById(context, m))?.name +
-                " for variation " +
-                experiment.variations[i].name +
-                " has reached a " +
-                (curMetric.chanceToWin * 100).toFixed(1) +
-                "% chance to beat baseline"
-            );
-          } else if (
-            curMetric.chanceToWin < ciLower &&
-            lastMetric.chanceToWin > ciLower
-          ) {
-            // this test variation has gone significant, and lost
-            experimentChanges.push(
-              "The metric " +
-                (await getExperimentMetricById(context, m))?.name +
-                " for variation " +
-                experiment.variations[i].name +
-                " has dropped to a " +
-                (curMetric.chanceToWin * 100).toFixed(1) +
-                " chance to beat the baseline"
-            );
-          }
-        }
-      }
-    }
-
-    if (experimentChanges.length) {
-      // send an email to any subscribers on this test:
-      const watchers = await getExperimentWatchers(
-        experiment.id,
-        experiment.organization
-      );
-      const userIds = watchers.map((w) => w.userId);
-
-      await sendExperimentChangesEmail(
-        userIds,
-        experiment.id,
-        experiment.name,
-        experimentChanges
-      );
-    }
-  } catch (e) {
-    logger.error(e, "Failed to send significance email");
-  }
-}
+};

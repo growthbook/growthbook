@@ -1,51 +1,40 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
+import { getDefaultRole, isRoleValid } from "shared/permissions";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   addMemberToOrg,
   convertMemberToManagedByIdp,
   expandOrgMembers,
-} from "../../services/organizations";
-import { OrganizationInterface, MemberRole } from "../../../types/organization";
-import { ScimError, ScimUser, ScimUserPostRequest } from "../../../types/scim";
+} from "back-end/src/services/organizations";
+import { ScimError, ScimUser, ScimUserPostRequest } from "back-end/types/scim";
 import {
   createUser as createNewUser,
   getUserByEmail,
-} from "../../services/users";
-
-export function isRoleValid(role: MemberRole) {
-  const validRoles: Record<MemberRole, boolean> = {
-    noaccess: true,
-    readonly: true,
-    visualEditor: true,
-    collaborator: true,
-    designer: true,
-    analyst: true,
-    developer: true,
-    engineer: true,
-    experimenter: true,
-    admin: true,
-  };
-  return validRoles[role] || false;
-}
+} from "back-end/src/models/UserModel";
 
 export async function createUser(
   req: ScimUserPostRequest,
-  res: Response<ScimUser | ScimError>
+  res: Response<ScimUser | ScimError>,
 ) {
   const { externalId, displayName, userName, growthbookRole } = req.body;
 
   const org: OrganizationInterface = req.organization;
 
-  let role: MemberRole = org.settings?.defaultRole?.role || "readonly";
+  let roleInfo = getDefaultRole(org);
 
-  if (growthbookRole && isRoleValid(growthbookRole)) {
-    // If a growthbookRole is provided, and it's a MemberRole, use that
-    role = growthbookRole;
+  if (growthbookRole && isRoleValid(growthbookRole, org)) {
+    // If a growthbookRole is provided, use that
+    roleInfo = {
+      role: growthbookRole,
+      limitAccessByEnvironment: false,
+      environments: [],
+    };
   }
 
   const expandedMembers = await expandOrgMembers(org.members);
   const existingOrgMember = expandedMembers.find(
-    (member) => member.email === userName
+    (member) => member.email === userName,
   );
 
   const responseObj = cloneDeep(req.body);
@@ -72,18 +61,16 @@ export async function createUser(
       let newUser = await getUserByEmail(userName);
 
       if (!newUser) {
-        newUser = await createNewUser(displayName, userName);
+        newUser = await createNewUser({ name: displayName, email: userName });
       }
 
       await addMemberToOrg({
         organization: org,
         userId: newUser.id,
-        role,
-        limitAccessByEnvironment: false,
-        environments: [],
         projectRoles: [],
         externalId,
         managedByIdp: true,
+        ...roleInfo,
       });
 
       responseObj.id = newUser.id;

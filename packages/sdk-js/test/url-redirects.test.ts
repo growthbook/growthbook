@@ -47,7 +47,7 @@ describe("urlRedirects", () => {
     gb.setURL("http://www.example.com/home");
     await sleep(100);
     expect(window.location.replace).toHaveBeenCalledWith(
-      "http://www.example.com/home-new"
+      "http://www.example.com/home-new",
     );
 
     gb.destroy();
@@ -100,7 +100,7 @@ describe("urlRedirects", () => {
     gb.setURL("http://www.example.com/home");
     await sleep(100);
     expect(window.location.replace).toHaveBeenCalledWith(
-      "http://www.example.com/home-new"
+      "http://www.example.com/home-new",
     );
 
     gb.destroy();
@@ -349,5 +349,60 @@ describe("urlRedirects", () => {
     expect(results3?.length).toBe(1);
     expect(results3?.[0]?.inExperiment).toEqual(true);
     gb3.destroy();
+  });
+
+  it("only redirects once per url", async () => {
+    const navigateMock = jest.fn(async (_) => {
+      await sleep(500);
+    });
+
+    const gb = new GrowthBook({
+      attributes: { id: "1" },
+      url: "http://www.example.com",
+      experiments: [
+        {
+          key: "my-experiment",
+          urlPatterns: [
+            {
+              type: "simple",
+              include: true,
+              pattern: "http://www.example.com/home",
+            },
+          ],
+          weights: [0.1, 0.9],
+          variations: [
+            {},
+            {
+              urlRedirect: "http://www.example.com/home-new",
+            },
+          ],
+        },
+      ],
+      navigate: navigateMock,
+      navigateDelay: 0,
+    });
+    // Changes applied immediately
+    await sleep();
+
+    gb.setURL("http://www.example.com/home");
+    await sleep(10);
+    gb.setURL("http://www.example.com/home");
+    await sleep(10);
+    gb.setURL("http://www.example.com/home");
+    await sleep(10);
+    expect(navigateMock.mock.calls.length).toBe(1);
+
+    await sleep(500);
+    gb.setURL("http://www.example.com/home");
+    expect(navigateMock.mock.calls.length).toBe(1);
+
+    // currently only exact matches are debounced
+    gb.setURL("http://www.example.com/home/");
+    gb.setURL("http://www.example.com/home/#foo");
+    gb.setURL("http://www.example.com/home/?bar");
+    await sleep();
+    expect(navigateMock.mock.calls.length).toBe(4);
+
+    gb.destroy();
   });
 });

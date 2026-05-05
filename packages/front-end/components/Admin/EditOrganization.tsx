@@ -1,26 +1,45 @@
 import { useState, FC } from "react";
+import {
+  OrganizationInterface,
+  OrganizationMessage,
+} from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";
+import Checkbox from "@/ui/Checkbox";
+
+type MessageWithId = OrganizationMessage & { id: string };
 
 const EditOrganization: FC<{
   onEdit: () => void;
   close?: () => void;
   id: string;
-  currentName: string;
-  currentExternalId: string;
-  currentLicenseKey: string;
-}> = ({
-  onEdit,
-  close,
-  id,
-  currentName,
-  currentExternalId,
-  currentLicenseKey,
-}) => {
-  const [name, setName] = useState(currentName);
-  const [externalId, setExternalId] = useState(currentExternalId);
-  const [licenseKey, setLicenseKey] = useState(currentLicenseKey);
+  disablable: boolean;
+  currentOrg: OrganizationInterface;
+}> = ({ onEdit, close, id, disablable = true, currentOrg }) => {
+  const [name, setName] = useState(currentOrg.name);
+  const [owner, setOwner] = useState(currentOrg.ownerEmail);
+  const [externalId, setExternalId] = useState(currentOrg.externalId || "");
+  const [licenseKey, setLicenseKey] = useState(currentOrg.licenseKey || "");
+  const [freeSeats, setFreeSeats] = useState(currentOrg.freeSeats || 3);
+  const [legacyEnterprise, setLegacyEnterprise] = useState(
+    currentOrg.enterprise || false,
+  );
+  const [verifiedDomain, setVerifiedDomain] = useState(
+    currentOrg.verifiedDomain || "",
+  );
+  const [autoApproveMembers, setAutoApproveMembers] = useState(
+    currentOrg.autoApproveMembers || false,
+  );
+  const [disableSelfServeBilling, setDisableSelfServeBilling] = useState(
+    currentOrg.disableSelfServeBilling || false,
+  );
+  const [messages, setMessages] = useState<MessageWithId[]>(
+    (currentOrg.messages || []).map((m) => ({
+      ...m,
+      id: crypto.randomUUID(),
+    })),
+  );
 
   const { apiCall } = useAuth();
 
@@ -35,19 +54,101 @@ const EditOrganization: FC<{
         name,
         externalId,
         licenseKey,
+        ownerEmail: owner,
+        verifiedDomain,
+        autoApproveMembers,
+        enterprise: legacyEnterprise,
+        freeSeats,
+        disableSelfServeBilling,
+        messages: messages.map(({ id: _id, ...m }) => m),
       }),
     });
     onEdit();
   };
 
+  const addMessage = () => {
+    setMessages([
+      ...messages,
+      { id: crypto.randomUUID(), message: "", level: "info" },
+    ]);
+  };
+
+  const updateMessage = (
+    id: string,
+    field: keyof OrganizationMessage,
+    value: string,
+  ) => {
+    setMessages(
+      messages.map((m) => (m.id === id ? { ...m, [field]: value } : m)),
+    );
+  };
+
+  const removeMessage = (id: string) => {
+    setMessages(messages.filter((m) => m.id !== id));
+  };
+
   return (
     <Modal
+      trackingEventModalType=""
       submit={handleSubmit}
       open={true}
       header={"Edit Organization"}
-      cta={"Edit"}
+      cta={"Update"}
       close={close}
       inline={!close}
+      secondaryCTA={
+        disablable ? (
+          <div className="flex-grow-1">
+            {currentOrg.disabled ? (
+              <button
+                className="btn btn-info"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  await apiCall<{
+                    status: number;
+                    message?: string;
+                  }>(`/admin/organization/enable`, {
+                    method: "PUT",
+                    body: JSON.stringify({
+                      orgId: id,
+                    }),
+                  });
+                  onEdit();
+                  if (close) close();
+                }}
+              >
+                Enable
+              </button>
+            ) : (
+              <button
+                className="btn btn-danger"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  if (
+                    confirm(
+                      "Are you sure you want to disable this organization? Users will not be able to use this organization",
+                    )
+                  ) {
+                    await apiCall<{
+                      status: number;
+                      message?: string;
+                    }>(`/admin/organization/disable`, {
+                      method: "PUT",
+                      body: JSON.stringify({
+                        orgId: id,
+                      }),
+                    });
+                    onEdit();
+                    if (close) close();
+                  }
+                }}
+              >
+                Disable
+              </button>
+            )}
+          </div>
+        ) : null
+      }
     >
       <div className="form-group">
         Company Name
@@ -71,8 +172,7 @@ const EditOrganization: FC<{
           </div>
         ) : (
           <div className="mt-3">
-            External Id: Id used for the organization within your company
-            (optional)
+            External Id (optional)
             <input
               type="text"
               className="form-control"
@@ -80,8 +180,161 @@ const EditOrganization: FC<{
               minLength={3}
               onChange={(e) => setExternalId(e.target.value)}
             />
+            <span className="text-muted small">
+              This field can be used to identify the organization within your
+              company.
+            </span>
           </div>
         )}
+        <div className="mt-3">
+          Owner Email
+          <input
+            type="email"
+            className="form-control"
+            value={owner}
+            required
+            onChange={(e) => setOwner(e.target.value)}
+          />
+        </div>
+        <div className="mt-3">
+          Verified Domain
+          <input
+            type="text"
+            className="form-control"
+            value={verifiedDomain}
+            onChange={(e) => setVerifiedDomain(e.target.value)}
+          />
+          <span className="text-muted small">
+            This is used so new users can auto join this org by matching email
+            domain.
+          </span>
+        </div>
+        <div className="mt-3">
+          <Checkbox
+            id="autoApproveMembers"
+            label="Auto approve members with email domain"
+            value={autoApproveMembers}
+            setValue={setAutoApproveMembers}
+          />
+        </div>
+        {isCloud() ? (
+          <>
+            <div className="mt-3">
+              Free Seats
+              <input
+                type="number"
+                min={0}
+                className="form-control"
+                value={freeSeats}
+                onChange={(e) => setFreeSeats(parseInt(e.target.value))}
+              />
+              <div>
+                <span className="text-muted small">
+                  Number of seats that can be added when on a free plan (3 is
+                  the default)
+                </span>
+              </div>
+            </div>
+            <div className="mt-3">
+              <Checkbox
+                id="disableSelfServeBilling"
+                label="Disable self-serve billing"
+                value={disableSelfServeBilling}
+                setValue={setDisableSelfServeBilling}
+              />
+              <div>
+                <span className="text-muted small">
+                  Prevents users in this org from managing their own
+                  subscription.
+                </span>
+              </div>
+            </div>
+            <div className="p-2 border mt-3">
+              <div>
+                <b>Deprecated:</b>
+                <div className="small">
+                  This is an old way to enable enterprise features for an
+                  organization, which does not expire, and does not restrict not
+                  restrict seats. Please uncheck this and instead user Retool
+                  and set a licenseKey instead.
+                </div>
+              </div>
+              <div className="mt-3">
+                <Checkbox
+                  id="legacyEnterpriseToggle"
+                  label="Enable Enterprise"
+                  value={legacyEnterprise}
+                  setValue={setLegacyEnterprise}
+                />
+                <div>
+                  <span className="text-muted small">
+                    Organizations with enterprise enabled this way are not
+                    billed, and will not expire.
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-3">
+              <div className="d-flex justify-content-between align-items-center mb-1">
+                <label className="mb-0 font-weight-bold">
+                  Organization Messages
+                </label>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={addMessage}
+                >
+                  + Add Message
+                </button>
+              </div>
+              <div className="text-muted small mb-2">
+                Banners displayed to all users in this org. Supports Markdown.
+                Useful for maintenance notices or account alerts. Each message
+                will appear on every page.
+              </div>
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className="d-flex gap-2 mb-2 align-items-center"
+                >
+                  <input
+                    type="text"
+                    className="form-control form-control-sm flex-grow-1"
+                    placeholder="Message text (Markdown supported)"
+                    value={msg.message}
+                    onChange={(e) =>
+                      updateMessage(msg.id, "message", e.target.value)
+                    }
+                  />
+                  <select
+                    className="form-control form-control-sm"
+                    style={{ width: 110, flexShrink: 0 }}
+                    value={msg.level}
+                    onChange={(e) =>
+                      updateMessage(
+                        msg.id,
+                        "level",
+                        e.target.value as OrganizationMessage["level"],
+                      )
+                    }
+                  >
+                    <option value="info">Info</option>
+                    <option value="warning">Warning</option>
+                    <option value="danger">Danger</option>
+                  </select>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-danger"
+                    style={{ flexShrink: 0 }}
+                    onClick={() => removeMessage(msg.id)}
+                  >
+                    &times;
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : null}
       </div>
     </Modal>
   );

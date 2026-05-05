@@ -8,8 +8,9 @@ describe("Mongrule", () => {
           { userId: null },
           {
             userId: null,
-          }
-        )
+          },
+          {},
+        ),
       ).toBe(true);
 
       expect(
@@ -17,8 +18,9 @@ describe("Mongrule", () => {
           {},
           {
             userId: null,
-          }
-        )
+          },
+          {},
+        ),
       ).toBe(true);
     });
 
@@ -30,8 +32,9 @@ describe("Mongrule", () => {
           },
           {
             userId: null,
-          }
-        )
+          },
+          {},
+        ),
       ).toBe(false);
     });
 
@@ -43,8 +46,9 @@ describe("Mongrule", () => {
           },
           {
             userId: null,
-          }
-        )
+          },
+          {},
+        ),
       ).toBe(false);
 
       expect(
@@ -54,8 +58,9 @@ describe("Mongrule", () => {
           },
           {
             userId: null,
-          }
-        )
+          },
+          {},
+        ),
       ).toBe(false);
 
       expect(
@@ -63,8 +68,9 @@ describe("Mongrule", () => {
           { userId: undefined },
           {
             userId: null,
-          }
-        )
+          },
+          {},
+        ),
       ).toBe(false);
     });
 
@@ -76,8 +82,9 @@ describe("Mongrule", () => {
           },
           {
             email: { $exists: true },
-          }
-        )
+          },
+          {},
+        ),
       ).toBe(false);
 
       expect(
@@ -87,8 +94,9 @@ describe("Mongrule", () => {
           },
           {
             email: { $exists: false },
-          }
-        )
+          },
+          {},
+        ),
       ).toBe(true);
 
       expect(
@@ -98,8 +106,9 @@ describe("Mongrule", () => {
           },
           {
             email: { $exists: true },
-          }
-        )
+          },
+          {},
+        ),
       ).toBe(false);
 
       expect(
@@ -109,8 +118,9 @@ describe("Mongrule", () => {
           },
           {
             email: { $exists: false },
-          }
-        )
+          },
+          {},
+        ),
       ).toBe(true);
 
       expect(
@@ -120,8 +130,9 @@ describe("Mongrule", () => {
           },
           {
             email: { $exists: true },
-          }
-        )
+          },
+          {},
+        ),
       ).toBe(true);
 
       expect(
@@ -131,8 +142,9 @@ describe("Mongrule", () => {
           },
           {
             email: { $exists: false },
-          }
-        )
+          },
+          {},
+        ),
       ).toBe(false);
 
       expect(
@@ -142,8 +154,9 @@ describe("Mongrule", () => {
           },
           {
             email: { $exists: true },
-          }
-        )
+          },
+          {},
+        ),
       ).toBe(true);
 
       expect(
@@ -153,8 +166,9 @@ describe("Mongrule", () => {
           },
           {
             email: { $exists: false },
-          }
-        )
+          },
+          {},
+        ),
       ).toBe(false);
     });
   });

@@ -1,6 +1,0 @@
-# build artifacts
-dist
-coverage
-./docs
-docs/build/
-packages/sdk-js/scripts

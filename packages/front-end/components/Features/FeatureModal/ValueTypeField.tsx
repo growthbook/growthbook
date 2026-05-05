@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { FeatureValueType } from "back-end/types/feature";
+import { FeatureValueType } from "shared/types/feature";
 import SelectField from "@/components/Forms/SelectField";
 
 const ValueTypeField: FC<{
@@ -11,15 +11,18 @@ const ValueTypeField: FC<{
       label="Value Type"
       value={value}
       onChange={onChange}
+      placeholder="Select Type..."
       options={[
         {
-          label: "boolean (true/false)",
+          label: "Boolean (true/false)",
           value: "boolean",
         },
-        { label: "number", value: "number" },
-        { label: "string", value: "string" },
+        { label: "String", value: "string" },
+        { label: "Number", value: "number" },
         { label: "JSON", value: "json" },
       ]}
+      required
+      sort={false}
     />
   );
 };

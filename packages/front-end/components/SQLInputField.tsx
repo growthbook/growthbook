@@ -1,8 +1,9 @@
-import { UserIdType } from "back-end/types/datasource";
+import { UserIdType } from "shared/types/datasource";
 import React, { ReactElement, useState } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { FaPlay } from "react-icons/fa";
-import type { TestQueryRow } from "back-end/src/types/Integration";
+import type { TestQueryRow } from "shared/types/integrations";
+import { parseIntWithDefault } from "shared/util";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -28,7 +29,12 @@ type Props = {
   placeholder?: string;
   helpText?: ReactElement;
   identityTypes?: UserIdType[];
-  queryType: "segment" | "dimension" | "metric" | "experiment-assignment";
+  queryType:
+    | "segment"
+    | "dimension"
+    | "metric"
+    | "experiment-assignment"
+    | "factTable";
   className?: string;
   setCursorData?: (data: CursorData) => void;
   showTestButton?: boolean;
@@ -49,10 +55,8 @@ export default function SQLInputField({
   showTestButton = true,
   showHeadline = true,
 }: Props) {
-  const [
-    testQueryResults,
-    setTestQueryResults,
-  ] = useState<TestQueryResults | null>(null);
+  const [testQueryResults, setTestQueryResults] =
+    useState<TestQueryResults | null>(null);
   const { apiCall } = useAuth();
 
   // These will only be defined in Experiment Assignment Queries
@@ -69,6 +73,9 @@ export default function SQLInputField({
         body: JSON.stringify({
           query: userEnteredQuery,
           datasourceId: datasourceId,
+          timestampColumn: requiredColumns.has("timestamp")
+            ? "timestamp"
+            : undefined,
         }),
       });
 
@@ -129,7 +136,7 @@ export default function SQLInputField({
               setValue={(sql) =>
                 form.setValue(
                   queryType === "experiment-assignment" ? "query" : "sql",
-                  sql
+                  sql,
                 )
               }
               placeholder={placeholder}
@@ -139,7 +146,7 @@ export default function SQLInputField({
           )}
           {testQueryResults && (
             <DisplayTestQueryResults
-              duration={parseInt(testQueryResults.duration || "0")}
+              duration={parseIntWithDefault(testQueryResults.duration, 0)}
               results={testQueryResults.results || []}
               sql={testQueryResults.sql || ""}
               error={testQueryResults.error || ""}

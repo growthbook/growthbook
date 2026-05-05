@@ -8,28 +8,45 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
+  DEFAULT_TEST_QUERY_DAYS,
+  DEFAULT_SRM_THRESHOLD,
+  DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
+  DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
+  DEFAULT_DECISION_FRAMEWORK_ENABLED,
+  DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
+  DEFAULT_POST_STRATIFICATION_ENABLED,
 } from "shared/constants";
-import { OrganizationSettings } from "@back-end/types/organization";
+import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
+import { OrganizationSettings } from "shared/types/organization";
+import { Box, Flex, Heading } from "@radix-ui/themes";
+import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
+import { CUSTOMIZABLE_PROMPT_TYPES } from "shared/ai";
+import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
-import Button from "@/components/Button";
+import Button from "@/ui/Button";
 import {
   OrganizationSettingsWithMetricDefaults,
   useOrganizationMetricDefaults,
 } from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
-import SelectField from "@/components/Forms/SelectField";
 import { useCurrency } from "@/hooks/useCurrency";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import OrganizationAndLicenseSettings from "@/components/GeneralSettings/OrganizationAndLicenseSettings";
 import ImportSettings from "@/components/GeneralSettings/ImportSettings";
 import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetricSettings";
 import ExperimentSettings from "@/components/GeneralSettings/ExperimentSettings";
 import MetricsSettings from "@/components/GeneralSettings/MetricsSettings";
-import FeaturesSettings from "@/components/GeneralSettings/FeaturesSettings";
-
-export const DEFAULT_SRM_THRESHOLD = 0.001;
+import FeatureSettings from "@/components/GeneralSettings/FeatureSettings";
+import RampScheduleTemplates from "@/components/GeneralSettings/RampScheduleTemplates";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
+import BanditSettings from "@/components/GeneralSettings/BanditSettings";
+import AISettings from "@/components/GeneralSettings/AISettings";
+import HelperText from "@/ui/HelperText";
+import { StickyTabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
+import Frame from "@/ui/Frame";
+import SavedGroupSettings from "@/components/GeneralSettings/SavedGroupSettings";
 
 export const ConnectSettingsForm = ({ children }) => {
   const methods = useFormContext();
@@ -38,7 +55,7 @@ export const ConnectSettingsForm = ({ children }) => {
 
 function hasChanges(
   value: OrganizationSettings,
-  existing: OrganizationSettings
+  existing: OrganizationSettings,
 ) {
   if (!existing) return true;
 
@@ -46,26 +63,21 @@ function hasChanges(
 }
 
 const GeneralSettingsPage = (): React.ReactElement => {
-  const {
-    refreshOrganization,
-    settings,
-    organization,
-    hasCommercialFeature,
-  } = useUser();
+  const { refreshOrganization, settings, organization, hasCommercialFeature } =
+    useUser();
   const [saveMsg, setSaveMsg] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
   const [cronString, setCronString] = useState("");
-  const [
-    codeRefsBranchesToFilterStr,
-    setCodeRefsBranchesToFilterStr,
-  ] = useState<string>("");
+  const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
+    useState<string>("");
   const displayCurrency = useCurrency();
-  const { datasources } = useDefinitions();
 
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
 
-  const { metricDefaults } = useOrganizationMetricDefaults();
+  const promptForm = useForm();
 
+  const { metricDefaults } = useOrganizationMetricDefaults();
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
       visualEditorEnabled: false,
@@ -86,9 +98,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
         //startDate?: Date;
       },
       metricDefaults: {
+        priorSettings: metricDefaults.priorSettings,
         minimumSampleSize: metricDefaults.minimumSampleSize,
         maxPercentageChange: metricDefaults.maxPercentageChange * 100,
         minPercentageChange: metricDefaults.minPercentageChange * 100,
+        targetMDE: metricDefaults.targetMDE * 100,
       },
       updateSchedule: {
         type: "stale",
@@ -105,8 +119,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
       sequentialTestingEnabled: false,
-      sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-      powerCalculatorEnabled: false,
+      sequentialTestingTuningParameter:
+        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       attributionModel: "firstExposure",
       displayCurrency,
       secureAttributeSalt: "",
@@ -117,9 +131,16 @@ const GeneralSettingsPage = (): React.ReactElement => {
           resetReviewOnChange: false,
           environments: [],
           projects: [],
+          featureRequireEnvironmentReview: true,
+          featureRequireMetadataReview: true,
         },
       ],
+      restApiBypassesReviews: settings.restApiBypassesReviews ?? false,
       defaultDataSource: settings.defaultDataSource || "",
+      testQueryDays: DEFAULT_TEST_QUERY_DAYS,
+      disableMultiMetricQueries: false,
+      disablePrecomputedDimensions:
+        settings.disablePrecomputedDimensions ?? true,
       useStickyBucketing: false,
       useFallbackAttributes: false,
       codeReferencesEnabled: false,
@@ -127,18 +148,57 @@ const GeneralSettingsPage = (): React.ReactElement => {
       codeRefsPlatformUrl: "",
       featureKeyExample: "",
       featureRegexValidator: "",
+      featureListMarkdown: settings.featureListMarkdown || "",
+      featurePageMarkdown: settings.featurePageMarkdown || "",
+      experimentListMarkdown: settings.experimentListMarkdown || "",
+      metricListMarkdown: settings.metricListMarkdown || "",
+      metricPageMarkdown: settings.metricPageMarkdown || "",
+      banditScheduleValue: settings.banditScheduleValue ?? 1,
+      banditScheduleUnit: settings.banditScheduleUnit ?? "days",
+      banditBurnInValue: settings.banditBurnInValue ?? 1,
+      banditBurnInUnit: settings.banditBurnInUnit ?? "days",
+      requireExperimentTemplates: settings.requireExperimentTemplates ?? false,
+      requireUniqueExperimentTrackingKeys:
+        settings.requireUniqueExperimentTrackingKeys ?? false,
+      experimentMinLengthDays:
+        settings.experimentMinLengthDays ?? DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
+      experimentMaxLengthDays:
+        settings.experimentMaxLengthDays ?? DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
+      decisionFrameworkEnabled:
+        settings.decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED,
+      defaultDecisionCriteriaId:
+        settings.defaultDecisionCriteriaId ?? PRESET_DECISION_CRITERIA.id,
+      blockFileUploads: settings.blockFileUploads ?? false,
+      requireProjectForFeatures:
+        settings.requireProjectForFeatures ??
+        DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
+      aiEnabled: settings.aiEnabled ?? false,
+      defaultAIModel: settings.defaultAIModel || "gpt-4o-mini",
+      embeddingModel: settings.embeddingModel || "text-embedding-ada-002",
+      disableLegacyMetricCreation:
+        settings.disableLegacyMetricCreation ?? false,
+      defaultFeatureRulesInAllEnvs:
+        settings.defaultFeatureRulesInAllEnvs ?? false,
+      preferredEnvironment: settings.preferredEnvironment || "",
+      maxMetricSliceLevels:
+        settings.maxMetricSliceLevels ?? DEFAULT_MAX_METRIC_SLICE_LEVELS,
+      savedGroupSizeLimit: undefined,
+      postStratificationEnabled:
+        settings.postStratificationEnabled ??
+        DEFAULT_POST_STRATIFICATION_ENABLED,
     },
   });
   const { apiCall } = useAuth();
-
-  const value = {
+  const value: OrganizationSettingsWithMetricDefaults = {
     visualEditorEnabled: form.watch("visualEditorEnabled"),
     pastExperimentsMinLength: form.watch("pastExperimentsMinLength"),
     metricAnalysisDays: form.watch("metricAnalysisDays"),
     metricDefaults: {
+      priorSettings: form.watch("metricDefaults.priorSettings"),
       minimumSampleSize: form.watch("metricDefaults.minimumSampleSize"),
       maxPercentageChange: form.watch("metricDefaults.maxPercentageChange"),
       minPercentageChange: form.watch("metricDefaults.minPercentageChange"),
+      targetMDE: form.watch("metricDefaults.targetMDE"),
     },
     // customization:
     customized: form.watch("customized"),
@@ -156,10 +216,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
     pValueCorrection: form.watch("pValueCorrection"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
     regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
-    powerCalculatorEnabled: form.watch("powerCalculatorEnabled"),
     sequentialTestingEnabled: form.watch("sequentialTestingEnabled"),
     sequentialTestingTuningParameter: form.watch(
-      "sequentialTestingTuningParameter"
+      "sequentialTestingTuningParameter",
     ),
     attributionModel: form.watch("attributionModel"),
     displayCurrency: form.watch("displayCurrency"),
@@ -171,6 +230,14 @@ const GeneralSettingsPage = (): React.ReactElement => {
     codeReferencesEnabled: form.watch("codeReferencesEnabled"),
     codeRefsBranchesToFilter: form.watch("codeRefsBranchesToFilter"),
     codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
+    aiEnabled: form.watch("aiEnabled"),
+    defaultAIModel: form.watch("defaultAIModel"),
+    embeddingModel: form.watch("embeddingModel"),
+    disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
+    defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
+    preferredEnvironment: form.watch("preferredEnvironment") || "",
+    maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
+    savedGroupSizeLimit: form.watch("savedGroupSizeLimit"),
   };
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";
@@ -182,7 +249,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       `${cronstrue.toString(cron, {
         throwExceptionOnParseError: false,
         verbose: true,
-      })} (UTC time)`
+      })} (UTC time)`,
     );
   }
 
@@ -190,20 +257,37 @@ const GeneralSettingsPage = (): React.ReactElement => {
     if (settings) {
       const newVal = { ...form.getValues() };
       Object.keys(newVal).forEach((k) => {
-        const hasExistingMetrics = typeof settings?.[k] !== "undefined";
-        newVal[k] = settings?.[k] || newVal[k];
-
-        // Existing values are stored as a multiplier, e.g. 50% on the UI is stored as 0.5
-        // Transform these values from the UI format
-        if (k === "metricDefaults" && hasExistingMetrics) {
-          newVal.metricDefaults = {
-            ...newVal.metricDefaults,
-            maxPercentageChange:
-              newVal.metricDefaults.maxPercentageChange * 100,
-            minPercentageChange:
-              newVal.metricDefaults.minPercentageChange * 100,
+        if (k === "metricDefaults") {
+          // Metric defaults are nested, so take existing metric defaults only if
+          // they exist and are not empty
+          const existingMaxChange = settings?.[k]?.maxPercentageChange;
+          const existingMinChange = settings?.[k]?.minPercentageChange;
+          const existingTargetMDE = settings?.[k]?.targetMDE;
+          newVal[k] = {
+            ...newVal[k],
+            ...settings?.[k],
+            // Existing values are stored as a multiplier, e.g. 50% on the UI is stored as 0.5
+            // Transform these values from the UI format
+            ...(existingMaxChange !== undefined
+              ? {
+                  maxPercentageChange: existingMaxChange * 100,
+                }
+              : {}),
+            ...(existingMinChange !== undefined
+              ? {
+                  minPercentageChange: existingMinChange * 100,
+                }
+              : {}),
+            ...(existingTargetMDE !== undefined
+              ? {
+                  targetMDE: existingTargetMDE * 100,
+                }
+              : {}),
           };
+        } else {
+          newVal[k] = settings?.[k] || newVal[k];
         }
+
         if (k === "confidenceLevel" && (newVal?.confidenceLevel ?? 0.95) <= 1) {
           newVal.confidenceLevel = (newVal.confidenceLevel ?? 0.95) * 100;
         }
@@ -226,7 +310,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       updateCronString(newVal.updateSchedule?.cron || "");
       if (newVal.codeRefsBranchesToFilter) {
         setCodeRefsBranchesToFilterStr(
-          newVal.codeRefsBranchesToFilter.join(", ")
+          newVal.codeRefsBranchesToFilter.join(", "),
         );
       }
     }
@@ -238,11 +322,25 @@ const GeneralSettingsPage = (): React.ReactElement => {
       codeRefsBranchesToFilterStr
         .split(",")
         .map((s) => s.trim())
-        .filter(Boolean)
+        .filter(Boolean),
     );
   }, [codeRefsBranchesToFilterStr]);
 
-  const ctaEnabled = hasChanges(value, originalValue);
+  // I Don't think this works as intended - the hasChanges(value, originalValue) always seems to return true.
+  const ctaEnabled =
+    hasChanges(value, originalValue) || promptForm.formState.isDirty;
+
+  const savePrompts = promptForm.handleSubmit(async (promptValues) => {
+    const formattedPrompts = CUSTOMIZABLE_PROMPT_TYPES.map((type) => ({
+      type,
+      prompt: promptValues[type],
+      overrideModel: promptValues[`${type}-model`] || undefined,
+    }));
+    await apiCall(`/ai/prompts`, {
+      method: "POST",
+      body: JSON.stringify({ prompts: formattedPrompts }),
+    });
+  });
 
   const saveSettings = form.handleSubmit(async (value) => {
     const transformedOrgSettings = {
@@ -251,10 +349,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
         ...value.metricDefaults,
         maxPercentageChange: value.metricDefaults.maxPercentageChange / 100,
         minPercentageChange: value.metricDefaults.minPercentageChange / 100,
+        targetMDE: value.metricDefaults.targetMDE / 100,
       },
       confidenceLevel: (value.confidenceLevel ?? 0.95) / 100,
       multipleExposureMinPercent:
         (value.multipleExposureMinPercent ?? 0.01) / 100,
+      preferredEnvironment: value.preferredEnvironment || null,
     };
 
     // Make sure the feature key example is valid
@@ -263,7 +363,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       !transformedOrgSettings.featureKeyExample.match(/^[a-zA-Z0-9_.:|-]+$/)
     ) {
       throw new Error(
-        "Feature key examples can only include letters, numbers, hyphens, and underscores."
+        "Feature key examples can only include letters, numbers, hyphens, and underscores.",
       );
     }
 
@@ -274,18 +374,18 @@ const GeneralSettingsPage = (): React.ReactElement => {
         !transformedOrgSettings.featureRegexValidator
       ) {
         throw new Error(
-          "Feature key example must not be empty when a regex validator is defined."
+          "Feature key example must not be empty when a regex validator is defined.",
         );
       }
 
       const regexValidator = transformedOrgSettings.featureRegexValidator;
       if (
         !new RegExp(regexValidator).test(
-          transformedOrgSettings.featureKeyExample
+          transformedOrgSettings.featureKeyExample,
         )
       ) {
         throw new Error(
-          `Feature key example does not match the regex validator. '${transformedOrgSettings.featureRegexValidator}' Example: '${transformedOrgSettings.featureKeyExample}'`
+          `Feature key example does not match the regex validator. '${transformedOrgSettings.featureRegexValidator}' Example: '${transformedOrgSettings.featureKeyExample}'`,
         );
       }
     }
@@ -296,7 +396,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings: transformedOrgSettings,
       }),
     });
-    refreshOrganization();
+    await refreshOrganization();
 
     // show the user that the settings have saved:
     setSaveMsg(true);
@@ -304,74 +404,113 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
   return (
     <FormProvider {...form}>
-      <div className="container-fluid pagecontents">
-        <h1>General Settings</h1>
-
-        <div className="mb-1">
+      <Box className="container-fluid pagecontents" mb="4">
+        <Heading as="h1" size="5" mb="3">
+          General Settings
+        </Heading>
+        <Box mb="5">
           <OrganizationAndLicenseSettings
             org={organization}
             refreshOrg={refreshOrganization}
           />
+        </Box>
 
-          <ImportSettings
-            hasFileConfig={hasFileConfig()}
-            isCloud={isCloud()}
-            settings={settings}
-            refreshOrg={refreshOrganization}
-          />
+        <Tabs defaultValue="experiment" persistInURL={true}>
+          <StickyTabsList>
+            <TabsTrigger value="experiment">Experiment Settings</TabsTrigger>
+            <TabsTrigger value="feature">Feature Settings</TabsTrigger>
+            <TabsTrigger value="metrics">Metrics &amp; Data</TabsTrigger>
+            <TabsTrigger value="sdk">SDK Configuration</TabsTrigger>
+            <TabsTrigger value="import">Import &amp; Export</TabsTrigger>
+            <TabsTrigger value="custom">
+              <PremiumTooltip commercialFeature="custom-markdown">
+                Custom Markdown
+              </PremiumTooltip>
+            </TabsTrigger>
+            <TabsTrigger value="ai">
+              <PremiumTooltip commercialFeature="ai-suggestions">
+                AI Settings
+              </PremiumTooltip>
+            </TabsTrigger>
+          </StickyTabsList>
+          <Box mt="4">
+            <TabsContent value="experiment">
+              <ExperimentSettings
+                cronString={cronString}
+                updateCronString={updateCronString}
+              />
+              <Frame mb="4">
+                <BanditSettings page="org-settings" />
+              </Frame>
+            </TabsContent>
 
-          <NorthStarMetricSettings />
+            <TabsContent value="feature">
+              <FeatureSettings />
+              <RampScheduleTemplates />
+            </TabsContent>
 
-          <div className="bg-white p-3 border position-relative">
-            <ExperimentSettings
-              cronString={cronString}
-              updateCronString={updateCronString}
-              hasCommercialFeature={hasCommercialFeature}
-            />
+            <TabsContent value="metrics">
+              <>
+                <MetricsSettings />
+                <DatasourceSettings />
+                <NorthStarMetricSettings />
+              </>
+            </TabsContent>
 
-            <div className="divider border-bottom mb-3 mt-3" />
+            <TabsContent value="import">
+              <ImportSettings
+                hasFileConfig={hasFileConfig()}
+                isCloud={isCloud()}
+                settings={settings}
+                refreshOrg={refreshOrganization}
+              />
+            </TabsContent>
 
-            <MetricsSettings />
+            <TabsContent value="custom">
+              <Frame>
+                <Flex>
+                  <Box width="300px">
+                    <PremiumTooltip commercialFeature="custom-markdown">
+                      Custom Markdown
+                    </PremiumTooltip>
+                  </Box>
+                  <Box>
+                    {hasCommercialFeature("custom-markdown") ? (
+                      <Link href="/settings/custom-markdown">
+                        View Custom Markdown Settings
+                      </Link>
+                    ) : (
+                      <span className="text-muted">
+                        View Custom Markdown Settings
+                      </span>
+                    )}
+                  </Box>
+                </Flex>
+              </Frame>
+            </TabsContent>
+            <TabsContent value="ai">
+              <AISettings promptForm={promptForm} />
+            </TabsContent>
+            <TabsContent value="sdk">
+              <>
+                <SavedGroupSettings />
+              </>
+            </TabsContent>
+          </Box>
+        </Tabs>
+      </Box>
 
-            <div className="divider border-bottom mb-3 mt-3" />
-
-            <FeaturesSettings />
-
-            <div className="divider border-bottom mb-3 mt-3" />
-
-            <div className="row">
-              <div className="col-sm-3">
-                <h4>Data Source Settings</h4>
-              </div>
-              <div className="col-sm-9">
-                <>
-                  <SelectField
-                    label="Default Data Source (Optional)"
-                    value={form.watch("defaultDataSource") || ""}
-                    options={datasources.map((d) => ({
-                      label: d.name,
-                      value: d.id,
-                    }))}
-                    onChange={(v: string) =>
-                      form.setValue("defaultDataSource", v)
-                    }
-                    isClearable={true}
-                    placeholder="Select a data source..."
-                    helpText="The default data source is the default data source selected when creating metrics and experiments."
-                  />
-                </>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div
+      <Box
         className="bg-main-color position-sticky w-100 py-3 border-top"
-        style={{ bottom: 0, height: 70 }}
+        style={{ bottom: 0, height: 70, zIndex: 840 }}
       >
-        <div className="container-fluid pagecontents d-flex">
-          <div className="flex-grow-1 mr-4">
+        <Box className="container-fluid pagecontents d-flex">
+          <Flex flexGrow="1" gap="3" align="end">
+            {submitError && (
+              <Box>
+                <HelperText status="error">{submitError}</HelperText>
+              </Box>
+            )}
             {saveMsg && (
               <TempMessage
                 className="mb-0 py-2"
@@ -382,22 +521,26 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 Settings saved
               </TempMessage>
             )}
-          </div>
-          <div>
+          </Flex>
+          <Box style={{ marginRight: "85px" }}>
             <Button
-              style={{ marginRight: "4rem" }}
-              color={"primary"}
               disabled={!ctaEnabled}
               onClick={async () => {
+                setSubmitError(null);
                 if (!ctaEnabled) return;
                 await saveSettings();
+                // Only save prompts if the prompt form has changes
+                if (promptForm.formState.isDirty) {
+                  await savePrompts();
+                }
               }}
+              setError={setSubmitError}
             >
-              Save
+              Save All
             </Button>
-          </div>
-        </div>
-      </div>
+          </Box>
+        </Box>
+      </Box>
     </FormProvider>
   );
 };

@@ -1,24 +1,52 @@
-import { FeatureInterface } from "back-end/types/feature";
-import { useState, useMemo, useRef } from "react";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureInterface } from "shared/types/feature";
+import { useState, useMemo, useRef, useCallback } from "react";
+import { RampScheduleInterface } from "shared/validators";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   autoMerge,
+  fillRevisionFromFeature,
+  liveRevisionFromFeature,
   filterEnvironmentsByFeature,
+  getAffectedEnvsForExperiment,
   mergeResultHasChanges,
+  getReviewSetting,
 } from "shared/util";
 import { useForm } from "react-hook-form";
-import { EventAuditUserLoggedIn } from "back-end/src/events/event-types";
-import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
-import { getCurrentUser } from "@/services/UserContext";
+import {
+  EventUserLoggedIn,
+  EventUserApiKey,
+} from "shared/types/events/event-types";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { FaArrowLeft } from "react-icons/fa";
+import { Flex } from "@radix-ui/themes";
+import EventUser from "@/components/Avatar/EventUser";
+import { getCurrentUser, useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
-import { useEnvironments } from "@/services/features";
+import {
+  useEnvironments,
+  useFeatureExperimentChecklists,
+} from "@/services/features";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import Button from "@/components/Button";
-import RadioSelector from "@/components/Forms/RadioSelector";
 import { ExpandableDiff } from "@/components/Features/DraftModal";
 import Revisionlog, { MutateLog } from "@/components/Features/RevisionLog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import {
+  useFeatureRevisionDiff,
+  featureToFeatureRevisionDiffInput,
+  mergeResultToDiffInput,
+  type FeatureRevisionDiff,
+} from "@/hooks/useFeatureRevisionDiff";
+import Badge from "@/ui/Badge";
+import HelperText from "@/ui/HelperText";
+import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
+import RadioGroup from "@/ui/RadioGroup";
+import Callout from "@/ui/Callout";
+import { PreLaunchChecklistForDraft } from "@/components/Experiment/PreLaunchChecklist";
+import Checkbox from "@/ui/Checkbox";
+import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 export interface Props {
   feature: FeatureInterface;
   version: number;
@@ -26,7 +54,8 @@ export interface Props {
   close: () => void;
   mutate: () => void;
   onPublish?: () => void;
-  onDiscard?: () => void;
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+  rampSchedules?: RampScheduleInterface[];
 }
 type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
@@ -36,7 +65,9 @@ export default function RequestReviewModal({
   revisions,
   close,
   mutate,
-  onDiscard,
+  experimentsMap,
+  rampSchedules,
+  onPublish,
 }: Props) {
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -47,35 +78,101 @@ export default function RequestReviewModal({
 
   const { apiCall } = useAuth();
   const user = getCurrentUser();
+  const { organization } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const canAdminPublish = permissionsUtil.canBypassApprovalChecks(feature);
   const revision = revisions.find((r) => r.version === version);
   const isPendingReview =
     revision?.status === "pending-review" ||
     revision?.status === "changes-requested";
-  const createdBy = revision?.createdBy as EventAuditUserLoggedIn;
+  const createdBy = revision?.createdBy as
+    | EventUserLoggedIn
+    | EventUserApiKey
+    | undefined;
+  const requireReviews = organization?.settings?.requireReviews;
+  const reviewSetting = Array.isArray(requireReviews)
+    ? getReviewSetting(requireReviews, feature)
+    : undefined;
+  const isBlockedContributor =
+    reviewSetting?.blockSelfApproval &&
+    (revision?.contributors ?? []).some(
+      (c) => c != null && "id" in c && c.id === user?.id,
+    );
   const canReview =
     isPendingReview &&
     createdBy?.id !== user?.id &&
     permissionsUtil.canReviewFeatureDrafts(feature);
   const approved = revision?.status === "approved" || adminPublish;
   const baseRevision = revisions.find(
-    (r) => r.version === revision?.baseVersion
+    (r) => r.version === revision?.baseVersion,
   );
   const liveRevision = revisions.find((r) => r.version === feature.version);
+
+  const envIds = environments.map((e) => e.id);
 
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
     return autoMerge(
-      liveRevision,
-      baseRevision,
+      liveRevisionFromFeature(liveRevision, feature),
+      fillRevisionFromFeature(baseRevision, feature),
       revision,
-      environments.map((e) => e.id),
-      {}
+      envIds,
+      {},
     );
-  }, [revision, baseRevision, liveRevision, environments]);
+  }, [revision, baseRevision, liveRevision, envIds, feature]);
 
   const [comment, setComment] = useState("");
+
+  const { experiments } = useFeatureExperimentChecklists({
+    feature,
+    revision,
+    experimentsMap,
+  });
+
+  const [selectedExperiments, setSelectedExperiments] = useState(
+    new Set(experiments.map((e) => e.id)),
+  );
+  const [experimentsStep, setExperimentsStep] = useState(false);
+
+  // Aggregates per-experiment checklist state from child components.
+  // Cleared when entering/leaving the experiments step to avoid stale entries
+  // from previously shown/unchecked experiments.
+  const checklistStateRef = useRef<
+    Map<string, { failedRequired: boolean; loading: boolean }>
+  >(new Map());
+  const [checklistBlocked, setChecklistBlocked] = useState(false);
+  const handleChecklistReady = useCallback(
+    (expId: string, failedRequired: boolean, loading: boolean) => {
+      checklistStateRef.current.set(expId, { failedRequired, loading });
+      setChecklistBlocked(
+        [...checklistStateRef.current.values()].some(
+          (v) => v.failedRequired || v.loading,
+        ),
+      );
+    },
+    [],
+  );
+
+  const currentRevisionData = featureToFeatureRevisionDiffInput(feature);
+  const draftDiffInput = mergeResult?.success
+    ? mergeResultToDiffInput(mergeResult.result, currentRevisionData)
+    : currentRevisionData;
+  const resultDiffs = useFeatureRevisionDiff({
+    current: currentRevisionData,
+    draft: draftDiffInput,
+  });
+
+  // Exclude no-op diffs (e.g. semantic equality but different raw strings)
+  const resultDiffsWithChanges = useMemo(
+    () => resultDiffs.filter((d) => d.a !== d.b),
+    [resultDiffs],
+  );
+
+  // adminPublish bypasses both the approval requirement and the checklist gate.
+  const submitEnabled = !(experimentsStep && checklistBlocked && !adminPublish);
+  const hasNextStep =
+    approved && selectedExperiments.size > 0 && !experimentsStep;
+
   const submitReviewform = useForm<{
     reviewStatus: ReviewSubmittedType;
     comment: string;
@@ -85,6 +182,13 @@ export default function RequestReviewModal({
     },
   });
   const submitButton = async () => {
+    if (hasNextStep) {
+      checklistStateRef.current.clear();
+      setChecklistBlocked(false);
+      setExperimentsStep(true);
+      return;
+    }
+
     if (!isPendingReview && !approved) {
       try {
         await apiCall(`/feature/${feature.id}/${revision?.version}/request`, {
@@ -99,6 +203,7 @@ export default function RequestReviewModal({
         throw e;
       }
       await mutate();
+      close();
     } else if (approved) {
       try {
         await apiCall(`/feature/${feature.id}/${revision?.version}/publish`, {
@@ -107,6 +212,7 @@ export default function RequestReviewModal({
             mergeResultSerialized: JSON.stringify(mergeResult),
             comment,
             adminOverride: adminPublish,
+            publishExperimentIds: Array.from(selectedExperiments),
           }),
         });
       } catch (e) {
@@ -114,89 +220,138 @@ export default function RequestReviewModal({
         throw e;
       }
       await mutate();
+      onPublish && onPublish();
+      close();
     } else if (canReview) {
       setShowSumbmitReview(true);
+    } else {
+      close();
     }
   };
 
-  const resultDiffs = useMemo(() => {
-    const diffs: { a: string; b: string; title: string }[] = [];
+  // Activating ramps: pending ramps where this revision's publication triggers the start lifecycle.
+  const activatingRamps = (rampSchedules ?? []).filter(
+    (r) =>
+      r.status === "pending" &&
+      r.targets.some(
+        (t) =>
+          t.entityId === feature.id &&
+          t.activatingRevisionVersion === revision?.version,
+      ),
+  );
 
-    if (!mergeResult) return diffs;
-    if (!mergeResult.success) return diffs;
-
-    const result = mergeResult.result;
-
-    if (result.defaultValue !== undefined) {
-      diffs.push({
-        title: "Default Value",
-        a: feature.defaultValue,
-        b: result.defaultValue,
-      });
-    }
-    if (result.rules) {
-      environments.forEach((env) => {
-        const liveRules = feature.environmentSettings?.[env.id]?.rules || [];
-        if (result.rules && result.rules[env.id]) {
-          diffs.push({
-            title: `Rules - ${env.id}`,
-            a: JSON.stringify(liveRules, null, 2),
-            b: JSON.stringify(result.rules[env.id], null, 2),
-          });
+  const rampDiffs: FeatureRevisionDiff[] = [
+    ...activatingRamps.map((ramp) => {
+      const rampConfig = {
+        name: ramp.name,
+        targets: ramp.targets,
+        startDate: ramp.startDate,
+        steps: ramp.steps,
+        endCondition: ramp.endCondition,
+      };
+      const startDescription = ramp.startDate
+        ? "Starts at a scheduled date/time."
+        : "Starts automatically on publish.";
+      return {
+        title: `Ramp Schedule – ${ramp.name}`,
+        a: "",
+        b: JSON.stringify(rampConfig, null, 2),
+        customRender: (
+          <p className="mb-0">
+            Activates ramp schedule <strong>{ramp.name}</strong> —{" "}
+            {ramp.steps.length} step{ramp.steps.length !== 1 ? "s" : ""}.{" "}
+            {startDescription}
+          </p>
+        ),
+        badges: [{ label: `Start ramp: ${ramp.name}`, action: "start ramp" }],
+      } as FeatureRevisionDiff;
+    }),
+    // Pending ramp actions: create/detach actions queued in the draft
+    ...(revision?.rampActions ?? [])
+      .map((action) => {
+        if (action.mode === "create") {
+          const rampConfig = {
+            name: action.name,
+            environment: action.environment,
+            ruleId: action.ruleId,
+            startDate: action.startDate,
+            steps: action.steps,
+            endCondition: action.endCondition,
+          };
+          return {
+            title: `Ramp Schedule – ${action.name} (pending creation)`,
+            a: "",
+            b: JSON.stringify(rampConfig, null, 2),
+            customRender: (
+              <p className="mb-0">
+                Creates ramp schedule <strong>{action.name}</strong> for rule{" "}
+                <code>{action.ruleId}</code> — {action.steps.length} step
+                {action.steps.length !== 1 ? "s" : ""}.
+              </p>
+            ),
+            badges: [
+              {
+                label: `Create ramp: ${action.name}`,
+                action: "create ramp",
+              },
+            ],
+          } as FeatureRevisionDiff;
+        } else if (action.mode === "detach") {
+          return {
+            title: `Remove from Ramp Schedule (pending)`,
+            a: "",
+            b: JSON.stringify(
+              {
+                rampScheduleId: action.rampScheduleId,
+                ruleId: action.ruleId,
+              },
+              null,
+              2,
+            ),
+            customRender: (
+              <p className="mb-0">
+                This rule will be removed from its ramp schedule
+                {action.deleteScheduleWhenEmpty &&
+                  " and the schedule will be deleted if empty"}
+                .
+              </p>
+            ),
+            badges: [
+              {
+                label: "Remove from ramp schedule",
+                action: "remove ramp",
+              },
+            ],
+          } as FeatureRevisionDiff;
         }
-      });
-    }
+        return null as unknown as FeatureRevisionDiff;
+      })
+      .filter(Boolean),
+  ];
 
-    return diffs;
-  }, [
-    environments,
-    feature.defaultValue,
-    feature.environmentSettings,
-    mergeResult,
-  ]);
+  const linkedRamps = [
+    ...activatingRamps.map((ramp) => ({ ramp, role: "activating" as const })),
+  ];
 
   if (!revision || !mergeResult) return null;
-
-  const hasChanges = mergeResultHasChanges(mergeResult);
+  const allDiffsWithChanges = [...resultDiffsWithChanges, ...rampDiffs];
+  const hasChanges = mergeResultHasChanges(mergeResult) || rampDiffs.length > 0;
   let ctaCopy = "Request Review";
-  if (approved) {
+  if (approved && !hasNextStep) {
     ctaCopy = "Publish";
-  } else if (canReview) {
+  } else if (canReview || hasNextStep) {
     ctaCopy = "Next";
   }
   const showRevisionStatus = () => {
     switch (revision.status) {
       case "approved":
-        return (
-          <div className="alert alert-success">
-            <span className="h4">
-              <PiCheckCircleFill className="mr-1" /> Approved
-            </span>
-          </div>
-        );
+        return <Callout status="success">Approved</Callout>;
       case "pending-review":
-        return (
-          <div className="alert alert-warning">
-            <span className="h4">
-              <PiCircleDuotone className="mr-1" /> Pending Review
-            </span>
-            <div></div>
-          </div>
-        );
+        return <Callout status="warning">Pending Review</Callout>;
       case "changes-requested":
-        return (
-          <div className="alert alert-danger">
-            <span className="h4">
-              <PiFileX className="mr-1" /> Changes Requested
-            </span>
-          </div>
-        );
+        return <Callout status="error">Changes Requested</Callout>;
       case "draft":
-        return (
-          <div className="alert alert-warning">
-            <span className="h5">Publishing requires approval.</span>
-          </div>
-        );
+        return <Callout status="warning">Publishing requires approval</Callout>;
       default:
         return;
     }
@@ -204,132 +359,287 @@ export default function RequestReviewModal({
   const renderRequestAndViewModal = () => {
     return (
       <Modal
+        trackingEventModalType=""
         open={true}
         header={"Review Draft Changes"}
         cta={ctaCopy}
+        ctaEnabled={submitEnabled}
         close={close}
-        autoCloseOnSubmit={canReview ? false : true}
+        autoCloseOnSubmit={false}
         closeCta="Cancel"
         size="lg"
         submit={
           !isPendingReview || canReview || approved ? submitButton : undefined
         }
-        secondaryCTA={
-          isPendingReview && !canReview ? (
+        backCTA={
+          experimentsStep ? (
             <Button
-              color="danger"
-              onClick={async () => {
-                try {
-                  await apiCall(
-                    `/feature/${feature.id}/${revision.version}/discard`,
-                    {
-                      method: "POST",
-                    }
-                  );
-                } catch (e) {
-                  await mutate();
-                  throw e;
-                }
-                await mutate();
-                onDiscard && onDiscard();
-                close();
+              color="link"
+              onClick={() => {
+                checklistStateRef.current.clear();
+                setChecklistBlocked(false);
+                setExperimentsStep(false);
               }}
             >
-              Discard Draft
+              <FaArrowLeft /> Back
             </Button>
           ) : undefined
         }
       >
         {mergeResult.conflicts.length > 0 && (
-          <div className="alert alert-danger">
+          <Callout status="error">
             <strong>Conflicts Detected</strong>. Please fix conflicts before
             publishing this draft.
-          </div>
+          </Callout>
         )}
 
+        {linkedRamps.map(({ ramp }) => (
+          <Callout key={ramp.id} status="info" mb="3">
+            Publishing this draft will activate ramp schedule{" "}
+            <strong>{ramp.name}</strong>. The ramp will begin once this revision
+            is live.
+          </Callout>
+        ))}
+
         {!hasChanges && !mergeResult.conflicts.length && (
-          <div className="alert alert-info">
+          <Callout status="info">
             There are no changes to publish. Either discard the draft or add
             changes first before publishing.
-          </div>
+          </Callout>
         )}
 
         {mergeResult.success && hasChanges && (
           <div>
             <div className="mb-2">{showRevisionStatus()}</div>
+            {revision.contributors && revision.contributors.length > 0 && (
+              <div className="mb-3">
+                <strong style={{ fontSize: "0.85rem" }}>Contributors</strong>
+                <Flex align="center" gap="2" wrap="wrap" mt="1">
+                  {[revision.createdBy, ...revision.contributors]
+                    .filter(
+                      (u): u is EventUserLoggedIn | EventUserApiKey =>
+                        u != null &&
+                        (u.type === "dashboard" || u.type === "api_key"),
+                    )
+                    .filter(
+                      (u, idx, arr) =>
+                        arr.findIndex(
+                          (x) => "id" in x && "id" in u && x.id === u.id,
+                        ) === idx,
+                    )
+                    .map((lu) => {
+                      return (
+                        <Flex
+                          key={"id" in lu ? lu.id : lu.apiKey}
+                          align="center"
+                          gap="1"
+                          wrap="wrap"
+                        >
+                          <EventUser
+                            user={lu}
+                            display="avatar-name-email"
+                            size="sm"
+                          />
+                        </Flex>
+                      );
+                    })}
+                </Flex>
+              </div>
+            )}
             {canAdminPublish && (
               <div className="mt-3 mb-4 ml-1">
-                <div className="d-flex">
-                  <input
-                    id="adminPublish"
-                    type="checkbox"
-                    className="mr-2 cursor-pointer"
-                    checked={adminPublish}
-                    onChange={async (e) => setAdminPublish(e.target.checked)}
-                  />
-                  <label
-                    htmlFor="adminPublish"
-                    className="cursor-pointer font-weight-bold mb-0 mr-1"
-                  >
-                    Bypass approval requirement to publish (optional for Admins
-                    only)
-                  </label>
-                </div>
+                <Checkbox
+                  label="Bypass approval requirement to publish (optional for Admins only)"
+                  value={adminPublish}
+                  setValue={(val) => {
+                    setAdminPublish(!!val);
+                    if (!val) {
+                      checklistStateRef.current.clear();
+                      setChecklistBlocked(false);
+                      setExperimentsStep(false);
+                    }
+                  }}
+                />
               </div>
             )}
 
-            <div className="list-group mb-4">
-              <h4 className="mb-3">Diffs by Enviroment</h4>
-              {resultDiffs.map((diff) => (
-                <ExpandableDiff {...diff} key={diff.title} />
-              ))}
-            </div>
-            <h4 className="mb-3"> Change Request Log</h4>
-            <Revisionlog
-              feature={feature}
-              revision={revision}
-              ref={revisionLogRef}
-            />
-            {(!canReview || approved) && (
-              <div className="mt-3" id="comment-section">
-                <Field
-                  label="Add a Comment (optional)"
-                  textarea
-                  placeholder="Summary of changes..."
-                  value={comment}
-                  ref={commentInputRef}
-                  onChange={(e) => {
-                    setComment(e.target.value);
-                  }}
-                />
-                {((!canReview && revision?.status !== "draft") || approved) && (
-                  <Button
-                    onClick={async () => {
-                      try {
-                        await apiCall(
-                          `/feature/${feature.id}/${revision.version}/comment`,
-                          {
-                            method: "POST",
-                            body: JSON.stringify({
-                              comment,
-                            }),
-                          }
-                        );
-                      } catch (e) {
-                        await mutate();
-                        throw e;
-                      }
-                      setComment("");
-                      await revisionLogRef?.current?.mutateLog();
-                      await mutate();
-                      commentInputRef?.current?.scrollIntoView();
-                      // close();
-                    }}
-                  >
-                    Comment
-                  </Button>
-                )}
+            {experimentsStep && approved ? (
+              <div>
+                <h3>Review &amp; Publish</h3>
+                <p>
+                  Please review the{" "}
+                  <strong>
+                    Pre-Launch Checklist
+                    {selectedExperiments.size !== 1 ? "s" : ""}
+                  </strong>{" "}
+                  for the experiment
+                  {selectedExperiments.size !== 1 ? "s" : ""} that will be
+                  published along with this draft.
+                </p>
+                {experiments.map((experiment) => {
+                  if (!selectedExperiments.has(experiment.id)) return null;
+
+                  return (
+                    <div key={experiment.id} className="mb-3">
+                      <PreLaunchChecklistForDraft
+                        experiment={experiment}
+                        feature={feature}
+                        mutateExperiment={mutate}
+                        envs={getAffectedEnvsForExperiment({
+                          experiment,
+                          orgEnvironments: allEnvironments,
+                          linkedFeatures: [],
+                        })}
+                        onReady={(failed, loading) =>
+                          handleChecklistReady(experiment.id, failed, loading)
+                        }
+                      />
+                    </div>
+                  );
+                })}
               </div>
+            ) : (
+              <>
+                {approved && experiments.length > 0 ? (
+                  <div className="mb-3">
+                    <h4>Start running experiments upon publishing:</h4>
+                    {experiments.map((experiment) => (
+                      <div key={experiment.id}>
+                        <Checkbox
+                          value={selectedExperiments.has(experiment.id)}
+                          setValue={(e) => {
+                            const newValue = new Set(selectedExperiments);
+                            if (e === true) {
+                              newValue.add(experiment.id);
+                            } else {
+                              newValue.delete(experiment.id);
+                            }
+                            setSelectedExperiments(newValue);
+                          }}
+                          label={experiment.name}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {allDiffsWithChanges.length > 0 && (
+                  <>
+                    <h4 className="mb-3">Summary of changes</h4>
+                    {allDiffsWithChanges.flatMap((d) => d.badges ?? []).length >
+                      0 && (
+                      <Flex wrap="wrap" gap="2" className="mb-3">
+                        {allDiffsWithChanges
+                          .flatMap((d) => d.badges ?? [])
+                          .map(({ label, action }) => (
+                            <Badge
+                              key={label}
+                              color={logBadgeColor(action)}
+                              variant="soft"
+                              label={label}
+                            />
+                          ))}
+                      </Flex>
+                    )}
+                    {allDiffsWithChanges.some((d) => d.customRender) && (
+                      <div className="list-group mb-4">
+                        {allDiffsWithChanges
+                          .filter((d) => d.customRender)
+                          .map((d) => (
+                            <div key={d.title} className="appbox bg-light p-3">
+                              <strong className="d-block mb-2">
+                                {d.title}
+                              </strong>
+                              {d.customRender}
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </>
+                )}
+                <h4 className="mb-3">Change details</h4>
+                <div className="list-group mb-4">
+                  {allDiffsWithChanges.length > 0 ? (
+                    allDiffsWithChanges.map((diff) => (
+                      <ExpandableDiff
+                        key={diff.title}
+                        title={diff.title}
+                        a={diff.a}
+                        b={diff.b}
+                        styles={COMPACT_DIFF_STYLES}
+                      />
+                    ))
+                  ) : (
+                    <HelperText status="info">
+                      No material changes detected
+                    </HelperText>
+                  )}
+                </div>
+                {(isPendingReview || revision.status === "approved") && (
+                  <div className="mb-4">
+                    <Tabs defaultValue="review">
+                      <TabsList size="2" mb="2">
+                        <TabsTrigger value="review">
+                          Review Activity
+                        </TabsTrigger>
+                        <TabsTrigger value="full">Change Log</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="review">
+                        <Revisionlog
+                          feature={feature}
+                          revision={revision}
+                          ref={revisionLogRef}
+                          reviewOnly
+                        />
+                      </TabsContent>
+                      <TabsContent value="full">
+                        <Revisionlog feature={feature} revision={revision} />
+                      </TabsContent>
+                    </Tabs>
+                  </div>
+                )}
+                {(!canReview || approved) && (
+                  <div className="mt-3" id="comment-section">
+                    <Field
+                      label="Add a Comment (optional)"
+                      textarea
+                      placeholder="Summary of changes..."
+                      value={comment}
+                      ref={commentInputRef}
+                      onChange={(e) => {
+                        setComment(e.target.value);
+                      }}
+                    />
+                    {((!canReview && revision?.status !== "draft") ||
+                      approved) && (
+                      <Button
+                        onClick={async () => {
+                          try {
+                            await apiCall(
+                              `/feature/${feature.id}/${revision.version}/comment`,
+                              {
+                                method: "POST",
+                                body: JSON.stringify({
+                                  comment,
+                                }),
+                              },
+                            );
+                          } catch (e) {
+                            await mutate();
+                            throw e;
+                          }
+                          setComment("");
+                          await revisionLogRef?.current?.mutateLog();
+                          await mutate();
+                          commentInputRef?.current?.scrollIntoView();
+                          // close();
+                        }}
+                      >
+                        Comment
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -339,6 +649,7 @@ export default function RequestReviewModal({
   const renderReviewAndSubmitModal = () => {
     return (
       <Modal
+        trackingEventModalType=""
         open={true}
         close={close}
         header={"Review Draft Changes"}
@@ -355,7 +666,7 @@ export default function RequestReviewModal({
                   comment: data.comment,
                   review: data.reviewStatus,
                 }),
-              }
+              },
             );
           } catch (e) {
             mutate();
@@ -363,12 +674,12 @@ export default function RequestReviewModal({
           }
           await mutate();
         })}
-        secondaryCTA={
+        backCTA={
           <Button
-            color="outline"
+            color="link"
             onClick={async () => setShowSumbmitReview(false)}
           >
-            Back
+            <FaArrowLeft /> Back
           </Button>
         }
       >
@@ -376,37 +687,38 @@ export default function RequestReviewModal({
           <div>
             <h4>Leave a Comment</h4>
             <Field
-              placeholder="leave a comment"
+              placeholder="Leave a comment"
               textarea
               className="mb-3 mt-3"
               {...submitReviewform.register("comment")}
             />
           </div>
 
-          <RadioSelector
-            name="type"
+          <RadioGroup
             value={submitReviewform.watch("reviewStatus")}
-            descriptionNewLine={true}
             setValue={(val: ReviewSubmittedType) => {
               submitReviewform.setValue("reviewStatus", val);
             }}
             options={[
               {
-                key: "Comment",
-                display: "Comment",
+                value: "Comment",
+                label: "Comment",
                 description:
                   "Submit general feedback without explicit approval.",
               },
               {
-                key: "Requested Changes",
-                display: "Request Changes",
+                value: "Requested Changes",
+                label: "Request Changes",
                 description:
                   "Submit feedback that must be addressed before publishing.",
               },
               {
-                key: "Approved",
-                display: "Approve",
-                description: "Submit feedback and approve for publishing.",
+                value: "Approved",
+                label: "Approve",
+                description: isBlockedContributor
+                  ? "You contributed to this draft and cannot approve it."
+                  : "Submit feedback and approve for publishing.",
+                disabled: isBlockedContributor,
               },
             ]}
           />

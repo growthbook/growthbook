@@ -1,12 +1,12 @@
 import { Client, ClientConfig } from "pg";
-import { PostgresConnectionParams } from "../../types/integrations/postgres";
-import { logger } from "../util/logger";
-import { QueryResponse } from "../types/Integration";
+import { QueryResponse } from "shared/types/integrations";
+import { PostgresConnectionParams } from "shared/types/integrations/postgres";
+import { logger } from "back-end/src/util/logger";
 
 export function runPostgresQuery(
   conn: PostgresConnectionParams,
   sql: string,
-  values: string[] = []
+  values: string[] = [],
 ): Promise<QueryResponse> {
   return new Promise<QueryResponse>((resolve, reject) => {
     let ssl: false | ClientConfig["ssl"] = false;

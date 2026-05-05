@@ -1,8 +1,8 @@
 import React, { FC, useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
-import z from "zod";
-import { NotificationEventName } from "back-end/src/events/base-types";
-import { TagInterface } from "back-end/types/tag";
+import { z } from "zod";
+import { TagInterface } from "shared/types/tag";
+import { isEventWebhookWildcard } from "shared/validators";
 import {
   eventWebHookEventOptions,
   notificationEventNames,
@@ -31,7 +31,9 @@ type SlackIntegrationAddEditModalProps = {
   error: string | null;
 };
 
-export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps> = ({
+export const SlackIntegrationAddEditModal: FC<
+  SlackIntegrationAddEditModalProps
+> = ({
   projects,
   environments,
   tagOptions,
@@ -83,7 +85,15 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
       description: z.string().trim().min(0),
       projects: z.array(z.string()),
       environments: z.array(z.string()),
-      events: z.array(z.enum(notificationEventNames)),
+      events: z.array(
+        z
+          .string()
+          .refine(
+            (val) =>
+              notificationEventNames.includes(val as never) ||
+              isEventWebhookWildcard(val),
+          ),
+      ),
       tags: z.array(z.string()),
       slackAppId: z.string().trim().min(2),
       slackSigningKey: z.string().trim().min(2),
@@ -100,6 +110,7 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
 
   return (
     <Modal
+      trackingEventModalType=""
       header={modalTitle}
       cta={buttonText}
       close={onClose}
@@ -148,12 +159,11 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
         label="Event filters"
         helpText="Only receive notifications for matching events."
         value={form.watch("events")}
-        options={eventWebHookEventOptions.map(({ id }) => ({
-          label: id,
-          value: id,
-        }))}
+        options={eventWebHookEventOptions.flatMap(({ options }) =>
+          options.map((opt) => ({ label: opt.label, value: opt.value })),
+        )}
         onChange={(value: string[]) => {
-          form.setValue("events", value as NotificationEventName[]);
+          form.setValue("events", value);
           handleFormValidation();
         }}
       />
@@ -231,7 +241,7 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
             onChange={(selected: string[]) => {
               form.setValue(
                 "tags",
-                selected.map((item) => item)
+                selected.map((item) => item),
               );
               handleFormValidation();
             }}

@@ -1,11 +1,11 @@
 import { Response } from "express";
-import { ScimError, ScimGetRequest, ScimUser } from "../../../types/scim";
-import { ExpandedMember } from "../../../types/organization";
-import { expandOrgMembers } from "../../services/organizations";
+import { ExpandedMember } from "shared/types/organization";
+import { ScimError, ScimGetRequest, ScimUser } from "back-end/types/scim";
+import { expandOrgMembers } from "back-end/src/services/organizations";
 
 export const expandedMembertoScimUser = (
   member: ExpandedMember,
-  active: boolean = true
+  active: boolean = true,
 ): ScimUser => {
   return {
     schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
@@ -13,12 +13,13 @@ export const expandedMembertoScimUser = (
     userName: member.email,
     displayName: member.name,
     active,
+    externalId: member.externalId,
   };
 };
 
 export async function getUser(
   req: ScimGetRequest,
-  res: Response<ScimUser | ScimError>
+  res: Response<ScimUser | ScimError>,
 ) {
   const userId = req.params.id;
 

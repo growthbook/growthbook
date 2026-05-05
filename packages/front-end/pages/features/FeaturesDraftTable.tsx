@@ -1,15 +1,13 @@
-import { FeatureInterface } from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureMetaInfo } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { ago, datetime } from "shared/dates";
-import { EventAuditUserLoggedIn } from "back-end/src/events/event-types";
-import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
 import {
-  removeEnvFromSearchTerm,
-  useAddComputedFields,
-  useSearch,
-} from "@/services/search";
+  EventUserLoggedIn,
+  EventUserApiKey,
+} from "shared/types/events/event-types";
+import { useAddComputedFields, useSearch } from "@/services/search";
 import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -17,66 +15,30 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Pagination from "@/components/Pagination";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import LoadingOverlay from "@/components/LoadingOverlay";
-export interface Props {
-  features: FeatureInterface[];
-}
+import ProjectBadges from "@/components/ProjectBadges";
+import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
+
 type FeaturesAndRevisions = FeatureRevisionInterface & {
-  feature: FeatureInterface;
+  featureMeta?: FeatureMetaInfo;
 };
-export default function FeaturesDraftTable({ features }: Props) {
+export default function FeaturesDraftTable() {
   const draftAndReviewData = useApi<{
     status: number;
-    revisions: FeatureRevisionInterface[];
-  }>(`/revision/feature`);
+    revisions: FeaturesAndRevisions[];
+  }>(`/revision/feature?sparse=true`);
   const [currentPage, setCurrentPage] = useState(1);
 
   const NUM_PER_PAGE = 20;
   const { data } = draftAndReviewData;
   const { getProjectById } = useDefinitions();
-  const renderStatusCopy = (revision: FeatureRevisionInterface) => {
-    switch (revision.status) {
-      case "approved":
-        return (
-          <span className="mr-3">
-            <PiCheckCircleFill className="text-success  mr-1" /> Approved
-          </span>
-        );
-      case "pending-review":
-        return (
-          <span className="mr-3">
-            <PiCircleDuotone className="text-warning  mr-1" /> Pending Review
-          </span>
-        );
-      case "draft":
-        return <span className="mr-3">Draft</span>;
-      case "changes-requested":
-        return (
-          <span className="mr-3">
-            <PiFileX className="text-danger mr-1" />
-            Changes Requested
-          </span>
-        );
-      default:
-        return;
-    }
-  };
 
-  const featuresAndRevisions = data?.revisions.reduce<FeaturesAndRevisions[]>(
-    (result, revision) => {
-      const feature = features.find((f) => f.id === revision.featureId);
-      if (feature && feature?.dateCreated <= revision.dateCreated) {
-        result.push({
-          ...revision,
-          feature,
-        });
-      }
-      return result;
-    },
-    []
-  );
+  const featuresAndRevisions = data?.revisions;
 
   const revisions = useAddComputedFields(featuresAndRevisions, (revision) => {
-    const createdBy = revision?.createdBy as EventAuditUserLoggedIn | null;
+    const createdBy = revision?.createdBy as
+      | EventUserLoggedIn
+      | EventUserApiKey
+      | null;
     let dateAndStatus = new Date(revision?.dateUpdated).getTime();
     switch (revision?.status) {
       case "draft":
@@ -93,12 +55,16 @@ export default function FeaturesDraftTable({ features }: Props) {
         break;
     }
     return {
-      id: revision.feature?.id,
-      tags: revision.feature?.tags,
+      // Composite ID so MiniSearch never sees duplicate IDs when a feature has
+      // multiple open revisions (e.g. both a draft and a pending-review).
+      id: `${revision.featureId}-v${revision.version}`,
+      featureKey: revision.featureId,
+      tags: revision.featureMeta?.tags,
       status: revision?.status,
       version: revision?.version,
+      dateCreated: revision?.dateCreated,
       dateUpdated: revision?.dateUpdated,
-      project: revision.feature?.project,
+      project: revision.featureMeta?.project,
       creator: createdBy?.name,
       comment: revision?.comment,
       dateAndStatus,
@@ -109,9 +75,25 @@ export default function FeaturesDraftTable({ features }: Props) {
     items: revisions,
     defaultSortField: "dateAndStatus",
     defaultSortDir: -1,
-    searchFields: ["id^3", "comment", "tags^2", "status", "creator"],
-    transformQuery: removeEnvFromSearchTerm,
+    searchFields: ["featureKey^3", "comment", "tags^2", "status", "creator"],
     localStorageKey: "features-drafts-table-test-1-3",
+    searchTermFilters: {
+      is: (item) => {
+        const is: string[] = [];
+        if (item.status === "draft") is.push("draft");
+        if (item.status === "pending-review")
+          is.push("pending-review", "awaiting-review");
+        if (item.status === "approved") is.push("approved");
+        return is;
+      },
+      status: (item) => item.status,
+      tag: (item) => item.tags,
+      project: (item) => item.featureMeta?.project,
+      created: (item) => item.dateCreated,
+      updated: (item) => item.dateUpdated,
+      user: (item) => item.creator,
+      version: (item) => item.version,
+    },
   });
 
   useEffect(() => {
@@ -123,7 +105,7 @@ export default function FeaturesDraftTable({ features }: Props) {
   const loading = !data;
 
   const renderFeaturesTableDrafts = () => {
-    return items.length > 0 ? (
+    return revisions.length > 0 ? (
       <div>
         <div className="row mb-2 align-items-center">
           <div className="col-auto">
@@ -135,14 +117,14 @@ export default function FeaturesDraftTable({ features }: Props) {
           </div>
         </div>
 
-        <table className="table gbtable table-hover appbox">
+        <table className="table gbtable appbox">
           <thead
             className="sticky-top bg-white shadow-sm"
             style={{ top: "56px", zIndex: 900 }}
           >
             <tr>
-              <SortableTH field="id">Feature Key</SortableTH>
-              <th>Comment</th>
+              <SortableTH field="featureKey">Feature Key</SortableTH>
+              <th>Notes</th>
               <th>Project</th>
               <th> Creator</th>
               <SortableTH field="dateUpdated">Last Updated</SortableTH>
@@ -158,14 +140,13 @@ export default function FeaturesDraftTable({ features }: Props) {
               const projectIsDeReferenced = projectId && !projectName;
 
               return (
-                <tr
-                  key={`${featureAndRevision.id}:${featureAndRevision.version}`}
-                >
-                  <td>
+                <tr key={featureAndRevision.id} className="hover-highlight">
+                  <td className="py-0">
                     <Link
-                      href={`/features/${featureAndRevision.id}?v=${featureAndRevision?.version}`}
+                      className="featurename d-block p-2"
+                      href={`/features/${featureAndRevision.featureKey}?v=${featureAndRevision?.version}`}
                     >
-                      {featureAndRevision.id}
+                      {featureAndRevision.featureKey}
                     </Link>
                   </td>
                   <td>
@@ -188,7 +169,16 @@ export default function FeaturesDraftTable({ features }: Props) {
                           <span className="text-danger">Invalid project</span>
                         </Tooltip>
                       ) : (
-                        projectName ?? <em>None</em>
+                        <>
+                          {featureAndRevision.project ? (
+                            <ProjectBadges
+                              resourceType="feature"
+                              projectIds={[featureAndRevision.project]}
+                            />
+                          ) : (
+                            <></>
+                          )}
+                        </>
                       )}
                     </td>
                   }
@@ -197,10 +187,22 @@ export default function FeaturesDraftTable({ features }: Props) {
                   <td title={datetime(featureAndRevision.dateUpdated)}>
                     {ago(featureAndRevision.dateUpdated)}
                   </td>
-                  <td>{renderStatusCopy(featureAndRevision)}</td>
+                  <td>
+                    <RevisionStatusBadge
+                      revision={featureAndRevision}
+                      liveVersion={-1}
+                    />
+                  </td>
                 </tr>
               );
             })}
+            {!items.length ? (
+              <tr>
+                <td colSpan={6} className="text-center">
+                  No matching drafts
+                </td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
         {Math.ceil(revisions.length / NUM_PER_PAGE) > 1 && (

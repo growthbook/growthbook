@@ -1,6 +1,5 @@
 import { Request } from "express";
 import { ApiRequestLocals } from "./api";
-import { MemberRole } from "./organization";
 
 export type BaseScimRequest = Request & ApiRequestLocals;
 
@@ -18,7 +17,7 @@ export interface ScimUser {
   userName: string;
   active: boolean;
   externalId?: string;
-  growthbookRole?: MemberRole;
+  growthbookRole?: string;
 }
 
 export interface ScimGroupMember {
@@ -34,7 +33,7 @@ export interface ScimGroup {
   meta: {
     resourceType: "Group";
   };
-  growthbookRole?: MemberRole;
+  growthbookRole?: string;
 }
 
 export interface ScimListResponse {
@@ -83,15 +82,14 @@ export interface ScimListRequest extends BaseScimRequest {
 type ScimOperation = {
   op: "add" | "remove" | "replace";
   path?: string; // Path is optional for add & replace, and required for remove operations
-  value: {
-    [key: string]: unknown;
-  };
+  // Okta sends over value as an object and azure sends value as a string
+  value: string | { [key: string]: boolean };
 };
 
 export interface BasicScimGroup {
   id: string;
   displayName: string;
-  growthbookRole?: MemberRole;
+  growthbookRole?: string;
 }
 
 type ScimGroupOperation = {

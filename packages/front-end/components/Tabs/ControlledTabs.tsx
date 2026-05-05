@@ -11,24 +11,6 @@ import clsx from "clsx";
 import TabButton from "./TabButton";
 import TabButtons from "./TabButtons";
 
-export function useAnchor<Id extends string>(ids: Id[]) {
-  const [active, setActive] = useState<Id>(ids[0] as Id);
-
-  useEffect(() => {
-    const handler = () => {
-      const hash = window.location.hash.replace(/^#/, "");
-      if (ids.includes(hash as Id)) {
-        setActive(hash as Id);
-      }
-    };
-    handler();
-    window.addEventListener("hashchange", handler, false);
-    return () => window.removeEventListener("hashchange", handler, false);
-  }, []);
-
-  return [active, setActive] as const;
-}
-
 const ControlledTabs: FC<{
   orientation?: "vertical" | "horizontal";
   className?: string;
@@ -137,7 +119,7 @@ const ControlledTabs: FC<{
             ? buttonsClassName(id)
             : buttonsClassName
         }
-      />
+      />,
     );
 
     if (lazy && !isActive && !loaded[id]) {
@@ -152,7 +134,7 @@ const ControlledTabs: FC<{
           key={i}
         >
           {child}
-        </div>
+        </div>,
       );
     }
   });
@@ -204,7 +186,7 @@ const ControlledTabs: FC<{
       </nav>
       <div
         className={clsx(
-          "tab-content",
+          "appbox",
           typeof tabContentsClassName === "function"
             ? tabContentsClassName(activeChosen)
             : tabContentsClassName,
@@ -213,7 +195,7 @@ const ControlledTabs: FC<{
             "p-3": contentsPadding,
             "p-0": !contentsPadding,
             "border-top-0": !newStyle,
-          }
+          },
         )}
       >
         {contents}

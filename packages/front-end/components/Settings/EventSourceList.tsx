@@ -1,80 +1,70 @@
-import { SchemaFormat } from "back-end/types/datasource";
+import { SchemaFormat } from "shared/types/datasource";
 import React from "react";
+import { FaGear } from "react-icons/fa6";
+import { SiMixpanel } from "react-icons/si";
 import { eventSchema, eventSchemas } from "@/services/eventSchema";
-import styles from "./EventSourceList.module.scss";
+import DataSourceLogo from "@/components/DataSources/DataSourceLogo";
+import RadioCards from "@/ui/RadioCards";
+import Avatar from "@/ui/Avatar";
 
 export interface Props {
   selected?: SchemaFormat;
   onSelect: (schema: eventSchema) => void;
+  allowedSchemas?: SchemaFormat[];
 }
 
-export default function EventSourceList({ onSelect, selected }: Props) {
+export default function EventSourceList({
+  onSelect,
+  selected,
+  allowedSchemas,
+}: Props) {
+  const options = eventSchemas
+    .filter((s) => (allowedSchemas ? allowedSchemas.includes(s.value) : true))
+    .map((s) => {
+      return {
+        value: s.value,
+        label: s.label,
+        avatar:
+          s.value === "mixpanel" ? (
+            <SiMixpanel style={{ fontSize: "20px", marginRight: 8 }} />
+          ) : (
+            <DataSourceLogo eventTracker={s.value} showLabel={false} />
+          ),
+      };
+    });
+  options.push({
+    value: "custom",
+    label: "Custom",
+    avatar: (
+      <Avatar radius="small" mr="1">
+        <FaGear style={{ fontSize: "20px" }} />
+      </Avatar>
+    ),
+  });
+
+  const columns =
+    options.length % 3 === 0 ? "3" : options.length % 4 === 0 ? "4" : "3";
+
   return (
-    <>
-      <div
-        className="d-flex flex-wrap align-items-stretch align-middle row mb-3"
-        style={{
-          maxHeight: 999,
-          overflow: "hidden",
-          position: "relative",
-          transition: "max-height 0.5s",
-        }}
-      >
-        {eventSchemas.map((s, i) => (
-          <div className={`col-4 relative`} key={i + s.value}>
-            {s?.beta && (
-              <span
-                className={`badge badge-purple text-uppercase mr-2 position-absolute`}
-                style={{ top: 1, right: 1 }}
-              >
-                Beta
-              </span>
-            )}
-            <a
-              href="#"
-              title={s.label}
-              onClick={(e) => {
-                e.preventDefault();
-                onSelect(s);
-              }}
-              className={`${styles.eventCard} btn btn-light-hover btn-outline-${
-                s.value === selected ? "selected" : "primary"
-              } mb-3`}
-              style={{
-                backgroundImage: `url(${s.logo})`,
-              }}
-            />
-          </div>
-        ))}
-        <div className="d-flex flex-column col-12">
-          <div className="my-2">
-            <strong style={{ fontSize: "1.2em" }}>
-              Don&apos;t see your event tracker?
-            </strong>
-          </div>
-          <div className={`row`}>
-            <div className="col-4">
-              <a
-                className={`btn btn-light-hover btn-outline-primary
-               mb-3 py-3`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  onSelect({
-                    value: "custom",
-                    label: "Custom",
-                  });
-                }}
-              >
-                <h4>Use Custom Source</h4>
-                <p className="mb-0 text-dark">
-                  We&apos;ll guide you through how to manually configure a Data
-                  Source.
-                </p>
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
+    <RadioCards
+      options={options}
+      value={selected || ""}
+      setValue={(value) => {
+        if (value === "custom") {
+          onSelect({
+            value: "custom",
+            label: "Custom",
+          } as eventSchema);
+        } else {
+          const schema = eventSchemas.find((s) => s.value === value);
+          if (schema) {
+            onSelect(schema);
+          }
+        }
+      }}
+      columns={columns}
+      align="center"
+      width="100%"
+    />
   );
 }

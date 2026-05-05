@@ -1,41 +1,42 @@
 import fs from "fs";
 import path from "path";
 import { Request, Response } from "express";
-import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
-import { APP_ORIGIN } from "../util/secrets";
 import {
   ExperimentInterface,
   LegacyExperimentPhase,
   LegacyVariation,
-} from "../../types/experiment";
-import { ErrorResponse, ExperimentOverridesResponse } from "../../types/api";
+} from "shared/types/experiment";
+import { dangerousLookupOrganizationByApiKey } from "back-end/src/util/api-key.util";
+import { APP_ORIGIN } from "back-end/src/util/secrets";
+import { ErrorResponse, ExperimentOverridesResponse } from "back-end/types/api";
 import {
   getContextForAgendaJobByOrgId,
   getExperimentOverrides,
-} from "../services/organizations";
-import { getAllExperiments } from "../models/ExperimentModel";
+} from "back-end/src/services/organizations";
+import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 
 export function canAutoAssignExperiment(
-  experiment: ExperimentInterface
+  experiment: ExperimentInterface,
 ): boolean {
   if (!experiment.targetURLRegex) return false;
 
   return (
     experiment.variations.filter(
       (v: LegacyVariation) =>
-        (v.dom && v.dom.length > 0) || (v.css && v.css.length > 0)
+        (v.dom && v.dom.length > 0) || (v.css && v.css.length > 0),
     ).length > 0
   );
 }
 
 export async function getExperimentConfig(
   req: Request<{ key: string }>,
-  res: Response<ExperimentOverridesResponse | ErrorResponse>
+  res: Response<ExperimentOverridesResponse | ErrorResponse>,
 ) {
   const { key } = req.params;
 
   try {
-    const { organization, secret } = await lookupOrganizationByApiKey(key);
+    const { organization, secret } =
+      await dangerousLookupOrganizationByApiKey(key);
     if (!organization) {
       return res.status(400).json({
         status: 400,
@@ -97,13 +98,14 @@ const baseScript = fs
 
 export async function getExperimentsScript(
   req: Request<{ key: string }>,
-  res: Response
+  res: Response,
 ) {
   res.setHeader("Content-Type", "text/javascript");
   const { key } = req.params;
 
   try {
-    const { organization, secret } = await lookupOrganizationByApiKey(key);
+    const { organization, secret } =
+      await dangerousLookupOrganizationByApiKey(key);
     if (!organization) {
       return res
         .status(400)
@@ -151,7 +153,7 @@ export async function getExperimentsScript(
           if (v.dom) {
             v.dom.forEach((dom) => {
               commands.push(
-                "mutate.declarative(" + JSON.stringify(dom) + ").revert"
+                "mutate.declarative(" + JSON.stringify(dom) + ").revert",
               );
             });
           }
@@ -174,7 +176,7 @@ export async function getExperimentsScript(
 
       if (!data.weights) {
         data.weights = Array(exp.variations.length).fill(
-          1 / exp.variations.length
+          1 / exp.variations.length,
         );
       }
 
@@ -219,8 +221,8 @@ export async function getExperimentsScript(
               .map((v) => `()=>${v}`)
               .join(",")}],${JSON.stringify(options)})`;
           })
-          .join("\n")
-      )
+          .join("\n"),
+      ),
     );
   } catch (e) {
     req.log.error(e, "Failed to get visual editor script");

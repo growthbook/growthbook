@@ -1,4 +1,4 @@
-import { MemberRoleWithProjects } from "back-end/types/organization";
+import { MemberRoleWithProjects } from "shared/types/organization";
 import { useForm } from "react-hook-form";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
@@ -32,6 +32,7 @@ export const PermissionsModal = ({
 
   return (
     <Modal
+      trackingEventModalType=""
       open={open}
       close={() => onClose()}
       header={"Edit Team Permissions"}

@@ -5,10 +5,10 @@ import {
   ExposureQuery,
   SchemaFormat,
   SchemaInterface,
-} from "back-end/types/datasource";
-import { MetricType } from "back-end/types/metric";
+} from "shared/types/datasource";
+import { MetricType } from "shared/types/metric";
 
-function camelToUnderscore(orig) {
+function camelToUnderscore(orig: string) {
   return orig
     .replace(/\s+/g, "_")
     .replace(/([A-Z]+)([A-Z][a-z])/, "$1_$2")
@@ -47,7 +47,7 @@ FROM
 WHERE
   ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
    (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
-  AND event_name = 'experiment_viewed'  
+  AND event_name = 'experiment_viewed'
   AND experiment_id_param.key = 'experiment_id'
   AND variation_id_param.key = 'variation_id'
   AND ${userCol} is not null
@@ -57,6 +57,26 @@ WHERE
     return [];
   },
   userIdTypes: ["anonymous_id", "user_id"],
+  getFactTableSQL: (tablePrefix) => {
+    return `SELECT
+  user_id,
+  user_pseudo_id as anonymous_id,
+  TIMESTAMP_MICROS(event_timestamp) as timestamp,
+  event_name,
+  geo.country as country,
+  traffic_source.source as source,
+  traffic_source.medium as medium,
+  device.category as device,
+  device.web_info.browser as browser,
+  device.operating_system as os
+FROM
+  ${tablePrefix}\`events_*\`
+WHERE (
+  (_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
+  (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}')
+)
+  `;
+  },
   getMetricSQL: (type, tablePrefix) => {
     const joinValueParams = type === "count" || type === "duration";
 
@@ -67,15 +87,15 @@ WHERE
     type === "revenue"
       ? ",\n  event_value_in_usd as value"
       : type === "binomial"
-      ? ""
-      : `,\n  value_param.value.${
-          type === "count" ? "int" : "float"
-        }_value as value`
+        ? ""
+        : `,\n  value_param.value.${
+            type === "count" ? "int" : "float"
+          }_value as value`
   }
 FROM
   ${tablePrefix}\`events_*\`${
-      joinValueParams ? `,\n  UNNEST(event_params) AS value_param` : ""
-    }
+    joinValueParams ? `,\n  UNNEST(event_params) AS value_param` : ""
+  }
 WHERE
   event_name = '{{eventName}}'${
     joinValueParams ? `\n  AND value_param.key = 'value'` : ""
@@ -96,8 +116,7 @@ const SnowplowSchema: SchemaInterface = {
     "os",
   ],
   getExperimentSQL: (tablePrefix, userId, options) => {
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    const actionName = options.actionName || "Experiment Viewed";
+    const actionName = options?.actionName || "Experiment Viewed";
     const userCol = userId === "user_id" ? "user_id" : "domain_userid";
 
     return `SELECT
@@ -122,6 +141,24 @@ WHERE
     return [];
   },
   userIdTypes: ["anonymous_id", "user_id"],
+  getFactTableSQL: (tablePrefix) => {
+    return `SELECT
+  user_id,
+  domain_userid as anonymous_id,
+  collector_tstamp as timestamp,
+  se_action,
+  se_label,
+  se_property,
+  dvce_type as device,
+  os_name as os,
+  geo_country as country,
+  mkt_source as source,
+  mkt_medium as medium,
+  br_family as browser
+FROM
+  ${tablePrefix}events
+  `;
+  },
   getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   user_id,
@@ -130,10 +167,10 @@ WHERE
     type === "revenue"
       ? ",\n  tr_total as value"
       : type === "binomial"
-      ? ""
-      : type === "count"
-      ? ",\n  1 as value"
-      : `,\n  se_value as value`
+        ? ""
+        : type === "count"
+          ? ",\n  1 as value"
+          : `,\n  se_value as value`
   }
 FROM
   ${tablePrefix}events
@@ -162,6 +199,14 @@ FROM
     return [];
   },
   userIdTypes: ["user_id"],
+  getFactTableSQL: (tablePrefix, userIdTypes) => {
+    return `SELECT
+  ${userIdTypes.map((ut) => `${ut},`).join("\n  ")}
+  event_name,
+  timestamp
+FROM
+  ${tablePrefix}events`;
+  },
   getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   user_id as user_id,
@@ -169,8 +214,8 @@ FROM
     type === "revenue"
       ? ",\n  revenue as value"
       : type === "binomial"
-      ? ""
-      : `,\n  {{valueColumn}} as value`
+        ? ""
+        : `,\n  {{valueColumn}} as value`
   }
 FROM
   ${tablePrefix}{{snakecase eventName}}`;
@@ -181,8 +226,7 @@ const AmplitudeSchema: SchemaInterface = {
   experimentDimensions: ["country", "device", "os", "paying"],
   getExperimentSQL: (tablePrefix, userId, options) => {
     const userCol = userId === "user_id" ? "user_id" : "amplitude_id";
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    const eventType = options.eventType || "Experiment Viewed";
+    const eventType = options?.eventType || "Experiment Viewed";
     const projectId = options?.projectId || "AMPLITUDE_PROJECT_ID";
 
     return `SELECT
@@ -205,6 +249,22 @@ WHERE
     return [];
   },
   userIdTypes: ["anonymous_id", "user_id"],
+  getFactTableSQL: (tablePrefix, _userIdTypes, options) => {
+    const projectId = options?.projectId || "AMPLITUDE_PROJECT_ID";
+
+    return `SELECT
+  user_id,
+  amplitude_id as anonymous_id,
+  event_time as timestamp,
+  event_type,
+  device_family as device,
+  os_name as os,
+  country,
+  paying
+FROM
+  ${tablePrefix}EVENTS_${projectId}
+  `;
+  },
   getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   user_id,
@@ -213,10 +273,10 @@ WHERE
     type === "revenue"
       ? ",\n  event_properties:revenue as value"
       : type === "binomial"
-      ? ""
-      : type === "count"
-      ? ",\n  1 as value"
-      : `,\n  event_properties:value as value`
+        ? ""
+        : type === "count"
+          ? ",\n  1 as value"
+          : `,\n  event_properties:value as value`
   }
 FROM
   ${tablePrefix}EVENTS_AMPLITUDE_PROJECT_ID
@@ -230,7 +290,8 @@ const SegmentSchema: SchemaInterface = {
   experimentDimensions: ["source", "medium", "device", "browser"],
   getExperimentSQL: (tablePrefix, userId, options) => {
     const exposureTableName =
-      camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
+      camelToUnderscore(options?.exposureTableName || "") ||
+      "experiment_viewed";
     return `SELECT
   ${userId},
   received_at as timestamp,
@@ -242,10 +303,10 @@ const SegmentSchema: SchemaInterface = {
     WHEN context_user_agent LIKE '%Mobile%' THEN 'Mobile'
     ELSE 'Tablet/Desktop' END
   ) as device,
-  (CASE 
+  (CASE
     WHEN context_user_agent LIKE '% Firefox%' THEN 'Firefox'
     WHEN context_user_agent LIKE '% OPR%' THEN 'Opera'
-    WHEN context_user_agent LIKE '% Edg%' THEN ' Edge' 
+    WHEN context_user_agent LIKE '% Edg%' THEN 'Edge'
     WHEN context_user_agent LIKE '% Chrome%' THEN 'Chrome'
     WHEN context_user_agent LIKE '% Safari%' THEN 'Safari'
     ELSE 'Other' END
@@ -268,6 +329,30 @@ FROM
     ];
   },
   userIdTypes: ["anonymous_id", "user_id"],
+  getFactTableSQL: (tablePrefix) => {
+    return `SELECT
+  user_id,
+  anonymous_id,
+  received_at as timestamp,
+  event,
+  context_campaign_source as source,
+  context_campaign_medium as medium,
+  (CASE
+    WHEN context_user_agent LIKE '%Mobile%' THEN 'Mobile'
+    ELSE 'Tablet/Desktop' END
+  ) as device,
+  (CASE
+    WHEN context_user_agent LIKE '% Firefox%' THEN 'Firefox'
+    WHEN context_user_agent LIKE '% OPR%' THEN 'Opera'
+    WHEN context_user_agent LIKE '% Edg%' THEN 'Edge'
+    WHEN context_user_agent LIKE '% Chrome%' THEN 'Chrome'
+    WHEN context_user_agent LIKE '% Safari%' THEN 'Safari'
+    ELSE 'Other' END
+  ) as browser
+FROM
+  ${tablePrefix}tracks
+  `;
+  },
   getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   user_id,
@@ -284,7 +369,8 @@ const RudderstackSchema: SchemaInterface = {
   experimentDimensions: ["device", "browser"],
   getExperimentSQL: (tablePrefix, userId, options) => {
     const exposureTableName =
-      camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
+      camelToUnderscore(options?.exposureTableName || "") ||
+      "experiment_viewed";
     return `SELECT
   ${userId},
   received_at as timestamp,
@@ -294,10 +380,10 @@ const RudderstackSchema: SchemaInterface = {
     WHEN context_user_agent LIKE '%Mobile%' THEN 'Mobile'
     ELSE 'Tablet/Desktop' END
   ) as device,
-  (CASE 
+  (CASE
     WHEN context_user_agent LIKE '% Firefox%' THEN 'Firefox'
     WHEN context_user_agent LIKE '% OPR%' THEN 'Opera'
-    WHEN context_user_agent LIKE '% Edg%' THEN ' Edge' 
+    WHEN context_user_agent LIKE '% Edg%' THEN 'Edge'
     WHEN context_user_agent LIKE '% Chrome%' THEN 'Chrome'
     WHEN context_user_agent LIKE '% Safari%' THEN 'Safari'
     ELSE 'Other' END
@@ -311,6 +397,27 @@ WHERE
     return [];
   },
   userIdTypes: ["anonymous_id"],
+  getFactTableSQL: (tablePrefix, userIdTypes) => {
+    return `SELECT
+  ${userIdTypes.map((ut) => `${ut} as ${ut},`).join("\n  ")}
+  received_at as timestamp,
+  event,
+  (CASE
+    WHEN context_user_agent LIKE '%Mobile%' THEN 'Mobile'
+    ELSE 'Tablet/Desktop' END
+  ) as device,
+  (CASE
+    WHEN context_user_agent LIKE '% Firefox%' THEN 'Firefox'
+    WHEN context_user_agent LIKE '% OPR%' THEN 'Opera'
+    WHEN context_user_agent LIKE '% Edg%' THEN 'Edge'
+    WHEN context_user_agent LIKE '% Chrome%' THEN 'Chrome'
+    WHEN context_user_agent LIKE '% Safari%' THEN 'Safari'
+    ELSE 'Other' END
+  ) as browser
+FROM
+  ${tablePrefix}tracks
+  `;
+  },
   getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   anonymous_id,
@@ -334,20 +441,20 @@ const MatomoSchema: SchemaInterface = {
       userId === "user_id"
         ? `visit.user_id`
         : `conv(hex(events.idvisitor), 16, 16)`;
-    return `SELECT 
+    return `SELECT
   ${userStr} as ${userId},
-  events.server_time as timestamp, 
-  experiment.name as experiment_id, 
+  events.server_time as timestamp,
+  experiment.name as experiment_id,
   SUBSTRING(variation.name, ${variationPrefixLength + 1}) as variation_id,
   visit.config_device_model as device,
   visit.config_os as OS,
   visit.location_country as country
-FROM ${tPrefix}_log_link_visit_action events 
-INNER JOIN ${tPrefix}_log_action experiment 
-  ON(events.idaction_event_action = experiment.idaction AND experiment.\`type\` = 11) 
-INNER JOIN ${tPrefix}_log_action variation 
-  ON(events.idaction_name = variation.idaction AND variation.\`type\` = 12) 
-INNER JOIN ${tPrefix}_log_visit visit 
+FROM ${tPrefix}_log_link_visit_action events
+INNER JOIN ${tPrefix}_log_action experiment
+  ON(events.idaction_event_action = experiment.idaction AND experiment.\`type\` = 11)
+INNER JOIN ${tPrefix}_log_action variation
+  ON(events.idaction_name = variation.idaction AND variation.\`type\` = 12)
+INNER JOIN ${tPrefix}_log_visit visit
   ON (events.idvisit = visit.idvisit)
 WHERE events.idaction_event_category = (SELECT idaction FROM ${tPrefix}_log_action mla1 WHERE mla1.name = "${categoryName}" AND mla1.type = 10)
    AND SUBSTRING(variation.name, ${variationPrefixLength + 1}) != ""
@@ -368,6 +475,23 @@ FROM
     ];
   },
   userIdTypes: ["anonymous_id", "user_id"],
+  getFactTableSQL: (tablePrefix, _userIdTypes, options) => {
+    const tPrefix = options?.tablePrefix || tablePrefix;
+    const siteId = options?.siteId || "1";
+    return `SELECT
+  conv(hex(idvisitor), 16, 16) as anonymous_id,
+  server_time as timestamp,
+  visit.config_device_model as device,
+  visit.config_os as OS,
+  visit.location_country as country
+FROM
+  ${tPrefix}_log_link_visit_action events
+INNER JOIN ${tPrefix}_log_visit visit
+  ON (events.idvisit = visit.idvisit)
+WHERE
+  events.idsite = ${siteId}
+  `;
+  },
   getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   conv(hex(events.idvisitor), 16, 16) as anonymous_id,
@@ -383,7 +507,8 @@ const FreshpaintSchema: SchemaInterface = {
   experimentDimensions: ["source", "medium", "campaign", "os", "browser"],
   getExperimentSQL: (tablePrefix, userId, options) => {
     const exposureTableName =
-      camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
+      camelToUnderscore(options?.exposureTableName || "") ||
+      "experiment_viewed";
     return `SELECT
   ${userId},
   time as timestamp,
@@ -412,6 +537,18 @@ FROM
     ];
   },
   userIdTypes: ["device_id", "user_id"],
+  getFactTableSQL: (tablePrefix, userIdTypes) => {
+    return `SELECT
+  ${userIdTypes.map((ut) => `${ut} as ${ut},`).join("\n  ")}
+  sent_at as timestamp,
+  utm_source as source,
+  utm_medium as medium,
+  utm_campaign as campaign,
+  operating_system as os,
+  browser
+FROM
+  ${tablePrefix}events`;
+  },
   getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   user_id,
@@ -436,7 +573,8 @@ const HeapSchema: SchemaInterface = {
   ],
   getExperimentSQL: (tablePrefix, userId, options) => {
     const exposureTableName =
-      camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
+      camelToUnderscore(options?.exposureTableName || "") ||
+      "experiment_viewed";
     return `SELECT
   ${userId},
   time as timestamp,
@@ -444,7 +582,7 @@ const HeapSchema: SchemaInterface = {
   variation_id,
   platform as os,
   device_type as platform,
-  country
+  country,
   utm_source as source,
   utm_medium as medium,
   utm_campaign as campaign,
@@ -458,6 +596,18 @@ WHERE
     return [];
   },
   userIdTypes: ["user_id"],
+  getFactTableSQL: (tablePrefix) => {
+    return `SELECT
+  user_id,
+  sent_at as timestamp,
+  utm_source as source,
+  utm_medium as medium,
+  utm_campaign as campaign,
+  operating_system as os,
+  browser
+FROM
+  ${tablePrefix}events`;
+  },
   getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   user_id,
@@ -473,7 +623,7 @@ const FullStorySchema: SchemaInterface = {
   experimentDimensions: ["source"],
   getExperimentSQL: (tablePrefix, userId) => {
     // const exposureTableName =
-    //   camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
+    //   camelToUnderscore(options?.exposureTableName || "") || "experiment_viewed";
     return `
 -- Modify the below query to match your exported data
 SELECT
@@ -483,14 +633,14 @@ SELECT
   variation_id_param.value.int_value AS variation_id,
   source_type as source
 FROM
-  ${tablePrefix}\`events_ *\`,
+  ${tablePrefix}\`events_*\`,
   UNNEST(event_properties) AS exp_event_properties,
-  UNNEST(exp_event_properties.event_properties) AS experiment_id_param
+  UNNEST(exp_event_properties.event_properties) AS experiment_id_param,
   UNNEST(exp_event_properties.event_properties) AS variation_id_param
 WHERE
   _TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}'
   AND event_type = 'custom'
-  AND exp_event_properties.event_name = 'experiment_viewed'  
+  AND exp_event_properties.event_name = 'experiment_viewed'
   AND experiment_id_param.key = 'experiment_id'
   AND variation_id_param.key = 'variation_id'
   AND ${userId} is not null
@@ -500,14 +650,26 @@ WHERE
     return [];
   },
   userIdTypes: ["device_id"],
+  getFactTableSQL: (tablePrefix) => {
+    return `SELECT
+  device_id,
+  TIMESTAMP_MICROS(event_time) as timestamp,
+  event_type,
+  source_type as source
+FROM
+  ${tablePrefix}\`events_*\`
+WHERE
+  _TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}'
+`;
+  },
   getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   device_id,
   TIMESTAMP_MICROS(event_time) as timestamp${
     type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
   }
-  FROM
-    ${tablePrefix}{{snakecase eventName}}`;
+FROM
+  ${tablePrefix}{{snakecase eventName}}`;
   },
 };
 
@@ -543,7 +705,7 @@ function getSchemaObject(type?: SchemaFormat) {
   return CustomSchema;
 }
 
-function getTablePrefix(params: DataSourceParams) {
+export function getTablePrefix(params: DataSourceParams) {
   // Postgres / Redshift
   if ("defaultSchema" in params && params.defaultSchema) {
     return params.defaultSchema + ".";
@@ -581,7 +743,7 @@ function getTablePrefix(params: DataSourceParams) {
 export function getInitialSettings(
   type: SchemaFormat,
   params: DataSourceParams,
-  options?: Record<string, string | number>
+  options?: Record<string, string | number>,
 ) {
   const schema = getSchemaObject(type);
   const userIdTypes = schema.userIdTypes;
@@ -594,8 +756,8 @@ export function getInitialSettings(
           type === "user_id"
             ? "Logged-in user id"
             : type === "anonymous_id"
-            ? "Anonymous visitor id"
-            : "",
+              ? "Anonymous visitor id"
+              : "",
       };
     }),
     queries: {
@@ -607,8 +769,8 @@ export function getInitialSettings(
           id === "user_id"
             ? "Logged-in Users"
             : id === "anonymous_id"
-            ? "Anonymous Visitors"
-            : id,
+              ? "Anonymous Visitors"
+              : id,
         description: "",
         query: schema.getExperimentSQL(getTablePrefix(params), id, options),
       })),
@@ -620,19 +782,22 @@ export function getInitialSettings(
 export function getExposureQuery(
   settings?: DataSourceSettings,
   exposureQueryId?: string,
-  userIdType?: string
+  userIdType?: string,
 ): ExposureQuery | null {
   const queries = settings?.queries?.exposure || [];
 
   if (!exposureQueryId) {
-    exposureQueryId = userIdType === "user" ? "user_id" : "anonymous_id";
+    return (
+      queries.find((q) => q.userIdType === (userIdType ?? "anonymous_id")) ??
+      null
+    );
   }
   return queries.find((q) => q.id === exposureQueryId) ?? null;
 }
 
 export function getInitialMetricQuery(
   datasource: DataSourceInterfaceWithParams,
-  type: MetricType
+  type: MetricType,
 ): [string[], string] {
   const schema = getSchemaObject(datasource.settings?.schemaFormat);
 
@@ -640,6 +805,25 @@ export function getInitialMetricQuery(
     schema.userIdTypes,
     schema.getMetricSQL(type, getTablePrefix(datasource.params)),
   ];
+}
+
+export function getInitialFactTableQuery(
+  datasource: DataSourceInterfaceWithParams,
+): { userIdTypes: string[]; sql: string } {
+  const schema = getSchemaObject(datasource.settings?.schemaFormat);
+
+  const userIdTypes = datasource.settings?.userIdTypes?.map(
+    (ut) => ut.userIdType,
+  ) || ["user_id"];
+
+  return {
+    userIdTypes,
+    sql: schema.getFactTableSQL(
+      getTablePrefix(datasource.params),
+      userIdTypes,
+      datasource.settings?.schemaOptions,
+    ),
+  };
 }
 
 export function validateSQL(sql: string, requiredColumns: string[]): void {
@@ -651,19 +835,20 @@ export function validateSQL(sql: string, requiredColumns: string[]): void {
 
   if (sql.match(/;(\s|\n)*$/)) {
     throw new Error(
-      "Don't end your SQL statements with semicolons since it will break our generated queries"
+      "Don't end your SQL statements with semicolons since it will break our generated queries",
     );
   }
 
   const missingCols = requiredColumns.filter(
-    (col) => !sql.toLowerCase().includes(col.toLowerCase())
+    (col) => !sql.toLowerCase().includes(col.toLowerCase()),
   );
 
-  if (missingCols.length > 0) {
+  // Allow `SELECT *` queries, but otherwise look for all required columns in the query
+  if (missingCols.length > 0 && !sql.match(/SELECT\s+\*/i)) {
     throw new Error(
       `Missing the following required columns: ${missingCols
         .map((col) => '"' + col + '"')
-        .join(", ")}`
+        .join(", ")}`,
     );
   }
 }

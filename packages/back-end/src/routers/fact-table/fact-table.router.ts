@@ -1,7 +1,5 @@
 import express from "express";
-import z from "zod";
-import { wrapController } from "../wrapController";
-import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
+import { z } from "zod";
 import {
   createFactFilterPropsValidator,
   createFactTablePropsValidator,
@@ -9,7 +7,9 @@ import {
   updateColumnPropsValidator,
   updateFactTablePropsValidator,
   testFactFilterPropsValidator,
-} from "./fact-table.validators";
+} from "shared/validators";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawFactTableController from "./fact-table.controller";
 
 const router = express.Router();
@@ -17,7 +17,6 @@ const router = express.Router();
 const factTableController = wrapController(rawFactTableController);
 
 const factTableParams = z.object({ id: z.string() }).strict();
-const factMetricParams = z.object({ id: z.string() }).strict();
 const columnParams = z.object({ id: z.string(), column: z.string() }).strict();
 const filterParams = z
   .object({ id: z.string(), filterId: z.string() })
@@ -28,7 +27,7 @@ router.post(
   validateRequestMiddleware({
     body: createFactTablePropsValidator,
   }),
-  factTableController.postFactTable
+  factTableController.postFactTable,
 );
 
 router.put(
@@ -37,7 +36,14 @@ router.put(
     params: factTableParams,
     body: updateFactTablePropsValidator,
   }),
-  factTableController.putFactTable
+  factTableController.putFactTable,
+);
+
+router.post("/fact-tables/:id/archive", factTableController.archiveFactTable);
+
+router.post(
+  "/fact-tables/:id/unarchive",
+  factTableController.unarchiveFactTable,
 );
 
 router.delete(
@@ -45,7 +51,15 @@ router.delete(
   validateRequestMiddleware({
     params: factTableParams,
   }),
-  factTableController.deleteFactTable
+  factTableController.deleteFactTable,
+);
+
+router.post(
+  "/fact-tables/:id/column/:column/top-values",
+  validateRequestMiddleware({
+    params: columnParams,
+  }),
+  factTableController.postColumnTopValues,
 );
 
 router.put(
@@ -54,7 +68,7 @@ router.put(
     params: columnParams,
     body: updateColumnPropsValidator,
   }),
-  factTableController.putColumn
+  factTableController.putColumn,
 );
 
 router.post(
@@ -63,7 +77,7 @@ router.post(
     params: factTableParams,
     body: createFactFilterPropsValidator,
   }),
-  factTableController.postFactFilter
+  factTableController.postFactFilter,
 );
 
 router.put(
@@ -72,7 +86,7 @@ router.put(
     params: filterParams,
     body: updateFactFilterPropsValidator,
   }),
-  factTableController.putFactFilter
+  factTableController.putFactFilter,
 );
 
 router.post(
@@ -81,7 +95,7 @@ router.post(
     params: factTableParams,
     body: testFactFilterPropsValidator,
   }),
-  factTableController.postFactFilterTest
+  factTableController.postFactFilterTest,
 );
 
 router.delete(
@@ -89,25 +103,13 @@ router.delete(
   validateRequestMiddleware({
     params: filterParams,
   }),
-  factTableController.deleteFactFilter
+  factTableController.deleteFactFilter,
 );
 
 router.post("/fact-metrics", factTableController.postFactMetric);
 
-router.put(
-  "/fact-metrics/:id",
-  validateRequestMiddleware({
-    params: factMetricParams,
-  }),
-  factTableController.putFactMetric
-);
+router.put("/fact-metrics/:id", factTableController.putFactMetric);
 
-router.delete(
-  "/fact-metrics/:id",
-  validateRequestMiddleware({
-    params: factMetricParams,
-  }),
-  factTableController.deleteFactMetric
-);
+router.delete("/fact-metrics/:id", factTableController.deleteFactMetric);
 
 export { router as factTableRouter };

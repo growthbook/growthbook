@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { isDefined } from "shared/util";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import TagsInput from "./TagsInput";
@@ -19,7 +20,7 @@ export interface Props {
 
 export function filterByTags<T extends ItemWithTags>(
   items: T[],
-  tags: string[]
+  tags: string[],
 ): T[] {
   if (!tags.length) return items;
 
@@ -79,7 +80,8 @@ export default function TagsFilter({
   if (!open && !tags.length) {
     return (
       <a
-        href="#"
+        role="button"
+        className="link-purple"
         onClick={(e) => {
           e.preventDefault();
           setOpen(true);
@@ -101,8 +103,7 @@ export default function TagsFilter({
         prompt={"Filter by tags..."}
         autoFocus={open && autofocus}
         closeMenuOnSelect={true}
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(TagInterface | null)[]' is not assignable t... Remove this comment to see the full error message
-        tagOptions={availableTags.map((t) => getTagById(t)).filter(Boolean)}
+        tagOptions={availableTags.map((t) => getTagById(t)).filter(isDefined)}
         creatable={false}
       />
     </div>

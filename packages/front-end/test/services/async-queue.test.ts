@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { enqueueTasks, QueueTask, TaskResult } from "@/services/async-queue";
 import { deepFreeze } from "@/test/test-helpers";
 
@@ -29,30 +30,28 @@ describe("async queue", () => {
   });
 
   it("should enqueue provided tasks and call them with the provided delay", async () => {
-    const mockPerformAsync = jest.fn<
-      Promise<TaskResult<MyMockResultType>>,
-      [data: MyMockDataType]
-    >((data: MyMockDataType) => {
-      return new Promise<TaskResult<MyMockResultType>>((resolve) => {
-        setTimeout(() => {
-          resolve({
-            status: "success",
-            data: {
-              echo: `the number is ${data.n}`,
-            },
-          });
-        }, 200);
-      });
-    });
+    const mockPerformAsync = vi.fn(
+      (data: MyMockDataType): Promise<TaskResult<MyMockResultType>> => {
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            resolve({
+              status: "success",
+              data: {
+                echo: `the number is ${data.n}`,
+              },
+            });
+          }, 200);
+        });
+      },
+    );
 
-    const mockOnProgress = jest.fn<
-      void,
-      [string, TaskResult<MyMockResultType>]
-    >((taskId, result) => {
-      console.log(
-        `task '${taskId}' completed with result: '${JSON.stringify(result)}'`
-      );
-    });
+    const mockOnProgress = vi.fn(
+      (taskId: string, result: TaskResult<MyMockResultType>) => {
+        console.log(
+          `task '${taskId}' completed with result: '${JSON.stringify(result)}'`,
+        );
+      },
+    );
 
     const result = await enqueueTasks<MyMockDataType, MyMockResultType>(tasks, {
       perform: mockPerformAsync,
@@ -126,40 +125,34 @@ describe("async queue", () => {
 
   describe("when tasks fail", () => {
     it("should record the failures and retry relevant tasks", async () => {
-      const mockPerformAsync = jest.fn<
-        Promise<TaskResult<MyMockResultType>>,
-        [data: MyMockDataType]
-      >((data: MyMockDataType) => {
+      const mockPerformAsync = vi.fn<
+        (data: MyMockDataType) => Promise<TaskResult<MyMockResultType>>
+      >((data) => {
         return new Promise<TaskResult<MyMockResultType>>((resolve) => {
           setTimeout(() => {
-            // All tasks where `n` is even will succeed, those where `n` is false will fail
-            const result: TaskResult<MyMockResultType> =
-              data.n % 2 === 0
-                ? {
-                    status: "success",
-                    data: {
-                      echo: `the number is ${data.n}`,
-                    },
-                  }
-                : {
-                    // task 'one' will exhaust the retries while all other odd tasks will immediately fail ('three')
-                    status: data.n === 1 ? "retry" : "fail",
-                    error:
-                      "This task was programmed to: " +
-                      (data.n === 1 ? "retry" : "fail"),
-                  };
-
+            const result: TaskResult<MyMockResultType> = {
+              status:
+                data.n % 2 === 0 ? "success" : data.n === 1 ? "retry" : "fail",
+              data:
+                data.n % 2 === 0
+                  ? { echo: `the number is ${data.n}` }
+                  : undefined,
+              error:
+                data.n % 2 !== 0
+                  ? "This task was programmed to: " +
+                    (data.n === 1 ? "retry" : "fail")
+                  : undefined,
+            } as TaskResult<MyMockResultType>;
             resolve(result);
           }, 200);
         });
       });
 
-      const mockOnProgress = jest.fn<
-        void,
-        [string, TaskResult<MyMockResultType>]
+      const mockOnProgress = vi.fn<
+        (taskId: string, result: TaskResult<MyMockResultType>) => void
       >((taskId, result) => {
         console.log(
-          `task '${taskId}' completed with result: '${JSON.stringify(result)}'`
+          `task '${taskId}' completed with result: '${JSON.stringify(result)}'`,
         );
       });
 
@@ -172,7 +165,7 @@ describe("async queue", () => {
         {
           retryCount: 2,
           delayMs: 100,
-        }
+        },
       );
 
       // correct results
@@ -250,9 +243,8 @@ describe("async queue", () => {
 
   describe("when tasks fail with an uncaught exception", () => {
     it("should retry tasks with failed exceptions", async () => {
-      const mockPerformAsync = jest.fn<
-        Promise<TaskResult<MyMockResultType>>,
-        [data: MyMockDataType]
+      const mockPerformAsync = vi.fn<
+        (data: MyMockDataType) => Promise<TaskResult<MyMockResultType>>
       >(async (data) => {
         if (data.n === 2) {
           throw new Error("cannot perform two (2)");
@@ -263,15 +255,14 @@ describe("async queue", () => {
           data: {
             echo: `the number is ${data.n}`,
           },
-        };
+        } as TaskResult<MyMockResultType>;
       });
 
-      const mockOnProgress = jest.fn<
-        void,
-        [string, TaskResult<MyMockResultType>]
+      const mockOnProgress = vi.fn<
+        (taskId: string, result: TaskResult<MyMockResultType>) => void
       >((taskId, result) => {
         console.log(
-          `task '${taskId}' completed with result: '${JSON.stringify(result)}'`
+          `task '${taskId}' completed with result: '${JSON.stringify(result)}'`,
         );
       });
 
@@ -284,7 +275,7 @@ describe("async queue", () => {
         {
           retryCount: 3,
           delayMs: 100,
-        }
+        },
       );
 
       expect(result.completed).toEqual([
@@ -360,7 +351,7 @@ describe("async queue", () => {
   describe("when no tasks provided", () => {
     it("should return empty results", async () => {
       const tasks: QueueTask<boolean>[] = [];
-      const mockPerform = jest.fn().mockResolvedValue({
+      const mockPerform = vi.fn().mockResolvedValue({
         status: "success",
         data: { echo: "the number is -1" },
       });
@@ -394,7 +385,7 @@ describe("async queue", () => {
           data: true,
         },
       ];
-      const mockPerform = jest.fn().mockResolvedValue({
+      const mockPerform = vi.fn().mockResolvedValue({
         status: "success",
         data: { echo: "the number is -1" },
       });

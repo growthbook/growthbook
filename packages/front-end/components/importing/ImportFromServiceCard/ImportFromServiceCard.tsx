@@ -1,5 +1,5 @@
 import React, { FC, PropsWithChildren } from "react";
-import Link from "next/link";
+import LinkButton from "@/ui/LinkButton";
 
 type ImportFromServiceCardProps = PropsWithChildren<{
   service: string;
@@ -42,9 +42,9 @@ export const ImportFromServiceCard: FC<ImportFromServiceCardProps> = ({
         </div>
 
         <div>
-          <Link href={`importing/${path}`} className="btn btn-primary">
-            Import from{service}
-          </Link>
+          <LinkButton href={`importing/${path}`} style={{ minWidth: 200 }}>
+            Import from {service}
+          </LinkButton>
         </div>
       </div>
     </div>

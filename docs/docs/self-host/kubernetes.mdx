@@ -1,0 +1,530 @@
+---
+title: Deploying with Kubernetes
+description: Instructions for deploying GrowthBook on a Kubernetes cluster
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Deploying GrowthBook with Kubernetes
+
+:::tip Deploying GrowthBook with Kubernetes
+Our official Helm chart to deploy GrowthBook on Kubernetes is distributed as a OCI artifact via [ghcr.io](https://ghcr.io/growthbook/charts/growthbook):
+
+- For production and scalable cloud-native deployments, use GCP (GKE) or AWS (EKS).
+- For local testing and development, use Minikube.
+  :::
+
+## Minimal Prerequisites
+
+Before you apply the example values files, make sure you complete these minimal prerequisites for your environment:
+
+**Kubernetes Cluster Access**
+
+Ensure you have access to a running Kubernetes cluster ([Minikube](https://minikube.sigs.k8s.io/docs/start/?arch=%2Fmacos%2Farm64%2Fstable%2Fbinary+download), [GKE](https://cloud.google.com/kubernetes-engine?hl=en), or [EKS](https://aws.amazon.com/eks/)) with permissions to deploy workloads and required controllers (such as load balancer controllers) installed. You'll need `kubectl` and the GrowthBook Helm chart, which is available on [Artifact Hub](https://artifacthub.io/packages/helm/one-acre-fund/growthbook).
+
+**Authentication Secrets**
+
+Generate and Store JWT and encryption secrets for backend authentication and encryption:
+
+```bash
+openssl rand -hex 32  # Run twice, once for each secret
+```
+
+Store them as Kubernetes secrets in the same namespace as the one where the chart will be installed (replace the values with your generated secrets):
+
+```bash
+kubectl create secret generic jwt-secret \
+  --from-literal=jwt-secret=YOUR_JWT_SECRET
+kubectl create secret generic encryption-key \
+  --from-literal=encryption-key=YOUR_ENCRYPTION_KEY
+```
+
+Reference these secrets in your environment specific values file.
+
+**DNS Resolution for Testing**
+
+For quick testing without configuring DNS, you can use public DNS services that automatically resolve to your cluster's ingress IP.
+
+Services like `sslip.io` and `traefik.me` provide wildcard DNS that resolves based on the IP address in the hostname:
+
+- `sslip.io`: If your ingress IP is `35.X.X.X`, then `myapp.35.X.X.X.sslip.io` resolves to `35.X.X.X`
+- `traefik.me`: Similar functionality but with dashes, e.g., `myapp.35-X-X-X.traefik.me`
+
+These services are useful for:
+
+- Local development with Minikube
+- Quick testing in cloud environments before setting up proper DNS
+- Temporary deployments or demos
+
+The example values files below use `sslip.io` for demonstration purposes. For production, you should use proper DNS records in your cloud provider.
+
+**Environment Configuration**
+
+In the next step you will need to decide on which environment to deploy to and configure your values files accordingly before installation.
+
+:::info Available configuration options
+The examples below provide minimal configurations to get you started quickly. For a complete list of all available configuration options and advanced customization, refer to the [full values.yaml file](https://github.com/growthbook/growthbook/tree/main/charts/growthbook/values.yaml) in our repository.
+:::
+
+## Environment-Specific Values
+
+<Tabs>
+  <TabItem value="aws" label="AWS (EKS)">
+    <div>
+      <div className="admonition note">
+        <p>
+          <strong>Default hostnames below use sslip.io for quick testing.</strong><br/>
+          For production, use a domain registered in your cloud provider's DNS (e.g., Route53 for AWS).<br/>
+          The hostnames in the values file must match the domain you intend to use for Ingress.<br/>
+          <strong>Replace INGRESS_IP with the external IP assigned to your Ingress object.</strong>
+        </p>
+      </div>
+      <details>
+        <summary>Minimal values-aws.yaml</summary>
+
+```yaml
+global:
+  env:
+    - name: APP_ORIGIN
+      # For testing only! Replace with your real domain for production.
+      value: http://growthbook.<INGRESS_IP>.sslip.io
+
+frontend:
+  service:
+    name: frontend
+    port: 3000
+    targetPort: 3000
+  env:
+    - name: API_HOST
+      # For testing only! Replace with your real domain for production.
+      value: http://api.<INGRESS_IP>.sslip.io
+
+backend:
+  mongodbEnabled: true
+  service:
+    name: backend
+    port: 3100
+    targetPort: 3100
+  env:
+    - name: JWT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: jwt-secret
+          key: jwt-secret
+    - name: ENCRYPTION_KEY
+      valueFrom:
+        secretKeyRef:
+          name: encryption-key
+          key: encryption-key
+    - name: UPLOAD_METHOD
+      value: s3
+    # ===== S3 uploads configuration =====
+    - name: S3_BUCKET
+      value: "BUCKET_NAME"
+    # default: us-east-1
+    - name: S3_REGION
+      value: "S3_REGION"
+    # default: https://${S3_BUCKET}.s3.amazonaws.com/
+    - name: S3_DOMAIN
+      value: "https://${S3_BUCKET}.s3.${S3_REGION}.amazonaws.com/"
+
+mongodb:
+  enabled: true
+
+ingress:
+  enabled: true
+  className: "alb"
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/scheme: internet-facing
+  hosts:
+    - host: growthbook.<INGRESS_IP>.sslip.io  # For testing only! Replace for production.
+      paths:
+        - path: /*
+          pathType: ImplementationSpecific
+          service: frontend
+    - host: api.<INGRESS_IP>.sslip.io  # For testing only! Replace for production.
+      paths:
+        - path: /*
+          pathType: ImplementationSpecific
+          service: backend
+  tls: []
+```
+
+      </details>
+      Installation:
+      ```bash
+      helm install growthbook growthbook/growthbook -f values-aws.yaml
+      ```
+      <div className="admonition info">
+        <p>
+          <strong>After Install: Update Hostnames</strong><br/>
+          1. Wait for your Ingress object to be assigned an external IP. This might take anywhere from 3 to 5 minutes.<br/>
+          2. Update your <code>values-aws.yaml</code> file to use this IP in all <code>sslip.io</code> hostnames.<br/>
+          3. Run <code>helm upgrade --install growthbook oci://ghcr.io/growthbook/charts/growthbook -f values-aws.yaml</code> to apply the change.<br/>
+        </p>
+      </div>
+    </div>
+
+  </TabItem>
+  <TabItem value="gcp" label="GCP">
+    <div>
+      <div className="admonition note">
+        <p>
+          <strong>Default hostnames below use sslip.io for quick testing.</strong><br/>
+          For production, use a domain registered in your cloud provider's DNS (e.g., Cloud DNS for GCP).<br/>
+          The hostnames in the values file must match the domain you intend to use for Ingress.<br/>
+          <strong>Replace INGRESS_IP with the external IP assigned to your Ingress object.</strong>
+        </p>
+      </div>
+      <details>
+        <summary>Minimal values-gcp.yaml</summary>
+
+```yaml
+global:
+  env:
+    - name: APP_ORIGIN
+      # For testing only! Replace with your real domain for production.
+      value: http://growthbook.<INGRESS_IP>.sslip.io
+
+frontend:
+  service:
+    annotations:
+      cloud.google.com/neg: '{"ingress": true}'
+    name: frontend
+    port: 3000
+    targetPort: 3000
+  env:
+    - name: API_HOST
+      # For testing only! Replace with your real domain for production.
+      value: http://api.<INGRESS_IP>.sslip.io
+
+backend:
+  mongodbEnabled: true
+  volumeClaim:
+    enabled: false
+  service:
+    annotations:
+      cloud.google.com/neg: '{"ingress": true}'
+    name: backend
+    port: 3100
+    targetPort: 3100
+  env:
+    - name: JWT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: jwt-secret
+          key: jwt-secret
+    - name: ENCRYPTION_KEY
+      valueFrom:
+        secretKeyRef:
+          name: encryption-key
+          key: encryption-key
+    - name: UPLOAD_METHOD
+      value: google-cloud
+    - name: GCS_BUCKET_NAME
+      value: "BUCKET_NAME"
+    - name: GCS_DOMAIN
+      value: "https://storage.googleapis.com/BUCKET_NAME/"
+
+mongodb:
+  enabled: true
+
+ingress:
+  enabled: true
+  className: "gce"
+  annotations:
+    kubernetes.io/ingress.class: gce
+  hosts:
+    - host: growthbook.<INGRESS_IP>.sslip.io  # For testing only! Replace for production.
+      paths:
+        - path: /*
+          pathType: ImplementationSpecific
+          backend:
+            service:
+              name: frontend
+              port:
+                number: 3000
+    - host: api.<INGRESS_IP>.sslip.io  # For testing only! Replace for production.
+      paths:
+        - path: /*
+          pathType: ImplementationSpecific
+          backend:
+            service:
+              name: backend
+              port:
+                number: 3100
+  tls: []
+```
+
+      </details>
+      Installation:
+      ```bash
+      helm install growthbook growthbook/growthbook -f values-gcp.yaml
+      ```
+      <div className="admonition info">
+        <p>
+          <strong>After Install: Update Hostnames</strong><br/>
+          1. Wait for your Ingress object to be assigned an external IP.<br/>
+          2. Update your <code>values-gcp.yaml</code> file to use this IP in all <code>sslip.io</code> hostnames.<br/>
+          3. Run <code>helm upgrade --install growthbook oci://ghcr.io/growthbook/charts/growthbook -f values-gcp.yaml</code> to apply the change.<br/>
+        </p>
+      </div>
+    </div>
+
+  </TabItem>
+  <TabItem value="minikube" label="Minikube">
+    <div>
+      <div className="admonition note">
+        <p>
+          Minikube is for local testing and development only, not for production.<br/>
+          Default hostnames below use sslip.io for quick testing.<br/>
+          Replace <code>MINIKUBE-IP</code> with the output of <code>minikube ip</code>.
+        </p>
+      </div>
+
+      <div className="admonition tip">
+          <p>
+              <strong>Tip: Local TLS with mkcert</strong><br/>
+              For a more realistic development setup, you can use <a href="https://github.com/FiloSottile/mkcert">mkcert</a> to issue locally-trusted TLS certificates within Minikube. This allows you to work with HTTPS without browser warnings.
+          </p>
+          <details>
+            <summary>Click for mkcert setup instructions</summary>
+            <div>
+
+**Prerequisites**
+
+Before starting the setup, make sure you have Minikube installed and running. You'll also need `kubectl` and `helm` available on your system.
+
+**Get Your Minikube IP**
+
+Start Minikube if it's not already running:
+
+```bash
+minikube start
+```
+
+Get your Minikube IP address:
+
+```bash
+minikube ip
+```
+
+Make note of this IP address - you'll need to replace all instances of `${MINIKUBE_IP}` in the values file with this actual IP.
+
+**Enable NGINX Ingress Controller**
+
+The setup requires NGINX Ingress Controller. Enable it in Minikube:
+
+```bash
+minikube addons enable ingress
+```
+
+**Install cert-manager**
+
+Install cert-manager to manage TLS certificates in your cluster:
+
+```bash
+# Create the namespace
+kubectl create namespace cert-manager
+
+# Install cert-manager using the official manifest
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.15.0/cert-manager.yaml
+
+# Wait for cert-manager pods to be ready
+kubectl get pods -n cert-manager --watch
+```
+
+**Install mkcert**
+
+Install `mkcert` on your local machine. On macOS, you can use Homebrew:
+
+```bash
+brew install mkcert
+```
+
+For other operating systems, follow the [mkcert installation instructions](https://github.com/FiloSottile/mkcert#installation).
+
+Install the local CA in your system trust store:
+
+```bash
+mkcert -install
+```
+
+**Create CA Secret and ClusterIssuer**
+
+Create a Kubernetes secret containing your local CA:
+
+```bash
+kubectl create secret tls mkcert-ca-key-pair \
+  --key "$(mkcert -CAROOT)"/rootCA-key.pem \
+  --cert "$(mkcert -CAROOT)"/rootCA.pem \
+  -n cert-manager
+```
+
+Create a ClusterIssuer that will use this CA to issue certificates:
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: mkcert
+spec:
+  ca:
+    secretName: mkcert-ca-key-pair
+EOF
+```
+
+**Important Note About Annotations**
+
+In the values file, make sure you're using the correct issuer annotation. For a ClusterIssuer (which we created above), use:
+
+```yaml
+cert-manager.io/cluster-issuer: mkcert
+```
+
+Do not use `cert-manager.io/issuer: mkcert` as that's for namespace-scoped issuers.
+
+---
+
+Now you can proceed with deploying GrowthBook using the values file below:
+
+            </div>
+          </details>
+      </div>
+
+      <details>
+        <summary>Minimal values-minikube.yaml (with TLS)</summary>
+
+```yaml
+global:
+  security:
+    allowInsecureImages: true
+  env:
+    # Replace ${MINIKUBE-IP} with the output of `minikube ip`
+    - name: APP_ORIGIN
+      value: https://growthbook.${MINIKUBE-IP}.sslip.io
+
+frontend:
+  service:
+    name: frontend
+    port: 3000
+    targetPort: 3000
+  env:
+    # Replace ${MINIKUBE-IP} with the output of `minikube ip`
+    - name: API_HOST
+      value: https://api.${MINIKUBE-IP}.sslip.io
+
+backend:
+  mongodbEnabled: true
+  volumeClaim:
+    enabled: true
+  service:
+    name: backend
+    port: 3100
+    targetPort: 3100
+  env:
+    - name: JWT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: jwt-secret
+          key: jwt-secret
+    - name: ENCRYPTION_KEY
+      valueFrom:
+        secretKeyRef:
+          name: encryption-key
+          key: encryption-key
+    - name: UPLOAD_METHOD
+      value: local
+
+mongodb:
+  enabled: true
+  persistence:
+    enabled: true
+  # Only needed if running Minikube on Apple Silicon (M1/M2/M3)
+  # image:
+  #   registry: docker.io
+  #   repository: dlavrenuek/bitnami-mongodb-arm
+  #   tag: 7.0.15
+
+ingress:
+  className: "nginx"
+  annotations:
+    # This tells cert-manager to use our mkcert issuer
+    cert-manager.io/cluster-issuer: mkcert
+  enabled: true
+  hosts:
+    - host: growthbook.${MINIKUBE-IP}.sslip.io
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+          service: frontend
+    - host: api.${MINIKUBE-IP}.sslip.io
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+          service: backend
+  tls:
+    - secretName: growthbook-tls
+      hosts:
+        - growthbook.${MINIKUBE-IP}.sslip.io
+        - api.${MINIKUBE-IP}.sslip.io
+```
+
+      </details>
+      Installation:
+      ```bash
+      helm upgrade --install growthbook oci://ghcr.io/growthbook/charts/growthbook -f values-minikube.yaml
+      ```
+    </div>
+
+  </TabItem>
+</Tabs>
+
+## Accessing GrowthBook
+
+After deploying with Helm, access GrowthBook using the Ingress hostnames you configured in your values file:
+
+- **Minikube:**
+  - Run `minikube tunnel` in a separate terminal to expose the Ingress IP to your host.
+  - Frontend: `https://growthbook.${MINIKUBE-IP}.sslip.io`
+  - Backend/API: `https://api.${MINIKUBE-IP}.sslip.io`
+  - (Replace `${MINIKUBE-IP}` with the output of `minikube ip`)
+
+  When running Minikube on MacOS with Docker Desktop, you may need to add some rules to your `/etc/hosts` file:
+
+  ```bash
+  echo "127.0.0.1 growthbook.${MINIKUBE-IP}.sslip.io" | sudo tee -a /etc/hosts
+  echo "127.0.0.1 api.${MINIKUBE-IP}.sslip.io" | sudo tee -a /etc/hosts
+  ```
+
+- **AWS & GCP**
+  - Use the hostname you set in your values file
+  - Check your Ingress/ALB resource for the external DNS name if using AWS Load Balancer Controller or domain if using a cloud-managed Ingress
+
+> Open the frontend URL in your browser to start using GrowthBook. The backend/API URL is used by the frontend and for API access.
+
+## Troubleshooting
+
+If something isn't working as expected, use these commands to check the status of your resources:
+
+- List all pods and their status:
+  ```bash
+  kubectl get pods -A
+  ```
+- Describe a specific pod (replace `POD_NAME` and `NAMESPACE`):
+  ```bash
+  kubectl describe pod POD_NAME -n NAMESPACE
+  ```
+- Check the status of your services:
+  ```bash
+  kubectl get svc -A
+  ```
+- Inspect your Ingress resources:
+  ```bash
+  kubectl get ingress -A
+  kubectl describe ingress INGRESS_NAME -n NAMESPACE
+  ```

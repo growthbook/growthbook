@@ -1,0 +1,40 @@
+.sdk-info {
+  display: grid;
+  margin-block-end: var(--ifm-paragraph-margin-bottom);
+
+  header {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+
+    div {
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+  }
+
+  & > * {
+    border-bottom: 1px solid var(--color-border);
+    padding: 0.75rem;
+  }
+
+  svg {
+    width: 1.2em;
+    height: 1.2em;
+  }
+
+  a,
+  a:hover {
+    color: inherit;
+  }
+}
+
+.sdk-info-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}

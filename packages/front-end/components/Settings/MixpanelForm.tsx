@@ -1,5 +1,5 @@
 import { FC, ChangeEventHandler } from "react";
-import { MixpanelConnectionParams } from "back-end/types/integrations/mixpanel";
+import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
 import SelectField from "@/components/Forms/SelectField";
 
 const MixpanelForm: FC<{
@@ -61,6 +61,7 @@ const MixpanelForm: FC<{
           <label>API Server</label>
           <SelectField
             name="server"
+            // todo: better inference
             value={params.server || "standard"}
             onChange={(v) => {
               onManualParamChange("server", v);

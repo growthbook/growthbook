@@ -1,71 +1,44 @@
 import {
-  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { PValueCorrection } from "back-end/types/stats";
+import { PValueCorrection } from "shared/types/stats";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import SelectField from "@/components/Forms/SelectField";
-import { GBCuped, GBSequential } from "@/components/Icons";
+import { GBSequential } from "@/components/Icons";
 import { hasFileConfig } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { StatsEngineSettingsForm } from "./StatsEngineSettings";
+import PValueThresholdField from "./PValueThresholdField";
 
 export default function FrequentistTab({
-  pHighlightColor,
-  pWarningMsg,
-  regressionAdjustmentDaysHighlightColor,
-  regressionAdjustmentDaysWarningMsg,
   form,
 }: {
-  pHighlightColor: string;
-  pWarningMsg: string;
-  regressionAdjustmentDaysHighlightColor: string;
-  regressionAdjustmentDaysWarningMsg: string;
   form: StatsEngineSettingsForm;
 }) {
   const { hasCommercialFeature } = useUser();
+  const pValueThreshold = form.watch("pValueThreshold");
 
   return (
     <>
       <h4 className="mb-4 text-purple">Frequentist Settings</h4>
 
       <div className="form-group mb-2 mr-2 form-inline">
-        <Field
-          label="P-value threshold"
-          type="number"
-          step="0.001"
-          max="0.5"
-          min="0.001"
-          style={{
-            borderColor: pHighlightColor,
-            backgroundColor: pHighlightColor ? pHighlightColor + "15" : "",
-          }}
-          className={`ml-2`}
-          containerClassName="mb-3"
-          append=""
+        <PValueThresholdField
+          form={form}
+          name="pValueThreshold"
+          value={pValueThreshold}
+          defaultValue={DEFAULT_P_VALUE_THRESHOLD}
           disabled={hasFileConfig()}
-          helpText={
-            <>
-              <span className="ml-2">(0.05 is default)</span>
-              <div
-                className="ml-2"
-                style={{
-                  color: pHighlightColor,
-                  flexBasis: "100%",
-                }}
-              >
-                {pWarningMsg}
-              </div>
-            </>
+          helpTextAppend={
+            <span className="ml-2">
+              ({DEFAULT_P_VALUE_THRESHOLD} is default)
+            </span>
           }
-          {...form.register("pValueThreshold", {
-            valueAsNumber: true,
-            min: 0,
-            max: 1,
-          })}
+          rules={{ valueAsNumber: true }}
         />
       </div>
       <div className="mb-3  form-inline flex-column align-items-start">
@@ -93,91 +66,6 @@ export default function FrequentistTab({
           ]}
         />
       </div>
-      <div className="p-3 my-3 border rounded">
-        <h5 className="font-weight-bold mb-4">
-          <PremiumTooltip commercialFeature="regression-adjustment">
-            <GBCuped /> Regression Adjustment (CUPED)
-          </PremiumTooltip>
-        </h5>
-        <div className="form-group mb-0 mr-2">
-          <div className="d-flex">
-            <label
-              className="mr-1"
-              htmlFor="toggle-regressionAdjustmentEnabled"
-            >
-              Apply regression adjustment by default
-            </label>
-            <Toggle
-              id={"toggle-regressionAdjustmentEnabled"}
-              value={!!form.watch("regressionAdjustmentEnabled")}
-              setValue={(value) => {
-                form.setValue("regressionAdjustmentEnabled", value);
-              }}
-              disabled={
-                !hasCommercialFeature("regression-adjustment") ||
-                hasFileConfig()
-              }
-            />
-          </div>
-          {form.watch("regressionAdjustmentEnabled") &&
-            form.watch("statsEngine") === "bayesian" && (
-              <div className="d-flex">
-                <small className="mb-1 text-warning-orange">
-                  <FaExclamationTriangle /> Your organization uses Bayesian
-                  statistics by default and regression adjustment is not
-                  implemented for the Bayesian engine.
-                </small>
-              </div>
-            )}
-        </div>
-        <div
-          className="form-group mt-3 mb-0 mr-2 form-inline"
-          style={{
-            opacity: form.watch("regressionAdjustmentEnabled") ? "1" : "0.5",
-          }}
-        >
-          <Field
-            label="Pre-exposure lookback period (days)"
-            type="number"
-            style={{
-              borderColor: regressionAdjustmentDaysHighlightColor,
-              backgroundColor: regressionAdjustmentDaysHighlightColor
-                ? regressionAdjustmentDaysHighlightColor + "15"
-                : "",
-            }}
-            className={`ml-2`}
-            containerClassName="mb-0"
-            append="days"
-            min="0"
-            max="100"
-            disabled={
-              !hasCommercialFeature("regression-adjustment") || hasFileConfig()
-            }
-            helpText={
-              <>
-                <span className="ml-2">
-                  ({DEFAULT_REGRESSION_ADJUSTMENT_DAYS} is default)
-                </span>
-              </>
-            }
-            {...form.register("regressionAdjustmentDays", {
-              valueAsNumber: true,
-              validate: (v) => {
-                return !(v <= 0 || v > 100);
-              },
-            })}
-          />
-          {regressionAdjustmentDaysWarningMsg && (
-            <small
-              style={{
-                color: regressionAdjustmentDaysHighlightColor,
-              }}
-            >
-              {regressionAdjustmentDaysWarningMsg}
-            </small>
-          )}
-        </div>
-      </div>
 
       <div className="p-3 my-3 border rounded">
         <h5 className="font-weight-bold mb-4">
@@ -186,21 +74,18 @@ export default function FrequentistTab({
           </PremiumTooltip>
         </h5>
         <div className="form-group mb-0 mr-2">
-          <div className="d-flex">
-            <label className="mr-1" htmlFor="toggle-sequentialTestingEnabled">
-              Apply sequential testing by default
-            </label>
-            <Toggle
-              id={"toggle-sequentialTestingEnabled"}
-              value={form.watch("sequentialTestingEnabled")}
-              setValue={(value) => {
-                form.setValue("sequentialTestingEnabled", value);
-              }}
-              disabled={
-                !hasCommercialFeature("sequential-testing") || hasFileConfig()
-              }
-            />
-          </div>
+          <Switch
+            id={"toggle-sequentialTestingEnabled"}
+            value={form.watch("sequentialTestingEnabled")}
+            label="Apply sequential testing by default"
+            onChange={(value) => {
+              form.setValue("sequentialTestingEnabled", value);
+            }}
+            disabled={
+              !hasCommercialFeature("sequential-testing") || hasFileConfig()
+            }
+            mb="1"
+          />
           {form.watch("sequentialTestingEnabled") &&
             form.watch("statsEngine") === "bayesian" && (
               <div className="d-flex">

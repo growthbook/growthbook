@@ -7,10 +7,27 @@ const DEMO_PROJECT_ID_SUFFIX = "demo-datasource-project";
  * @param organizationId
  */
 export function getDemoDatasourceProjectIdForOrganization(
-  organizationId?: string
+  organizationId?: string,
 ): string {
   return (
     "prj" +
+    DEMO_PROJECT_ID_SEPARATOR +
+    organizationId +
+    DEMO_PROJECT_ID_SEPARATOR +
+    DEMO_PROJECT_ID_SUFFIX
+  );
+}
+
+/**
+ * Returns the demo fact table ID to support the demo datasource project.
+ * e.g. ftb_org-abc123_demo-datasource-project
+ * @param organizationId
+ */
+export function getDemoDatasourceFactTableIdForOrganization(
+  organizationId?: string,
+): string {
+  return (
+    "ftb" +
     DEMO_PROJECT_ID_SEPARATOR +
     organizationId +
     DEMO_PROJECT_ID_SEPARATOR +

@@ -1,208 +1,217 @@
-import { SavedGroupInterface } from "back-end/types/saved-group";
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { ago } from "shared/dates";
+import {
+  SavedGroupInterface,
+  SavedGroupWithoutValues,
+} from "shared/types/saved-group";
+import { isProjectListValidForProject, truncateString } from "shared/util";
+import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
-import { useEnvironments, useFeaturesList } from "@/services/features";
-import { useSearch } from "@/services/search";
-import { getSavedGroupMessage } from "@/pages/saved-groups";
+import { useAddComputedFields, useSearch } from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Button";
-import { GBAddCircle } from "@/components/Icons";
+import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
+import ProjectBadges from "@/components/ProjectBadges";
+import TruncatedConditionDisplay from "./TruncatedConditionDisplay";
 import SavedGroupForm from "./SavedGroupForm";
+import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
+import SavedGroupRowMenu from "./SavedGroupRowMenu";
 
 export interface Props {
-  groups: SavedGroupInterface[];
+  groups: SavedGroupWithoutValues[];
   mutate: () => void;
 }
 
 export default function ConditionGroups({ groups, mutate }: Props) {
-  const [
-    savedGroupForm,
-    setSavedGroupForm,
-  ] = useState<null | Partial<SavedGroupInterface>>(null);
-  const permissionsUtil = usePermissionsUtil();
-  const canCreate = permissionsUtil.canCreateSavedGroup();
-  const canUpdate = permissionsUtil.canUpdateSavedGroup();
-  const canDelete = permissionsUtil.canDeleteSavedGroup();
-  const { apiCall } = useAuth();
+  const [savedGroupForm, setSavedGroupForm] =
+    useState<null | Partial<SavedGroupInterface>>(null);
+  const [deleteModal, setDeleteModal] =
+    useState<SavedGroupWithoutValues | null>(null);
+  const { project, projects } = useDefinitions();
+  const { getOwnerDisplay } = useUser();
 
-  const environments = useEnvironments();
+  const permissionsUtil = usePermissionsUtil();
+  const canCreate = permissionsUtil.canViewSavedGroupModal(project, projects);
+  const canUpdate = (savedGroup: Pick<SavedGroupInterface, "projects">) =>
+    permissionsUtil.canUpdateSavedGroup(savedGroup, savedGroup);
+  const canDeleteSavedGroup = (
+    savedGroup: Pick<SavedGroupInterface, "projects">,
+  ) => permissionsUtil.canDeleteSavedGroup(savedGroup);
+  const { apiCall } = useAuth();
 
   const conditionGroups = useMemo(() => {
     return groups.filter((g) => g.type === "condition");
   }, [groups]);
 
-  const { features } = useFeaturesList();
+  const filteredConditionGroups = project
+    ? conditionGroups.filter((group) =>
+        isProjectListValidForProject(group.projects, project),
+      )
+    : conditionGroups;
 
-  // Get a list of feature ids for every saved group
-  // TODO: also get experiments
-  const savedGroupFeatureIds = useMemo(() => {
-    const map: Record<string, Set<string>> = {};
-    features.forEach((feature) => {
-      environments.forEach((env) => {
-        if (feature.environmentSettings[env.id]?.rules) {
-          feature.environmentSettings[env.id].rules.forEach((rule) => {
-            conditionGroups.forEach((group) => {
-              if (
-                rule.condition?.includes(group.id) ||
-                rule.savedGroups?.some((g) => g.ids.includes(group.id))
-              ) {
-                map[group.id] = map[group.id] || new Set();
-                map[group.id].add(feature.id);
-              }
-            });
-          });
-        }
-      });
+  const conditionGroupsWithOwners = useAddComputedFields(
+    filteredConditionGroups,
+    (group) => ({
+      ownerNameDisplay: getOwnerDisplay(group.owner),
+    }),
+    [getOwnerDisplay],
+  );
+
+  const { items, searchInputProps, isFiltered, SortableTH, pagination } =
+    useSearch({
+      items: conditionGroupsWithOwners,
+      localStorageKey: "savedGroupsRuntime",
+      defaultSortField: "dateCreated",
+      defaultSortDir: -1,
+      searchFields: ["groupName^3", "condition^2", "ownerNameDisplay"],
+      pageSize: 50,
+      updateSearchQueryOnChange: true,
     });
-    return map;
-  }, [conditionGroups, features, environments]);
-
-  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
-    items: conditionGroups,
-    localStorageKey: "savedGroupsRuntime",
-    defaultSortField: "dateCreated",
-    defaultSortDir: -1,
-    searchFields: ["groupName^3", "condition^2", "owner"],
-  });
 
   if (!conditionGroups) return <LoadingOverlay />;
 
   return (
-    <div className="mb-5 appbox p-3 bg-white">
-      {savedGroupForm && (
-        <SavedGroupForm
-          close={() => setSavedGroupForm(null)}
-          current={savedGroupForm}
-          type="condition"
+    <>
+      {deleteModal && (
+        <SavedGroupDeleteModal
+          savedGroup={deleteModal}
+          close={() => setDeleteModal(null)}
+          onDelete={async () => {
+            await apiCall(`/saved-groups/${deleteModal.id}`, {
+              method: "DELETE",
+            });
+            mutate();
+          }}
         />
       )}
-      <div className="row align-items-center mb-1">
-        <div className="col-auto">
-          <h2 className="mb-0">Condition Groups</h2>
-        </div>
-        <div className="flex-1"></div>
-        {canCreate ? (
+      <Box mt="4" mb="5" p="4" className="appbox">
+        {savedGroupForm && (
+          <SavedGroupForm
+            close={() => setSavedGroupForm(null)}
+            current={savedGroupForm}
+            type="condition"
+          />
+        )}
+        <div className="row align-items-center mb-1">
           <div className="col-auto">
-            <Button
-              color="primary"
-              onClick={async () => {
-                setSavedGroupForm({});
-              }}
-            >
-              <GBAddCircle /> Add Condition Group
-            </Button>
+            <h2 className="mb-0">Condition Groups</h2>
           </div>
-        ) : null}
-      </div>
-      <p className="text-gray mb-1">
-        With <strong>Conditions</strong>, you can set up advanced targeting
-        rules based on a user&apos;s attributes.
-      </p>
-      <p className="text-gray">
-        For example, include all users who are located in the US and on a mobile
-        device.
-      </p>
-      {conditionGroups.length > 0 && (
-        <>
-          <div className="row mb-2 align-items-center">
+          <div className="flex-1"></div>
+          {canCreate ? (
             <div className="col-auto">
+              <Button onClick={() => setSavedGroupForm({})}>
+                Add Condition Group
+              </Button>
+            </div>
+          ) : null}
+        </div>
+        <p className="text-gray mb-1">
+          Set up advanced targeting rules based on user attributes.
+        </p>
+        <p className="text-gray">
+          For example, target users located in the US <b>and</b> on a mobile
+          device.
+        </p>
+        {filteredConditionGroups.length > 0 && (
+          <>
+            <Box className="relative" width="40%" mb="4">
               <Field
                 placeholder="Search..."
                 type="search"
                 {...searchInputProps}
               />
-            </div>
-          </div>
-          <div className="row mb-3">
-            <div className="col-12">
-              <table className="table appbox gbtable">
-                <thead>
-                  <tr>
-                    <SortableTH field={"groupName"}>Name</SortableTH>
-                    <SortableTH field="condition">Condition</SortableTH>
-                    <SortableTH field={"owner"}>Owner</SortableTH>
-                    <SortableTH field={"dateUpdated"}>Date Updated</SortableTH>
-                    {(canUpdate || canDelete) && <th></th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((s) => {
-                    return (
-                      <tr key={s.id}>
-                        <td>{s.groupName}</td>
-                        <td>
-                          <ConditionDisplay
-                            condition={s.condition || ""}
-                            savedGroups={[]}
-                          />
-                        </td>
-                        <td>{s.owner}</td>
-                        <td>{ago(s.dateUpdated)}</td>
-                        {canUpdate || canDelete ? (
-                          <td style={{ width: 30 }}>
-                            <MoreMenu>
-                              {canUpdate ? (
-                                <a
-                                  href="#"
-                                  className="dropdown-item"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setSavedGroupForm(s);
-                                  }}
-                                >
-                                  Edit
-                                </a>
-                              ) : null}
-                              {canDelete ? (
-                                <DeleteButton
-                                  displayName="Saved Group"
-                                  className="dropdown-item text-danger"
-                                  useIcon={false}
-                                  text="Delete"
-                                  title="Delete SavedGroup"
-                                  onClick={async () => {
-                                    await apiCall(`/saved-groups/${s.id}`, {
-                                      method: "DELETE",
-                                    });
-                                    mutate();
-                                  }}
-                                  getConfirmationContent={getSavedGroupMessage(
-                                    savedGroupFeatureIds[s.id]
-                                  )}
-                                  canDelete={
-                                    (savedGroupFeatureIds[s.id]?.size || 0) ===
-                                    0
-                                  }
-                                />
-                              ) : null}
-                            </MoreMenu>
-                          </td>
-                        ) : null}
-                      </tr>
-                    );
-                  })}
-                  {!items.length && isFiltered && (
+            </Box>
+            <div className="row mb-0">
+              <div className="col-12">
+                <table className="table gbtable table-valign-top">
+                  <thead>
                     <tr>
-                      <td
-                        colSpan={canUpdate || canDelete ? 6 : 5}
-                        align={"center"}
-                      >
-                        No matching saved groups
-                      </td>
+                      <SortableTH field="groupName" style={{ maxWidth: 200 }}>
+                        Name
+                      </SortableTH>
+                      <SortableTH field="condition">Condition</SortableTH>
+                      <th>Description</th>
+                      <th className="col-2">Projects</th>
+                      <SortableTH field="ownerNameDisplay">Owner</SortableTH>
+                      <SortableTH field="dateUpdated">Date Updated</SortableTH>
+                      <th />
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {items.map((s) => {
+                      return (
+                        <tr key={s.id}>
+                          <td style={{ width: "250px" }}>
+                            <Link
+                              href={`/saved-groups/${s.id}`}
+                              className="link-purple"
+                              style={{
+                                display: "-webkit-box",
+                                WebkitLineClamp: 3,
+                                WebkitBoxOrient: "vertical",
+                                textOverflow: "ellipsis",
+                                overflow: "hidden",
+                                lineHeight: "1.2em",
+                                wordBreak: "break-word",
+                                overflowWrap: "anywhere",
+                              }}
+                            >
+                              {s.groupName}
+                            </Link>
+                          </td>
+                          <td style={{ width: 400 }}>
+                            <TruncatedConditionDisplay
+                              condition={s.condition || ""}
+                              savedGroups={[]}
+                            />
+                          </td>
+                          <td style={{ minWidth: 200 }}>
+                            <div className="d-flex flex-wrap">
+                              {truncateString(s.description || "", 40)}
+                            </div>
+                          </td>
+                          <td>
+                            {(s?.projects?.length || 0) > 0 ? (
+                              <ProjectBadges
+                                resourceType="saved group"
+                                projectIds={s.projects}
+                              />
+                            ) : (
+                              <ProjectBadges resourceType="saved group" />
+                            )}
+                          </td>
+                          <td>{s.ownerNameDisplay}</td>
+                          <td>{ago(s.dateUpdated)}</td>
+                          <td style={{ width: 30 }}>
+                            <SavedGroupRowMenu
+                              canUpdate={canUpdate(s)}
+                              canDelete={canDeleteSavedGroup(s)}
+                              onEdit={() => setSavedGroupForm(s)}
+                              onDelete={() => setDeleteModal(s)}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {!items.length && isFiltered && (
+                      <tr>
+                        <td colSpan={7} align={"center"}>
+                          No matching saved groups
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+                {pagination}
+              </div>
             </div>
-          </div>
-        </>
-      )}
-    </div>
+          </>
+        )}
+      </Box>
+    </>
   );
 }

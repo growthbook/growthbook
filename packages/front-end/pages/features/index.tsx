@@ -1,148 +1,214 @@
-import Link from "next/link";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import NextLink from "next/link";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { ago, datetime } from "shared/dates";
+import { Box, Flex } from "@radix-ui/themes";
+import { FeatureInterface } from "shared/types/feature";
+import { date, datetime } from "shared/dates";
+import { featureHasEnvironment } from "shared/util";
 import {
-  featureHasEnvironment,
-  filterEnvironmentsByFeature,
-  isFeatureStale,
-  StaleFeatureReason,
-} from "shared/util";
+  FaTriangleExclamation,
+  FaRegCircleCheck,
+  FaRegCircleXmark,
+} from "react-icons/fa6";
+import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { FaTriangleExclamation } from "react-icons/fa6";
+import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBAddCircle } from "@/components/Icons";
 import FeatureModal from "@/components/Features/FeatureModal";
-import ValueDisplay from "@/components/Features/ValueDisplay";
 import track from "@/services/track";
-import FeaturesGetStarted from "@/components/HomePage/FeaturesGetStarted";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import {
-  filterFeaturesByEnvironment,
-  removeEnvFromSearchTerm,
-  useSearch,
-} from "@/services/search";
-import EnvironmentToggle from "@/components/Features/EnvironmentToggle";
 import RealTimeFeatureGraph from "@/components/Features/RealTimeFeatureGraph";
 import {
-  getFeatureDefaultValue,
-  getRules,
-  useFeaturesList,
   useRealtimeData,
   useEnvironments,
+  useFeatureSearch,
 } from "@/services/features";
+import { tagFilterOnClick, tagLinkProps } from "@/services/search";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Pagination from "@/components/Pagination";
-import TagsFilter, {
-  filterByTags,
-  useTagsFilter,
-} from "@/components/Tags/TagsFilter";
 import SortedTags from "@/components/Tags/SortedTags";
-import Toggle from "@/components/Forms/Toggle";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
+import StaleFeatureIcon from "@/components/StaleFeatureIcon";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import LinkButton from "@/ui/LinkButton";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import StaleFeatureIcon from "@/components/StaleFeatureIcon";
-import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
-import Tab from "@/components/Tabs/Tab";
-import Tabs from "@/components/Tabs/Tabs";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import EmptyState from "@/components/EmptyState";
+import ProjectBadges from "@/components/ProjectBadges";
+import FeatureSearchFilters from "@/components/Search/FeatureSearchFilters";
+import { useAuth } from "@/services/auth";
+import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
+import { useFeaturesStatus } from "@/hooks/useFeaturesStatus";
+import { useFeatureDraftStates } from "@/hooks/useFeatureDraftStates";
+import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
+const HEADER_HEIGHT_PX = 55;
 
 export default function FeaturesPage() {
   const router = useRouter();
+  const { organization } = useUser();
+  const { data: sdkConnectionData } = useSDKConnections();
+  const permissionsUtil = usePermissionsUtil();
+  const { apiCall } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [showArchived, setShowArchived] = useState(false);
-  const [showSteps, setShowSteps] = useState(false);
-  const [
-    featureToDuplicate,
-    setFeatureToDuplicate,
-  ] = useState<FeatureInterface | null>(null);
-  const [
-    featureToToggleStaleDetection,
-    setFeatureToToggleStaleDetection,
-  ] = useState<FeatureInterface | null>(null);
+  const [featureToDuplicate, setFeatureToDuplicate] =
+    useState<FeatureInterface | null>(null);
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
-  const { organization } = useUser();
-
-  const permissionsUtil = usePermissionsUtil();
-  const { project, getProjectById } = useDefinitions();
-  const settings = useOrgSettings();
+  const { project, projects } = useDefinitions();
   const environments = useEnvironments();
-  const { features, experiments, loading, error, mutate } = useFeaturesList();
+
+  const {
+    features: allFeatures,
+    loading,
+    error,
+    mutate,
+    hasArchived,
+  } = useFeatureMetaInfo({
+    project: project || undefined,
+  });
+
+  // Track whether archived features should be shown (controlled by is:archived filter).
+  // useFeatureMetaInfo always returns all features; this controls client-side display.
+  const [showArchived, setShowArchived] = useState(false);
 
   const { usage, usageDomain } = useRealtimeData(
-    features,
+    allFeatures as unknown as FeatureInterface[],
     !!router?.query?.mockdata,
-    showGraphs
   );
 
-  // Show steps if coming from get started page
+  const statusHook = useFeaturesStatus();
+  const draftHook = useFeatureDraftStates();
+  const staleHook = useFeatureStaleStates();
+
+  const { searchInputProps, items, SortableTH, setSearchValue, syntaxFilters } =
+    useFeatureSearch({
+      allFeatures: allFeatures as unknown as FeatureInterface[],
+      environments,
+      environmentStatus: statusHook.environmentStatus,
+      draftStates: draftHook.draftStates,
+      staleStates: staleHook.staleStates,
+      filterResults: !showArchived
+        ? (items) => items.filter((f) => !f.archived)
+        : undefined,
+    });
+
+  const start = (currentPage - 1) * NUM_PER_PAGE;
+  const end = start + NUM_PER_PAGE;
+  const featureItems = useMemo(
+    () => items.slice(start, end),
+    [items, start, end],
+  );
+
+  // Reset to page 1 when a filter changes
   useEffect(() => {
-    if (router.asPath.match(/getstarted/)) {
-      setShowSteps(true);
-    }
-  }, [router]);
+    setCurrentPage(1);
+  }, [items.length]);
 
-  // Searching
-  const tagsFilter = useTagsFilter("features");
-  const filterResults = useCallback(
-    (items: FeatureInterface[], originalQuery: string) => {
-      if (!showArchived) {
-        items = items.filter((f) => !f.archived);
-      }
-      items = filterFeaturesByEnvironment(
-        items,
-        originalQuery,
-        environments.map((e) => e.id)
-      );
-      items = filterByTags(items, tagsFilter.tags);
-      return items;
-    },
-    [showArchived, tagsFilter.tags, environments]
+  // Sync showArchived from the is:archived syntax filter
+  useEffect(() => {
+    const isArchivedFilter = syntaxFilters.some(
+      (filter) =>
+        filter.field === "is" &&
+        !filter.negated &&
+        filter.values.includes("archived"),
+    );
+    setShowArchived(isArchivedFilter);
+  }, [syntaxFilters]);
+
+  // Stable string key so effects only fire when the visible ID set actually changes,
+  // not just when the slice produces a new array reference.
+  const visibleIdsKey = useMemo(
+    () => featureItems.map((f) => f.id).join(","),
+    [featureItems],
   );
+
+  // fetchAll is triggered only by filter changes, not by visibleIdsKey changes.
+  // Keeping them separate prevents an infinite loop where fetchAll updates the data,
+  // which changes items, which changes visibleIdsKey, which re-triggers fetchAll.
+  const hasEnvFilter = syntaxFilters.some(
+    (f) => f.field === "on" || f.field === "off",
+  );
+  const hasDraftFilter = syntaxFilters.some(
+    (f) =>
+      (f.field === "is" && f.values.includes("draft")) ||
+      (f.field === "has" && f.values.includes("draft")),
+  );
+  const hasStaleFilter = syntaxFilters.some(
+    (f) =>
+      (f.field === "is" && f.values.includes("stale")) ||
+      (f.field === "has" && f.values.includes("stale-env")),
+  );
+
+  useEffect(() => {
+    if (hasEnvFilter) statusHook.fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasEnvFilter]);
+
+  useEffect(() => {
+    if (hasDraftFilter) draftHook.fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasDraftFilter]);
+
+  useEffect(() => {
+    if (hasStaleFilter) staleHook.fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasStaleFilter]);
+
+  // fetchSome for visible features when no bulk filter is active
+  useEffect(() => {
+    const ids = visibleIdsKey ? visibleIdsKey.split(",") : [];
+    if (!ids.length) return;
+    if (!hasEnvFilter) statusHook.fetchSome(ids);
+    if (!hasDraftFilter) draftHook.fetchSome(ids);
+    if (!hasStaleFilter) staleHook.fetchSome(ids);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleIdsKey]);
+
+  // Reset featureToDuplicate when modal closes
+  useEffect(() => {
+    if (modalOpen) return;
+    setFeatureToDuplicate(null);
+  }, [modalOpen]);
 
   const renderFeaturesTable = () => {
     return (
-      features.length > 0 && (
-        <div>
-          <div className="row mb-2 align-items-center">
-            <div className="col-auto">
-              <Field
-                placeholder="Search..."
-                type="search"
-                {...searchInputProps}
+      allFeatures.length > 0 && (
+        <Box>
+          <Box className="mb-2 align-items-center">
+            <Flex justify="between" mb="3" gap="3" align="center">
+              <Box className="relative" width="40%">
+                <Field
+                  placeholder="Search..."
+                  type="search"
+                  {...searchInputProps}
+                />
+              </Box>
+              <FeatureSearchFilters
+                features={allFeatures}
+                searchInputProps={searchInputProps}
+                setSearchValue={setSearchValue}
+                syntaxFilters={syntaxFilters}
+                hasArchived={hasArchived}
               />
-            </div>
-            <div className="col-auto">
-              <TagsFilter filter={tagsFilter} items={items} />
-            </div>
-            {showArchivedToggle && (
-              <div className="col">
-                <Toggle
-                  value={showArchived}
-                  id="archived"
-                  setValue={setShowArchived}
-                ></Toggle>
-                Show Archived
-              </div>
-            )}
-          </div>
+            </Flex>
+          </Box>
 
-          <table className="table gbtable table-hover appbox">
+          <table className="table gbtable appbox">
             <thead
-              className="sticky-top bg-white shadow-sm"
-              style={{ top: "56px", zIndex: 900 }}
+              className="sticky-top shadow-sm"
+              style={{ top: HEADER_HEIGHT_PX + "px", zIndex: 900 }}
             >
               <tr>
                 <th></th>
@@ -154,17 +220,7 @@ export default function FeaturesPage() {
                     {en.id}
                   </th>
                 ))}
-                <th>Prerequisites</th>
-                <th>
-                  Default
-                  <br />
-                  Value
-                </th>
-                <th>
-                  Overrides
-                  <br />
-                  Rules
-                </th>
+                <th>Type</th>
                 <th>Version</th>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
                 {showGraphs && (
@@ -179,44 +235,15 @@ export default function FeaturesPage() {
             </thead>
             <tbody>
               {featureItems.map((feature) => {
-                let rules: FeatureRule[] = [];
-                environments.forEach(
-                  (e) => (rules = rules.concat(getRules(feature, e.id)))
-                );
-
-                // When showing a summary of rules, prefer experiments to rollouts to force rules
-                const orderedRules = [
-                  ...rules.filter((r) => r.type === "experiment"),
-                  ...rules.filter((r) => r.type === "rollout"),
-                  ...rules.filter((r) => r.type === "force"),
-                ];
-
-                const firstRule = orderedRules[0];
-                const totalRules = rules.length || 0;
-
                 const version = feature.version;
-
-                const projectId = feature.project;
-                const projectName = projectId
-                  ? getProjectById(projectId)?.name || null
-                  : null;
-                const projectIsDeReferenced = projectId && !projectName;
-                const { stale, reason: staleReason } = staleFeatures?.[
-                  feature.id
-                ] || { stale: false };
-                const topLevelPrerequisites =
-                  feature.prerequisites?.length || 0;
-                const prerequisiteRules = rules.reduce(
-                  (acc, rule) => acc + (rule.prerequisites?.length || 0),
-                  0
-                );
-                const totalPrerequisites =
-                  topLevelPrerequisites + prerequisiteRules;
+                const draftEntry = draftHook.draftStates[feature.id];
 
                 return (
                   <tr
                     key={feature.id}
-                    className={feature.archived ? "text-muted" : ""}
+                    className={clsx("hover-highlight", {
+                      "text-muted": feature.archived,
+                    })}
                   >
                     <td data-title="Watching status:" className="watching">
                       <WatchButton
@@ -225,92 +252,82 @@ export default function FeaturesPage() {
                         type="icon"
                       />
                     </td>
-                    <td>
-                      <Link
+                    <td className="p-0">
+                      <NextLink
                         href={`/features/${feature.id}`}
-                        className={feature.archived ? "text-muted" : ""}
+                        className={clsx("featurename d-block p-2", {
+                          "text-muted": feature.archived,
+                        })}
                       >
                         {feature.id}
-                      </Link>
+                      </NextLink>
                     </td>
                     {showProjectColumn && (
                       <td>
-                        {projectIsDeReferenced ? (
-                          <Tooltip
-                            body={
-                              <>
-                                Project <code>{feature.project}</code> not found
-                              </>
-                            }
-                          >
-                            <span className="text-danger">Invalid project</span>
-                          </Tooltip>
-                        ) : (
-                          projectName ?? <em>None</em>
-                        )}
+                        {feature.project ? (
+                          <ProjectBadges
+                            resourceType="feature"
+                            projectIds={[feature.project]}
+                          />
+                        ) : null}
                       </td>
                     )}
                     <td>
-                      <SortedTags tags={feature?.tags || []} />
-                    </td>
-                    {toggleEnvs.map((en) => (
-                      <td key={en.id} className="position-relative text-center">
-                        {featureHasEnvironment(feature, en) && (
-                          <EnvironmentToggle
-                            feature={feature}
-                            environment={en.id}
-                            mutate={mutate}
-                          />
+                      <SortedTags
+                        tags={feature?.tags || []}
+                        useFlex={true}
+                        {...tagLinkProps("features")}
+                        onTagClick={tagFilterOnClick(
+                          searchInputProps.value,
+                          setSearchValue,
                         )}
-                      </td>
-                    ))}
-                    <td>
-                      {totalPrerequisites > 0 && (
-                        <div style={{ lineHeight: "16px" }}>
-                          <div className="text-dark">
-                            {totalPrerequisites} total
-                          </div>
-                          <div className="nowrap text-muted">
-                            <small>
-                              {topLevelPrerequisites > 0 && (
-                                <>{topLevelPrerequisites} top level</>
-                              )}
-                              {prerequisiteRules > 0 && (
-                                <>
-                                  <>
-                                    {topLevelPrerequisites > 0 && ", "}
-                                    {prerequisiteRules} rules
-                                  </>
-                                </>
-                              )}
-                            </small>
-                          </div>
-                        </div>
-                      )}
-                    </td>
-                    <td style={{ minWidth: 90 }}>
-                      <ValueDisplay
-                        value={getFeatureDefaultValue(feature) || ""}
-                        type={feature.valueType}
-                        full={false}
-                        additionalStyle={{ maxWidth: 120, fontSize: "11px" }}
                       />
                     </td>
-                    <td>
-                      <div style={{ lineHeight: "16px" }}>
-                        {firstRule && (
-                          <span className="text-dark">{firstRule.type}</span>
-                        )}
-                        {totalRules > 1 && (
-                          <small className="text-muted ml-1">
-                            +{totalRules - 1} more
-                          </small>
-                        )}
-                      </div>
-                    </td>
+                    {toggleEnvs.map((en) => (
+                      <td key={en.id}>
+                        <Flex align="center" justify="center">
+                          {featureHasEnvironment(
+                            feature as unknown as FeatureInterface,
+                            en,
+                          ) &&
+                            (() => {
+                              const enabled =
+                                statusHook.environmentStatus[feature.id]?.[
+                                  en.id
+                                ] ?? false;
+                              return (
+                                <Tooltip
+                                  body={
+                                    enabled
+                                      ? `${en.id}: enabled`
+                                      : `${en.id}: disabled`
+                                  }
+                                >
+                                  {enabled ? (
+                                    <FaRegCircleCheck
+                                      style={{
+                                        color: "var(--green-9)",
+                                        fontSize: 18,
+                                      }}
+                                    />
+                                  ) : (
+                                    <FaRegCircleXmark
+                                      style={{
+                                        color: "var(--gray-8)",
+                                        fontSize: 18,
+                                      }}
+                                    />
+                                  )}
+                                </Tooltip>
+                              );
+                            })()}
+                        </Flex>
+                      </td>
+                    ))}
+                    <td>{feature.valueType}</td>
                     <td style={{ textAlign: "center" }}>
                       {version}
-                      {feature?.hasDrafts ? (
+                      {draftEntry ? (
                         <Tooltip body="This feature has an active draft that has not been published yet">
                           <FaTriangleExclamation
                             className="text-warning ml-1"
@@ -320,27 +337,28 @@ export default function FeaturesPage() {
                       ) : null}
                     </td>
                     <td title={datetime(feature.dateUpdated)}>
-                      {ago(feature.dateUpdated)}
+                      {date(feature.dateUpdated)}
                     </td>
                     {showGraphs && (
                       <td style={{ width: 170 }}>
-                        <RealTimeFeatureGraph
-                          data={usage?.[feature.id]?.realtime || []}
-                          yDomain={usageDomain}
-                        />
+                        {!feature.archived && (
+                          <RealTimeFeatureGraph
+                            data={usage?.[feature.id]?.realtime || []}
+                            yDomain={usageDomain}
+                          />
+                        )}
                       </td>
                     )}
-                    <td style={{ textAlign: "center" }}>
-                      {stale && (
+                    <td>
+                      {!feature.archived && (
                         <StaleFeatureIcon
-                          staleReason={staleReason}
-                          onClick={() => {
-                            if (
-                              permissionsUtil.canViewFeatureModal(
-                                feature.project
-                              )
-                            )
-                              setFeatureToToggleStaleDetection(feature);
+                          context="list"
+                          neverStale={feature.neverStale}
+                          valueType={feature.valueType}
+                          staleData={staleHook.getStaleState(feature.id)}
+                          fetchStaleData={async () => {
+                            staleHook.invalidate([feature.id]);
+                            await staleHook.fetchSome([feature.id]);
                           }}
                         />
                       )}
@@ -349,12 +367,15 @@ export default function FeaturesPage() {
                       <MoreMenu>
                         {permissionsUtil.canCreateFeature(feature) &&
                         permissionsUtil.canManageFeatureDrafts({
-                          project: projectId,
+                          project: feature.project,
                         }) ? (
                           <button
                             className="dropdown-item"
-                            onClick={() => {
-                              setFeatureToDuplicate(feature);
+                            onClick={async () => {
+                              const res = await apiCall<{
+                                feature: FeatureInterface;
+                              }>(`/feature/${feature.id}`);
+                              setFeatureToDuplicate(res.feature);
                               setModalOpen(true);
                             }}
                           >
@@ -368,7 +389,7 @@ export default function FeaturesPage() {
               })}
               {!items.length && (
                 <tr>
-                  <td colSpan={showGraphs ? 7 : 6}>No matching features</td>
+                  <td colSpan={7}>No matching features</td>
                 </tr>
               )}
             </tbody>
@@ -383,59 +404,36 @@ export default function FeaturesPage() {
               }}
             />
           )}
-        </div>
+        </Box>
       )
     );
   };
 
-  const { searchInputProps, items, SortableTH } = useSearch({
-    items: features,
-    defaultSortField: "id",
-    searchFields: ["id^3", "description", "tags^2", "defaultValue"],
-    transformQuery: removeEnvFromSearchTerm,
-    filterResults,
-    localStorageKey: "features",
-  });
-  const start = (currentPage - 1) * NUM_PER_PAGE;
-  const end = start + NUM_PER_PAGE;
-  const featureItems = items.slice(start, end);
+  const canViewFeatureModal = permissionsUtil.canViewFeatureModal(
+    project,
+    projects,
+  );
 
-  const staleFeatures = useMemo(() => {
-    const staleFeatures: Record<
-      string,
-      { stale: boolean; reason?: StaleFeatureReason }
-    > = {};
-    featureItems.forEach((feature) => {
-      const featureEnvironments = filterEnvironmentsByFeature(
-        environments,
-        feature
+  const canCreateFeatures = useMemo(() => {
+    // If a specific project is selected, check permissions for that project
+    if (project) {
+      return permissionsUtil.canManageFeatureDrafts({ project });
+    }
+    if (projects?.length) {
+      // If "All Projects" is selected, check if user has permissions for at least one project
+
+      return projects.some(
+        (p) =>
+          permissionsUtil.canCreateFeature({ project: p.id }) &&
+          permissionsUtil.canManageFeatureDrafts({ project: p.id }),
       );
-      const envs = featureEnvironments.map((e) => e.id);
-      staleFeatures[feature.id] = isFeatureStale({
-        feature,
-        features,
-        experiments,
-        environments: envs,
-      });
-    });
-    return staleFeatures;
-  }, [featureItems, features, experiments, environments]);
-
-  // Reset to page 1 when a filter is applied
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [items.length]);
-
-  // Reset featureToDuplicate when modal is closed
-  useEffect(() => {
-    if (modalOpen) return;
-    setFeatureToDuplicate(null);
-  }, [modalOpen]);
-
-  const { data } = useSDKConnections();
-  const connections = data?.connections || [];
-  const hasActiveConnection =
-    connections.some((c) => c.connected) || !!settings?.sdkInstructionsViewed;
+    }
+    // No projects - fall back to global permission check (e.g. admin in new org)
+    return (
+      permissionsUtil.canCreateFeature({ project: "" }) &&
+      permissionsUtil.canManageFeatureDrafts({ project: "" })
+    );
+  }, [project, projects, permissionsUtil]);
 
   if (error) {
     return (
@@ -448,23 +446,33 @@ export default function FeaturesPage() {
     return <LoadingOverlay />;
   }
 
-  // If "All Projects" is selected is selected and some experiments are in a project, show the project column
-  const showProjectColumn = !project && features.some((f) => f.project);
+  // If "All Projects" is selected and some features are in a project, show the project column
+  const showProjectColumn = !project && allFeatures.some((f) => f.project);
 
   // Ignore the demo datasource
-  const hasFeatures = features.some(
+  const hasFeatures = allFeatures.some(
     (f) =>
       f.project !==
-      getDemoDatasourceProjectIdForOrganization(organization.id || "")
+      getDemoDatasourceProjectIdForOrganization(organization.id || ""),
   );
 
-  const toggleEnvs = environments.filter((en) => en.toggleOnList);
-  const showArchivedToggle = features.some((f) => f.archived);
-  const stepsRequired = !hasActiveConnection || !hasFeatures;
+  const canUseSetupFlow =
+    permissionsUtil.canCreateSDKConnection({
+      projects: [project],
+      environment: "production",
+    }) &&
+    permissionsUtil.canCreateEnvironment({
+      projects: [project],
+      id: "production",
+    });
 
-  const canCreateFeatures = permissionsUtil.canManageFeatureDrafts({
-    project,
-  });
+  const showSetUpFlow =
+    !hasFeatures &&
+    canUseSetupFlow &&
+    sdkConnectionData &&
+    !sdkConnectionData.connections.length;
+
+  const toggleEnvs = environments.filter((en) => en.toggleOnList);
 
   return (
     <div className="contents container pagecontents">
@@ -473,102 +481,97 @@ export default function FeaturesPage() {
           cta={featureToDuplicate ? "Duplicate" : "Create"}
           close={() => setModalOpen(false)}
           onSuccess={async (feature) => {
-            const url = `/features/${feature.id}${hasFeatures ? "" : "?first"}`;
+            const url = `/features/${feature.id}${
+              hasFeatures ? "?new" : "?first&new"
+            }`;
             router.push(url);
-            mutate({
-              features: [...features, feature],
-              linkedExperiments: experiments,
-            });
+            mutate();
           }}
           featureToDuplicate={featureToDuplicate || undefined}
         />
       )}
-      {featureToToggleStaleDetection && (
-        <StaleDetectionModal
-          close={() => setFeatureToToggleStaleDetection(null)}
-          feature={featureToToggleStaleDetection}
-          mutate={mutate}
-        />
-      )}
-      <div className="row mb-3">
+
+      <div className="row my-3">
         <div className="col">
           <h1>Features</h1>
         </div>
-        {features.length > 0 &&
-          permissionsUtil.canViewFeatureModal(project) &&
-          canCreateFeatures && (
-            <div className="col-auto">
-              <button
-                className="btn btn-primary float-right"
-                onClick={() => {
-                  setModalOpen(true);
-                  track("Viewed Feature Modal", {
-                    source: "feature-list",
-                  });
-                }}
-                type="button"
-              >
-                <span className="h4 pr-2 m-0 d-inline-block align-top">
-                  <GBAddCircle />
-                </span>
-                Add Feature
-              </button>
-            </div>
-          )}
-      </div>
-      <p>
-        Features enable you to change your app&apos;s behavior from within the
-        GrowthBook UI. For example, turn on/off a sales banner or change the
-        title of your pricing page.{" "}
-      </p>
-      {stepsRequired || showSteps ? (
-        <div className="mb-3">
-          <h4>
-            Setup Steps
-            {!stepsRequired && (
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowSteps(false);
-                }}
-                style={{ fontSize: "0.8em" }}
-                className="ml-3"
-              >
-                hide
-              </a>
-            )}
-          </h4>
-          <FeaturesGetStarted features={features} />
-          {features.length > 0 && <h4 className="mt-3">All Features</h4>}
-        </div>
-      ) : (
-        <div className="mb-3">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setShowSteps(true);
-            }}
-          >
-            Show Setup Steps
-          </a>
-        </div>
-      )}
-      <Tabs newStyle={true} defaultTab="all-features">
-        <Tab id="all-features" display="All Features" padding={false}>
-          {renderFeaturesTable()}
-          <div className="alert alert-info mt-5">
-            Looking for <strong>Attributes</strong>, <strong>Namespaces</strong>
-            , <strong>Environments</strong>, or <strong>Saved Groups</strong>?
-            They have moved to the <Link href="/sdks">SDK Configuration</Link>{" "}
-            tab.
+        {!showSetUpFlow && canViewFeatureModal && canCreateFeatures && (
+          <div className="col-auto">
+            <Button
+              onClick={() => {
+                setModalOpen(true);
+                track("Viewed Feature Modal", {
+                  source: "feature-list",
+                });
+              }}
+            >
+              Add Feature
+            </Button>
           </div>
-        </Tab>
-        <Tab id="drafts" display="Drafts" padding={false} lazy={true}>
-          <FeaturesDraftTable features={features} />
-        </Tab>
-      </Tabs>
+        )}
+      </div>
+      <div className="mt-3">
+        <CustomMarkdown page={"featureList"} />
+      </div>
+      {!hasFeatures ? (
+        <>
+          <EmptyState
+            title="Change your App's Behavior"
+            description="Use Feature Flags to change your app's behavior. For example, turn a sales banner on or off, or enable new features for Beta users only."
+            leftButton={
+              <LinkButton
+                external
+                href="https://docs.growthbook.io/features/basics"
+                variant="outline"
+              >
+                View Docs
+              </LinkButton>
+            }
+            rightButton={
+              showSetUpFlow ? (
+                <LinkButton href="/setup?exitLocation=features">
+                  Connect your SDK
+                </LinkButton>
+              ) : (
+                canViewFeatureModal &&
+                canCreateFeatures && (
+                  <Button
+                    onClick={() => {
+                      setModalOpen(true);
+                      track("Viewed Feature Modal", {
+                        source: "feature-list",
+                      });
+                    }}
+                  >
+                    Add Feature
+                  </Button>
+                )
+              )
+            }
+          />
+        </>
+      ) : (
+        <Tabs defaultValue="all-features" persistInURL={true}>
+          <Box mb="3">
+            <TabsList>
+              <TabsTrigger value="all-features">All Features</TabsTrigger>
+              <TabsTrigger value="drafts">Drafts</TabsTrigger>
+            </TabsList>
+          </Box>
+
+          <TabsContent value="all-features">
+            {renderFeaturesTable()}
+            <Callout status="info" mt="5" mb="3">
+              Test what values these features will return for your users from
+              the <Link href="/archetypes#simulate">Simulate</Link> page.
+            </Callout>
+          </TabsContent>
+
+          <TabsContent value="drafts">
+            <FeaturesDraftTable />
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 }

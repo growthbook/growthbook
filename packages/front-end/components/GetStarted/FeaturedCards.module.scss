@@ -1,0 +1,95 @@
+.cardLink {
+  height: 100%;
+  width: 100%;
+
+  // Prevent bootstrap link styles from applying
+  &:hover {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  &[aria-disabled="true"] {
+    pointer-events: none;
+    color: var(--gray-a8);
+  }
+}
+
+.actionArrow {
+  margin-left: auto;
+  border-radius: 50%;
+  border: 1px solid var(--slate-a3);
+
+  .cardLink:hover & {
+    border-color: var(--color-background);
+    background-color: var(--color-background);
+  }
+}
+
+.featureFlagImage {
+  height: 80px;
+
+  background-image: url("/images/get-started/feature-flag-light-2.svg");
+  :global(.dark-theme) & {
+    background-image: url("/images/get-started/feature-flag-dark-2.svg");
+  }
+
+  .cardLink:hover & {
+    background-image: url("/images/get-started/feature-flag-light-hover-2.svg");
+    :global(.dark-theme) & {
+      background-image: url("/images/get-started/feature-flag-dark-hover-2.svg");
+    }
+  }
+}
+
+.experimentImage {
+  height: 80px;
+
+  background-image: url("/images/get-started/experiment-light.svg");
+  :global(.dark-theme) & {
+    background-image: url("/images/get-started/experiment-dark.svg");
+  }
+
+  .cardLink:hover & {
+    background-image: url("/images/get-started/experiment-light-hover.svg");
+    :global(.dark-theme) & {
+      background-image: url("/images/get-started/experiment-dark-hover.svg");
+    }
+  }
+}
+
+.datasourceImage {
+  height: 80px;
+  width: 382px;
+
+  background-image: url("/images/get-started/data-source-light.svg");
+  :global(.dark-theme) & {
+    background-image: url("/images/get-started/data-source-dark.svg");
+  }
+
+  .cardLink:hover & {
+    background-image: url("/images/get-started/data-source-light-hover.svg");
+    :global(.dark-theme) & {
+      background-image: url("/images/get-started/data-source-dark-hover.svg");
+    }
+  }
+}
+
+.migrateArrowIcon,
+.chartIcon {
+  width: 25px;
+  height: 25px;
+  flex-shrink: 0;
+
+  @media (min-width: 769px) {
+    width: 35px;
+    height: 35px;
+  }
+}
+
+.cardLink:hover .migrateArrowIcon {
+  fill: url(#arrow-gradient);
+}
+
+.cardLink:hover .chartIcon {
+  fill: url(#chart-gradient);
+}

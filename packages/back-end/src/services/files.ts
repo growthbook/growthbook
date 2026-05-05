@@ -1,6 +1,13 @@
 import path from "path";
 import fs from "fs";
-import AWS from "aws-sdk";
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
+import { fromTemporaryCredentials } from "@aws-sdk/credential-providers";
 import { Storage } from "@google-cloud/storage";
 import {
   S3_BUCKET,
@@ -9,15 +16,29 @@ import {
   UPLOAD_METHOD,
   GCS_BUCKET_NAME,
   GCS_DOMAIN,
-} from "../util/secrets";
+  AWS_ASSUME_ROLE,
+} from "back-end/src/util/secrets";
 
-let s3: AWS.S3;
-function getS3(): AWS.S3 {
-  if (!s3) {
-    AWS.config.update({ region: S3_REGION });
-    s3 = new AWS.S3({ signatureVersion: "v4" });
+let s3Client: S3Client | null = null;
+
+function getS3Client(): S3Client {
+  if (!s3Client) {
+    const clientConfig: ConstructorParameters<typeof S3Client>[0] = {
+      region: S3_REGION,
+    };
+
+    if (AWS_ASSUME_ROLE) {
+      clientConfig.credentials = fromTemporaryCredentials({
+        params: {
+          RoleArn: AWS_ASSUME_ROLE,
+          RoleSessionName: "growthbook-uploads",
+        },
+      });
+    }
+
+    s3Client = new S3Client(clientConfig);
   }
-  return s3;
+  return s3Client;
 }
 
 export function getUploadsDir() {
@@ -27,7 +48,7 @@ export function getUploadsDir() {
 export async function uploadFile(
   filePath: string,
   contentType: string,
-  contents: Buffer
+  contents: Buffer,
 ) {
   // Watch out for poison null bytes
   if (filePath.indexOf("\0") !== -1) {
@@ -37,13 +58,15 @@ export async function uploadFile(
   let fileURL = "";
 
   if (UPLOAD_METHOD === "s3") {
-    const params = {
-      Bucket: S3_BUCKET,
-      Key: filePath,
-      Body: contents,
-      ContentType: contentType,
-    };
-    await getS3().upload(params).promise();
+    const client = getS3Client();
+    await client.send(
+      new PutObjectCommand({
+        Bucket: S3_BUCKET,
+        Key: filePath,
+        Body: contents,
+        ContentType: contentType,
+      }),
+    );
     fileURL = S3_DOMAIN + (S3_DOMAIN.endsWith("/") ? "" : "/") + filePath;
   } else if (UPLOAD_METHOD === "google-cloud") {
     const storage = new Storage();
@@ -60,7 +83,7 @@ export async function uploadFile(
     // Prevent directory traversal
     if (fullPath.indexOf(rootDirectory) !== 0) {
       throw new Error(
-        "Error: Path must not escape out of the 'uploads' directory."
+        "Error: Path must not escape out of the 'uploads' directory.",
       );
     }
 
@@ -78,36 +101,134 @@ export function getImageData(filePath: string) {
     throw new Error("Error: Filename must not contain null bytes");
   }
 
+  const rootDirectory = getUploadsDir();
+  const fullPath = path.join(rootDirectory, filePath);
+
+  // Prevent directory traversal
+  if (fullPath.indexOf(rootDirectory) !== 0) {
+    throw new Error(
+      "Error: Path must not escape out of the 'uploads' directory.",
+    );
+  }
+
+  if (!fs.existsSync(fullPath)) {
+    throw new Error("File not found");
+  }
+
+  return fs.createReadStream(fullPath);
+}
+
+export async function getSignedImageUrl(
+  filePath: string,
+  expiresInMinutes: number = 15,
+): Promise<string> {
+  // Watch out for poison null bytes
+  if (filePath.indexOf("\0") !== -1) {
+    throw new Error("Error: Filename must not contain null bytes");
+  }
+
+  // Extract the object key from a full URL if necessary
+  let objectKey = filePath;
+  try {
+    const url = new URL(filePath);
+    objectKey = url.pathname;
+    // Remove leading slash if present
+    if (objectKey.startsWith("/")) {
+      objectKey = objectKey.substring(1);
+    }
+    // Remove /upload/ prefix if present (for local uploads)
+    if (objectKey.startsWith("upload/")) {
+      objectKey = objectKey.substring(7);
+    }
+  } catch {
+    // Not a full URL, use as-is
+  }
+
   if (UPLOAD_METHOD === "s3") {
-    const params = {
+    const client = getS3Client();
+    return getSignedUrl(
+      client,
+      new GetObjectCommand({
+        Bucket: S3_BUCKET,
+        Key: objectKey,
+      }),
+      { expiresIn: expiresInMinutes * 60 },
+    );
+  } else if (UPLOAD_METHOD === "google-cloud") {
+    const storage = new Storage();
+    const bucket = storage.bucket(GCS_BUCKET_NAME);
+    const file = bucket.file(objectKey);
+
+    const [signedUrl] = await file.getSignedUrl({
+      action: "read",
+      expires: Date.now() + expiresInMinutes * 60 * 1000,
+    });
+
+    return signedUrl;
+  } else {
+    throw new Error(
+      "Signed upload URLs are only supported for S3 and Google Cloud Storage",
+    );
+  }
+}
+
+export async function getSignedUploadUrl(
+  filePath: string,
+  contentType: string,
+  expiresInMinutes: number = 15,
+): Promise<{
+  signedUrl: string;
+  fileUrl: string;
+  fields?: Record<string, string>;
+}> {
+  // Watch out for poison null bytes
+  if (filePath.indexOf("\0") !== -1) {
+    throw new Error("Error: Filename must not contain null bytes");
+  }
+
+  if (UPLOAD_METHOD === "s3") {
+    const client = getS3Client();
+    const { url, fields } = await createPresignedPost(client, {
       Bucket: S3_BUCKET,
       Key: filePath,
+      Conditions: [
+        ["eq", "$Content-Type", contentType],
+        ["eq", "$key", filePath],
+      ],
+      Fields: {
+        key: filePath,
+        "Content-Type": contentType,
+      },
+      Expires: expiresInMinutes * 60,
+    });
+
+    const fileUrl = S3_DOMAIN + (S3_DOMAIN.endsWith("/") ? "" : "/") + filePath;
+
+    return {
+      signedUrl: url,
+      fileUrl,
+      fields: fields as Record<string, string>,
     };
-    const s3Stream = getS3().getObject(params).createReadStream();
-    return s3Stream;
   } else if (UPLOAD_METHOD === "google-cloud") {
     const storage = new Storage();
     const bucket = storage.bucket(GCS_BUCKET_NAME);
     const file = bucket.file(filePath);
-    const readableStream = file.createReadStream();
-    return readableStream;
+
+    // GCS will reject uploads if the Content-Type header doesn't match exactly
+    const [signedUrl] = await file.getSignedUrl({
+      version: "v4",
+      action: "write",
+      expires: Date.now() + expiresInMinutes * 60 * 1000,
+      contentType,
+    });
+
+    const fileUrl =
+      GCS_DOMAIN + (GCS_DOMAIN.endsWith("/") ? "" : "/") + filePath;
+
+    return { signedUrl, fileUrl };
   } else {
-    // local image
-    const rootDirectory = getUploadsDir();
-    const fullPath = path.join(rootDirectory, filePath);
-
-    // Prevent directory traversal
-    if (fullPath.indexOf(rootDirectory) !== 0) {
-      throw new Error(
-        "Error: Path must not escape out of the 'uploads' directory."
-      );
-    }
-
-    if (!fs.existsSync(fullPath)) {
-      throw new Error("File not found");
-    }
-
-    const readableStream = fs.createReadStream(fullPath);
-    return readableStream;
+    throw new Error(
+      "Signed upload URLs are only supported for S3 and Google Cloud Storage",
+    );
   }
 }

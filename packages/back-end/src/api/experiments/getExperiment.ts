@@ -1,22 +1,27 @@
-import { GetExperimentResponse } from "../../../types/openapi";
-import { getExperimentById } from "../../models/ExperimentModel";
-import { toExperimentApiInterface } from "../../services/experiments";
-import { createApiRequestHandler } from "../../util/handler";
-import { getExperimentValidator } from "../../validators/openapi";
+import {
+  ExperimentInterfaceExcludingHoldouts,
+  getExperimentValidator,
+} from "shared/validators";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
 
 export const getExperiment = createApiRequestHandler(getExperimentValidator)(
-  async (req): Promise<GetExperimentResponse> => {
+  async (req) => {
     const experiment = await getExperimentById(req.context, req.params.id);
     if (!experiment) {
       throw new Error("Could not find experiment with that id");
     }
+    if (experiment.type === "holdout") {
+      throw new Error("Holdouts are not supported via this API");
+    }
 
-    const apiExperiment = await toExperimentApiInterface(
+    const apiExperiment = await toEnhancedExperimentApiResponse(
       req.context,
-      experiment
+      experiment as ExperimentInterfaceExcludingHoldouts,
     );
     return {
       experiment: apiExperiment,
     };
-  }
+  },
 );

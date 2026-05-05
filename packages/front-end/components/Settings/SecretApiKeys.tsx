@@ -1,9 +1,9 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
-import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
-import { FaKey } from "react-icons/fa";
+import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { useAuth } from "@/services/auth";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Button from "@/ui/Button";
 import ApiKeysModal from "./ApiKeysModal";
 
 const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
@@ -12,9 +12,6 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
 }) => {
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
-  const [modalApiKeyType, setModalApiKeyType] = useState<
-    "readonly" | "admin" | "user" | undefined
-  >();
 
   const permissionsUtils = usePermissionsUtil();
   const canCreateKeys = permissionsUtils.canCreateApiKey();
@@ -22,7 +19,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
 
   const organizationSecretKeys = useMemo(
     () => keys.filter((k) => k.secret && !k.userId),
-    [keys]
+    [keys],
   );
 
   const onReveal = useCallback(
@@ -40,7 +37,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
       }
       return res.key.key;
     },
-    [apiCall]
+    [apiCall],
   );
 
   const onDelete = useCallback(
@@ -55,7 +52,19 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
       });
       mutate();
     },
-    [mutate, apiCall]
+    [mutate, apiCall],
+  );
+
+  const onToggleDisabled = useCallback(
+    (keyId: string | undefined, disabled: boolean) => async () => {
+      if (!keyId) return;
+      await apiCall(`/keys/${keyId}/disabled`, {
+        method: "PUT",
+        body: JSON.stringify({ disabled }),
+      });
+      mutate();
+    },
+    [apiCall, mutate],
   );
 
   return (
@@ -64,7 +73,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
         <ApiKeysModal
           close={() => setOpen(false)}
           onCreate={mutate}
-          type={modalApiKeyType}
+          personalAccessToken={false}
         />
       )}
 
@@ -81,19 +90,17 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
             canCreateKeys={canCreateKeys}
             canDeleteKeys={canDeleteKeys}
             onReveal={onReveal}
+            onToggleDisabled={canDeleteKeys ? onToggleDisabled : undefined}
           />
         )}
         {canCreateKeys && (
-          <button
-            className="btn btn-primary"
-            onClick={(e) => {
-              e.preventDefault();
-              setModalApiKeyType("admin");
+          <Button
+            onClick={() => {
               setOpen(true);
             }}
           >
-            <FaKey /> Create New Secret Key
-          </button>
+            New Secret Key
+          </Button>
         )}
       </div>
     </div>

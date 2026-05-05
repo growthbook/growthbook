@@ -1,8 +1,8 @@
 import mongoose, { ConnectOptions } from "mongoose";
 import bluebird from "bluebird";
-import { MONGODB_URI } from "../util/secrets";
-import { logger } from "../util/logger";
-import { getConnectionStringWithDeprecatedKeysMigratedForV3to4 } from "../util/mongo.util";
+import { MONGODB_URI } from "back-end/src/util/secrets";
+import { logger } from "back-end/src/util/logger";
+import { getConnectionStringWithDeprecatedKeysMigratedForV3to4 } from "back-end/src/util/mongo.util";
 
 mongoose.Promise = bluebird;
 
@@ -25,7 +25,7 @@ export default async (): Promise<void> => {
   } catch (e) {
     logger.warn(
       e,
-      "Failed to connect to MongoDB. Retrying with field remapping for mongodb v3 to v4"
+      "Failed to connect to MongoDB. Retrying with field remapping for mongodb v3 to v4",
     );
 
     try {
@@ -45,7 +45,7 @@ export default async (): Promise<void> => {
       }
       if (remapped.length) {
         logger.warn(
-          `mongodb deprecated fields remapped: ${remapped.join(", ")}`
+          `mongodb deprecated fields remapped: ${remapped.join(", ")}`,
         );
       }
 

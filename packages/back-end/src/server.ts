@@ -1,3 +1,6 @@
+import "./init/aliases";
+import "./init/dotenv";
+import "./instrumentation";
 import app from "./app";
 import { logger } from "./util/logger";
 import { getAgendaInstance } from "./services/queueing";
@@ -5,8 +8,8 @@ import { getAgendaInstance } from "./services/queueing";
 const server = app.listen(app.get("port"), () => {
   logger.info(
     `Back-end is running at http://localhost:${app.get("port")} in ${app.get(
-      "env"
-    )} mode. Press CTRL-C to stop`
+      "env",
+    )} mode. Press CTRL-C to stop`,
   );
 });
 

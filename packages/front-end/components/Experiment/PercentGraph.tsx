@@ -1,18 +1,25 @@
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import React, { DetailedHTMLProps, HTMLAttributes } from "react";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
+import React, { DetailedHTMLProps, HTMLAttributes, useCallback } from "react";
 import {
   ExperimentMetricInterface,
   hasEnoughData,
   isStatSig,
 } from "shared/experiments";
-import useConfidenceLevels from "@/hooks/useConfidenceLevels";
+import {
+  DifferenceType,
+  SignificanceThresholds,
+  StatsEngine,
+} from "shared/types/stats";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import { RowResults } from "@/services/experiments";
 import AlignedGraph from "./AlignedGraph";
+import { useResultPopover } from "./useResultPopover";
 
 interface Props
   extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
   metric: ExperimentMetricInterface;
+  significanceThresholds: SignificanceThresholds;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
   domain: [number, number];
@@ -20,6 +27,7 @@ interface Props
   barType?: "pill" | "violin";
   barFillType?: "gradient" | "significant";
   significant?: boolean;
+  disabled?: boolean;
   graphWidth?: number;
   height?: number;
   className?: string;
@@ -29,10 +37,22 @@ interface Props
   onMouseLeave?: (e: React.MouseEvent<SVGPathElement>) => void;
   onClick?: (e: React.MouseEvent<SVGPathElement, MouseEvent>) => void;
   rowStatus?: string;
+  ssrPolyfills?: SSRPolyfills;
+  differenceType?: DifferenceType;
+  resultsStatus?: RowResults["resultsStatus"];
+  statsEngine?: StatsEngine;
+  suspiciousChange?: boolean;
+  suspiciousThreshold?: number;
+  notEnoughData?: boolean;
+  minSampleSize?: number;
+  minPercentChange?: number;
+  currentMetricTotal?: number;
+  pValueAdjustmentEnabled?: boolean;
 }
 
 export default function PercentGraph({
   metric,
+  significanceThresholds,
   baseline,
   stats,
   domain,
@@ -40,6 +60,7 @@ export default function PercentGraph({
   barType: _barType,
   barFillType = "gradient",
   significant,
+  disabled,
   graphWidth,
   height,
   className,
@@ -49,15 +70,31 @@ export default function PercentGraph({
   onMouseLeave,
   onClick,
   rowStatus,
+  ssrPolyfills,
+  differenceType = "relative",
+  resultsStatus = "",
+  statsEngine = "frequentist",
+  suspiciousChange = false,
+  suspiciousThreshold = 0,
+  notEnoughData = false,
+  minSampleSize = 0,
+  minPercentChange = 0,
+  currentMetricTotal = 0,
+  pValueAdjustmentEnabled,
 }: Props) {
-  const { metricDefaults } = useOrganizationMetricDefaults();
+  const { metricDefaults: _metricDefaults } = useOrganizationMetricDefaults();
+
+  const metricDefaults =
+    ssrPolyfills?.useOrganizationMetricDefaults()?.metricDefaults ||
+    _metricDefaults;
+  const { bayesianConfidenceLevels, pValueThreshold } = significanceThresholds;
+  const { ciUpper, ciLower } = bayesianConfidenceLevels;
+
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
-  const { ciUpper, ciLower } = useConfidenceLevels();
-  const pValueThreshold = usePValueThreshold();
 
   const barType = _barType ? _barType : stats.uplift?.dist ? "violin" : "pill";
 
-  const showGraph = metric && enoughData;
+  const showGraph = !disabled && metric && enoughData;
 
   if (significant === undefined) {
     if (barType === "pill") {
@@ -73,28 +110,75 @@ export default function PercentGraph({
     }
   }
 
+  const showPopover = showGraph && stats?.ci;
+
+  const {
+    handleMouseEnter: popoverMouseEnter,
+    handleMouseLeave: popoverMouseLeave,
+    renderPopover,
+  } = useResultPopover({
+    enabled: !!showPopover,
+    positioning: "element",
+    data: {
+      stats,
+      metric,
+      pValueThreshold,
+      significant: significant ?? false,
+      resultsStatus,
+      differenceType,
+      statsEngine,
+      ssrPolyfills,
+      suspiciousChange,
+      suspiciousThreshold,
+      notEnoughData,
+      minSampleSize,
+      minPercentChange,
+      currentMetricTotal,
+      pValueAdjustmentEnabled,
+    },
+  });
+
+  const handleMouseEnter = useCallback(
+    (e: React.MouseEvent<SVGPathElement>) => {
+      popoverMouseEnter(e);
+    },
+    [popoverMouseEnter],
+  );
+
+  const handleMouseLeave = useCallback(
+    (e: React.MouseEvent<SVGPathElement>) => {
+      popoverMouseLeave(e);
+      onMouseLeave?.(e);
+    },
+    [popoverMouseLeave, onMouseLeave],
+  );
+
   return (
-    <AlignedGraph
-      ci={showGraph ? stats?.ciAdjusted ?? stats.ci ?? [] : [0, 0]}
-      id={id}
-      domain={domain}
-      uplift={showGraph ? stats.uplift : undefined}
-      expected={showGraph ? stats.expected : undefined}
-      barType={barType}
-      barFillType={barFillType}
-      axisOnly={!showGraph}
-      showAxis={false}
-      significant={significant}
-      graphWidth={graphWidth}
-      height={height}
-      inverse={!!metric?.inverse}
-      className={className}
-      isHovered={isHovered}
-      percent={percent}
-      onMouseMove={onMouseMove}
-      onMouseLeave={onMouseLeave}
-      onClick={onClick}
-      rowStatus={rowStatus}
-    />
+    <>
+      <AlignedGraph
+        ci={showGraph ? (stats?.ciAdjusted ?? stats.ci) : [0, 0]}
+        id={id}
+        domain={domain}
+        uplift={showGraph ? stats.uplift : undefined}
+        expected={showGraph ? stats.expected : undefined}
+        barType={barType}
+        barFillType={barFillType}
+        axisOnly={!showGraph}
+        showAxis={false}
+        significant={significant}
+        graphWidth={graphWidth}
+        height={height}
+        inverse={!!metric?.inverse}
+        className={className}
+        isHovered={isHovered}
+        percent={percent}
+        onMouseMove={onMouseMove}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onClick={onClick}
+        rowStatus={rowStatus}
+      />
+      {renderPopover()}
+    </>
   );
 }

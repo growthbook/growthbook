@@ -1,26 +1,26 @@
 import { useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedChangeEnvStates,
+} from "shared/types/experiment";
 import { diffChars } from "diff";
-import { URLRedirectInterface } from "back-end/types/url-redirect";
+import { URLRedirectInterface } from "shared/types/url-redirect";
+import { Box, Flex, Separator } from "@radix-ui/themes";
+import { PiArrowSquareOutFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
-import LinkedChangesContainer from "@/components/Experiment/LinkedChanges/LinkedChangesContainer";
-import styles from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges.module.scss";
-
-interface RedirectLinkedChangesProps {
-  setUrlRedirectModal: (boolean) => void;
-  urlRedirects: URLRedirectInterface[];
-  experiment: ExperimentInterfaceStringDates;
-  canAddChanges: boolean;
-  mutate: () => void;
-}
+import LinkedChangeVariationRows from "@/components/Experiment/LinkedChanges/LinkedChangeVariationRows";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+import LinkedChange from "@/components/Experiment/LinkedChanges/LinkedChange";
+import EnvironmentStatesGrid from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 
 interface RedirectProps {
   urlRedirect: URLRedirectInterface;
   experiment: ExperimentInterfaceStringDates;
   canEdit: boolean;
-  mutate: () => void;
+  mutate?: () => void;
+  environmentStates?: LinkedChangeEnvStates;
 }
 
 function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
@@ -31,35 +31,46 @@ function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
     const parsedUrl1 = new URL(url1);
     const parsedUrl2 = new URL(url2);
 
-    if (parsedUrl1.hostname === parsedUrl2.hostname) {
-      return (
-        <a className={styles.redirectUrl} href={url2}>
-          {filtered.map((part, index) => {
-            if (part.added) {
-              return <b key={index}>{part.value}</b>;
-            } else {
-              return <span key={index}>{part.value}</span>;
-            }
-          })}
-        </a>
-      );
-    } else
-      return (
-        <a className={styles.redirectUrl} href={url2}>
-          {url2}
-        </a>
-      );
+    return (
+      <Link
+        href={url2}
+        color="dark"
+        underline="none"
+        rel="noreferrer"
+        target="_blank"
+      >
+        <Flex align="center">
+          {parsedUrl1.hostname === parsedUrl2.hostname ? (
+            <>
+              {filtered.map((part, index) => {
+                if (part.added) {
+                  return <b key={index}>{part.value}</b>;
+                } else {
+                  return <span key={index}>{part.value}</span>;
+                }
+              })}
+            </>
+          ) : (
+            <>{url2}</>
+          )}
+          <Box ml="1">
+            <PiArrowSquareOutFill color="var(--violet-a11)" />
+          </Box>
+        </Flex>
+      </Link>
+    );
   } catch {
     console.error("Failed to parse URL to for redirect diff");
     return <span>{url2}</span>;
   }
 }
 
-const Redirect = ({
+export const RedirectLinkedChanges = ({
   urlRedirect,
   experiment,
   mutate,
   canEdit,
+  environmentStates,
 }: RedirectProps) => {
   const { apiCall } = useAuth();
   const [editingRedirect, setEditingRedirect] = useState<boolean>(false);
@@ -67,114 +78,67 @@ const Redirect = ({
 
   return (
     <>
-      {editingRedirect ? (
+      {editingRedirect && mutate ? (
         <UrlRedirectModal
           mode="edit"
           experiment={experiment}
           urlRedirect={urlRedirect}
           mutate={mutate}
           close={() => setEditingRedirect(false)}
+          source={"redirect-linked-changes"}
         />
       ) : null}
-      <div className="appbox p-3 mb-0">
-        <div className="d-flex justify-content-between">
-          <h5 className="mt-2">Original URL</h5>
-          {canEdit && (
-            <div>
-              <button
-                className="btn btn-link"
-                onClick={() => {
-                  setEditingRedirect(true);
-                }}
-              >
-                Edit{" "}
-              </button>
-              <DeleteButton
-                className="btn-sm ml-4"
-                onClick={async () => {
-                  await apiCall(`/url-redirects/${urlRedirect.id}`, {
-                    method: "DELETE",
-                  });
-                  mutate();
-                }}
-                displayName="URL Redirect"
+      <LinkedChange
+        changeType="redirect"
+        heading={originUrl}
+        headingLink={originUrl}
+        onEdit={() => setEditingRedirect(true)}
+        onDelete={async () => {
+          await apiCall(`/url-redirects/${urlRedirect.id}`, {
+            method: "DELETE",
+          });
+          mutate?.();
+        }}
+        canEdit={canEdit}
+      >
+        <Box className="appbox">
+          <Flex width="100%" gap="4" py="4" px="5" direction="column">
+            <Box flexGrow="1">
+              <LinkedChangeVariationRows
+                experiment={experiment}
+                renderContent={(j) =>
+                  urlRedirect.destinationURLs[j]?.url ? (
+                    <UrlDifferenceRenderer
+                      url1={urlRedirect.urlPattern}
+                      url2={urlRedirect.destinationURLs[j].url}
+                    />
+                  ) : (
+                    <Text color="text-low">No redirect</Text>
+                  )
+                }
               />
-            </div>
-          )}
-        </div>
-
-        <a className={styles.redirectUrl} href={originUrl}>
-          {originUrl}
-        </a>
-        <hr className="mr-5" />
-        <h5>Redirects</h5>
-        {experiment.variations.map((v, i) => (
-          <div
-            className={
-              i === experiment.variations.length - 1
-                ? `mb-0 variation with-variation-label variation${i}`
-                : `mb-4 variation with-variation-label variation${i}`
-            }
-            key={i}
-          >
-            <div className="d-flex align-items-baseline">
-              <span
-                className="label"
-                style={{
-                  width: 18,
-                  height: 18,
-                }}
-              >
-                {i}
-              </span>
-              <div className="col pl-0">
-                <h5 className="mb-0">{v.name}</h5>
-                {urlRedirect.destinationURLs[i]?.url ? (
-                  <UrlDifferenceRenderer
-                    url1={urlRedirect.urlPattern}
-                    url2={urlRedirect.destinationURLs[i].url}
-                  />
-                ) : (
-                  <i className="text-muted">No redirect</i>
+            </Box>
+          </Flex>
+          {environmentStates && Object.keys(environmentStates).length > 0 && (
+            <>
+              <Separator size="4" />
+              <EnvironmentStatesGrid
+                environmentStates={Object.entries(environmentStates).map(
+                  ([env, state]) => ({
+                    env,
+                    state,
+                    isActive: state === "active",
+                    tooltip:
+                      state === "active"
+                        ? "An SDK connection in this environment has URL redirect experiments enabled"
+                        : "No SDK connection in this environment has URL redirect experiments enabled",
+                  }),
                 )}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+              />
+            </>
+          )}
+        </Box>
+      </LinkedChange>
     </>
   );
 };
-
-export default function RedirectLinkedChanges({
-  setUrlRedirectModal,
-  urlRedirects,
-  experiment,
-  canAddChanges,
-  mutate,
-}: RedirectLinkedChangesProps) {
-  const redirectCount = urlRedirects.length;
-
-  return (
-    <LinkedChangesContainer
-      canAddChanges={canAddChanges}
-      changeCount={redirectCount}
-      experimentStatus={experiment.status}
-      type="redirects"
-      onAddChange={() => setUrlRedirectModal(true)}
-    >
-      <div>
-        {urlRedirects.map((r, i) => (
-          <div className={i > 0 ? "mt-3" : undefined} key={r.id}>
-            <Redirect
-              urlRedirect={r}
-              experiment={experiment}
-              mutate={mutate}
-              canEdit={canAddChanges}
-            />
-          </div>
-        ))}
-      </div>
-    </LinkedChangesContainer>
-  );
-}

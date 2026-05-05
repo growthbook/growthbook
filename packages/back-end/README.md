@@ -69,50 +69,270 @@ if (IS_CLOUD) {
 }
 ```
 
+### Testing GrowthBook Cloud functionality locally
+
+Minimum setup:
+
+```bash
+IS_CLOUD=true
+```
+
+Note: The above only works when APP_ORIGIN is localhost (or it's running on the real GrowthBook Cloud).
+
+Opt-in extras for testing cloud-only flows locally:
+
+- **SSO / Auth0 flow**: set `SSO_CONFIG` to a valid JSON config.
+- **Vercel integration**: set both `VERCEL_CLIENT_ID` and `VERCEL_CLIENT_SECRET`
+- **S3 uploads**: set both `UPLOAD_METHOD=s3` and `S3_BUCKET=…`
+
 ### Adding new commercial features
 
-If you want to add a new commercial feature, you need to edit the `enterprise` package:
+All back-end code for commercial features should live under the `src/enterprise` directory. The front-end and shared packages have their own `enterprise` directories as well which can be used as needed.
 
-- `packages/enterprise/src/license.ts` - Add to the `CommercialFeature` union type and edit the `accountFeatures` map, which defines which plans have access to which features
+You will also need to edit `packages/shared/src/enterprise/license.ts`. Add to the `CommercialFeature` union type and edit the `accountFeatures` map, which defines which plans have access to which features
 
-## Data Models
+## Data Model Classes
 
-GrowthBook uses MongoDB and Mongoose. Each database collection has a few corresponding files:
+This is the preferred way to create data models that sit on top of MongoDB collections.
 
-- A Typescript type definition in `types/MODEL_NAME.d.ts`
-- A Mongoose schema in `src/models/MODEL_NAME.ts`
+### Example
 
-### Editing an existing data model
+Everything starts from a single Zod schema, representing the whole object:
 
-If you want to add/change a field on an existing data model, in addition to the type definition and mongoose schema listed above, you may also have to change the following:
+```ts
+// File: back-end/src/validators/foo.ts
+import { z } from "zod";
 
-- Controllers in `src/controllers/`
-- Service files in `src/services/`
-- Front-end pages or components
+export fooSchema = z.object({
+  id: z.string(),
+  organization: z.string(),
+  dateCreated: z.date(),
+  dateUpdated: z.date(),
+  name: z.string(),
+  // Use default() for properties that are optional when creating
+  projects: z.array(z.string()).default([])
+}).strict();
+```
 
-### Adding a new data model
+From this, you can export types to use throughout the front-end and back-end. These types are especially useful on the front-end to ensure full stack type safety.
 
-A good example to copy is `src/models/ProjectModel.ts`. A few things to note:
+```ts
+// File: back-end/types/foo.d.ts
+import { z } from "zod";
+import type { fooSchema } from "shared/validators";
+import { CreateProps, UpdateProps } from "shared/types/base-model";
 
-- The schema and model are NOT exported. The only thing
-- All methods which return documents are doing `toJSON()` first and returning plain objects instead of Mongoose objects
-- None of the "find" methods take a MongoDB query as input, they take explicit fields instead
+// Full interface
+export type FooInterface = z.infer<fooSchema>;
 
-All of the above help keep the database-specific logic constrained to the Model file, which is easier to maintain.
+// Helper types for the subset of fields that can be set when creating/updating
+// For example, you can't update 'id' after it's been created
+export type CreateFooProps = CreateProps<FooInterface>;
+export type UpdateFooProps = UpdateProps<FooInterface>;
+```
 
-In addition to the type definitions and the model file, you also probably want to add API endpoints to perform CRUD operations on your model. This is done with "controller" files.
+Create the data model class based on the schema.
 
-A good example to copy is `src/controllers/projects.ts`.
+```ts
+// File: back-end/src/models/FooModel.ts
+import { fooSchema } from "shared/validators";
+import { MakeModelClass } from "./BaseModel";
 
-Each API endpoint defined there:
+const BaseClass = MakeModelClass({
+  schema: fooValidator,
+  collectionName: "foos",
+  idPrefix: "foo_",
+  // You may need to add these to `back-end/src/types/Audit.ts` too
+  auditLog: {
+    entity: "foo",
+    createEvent: "foo.create",
+    updateEvent: "foo.update",
+    deleteEvent: "foo.delete",
+  },
+  // If true, `id` is globally unique across all orgs
+  // If false (default), the `organization`/`id` combo is unique.
+  globallyUniquePrimaryKeys: false,
+  readonlyFields: [],
+});
 
-1. Checks permissions
-2. Gets user inputs
-3. Performs validation (if needed)
-4. Calls exported Model functions to update the database
-5. Returns a response
+export class FooDataModel extends BaseClass {
+  // CRUD permission checks
+  protected canCreate(doc: FooInterface): boolean {
+    return this.context.permissions.canCreateFoo(doc);
+  }
+  protected canRead(doc: FooInterface): boolean {
+    return this.context.permissions.canReadFoo(doc);
+  }
+  protected canUpdate(
+    existing: FooInterface,
+    updates: UpdateProps<FooInterface>,
+  ): boolean {
+    return this.context.permissions.canUpdateFoo(existing, updates);
+  }
+  protected canDelete(doc: FooInterface): boolean {
+    return this.context.permissions.canDeleteFoo(doc);
+  }
+}
+```
 
-To make it available from the front-end, you'll need to import your controller and register the request handler functions in `src/app.ts`.
+And lastly, add it to the Request Context class:
+
+```ts
+// File: back-end/src/services/context.ts
+export class ReqContextClass {
+  public models!: {
+    // ...
+    foos: FooDataModel;
+  };
+  private initModels() {
+    this.models = {
+      // ...
+      foos: new FooDataModel(this),
+    };
+  }
+  // ...
+}
+```
+
+Now you can access it anywhere you have context and use the built-in methods:
+
+```ts
+const foo = await context.models.foos.getById("foo_123");
+if (!foo) throw new Error("Could not find foo");
+
+console.log("Old Name: ", foo.name);
+
+const newFoo = await context.models.foos.update(foo, { name: "New Name" });
+console.log("New Name: ", newFoo.name);
+```
+
+### Built-in Public Methods
+
+The following public methods are created automatically:
+
+- `getAll()`
+- `getById(id)`
+- `getByIds(ids)`
+- `create(data)`
+- `update(existing, changes)`
+- `updateById(id, changes)`
+- `delete(existing)`
+- `deleteById(id)`
+
+The `create`, `update`, and `updateById` methods accept either strongly typed arguments or `unknown`. Everything is validated before saving, so this is safe. This is useful when you want to pass in `req.body` directly without manually doing validation.
+
+### Custom Methods
+
+You can add more tailored data fetching methods as needed by referencing the `_findOne` and `_find` methods. There are similar protected methods for write operations, although those are rarely needed.
+
+Here's an example:
+
+```ts
+export class FooDataModel extends BaseClass {
+  // ...
+
+  public getByNames(names: string[]) {
+    return this._find({ name: { $in: names } });
+  }
+}
+```
+
+Note: Permission checks, migrations, etc. are all done automatically within the `_find` method, so you don't need to repeat any of that in your custom methods. Also, the `organization` field is automatically added to every query, so it will always be multi-tenant safe.
+
+### Hooks
+
+The following hooks are available, letting you add additional validation or perform trigger-like behavior without messing with data model internals. All of these besides `migrate` are async. Define these in your child class and they will be called at appropriate times.
+
+- `migrate(legacyObj): newObj`
+- `customValidation(obj, previousObj, writeOptions)` (called for both update/create flows; `previousObj` is only populated on update)
+- `beforeCreate(newObj)`
+- `afterCreate(newObj)`
+- `beforeUpdate(existing, updates, newObj)`
+- `afterUpdate(existing, updates, newObj)`
+- `afterCreateOrUpdate(newObj)`
+- `beforeDelete(existing)`
+- `afterDelete(existing)`
+
+Here's an example:
+
+```ts
+export class FooDataModel extends BaseClass {
+  // ...
+
+  protected async beforeDelete(existing: FooInterface) {
+    const barsUsingFoo = await getAllBarsUsingFoo(this.context, existing.id);
+    if (bars.length > 0) {
+      throw new Error("Cannot delete. One or more bars is linking to this foo");
+    }
+  }
+}
+```
+
+The order of hooks for create/update operations is as follows:
+
+1. customValidation
+2. beforeCreate
+3. afterCreate
+4. afterCreateOrUpdate
+
+### Foreign Keys
+
+It's common for data models to reference other models. For example, a `metric` references a `data source`. There is a helper function `getForeignRefs` you can call from any of the hooks above.
+
+Here's an example where a metric is using its data source for more advanced validation.
+
+```ts
+export class FactMetricModel extends BaseClass {
+  // ...
+  protected async customValidation(doc: FooInterface) {
+    if (doc.metricType === "quantile") {
+      const { datasource } = this.getForeignRefs(doc);
+
+      if (datasource?.type === "mysql") {
+        throw new Error("MySQL does not support quantile metrics");
+      }
+    }
+  }
+}
+```
+
+Foreign keys to experiments and data sources are detected automatically. This works as long as you use standard naming for fields (e.g. `datasource` or `datasourceId`).
+
+Other types of foreign keys can be easily added to the base model if needed.
+
+The `getForeignRefs` method has an optional second parameter. If `true` (the default), it will throw an Error if a foreign ref is not found. You can pass `false` instead to have it just skip that foreign ref instead.
+
+### Conditional validation/hooks
+
+Sometimes you need more control over your validation or hooks. For example, if you want to run really strict validation by default, but allow users to opt-out.
+
+This is accomplished with "Write Options". Pass this as a type hint into your BaseClass and it will be accepted as an extra argument to all write methods (create, update, delete) and will be forwarded along to all of your hooks.
+
+```ts
+// All properties MUST be optional. An empty object is the default value.
+type WriteOptions = {
+  skipTestQuery?: boolean;
+};
+
+export class FactMetricModel extends BaseClass<WriteOptions> {
+  // ...
+  protected async customValidation(doc, previousDoc, writeOptions) {
+    if (!writeOptions.skipTestQuery) {
+      // Run a test query against the data warehouse to make sure it works
+    }
+  }
+}
+```
+
+Now, this can be specified whenever calling create, update, or delete methods.
+
+```ts
+await context.models.factMetrics.updateById(
+  id,
+  { name: "New Name" },
+  { skipTestQuery: true },
+);
+```
 
 ## Tests
 
@@ -128,73 +348,13 @@ Let's say you want to add a REST endpoint to get a list of projects.
 
 ### OpenAPI Spec
 
-First, you would document the endpoint using OpenAPI:
-
-1. Describe the resource (Project) with a JSON schema: `src/api/openapi/schemas/Project.yaml`
-   ```yml
-   type: object
-   required:
-     - id
-     - name
-   properties:
-     id:
-       type: string
-     name:
-       type: string
-   ```
-2. Reference your schema in `src/api/openapi/schemas/_index.yaml`
-   ```yml
-   Project:
-     $ref: "./Project.yaml"
-   ```
-3. Describe the API endpoint in `src/api/openapi/paths/listProjects.yaml`
-   ```yml
-   get:
-     summary: Get all projects
-     tags:
-       - projects
-     parameters:
-       - $ref: "../parameters.yaml#/limit"
-       - $ref: "../parameters.yaml#/offset"
-     operationId: listProjects
-     x-codeSamples:
-       - lang: "cURL"
-         source: |
-           curl https://api.growthbook.io/api/v1/projects \
-             -u secret_abc123DEF456:
-     responses:
-       "200":
-         content:
-           application/json:
-             schema:
-               allOf:
-                 - type: object
-                   required:
-                     - projects
-                   properties:
-                     projects:
-                       type: array
-                       items:
-                         $ref: "../schemas/Project.yaml"
-                 - $ref: "../schemas/PaginationFields.yaml"
-   ```
-4. Add the endpoint to `src/api/openapi/openapi.yaml` under `paths`
-   ```yml
-   /projects:
-     $ref: "./paths/listProjects.yaml"
-   ```
-5. In the same `src/api/openapi/openapi.yaml` file, define the `projects` tag:
-   ```yml
-   - name: projects
-     x-displayName: Projects
-     description: Projects are used to organize your feature flags and experiments
-   ```
-
-We use a generator to automatically create Typescript types, Zod validators, and API documentation for all of our resources and endpoints. Any time you edit the `yaml` files, you will need to re-run this generator.
+The OpenAPI spec is auto-generated from Zod validators. Define your request/response schemas in `packages/shared/src/validators/` and the spec will be derived from them. After making changes to validators or API endpoints, regenerate the spec:
 
 ```bash
-yarn generate-api-types
+pnpm generate-openapi
 ```
+
+See `.cursor/rules/backend/api-patterns.md` for details on the spec-based pattern and `namedSchema` for model documentation.
 
 ### Router and Business Logic
 
@@ -202,40 +362,45 @@ Next, you'll need to create a helper function to convert from our internal DB in
 
 ```ts
 // src/models/ProjectModel.ts
-import { ApiProject } from "../../types/openapi";
-import { ProjectInterface } from "../../types/project";
+import { ApiProject } from "shared/validators";
+import { ProjectInterface } from "back-end/types/project";
 
-export function toProjectApiInterface(project: ProjectInterface): ApiProject {
-  return {
-    id: project.id,
-    name: project.name,
-  };
+export class ProjectModel extends BaseClass {
+  ...
+
+  public toApiInterface(project: ProjectInterface): ApiProject {
+    return {
+      id: project.id,
+      name: project.name,
+    };
+  }
 }
 ```
 
 Then, create a route for your endpoint at `src/api/projects/listProjects.ts`:
 
 ```ts
-import { ListProjectsResponse } from "../../../types/openapi";
+import { ListProjectsResponse } from "shared/validators";
 import {
-  findAllProjects,
-  toProjectApiInterface,
-} from "../../models/ProjectModel";
-import { applyPagination, createApiRequestHandler } from "../../util/handler";
-import { listProjectsValidator } from "../../validators/openapi";
+  applyPagination,
+  createApiRequestHandler,
+} from "back-end/src/util/handler";
+import { listProjectsValidator } from "shared/validators";
 
 export const listProjects = createApiRequestHandler(listProjectsValidator)(
   async (req): Promise<ListProjectsResponse> => {
-    const projects = await findAllProjects(req.organization.id);
+    const projects = await req.context.models.projects.getAll();
     const { filtered, returnFields } = applyPagination(
       projects.sort((a, b) => a.id.localeCompare(b.id)),
-      req.query
+      req.query,
     );
     return {
-      projects: filtered.map((project) => toProjectApiInterface(project)),
+      projects: filtered.map((project) =>
+        req.context.models.projects.toApiInterface(project),
+      ),
       ...returnFields,
     };
-  }
+  },
 );
 ```
 
@@ -345,42 +510,48 @@ Next, you'll need to set up the connection to your DB from within GrowthBook.
 
 ```sql
 SELECT
-  userId as user_id,
-  anonymousId as anonymous_id
+  user_id,
+  anonymous_id
 FROM
-  experiment_viewed
+  viewed_experiment
 ```
 
 6. Then, define an assignment query for logged-in users:
    - Identifier type: `user_id`
    - SQL:
+
    ```sql
    SELECT
-     userId as user_id,
+     user_id,
      timestamp as timestamp,
-     experimentId as experiment_id,
-     variationId as variation_id,
+     experiment_id,
+     variation_id,
      browser,
      country
    FROM
-     experiment_viewed
+     viewed_experiment
    ```
+
    - Dimension columns: `browser`, `country`
+
 7. And another assignment query for anonymous visitors:
    - Identifier type: `anonymous_id`
    - SQL:
+
    ```sql
    SELECT
-     anonymousId as anonymous_id,
+     anonymous_id,
      timestamp as timestamp,
-     experimentId as experiment_id,
-     variationId as variation_id,
+     experiment_id as experiment_id,
+     variation_id as variation_id,
      browser,
      country
    FROM
-     experiment_viewed
+     viewed_experiment
    ```
+
    - Dimension columns: `browser`, `country`
+
 8. Create a metric:
    - Name: `Purchased`
    - Type: `binomial`
@@ -388,8 +559,8 @@ FROM
    - SQL:
    ```sql
    SELECT
-     userId as user_id,
-     anonymousId as anonymous_id,
+     user_id,
+     anonymous_id,
      timestamp as timestamp
    FROM
      orders

@@ -1,273 +1,775 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import uniqid from "uniqid";
+import { v4 as uuidv4 } from "uuid";
 import mongoose, { FilterQuery } from "mongoose";
-import { Collection } from "mongodb";
+import { AnyBulkWriteOperation, Collection } from "mongodb";
 import omit from "lodash/omit";
 import { z } from "zod";
 import { isEqual, pick } from "lodash";
-import { ApiReqContext } from "../../types/api";
-import { ReqContext } from "../../types/organization";
-import { CreateProps, UpdateProps } from "../../types/models";
-import { logger } from "../util/logger";
-import { EventType } from "../../types/audit";
-import { EntityType } from "../types/Audit";
+import { evalCondition } from "@growthbook/growthbook";
+import { BaseSchemaWithPrimaryKey } from "shared/validators";
+import { CreateProps, UpdateProps } from "shared/types/base-model";
+import { EntityType, EventType } from "shared/types/audit";
+import { ApiReqContext } from "back-end/types/api";
+import { ReqContext } from "back-end/types/request";
+import { logger } from "back-end/src/util/logger";
 import {
-  auditDetailsCreate,
-  auditDetailsDelete,
-  auditDetailsUpdate,
-} from "../services/audit";
+  createModelAuditLogger,
+  type AuditLogConfig,
+} from "back-end/src/services/audit";
+import {
+  ForeignKeys,
+  ForeignRefs,
+  ForeignRefsCacheKeys,
+} from "back-end/src/services/context";
+import { ApiRequest } from "back-end/src/util/handler";
+import {
+  ApiBaseSchema,
+  ApiModelConfig,
+  CrudValidatorOverrides,
+  DefaultCrudValidators,
+} from "back-end/src/api/ApiModel";
+import { CrudAction } from "back-end/src/api/apiModelHandlers";
+import { dbSafeBulkWrite } from "back-end/src/util/mongo.util";
+import { generateId } from "back-end/src/util/uuid";
+import {
+  resolveOwnerEmail,
+  resolveOwnerEmails,
+  resolveOwnerToUserId,
+} from "back-end/src/services/owner";
 
 export type Context = ApiReqContext | ReqContext;
 
-export const baseSchema = z
-  .object({
-    id: z.string(),
-    organization: z.string(),
-    dateCreated: z.date(),
-    dateUpdated: z.date(),
-  })
-  .strict();
+type PKeyType<
+  T extends BaseSchemaWithPrimaryKey<PKey>,
+  PKey extends z.ZodRawShape,
+> = readonly [keyof z.infer<T>, ...(keyof z.infer<T>)[]];
+const DEFAULT_PKEY = ["id"] as const;
 
-export type BaseSchema = typeof baseSchema;
+export type ScopedFilterQuery<
+  T extends BaseSchemaWithPrimaryKey<PKey>,
+  PKey extends z.ZodRawShape,
+> = FilterQuery<Omit<z.infer<T>, "organization">>;
 
-export interface ModelConfig<T extends BaseSchema> {
+export type CreateZodObject<
+  T extends BaseSchemaWithPrimaryKey<PKey>,
+  PKey extends z.ZodRawShape,
+> = z.ZodType<CreateProps<z.infer<T>>>;
+
+export const createSchema = <
+  T extends BaseSchemaWithPrimaryKey<PKey>,
+  PKey extends z.ZodRawShape,
+>(
+  schema: T,
+) => {
+  const omitShape: Record<string, true> = {
+    organization: true,
+    dateCreated: true,
+    dateUpdated: true,
+  };
+  if ("id" in schema.shape) omitShape.id = true;
+  if ("uid" in schema.shape) omitShape.uid = true;
+  let output = schema.omit(omitShape) as z.ZodObject<z.ZodRawShape>;
+  if ("id" in schema.shape)
+    output = output.extend({ id: z.string().optional() });
+  if ("uid" in schema.shape)
+    output = output.extend({ uid: z.string().optional() });
+  return output.strict() as unknown as CreateZodObject<T, PKey>;
+};
+
+/**
+ * UpdateProps scoped to a specific model's primary key — forbids both the
+ * standard protected base fields AND whatever fields comprise the pKey.
+ *
+ * PK is the literal tuple of primary key field names (e.g. readonly ["id"]
+ * or readonly ["userId", "organization"]).  The tuple passed to MakeModelClass
+ * will be defined with `as const` so that PK[number] resolves to a narrow string
+ * literal union rather than just `string`.
+ */
+type PKeyUpdateProps<
+  T extends BaseSchemaWithPrimaryKey<PKey>,
+  PKey extends z.ZodRawShape,
+  PK extends readonly string[],
+> = UpdateProps<z.infer<T>, PK[number] & string>;
+
+export type UpdateZodObject<
+  T extends BaseSchemaWithPrimaryKey<PKey>,
+  PKey extends z.ZodRawShape,
+  PK extends readonly string[],
+> = z.ZodType<PKeyUpdateProps<T, PKey, PK>>;
+
+const updateSchema = <
+  T extends BaseSchemaWithPrimaryKey<PKey>,
+  PKey extends z.ZodRawShape,
+>(
+  schema: T,
+  pKey?: PKeyType<T, PKey>,
+) => {
+  const omitShape: Record<string, true> = {
+    organization: true,
+    dateCreated: true,
+    dateUpdated: true,
+  };
+  if ("id" in schema.shape) omitShape.id = true;
+  if ("uid" in schema.shape) omitShape.uid = true;
+  // Also omit custom primary key fields
+  if (pKey) {
+    for (const k of pKey) {
+      omitShape[k as string] = true;
+    }
+  }
+  return schema
+    .omit(omitShape)
+    .partial()
+    .strict() as unknown as UpdateZodObject<T, PKey, readonly string[]>;
+};
+
+// DeepPartial makes all properties (including nested) optional
+type DeepPartial<T> = T extends object
+  ? {
+      [P in keyof T]?: T[P] extends (infer U)[]
+        ? DeepPartial<U>[]
+        : T[P] extends readonly (infer U)[]
+          ? readonly DeepPartial<U>[]
+          : DeepPartial<T[P]>;
+    }
+  : T;
+
+/**
+ * Type-safe index field paths: top-level keys only, or dotted paths whose first
+ * segment is a top-level key (e.g. "nextScheduledStatusUpdate.date").
+ * Avoids deep recursion that would occur with fully recursive path types.
+ */
+export type IndexableFieldPath<T> = T extends object
+  ? keyof T extends string
+    ? keyof T | `${keyof T}.${string}`
+    : keyof T
+  : never;
+
+export interface ModelConfig<
+  T extends BaseSchemaWithPrimaryKey<PKey>,
+  Entity extends EntityType,
+  ApiT extends ApiBaseSchema,
+  PKey extends z.ZodRawShape,
+> {
   schema: T;
   collectionName: string;
+  /**
+   * Primary key field names. Omit for default ["id"]. Use e.g. ["userId", "organization"]
+   * for composite keys. Used for queries, updates, deletes, and index creation.
+   */
+  pKey?: PKeyType<T, PKey>;
   idPrefix?: string;
-  auditLog: {
-    entity: EntityType;
-    createEvent: EventType;
-    updateEvent: EventType;
-    deleteEvent: EventType;
-  };
-  projectScoping: "none" | "single" | "multiple";
-  globallyUniqueIds?: boolean;
+  auditLog?: AuditLogConfig<Entity>;
+  globallyUniquePrimaryKeys?: boolean;
   skipDateUpdatedFields?: (keyof z.infer<T>)[];
   readonlyFields?: (keyof z.infer<T>)[];
   additionalIndexes?: {
-    fields: Partial<
-      {
-        [key in keyof z.infer<T>]: 1 | -1;
-      }
-    >;
+    fields: Partial<Record<IndexableFieldPath<z.infer<T>>, 1 | -1>>;
     unique?: boolean;
   }[];
+  // NB: Names of indexes to remove
+  indexesToRemove?: string[];
+  baseQuery?: ScopedFilterQuery<T, PKey>;
+  apiConfig?: ApiModelConfig<ApiT>;
+  defaultValues?: DeepPartial<CreateProps<z.infer<T>>>;
 }
 
-// Global set to track which collections we've added indexes to already
-// We only need to add indexes once at server start-up
-const indexesAdded: Set<string> = new Set();
+// Global set to track which collections we've updated indexes for already
+// We only need to update indexes once at server start-up
+const indexesUpdated: Set<string> = new Set();
 
-export abstract class BaseModel<T extends BaseSchema> {
+// Global map to track pending index operations
+const pendingIndexOperations = new Map<string, Promise<string | void>[]>();
+
+// Helper function to wait for all pending index operations to complete
+export async function waitForIndexes(): Promise<void> {
+  const allPromises: Promise<string | void>[] = [];
+  for (const promises of pendingIndexOperations.values()) {
+    allPromises.push(...promises);
+  }
+  await Promise.allSettled(allPromises);
+  pendingIndexOperations.clear();
+}
+
+/**
+ * Extracts the Zod schema type for a specific slot (paramsSchema/bodySchema/querySchema)
+ * for a specific CRUD action from the model's crudValidatorOverrides type (CVO).
+ * Falls back to DefaultCrudValidators when no override is defined for that action/slot,
+ * preserving structural guarantees (e.g. params.id on delete/get/update).
+ *
+ * CVO is inferred from the concrete crudValidatorOverrides value passed to MakeModelClass,
+ * so handleApi* override signatures in subclasses are automatically derived from the validators
+ * without requiring explicit type annotations on the req parameter.
+ */
+type ExtractCrudSchema<
+  CVO extends CrudValidatorOverrides,
+  Action extends CrudAction,
+  Slot extends "paramsSchema" | "bodySchema" | "querySchema",
+> =
+  CVO extends Record<Action, Record<Slot, infer Validator>>
+    ? Validator extends z.ZodTypeAny
+      ? Validator
+      : DefaultCrudValidators[Action][Slot]
+    : DefaultCrudValidators[Action][Slot];
+
+// Generic model class has everything but the actual data fetch implementation.
+// See BaseModel below for the class with explicit mongodb implementation.
+export abstract class BaseModel<
+  T extends BaseSchemaWithPrimaryKey<PKey>,
+  E extends EntityType,
+  ApiT extends ApiBaseSchema,
+  PKey extends z.ZodRawShape,
+  WriteOptions = never,
+  PK extends readonly string[] = readonly ["id"],
+  CVO extends CrudValidatorOverrides = CrudValidatorOverrides,
+> {
+  public validator: T;
+  public createValidator: CreateZodObject<T, PKey>;
+  public updateValidator: UpdateZodObject<T, PKey, PK>;
+
   protected context: Context;
+  protected config: ModelConfig<T, E, ApiT, PKey>;
+  private _auditLogger: ReturnType<typeof createModelAuditLogger> | null;
+
   public constructor(context: Context) {
     this.context = context;
     this.config = this.getConfig();
-    this.addIndexes();
+    this.validator = this.config.schema;
+    this.createValidator = this.getCreateValidator();
+    this.updateValidator = this.getUpdateValidator();
+    this._auditLogger = this.config.auditLog
+      ? createModelAuditLogger(this.config.auditLog, (doc: object) =>
+          this.getEntityId(doc as z.infer<T>),
+        )
+      : null;
+    this.updateIndexes();
+  }
+
+  protected getPKey(): PKeyType<T, PKey> {
+    return (this.config.pKey ?? DEFAULT_PKEY) as PKeyType<T, PKey>;
+  }
+
+  protected getPrimaryKeyFilter(doc: z.infer<T>) {
+    const keys = this.getPKey();
+    return pick(doc, keys);
+  }
+
+  // String id for audit log entity (single key: value; composite: JSON)
+  protected getEntityId(doc: z.infer<T>): string {
+    const filter = this.getPrimaryKeyFilter(doc);
+    const values = Object.values(filter);
+    if (values.length === 1) return String(values[0]);
+    return JSON.stringify(filter);
   }
 
   /***************
    * Required methods that MUST be overridden by subclasses
    ***************/
-  protected config: ModelConfig<T>;
-  protected abstract getConfig(): ModelConfig<T>;
   protected abstract canRead(doc: z.infer<T>): boolean;
   protected abstract canCreate(doc: z.infer<T>): boolean;
   protected abstract canUpdate(
     existing: z.infer<T>,
-    updates: UpdateProps<z.infer<T>>,
-    newDoc: z.infer<T>
+    updates: PKeyUpdateProps<T, PKey, PK>,
+    newDoc: z.infer<T>,
   ): boolean;
   protected abstract canDelete(existing: z.infer<T>): boolean;
 
   /***************
    * Optional methods that can be overridden by subclasses as needed
    ***************/
+  protected useConfigFile(): boolean {
+    return false;
+  }
+  protected hasPremiumFeature(): boolean {
+    return true;
+  }
+  protected getConfigDocuments(): z.infer<T>[] {
+    return [];
+  }
+  protected async filterByReadPermissions(
+    docs: z.infer<T>[],
+  ): Promise<z.infer<T>[]> {
+    await this.populateForeignRefs(docs);
+
+    const filtered: z.infer<T>[] = [];
+    for (const doc of docs) {
+      try {
+        if (this.canRead(doc)) {
+          filtered.push(doc);
+        }
+      } catch (e) {
+        // Ignore errors when trying to read, just remove it from the list
+      }
+    }
+    return filtered;
+  }
   protected migrate(legacyDoc: unknown): z.infer<T> {
     return legacyDoc as z.infer<T>;
   }
-  protected async customValidation(doc: z.infer<T>) {
+  protected toApiInterface(doc: z.infer<T>): z.infer<ApiT> {
+    return {
+      ...doc,
+      dateCreated: doc.dateCreated.toISOString(),
+      dateUpdated: doc.dateUpdated.toISOString(),
+    } as z.infer<ApiT>;
+  }
+  protected async customValidation(
+    doc: z.infer<T>,
+    previousDoc?: z.infer<T>,
+    writeOptions?: WriteOptions,
+  ) {
     // Do nothing by default
   }
-  protected async beforeCreate(doc: z.infer<T>) {
+  protected async beforeCreate(doc: z.infer<T>, writeOptions?: WriteOptions) {
     // Do nothing by default
   }
-  protected async afterCreate(doc: z.infer<T>) {
+  protected async afterCreate(doc: z.infer<T>, writeOptions?: WriteOptions) {
     // Do nothing by default
   }
   protected async beforeUpdate(
     existing: z.infer<T>,
-    updates: UpdateProps<z.infer<T>>,
-    newDoc: z.infer<T>
+    updates: PKeyUpdateProps<T, PKey, PK>,
+    newDoc: z.infer<T>,
+    writeOptions?: WriteOptions,
   ) {
     // Do nothing by default
   }
   protected async afterUpdate(
     existing: z.infer<T>,
-    updates: UpdateProps<z.infer<T>>,
-    newDoc: z.infer<T>
+    updates: PKeyUpdateProps<T, PKey, PK>,
+    newDoc: z.infer<T>,
+    writeOptions?: WriteOptions,
   ) {
     // Do nothing by default
   }
-  protected async beforeDelete(doc: z.infer<T>) {
+  protected async beforeDelete(doc: z.infer<T>, writeOptions?: WriteOptions) {
     // Do nothing by default
   }
-  protected async afterDelete(doc: z.infer<T>) {
+  protected async afterDelete(doc: z.infer<T>, writeOptions?: WriteOptions) {
     // Do nothing by default
+  }
+  protected async afterCreateOrUpdate(
+    doc: z.infer<T>,
+    writeOptions?: WriteOptions,
+  ) {
+    // Do nothing by default
+  }
+
+  protected getForeignKeys(doc: z.infer<T>): ForeignKeys {
+    const keys: ForeignKeys = {};
+
+    // Experiment
+    const experiment = this.detectForeignKey(doc, [
+      "experiment",
+      "experimentId",
+    ]);
+    if (experiment) {
+      keys.experiment = experiment;
+    }
+
+    // Datasource
+    const datasource = this.detectForeignKey(doc, [
+      "datasource",
+      "datasourceId",
+    ]);
+    if (datasource) {
+      keys.datasource = datasource;
+    }
+
+    // Metric
+    const metric = this.detectForeignKey(doc, ["metric", "metricId"]);
+    if (metric) {
+      keys.metric = metric;
+    }
+
+    const feature = this.detectForeignKey(doc, ["feature", "featureId"]);
+    if (feature) {
+      keys.feature = feature;
+    }
+
+    // Polymorphic entityType/entityId reference (e.g. ramp schedules)
+    const entityId = this.detectForeignKey(doc, ["entityId"]);
+    const entityType =
+      "entityType" in doc &&
+      typeof doc["entityType" as keyof z.infer<T>] === "string"
+        ? (doc["entityType" as keyof z.infer<T>] as string)
+        : undefined;
+    if (
+      entityId &&
+      entityType &&
+      (entityType === "experiment" ||
+        entityType === "datasource" ||
+        entityType === "metric" ||
+        entityType === "feature") &&
+      !keys[entityType]
+    ) {
+      keys[entityType] = entityId;
+    }
+
+    return keys;
+  }
+
+  public async handleApiGet(
+    req: ApiRequest<
+      unknown,
+      ExtractCrudSchema<CVO, "get", "paramsSchema">,
+      ExtractCrudSchema<CVO, "get", "bodySchema">,
+      ExtractCrudSchema<CVO, "get", "querySchema">
+    >,
+  ): Promise<z.infer<ApiT>> {
+    const { id } = req.params as { id: string };
+    const doc = await this.getById(id);
+    if (!doc) req.context.throwNotFoundError();
+    return resolveOwnerEmail(this.toApiInterface(doc), this.context);
+  }
+  public async handleApiCreate(
+    req: ApiRequest<
+      unknown,
+      ExtractCrudSchema<CVO, "create", "paramsSchema">,
+      ExtractCrudSchema<CVO, "create", "bodySchema">,
+      ExtractCrudSchema<CVO, "create", "querySchema">
+    >,
+  ): Promise<z.infer<ApiT>> {
+    const rawBody = req.body;
+    const toCreate = await this.processApiCreateBody(rawBody);
+    return resolveOwnerEmail(
+      this.toApiInterface(await this.create(toCreate)),
+      this.context,
+    );
+  }
+  protected async processApiCreateBody(
+    rawBody: unknown,
+  ): Promise<CreateProps<z.infer<T>>> {
+    return rawBody as CreateProps<z.infer<T>>;
+  }
+  public async handleApiList(
+    _req: ApiRequest<
+      unknown,
+      ExtractCrudSchema<CVO, "list", "paramsSchema">,
+      ExtractCrudSchema<CVO, "list", "bodySchema">,
+      ExtractCrudSchema<CVO, "list", "querySchema">
+    >,
+  ): Promise<z.infer<ApiT>[]> {
+    return resolveOwnerEmails(
+      (await this.getAll()).map((doc) => this.toApiInterface(doc)),
+      this.context,
+    );
+  }
+  public async handleApiDelete(
+    req: ApiRequest<
+      unknown,
+      ExtractCrudSchema<CVO, "delete", "paramsSchema">,
+      ExtractCrudSchema<CVO, "delete", "bodySchema">,
+      ExtractCrudSchema<CVO, "delete", "querySchema">
+    >,
+  ): Promise<string> {
+    const { id } = req.params as { id: string };
+    await this.deleteById(id);
+    return id;
+  }
+  public async handleApiUpdate(
+    req: ApiRequest<
+      unknown,
+      ExtractCrudSchema<CVO, "update", "paramsSchema">,
+      ExtractCrudSchema<CVO, "update", "bodySchema">,
+      ExtractCrudSchema<CVO, "update", "querySchema">
+    >,
+  ): Promise<z.infer<ApiT>> {
+    const { id } = req.params as { id: string };
+    const rawBody = req.body;
+    const toUpdate = await this.processApiUpdateBody(rawBody);
+    return resolveOwnerEmail(
+      this.toApiInterface(await this.updateById(id, toUpdate)),
+      this.context,
+    );
+  }
+  protected async processApiUpdateBody(
+    rawBody: unknown,
+  ): Promise<PKeyUpdateProps<T, PKey, PK>> {
+    return rawBody as PKeyUpdateProps<T, PKey, PK>;
+  }
+
+  /***************
+   * These methods are implemented by the MakeModelClass helper function
+   ***************/
+  protected abstract getConfig(): ModelConfig<T, E, ApiT, PKey>;
+  protected abstract getCreateValidator(): CreateZodObject<T, PKey>;
+  protected abstract getUpdateValidator(): UpdateZodObject<T, PKey, PK>;
+  public static getModelConfig() {
+    throw new Error("Method not implemented! Use derived class");
   }
 
   /***************
    * Built-in public methods
    ***************/
   public getById(id: string) {
+    this._assertHasIdField();
+    if (typeof id !== "string") {
+      throw new Error("Invalid id");
+    }
+    if (!id) return Promise.resolve(null);
+
     return this._findOne({ id });
   }
   public getByIds(ids: string[]) {
+    this._assertHasIdField();
+    // Make sure ids is an array of strings
+    if (!Array.isArray(ids) || !ids.every((id) => typeof id === "string")) {
+      throw new Error("Invalid ids");
+    }
+    if (!ids.length) return Promise.resolve([]);
+
     return this._find({ id: { $in: ids } });
   }
   public getAll() {
     return this._find();
   }
-  public getAllByProject(project: string | undefined) {
-    if (this.config.projectScoping === "none") {
-      throw new Error("This model does not support projects");
+  public create(
+    props: CreateProps<z.infer<T>>,
+    writeOptions?: WriteOptions,
+  ): Promise<z.infer<T>> {
+    if (!this.hasPremiumFeature()) {
+      throw new Error(
+        "Your organization does not have access to this feature.",
+      );
     }
-
-    // If the project is empty, return all
-    if (!project) return this._find();
-
-    return this._find(
-      this.config.projectScoping === "single"
-        ? { project }
-        : { projects: project }
-    );
+    return this._createOne(props, writeOptions);
   }
-  public create(props: unknown | CreateProps<z.infer<T>>): Promise<z.infer<T>> {
-    return this._createOne(props);
+  public dangerousCreateBypassPermission(
+    props: CreateProps<z.infer<T>>,
+    writeOptions?: WriteOptions,
+  ): Promise<z.infer<T>> {
+    return this._createOne(props, writeOptions, true);
   }
   public update(
     existing: z.infer<T>,
-    updates: unknown | UpdateProps<z.infer<T>>
+    updates: PKeyUpdateProps<T, PKey, PK>,
+    writeOptions?: WriteOptions,
   ): Promise<z.infer<T>> {
-    return this._updateOne(existing, updates);
+    if (!this.hasPremiumFeature()) {
+      throw new Error(
+        "Your organization does not have access to this feature.",
+      );
+    }
+    return this._updateOne(existing, updates, { writeOptions });
+  }
+  public async dangerousUpdateBypassPermission(
+    existing: z.infer<T>,
+    updates: PKeyUpdateProps<T, PKey, PK>,
+    writeOptions?: WriteOptions,
+  ): Promise<z.infer<T>> {
+    return this._updateOne(existing, updates, {
+      writeOptions,
+      forceCanUpdate: true,
+    });
+  }
+  public async dangerousUpdateByIdBypassPermission(
+    id: string,
+    updates: PKeyUpdateProps<T, PKey, PK>,
+    writeOptions?: WriteOptions,
+  ): Promise<z.infer<T>> {
+    this._assertHasIdField();
+    const existing = await this.getById(id);
+    if (!existing) {
+      throw new Error("Could not find resource to update");
+    }
+    return this._updateOne(existing, updates, {
+      writeOptions,
+      forceCanUpdate: true,
+    });
   }
   public async updateById(
     id: string,
-    updates: unknown | UpdateProps<z.infer<T>>
+    updates: PKeyUpdateProps<T, PKey, PK>,
+    writeOptions?: WriteOptions,
   ): Promise<z.infer<T>> {
+    this._assertHasIdField();
     const existing = await this.getById(id);
     if (!existing) {
-      throw new Error("Could not find fact metric");
+      throw new Error("Could not find resource to update");
     }
-    return this._updateOne(existing, updates);
+    return this._updateOne(existing, updates, { writeOptions });
   }
-  public delete(existing: z.infer<T>): Promise<void> {
-    return this._deleteOne(existing);
+  public async delete(
+    existing: z.infer<T>,
+    writeOptions?: WriteOptions,
+  ): Promise<z.infer<T> | undefined> {
+    await this._deleteOne(existing, writeOptions);
+    return existing;
   }
-  public async deleteById(id: string): Promise<void> {
+  public async deleteById(
+    id: string,
+    writeOptions?: WriteOptions,
+  ): Promise<z.infer<T> | undefined> {
+    this._assertHasIdField();
     const existing = await this.getById(id);
     if (!existing) {
       // If it doesn't exist, maybe it was deleted already. No need to throw an error.
       return;
     }
-    return this._deleteOne(existing);
+    await this._deleteOne(existing, writeOptions);
+    return existing;
   }
 
   /***************
    * Internal methods that can be used by subclasses
    ***************/
   protected _generateId() {
-    return uniqid(this.config.idPrefix);
+    return generateId(this.config.idPrefix);
   }
+  protected _generateUid() {
+    return uuidv4().replace(/-/g, "");
+  }
+
+  /**
+   * Recursively applies default values to props, only setting values that are undefined.
+   * Handles nested objects by merging them deeply.
+   */
+  protected _applyDefaultValues(
+    props: Record<string, unknown>,
+    defaults: Record<string, unknown>,
+  ): void {
+    for (const [key, defaultValue] of Object.entries(defaults)) {
+      const currentValue = props[key];
+
+      if (currentValue === undefined) {
+        // If the value is undefined, apply the default
+        props[key] = defaultValue;
+      } else if (
+        defaultValue !== null &&
+        typeof defaultValue === "object" &&
+        !Array.isArray(defaultValue) &&
+        currentValue !== null &&
+        typeof currentValue === "object" &&
+        !Array.isArray(currentValue)
+      ) {
+        // If both are objects (not arrays), recursively merge nested defaults
+        this._applyDefaultValues(
+          currentValue as Record<string, unknown>,
+          defaultValue as Record<string, unknown>,
+        );
+      }
+    }
+  }
+
   protected async _find(
-    query: FilterQuery<Omit<z.infer<T>, "organization">> = {},
+    query: ScopedFilterQuery<T, PKey> = {},
     {
       sort,
       limit,
       skip,
+      bypassReadPermissionChecks,
+      bypassSanitization,
+      projection,
+      dangerousCrossOrganization,
     }: {
-      sort?: Partial<
-        {
-          [key in keyof Omit<z.infer<T>, "organization">]: 1 | -1;
-        }
-      >;
+      sort?: Partial<{
+        [key in keyof Omit<z.infer<T>, "organization">]: 1 | -1;
+      }>;
       limit?: number;
       skip?: number;
-    } = {}
+      bypassReadPermissionChecks?: boolean;
+      bypassSanitization?: boolean;
+      // Note: projection does not work when using config.yml
+      projection?: Partial<Record<keyof z.infer<T>, 0 | 1>>;
+      dangerousCrossOrganization?: boolean;
+    } = {},
   ) {
-    const queryWithOrg = {
-      organization: this.context.org.id,
-      ...query,
-    };
-    const cursor = this._dangerousGetCollection().find(queryWithOrg);
+    const fullQuery = this.applyBaseQuery(query, dangerousCrossOrganization);
+    let rawDocs;
 
-    sort &&
-      cursor.sort(
-        sort as {
-          [key: string]: 1 | -1;
-        }
-      );
+    if (this.useConfigFile()) {
+      const docs =
+        this.getConfigDocuments().filter((doc) =>
+          evalCondition(doc, fullQuery),
+        ) || [];
 
-    // If there's no project field, we can apply the range filter in the query
-    // Otherwise, we need to apply it in code after we check read access
-    if (this.config.projectScoping === "none") {
-      if (skip) cursor.skip(skip);
-      if (limit) cursor.limit(limit);
-    }
+      sort &&
+        docs.sort((a, b) => {
+          for (const key in sort) {
+            const typedKey = key as keyof z.infer<T>;
+            const sortDir = sort[typedKey] as 1 | -1;
 
-    const docs: z.infer<T>[] = [];
-    let i = -1;
-    for await (const doc of cursor) {
-      const migrated = this.migrate(this._removeMongooseFields(doc));
+            if (a[typedKey] < b[typedKey]) return -1 * sortDir;
+            if (a[typedKey] > b[typedKey]) return 1 * sortDir;
+          }
+          return 0;
+        });
 
-      // Filter out any docs the user doesn't have access to read
-      if (this.config.projectScoping !== "none") {
-        if (!this.canRead(migrated)) {
-          continue;
-        }
-
-        i++;
-
-        // Apply range filter (skip/limit)
-        if (skip && i < skip) continue;
-        if (limit && i >= (skip || 0) + limit) break;
+      rawDocs = docs;
+    } else {
+      const cursor = this._dangerousGetCollection().find(fullQuery);
+      if (projection) {
+        cursor.project(projection);
       }
-
-      docs.push(migrated);
+      sort &&
+        cursor.sort(
+          sort as {
+            [key: string]: 1 | -1;
+          },
+        );
+      rawDocs = await cursor.toArray();
     }
 
-    return docs;
+    if (!rawDocs.length) return [];
+
+    const migrated = rawDocs.map((d) =>
+      this.migrate(this._removeMongooseFields(d)),
+    );
+    const filtered = bypassReadPermissionChecks
+      ? migrated
+      : await this.filterByReadPermissions(migrated);
+
+    const paged =
+      !skip && !limit
+        ? filtered
+        : filtered.slice(skip || 0, limit ? (skip || 0) + limit : undefined);
+
+    return bypassSanitization ? paged : paged.map((doc) => this.sanitize(doc));
   }
 
   protected async _findOne(
-    query: FilterQuery<Omit<z.infer<T>, "organization">>
+    query: ScopedFilterQuery<T, PKey>,
+    { bypassSanitization }: { bypassSanitization?: boolean } = {},
   ) {
-    const doc = await this._dangerousGetCollection().findOne({
-      ...query,
-      organization: this.context.org.id,
-    });
+    const fullQuery = this.applyBaseQuery(query);
+    const doc = this.useConfigFile()
+      ? this.getConfigDocuments().find((doc) => evalCondition(doc, fullQuery))
+      : await this._dangerousGetCollection().findOne(fullQuery);
     if (!doc) return null;
 
     const migrated = this.migrate(this._removeMongooseFields(doc));
-    if (this.config.projectScoping !== "none") {
-      if (!this.canRead(migrated)) {
-        return null;
-      }
+
+    await this.populateForeignRefs([migrated]);
+    if (!this.canRead(migrated)) {
+      return null;
     }
 
-    return migrated;
+    return bypassSanitization ? migrated : this.sanitize(migrated);
   }
 
-  protected async _createOne(rawData: unknown | CreateProps<z.infer<T>>) {
-    const props = this.config.schema
-      .omit({ organization: true, dateCreated: true, dateUpdated: true })
-      .partial({ id: true })
-      .parse(rawData) as CreateProps<z.infer<T>>;
+  // Remove or transform any sensitive fields before returning to users
+  protected sanitize(doc: z.infer<T>): z.infer<T> {
+    return doc;
+  }
 
-    if (this.config.globallyUniqueIds && "id" in props) {
-      throw new Error("Cannot set a custom id for this model");
+  protected async _createOne(
+    rawData: CreateProps<z.infer<T>>,
+    writeOptions?: WriteOptions,
+    forceCanCreate?: boolean,
+  ) {
+    // Apply default values BEFORE parsing to ensure required fields with defaults are populated
+    const dataWithDefaults = { ...rawData };
+    if (this.config.defaultValues) {
+      this._applyDefaultValues(
+        dataWithDefaults as Record<string, unknown>,
+        this.config.defaultValues as Record<string, unknown>,
+      );
     }
+
+    const props = this.createValidator.parse(dataWithDefaults);
+
     if ("organization" in props) {
       throw new Error("Cannot set organization field");
     }
@@ -278,49 +780,60 @@ export abstract class BaseModel<T extends BaseSchema> {
       throw new Error("Cannot set dateUpdated field");
     }
 
-    // Add default owner if empty
-    if ("owner" in props && !props.owner) {
-      props.owner = this.context.userName || "";
+    // Resolve owner from email/name to userId if needed, then fall back to current user
+    if ("owner" in props) {
+      if (typeof props.owner === "string" && props.owner) {
+        props.owner = await resolveOwnerToUserId(props.owner, this.context);
+      }
+      if (!props.owner) {
+        props.owner = this.context.userId || "";
+      }
+    }
+
+    if ("createdBy" in props && !props.createdBy) {
+      props.createdBy = this.context.userName || "";
+    }
+
+    const generatedIds: Record<string, string> = {};
+    if ("id" in this.config.schema.shape) {
+      generatedIds.id = this._generateId();
+    }
+    if ("uid" in this.config.schema.shape) {
+      generatedIds.uid = this._generateUid();
     }
 
     const doc = {
-      id: this._generateId(),
+      ...generatedIds,
       ...props,
       organization: this.context.org.id,
       dateCreated: new Date(),
       dateUpdated: new Date(),
     } as z.infer<T>;
 
-    if (!this.canCreate(doc)) {
+    await this.populateForeignRefs([doc]);
+    if (!forceCanCreate && !this.canCreate(doc)) {
       throw new Error("You do not have access to create this resource");
     }
 
-    await this._standardFieldValidation(doc);
-    await this.customValidation(doc);
+    await this.validateProjectFields(doc);
+    await this.customValidation(doc, undefined, writeOptions);
 
-    await this.beforeCreate(doc);
-
-    await this._dangerousGetCollection().insertOne(doc);
-
-    try {
-      await this.context.auditLog({
-        entity: {
-          object: this.config.auditLog.entity,
-          id: doc.id,
-          name:
-            ("name" in doc && typeof doc.name === "string" && doc.name) || "",
-        },
-        event: this.config.auditLog.createEvent,
-        details: auditDetailsCreate(doc),
-      });
-    } catch (e) {
-      this.context.logger.error(
-        e,
-        `Error creating audit log for ${this.config.auditLog.createEvent}`
+    if (this.useConfigFile()) {
+      throw new Error(
+        `Cannot create - ${this.config.collectionName} are being managed by config.yml`,
       );
     }
 
-    await this.afterCreate(doc);
+    await this.beforeCreate(doc, writeOptions);
+
+    await this._dangerousGetCollection().insertOne(doc);
+
+    if (this._auditLogger) {
+      await this._auditLogger.logCreate(this.context, doc);
+    }
+
+    await this.afterCreate(doc, writeOptions);
+    await this.afterCreateOrUpdate(doc, writeOptions);
 
     // Add tags if needed
     if ("tags" in doc && Array.isArray(doc.tags)) {
@@ -332,20 +845,23 @@ export abstract class BaseModel<T extends BaseSchema> {
 
   protected async _updateOne(
     doc: z.infer<T>,
-    rawUpdates: unknown | UpdateProps<z.infer<T>>,
+    updates: PKeyUpdateProps<T, PKey, PK>,
     options?: {
       auditEvent?: EventType;
-    }
+      writeOptions?: WriteOptions;
+      forceCanUpdate?: boolean;
+    },
   ) {
-    let updates = this.config.schema
-      .omit({
-        organization: true,
-        dateCreated: true,
-        dateUpdated: true,
-        id: true,
-      })
-      .partial()
-      .parse(rawUpdates) as UpdateProps<z.infer<T>>;
+    updates = this.updateValidator.parse(updates);
+
+    // Resolve owner from email to userId if needed
+    if (
+      "owner" in updates &&
+      typeof updates.owner === "string" &&
+      updates.owner
+    ) {
+      updates.owner = await resolveOwnerToUserId(updates.owner, this.context);
+    }
 
     // Only consider updates that actually change the value
     const updatedFields = Object.entries(updates)
@@ -360,12 +876,12 @@ export abstract class BaseModel<T extends BaseSchema> {
 
     // Make sure the updates don't include any fields that shouldn't be updated
     if (
-      ["id", "organization", "dateCreated", "dateUpdated"].some(
-        (k) => k in updates
+      ["id", "uid", "organization", "dateCreated", "dateUpdated"].some(
+        (k) => k in updates,
       )
     ) {
       throw new Error(
-        "Cannot update id, organization, dateCreated, or dateUpdated"
+        "Cannot update id, uid, organization, dateCreated, or dateUpdated",
       );
     }
 
@@ -373,14 +889,14 @@ export abstract class BaseModel<T extends BaseSchema> {
       const readonlyFields = new Set(this.config.readonlyFields);
       if (updatedFields.some((field) => readonlyFields.has(field))) {
         throw new Error(
-          "Cannot update readonly fields: " + [...readonlyFields].join(", ")
+          "Cannot update readonly fields: " + [...readonlyFields].join(", "),
         );
       }
     }
 
     // Only set dateUpdated if at least one important field has changed
     const setDateUpdated = updatedFields.some(
-      (field) => !this.config.skipDateUpdatedFields?.includes(field)
+      (field) => !this.config.skipDateUpdatedFields?.includes(field),
     );
 
     const allUpdates = {
@@ -390,49 +906,45 @@ export abstract class BaseModel<T extends BaseSchema> {
 
     const newDoc = { ...doc, ...allUpdates } as z.infer<T>;
 
-    if (!this.canUpdate(doc, updates, newDoc)) {
+    await this.populateForeignRefs([newDoc]);
+
+    if (!options?.forceCanUpdate && !this.canUpdate(doc, updates, newDoc)) {
       throw new Error("You do not have access to update this resource");
     }
 
-    await this._standardFieldValidation(updates as Partial<z.infer<T>>);
+    await this.validateProjectFields(updates as Partial<z.infer<T>>);
 
-    await this.beforeUpdate(doc, updates, newDoc);
-
-    await this.customValidation(newDoc);
-
-    await this._dangerousGetCollection().updateOne(
-      {
-        organization: this.context.org.id,
-        id: doc.id || "",
-      },
-      {
-        $set: allUpdates,
-      }
-    );
-
-    const auditEvent = options?.auditEvent || this.config.auditLog.updateEvent;
-    try {
-      await this.context.auditLog({
-        entity: {
-          object: this.config.auditLog.entity,
-          id: doc.id,
-          name:
-            ("name" in newDoc &&
-              typeof newDoc.name === "string" &&
-              newDoc.name) ||
-            "",
-        },
-        event: auditEvent,
-        details: auditDetailsUpdate(doc, newDoc),
-      });
-    } catch (e) {
-      this.context.logger.error(
-        e,
-        `Error creating audit log for ${auditEvent}`
+    if (this.useConfigFile()) {
+      throw new Error(
+        `Cannot update - ${this.config.collectionName} are being managed by config.yml`,
       );
     }
 
-    await this.afterUpdate(doc, updates, newDoc);
+    await this.beforeUpdate(doc, updates, newDoc, options?.writeOptions);
+
+    await this.customValidation(newDoc, doc, options?.writeOptions);
+
+    await this._dangerousGetCollection().updateOne(
+      {
+        ...this.getPrimaryKeyFilter(doc),
+        organization: this.context.org.id,
+      },
+      {
+        $set: allUpdates,
+      },
+    );
+
+    if (this._auditLogger) {
+      await this._auditLogger.logUpdate(
+        this.context,
+        doc,
+        newDoc,
+        options?.auditEvent,
+      );
+    }
+
+    await this.afterUpdate(doc, updates, newDoc, options?.writeOptions);
+    await this.afterCreateOrUpdate(newDoc, options?.writeOptions);
 
     // Update tags if needed
     if ("tags" in newDoc && Array.isArray(newDoc.tags)) {
@@ -442,35 +954,119 @@ export abstract class BaseModel<T extends BaseSchema> {
     return newDoc;
   }
 
-  protected async _deleteOne(doc: z.infer<T>) {
+  protected async _dangerousCountDocumentsCrossOrganization(
+    filter: ScopedFilterQuery<T, PKey>,
+  ) {
+    return this._dangerousGetCollection().countDocuments(filter);
+  }
+
+  protected async _countDocuments(filter: ScopedFilterQuery<T, PKey>) {
+    const query = this.applyBaseQuery(filter);
+    return this._dangerousGetCollection().countDocuments(query);
+  }
+
+  protected async _dangerousBulkWriteCrossOrganization(
+    operations: AnyBulkWriteOperation[],
+  ) {
+    return dbSafeBulkWrite(this._dangerousGetCollection(), operations);
+  }
+
+  protected async bulkWrite(operations: AnyBulkWriteOperation[]) {
+    return dbSafeBulkWrite(
+      this._dangerousGetCollection(),
+      operations.map((op) => {
+        if ("insertOne" in op) {
+          return {
+            insertOne: {
+              ...op.insertOne,
+              document: {
+                ...op.insertOne.document,
+                organization: this.context.org.id,
+              },
+            },
+          };
+        } else if ("updateOne" in op) {
+          return {
+            updateOne: {
+              ...op.updateOne,
+              filter: this.applyBaseQuery(op.updateOne.filter),
+            },
+          };
+        }
+        return this.context.throwInternalServerError(
+          "Unsupported bulkWrite operation type in BaseModel#bulkWrite",
+        );
+      }),
+    );
+  }
+
+  protected async _deleteOne(doc: z.infer<T>, writeOptions?: WriteOptions) {
     if (!this.canDelete(doc)) {
       throw new Error("You do not have access to delete this resource");
     }
-    await this.beforeDelete(doc);
-    await this._dangerousGetCollection().deleteOne({
-      organization: this.context.org.id,
-      id: doc.id,
-    });
 
-    try {
-      await this.context.auditLog({
-        entity: {
-          object: this.config.auditLog.entity,
-          id: doc.id,
-          name:
-            ("name" in doc && typeof doc.name === "string" && doc.name) || "",
-        },
-        event: this.config.auditLog.deleteEvent,
-        details: auditDetailsDelete(doc),
-      });
-    } catch (e) {
-      this.context.logger.error(
-        e,
-        `Error creating audit log for ${this.config.auditLog.deleteEvent}`
+    if (this.useConfigFile()) {
+      throw new Error(
+        `Cannot delete - ${this.config.collectionName} are being managed by config.yml`,
       );
     }
+    await this.beforeDelete(doc, writeOptions);
+    await this._dangerousGetCollection().deleteOne({
+      ...this.getPrimaryKeyFilter(doc),
+      organization: this.context.org.id,
+    });
 
-    await this.afterDelete(doc);
+    if (this._auditLogger) {
+      await this._auditLogger.logDelete(this.context, doc);
+    }
+
+    await this.afterDelete(doc, writeOptions);
+  }
+
+  protected detectForeignKey(
+    doc: z.infer<T>,
+    potentialFields: string[],
+  ): string | null {
+    for (const field of potentialFields) {
+      if (
+        field in doc &&
+        doc[field as keyof z.infer<T>] &&
+        typeof doc[field as keyof z.infer<T>] === "string"
+      ) {
+        return doc[field as keyof z.infer<T>] as string;
+      }
+    }
+    return null;
+  }
+
+  protected getForeignRefs(
+    doc: z.infer<T>,
+    throwIfMissing: boolean = true,
+  ): ForeignRefs {
+    const refs = this.context.foreignRefs;
+    const keys = this.getForeignKeys(doc);
+
+    const result: ForeignRefs = {};
+    for (const refType in keys) {
+      const type = refType as keyof ForeignKeys;
+      if (!keys[type]) continue;
+      const value = refs[type]?.get(keys[type] || "");
+
+      if (!value) {
+        if (throwIfMissing) {
+          throw new Error(
+            `Could not find foreign ref for ${type}: ${keys[type]}`,
+          );
+        } else {
+          continue;
+        }
+      }
+
+      // eslint-disable-next-line
+      result[type] = value as any;
+    }
+
+    return result;
   }
 
   private _collection: Collection | null = null;
@@ -478,79 +1074,182 @@ export abstract class BaseModel<T extends BaseSchema> {
     if (!this._collection) {
       // TODO: don't use Mongoose, use the native Mongo Driver instead
       this._collection = mongoose.connection.db.collection(
-        this.config.collectionName
+        this.config.collectionName,
       );
     }
     return this._collection;
   }
 
-  /***************
-   * Private methods
-   ***************/
-  private addIndexes() {
-    if (indexesAdded.has(this.config.collectionName)) return;
-    indexesAdded.add(this.config.collectionName);
+  protected async populateForeignRefs(docs: z.infer<T>[]) {
+    // Merge all docs foreign keys into a single object
+    const mergedKeys: ForeignRefsCacheKeys = {};
 
-    // Always create a unique index for organization and id
-    this._dangerousGetCollection()
-      .createIndex({ id: 1, organization: 1 }, { unique: true })
-      .catch((err) => {
-        logger.error(
-          `Error creating org/id unique index for ${this.config.collectionName}`,
-          err
-        );
-      });
+    docs.forEach((doc) => {
+      const foreignKeys = this.getForeignKeys(doc);
+      (Object.entries(foreignKeys) as [keyof ForeignKeys, string][]).forEach(
+        ([type, id]) => {
+          mergedKeys[type] = mergedKeys[type] || [];
+          mergedKeys[type]?.push(id);
+        },
+      );
+    });
 
-    // If id is globally unique, create an index for that
-    if (this.config.globallyUniqueIds) {
+    await this.context.populateForeignRefs(mergedKeys);
+  }
+  protected updateIndexes() {
+    if (indexesUpdated.has(this.config.collectionName)) return;
+    indexesUpdated.add(this.config.collectionName);
+
+    const promises = [];
+
+    const pKey = this.getPKey();
+    const pKeyIndex = pKey.reduce<Record<string, 1>>(
+      (acc, k) => ({ ...acc, [String(k)]: 1 as const }),
+      {},
+    );
+    const orgPKeyIndex: Record<string, 1> = {
+      ...pKeyIndex,
+      organization: 1,
+    };
+
+    // Always create a unique index for organization and primary key
+    promises.push(
       this._dangerousGetCollection()
-        .createIndex({ id: 1 }, { unique: true })
+        .createIndex(orgPKeyIndex, { unique: true })
         .catch((err) => {
           logger.error(
-            `Error creating id unique index for ${this.config.collectionName}`,
-            err
+            err,
+            `Error creating org/pKey unique index for ${this.config.collectionName}`,
           );
-        });
+        }),
+    );
+
+    // If primary key is globally unique, create an index for that
+    if (this.config.globallyUniquePrimaryKeys) {
+      promises.push(
+        this._dangerousGetCollection()
+          .createIndex(pKeyIndex, { unique: true })
+          .catch((err) => {
+            logger.error(
+              err,
+              `Error creating unique pKey index for ${this.config.collectionName}`,
+            );
+          }),
+      );
+    }
+
+    // If schema uses uid, create a globally unique index
+    if ("uid" in this.config.schema.shape) {
+      promises.push(
+        this._dangerousGetCollection()
+          .createIndex({ uid: 1 }, { unique: true })
+          .catch((err) => {
+            logger.error(
+              err,
+              `Error creating uid unique index for ${this.config.collectionName}`,
+            );
+          }),
+      );
+    }
+
+    // Remove any explicitly defined indexes that are no longer needed
+    const indexesToRemove = this.config.indexesToRemove;
+    if (indexesToRemove && indexesToRemove.length > 0) {
+      // Drop each index that needs to be removed
+      indexesToRemove.forEach((indexName) => {
+        promises.push(
+          this._dangerousGetCollection()
+            .dropIndex(indexName)
+            .catch((err) => {
+              // Ignore errors if the index or namespace doesn't exist
+              if (
+                err.codeName !== "IndexNotFound" &&
+                err.codeName !== "NamespaceNotFound"
+              ) {
+                logger.error(
+                  err,
+                  `Error dropping index ${indexName} for ${this.config.collectionName}`,
+                );
+              }
+            }),
+        );
+      });
     }
 
     // Create any additional indexes
     this.config.additionalIndexes?.forEach((index) => {
-      this._dangerousGetCollection()
-        .createIndex(index.fields as { [key: string]: number }, {
-          unique: !!index.unique,
-        })
-        .catch((err) => {
-          logger.error(
-            `Error creating ${Object.keys(index.fields).join("/")} ${
-              index.unique ? "unique " : ""
-            }index for ${this.config.collectionName}`,
-            err
-          );
-        });
+      promises.push(
+        this._dangerousGetCollection()
+          .createIndex(index.fields as { [key: string]: number }, {
+            unique: !!index.unique,
+          })
+          .catch((err) => {
+            logger.error(
+              err,
+              `Error creating ${Object.keys(index.fields).join("/")} ${
+                index.unique ? "unique " : ""
+              }index for ${this.config.collectionName}`,
+            );
+          }),
+      );
     });
+
+    // Store the promises so they can be awaited externally
+    pendingIndexOperations.set(this.config.collectionName, promises);
   }
 
-  private async _standardFieldValidation(obj: Partial<z.infer<T>>) {
-    // Validate common foreign key references
-    if (this.config.projectScoping === "single") {
-      if ("project" in obj && obj.project) {
-        const projects = await this.context.getProjects();
-        if (!projects.some((p) => p.id === obj.project)) {
-          throw new Error("Invalid project");
-        }
-      }
-    } else if (this.config.projectScoping === "multiple") {
-      if ("projects" in obj && obj.projects && Array.isArray(obj.projects)) {
-        const projects = await this.context.getProjects();
-        if (
-          !obj.projects.every((p: string) =>
-            projects.some((proj) => proj.id === p)
-          )
-        ) {
-          throw new Error("Invalid project");
-        }
+  /***************
+   * Private methods
+   ***************/
+
+  private _assertHasIdField(): void {
+    if (!("id" in this.config.schema.shape)) {
+      throw new Error(
+        `getById/getByIds is not supported on "${this.config.collectionName}": schema has no "id" field. ` +
+          `Use a model-specific accessor instead.`,
+      );
+    }
+  }
+
+  // Make sure any project ids in this model point to actual projects
+  // This is only called when creating/updating to avoid breaking on read
+  private async validateProjectFields(obj: Partial<z.infer<T>>) {
+    // Resources with a single project
+    if ("project" in obj && obj.project && typeof obj.project === "string") {
+      const projects = await this.context.getProjects();
+      if (!projects.some((p) => p.id === obj.project)) {
+        throw new Error("Invalid project");
       }
     }
+    // Resources with multiple projects
+    else if ("projects" in obj && obj.projects && Array.isArray(obj.projects)) {
+      const projects = await this.context.getProjects();
+      if (
+        !obj.projects.every((p: string) =>
+          projects.some((proj) => proj.id === p),
+        )
+      ) {
+        throw new Error("Invalid project");
+      }
+    }
+  }
+
+  private getBaseQuery(): ScopedFilterQuery<T, PKey> {
+    return this.config.baseQuery ?? {};
+  }
+
+  private applyBaseQuery(
+    filter: object,
+    dangerousCrossOrganization: boolean = false,
+  ): FilterQuery<z.infer<T>> {
+    const fullQuery: FilterQuery<z.infer<T>> = {
+      ...this.getBaseQuery(),
+      ...filter,
+    };
+    if (!dangerousCrossOrganization) {
+      fullQuery.organization = this.context.org.id;
+    }
+    return fullQuery;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -559,12 +1258,65 @@ export abstract class BaseModel<T extends BaseSchema> {
   }
 }
 
-export const MakeModelClass = <T extends BaseSchema>(
-  config: ModelConfig<T>
+/**
+ * Merges body schemas from openApiSpec.schemas into the CVO type so that
+ * ExtractCrudSchema can resolve the correct body type for create/update
+ * handler overrides — even when the schemas are not in crudValidatorOverrides.
+ */
+type MergedCrudOverrides<
+  CVO extends CrudValidatorOverrides,
+  CB extends z.ZodTypeAny,
+  UB extends z.ZodTypeAny,
+> = CVO & {
+  create: { bodySchema: CB };
+  update: { bodySchema: UB };
+};
+
+export const MakeModelClass = <
+  T extends BaseSchemaWithPrimaryKey<PKey>,
+  E extends EntityType,
+  ApiT extends ApiBaseSchema,
+  PKey extends z.ZodRawShape,
+  PK extends readonly string[] = typeof DEFAULT_PKEY,
+  CVO extends CrudValidatorOverrides = CrudValidatorOverrides,
+  CB extends z.ZodTypeAny = z.ZodUnknown,
+  UB extends z.ZodTypeAny = z.ZodUnknown,
+>(
+  config: ModelConfig<T, E, ApiT, PKey> & {
+    apiConfig?: {
+      openApiSpec?: {
+        crudValidatorOverrides?: CVO;
+        schemas?: { createBody?: CB; updateBody?: UB };
+      };
+    };
+  } & { pKey?: PK },
 ) => {
-  abstract class Model extends BaseModel<T> {
+  const createValidator = createSchema<T, PKey>(config.schema);
+  const updateValidator = updateSchema<T, PKey>(
+    config.schema,
+    config.pKey as PKeyType<T, PKey> | undefined,
+  ) as UpdateZodObject<T, PKey, PK>;
+
+  abstract class Model<WriteOptions = never> extends BaseModel<
+    T,
+    E,
+    ApiT,
+    PKey,
+    WriteOptions,
+    PK,
+    MergedCrudOverrides<CVO, CB, UB>
+  > {
     getConfig() {
-      return config;
+      return config as ModelConfig<T, E, ApiT, PKey>;
+    }
+    static getModelConfig(): ModelConfig<T, E, ApiT, PKey> {
+      return config as ModelConfig<T, E, ApiT, PKey>;
+    }
+    getCreateValidator() {
+      return createValidator;
+    }
+    getUpdateValidator() {
+      return updateValidator;
     }
   }
 

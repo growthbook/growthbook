@@ -3,23 +3,22 @@ import {
   ALL_PERMISSIONS,
   ENV_SCOPED_PERMISSIONS,
   roleSupportsEnvLimit,
+  roleToPermissionMap,
 } from "shared/permissions";
 import {
-  MemberRole,
-  MemberRoleInfo,
+  MemberRoleWithProjects,
   OrganizationInterface,
   Permission,
   PermissionsObject,
-  ProjectMemberRole,
-  Role,
   UserPermission,
   UserPermissions,
-} from "../../types/organization";
-import { TeamInterface } from "../../types/team";
+} from "shared/types/organization";
+import { TeamInterface } from "shared/types/team";
+import { SUPERADMIN_DEFAULT_ROLE } from "./secrets";
 
 function hasEnvScopedPermissions(userPermission: PermissionsObject): boolean {
   const envLimitedPermissions: Permission[] = ENV_SCOPED_PERMISSIONS.map(
-    (permission) => permission
+    (permission) => permission,
   );
 
   for (const permission of envLimitedPermissions) {
@@ -52,28 +51,13 @@ export function getEnvironments(org: OrganizationInterface) {
   return org.settings.environments;
 }
 
-export function roleToPermissionMap(
-  role: MemberRole | undefined,
-  org: OrganizationInterface
-): PermissionsObject {
-  const roles = getRoles(org);
-  const orgRole = roles.find((r) => r.id === role);
-  const permissions = new Set<Permission>(orgRole?.permissions || []);
-
-  const permissionsObj: PermissionsObject = {};
-  ALL_PERMISSIONS.forEach((p) => {
-    permissionsObj[p] = permissions.has(p);
-  });
-  return permissionsObj;
-}
-
 function isValidPermission(permission: string): permission is Permission {
   return ALL_PERMISSIONS.includes(permission as Permission);
 }
 
 function mergePermissions(
   existingPermissions: PermissionsObject,
-  newPermissions: PermissionsObject
+  newPermissions: PermissionsObject,
 ): PermissionsObject {
   const updatedPermissions: PermissionsObject = { ...existingPermissions };
 
@@ -89,13 +73,13 @@ function mergePermissions(
 function mergeEnvironmentLimits(
   existingPermissions: UserPermission,
   newPermissions: UserPermission,
-  org: OrganizationInterface
+  org: OrganizationInterface,
 ): UserPermission {
   const existingRoleSupportsEnvLimits = hasEnvScopedPermissions(
-    existingPermissions.permissions
+    existingPermissions.permissions,
   );
   const newRoleSupportsEnvLimits = hasEnvScopedPermissions(
-    newPermissions.permissions
+    newPermissions.permissions,
   );
 
   if (!existingRoleSupportsEnvLimits && !newRoleSupportsEnvLimits) {
@@ -117,13 +101,13 @@ function mergeEnvironmentLimits(
     ) {
       updatedPermissions.environments = [
         ...new Set(
-          updatedPermissions.environments.concat(newPermissions.environments)
+          updatedPermissions.environments.concat(newPermissions.environments),
         ),
       ];
       updatedPermissions.limitAccessByEnvironment = getLimitAccessByEnvironment(
         updatedPermissions.environments,
         updatedPermissions.limitAccessByEnvironment,
-        org
+        org,
       );
     } else {
       // otherwise, 1 role doesn't have limited access by environment, so it overrides the other
@@ -136,7 +120,7 @@ function mergeEnvironmentLimits(
       updatedPermissions.limitAccessByEnvironment = getLimitAccessByEnvironment(
         newPermissions.environments,
         newPermissions.limitAccessByEnvironment,
-        org
+        org,
       );
 
       updatedPermissions.environments = newPermissions.environments;
@@ -148,18 +132,18 @@ function mergeEnvironmentLimits(
 function mergeUserPermissionObj(
   userPermission1: UserPermission,
   userPermission2: UserPermission,
-  org: OrganizationInterface
+  org: OrganizationInterface,
 ): UserPermission {
   let updatedUserPermissionObj = userPermission1;
 
   updatedUserPermissionObj = mergeEnvironmentLimits(
     updatedUserPermissionObj,
     userPermission2,
-    org
+    org,
   );
   updatedUserPermissionObj.permissions = mergePermissions(
     updatedUserPermissionObj.permissions,
-    userPermission2.permissions
+    userPermission2.permissions,
   );
 
   return updatedUserPermissionObj;
@@ -168,7 +152,7 @@ function mergeUserPermissionObj(
 function mergeUserAndTeamPermissions(
   userPermissions: UserPermissions,
   teamPermissions: UserPermissions,
-  org: OrganizationInterface
+  org: OrganizationInterface,
 ) {
   // Build a list of all projects
   const allProjects = new Set([
@@ -191,7 +175,7 @@ function mergeUserAndTeamPermissions(
         environments: teamPermissions.global.environments,
         permissions: teamPermissions.global.permissions,
       },
-      org
+      org,
     );
   });
 
@@ -199,14 +183,14 @@ function mergeUserAndTeamPermissions(
   userPermissions.global = mergeUserPermissionObj(
     userPermissions.global,
     teamPermissions.global,
-    org
+    org,
   );
 }
 
 function getLimitAccessByEnvironment(
   environments: string[],
   limitAccessByEnvironment: boolean,
-  org: OrganizationInterface
+  org: OrganizationInterface,
 ): boolean {
   // If all environments are selected, treat that the same as not limiting by environment
   const validEnvs = org.settings?.environments?.map((e) => e.id) || [];
@@ -224,15 +208,15 @@ function getUserPermission(
   info: {
     environments?: string[];
     limitAccessByEnvironment?: boolean;
-    role: MemberRole;
+    role: string;
   },
-  org: OrganizationInterface
+  org: OrganizationInterface,
 ): UserPermission {
   let limitAccessByEnvironment = !!info.limitAccessByEnvironment;
 
   // Only some roles can be limited by environment
   // TODO: This will have to change when we support custom roles
-  if (limitAccessByEnvironment && !roleSupportsEnvLimit(info.role)) {
+  if (limitAccessByEnvironment && !roleSupportsEnvLimit(info.role, org)) {
     limitAccessByEnvironment = false;
   }
 
@@ -241,196 +225,71 @@ function getUserPermission(
     limitAccessByEnvironment: getLimitAccessByEnvironment(
       info.environments || [],
       limitAccessByEnvironment,
-      org
+      org,
     ),
     permissions: roleToPermissionMap(info.role, org),
   };
 }
 
-export function getUserPermissions(
-  userId: string,
+/**
+ * Build a full UserPermissions object from a role info with optional project
+ * roles and team memberships. Used for both org API keys and member records.
+ */
+export function getRolePermissions(
+  roleInfo: MemberRoleWithProjects,
   org: OrganizationInterface,
-  teams: TeamInterface[]
+  allTeams: TeamInterface[],
 ): UserPermissions {
-  const memberInfo = org.members.find((m) => m.id === userId);
-
-  if (!memberInfo) {
-    throw new Error("User is not a member of this organization");
-  }
-
-  const userPermissions: UserPermissions = {
-    global: getUserPermission(memberInfo, org),
+  const permissions: UserPermissions = {
+    global: getUserPermission(roleInfo, org),
     projects: {},
   };
 
-  // Build the user-level project permissions
-  memberInfo.projectRoles?.forEach((projectRole: ProjectMemberRole) => {
-    userPermissions.projects[projectRole.project] = getUserPermission(
-      projectRole,
-      org
-    );
-  });
+  if (roleInfo.projectRoles) {
+    for (const pr of roleInfo.projectRoles) {
+      permissions.projects[pr.project] = getUserPermission(pr, org);
+    }
+  }
 
-  // If the user is on a team, merge the team permissions into the user permissions
-  if (memberInfo.teams) {
-    for (const team of memberInfo.teams) {
-      const teamData = teams.find((t) => t.id === team);
+  if (roleInfo.teams) {
+    for (const teamId of roleInfo.teams) {
+      const teamData = allTeams.find((t) => t.id === teamId);
       if (teamData) {
         const teamPermissions: UserPermissions = {
           global: getUserPermission(teamData, org),
           projects: {},
         };
         if (teamData.projectRoles) {
-          for (const teamProject of teamData.projectRoles) {
-            teamPermissions.projects[teamProject.project] = getUserPermission(
-              teamProject,
-              org
-            );
+          for (const tp of teamData.projectRoles) {
+            teamPermissions.projects[tp.project] = getUserPermission(tp, org);
           }
         }
-        mergeUserAndTeamPermissions(userPermissions, teamPermissions, org);
+        mergeUserAndTeamPermissions(permissions, teamPermissions, org);
       }
     }
   }
 
-  return userPermissions;
+  return permissions;
 }
 
-export function getRoles(_organization: OrganizationInterface): Role[] {
-  // TODO: support custom roles?
-  return [
-    {
-      id: "noaccess",
-      description:
-        "Cannot view any features or experiments. Most useful when combined with project-scoped roles.",
-      permissions: [],
-    },
-    {
-      id: "readonly",
-      description: "View all features and experiment results",
-      permissions: ["readData"],
-    },
-    {
-      id: "visualEditor",
-      description: "Make visual changes for an experiment",
-      permissions: ["readData", "manageVisualChanges"],
-    },
-    {
-      id: "collaborator",
-      description: "Add comments and contribute ideas",
-      permissions: [
-        "readData",
-        "addComments",
-        "createIdeas",
-        "createPresentations",
-      ],
-    },
-    {
-      id: "engineer",
-      description: "Manage features",
-      permissions: [
-        "readData",
-        "addComments",
-        "createIdeas",
-        "createPresentations",
-        "publishFeatures",
-        "manageFeatures",
-        "manageTags",
-        "manageFeatureDrafts",
-        "manageTargetingAttributes",
-        "manageEnvironments",
-        "manageSDKConnections",
-        "manageSDKWebhooks",
-        "manageNamespaces",
-        "manageSavedGroups",
-        "manageArchetype",
-        "runExperiments",
-        "canReview",
-        "manageVisualChanges",
-      ],
-    },
-    {
-      id: "analyst",
-      description: "Analyze experiments",
-      permissions: [
-        "readData",
-        "addComments",
-        "createIdeas",
-        "createPresentations",
-        "createAnalyses",
-        "createDimensions",
-        "createMetrics",
-        "manageFactMetrics",
-        "createSegments",
-        "manageFactTables",
-        "manageFactFilters",
-        "manageTags",
-        "runQueries",
-        "editDatasourceSettings",
-        "manageVisualChanges",
-      ],
-    },
-    {
-      id: "experimenter",
-      description: "Manage features AND Analyze experiments",
-      permissions: [
-        "readData",
-        "addComments",
-        "createIdeas",
-        "createPresentations",
-        "publishFeatures",
-        "manageFeatures",
-        "manageFeatureDrafts",
-        "manageTargetingAttributes",
-        "manageEnvironments",
-        "manageSDKConnections",
-        "manageSDKWebhooks",
-        "manageNamespaces",
-        "manageSavedGroups",
-        "manageArchetype",
-        "manageTags",
-        "runExperiments",
-        "createAnalyses",
-        "createDimensions",
-        "createSegments",
-        "createMetrics",
-        "manageFactMetrics",
-        "manageFactTables",
-        "manageFactFilters",
-        "runQueries",
-        "editDatasourceSettings",
-        "canReview",
-        "manageVisualChanges",
-      ],
-    },
-    {
-      id: "admin",
-      description:
-        "All access + invite teammates and configure organization settings",
-      permissions: [...ALL_PERMISSIONS],
-    },
-  ];
-}
+export function getUserPermissions(
+  user: { id: string; superAdmin?: boolean },
+  org: OrganizationInterface,
+  teams: TeamInterface[],
+): UserPermissions {
+  const memberInfo = org.members.find((m) => m.id === user.id);
 
-export function getDefaultRole(
-  organization: OrganizationInterface
-): MemberRoleInfo {
-  return (
-    organization.settings?.defaultRole || {
-      environments: [],
-      limitAccessByEnvironment: false,
-      role: "collaborator",
-    }
-  );
-}
+  // If the user is a super admin, fall back to a default role if they aren't in the org
+  if (!memberInfo && user.superAdmin && SUPERADMIN_DEFAULT_ROLE) {
+    return {
+      global: getUserPermission({ role: SUPERADMIN_DEFAULT_ROLE }, org),
+      projects: {},
+    };
+  }
 
-export const attributeDataTypes = [
-  "boolean",
-  "string",
-  "number",
-  "secureString",
-  "enum",
-  "string[]",
-  "number[]",
-  "secureString[]",
-] as const;
+  if (!memberInfo) {
+    throw new Error("User is not a member of this organization");
+  }
+
+  return getRolePermissions(memberInfo, org, teams);
+}

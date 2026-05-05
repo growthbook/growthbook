@@ -39,8 +39,12 @@ $topbarheight: 60px;
   }
 
   &:hover {
-    background-color: scale-color($dark-purple, $lightness: +12%);
-
+    background-color: $violet-9-30;
+    @supports (
+      background-color: color-mix(in srgb, var(--violet-9) 30%, transparent)
+    ) {
+      background-color: color-mix(in srgb, var(--violet-9) 30%, transparent);
+    }
     a {
       margin-left: 0px;
       text-decoration: none !important;
@@ -57,7 +61,7 @@ $topbarheight: 60px;
   }
   &.selected {
     //background: scale-color($dark-purple, $lightness: +20%);
-    background-color: $highlight-purple;
+    background-color: var(--violet-9); //$highlight-purple;
     font-weight: 600;
     a {
       margin-left: 0px;
@@ -83,7 +87,12 @@ $topbarheight: 60px;
       }
     }
     &:hover {
-      background-color: scale-color($dark-purple, $lightness: +20%);
+      background-color: $violet-9-30;
+      @supports (
+        background-color: color-mix(in srgb, var(--violet-9) 30%, transparent)
+      ) {
+        background-color: color-mix(in srgb, var(--violet-9) 30%, transparent);
+      }
     }
     .icon {
       font-size: 1.3em;
@@ -108,7 +117,10 @@ $topbarheight: 60px;
   overflow-y: hidden;
   max-height: 0;
   opacity: 0;
-  transition: max-height 0.3s, opacity 0.2s, margin-bottom 0.3s;
+  transition:
+    max-height 0.3s,
+    opacity 0.2s,
+    margin-bottom 0.3s;
 }
 .open {
   margin-bottom: 1em !important;

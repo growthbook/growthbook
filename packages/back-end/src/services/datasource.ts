@@ -1,30 +1,43 @@
 import { AES, enc } from "crypto-js";
-import { ENCRYPTION_KEY } from "../util/secrets";
-import GoogleAnalytics from "../integrations/GoogleAnalytics";
-import Athena from "../integrations/Athena";
-import Presto from "../integrations/Presto";
-import Databricks from "../integrations/Databricks";
-import Redshift from "../integrations/Redshift";
-import Snowflake from "../integrations/Snowflake";
-import Postgres from "../integrations/Postgres";
-import { SourceIntegrationInterface, TestQueryRow } from "../types/Integration";
-import BigQuery from "../integrations/BigQuery";
-import ClickHouse from "../integrations/ClickHouse";
-import Mixpanel from "../integrations/Mixpanel";
+import { isReadOnlySQL } from "shared/sql";
+import { TemplateVariables } from "shared/types/sql";
+import {
+  FeatureEvalDiagnosticsQueryResponseRows,
+  QueryResponseColumnData,
+  TestQueryRow,
+  UserExperimentExposuresQueryResponseRows,
+} from "shared/types/integrations";
 import {
   DataSourceInterface,
   DataSourceParams,
   ExposureQuery,
-} from "../../types/datasource";
-import Mysql from "../integrations/Mysql";
-import Mssql from "../integrations/Mssql";
-import { getDataSourceById } from "../models/DataSourceModel";
-import { TemplateVariables } from "../../types/sql";
-import { ReqContext } from "../../types/organization";
-import { ApiReqContext } from "../../types/api";
+} from "shared/types/datasource";
+import { FactTableColumnType } from "shared/types/fact-table";
+import { QueryStatistics } from "shared/types/query";
+import { formatQueryExecutionErrorForApi } from "shared/util";
+import { SQLExecutionError } from "back-end/src/util/errors";
+import { determineColumnTypes } from "back-end/src/util/sql";
+import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
+import GoogleAnalytics from "back-end/src/integrations/GoogleAnalytics";
+import Athena from "back-end/src/integrations/Athena";
+import Presto from "back-end/src/integrations/Presto";
+import Databricks from "back-end/src/integrations/Databricks";
+import Redshift from "back-end/src/integrations/Redshift";
+import Snowflake from "back-end/src/integrations/Snowflake";
+import Postgres from "back-end/src/integrations/Postgres";
+import Vertica from "back-end/src/integrations/Vertica";
+import BigQuery from "back-end/src/integrations/BigQuery";
+import ClickHouse from "back-end/src/integrations/ClickHouse";
+import Mixpanel from "back-end/src/integrations/Mixpanel";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import Mysql from "back-end/src/integrations/Mysql";
+import Mssql from "back-end/src/integrations/Mssql";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
-  encrypted: string
+  encrypted: string,
 ): T {
   return JSON.parse(AES.decrypt(encrypted, ENCRYPTION_KEY).toString(enc.Utf8));
 }
@@ -45,10 +58,10 @@ export function getNonSensitiveParams(integration: SourceIntegrationInterface) {
 
 export function mergeParams(
   integration: SourceIntegrationInterface,
-  newParams: Partial<DataSourceParams>
+  newParams: Partial<DataSourceParams>,
 ) {
   const secretKeys = integration.getSensitiveParamKeys();
-  Object.keys(newParams).forEach((k: keyof DataSourceParams) => {
+  (Object.keys(newParams) as (keyof DataSourceParams)[]).forEach((k) => {
     // If a secret value is left empty, keep the original value
     if (secretKeys.includes(k) && !newParams[k]) return;
     integration.params[k] = newParams[k];
@@ -57,9 +70,11 @@ export function mergeParams(
 
 function getIntegrationObj(
   context: ReqContext,
-  datasource: DataSourceInterface
+  datasource: DataSourceInterface,
 ): SourceIntegrationInterface {
   switch (datasource.type) {
+    case "growthbook_clickhouse":
+      return new ClickHouse(context, datasource);
     case "athena":
       return new Athena(context, datasource);
     case "redshift":
@@ -70,6 +85,8 @@ function getIntegrationObj(
       return new Snowflake(context, datasource);
     case "postgres":
       return new Postgres(context, datasource);
+    case "vertica":
+      return new Vertica(context, datasource);
     case "mysql":
       return new Mysql(context, datasource);
     case "mssql":
@@ -90,7 +107,7 @@ function getIntegrationObj(
 export async function getIntegrationFromDatasourceId(
   context: ReqContext | ApiReqContext,
   id: string,
-  throwOnDecryptionError: boolean = false
+  throwOnDecryptionError: boolean = false,
 ) {
   const datasource = await getDataSourceById(context, id);
   if (!datasource) {
@@ -99,14 +116,14 @@ export async function getIntegrationFromDatasourceId(
   return getSourceIntegrationObject(
     context,
     datasource,
-    throwOnDecryptionError
+    throwOnDecryptionError,
   );
 }
 
 export function getSourceIntegrationObject(
   context: ReqContext | ApiReqContext,
   datasource: DataSourceInterface,
-  throwOnDecryptionError: boolean = false
+  throwOnDecryptionError: boolean = false,
 ) {
   const obj = getIntegrationObj(context, datasource);
 
@@ -117,7 +134,7 @@ export function getSourceIntegrationObject(
 
   if (throwOnDecryptionError && obj.decryptionError) {
     throw new Error(
-      "Could not decrypt data source credentials. View the data source settings for more info."
+      "Could not decrypt data source credentials. View the data source settings for more info.",
     );
   }
 
@@ -126,17 +143,178 @@ export function getSourceIntegrationObject(
 
 export async function testDataSourceConnection(
   context: ReqContext,
-  datasource: DataSourceInterface
+  datasource: DataSourceInterface,
 ) {
   const integration = getSourceIntegrationObject(context, datasource);
   await integration.testConnection();
+}
+
+export async function runFreeFormQuery(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  query: string,
+  limit?: number,
+): Promise<{
+  results?: TestQueryRow[];
+  duration?: number;
+  error?: string;
+  sql?: string;
+  limit?: number;
+  columns?: QueryResponseColumnData[];
+}> {
+  if (!context.permissions.canRunSqlExplorerQueries(datasource)) {
+    throw new Error("Permission denied");
+  }
+
+  if (!isReadOnlySQL(query)) {
+    throw new Error("Only SELECT queries are allowed.");
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource);
+
+  // The Mixpanel integration does not support test queries
+  if (!integration.getFreeFormQuery || !integration.runTestQuery) {
+    throw new Error("Unable to test query.");
+  }
+
+  const sql = integration.getFreeFormQuery(query, limit);
+  try {
+    const { results, duration, columns } = await integration.runTestQuery(
+      sql,
+      ["timestamp"],
+      "freeFormQuery",
+    );
+
+    // Build a type map from SQL engine metadata
+    const typeMap = new Map<string, FactTableColumnType>();
+    columns?.forEach((col) => {
+      if (col.dataType !== undefined && col.dataType !== "json") {
+        typeMap.set(col.name, col.dataType);
+      }
+    });
+
+    // Enhance with inferred types from actual data
+    const detectedColumns = determineColumnTypes(results, typeMap);
+    detectedColumns.forEach((col) => {
+      typeMap.set(col.column, col.datatype);
+    });
+
+    // Build final columns array
+    const finalColumns: QueryResponseColumnData[] = Array.from(
+      typeMap.entries(),
+    ).map(([name, dataType]) => ({ name, dataType }));
+
+    return {
+      results,
+      duration,
+      sql,
+      columns: finalColumns,
+    };
+  } catch (e) {
+    return {
+      error: formatQueryExecutionErrorForApi(e),
+      sql,
+    };
+  }
+}
+
+export async function runUserExposureQuery(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  unitId: string,
+  userIdType: string,
+  lookbackDays: number,
+): Promise<{
+  rows?: UserExperimentExposuresQueryResponseRows;
+  statistics?: QueryStatistics;
+  error?: string;
+  sql?: string;
+}> {
+  if (!context.permissions.canRunExperimentQueries(datasource)) {
+    throw new Error("Permission denied");
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource);
+
+  // The Mixpanel and GA integrations do not support user exposures queries
+  if (
+    !integration.getUserExperimentExposuresQuery ||
+    !integration.runUserExperimentExposuresQuery
+  ) {
+    throw new Error("Unable to run user exposures query.");
+  }
+
+  const sql = integration.getUserExperimentExposuresQuery({
+    unitId,
+    userIdType,
+    lookbackDays,
+  });
+
+  try {
+    const { rows, statistics } =
+      await integration.runUserExperimentExposuresQuery(sql);
+    return {
+      rows,
+      statistics,
+      sql,
+    };
+  } catch (e) {
+    return {
+      error: formatQueryExecutionErrorForApi(e),
+      sql,
+    };
+  }
+}
+
+export async function runFeatureEvalDiagnosticsQuery(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  feature: string,
+): Promise<{
+  rows?: FeatureEvalDiagnosticsQueryResponseRows;
+  statistics?: QueryStatistics;
+  sql?: string;
+}> {
+  if (!context.permissions.canRunFeatureDiagnosticsQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource);
+
+  // The Mixpanel and GA integrations do not support feature usage queries
+  if (
+    !integration.getFeatureEvalDiagnosticsQuery ||
+    !integration.runFeatureEvalDiagnosticsQuery
+  ) {
+    throw new Error(
+      "Datasource does not support feature evaluation diagnostics queries.",
+    );
+  }
+
+  const sql = integration.getFeatureEvalDiagnosticsQuery({
+    feature,
+  });
+
+  try {
+    const { rows, statistics } =
+      await integration.runFeatureEvalDiagnosticsQuery(sql);
+    return {
+      rows,
+      statistics,
+      sql,
+    };
+  } catch (e) {
+    throw new SQLExecutionError(e.message, sql);
+  }
 }
 
 export async function testQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
   query: string,
-  templateVariables?: TemplateVariables
+  templateVariables?: TemplateVariables,
+  limit?: number,
+  timestampColumn?: string,
 ): Promise<{
   results?: TestQueryRow[];
   duration?: number;
@@ -154,11 +332,19 @@ export async function testQuery(
     throw new Error("Unable to test query.");
   }
 
-  const sql = integration.getTestQuery(query, templateVariables);
+  const sql = integration.getTestQuery({
+    query,
+    templateVariables,
+    testDays: context.org.settings?.testQueryDays,
+    limit,
+    timestampColumn,
+  });
   try {
-    const { results, duration } = await integration.runTestQuery(sql, [
-      "timestamp",
-    ]);
+    const { results, duration } = await integration.runTestQuery(
+      sql,
+      timestampColumn ? [timestampColumn] : ["timestamp"],
+      "testQuery",
+    );
     return {
       results,
       duration,
@@ -166,7 +352,7 @@ export async function testQuery(
     };
   } catch (e) {
     return {
-      error: e.message,
+      error: formatQueryExecutionErrorForApi(e),
       sql,
     };
   }
@@ -175,7 +361,8 @@ export async function testQuery(
 // Return any errors that result when running the query otherwise return undefined
 export async function testQueryValidity(
   integration: SourceIntegrationInterface,
-  query: ExposureQuery
+  query: ExposureQuery,
+  testDays?: number,
 ): Promise<string | undefined> {
   // The Mixpanel integration does not support test queries
   if (!integration.getTestValidityQuery || !integration.runTestQuery) {
@@ -191,15 +378,33 @@ export async function testQueryValidity(
     ...(query.hasNameCol ? ["experiment_name", "variation_name"] : []),
   ]);
 
-  const sql = integration.getTestValidityQuery(query.query);
+  const sql = integration.getTestValidityQuery(
+    query.query,
+    testDays,
+    undefined,
+    "timestamp",
+  );
   try {
-    const results = await integration.runTestQuery(sql);
-    if (results.results.length === 0) {
-      return "No rows returned";
-    }
-    const columns = new Set(Object.keys(results.results[0]));
+    const results = await integration.runTestQuery(sql, undefined, "testQuery");
 
-    const missingColumns = [];
+    let columns: Set<string>;
+
+    // For datasources where the result includes columns, use column metadata
+    if (results.columns) {
+      const columnNames = results.columns.map((c) => c.name);
+      if (columnNames.length === 0) {
+        return "Unable to determine columns from query";
+      }
+      columns = new Set(columnNames);
+    } else {
+      // For other datasources, extract from first row (requires LIMIT 1+)
+      if (results.results.length === 0) {
+        return "No rows returned";
+      }
+      columns = new Set(Object.keys(results.results[0]));
+    }
+
+    const missingColumns: string[] = [];
     for (const col of requiredColumns) {
       if (!columns.has(col)) {
         missingColumns.push(col);
@@ -208,7 +413,7 @@ export async function testQueryValidity(
 
     if (missingColumns.length > 0) {
       return `Missing required columns in response: ${missingColumns.join(
-        ", "
+        ", ",
       )}`;
     }
 

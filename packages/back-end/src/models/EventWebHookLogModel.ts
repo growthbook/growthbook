@@ -1,7 +1,12 @@
 import { randomUUID } from "crypto";
 import omit from "lodash/omit";
 import mongoose from "mongoose";
-import { EventWebHookLogInterface } from "../../types/event-webhook-log";
+import {
+  EventWebHookLegacyLogInterface,
+  EventWebHookLogInterface,
+} from "shared/types/event-webhook-log";
+import { EventWebHookMethod } from "shared/types/event-webhook";
+import { NotificationEventName } from "shared/types/events/event";
 
 const eventWebHookLogSchema = new mongoose.Schema({
   id: {
@@ -9,6 +14,9 @@ const eventWebHookLogSchema = new mongoose.Schema({
     unique: true,
     required: true,
   },
+  event: String,
+  url: String,
+  method: String,
   eventWebHookId: {
     type: String,
     required: true,
@@ -44,17 +52,34 @@ eventWebHookLogSchema.index({ eventWebHookId: 1 });
 
 type EventWebHookLogDocument = mongoose.Document & EventWebHookLogInterface;
 
+type EventWebHookLegacyLogDocument = mongoose.Document &
+  EventWebHookLegacyLogInterface;
+
+const toLegacyInterface = (
+  doc: EventWebHookLegacyLogDocument,
+): EventWebHookLegacyLogDocument =>
+  omit(doc.toJSON(), ["__v", "_id"]) as EventWebHookLegacyLogDocument;
+
 const toInterface = (doc: EventWebHookLogDocument): EventWebHookLogDocument =>
   omit(doc.toJSON(), ["__v", "_id"]) as EventWebHookLogDocument;
 
+const EventWebHookLegacyLogModel =
+  mongoose.model<EventWebHookLegacyLogInterface>(
+    "EventWebHookLog",
+    eventWebHookLogSchema,
+  );
+
 const EventWebHookLogModel = mongoose.model<EventWebHookLogInterface>(
   "EventWebHookLog",
-  eventWebHookLogSchema
+  eventWebHookLogSchema,
 );
 
 type CreateEventWebHookLogOptions = {
   organizationId: string;
   eventWebHookId: string;
+  event: NotificationEventName;
+  url: string;
+  method: EventWebHookMethod;
   payload: Record<string, unknown>;
   result:
     | {
@@ -78,6 +103,9 @@ export const createEventWebHookLog = async ({
   eventWebHookId,
   organizationId,
   payload,
+  event,
+  url,
+  method,
   result: resultState,
 }: CreateEventWebHookLogOptions): Promise<EventWebHookLogInterface> => {
   const now = new Date();
@@ -85,6 +113,9 @@ export const createEventWebHookLog = async ({
   const doc = await EventWebHookLogModel.create({
     id: `ewhl-${randomUUID()}`,
     dateCreated: now,
+    event,
+    url,
+    method,
     eventWebHookId,
     organizationId,
     result: resultState.state,
@@ -106,14 +137,14 @@ export const createEventWebHookLog = async ({
 export const getLatestRunsForWebHook = async (
   organizationId: string,
   eventWebHookId: string,
-  limit: number = 10
-): Promise<EventWebHookLogInterface[]> => {
-  const docs = await EventWebHookLogModel.find({
+  limit: number = 10,
+): Promise<EventWebHookLegacyLogInterface[]> => {
+  const docs = await EventWebHookLegacyLogModel.find({
     eventWebHookId,
     organizationId,
   })
     .sort([["dateCreated", -1]])
     .limit(limit);
 
-  return docs.map(toInterface);
+  return docs.map(toLegacyInterface);
 };

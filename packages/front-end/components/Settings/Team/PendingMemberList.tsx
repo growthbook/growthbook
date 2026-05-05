@@ -1,7 +1,8 @@
 import { FC, useState } from "react";
 import { FaCheck, FaTimes, FaUserCheck } from "react-icons/fa";
-import { PendingMember } from "back-end/types/organization";
+import { PendingMember } from "shared/types/organization";
 import { datetime } from "shared/dates";
+import { getRoleDisplayName } from "shared/permissions";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import ProjectBadges from "@/components/ProjectBadges";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -9,6 +10,7 @@ import { useEnvironments } from "@/services/features";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
+import { useUser } from "@/services/UserContext";
 
 const PendingMemberList: FC<{
   pendingMembers: PendingMember[];
@@ -17,10 +19,11 @@ const PendingMemberList: FC<{
 }> = ({ pendingMembers, mutate, project }) => {
   const { apiCall } = useAuth();
   const [roleModalUser, setRoleModalUser] = useState<PendingMember | null>(
-    null
+    null,
   );
   const { projects } = useDefinitions();
   const environments = useEnvironments();
+  const { organization } = useUser();
 
   return (
     <div className="my-4">
@@ -74,7 +77,7 @@ const PendingMemberList: FC<{
                 <td>{member.name}</td>
                 <td>{member.email}</td>
                 <td>{member.dateCreated && datetime(member.dateCreated)}</td>
-                <td>{roleInfo.role}</td>
+                <td>{getRoleDisplayName(roleInfo.role, organization)}</td>
                 {!project && (
                   <td className="col-3">
                     {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
@@ -86,9 +89,8 @@ const PendingMemberList: FC<{
                             <ProjectBadges
                               resourceType="member"
                               projectIds={[p.id]}
-                              className="badge-ellipsis short align-middle font-weight-normal"
                             />
-                            — {pr.role}
+                            — {getRoleDisplayName(pr.role, organization)}
                           </div>
                         );
                       }
@@ -97,7 +99,11 @@ const PendingMemberList: FC<{
                   </td>
                 )}
                 {environments.map((env) => {
-                  const access = roleHasAccessToEnv(roleInfo, env.id);
+                  const access = roleHasAccessToEnv(
+                    roleInfo,
+                    env.id,
+                    organization,
+                  );
                   return (
                     <td key={env.id}>
                       {access === "N/A" ? (

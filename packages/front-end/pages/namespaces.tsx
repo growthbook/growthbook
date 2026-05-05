@@ -1,7 +1,7 @@
 import { useState, FC } from "react";
-import { Namespaces, NamespaceUsage } from "back-end/types/organization";
+import { Flex } from "@radix-ui/themes";
+import { Namespaces, NamespaceUsage } from "shared/types/organization";
 import useApi from "@/hooks/useApi";
-import { GBAddCircle } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import NamespaceModal from "@/components/Experiment/NamespaceModal";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -9,6 +9,16 @@ import { useUser } from "@/services/UserContext";
 import NamespaceTableRow from "@/components/Settings/NamespaceTableRow";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+} from "@/ui/Table";
 
 export type NamespaceApiResponse = {
   namespaces: NamespaceUsage;
@@ -16,7 +26,7 @@ export type NamespaceApiResponse = {
 
 const NamespacesPage: FC = () => {
   const { data, error } = useApi<NamespaceApiResponse>(
-    `/organization/namespaces`
+    `/organization/namespaces`,
   );
 
   const permissionsUtil = usePermissionsUtil();
@@ -32,11 +42,7 @@ const NamespacesPage: FC = () => {
   const { apiCall } = useAuth();
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -57,46 +63,37 @@ const NamespacesPage: FC = () => {
           }}
         />
       )}
-      <div className="row align-items-center mb-1">
-        <div className="col-auto">
-          <h1 className="mb-0">Experiment Namespaces</h1>
-        </div>
-        {canCreate ? (
-          <div className="col-auto ml-auto">
-            <button
-              className="btn btn-primary"
-              onClick={(e) => {
-                e.preventDefault();
-                setModalOpen(true);
-              }}
-            >
-              <GBAddCircle /> Add Namespace
-            </button>
-          </div>
-        ) : null}
-      </div>
-      <p className="text-gray mb-3">
+      <Flex align="center" justify="between" mb="1">
+        <Heading as="h1" size="x-large">
+          Experiment Namespaces
+        </Heading>
+        {canCreate && (
+          <Button onClick={() => setModalOpen(true)}>Add Namespace</Button>
+        )}
+      </Flex>
+      <Text as="div" color="text-mid" mt="3" mb="6">
         Namespaces allow you to run mutually exclusive experiments.{" "}
         {namespaces.length > 0 &&
           "Click a namespace below to see more details about its current usage."}
-      </p>
+      </Text>
       {namespaces.length > 0 && (
-        <table className="table appbox gbtable table-hover">
-          <thead>
-            <tr>
-              <th>Namespace</th>
-              <th>Description</th>
-              <th>Active experiments</th>
-              <th>Percent available</th>
-              <th style={{ width: 30 }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {namespaces.map((ns, i) => {
+        <Table variant="list">
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Namespace</TableColumnHeader>
+              <TableColumnHeader>Description</TableColumnHeader>
+              <TableColumnHeader justify="end">
+                Active Experiments
+              </TableColumnHeader>
+              <TableColumnHeader justify="end">Available</TableColumnHeader>
+              <TableColumnHeader style={{ width: 30 }} />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {namespaces.map((ns) => {
               const experiments = data?.namespaces[ns.name] ?? [];
               return (
                 <NamespaceTableRow
-                  i={i}
                   key={ns.name}
                   usage={data.namespaces}
                   namespace={ns}
@@ -108,28 +105,38 @@ const NamespacesPage: FC = () => {
                     setModalOpen(true);
                   }}
                   onDelete={async () => {
-                    await apiCall(`/organization/namespaces/${ns.name}`, {
-                      method: "DELETE",
-                    });
+                    await apiCall(
+                      `/organization/namespaces/${encodeURIComponent(ns.name)}`,
+                      { method: "DELETE" },
+                    );
                     await refreshOrganization();
                   }}
                   onArchive={async () => {
                     const newNamespace = {
-                      name: ns.name,
-                      description: ns.description,
-                      status: ns?.status === "inactive" ? "active" : "inactive",
+                      label: ns.label || ns.name,
+                      description: ns.description ?? "",
+                      status: (ns?.status === "inactive"
+                        ? "active"
+                        : "inactive") as "active" | "inactive",
+                      format: ns.format ?? "legacy",
+                      ...(ns.format === "multiRange"
+                        ? { hashAttribute: ns.hashAttribute }
+                        : {}),
                     };
-                    await apiCall(`/organization/namespaces/${ns.name}`, {
-                      method: "PUT",
-                      body: JSON.stringify(newNamespace),
-                    });
+                    await apiCall(
+                      `/organization/namespaces/${encodeURIComponent(ns.name)}`,
+                      {
+                        method: "PUT",
+                        body: JSON.stringify(newNamespace),
+                      },
+                    );
                     await refreshOrganization();
                   }}
                 />
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
     </div>
   );

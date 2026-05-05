@@ -10,7 +10,11 @@ export type SDKCapability =
   | "visualEditorDragDrop"
   | "stickyBucketing"
   | "redirects"
-  | "prerequisites";
+  | "prerequisites"
+  | "savedGroupReferences"
+  | "caseInsensitiveRegex"
+  | "caseInsensitiveMembership"
+  | "namespacesV2";
 
 export type CapabilityStrategy =
   | "min-ver-intersection" // intersection of capabilities using default SDK versions

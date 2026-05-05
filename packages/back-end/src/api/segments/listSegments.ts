@@ -1,32 +1,32 @@
-import { ListSegmentsResponse } from "../../../types/openapi";
-import {
-  findSegmentsByOrganization,
-  toSegmentApiInterface,
-} from "../../models/SegmentModel";
+import { listSegmentsValidator } from "shared/validators";
+import { toSegmentApiInterface } from "back-end/src/services/segments";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   applyFilter,
   applyPagination,
   createApiRequestHandler,
-} from "../../util/handler";
-import { listSegmentsValidator } from "../../validators/openapi";
+} from "back-end/src/util/handler";
 
 export const listSegments = createApiRequestHandler(listSegmentsValidator)(
-  async (req): Promise<ListSegmentsResponse> => {
-    const segments = await findSegmentsByOrganization(req.organization.id);
+  async (req) => {
+    const segments = await req.context.models.segments.getAll();
 
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(
       segments
         .filter((segment) =>
-          applyFilter(req.query.datasourceId, segment.datasource)
+          applyFilter(req.query.datasourceId, segment.datasource),
         )
         .sort((a, b) => a.id.localeCompare(b.id)),
-      req.query
+      req.query,
     );
 
     return {
-      segments: filtered.map((segment) => toSegmentApiInterface(segment)),
+      segments: await resolveOwnerEmails(
+        filtered.map((segment) => toSegmentApiInterface(segment)),
+        req.context,
+      ),
       ...returnFields,
     };
-  }
+  },
 );
