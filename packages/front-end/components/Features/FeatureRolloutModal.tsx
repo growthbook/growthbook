@@ -10,7 +10,7 @@ import {
   // eslint-disable-next-line no-restricted-imports
   Text as RadixText,
 } from "@radix-ui/themes";
-import { PiPlusBold, PiShieldCheckBold } from "react-icons/pi";
+import { PiPlusBold, PiXBold } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { RiAlertLine } from "react-icons/ri";
 import type {
@@ -41,6 +41,7 @@ import Table, {
   TableRow,
 } from "@/ui/Table";
 import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
+import Field from "@/components/Forms/Field";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import ConditionInput from "@/components/Features/ConditionInput";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
@@ -67,7 +68,7 @@ interface Props {
   onSuccess: (version: number) => Promise<unknown>;
 }
 
-type IntervalUnit = "hours" | "days";
+type IntervalUnit = "minutes" | "hours" | "days";
 
 let _ruleIdCounter = 0;
 function nextRuleId(): string {
@@ -87,8 +88,8 @@ interface StepRule {
 }
 
 interface RolloutStep {
-  toggles: Record<string, boolean>; // envId → enable/disable
-  togglesExpanded: boolean; // UI state: show toggle checkboxes
+  toggles: Record<string, boolean>;
+  togglesExpanded: boolean;
   rules: StepRule[];
   triggerType: "interval" | "approval";
   intervalValue: number;
@@ -96,9 +97,12 @@ interface RolloutStep {
   approvalNotes: string;
   notesOpen: boolean;
   monitored: boolean;
+  requireHealthy: boolean;
+  minSampleSize: number | null;
 }
 
 const UNIT_SECONDS: Record<IntervalUnit, number> = {
+  minutes: 60,
   hours: 3600,
   days: 86400,
 };
@@ -109,12 +113,19 @@ function ruleColor(state: RuleVisualState): string {
   switch (state) {
     case "monitored":
       return "var(--blue-9)";
-    case "bypass":
-      return "var(--accent-9)";
     case "unreachable":
       return "var(--orange-7)";
-    case "default":
-      return "var(--gray-7)";
+    default:
+      return "var(--green-9)";
+  }
+}
+
+function ruleCoverageColor(state: RuleVisualState): string {
+  switch (state) {
+    case "monitored":
+      return "var(--blue-9)";
+    default:
+      return "var(--accent-9)";
   }
 }
 
@@ -181,6 +192,8 @@ function defaultSteps(
     approvalNotes: "",
     notesOpen: false,
     monitored,
+    requireHealthy: monitored,
+    minSampleSize: null,
   }));
 }
 
@@ -235,9 +248,12 @@ function hydrateSteps(
       if (secs >= 86400 && secs % 86400 === 0) {
         intervalValue = secs / 86400;
         intervalUnit = "days";
-      } else {
-        intervalValue = Math.round(secs / 3600);
+      } else if (secs >= 3600 && secs % 3600 === 0) {
+        intervalValue = secs / 3600;
         intervalUnit = "hours";
+      } else {
+        intervalValue = Math.round(secs / 60);
+        intervalUnit = "minutes";
       }
     }
 
@@ -249,21 +265,19 @@ function hydrateSteps(
       intervalValue,
       intervalUnit,
       approvalNotes: s.approvalNotes ?? "",
-      notesOpen: false,
+      notesOpen: (s.approvalNotes ?? "").trim().length > 0,
       monitored: s.monitored ?? false,
+      requireHealthy: s.holdConditions?.requireHealthy ?? false,
+      minSampleSize: s.holdConditions?.minSampleSize ?? null,
     };
   });
 }
 
 function GateRuleCard({
   state,
-  label,
-  labelColor,
   children,
 }: {
   state: RuleVisualState;
-  label?: string | null;
-  labelColor?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -286,27 +300,6 @@ function GateRuleCard({
           backgroundColor: ruleColor(state),
         }}
       />
-      {label && (
-        <span
-          style={{
-            position: "absolute",
-            top: -12,
-            left: 8,
-            fontSize: 10,
-            fontWeight: 600,
-            lineHeight: "16px",
-            padding: "1px 6px",
-            borderRadius: 4,
-            backgroundColor: "var(--color-panel-solid)",
-            border: `1px solid ${labelColor ?? ruleColor(state)}`,
-            color: labelColor ?? ruleColor(state),
-            letterSpacing: "0.03em",
-            textTransform: "uppercase",
-          }}
-        >
-          {label}
-        </span>
-      )}
       <Flex align="start" gap="2" py="3" px="4">
         {children}
       </Flex>
@@ -535,6 +528,8 @@ const FeatureRolloutModal: FC<Props> = ({
         approvalNotes: "",
         notesOpen: false,
         monitored,
+        requireHealthy: monitored,
+        minSampleSize: null,
       },
     ]);
   }
@@ -561,6 +556,8 @@ const FeatureRolloutModal: FC<Props> = ({
         approvalNotes: "",
         notesOpen: false,
         monitored,
+        requireHealthy: monitored,
+        minSampleSize: null,
       },
       ...prev.slice(i + 1),
     ]);
@@ -650,6 +647,10 @@ const FeatureRolloutModal: FC<Props> = ({
         actions.push({ type: "set-gate", ruleId, patch: gatePatch });
       }
 
+      const holdConditions: Record<string, unknown> = {};
+      if (s.requireHealthy) holdConditions.requireHealthy = true;
+      if (s.minSampleSize) holdConditions.minSampleSize = s.minSampleSize;
+
       return {
         trigger:
           s.triggerType === "interval"
@@ -663,6 +664,7 @@ const FeatureRolloutModal: FC<Props> = ({
         ...(s.triggerType === "approval" && s.approvalNotes
           ? { approvalNotes: s.approvalNotes }
           : {}),
+        ...(Object.keys(holdConditions).length > 0 ? { holdConditions } : {}),
       };
     });
 
@@ -873,7 +875,7 @@ const FeatureRolloutModal: FC<Props> = ({
                 APPLY EFFECT
               </Text>
             </TableColumnHeader>
-            <TableColumnHeader style={{ width: 260 }}>
+            <TableColumnHeader style={{ width: 320 }}>
               <Text size="small" weight="medium" color="text-low">
                 THEN
               </Text>
@@ -882,533 +884,731 @@ const FeatureRolloutModal: FC<Props> = ({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {steps.map((step, i) => (
-            <TableRow key={i}>
-              {/* STEP number */}
-              <TableCell
-                style={{
-                  verticalAlign: "top",
-                  paddingTop: 20,
-                  paddingBottom: 20,
-                  textAlign: "center",
-                }}
-              >
-                <Flex
-                  align="center"
-                  justify="center"
-                  style={{
-                    width: 28,
-                    height: 28,
-                    margin: "0 auto",
-                    borderRadius: "50%",
-                    background: "var(--accent-3)",
-                    color: "var(--accent-11)",
-                    fontSize: 13,
-                    fontWeight: 600,
-                  }}
-                >
-                  {i + 1}
-                </Flex>
-              </TableCell>
+          {(() => {
+            const enabledEnvs = new Set<string>();
+            for (const [envId, s] of Object.entries(
+              feature.environmentSettings || {},
+            )) {
+              if (s.enabled) enabledEnvs.add(envId);
+            }
 
-              {/* APPLY EFFECT */}
-              <TableCell
-                style={{
-                  verticalAlign: "top",
-                  paddingTop: 20,
-                  paddingBottom: 20,
-                }}
-              >
-                <Flex direction="column" gap="5">
-                  {/* Gate rules */}
-                  {step.rules.map((rule, ruleIdx) => {
-                    const rState = deriveRuleState(
-                      step.rules,
-                      ruleIdx,
-                      step.monitored,
-                    );
-                    const nativeState: RuleVisualState =
-                      rState === "unreachable"
-                        ? ruleIdx === step.rules.length - 1 && step.monitored
-                          ? "monitored"
-                          : !step.monitored
-                            ? "default"
-                            : "bypass"
-                        : rState;
-                    return (
-                      <React.Fragment key={rule.id}>
-                        <GateRuleCard
-                          state={rState}
-                          label={
-                            nativeState === "monitored"
-                              ? "Safe rollout"
-                              : nativeState === "bypass"
-                                ? "Unmonitored"
-                                : null
-                          }
-                          labelColor={ruleColor(nativeState)}
+            return steps.map((step, i) => {
+              for (const [envId, on] of Object.entries(step.toggles)) {
+                if (on) enabledEnvs.add(envId);
+                else enabledEnvs.delete(envId);
+              }
+              const stepEnabledEnvs = new Set(enabledEnvs);
+
+              const hasDisabledEnvWarning = step.rules.some((rule) => {
+                const targetEnvs = rule.allEnvironments
+                  ? allEnvIds
+                  : rule.envIds;
+                return targetEnvs.some((id) => !stepEnabledEnvs.has(id));
+              });
+
+              return (
+                <TableRow key={i}>
+                  {/* STEP number */}
+                  <TableCell
+                    style={{
+                      verticalAlign: "top",
+                      paddingTop: 20,
+                      paddingBottom: 20,
+                      textAlign: "center",
+                    }}
+                  >
+                    <Flex
+                      align="center"
+                      justify="center"
+                      style={{
+                        width: 28,
+                        height: 28,
+                        margin: "0 auto",
+                        borderRadius: "50%",
+                        background: "var(--accent-3)",
+                        color: "var(--accent-11)",
+                        fontSize: 13,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {i + 1}
+                    </Flex>
+                  </TableCell>
+
+                  {/* APPLY EFFECT */}
+                  <TableCell
+                    style={{
+                      verticalAlign: "top",
+                      paddingTop: 20,
+                      paddingBottom: 20,
+                    }}
+                  >
+                    <Flex direction="column" gap="3">
+                      {/* Gate rules */}
+                      {step.rules.map((rule, ruleIdx) => {
+                        const rState = deriveRuleState(
+                          step.rules,
+                          ruleIdx,
+                          step.monitored,
+                        );
+                        const nativeState: RuleVisualState =
+                          rState === "unreachable"
+                            ? ruleIdx === step.rules.length - 1 &&
+                              step.monitored
+                              ? "monitored"
+                              : !step.monitored
+                                ? "default"
+                                : "bypass"
+                            : rState;
+                        return (
+                          <React.Fragment key={rule.id}>
+                            <GateRuleCard state={rState}>
+                              <Flex
+                                gap="3"
+                                align="start"
+                                style={{ flex: 1, minWidth: 0 }}
+                              >
+                                {/* Left: type + environment scope */}
+                                <Box
+                                  style={{
+                                    width: 200,
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  <MultiSelectField
+                                    value={rule.envIds}
+                                    onChange={(vals) =>
+                                      updateRule(i, ruleIdx, {
+                                        envIds: vals,
+                                        allEnvironments: vals.length === 0,
+                                      })
+                                    }
+                                    options={allEnvIds.map((id) => ({
+                                      label: id,
+                                      value: id,
+                                      color: stepEnabledEnvs.has(id)
+                                        ? ""
+                                        : "#f59e0b",
+                                    }))}
+                                    placeholder="All environments"
+                                    sort={false}
+                                    showCopyButton={false}
+                                    containerClassName="mb-0"
+                                    customClassName="multiselect-unfixed"
+                                    customStyles={{
+                                      multiValue: (base, { data }) =>
+                                        data.color
+                                          ? {
+                                              ...base,
+                                              backgroundColor:
+                                                "var(--amber-a3)",
+                                              borderRadius: 4,
+                                            }
+                                          : base,
+                                      multiValueLabel: (base, { data }) =>
+                                        data.color
+                                          ? {
+                                              ...base,
+                                              color: "var(--amber-11)",
+                                            }
+                                          : base,
+                                    }}
+                                  />
+                                </Box>
+
+                                {/* Right: coverage + targeting */}
+                                <Flex
+                                  direction="column"
+                                  gap="2"
+                                  style={{ flex: 1, minWidth: 0 }}
+                                >
+                                  <Flex align="center" gap="3">
+                                    <Box
+                                      style={{
+                                        width: 240,
+                                        flexShrink: 0,
+                                        border: "1px solid var(--slate-a5)",
+                                        borderRadius: 10,
+                                        backgroundColor: "var(--slate-a3)",
+                                        height: 14,
+                                        overflow: "hidden",
+                                      }}
+                                    >
+                                      <Box
+                                        style={{
+                                          width: `${rule.coverage}%`,
+                                          height: "100%",
+                                          backgroundColor:
+                                            ruleCoverageColor(nativeState),
+                                        }}
+                                      />
+                                    </Box>
+                                    <TextField.Root
+                                      size="2"
+                                      type="number"
+                                      min="0"
+                                      max="100"
+                                      style={{ width: 60 }}
+                                      onFocus={(e) => e.target.select()}
+                                      value={String(rule.coverage)}
+                                      onChange={(e) =>
+                                        updateRule(i, ruleIdx, {
+                                          coverage:
+                                            parseInt(e.target.value) || 0,
+                                        })
+                                      }
+                                      onBlur={(e) =>
+                                        updateRule(i, ruleIdx, {
+                                          coverage: Math.min(
+                                            100,
+                                            Math.max(
+                                              0,
+                                              parseInt(e.target.value) || 0,
+                                            ),
+                                          ),
+                                        })
+                                      }
+                                    >
+                                      <TextField.Slot side="right">
+                                        <span
+                                          style={{
+                                            color: "var(--color-text-low)",
+                                            fontSize: "var(--font-size-1)",
+                                          }}
+                                        >
+                                          %
+                                        </span>
+                                      </TextField.Slot>
+                                    </TextField.Root>
+                                    <Text size="small" color="text-low">
+                                      of users
+                                    </Text>
+                                  </Flex>
+
+                                  {rule.expanded ? (
+                                    <Flex direction="column" gap="2">
+                                      <ConditionInput
+                                        defaultValue={rule.condition ?? "{}"}
+                                        onChange={(v) =>
+                                          updateRule(i, ruleIdx, {
+                                            condition: v,
+                                          })
+                                        }
+                                        project={feature.project ?? ""}
+                                        slimMode
+                                        emptyText="No targeting — all users"
+                                      />
+                                      <SavedGroupTargetingField
+                                        value={rule.savedGroups ?? []}
+                                        setValue={(v) =>
+                                          updateRule(i, ruleIdx, {
+                                            savedGroups: v,
+                                          })
+                                        }
+                                        project={feature.project ?? ""}
+                                        slimMode
+                                      />
+                                    </Flex>
+                                  ) : (
+                                    <Link
+                                      size="1"
+                                      color="gray"
+                                      onClick={() =>
+                                        updateRule(i, ruleIdx, {
+                                          expanded: true,
+                                        })
+                                      }
+                                    >
+                                      <PiPlusBold
+                                        size={9}
+                                        style={{
+                                          marginRight: 3,
+                                          verticalAlign: "middle",
+                                        }}
+                                      />
+                                      targeting
+                                    </Link>
+                                  )}
+                                </Flex>
+                              </Flex>
+
+                              {/* Badges + menu */}
+                              <Flex
+                                align="center"
+                                gap="3"
+                                style={{ flexShrink: 0 }}
+                              >
+                                {nativeState === "monitored" && (
+                                  <Badge color="blue" label="Safe rollout" />
+                                )}
+                                {nativeState === "bypass" && (
+                                  <Badge color="gray" label="Unmonitored" />
+                                )}
+                                {rState === "unreachable" && (
+                                  <Badge
+                                    color="orange"
+                                    title="Rule not reachable"
+                                    label={
+                                      <>
+                                        <RiAlertLine />
+                                        Unreachable
+                                      </>
+                                    }
+                                  />
+                                )}
+                                <DropdownMenu
+                                  open={openRuleMenu === rule.id}
+                                  onOpenChange={(o) =>
+                                    setOpenRuleMenu(o ? rule.id : null)
+                                  }
+                                  trigger={
+                                    <IconButton
+                                      type="button"
+                                      variant="ghost"
+                                      color="gray"
+                                      radius="full"
+                                      size="2"
+                                      highContrast
+                                      style={{
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      <BsThreeDotsVertical size={16} />
+                                    </IconButton>
+                                  }
+                                  variant="soft"
+                                  menuPlacement="end"
+                                >
+                                  <DropdownMenuGroup>
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        insertRuleAt(i, ruleIdx);
+                                        setOpenRuleMenu(null);
+                                      }}
+                                    >
+                                      Add rule above
+                                    </DropdownMenuItem>
+                                    {step.rules.length > 1 &&
+                                      rState !== "monitored" && (
+                                        <DropdownMenuItem
+                                          color="red"
+                                          onClick={() => {
+                                            removeRule(i, ruleIdx);
+                                            setOpenRuleMenu(null);
+                                          }}
+                                        >
+                                          Delete rule
+                                        </DropdownMenuItem>
+                                      )}
+                                  </DropdownMenuGroup>
+                                </DropdownMenu>
+                              </Flex>
+                            </GateRuleCard>
+                          </React.Fragment>
+                        );
+                      })}
+
+                      {/* Environment toggles */}
+                      {step.togglesExpanded ? (
+                        <Box
+                          style={{
+                            border: "1px solid var(--gray-a5)",
+                            borderRadius: "var(--radius-2)",
+                            width: "100%",
+                          }}
                         >
-                          <Flex
-                            gap="3"
-                            align="start"
-                            style={{ flex: 1, minWidth: 0 }}
-                          >
-                            {/* Left: type + environment scope */}
+                          <Flex align="start" gap="3" py="2" px="4">
                             <Box
                               style={{
                                 width: 200,
                                 flexShrink: 0,
                               }}
                             >
-                              <MultiSelectField
-                                value={rule.envIds}
-                                onChange={(vals) =>
-                                  updateRule(i, ruleIdx, {
-                                    envIds: vals,
-                                    allEnvironments: vals.length === 0,
-                                  })
-                                }
-                                options={allEnvIds.map((id) => ({
-                                  label: id,
-                                  value: id,
-                                }))}
-                                placeholder="All environments"
-                                sort={false}
-                                showCopyButton={false}
-                                containerClassName="mb-0"
-                                customClassName="multiselect-unfixed"
-                              />
+                              <Box>
+                                <Text
+                                  size="small"
+                                  weight="semibold"
+                                  color="text-mid"
+                                >
+                                  Toggle environments
+                                </Text>
+                              </Box>
                             </Box>
-
-                            {/* Right: coverage + targeting */}
                             <Flex
-                              direction="column"
-                              gap="2"
+                              gap="3"
+                              wrap="wrap"
                               style={{ flex: 1, minWidth: 0 }}
                             >
-                              <Flex align="center" gap="3">
-                                <Box
-                                  style={{
-                                    width: 240,
-                                    flexShrink: 0,
-                                    border: "1px solid var(--slate-a5)",
-                                    borderRadius: 10,
-                                    backgroundColor: "var(--slate-a3)",
-                                    height: 14,
-                                    overflow: "hidden",
-                                  }}
-                                >
-                                  <Box
-                                    style={{
-                                      width: `${rule.coverage}%`,
-                                      height: "100%",
-                                      backgroundColor: ruleColor(nativeState),
-                                    }}
-                                  />
-                                </Box>
-                                <TextField.Root
-                                  size="2"
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  style={{ width: 60 }}
-                                  onFocus={(e) => e.target.select()}
-                                  value={String(rule.coverage)}
-                                  onChange={(e) =>
-                                    updateRule(i, ruleIdx, {
-                                      coverage: parseInt(e.target.value) || 0,
-                                    })
-                                  }
-                                  onBlur={(e) =>
-                                    updateRule(i, ruleIdx, {
-                                      coverage: Math.min(
-                                        100,
-                                        Math.max(
-                                          0,
-                                          parseInt(e.target.value) || 0,
-                                        ),
-                                      ),
-                                    })
-                                  }
-                                >
-                                  <TextField.Slot side="right">
+                              {allEnvIds.map((envId) => {
+                                const state = step.toggles[envId];
+                                const isOn = state === true;
+                                const isOff = state === false;
+                                const isIndeterminate = state === undefined;
+                                return (
+                                  <Flex
+                                    key={envId}
+                                    direction="column"
+                                    gap="0"
+                                    py="1"
+                                    style={{ lineHeight: 0.5 }}
+                                  >
+                                    <RadixText
+                                      as="label"
+                                      size="1"
+                                      color={
+                                        isIndeterminate ? undefined : "violet"
+                                      }
+                                      style={{ cursor: "pointer" }}
+                                    >
+                                      <Flex gap="1" align="center">
+                                        <RadixCheckbox
+                                          size="2"
+                                          variant={
+                                            isIndeterminate ? "soft" : "surface"
+                                          }
+                                          color={
+                                            isIndeterminate ? "gray" : "violet"
+                                          }
+                                          checked={
+                                            isIndeterminate
+                                              ? "indeterminate"
+                                              : isOn
+                                          }
+                                          onCheckedChange={() => {
+                                            if (isIndeterminate) {
+                                              setToggle(i, envId, true);
+                                            } else if (isOn) {
+                                              setToggle(i, envId, false);
+                                            } else {
+                                              setToggle(i, envId);
+                                            }
+                                          }}
+                                        />
+                                        {envId}
+                                      </Flex>
+                                    </RadixText>
                                     <span
                                       style={{
-                                        color: "var(--color-text-low)",
                                         fontSize: "var(--font-size-1)",
+                                        color: isOn
+                                          ? "var(--green-10)"
+                                          : isOff
+                                            ? "var(--red-10)"
+                                            : "var(--gray-a8)",
+                                        paddingLeft: 22,
+                                        width: 100,
+                                        display: "inline-block",
                                       }}
                                     >
-                                      %
+                                      {isOn
+                                        ? "toggle ON"
+                                        : isOff
+                                          ? "toggle OFF"
+                                          : "no change"}
                                     </span>
-                                  </TextField.Slot>
-                                </TextField.Root>
-                                <Text size="small" color="text-low">
-                                  of users
-                                </Text>
-                              </Flex>
-
-                              {rule.expanded ? (
-                                <Flex direction="column" gap="2">
-                                  <ConditionInput
-                                    defaultValue={rule.condition ?? "{}"}
-                                    onChange={(v) =>
-                                      updateRule(i, ruleIdx, {
-                                        condition: v,
-                                      })
-                                    }
-                                    project={feature.project ?? ""}
-                                    slimMode
-                                    emptyText="No targeting — all users"
-                                  />
-                                  <SavedGroupTargetingField
-                                    value={rule.savedGroups ?? []}
-                                    setValue={(v) =>
-                                      updateRule(i, ruleIdx, {
-                                        savedGroups: v,
-                                      })
-                                    }
-                                    project={feature.project ?? ""}
-                                    slimMode
-                                  />
-                                </Flex>
-                              ) : (
-                                <Link
-                                  size="1"
-                                  color="gray"
-                                  onClick={() =>
-                                    updateRule(i, ruleIdx, {
-                                      expanded: true,
-                                    })
-                                  }
-                                >
-                                  <PiPlusBold
-                                    size={9}
-                                    style={{
-                                      marginRight: 3,
-                                      verticalAlign: "middle",
-                                    }}
-                                  />
-                                  targeting
-                                </Link>
-                              )}
+                                  </Flex>
+                                );
+                              })}
                             </Flex>
-                          </Flex>
-
-                          {rState === "unreachable" && (
-                            <Badge
-                              color="orange"
-                              title="Rule not reachable"
-                              mt="1"
-                              label={
-                                <>
-                                  <RiAlertLine />
-                                  Unreachable
-                                </>
-                              }
-                            />
-                          )}
-
-                          {/* Rule menu */}
-                          <DropdownMenu
-                            open={openRuleMenu === rule.id}
-                            onOpenChange={(o) =>
-                              setOpenRuleMenu(o ? rule.id : null)
-                            }
-                            trigger={
-                              <IconButton
-                                type="button"
-                                variant="ghost"
-                                color="gray"
-                                radius="full"
-                                size="2"
-                                highContrast
-                                style={{
-                                  flexShrink: 0,
-                                }}
-                              >
-                                <BsThreeDotsVertical size={16} />
-                              </IconButton>
-                            }
-                            variant="soft"
-                            menuPlacement="end"
-                          >
-                            <DropdownMenuGroup>
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  insertRuleAt(i, ruleIdx);
-                                  setOpenRuleMenu(null);
-                                }}
-                              >
-                                Add rule above
-                              </DropdownMenuItem>
-                              {step.rules.length > 1 &&
-                                rState !== "monitored" && (
-                                  <DropdownMenuItem
-                                    color="red"
-                                    onClick={() => {
-                                      removeRule(i, ruleIdx);
-                                      setOpenRuleMenu(null);
-                                    }}
-                                  >
-                                    Delete rule
-                                  </DropdownMenuItem>
-                                )}
-                            </DropdownMenuGroup>
-                          </DropdownMenu>
-                        </GateRuleCard>
-                      </React.Fragment>
-                    );
-                  })}
-
-                  {/* Environment toggles */}
-                  {step.togglesExpanded ? (
-                    <Flex gap="4" wrap="wrap">
-                      {allEnvIds.map((envId) => {
-                        const state = step.toggles[envId];
-                        const isOn = state === true;
-                        const isOff = state === false;
-                        const isIndeterminate = state === undefined;
-                        return (
-                          <Flex
-                            key={envId}
-                            direction="column"
-                            gap="0"
-                            style={{ lineHeight: 1 }}
-                          >
-                            <RadixText
-                              as="label"
+                            <IconButton
+                              type="button"
+                              variant="ghost"
+                              color="gray"
+                              radius="full"
                               size="2"
-                              color={isIndeterminate ? undefined : "violet"}
-                              style={{ cursor: "pointer" }}
+                              highContrast
+                              style={{ marginTop: 0 }}
+                              onClick={() =>
+                                updateStep(i, {
+                                  toggles: {},
+                                  togglesExpanded: false,
+                                })
+                              }
                             >
-                              <Flex gap="2" align="center">
-                                <RadixCheckbox
-                                  size="3"
-                                  variant={isIndeterminate ? "soft" : "surface"}
-                                  color={isIndeterminate ? "gray" : "violet"}
-                                  checked={
-                                    isIndeterminate ? "indeterminate" : isOn
-                                  }
-                                  onCheckedChange={() => {
-                                    if (isIndeterminate) {
-                                      setToggle(i, envId, true);
-                                    } else if (isOn) {
-                                      setToggle(i, envId, false);
-                                    } else {
-                                      setToggle(i, envId);
-                                    }
-                                  }}
-                                />
-                                {envId}
-                              </Flex>
-                            </RadixText>
-                            <span
-                              style={{
-                                fontSize: "var(--font-size-1)",
-                                color: isOn
-                                  ? "var(--green-10)"
-                                  : isOff
-                                    ? "var(--red-10)"
-                                    : "var(--gray-a8)",
-                                paddingLeft: 28,
-                                width: 100,
-                                display: "inline-block",
-                              }}
-                            >
-                              {isOn
-                                ? "toggle ON"
-                                : isOff
-                                  ? "toggle OFF"
-                                  : "no change"}
-                            </span>
+                              <PiXBold size={14} />
+                            </IconButton>
                           </Flex>
-                        );
-                      })}
-                    </Flex>
-                  ) : (
-                    <Link
-                      size="1"
-                      onClick={() => updateStep(i, { togglesExpanded: true })}
-                    >
-                      Change enabled environments
-                    </Link>
-                  )}
-                </Flex>
-              </TableCell>
+                        </Box>
+                      ) : (
+                        <Box style={{ alignSelf: "flex-start" }}>
+                          <Link
+                            onClick={() =>
+                              updateStep(i, { togglesExpanded: true })
+                            }
+                          >
+                            Toggle environments
+                          </Link>
+                        </Box>
+                      )}
 
-              {/* THEN */}
-              <TableCell
-                style={{
-                  verticalAlign: "top",
-                  paddingTop: 20,
-                  paddingBottom: 20,
-                }}
-              >
-                <Flex direction="column" gap="2">
-                  <Flex align="center" gap="2" wrap="wrap">
-                    <Select
-                      size="2"
-                      value={step.triggerType}
-                      setValue={(v) =>
-                        updateStep(i, {
-                          triggerType: v as "interval" | "approval",
-                        })
-                      }
-                    >
-                      <SelectItem value="interval">hold</SelectItem>
-                      <SelectItem value="approval">await approval</SelectItem>
-                    </Select>
-                    {step.triggerType === "interval" && (
-                      <>
-                        <TextField.Root
-                          size="2"
-                          type="number"
-                          min="1"
-                          style={{ width: 56 }}
-                          onFocus={(e) => e.target.select()}
-                          value={String(step.intervalValue)}
-                          onChange={(e) =>
-                            updateStep(i, {
-                              intervalValue: parseInt(e.target.value) || 0,
-                            })
-                          }
-                          onBlur={(e) =>
-                            updateStep(i, {
-                              intervalValue: Math.max(
-                                1,
-                                parseInt(e.target.value) || 1,
-                              ),
-                            })
-                          }
-                        />
+                      {hasDisabledEnvWarning && (
+                        <Callout status="warning" size="sm">
+                          Some environments targeted by rules are not enabled in
+                          this step. Toggle them on above or enable them
+                          manually.
+                        </Callout>
+                      )}
+                    </Flex>
+                  </TableCell>
+
+                  {/* THEN */}
+                  <TableCell
+                    style={{
+                      verticalAlign: "top",
+                      paddingTop: 20,
+                      paddingBottom: 20,
+                    }}
+                  >
+                    <Flex direction="column" gap="2">
+                      <Flex align="center" gap="2" wrap="wrap">
                         <Select
                           size="2"
-                          value={step.intervalUnit}
+                          value={step.triggerType}
                           setValue={(v) =>
                             updateStep(i, {
-                              intervalUnit: v as IntervalUnit,
+                              triggerType: v as "interval" | "approval",
                             })
                           }
                         >
-                          <SelectItem value="hours">hours</SelectItem>
-                          <SelectItem value="days">days</SelectItem>
+                          <SelectItem value="interval">hold</SelectItem>
+                          <SelectItem value="approval">
+                            await approval
+                          </SelectItem>
                         </Select>
-                      </>
-                    )}
-                  </Flex>
-                  <Flex align="center" gap="1">
-                    <Box
-                      style={{ cursor: "pointer" }}
-                      onClick={() => {
-                        const newMonitored = !step.monitored;
-                        if (newMonitored && step.rules.length === 0) {
-                          setSteps((prev) =>
-                            prev.map((s, j) => {
-                              if (j !== i) return s;
-                              return {
-                                ...s,
-                                rules: [
-                                  {
-                                    id: nextRuleId(),
-                                    monitored: true,
-                                    allEnvironments: true,
-                                    envIds: [],
-                                    coverage: 100,
-                                  },
-                                ],
-                              };
-                            }),
-                          );
-                        }
-                        updateStep(i, { monitored: newMonitored });
-                      }}
-                    >
-                      {step.monitored ? (
+                        {step.triggerType === "interval" && (
+                          <>
+                            <TextField.Root
+                              size="2"
+                              type="number"
+                              min="1"
+                              style={{ width: 56 }}
+                              onFocus={(e) => e.target.select()}
+                              value={String(step.intervalValue)}
+                              onChange={(e) =>
+                                updateStep(i, {
+                                  intervalValue: parseInt(e.target.value) || 0,
+                                })
+                              }
+                              onBlur={(e) =>
+                                updateStep(i, {
+                                  intervalValue: Math.max(
+                                    1,
+                                    parseInt(e.target.value) || 1,
+                                  ),
+                                })
+                              }
+                            />
+                            <Select
+                              size="2"
+                              value={step.intervalUnit}
+                              setValue={(v) =>
+                                updateStep(i, {
+                                  intervalUnit: v as IntervalUnit,
+                                })
+                              }
+                            >
+                              <SelectItem value="minutes">minutes</SelectItem>
+                              <SelectItem value="hours">hours</SelectItem>
+                              <SelectItem value="days">days</SelectItem>
+                            </Select>
+                          </>
+                        )}
+                      </Flex>
+                      {/* Approval notes */}
+                      {step.triggerType === "approval" && (
                         <Flex
                           align="center"
-                          gap="1"
-                          style={{ display: "inline-flex" }}
+                          gap="2"
+                          style={{ flex: 1, minWidth: 0 }}
                         >
-                          <PiShieldCheckBold
-                            size={12}
-                            style={{ color: "var(--blue-9)" }}
-                          />
-                          <span
+                          {!step.notesOpen ? (
+                            <Link
+                              size="1"
+                              color="gray"
+                              style={{ flexShrink: 0 }}
+                              onClick={() =>
+                                updateStep(i, {
+                                  notesOpen: true,
+                                  approvalNotes: "",
+                                })
+                              }
+                            >
+                              <PiPlusBold
+                                style={{
+                                  marginRight: 3,
+                                  verticalAlign: "middle",
+                                }}
+                              />
+                              Add approval notes
+                            </Link>
+                          ) : (
+                            <Box style={{ flex: 1, minWidth: 0 }}>
+                              <Field
+                                label=""
+                                placeholder="ex: Check error rates"
+                                value={step.approvalNotes}
+                                onChange={(e) =>
+                                  updateStep(i, {
+                                    approvalNotes: e.target.value,
+                                  })
+                                }
+                                onBlur={() => {
+                                  if (!step.approvalNotes.trim()) {
+                                    updateStep(i, {
+                                      notesOpen: false,
+                                      approvalNotes: "",
+                                    });
+                                  }
+                                }}
+                                containerClassName="mb-0"
+                                style={{ height: 32 }}
+                              />
+                            </Box>
+                          )}
+                        </Flex>
+                      )}
+
+                      <Box mt="3">
+                        {/* Monitor checkbox */}
+                        <Checkbox
+                          value={step.monitored}
+                          setValue={(v) => {
+                            if (v && step.rules.length === 0) {
+                              setSteps((prev) =>
+                                prev.map((s, j) => {
+                                  if (j !== i) return s;
+                                  return {
+                                    ...s,
+                                    rules: [
+                                      {
+                                        id: nextRuleId(),
+                                        monitored: true,
+                                        allEnvironments: true,
+                                        envIds: [],
+                                        coverage: 100,
+                                      },
+                                    ],
+                                  };
+                                }),
+                              );
+                            }
+                            updateStep(i, { monitored: v });
+                          }}
+                          label="Monitor this step"
+                          size="sm"
+                        />
+
+                        {/* Monitoring hold conditions */}
+                        {step.monitored && (
+                          <Box
                             style={{
-                              fontSize: "var(--font-size-1)",
-                              color: "var(--blue-9)",
+                              marginLeft: 20,
+                              paddingLeft: 8,
+                              borderLeft: "2px solid var(--blue-6)",
                             }}
                           >
-                            monitored
-                          </span>
-                        </Flex>
-                      ) : (
-                        <Text size="small" color="text-low">
-                          unmonitored
-                        </Text>
-                      )}
-                    </Box>
-                  </Flex>
-                </Flex>
-              </TableCell>
+                            <Flex direction="column" gap="1">
+                              <Checkbox
+                                value={step.requireHealthy}
+                                setValue={(v) =>
+                                  updateStep(i, { requireHealthy: v })
+                                }
+                                label="Require healthy guardrails"
+                                size="sm"
+                              />
+                              <Flex align="center" gap="2">
+                                <Checkbox
+                                  value={step.minSampleSize !== null}
+                                  setValue={(v) =>
+                                    updateStep(i, {
+                                      minSampleSize: v ? 1000 : null,
+                                    })
+                                  }
+                                  label="Min sample size"
+                                  size="sm"
+                                />
+                                {step.minSampleSize !== null && (
+                                  <TextField.Root
+                                    size="1"
+                                    type="number"
+                                    min="1"
+                                    style={{ width: 70 }}
+                                    value={String(step.minSampleSize)}
+                                    onChange={(e) =>
+                                      updateStep(i, {
+                                        minSampleSize:
+                                          parseInt(e.target.value) || 0,
+                                      })
+                                    }
+                                  />
+                                )}
+                              </Flex>
+                            </Flex>
+                          </Box>
+                        )}
+                      </Box>
+                    </Flex>
+                  </TableCell>
 
-              {/* Menu */}
-              <TableCell
-                style={{
-                  verticalAlign: "top",
-                  paddingTop: 20,
-                  paddingBottom: 20,
-                }}
-              >
-                <DropdownMenu
-                  open={openMenuIndex === i}
-                  onOpenChange={(o) => setOpenMenuIndex(o ? i : null)}
-                  trigger={
-                    <IconButton
-                      type="button"
-                      variant="ghost"
-                      color="gray"
-                      radius="full"
-                      size="2"
-                      highContrast
-                      style={{ marginTop: 2, flexShrink: 0 }}
+                  {/* Menu */}
+                  <TableCell
+                    style={{
+                      verticalAlign: "top",
+                      paddingTop: 20,
+                      paddingBottom: 20,
+                    }}
+                  >
+                    <DropdownMenu
+                      open={openMenuIndex === i}
+                      onOpenChange={(o) => setOpenMenuIndex(o ? i : null)}
+                      trigger={
+                        <IconButton
+                          type="button"
+                          variant="ghost"
+                          color="gray"
+                          radius="full"
+                          size="2"
+                          highContrast
+                          style={{ marginTop: 2, flexShrink: 0 }}
+                        >
+                          <BsThreeDotsVertical size={16} />
+                        </IconButton>
+                      }
+                      variant="soft"
+                      menuPlacement="end"
                     >
-                      <BsThreeDotsVertical size={16} />
-                    </IconButton>
-                  }
-                  variant="soft"
-                  menuPlacement="end"
-                >
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setOpenMenuIndex(null);
-                        addStepAfter(i);
-                      }}
-                    >
-                      Add step after
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  {steps.length > 1 && (
-                    <>
-                      <DropdownMenuSeparator />
                       <DropdownMenuGroup>
                         <DropdownMenuItem
-                          color="red"
                           onClick={() => {
                             setOpenMenuIndex(null);
-                            removeStep(i);
+                            addStepAfter(i);
                           }}
                         >
-                          Remove step
+                          Add step after
                         </DropdownMenuItem>
                       </DropdownMenuGroup>
-                    </>
-                  )}
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
-          ))}
+                      {steps.length > 1 && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem
+                              color="red"
+                              onClick={() => {
+                                setOpenMenuIndex(null);
+                                removeStep(i);
+                              }}
+                            >
+                              Remove step
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
+                        </>
+                      )}
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            });
+          })()}
         </TableBody>
       </Table>
 
