@@ -343,13 +343,19 @@ export function getMatchingRules(
 //   environments:[list]            → list.includes(environment)
 //   environments:[]                → false (pending)
 //   neither (malformed/legacy)     → true (permissive fallback)
+//   nullish/non-object             → false (defensive; pre-v2 docs stored as
+//                                    Mongoose `Mixed` can land with sparse
+//                                    `null`/`undefined` rule slots)
 export function ruleAppliesToEnv(
   rule: FeatureRule,
   environment: string,
 ): boolean {
+  if (rule == null || typeof rule !== "object") return false;
   if (rule.allEnvironments) return true;
   if (rule.environments !== undefined) {
-    return rule.environments.includes(environment);
+    return Array.isArray(rule.environments)
+      ? rule.environments.includes(environment)
+      : false;
   }
   return true;
 }
@@ -357,13 +363,17 @@ export function ruleAppliesToEnv(
 // Filter to rules applying to `environment`, preserving input order. Accepts
 // nullish for convenience. Non-array input (e.g. a not-yet-JIT-upgraded v1
 // revision) returns [] rather than throwing, so the caller's envSettings
-// fallback can take over.
+// fallback can take over. Nullish slots inside the array are dropped before
+// the predicate runs — see `naiveFlattenV1Rules` for the same hardening.
 export function getRulesForEnvironment(
   rules: FeatureRule[] | undefined | null,
   environment: string,
 ): FeatureRule[] {
   if (!Array.isArray(rules)) return [];
-  return rules.filter((r) => ruleAppliesToEnv(r, environment));
+  return rules.filter(
+    (r): r is FeatureRule =>
+      r != null && typeof r === "object" && ruleAppliesToEnv(r, environment),
+  );
 }
 
 // Footprint of a rule, intersected with `applicableEnvs`. Must match

@@ -409,9 +409,17 @@ export function buildFeatureUpdate<
 
   // `allEnvironments: true` is wildcard at runtime; strip any stale
   // `environments` list so the on-disk doc stays consistent with the model.
+  // Also drop nullish slots at this write chokepoint so a regression in any
+  // upstream filter (autoMerge, normalizeRulesInputToV2, JIT migration) can't
+  // re-persist `null`/`undefined` rules to disk and resurrect the
+  // "Cannot read properties of undefined (reading 'type')" publish crash.
   if (Array.isArray(next.rules)) {
-    const normalized = (next.rules as FeatureRule[]).map((r) => {
-      if (r?.allEnvironments && Array.isArray(r.environments)) {
+    const inputRules = next.rules as FeatureRule[];
+    const filtered = inputRules.filter(
+      (r): r is FeatureRule => r != null && typeof r === "object",
+    );
+    const normalized = filtered.map((r) => {
+      if (r.allEnvironments && Array.isArray(r.environments)) {
         return {
           ...omit(r, ["environments"]),
           allEnvironments: true,
@@ -419,9 +427,9 @@ export function buildFeatureUpdate<
       }
       return r;
     });
-    const changed = normalized.some(
-      (r, i) => r !== (next.rules as FeatureRule[])[i],
-    );
+    const changed =
+      filtered.length !== inputRules.length ||
+      normalized.some((r, i) => r !== filtered[i]);
     if (changed) next = { ...next, rules: normalized } as T;
   }
 
