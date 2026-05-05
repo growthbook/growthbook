@@ -565,13 +565,13 @@ export async function getSafeRolloutAnalysisSummary({
 const dispatchSafeRolloutEvent = async <T extends ResourceEvents<"feature">>({
   context,
   feature,
-  environment,
+  environments,
   event,
   data,
 }: {
   context: ReqContext;
   feature: FeatureInterface;
-  environment: string;
+  environments: string[];
   event: T;
   data: CreateEventData<"feature", T>;
 }) => {
@@ -583,7 +583,7 @@ const dispatchSafeRolloutEvent = async <T extends ResourceEvents<"feature">>({
     data,
     projects: feature.project ? [feature.project] : [],
     tags: feature.tags || [],
-    environments: [environment],
+    environments,
     containsSecrets: false,
   });
 };
@@ -642,10 +642,14 @@ export async function notifySafeRolloutChange({
     throw new Error("Could not find feature to fire event");
   }
 
+  const rule = getSafeRolloutRuleFromFeature(feature, updatedSafeRollout.id);
+  const ruleEnvironments = rule?.allEnvironments
+    ? Object.keys(feature.environmentSettings)
+    : (rule?.environments ?? []);
   const notificationData = {
     featureId: feature.id,
     safeRolloutId: updatedSafeRollout.id,
-    environment: updatedSafeRollout.environment,
+    environment: ruleEnvironments[0] ?? "",
   };
 
   // always notify of new status, regardless of old status
@@ -667,7 +671,7 @@ export async function notifySafeRolloutChange({
         dispatchSafeRolloutEvent({
           context,
           feature,
-          environment: notificationData.environment,
+          environments: ruleEnvironments,
           event: "saferollout.unhealthy",
           data: {
             object: {
@@ -689,7 +693,7 @@ export async function notifySafeRolloutChange({
         dispatchSafeRolloutEvent({
           context,
           feature,
-          environment: notificationData.environment,
+          environments: ruleEnvironments,
           event: "saferollout.rollback",
           data: {
             object: notificationData,
@@ -707,7 +711,7 @@ export async function notifySafeRolloutChange({
         dispatchSafeRolloutEvent({
           context,
           feature,
-          environment: notificationData.environment,
+          environments: ruleEnvironments,
           event: "saferollout.ship",
           data: {
             object: notificationData,

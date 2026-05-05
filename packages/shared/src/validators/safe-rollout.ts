@@ -54,7 +54,7 @@ export type SafeRolloutNotification = (typeof safeRolloutNotification)[number];
 
 const safeRollout = createSafeRolloutValidator.extend({
   featureId: z.string(),
-  environment: z.string(),
+  environment: z.string().optional(),
 
   status: z.enum(safeRolloutStatusArray),
   autoSnapshots: z.boolean(),

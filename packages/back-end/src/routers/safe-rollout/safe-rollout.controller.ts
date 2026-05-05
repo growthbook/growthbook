@@ -193,21 +193,17 @@ export async function putSafeRollout(
   req: AuthRequest<
     {
       safeRolloutFields: Partial<CreateSafeRolloutInterface>;
-      environment: string;
     },
     { id: string }
   >,
   res: Response<{ status: 200 }>,
 ) {
   const { id } = req.params;
-  const { safeRolloutFields, environment } = req.body;
+  const { safeRolloutFields } = req.body;
   const context = getContextFromReq(req);
   const safeRollout = await context.models.safeRollout.getById(id);
   if (!safeRollout) {
     throw new Error("Could not find safe rollout");
-  }
-  if (safeRollout.environment !== environment) {
-    throw new Error("Safe rollout environment does not match");
   }
 
   const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(

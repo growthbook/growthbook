@@ -2014,11 +2014,6 @@ export async function postFeatureRule(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
-  // Empty `selectedEnvironments` is allowed for non-safe-rollout rules — the
-  // resulting rule has `allEnvironments: false, environments: []` and is
-  // surfaced in the UI with a "No environments" badge until the user adds one.
-  // Safe-rollout still requires exactly one env (enforced below).
-
   selectedEnvironments.forEach((env) => {
     if (!environmentIds.includes(env)) {
       throw new Error("Invalid environment");
@@ -2033,16 +2028,6 @@ export async function postFeatureRule(
   }
 
   if (rule.type === "safe-rollout") {
-    const environment = selectedEnvironments[0];
-    if (!environment) {
-      throw new Error("Safe Rollout rules require an environment");
-    }
-    if (selectedEnvironments.length > 1) {
-      throw new Error(
-        "Safe Rollout rules can only be applied to a single environment",
-      );
-    }
-
     if (!context.hasPremiumFeature("safe-rollout")) {
       throw new Error(`Safe Rollout rules is a premium feature.`);
     }
@@ -2052,7 +2037,6 @@ export async function postFeatureRule(
       context,
     );
 
-    // Set default status for safe rollout rule
     rule.status = "running";
     rule.seed = rule.seed || uuidv4();
     rule.trackingKey =
@@ -2060,7 +2044,6 @@ export async function postFeatureRule(
 
     const safeRollout = await context.models.safeRollout.create({
       ...validatedSafeRolloutFields,
-      environment,
       featureId: feature.id,
       status: rule.status,
       autoSnapshots: true,

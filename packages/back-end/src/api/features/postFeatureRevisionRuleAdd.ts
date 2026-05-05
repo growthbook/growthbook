@@ -269,7 +269,6 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       ];
       const safeRollout = await req.context.models.safeRollout.create({
         ...validatedFields,
-        environment,
         featureId: feature.id,
         status: "running",
         autoSnapshots: true,

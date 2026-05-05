@@ -656,21 +656,18 @@ export default function RuleModal({
       values.id = pregenRuleId;
     }
 
-    // Safe-rollout rules are pinned to one env by the controller; skip scope.
-    if (values.type !== "safe-rollout") {
-      if (scopeAllEnvs) {
-        values = {
-          ...values,
-          allEnvironments: true,
-          environments: [],
-        };
-      } else {
-        values = {
-          ...values,
-          allEnvironments: false,
-          environments: selectedEnvironments,
-        };
-      }
+    if (scopeAllEnvs) {
+      values = {
+        ...values,
+        allEnvironments: true,
+        environments: [],
+      };
+    } else {
+      values = {
+        ...values,
+        allEnvironments: false,
+        environments: selectedEnvironments,
+      };
     }
 
     // Loop through each scheduleRule and convert the timestamp to an ISOString()
@@ -1029,7 +1026,6 @@ export default function RuleModal({
           res = await apiCall(`/safe-rollout/${values.safeRolloutId}`, {
             method: "PUT",
             body: JSON.stringify({
-              environment,
               safeRolloutFields,
             }),
           });
@@ -1282,12 +1278,9 @@ export default function RuleModal({
             method: "POST",
             body: JSON.stringify({
               rule: values,
-              environments:
-                values.type === "safe-rollout"
-                  ? [environment]
-                  : scopeAllEnvs
-                    ? environments.map((e) => e.id)
-                    : selectedEnvironments,
+              environments: scopeAllEnvs
+                ? environments.map((e) => e.id)
+                : selectedEnvironments,
               safeRolloutFields,
               rampSchedule: rampScheduleInline,
             } as PostFeatureRuleBody),

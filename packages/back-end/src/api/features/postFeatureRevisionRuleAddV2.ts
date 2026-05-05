@@ -181,17 +181,8 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
         { percent: 0.75 },
         { percent: 1 },
       ];
-      // V2: safe-rollout requires a single-env scope (allEnvironments must be false).
-      // Use environments[0] for the SafeRollout entity's `environment` field.
-      const targetEnvs = allEnvironments ? undefined : (environments ?? []);
-      if (!targetEnvs || targetEnvs.length !== 1) {
-        throw new BadRequestError(
-          'Safe Rollout rules must target exactly one environment (allEnvironments: false, environments: ["<env>"]).',
-        );
-      }
       const safeRollout = await req.context.models.safeRollout.create({
         ...validatedFields,
-        environment: targetEnvs[0],
         featureId: feature.id,
         status: "running",
         autoSnapshots: true,

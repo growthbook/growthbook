@@ -18,7 +18,6 @@ const statusBody = z
 const safeRolloutBody = z
   .object({
     safeRolloutFields: createSafeRolloutValidator.partial(),
-    environment: z.string(),
   })
   .strict();
 const safeRolloutParams = z.object({ id: z.string() }).strict();

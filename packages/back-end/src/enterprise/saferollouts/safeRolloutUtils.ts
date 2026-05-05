@@ -22,6 +22,7 @@ import {
   createRevision,
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
+import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { determineNextDate } from "back-end/src/services/experiments";
 
 export interface UpdateRampUpScheduleParams {
@@ -94,6 +95,11 @@ export async function checkAndRollbackSafeRollout({
     healthSettings,
     daysLeft,
   });
+  const rule = getSafeRolloutRuleFromFeature(feature, updatedSafeRollout.id);
+  const ruleEnvs = rule?.allEnvironments
+    ? Object.keys(feature.environmentSettings)
+    : (rule?.environments ?? []);
+
   let status: SafeRolloutStatus = updatedSafeRollout.status;
   if (
     safeRolloutStatus?.status &&
@@ -104,7 +110,7 @@ export async function checkAndRollbackSafeRollout({
       context,
       feature,
       user: context.auditUser,
-      environments: [updatedSafeRollout.environment],
+      environments: ruleEnvs,
       baseVersion: feature.version,
       org: context.org,
     });
@@ -116,7 +122,7 @@ export async function checkAndRollbackSafeRollout({
       { status },
       context.auditUser,
       false,
-      updatedSafeRollout.environment,
+      ruleEnvs[0],
     );
     const live = await getRevision({
       context,
@@ -143,13 +149,7 @@ export async function checkAndRollbackSafeRollout({
       throw new Error("Could not lookup feature history");
     }
 
-    const mergeResult = autoMerge(
-      live,
-      base,
-      revision,
-      [updatedSafeRollout.environment],
-      {},
-    );
+    const mergeResult = autoMerge(live, base, revision, ruleEnvs, {});
     if (!mergeResult.success) {
       throw new Error("could not merge the status");
     }
