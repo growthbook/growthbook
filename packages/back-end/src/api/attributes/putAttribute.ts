@@ -29,11 +29,16 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
       req.context,
     );
     if (
-      !req.context.permissions.canUpdateAttribute(
-        attribute,
-        updatedAttribute,
-        hasReadyEventForwarder,
-      )
+      hasReadyEventForwarder &&
+      req.body.datatype !== undefined &&
+      req.body.datatype !== attribute.datatype
+    ) {
+      throw new Error(
+        "Attribute data type can't be changed while an Event Forwarder is active.",
+      );
+    }
+    if (
+      !req.context.permissions.canUpdateAttribute(attribute, updatedAttribute)
     )
       req.context.permissions.throwPermissionError();
 

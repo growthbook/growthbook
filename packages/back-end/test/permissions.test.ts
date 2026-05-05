@@ -1887,7 +1887,7 @@ describe("PermissionsUtilClass.canUpdateAttribute check", () => {
     ).toEqual(true);
   });
 
-  it("User with attribute update permission cannot update when a ready event forwarder exists", async () => {
+  it("User with attribute update permission can update when a ready event forwarder exists", async () => {
     const permissions = new Permissions({
       global: {
         permissions: roleToPermissionMap("engineer", testOrg),
@@ -1901,9 +1901,8 @@ describe("PermissionsUtilClass.canUpdateAttribute check", () => {
       permissions.canUpdateAttribute(
         { projects: ["ABC123"] },
         { projects: [] },
-        true,
       ),
-    ).toEqual(false);
+    ).toEqual(true);
   });
 
   it("User with global readonly role can update an attribute from being in project ABC123 to being in ABC123 and DEF456", async () => {

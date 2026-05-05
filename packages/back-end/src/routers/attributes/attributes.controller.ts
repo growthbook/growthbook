@@ -131,12 +131,16 @@ export const putAttribute = async (
   const existing = attributeSchema[index];
   const hasReadyEventForwarder = await hasReadyEventForwarderConfig(context);
   if (
-    !context.permissions.canUpdateAttribute(
-      existing,
-      { projects },
-      hasReadyEventForwarder,
-    )
+    hasReadyEventForwarder &&
+    (property !== existing.property ||
+      (datatype !== undefined && datatype !== existing.datatype))
   ) {
+    context.throwBadRequestError(
+      "Attribute name and data type can't be changed while an Event Forwarder is active.",
+    );
+  }
+
+  if (!context.permissions.canUpdateAttribute(existing, { projects })) {
     context.permissions.throwPermissionError();
   }
 

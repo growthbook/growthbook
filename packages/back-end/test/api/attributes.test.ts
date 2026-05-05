@@ -374,7 +374,7 @@ describe("attributes API", () => {
     expect(auditMock).not.toHaveBeenCalledWith();
   });
 
-  it("refuses to update attributes when a ready event forwarder exists", async () => {
+  it("can update unlocked attribute fields when a ready event forwarder exists", async () => {
     setReqContext({
       models: {
         projects: {
@@ -397,8 +397,7 @@ describe("attributes API", () => {
         },
       },
       permissions: {
-        canUpdateAttribute: (_existing, _updates, hasReadyEventForwarder) =>
-          !hasReadyEventForwarder,
+        canUpdateAttribute: () => true,
         throwPermissionError: () => {
           throw new Error("permission error");
         },
@@ -412,9 +411,67 @@ describe("attributes API", () => {
       })
       .set("Authorization", "Bearer foo");
 
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      attribute: {
+        property: "attr1",
+        datatype: "string[]",
+        projects: ["bla"],
+        description: "bla",
+      },
+    });
+    expect(updateOrganization).toHaveBeenCalledWith("org1", {
+      settings: {
+        attributeSchema: [
+          {
+            property: "attr1",
+            datatype: "string[]",
+            projects: ["bla"],
+            description: "bla",
+          },
+        ],
+      },
+    });
+  });
+
+  it("refuses to update attribute data type when a ready event forwarder exists", async () => {
+    setReqContext({
+      models: {
+        projects: {
+          getAll: () => [{ id: "bla" }],
+        },
+        eventForwarderConfigs: {
+          getAll: () => [{ status: "ready" }],
+        },
+      },
+      org: {
+        id: "org1",
+        settings: {
+          attributeSchema: [
+            {
+              property: "attr1",
+              datatype: "string[]",
+              projects: ["bla"],
+            },
+          ],
+        },
+      },
+      permissions: {
+        canUpdateAttribute: () => true,
+      },
+    });
+
+    const response = await request(app)
+      .put("/api/v1/attributes/attr1")
+      .send({
+        datatype: "string",
+      })
+      .set("Authorization", "Bearer foo");
+
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
-      message: "permission error",
+      message:
+        "Attribute data type can't be changed while an Event Forwarder is active.",
     });
     expect(updateOrganization).not.toHaveBeenCalledWith();
     expect(auditMock).not.toHaveBeenCalledWith();
