@@ -18,6 +18,7 @@ import Link from "@/ui/Link";
 import VariationStatsTable from "@/ui/VariationStatsTable";
 import { MetricDrilldownMetadata } from "./MetricDrilldownMetadata";
 import MetricDrilldownMetricCard from "./MetricDrilldownMetricCard";
+import { type DrilldownDimensionInfo } from "./useMetricDrilldownContext";
 
 interface MetricDrilldownOverviewProps {
   row: ExperimentTableRow;
@@ -43,6 +44,7 @@ interface MetricDrilldownOverviewProps {
   sequentialTestingEnabled?: boolean;
   lookbackOverride?: LookbackOverride;
   timeSeriesMessage?: string;
+  dimensionInfo?: DrilldownDimensionInfo;
 }
 
 function MetricDrilldownOverview({
@@ -69,6 +71,7 @@ function MetricDrilldownOverview({
   sequentialTestingEnabled,
   lookbackOverride,
   timeSeriesMessage,
+  dimensionInfo,
 }: MetricDrilldownOverviewProps) {
   const [statsExpanded, setStatsExpanded] = useState(false);
   const { isAuthenticated } = useAuth();
@@ -141,6 +144,8 @@ function MetricDrilldownOverview({
           isAuthenticated ? [`${tableId}-${metric.id}-0`] : []
         }
         timeSeriesMessage={timeSeriesMessage}
+        dimensionId={dimensionInfo?.id}
+        dimensionValue={dimensionInfo?.rawValue}
         snapshot={snapshot}
         analysis={analysis}
         setAnalysisSettings={setAnalysisSettings}
