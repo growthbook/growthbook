@@ -27,6 +27,7 @@ import { getMetricData } from "back-end/src/integrations/sql/fact-metrics/metric
 import { processActivationMetric } from "back-end/src/integrations/sql/processing/process-activation-metric";
 import { processDimensions } from "back-end/src/integrations/sql/processing/process-dimensions";
 import { getQuantileGridColumns } from "back-end/src/integrations/sql/columns/quantile-grid-columns";
+import { getKllQuantileGridColumns } from "back-end/src/integrations/sql/columns/kll-quantile-grid-columns";
 
 export function getExperimentFactMetricsQuery(
   dialect: SqlDialect,
@@ -318,6 +319,22 @@ export function getExperimentFactMetricsQuery(
                       })} as ${data.alias}_denominator`
                     : ""
                 }
+                ${
+                  data.metric.numerator.aggregation === "kll merge" &&
+                  data.numeratorSourceIndex === f.index
+                    ? `, ${addCaseWhenTimeFilter(dialect, {
+                        col: `m.${data.alias}_n_events`,
+                        metric: data.metric,
+                        overrideConversionWindows:
+                          data.overrideConversionWindows,
+                        endDate: settings.endDate,
+                        // Skip ignoreZeros for n_events
+                        metricQuantileSettings: undefined,
+                        metricTimestampColExpr: "m.timestamp",
+                        exposureTimestampColExpr: "d.timestamp",
+                      })} as ${data.alias}_n_events`
+                    : ""
+                }
                 `,
             )
             .join("\n")}
@@ -358,6 +375,12 @@ export function getExperimentFactMetricsQuery(
         )
       )
     ${
+      // __eventQuantileMetric: per (variation, dimension) quantile grid for
+      // event-quantile metrics. Raw event-quantile metrics use APPROX_PERCENTILE
+      // over the per-event numeric values in __userMetricJoin. 'kll merge'
+      // metrics merge per-event sketches via KLL_QUANTILES.MERGE_PARTIAL and
+      // then read off quantile + bound points via KLL_QUANTILES.EXTRACT_POINT
+      // — same shape as the incremental-refresh path in SqlIntegration.ts.
       eventQuantileData.length
         ? `
       , __eventQuantileMetric${f.index === 0 ? "" : f.index} AS (
@@ -366,11 +389,18 @@ export function getExperimentFactMetricsQuery(
         ${dimensionCols.map((c) => `, m.${c.alias} AS ${c.alias}`).join("")}
         ${eventQuantileData
           .map((data) =>
-            getQuantileGridColumns(
-              dialect,
-              data.metricQuantileSettings,
-              `${data.alias}_`,
-            ),
+            data.isKllMerge
+              ? getKllQuantileGridColumns(
+                  dialect,
+                  data.metricQuantileSettings,
+                  dialect.kllMergePartial(`m.${data.alias}_value`),
+                  `${data.alias}_`,
+                )
+              : getQuantileGridColumns(
+                  dialect,
+                  data.metricQuantileSettings,
+                  `${data.alias}_`,
+                ),
           )
           .join("\n")}
       FROM
@@ -381,7 +411,41 @@ export function getExperimentFactMetricsQuery(
       )`
         : ""
     }
-    , __userMetricAgg${f.index === 0 ? "" : f.index} as (
+    , __userMetricAgg${f.index === 0 ? "" : f.index} as (${(() => {
+      // Per-table 'kll merge' resolution wrapper:
+      // For 'kll merge' event-quantile metrics, the inner SELECT below merges
+      // per-event sketches into a per-user sketch via kllMergePartial (an
+      // aggregate over the per-user GROUP BY) and emits it as
+      // ${alias}_user_sketch. The OUTER SELECT then joins that per-user sketch
+      // with __eventQuantileMetric (per variation+dim) and applies
+      // kllRankApprox — without GROUP BY — to recover the per-user "count
+      // below threshold". This mirrors the two-pass rank recovery used by the
+      // incremental-refresh path in SqlIntegration.ts and avoids putting
+      // scalar subqueries with outer-aggregate references inside the per-user
+      // GROUP BY (which BigQuery/Snowflake/etc. handle inconsistently).
+      const factTableKllMergeMetrics = metricData.filter(
+        (d) =>
+          d.metric.numerator.aggregation === "kll merge" &&
+          d.numeratorSourceIndex === f.index,
+      );
+      const hasKllMerge = factTableKllMergeMetrics.length > 0;
+      const kllMergeResolutionCols = factTableKllMergeMetrics
+        .map(
+          (data) =>
+            `, ${dialect.kllRankApprox(
+              `base.${data.alias}_user_sketch`,
+              `qm.${data.alias}_quantile`,
+              `base.${data.alias}_n_events`,
+              100,
+            )} AS ${data.alias}_value`,
+        )
+        .join("\n");
+      return `${
+        hasKllMerge
+          ? `SELECT base.* ${kllMergeResolutionCols}
+      FROM (`
+          : ""
+      }
       -- Add in the aggregate metric value for each user
       SELECT
         umj.variation
@@ -390,8 +454,20 @@ export function getExperimentFactMetricsQuery(
         , umj.${baseIdType}
         ${metricData
           .map((data) => {
-            return `${
-              data.numeratorSourceIndex === f.index
+            // For 'kll merge' event-quantile metrics, ${alias}_value is
+            // computed in the OUTER wrapper SELECT above; here we only emit
+            // the per-user merged sketch so kllRankApprox can resolve it
+            // post-GROUP-BY.
+            const isKllMergeNumerator =
+              data.metric.numerator.aggregation === "kll merge" &&
+              data.numeratorSourceIndex === f.index;
+
+            const kllMergeColumns = isKllMergeNumerator
+              ? `, ${dialect.kllMergePartial(`umj.${data.alias}_value`)} AS ${data.alias}_user_sketch`
+              : "";
+
+            const numeratorValueColumn =
+              data.numeratorSourceIndex === f.index && !isKllMergeNumerator
                 ? `, ${data.aggregatedValueTransformation({
                     column: data.numeratorAggFns.fullAggregationFunction(
                       `umj.${data.alias}_value`,
@@ -400,8 +476,9 @@ export function getExperimentFactMetricsQuery(
                     initialTimestampColumn: "MIN(umj.timestamp)",
                     analysisEndDate: params.settings.endDate,
                   })} AS ${data.alias}_value`
-                : ""
-            }
+                : "";
+
+            return `${numeratorValueColumn}${kllMergeColumns}
               ${
                 data.ratioMetric && data.denominatorSourceIndex === f.index
                   ? `, ${data.aggregatedValueTransformation({
@@ -417,9 +494,13 @@ export function getExperimentFactMetricsQuery(
           })
           .join("\n")}
         ${eventQuantileData
-          .map(
-            (data) =>
-              `, COUNT(umj.${data.alias}_value) AS ${data.alias}_n_events`,
+          .map((data) =>
+            // For 'kll merge' metrics, each row is a pre-aggregated sketch
+            // covering many events, so COUNT(rows) does NOT equal events.
+            // SUM the paired count column instead.
+            data.isKllMerge
+              ? `, SUM(COALESCE(umj.${data.alias}_n_events, 0)) AS ${data.alias}_n_events`
+              : `, COUNT(umj.${data.alias}_value) AS ${data.alias}_n_events`,
           )
           .join("\n")}
         ${
@@ -461,7 +542,17 @@ export function getExperimentFactMetricsQuery(
         ${dimensionCols.map((c) => `, umj.${c.alias}`).join("")}
         ${banditDates?.length ? `, umj.bandit_period` : ""}
         , umj.${baseIdType}
-    )
+      ${
+        hasKllMerge
+          ? `
+      ) base
+      LEFT JOIN __eventQuantileMetric${f.index === 0 ? "" : f.index} qm
+      ON (qm.variation = base.variation ${dimensionCols
+        .map((c) => `AND qm.${c.alias} = base.${c.alias}`)
+        .join("\n")})`
+          : ""
+      }`;
+    })()})
     ${
       percentileTableIndices.has(f.index)
         ? `

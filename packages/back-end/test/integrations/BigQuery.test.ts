@@ -3,6 +3,7 @@ import { ExposureQuery } from "shared/types/datasource";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
 import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
+import { getFactTableTypeFromBigQueryType } from "back-end/src/services/bigquery";
 import { factTableFactory } from "../factories/FactTable.factory";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 
@@ -69,6 +70,12 @@ describe("BigQuery reservation job config", () => {
       useLegacySql: false,
     });
     expect(queryJobConfig).not.toHaveProperty("reservation");
+  });
+});
+
+describe("BigQuery type mapping", () => {
+  it("maps BYTES to binary fact table datatype", () => {
+    expect(getFactTableTypeFromBigQueryType("BYTES")).toBe("binary");
   });
 });
 
@@ -374,6 +381,34 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     expect(sql).not.toContain("KLL_QUANTILES.INIT_FLOAT64");
   });
 
+  it("getInsertMetricSourceDataQuery sources n_events from paired '<col>_n_events' (not COUNT) for 'kll merge'", () => {
+    const prebuiltSketchMetric = factMetricFactory.build({
+      id: "fact_eq_sketch_paired",
+      metricType: "quantile",
+      quantileSettings: { type: "event", quantile: 0.9, ignoreZeros: false },
+      numerator: {
+        factTableId: "ft_events",
+        column: "latency_ms_kll",
+        aggregation: "kll merge",
+      },
+    });
+    const sql = integration.getInsertMetricSourceDataQuery({
+      settings,
+      activationMetric: null,
+      factTableMap,
+      metricSourceTableFullName: "proj.ds.metric_source",
+      unitsSourceTableFullName: "proj.ds.units",
+      metrics: [prebuiltSketchMetric],
+      lastMaxTimestamp: null,
+    });
+    // The paired count column must be projected from the source fact table
+    // and SUM-aggregated for n_events. COUNT(<col>_value) would be wrong:
+    // each row is a pre-aggregated sketch covering many events.
+    expect(sql).toContain("latency_ms_kll_n_events");
+    expect(sql).toMatch(/SUM\(COALESCE\([^)]+_n_events,\s*0\)\)\s+AS\s+\w+_n_events/);
+    expect(sql).not.toMatch(/COUNT\([^)]+\)\s+AS\s+\w+_n_events/);
+  });
+
   it("getIncrementalRefreshStatisticsQuery emits two-pass KLL rank recovery CTEs", () => {
     const sql = integration.getIncrementalRefreshStatisticsQuery({
       settings,
@@ -411,5 +446,69 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     expect(sketchPos).toBeGreaterThan(0);
     expect(gridPos).toBeGreaterThan(sketchPos);
     expect(joinedPos).toBeGreaterThan(gridPos);
+  });
+
+  it("getExperimentFactMetricsQuery uses kll grid extraction and post-aggregation rank recovery for 'kll merge' event quantiles", () => {
+    const prebuiltSketchMetric = factMetricFactory.build({
+      id: "fact_eq_sketch_xp",
+      metricType: "quantile",
+      quantileSettings: { type: "event", quantile: 0.9, ignoreZeros: false },
+      numerator: {
+        factTableId: "ft_events",
+        column: "latency_ms_kll",
+        aggregation: "kll merge",
+      },
+    });
+    const sql = integration.getExperimentFactMetricsQuery({
+      settings,
+      activationMetric: null,
+      dimensions: [],
+      segment: null,
+      factTableMap,
+      metrics: [prebuiltSketchMetric],
+      unitsSource: "exposureQuery",
+    });
+
+    // __eventQuantileMetric must extract the quantile grid from a merged
+    // KLL sketch, not from raw values via APPROX_PERCENTILE.
+    expect(sql).toContain("__eventQuantileMetric");
+    // After format/indent, EXTRACT_POINT_FLOAT64(KLL_QUANTILES.MERGE_PARTIAL(...))
+    // can split across lines AND the formatter inserts spaces between the
+    // function name and its opening paren. Collapse whitespace and allow
+    // optional spaces around parens before matching.
+    const flat = sql.replace(/\s+/g, " ");
+    expect(flat).toMatch(
+      /KLL_QUANTILES\.EXTRACT_POINT_FLOAT64\s*\(\s*KLL_QUANTILES\.MERGE_PARTIAL/,
+    );
+    // __userMetricAgg must wrap its per-user GROUP BY in a base subquery
+    // and recover per-user "count below threshold" via kllRankApprox.
+    // EXTRACT_FLOAT64 (the cdfArray construction) is the tell-tale sign.
+    expect(sql).toContain("KLL_QUANTILES.EXTRACT_FLOAT64");
+    expect(flat).toMatch(/\)\s+base\s+LEFT\s+JOIN\s+__eventQuantileMetric/i);
+    // n_events must come from the paired count column, not COUNT(rows).
+    expect(flat).toMatch(
+      /SUM\(COALESCE\([^)]+_n_events,\s*0\)\)\s+AS\s+\w+_n_events/,
+    );
+  });
+
+  it("getExperimentFactMetricsQuery falls back to APPROX_QUANTILES (no kll wrapper) for raw event quantiles", () => {
+    const sql = integration.getExperimentFactMetricsQuery({
+      settings,
+      activationMetric: null,
+      dimensions: [],
+      segment: null,
+      factTableMap,
+      metrics: [eventQuantileMetric],
+      unitsSource: "exposureQuery",
+    });
+
+    // Raw event quantile uses APPROX_QUANTILES on the per-event values, no
+    // KLL extraction or rank-recovery wrapper.
+    expect(sql).toContain("APPROX_QUANTILES");
+    expect(sql).not.toContain("KLL_QUANTILES.EXTRACT_FLOAT64");
+    const flat = sql.replace(/\s+/g, " ");
+    expect(flat).not.toMatch(
+      /\)\s+base\s+LEFT\s+JOIN\s+__eventQuantileMetric/i,
+    );
   });
 });

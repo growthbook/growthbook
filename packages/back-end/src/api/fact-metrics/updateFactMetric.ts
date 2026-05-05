@@ -46,6 +46,16 @@ export async function getUpdateFactMetricPropsFromBody(
     loseRisk: riskThresholdDanger,
   };
 
+  // Effective metric type / quantile type for validation: prefer the
+  // values being written by this PATCH; fall back to whatever is already
+  // persisted on the metric.
+  const effectiveMetricType = updates.metricType ?? factMetric.metricType;
+  const effectiveQuantileType =
+    updates.quantileSettings?.type ?? factMetric.quantileSettings?.type;
+  const effectiveQuantileIgnoreZeros =
+    updates.quantileSettings?.ignoreZeros ??
+    factMetric.quantileSettings?.ignoreZeros;
+
   const metricType = updates.metricType;
   if (numerator) {
     updates.numerator = FactMetricModel.migrateColumnRef({
@@ -63,6 +73,9 @@ export async function getUpdateFactMetricPropsFromBody(
       errorPrefix: "Numerator misspecified. ",
       column: updates.numerator,
       factTable: factTable,
+      metricType: effectiveMetricType,
+      quantileType: effectiveQuantileType,
+      quantileIgnoreZeros: effectiveQuantileIgnoreZeros,
     });
   }
   // remove denominator for non-ratio metrics where existing
@@ -87,6 +100,9 @@ export async function getUpdateFactMetricPropsFromBody(
       errorPrefix: "Denominator misspecified. ",
       column: updates.denominator,
       factTable: factTable,
+      metricType: effectiveMetricType,
+      quantileType: effectiveQuantileType,
+      quantileIgnoreZeros: effectiveQuantileIgnoreZeros,
     });
   }
   if (cappingSettings) {

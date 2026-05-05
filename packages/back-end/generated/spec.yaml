@@ -27474,6 +27474,7 @@ components:
             - date
             - boolean
             - json
+            - binary
             - other
             - ''
         numberFormat:
@@ -27500,6 +27501,7 @@ components:
                   - date
                   - boolean
                   - json
+                  - binary
                   - other
                   - ''
             additionalProperties: false

@@ -2280,6 +2280,22 @@ export default abstract class SqlIntegration
                       })} AS ${data.alias}_denominator`
                     : ""
                 }
+                ${
+                  data.metric.numerator.aggregation === "kll merge"
+                    ? `, ${addCaseWhenTimeFilter(this.getSqlDialect(), {
+                        col: `m.${data.alias}_n_events`,
+                        metric: data.metric,
+                        overrideConversionWindows:
+                          data.overrideConversionWindows,
+                        endDate: params.settings.endDate,
+                        // Skip ignoreZeros for n_events (it would emit a
+                        // numeric != 0 filter that's irrelevant here)
+                        metricQuantileSettings: undefined,
+                        metricTimestampColExpr: castToTimestamp("m.timestamp"),
+                        exposureTimestampColExpr: "d.first_exposure_timestamp",
+                      })} AS ${data.alias}_n_events`
+                    : ""
+                }
                 `,
               )
               .join("\n")}
@@ -2308,7 +2324,13 @@ export default abstract class SqlIntegration
                 }
                 ${
                   m.quantileMetric === "event"
-                    ? `, COUNT(${m.alias}_value) AS ${encodeMetricIdForColumnName(m.id)}_n_events`
+                    ? // For 'kll merge' metrics, each row in __newMetricRows
+                      // is a pre-aggregated sketch covering many events, so
+                      // COUNT(rows) does NOT equal events. SUM the paired
+                      // count column instead.
+                      m.metric.numerator.aggregation === "kll merge"
+                      ? `, SUM(COALESCE(${m.alias}_n_events, 0)) AS ${encodeMetricIdForColumnName(m.id)}_n_events`
+                      : `, COUNT(${m.alias}_value) AS ${encodeMetricIdForColumnName(m.id)}_n_events`
                     : ""
                 }
               `;
@@ -2521,13 +2543,14 @@ export default abstract class SqlIntegration
           ${baseIdType}
       )
       ${
+        // __eventQuantileSketch: pass 1 of two-pass KLL rank recovery — merge
+        // per-user sketches by variation+dimension. __eventQuantileMetric
+        // below extracts the quantile grid (including q_hat) from these
+        // merged sketches; __joinedData then uses q_hat as the threshold for
+        // per-user rank recovery (pass 2).
         eventQuantileData.length > 0
           ? `
       , __eventQuantileSketch AS (
-        -- Pass 1 of two-pass KLL rank recovery: merge per-user sketches by
-        -- variation+dimension. __eventQuantileMetric extracts the quantile grid
-        -- (including q_hat) from these merged sketches; __joinedData then uses
-        -- q_hat as the threshold for per-user rank recovery (pass 2).
         SELECT
           u.variation AS variation
           ${allDimensionCols.map((c) => `, u.${c.alias} AS ${c.alias}`).join("")}

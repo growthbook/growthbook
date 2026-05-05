@@ -11,6 +11,7 @@ export const factTableColumnTypes = [
   "date",
   "boolean",
   "json",
+  "binary",
   "other",
   "",
 ];
@@ -21,6 +22,7 @@ export const factTableColumnTypeValidator = z.enum([
   "date",
   "boolean",
   "json",
+  "binary",
   "other",
   "",
 ]);
@@ -306,6 +308,7 @@ export const apiFactTableColumnValidator = namedSchema(
         "date",
         "boolean",
         "json",
+        "binary",
         "other",
         "",
       ]),
@@ -329,6 +332,7 @@ export const apiFactTableColumnValidator = namedSchema(
                 "date",
                 "boolean",
                 "json",
+                "binary",
                 "other",
                 "",
               ])
