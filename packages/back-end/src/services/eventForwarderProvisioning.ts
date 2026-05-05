@@ -383,6 +383,32 @@ export async function resumeEventForwarderThroughLicenseServer(
 }
 
 /**
+ * After persisting attribute schema changes, evolves Confluent Schema Registry
+ * for each event forwarder when the org has at least one forwarder config row.
+ * Individual configs may still be skipped inside
+ * {@link updateEventForwarderSchemaThroughLicenseServer} (e.g. not ready,
+ * Databricks).
+ */
+export async function syncEventForwarderSchemasAfterAttributeSchemaChange(
+  context: ReqContext,
+  attributeSchema: SDKAttributeSchema,
+): Promise<void> {
+  const configs = await context.models.eventForwarderConfigs.getAll();
+  if (configs.length === 0) {
+    return;
+  }
+  await Promise.all(
+    configs.map((config) =>
+      updateEventForwarderSchemaThroughLicenseServer(
+        context,
+        config,
+        attributeSchema,
+      ),
+    ),
+  );
+}
+
+/**
  * Updates the Confluent Schema Registry schema for an event forwarder when the
  * org's attribute schema changes (e.g. a new attribute is added). Skips configs
  * that are not yet ready (no valid schemaId means provisioning hasn't completed).
@@ -394,7 +420,7 @@ export async function updateEventForwarderSchemaThroughLicenseServer(
   eventForwarderConfig: EventForwarderConfigInterface,
   attributeSchema: SDKAttributeSchema,
 ): Promise<void> {
-  if (eventForwarderConfig.sinkType !== "bigquery") {
+  if (eventForwarderConfig.sinkType === "databricks") {
     return;
   }
 

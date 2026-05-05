@@ -912,8 +912,8 @@ app.get("/revision/feature", featuresController.getDraftandReviewRevisions);
 app.get("/datasources", datasourcesController.getDataSources);
 app.get("/datasource/:id", datasourcesController.getDataSource);
 app.get(
-  "/event-forwarder/exists",
-  datasourcesController.getEventForwarderExists,
+  "/event-forwarder/connected",
+  datasourcesController.getEventForwarderConnected,
 );
 app.post("/datasources", datasourcesController.postDataSources);
 app.post(
