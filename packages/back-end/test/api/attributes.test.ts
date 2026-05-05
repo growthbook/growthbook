@@ -483,6 +483,9 @@ describe("attributes API", () => {
         projects: {
           getAll: () => [{ id: "proj1" }, { id: "proj2" }, { id: "proj3" }],
         },
+        eventForwarderConfigs: {
+          getAll: () => [],
+        },
       },
       org: {
         id: "org1",

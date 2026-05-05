@@ -1120,7 +1120,7 @@ export async function postResumeEventForwarder(
   }
 }
 
-export async function getEventForwarderExists(
+export async function getEventForwarderConnected(
   req: AuthRequest,
   res: Response<{ status: 200; hasEventForwarder: boolean }>,
 ) {
