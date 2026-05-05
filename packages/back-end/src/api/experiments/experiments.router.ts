@@ -7,21 +7,25 @@ import { listExperiments } from "./listExperiments";
 import { updateExperiment } from "./updateExperiment";
 import { postExperiment } from "./postExperiment";
 import { postExperimentStart } from "./postExperimentStart";
+import { postExperimentStartChecklist } from "./postExperimentStartChecklist";
 import { postExperimentStop } from "./postExperimentStop";
 import { postExperimentModifyTemporaryRollout } from "./postExperimentModifyTemporaryRollout";
 import { postExperimentSnapshot } from "./postExperimentSnapshot";
 import { postVariationImageUpload } from "./postVariationImageUpload";
 import { deleteVariationScreenshot } from "./deleteVariationScreenshot";
 import { getExperimentNames } from "./getExperimentNames";
+import { getExperimentStartChecklist } from "./getExperimentStartChecklist";
 
 export const experimentsRoutes: OpenApiRoute[] = [
   // Experiment Endpoints
   listExperiments,
   postExperiment,
   getExperiment,
+  getExperimentStartChecklist,
   getExperimentResults,
   updateExperiment,
   postExperimentStart,
+  postExperimentStartChecklist,
   postExperimentStop,
   postExperimentModifyTemporaryRollout,
   postExperimentSnapshot,

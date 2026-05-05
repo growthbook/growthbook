@@ -38,6 +38,64 @@ export type StartChecklistItemStatus = {
   reason: string;
 };
 
+export type ExperimentStartChecklistResult = {
+  experiment: ExperimentInterface;
+  checklistItems: StartChecklistItemStatus[];
+  incompleteRequiredItems: StartChecklistItemStatus[];
+  requiredItemsRemaining: number;
+  allRequiredComplete: boolean;
+};
+
+export async function completeExperimentStartChecklistItems({
+  context,
+  experiment,
+  keys,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  keys: string[];
+}): Promise<ExperimentInterface> {
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
+  if (experiment.type === "holdout") {
+    throw new Error("Holdouts are not supported through this endpoint");
+  }
+
+  const configuredChecklist =
+    (experiment.project &&
+      (await getExperimentLaunchChecklist(context.org.id, experiment.project))) ||
+    (await getExperimentLaunchChecklist(context.org.id, ""));
+
+  const manualTaskKeys = new Set(
+    (configuredChecklist?.tasks || [])
+      .filter((task) => task.completionType === "manual")
+      .map((task) => task.task),
+  );
+
+  const invalidKeys = keys.filter((key) => !manualTaskKeys.has(key));
+  if (invalidKeys.length > 0) {
+    throw new Error(
+      `invalid_checklist_keys: ${invalidKeys.join(", ")} are not manual checklist items`,
+    );
+  }
+
+  const existing = new Map(
+    (experiment.manualLaunchChecklist || []).map((item) => [item.key, item.status]),
+  );
+  keys.forEach((key) => existing.set(key, "complete"));
+
+  const manualLaunchChecklist = Array.from(existing.entries()).map(
+    ([key, status]) => ({ key, status }),
+  );
+
+  return await updateExperiment({
+    context,
+    experiment,
+    changes: { manualLaunchChecklist },
+  });
+}
+
 export type StopExperimentInput = {
   experimentId: string;
   results: ExperimentResultsType;
@@ -230,6 +288,30 @@ async function loadAndValidateExperimentForStatusChange(
   return experiment;
 }
 
+export async function getExperimentStartChecklist({
+  context,
+  experiment,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+}): Promise<ExperimentStartChecklistResult> {
+  const checklistItems = await getExperimentStartChecklistStatus(
+    context,
+    experiment,
+  );
+  const incompleteRequiredItems = checklistItems.filter(
+    (item) => item.required && item.status === "incomplete",
+  );
+
+  return {
+    experiment,
+    checklistItems,
+    incompleteRequiredItems,
+    requiredItemsRemaining: incompleteRequiredItems.length,
+    allRequiredComplete: incompleteRequiredItems.length === 0,
+  };
+}
+
 export async function startExperiment({
   context,
   experimentId,
@@ -239,22 +321,21 @@ export async function startExperiment({
   experimentId: string;
   skipChecklist?: boolean;
 }) {
-  const experiment = await loadAndValidateExperimentForStatusChange(
+  const loadedExperiment = await loadAndValidateExperimentForStatusChange(
     context,
     experimentId,
   );
+  const { checklistItems, incompleteRequiredItems } =
+    await getExperimentStartChecklist({
+      context,
+      experiment: loadedExperiment,
+    });
 
+  const experiment = loadedExperiment;
   if (experiment.status !== "draft") {
     throw new Error("invalid_status: Experiment must be in draft status");
   }
 
-  const checklistItems = await getExperimentStartChecklistStatus(
-    context,
-    experiment,
-  );
-  const incompleteRequiredItems = checklistItems.filter(
-    (item) => item.required && item.status === "incomplete",
-  );
   if (incompleteRequiredItems.length > 0 && !skipChecklist) {
     throw new Error(
       `checklist_incomplete: ${incompleteRequiredItems
