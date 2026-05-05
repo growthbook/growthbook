@@ -64,7 +64,10 @@ export async function completeExperimentStartChecklistItems({
 
   const configuredChecklist =
     (experiment.project &&
-      (await getExperimentLaunchChecklist(context.org.id, experiment.project))) ||
+      (await getExperimentLaunchChecklist(
+        context.org.id,
+        experiment.project,
+      ))) ||
     (await getExperimentLaunchChecklist(context.org.id, ""));
 
   const manualTaskKeys = new Set(
@@ -81,7 +84,10 @@ export async function completeExperimentStartChecklistItems({
   }
 
   const existing = new Map(
-    (experiment.manualLaunchChecklist || []).map((item) => [item.key, item.status]),
+    (experiment.manualLaunchChecklist || []).map((item) => [
+      item.key,
+      item.status,
+    ]),
   );
   keys.forEach((key) => existing.set(key, "complete"));
 

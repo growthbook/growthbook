@@ -10119,7 +10119,7 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/start-checklist/manual/complete:
     post:
-      operationId: postExperimentStartChecklist
+      operationId: postExperimentStartChecklistManualComplete
       summary: Mark manual pre-launch checklist items complete
       tags:
         - experiments

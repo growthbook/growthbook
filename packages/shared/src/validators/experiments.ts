@@ -1283,7 +1283,7 @@ const postExperimentStartBody = z
   .strict()
   .optional();
 
-const postExperimentStartChecklistBody = z
+const postExperimentStartChecklistManualCompleteBody = z
   .object({
     keys: z
       .array(z.string())
@@ -1537,13 +1537,13 @@ export const postExperimentStartValidator = {
   },
 };
 
-export const postExperimentStartChecklistValidator = {
-  bodySchema: postExperimentStartChecklistBody,
+export const postExperimentStartChecklistManualCompleteValidator = {
+  bodySchema: postExperimentStartChecklistManualCompleteBody,
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: experimentStartChecklistResponseValidator,
   summary: "Mark manual pre-launch checklist items complete",
-  operationId: "postExperimentStartChecklist",
+  operationId: "postExperimentStartChecklistManualComplete",
   tags: ["experiments"],
   method: "post" as const,
   path: "/experiments/:id/start-checklist/manual/complete",

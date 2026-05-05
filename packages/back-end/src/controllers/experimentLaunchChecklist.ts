@@ -165,6 +165,7 @@ export async function getExperimentStartCheckListByExperiment(
     incompleteRequiredItems,
     requiredItemsRemaining,
     allRequiredComplete,
+    manualLaunchChecklist: experiment.manualLaunchChecklist || [],
   });
 }
 
