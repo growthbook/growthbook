@@ -556,7 +556,6 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
 
 // POST /ramp-schedules/:id/actions/advance
 // Externally triggered advancement (e.g. DataDog webhook, CI pipeline).
-// Only allowed when the current step has `apiAdvance: true`.
 export const apiAdvanceRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: z
@@ -570,7 +569,7 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
   operationId: "apiAdvanceRampSchedule",
   summary: "API-driven step advancement",
   description:
-    "Advances the schedule to the next step. Only allowed when the current\nstep has `apiAdvance: true`. Use this for external system integrations\n(e.g. DataDog, CI pipelines).\n",
+    "Advances the schedule to the next step. Use this for external system integrations (e.g. DataDog, CI pipelines).",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -598,12 +597,9 @@ export const getRampScheduleStatus = createApiRequestHandler({
   responseSchema: z.object({
     id: z.string(),
     status: z.string(),
-    scope: z.string().optional(),
     currentStepIndex: z.number(),
     totalSteps: z.number(),
-    gateCoverage: z.number().optional(),
     lockdownMode: z.string().optional(),
-    guardrailCount: z.number().optional(),
     startedAt: z.string().nullable().optional(),
     lastRollbackAt: z.string().nullable().optional(),
     lastRollbackReason: z.string().nullable().optional(),
@@ -624,13 +620,9 @@ export const getRampScheduleStatus = createApiRequestHandler({
   return {
     id: schedule.id,
     status: schedule.status,
-    scope: schedule.scope,
     currentStepIndex: schedule.currentStepIndex,
     totalSteps: schedule.steps.length,
-    gateCoverage: schedule.gateConfig?.rules.find((r) => r.type === "rollout")
-      ?.coverage,
     lockdownMode: schedule.lockdownConfig?.mode,
-    guardrailCount: schedule.monitoringConfig?.guardrailMetricIds.length,
     startedAt: schedule.startedAt?.toISOString() ?? null,
     lastRollbackAt: schedule.lastRollbackAt?.toISOString() ?? null,
     lastRollbackReason: schedule.lastRollbackReason ?? null,

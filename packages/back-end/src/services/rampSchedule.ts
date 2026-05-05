@@ -15,7 +15,6 @@ import { ApiReqContext } from "back-end/types/api";
 import {
   getFeature,
   publishRevision,
-  updateFeature,
 } from "back-end/src/models/FeatureModel";
 import {
   createRevision,
@@ -283,101 +282,6 @@ export function computePhaseStartAfterApproval(
   return new Date(now.getTime() - total * 1000);
 }
 
-async function updateFeatureActiveRampScheduleId(
-  ctx: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  scheduleId: string | undefined,
-): Promise<void> {
-  await updateFeature(ctx, feature, { activeRampScheduleId: scheduleId });
-}
-
-// Handle feature-level actions (set-gate, set-environment-enabled, etc.)
-async function executeFeatureLevelActions(
-  ctx: ReqContext | ApiReqContext,
-  schedule: RampScheduleInterface,
-  actions: RampStepAction[],
-): Promise<void> {
-  const feature = await getFeature(ctx, schedule.entityId);
-  if (!feature) throw new Error(`Feature not found: ${schedule.entityId}`);
-
-  for (const action of actions) {
-    switch (action.type) {
-      case "set-gate": {
-        if (!schedule.gateConfig) break;
-        const gc = { ...schedule.gateConfig };
-        const rules = [...gc.rules];
-
-        const idx = rules.findIndex((r) => r.id === action.ruleId);
-        if (idx === -1) break;
-
-        const entry = { ...rules[idx] };
-        if (action.patch.coverage !== undefined)
-          entry.coverage = action.patch.coverage;
-        if ("condition" in action.patch)
-          entry.condition = action.patch.condition;
-        if ("savedGroups" in action.patch)
-          entry.savedGroups = action.patch.savedGroups;
-        if ("prerequisites" in action.patch)
-          entry.prerequisites = action.patch.prerequisites;
-        rules[idx] = entry;
-
-        gc.rules = rules;
-        await ctx.models.rampSchedules.updateById(schedule.id, {
-          gateConfig: gc,
-        });
-        break;
-      }
-      case "set-environment-enabled": {
-        const envSettings = { ...feature.environmentSettings };
-        envSettings[action.environment] = {
-          ...envSettings[action.environment],
-          enabled: action.enabled,
-        };
-        const user: EventUser = {
-          type: "system",
-          subtype: "ramp-schedule",
-          id: schedule.id,
-        };
-        const revision = await createRevision({
-          context: ctx,
-          feature,
-          user,
-          environments: ctx.environments,
-          changes: {
-            environmentsEnabled: {
-              [action.environment]: action.enabled,
-            },
-          },
-          publish: false,
-          comment: `Ramp: ${action.enabled ? "enable" : "disable"} ${action.environment}`,
-          title: `Ramp: toggle ${action.environment}`,
-          org: ctx.org,
-        });
-        const forceResult: MergeResultChanges = {
-          environmentsEnabled: { [action.environment]: action.enabled },
-        };
-        await publishRevision(
-          ctx,
-          feature,
-          revision,
-          forceResult,
-          `Ramp: toggle ${action.environment}`,
-        );
-        break;
-      }
-      case "attach-monitoring":
-      case "detach-monitoring":
-        // TODO: wire up safe rollout doc lifecycle
-        break;
-      case "complete-rollout": {
-        // Clear the gate reference on the feature
-        await updateFeatureActiveRampScheduleId(ctx, feature, undefined);
-        break;
-      }
-    }
-  }
-}
-
 // Group actions by entity and publish one revision per entity. Partial failure is not rolled back.
 async function executeStepActions(
   ctx: ReqContext | ApiReqContext,
@@ -385,16 +289,7 @@ async function executeStepActions(
   stepIndex: number,
   actions: RampStepAction[],
 ): Promise<void> {
-  // Separate rule-level actions (need target resolution) from feature-level
   const ruleActions = actions.filter((a) => a.type === "patch-rule");
-  const featureActions = actions.filter((a) => a.type !== "patch-rule");
-
-  // Handle feature-level actions directly
-  if (featureActions.length) {
-    await executeFeatureLevelActions(ctx, schedule, featureActions);
-  }
-
-  // Handle rule-level actions grouped by entity
   if (!ruleActions.length) return;
 
   const byEntity = new Map<
@@ -461,9 +356,6 @@ export async function applyRampStartActions(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
 ): Promise<void> {
-  // Feature-level rollouts don't inject rule enable actions on start.
-  if (schedule.scope === "feature") return;
-
   const enableActions: RampStepAction[] = schedule.targets
     .filter((t) => t.status === "active" && t.entityType === "feature")
     .map((t) => ({
