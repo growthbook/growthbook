@@ -123,8 +123,12 @@ export function ruleFootprint(
 // can survive with `null`/`undefined` array entries (partial imports, sparse
 // arrays). Narrows downstream consumers off `unknown` so the shape of a
 // migrated rule is honored everywhere we touch `.type`, `.id`, `.environments`.
+// Arrays are explicitly excluded — `typeof [] === "object"` would otherwise
+// pass the filter, and a corrupt array-in-array slot would slip through
+// `upgradeFeatureRule` (which returns non-rule input unchanged) and crash
+// downstream `.type` / `.environments` access.
 export function isPlausibleFeatureRule(value: unknown): value is FeatureRule {
-  return value != null && typeof value === "object";
+  return value != null && typeof value === "object" && !Array.isArray(value);
 }
 
 // Strip a v2 rule's non-applicable envs. When every env is non-applicable
