@@ -40,7 +40,7 @@ import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import { FeatureEvaluationQueries } from "@/components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueries";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HistoryTable from "@/components/HistoryTable";
 
 function quotePropertyName(name: string) {
@@ -536,16 +536,15 @@ mixpanel.init('YOUR PROJECT TOKEN', {
         />
       )}
       {auditModal && (
-        <Modal
+        <ModalStandard
           trackingEventModalType=""
           open={true}
           header="Audit Log"
           close={() => setAuditModal(false)}
           size="lg"
-          closeCta="Close"
         >
           <HistoryTable type={"datasource"} id={d.id} />
-        </Modal>
+        </ModalStandard>
       )}
     </div>
   );
