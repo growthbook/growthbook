@@ -542,7 +542,6 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           header="Audit Log"
           close={() => setAuditModal(false)}
           size="lg"
-          closeCta="Close"
         >
           <HistoryTable type={"datasource"} id={d.id} />
         </ModalStandard>
