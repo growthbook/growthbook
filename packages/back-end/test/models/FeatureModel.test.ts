@@ -1353,8 +1353,7 @@ describe("migrateRawFeatureToV2", () => {
       // can land with `null`/`undefined` slots (partial imports, sparse
       // arrays). A single nullish entry used to crash the entire JIT
       // migration with "Cannot read properties of undefined (reading
-      // 'type')", blocking publish on a long-lived feature
-      // (interstitial_data_version2_cr_1 rev 440).
+      // 'type')", blocking publish on long-lived legacy features.
       const v1: LegacyFeatureInterface = {
         ...BASE_META,
         environmentSettings: {
