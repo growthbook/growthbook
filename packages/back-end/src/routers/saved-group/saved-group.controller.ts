@@ -438,7 +438,9 @@ export const putSavedGroup = async (
     }
     fieldsToUpdate.description = description;
   }
-  if (!isEqual(savedGroup.projects, projects)) {
+  // Only update project scoping when explicitly provided in the request.
+  // Requests that only update values/condition should preserve existing scope.
+  if (typeof projects !== "undefined" && !isEqual(savedGroup.projects, projects)) {
     if (projects) {
       await context.models.projects.ensureProjectsExist(projects);
     }
