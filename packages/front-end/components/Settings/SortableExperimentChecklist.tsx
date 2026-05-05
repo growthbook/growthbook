@@ -17,6 +17,7 @@ import { ChecklistTask } from "shared/types/experimentLaunchChecklist";
 import { FaGripHorizontal, FaTimes } from "react-icons/fa";
 import { CSS } from "@dnd-kit/utilities";
 import { forwardRef, useState } from "react";
+import Link from "@/ui/Link";
 
 type SortableProps = {
   experimentLaunchChecklist: ChecklistTask[];
@@ -61,9 +62,9 @@ export const ChecklistItem = forwardRef<HTMLDivElement, ChecklistItemProps>(
             <FaGripHorizontal />
           </div>
           {item.url ? (
-            <a href={item.url} target="_blank" rel="noreferrer">
+            <Link href={item.url} target="_blank" rel="noreferrer">
               {item.task}
-            </a>
+            </Link>
           ) : (
             item.task
           )}

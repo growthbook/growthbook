@@ -35,6 +35,7 @@ import OptInModal from "@/components/License/OptInModal";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 
 const EMBEDDING_MODEL_LABELS = ensureValuesExactlyMatchUnion<EmbeddingModel>()([
   // OpenAI embeddings
@@ -412,9 +413,9 @@ export default function AISettings({
                                   environment variables as{" "}
                                   <code>ANTHROPIC_API_KEY</code>. See more in
                                   our{" "}
-                                  <a href="https://docs.growthbook.io/self-host/env">
+                                  <Link href="https://docs.growthbook.io/self-host/env">
                                     self-hosting docs
-                                  </a>
+                                  </Link>
                                   .
                                 </Callout>
                               </Box>
@@ -442,9 +443,9 @@ export default function AISettings({
                                   models. Please define it in your environment
                                   variables as <code>XAI_API_KEY</code>. See
                                   more in our{" "}
-                                  <a href="https://docs.growthbook.io/self-host/env">
+                                  <Link href="https://docs.growthbook.io/self-host/env">
                                     self-hosting docs
-                                  </a>
+                                  </Link>
                                   .
                                 </Callout>
                               </Box>
@@ -473,9 +474,9 @@ export default function AISettings({
                                   Mistral models. Please define it in your
                                   environment variables as{" "}
                                   <code>MISTRAL_API_KEY</code>. See more in our{" "}
-                                  <a href="https://docs.growthbook.io/self-host/env">
+                                  <Link href="https://docs.growthbook.io/self-host/env">
                                     self-hosting docs
-                                  </a>
+                                  </Link>
                                   .
                                 </Callout>
                               </Box>
@@ -504,9 +505,9 @@ export default function AISettings({
                                   models. Please define it in your environment
                                   variables as <code>GOOGLE_AI_API_KEY</code>.
                                   See more in our{" "}
-                                  <a href="https://docs.growthbook.io/self-host/env">
+                                  <Link href="https://docs.growthbook.io/self-host/env">
                                     self-hosting docs
-                                  </a>
+                                  </Link>
                                   .
                                 </Callout>
                               </Box>
@@ -535,9 +536,9 @@ export default function AISettings({
                                   models. Please define it in your environment
                                   variables as <code>OPENAI_API_KEY</code>. See
                                   more in our{" "}
-                                  <a href="https://docs.growthbook.io/self-host/env">
+                                  <Link href="https://docs.growthbook.io/self-host/env">
                                     self-hosting docs
-                                  </a>
+                                  </Link>
                                   .
                                 </Callout>
                               </Box>
@@ -652,11 +653,9 @@ export default function AISettings({
                                   top: prompt.promptHelpText ? "-14px" : "-1px",
                                 }}
                               >
-                                <a
-                                  href="#"
+                                <Link
                                   title="Reset to the default AI prompt"
-                                  onClick={(e) => {
-                                    e.preventDefault();
+                                  onClick={() => {
                                     promptForm.setValue(
                                       prompt.promptType,
                                       prompt.promptDefaultValue,
@@ -665,7 +664,7 @@ export default function AISettings({
                                   }}
                                 >
                                   reset
-                                </a>
+                                </Link>
                               </Box>
                             </Box>
                           )}

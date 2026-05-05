@@ -139,9 +139,9 @@ export function getChecklistItems({
           {openSetupTab &&
           ((isBandit && !hasLiveLinkedChanges) ||
             (!isBandit && hasLinkedChanges)) ? (
-            <a className="a link-purple" role="button" onClick={openSetupTab}>
+            <Link className="a link-purple" onClick={openSetupTab}>
               Linked Feature or Visual Editor change
-            </a>
+            </Link>
           ) : (
             "Linked Feature, Visual Editor change, or URL Redirect"
           )}
@@ -160,13 +160,12 @@ export function getChecklistItems({
         display: (
           <>
             {setAnalysisModal ? (
-              <a
+              <Link
                 className="a link-purple"
-                role="button"
                 onClick={() => setAnalysisModal(true)}
               >
                 Choose
-              </a>
+              </Link>
             ) : (
               "Choose"
             )}{" "}
@@ -292,9 +291,9 @@ export function getChecklistItems({
           <>
             Add changes in the{" "}
             {openSetupTab ? (
-              <a className="a link-purple" role="button" onClick={openSetupTab}>
+              <Link className="a link-purple" onClick={openSetupTab}>
                 Visual Editor
-              </a>
+              </Link>
             ) : (
               "Visual Editor"
             )}
@@ -314,16 +313,15 @@ export function getChecklistItems({
     display: (
       <>
         {editTargeting ? (
-          <a
+          <Link
             className="a link-purple"
-            role="button"
             onClick={() => {
               editTargeting();
               track("Edit targeting", { source: "experiment-start-banner" });
             }}
           >
             Configure
-          </a>
+          </Link>
         ) : (
           "Configure"
         )}{" "}
@@ -346,13 +344,9 @@ export function getChecklistItems({
         {!setShowSdkForm && !verifiedConnections ? (
           <Link href="/sdks">Manage SDK Connections</Link>
         ) : connections.length === 0 && setShowSdkForm ? (
-          <a
-            className="a link-purple"
-            role="button"
-            onClick={() => setShowSdkForm(true)}
-          >
+          <Link className="a link-purple" onClick={() => setShowSdkForm(true)}>
             Add SDK Connection
-          </a>
+          </Link>
         ) : null}
       </>
     ),
@@ -373,9 +367,9 @@ export function getChecklistItems({
             ? "complete"
             : "incomplete",
           display: item.url ? (
-            <a href={item.url} target="_blank" rel="noreferrer">
+            <Link href={item.url} target="_blank" rel="noreferrer">
               {item.task}
-            </a>
+            </Link>
           ) : (
             <>{item.task}</>
           ),

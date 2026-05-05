@@ -14,6 +14,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { getPercentileLabel } from "@/services/metrics";
 import HelperText from "@/ui/HelperText";
+import Link from "@/ui/Link";
 
 export function PercentileLabel({
   metric,
@@ -284,7 +285,7 @@ export default function MetricName({
       </span>
       {showLink ? (
         <div className="mt-1 mb-2 small">
-          <a
+          <Link
             href={`/${isFactMetric(metric) ? "fact-metrics" : "metric"}/${metric.id}`}
             target="_blank"
             className="link-purple"
@@ -292,7 +293,7 @@ export default function MetricName({
           >
             View details
             <PiArrowSquareOut className="ml-1" />
-          </a>
+          </Link>
         </div>
       ) : null}
       {showDescription && metric.description ? (

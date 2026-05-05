@@ -15,6 +15,7 @@ import { v4 as uuidv4 } from "uuid";
 import Modal from "@/components/Modal";
 import { DocSection } from "@/components/DocLink";
 import track, { TrackEventProps } from "@/services/track";
+import Link from "@/ui/Link";
 
 type Props = {
   header: string | ReactNode | null;
@@ -207,12 +208,9 @@ const PagedModal: FC<Props> = (props) => {
               )}
               key={i}
             >
-              <a
-                key={i}
-                role="button"
+              <Link
                 className="nav-link d-flex align-items-center"
-                onClick={async (e) => {
-                  e.preventDefault();
+                onClick={async () => {
                   setError("");
                   try {
                     await validateSteps(i);
@@ -236,20 +234,18 @@ const PagedModal: FC<Props> = (props) => {
                 <div className="step-title ml-1" style={{ lineHeight: "18px" }}>
                   {display}
                 </div>
-              </a>
+              </Link>
             </div>
           );
         } else {
           return (
-            <a
+            <Link
               key={i}
-              role="button"
               className={clsx("w-md-100 nav-item nav-link", {
                 active: step === i,
                 disabled: !enabled,
               })}
-              onClick={async (e) => {
-                e.preventDefault();
+              onClick={async () => {
                 setError("");
                 try {
                   await validateSteps(i);
@@ -260,7 +256,7 @@ const PagedModal: FC<Props> = (props) => {
               }}
             >
               {i + 1}. {display}
-            </a>
+            </Link>
           );
         }
       })}

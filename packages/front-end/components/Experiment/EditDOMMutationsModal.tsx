@@ -6,6 +6,7 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 const actionValues = ["append", "set", "remove"];
@@ -223,20 +224,16 @@ const EditDOMMutationsModal: FC<{
                   }}
                 />
                 <Flex justify="end">
-                  <a
+                  <Link
                     className="small"
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setUseAdvanced(!useAdvanced);
-                    }}
+                    onClick={() => setUseAdvanced(!useAdvanced)}
                   >
                     {useAdvanced ||
                     domChanges?.insertBeforeSelector ||
                     domChanges?.parentSelector
                       ? "Hide advanced"
                       : "Show advanced"}
-                  </a>
+                  </Link>
                 </Flex>
                 {(useAdvanced ||
                   domChanges?.insertBeforeSelector ||
@@ -357,9 +354,9 @@ const EditDOMMutationsModal: FC<{
             Global CSS
             {newVisualChange.css ? (
               <small className="ml-2 float-right">
-                <a href="#" className="text-danger" onClick={deleteGlobalCSS}>
+                <Link className="text-danger" onClick={deleteGlobalCSS}>
                   clear
-                </a>
+                </Link>
               </small>
             ) : null}
           </h4>
@@ -382,9 +379,9 @@ const EditDOMMutationsModal: FC<{
             Custom JS
             {newVisualChange.js ? (
               <small className="ml-2 float-right">
-                <a href="#" className="text-danger" onClick={deleteCustomJS}>
+                <Link className="text-danger" onClick={deleteCustomJS}>
                   clear
-                </a>
+                </Link>
               </small>
             ) : null}
           </h4>

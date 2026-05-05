@@ -15,6 +15,7 @@ import useApi from "@/hooks/useApi";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
+import Link from "@/ui/Link";
 import styles from "./ExperimentGraph.module.scss";
 
 export default function ExperimentGraph({
@@ -305,46 +306,27 @@ export default function ExperimentGraph({
         <div className="pt-2">
           <MoreMenu>
             <div className="p-2 px-3">Download data as CSV...</div>
-            <a
-              href="#"
-              className="dropdown-item"
-              onClick={(e) => {
-                e.preventDefault();
-                downloadCSV("all");
-              }}
-            >
+            <Link className="dropdown-item" onClick={() => downloadCSV("all")}>
               Totals
-            </a>
-            <a
-              href="#"
+            </Link>
+            <Link
               className="dropdown-item"
-              onClick={(e) => {
-                e.preventDefault();
-                downloadCSV("projects");
-              }}
+              onClick={() => downloadCSV("projects")}
             >
               By Projects
-            </a>
-            <a
-              href="#"
+            </Link>
+            <Link
               className="dropdown-item"
-              onClick={(e) => {
-                e.preventDefault();
-                downloadCSV("status");
-              }}
+              onClick={() => downloadCSV("status")}
             >
               By Status
-            </a>
-            <a
-              href="#"
+            </Link>
+            <Link
               className="dropdown-item"
-              onClick={(e) => {
-                e.preventDefault();
-                downloadCSV("results");
-              }}
+              onClick={() => downloadCSV("results")}
             >
               By Results
-            </a>
+            </Link>
           </MoreMenu>
         </div>
       </div>

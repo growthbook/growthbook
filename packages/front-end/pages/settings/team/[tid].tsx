@@ -96,15 +96,9 @@ const TeamPage: FC = () => {
           <h1 className="mb-0">{team.name}</h1>
           {isEditable && (
             <div className="ml-1">
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setTeamModalOpen(true);
-                }}
-              >
+              <Link onClick={() => setTeamModalOpen(true)}>
                 <GBEdit />
-              </a>
+              </Link>
             </div>
           )}
           <div className="ml-auto">
@@ -124,15 +118,9 @@ const TeamPage: FC = () => {
             {team.description || <em>add description</em>}
           </div>
           <div className="ml-1">
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setTeamModalOpen(true);
-              }}
-            >
+            <Link onClick={() => setTeamModalOpen(true)}>
               <GBEdit />
-            </a>
+            </Link>
           </div>
         </div>
 
@@ -158,16 +146,9 @@ const TeamPage: FC = () => {
                 <Badge label={projectName} />
               )}
               {isEditable && (
-                <a
-                  className="ml-2"
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setTeamModalOpen(true);
-                  }}
-                >
+                <Link className="ml-2" onClick={() => setTeamModalOpen(true)}>
                   <GBEdit />
-                </a>
+                </Link>
               )}
             </Box>
           </div>

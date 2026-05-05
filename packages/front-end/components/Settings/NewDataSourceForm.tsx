@@ -43,6 +43,7 @@ import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import ManagedWarehouseModal from "@/components/InitialSetup/ManagedWarehouseModal";
 import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
 
@@ -463,15 +464,9 @@ const NewDataSourceForm: FC<{
                 GrowthBook Cloud now offers a fully managed data warehouse
                 option.
               </Text>
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setManagedWarehouseOpen(true);
-                }}
-              >
+              <Link onClick={() => setManagedWarehouseOpen(true)}>
                 Try it now
-              </a>
+              </Link>
             </Callout>
           ) : (
             <Callout status="info" mt="3">
@@ -489,10 +484,8 @@ const NewDataSourceForm: FC<{
     stepContents = (
       <div>
         <div className="mb-3">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
+          <Link
+            onClick={() => {
               setLastError("");
               setStep("initial");
             }}
@@ -501,7 +494,7 @@ const NewDataSourceForm: FC<{
               <GBCircleArrowLeft />
             </span>{" "}
             Back
-          </a>
+          </Link>
         </div>
         {connectionInfo.type ? (
           <h3>
@@ -542,10 +535,8 @@ const NewDataSourceForm: FC<{
       <div>
         <div className="mb-3">
           {showBackButton && (
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
+            <Link
+              onClick={() => {
                 setLastError("");
                 if (connectionInfo.type === "mixpanel") {
                   setStep("initial");
@@ -558,7 +549,7 @@ const NewDataSourceForm: FC<{
                 <GBCircleArrowLeft />
               </span>{" "}
               Back
-            </a>
+            </Link>
           )}
         </div>
         <h3>{headerParts.join(" > ")}</h3>
@@ -568,14 +559,14 @@ const NewDataSourceForm: FC<{
             View docs on connecting{" "}
             {selectedSchema.helpLink ? (
               <>
-                <a
+                <Link
                   href={selectedSchema.helpLink}
                   target="_blank"
                   rel="noreferrer"
                 >
                   {selectedSchema.label} to {datasourceInfo.display}{" "}
                   <FaExternalLinkAlt />
-                </a>{" "}
+                </Link>{" "}
                 or{" "}
               </>
             ) : null}
@@ -638,18 +629,12 @@ const NewDataSourceForm: FC<{
     stepContents = (
       <div>
         <div className="mb-2">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setStep("connection");
-            }}
-          >
+          <Link onClick={() => setStep("connection")}>
             <span style={{ position: "relative", top: "-1px" }}>
               <GBCircleArrowLeft />
             </span>{" "}
             Back
-          </a>
+          </Link>
         </div>
         <h3>{selectedSchema.label || ""} Query Options</h3>
         <div className="my-4">

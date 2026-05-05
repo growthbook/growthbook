@@ -18,6 +18,7 @@ import ExperimentDateGraph, {
 } from "@/components/Experiment/ExperimentDateGraph";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Link from "@/ui/Link";
 import { transformDimensionData } from "./DimensionIssues";
 
 const numberFormatter = new Intl.NumberFormat();
@@ -212,12 +213,7 @@ export default function TrafficCard({
                             }}
                           />{" "}
                         </Tooltip>
-                        <a
-                          href="#balanceCheck"
-                          onClick={(e) => e.preventDefault}
-                        >
-                          {r.name}
-                        </a>
+                        <Link href="#balanceCheck">{r.name}</Link>
                       </>
                     ) : (
                       r.name

@@ -3,6 +3,7 @@ import { FaPencilAlt } from "react-icons/fa";
 import { getAllVariations } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
+import Link from "@/ui/Link";
 import Markdown from "@/components/Markdown/Markdown";
 import { useSnapshot } from "./SnapshotProvider";
 
@@ -74,16 +75,12 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
           )}
           {editResult && (
             <div>
-              <a
-                href="#"
+              <Link
                 className="alert-link float-right ml-2"
-                onClick={(e) => {
-                  e.preventDefault();
-                  editResult();
-                }}
+                onClick={() => editResult()}
               >
                 <FaPencilAlt />
-              </a>
+              </Link>
             </div>
           )}
         </div>
@@ -102,17 +99,13 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
     return (
       <div className={clsx("alert mb-0 alert-info")}>
         {editResult && (
-          <a
-            href="#"
+          <Link
             className="alert-link float-right ml-2"
-            onClick={(e) => {
-              e.preventDefault();
-              editResult();
-            }}
+            onClick={() => editResult()}
           >
             Stop{" "}
             {experiment.type === "multi-armed-bandit" ? "Bandit" : "Experiment"}
-          </a>
+          </Link>
         )}
         <strong>This experiment is currently running.</strong>
       </div>

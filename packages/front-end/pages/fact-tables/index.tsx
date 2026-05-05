@@ -480,15 +480,13 @@ export default function FactTablesPage() {
                 <tr>
                   <td colSpan={10} align={"center"}>
                     No matching fact tables.{" "}
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
+                    <Link
+                      onClick={() => {
                         clear();
                       }}
                     >
                       Clear search field
-                    </a>
+                    </Link>
                   </td>
                 </tr>
               )}

@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 interface ExperimentWinRateByProjectProps {
@@ -156,17 +157,15 @@ const ExperimentWinRateByProject: React.FC<ExperimentWinRateByProjectProps> = ({
         </table>
         <Box>
           {projectWinRates.length > projectsToShow && (
-            <a
-              href="#"
+            <Link
               className="ml-2"
-              onClick={(e) => {
-                e.preventDefault();
+              style={{ fontSize: "0.9em" }}
+              onClick={() => {
                 setShowAllProjects(!showAllProjects);
               }}
-              style={{ fontSize: "0.9em" }}
             >
               {showAllProjects ? "Show less" : "Show all"}
-            </a>
+            </Link>
           )}
         </Box>
       </Flex>
