@@ -52,10 +52,9 @@ export default function AttributeDetailPage() {
   const permissionsUtil = usePermissionsUtil();
   const { data: eventForwarderData } = useApi<{
     status: 200;
-    hasReadyEventForwarder: boolean;
-  }>("/event-forwarder/has-ready");
-  const activeEventForwarder =
-    eventForwarderData?.hasReadyEventForwarder || false;
+    hasEventForwarder: boolean;
+  }>("/event-forwarder/exists");
+  const activeEventForwarder = eventForwarderData?.hasEventForwarder || false;
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showReferencesModal, setShowReferencesModal] = useState(false);
@@ -218,7 +217,7 @@ export default function AttributeDetailPage() {
           cta="Delete"
           submitColor="danger"
           ctaEnabled={!activeEventForwarder}
-          disabledMessage="Attributes can't be deleted while an Event Forwarder is active."
+          disabledMessage="Attributes can't be deleted while an Event Forwarder is configured."
           trackingEventModalType=""
           submit={async () => {
             if (activeEventForwarder) return;
