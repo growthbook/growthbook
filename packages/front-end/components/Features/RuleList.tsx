@@ -64,9 +64,7 @@ type CommonProps = {
   revisionList: MinimalFeatureRevisionInterface[];
   rampSchedules?: RampScheduleInterface[];
   draftRevision?: FeatureRevisionInterface | null;
-  // Visibility filter applied in allEnvsView only (e.g. orphaned-env hide).
-  // Indexing/reorder still operate against `feature.rules` so flat indices
-  // round-trip correctly when only a subset is rendered.
+  // allEnvsView visibility filter; reorder still resolves against feature.rules.
   hiddenRuleIds?: Set<string>;
 };
 
@@ -111,10 +109,8 @@ export default function RuleList(props: RuleListProps) {
   const permissionsUtil = usePermissionsUtil();
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // In allEnvsView the visible items are the flat `feature.rules` array,
-  // optionally narrowed by `hiddenRuleIds` (e.g. orphaned-env hide). In
-  // single-env mode we project rules through `getRules(feature, env)` to honor
-  // env applicability + inheritance.
+  // allEnvsView: flat feature.rules narrowed by hiddenRuleIds.
+  // single-env: project via getRules to honor env applicability + inheritance.
   const projectItems = (): FeatureRule[] => {
     if (!allEnvsView) return getRules(feature, props.environment);
     const flat = feature.rules ?? [];
@@ -124,8 +120,6 @@ export default function RuleList(props: RuleListProps) {
   };
   const [items, setItems] = useState<FeatureRule[]>(projectItems);
 
-  // `getRules` returns a fresh array every call, so depend on the underlying
-  // rules array identity + view selector rather than the projection itself.
   useEffect(() => {
     setItems(projectItems());
   }, [
@@ -216,10 +210,8 @@ export default function RuleList(props: RuleListProps) {
     return rule.environments[0];
   }
 
-  // Translate an items-index to a `feature.rules` flat index. Always lookup
-  // by id so the translation stays correct in allEnvsView when `items` has
-  // been filtered (e.g. orphaned rules hidden), where the items-index would
-  // no longer line up with the underlying feature.rules array.
+  // Items-index → feature.rules flat index. Always id-lookup so allEnvsView
+  // stays correct when items is filtered.
   function flatIndexOf(ruleId: string, fallback: number) {
     const flat = feature.rules ?? [];
     const idx = flat.findIndex((r) => r.id === ruleId);

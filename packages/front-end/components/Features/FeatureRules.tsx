@@ -1,5 +1,5 @@
 import { FeatureInterface } from "shared/types/feature";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PiFunnel, PiPlusBold, PiMagnifyingGlass } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
@@ -79,8 +79,6 @@ export default function FeatureRules({
     "hide-disabled-rules",
     false,
   );
-  // Off by default: orphaned rules (env list references only deleted envs)
-  // are hidden in the All Environments tab unless explicitly shown.
   const [showOrphaned, setShowOrphaned] = useLocalStorage(
     "show-orphaned-rules",
     false,
@@ -89,26 +87,25 @@ export default function FeatureRules({
     isRuleInactive(r, experimentsMap),
   );
 
-  // Orphaned: a rule with a non-empty `environments` list whose entries are
-  // ALL unknown to the org. Distinct from "no environments (pending)"
-  // (`environments: []`) — those still surface in All Environments because
-  // the rule is intentionally scoped to nothing right now, not pointing at
-  // deleted envs. `allEnvironments: true` and missing `environments` are
-  // permissive and never orphaned.
-  const knownEnvIds = new Set(envs);
-  const orphanedRuleIds = new Set<string>(
-    (feature.rules ?? [])
-      .filter(
-        (r) =>
-          r &&
-          !r.allEnvironments &&
-          Array.isArray(r.environments) &&
-          r.environments.length > 0 &&
-          r.environments.every((e) => !knownEnvIds.has(e)),
-      )
-      .map((r) => r.id)
-      .filter((id): id is string => !!id),
-  );
+  // Orphaned: non-empty `environments` list referencing only deleted envs.
+  // `environments: []` (pending) and `allEnvironments: true` are not orphaned.
+  // Memoized so RuleList's `hiddenRuleIds` effect dep stays stable.
+  const orphanedRuleIds = useMemo(() => {
+    const knownEnvIds = new Set(environments.map((e) => e.id));
+    return new Set<string>(
+      (feature.rules ?? [])
+        .filter(
+          (r) =>
+            r &&
+            !r.allEnvironments &&
+            Array.isArray(r.environments) &&
+            r.environments.length > 0 &&
+            r.environments.every((e) => !knownEnvIds.has(e)),
+        )
+        .map((r) => r.id)
+        .filter((id): id is string => !!id),
+    );
+  }, [feature.rules, environments]);
   const hasOrphanedRules = orphanedRuleIds.size > 0;
 
   // Externally triggered rule open (e.g. ramp timeline CTA). Switch to the
