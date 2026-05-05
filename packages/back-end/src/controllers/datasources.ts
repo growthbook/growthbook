@@ -59,7 +59,7 @@ import {
   buildNormalizedEventForwarderSinkPayloadForTest,
   getEventForwarderConfigForDatasource,
   getEventForwarderConfigWithMetadataForDatasource,
-  hasReadyEventForwarderConfig,
+  hasAnyEventForwarderConfig,
   refreshEventForwarderConfigCredentials,
   syncEventForwarderConfigFromDatasource,
   toEventForwarderConfigDraft,
@@ -1120,15 +1120,15 @@ export async function postResumeEventForwarder(
   }
 }
 
-export async function getHasReadyEventForwarder(
+export async function getEventForwarderExists(
   req: AuthRequest,
-  res: Response<{ status: 200; hasReadyEventForwarder: boolean }>,
+  res: Response<{ status: 200; hasEventForwarder: boolean }>,
 ) {
   const context = getContextFromReq(req);
 
   res.status(200).json({
     status: 200,
-    hasReadyEventForwarder: await hasReadyEventForwarderConfig(context),
+    hasEventForwarder: await hasAnyEventForwarderConfig(context),
   });
 }
 

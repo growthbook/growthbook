@@ -51,12 +51,11 @@ export default function AttributeModal({ close, attribute }: Props) {
   const current = schema.find((s) => s.property === attribute);
   const { data: eventForwarderData } = useApi<{
     status: 200;
-    hasReadyEventForwarder: boolean;
-  }>("/event-forwarder/has-ready", {
+    hasEventForwarder: boolean;
+  }>("/event-forwarder/exists", {
     shouldRun: () => !!attribute,
   });
-  const hasReadyEventForwarder =
-    eventForwarderData?.hasReadyEventForwarder || false;
+  const hasEventForwarder = eventForwarderData?.hasEventForwarder || false;
   const isEventForwarderStatusLoading = !!attribute && !eventForwarderData;
 
   const form = useForm<SDKAttribute>({
@@ -87,11 +86,7 @@ export default function AttributeModal({ close, attribute }: Props) {
 
   const permissionRequired = (project: string) => {
     return attribute
-      ? permissionsUtil.canUpdateAttribute(
-          { projects: [project] },
-          {},
-          hasReadyEventForwarder,
-        )
+      ? permissionsUtil.canUpdateAttribute({ projects: [project] }, {})
       : permissionsUtil.canCreateAttribute({ projects: [project] });
   };
 
@@ -101,32 +96,26 @@ export default function AttributeModal({ close, attribute }: Props) {
   );
 
   const selectedProjects = form.watch("projects") || [];
-  const canCreateWithoutProject =
-    !isEventForwarderStatusLoading &&
-    (attribute
-      ? permissionsUtil.canUpdateAttribute(
-          { projects: current?.projects || [] },
-          { projects: [] },
-          hasReadyEventForwarder,
-        )
-      : permissionsUtil.canCreateAttribute({ projects: [] }));
-  const hasProjectPermission =
-    !isEventForwarderStatusLoading &&
-    (attribute
-      ? permissionsUtil.canUpdateAttribute(
-          { projects: current?.projects || [] },
-          { projects: selectedProjects },
-          hasReadyEventForwarder,
-        )
-      : permissionsUtil.canCreateAttribute({ projects: selectedProjects }));
+  const canCreateWithoutProject = attribute
+    ? permissionsUtil.canUpdateAttribute(
+        { projects: current?.projects || [] },
+        { projects: [] },
+      )
+    : permissionsUtil.canCreateAttribute({ projects: [] });
+  const hasProjectPermission = attribute
+    ? permissionsUtil.canUpdateAttribute(
+        { projects: current?.projects || [] },
+        { projects: selectedProjects },
+      )
+    : permissionsUtil.canCreateAttribute({ projects: selectedProjects });
+  const disableEventForwarderLockedFields =
+    !!attribute && (isEventForwarderStatusLoading || hasEventForwarder);
+  const eventForwarderLockedFieldsMessage = isEventForwarderStatusLoading
+    ? "Checking Event Forwarder status."
+    : "Attribute name and data type can't be changed while an Event Forwarder is configured.";
   let ctaDisabledMessage: string | undefined;
   if (!hasProjectPermission) {
-    if (isEventForwarderStatusLoading) {
-      ctaDisabledMessage = "Checking Event Forwarder status.";
-    } else if (hasReadyEventForwarder) {
-      ctaDisabledMessage =
-        "Attributes can't be updated while an Event Forwarder is active.";
-    } else if (!selectedProjects.length && projectOptions.length > 0) {
+    if (!selectedProjects.length && projectOptions.length > 0) {
       ctaDisabledMessage = "Select a project to continue.";
     } else {
       ctaDisabledMessage = `You don't have permission to ${
@@ -205,6 +194,12 @@ export default function AttributeModal({ close, attribute }: Props) {
         }
         required={true}
         {...form.register("property")}
+        disabled={disableEventForwarderLockedFields}
+        helpText={
+          disableEventForwarderLockedFields
+            ? eventForwarderLockedFieldsMessage
+            : undefined
+        }
       />
       {attribute && form.watch("property") !== attribute ? (
         <Callout status="warning">
@@ -256,6 +251,7 @@ export default function AttributeModal({ close, attribute }: Props) {
         onChange={(datatype: SDKAttributeType) =>
           form.setValue("datatype", datatype)
         }
+        disabled={disableEventForwarderLockedFields}
         sort={false}
         options={[
           { value: "boolean", label: "Boolean" },
@@ -282,6 +278,11 @@ export default function AttributeModal({ close, attribute }: Props) {
         }}
         helpText={
           <>
+            {disableEventForwarderLockedFields && (
+              <div className="text-muted">
+                {eventForwarderLockedFieldsMessage}
+              </div>
+            )}
             {["secureString", "secureString[]"].includes(datatype) && (
               <div className="text-muted">
                 <PremiumTooltip

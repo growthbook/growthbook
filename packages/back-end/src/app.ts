@@ -920,8 +920,8 @@ app.post(
 app.get("/datasources", datasourcesController.getDataSources);
 app.get("/datasource/:id", datasourcesController.getDataSource);
 app.get(
-  "/event-forwarder/has-ready",
-  datasourcesController.getHasReadyEventForwarder,
+  "/event-forwarder/exists",
+  datasourcesController.getEventForwarderExists,
 );
 app.post("/datasources", datasourcesController.postDataSources);
 app.post(
