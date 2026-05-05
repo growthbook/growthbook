@@ -40,6 +40,8 @@ import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import { FeatureEvaluationQueries } from "@/components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueries";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Modal from "@/components/Modal";
+import HistoryTable from "@/components/HistoryTable";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -55,6 +57,7 @@ const DataSourcePage: FC = () => {
   const [editConn, setEditConn] = useState(false);
   const [viewSqlExplorer, setViewSqlExplorer] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [auditModal, setAuditModal] = useState(false);
   const router = useRouter();
 
   const {
@@ -222,6 +225,14 @@ const DataSourcePage: FC = () => {
                   Edit Connection Info
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem
+                onClick={() => {
+                  setAuditModal(true);
+                  setDropdownOpen(false);
+                }}
+              >
+                Audit log
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => {
@@ -523,6 +534,18 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           lockDatasource={true}
           trackingEventModalSource="datasource-id-page"
         />
+      )}
+      {auditModal && (
+        <Modal
+          trackingEventModalType=""
+          open={true}
+          header="Audit Log"
+          close={() => setAuditModal(false)}
+          size="lg"
+          closeCta="Close"
+        >
+          <HistoryTable type={"datasource"} id={d.id} />
+        </Modal>
       )}
     </div>
   );
