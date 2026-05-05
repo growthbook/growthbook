@@ -6,7 +6,7 @@ export const userAuthenticationValidator = z.object({
     installation_id: z.string(),
     account_id: z.string(),
     user_id: z.string(),
-    user_role: z.string(),
+    user_role: z.enum(["ADMIN", "USER"]),
     user_email: z.string(),
   }),
 });

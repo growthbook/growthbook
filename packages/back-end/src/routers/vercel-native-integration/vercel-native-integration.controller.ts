@@ -32,6 +32,7 @@ import {
   createSDKConnection,
   updateSdkConnectionsRemoveManagedBy,
 } from "back-end/src/models/SdkConnectionModel";
+import { TeamModel } from "back-end/src/models/TeamModel";
 import { IdTokenCookie, SSOConnectionIdCookie } from "back-end/src/util/cookie";
 import {
   getUserLoginPropertiesFromRequest,
@@ -221,19 +222,44 @@ const getContext = async ({
 
   if (userEmail && !user) failed(400, "Invalid user!");
 
-  // TODO: Verify the token is for an admin user (or system)
-  const context = new ReqContextClass({
-    org,
-    auditUser: user
-      ? {
-          type: "dashboard",
-          id: user.id,
-          email: user.email,
-          name: user.name || user.email,
-        }
-      : null,
-    role: "admin",
-  });
+  const teams = user
+    ? await TeamModel.dangerousGetTeamsForOrganization(org.id)
+    : [];
+
+  let context: ReqContextClass;
+  try {
+    context = new ReqContextClass({
+      org,
+      teams,
+      user: user
+        ? {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            superAdmin: user.superAdmin,
+          }
+        : undefined,
+      auditUser: user
+        ? {
+            type: "dashboard",
+            id: user.id,
+            email: user.email,
+            name: user.name || user.email,
+          }
+        : null,
+      // System (non-user) tokens have no org member: use a synthetic admin role
+      // for the integration's server-side model operations.
+      role: user ? undefined : "admin",
+    });
+  } catch (err) {
+    if (
+      err instanceof Error &&
+      err.message === "User is not a member of this organization"
+    ) {
+      return failed(403, err.message);
+    }
+    throw err;
+  }
 
   const integrationModel = new VercelNativeIntegrationModel(context);
 
@@ -265,6 +291,18 @@ const authContext = async (req: Request, res: Response) => {
   });
 
   if (checkedAuth.status === "error") return failed(401, checkedAuth.message);
+
+  const vercelAuth = String(req.headers["x-vercel-auth"]);
+
+  if (vercelAuth === "user" && req.method !== "GET") {
+    const { payload } = checkedAuth.authentication;
+    if ("user_role" in payload && payload.user_role === "USER") {
+      return failed(
+        403,
+        "Vercel USER (read-only) cannot perform this action. Require Vercel ADMIN on the team.",
+      );
+    }
+  }
 
   const installationId = checkedAuth.authentication.payload.installation_id;
 
@@ -311,6 +349,13 @@ export async function upsertInstallation(req: Request, res: Response) {
     return res.status(401).send(checkedAuth.message);
 
   const { authentication } = checkedAuth;
+
+  if (authentication.payload.user_role !== "ADMIN")
+    return res
+      .status(403)
+      .send(
+        "Only a Vercel user with the ADMIN role can create or update the installation",
+      );
 
   const payload = req.body as UpsertInstallationPayload;
 
