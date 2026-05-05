@@ -286,6 +286,7 @@ export async function callLicenseServer({
   url: string;
   body?: string;
   method?: string;
+  // Some endpoints return 204 for success, so we need to handle that case
 }) {
   const agentOptions = getAgentOptions();
 
@@ -329,7 +330,7 @@ export async function callLicenseServer({
 
   if (
     serverResult.status === 204 ||
-    serverResult.headers.get("content-length") === "0"
+    serverResult.headers?.get("content-length") === "0"
   ) {
     return;
   }
