@@ -29,11 +29,6 @@ export default {
       label: "Quick Start Guide",
     },
     {
-      type: "doc",
-      id: "command-palette",
-      label: "Command Palette",
-    },
-    {
       type: "link",
       label: "SDKs",
       href: "/lib",
