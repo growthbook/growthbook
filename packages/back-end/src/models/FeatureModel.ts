@@ -59,7 +59,6 @@ import {
   flattenV1ToV2Rules,
   getApplicableEnvIds,
   isPlausibleFeatureRule,
-  narrowRuleToApplicableEnvs,
   V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
 import { ReqContext } from "back-end/types/request";
@@ -276,9 +275,6 @@ export function migrateRawFeatureToV2(
     }
   }
 
-  const applicableEnvs = getApplicableEnvIds(orgEnvs, postV0Doc.project);
-  const applicableSet = new Set(applicableEnvs);
-
   if (!topLevelRulesAreV2Shaped) {
     // v1 path. Inheritance must run BEFORE flattening so a rule defined only
     // on a parent env reaches inheriting children — otherwise sparse legacy
@@ -291,6 +287,8 @@ export function migrateRawFeatureToV2(
     // occasionally landed with corrupt entries that would otherwise crash
     // every downstream `.type`/`.id`/`.environments` access (the
     // "Cannot read properties of undefined (reading 'type')" publish crash).
+    // Orphan env IDs are intentionally preserved on the output rules so the
+    // UI's `RuleEnvScopeBadges` can render them as struck-through amber pills.
     const inheritedSettings = applyEnvironmentInheritance(orgEnvs, envSettings);
     const rulesByEnv: V1RulesByEnv = {};
     for (const [envId, envObj] of Object.entries(inheritedSettings)) {
@@ -310,18 +308,12 @@ export function migrateRawFeatureToV2(
           return upgraded;
         });
     }
+    const applicableEnvs = getApplicableEnvIds(orgEnvs, postV0Doc.project);
     const v2 = postV0Doc as unknown as FeatureInterface;
-    // `flattenV1ToV2Rules` preserves orphan env IDs in `environments` so the
-    // UI can surface them; mirror `FeatureRevisionModel`'s post-flatten
-    // narrowing here so the live feature view and revision view of the same
-    // data agree on which envs are visible. Without this, a long-lived v1
-    // doc whose `environmentSettings` keys still carry rule arrays for
-    // deleted environments would inflate the "All Environments" list with
-    // one row per (legacy-id, deleted-env) tuple.
     v2.rules = flattenV1ToV2Rules(rulesByEnv, {
       envOrder: orgEnvs.map((e) => e.id),
       applicableEnvs,
-    }).map((r) => narrowRuleToApplicableEnvs(r, applicableSet));
+    });
     v2.environmentSettings = scrubEnvRules(inheritedSettings) as Record<
       string,
       FeatureEnvironment
@@ -346,20 +338,15 @@ export function migrateRawFeatureToV2(
     orgEnvs,
     originalEnvSettings,
   );
-  v2.rules = (v2.rules || [])
-    .filter(isPlausibleFeatureRule)
-    .map((r) => {
-      const upgraded = upgradeFeatureRule(r as FeatureRule);
-      // Defensive — v2 docs we author always carry ids, but imports and
-      // hand-edited backups can land here unstamped.
-      if (!upgraded.id) {
-        upgraded.id = synthesizeRuleId(upgraded);
-      }
-      return expandRuleEnvsForInheritance(upgraded, childrenByAncestor);
-    })
-    // Strip orphan env IDs that snuck onto a v2-shaped rule (env deleted
-    // after the rule was authored). Same rationale as the v1 path above.
-    .map((r) => narrowRuleToApplicableEnvs(r, applicableSet));
+  v2.rules = (v2.rules || []).filter(isPlausibleFeatureRule).map((r) => {
+    const upgraded = upgradeFeatureRule(r as FeatureRule);
+    // Defensive — v2 docs we author always carry ids, but imports and
+    // hand-edited backups can land here unstamped.
+    if (!upgraded.id) {
+      upgraded.id = synthesizeRuleId(upgraded);
+    }
+    return expandRuleEnvsForInheritance(upgraded, childrenByAncestor);
+  });
   v2.environmentSettings = scrubEnvRules(inheritedEnvSettings) as Record<
     string,
     FeatureEnvironment

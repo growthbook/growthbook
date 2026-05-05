@@ -180,7 +180,7 @@ export function buildFeatureRevisionInterface(
     revision.rules = flattenV1ToV2Rules(upgraded, {
       envOrder: orgEnvs.map((e) => e.id),
       applicableEnvs,
-    }).map((r) => narrowRuleToApplicableEnvs(r, applicableSet));
+    });
   }
   return revision;
 }

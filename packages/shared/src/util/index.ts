@@ -294,7 +294,14 @@ export function getMatchingRules(
   omitDisabledEnvironments: boolean = false,
 ): MatchingRule[] {
   const matches: MatchingRule[] = [];
-  const allRules: FeatureRule[] = revision?.rules ?? feature.rules ?? [];
+  // Drop sparse `null`/`undefined` slots so the `filter(rule)` callback —
+  // which typically reads `rule.type` — can't crash on a corrupt legacy
+  // entry (see `naiveFlattenV1Rules` for the same concern).
+  const allRules: FeatureRule[] = (
+    revision?.rules ??
+    feature.rules ??
+    []
+  ).filter((r): r is FeatureRule => r != null && typeof r === "object");
 
   allRules.forEach((rule, i) => {
     if (!filter(rule)) return;
@@ -384,9 +391,26 @@ export function ruleFootprint(
 // duplicate ids. Persistence paths must use `normalizeRulesInputToV2` on the
 // back-end, which dedupes by id, collapses to allEnvironments, and suffixes
 // collisions.
+// Hardening: pre-v2 docs stored as Mongoose `Mixed` can land with sparse
+// `null`/`undefined` rule slots (partial imports, hand-edited backups). A
+// single nullish entry would crash every downstream `.type` / `.id` /
+// `.environments` accessor (see PR #5800). Filter at the chokepoint so
+// `autoMerge`, `tryRuleLevelMerge`, and the diff helpers above never see
+// a nullish rule. The object branch also drops nullish entries before the
+// spread that would otherwise produce a typeless "rule" record.
+const isPlausibleRule = (v: unknown): v is FeatureRule =>
+  v != null && typeof v === "object" && !Array.isArray(v);
+
 export function naiveFlattenV1Rules(input: unknown): FeatureRule[] {
   if (input == null) return [];
-  if (Array.isArray(input)) return input as FeatureRule[];
+  if (Array.isArray(input)) {
+    // Common case (v2-shaped arrays from JIT migration): pass through by
+    // reference so callers can rely on identity. Only allocate when a
+    // sparse/legacy slot needs to be scrubbed.
+    return input.every(isPlausibleRule)
+      ? (input as FeatureRule[])
+      : input.filter(isPlausibleRule);
+  }
   if (typeof input === "object") {
     const out: FeatureRule[] = [];
     for (const [env, rules] of Object.entries(
@@ -394,6 +418,7 @@ export function naiveFlattenV1Rules(input: unknown): FeatureRule[] {
     )) {
       if (!Array.isArray(rules)) continue;
       for (const r of rules) {
+        if (!isPlausibleRule(r)) continue;
         out.push({
           ...r,
           allEnvironments: false,

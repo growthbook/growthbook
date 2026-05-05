@@ -172,11 +172,9 @@ describe("buildFeatureRevisionInterface", () => {
     });
 
     // Regression: a v1 rule scoped to an env excluded from the feature's
-    // project gets stripped of the non-applicable env. When the rule's only
-    // env is non-applicable, it collapses to the no-env "pending" state
-    // rather than disappearing — preserves the rule body so a publish
-    // doesn't silently delete it. Mirrors `migrateRawFeatureToV2`'s v1 path.
-    it("collapses rules whose only env is non-applicable to the no-env pending state", () => {
+    // project must keep the orphan env label (so the UI can flag it) rather
+    // than disappear or silently widen.
+    it("preserves rules whose only env is non-applicable with the orphan label retained", () => {
       const orgEnvsWithProject: Environment[] = [
         { id: "dev", description: "", projects: ["other_proj"] },
         { id: "production", description: "" },
@@ -197,7 +195,7 @@ describe("buildFeatureRevisionInterface", () => {
       expect(out.rules).toHaveLength(2);
       const devOnly = out.rules.find((r) => r.id === "r_dev_only");
       const prodOnly = out.rules.find((r) => r.id === "r_prod_only");
-      expect(devOnly?.environments).toEqual([]);
+      expect(devOnly?.environments).toEqual(["dev"]);
       expect(devOnly?.allEnvironments).toBe(false);
       // r_prod_only covers the only applicable env, so it collapses to
       // allEnvironments=true (environments stripped).

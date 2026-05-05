@@ -24,12 +24,7 @@ import { ReqContext } from "back-end/types/request";
 //   6. partial migration (v1 env rules + v2-shaped top-level rules)
 //                                                 — v2 top-level wins; stale env.rules
 //                                                   ignored (regression: hotfix #5783)
-//   7. removed/orphaned envs                      — orphan envs stripped from rule
-//                                                   footprints; orphan-only rules
-//                                                   collapsed to no-env "pending"
-//                                                   (regression: customer reported
-//                                                   inflated "All Environments" tab)
-//   8. sparse/nullish rule slots                  — null/undefined entries tolerated
+//   7. sparse/nullish rule slots                  — null/undefined entries tolerated
 //                                                   in v1 env arrays and v2 top-level
 //                                                   array (regression: publish crash
 //                                                   with "Cannot read properties of
@@ -1264,17 +1259,12 @@ describe("migrateRawFeatureToV2", () => {
   // Either way no rule body is silently dropped on read.
 
   describe("removed/orphaned envs in feature data", () => {
-    it("v1 path: rule scoped only to a removed env collapses to the no-env pending state", () => {
+    it("v1 path: preserves rule scoped only to a removed env with the orphan env retained", () => {
       // Org has only `production`. The on-disk doc still has a `staging`
       // entry from before staging was removed. The v1→v2 flatten preserves
-      // the rule body but `narrowRuleToApplicableEnvs` strips the orphan
-      // env from the footprint and collapses to `environments: []` so:
-      //   - the live feature view ("All Environments" tab) doesn't show
-      //     it under a non-existent env (regression: customer reported
-      //     ~241 entries for ~60 active rules due to deleted-env leakage),
-      //   - the rule body is preserved so a publish during the orphaned
-      //     period doesn't silently delete it,
-      //   - the UI surfaces the no-env state as a pending badge.
+      // the rule body AND the orphan env label so the UI can flag it
+      // (`RuleEnvScopeBadges` renders disallowed envs as struck-through
+      // amber pills) and a later publish doesn't drop it silently.
       const orgEnvs: Environment[] = [{ id: "production", description: "" }];
       const v1: LegacyFeatureInterface = {
         ...BASE_META,
@@ -1291,14 +1281,14 @@ describe("migrateRawFeatureToV2", () => {
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].id).toBe("r_staging_only");
       expect(out.rules[0].allEnvironments).toBe(false);
-      expect(out.rules[0].environments).toEqual([]);
+      expect(out.rules[0].environments).toEqual(["staging"]);
     });
 
-    it("v2 path: rule scoped to a removed env collapses to the no-env pending state", () => {
-      // Same narrowing applies to v2-shaped docs whose env IDs went stale.
-      // Mirrors `FeatureRevisionModel`'s `narrowRuleToApplicableEnvs` so
-      // the live feature view and a revision view of the same data agree
-      // on which envs are visible.
+    it("v2 path: preserves rule scoped to a removed env as-is (no narrow at migrateRawFeatureToV2)", () => {
+      // The v2 read path does NOT filter rules by applicableEnvs at this
+      // layer; orphan-env references survive on the live feature unchanged
+      // so the UI can flag them. (The revision read path narrows in its v2
+      // branch — pre-existing inconsistency, tracked separately.)
       const orgEnvs: Environment[] = [{ id: "production", description: "" }];
       const v2: FeatureInterface = {
         ...BASE_META,
@@ -1321,13 +1311,14 @@ describe("migrateRawFeatureToV2", () => {
         "r_orphan",
       ]);
       const orphan = out.rules.find((r) => r.id === "r_orphan");
-      expect(orphan?.environments).toEqual([]);
+      expect(orphan?.environments).toEqual(["staging"]);
     });
 
-    it("v2 path: mixed-env rule footprint is narrowed to applicable envs", () => {
-      // The orphan portion of a mixed footprint is stripped; the
-      // applicable portion survives untouched so the rule remains live
-      // in the env it actually targets.
+    it("v2 path: preserves orphan entries in mixed-env rule footprint", () => {
+      // `migrateRawFeatureToV2` does not narrow v2 rule footprints to
+      // applicableEnvs. The rule's env list is left intact even if some
+      // entries no longer exist in the org, so the UI can render the
+      // orphan portion as a struck-through amber pill.
       const orgEnvs: Environment[] = [{ id: "production", description: "" }];
       const v2: FeatureInterface = {
         ...BASE_META,
@@ -1345,7 +1336,7 @@ describe("migrateRawFeatureToV2", () => {
       const out = migrateRawFeatureToV2(v2, mockContext(orgEnvs));
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].allEnvironments).toBe(false);
-      expect(out.rules[0].environments).toEqual(["production"]);
+      expect(out.rules[0].environments).toEqual(["staging", "production"]);
     });
 
     it("v1 path: tolerates sparse null/undefined entries inside per-env rule arrays", () => {
