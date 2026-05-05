@@ -51,8 +51,8 @@ export default function AttributeModal({ close, attribute }: Props) {
   const current = schema.find((s) => s.property === attribute);
   const { data: eventForwarderData } = useApi<{
     status: 200;
-    hasEventForwarder: boolean;
-  }>("/event-forwarder/exists", {
+    hasReadyEventForwarder: boolean;
+  }>("/event-forwarder/connected", {
     shouldRun: () => !!attribute,
   });
   const hasEventForwarder = eventForwarderData?.hasEventForwarder || false;
