@@ -1546,7 +1546,7 @@ export const postExperimentStartChecklistValidator = {
   operationId: "postExperimentStartChecklist",
   tags: ["experiments"],
   method: "post" as const,
-  path: "/experiments/:id/start-checklist",
+  path: "/experiments/:id/start-checklist/manual/complete",
   exampleRequest: {
     params: { id: "exp_abc123" },
     body: {
