@@ -10032,11 +10032,16 @@ paths:
                     type: number
                   allRequiredComplete:
                     type: boolean
+                  manualLaunchChecklist:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/manualLaunchChecklist'
                 required:
                   - checklistItems
                   - incompleteRequiredItems
                   - requiredItemsRemaining
                   - allRequiredComplete
+                  - manualLaunchChecklist
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL

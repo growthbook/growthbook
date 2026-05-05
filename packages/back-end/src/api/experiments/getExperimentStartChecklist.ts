@@ -33,5 +33,6 @@ export const getExperimentStartChecklist = createApiRequestHandler(
     incompleteRequiredItems,
     requiredItemsRemaining,
     allRequiredComplete,
+    manualLaunchChecklist: experiment.manualLaunchChecklist || [],
   };
 });

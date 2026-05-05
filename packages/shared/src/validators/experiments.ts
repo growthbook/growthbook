@@ -128,6 +128,20 @@ export const variation = z
   .strict();
 export type Variation = z.infer<typeof variation>;
 
+export const manualLaunchChecklistItemValidator = z
+  .object({
+    key: z.string(),
+    status: z.enum(["complete", "incomplete"]),
+  })
+  .strict();
+export type ManualLaunchChecklistItem = z.infer<
+  typeof manualLaunchChecklistItemValidator
+>;
+
+export const manualLaunchChecklistValidator = z.array(
+  manualLaunchChecklistItemValidator,
+);
+
 export const attributionModel = [
   "firstExposure",
   "experimentDuration",
@@ -379,16 +393,7 @@ export const experimentInterface = z
           .strict(),
       )
       .optional(),
-    manualLaunchChecklist: z
-      .array(
-        z
-          .object({
-            key: z.string(),
-            status: z.enum(["complete", "incomplete"]),
-          })
-          .strict(),
-      )
-      .optional(),
+    manualLaunchChecklist: manualLaunchChecklistValidator.optional(),
     type: z.enum(experimentType).optional(),
     banditStage: z.enum(banditStageType).optional(),
     banditStageDateStarted: z.date().optional(),
@@ -1474,18 +1479,21 @@ const startChecklistItemStatusValidator = z
   })
   .strict();
 
+const experimentStartChecklistResponseValidator = z
+  .object({
+    checklistItems: z.array(startChecklistItemStatusValidator),
+    incompleteRequiredItems: z.array(startChecklistItemStatusValidator),
+    requiredItemsRemaining: z.number(),
+    allRequiredComplete: z.boolean(),
+    manualLaunchChecklist: manualLaunchChecklistValidator,
+  })
+  .strict();
+
 export const getExperimentStartChecklistValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: idParams,
-  responseSchema: z
-    .object({
-      checklistItems: z.array(startChecklistItemStatusValidator),
-      incompleteRequiredItems: z.array(startChecklistItemStatusValidator),
-      requiredItemsRemaining: z.number(),
-      allRequiredComplete: z.boolean(),
-    })
-    .strict(),
+  responseSchema: experimentStartChecklistResponseValidator,
   summary: "Get an experiment pre-launch checklist status",
   operationId: "getExperimentStartChecklist",
   tags: ["experiments"],
@@ -1533,22 +1541,7 @@ export const postExperimentStartChecklistValidator = {
   bodySchema: postExperimentStartChecklistBody,
   querySchema: z.never(),
   paramsSchema: idParams,
-  responseSchema: z
-    .object({
-      checklistItems: z.array(startChecklistItemStatusValidator),
-      incompleteRequiredItems: z.array(startChecklistItemStatusValidator),
-      requiredItemsRemaining: z.number(),
-      allRequiredComplete: z.boolean(),
-      manualLaunchChecklist: z.array(
-        z
-          .object({
-            key: z.string(),
-            status: z.enum(["complete", "incomplete"]),
-          })
-          .strict(),
-      ),
-    })
-    .strict(),
+  responseSchema: experimentStartChecklistResponseValidator,
   summary: "Mark manual pre-launch checklist items complete",
   operationId: "postExperimentStartChecklist",
   tags: ["experiments"],
