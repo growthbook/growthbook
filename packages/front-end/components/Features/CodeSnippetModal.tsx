@@ -10,9 +10,9 @@ import {
   FaExclamationTriangle,
 } from "react-icons/fa";
 import { FeatureInterface } from "shared/types/feature";
-import Link from "next/link";
 import { getLatestSDKVersion } from "shared/sdk-versioning";
 import { PiPackage } from "react-icons/pi";
+import Link from "@/ui/Link";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getApiHost, getCdnHost } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";

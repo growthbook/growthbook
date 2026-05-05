@@ -273,6 +273,7 @@ export interface OrganizationSettings {
   banditBurnInValue?: number;
   banditBurnInUnit?: "hours" | "days";
   requireExperimentTemplates?: boolean;
+  requireUniqueExperimentTrackingKeys?: boolean;
   experimentMinLengthDays?: number;
   experimentMaxLengthDays?: number;
   decisionFrameworkEnabled?: boolean;

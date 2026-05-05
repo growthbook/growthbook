@@ -1,5 +1,5 @@
-import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
+import { ruleAppliesToEnv, resetReviewOnChange } from "shared/util";
 import {
   RevisionRampCreateAction,
   ExperimentRefRule,
@@ -10,9 +10,9 @@ import {
   RulePatchInput,
   putFeatureRevisionRuleValidator,
 } from "shared/validators";
-import { resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import { updateRuleAtEnvIndex } from "back-end/src/util/revisionRuleOps";
+import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -33,7 +33,10 @@ import {
   resolveOrCreateRevision,
 } from "./validations";
 
-function applyPatch(existing: FeatureRule, patch: RulePatchInput): FeatureRule {
+export function applyPatch(
+  existing: FeatureRule,
+  patch: RulePatchInput,
+): FeatureRule {
   const type = existing.type;
 
   if (patch.type !== undefined && patch.type !== type) {
@@ -205,16 +208,21 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       );
     }
 
-    const newRules = cloneDeep(revision.rules ?? {});
-    const envRules = newRules[environment] ?? [];
-    const idx = envRules.findIndex((r) => r.id === req.params.ruleId);
+    // Locate the target rule by (env, id) against the flat v2 array. We use
+    // the env-projected slice so that the mental model "rule X in env Y"
+    // still applies even though storage is flat.
+    const flatRules: FeatureRule[] = revision.rules ?? [];
+    const envProjected = flatRules.filter((r) =>
+      ruleAppliesToEnv(r, environment),
+    );
+    const idx = envProjected.findIndex((r) => r.id === req.params.ruleId);
     if (idx === -1) {
       throw new NotFoundError(
         `Rule "${req.params.ruleId}" not found in environment "${environment}"`,
       );
     }
 
-    const oldRule = envRules[idx];
+    const oldRule = envProjected[idx];
 
     // Once a safe rollout is running, block edits to fields that would
     // corrupt the running experiment.
@@ -317,18 +325,19 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       );
     }
 
-    envRules[idx] = updatedRule;
-    newRules[environment] = envRules;
+    // Fold the updated rule back into the flat array, preserving scope.
+    const { rules: newRules } = updateRuleAtEnvIndex(
+      flatRules,
+      environment,
+      idx,
+      () => updatedRule,
+    );
 
     const changes: RevisionChanges = { rules: newRules };
 
     // Priority: rampSchedule > schedule shorthand (legacy: scheduleRules).
     let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(
-          inlineRampSchedule,
-          updatedRule.id,
-          environment,
-        )
+      ? normalizeInlineRampSchedule(inlineRampSchedule, updatedRule.id)
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
       const hasLegacySchedule =
@@ -346,7 +355,6 @@ export const putFeatureRevisionRule = createApiRequestHandler(
         if (schedule.startDate) updatedRule.enabled = false;
         resolvedRampAction = buildScheduleRampAction(
           updatedRule.id,
-          environment,
           schedule.startDate,
           schedule.endDate,
         );
@@ -385,6 +393,7 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       context: req.context,
       organization: req.organization.id,
       featureId: feature.id,
+      feature,
       version: revision.version,
     });
     const finalRevision = updated ?? revision;
@@ -400,7 +409,7 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       },
     );
 
-    return { revision: revisionToApiInterface(finalRevision) };
+    return { revision: toApiRevision(finalRevision, req.context, feature) };
   } catch (err) {
     await discardIfJustCreated(req.context, revision, created);
     throw err;

@@ -1,3 +1,5 @@
+import type { AuditInterfaceInput } from "shared/types/audit";
+import type { OrganizationInterface } from "shared/types/organization";
 import {
   autoMerge,
   fillRevisionFromFeature,
@@ -11,6 +13,7 @@ import {
   RevisionMetadata,
   postFeatureRevisionRebaseValidator,
 } from "shared/validators";
+import type { ApiReqContext } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
@@ -19,7 +22,7 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import {
   getLiveAndBaseRevisionsForFeature,
-  revisionToApiInterface,
+  toApiRevision,
 } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -31,24 +34,29 @@ import {
 } from "back-end/src/util/errors";
 import { isDraftStatus } from "./validations";
 
-export const postFeatureRevisionRebase = createApiRequestHandler(
-  postFeatureRevisionRebaseValidator,
-)(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
+export async function rebaseFeatureRevision(
+  context: ApiReqContext,
+  organization: OrganizationInterface,
+  params: { id: string; version: number },
+  body: { conflictResolutions?: Record<string, unknown> },
+  audit: (input: AuditInterfaceInput) => Promise<void>,
+) {
+  const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
   if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
   ) {
-    req.context.permissions.throwPermissionError();
+    context.permissions.throwPermissionError();
   }
 
   const revision = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
+    context,
+    organization: organization.id,
     featureId: feature.id,
-    version: req.params.version,
+    feature,
+    version: params.version,
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
 
@@ -58,12 +66,12 @@ export const postFeatureRevisionRebase = createApiRequestHandler(
     );
   }
 
-  const allEnvironments = getEnvironments(req.context.org);
+  const allEnvironments = getEnvironments(context.org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
   const { live, base } = await getLiveAndBaseRevisionsForFeature({
-    context: req.context,
+    context,
     feature,
     revision,
   });
@@ -73,7 +81,7 @@ export const postFeatureRevisionRebase = createApiRequestHandler(
     fillRevisionFromFeature(base, feature),
     revision,
     environmentIds,
-    (req.body.conflictResolutions ?? {}) as Record<string, MergeStrategy>,
+    (body.conflictResolutions ?? {}) as Record<string, MergeStrategy>,
   );
 
   if (!mergeResult.success) {
@@ -83,13 +91,10 @@ export const postFeatureRevisionRebase = createApiRequestHandler(
     );
   }
 
-  const newRules: Record<string, FeatureRule[]> = {};
+  const newRules: FeatureRule[] =
+    mergeResult.result.rules ?? feature.rules ?? [];
   const newEnvironmentsEnabled: Record<string, boolean> = {};
   environmentIds.forEach((env) => {
-    newRules[env] =
-      mergeResult.result.rules?.[env] ??
-      feature.environmentSettings?.[env]?.rules ??
-      [];
     newEnvironmentsEnabled[env] =
       mergeResult.result.environmentsEnabled?.[env] ??
       feature.environmentSettings?.[env]?.enabled ??
@@ -112,9 +117,14 @@ export const postFeatureRevisionRebase = createApiRequestHandler(
 
   // A rebase that actually pulls in upstream changes must re-trigger review
   // per org policy — the prior approval was for pre-rebase content.
+  // v2: rules merge at the whole-array level, so when the rebase produced a
+  // new rules array we treat every env the feature is in as potentially
+  // changed for review-reset purposes. (The old per-env keys only reflected
+  // which envs had explicit overrides, not which rules actually changed.)
+  const rulesChanged = mergeResult.result.rules !== undefined;
   const changedEnvsFromRebase = Array.from(
     new Set([
-      ...Object.keys(mergeResult.result.rules ?? {}),
+      ...(rulesChanged ? environmentIds : []),
       ...Object.keys(mergeResult.result.environmentsEnabled ?? {}),
     ]),
   );
@@ -122,11 +132,11 @@ export const postFeatureRevisionRebase = createApiRequestHandler(
     feature,
     changedEnvironments: changedEnvsFromRebase,
     defaultValueChanged: mergeResult.result.defaultValue !== undefined,
-    settings: req.organization.settings,
+    settings: organization.settings,
   });
 
   await updateRevision(
-    req.context,
+    context,
     feature,
     revision,
     {
@@ -144,7 +154,7 @@ export const postFeatureRevisionRebase = createApiRequestHandler(
           : (feature.holdout ?? null),
     },
     {
-      user: req.context.auditUser,
+      user: context.auditUser,
       action: "rebase",
       subject: `on top of revision #${live.version}`,
       value: JSON.stringify(mergeResult.result),
@@ -153,14 +163,15 @@ export const postFeatureRevisionRebase = createApiRequestHandler(
   );
 
   const updated = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
+    context,
+    organization: organization.id,
     featureId: feature.id,
-    version: req.params.version,
+    feature,
+    version: params.version,
   });
   const finalRevision = updated ?? revision;
 
-  await req.audit({
+  await audit({
     event: "feature.revision.rebase",
     entity: { object: "feature", id: feature.id },
     details: auditDetailsUpdate(
@@ -171,12 +182,25 @@ export const postFeatureRevisionRebase = createApiRequestHandler(
   });
 
   await dispatchFeatureRevisionEvent(
-    req.context,
+    context,
     feature,
     finalRevision,
     "revision.rebased",
     { baseVersion: live.version },
   );
 
-  return { revision: revisionToApiInterface(finalRevision) };
+  return { feature, revision: finalRevision };
+}
+
+export const postFeatureRevisionRebase = createApiRequestHandler(
+  postFeatureRevisionRebaseValidator,
+)(async (req) => {
+  const { feature, revision } = await rebaseFeatureRevision(
+    req.context,
+    req.organization,
+    req.params,
+    req.body,
+    req.audit,
+  );
+  return { revision: toApiRevision(revision, req.context, feature) };
 });

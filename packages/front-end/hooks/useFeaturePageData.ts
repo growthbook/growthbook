@@ -344,10 +344,7 @@ export function useFeaturePageData(
     }
 
     // Create dummy revision for old features without revision history
-    const rules: Record<string, FeatureRule[]> = {};
-    environments.forEach((env) => {
-      rules[env.id] = baseFeature.environmentSettings?.[env.id]?.rules || [];
-    });
+    const rules: FeatureRule[] = baseFeature.rules ?? [];
     return {
       baseVersion: baseFeature.version,
       comment: "",
@@ -364,7 +361,7 @@ export function useFeaturePageData(
       version: baseFeature.version,
       prerequisites: baseFeature.prerequisites || [],
     };
-  }, [revisions, version, environments, baseFeature]);
+  }, [revisions, version, baseFeature]);
 
   const feature = useMemo(() => {
     if (!revision || !baseFeature) return null;

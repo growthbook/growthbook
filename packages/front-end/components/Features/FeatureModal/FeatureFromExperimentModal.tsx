@@ -6,12 +6,15 @@ import {
   FeatureInterface,
   FeatureValueType,
 } from "shared/types/feature";
-import { ReactElement, useState } from "react";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { ReactElement, useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import Link from "next/link";
-import { FaExternalLinkAlt } from "react-icons/fa";
-import { filterEnvironmentsByExperiment } from "shared/util";
+import { PiArrowSquareOut } from "react-icons/pi";
+import { filterEnvironmentsByExperiment, getReviewSetting } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
+import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
+import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -28,14 +31,20 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
+import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import {
   filterCustomFieldsForSectionAndProject,
   useCustomFields,
 } from "@/hooks/useCustomFields";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
+import useApi from "@/hooks/useApi";
+import { useHoldouts } from "@/hooks/useHoldouts";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import FeatureKeyField from "./FeatureKeyField";
-import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
 import ValueTypeField from "./ValueTypeField";
 
@@ -47,6 +56,8 @@ export type Props = {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   source?: string;
+  // Feature IDs in "discarded" state that can be re-added.
+  reAddableFeatureIds?: string[];
 };
 
 const genEnvironmentSettings = ({
@@ -59,15 +70,12 @@ const genEnvironmentSettings = ({
   project: string;
 }): Record<string, FeatureEnvironment> => {
   const envSettings: Record<string, FeatureEnvironment> = {};
-
   environments.forEach((e) => {
     const canPublish = permissions.canPublishFeature({ project }, [e.id]);
-    const defaultEnabled = canPublish ? (e.defaultState ?? true) : false;
-    const enabled = canPublish ? defaultEnabled : false;
-    const rules = [];
-    envSettings[e.id] = { enabled, rules };
+    envSettings[e.id] = {
+      enabled: canPublish ? (e.defaultState ?? true) : false,
+    };
   });
-
   return envSettings;
 };
 
@@ -118,6 +126,7 @@ const genFormDefaultValues = ({
     project,
     tags: experiment.tags || [],
     environmentSettings,
+    rules: [],
     customFields: customFieldValues,
     variations: getLatestPhaseVariations(experiment).map((v, i) => {
       return {
@@ -136,6 +145,7 @@ export default function FeatureFromExperimentModal({
   experiment,
   mutate,
   source,
+  reAddableFeatureIds = [],
 }: Props) {
   const { project, refreshTags } = useDefinitions();
   const selectedProject = experiment.project ?? project;
@@ -147,6 +157,8 @@ export default function FeatureFromExperimentModal({
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
   const { hasCommercialFeature } = useUser();
+  const settings = useOrgSettings();
+  const { holdoutsMap } = useHoldouts();
   const allCustomFields = useCustomFields();
   const customFields = filterCustomFieldsForSectionAndProject(
     allCustomFields,
@@ -164,13 +176,12 @@ export default function FeatureFromExperimentModal({
       : undefined,
   });
 
-  // Scope features to the experiment's project (or all features if experiment has no project)
   const { features } = useFeatureMetaInfo({ project: experiment.project });
 
-  // TODO: include features where the only reference to this experiment is an old revision
   const validFeatures = features.filter((f) => {
     if (f.archived) return false;
-    // Skip features that already have this experiment
+    // Allow re-adding features whose draft was discarded.
+    if (reAddableFeatureIds.includes(f.id)) return true;
     if (experiment.linkedFeatures?.includes(f.id)) return false;
     return true;
   });
@@ -184,10 +195,62 @@ export default function FeatureFromExperimentModal({
     experiment.description && experiment.description.length > 0,
   );
 
+  const [ruleAllEnvironments, setRuleAllEnvironments] = useState<boolean>(true);
+  const [ruleSelectedEnvironments, setRuleSelectedEnvironments] = useState<
+    string[]
+  >([]);
+
+  const [draftMode, setDraftMode] = useState<DraftMode>("new");
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(null);
+
   const { apiCall } = useAuth();
 
   const valueType = form.watch("valueType") as FeatureValueType;
-  const environmentSettings = form.watch("environmentSettings");
+  const existing = form.watch("existing");
+
+  const { data: existingFeatureData } = useApi<{
+    status: 200;
+    feature: FeatureInterface;
+    revisions: MinimalFeatureRevisionInterface[];
+  }>(`/feature/${existing}`, { shouldRun: () => !!existing });
+  const existingFeature = existingFeatureData?.feature;
+  const existingRevisionList = existingFeatureData?.revisions ?? [];
+
+  // Pessimistic default ("all") until the FF loads so publish-now stays gated.
+  const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
+    if (!existing || !existingFeature) return "all";
+    const raw = settings?.requireReviews;
+    if (raw === true) return "all";
+    if (!Array.isArray(raw)) return "none";
+    const reviewSetting = getReviewSetting(raw, existingFeature);
+    if (!reviewSetting?.requireReviewOn) return "none";
+    const envs = reviewSetting.environments ?? [];
+    return envs.length === 0 ? "all" : new Set(envs);
+  }, [existing, existingFeature, settings?.requireReviews]);
+
+  const canAutoPublish = useMemo(() => {
+    if (!existingFeature) return false;
+    if (permissionsUtil.canBypassApprovalChecks(existingFeature)) return true;
+    return gatedEnvSet === "none";
+  }, [existingFeature, permissionsUtil, gatedEnvSet]);
+
+  const holdoutWarning = useMemo<string | null>(() => {
+    if (!existing || !existingFeature || !experiment.holdoutId) return null;
+    const featureHoldoutId = existingFeature.holdout?.id;
+    const holdout = holdoutsMap.get(experiment.holdoutId);
+    const holdoutName = holdout?.name ?? "Unknown holdout";
+    if (!featureHoldoutId) {
+      const covers =
+        !!holdout && holdout.projects.includes(existingFeature.project ?? "");
+      return covers
+        ? `This experiment belongs to holdout "${holdoutName}", but the selected feature isn't enrolled in it. Visit the feature page and use "Add to holdout" to enroll it, then try again.`
+        : `This experiment belongs to holdout "${holdoutName}", which is unavailable in the selected feature's project. Update the holdout's project scope, or select a feature in a project covered by the holdout.`;
+    }
+    if (featureHoldoutId !== experiment.holdoutId) {
+      return `Holdout mismatch: the experiment and the selected feature are in different holdouts. They must share the same holdout to be linked.`;
+    }
+    return null;
+  }, [existing, existingFeature, experiment.holdoutId, holdoutsMap]);
 
   let ctaEnabled = true;
   let disabledMessage: string | undefined;
@@ -202,15 +265,15 @@ export default function FeatureFromExperimentModal({
       "You don't have permission to create feature flag drafts.";
   }
 
-  const existing = form.watch("existing");
+  if (holdoutWarning) {
+    ctaEnabled = false;
+  }
 
   function updateValuesOnTypeChange(val: FeatureValueType) {
-    // If existing value already matches, do nothing
     if (val === valueType) return;
 
     form.setValue("valueType", val);
 
-    // Update defaultValue and variation values to match new type
     const transformValue = (v: string) => {
       if (val === "boolean") {
         return Boolean(v) && v !== "false" ? "true" : "false";
@@ -250,14 +313,14 @@ export default function FeatureFromExperimentModal({
       submit={form.handleSubmit(async (values) => {
         const { variations, existing, ...feature } = values;
 
-        const existingFeature = existing
-          ? (
-              await apiCall<{ feature: FeatureInterface }>(
-                `/feature/${existing}`,
-                { method: "GET" },
-              )
-            ).feature
-          : undefined;
+        const featureFromCache = existing ? existingFeature : undefined;
+
+        const newFeatureEnvSettings: Record<string, FeatureEnvironment> = {};
+        if (!existing) {
+          environments.forEach((env) => {
+            newFeatureEnvSettings[env.id] = { enabled: false };
+          });
+        }
 
         const featureToCreate:
           | undefined
@@ -265,9 +328,10 @@ export default function FeatureFromExperimentModal({
               FeatureInterface,
               "organization" | "dateCreated" | "dateUpdated"
             > = existing
-          ? existingFeature
+          ? featureFromCache
           : {
               ...feature,
+              environmentSettings: newFeatureEnvSettings,
               defaultValue: variations[0].value,
               holdout: experiment.holdoutId
                 ? {
@@ -281,11 +345,14 @@ export default function FeatureFromExperimentModal({
           throw new Error("Invalid feature selected");
         }
 
-        let hasChanges = false;
         const rule: ExperimentRefRule = {
           type: "experiment-ref",
           description: "",
           id: "",
+          allEnvironments: ruleAllEnvironments,
+          ...(ruleAllEnvironments
+            ? {}
+            : { environments: ruleSelectedEnvironments }),
           condition: "",
           enabled: true,
           scheduleRules: [],
@@ -299,54 +366,30 @@ export default function FeatureFromExperimentModal({
             "variations",
             (newRule as ExperimentRefRule).variations,
           );
-          hasChanges = true;
-        }
-
-        if (hasChanges) {
           throw new Error(
             "We fixed some errors in the feature. If it looks correct, submit again.",
           );
         }
 
-        if (existing) {
-          const featureHoldoutId = existingFeature?.holdout?.id;
-          // Require users to add the holdout to the feature if the experiment has a holdout and the feature does not
-          if (experiment.holdoutId && !featureHoldoutId) {
-            throw new Error(
-              "You cannot add a feature flag with no holdout to an experiment with a holdout. Add the holdout to the feature on the feature page itself.",
-            );
-          }
-          // Only allow adding a FF with the same holdout to an experiment that already is in a holdout
-          if (
-            experiment.holdoutId &&
-            featureHoldoutId !== experiment.holdoutId
-          ) {
-            throw new Error(
-              "You cannot add a feature flag with a holdout to an experiment that has a different holdout.",
-            );
-          }
+        let targetFeatureId: string;
 
-          await apiCall(
-            `/feature/${featureToCreate.id}/${featureToCreate.version}/experiment`,
+        if (existing) {
+          if (holdoutWarning)
+            throw new Error("Holdout configuration mismatch.");
+
+          targetFeatureId = featureToCreate.id;
+        } else {
+          const created = await apiCall<{ feature: FeatureInterface }>(
+            `/feature`,
             {
               method: "POST",
-              body: JSON.stringify({
-                rule: rule,
-              }),
+              body: JSON.stringify(featureToCreate),
             },
           );
-        } else {
-          // Add experiment rule to all environments
-          Object.values(featureToCreate.environmentSettings).forEach(
-            (settings) => {
-              settings.rules.push(rule);
-            },
-          );
-
-          await apiCall<{ feature: FeatureInterface }>(`/feature`, {
-            method: "POST",
-            body: JSON.stringify(featureToCreate),
-          });
+          if (!created?.feature?.id) {
+            throw new Error("Feature creation failed");
+          }
+          targetFeatureId = created.feature.id;
 
           track("Feature Created", {
             valueType: featureToCreate.valueType,
@@ -358,6 +401,23 @@ export default function FeatureFromExperimentModal({
           refreshTags(featureToCreate.tags || []);
           refreshWatching();
         }
+
+        const autoPublish = existing && draftMode === "publish";
+        const draftVersion =
+          existing && draftMode === "existing" && selectedDraft != null
+            ? selectedDraft
+            : undefined;
+        const forceNewDraft = !existing || draftMode === "new";
+
+        await apiCall(`/feature/${targetFeatureId}/0/experiment`, {
+          method: "POST",
+          body: JSON.stringify({
+            rule,
+            autoPublish,
+            draftVersion,
+            forceNewDraft,
+          }),
+        });
 
         await mutate();
       })}
@@ -379,8 +439,16 @@ export default function FeatureFromExperimentModal({
           }
 
           form.setValue("existing", value);
+          setDraftMode("new");
+          setSelectedDraft(null);
         }}
       />
+
+      {holdoutWarning && (
+        <Callout status="warning" mb="3">
+          {holdoutWarning}
+        </Callout>
+      )}
 
       {!existing && (
         <>
@@ -433,14 +501,14 @@ export default function FeatureFromExperimentModal({
             }}
           />
 
-          <EnvironmentSelect
-            environmentSettings={environmentSettings}
+          <RuleEnvironmentScopeField
             environments={environments}
-            project={experiment.project}
-            setValue={(env, on) => {
-              environmentSettings[env.id].enabled = on;
-              form.setValue("environmentSettings", environmentSettings);
-            }}
+            allEnvironments={ruleAllEnvironments}
+            setAllEnvironments={setRuleAllEnvironments}
+            selectedEnvironments={ruleSelectedEnvironments}
+            setSelectedEnvironments={setRuleSelectedEnvironments}
+            label="Environments"
+            my="5"
           />
 
           {hasCommercialFeature("custom-metadata") &&
@@ -462,16 +530,43 @@ export default function FeatureFromExperimentModal({
       )}
 
       {existing && (
-        <div className="alert alert-info">
-          A rule will be added to the bottom of every environment in a new draft
-          revision. For more control over placement, you can add Experiment
-          rules directly from the{" "}
-          <Link href={`/features/${existing}`}>
-            Feature page
-            <FaExternalLinkAlt />
-          </Link>{" "}
-          instead.
-        </div>
+        <>
+          {existingFeature && (
+            <DraftSelectorForChanges
+              feature={existingFeature}
+              revisionList={existingRevisionList}
+              mode={draftMode}
+              setMode={setDraftMode}
+              selectedDraft={selectedDraft}
+              setSelectedDraft={setSelectedDraft}
+              canAutoPublish={canAutoPublish}
+              gatedEnvSet={gatedEnvSet}
+              triggerPrefix="Rule will be"
+            />
+          )}
+
+          <HelperText status="info" icon={null}>
+            <span>
+              A rule will be added to the bottom of the rule list. For more
+              control over placement, add Experiment rules directly from the{" "}
+              <Link href={`/features/${existing}`} target="_blank">
+                Feature page
+                <PiArrowSquareOut className="ml-1" />
+              </Link>{" "}
+              instead.
+            </span>
+          </HelperText>
+
+          <RuleEnvironmentScopeField
+            environments={environments}
+            allEnvironments={ruleAllEnvironments}
+            setAllEnvironments={setRuleAllEnvironments}
+            selectedEnvironments={ruleSelectedEnvironments}
+            setSelectedEnvironments={setRuleSelectedEnvironments}
+            label="Environments"
+            my="5"
+          />
+        </>
       )}
 
       <div className="form-group">

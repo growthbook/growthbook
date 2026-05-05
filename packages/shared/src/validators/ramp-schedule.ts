@@ -6,6 +6,11 @@ import { namedSchema } from "./openapi-helpers";
 
 // Patch applied to a feature rule by a ramp step. Only fields present in the patch are applied;
 // absent fields are inherited from the previous step's accumulated state.
+//
+// Rule identification: `ruleId` is the targeting handle. In v2 it is uniquely
+// sufficient within a feature's unified rule list. `environment` on the
+// surrounding target provides a legacy disambiguator for pre-v2 documents;
+// new ramps omit it. See `resolveRampTarget` in back-end's flattenRules.
 export const featureRulePatch = z.object({
   ruleId: z.string(),
   coverage: z.number().min(0).max(1).nullish(),
@@ -26,12 +31,36 @@ export const rampStepAction = z.object({
 export type RampStepAction = z.infer<typeof rampStepAction>;
 
 // activatingRevisionVersion: set when ramp is created alongside a rule change; cleared on publish.
+//
+// Rule identification:
+//   - `ruleId` is the targeting handle. In v2 it is uniquely sufficient within
+//     a feature's unified rule list (no v1 "same id in multiple envs" ambiguity).
+//   - `environment` is DEPRECATED as a target field. It was a v1-era
+//     disambiguator when the same `ruleId` could appear in multiple env-scoped
+//     rule lists. Resolver still honors it for pre-v2 targets. New writes
+//     will stop populating it once the remaining read sites (event dispatch
+//     env derivation, UI filter, delete-by-(ruleId,env) matching) derive env
+//     scope from the resolved rule instead.
 export const rampTarget = z.object({
   id: z.string(),
   entityType: z.enum(["feature"]), // TODO v2: add "experiment"
   entityId: z.string(),
   ruleId: z.string().nullish(),
-  environment: z.string().nullish(),
+  /**
+   * @deprecated Legacy disambiguator for pre-v2 ramps. New targets omit this.
+   *
+   * Only surfaces in the direct `/ramp-schedules/*` REST API (via
+   * `apiRampScheduleInterface`). Feature-revision ramp-action routes embed
+   * `rampStepAction` / `featureRulePatch`, not `rampTarget`, so this
+   * deprecation flag does not bleed into those legacy v1 schemas.
+   */
+  environment: z
+    .string()
+    .nullish()
+    .meta({ deprecated: true })
+    .describe(
+      "Legacy disambiguator used alongside `ruleId` for pre-v2 ramps. May be null on newer targets.",
+    ),
   status: z.enum(["pending-join", "active"]),
   activatingRevisionVersion: z
     .number()

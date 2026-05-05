@@ -305,7 +305,7 @@ export const startExperimentResultQueries = async (
     const snapshotDimensionsForTraffic: ExperimentDimensionWithSpecifiedSlices[] =
       [];
     snapshotDimensions.forEach((d) => {
-      if (d.type === "experiment" && d.specifiedSlices !== undefined) {
+      if (d.type === "experiment" && d.specifiedSlices?.length) {
         snapshotDimensionsForTraffic.push({
           ...d,
           specifiedSlices: d.specifiedSlices,

@@ -276,23 +276,22 @@ export const getAttributeReferences = async (
   }
 
   for (const feature of allFeatures) {
-    for (const envId in feature.environmentSettings ?? {}) {
-      const env = feature.environmentSettings[envId];
-      for (const rule of env?.rules ?? []) {
-        try {
-          const parsed = JSON.parse(rule.condition ?? "{}");
-          for (const nodeKey of extractConditionAttributeKeys(parsed)) {
-            if (keySet.has(nodeKey)) {
-              featureRefs.get(nodeKey)!.set(feature.id, {
-                id: feature.id,
-                name: feature.id,
-                project: feature.project,
-              });
-            }
+    // v2: rules live on feature.rules (flat). We don't need to project per-env
+    // here — attribute usage is feature-scoped for this panel.
+    for (const rule of feature.rules ?? []) {
+      try {
+        const parsed = JSON.parse(rule.condition ?? "{}");
+        for (const nodeKey of extractConditionAttributeKeys(parsed)) {
+          if (keySet.has(nodeKey)) {
+            featureRefs.get(nodeKey)!.set(feature.id, {
+              id: feature.id,
+              name: feature.id,
+              project: feature.project,
+            });
           }
-        } catch {
-          // ignore unparseable conditions
         }
+      } catch {
+        // ignore unparseable conditions
       }
     }
   }
