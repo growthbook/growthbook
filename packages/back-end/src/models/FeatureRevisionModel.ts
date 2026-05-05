@@ -26,7 +26,9 @@ import {
   ensureUniqueRuleIds,
   flattenV1ToV2Rules,
   getApplicableEnvIds,
+  isPlausibleFeatureRule,
   isV2RevisionRules,
+  narrowRuleToApplicableEnvs,
   V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
 import { upgradeFeatureRule } from "back-end/src/util/migrations";
@@ -154,8 +156,11 @@ export function buildFeatureRevisionInterface(
     // rules; inheritance expansion adds any parent->child env propagation
     // missed at write time; `narrowRuleToApplicableEnvs` strips
     // non-applicable envs and collapses fully-orphaned rules to the no-env
-    // pending state instead of dropping them.
+    // pending state instead of dropping them. The `isPlausibleFeatureRule`
+    // filter drops sparse `null`/`undefined` array entries so a single
+    // corrupt slot can't abort the entire migration.
     revision.rules = rawRules
+      .filter(isPlausibleFeatureRule)
       .map((r) => upgradeFeatureRule(r))
       .map((r) => expandRuleEnvsForInheritance(r, childrenByAncestor))
       .map((r) => narrowRuleToApplicableEnvs(r, applicableSet));
@@ -168,48 +173,16 @@ export function buildFeatureRevisionInterface(
     const inheritedRecord = applyEnvironmentInheritance(orgEnvs, v1Record);
     const upgraded: V1RulesByEnv = {};
     for (const [envId, envRules] of Object.entries(inheritedRecord)) {
-      upgraded[envId] = (envRules || []).map(
-        (r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule,
-      );
+      upgraded[envId] = (envRules || [])
+        .filter(isPlausibleFeatureRule)
+        .map((r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule);
     }
     revision.rules = flattenV1ToV2Rules(upgraded, {
       envOrder: orgEnvs.map((e) => e.id),
       applicableEnvs,
-    });
+    }).map((r) => narrowRuleToApplicableEnvs(r, applicableSet));
   }
   return revision;
-}
-
-// Strip a v2 rule's non-applicable envs. When every env is non-applicable
-// (env removed from project, env deleted from org), collapse to the
-// no-env "pending" state (`environments: []`, `allEnvironments: false`)
-// rather than dropping the rule — preserves the rule body so a publish
-// during the orphaned period doesn't silently delete it. The UI surfaces
-// these as a red "No environments" badge.
-function narrowRuleToApplicableEnvs(
-  rule: FeatureRule,
-  applicableSet: Set<string>,
-): FeatureRule {
-  if (rule.allEnvironments) {
-    if (applicableSet.size === 0) {
-      return {
-        ...rule,
-        allEnvironments: false,
-        environments: [],
-      } as FeatureRule;
-    }
-    return rule;
-  }
-  if (rule.environments === undefined) {
-    if (applicableSet.size === 0) {
-      return { ...rule, environments: [] } as FeatureRule;
-    }
-    return rule;
-  }
-  if (rule.environments.length === 0) return rule;
-  const filtered = rule.environments.filter((e) => applicableSet.has(e));
-  if (filtered.length === rule.environments.length) return rule;
-  return { ...rule, environments: filtered } as FeatureRule;
 }
 
 // Mongoose wrapper over `buildFeatureRevisionInterface`.
@@ -584,15 +557,17 @@ export function normalizeRulesInputToV2(
 
   let flat: FeatureRule[];
   if (isV2RevisionRules(rulesInput)) {
-    flat = rulesInput.map((r) => upgradeFeatureRule(r));
+    flat = rulesInput
+      .filter(isPlausibleFeatureRule)
+      .map((r) => upgradeFeatureRule(r));
   } else {
     const record = rulesInput as Record<string, FeatureRule[] | undefined>;
     const inheritedRecord = applyEnvironmentInheritance(opts.orgEnvs, record);
     const upgraded: V1RulesByEnv = {};
     for (const [envId, envRules] of Object.entries(inheritedRecord)) {
-      upgraded[envId] = (envRules || []).map(
-        (r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule,
-      );
+      upgraded[envId] = (envRules || [])
+        .filter(isPlausibleFeatureRule)
+        .map((r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule);
     }
     const applicableEnvs = getApplicableEnvIds(
       opts.orgEnvs,
@@ -625,9 +600,9 @@ export async function createInitialRevision(
   environments: string[],
   date?: Date,
 ) {
-  const rules: FeatureRule[] = (feature.rules ?? []).map((r) =>
-    upgradeFeatureRule(r),
-  );
+  const rules: FeatureRule[] = (feature.rules ?? [])
+    .filter(isPlausibleFeatureRule)
+    .map((r) => upgradeFeatureRule(r));
   const environmentsEnabled: Record<string, boolean> = {};
   environments.forEach((env) => {
     environmentsEnabled[env] =
@@ -733,7 +708,9 @@ export async function createRevision({
           orgEnvs: getEnvironments(context.org),
           featureProject: feature.project,
         })
-      : (feature.rules ?? []).map((r) => upgradeFeatureRule(r));
+      : (feature.rules ?? [])
+          .filter(isPlausibleFeatureRule)
+          .map((r) => upgradeFeatureRule(r));
 
   // All fields are always written as a complete snapshot so revisions are
   // self-contained and HEAD can be set to any revision without base traversal.
