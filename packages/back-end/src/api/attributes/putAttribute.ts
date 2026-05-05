@@ -4,7 +4,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { addTagsDiff } from "back-end/src/models/TagModel";
-import { hasReadyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
+import { hasAnyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
 import { validatePayload } from "./validations";
 
 export const putAttribute = createApiRequestHandler(putAttributeValidator)(
@@ -25,16 +25,14 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
       ...(await validatePayload(req.context, rawUpdatedAttribute)),
     };
 
-    const hasReadyEventForwarder = await hasReadyEventForwarderConfig(
-      req.context,
-    );
+    const hasEventForwarder = await hasAnyEventForwarderConfig(req.context);
     if (
-      hasReadyEventForwarder &&
+      hasEventForwarder &&
       req.body.datatype !== undefined &&
       req.body.datatype !== attribute.datatype
     ) {
       throw new Error(
-        "Attribute data type can't be changed while an Event Forwarder is active.",
+        "Attribute data type can't be changed while an Event Forwarder is configured.",
       );
     }
     if (

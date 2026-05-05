@@ -374,7 +374,7 @@ describe("attributes API", () => {
     expect(auditMock).not.toHaveBeenCalledWith();
   });
 
-  it("can update unlocked attribute fields when a ready event forwarder exists", async () => {
+  it("can update unlocked attribute fields when an event forwarder exists", async () => {
     setReqContext({
       models: {
         projects: {
@@ -434,14 +434,14 @@ describe("attributes API", () => {
     });
   });
 
-  it("refuses to update attribute data type when a ready event forwarder exists", async () => {
+  it("refuses to update attribute data type when an event forwarder exists (not only ready)", async () => {
     setReqContext({
       models: {
         projects: {
           getAll: () => [{ id: "bla" }],
         },
         eventForwarderConfigs: {
-          getAll: () => [{ status: "ready" }],
+          getAll: () => [{ status: "pending" }],
         },
       },
       org: {
@@ -471,7 +471,7 @@ describe("attributes API", () => {
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
       message:
-        "Attribute data type can't be changed while an Event Forwarder is active.",
+        "Attribute data type can't be changed while an Event Forwarder is configured.",
     });
     expect(updateOrganization).not.toHaveBeenCalledWith();
     expect(auditMock).not.toHaveBeenCalledWith();

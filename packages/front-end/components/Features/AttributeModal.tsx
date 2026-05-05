@@ -51,12 +51,11 @@ export default function AttributeModal({ close, attribute }: Props) {
   const current = schema.find((s) => s.property === attribute);
   const { data: eventForwarderData } = useApi<{
     status: 200;
-    hasReadyEventForwarder: boolean;
-  }>("/event-forwarder/has-ready", {
+    hasEventForwarder: boolean;
+  }>("/event-forwarder/exists", {
     shouldRun: () => !!attribute,
   });
-  const hasReadyEventForwarder =
-    eventForwarderData?.hasReadyEventForwarder || false;
+  const hasEventForwarder = eventForwarderData?.hasEventForwarder || false;
   const isEventForwarderStatusLoading = !!attribute && !eventForwarderData;
 
   const form = useForm<SDKAttribute>({
@@ -110,10 +109,10 @@ export default function AttributeModal({ close, attribute }: Props) {
       )
     : permissionsUtil.canCreateAttribute({ projects: selectedProjects });
   const disableEventForwarderLockedFields =
-    !!attribute && (isEventForwarderStatusLoading || hasReadyEventForwarder);
+    !!attribute && (isEventForwarderStatusLoading || hasEventForwarder);
   const eventForwarderLockedFieldsMessage = isEventForwarderStatusLoading
     ? "Checking Event Forwarder status."
-    : "Attribute name and data type can't be changed while an Event Forwarder is active.";
+    : "Attribute name and data type can't be changed while an Event Forwarder is configured.";
   let ctaDisabledMessage: string | undefined;
   if (!hasProjectPermission) {
     if (!selectedProjects.length && projectOptions.length > 0) {

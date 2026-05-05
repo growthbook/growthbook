@@ -49,10 +49,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
   const { references } = useAttributeReferences(attributeKeys);
   const { data: eventForwarderData } = useApi<{
     status: 200;
-    hasReadyEventForwarder: boolean;
-  }>("/event-forwarder/has-ready");
-  const activeEventForwarder =
-    eventForwarderData?.hasReadyEventForwarder || false;
+    hasEventForwarder: boolean;
+  }>("/event-forwarder/exists");
+  const activeEventForwarder = eventForwarderData?.hasEventForwarder || false;
 
   const attributesWithComputedFields = useAddComputedFields(
     attributeSchema,
@@ -272,7 +271,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   disabled={activeEventForwarder}
                   title={
                     activeEventForwarder
-                      ? "Attributes can't be deleted while an Event Forwarder is active."
+                      ? "Attributes can't be deleted while an Event Forwarder is configured."
                       : ""
                   }
                   onClick={async () => {

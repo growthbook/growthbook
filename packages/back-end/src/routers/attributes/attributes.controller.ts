@@ -9,7 +9,7 @@ import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { updateEventForwarderSchemaThroughLicenseServer } from "back-end/src/services/eventForwarderProvisioning";
-import { hasReadyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
+import { hasAnyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
 
 export const postAttribute = async (
   req: AuthRequest<SDKAttribute>,
@@ -129,14 +129,14 @@ export const putAttribute = async (
   }
 
   const existing = attributeSchema[index];
-  const hasReadyEventForwarder = await hasReadyEventForwarderConfig(context);
+  const hasEventForwarder = await hasAnyEventForwarderConfig(context);
   if (
-    hasReadyEventForwarder &&
+    hasEventForwarder &&
     (property !== existing.property ||
       (datatype !== undefined && datatype !== existing.datatype))
   ) {
     context.throwBadRequestError(
-      "Attribute name and data type can't be changed while an Event Forwarder is active.",
+      "Attribute name and data type can't be changed while an Event Forwarder is configured.",
     );
   }
 
