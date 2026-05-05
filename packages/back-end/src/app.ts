@@ -741,10 +741,6 @@ app.get(
   "/experiment/:id/launch-checklist/",
   experimentLaunchChecklistController.getExperimentCheckListByExperiment,
 );
-app.get(
-  "/experiment/:id/start-checklist",
-  experimentLaunchChecklistController.getExperimentStartCheckListByExperiment,
-);
 app.delete(
   "/experiments/launch-checklist/:checklistId",
   experimentLaunchChecklistController.deleteProjectScopedExperimentLaunchChecklist,

@@ -16,7 +16,6 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { getExperimentStartChecklist } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 
 export async function postExperimentLaunchChecklist(
   req: AuthRequest<{ tasks: ChecklistTask[]; projectId?: string }>,
@@ -124,48 +123,6 @@ export async function getExperimentCheckListByExperiment(
   return res.status(200).json({
     status: 200,
     checklist: orgChecklist,
-  });
-}
-
-// This is used to fetch computed pre-launch checklist status for an experiment.
-export async function getExperimentStartCheckListByExperiment(
-  req: AuthRequest<null, { id: string }>,
-  res: Response,
-) {
-  const context = getContextFromReq(req);
-  const { id } = req.params;
-  const experiment = await getExperimentById(context, id);
-
-  if (!experiment) {
-    return res.status(404).json({
-      status: 404,
-      message: "Experiment not found",
-    });
-  }
-  if (experiment.type === "holdout") {
-    return res.status(400).json({
-      status: 400,
-      message: "Holdouts are not supported through this endpoint",
-    });
-  }
-
-  const {
-    checklistItems,
-    incompleteRequiredItems,
-    requiredItemsRemaining,
-    allRequiredComplete,
-  } = await getExperimentStartChecklist({
-    context,
-    experiment,
-  });
-
-  return res.status(200).json({
-    status: 200,
-    checklistItems,
-    incompleteRequiredItems,
-    requiredItemsRemaining,
-    allRequiredComplete,
-    manualLaunchChecklist: experiment.manualLaunchChecklist || [],
   });
 }
 
