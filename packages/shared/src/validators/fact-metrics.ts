@@ -134,6 +134,12 @@ const apiCappingSettings = z
         "When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).",
       )
       .optional(),
+    lowerValue: z.coerce
+      .number()
+      .describe(
+        "When lower-tail capping is used: for absolute capping, the lower bound; for percentile capping, the lower percentile (from 0.0 to 1.0).",
+      )
+      .optional(),
     ignoreZeros: z
       .boolean()
       .describe(
@@ -405,6 +411,12 @@ const postCappingSettings = z
       .number()
       .describe(
         "When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).",
+      )
+      .optional(),
+    lowerValue: z
+      .number()
+      .describe(
+        "When lower-tail capping is used: for absolute capping, the lower bound; for percentile capping, the lower percentile (from 0.0 to 1.0).",
       )
       .optional(),
     ignoreZeros: z

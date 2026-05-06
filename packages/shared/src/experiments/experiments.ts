@@ -50,6 +50,7 @@ import {
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { TemplateVariables } from "shared/types/sql";
 import { stringToBoolean } from "../util";
+import { getCappingTailState } from "../validators/fact-table";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
 
@@ -399,6 +400,29 @@ export function getAggregateFilters({
   return filters;
 }
 
+/**
+ * For `$$distinctUsers` with aggregate user filters, each user's contribution is 1 when their
+ * aggregated value matches the filter(s) and NULL otherwise. Used in experiment SQL so capping
+ * applies to the same per-user expression as the uncapped path.
+ */
+export function wrapValueColumnWithAggregateUserFilter(
+  columnExpr: string,
+  columnRef: Pick<
+    ColumnRef,
+    "aggregateFilter" | "aggregateFilterColumn" | "column"
+  > | null,
+): string {
+  const filters = getAggregateFilters({
+    columnRef,
+    column: columnExpr,
+    ignoreInvalid: true,
+  });
+  if (!filters.length) {
+    return columnExpr;
+  }
+  return `(CASE WHEN ${filters.join(" AND ")} THEN 1 ELSE NULL END)`;
+}
+
 export function getFactTableTemplateVariables(
   factTable: FactTableInterface,
 ): TemplateVariables {
@@ -481,21 +505,75 @@ export function isRegressionAdjusted(
   );
 }
 
-export function isPercentileCappedMetric(metric: ExperimentMetricInterface) {
+export function isUpperPercentileCappedMetric(
+  metric: ExperimentMetricInterface,
+) {
   return (
-    metric.cappingSettings.type === "percentile" &&
-    !!metric.cappingSettings.value &&
-    metric.cappingSettings.value < 1 &&
+    getCappingTailState(metric.cappingSettings).upperPercentileCapped &&
+    isCappableMetricType(metric)
+  );
+}
+
+/** Lower-tail percentile winsorization (e.g. 5th percentile floor). */
+export function isLowerPercentileCappedMetric(
+  metric: ExperimentMetricInterface,
+) {
+  return (
+    getCappingTailState(metric.cappingSettings).lowerPercentileCapped &&
+    isCappableMetricType(metric)
+  );
+}
+
+/** True if SQL needs a percentile subquery (upper and/or lower tail). */
+export function needsPercentileCapSubquery(metric: ExperimentMetricInterface) {
+  const t = getCappingTailState(metric.cappingSettings);
+  return (
+    (t.upperPercentileCapped || t.lowerPercentileCapped) &&
     isCappableMetricType(metric)
   );
 }
 
 function isAbsoluteCappedMetric(metric: ExperimentMetricInterface) {
   return (
-    metric.cappingSettings.type === "absolute" &&
-    !!metric.cappingSettings.value &&
+    getCappingTailState(metric.cappingSettings).upperAbsoluteCapped &&
     isCappableMetricType(metric)
   );
+}
+
+function isLowerAbsoluteCappedMetric(metric: ExperimentMetricInterface) {
+  return (
+    getCappingTailState(metric.cappingSettings).lowerAbsoluteCapped &&
+    isCappableMetricType(metric)
+  );
+}
+
+/** Any upper or lower tail capping is active (SQL / experiment analysis). */
+export function hasActiveCappingTails(metric: ExperimentMetricInterface) {
+  return (
+    getCappingTailState(metric.cappingSettings).anyCap &&
+    isCappableMetricType(metric)
+  );
+}
+
+/** Short label for tooltip / metadata when capping is enabled. */
+export function formatMetricCappingSummary(metric: ExperimentMetricInterface) {
+  const cs = metric.cappingSettings;
+  const parts: string[] = [];
+  if (isUpperPercentileCappedMetric(metric)) {
+    parts.push(
+      `Upper: ${100 * (cs.value as number)}%${cs.ignoreZeros ? " (ignore zeros)" : ""}`,
+    );
+  } else if (isAbsoluteCappedMetric(metric)) {
+    parts.push(`Upper: ${cs.value}`);
+  }
+  if (isLowerPercentileCappedMetric(metric)) {
+    parts.push(
+      `Lower: ${100 * (cs.lowerValue as number)}%${cs.ignoreZeros ? " (ignore zeros)" : ""}`,
+    );
+  } else if (isLowerAbsoluteCappedMetric(metric)) {
+    parts.push(`Lower: ${cs.lowerValue}`);
+  }
+  return parts.join("; ");
 }
 
 export function isSliceMetric(metric: ExperimentMetricInterface) {
@@ -504,7 +582,10 @@ export function isSliceMetric(metric: ExperimentMetricInterface) {
 
 export function eligibleForUncappedMetric(metric: ExperimentMetricInterface) {
   return (
-    (isPercentileCappedMetric(metric) || isAbsoluteCappedMetric(metric)) &&
+    (isUpperPercentileCappedMetric(metric) ||
+      isLowerPercentileCappedMetric(metric) ||
+      isAbsoluteCappedMetric(metric) ||
+      isLowerAbsoluteCappedMetric(metric)) &&
     !isSliceMetric(metric)
   );
 }

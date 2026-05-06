@@ -9,6 +9,10 @@ import {
 } from "shared/constants";
 import { isProjectListValidForProject } from "shared/util";
 import {
+  getCappingTailState,
+  validateCappingSettingsOrdering,
+} from "shared/validators";
+import {
   CreateFactMetricProps,
   FactMetricInterface,
   ColumnRef,
@@ -1518,9 +1522,17 @@ export default function FactMetricModal({
           values.numerator.aggregateFilter = undefined;
         }
 
-        if (values.cappingSettings?.type) {
-          if (!values.cappingSettings.value) {
-            throw new Error("Capped Value cannot be 0");
+        {
+          const cs = values.cappingSettings;
+          const tails = getCappingTailState(cs);
+
+          if (!tails.anyCap) {
+            values.cappingSettings = {
+              type: "",
+              ignoreZeros: false,
+            };
+          } else {
+            validateCappingSettingsOrdering(values.cappingSettings);
           }
         }
 
@@ -1533,7 +1545,6 @@ export default function FactMetricModal({
         ) {
           values.cappingSettings = {
             type: "",
-            value: 0,
           };
         }
 
@@ -1544,7 +1555,7 @@ export default function FactMetricModal({
           if (values.numerator.column !== "$$distinctUsers") {
             values.numerator.aggregateFilterColumn = "";
           } else {
-            if (values.cappingSettings?.type) {
+            if (values.cappingSettings?.type === "percentile") {
               throw new Error(
                 "Cannot specify both Percentile Capping and a User Filter. Please remove one of them.",
               );
@@ -1792,6 +1803,8 @@ export default function FactMetricModal({
                     form.setValue("quantileSettings", quantileSettings);
                     // capping off for quantile metrics
                     form.setValue("cappingSettings.type", "");
+                    form.setValue("cappingSettings.lowerValue", undefined);
+                    form.setValue("cappingSettings.value", undefined);
 
                     if (
                       quantileSettings.type === "event" &&
@@ -1820,6 +1833,7 @@ export default function FactMetricModal({
                     form.watch("cappingSettings.type") === "absolute"
                   ) {
                     form.setValue("cappingSettings.type", "");
+                    form.setValue("cappingSettings.lowerValue", undefined);
                   }
                 }}
                 options={[
@@ -2255,6 +2269,7 @@ export default function FactMetricModal({
                             form={form}
                             datasourceType={selectedDataSource.type}
                             metricType={type}
+                            allowLowerTailCapping
                           />
                         ) : null}
 

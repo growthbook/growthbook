@@ -169,11 +169,138 @@ export const windowTypeValidator = z.enum(["conversion", "lookback", ""]);
 
 export const cappingSettingsValidator = z
   .object({
+    /**
+     * Cap mode for both upper tail (`value`) and optional lower tail (`lowerValue`).
+     * `""` means no capping.
+     */
     type: cappingTypeValidator,
-    value: z.number(),
+    value: z.number().optional(),
     ignoreZeros: z.boolean().optional(),
+    /**
+     * Lower tail uses the same `type` as upper.
+     * Absolute: optional floor (omit when unused); 0 is a valid floor at zero; may be negative.
+     * Percentile: must be strictly between 0 and 1 when set; 0 means no lower percentile cap.
+     */
+    lowerValue: z.number().optional(),
   })
-  .strict();
+  // Strip unknown keys (e.g. legacy or client-only fields) so Mongo updates do not
+  // fail strict validation when saving fact metrics from the app.
+  .strip();
+
+/** Minimal shape for evaluating which capping tails are active (API, DB, forms). */
+export type CappingSettingsTailInput = {
+  type?: "" | "none" | "absolute" | "percentile" | null;
+  value?: number | null;
+  lowerValue?: number | null;
+};
+
+export type CappingTailState = {
+  upperPercentileCapped: boolean;
+  upperAbsoluteCapped: boolean;
+  lowerPercentileCapped: boolean;
+  lowerAbsoluteCapped: boolean;
+  anyCap: boolean;
+  usesPercentile: boolean;
+};
+
+function normalizeCappingTypeForTails(
+  type: CappingSettingsTailInput["type"],
+): "" | "absolute" | "percentile" {
+  if (type == null || type === "" || type === "none") return "";
+  return type;
+}
+
+/**
+ * Per-tail activation for fact-metric style capping (same rules as post/update fact metric API).
+ * Upper percentile: `value` ∈ (0,1). Upper absolute: `value` > 0.
+ * Lower percentile: `lowerValue` ∈ (0,1). Lower absolute: finite `lowerValue` (incl. 0).
+ */
+export function getCappingTailState(
+  cs: CappingSettingsTailInput | null | undefined,
+): CappingTailState {
+  if (!cs) {
+    return {
+      upperPercentileCapped: false,
+      upperAbsoluteCapped: false,
+      lowerPercentileCapped: false,
+      lowerAbsoluteCapped: false,
+      anyCap: false,
+      usesPercentile: false,
+    };
+  }
+  const type = normalizeCappingTypeForTails(cs.type);
+  const value = cs.value;
+  const lowerValue = cs.lowerValue;
+
+  const upperPercentileCapped =
+    type === "percentile" && value != null && value > 0 && value < 1;
+  const upperAbsoluteCapped = type === "absolute" && value != null && value > 0;
+  const lowerPercentileCapped =
+    type === "percentile" &&
+    lowerValue != null &&
+    lowerValue > 0 &&
+    lowerValue < 1;
+  const lowerAbsoluteCapped =
+    type === "absolute" && lowerValue != null && Number.isFinite(lowerValue);
+  const anyCap =
+    upperPercentileCapped ||
+    upperAbsoluteCapped ||
+    lowerPercentileCapped ||
+    lowerAbsoluteCapped;
+  const usesPercentile =
+    type === "percentile" && (upperPercentileCapped || lowerPercentileCapped);
+
+  return {
+    upperPercentileCapped,
+    upperAbsoluteCapped,
+    lowerPercentileCapped,
+    lowerAbsoluteCapped,
+    anyCap,
+    usesPercentile,
+  };
+}
+
+/** Upper/lower capping ordering (shared by API model and fact metric UI). */
+export function validateCappingSettingsOrdering(
+  cs: z.infer<typeof cappingSettingsValidator>,
+): void {
+  const tails = getCappingTailState(cs);
+  const lowerValue = cs.lowerValue;
+
+  if (
+    tails.upperAbsoluteCapped &&
+    tails.lowerAbsoluteCapped &&
+    cs.value != null &&
+    lowerValue != null &&
+    cs.value < lowerValue
+  ) {
+    throw new Error(
+      "Lower tail value must be less than upper tail value when both are set.",
+    );
+  }
+
+  if (
+    cs.type === "percentile" &&
+    lowerValue != null &&
+    lowerValue !== 0 &&
+    (lowerValue <= 0 || lowerValue >= 1 || !Number.isFinite(lowerValue))
+  ) {
+    throw new Error(
+      "Percentile lower cap requires lowerValue greater than 0 and less than 1. Use 0 or omit for no lower cap.",
+    );
+  }
+  if (
+    tails.upperPercentileCapped &&
+    tails.lowerPercentileCapped &&
+    lowerValue != null &&
+    cs.value != null &&
+    lowerValue >= cs.value
+  ) {
+    throw new Error(
+      "Lower percentile (lowerValue) must be less than upper percentile (value).",
+    );
+  }
+}
 
 export const legacyWindowSettingsValidator = z.object({
   type: windowTypeValidator.optional(),

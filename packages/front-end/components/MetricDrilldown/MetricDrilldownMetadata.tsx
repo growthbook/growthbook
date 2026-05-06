@@ -1,6 +1,11 @@
 import { Flex, Tooltip } from "@radix-ui/themes";
 import { MdSwapCalls } from "react-icons/md";
-import { quantileMetricType, isFactMetric } from "shared/experiments";
+import {
+  formatMetricCappingSummary,
+  hasActiveCappingTails,
+  isFactMetric,
+  quantileMetricType,
+} from "shared/experiments";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { StatsEngine } from "shared/types/stats";
 import { LookbackOverride } from "shared/validators";
@@ -76,11 +81,10 @@ export function MetricDrilldownMetadata({
         </>
       ) : null}
 
-      {!isNullUndefinedOrEmpty(metric.cappingSettings.type) &&
-      (metric.cappingSettings.value ?? 0) !== 0 ? (
+      {hasActiveCappingTails(metric) ? (
         <Metadata
           label={`Capping (${metric.cappingSettings.type})`}
-          value={metric.cappingSettings.value}
+          value={formatMetricCappingSummary(metric)}
         />
       ) : (
         <Metadata label="Capping" value="Disabled" />

@@ -5,7 +5,11 @@ import type {
   FactMetricSourceData,
   FactMetricData,
 } from "shared/types/integrations";
-import type { ExperimentMetricInterface } from "shared/experiments";
+import {
+  type ExperimentMetricInterface,
+  isLowerPercentileCappedMetric,
+  isUpperPercentileCappedMetric,
+} from "shared/experiments";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type { SqlDialect } from "shared/types/sql";
 import type { FactTableMap } from "back-end/src/models/FactTableModel";
@@ -71,24 +75,50 @@ export function parseExperimentFactMetricsParams(
     );
 
     const percentileData: FactMetricPercentileData[] = [];
+    const ignoreZeros = (m: FactMetricData) =>
+      m.metric.cappingSettings.ignoreZeros ?? false;
     factTableMetricData
-      .filter((m) => m.isPercentileCapped)
+      .filter(
+        (m) =>
+          isUpperPercentileCappedMetric(m.metric) ||
+          isLowerPercentileCappedMetric(m.metric),
+      )
       .forEach((m) => {
-        percentileData.push({
-          valueCol: `${m.alias}_value`,
-          outputCol: `${m.alias}_value_cap`,
-          percentile: m.metric.cappingSettings.value ?? 1,
-          ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
-          sourceIndex: m.numeratorSourceIndex,
-        });
-        if (m.ratioMetric) {
+        if (isUpperPercentileCappedMetric(m.metric)) {
           percentileData.push({
-            valueCol: `${m.alias}_denominator`,
-            outputCol: `${m.alias}_denominator_cap`,
+            valueCol: `${m.alias}_value`,
+            outputCol: `${m.alias}_value_cap`,
             percentile: m.metric.cappingSettings.value ?? 1,
-            ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
-            sourceIndex: m.denominatorSourceIndex,
+            ignoreZeros: ignoreZeros(m),
+            sourceIndex: m.numeratorSourceIndex,
           });
+          if (m.ratioMetric) {
+            percentileData.push({
+              valueCol: `${m.alias}_denominator`,
+              outputCol: `${m.alias}_denominator_cap`,
+              percentile: m.metric.cappingSettings.value ?? 1,
+              ignoreZeros: ignoreZeros(m),
+              sourceIndex: m.denominatorSourceIndex,
+            });
+          }
+        }
+        if (isLowerPercentileCappedMetric(m.metric)) {
+          percentileData.push({
+            valueCol: `${m.alias}_value`,
+            outputCol: `${m.alias}_value_cap_lower`,
+            percentile: m.metric.cappingSettings.lowerValue ?? 0,
+            ignoreZeros: ignoreZeros(m),
+            sourceIndex: m.numeratorSourceIndex,
+          });
+          if (m.ratioMetric) {
+            percentileData.push({
+              valueCol: `${m.alias}_denominator`,
+              outputCol: `${m.alias}_denominator_cap_lower`,
+              percentile: m.metric.cappingSettings.lowerValue ?? 0,
+              ignoreZeros: ignoreZeros(m),
+              sourceIndex: m.denominatorSourceIndex,
+            });
+          }
         }
       });
 

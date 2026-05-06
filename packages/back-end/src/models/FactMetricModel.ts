@@ -9,7 +9,11 @@ import {
   getSelectedColumnDatatype,
 } from "shared/experiments";
 import { UpdateProps } from "shared/types/base-model";
-import { factMetricValidator, ApiFactMetric } from "shared/validators";
+import {
+  factMetricValidator,
+  ApiFactMetric,
+  validateCappingSettingsOrdering,
+} from "shared/validators";
 import {
   ColumnRef,
   FactMetricInterface,
@@ -331,6 +335,8 @@ export class FactMetricModel extends BaseClass {
   ): Promise<void> {
     const existingMetric = previousData || null;
 
+    validateCappingSettingsOrdering(data.cappingSettings);
+
     const factTableMap = await this.getFactTableMap();
 
     const numeratorFactTable = factTableMap.get(data.numerator.factTableId);
@@ -544,8 +550,10 @@ export class FactMetricModel extends BaseClass {
       metricType: metricType,
       quantileSettings: quantileSettings || undefined,
       cappingSettings: {
-        ...cappingSettings,
         type: cappingSettings.type || "none",
+        value: cappingSettings.value,
+        ignoreZeros: cappingSettings.ignoreZeros,
+        lowerValue: cappingSettings.lowerValue,
       },
       windowSettings: {
         ...windowSettings,

@@ -9,7 +9,10 @@ import {
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import { getSelectedColumnDatatype } from "shared/experiments";
-import { postFactMetricValidator } from "shared/validators";
+import {
+  getCappingTailState,
+  postFactMetricValidator,
+} from "shared/validators";
 import {
   ColumnRef,
   CreateFactMetricProps,
@@ -133,7 +136,6 @@ export async function getCreateMetricPropsFromBody(
     },
     cappingSettings: {
       type: "",
-      value: 0,
     },
     priorSettings: priorSettings ?? {
       override: false,
@@ -170,10 +172,26 @@ export async function getCreateMetricPropsFromBody(
     });
   }
 
-  if (cappingSettings?.type && cappingSettings?.type !== "none") {
-    data.cappingSettings.type = cappingSettings.type;
-    data.cappingSettings.value = cappingSettings.value || 0;
-    data.cappingSettings.ignoreZeros = cappingSettings.ignoreZeros || false;
+  if (cappingSettings) {
+    const cs = cappingSettings;
+    const capType = cs.type === "none" ? "" : cs.type;
+    const tails = getCappingTailState({
+      type: capType,
+      value: cs.value,
+      lowerValue: cs.lowerValue,
+    });
+    const lowerStored =
+      tails.lowerPercentileCapped || tails.lowerAbsoluteCapped
+        ? (cs.lowerValue ?? 0)
+        : undefined;
+    data.cappingSettings = {
+      type: tails.anyCap ? capType : "",
+      ...(tails.upperPercentileCapped || tails.upperAbsoluteCapped
+        ? { value: cs.value as number }
+        : {}),
+      ignoreZeros: tails.usesPercentile ? cs.ignoreZeros || false : false,
+      ...(lowerStored !== undefined ? { lowerValue: lowerStored } : {}),
+    };
   }
 
   if (windowSettings?.type && windowSettings?.type !== "none") {
