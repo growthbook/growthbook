@@ -801,6 +801,11 @@ export default {
           id: "kb/glossary",
           label: "Glossary",
         },
+        {
+          type: "doc",
+          id: "command-palette",
+          label: "Command Palette",
+        },
       ],
     },
     {
