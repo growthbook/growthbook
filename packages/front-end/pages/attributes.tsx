@@ -224,17 +224,21 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   className="dropdown-item"
                   onClick={async (e) => {
                     e.preventDefault();
+                    // Use ?? undefined to convert any null DB values to undefined,
+                    // which JSON.stringify omits. Zod on the backend accepts
+                    // undefined but not null for optional fields.
                     const updatedAttribute: SDKAttribute = {
                       property: v.property,
                       datatype: v.datatype,
-                      projects: v.projects,
-                      format: v.format,
-                      enum: v.enum,
-                      hashAttribute: v.hashAttribute,
+                      projects: v.projects ?? undefined,
+                      format: v.format ?? undefined,
+                      enum: v.enum ?? undefined,
+                      hashAttribute: v.hashAttribute ?? undefined,
                       archived: !v.archived,
-                      tags: v.tags,
-                      description: v.description,
-                      disableEqualityConditions: v.disableEqualityConditions,
+                      tags: v.tags ?? undefined,
+                      description: v.description ?? undefined,
+                      disableEqualityConditions:
+                        v.disableEqualityConditions ?? undefined,
                     };
                     await apiCall<{
                       res: number;
