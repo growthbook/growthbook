@@ -93,7 +93,7 @@ function formatSimpleScheduleLabel(rs: RampScheduleInterface): string {
   return "USING SCHEDULE";
 }
 
-function formatRemainingDuration(totalSeconds: number): string {
+export function formatRemainingDuration(totalSeconds: number): string {
   if (totalSeconds < 60) return `${Math.round(totalSeconds)}s`;
   const minutes = totalSeconds / 60;
   if (minutes < 60) return `${Math.round(minutes)}m`;

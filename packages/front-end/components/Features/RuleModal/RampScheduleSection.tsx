@@ -12,6 +12,8 @@ import {
   PiInfo,
   PiCaretDownBold,
   PiBookmarkSimple,
+  PiCalendarBlank,
+  PiArrowCounterClockwise,
 } from "react-icons/pi";
 import type {
   FeatureInterface,
@@ -66,6 +68,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
+import { formatRemainingDuration } from "@/components/Features/Rule";
 import { Popover } from "@/ui/Popover";
 import styles from "./RampScheduleSection.module.scss";
 
@@ -1739,14 +1742,41 @@ export default function RampScheduleSection({
       </Box>
     ) : null;
 
-  const durationField =
-    !hasTemplate && isSimpleMode ? (
-      <Flex align="center" gap="3" py="2">
-        <Box style={{ width: 60 }}>
-          <Text as="label" weight="medium" mb="0">
-            Duration
-          </Text>
-        </Box>
+  const durationSummary = useMemo(() => {
+    let totalSeconds = 0;
+    let approvals = 0;
+    let hasMonitored = false;
+    for (const step of state.steps) {
+      if (step.triggerType === "interval") {
+        totalSeconds +=
+          Math.max(1, step.intervalValue) * UNIT_MULT[step.intervalUnit];
+      } else {
+        approvals++;
+      }
+      if (step.monitored) hasMonitored = true;
+    }
+    const isPure = approvals === 0 && !hasMonitored;
+    const parts: string[] = [];
+    if (totalSeconds > 0) {
+      parts.push(formatRemainingDuration(totalSeconds));
+    }
+    if (approvals > 0) {
+      parts.push(`${approvals} approval step${approvals > 1 ? "s" : ""}`);
+    }
+    if (hasMonitored) {
+      parts.push("monitored steps");
+    }
+    return { isPure, totalSeconds, label: parts.join(" + ") || "0" };
+  }, [state.steps]);
+
+  const durationInput = (
+    <Flex align="center" gap="3" py="2" style={{ minHeight: 54 }}>
+      <Box style={{ width: 60 }}>
+        <Text as="label" weight="medium" mb="0">
+          Duration
+        </Text>
+      </Box>
+      {isSimpleMode ? (
         <Flex align="center" justify="between" style={{ width: 150 }}>
           <Field
             type="number"
@@ -1781,34 +1811,42 @@ export default function RampScheduleSection({
             className="select-unfixed"
           />
         </Flex>
-      </Flex>
-    ) : null;
-
-  const simpleSummary =
-    !hasTemplate && isSimpleMode ? (
-      <Flex align="center" gap="3" mb="4">
-        <Text size="small" color="text-low">
-          {state.steps.length} steps:{" "}
-          {state.steps.map((s) => `${s.patch.coverage ?? 0}%`).join(" → ")} over{" "}
-          {state.simpleDurationDays} {state.simpleDurationUnit ?? "days"}
+      ) : (
+        <Text color="text-mid">
+          {durationSummary.isPure
+            ? durationSummary.label
+            : `~${durationSummary.label}`}
         </Text>
-        <Link
+      )}
+    </Flex>
+  );
+
+  const customizeLink =
+    !hasTemplate && isSimpleMode ? (
+      <Box mb="4">
+        <Button
+          variant="ghost"
           onClick={() => {
-            patchState({ builderMode: "advanced" });
-            if (selectedTemplateId) {
-              const matchId = findMatchingTemplate(state, templates);
-              if (!matchId) setSelectedTemplateId("");
-            }
+            const unit = state.simpleDurationUnit ?? "days";
+            const dur = state.simpleDurationDays;
+            const monitored = state.steps.some((s) => s.monitored);
+            const steps = generateSimpleSteps(dur, unit).map((s) => ({
+              ...s,
+              monitored,
+              requireHealthy: monitored,
+            }));
+            patchState({ builderMode: "advanced", steps });
+            setSelectedTemplateId("");
           }}
-          style={{ whiteSpace: "nowrap" }}
+          icon={<PiCalendarBlank />}
         >
-          Customize schedule
-        </Link>
-      </Flex>
+          Edit Schedule
+        </Button>
+      </Box>
     ) : null;
 
-  const startSelector = !hideTemplateSave ? (
-    <Flex align="center" gap="3" py="2">
+  const startInput = !hideTemplateSave ? (
+    <Flex align="center" gap="3" py="2" style={{ minHeight: 54 }}>
       <Box style={{ width: 60 }}>
         <Text as="label" weight="medium" mb="0">
           Start
@@ -1845,8 +1883,9 @@ export default function RampScheduleSection({
 
   const simplifyLink =
     showAdvancedEditor && !hasTemplate ? (
-      <Flex justify="end" mb="3">
-        <Link
+      <Box mb="3">
+        <Button
+          variant="ghost"
           onClick={() => {
             const unit = state.simpleDurationUnit ?? "days";
             const dur = state.simpleDurationDays;
@@ -1859,11 +1898,11 @@ export default function RampScheduleSection({
             patchState({ builderMode: "simple", steps });
             setSelectedTemplateId("");
           }}
-          style={{ whiteSpace: "nowrap" }}
+          icon={<PiArrowCounterClockwise />}
         >
-          Simplify schedule
-        </Link>
-      </Flex>
+          Simple Schedule
+        </Button>
+      </Box>
     ) : null;
 
   const createContent = (
@@ -1871,13 +1910,13 @@ export default function RampScheduleSection({
       {templateDropdown}
 
       <Flex direction="column" gap="1" mb="4">
-        {durationField}
-        {startSelector}
+        {startInput}
+        {durationInput}
       </Flex>
 
       {monitorCheckbox}
 
-      {simpleSummary}
+      {customizeLink}
 
       {simplifyLink}
 
@@ -2131,14 +2170,14 @@ export function defaultRampSectionState(
     mode: "off",
     name: `ramp-up ${formatDate(new Date())}`,
     startDate: "",
-    steps: generateSimpleSteps(7, "days"),
+    steps: generateSimpleSteps(5, "days"),
     endScheduleAt: "",
     endPatch: { coverage: 100 },
     linkedRampId: "",
     endAdditionalEffectsOpen: false,
     builderMode: "simple",
     monitoring: { ...DEFAULT_MONITORING },
-    simpleDurationDays: 7,
+    simpleDurationDays: 5,
     simpleDurationUnit: "days",
   };
 }
@@ -2211,7 +2250,7 @@ export function templateToSectionState(
       (endPatch.coverage !== undefined && endPatch.coverage !== 100),
     builderMode: "advanced",
     monitoring: { ...DEFAULT_MONITORING },
-    simpleDurationDays: 7,
+    simpleDurationDays: 5,
   };
 }
 
