@@ -1798,11 +1798,6 @@
       "count": 1
     }
   },
-  "packages/front-end/pages/holdout/[hid].tsx": {
-    "import/no-unresolved": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/holdouts/index.tsx": {
     "local/no-alert-classname": {
       "count": 1
