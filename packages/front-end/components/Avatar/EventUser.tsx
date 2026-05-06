@@ -130,6 +130,7 @@ export default function EventUser({
     <Badge
       variant="outline"
       label="API"
+      size="xs"
       ml="1"
       title="via API Key or Personal Access Token"
     />

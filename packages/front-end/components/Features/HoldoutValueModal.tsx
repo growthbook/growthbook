@@ -3,16 +3,22 @@ import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { PiInfo } from "react-icons/pi";
 import { Box, Text } from "@radix-ui/themes";
-import { getReviewSetting } from "shared/util";
+import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
+import { HoldoutInterface } from "shared/validators";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import Callout from "@/ui/Callout";
 import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
+import { useEnvironments } from "@/services/features";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
+import UiText from "@/ui/Text";
+import RuleEnvScopeBadges from "./RuleEnvScopeBadges";
 import FeatureValueField from "./FeatureValueField";
 
 interface Props {
@@ -53,6 +59,25 @@ const HoldoutValueModal = ({
   );
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
+  );
+
+  const allEnvironments = useEnvironments();
+  const featureEnvironments = filterEnvironmentsByFeature(
+    allEnvironments,
+    feature,
+  );
+  const { data: holdoutData } = useApi<{
+    holdout: HoldoutInterface;
+    experiment: ExperimentInterfaceStringDates;
+  }>(`/holdout/${feature.holdout?.id}`, {
+    shouldRun: () => !!feature.holdout?.id,
+  });
+  const activeHoldoutEnvIds = useMemo(
+    () =>
+      Object.entries(holdoutData?.holdout.environmentSettings ?? {})
+        .filter(([, s]) => s?.enabled)
+        .map(([id]) => id),
+    [holdoutData?.holdout.environmentSettings],
   );
 
   if (!feature.holdout) {
@@ -113,6 +138,18 @@ const HoldoutValueModal = ({
             different feature values upon changing the holdout value.
           </Text>
         </Callout>
+        {holdoutData && (
+          <Box mb="6">
+            <UiText as="div" weight="semibold" mb="3">
+              Holdout Environments
+            </UiText>
+            <RuleEnvScopeBadges
+              activeEnvironmentIds={activeHoldoutEnvIds}
+              environments={featureEnvironments}
+              my="0"
+            />
+          </Box>
+        )}
         <FeatureValueField
           label={
             <>

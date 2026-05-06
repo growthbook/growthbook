@@ -381,6 +381,19 @@ export const experimentInterface = z
     hasVisualChangesets: z.boolean().optional(),
     hasURLRedirects: z.boolean().optional(),
     linkedFeatures: z.array(z.string()).optional(),
+    // Drafts queued for auto-publish on `status -> running`. Each
+    // (featureId, revisionVersion) pair is its own row — multiple drafts of
+    // the same feature can be queued and are merged sequentially at start.
+    pendingFeatureDrafts: z
+      .array(
+        z
+          .object({
+            featureId: z.string(),
+            revisionVersion: z.number(),
+          })
+          .strict(),
+      )
+      .optional(),
     manualLaunchChecklist: z
       .array(
         z
@@ -1272,6 +1285,78 @@ const updateExperimentBody = z
   })
   .strict();
 
+const postExperimentStartBody = z
+  .object({
+    skipChecklist: z
+      .boolean()
+      .describe(
+        "If true, skips validating the experiment satisifies all pre-launch checklist items",
+      )
+      .optional(),
+  })
+  .strict()
+  .optional();
+
+const postExperimentStopBody = z
+  .object({
+    results: z
+      .enum(experimentResultsType)
+      .describe("The experiment conclusion status."),
+    enableTemporaryRollout: z
+      .boolean()
+      .describe(
+        "If true, include this stopped experiment in SDK payload and force the release variation (`releasedVariationId`) to all traffic.",
+      )
+      .optional(),
+    releasedVariationId: z
+      .string()
+      .describe(
+        "Required if enableTemporaryRollout is true. Variation ID (e.g. var_abc123) to release to 100% of traffic eligible for this experiment.",
+      )
+      .optional(),
+    winnerVariationId: z
+      .string()
+      .describe(
+        "Variation ID (e.g. var_abc123) of the winning variation. Used only as metadata. Required if results is 'won' and there are multiple test variations. Otherwise, defaults to the test variation when results is 'won' and to the baseline variation for other results.",
+      )
+      .optional(),
+    analysis: z
+      .string()
+      .describe(
+        "Optional markdown summary displayed on the experiment results page.",
+      )
+      .optional(),
+    reason: z
+      .string()
+      .describe(
+        "Optional reason for ending the phase stored on the latest phase metadata.",
+      )
+      .optional(),
+    dateEnded: z
+      .string()
+      .describe(
+        "Optional ISO datetime for ending the latest phase. Defaults to the current date and time.",
+      )
+      .optional(),
+  })
+  .strict();
+
+const postExperimentModifyTemporaryRolloutBody = z
+  .object({
+    enableTemporaryRollout: z
+      .boolean()
+      .describe(
+        "If true, keep the stopped experiment in SDK payload and force traffic to the winner variation. If false, end temporary rollout and remove from SDK payload.",
+      ),
+    releasedVariationId: z
+      .string()
+      .describe(
+        "Variation ID (e.g. var_abc123) to release to 100% of traffic eligible for this experiment. Required if enableTemporaryRollout is true.",
+      )
+      .optional(),
+  })
+  .strict();
+
 // Common params
 const idParams = z
   .object({
@@ -1404,6 +1489,74 @@ export const updateExperimentValidator = {
   path: "/experiments/:id",
 };
 
+export const postExperimentStartValidator = {
+  bodySchema: postExperimentStartBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      experiment: apiExperimentWithEnhancedStatus,
+    })
+    .strict(),
+  summary: "Start an experiment",
+  operationId: "postExperimentStart",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/start",
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+  },
+};
+
+export const postExperimentStopValidator = {
+  bodySchema: postExperimentStopBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      experiment: apiExperimentWithEnhancedStatus,
+    })
+    .strict(),
+  summary: "Stop an experiment",
+  operationId: "postExperimentStop",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/stop",
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+    body: {
+      results: "won" as const,
+      releasedVariationId: "var_treatment",
+      winnerVariationId: "var_treatment",
+      enableTemporaryRollout: true,
+      analysis:
+        "Reached desired sample size with statistically significant positive lift; shipping treatment",
+    },
+  },
+};
+
+export const postExperimentModifyTemporaryRolloutValidator = {
+  bodySchema: postExperimentModifyTemporaryRolloutBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      experiment: apiExperimentWithEnhancedStatus,
+    })
+    .strict(),
+  summary: "Modify temporary rollout status for a stopped experiment",
+  operationId: "postExperimentModifyTemporaryRollout",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/modify-temporary-rollout",
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+    body: {
+      enableTemporaryRollout: false,
+    },
+  },
+};
+
 export const postExperimentSnapshotValidator = {
   bodySchema: z
     .object({
@@ -1411,6 +1564,20 @@ export const postExperimentSnapshotValidator = {
         .enum(["manual", "schedule"])
         .describe(
           'Set to "schedule" if you want this request to trigger notifications and other events as it if were a scheduled update. Defaults to manual.',
+        )
+        .optional(),
+      dimension: z
+        .string()
+        .describe(
+          'Dimension to break results down by. For Unit Dimensions, use the dimension id (e.g. "dim_abc123"). For Experiment Dimensions, use "exp:<dimensionName>" (e.g. "exp:country"). Built-in pre-exposure dimensions include "pre:date" and, when configured, "pre:activation". Omit this field to create a standard snapshot.',
+        )
+        .optional(),
+      phase: z
+        .number()
+        .int()
+        .nonnegative()
+        .describe(
+          "Zero-based phase index to snapshot, where 0 is the first experiment phase. Defaults to the latest phase.",
         )
         .optional(),
     })

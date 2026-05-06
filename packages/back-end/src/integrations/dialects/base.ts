@@ -76,8 +76,11 @@ export const baseDialect: SqlDialect = {
 
   formatDateTimeString: (col: string) => baseDialect.castToString(col),
 
-  selectStarLimit: (table: string, limit: number) =>
-    `SELECT * FROM ${table} LIMIT ${limit}`,
+  selectStarLimit: (
+    from: string,
+    limit: number,
+    additionalClauses: string = "",
+  ) => `SELECT * FROM ${from} ${additionalClauses} LIMIT ${limit}`,
 
   defaultSchema: "",
 

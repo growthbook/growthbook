@@ -682,6 +682,7 @@ export default abstract class SqlIntegration
     query: string,
     testDays?: number,
     templateVariables?: TemplateVariables,
+    timestampColumn?: string,
   ): string {
     // Use LIMIT 0 for datasources that support column metadata without data
     const limit = this.supportsLimitZeroColumnValidation() ? 0 : 1;
@@ -690,6 +691,7 @@ export default abstract class SqlIntegration
       templateVariables,
       testDays: testDays ?? DEFAULT_TEST_QUERY_DAYS,
       limit,
+      timestampColumn,
     });
   }
 
@@ -698,22 +700,33 @@ export default abstract class SqlIntegration
   }
 
   getTestQuery(params: TestQueryParams): string {
-    const { query, templateVariables } = params;
+    const { query, templateVariables, timestampColumn } = params;
     const limit = params.limit ?? 5;
     const testDays = params.testDays ?? DEFAULT_TEST_QUERY_DAYS;
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - testDays);
+
+    const dialect = this.getSqlDialect();
+
+    if (timestampColumn && !/^[\w.]+$/.test(timestampColumn)) {
+      throw new Error(`Invalid timestamp column: ${timestampColumn}`);
+    }
+    const tableWhereClause = timestampColumn
+      ? `WHERE ${timestampColumn} >= ${dialect.toTimestamp(startDate)}`
+      : "";
+
     const limitedQuery = compileSqlTemplate(
       `WITH __table as (
         ${query}
       )
-      ${this.getSqlDialect().selectStarLimit("__table", limit)}`,
+      ${dialect.selectStarLimit("__table", limit, tableWhereClause)}`,
       {
         startDate,
         templateVariables,
       },
+      this.getSqlDialect(),
     );
-    return format(limitedQuery, this.getSqlDialect().formatDialect);
+    return format(limitedQuery, dialect.formatDialect);
   }
 
   async runTestQuery(
@@ -726,7 +739,16 @@ export default abstract class SqlIntegration
       sql,
       undefined,
       queryType ? { queryType } : undefined,
-    );
+    ).catch((e) => {
+      // If the user forgets to include a timestamp column in their SQL
+      // The error message from the db will be confusing, so make it more clear.
+      for (const col of timestampCols ?? []) {
+        if (e.message.includes(col)) {
+          throw new Error(`The column '${col}' is required. ${e.message}`);
+        }
+      }
+      throw e;
+    });
     const queryEndTime = Date.now();
     const duration = queryEndTime - queryStartTime;
 
@@ -1502,6 +1524,7 @@ export default abstract class SqlIntegration
     );
 
     const { experimentDimensions } = processDimensions(
+      this.getSqlDialect(),
       params.dimensions,
       settings,
       activationMetric,
@@ -1617,17 +1640,25 @@ export default abstract class SqlIntegration
                   startDate: settings.startDate,
                   endDate: settings.endDate,
                   experimentId: settings.experimentId,
+                  phase: settings.phase,
+                  customFields: settings.customFields,
                 },
               )})`
             : ""
         }
         , __newExposures AS (
-          ${compileSqlTemplate(exposureQuery.query, {
-            startDate: settings.startDate,
-            endDate: settings.endDate,
-            experimentId: settings.experimentId,
-            // TODO(incremental-refresh): add incremental start data as template variable
-          })}
+          ${compileSqlTemplate(
+            exposureQuery.query,
+            {
+              startDate: settings.startDate,
+              endDate: settings.endDate,
+              experimentId: settings.experimentId,
+              phase: settings.phase,
+              customFields: settings.customFields,
+              // TODO(incremental-refresh): add incremental start data as template variable
+            },
+            this.getSqlDialect(),
+          )}
         )
         , __filteredNewExposures AS (
           SELECT 
@@ -1914,6 +1945,9 @@ export default abstract class SqlIntegration
           factTable: factTableWithMetricData.factTable,
           startDate: factTableWithMetricData.minCovariateStartDate,
           endDate: factTableWithMetricData.maxCovariateEndDate,
+          experimentId: params.settings.experimentId,
+          phase: params.settings.phase,
+          customFields: params.settings.customFields,
           metricsWithIndices: metricData.map((m, i) => ({
             metric: m.metric,
             index: i,
@@ -2208,6 +2242,9 @@ export default abstract class SqlIntegration
           factTable: factTableWithMetricData.factTable,
           startDate: factTableWithMetricData.metricStart,
           endDate: factTableWithMetricData.metricEnd,
+          experimentId: params.settings.experimentId,
+          phase: params.settings.phase,
+          customFields: params.settings.customFields,
           castIdToString: true,
           addFiltersToWhere: true,
           // if last max timestamp is later than metric start and thus the start
@@ -2363,6 +2400,7 @@ export default abstract class SqlIntegration
     // exploratory dimensions
     const { experimentDimensions, unitDimensions, dateDimension } =
       processDimensions(
+        this.getSqlDialect(),
         params.dimensionsForAnalysis,
         params.settings,
         params.activationMetric,
@@ -2716,11 +2754,15 @@ export default abstract class SqlIntegration
           id,
           {
             ...ft,
-            sql: compileSqlTemplate(ft.sql, {
-              startDate: dateRange.startDate,
-              endDate: dateRange.endDate,
-              templateVariables,
-            }),
+            sql: compileSqlTemplate(
+              ft.sql,
+              {
+                startDate: dateRange.startDate,
+                endDate: dateRange.endDate,
+                templateVariables,
+              },
+              this.getSqlDialect(),
+            ),
           },
         ];
       }),
@@ -2735,10 +2777,14 @@ export default abstract class SqlIntegration
     );
 
     return {
-      sql: compileSqlTemplate(sql, {
-        startDate: dateRange.startDate,
-        endDate: dateRange.endDate,
-      }),
+      sql: compileSqlTemplate(
+        sql,
+        {
+          startDate: dateRange.startDate,
+          endDate: dateRange.endDate,
+        },
+        this.getSqlDialect(),
+      ),
       orderedMetricIds,
       startDate: dateRange.startDate,
       endDate: dateRange.endDate,

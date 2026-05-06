@@ -62,7 +62,7 @@ import { useHoldouts } from "@/hooks/useHoldouts";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
 import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RemoveFromHoldoutModal from "@/components/Experiment/holdout/RemoveFromHoldoutModal";
 import ProjectTagBar from "./ProjectTagBar";
 import EditExperimentInfoModal, {
@@ -88,6 +88,7 @@ export interface Props {
   mutateWatchers: () => void;
   usersWatching: (string | undefined)[];
   checklistItemsRemaining: number | null;
+  checklistHardBlockerCount: number;
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
@@ -148,6 +149,7 @@ export default function ExperimentHeader({
   mutateWatchers,
   editResult,
   checklistItemsRemaining,
+  checklistHardBlockerCount,
   editTargeting,
   newPhase,
   editPhases,
@@ -582,7 +584,7 @@ export default function ExperimentHeader({
         </Modal>
       ) : null}
       {showDeleteModal ? (
-        <DialogLayout
+        <ModalStandard
           header={`Delete ${isHoldout ? "Holdout" : "Experiment"}`}
           trackingEventModalType="delete-experiment"
           trackingEventModalSource="experiment-more-menu"
@@ -627,10 +629,10 @@ export default function ExperimentHeader({
               </Callout>
             ) : null}
           </Box>
-        </DialogLayout>
+        </ModalStandard>
       ) : null}
       {showArchiveModal ? (
-        <DialogLayout
+        <ModalStandard
           header={`${experiment.archived ? "Unarchive" : "Archive"} ${
             isHoldout ? "Holdout" : "Experiment"
           }`}
@@ -667,7 +669,7 @@ export default function ExperimentHeader({
               </Callout>
             ) : null}
           </Box>
-        </DialogLayout>
+        </ModalStandard>
       ) : null}
       {showStartExperiment && experiment.status === "draft" && (
         <StartExperimentModal
@@ -677,6 +679,7 @@ export default function ExperimentHeader({
             hasExperimentSchedule ? scheduleExperiment : startExperiment
           }
           checklistItemsRemaining={checklistItemsRemaining || 0}
+          checklistHardBlockerCount={checklistHardBlockerCount}
           isHoldout={isHoldout}
         />
       )}

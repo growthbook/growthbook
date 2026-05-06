@@ -1,11 +1,13 @@
 import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -38,6 +40,8 @@ import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import { FeatureEvaluationQueries } from "@/components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueries";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import HistoryTable from "@/components/HistoryTable";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -53,6 +57,7 @@ const DataSourcePage: FC = () => {
   const [editConn, setEditConn] = useState(false);
   const [viewSqlExplorer, setViewSqlExplorer] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [auditModal, setAuditModal] = useState(false);
   const router = useRouter();
 
   const {
@@ -74,6 +79,9 @@ const DataSourcePage: FC = () => {
   const { organization, hasCommercialFeature } = useUser();
 
   const isManagedWarehouse = d?.type === "growthbook_clickhouse";
+  const managedWarehouseAwaitingProvisioning = d
+    ? isManagedWarehouseAwaitingProvisioning(d)
+    : false;
 
   const queryString = new URLSearchParams(
     `q=datasource:"${d?.name}"`,
@@ -217,6 +225,14 @@ const DataSourcePage: FC = () => {
                   Edit Connection Info
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem
+                onClick={() => {
+                  setAuditModal(true);
+                  setDropdownOpen(false);
+                }}
+              >
+                Audit log
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => {
@@ -390,28 +406,32 @@ mixpanel.init('YOUR PROJECT TOKEN', {
         {supportsSQL && (
           <>
             {isManagedWarehouse ? (
-              <>
-                <Frame>
-                  <Heading as="h3" size="medium" mb="2">
-                    Sending Events
-                  </Heading>
-                  <Text>
-                    <DocLink docSection="managedWarehouseTracking">
-                      Read our full docs
-                    </DocLink>{" "}
-                    with instructions on how to send events from your app to
-                    GrowthBook.
-                  </Text>
-                </Frame>
-                <Frame>
-                  <ClickhouseMaterializedColumns
-                    dataSource={d}
-                    onCancel={() => undefined}
-                    canEdit={canUpdateDataSourceSettings}
-                    mutate={mutateDefinitions}
-                  />
-                </Frame>
-              </>
+              managedWarehouseAwaitingProvisioning ? (
+                <ManagedWarehouseNoEventsCallout />
+              ) : (
+                <>
+                  <Frame>
+                    <Heading as="h3" size="medium" mb="2">
+                      Sending Events
+                    </Heading>
+                    <Text>
+                      <DocLink docSection="managedWarehouseTracking">
+                        Read our full docs
+                      </DocLink>{" "}
+                      with instructions on how to send events from your app to
+                      GrowthBook.
+                    </Text>
+                  </Frame>
+                  <Frame>
+                    <ClickhouseMaterializedColumns
+                      dataSource={d}
+                      onCancel={() => undefined}
+                      canEdit={canUpdateDataSourceSettings}
+                      mutate={mutateDefinitions}
+                    />
+                  </Frame>
+                </>
+              )
             ) : (
               <>
                 {d.dateUpdated === d.dateCreated &&
@@ -514,6 +534,17 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           lockDatasource={true}
           trackingEventModalSource="datasource-id-page"
         />
+      )}
+      {auditModal && (
+        <ModalStandard
+          trackingEventModalType=""
+          open={true}
+          header="Audit Log"
+          close={() => setAuditModal(false)}
+          size="lg"
+        >
+          <HistoryTable type={"datasource"} id={d.id} />
+        </ModalStandard>
       )}
     </div>
   );

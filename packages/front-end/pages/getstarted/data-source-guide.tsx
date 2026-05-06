@@ -13,6 +13,7 @@ import { useGetStarted } from "@/services/GetStartedProvider";
 import Frame from "@/ui/Frame";
 import DataSourceDiagram from "@/components/InitialSetup/DataSourceDiagram";
 import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
+import Callout from "@/ui/Callout";
 
 // Also used for the `Launch Setup Flow` button to keep it aligned
 const DOCUMENTATION_SIDEBAR_WIDTH = "minmax(0, 245px)";
@@ -46,7 +47,7 @@ const DataSourceGuide = (): React.ReactElement => {
   }
 
   if (error) {
-    return <div className="alert alert-danger">{error}</div>;
+    return <Callout status="error">{error}</Callout>;
   }
 
   // Ignore the demo datasource for all checks

@@ -165,5 +165,6 @@ export function getMetricCTE(
         useDenominator,
       ),
     },
+    dialect,
   );
 }

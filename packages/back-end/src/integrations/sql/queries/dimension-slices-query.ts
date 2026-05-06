@@ -30,9 +30,13 @@ export function getDimensionSlicesQuery(
     `-- Dimension Traffic Query
     WITH
       __rawExperiment AS (
-        ${compileSqlTemplate(exposureQuery.query, {
-          startDate: startDate,
-        })}
+        ${compileSqlTemplate(
+          exposureQuery.query,
+          {
+            startDate: startDate,
+          },
+          dialect,
+        )}
       ),
       __experimentExposures AS (
         -- Viewed Experiment

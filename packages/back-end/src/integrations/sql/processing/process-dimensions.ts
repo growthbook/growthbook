@@ -6,9 +6,11 @@ import {
   UserDimension,
 } from "shared/types/integrations";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
 export function processDimensions(
+  dialect: SqlDialect,
   dimensions: Dimension[],
   settings: ExperimentSnapshotSettings,
   activationMetric: ExperimentMetricInterface | null,
@@ -35,6 +37,7 @@ export function processDimensions(
           endDate: settings.endDate,
           experimentId: settings.experimentId,
         },
+        dialect,
       );
       processedDimensions.unitDimensions.push(clonedDimension);
     } else if (dimension?.type === "experiment") {

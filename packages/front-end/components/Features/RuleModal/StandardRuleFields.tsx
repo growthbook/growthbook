@@ -26,6 +26,9 @@ import RampScheduleSection, {
 import Callout from "@/ui/Callout";
 import RampScheduleDisplay from "@/components/RampSchedule/RampScheduleDisplay";
 import ScheduleInputs from "@/components/Features/RuleModal/ScheduleInputs";
+import RuleEnvironmentScopeField, {
+  type EnvScopeProps,
+} from "@/components/Features/RuleModal/EnvironmentScopeField";
 
 export type ScheduleType = "none" | "schedule" | "ramp";
 
@@ -74,6 +77,7 @@ export default function StandardRuleFields({
   scheduleType,
   setScheduleType,
   pendingDetach,
+  envScope,
 }: {
   ruleType: "force" | "rollout";
   feature: FeatureInterface;
@@ -91,6 +95,7 @@ export default function StandardRuleFields({
   scheduleType: ScheduleType;
   setScheduleType: (t: ScheduleType) => void;
   pendingDetach?: boolean;
+  envScope: EnvScopeProps;
 }) {
   const form = useFormContext();
   const [advancedOptionsOpen, setadvancedOptionsOpen] = useState(
@@ -205,6 +210,8 @@ export default function StandardRuleFields({
         {...form.register("description")}
         placeholder="Short human-readable description of the rule"
       />
+
+      <RuleEnvironmentScopeField {...envScope} my="5" />
 
       <FeatureValueField
         label={

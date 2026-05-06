@@ -100,7 +100,8 @@ interface UseBatchPrerequisiteStatesOptions {
   };
   checkRulePrerequisites?: {
     environment: string;
-    ruleIndex: number;
+    // Omit for "new rule" checks.
+    ruleId?: string;
     prerequisites: Array<{ id: string; condition: string }>;
   };
 }
@@ -141,7 +142,7 @@ export function useBatchPrerequisiteStates({
   // Allow request if we have featureIds OR if we're doing cycle checks
   const hasCycleCheck = !!(checkPrerequisite || checkRulePrerequisites);
   const rulePrereqsKey = checkRulePrerequisites
-    ? `checkRule:${checkRulePrerequisites.environment}:${checkRulePrerequisites.ruleIndex}:${checkRulePrerequisites.prerequisites
+    ? `checkRule:${checkRulePrerequisites.environment}:${checkRulePrerequisites.ruleId ?? "new"}:${checkRulePrerequisites.prerequisites
         .map((p) => `${p.id}:${p.condition}`)
         .sort()
         .join(",")}`

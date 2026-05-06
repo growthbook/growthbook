@@ -44,12 +44,16 @@ export function getColumnsTopValuesQuery(
     `
 WITH
   __factTable AS (
-    ${compileSqlTemplate(factTable.sql, {
-      startDate: start,
-      templateVariables: {
-        eventName: factTable.eventName,
+    ${compileSqlTemplate(
+      factTable.sql,
+      {
+        startDate: start,
+        templateVariables: {
+          eventName: factTable.eventName,
+        },
       },
-    })}
+      dialect,
+    )}
   ),
   __topValues AS (
     ${columnQueries.join("\n    UNION ALL\n")}
