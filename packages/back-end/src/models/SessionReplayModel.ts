@@ -68,11 +68,18 @@ export class SessionReplayModel {
 
   /**
    * List recent session-replay metadata for the current org. Filtering and
-   * pagination land in #23 — for now this returns the most recent 100,
-   * matching the existing playground behavior.
+   * pagination are implemented in ClickHouse query options. Results are
+   * permission-filtered before returning.
    */
-  public async list(): Promise<SessionReplayInterface[]> {
-    const rows = await listSessionReplays(this.context.org.id);
+  public async list(options?: {
+    userId?: string;
+    clientKey?: string;
+    state?: "recording" | "finalized" | "deleted";
+    url?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<SessionReplayInterface[]> {
+    const rows = await listSessionReplays(this.context.org.id, options);
     return rows
       .map((row) => this.toInterface(row))
       .filter((doc) => this.canRead(doc));

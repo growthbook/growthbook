@@ -1,10 +1,8 @@
-import React, { useEffect, useRef, useState } from "react";
-import "rrweb-player/dist/style.css";
-import type { eventWithTime } from "@rrweb/types";
-import Player from "rrweb-player";
-import { Flex, Box } from "@radix-ui/themes";
-import { toast, Toaster } from "sonner";
+import React, { useEffect, useMemo, useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
+import { useRouter } from "next/router";
 import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Table, {
   TableBody,
@@ -13,7 +11,7 @@ import Table, {
   TableRow,
 } from "@/ui/Table";
 import useApi from "@/hooks/useApi";
-import { useAuth } from "@/services/auth";
+import Field from "@/components/Forms/Field";
 
 // JSON-serialized shape of SessionReplayInterface coming from the back-end
 // (Date fields arrive as ISO strings over the wire). The canonical type
@@ -43,25 +41,6 @@ type SessionReplayRow = {
   dateUpdated: string;
 };
 
-function canReplay(events: eventWithTime[]): boolean {
-  if (events.length < 2) return false;
-  const hasFullSnapshot = events.some((e) => e.type === 2);
-  const hasIncremental = events.some((e) => e.type === 3);
-  return hasFullSnapshot && hasIncremental;
-}
-
-function formatCustomEvent(data: {
-  tag: string;
-  payload: Record<string, unknown>;
-}) {
-  if (data.tag === "feature-flag") {
-    return `Feature Flag: ${data.payload.id} → ${JSON.stringify(data.payload.value)}`;
-  } else if (data.tag === "experiment") {
-    return `Experiment: ${data.payload.id} → variation ${data.payload.variation}`;
-  }
-  return "Custom Event";
-}
-
 function formatDuration(ms: number): string {
   const s = Math.round(ms / 1000);
   if (s < 60) return `${s}s`;
@@ -69,160 +48,161 @@ function formatDuration(ms: number): string {
 }
 
 export default function SessionReplayPage() {
-  const [error, setError] = useState<string | null>(null);
-  const [events, setEvents] = useState<eventWithTime[] | null>(null);
-  const [firstEvent, setFirstEvent] = useState<null | eventWithTime>(null);
-  const [customEvents, setCustomEvents] = useState<
-    { timestamp: number; formattedMessage: string }[]
-  >([]);
-  const [loadingSession, setLoadingSession] = useState(false);
+  const router = useRouter();
+  const [userIdFilter, setUserIdFilter] = useState("");
+  const [clientKeyFilter, setClientKeyFilter] = useState("");
+  const [stateFilter, setStateFilter] = useState("");
+  const [urlFilter, setUrlFilter] = useState("");
 
-  const playerRef = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const playerInstance = useRef<any>(null);
+  const page = useMemo(() => {
+    const raw = router.query.page;
+    const value = parseInt(typeof raw === "string" ? raw : "1", 10);
+    return Number.isFinite(value) && value > 0 ? value : 1;
+  }, [router.query.page]);
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    setUserIdFilter(
+      typeof router.query.userId === "string" ? router.query.userId : "",
+    );
+    setClientKeyFilter(
+      typeof router.query.clientKey === "string" ? router.query.clientKey : "",
+    );
+    setStateFilter(
+      typeof router.query.state === "string" ? router.query.state : "",
+    );
+    setUrlFilter(typeof router.query.url === "string" ? router.query.url : "");
+  }, [router.isReady, router.query]);
+
+  const queryString = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    if (typeof router.query.userId === "string" && router.query.userId) {
+      params.set("userId", router.query.userId);
+    }
+    if (typeof router.query.clientKey === "string" && router.query.clientKey) {
+      params.set("clientKey", router.query.clientKey);
+    }
+    if (typeof router.query.state === "string" && router.query.state) {
+      params.set("state", router.query.state);
+    }
+    if (typeof router.query.url === "string" && router.query.url) {
+      params.set("url", router.query.url);
+    }
+    return params.toString();
+  }, [
+    page,
+    router.query.clientKey,
+    router.query.state,
+    router.query.url,
+    router.query.userId,
+  ]);
 
   const { data: sessionsData, error: sessionsError } = useApi<{
     sessions: SessionReplayRow[];
-  }>("/api/session-replay");
+  }>(`/api/session-replay?${queryString}`);
 
-  const { apiCall } = useAuth();
+  const sessions = sessionsData?.sessions ?? [];
+  const hasNextPage = sessions.length === 100;
 
-  const onCustomEvent = (e: {
-    data: { tag: string; payload: Record<string, unknown> };
+  const updateRouteQuery = (next: {
+    userId?: string;
+    clientKey?: string;
+    state?: string;
+    url?: string;
+    page: number;
   }) => {
-    const { tag, payload } = e.data;
-    toast(formatCustomEvent({ tag, payload }));
-  };
-
-  const jumpToEvent = (timestamp: number) => {
-    const offset = firstEvent?.timestamp || 0;
-    if (playerInstance.current) {
-      playerInstance.current.goto(timestamp - offset);
-    }
-  };
-
-  const loadSession = async (sessionId: string) => {
-    setLoadingSession(true);
-    setError(null);
-    try {
-      const data = await apiCall<{ events: eventWithTime[] }>(
-        `/api/session-replay/${sessionId}`,
-        { method: "GET" },
-      );
-      setEvents(data.events);
-    } catch {
-      setError("Failed to load session");
-    } finally {
-      setLoadingSession(false);
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      if (playerInstance.current) {
-        playerInstance?.current?.removeEventListener?.(
-          "custom-event",
-          onCustomEvent,
-        );
-      }
+    const query: Record<string, string> = {
+      page: String(next.page),
     };
-  }, []);
+    if (next.userId) query.userId = next.userId;
+    if (next.clientKey) query.clientKey = next.clientKey;
+    if (next.state) query.state = next.state;
+    if (next.url) query.url = next.url;
+    void router.push(
+      {
+        pathname: "/session-replay",
+        query,
+      },
+      undefined,
+      { shallow: true },
+    );
+  };
 
-  useEffect(() => {
-    if (!events || !playerRef.current) {
-      setFirstEvent(null);
-      return;
-    }
-
-    if (!canReplay(events)) {
-      setError("Not enough data to replay session.");
-      setFirstEvent(null);
-      return;
-    }
-
-    setError(null);
-    setFirstEvent(events[0]);
-
-    if (playerInstance.current) {
-      playerInstance?.current?.removeEventListener?.(
-        "custom-event",
-        onCustomEvent,
-      );
-      playerInstance.current = null;
-    }
-    playerRef.current.innerHTML = "";
-
-    const player = new Player({
-      target: playerRef.current,
-      props: { events, showController: true },
+  const applyFilters = () => {
+    updateRouteQuery({
+      userId: userIdFilter.trim(),
+      clientKey: clientKeyFilter.trim(),
+      state: stateFilter,
+      url: urlFilter.trim(),
+      page: 1,
     });
+  };
 
-    playerInstance.current = player;
-    player.addEventListener("custom-event", onCustomEvent);
+  const clearFilters = () => {
+    setUserIdFilter("");
+    setClientKeyFilter("");
+    setStateFilter("");
+    setUrlFilter("");
+    updateRouteQuery({ page: 1 });
+  };
 
-    const customEventsList = events
-      .filter((e) => e.type === 5)
-      .map((e) => ({
-        timestamp: e.timestamp,
-        formattedMessage: formatCustomEvent(
-          e.data as { tag: string; payload: Record<string, unknown> },
-        ),
-      }));
-
-    setCustomEvents(customEventsList);
-  }, [events]);
+  const goToPage = (nextPage: number) => {
+    updateRouteQuery({
+      userId:
+        typeof router.query.userId === "string" ? router.query.userId : "",
+      clientKey:
+        typeof router.query.clientKey === "string"
+          ? router.query.clientKey
+          : "",
+      state: typeof router.query.state === "string" ? router.query.state : "",
+      url: typeof router.query.url === "string" ? router.query.url : "",
+      page: nextPage,
+    });
+  };
 
   return (
     <div className="pagecontents">
       <h1>Session Replay</h1>
 
-      {error && (
-        <Box mb="3">
-          <Callout status="warning">{error}</Callout>
-        </Box>
-      )}
-
-      {/* Player + evaluations sidebar */}
-      {events && (
-        <Flex gap="4" mb="4">
-          <Box
-            className="box"
-            style={{ flex: 1, display: "flex", justifyContent: "center" }}
-          >
-            <div ref={playerRef} />
-          </Box>
-
-          <Box
-            className="box p-4"
-            style={{ minWidth: 300, overflowY: "auto", maxHeight: 500 }}
-          >
-            <Text size="large" weight="semibold">
-              Evaluations
-            </Text>
-            <ul className="list-unstyled mt-2">
-              {customEvents.map((event, index) => (
-                <li
-                  key={index}
-                  className="cursor-pointer mb-2 p-2 border rounded"
-                  onClick={() => jumpToEvent(event.timestamp)}
-                  style={{ backgroundColor: "#f0f0f0", color: "#333" }}
-                >
-                  <strong>
-                    {new Date(event.timestamp).toLocaleTimeString()}
-                  </strong>
-                  : {event.formattedMessage}
-                </li>
-              ))}
-            </ul>
-          </Box>
-        </Flex>
-      )}
-
-      {/* Session list */}
       <Box className="box p-4">
         <Text size="x-large" weight="semibold">
           Recorded Sessions
         </Text>
+
+        <Box mt="3">
+          <Flex gap="3" wrap="wrap">
+            <Field
+              placeholder="Filter by user id"
+              value={userIdFilter}
+              onChange={(e) => setUserIdFilter(e.target.value)}
+              containerStyle={{ maxWidth: 220, marginBottom: 0 }}
+            />
+            <Field
+              placeholder="Filter by client key"
+              value={clientKeyFilter}
+              onChange={(e) => setClientKeyFilter(e.target.value)}
+              containerStyle={{ maxWidth: 220, marginBottom: 0 }}
+            />
+            <Field
+              options={["recording", "finalized", "deleted"]}
+              initialOption="All states"
+              value={stateFilter}
+              onChange={(e) => setStateFilter(e.target.value)}
+              containerStyle={{ maxWidth: 220, marginBottom: 0 }}
+            />
+            <Field
+              placeholder="Filter by URL contains"
+              value={urlFilter}
+              onChange={(e) => setUrlFilter(e.target.value)}
+              containerStyle={{ maxWidth: 260, marginBottom: 0 }}
+            />
+            <Button onClick={applyFilters}>Apply filters</Button>
+            <Button variant="outline" onClick={clearFilters}>
+              Clear
+            </Button>
+          </Flex>
+        </Box>
 
         {sessionsError && (
           <Box mt="3">
@@ -236,17 +216,16 @@ export default function SessionReplayPage() {
           </Box>
         )}
 
-        {sessionsData && sessionsData.sessions.length === 0 && (
+        {sessionsData && sessions.length === 0 && (
           <Box mt="3">
             <Text color="text-mid">
-              No sessions recorded yet. Embed the SDK with{" "}
-              <code>sessionReplayPlugin()</code> to start capturing.
+              No matching sessions found for the current filters.
             </Text>
           </Box>
         )}
 
-        {sessionsData && sessionsData.sessions.length > 0 && (
-          <Box mt="3">
+        {sessionsData && sessions.length > 0 && (
+          <Box mt="3" style={{ maxHeight: 640, overflowY: "auto" }}>
             <Table>
               <thead>
                 <tr>
@@ -259,15 +238,19 @@ export default function SessionReplayPage() {
                 </tr>
               </thead>
               <TableBody>
-                {sessionsData.sessions.map((session) => (
+                {sessions.map((session) => (
                   <TableRow
                     key={session.sessionId}
-                    onClick={() => loadSession(session.sessionId)}
+                    onClick={() =>
+                      void router.push(
+                        `/session-replay/${encodeURIComponent(session.sessionId)}`,
+                      )
+                    }
                     style={{ cursor: "pointer" }}
                   >
                     <TableCell>
                       <code title={session.sessionId}>
-                        {session.sessionId.slice(0, 8)}…
+                        {session.sessionId?.slice(0, 8) ?? "unknown"}…
                       </code>
                     </TableCell>
                     <TableCell>
@@ -296,14 +279,22 @@ export default function SessionReplayPage() {
           </Box>
         )}
 
-        {loadingSession && (
-          <Box mt="3">
-            <Text color="text-mid">Loading session data…</Text>
-          </Box>
-        )}
+        <Flex justify="between" align="center" mt="4">
+          <Text color="text-mid">Page {page}</Text>
+          <Flex gap="2">
+            <Button
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() => goToPage(page - 1)}
+            >
+              Previous
+            </Button>
+            <Button disabled={!hasNextPage} onClick={() => goToPage(page + 1)}>
+              Next
+            </Button>
+          </Flex>
+        </Flex>
       </Box>
-
-      <Toaster richColors />
     </div>
   );
 }

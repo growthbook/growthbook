@@ -105,7 +105,7 @@
     "react-textarea-autosize": "^8.3.4",
     "react-transition-group": "^4.4.5",
     "remark-gfm": "4.0.0",
-    "rrweb-player": "^1.0.0-alpha.4",
+    "rrweb-player": "^2.0.0-alpha.18",
     "scim2-parse-filter": "^0.2.8",
     "shared": "workspace:*",
     "sonner": "^2.0.3",

@@ -3,6 +3,7 @@ import {
   SessionReplayInterface,
   SessionReplayRrwebEvent,
 } from "shared/validators";
+import { parseIntWithDefaultCapped } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 
@@ -12,13 +13,33 @@ type SessionResponse =
   | { error: string };
 
 export async function listSessions(
-  req: AuthRequest,
+  req: AuthRequest<
+    unknown,
+    unknown,
+    {
+      userId?: string;
+      clientKey?: string;
+      state?: "recording" | "finalized" | "deleted";
+      url?: string;
+      page?: string;
+    }
+  >,
   res: Response<SessionsResponse>,
 ) {
   const context = getContextFromReq(req);
+  const page = parseIntWithDefaultCapped(req.query.page, 1, 1_000_000);
+  const pageSize = 100;
+  const offset = (page - 1) * pageSize;
   // Permission filtering happens inside the model: rows the caller can't
   // read are dropped before they ever reach the response.
-  const sessions = await context.models.sessionReplays.list();
+  const sessions = await context.models.sessionReplays.list({
+    userId: req.query.userId,
+    clientKey: req.query.clientKey,
+    state: req.query.state,
+    url: req.query.url,
+    limit: pageSize,
+    offset,
+  });
   res.status(200).json({ sessions });
 }
 
