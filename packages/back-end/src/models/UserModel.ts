@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
+import escapeRegExp from "lodash/escapeRegExp";
 import { Document } from "mongodb";
 import { UserInterface } from "shared/types/user";
 import {
@@ -105,8 +106,17 @@ export async function getUserById(id: string): Promise<UserInterface | null> {
 export async function getUserByEmail(
   email: string,
 ): Promise<UserInterface | null> {
-  const user = await getCollection(COLLECTION).findOne({ email });
-  return user ? toInterface(user) : null;
+  // Exact case-sensitive match wins so existing duplicate accounts (e.g.
+  // `User@x.com` and `user@x.com`) keep resolving to their own row.
+  const exact = await getCollection(COLLECTION).findOne({ email });
+  if (exact) return toInterface(exact);
+
+  // Fall back to case-insensitive match so we don't create a new duplicate
+  // when a SSO provider sends a different casing than what's already stored.
+  const ci = await getCollection(COLLECTION).findOne({
+    email: { $regex: `^${escapeRegExp(email)}$`, $options: "i" },
+  });
+  return ci ? toInterface(ci) : null;
 }
 
 export async function getUsersByIds(ids: string[]): Promise<UserInterface[]> {
@@ -147,7 +157,7 @@ export async function createUser({
   return toInterface(
     await UserModel.create({
       name,
-      email,
+      email: email.toLowerCase(),
       passwordHash,
       id: uniqid("u_"),
       verified,
@@ -163,9 +173,14 @@ export async function findVerifiedEmails(
 ): Promise<string[]> {
   let users: Document[] = [];
   if (emails) {
+    // Match either the input casing or its lowercased form so callers don't
+    // miss accounts that were stored in lowercase by `createUser`.
+    const variants = Array.from(
+      new Set([...emails, ...emails.map((e) => e.toLowerCase())]),
+    );
     users = await getCollection(COLLECTION)
       .find({
-        email: { $in: emails },
+        email: { $in: variants },
         verified: true,
       })
       .toArray();

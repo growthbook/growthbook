@@ -623,8 +623,9 @@ export async function putMember(
   }
 
   try {
+    const reqEmailLower = (req.email || "").toLowerCase();
     const invite: Invite | undefined = organization.invites.find(
-      (inv) => inv.email === req.email,
+      (inv) => inv.email.toLowerCase() === reqEmailLower,
     );
     if (invite) {
       // if user already invited, accept invite
