@@ -107,7 +107,6 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
       <>
         <Field
           label="Identifier Type"
-          labelClassName="font-weight-bold"
           {...form.register("idType")}
           pattern="^[a-z_]+$"
           readOnly={mode === "edit"}
@@ -117,7 +116,6 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
         />
         <Field
           label="Description (optional)"
-          labelClassName="font-weight-bold"
           {...form.register("description")}
           minRows={1}
           maxRows={5}
@@ -126,7 +124,6 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
         {hashAttributes && (
           <MultiSelectField
             label="Hash Attributes"
-            labelClassName="font-weight-bold"
             value={form.watch("attributes")}
             helpText="Select the hash attributes that map to this identifier type."
             onChange={(value) => {

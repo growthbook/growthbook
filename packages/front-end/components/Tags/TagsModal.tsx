@@ -3,10 +3,10 @@ import React from "react";
 import { TagInterface } from "shared/types/tag";
 import { Text, Container } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import { RadixColor } from "@/ui/HelperText";
 import { Select, SelectItem } from "@/ui/Select";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Tag from "./Tag";
 
 export const TAG_COLORS = [
@@ -45,7 +45,7 @@ export default function TagsModal({
     : TAG_COLORS;
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       open={true}
       close={close}
@@ -110,6 +110,6 @@ export default function TagsModal({
           </div>
         </Container>
       </div>
-    </Modal>
+    </ModalStandard>
   );
 }

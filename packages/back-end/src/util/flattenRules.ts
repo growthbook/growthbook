@@ -119,6 +119,54 @@ export function ruleFootprint(
   return rule.environments.filter((e) => applicableSet.has(e));
 }
 
+// Tolerate sparse/legacy storage. `rules` is Mongoose `Mixed`, and pre-v2 docs
+// can survive with `null`/`undefined` array entries (partial imports, sparse
+// arrays). Narrows downstream consumers off `unknown` so the shape of a
+// migrated rule is honored everywhere we touch `.type`, `.id`, `.environments`.
+// Arrays are explicitly excluded — `typeof [] === "object"` would otherwise
+// pass the filter, and a corrupt array-in-array slot would slip through
+// `upgradeFeatureRule` (which returns non-rule input unchanged) and crash
+// downstream `.type` / `.environments` access.
+export function isPlausibleFeatureRule(value: unknown): value is FeatureRule {
+  return value != null && typeof value === "object" && !Array.isArray(value);
+}
+
+// Strip a v2 rule's non-applicable envs. When every env is non-applicable
+// (env removed from project, env deleted from org), collapse to the
+// no-env "pending" state (`environments: []`, `allEnvironments: false`)
+// rather than dropping the rule — preserves the rule body so a publish
+// during the orphaned period doesn't silently delete it. The UI surfaces
+// these as a red "No environments" badge.
+//
+// Mirrors `ruleFootprint` semantics. Used by the JIT migrators on both
+// FeatureModel and FeatureRevisionModel so the live feature view and a
+// revision view of the same data agree on which rules are visible.
+export function narrowRuleToApplicableEnvs(
+  rule: FeatureRule,
+  applicableSet: Set<string>,
+): FeatureRule {
+  if (rule.allEnvironments) {
+    if (applicableSet.size === 0) {
+      return {
+        ...rule,
+        allEnvironments: false,
+        environments: [],
+      } as FeatureRule;
+    }
+    return rule;
+  }
+  if (rule.environments === undefined) {
+    if (applicableSet.size === 0) {
+      return { ...rule, environments: [] } as FeatureRule;
+    }
+    return rule;
+  }
+  if (rule.environments.length === 0) return rule;
+  const filtered = rule.environments.filter((e) => applicableSet.has(e));
+  if (filtered.length === rule.environments.length) return rule;
+  return { ...rule, environments: filtered } as FeatureRule;
+}
+
 // Remove `environment` from a rule's footprint (the v1 REST DELETE contract).
 // Returns `{action: "delete"}` when the footprint becomes empty — callers are
 // responsible for side-effect cleanup (ramp actions, SafeRollout). Pure.

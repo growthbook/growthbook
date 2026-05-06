@@ -35,7 +35,7 @@ import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 import Switch from "@/ui/Switch";
 import Field from "@/components/Forms/Field";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useUser } from "@/services/UserContext";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -51,6 +51,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import useURLHash from "@/hooks/useURLHash";
+import Text from "@/ui/Text";
 
 export default function LegacyReportPage({
   report,
@@ -181,7 +182,7 @@ export default function LegacyReportPage({
       />
       <div className="container-fluid pagecontents experiment-details">
         {editModalOpen && (
-          <Modal
+          <ModalStandard
             trackingEventModalType=""
             open={true}
             submit={form.handleSubmit(async (value) => {
@@ -195,11 +196,12 @@ export default function LegacyReportPage({
               setEditModalOpen(false);
             }}
             header="Edit Report"
-            overflowAuto={false}
           >
             <Field label="Title" {...form.register("title")} />
             <div className="form-group">
-              <label>Description</label>
+              <Text as="label" weight="semibold">
+                Description
+              </Text>
               <MarkdownInput
                 setValue={(value) => {
                   form.setValue("description", value);
@@ -217,7 +219,7 @@ export default function LegacyReportPage({
                 form.setValue("status", newStatus);
               }}
             />
-          </Modal>
+          </ModalStandard>
         )}
         <div className="mb-3">
           {report?.experimentId && (
