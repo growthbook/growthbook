@@ -3,7 +3,7 @@ import "react-day-picker/dist/style.css";
 import * as Popover from "@radix-ui/react-popover";
 import { format } from "date-fns";
 import React, { ReactNode, useMemo, useRef, useState } from "react";
-import { getValidDate } from "shared/dates";
+import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import { Flex } from "@radix-ui/themes";
 import clsx from "clsx";
 import { debounce } from "lodash";
@@ -123,7 +123,10 @@ export default function DatePicker({
 
   const debouncedSetDate = useMemo(() => {
     return debounce((value: string, field: "date" | "date2" = "date") => {
-      const parsedDate = getValidDate(value);
+      const parsedDate =
+        precision === "datetime"
+          ? getValidDate(value)
+          : getValidDateOffsetByUTC(value);
       let finalDate = parsedDate;
       if (disableBefore && parsedDate < getValidDate(disableBefore)) {
         finalDate = getValidDate(disableBefore);
@@ -150,6 +153,7 @@ export default function DatePicker({
     setDate2,
     setBufferedDate2,
     dateFormat,
+    precision,
   ]);
 
   return (

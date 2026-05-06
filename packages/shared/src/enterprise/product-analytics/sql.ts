@@ -295,11 +295,17 @@ export function calculateProductAnalyticsDateRange(
         startDate.setUTCDate(startDate.getUTCDate() - 30);
       }
       return { startDate, endDate };
-    case "customDateRange":
-      return {
-        startDate: getValidDate(dateRange.startDate),
-        endDate: getValidDate(dateRange.endDate),
-      };
+    case "customDateRange": {
+      // The user picked calendar days, not instants, so expand the start to
+      // `00:00:00.000` UTC and the end to `23:59:59.999` UTC. Without the
+      // end-of-day expansion, picking "Apr 1 → May 1" would silently drop
+      // everything that happened on May 1.
+      const startDate = getValidDate(dateRange.startDate);
+      startDate.setUTCHours(0, 0, 0, 0);
+      const endDate = getValidDate(dateRange.endDate);
+      endDate.setUTCHours(23, 59, 59, 999);
+      return { startDate, endDate };
+    }
   }
 }
 
