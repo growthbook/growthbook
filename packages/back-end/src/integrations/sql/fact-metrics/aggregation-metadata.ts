@@ -157,49 +157,54 @@ export function getAggregationMetadata(
     };
   }
 
-  // "kll merge": the column is a pre-built KLL sketch (BYTES). Only valid for
-  // event-quantile metrics. Identical to the event-quantile branch below except
-  // the first aggregation step merges existing sketches (kllMergePartial)
-  // rather than building one from raw numeric values (kllInit). The
-  // fullAggregationFunction is unused for "kll merge" because the non-
-  // incremental per-user path never sees raw event values — only sketches.
-  if (
-    !columnRef?.column.startsWith("$$") &&
-    columnRef?.aggregation === "kll merge" &&
-    metric.metricType === "quantile" &&
-    metric.quantileSettings?.type === "event"
-  ) {
-    return {
-      intermediateDataType: "kll",
-      partialAggregationFunction: (column: string) =>
-        dialect.kllMergePartial(column),
-      reAggregationFunction: (column: string) =>
-        dialect.kllMergePartial(column),
-      finalDataType: "integer",
-      fullAggregationFunction: (column: string, quantileColumn?: string) =>
-        `SUM(${dialect.ifElse(`${column} <= ${quantileColumn ?? ""}`, "1", "0")})`,
-    };
-  }
+  if (metric.metricType === "quantile") {
+    if (!metric.quantileSettings) {
+      throw new Error(
+        `Quantile metric '${metric.id}' is missing quantileSettings.`,
+      );
+    }
 
-  if (
-    metric.metricType === "quantile" &&
-    metric.quantileSettings?.type === "event"
-  ) {
-    // For incremental refresh, event quantile metrics store a KLL sketch of
-    // event values per user-date. Sketches are merged (per user, then per
-    // variation) at stats-query time and the quantile grid is extracted via
-    // kllExtractPoint. The per-user "count below threshold" (main_sum) is
-    // recovered via two-pass rank recovery (kllRankApprox) — see
-    // getIncrementalRefreshStatisticsQuery.
-    return {
-      intermediateDataType: "kll",
-      partialAggregationFunction: (column: string) => dialect.kllInit(column),
-      reAggregationFunction: (column: string) =>
-        dialect.kllMergePartial(column),
-      finalDataType: "integer",
-      fullAggregationFunction: (column: string, quantileColumn?: string) =>
-        `SUM(${dialect.ifElse(`${column} <= ${quantileColumn ?? ""}`, "1", "0")})`,
-    };
+    if (metric.quantileSettings.type === "event") {
+      // "kll merge": the column is a pre-built KLL sketch (BYTES). Only valid for
+      // event-quantile metrics. Identical to the event-quantile branch below except
+      // the first aggregation step merges existing sketches (kllMergePartial)
+      // rather than building one from raw numeric values (kllInit). The
+      // fullAggregationFunction is unused for "kll merge" because the non-
+      // incremental per-user path never sees raw event values — only sketches.
+      if (
+        !columnRef?.column.startsWith("$$") &&
+        columnRef?.aggregation === "kll merge"
+      ) {
+        return {
+          intermediateDataType: "kll",
+          partialAggregationFunction: (column: string) =>
+            dialect.kllMergePartial(column),
+          reAggregationFunction: (column: string) =>
+            dialect.kllMergePartial(column),
+          finalDataType: "integer",
+          fullAggregationFunction: (column: string, quantileColumn?: string) =>
+            `SUM(${dialect.ifElse(`${column} <= ${quantileColumn ?? ""}`, "1", "0")})`,
+        };
+      }
+      // For incremental refresh, event quantile metrics store a KLL sketch of
+      // event values per user-date. Sketches are merged (per user, then per
+      // variation) at stats-query time and the quantile grid is extracted via
+      // kllExtractPoint. The per-user "count below threshold" (main_sum) is
+      // recovered via two-pass rank recovery (kllRankApprox) — see
+      // getIncrementalRefreshStatisticsQuery.
+      return {
+        intermediateDataType: "kll",
+        partialAggregationFunction: (column: string) => dialect.kllInit(column),
+        reAggregationFunction: (column: string) =>
+          dialect.kllMergePartial(column),
+        finalDataType: "integer",
+        fullAggregationFunction: (column: string, quantileColumn?: string) =>
+          `SUM(${dialect.ifElse(`${column} <= ${quantileColumn ?? ""}`, "1", "0")})`,
+      };
+    }
+
+    // Unit quantiles are handled however the unit aggregation is specified and the quantile
+    // is applied AFTER the `fullAggregationFunction` in the stats step.
   }
 
   const reAggregationFunction = nullIfZero

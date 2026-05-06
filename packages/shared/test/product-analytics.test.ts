@@ -13,7 +13,7 @@ describe("productAnalytics", () => {
     settings: {},
   };
 
-  const helpers: SqlDialect = {
+  const helpers = {
     escapeStringLiteral: (value) => value,
     jsonExtract: (jsonCol, path, isNumeric) =>
       `${jsonCol}:'${path}'::${isNumeric ? "float" : "text"}`,
@@ -21,12 +21,16 @@ describe("productAnalytics", () => {
     dateTrunc: (col, granularity) => `date_trunc('${granularity}', ${col})`,
     percentileApprox: (col, quantile) =>
       `APPROX_PERCENTILE(${col}, ${quantile})`,
+    hllReaggregate: (col) => `HLL_MERGE(${col})`,
+    hllCardinality: (col) => `HLL_COUNT(${col})`,
+    kllMergePartial: (col) => `KLL_MERGE(${col})`,
+    kllExtractPoint: (col, quantile) => `KLL_POINT(${col}, ${quantile})`,
     toTimestamp: (d: Date) =>
       // Do not include the timestamp component to make the test deterministic
       `'${d.toISOString().substring(0, 10)} 00:00:00'`,
     formatDialect: "bigquery",
     castToFloat: (col) => `CAST(${col} AS FLOAT)`,
-  };
+  } as Partial<SqlDialect> as SqlDialect;
 
   const factTableMap = new Map<string, FactTableInterface>([
     [
@@ -105,6 +109,106 @@ describe("productAnalytics", () => {
   ]);
 
   const metricMap = new Map<string, FactMetricInterface>();
+
+  const sketchFactTableMap = new Map<string, FactTableInterface>([
+    [
+      "sketches",
+      {
+        ...factTableMap.get("orders")!,
+        id: "sketches",
+        name: "Sketches",
+        sql: "SELECT user_id, timestamp, users_hll, latency_kll FROM sketches",
+        columns: [
+          ...factTableMap.get("orders")!.columns,
+          {
+            column: "users_hll",
+            datatype: "binary",
+            dateCreated: new Date(),
+            dateUpdated: new Date(),
+            name: "users_hll",
+            description: "",
+            numberFormat: "",
+            alwaysInlineFilter: false,
+            deleted: false,
+            autoSlices: [],
+            isAutoSliceColumn: false,
+          },
+          {
+            column: "latency_kll",
+            datatype: "binary",
+            dateCreated: new Date(),
+            dateUpdated: new Date(),
+            name: "latency_kll",
+            description: "",
+            numberFormat: "",
+            alwaysInlineFilter: false,
+            deleted: false,
+            autoSlices: [],
+            isAutoSliceColumn: false,
+          },
+        ],
+      },
+    ],
+  ]);
+
+  const sketchMetricMap = new Map<string, FactMetricInterface>([
+    [
+      "hll_metric",
+      {
+        id: "hll_metric",
+        name: "Users HLL",
+        metricType: "mean",
+        numerator: {
+          factTableId: "sketches",
+          column: "users_hll",
+          aggregation: "hll merge",
+        },
+        denominator: null,
+        cappingSettings: {
+          type: "",
+          value: 0,
+        },
+        windowSettings: {
+          type: "",
+          delayValue: 0,
+          delayUnit: "days",
+          windowValue: 0,
+          windowUnit: "days",
+        },
+        quantileSettings: null,
+      } as FactMetricInterface,
+    ],
+    [
+      "kll_metric",
+      {
+        id: "kll_metric",
+        name: "Latency KLL",
+        metricType: "quantile",
+        numerator: {
+          factTableId: "sketches",
+          column: "latency_kll",
+          aggregation: "kll merge",
+        },
+        denominator: null,
+        cappingSettings: {
+          type: "",
+          value: 0,
+        },
+        windowSettings: {
+          type: "",
+          delayValue: 0,
+          delayUnit: "days",
+          windowValue: 0,
+          windowUnit: "days",
+        },
+        quantileSettings: {
+          type: "event",
+          quantile: 0.9,
+          ignoreZeros: false,
+        },
+      } as FactMetricInterface,
+    ],
+  ]);
 
   it("generates SQL for fact tables", () => {
     const config: ExplorationConfig = {
@@ -635,5 +739,101 @@ describe("productAnalytics", () => {
     );
 
     expect(sql).toEqual(expected);
+  });
+
+  it("generates SQL for HLL merge metric unit aggregation", () => {
+    const config: ExplorationConfig = {
+      type: "metric",
+      datasource: "ds_1",
+      chartType: "line",
+      showAs: "total",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        {
+          dimensionType: "date",
+          column: null,
+          dateGranularity: "day",
+        },
+      ],
+      dataset: {
+        type: "metric",
+        values: [
+          {
+            name: "Users HLL",
+            type: "metric",
+            metricId: "hll_metric",
+            rowFilters: [],
+            unit: "user_id",
+            denominatorUnit: null,
+          },
+        ],
+      },
+    };
+
+    const { sql } = generateProductAnalyticsSQL(
+      config,
+      sketchFactTableMap,
+      sketchMetricMap,
+      helpers,
+      datasource,
+    );
+
+    expect(sql).toMatch(/HLL_COUNT\s*\(\s*HLL_MERGE\s*\(\s*m0\s*\)\s*\)\s+AS\s+m0/);
+    expect(sql).toContain("CAST(SUM(m0) AS FLOAT) AS m0_numerator");
+  });
+
+  it("generates SQL for KLL merge quantile rollup", () => {
+    const config: ExplorationConfig = {
+      type: "metric",
+      datasource: "ds_1",
+      chartType: "line",
+      showAs: "total",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        {
+          dimensionType: "date",
+          column: null,
+          dateGranularity: "day",
+        },
+      ],
+      dataset: {
+        type: "metric",
+        values: [
+          {
+            name: "Latency KLL",
+            type: "metric",
+            metricId: "kll_metric",
+            rowFilters: [],
+            unit: null,
+            denominatorUnit: null,
+          },
+        ],
+      },
+    };
+
+    const { sql } = generateProductAnalyticsSQL(
+      config,
+      sketchFactTableMap,
+      sketchMetricMap,
+      helpers,
+      datasource,
+    );
+
+    expect(sql).toMatch(
+      /CAST\s*\(\s*KLL_POINT\s*\(\s*KLL_MERGE\s*\(\s*m0\s*\),\s*0\.9\s*\)\s+AS\s+FLOAT\s*\)\s+AS\s+m0_numerator/,
+    );
+    expect(sql).not.toContain("APPROX_PERCENTILE(m0, 0.9)");
   });
 });

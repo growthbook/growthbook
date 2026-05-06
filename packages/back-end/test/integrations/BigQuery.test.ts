@@ -172,6 +172,24 @@ describe("BigQuery KLL quantile sketch methods", () => {
       "KLL_QUANTILES.MERGE_PARTIAL(col)",
     );
   });
+
+  it("throws for quantile metrics without quantileSettings", () => {
+    const metric = factMetricFactory.build({
+      id: "fact_missing_quantile_settings",
+      metricType: "quantile",
+      quantileSettings: null,
+      numerator: { factTableId: "ft1", column: "amount" },
+    });
+
+    expect(() =>
+      getAggregationMetadata(integration.getSqlDialect(), {
+        metric,
+        useDenominator: false,
+      }),
+    ).toThrow(
+      "Quantile metric 'fact_missing_quantile_settings' is missing quantileSettings.",
+    );
+  });
 });
 
 describe("BigQuery pre-built sketch column aggregations (hll merge / kll merge)", () => {

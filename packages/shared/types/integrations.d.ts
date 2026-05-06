@@ -172,7 +172,7 @@ export type FactMetricQuantileData = {
   // KLL sketch column). In that case n_events must be aggregated by
   // SUM-ing the paired '<sketch>_n_events' column rather than COUNT-ing
   // sketch rows.
-  isKllMerge?: boolean;
+  isKllMerge: boolean;
 };
 
 export type FactMetricPercentileData = {

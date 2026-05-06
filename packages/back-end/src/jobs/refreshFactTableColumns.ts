@@ -172,7 +172,6 @@ export async function runRefreshColumnsQuery(
     [timestampColumn],
     "factTableValidation",
   );
-  console.log("result", result);
 
   const typeMap = new Map<string, FactTableColumnType>();
   const jsonMap = new Map<string, JSONColumnFields>();

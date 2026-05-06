@@ -9,7 +9,6 @@ import {
 import { getFactTable } from "back-end/src/models/FactTableModel";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { validateAggregationSpecification } from "back-end/src/api/fact-metrics/postFactMetric";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 
 function expectsDenominator(metricType: FactMetricType) {
@@ -46,19 +45,6 @@ export async function getUpdateFactMetricPropsFromBody(
     loseRisk: riskThresholdDanger,
   };
 
-  // Effective metric type / quantile type for validation: prefer the
-  // values being written by this PATCH; fall back to whatever is already
-  // persisted on the metric.
-  const effectiveMetricType = updates.metricType ?? factMetric.metricType;
-  const effectiveQuantileType =
-    updates.quantileSettings?.type ?? factMetric.quantileSettings?.type;
-  const effectiveQuantileIgnoreZeros =
-    updates.quantileSettings?.ignoreZeros ??
-    factMetric.quantileSettings?.ignoreZeros;
-  const effectiveQuantileEventCountColumn =
-    updates.quantileSettings?.quantileEventCountColumn ??
-    factMetric.quantileSettings?.quantileEventCountColumn;
-
   const metricType = updates.metricType;
   if (numerator) {
     updates.numerator = FactMetricModel.migrateColumnRef({
@@ -72,15 +58,6 @@ export async function getUpdateFactMetricPropsFromBody(
     if (!factTable) {
       throw new Error("Could not find numerator fact table");
     }
-    validateAggregationSpecification({
-      errorPrefix: "Numerator misspecified. ",
-      column: updates.numerator,
-      factTable: factTable,
-      metricType: effectiveMetricType,
-      quantileType: effectiveQuantileType,
-      quantileIgnoreZeros: effectiveQuantileIgnoreZeros,
-      quantileEventCountColumn: effectiveQuantileEventCountColumn,
-    });
   }
   // remove denominator for non-ratio metrics where existing
   // metric is a ratio metric
@@ -100,16 +77,6 @@ export async function getUpdateFactMetricPropsFromBody(
     if (!factTable) {
       throw new Error("Could not find denominator fact table");
     }
-    validateAggregationSpecification({
-      errorPrefix: "Denominator misspecified. ",
-      column: updates.denominator,
-      factTable: factTable,
-      metricType: effectiveMetricType,
-      quantileType: effectiveQuantileType,
-      quantileIgnoreZeros: effectiveQuantileIgnoreZeros,
-      // Override is numerator-only; never relevant for denominators.
-      quantileEventCountColumn: undefined,
-    });
   }
   if (cappingSettings) {
     updates.cappingSettings = {

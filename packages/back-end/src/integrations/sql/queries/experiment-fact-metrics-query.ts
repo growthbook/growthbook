@@ -329,7 +329,10 @@ export function getExperimentFactMetricsQuery(
                           data.overrideConversionWindows,
                         endDate: settings.endDate,
                         // Skip ignoreZeros for n_events
-                        metricQuantileSettings: undefined,
+                        metricQuantileSettings: {
+                          ...data.metricQuantileSettings,
+                          ignoreZeros: false,
+                        },
                         metricTimestampColExpr: "m.timestamp",
                         exposureTimestampColExpr: "d.timestamp",
                       })} as ${data.alias}_n_events`
@@ -414,7 +417,7 @@ export function getExperimentFactMetricsQuery(
     , __userMetricAgg${f.index === 0 ? "" : f.index} as (${(() => {
       // Per-table 'kll merge' resolution wrapper:
       // For 'kll merge' event-quantile metrics, the inner SELECT below merges
-      // per-event sketches into a per-user sketch via kllMergePartial (an
+      // per-row sketches into a per-user sketch via kllMergePartial (an
       // aggregate over the per-user GROUP BY) and emits it as
       // ${alias}_user_sketch. The OUTER SELECT then joins that per-user sketch
       // with __eventQuantileMetric (per variation+dim) and applies

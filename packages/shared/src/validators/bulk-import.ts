@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { ownerInputField } from "./owner-field";
 
-// Corresponds to payload-schemas/BulkImportFactsPayload.yaml
 // The body references PostFactTablePayload, PostFactTableFilterPayload, and PostFactMetricPayload
 const postBulkImportFactsBody = z
   .object({
@@ -278,6 +277,12 @@ const postBulkImportFactsBody = z
                   .gte(0.001)
                   .lte(0.999)
                   .describe("The quantile value (from 0.001 to 0.999)"),
+                quantileEventCountColumn: z
+                  .string()
+                  .describe(
+                    "Optional override for the source-column name used to recover per-row event counts when numerator.aggregation is 'kll merge'. Defaults to '<numerator.column>_n_events'. Only valid for event-quantile metrics with a 'kll merge' numerator.",
+                  )
+                  .optional(),
               })
               .describe(
                 'Controls the settings for quantile metrics (mandatory if metricType is "quantile")',

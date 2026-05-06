@@ -26,7 +26,7 @@ import {
   validateFactMetricRowFilterSql,
 } from "back-end/src/services/factMetricRowFilterValidation";
 import { projectFilterQuery } from "back-end/src/util/mongo.util";
-import { validateAggregationSpecification } from "back-end/src/api/fact-metrics/postFactMetric";
+import { validateAggregationSpecification } from "back-end/src/services/factMetricAggregationValidation";
 import { MakeModelClass } from "./BaseModel";
 import { getDataSourceById } from "./DataSourceModel";
 import { getFactTableMap } from "./FactTableModel";

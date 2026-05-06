@@ -8,12 +8,9 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
-import { getSelectedColumnDatatype } from "shared/experiments";
 import { postFactMetricValidator } from "shared/validators";
 import {
-  ColumnRef,
   CreateFactMetricProps,
-  FactMetricType,
   FactTableInterface,
 } from "shared/types/fact-table";
 import { OrganizationInterface } from "shared/types/organization";
@@ -21,120 +18,6 @@ import { getFactTable } from "back-end/src/models/FactTableModel";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
-
-export function validateAggregationSpecification({
-  column,
-  factTable,
-  metricType,
-  quantileType,
-  quantileIgnoreZeros,
-  quantileEventCountColumn,
-  errorPrefix,
-}: {
-  column: ColumnRef;
-  factTable: FactTableInterface;
-  metricType?: FactMetricType;
-  quantileType?: "unit" | "event";
-  quantileIgnoreZeros?: boolean;
-  quantileEventCountColumn?: string;
-  errorPrefix?: string;
-}) {
-  const datatype = getSelectedColumnDatatype({
-    factTable,
-    column: column.column,
-  });
-  if (column.aggregation === "count distinct" && datatype !== "string") {
-    throw new Error(
-      `${errorPrefix}Cannot use 'count distinct' aggregation with the special or numeric column '${column.column}'.`,
-    );
-  }
-  if (
-    (column.aggregation === "hll merge" ||
-      column.aggregation === "kll merge") &&
-    datatype !== "binary"
-  ) {
-    throw new Error(
-      `${errorPrefix}Cannot use '${column.aggregation}' aggregation with the ${datatype || "unknown"} column '${column.column}'. The column must have a binary datatype (e.g. BigQuery BYTES).`,
-    );
-  }
-  if (datatype === "string" && column.aggregation !== "count distinct") {
-    throw new Error(
-      `${errorPrefix}Must use 'count distinct' aggregation with string column '${column.column}'.`,
-    );
-  }
-  if (
-    datatype === "binary" &&
-    column.aggregation !== "hll merge" &&
-    column.aggregation !== "kll merge"
-  ) {
-    throw new Error(
-      `${errorPrefix}Must use 'hll merge' or 'kll merge' aggregation with binary column '${column.column}'.`,
-    );
-  }
-  // 'kll merge' is only meaningful in event-quantile metrics — the
-  // back-end aggregation pipeline silently falls through to a SUM in
-  // any other context (which would produce broken SQL on a binary
-  // sketch column). Block it at the API boundary when we have enough
-  // context to tell.
-  if (
-    column.aggregation === "kll merge" &&
-    metricType !== undefined &&
-    (metricType !== "quantile" || quantileType !== "event")
-  ) {
-    throw new Error(
-      `${errorPrefix}'kll merge' aggregation is only valid for event-quantile metrics (metricType=quantile, quantileSettings.type=event).`,
-    );
-  }
-  // `ignoreZeros` cannot be applied when re-aggregating pre-built KLL
-  // sketches: the zero-filtering must happen in the upstream pipeline
-  // that built the sketch (we can no longer see individual event
-  // values). Reject explicit attempts to combine the two.
-  if (column.aggregation === "kll merge" && quantileIgnoreZeros) {
-    throw new Error(
-      `${errorPrefix}'ignoreZeros' is not supported with 'kll merge' aggregation. Filter zero-valued events before building the KLL sketch in your source pipeline.`,
-    );
-  }
-  // KLL sketches do not expose an internal "items inserted" count via any
-  // current SQL engine. To recover per-user event counts (needed for the
-  // cluster-aware variance estimator and the two-pass rank recovery in
-  // kllRankApprox) we require the user to materialize a paired count column
-  // of numeric datatype alongside the sketch column on the same fact table.
-  // Default name: `<sketch>_n_events`. The metric author can override that
-  // default via quantileSettings.quantileEventCountColumn — useful when their
-  // upstream pipeline already emits a count under a different name.
-  if (column.aggregation === "kll merge") {
-    const expectedNEventsColumn =
-      quantileEventCountColumn?.trim() || `${column.column}_n_events`;
-    const overrideUsed =
-      !!quantileEventCountColumn && quantileEventCountColumn.trim().length > 0;
-    const pairedColumn = factTable.columns.find(
-      (c) => c.column === expectedNEventsColumn && !c.deleted,
-    );
-    if (!pairedColumn) {
-      throw new Error(
-        overrideUsed
-          ? `${errorPrefix}quantileSettings.quantileEventCountColumn references '${expectedNEventsColumn}', which does not exist on the fact table. Add it as a numeric column or remove the override.`
-          : `${errorPrefix}'kll merge' on column '${column.column}' requires a paired event-count column named '${expectedNEventsColumn}' on the same fact table. Add it as a numeric column, or set quantileSettings.quantileEventCountColumn to point at an existing one.`,
-      );
-    }
-    if (pairedColumn.datatype !== "number") {
-      throw new Error(
-        `${errorPrefix}Paired event-count column '${expectedNEventsColumn}' must have a numeric datatype (got '${pairedColumn.datatype || "unknown"}').`,
-      );
-    }
-  } else if (
-    quantileEventCountColumn !== undefined &&
-    quantileEventCountColumn !== ""
-  ) {
-    // The override is only meaningful for 'kll merge'. Any other context (raw
-    // event quantiles, unit quantiles, non-quantile metrics) computes
-    // n_events from the row stream itself, so a custom source column has no
-    // semantics. Reject explicit attempts to combine the two.
-    throw new Error(
-      `${errorPrefix}quantileSettings.quantileEventCountColumn is only valid when numerator.aggregation === 'kll merge'.`,
-    );
-  }
-}
 
 export async function getCreateMetricPropsFromBody(
   body: z.infer<typeof postFactMetricValidator.bodySchema>,
@@ -173,16 +56,6 @@ export async function getCreateMetricPropsFromBody(
       body.metricType === "proportion" || body.metricType === "retention"
         ? "$$distinctUsers"
         : body.numerator.column || "$$distinctUsers",
-  });
-
-  validateAggregationSpecification({
-    errorPrefix: "Numerator misspecified. ",
-    column: cleanedNumerator,
-    factTable: factTable,
-    metricType: body.metricType,
-    quantileType: quantileSettings?.type,
-    quantileIgnoreZeros: quantileSettings?.ignoreZeros,
-    quantileEventCountColumn: quantileSettings?.quantileEventCountColumn,
   });
 
   const data: CreateFactMetricProps = {
@@ -257,17 +130,6 @@ export async function getCreateMetricPropsFromBody(
     if (!denominatorFactTable) {
       throw new Error("Could not find denominator fact table");
     }
-    validateAggregationSpecification({
-      errorPrefix: "Denominator misspecified. ",
-      column: data.denominator,
-      factTable: denominatorFactTable,
-      metricType: body.metricType,
-      quantileType: quantileSettings?.type,
-      quantileIgnoreZeros: quantileSettings?.ignoreZeros,
-      // The override only applies to numerators (denominators don't support
-      // 'kll merge'). Pass undefined so the validator never sees it here.
-      quantileEventCountColumn: undefined,
-    });
   }
 
   if (cappingSettings?.type && cappingSettings?.type !== "none") {

@@ -14,6 +14,7 @@ import { compileSqlTemplate } from "back-end/src/util/sql";
 
 import { getFactMetricColumn } from "back-end/src/integrations/sql/columns/fact-metric-column";
 import { toTimestampWithMs } from "back-end/src/integrations/sql/primitives/to-timestamp-with-ms";
+import { getKllEventCountSourceColumn } from "back-end/src/services/factMetrics";
 
 /** Fact Table CTE for multiple fact metrics that share the same fact table */
 export function getFactMetricCTE(
@@ -133,9 +134,11 @@ export function getFactMetricCTE(
       // the create-time validator guarantees the resolved column exists
       // and has a numeric datatype on the same fact table.
       if (m.numerator.aggregation === "kll merge") {
-        const nEventsSourceCol =
-          m.quantileSettings?.quantileEventCountColumn?.trim() ||
-          `${m.numerator.column}_n_events`;
+        const nEventsSourceCol = getKllEventCountSourceColumn({
+          column: m.numerator,
+          quantileEventCountColumn:
+            m.quantileSettings?.quantileEventCountColumn,
+        });
         const nEventsCol =
           filters.length > 0
             ? `CASE WHEN (${filters.join("\n AND ")}) THEN m.${nEventsSourceCol} ELSE NULL END`

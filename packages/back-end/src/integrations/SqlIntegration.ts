@@ -2290,7 +2290,10 @@ export default abstract class SqlIntegration
                         endDate: params.settings.endDate,
                         // Skip ignoreZeros for n_events (it would emit a
                         // numeric != 0 filter that's irrelevant here)
-                        metricQuantileSettings: undefined,
+                        metricQuantileSettings: {
+                          ...data.metricQuantileSettings,
+                          ignoreZeros: false,
+                        },
                         metricTimestampColExpr: castToTimestamp("m.timestamp"),
                         exposureTimestampColExpr: "d.first_exposure_timestamp",
                       })} AS ${data.alias}_n_events`
