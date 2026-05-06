@@ -5,7 +5,7 @@ import {
 } from "shared/types/experiment-snapshot";
 import { ExperimentInterface } from "shared/validators";
 import {
-  runEagerPrecomputedDimensionAnalyses,
+  runEagerExperimentDimensionAnalyses,
   runEagerUnitDimensionAnalyses,
 } from "back-end/src/services/experimentDimensionAnalyses";
 import { getOrCreatePrecomputedDimensionTimeSeriesAnalyses } from "back-end/src/services/experimentDimensionTimeSeries";
@@ -234,7 +234,7 @@ function makeContext() {
   };
 }
 
-describe("runEagerPrecomputedDimensionAnalyses", () => {
+describe("runEagerExperimentDimensionAnalyses", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (getMetricMap as jest.Mock).mockResolvedValue(new Map());
@@ -250,7 +250,7 @@ describe("runEagerPrecomputedDimensionAnalyses", () => {
 
   it("skips snapshots without precomputed dimensions", async () => {
     const context = makeContext();
-    await runEagerPrecomputedDimensionAnalyses({
+    await runEagerExperimentDimensionAnalyses({
       context: context as never,
       experiment: makeExperiment(),
       experimentSnapshot: makeSnapshot({
@@ -271,7 +271,7 @@ describe("runEagerPrecomputedDimensionAnalyses", () => {
 
   it("skips dimensioned snapshots", async () => {
     const context = makeContext();
-    await runEagerPrecomputedDimensionAnalyses({
+    await runEagerExperimentDimensionAnalyses({
       context: context as never,
       experiment: makeExperiment(),
       experimentSnapshot: makeSnapshot({
@@ -289,7 +289,7 @@ describe("runEagerPrecomputedDimensionAnalyses", () => {
 
   it("skips snapshots without a time-series-compatible base analysis", async () => {
     const context = makeContext();
-    await runEagerPrecomputedDimensionAnalyses({
+    await runEagerExperimentDimensionAnalyses({
       context: context as never,
       experiment: makeExperiment(),
       experimentSnapshot: makeSnapshot({
@@ -315,7 +315,7 @@ describe("runEagerPrecomputedDimensionAnalyses", () => {
 
   it("gets or creates relative, absolute, and scaled analyses and writes dimension time series", async () => {
     const context = makeContext();
-    await runEagerPrecomputedDimensionAnalyses({
+    await runEagerExperimentDimensionAnalyses({
       context: context as never,
       experiment: makeExperiment(),
       experimentSnapshot: makeSnapshot(),
@@ -373,7 +373,7 @@ describe("runEagerPrecomputedDimensionAnalyses", () => {
       makeAnalysis({ differenceType: "scaled", dimensionValue: "" }),
     ]);
 
-    await runEagerPrecomputedDimensionAnalyses({
+    await runEagerExperimentDimensionAnalyses({
       context: context as never,
       experiment: makeExperiment(),
       experimentSnapshot: makeSnapshot(),
@@ -411,7 +411,7 @@ describe("runEagerPrecomputedDimensionAnalyses", () => {
         }),
       ]);
 
-    await runEagerPrecomputedDimensionAnalyses({
+    await runEagerExperimentDimensionAnalyses({
       context: context as never,
       experiment: makeExperiment(),
       experimentSnapshot: makeSnapshot({

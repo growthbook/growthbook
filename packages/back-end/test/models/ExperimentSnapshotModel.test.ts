@@ -21,7 +21,7 @@ import { ExperimentSnapshotAnalysisChunkModel } from "back-end/src/models/Experi
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
-import { runEagerPrecomputedDimensionAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
+import { runEagerExperimentDimensionAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
@@ -41,7 +41,7 @@ jest.mock("back-end/src/services/experimentTimeSeries", () => ({
 }));
 
 jest.mock("back-end/src/services/experimentDimensionAnalyses", () => ({
-  runEagerPrecomputedDimensionAnalyses: jest.fn().mockResolvedValue(undefined),
+  runEagerExperimentDimensionAnalyses: jest.fn().mockResolvedValue(undefined),
   runEagerUnitDimensionAnalyses: jest.fn().mockResolvedValue(undefined),
 }));
 
@@ -749,7 +749,7 @@ describe("ExperimentSnapshotModel", () => {
       );
       (notifyExperimentChange as jest.Mock).mockResolvedValue([]);
       (updateExperimentTimeSeries as jest.Mock).mockResolvedValue(undefined);
-      (runEagerPrecomputedDimensionAnalyses as jest.Mock).mockResolvedValue(
+      (runEagerExperimentDimensionAnalyses as jest.Mock).mockResolvedValue(
         undefined,
       );
       return experiment;
@@ -884,8 +884,8 @@ describe("ExperimentSnapshotModel", () => {
         },
       });
 
-      expect(runEagerPrecomputedDimensionAnalyses).toHaveBeenCalledTimes(1);
-      expect(runEagerPrecomputedDimensionAnalyses).toHaveBeenCalledWith({
+      expect(runEagerExperimentDimensionAnalyses).toHaveBeenCalledTimes(1);
+      expect(runEagerExperimentDimensionAnalyses).toHaveBeenCalledWith({
         context,
         experiment: expect.objectContaining({ id: snapshot.experiment }),
         experimentSnapshot: expect.objectContaining({
@@ -972,7 +972,7 @@ describe("ExperimentSnapshotModel", () => {
           updates: testCase.updates,
         });
 
-        expect(runEagerPrecomputedDimensionAnalyses).not.toHaveBeenCalled();
+        expect(runEagerExperimentDimensionAnalyses).not.toHaveBeenCalled();
       },
     );
 
@@ -1003,7 +1003,7 @@ describe("ExperimentSnapshotModel", () => {
         },
       });
 
-      expect(runEagerPrecomputedDimensionAnalyses).not.toHaveBeenCalled();
+      expect(runEagerExperimentDimensionAnalyses).not.toHaveBeenCalled();
     });
 
     it("preserves distinct analysisKeys when multiple analyses share identical settings", async () => {

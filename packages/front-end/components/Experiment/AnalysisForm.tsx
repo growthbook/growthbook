@@ -376,6 +376,7 @@ const AnalysisForm: FC<{
         }
         if (body.type === "multi-armed-bandit") {
           body.statsEngine = "bayesian";
+          body.precomputedUnitDimensionIds = [];
           if (!body.datasource) {
             throw new Error("You must select a datasource");
           }
@@ -959,28 +960,30 @@ const AnalysisForm: FC<{
                 lazyRender={true}
               >
                 <div className="rounded px-3 pt-3 pb-1 bg-highlight">
-                  <div className="form-group mb-2">
-                    <UITooltip
-                      enabled={!hasEligiblePrecomputedUnitDimensions}
-                      content={precomputedUnitDimensionDisabledReason}
-                    >
-                      <div>
-                        <MultiSelectField
-                          label="Always-computed unit dimensions"
-                          labelClassName="font-weight-bold"
-                          helpText="These dimensions will be computed automatically on every refresh, similar to precomputed dimensions. Changes apply on the next refresh."
-                          value={
-                            form.watch("precomputedUnitDimensionIds") || []
-                          }
-                          options={precomputedUnitDimensionOptions}
-                          disabled={!hasEligiblePrecomputedUnitDimensions}
-                          onChange={(v) =>
-                            form.setValue("precomputedUnitDimensionIds", v)
-                          }
-                        />
-                      </div>
-                    </UITooltip>
-                  </div>
+                  {!isBandit && (
+                    <div className="form-group mb-2">
+                      <UITooltip
+                        enabled={!hasEligiblePrecomputedUnitDimensions}
+                        content={precomputedUnitDimensionDisabledReason}
+                      >
+                        <div>
+                          <MultiSelectField
+                            label="Always-computed unit dimensions"
+                            labelClassName="font-weight-bold"
+                            helpText="These dimensions will be computed automatically on every refresh, similar to precomputed dimensions. Changes apply on the next refresh."
+                            value={
+                              form.watch("precomputedUnitDimensionIds") || []
+                            }
+                            options={precomputedUnitDimensionOptions}
+                            disabled={!hasEligiblePrecomputedUnitDimensions}
+                            onChange={(v) =>
+                              form.setValue("precomputedUnitDimensionIds", v)
+                            }
+                          />
+                        </div>
+                      </UITooltip>
+                    </div>
+                  )}
                   {datasourceProperties?.experimentSegments &&
                     filteredSegments.length > 0 && (
                       <div className="form-group mb-2">
