@@ -336,6 +336,14 @@ function draftHasChanges(
 // Diffs against origin/main may show those keys as `-` deletes; mask via the
 // `--stripOutputFields` flag in `diff-features.ts` if you need clean diffs.
 export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
+  // Defensive: `rules` is stored as Mongoose Mixed and pre-v2 docs occasionally
+  // landed with sparse/null array elements (incomplete imports, hand-edited
+  // backups, half-applied legacy migrations). Accessing `.type` on those
+  // throws "Cannot read properties of undefined (reading 'type')" and aborts
+  // the entire JIT migration on read — blocking publish/serve for the whole
+  // feature. Pass nullish through; downstream callers filter via
+  // `isPlausibleFeatureRule` before relying on the rule shape.
+  if (rule == null || typeof rule !== "object") return rule;
   // Old style experiment rule without coverage
   if (rule.type === "experiment" && !("coverage" in rule)) {
     const weights = rule.values

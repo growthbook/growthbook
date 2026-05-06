@@ -7,7 +7,7 @@ import { getReviewSetting } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useExperiments } from "@/hooks/useExperiments";
 import Callout from "@/ui/Callout";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import DraftSelectorForChanges, {
@@ -71,7 +71,7 @@ const AddToHoldoutModal = ({
   const showHoldoutSelect = experimentsAreInDraft && eligibleToAddToHoldout;
 
   return (
-    <Modal
+    <ModalStandard
       header="Add to holdout"
       close={close}
       open={true}
@@ -101,7 +101,6 @@ const AddToHoldoutModal = ({
                 res.draftVersion ??
                 (mode === "existing" ? selectedDraft : null);
               if (resolvedVersion != null) setVersion(resolvedVersion);
-              close();
             })
           : undefined
       }
@@ -140,7 +139,7 @@ const AddToHoldoutModal = ({
           />
         </>
       )}
-    </Modal>
+    </ModalStandard>
   );
 };
 

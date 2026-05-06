@@ -1,31 +1,33 @@
 import { Box } from "@radix-ui/themes";
-import Modal from "@/components/Modal";
 import Text from "@/ui/Text";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export interface Props {
   close: () => void;
   startAnalysis: () => Promise<void>;
 }
 
-export default function StartAnalysisModal({ close, startAnalysis }: Props) {
+export default function StartHoldoutAnalysisModal({
+  close,
+  startAnalysis,
+}: Props) {
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="start-holdout"
       trackingEventModalSource={"start-holdout-analysis"}
       open={true}
       size="md"
       submit={startAnalysis}
-      submitColor="danger"
+      ctaColor="red"
       cta="Confirm"
       ctaEnabled={true}
       close={close}
-      useRadixButton={true}
       header="Start Analysis Phase"
     >
-      <Box p="2">
-        <Text size="medium" color="text-mid">
+      <Box>
+        <Text as="div" size="medium" color="text-mid">
           Once you start the Analysis Phase:
-          <ul className="pl-4">
+          <ul style={{ paddingLeft: "var(--space-4)", marginBottom: 0 }}>
             <li>No new features or experiments can be added to the holdout</li>
             <li>
               Traffic will continue to be held out from existing features and
@@ -35,6 +37,6 @@ export default function StartAnalysisModal({ close, startAnalysis }: Props) {
           </ul>
         </Text>
       </Box>
-    </Modal>
+    </ModalStandard>
   );
 }

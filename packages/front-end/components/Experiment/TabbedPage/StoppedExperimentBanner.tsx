@@ -121,6 +121,7 @@ export default function StoppedExperimentBanner({
             </div>
             <div className="ml-auto pl-2">
               <ConfirmButton
+                isDestructive
                 onClick={async () => {
                   await apiCall(`/experiment/${experiment.id}`, {
                     method: "POST",
