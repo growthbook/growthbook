@@ -43,17 +43,33 @@ import PremiumCallout from "@/ui/PremiumCallout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import LinkButton from "@/ui/LinkButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import Tooltip from "@/components/Tooltip/Tooltip";
+
+const REST_API_ONLY_EDIT_MESSAGE =
+  "This is a metric that can only be managed via the REST API";
 
 function MetricRowMenu({ metric }: { metric: MetricTableItem }) {
   const [open, setOpen] = useState(false);
 
   const canDuplicate =
     !!metric.onDuplicate && envAllowsCreatingMetrics() && metric.canDuplicate;
-  const canEditMenu = metric.canEdit && !metric.archived && !!metric.onEdit;
+  const canEditMenu =
+    metric.canEdit &&
+    !metric.archived &&
+    !metric.editDisabledReason &&
+    !!metric.onEdit;
+  const canShowDisabledEdit =
+    metric.canEdit && !metric.archived && !!metric.editDisabledReason;
   const canArchive = metric.canEdit && !!metric.onArchive;
   const canDelete = metric.canDelete && !!metric.onDelete;
 
-  if (!canDuplicate && !canEditMenu && !canArchive && !canDelete) {
+  if (
+    !canDuplicate &&
+    !canEditMenu &&
+    !canShowDisabledEdit &&
+    !canArchive &&
+    !canDelete
+  ) {
     return null;
   }
 
@@ -83,6 +99,13 @@ function MetricRowMenu({ metric }: { metric: MetricTableItem }) {
             }}
           >
             Edit
+          </DropdownMenuItem>
+        )}
+        {canShowDisabledEdit && (
+          <DropdownMenuItem disabled>
+            <Tooltip body={metric.editDisabledReason}>
+              <span>Edit</span>
+            </Tooltip>
           </DropdownMenuItem>
         )}
         {canDuplicate && (
@@ -147,6 +170,7 @@ export interface MetricTableItem {
   canEdit: boolean;
   canDuplicate: boolean;
   canDelete: boolean;
+  editDisabledReason?: string;
   onArchive?: (desiredState: boolean) => Promise<void>;
   onDuplicate?: () => void;
   onEdit?: () => void;
@@ -284,6 +308,13 @@ export function useCombinedMetrics({
         canDuplicate,
         canEdit,
         canDelete,
+        editDisabledReason:
+          m.numerator.aggregation === "kll merge" ||
+          m.numerator.aggregation === "hll merge" ||
+          m.denominator?.aggregation === "kll merge" ||
+          m.denominator?.aggregation === "hll merge"
+            ? REST_API_ONLY_EDIT_MESSAGE
+            : undefined,
         onArchive: canEdit
           ? async (archivedState) => {
               await apiCall(`/fact-metrics/${m.id}`, {

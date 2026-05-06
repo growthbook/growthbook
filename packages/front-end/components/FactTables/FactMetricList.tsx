@@ -32,6 +32,19 @@ import {
 } from "@/ui/DropdownMenu";
 import FactMetricModal from "./FactMetricModal";
 
+const REST_API_ONLY_EDIT_MESSAGE =
+  "This is a metric that can only be managed via the REST API";
+
+function isMergeAggregationMetric(metric: FactMetricInterface): boolean {
+  const aggregations = [
+    metric.numerator.aggregation,
+    metric.denominator?.aggregation,
+  ];
+  return aggregations.some((aggregation) =>
+    ["kll merge", "hll merge"].includes(aggregation || ""),
+  );
+}
+
 function FactMetricRowMenu({
   metric,
   canEdit,
@@ -39,6 +52,7 @@ function FactMetricRowMenu({
   canDuplicate,
   onEdit,
   onDuplicate,
+  editDisabledReason,
 }: {
   metric: FactMetricInterface;
   canEdit: boolean;
@@ -46,10 +60,15 @@ function FactMetricRowMenu({
   canDuplicate: boolean;
   onEdit: () => void;
   onDuplicate: () => void;
+  editDisabledReason?: string;
 }) {
   const [open, setOpen] = useState(false);
   const { apiCall } = useAuth();
   const { mutateDefinitions } = useDefinitions();
+  const canEditMenu =
+    canEdit && !metric.archived && !editDisabledReason && !!onEdit;
+  const canShowDisabledEdit =
+    canEdit && !metric.archived && !!editDisabledReason;
 
   return (
     <DropdownMenu
@@ -69,7 +88,7 @@ function FactMetricRowMenu({
       menuPlacement="end"
     >
       <DropdownMenuGroup>
-        {canEdit && (
+        {canEditMenu && (
           <DropdownMenuItem
             onClick={() => {
               onEdit();
@@ -77,6 +96,13 @@ function FactMetricRowMenu({
             }}
           >
             Edit
+          </DropdownMenuItem>
+        )}
+        {canShowDisabledEdit && (
+          <DropdownMenuItem disabled>
+            <Tooltip body={editDisabledReason}>
+              <span>Edit</span>
+            </Tooltip>
           </DropdownMenuItem>
         )}
         {canDuplicate && (
@@ -424,12 +450,20 @@ export default function FactMetricList({
                     {metric.dateUpdated ? date(metric.dateUpdated) : null}
                   </td>
                   <td>
+                    {/*
+                      KLL/HLL merge metrics must be edited via REST API.
+                    */}
                     <FactMetricRowMenu
                       metric={metric}
                       canEdit={canEdit(metric)}
                       canDelete={canDelete(metric)}
                       canDuplicate={canCreateMetrics}
                       onEdit={() => setEditMetric(metric)}
+                      editDisabledReason={
+                        isMergeAggregationMetric(metric)
+                          ? REST_API_ONLY_EDIT_MESSAGE
+                          : undefined
+                      }
                       onDuplicate={() =>
                         setDuplicateMetric({
                           ...metric,

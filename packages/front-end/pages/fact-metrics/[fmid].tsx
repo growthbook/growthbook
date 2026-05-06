@@ -73,6 +73,18 @@ import Callout from "@/ui/Callout";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import Code from "@/components/SyntaxHighlighting/Code";
 
+const REST_API_ONLY_EDIT_MESSAGE =
+  "This is a metric that can only be managed via the REST API";
+
+function isMergeAggregationMetric(metric: {
+  numerator: { aggregation?: string };
+  denominator?: { aggregation?: string } | null;
+}): boolean {
+  return [metric.numerator.aggregation, metric.denominator?.aggregation].some(
+    (aggregation) => aggregation === "kll merge" || aggregation === "hll merge",
+  );
+}
+
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
   const factTable = getFactTableById(id || "");
@@ -242,6 +254,7 @@ export default function FactMetricPage() {
 
   let canEdit = permissionsUtil.canUpdateFactMetric(factMetric, {});
   let canDelete = permissionsUtil.canDeleteFactMetric(factMetric);
+  const editViaApiOnly = isMergeAggregationMetric(factMetric);
 
   if (
     factMetric.managedBy &&
@@ -560,7 +573,7 @@ export default function FactMetricPage() {
             open={openDropdown}
             onOpenChange={setOpenDropdown}
           >
-            {canEdit && (
+            {canEdit && !editViaApiOnly && (
               <DropdownMenuItem
                 onClick={() => {
                   setOpenDropdown(false);
@@ -568,6 +581,13 @@ export default function FactMetricPage() {
                 }}
               >
                 Edit Metric
+              </DropdownMenuItem>
+            )}
+            {canEdit && editViaApiOnly && (
+              <DropdownMenuItem disabled>
+                <Tooltip body={REST_API_ONLY_EDIT_MESSAGE}>
+                  <span>Edit Metric</span>
+                </Tooltip>
               </DropdownMenuItem>
             )}
             {canEdit &&
