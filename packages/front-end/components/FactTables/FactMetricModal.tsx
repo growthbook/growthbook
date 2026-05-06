@@ -166,15 +166,6 @@ function getNumericColumns(
   );
 }
 
-function getBinaryColumns(
-  factTable: FactTableInterface | null,
-): ColumnInterface[] {
-  if (!factTable) return [];
-  return factTable.columns.filter(
-    (col) => col.datatype === "binary" && !col.deleted,
-  );
-}
-
 function getColumnOptions({
   factTable,
   datasource,
@@ -185,7 +176,6 @@ function getColumnOptions({
   includeStringColumns = false,
   includeJSONFields = false,
   includeBooleanColumns = false,
-  includeBinaryColumns = false,
   showColumnsAsSums = false,
   excludeColumns,
   groupPrefix = "",
@@ -199,7 +189,6 @@ function getColumnOptions({
   includeStringColumns?: boolean;
   includeBooleanColumns?: boolean;
   includeJSONFields?: boolean;
-  includeBinaryColumns?: boolean;
   showColumnsAsSums?: boolean;
   excludeColumns?: Set<string>;
   groupPrefix?: string;
@@ -256,13 +245,6 @@ function getColumnOptions({
       })),
     );
   }
-
-  const binaryColumnOptions: SingleValue[] = getBinaryColumns(factTable).map(
-    (col) => ({
-      label: col.name,
-      value: col.column,
-    }),
-  );
 
   // Add JSON fields
   if (includeJSONFields && factTable?.columns) {
@@ -329,12 +311,6 @@ function getColumnOptions({
       ),
     });
   }
-  if (includeBinaryColumns && binaryColumnOptions.length > 0) {
-    ret.push({
-      label: `${groupPrefix}Pre-Aggregated (Binary) Columns`,
-      options: binaryColumnOptions.filter((v) => !excludeColumns?.has(v.value)),
-    });
-  }
   return ret;
 }
 
@@ -349,20 +325,6 @@ function getAggregationOptions(
       {
         label: "Count Distinct",
         value: "count distinct",
-      },
-    ];
-  }
-
-  if (selectedColumnDatatype === "binary") {
-    // Binary columns are pre-aggregated sketches; the merge function is
-    // implied by the column's datatype (HLL for unit-level Count Distinct,
-    // KLL for event-quantile metrics — see ColumnRefSelector). Surface a
-    // single, plain-language option so users don't have to know the
-    // underlying merge primitive.
-    return [
-      {
-        label: "Count Distinct",
-        value: "hll merge",
       },
     ];
   }
@@ -441,7 +403,6 @@ function ColumnRefSelector({
   includeCountDistinct,
   includeDistinctDates,
   aggregationType = "unit",
-  metricType,
   includeColumn,
   datasource,
   disableFactTableSelector,
@@ -456,12 +417,6 @@ function ColumnRefSelector({
   includeDistinctDates?: boolean;
   includeColumn?: boolean;
   aggregationType?: "unit" | "event";
-  // Used to disambiguate binary-column semantics. Pre-aggregated KLL
-  // sketches only make sense in event-quantile metrics; pre-aggregated
-  // HLL sketches only make sense for non-quantile unit aggregations
-  // (mean / ratio). For unit-quantile pickers we therefore omit binary
-  // columns entirely — see getColumnOptions usage below.
-  metricType?: FactMetricType;
   datasource: DataSourceInterfaceWithParams;
   disableFactTableSelector?: boolean;
   extraField?: ReactElement;
@@ -482,18 +437,6 @@ function ColumnRefSelector({
     includeNumericColumns: true,
     includeStringColumns:
       datasource.properties?.hasCountDistinctHLL && aggregationType === "unit",
-    includeBinaryColumns:
-      // Pre-aggregated HLL sketches: shown alongside Count Distinct on
-      // non-quantile unit-aggregation pickers (mean / ratio). They are
-      // intentionally hidden from unit-quantile pickers because a binary
-      // column may hold either HLL or KLL bytes — there is no clean way
-      // to compute a per-user scalar from a KLL sketch that feeds a
-      // cross-user quantile.
-      // Pre-aggregated KLL sketches: shown for event-quantile pickers.
-      (aggregationType === "unit" &&
-        metricType !== "quantile" &&
-        !!datasource.properties?.hasCountDistinctHLL) ||
-      (aggregationType === "event" && !!datasource.properties?.hasQuantileKLL),
     includeJSONFields: true,
   });
 
@@ -593,18 +536,7 @@ function ColumnRefSelector({
 
                 if (newDatatype === "string") {
                   aggregation = "count distinct";
-                } else if (newDatatype === "binary") {
-                  // Pre-aggregated sketch column: pick the merge primitive
-                  // implied by the metric context. Event-quantile pickers
-                  // use KLL; everything else (mean / ratio Count Distinct)
-                  // uses HLL.
-                  aggregation =
-                    aggregationType === "event" ? "kll merge" : "hll merge";
-                } else if (
-                  aggregation === "count distinct" ||
-                  aggregation === "hll merge" ||
-                  aggregation === "kll merge"
-                ) {
+                } else if (aggregation === "count distinct") {
                   aggregation = "sum";
                 }
 
@@ -805,8 +737,7 @@ function getWHERE({
   if (
     type === "quantile" &&
     quantileSettings.type === "event" &&
-    quantileSettings.ignoreZeros &&
-    columnRef?.aggregation !== "kll merge"
+    quantileSettings.ignoreZeros
   ) {
     whereParts.push(`-- Ignore zeros in percentile\nvalue > 0`);
   }
@@ -854,13 +785,9 @@ function getPreviewSQL({
           ? "1"
           : numerator.aggregation === "count distinct"
             ? `COUNT(DISTINCT ${numerator.column})`
-            : numerator.aggregation === "hll merge"
-              ? `-- Pre-aggregated HLL sketch column\n  HLL_COUNT.MERGE(${numerator.column})`
-              : numerator.aggregation === "kll merge"
-                ? `-- Pre-aggregated KLL sketch column\n  KLL_QUANTILES.MERGE_PARTIAL(${numerator.column})`
-                : `${(numerator.aggregation ?? "sum").toUpperCase()}(${
-                    numerator.column
-                  })`;
+            : `${(numerator.aggregation ?? "sum").toUpperCase()}(${
+                numerator.column
+              })`;
   const numeratorAdjustment =
     type === "dailyParticipation" ? "\n\t/ CEIL(days_since_exposure)" : "";
 
@@ -871,13 +798,11 @@ function getPreviewSQL({
         ? "1"
         : denominator?.column === "$$distinctDates"
           ? `COUNT(DISTINCT DATE(timestamp))`
-          : denominator?.aggregation === "hll merge"
-            ? `-- Pre-aggregated HLL sketch column\n  HLL_COUNT.MERGE(${denominator?.column})`
-            : denominator?.aggregation === "count distinct"
-              ? `-- HyperLogLog estimation used instead of COUNT DISTINCT\n  COUNT(DISTINCT ${denominator?.column})`
-              : `${(denominator?.aggregation ?? "sum").toUpperCase()}(${
-                  denominator?.column
-                })`;
+          : denominator?.aggregation === "count distinct"
+            ? `-- HyperLogLog estimation used instead of COUNT DISTINCT\n  COUNT(DISTINCT ${denominator?.column})`
+            : `${(denominator?.aggregation ?? "sum").toUpperCase()}(${
+                denominator?.column
+              })`;
 
   const WHERE = getWHERE({
     factTable: numeratorFactTable,
@@ -946,15 +871,11 @@ SELECT
   }${
     type === "quantile"
       ? `-- Final result\n  PERCENTILE(${
-          numerator.aggregation === "kll merge"
-            ? `\n    -- Merge pre-aggregated KLL sketches across events\n    KLL_QUANTILES.MERGE_PARTIAL(m.value),\n  `
-            : quantileSettings.ignoreZeros
-              ? `m.value,`
-              : `\n    -- COALESCE to include NULL in the calculation\n    COALESCE(m.value, 0),\n  `
+          quantileSettings.ignoreZeros
+            ? `m.value,`
+            : `\n    -- COALESCE to include NULL in the calculation\n    COALESCE(m.value, 0),\n  `
         }  ${quantileSettings.quantile}${
-          numerator.aggregation === "kll merge" || !quantileSettings.ignoreZeros
-            ? "\n  "
-            : ""
+          !quantileSettings.ignoreZeros ? "\n  " : ""
         })`
       : `-- Final result\n  numerator / denominator`
   } AS value
@@ -1483,23 +1404,9 @@ export default function FactMetricModal({
   const denominator = form.watch("denominator");
   const windowSettings = form.watch("windowSettings");
 
-  // Must have at least one numeric column to use event-level quantile metrics.
-  // Pre-aggregated KLL sketch (binary) columns also unlock event quantiles,
-  // but only on data sources that natively support KLL merging.
-  // For user-level quantiles, there is the option to count rows so it's always available.
-  const canUseEventQuantile =
-    getNumericColumns(numeratorFactTable).length > 0 ||
-    (!!selectedDataSource?.properties?.hasQuantileKLL &&
-      getBinaryColumns(numeratorFactTable).length > 0);
-
-  // A binary numerator column locks the metric to event-quantile mode: the
-  // only valid merge primitive on a binary sketch in a quantile metric is
-  // KLL, which requires event-level aggregation.
-  const numeratorDatatype = getSelectedColumnDatatype({
-    factTable: numeratorFactTable,
-    column: numerator?.column || "",
-  });
-  const numeratorIsBinary = numeratorDatatype === "binary";
+  // Must have at least one numeric column to use event-level quantile metrics
+  // For user-level quantiles, there is the option to count rows so it's always available
+  const canUseEventQuantile = getNumericColumns(numeratorFactTable).length > 0;
 
   const quantileMetricType = type !== "quantile" ? "" : quantileSettings.type;
 
@@ -1595,45 +1502,6 @@ export default function FactMetricModal({
         if (values.metricType === "dailyParticipation") {
           values.numerator.column = "$$distinctDates";
           values.numerator.aggregation = undefined;
-        }
-
-        // Quantile metrics with a binary (pre-aggregated sketch) column
-        // are only valid in event-quantile mode with the `kll merge`
-        // aggregation. Normalize here to defend against stale form state
-        // (e.g. metrics created before this constraint existed).
-        if (values.metricType === "quantile") {
-          const numeratorDatatype = getSelectedColumnDatatype({
-            factTable: numeratorFactTable,
-            column: values.numerator.column,
-          });
-          if (numeratorDatatype === "binary") {
-            values.quantileSettings = {
-              ...quantileSettings,
-              ...values.quantileSettings,
-              type: "event",
-              // ignoreZeros has no meaning when re-aggregating pre-built
-              // KLL sketches — that filtering must happen in the source
-              // pipeline that built the sketch. Force off.
-              ignoreZeros: false,
-            };
-            values.numerator.aggregation = "kll merge";
-          } else if (values.quantileSettings?.quantileEventCountColumn) {
-            // Strip the kll-merge override if the metric is no longer using
-            // a binary numerator. The back-end validator rejects this
-            // combination, so clearing it here keeps form submissions valid
-            // when a user toggles the numerator off a sketch column.
-            values.quantileSettings = {
-              ...values.quantileSettings,
-              quantileEventCountColumn: undefined,
-            };
-          }
-        } else if (values.quantileSettings?.quantileEventCountColumn) {
-          // Same defense for non-quantile metric types (e.g. user switched
-          // metricType after configuring the override).
-          values.quantileSettings = {
-            ...values.quantileSettings,
-            quantileEventCountColumn: undefined,
-          };
         }
 
         // reset aggregate filter for certain metrics
@@ -2096,57 +1964,31 @@ export default function FactMetricModal({
               ) : type === "quantile" ? (
                 <div>
                   <div className="form-group">
-                    <Tooltip
-                      shouldDisplay={numeratorIsBinary}
-                      body="Pre-aggregated sketch (binary) columns can only be used for event-level quantiles — there is no meaningful per-user reduction of a KLL sketch that feeds into a cross-user quantile."
-                    >
-                      <Switch
-                        id="quantileTypeSelector"
-                        label="Aggregate by User First"
-                        description="Aggregate by Experiment User before taking quantile?"
-                        value={
-                          !numeratorIsBinary &&
-                          (!canUseEventQuantile ||
-                            quantileSettings.type !== "event")
-                        }
-                        onChange={(unit) => {
-                          // Event-level quantiles must select a numeric or
-                          // pre-aggregated binary column — special values
-                          // ($$count etc.) are not valid event values.
-                          if (!unit && numerator?.column?.startsWith("$$")) {
-                            const column =
-                              getNumericColumns(numeratorFactTable)[0] ??
-                              getBinaryColumns(numeratorFactTable)[0];
-                            form.setValue("numerator", {
-                              ...numerator,
-                              column: column?.column || "",
-                              aggregation:
-                                column?.datatype === "binary"
-                                  ? "kll merge"
-                                  : numerator?.aggregation,
-                            });
-                          } else if (unit && numeratorIsBinary) {
-                            // Switching to unit-quantile while a binary
-                            // column is selected: binary is invalid in
-                            // unit mode (see ColumnRefSelector gating).
-                            // Fall back to the first numeric column and
-                            // clear the merge aggregation.
-                            const column =
-                              getNumericColumns(numeratorFactTable)[0];
-                            form.setValue("numerator", {
-                              ...numerator,
-                              column: column?.column || "$$count",
-                              aggregation: undefined,
-                            });
-                          }
-                          form.setValue("quantileSettings", {
-                            ...quantileSettings,
-                            type: unit ? "unit" : "event",
+                    <Switch
+                      id="quantileTypeSelector"
+                      label="Aggregate by User First"
+                      description="Aggregate by Experiment User before taking quantile?"
+                      value={
+                        !canUseEventQuantile ||
+                        quantileSettings.type !== "event"
+                      }
+                      onChange={(unit) => {
+                        // Event-level quantiles must select a numeric column
+                        if (!unit && numerator?.column?.startsWith("$$")) {
+                          const column =
+                            getNumericColumns(numeratorFactTable)[0];
+                          form.setValue("numerator", {
+                            ...numerator,
+                            column: column?.column || "",
                           });
-                        }}
-                        disabled={!canUseEventQuantile || numeratorIsBinary}
-                      />
-                    </Tooltip>
+                        }
+                        form.setValue("quantileSettings", {
+                          ...quantileSettings,
+                          type: unit ? "unit" : "event",
+                        });
+                      }}
+                      disabled={!canUseEventQuantile}
+                    />
                   </div>
                   <label>
                     {quantileSettings.type === "unit"
@@ -2160,7 +2002,6 @@ export default function FactMetricModal({
                     }
                     includeColumn={true}
                     aggregationType={quantileSettings.type}
-                    metricType={type}
                     includeDistinctDates={true}
                     setDatasource={setDatasource}
                     datasource={selectedDataSource}
@@ -2171,8 +2012,9 @@ export default function FactMetricModal({
                       <>
                         {form
                           .watch("numerator")
-                          ?.column?.startsWith("$$distinctUsers") ||
-                        numeratorIsBinary ? undefined : (
+                          ?.column?.startsWith(
+                            "$$distinctUsers",
+                          ) ? undefined : (
                           <div className="col-auto">
                             <div className="form-group">
                               <label htmlFor="quantileIgnoreZeros">
@@ -2219,10 +2061,7 @@ export default function FactMetricModal({
                     {quantileSettings.type === "unit"
                       ? " of all aggregated experiment user values"
                       : " of all rows that are matched to experiment users"}
-                    {!numeratorIsBinary && quantileSettings.ignoreZeros
-                      ? ", ignoring zeros"
-                      : ""}
-                    .
+                    {quantileSettings.ignoreZeros ? ", ignoring zeros" : ""}.
                   </HelperText>
                 </div>
               ) : type === "ratio" ? (

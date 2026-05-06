@@ -69,6 +69,12 @@ function FactMetricRowMenu({
     canEdit && !metric.archived && !editDisabledReason && !!onEdit;
   const canShowDisabledEdit =
     canEdit && !metric.archived && !!editDisabledReason;
+  // Duplicate uses the same FactMetricModal as Edit, so anything that locks
+  // editing to the REST API also has to lock Duplicate — otherwise a user
+  // could open a half-broken modal pre-filled with values the picker can no
+  // longer represent.
+  const canDuplicateMenu = canDuplicate && !editDisabledReason;
+  const canShowDisabledDuplicate = canDuplicate && !!editDisabledReason;
 
   return (
     <DropdownMenu
@@ -105,7 +111,7 @@ function FactMetricRowMenu({
             </Tooltip>
           </DropdownMenuItem>
         )}
-        {canDuplicate && (
+        {canDuplicateMenu && (
           <DropdownMenuItem
             onClick={() => {
               onDuplicate();
@@ -113,6 +119,13 @@ function FactMetricRowMenu({
             }}
           >
             Duplicate
+          </DropdownMenuItem>
+        )}
+        {canShowDisabledDuplicate && (
+          <DropdownMenuItem disabled>
+            <Tooltip body={editDisabledReason}>
+              <span>Duplicate</span>
+            </Tooltip>
           </DropdownMenuItem>
         )}
         {canEdit && (

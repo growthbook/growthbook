@@ -896,7 +896,11 @@ export default function FactMetricPage() {
         </div>
         <div className="col-12 col-md-4">
           <div className="appbox p-3">
-            <RightRailSection title="Advanced Settings">
+            <RightRailSection
+              title="Advanced Settings"
+              open={() => setEditOpen("openWithAdvanced")}
+              canOpen={canEdit && !editViaApiOnly}
+            >
               {factMetric.windowSettings.delayValue ? (
                 <RightRailSectionGroup type="custom" empty="" className="mt-3">
                   <ul className="right-rail-subsection list-unstyled mb-4">

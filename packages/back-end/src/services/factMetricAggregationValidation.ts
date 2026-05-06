@@ -69,6 +69,22 @@ export function validateAggregationSpecification({
       `${errorPrefix}'kll merge' aggregation is only valid for event-quantile metrics (metricType=quantile, quantileSettings.type=event).`,
     );
   }
+  // Inverse of the guard above: an event-quantile metric on a binary
+  // (sketch) column MUST use 'kll merge'. Other binary aggregations
+  // (currently just 'hll merge') don't produce a quantile and would
+  // otherwise fall through to APPROX_PERCENTILE over raw BYTES in
+  // __eventQuantileMetric — the warehouse rejects this at runtime with
+  // an opaque type error rather than a clear API-level message.
+  if (
+    metricType === "quantile" &&
+    quantileType === "event" &&
+    datatype === "binary" &&
+    column.aggregation !== "kll merge"
+  ) {
+    throw new Error(
+      `${errorPrefix}Event-quantile metrics on the binary column '${column.column}' must use 'kll merge' aggregation (got '${column.aggregation}').`,
+    );
+  }
   // `ignoreZeros` cannot be applied when re-aggregating pre-built KLL
   // sketches: the zero-filtering must happen in the upstream pipeline
   // that built the sketch (we can no longer see individual event
