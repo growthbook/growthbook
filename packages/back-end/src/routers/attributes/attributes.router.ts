@@ -49,7 +49,7 @@ router.put(
       archived: z.boolean().nullish(),
       previousName: z.string().nullish(),
       disableEqualityConditions: z.boolean().nullish(),
-      tags: z.array(z.string()).nullish(),
+      tags: z.array(z.string()).optional(),
     }),
   }),
   AttributeController.putAttribute,
