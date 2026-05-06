@@ -1123,9 +1123,7 @@ app.use(function (req, res) {
 });
 
 if (SENTRY_DSN) {
-  Sentry.setupExpressErrorHandler(app, {
-    shouldHandleError: (err) => !shouldSkipErrorLog(err),
-  });
+  Sentry.setupExpressErrorHandler(app);
 }
 
 const errorHandler: ErrorRequestHandler = (
