@@ -623,7 +623,7 @@ export async function putMember(
   }
 
   try {
-    const reqEmailLower = (req.email || "").toLowerCase();
+    const reqEmailLower = req.email.toLowerCase();
     const invite: Invite | undefined = organization.invites.find(
       (inv) => inv.email.toLowerCase() === reqEmailLower,
     );
