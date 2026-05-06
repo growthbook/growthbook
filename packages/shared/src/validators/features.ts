@@ -351,6 +351,7 @@ export const revisionRampCreateAction = z.object({
   endActions: z.array(rampStepAction).optional(),
   startDate: z.string().optional().nullable(),
   endCondition: revisionRampEndConditionSchema.optional(),
+  cutoffDate: z.string().optional().nullable(),
   ruleId: z.string(),
   monitoringConfig: rampMonitoringConfig.optional(),
 });

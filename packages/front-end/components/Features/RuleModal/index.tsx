@@ -19,7 +19,7 @@ import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
 import { kebabCase } from "lodash";
-import { Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   CreateSafeRolloutInterface,
   SafeRolloutInterface,
@@ -34,6 +34,8 @@ import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
+import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import {
   NewExperimentRefRule,
   getDefaultRuleValue,
@@ -55,6 +57,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import RadioCards from "@/ui/RadioCards";
 import RadioGroup from "@/ui/RadioGroup";
+import Callout from "@/ui/Callout";
 import PagedModal from "@/components/Modal/PagedModal";
 import StandardRuleFields, {
   type ScheduleType,
@@ -84,6 +87,7 @@ import {
   buildEndActions,
   buildMonitoringConfig,
   isRampSectionConfigured,
+  getMonitoringValidationError,
   scrubRampStateForRuleType,
 } from "@/components/Features/RuleModal/RampScheduleSection";
 export interface Props {
@@ -478,9 +482,13 @@ export default function RuleModal({
 
   const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
     useState(false);
+  const monitoringError =
+    scheduleType === "ramp"
+      ? getMonitoringValidationError(rampSectionState)
+      : null;
   const canSubmit = useMemo(() => {
-    return !isCyclic && !prerequisiteTargetingSdkIssues;
-  }, [isCyclic, prerequisiteTargetingSdkIssues]);
+    return !isCyclic && !prerequisiteTargetingSdkIssues && !monitoringError;
+  }, [isCyclic, prerequisiteTargetingSdkIssues, monitoringError]);
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
@@ -1107,6 +1115,7 @@ export default function RuleModal({
                           },
                         }
                       : undefined,
+                  cutoffDate: rampState.cutoffDate || null,
                   monitoringConfig: buildMonitoringConfig(rampState.monitoring),
                 };
               } else if (
@@ -1153,6 +1162,7 @@ export default function RuleModal({
                           },
                         }
                       : null,
+                  cutoffDate: rampState.cutoffDate || null,
                   monitoringConfig: buildMonitoringConfig(rampState.monitoring),
                 };
               } else if (rampState.mode === "off" && ruleRampSchedule?.id) {
@@ -1248,6 +1258,7 @@ export default function RuleModal({
                       },
                     }
                   : undefined,
+              cutoffDate: rampState.cutoffDate || null,
               monitoringConfig: buildMonitoringConfig(rampState.monitoring),
             };
           }
@@ -1342,7 +1353,7 @@ export default function RuleModal({
           gatedEnvSet={gatedEnvSet}
         />
         <div className="bg-highlight rounded p-3 mb-3">
-          <Text size="4" weight="bold" as="div" mb="4">
+          <Text size="x-large" weight="semibold" as="div" mb="4">
             Select Implementation
           </Text>
           <RadioCards
@@ -1389,6 +1400,41 @@ export default function RuleModal({
               }
             }}
           />
+
+          <Callout status="wizard" mt="4">
+            <Flex align="center" gap="2">
+              <Box flexGrow="1">
+                <Text as="div">
+                  Looking for <strong>Safe Rollouts</strong>?
+                </Text>
+                <Text as="div" size="small" mt="1">
+                  Guardrail monitoring can now be added to a Targeting
+                  Rule&apos;s <strong>Ramp-up</strong> schedule
+                </Text>
+              </Box>
+              <Button
+                variant="soft"
+                onClick={() => {
+                  setOverviewRadioSelectorRuleType("rollout");
+                  setOverviewRuleType("rollout");
+                  setNewRuleOverviewPage(false);
+                  changeRuleType("rollout");
+                  setScheduleType("ramp");
+                  setRampSectionState((prev) => ({
+                    ...prev,
+                    mode: prev.mode === "off" ? "create" : prev.mode,
+                    steps: prev.steps.map((s) => ({
+                      ...s,
+                      monitored: true,
+                      requireHealthy: true,
+                    })),
+                  }));
+                }}
+              >
+                Show me
+              </Button>
+            </Flex>
+          </Callout>
         </div>
 
         {overviewRadioSelectorRuleType === "experiment" && (
@@ -1458,6 +1504,7 @@ export default function RuleModal({
         size="lg"
         cta="Save to Draft"
         ctaEnabled={newRuleOverviewPage ? ruleType !== undefined : canSubmit}
+        disabledMessage={monitoringError ?? undefined}
         header={headerText}
         docSection={
           ruleType === "experiment-ref-new"

@@ -165,9 +165,8 @@ function RampMonitoringResults({
     status: number;
     timeSeries: MetricTimeSeries[];
   }>(
-    metricIds.length > 0
-      ? `/safe-rollout/${safeRolloutId}/time-series?metricIds[]=${urlMetricIds}`
-      : null,
+    `/safe-rollout/${safeRolloutId}/time-series?metricIds[]=${urlMetricIds}`,
+    { shouldRun: () => metricIds.length > 0 },
   );
 
   const filtered = useMemo(() => {
@@ -188,7 +187,7 @@ function RampMonitoringResults({
 
   return (
     <Box mt="3">
-      <Text as="div" size="2" weight="medium" mb="1">
+      <Text as="div" size="medium" weight="medium" mb="1">
         Guardrail metrics
       </Text>
       <Flex direction="column" gap="2">
@@ -201,7 +200,7 @@ function RampMonitoringResults({
               padding: "var(--space-2)",
             }}
           >
-            <Text as="div" size="1" weight="medium" mb="1">
+            <Text as="div" size="small" weight="medium" mb="1">
               {ts.metricId}
             </Text>
             <Box style={{ height: 80 }}>

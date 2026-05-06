@@ -2137,13 +2137,14 @@ export async function postFeatureRule(
         mode: "create",
         name: rampSchedulePayload.name,
         steps: rampSchedulePayload.steps as RevisionRampCreateAction["steps"],
-        // null = explicitly cleared (no end actions); undefined = not set (fall back to template)
         endActions:
           rampSchedulePayload.endActions as RevisionRampCreateAction["endActions"],
         startDate:
           rampSchedulePayload.startDate as RevisionRampCreateAction["startDate"],
         endCondition: (rampSchedulePayload.endCondition ??
           undefined) as RevisionRampCreateAction["endCondition"],
+        cutoffDate: rampSchedulePayload.cutoffDate,
+        monitoringConfig: rampSchedulePayload.monitoringConfig,
         ruleId: rule.id,
       };
       rampActionsUpdate = createAction;
@@ -3128,13 +3129,14 @@ export async function putFeatureRule(
         mode: "create",
         name: rampSchedulePayload.name,
         steps: rampSchedulePayload.steps as RevisionRampCreateAction["steps"],
-        // null = explicitly cleared (no end actions); undefined = not set (fall back to template)
         endActions:
           rampSchedulePayload.endActions as RevisionRampCreateAction["endActions"],
         startDate:
           rampSchedulePayload.startDate as RevisionRampCreateAction["startDate"],
         endCondition: (rampSchedulePayload.endCondition ??
           undefined) as RevisionRampCreateAction["endCondition"],
+        cutoffDate: rampSchedulePayload.cutoffDate,
+        monitoringConfig: rampSchedulePayload.monitoringConfig,
         ruleId,
       };
       rampActionsUpdate = createAction;
@@ -3259,6 +3261,14 @@ export async function putFeatureRule(
       }
       if (rampSchedulePayload.endActions !== undefined) {
         updates.endActions = rampSchedulePayload.endActions.map(remapT1);
+      }
+      if ("cutoffDate" in rampSchedulePayload) {
+        updates.cutoffDate = rampSchedulePayload.cutoffDate
+          ? new Date(rampSchedulePayload.cutoffDate)
+          : null;
+      }
+      if (rampSchedulePayload.monitoringConfig !== undefined) {
+        updates.monitoringConfig = rampSchedulePayload.monitoringConfig;
       }
       await context.models.rampSchedules.updateById(existing.id, updates);
     }

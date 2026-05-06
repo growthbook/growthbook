@@ -48,6 +48,7 @@ export const rampMonitoringConfig = z.object({
   exposureQueryId: z.string(),
   guardrailMetricIds: z.array(z.string()).min(1),
   autoRollback: z.boolean().optional(),
+  updateScheduleMinutes: z.number().positive().optional().nullable(),
 });
 export type RampMonitoringConfig = z.infer<typeof rampMonitoringConfig>;
 
@@ -165,6 +166,10 @@ export const rampScheduleValidator = baseSchema
         trigger: rampEndTrigger.optional(),
       })
       .nullish(),
+    // Hard deadline: if reached while the ramp is still running, rolls back
+    // the schedule and disables the rule. Distinct from endCondition which
+    // fast-forwards to completion.
+    cutoffDate: z.date().nullish(),
     status: z.enum(rampScheduleStatusArray),
     currentStepIndex: z.number().int().min(-1),
     startedAt: z.date().nullish(),
@@ -322,6 +327,12 @@ export const apiRampScheduleInterface = namedSchema(
       })
       .nullish()
       .describe("Optional hard deadline for standard (no-step) schedules"),
+    cutoffDate: z.iso
+      .datetime()
+      .nullish()
+      .describe(
+        "Hard deadline: if the ramp is still running at this time, it is rolled back and the rule is disabled. Distinct from endCondition which fast-forwards to completion.",
+      ),
     status: z.enum(rampScheduleStatusArray),
     currentStepIndex: z
       .number()

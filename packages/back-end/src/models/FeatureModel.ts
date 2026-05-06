@@ -1749,6 +1749,8 @@ async function createRampSchedulesForRevision(
       endActions: endActions.length > 0 ? endActions : undefined,
       startDate,
       endCondition,
+      cutoffDate: action.cutoffDate ? new Date(action.cutoffDate) : undefined,
+      monitoringConfig: action.monitoringConfig,
       // Start as "pending" — onActivatingRevisionPublished handles the
       // immediate → "running" transition inline when the revision publishes.
       status: "pending",

@@ -132,17 +132,14 @@ function checkRollbackSignal(
   const summary = safeRollout.analysisSummary;
   if (!summary?.resultsStatus) return null;
 
-  // Check if any guardrail metric is a statistically significant loser.
-  // This mirrors the rollback logic in checkAndRollbackSafeRollout.
-  for (const [metricId, status] of Object.entries(summary.resultsStatus)) {
-    if (status.variationResults) {
-      for (const vr of status.variationResults) {
-        if (vr.significant && vr.loser) {
-          return {
-            action: "rollback",
-            reason: `Guardrail metric ${metricId} is a significant loser`,
-          };
-        }
+  for (const variation of summary.resultsStatus.variations) {
+    if (!variation.guardrailMetrics) continue;
+    for (const [metricId, gm] of Object.entries(variation.guardrailMetrics)) {
+      if (gm.status === "lost") {
+        return {
+          action: "rollback",
+          reason: `Guardrail metric ${metricId} is a significant loser (variation ${variation.variationId})`,
+        };
       }
     }
   }

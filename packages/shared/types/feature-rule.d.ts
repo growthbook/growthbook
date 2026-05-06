@@ -1,6 +1,7 @@
 import {
   CreateSafeRolloutInterface,
   FeatureRule,
+  RampMonitoringConfig,
   RampStep,
   RampStepAction,
 } from "shared/validators";
@@ -24,6 +25,10 @@ export type InlineRampScheduleCreate = {
   endCondition?: {
     trigger?: RampEndTrigger;
   };
+  // ISO datetime string; if set, rolls back and disables the rule if the ramp
+  // hasn't completed by this date.
+  cutoffDate?: string | null;
+  monitoringConfig?: RampMonitoringConfig;
 };
 
 // Detach a rule from a ramp schedule (removes it from the targets array).
@@ -51,6 +56,8 @@ export type InlineRampScheduleUpdate = {
   endCondition?: {
     trigger?: RampEndTrigger;
   } | null;
+  cutoffDate?: string | null;
+  monitoringConfig?: RampMonitoringConfig;
 };
 
 export type PostFeatureRuleBody = {

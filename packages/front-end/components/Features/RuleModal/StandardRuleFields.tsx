@@ -286,7 +286,7 @@ export default function StandardRuleFields({
         >
           <Text as="div">
             <strong>Safe Rollouts</strong> are now part of{" "}
-            <strong>Ramp-up</strong> schedules
+            <strong>Ramp-up Schedules</strong> schedules
           </Text>
           <Text as="div" size="small" mt="1">
             Add guardrail monitoring to a Ramp-up schedule make it safe

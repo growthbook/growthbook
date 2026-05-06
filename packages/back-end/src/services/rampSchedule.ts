@@ -14,10 +14,7 @@ import { filterEnvironmentsByFeature, MergeResultChanges } from "shared/util";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import {
-  getFeature,
-  publishRevision,
-} from "back-end/src/models/FeatureModel";
+import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
 import {
   createRevision,
   registerRevisionPublishedHook,
@@ -248,6 +245,7 @@ export function computeNextProcessAt(schedule: {
   status: RampScheduleInterface["status"];
   nextStepAt?: Date | null;
   endCondition?: RampScheduleInterface["endCondition"];
+  cutoffDate?: RampScheduleInterface["cutoffDate"];
   startDate?: RampScheduleInterface["startDate"];
   // When the current step is monitored, the job needs to wake up for
   // snapshot triggers even though nextStepAt is null.
@@ -257,18 +255,23 @@ export function computeNextProcessAt(schedule: {
     schedule.endCondition?.trigger?.type === "scheduled"
       ? schedule.endCondition.trigger.at
       : null;
+  const cutoff = schedule.cutoffDate ?? null;
 
   switch (schedule.status) {
     case "running": {
       const stepAt = schedule.nextStepAt ?? null;
       const snapshotAt = schedule.nextSnapshotAt ?? null;
-      const earliest = [stepAt, snapshotAt, endAt]
+      const earliest = [stepAt, snapshotAt, endAt, cutoff]
         .filter((d): d is Date => d !== null)
         .sort((a, b) => a.getTime() - b.getTime())[0];
       return earliest ?? null;
     }
     case "pending-approval":
-      return endAt;
+      return (
+        [endAt, cutoff]
+          .filter((d): d is Date => d !== null)
+          .sort((a, b) => a.getTime() - b.getTime())[0] ?? null
+      );
     case "ready":
       return schedule.startDate ?? null;
     default:
@@ -298,7 +301,10 @@ export function getRefreshIntervalMs(
   org: OrganizationInterface,
 ): number {
   // 1. Per-SafeRollout override (minute-level granularity)
-  if (safeRollout?.updateScheduleMinutes && safeRollout.updateScheduleMinutes > 0) {
+  if (
+    safeRollout?.updateScheduleMinutes &&
+    safeRollout.updateScheduleMinutes > 0
+  ) {
     return safeRollout.updateScheduleMinutes * 60 * 1000;
   }
   // 2. Org-level update schedule
@@ -430,16 +436,21 @@ export async function advanceStep(
   // Approval steps go live right away; the user's approval is the signal to advance.
   const effective = computeEffectivePatch(schedule, nextStepIndex);
   const effectiveActions: RampStepAction[] = [...effective.entries()].map(
-    ([targetId, patch]) => ({ targetType: "feature-rule" as const, targetId, patch }),
+    ([targetId, patch]) => ({
+      targetType: "feature-rule" as const,
+      targetId,
+      patch,
+    }),
   );
   await executeStepActions(ctx, schedule, nextStepIndex, effectiveActions);
 
   // Monitored and approval steps don't use the interval timer for advancement.
   // Monitored steps are advanced by the snapshot pipeline after healthy results;
   // approval steps are advanced by human action. Both use null nextStepAt.
-  const nextStepAt = (isApprovalStep || isMonitoredStep)
-    ? null
-    : (computeNextStepAt(schedule, nextStepIndex, now) ?? now);
+  const nextStepAt =
+    isApprovalStep || isMonitoredStep
+      ? null
+      : (computeNextStepAt(schedule, nextStepIndex, now) ?? now);
 
   // For monitored steps, look up the linked SafeRollout to resolve the
   // correct query refresh interval (SR override -> org setting -> 6h default).
@@ -465,6 +476,7 @@ export async function advanceStep(
       nextStepAt,
       nextSnapshotAt,
       endCondition: schedule.endCondition,
+      cutoffDate: schedule.cutoffDate,
     }),
   });
 
@@ -511,7 +523,11 @@ export async function rollbackToStep(
     targetStepIndex === -1 && schedule.steps.length > 0 ? 0 : targetStepIndex;
   const effective = computeEffectivePatch(schedule, patchIndex);
   const rollbackActions: RampStepAction[] = [...effective.entries()].map(
-    ([targetId, patch]) => ({ targetType: "feature-rule" as const, targetId, patch }),
+    ([targetId, patch]) => ({
+      targetType: "feature-rule" as const,
+      targetId,
+      patch,
+    }),
   );
 
   const now = new Date();
@@ -566,7 +582,11 @@ export async function jumpAheadToStep(
 ): Promise<RampScheduleInterface> {
   const effective = computeEffectivePatch(schedule, jumpTarget);
   const jumpActions: RampStepAction[] = [...effective.entries()].map(
-    ([targetId, patch]) => ({ targetType: "feature-rule" as const, targetId, patch }),
+    ([targetId, patch]) => ({
+      targetType: "feature-rule" as const,
+      targetId,
+      patch,
+    }),
   );
   const now = new Date();
 
@@ -592,7 +612,11 @@ export async function completeRollout(
 ): Promise<RampScheduleInterface> {
   const effective = computeEffectivePatch(schedule, schedule.steps.length);
   const actionsToApply: RampStepAction[] = [...effective.entries()].map(
-    ([targetId, patch]) => ({ targetType: "feature-rule" as const, targetId, patch }),
+    ([targetId, patch]) => ({
+      targetType: "feature-rule" as const,
+      targetId,
+      patch,
+    }),
   );
 
   if (actionsToApply.length > 0) {
@@ -652,6 +676,7 @@ export async function onActivatingRevisionPublished(
         status: "running",
         nextStepAt: initialNextStepAt,
         endCondition: schedule.endCondition,
+        cutoffDate: schedule.cutoffDate,
       }),
     });
 
@@ -777,6 +802,15 @@ export async function advanceUntilBlocked(
 
   for (let i = 0; i < maxSteps; i++) {
     if (
+      current.cutoffDate &&
+      current.cutoffDate <= now &&
+      ["running", "paused", "pending-approval"].includes(current.status)
+    ) {
+      await rollbackSchedule(ctx, current, "cutoff date reached");
+      return;
+    }
+
+    if (
       current.endCondition?.trigger?.type === "scheduled" &&
       current.endCondition.trigger.at <= now &&
       ["running", "paused", "pending-approval"].includes(current.status)
@@ -867,6 +901,7 @@ export async function approveAndPublishStep(
       status: "running",
       nextStepAt,
       endCondition: schedule.endCondition,
+      cutoffDate: schedule.cutoffDate,
     }),
   });
 

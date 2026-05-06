@@ -11,6 +11,8 @@ import {
   PiPlusBold,
   PiInfo,
   PiCaretDownBold,
+  PiCaretDownFill,
+  PiCaretRightFill,
   PiBookmarkSimple,
   PiCalendarBlank,
   PiArrowCounterClockwise,
@@ -142,6 +144,10 @@ export interface RampSectionState {
   endAdditionalEffectsOpen: boolean;
   // Note: per-step open state lives on UIStep.additionalEffectsOpen
 
+  // Hard deadline: rolls back and disables the rule if the ramp hasn't completed by this date.
+  // "" = no cutoff; non-empty ISO string = active cutoff.
+  cutoffDate: string;
+
   // Builder mode & monitoring
   builderMode: RampBuilderMode;
   monitoring: RampMonitoringState;
@@ -237,12 +243,30 @@ export function scrubRampStateForRuleType(
   };
 }
 
+/**
+ * Returns an error message if monitoring is enabled but the config is incomplete.
+ * Returns null if monitoring is off or fully configured.
+ */
+export function getMonitoringValidationError(
+  state: RampSectionState,
+): string | null {
+  const hasMonitoredSteps = state.steps.some((s) => s.monitored);
+  if (!hasMonitoredSteps) return null;
+  const m = state.monitoring;
+  if (!m.datasourceId) return "Select a data source for monitoring";
+  if (!m.exposureQueryId) return "Select an assignment table for monitoring";
+  if (m.guardrailMetricIds.length === 0)
+    return "Add at least one guardrail metric for monitoring";
+  return null;
+}
+
 export function isRampSectionConfigured(state: RampSectionState): boolean {
   return (
     state.mode !== "create" ||
     state.steps.length > 0 ||
     !!state.startDate ||
-    !!state.endScheduleAt
+    !!state.endScheduleAt ||
+    !!state.cutoffDate
   );
 }
 
@@ -327,6 +351,7 @@ export function buildMonitoringConfig(monitoring: RampMonitoringState):
       exposureQueryId: string;
       guardrailMetricIds: string[];
       autoRollback?: boolean;
+      updateScheduleMinutes?: number | null;
     }
   | undefined {
   if (
@@ -341,6 +366,7 @@ export function buildMonitoringConfig(monitoring: RampMonitoringState):
     exposureQueryId: monitoring.exposureQueryId,
     guardrailMetricIds: monitoring.guardrailMetricIds,
     autoRollback: monitoring.autoRollback || undefined,
+    updateScheduleMinutes: monitoring.updateScheduleMinutes ?? undefined,
   };
 }
 
@@ -1526,50 +1552,101 @@ export default function RampScheduleSection({
 
   const orgCadenceLabel = useMemo(() => {
     const s = settings?.updateSchedule;
-    if (!s || s.type === "never") return "6 hours (default)";
+    if (!s || s.type === "never") return "6 hours";
     if (s.type === "stale" && s.hours) {
-      return `${s.hours} hour${s.hours === 1 ? "" : "s"} (org default)`;
+      return `${s.hours} hour${s.hours === 1 ? "" : "s"}`;
     }
-    if (s.type === "cron" && s.cron) return `cron: ${s.cron} (org default)`;
-    return "6 hours (default)";
+    if (s.type === "cron" && s.cron) return `cron: ${s.cron}`;
+    return "6 hours";
   }, [settings?.updateSchedule]);
 
-  const monitoringConfigUI = (
-    <Box className="bg-highlight rounded p-3" mb="4">
-      <Flex direction="column" gap="3">
-        <SelectField
-          label="Data source"
-          className="select-unfixed"
-          options={datasources.map((d) => ({
-            value: d.id,
-            label: `${d.name}${d.description ? ` — ${d.description}` : ""}${
-              d.id === settings?.defaultDataSource ? " (default)" : ""
-            }`,
-          }))}
-          value={state.monitoring.datasourceId}
-          onChange={(v) =>
-            patchMonitoring({ datasourceId: v, exposureQueryId: "" })
-          }
-          placeholder="Select a data source"
-          containerClassName="mb-0"
-        />
+  const dsName =
+    selectedDatasource?.name ??
+    (datasources.length === 0 ? "No data sources" : "Select data source");
+  const eqName =
+    exposureQueries.find((q) => q.id === state.monitoring.exposureQueryId)
+      ?.name ?? (exposureQueries.length > 0 ? "Select" : "—");
 
-        <SelectField
-          label="Experiment assignment table"
-          className="select-unfixed"
-          options={exposureQueries.map((q) => ({
-            label: q.name,
-            value: q.id,
-          }))}
-          disabled={!state.monitoring.datasourceId}
-          value={state.monitoring.exposureQueryId}
-          onChange={(v) => patchMonitoring({ exposureQueryId: v })}
-          containerClassName="mb-0"
-        />
+  const hasAdvancedOverrides =
+    state.monitoring.updateScheduleMinutes != null &&
+    state.monitoring.updateScheduleMinutes > 0;
+  const [showAdvancedMonitoring, setShowAdvancedMonitoring] =
+    useState(hasAdvancedOverrides);
+
+  const monitoringConfigUI = (
+    <Box mt="4" mx="5">
+      <Flex direction="column" gap="2">
+        <Flex align="center" gap="1">
+          <Text as="label" weight="medium" mb="0">
+            Data source:
+          </Text>
+          <DropdownMenu
+            trigger={
+              <Link type="button" style={{ color: "var(--color-text-high)" }}>
+                <Text mr="1">{dsName}</Text>
+                <PiCaretDownFill />
+              </Link>
+            }
+            menuPlacement="start"
+            variant="soft"
+          >
+            <DropdownMenuGroup>
+              {datasources.map((d) => (
+                <DropdownMenuItem
+                  key={d.id}
+                  onClick={() => {
+                    const eqs = d.settings?.queries?.exposure ?? [];
+                    patchMonitoring({
+                      datasourceId: d.id,
+                      exposureQueryId: eqs[0]?.id ?? "",
+                    });
+                  }}
+                >
+                  {d.name}
+                  {d.id === settings?.defaultDataSource ? " (default)" : ""}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+          </DropdownMenu>
+        </Flex>
+
+        <Flex align="center" gap="1">
+          <Text as="label" weight="medium" mb="0">
+            Assignment table:
+          </Text>
+          <DropdownMenu
+            trigger={
+              <Link
+                type="button"
+                style={{
+                  color: state.monitoring.datasourceId
+                    ? "var(--color-text-high)"
+                    : "var(--color-text-disabled)",
+                }}
+              >
+                <Text mr="1">{eqName}</Text>
+                <PiCaretDownFill />
+              </Link>
+            }
+            menuPlacement="start"
+            variant="soft"
+          >
+            <DropdownMenuGroup>
+              {exposureQueries.map((q) => (
+                <DropdownMenuItem
+                  key={q.id}
+                  onClick={() => patchMonitoring({ exposureQueryId: q.id })}
+                >
+                  {q.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+          </DropdownMenu>
+        </Flex>
 
         <Box>
-          <Text as="label" size="small" weight="medium">
-            Guardrail metrics
+          <Text as="label" weight="medium" mb="0">
+            Guardrails
           </Text>
           <MetricsSelector
             datasource={state.monitoring.datasourceId}
@@ -1584,40 +1661,75 @@ export default function RampScheduleSection({
           />
         </Box>
 
-        <SelectField
-          label="Query cadence"
-          className="select-unfixed"
-          options={[
-            { value: "", label: `Use org default (${orgCadenceLabel})` },
-            { value: "10", label: "Every 10 minutes" },
-            { value: "30", label: "Every 30 minutes" },
-            { value: "60", label: "Every 1 hour" },
-            { value: "120", label: "Every 2 hours" },
-            { value: "360", label: "Every 6 hours" },
-            { value: "720", label: "Every 12 hours" },
-            { value: "1440", label: "Every 24 hours" },
-          ]}
-          value={
-            state.monitoring.updateScheduleMinutes != null
-              ? String(state.monitoring.updateScheduleMinutes)
-              : ""
-          }
-          onChange={(v) =>
-            patchMonitoring({
-              updateScheduleMinutes: v ? parseInt(v) : null,
-            })
-          }
-          helpText="How often to query the data warehouse for guardrail results during monitored steps"
-          containerClassName="mb-0"
-        />
-
         <Checkbox
           value={state.monitoring.autoRollback}
           setValue={(v) => patchMonitoring({ autoRollback: v })}
-          label="Auto rollback"
-          description="Automatically rollback when unhealthy or a guardrail fails"
+          label={
+            <>
+              Auto rollback
+              <Text as="span" color="text-mid">
+                {" "}
+                — when unhealthy or a guardrail fails
+              </Text>
+            </>
+          }
           size="sm"
         />
+
+        <div
+          className="link-purple font-weight-bold mt-2"
+          role="button"
+          onClick={() => setShowAdvancedMonitoring((v) => !v)}
+        >
+          <PiCaretRightFill
+            className="mr-1"
+            style={{
+              transform: showAdvancedMonitoring ? "rotate(90deg)" : undefined,
+              transition: "transform 0.15s",
+            }}
+          />
+          Advanced Settings
+        </div>
+        {showAdvancedMonitoring && (
+          <Box mt="2">
+            <Field
+              label="Auto-update frequency"
+              append="hours old"
+              type="number"
+              step="any"
+              min={0.25}
+              max={168}
+              style={{ width: 120 }}
+              value={
+                state.monitoring.updateScheduleMinutes != null
+                  ? String(state.monitoring.updateScheduleMinutes / 60)
+                  : ""
+              }
+              placeholder="org default"
+              onChange={(e) => {
+                const v = e.target.value;
+                patchMonitoring({
+                  updateScheduleMinutes: v
+                    ? Math.round(parseFloat(v) * 60)
+                    : null,
+                });
+              }}
+              onBlur={(e) => {
+                const v = parseFloat(e.target.value);
+                if (!v || v <= 0) {
+                  patchMonitoring({ updateScheduleMinutes: null });
+                } else {
+                  const clamped = Math.min(168, Math.max(0.25, v));
+                  patchMonitoring({
+                    updateScheduleMinutes: Math.round(clamped * 60),
+                  });
+                }
+              }}
+              helpText={`Leave blank to use org default (${orgCadenceLabel})`}
+              containerClassName="mb-0"
+            />
+          </Box>
+        )}
       </Flex>
     </Box>
   );
@@ -1631,6 +1743,22 @@ export default function RampScheduleSection({
   const allMonitored =
     state.steps.length > 0 && state.steps.every((s) => s.monitored);
   const noneMonitored = state.steps.every((s) => !s.monitored);
+
+  // Auto-select default datasource/EAT when monitoring becomes active
+  // (covers the checkbox toggle, "Show me" button, and any other path).
+  useEffect(() => {
+    if (noneMonitored || state.monitoring.datasourceId) return;
+    const defaultDs =
+      datasources.find((d) => d.id === settings?.defaultDataSource) ??
+      datasources[0];
+    if (!defaultDs) return;
+    const eqs = defaultDs.settings?.queries?.exposure ?? [];
+    patchMonitoring({
+      datasourceId: defaultDs.id,
+      exposureQueryId: eqs[0]?.id ?? "",
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noneMonitored, state.monitoring.datasourceId]);
   const monitorCheckboxValue: boolean | "indeterminate" = allMonitored
     ? true
     : noneMonitored
@@ -1649,7 +1777,14 @@ export default function RampScheduleSection({
   }
 
   const monitorCheckbox = (
-    <Box mb="4">
+    <Box
+      mb="4"
+      p="3"
+      style={{
+        backgroundColor: "var(--violet-a2)",
+        borderRadius: "var(--radius-2)",
+      }}
+    >
       <Flex align="center" gap="2">
         <Checkbox
           value={monitorCheckboxValue}
@@ -1821,6 +1956,49 @@ export default function RampScheduleSection({
     </Flex>
   );
 
+  const cutoffInput = (
+    <Flex align="center" gap="3" py="2" style={{ minHeight: 54 }}>
+      <Box style={{ width: 60 }}>
+        <Text as="label" weight="medium" mb="0">
+          Cutoff
+        </Text>
+      </Box>
+      <SelectField
+        value={state.cutoffDate ? "on-date" : "none"}
+        options={[
+          { value: "none", label: "None" },
+          { value: "on-date", label: "On date" },
+        ]}
+        onChange={(v) => {
+          if (v === "none") {
+            patchState({ cutoffDate: "" });
+          } else {
+            const d = new Date();
+            d.setDate(d.getDate() + 14);
+            d.setSeconds(0, 0);
+            patchState({ cutoffDate: d.toISOString().slice(0, 16) });
+          }
+        }}
+        containerClassName="mb-0"
+        containerStyle={{ minHeight: 38, width: 150 }}
+        helpText={
+          state.cutoffDate
+            ? "Rolls back and disables if the ramp hasn't completed by this date"
+            : undefined
+        }
+      />
+      {state.cutoffDate && (
+        <DatePicker
+          date={state.cutoffDate || undefined}
+          setDate={(d) => patchState({ cutoffDate: d ? d.toISOString() : "" })}
+          precision="datetime"
+          containerClassName="mb-0"
+          disableBefore={new Date().toISOString()}
+        />
+      )}
+    </Flex>
+  );
+
   const customizeLink =
     !hasTemplate && isSimpleMode ? (
       <Box mb="4">
@@ -1912,6 +2090,7 @@ export default function RampScheduleSection({
       <Flex direction="column" gap="1" mb="4">
         {startInput}
         {durationInput}
+        {cutoffInput}
       </Flex>
 
       {monitorCheckbox}
@@ -2142,6 +2321,7 @@ export function rampScheduleToSectionState(
     endAdditionalEffectsOpen:
       VALID_STEP_FIELDS.some((f) => endPatch[f] !== undefined) ||
       (endPatch.coverage !== undefined && endPatch.coverage !== 100),
+    cutoffDate: rs.cutoffDate ? new Date(rs.cutoffDate).toISOString() : "",
     builderMode: isSimple ? "simple" : "advanced",
     monitoring: rs.monitoringConfig
       ? {
@@ -2149,7 +2329,8 @@ export function rampScheduleToSectionState(
           exposureQueryId: rs.monitoringConfig.exposureQueryId,
           guardrailMetricIds: [...rs.monitoringConfig.guardrailMetricIds],
           autoRollback: rs.monitoringConfig.autoRollback ?? true,
-          updateScheduleMinutes: null,
+          updateScheduleMinutes:
+            rs.monitoringConfig.updateScheduleMinutes ?? null,
         }
       : { ...DEFAULT_MONITORING },
     simpleDurationUnit: isSimple && firstStep ? firstStep.intervalUnit : "days",
@@ -2175,6 +2356,7 @@ export function defaultRampSectionState(
     endPatch: { coverage: 100 },
     linkedRampId: "",
     endAdditionalEffectsOpen: false,
+    cutoffDate: "",
     builderMode: "simple",
     monitoring: { ...DEFAULT_MONITORING },
     simpleDurationDays: 5,
@@ -2208,6 +2390,9 @@ export function createActionToSectionState(
     endAdditionalEffectsOpen:
       VALID_STEP_FIELDS.some((f) => endPatch[f] !== undefined) ||
       (endPatch.coverage !== undefined && endPatch.coverage !== 100),
+    cutoffDate: action.cutoffDate
+      ? new Date(action.cutoffDate).toISOString()
+      : "",
     builderMode: isSimple ? "simple" : "advanced",
     monitoring: action.monitoringConfig
       ? {
@@ -2215,7 +2400,8 @@ export function createActionToSectionState(
           exposureQueryId: action.monitoringConfig.exposureQueryId,
           guardrailMetricIds: [...action.monitoringConfig.guardrailMetricIds],
           autoRollback: action.monitoringConfig.autoRollback ?? true,
-          updateScheduleMinutes: null,
+          updateScheduleMinutes:
+            action.monitoringConfig.updateScheduleMinutes ?? null,
         }
       : { ...DEFAULT_MONITORING },
     simpleDurationUnit: isSimple && firstStep ? firstStep.intervalUnit : "days",
@@ -2248,6 +2434,7 @@ export function templateToSectionState(
     endAdditionalEffectsOpen:
       VALID_STEP_FIELDS.some((f) => endPatch[f] !== undefined) ||
       (endPatch.coverage !== undefined && endPatch.coverage !== 100),
+    cutoffDate: "",
     builderMode: "advanced",
     monitoring: { ...DEFAULT_MONITORING },
     simpleDurationDays: 5,

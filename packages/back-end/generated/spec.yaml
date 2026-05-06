@@ -3620,6 +3620,10 @@ paths:
                                 - at
                               additionalProperties: false
                       additionalProperties: false
+                    cutoffDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
                     monitoringConfig:
                       type: object
                       properties:
@@ -3634,6 +3638,11 @@ paths:
                             type: string
                         autoRollback:
                           type: boolean
+                        updateScheduleMinutes:
+                          anyOf:
+                            - type: number
+                              exclusiveMinimum: 0
+                            - type: 'null'
                       required:
                         - datasourceId
                         - exposureQueryId
@@ -4038,6 +4047,10 @@ paths:
                                 - at
                               additionalProperties: false
                       additionalProperties: false
+                    cutoffDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
                     monitoringConfig:
                       type: object
                       properties:
@@ -4052,6 +4065,11 @@ paths:
                             type: string
                         autoRollback:
                           type: boolean
+                        updateScheduleMinutes:
+                          anyOf:
+                            - type: number
+                              exclusiveMinimum: 0
+                            - type: 'null'
                       required:
                         - datasourceId
                         - exposureQueryId
@@ -4487,6 +4505,10 @@ paths:
                             - at
                           additionalProperties: false
                   additionalProperties: false
+                cutoffDate:
+                  anyOf:
+                    - type: string
+                    - type: 'null'
                 monitoringConfig:
                   type: object
                   properties:
@@ -4501,6 +4523,11 @@ paths:
                         type: string
                     autoRollback:
                       type: boolean
+                    updateScheduleMinutes:
+                      anyOf:
+                        - type: number
+                          exclusiveMinimum: 0
+                        - type: 'null'
                   required:
                     - datasourceId
                     - exposureQueryId
@@ -7574,6 +7601,10 @@ paths:
                                 - at
                               additionalProperties: false
                       additionalProperties: false
+                    cutoffDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
                     monitoringConfig:
                       type: object
                       properties:
@@ -7588,6 +7619,11 @@ paths:
                             type: string
                         autoRollback:
                           type: boolean
+                        updateScheduleMinutes:
+                          anyOf:
+                            - type: number
+                              exclusiveMinimum: 0
+                            - type: 'null'
                       required:
                         - datasourceId
                         - exposureQueryId
@@ -7988,6 +8024,10 @@ paths:
                                 - at
                               additionalProperties: false
                       additionalProperties: false
+                    cutoffDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
                     monitoringConfig:
                       type: object
                       properties:
@@ -8002,6 +8042,11 @@ paths:
                             type: string
                         autoRollback:
                           type: boolean
+                        updateScheduleMinutes:
+                          anyOf:
+                            - type: number
+                              exclusiveMinimum: 0
+                            - type: 'null'
                       required:
                         - datasourceId
                         - exposureQueryId
@@ -8405,6 +8450,10 @@ paths:
                             - at
                           additionalProperties: false
                   additionalProperties: false
+                cutoffDate:
+                  anyOf:
+                    - type: string
+                    - type: 'null'
                 monitoringConfig:
                   type: object
                   properties:
@@ -8419,6 +8468,11 @@ paths:
                         type: string
                     autoRollback:
                       type: boolean
+                    updateScheduleMinutes:
+                      anyOf:
+                        - type: number
+                          exclusiveMinimum: 0
+                        - type: 'null'
                   required:
                     - datasourceId
                     - exposureQueryId
@@ -28947,6 +29001,17 @@ components:
                       additionalProperties: false
               additionalProperties: false
             - type: 'null'
+        cutoffDate:
+          description: >-
+            Hard deadline: if the ramp is still running at this time, it is
+            rolled back and the rule is disabled. Distinct from endCondition
+            which fast-forwards to completion.
+          anyOf:
+            - type: string
+              format: date-time
+              pattern: >-
+                ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+            - type: 'null'
         status:
           type: string
           enum:
@@ -29032,6 +29097,11 @@ components:
                 type: string
             autoRollback:
               type: boolean
+            updateScheduleMinutes:
+              anyOf:
+                - type: number
+                  exclusiveMinimum: 0
+                - type: 'null'
           required:
             - datasourceId
             - exposureQueryId
