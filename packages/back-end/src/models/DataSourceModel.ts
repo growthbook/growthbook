@@ -32,13 +32,25 @@ import { deleteClickhouseUser } from "back-end/src/services/licenseServerManaged
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { deleteFactTable, getFactTable } from "./FactTableModel";
 
-const audit = createModelAuditLogger({
+const dataSourceAuditConfig = {
   entity: "datasource",
   createEvent: "datasource.create",
   updateEvent: "datasource.update",
   deleteEvent: "datasource.delete",
-  omitDetails: true,
-});
+  detailsAllowlist: [
+    "id",
+    "name",
+    "description",
+    "organization",
+    "dateCreated",
+    "dateUpdated",
+    "type",
+    "projects",
+    "settings",
+  ],
+} as const;
+
+const audit = createModelAuditLogger(dataSourceAuditConfig);
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
