@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
+import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
 import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import { featureHasEnvironment } from "shared/util";
@@ -9,8 +10,8 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import FeatureModal from "@/components/Features/FeatureModal";
+import { featureStatusColors } from "@/components/Features/FeaturesOverview";
 import track from "@/services/track";
-import Switch from "@/ui/Switch";
 import RealTimeFeatureGraph from "@/components/Features/RealTimeFeatureGraph";
 import {
   useRealtimeData,
@@ -42,8 +43,6 @@ import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useFeaturesStatus } from "@/hooks/useFeaturesStatus";
 import { useFeatureDraftStates } from "@/hooks/useFeatureDraftStates";
 import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import ProjectBadges from "@/components/ProjectBadges";
 import Table, {
   TableHeader,
@@ -89,15 +88,8 @@ export default function FeaturesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [featureToToggleStaleDetection, setFeatureToToggleStaleDetection] =
     useState<FeatureMetaInfo | null>(null);
-  const [confirmToggle, setConfirmToggle] = useState<{
-    featureId: string;
-    envId: string;
-    state: boolean;
-  } | null>(null);
 
   const { apiCall } = useAuth();
-  const settings = useOrgSettings();
-  const showConfirmation = !!settings?.killswitchConfirmation;
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
@@ -216,21 +208,6 @@ export default function FeaturesPage() {
     if (!hasStaleFilter) staleHook.fetchSome(ids);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleIdsKey]);
-
-  const handleToggle = useCallback(
-    async (featureId: string, envId: string, state: boolean) => {
-      if (showConfirmation) {
-        setConfirmToggle({ featureId, envId, state });
-      } else {
-        await statusHook.toggle(featureId, envId, state);
-        track("Feature Environment Toggle", {
-          environment: envId,
-          enabled: state,
-        });
-      }
-    },
-    [showConfirmation, statusHook],
-  );
 
   const renderFeaturesTable = () => {
     return (
@@ -389,26 +366,41 @@ export default function FeaturesPage() {
                           {featureHasEnvironment(
                             feature as unknown as FeatureInterface,
                             en,
-                          ) && (
-                            <Switch
-                              id={`${feature.id}__${en.id}`}
-                              disabled={
-                                !permissionsUtil.canPublishFeature(
-                                  { project: feature.project },
-                                  [en.id],
-                                )
-                              }
-                              value={
+                          ) &&
+                            (() => {
+                              const enabled =
                                 statusHook.environmentStatus[feature.id]?.[
                                   en.id
-                                ] ?? false
-                              }
-                              onChange={(on) =>
-                                handleToggle(feature.id, en.id, on)
-                              }
-                              size="2"
-                            />
-                          )}
+                                ] ?? false;
+                              return (
+                                <Tooltip
+                                  flipTheme={false}
+                                  body={
+                                    enabled
+                                      ? `${en.id}: enabled`
+                                      : `${en.id}: disabled`
+                                  }
+                                >
+                                  {enabled ? (
+                                    <FaRegCircleCheck
+                                      style={{
+                                        color: featureStatusColors.on,
+                                        fontSize: 18,
+                                      }}
+                                      aria-hidden
+                                    />
+                                  ) : (
+                                    <FaRegCircleXmark
+                                      style={{
+                                        color: featureStatusColors.offMuted,
+                                        fontSize: 18,
+                                      }}
+                                      aria-hidden
+                                    />
+                                  )}
+                                </Tooltip>
+                              );
+                            })()}
                         </Flex>
                       </TableCell>
                     ))}
@@ -596,30 +588,6 @@ export default function FeaturesPage() {
 
   return (
     <Box className="contents pagecontents" style={{ margin: "0 auto" }}>
-      {confirmToggle && (
-        <ModalStandard
-          trackingEventModalType=""
-          header="Toggle environment"
-          close={() => setConfirmToggle(null)}
-          open={true}
-          cta="Confirm"
-          submit={async () => {
-            await statusHook.toggle(
-              confirmToggle.featureId,
-              confirmToggle.envId,
-              confirmToggle.state,
-            );
-            track("Feature Environment Toggle", {
-              environment: confirmToggle.envId,
-              enabled: confirmToggle.state,
-            });
-          }}
-        >
-          You are about to set the <strong>{confirmToggle.envId}</strong>{" "}
-          environment to{" "}
-          <strong>{confirmToggle.state ? "enabled" : "disabled"}</strong>.
-        </ModalStandard>
-      )}
       {modalOpen && (
         <FeatureModal
           cta={featureToDuplicate ? "Duplicate" : "Create"}
