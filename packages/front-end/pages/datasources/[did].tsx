@@ -7,6 +7,7 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
@@ -68,6 +69,8 @@ const DataSourcePage: FC = () => {
   } = useDefinitions();
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
+
+  const eventsForwarderEnabled = useFeatureIsOn("events-forwarder");
 
   const combinedMetrics = useCombinedMetrics({});
   const metrics = combinedMetrics.filter((m) => m.datasource === did);
@@ -426,7 +429,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               )
             ) : (
               <>
-                {supportsEventForwarder && (
+                {supportsEventForwarder && eventsForwarderEnabled && (
                   <Frame>
                     <EventForwarder
                       dataSource={d}
