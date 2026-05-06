@@ -422,34 +422,24 @@ export default function FeaturesPage() {
                     <TableCell
                       style={{ textAlign: "center", verticalAlign: "middle" }}
                     >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: 8,
-                        }}
-                      >
-                        <span>{feature.version}</span>
-                        {draftEntry ? (
-                          <Tooltip
-                            flipTheme={false}
-                            body="This feature has an active draft that has not been published yet"
-                          >
-                            <span
-                              style={{
-                                display: "inline-block",
-                                width: 8,
-                                height: 8,
-                                borderRadius: "50%",
-                                background: "var(--red-9)",
-                                flexShrink: 0,
-                              }}
-                              aria-hidden
-                            />
-                          </Tooltip>
-                        ) : null}
-                      </div>
+                      {draftEntry ? (
+                        <Tooltip
+                          flipTheme={false}
+                          body="This feature has an active draft that has not been published yet"
+                        >
+                          <span
+                            style={{
+                              display: "inline-block",
+                              width: 8,
+                              height: 8,
+                              borderRadius: "50%",
+                              background: "var(--red-9)",
+                              flexShrink: 0,
+                            }}
+                            aria-hidden
+                          />
+                        </Tooltip>
+                      ) : null}
                     </TableCell>
                     <TableCell title={datetime(feature.dateUpdated)}>
                       {date(feature.dateUpdated)}
