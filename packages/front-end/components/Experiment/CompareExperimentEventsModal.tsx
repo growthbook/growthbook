@@ -190,6 +190,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   sequentialTestingTuningParameter: "analysis",
   attributionModel: "analysis",
   customMetricSlices: "analysis",
+  precomputedUnitDimensionIds: "analysis",
   banditBurnInUnit: "analysis",
   banditBurnInValue: "analysis",
   banditScheduleUnit: "analysis",

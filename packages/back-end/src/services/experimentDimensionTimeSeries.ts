@@ -24,8 +24,6 @@ export function isDimensionTimeSeriesCompatibleAnalysisSettings({
   dimensionId?: string;
 }): boolean {
   if ((settings.baselineVariationIndex ?? 0) !== 0) return false;
-  // TODO: Add support for non-precomputed dimensions
-  if (dimensionId && !isPrecomputedDimension(dimensionId)) return false;
 
   const expectedDimensions = dimensionId ? [dimensionId] : [];
   return isEqual(settings.dimensions, expectedDimensions);
@@ -38,10 +36,6 @@ export function getTimeSeriesAnalysisSettings({
   baseSettings: ExperimentSnapshotAnalysisSettings;
   dimensionId?: string;
 }): ExperimentSnapshotAnalysisSettings[] {
-  if (dimensionId && !isPrecomputedDimension(dimensionId)) {
-    throw new Error(`Cannot create time series for dimension: ${dimensionId}`);
-  }
-
   return (["relative", "absolute", "scaled"] as const).map(
     (differenceType) => ({
       ...baseSettings,

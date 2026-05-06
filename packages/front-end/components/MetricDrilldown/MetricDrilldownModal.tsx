@@ -193,7 +193,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   isReportContext,
 }) => {
   const { isAuthenticated } = useAuth();
-  const { analysis } = useSnapshot();
+  const { analysis, experiment } = useSnapshot();
 
   const liveResults = useMemo(() => {
     if (!dimensionInfo) {
@@ -245,9 +245,11 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   const [sliceSearchTerm, setSliceSearchTerm] = useState(
     initialSliceSearchTerm || "",
   );
-  const hideTimeSeries =
-    isReportContext ||
-    (!!dimensionInfo && !isPrecomputedDimension(dimensionInfo.id));
+  const hasDimensionTimeSeries =
+    !dimensionInfo ||
+    isPrecomputedDimension(dimensionInfo.id) ||
+    !!experiment?.precomputedUnitDimensionIds?.includes(dimensionInfo.id);
+  const hideTimeSeries = isReportContext || !hasDimensionTimeSeries;
   const [visibleSliceTimeSeriesRowIds, setVisibleSliceTimeSeriesRowIds] =
     useState<string[]>(() => {
       if (
@@ -336,8 +338,8 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           timeSeriesMessage={
             isReportContext
               ? "Time series data is not available for custom reports."
-              : dimensionInfo && !isPrecomputedDimension(dimensionInfo.id)
-                ? "Time series is not available for unit dimension breakdowns."
+              : !hasDimensionTimeSeries
+                ? "Enable unit-dimension time series in Analysis settings to update with each results refresh."
                 : undefined
           }
           dimensionInfo={dimensionInfo}

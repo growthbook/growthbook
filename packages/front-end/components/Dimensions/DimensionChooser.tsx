@@ -57,6 +57,7 @@ export interface Props {
 export function getDimensionOptions({
   incrementalRefresh,
   precomputedDimensions,
+  precomputedUnitDimensionIds,
   datasource,
   dimensions,
   activationMetric,
@@ -65,27 +66,41 @@ export function getDimensionOptions({
 }: {
   incrementalRefresh: IncrementalRefreshInterface | null;
   precomputedDimensions?: string[];
+  precomputedUnitDimensionIds?: string[];
   datasource: DataSourceInterfaceWithParams | null;
   dimensions: DimensionInterface[];
   exposureQueryId?: string;
   userIdType?: string;
   activationMetric?: boolean;
 }): GroupedValue[] {
-  // Include user dimensions tied to the datasource
-  const filteredDimensions = dimensions
+  // Include unit dimensions tied to the datasource
+  const filteredUnitDimensions = dimensions
     .filter((d) => d.datasource === datasource?.id)
-    .map((d) => {
-      return {
-        label: d.name,
-        value: d.id,
-      };
-    });
+    .map((d) => ({ label: d.name, value: d.id }));
 
-  const precomputedDimensionOptions =
-    precomputedDimensions?.map((d) => ({
+  // When displaying, we are grouping Experiment Dimensions and
+  // Precomputed Unit Dimensions under 'precomputed' as they
+  // are both available for free after the main refresh.
+  const experimentPrecomputedUnitDimensionIds = new Set(
+    precomputedUnitDimensionIds ?? [],
+  );
+
+  // Include user dimensions tied to the datasource. Precomputed unit dims are kept
+  // in a separate bucket so they can be promoted into the "Pre-computed" group.
+  const unitDimensions = filteredUnitDimensions.filter(
+    (d) => !experimentPrecomputedUnitDimensionIds.has(d.value),
+  );
+  const precomputedUnitDimensionOptions = filteredUnitDimensions.filter((d) =>
+    experimentPrecomputedUnitDimensionIds.has(d.value),
+  );
+
+  const precomputedDimensionOptions = [
+    ...(precomputedDimensions?.map((d) => ({
       label: d.replace("precomputed:", ""),
       value: d,
-    })) ?? [];
+    })) ?? []),
+    ...precomputedUnitDimensionOptions,
+  ];
 
   const exposureQuery = datasource?.settings
     ? getExposureQuery(datasource.settings, exposureQueryId, userIdType)
@@ -106,7 +121,7 @@ export function getDimensionOptions({
           return;
         }
 
-        filteredDimensions.push({
+        unitDimensions.push({
           label: d,
           value: "exp:" + d,
         });
@@ -116,7 +131,7 @@ export function getDimensionOptions({
   // Legacy data sources - add experiment dimensions
   else if ((datasource?.settings?.experimentDimensions?.length ?? 0) > 0) {
     datasource?.settings?.experimentDimensions?.forEach((d) => {
-      filteredDimensions.push({
+      unitDimensions.push({
         label: d,
         value: "exp:" + d,
       });
@@ -138,7 +153,7 @@ export function getDimensionOptions({
     });
   }
 
-  const onDemandDimensions = [...builtInDimensions, ...filteredDimensions];
+  const onDemandDimensions = [...builtInDimensions, ...unitDimensions];
 
   return [
     ...(precomputedDimensionOptions.length > 0
@@ -204,6 +219,7 @@ export default function DimensionChooser({
   const dimensionOptions = getDimensionOptions({
     incrementalRefresh,
     precomputedDimensions,
+    precomputedUnitDimensionIds: experiment?.precomputedUnitDimensionIds,
     exposureQueryId,
     userIdType,
     datasource,

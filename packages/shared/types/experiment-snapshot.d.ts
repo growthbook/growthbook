@@ -153,7 +153,8 @@ export type SnapshotTriggeredBy =
   | "schedule"
   | "manual"
   | "manual-dashboard"
-  | "update-dashboards";
+  | "update-dashboards"
+  | "eager-unit-dimension";
 
 export interface ExperimentSnapshotAnalysis {
   // Stable per snapshot-analysis key used to identify the chunked row data

@@ -2438,6 +2438,7 @@ export async function toExperimentApiInterface(
     hasURLRedirects: experiment.hasURLRedirects || false,
     customFields: experiment.customFields ?? {},
     customMetricSlices: experiment.customMetricSlices ?? [],
+    precomputedUnitDimensionIds: experiment.precomputedUnitDimensionIds ?? [],
     defaultDashboardId: experiment.defaultDashboardId,
     templateId: experiment.templateId || undefined,
   };
@@ -3609,6 +3610,7 @@ export function postExperimentApiPayloadToInterface(
       : {}),
     shareLevel: payload.shareLevel,
     customMetricSlices: payload.customMetricSlices || [],
+    precomputedUnitDimensionIds: payload.precomputedUnitDimensionIds || [],
     customFields: payload.customFields,
     templateId: payload.templateId || undefined,
     ...(payload.defaultDashboardId !== undefined
@@ -3837,6 +3839,7 @@ export function updateExperimentApiPayloadToInterface(
     secondaryMetrics,
     shareLevel,
     customMetricSlices,
+    precomputedUnitDimensionIds,
     customFields,
     autoRefresh,
     banditScheduleValue,
@@ -3903,6 +3906,9 @@ export function updateExperimentApiPayloadToInterface(
     ),
     ...(shareLevel !== undefined ? { shareLevel } : {}),
     ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
+    ...(precomputedUnitDimensionIds !== undefined
+      ? { precomputedUnitDimensionIds }
+      : {}),
     ...(customFields !== undefined ? { customFields } : {}),
     ...(autoRefresh !== undefined ? { autoSnapshots: !!autoRefresh } : {}),
     ...(banditScheduleValue !== undefined ? { banditScheduleValue } : {}),

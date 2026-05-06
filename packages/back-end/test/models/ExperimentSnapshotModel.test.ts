@@ -42,6 +42,7 @@ jest.mock("back-end/src/services/experimentTimeSeries", () => ({
 
 jest.mock("back-end/src/services/experimentDimensionAnalyses", () => ({
   runEagerPrecomputedDimensionAnalyses: jest.fn().mockResolvedValue(undefined),
+  runEagerUnitDimensionAnalyses: jest.fn().mockResolvedValue(undefined),
 }));
 
 const snapshotTestContext = {

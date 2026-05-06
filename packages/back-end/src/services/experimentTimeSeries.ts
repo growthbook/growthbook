@@ -49,13 +49,16 @@ export async function updateExperimentTimeSeries({
   experimentSnapshot: ExperimentSnapshotInterface;
   notificationsTriggered: string[];
 }) {
-  // This top-level update only handles the main experiment time series.
+  // This top-level update handles the main experiment time series and
+  // unit-dim children spawned by the eager-unit-dimension fan-out.
   // Precomputed dimension time series are handled separately by
   // runEagerPrecomputedDimensionAnalyses.
-  if (
-    experimentSnapshot.dimension !== null &&
-    experimentSnapshot.dimension !== ""
-  ) {
+  const snapshotDimension = experimentSnapshot.dimension ?? "";
+  const isEagerUnitDimension =
+    snapshotDimension !== "" &&
+    experimentSnapshot.triggeredBy === "eager-unit-dimension";
+
+  if (snapshotDimension !== "" && !isEagerUnitDimension) {
     return;
   }
 
@@ -65,9 +68,20 @@ export async function updateExperimentTimeSeries({
       experiment,
       experimentSnapshot,
     });
-  const analyses = getTimeSeriesAnalyses({
-    analyses: experimentSnapshot.analyses,
-  });
+  const analyses = isEagerUnitDimension
+    ? experimentSnapshot.analyses.filter((analysis) => {
+        const baselineOk =
+          analysis.settings.baselineVariationIndex === undefined ||
+          analysis.settings.baselineVariationIndex === 0;
+        return (
+          baselineOk &&
+          analysis.settings.dimensions.length === 1 &&
+          analysis.settings.dimensions[0] === snapshotDimension
+        );
+      })
+    : getTimeSeriesAnalyses({
+        analyses: experimentSnapshot.analyses,
+      });
 
   // As we tag the whole snapshot, we just care if any metric has a significant difference from the previous status
   const hasSignificantDifference = getHasSignificantDifference(
@@ -134,7 +148,8 @@ export async function getExperimentTimeSeriesContext({
 /**
  * Persists time series for a group of analyses that share the same snapshot
  * context. Dimensionless analyses write the main experiment series; analyses
- * for one precomputed dimension write one series per dimension value.
+ * for a precomputed dimension or for an eager-unit-dimension child snapshot
+ * write one series per dimension value.
  */
 export async function updateExperimentAnalysisTimeSeries({
   context,
@@ -162,8 +177,16 @@ export async function updateExperimentAnalysisTimeSeries({
     );
   }
   const [dimensionId] = Array.from(dimensionIds);
-  // Only precomputed dimensions are supported for dimension time series for now.
-  if (dimensionId && !isPrecomputedDimension(dimensionId)) {
+  // Allow either precomputed dimensions OR unit-dim ids carried by an
+  // eager-unit-dimension child snapshot. Other on-demand dimension snapshots
+  // are still rejected to avoid polluting the time series with one-off picks.
+  const isEagerUnitDimensionSnapshot =
+    experimentSnapshot.triggeredBy === "eager-unit-dimension";
+  if (
+    dimensionId &&
+    !isPrecomputedDimension(dimensionId) &&
+    !isEagerUnitDimensionSnapshot
+  ) {
     throw new Error(
       `Cannot update time series for unsupported dimension: ${dimensionId}`,
     );

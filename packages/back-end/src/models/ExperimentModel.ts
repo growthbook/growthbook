@@ -361,6 +361,7 @@ const experimentSchema = new mongoose.Schema({
       ],
     },
   ],
+  precomputedUnitDimensionIds: [String],
 });
 
 // Compound indexes for API list filtering

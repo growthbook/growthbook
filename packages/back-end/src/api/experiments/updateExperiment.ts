@@ -22,6 +22,7 @@ import {
   resolveOwnerToUserId,
 } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
@@ -203,6 +204,25 @@ export const updateExperiment = createApiRequestHandler(
 
   if (req.body.variations) {
     validateVariationIds(req.body.variations as Variation[]);
+  }
+
+  const shouldValidatePrecomputedUnitDimensionIds =
+    req.body.precomputedUnitDimensionIds !== undefined ||
+    (req.body.datasourceId !== undefined &&
+      req.body.datasourceId !== experiment.datasource) ||
+    (req.body.assignmentQueryId !== undefined &&
+      req.body.assignmentQueryId !== experiment.exposureQueryId);
+  if (shouldValidatePrecomputedUnitDimensionIds) {
+    const effectivePrecomputedUnitDimensionIds =
+      req.body.precomputedUnitDimensionIds ??
+      experiment.precomputedUnitDimensionIds ??
+      [];
+    await assertExperimentPrecomputedUnitDimensionIdsAreValid({
+      context: req.context,
+      datasource,
+      exposureQueryId: req.body.assignmentQueryId ?? experiment.exposureQueryId,
+      dimensionIds: effectivePrecomputedUnitDimensionIds,
+    });
   }
 
   if (

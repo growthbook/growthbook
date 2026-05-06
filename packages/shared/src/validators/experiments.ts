@@ -243,6 +243,7 @@ export const experimentAnalysisSettings = z
     sequentialTestingTuningParameter: z.number().optional(),
     statsEngine: z.enum(statsEngines).optional(),
     customMetricSlices: z.array(customMetricSlice).optional(),
+    precomputedUnitDimensionIds: z.array(z.string()).optional(),
   })
   .strict();
 export type ExperimentAnalysisSettings = z.infer<
@@ -406,6 +407,7 @@ export const experimentInterface = z
     holdoutId: z.string().optional(),
     defaultDashboardId: z.string().optional(),
     customMetricSlices: z.array(customMetricSlice).optional(),
+    precomputedUnitDimensionIds: z.array(z.string()).optional(),
   })
   .strict()
   .merge(experimentAnalysisSettings);
@@ -741,6 +743,7 @@ const apiExperimentShape = z.object({
   hasURLRedirects: z.boolean().optional(),
   customFields: z.record(z.string(), z.any()).optional(),
   customMetricSlices: apiCustomMetricSlices.optional(),
+  precomputedUnitDimensionIds: z.array(z.string()).optional(),
   defaultDashboardId: z
     .string()
     .describe("ID of the default dashboard for this experiment.")
@@ -1079,6 +1082,7 @@ const postExperimentBody = z
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
     customMetricSlices: apiCustomMetricSlices.optional(),
+    precomputedUnitDimensionIds: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -1263,6 +1267,7 @@ const updateExperimentBody = z
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
     customMetricSlices: apiCustomMetricSlices.optional(),
+    precomputedUnitDimensionIds: z.array(z.string()).optional(),
   })
   .strict();
 

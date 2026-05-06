@@ -24,7 +24,10 @@ import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
-import { runEagerPrecomputedDimensionAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
+import {
+  runEagerUnitDimensionAnalyses,
+  runEagerExperimentDimensionAnalyses,
+} from "back-end/src/services/experimentDimensionAnalyses";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { queriesSchema } from "./QueryModel";
@@ -503,20 +506,30 @@ export async function updateSnapshot({
     experimentSnapshot.type === "standard" &&
     experimentSnapshot.status === "success";
 
-  const shouldRunEagerPrecomputedDimensionAnalyses =
+  const shouldRunEagerDimensionAnalyses =
     shouldUpdateExperimentAnalysisSummary && hasAnalysisUpdates;
 
-  if (shouldUpdateExperimentAnalysisSummary) {
-    const currentExperimentModel = await getExperimentById(
-      context,
-      experimentSnapshot.experiment,
-    );
+  // Eager Unit Dimension snapshots are exploratory, so they don't
+  // update the analysis summary.
+  // So we explicitly handle the timeseries updates for them here
+  const shouldWriteEagerUnitDimensionTimeSeries =
+    experimentSnapshot.triggeredBy === "eager-unit-dimension" &&
+    !!experimentSnapshot.dimension &&
+    experimentSnapshot.status === "success" &&
+    hasAnalysisUpdates;
 
-    const isLatestPhase = currentExperimentModel
-      ? experimentSnapshot.phase === currentExperimentModel.phases.length - 1
-      : false;
+  const currentExperimentModel =
+    shouldUpdateExperimentAnalysisSummary ||
+    shouldWriteEagerUnitDimensionTimeSeries
+      ? await getExperimentById(context, experimentSnapshot.experiment)
+      : null;
 
-    if (currentExperimentModel && isLatestPhase) {
+  const isLatestPhase = currentExperimentModel
+    ? experimentSnapshot.phase === currentExperimentModel.phases.length - 1
+    : false;
+
+  if (currentExperimentModel && isLatestPhase) {
+    if (shouldUpdateExperimentAnalysisSummary) {
       const updatedExperimentModel = await updateExperimentAnalysisSummary({
         context,
         experiment: currentExperimentModel,
@@ -549,8 +562,8 @@ export async function updateSnapshot({
         );
       }
 
-      if (shouldRunEagerPrecomputedDimensionAnalyses) {
-        runEagerPrecomputedDimensionAnalyses({
+      if (shouldRunEagerDimensionAnalyses) {
+        runEagerExperimentDimensionAnalyses({
           context,
           experiment: updatedExperimentModel,
           experimentSnapshot,
@@ -564,6 +577,43 @@ export async function updateSnapshot({
             "Unexpected unhandled rejection from runEagerPrecomputedDimensionAnalyses",
           );
         });
+
+        runEagerUnitDimensionAnalyses({
+          context,
+          experiment: updatedExperimentModel,
+          experimentSnapshot,
+        }).catch((error) => {
+          logger.error(
+            {
+              err: error,
+              experimentId: currentExperimentModel.id,
+              snapshotId: experimentSnapshot.id,
+            },
+            "Unexpected unhandled rejection from runEagerUnitDimensionAnalyses",
+          );
+        });
+      }
+    }
+
+    if (shouldWriteEagerUnitDimensionTimeSeries) {
+      try {
+        await updateExperimentTimeSeries({
+          context,
+          experiment: currentExperimentModel,
+          previousAnalysisSummary: currentExperimentModel.analysisSummary,
+          experimentSnapshot,
+          notificationsTriggered: [],
+        });
+      } catch (error) {
+        logger.error(
+          {
+            err: error,
+            experimentId: currentExperimentModel.id,
+            snapshotId: experimentSnapshot.id,
+            dimensionId: experimentSnapshot.dimension,
+          },
+          "Unable to update eager unit-dim time series",
+        );
       }
     }
   }
@@ -848,6 +898,42 @@ export async function findSnapshotsByIds(
   });
   const snapshots = docs.map(toInterface);
   return populateSnapshotAnalyses(context, snapshots);
+}
+
+export async function findInFlightEagerUnitDimensionSnapshots(
+  context: Context,
+  {
+    experimentId,
+    phase,
+    dimensionIds,
+  }: {
+    experimentId: string;
+    phase: number;
+    dimensionIds: string[];
+  },
+): Promise<Set<string>> {
+  if (dimensionIds.length === 0) return new Set();
+  // Bound the scan; older "running" snapshots should not still be running.
+  const earliestDate = new Date();
+  earliestDate.setDate(earliestDate.getDate() - 1);
+  const docs = await ExperimentSnapshotModel.find(
+    {
+      organization: context.org.id,
+      experiment: experimentId,
+      phase,
+      dimension: { $in: dimensionIds },
+      status: "running",
+      triggeredBy: "eager-unit-dimension",
+      dateCreated: { $gt: earliestDate },
+    },
+    { dimension: 1 },
+  );
+  return new Set(
+    docs
+      .map(toInterface)
+      .map((d) => d.dimension)
+      .filter((d): d is string => typeof d === "string" && d.length > 0),
+  );
 }
 
 export async function findRunningSnapshotsByQueryId(ids: string[]) {

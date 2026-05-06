@@ -9457,6 +9457,10 @@ paths:
                     required:
                       - slices
                     additionalProperties: false
+                precomputedUnitDimensionIds:
+                  type: array
+                  items:
+                    type: string
               required:
                 - trackingKey
                 - name
@@ -9987,6 +9991,10 @@ paths:
                     required:
                       - slices
                     additionalProperties: false
+                precomputedUnitDimensionIds:
+                  type: array
+                  items:
+                    type: string
               additionalProperties: false
       responses:
         '200':
@@ -25821,6 +25829,10 @@ components:
             required:
               - slices
             additionalProperties: false
+        precomputedUnitDimensionIds:
+          type: array
+          items:
+            type: string
         defaultDashboardId:
           description: ID of the default dashboard for this experiment.
           type: string
@@ -26357,6 +26369,10 @@ components:
                 required:
                   - slices
                 additionalProperties: false
+            precomputedUnitDimensionIds:
+              type: array
+              items:
+                type: string
             defaultDashboardId:
               description: ID of the default dashboard for this experiment.
               type: string
