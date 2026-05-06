@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import escapeRegExp from "lodash/escapeRegExp";
-import { Document } from "mongodb";
 import { UserInterface } from "shared/types/user";
 import {
   usingOpenId,
@@ -166,32 +165,6 @@ export async function createUser({
       agreedToTerms,
     }),
   );
-}
-
-export async function findVerifiedEmails(
-  emails: string[] | undefined,
-): Promise<string[]> {
-  let users: Document[] = [];
-  if (emails) {
-    // Match either the input casing or its lowercased form so callers don't
-    // miss accounts that were stored in lowercase by `createUser`.
-    const variants = Array.from(
-      new Set([...emails, ...emails.map((e) => e.toLowerCase())]),
-    );
-    users = await getCollection(COLLECTION)
-      .find({
-        email: { $in: variants },
-        verified: true,
-      })
-      .toArray();
-  } else {
-    users = await getCollection(COLLECTION)
-      .find({
-        verified: true,
-      })
-      .toArray();
-  }
-  return users.map((u) => u.email);
 }
 
 export async function resetMinTokenDate(userId: string) {
