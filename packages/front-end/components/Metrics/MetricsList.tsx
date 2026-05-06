@@ -44,9 +44,10 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import LinkButton from "@/ui/LinkButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "@/components/Tooltip/Tooltip";
-
-const REST_API_ONLY_EDIT_MESSAGE =
-  "This is a metric that can only be managed via the REST API";
+import {
+  isMergeAggregationMetric,
+  REST_API_ONLY_EDIT_MESSAGE,
+} from "@/services/factMetrics";
 
 function MetricRowMenu({ metric }: { metric: MetricTableItem }) {
   const [open, setOpen] = useState(false);
@@ -308,13 +309,9 @@ export function useCombinedMetrics({
         canDuplicate,
         canEdit,
         canDelete,
-        editDisabledReason:
-          m.numerator.aggregation === "kll merge" ||
-          m.numerator.aggregation === "hll merge" ||
-          m.denominator?.aggregation === "kll merge" ||
-          m.denominator?.aggregation === "hll merge"
-            ? REST_API_ONLY_EDIT_MESSAGE
-            : undefined,
+        editDisabledReason: isMergeAggregationMetric(m)
+          ? REST_API_ONLY_EDIT_MESSAGE
+          : undefined,
         onArchive: canEdit
           ? async (archivedState) => {
               await apiCall(`/fact-metrics/${m.id}`, {

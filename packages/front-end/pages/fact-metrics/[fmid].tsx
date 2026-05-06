@@ -72,18 +72,10 @@ import { DocLink } from "@/components/DocLink";
 import Callout from "@/ui/Callout";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import Code from "@/components/SyntaxHighlighting/Code";
-
-const REST_API_ONLY_EDIT_MESSAGE =
-  "This is a metric that can only be managed via the REST API";
-
-function isMergeAggregationMetric(metric: {
-  numerator: { aggregation?: string };
-  denominator?: { aggregation?: string } | null;
-}): boolean {
-  return [metric.numerator.aggregation, metric.denominator?.aggregation].some(
-    (aggregation) => aggregation === "kll merge" || aggregation === "hll merge",
-  );
-}
+import {
+  isMergeAggregationMetric,
+  REST_API_ONLY_EDIT_MESSAGE,
+} from "@/services/factMetrics";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -573,21 +565,21 @@ export default function FactMetricPage() {
             open={openDropdown}
             onOpenChange={setOpenDropdown}
           >
-            {canEdit && !editViaApiOnly && (
+            {canEdit && (
               <DropdownMenuItem
                 onClick={() => {
                   setOpenDropdown(false);
                   setEditOpen("open");
                 }}
+                disabled={editViaApiOnly}
               >
-                Edit Metric
-              </DropdownMenuItem>
-            )}
-            {canEdit && editViaApiOnly && (
-              <DropdownMenuItem disabled>
-                <Tooltip content={REST_API_ONLY_EDIT_MESSAGE}>
+                {editViaApiOnly ? (
+                  <Tooltip content={REST_API_ONLY_EDIT_MESSAGE}>
+                    <span>Edit Metric</span>
+                  </Tooltip>
+                ) : (
                   <span>Edit Metric</span>
-                </Tooltip>
+                )}
               </DropdownMenuItem>
             )}
             {canEdit &&

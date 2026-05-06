@@ -13,7 +13,7 @@ describe("productAnalytics", () => {
     settings: {},
   };
 
-  const helpers = {
+  const helpers: SqlDialect = {
     escapeStringLiteral: (value) => value,
     jsonExtract: (jsonCol, path, isNumeric) =>
       `${jsonCol}:'${path}'::${isNumeric ? "float" : "text"}`,
@@ -30,7 +30,7 @@ describe("productAnalytics", () => {
       `'${d.toISOString().substring(0, 10)} 00:00:00'`,
     formatDialect: "bigquery",
     castToFloat: (col) => `CAST(${col} AS FLOAT)`,
-  } as Partial<SqlDialect> as SqlDialect;
+  };
 
   const factTableMap = new Map<string, FactTableInterface>([
     [
@@ -784,7 +784,9 @@ describe("productAnalytics", () => {
       datasource,
     );
 
-    expect(sql).toMatch(/HLL_COUNT\s*\(\s*HLL_MERGE\s*\(\s*m0\s*\)\s*\)\s+AS\s+m0/);
+    expect(sql).toMatch(
+      /HLL_COUNT\s*\(\s*HLL_MERGE\s*\(\s*m0\s*\)\s*\)\s+AS\s+m0/,
+    );
     expect(sql).toContain("CAST(SUM(m0) AS FLOAT) AS m0_numerator");
   });
 

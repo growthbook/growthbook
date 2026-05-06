@@ -30,20 +30,11 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
+import {
+  isMergeAggregationMetric,
+  REST_API_ONLY_EDIT_MESSAGE,
+} from "@/services/factMetrics";
 import FactMetricModal from "./FactMetricModal";
-
-const REST_API_ONLY_EDIT_MESSAGE =
-  "This is a metric that can only be managed via the REST API";
-
-function isMergeAggregationMetric(metric: FactMetricInterface): boolean {
-  const aggregations = [
-    metric.numerator.aggregation,
-    metric.denominator?.aggregation,
-  ];
-  return aggregations.some((aggregation) =>
-    ["kll merge", "hll merge"].includes(aggregation || ""),
-  );
-}
 
 function FactMetricRowMenu({
   metric,
