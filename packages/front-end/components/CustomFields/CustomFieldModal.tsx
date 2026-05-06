@@ -14,7 +14,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import track from "@/services/track";
 import { useCustomFields } from "@/hooks/useCustomFields";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField, {
   GroupedValue,
@@ -120,13 +120,12 @@ export default function CustomFieldModal({
     .map((p) => ({ value: p.id, label: p.name }));
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="custom-field"
       open={true}
       close={close}
       header={existing.id ? `Edit Custom Field` : "Create New Custom Field"}
       cta="Save"
-      useRadixButton={true}
       submit={form.handleSubmit(async (value) => {
         if (value.type === "boolean") {
           // make sure the default value is a boolean
@@ -429,6 +428,6 @@ export default function CustomFieldModal({
           }}
         />
       </Flex>
-    </Modal>
+    </ModalStandard>
   );
 }
