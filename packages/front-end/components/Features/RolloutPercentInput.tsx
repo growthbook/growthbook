@@ -62,7 +62,7 @@ export default function RolloutPercentInput({
       ...(rampSchedule.endActions ?? []),
     ].some(
       (a) =>
-        a.type === "patch-rule" &&
+        a.targetType === "feature-rule" &&
         a.patch.coverage !== undefined &&
         (a.patch.coverage ?? 1) < 1,
     );

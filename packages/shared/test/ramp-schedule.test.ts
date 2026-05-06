@@ -43,7 +43,7 @@ function makeSchedule(overrides: Record<string, unknown> = {}) {
 describe("rampStepAction", () => {
   it("accepts a coverage patch", () => {
     const result = rampStepAction.safeParse({
-      type: "patch-rule",
+      targetType: "feature-rule",
       targetId: "t1",
       patch: { ruleId: "rule_1", coverage: 0.5 },
     });
@@ -52,7 +52,7 @@ describe("rampStepAction", () => {
 
   it("rejects coverage outside 0–1", () => {
     const result = rampStepAction.safeParse({
-      type: "patch-rule",
+      targetType: "feature-rule",
       targetId: "t1",
       patch: { ruleId: "rule_1", coverage: 1.5 },
     });
@@ -61,7 +61,7 @@ describe("rampStepAction", () => {
 
   it("accepts a boolean enabled patch", () => {
     const result = rampStepAction.safeParse({
-      type: "patch-rule",
+      targetType: "feature-rule",
       targetId: "t1",
       patch: { ruleId: "rule_1", enabled: false },
     });
@@ -70,7 +70,7 @@ describe("rampStepAction", () => {
 
   it("requires ruleId in patch", () => {
     const result = rampStepAction.safeParse({
-      type: "patch-rule",
+      targetType: "feature-rule",
       targetId: "t1",
       patch: { coverage: 0.5 },
     });
@@ -253,7 +253,7 @@ describe("rampScheduleValidator — invalid documents", () => {
             trigger: { type: "interval", seconds: 60 },
             actions: [
               {
-                type: "patch-rule",
+                targetType: "feature-rule",
                 targetId: "t1",
                 patch: { ruleId: "r1", coverage: 2.0 },
               },

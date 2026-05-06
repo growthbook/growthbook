@@ -117,7 +117,7 @@ describe("buildTemplatePayload", () => {
     const payload = buildTemplatePayload(freshState());
     for (const step of payload.steps) {
       for (const action of step.actions) {
-        if (action.type !== "patch-rule") continue;
+        if (action.targetType !== "feature-rule") continue;
         expect(action.targetId).toBe(PLACEHOLDER_TARGET);
         expect(action.patch.ruleId).toBe(PLACEHOLDER_RULE);
       }
@@ -231,7 +231,7 @@ describe("templateToSectionState", () => {
           trigger: { type: "interval", seconds: 3600 },
           actions: [
             {
-              type: "patch-rule",
+              targetType: "feature-rule",
               targetId: PLACEHOLDER_TARGET,
               patch: { ruleId: PLACEHOLDER_RULE, coverage: 0.5 },
             },
@@ -265,7 +265,7 @@ describe("templateToSectionState", () => {
           trigger: { type: "interval", seconds: 3600 },
           actions: [
             {
-              type: "patch-rule",
+              targetType: "feature-rule",
               targetId: PLACEHOLDER_TARGET,
               patch: { ruleId: PLACEHOLDER_RULE, coverage: 0.5 },
             },
@@ -275,7 +275,7 @@ describe("templateToSectionState", () => {
           trigger: { type: "interval", seconds: 7200 },
           actions: [
             {
-              type: "patch-rule",
+              targetType: "feature-rule",
               targetId: PLACEHOLDER_TARGET,
               patch: { ruleId: PLACEHOLDER_RULE, coverage: 1.0 },
             },

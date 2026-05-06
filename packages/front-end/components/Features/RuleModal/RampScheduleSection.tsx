@@ -12,7 +12,6 @@ import {
   PiInfo,
   PiCaretDownBold,
   PiBookmarkSimple,
-  PiShieldCheckBold,
 } from "react-icons/pi";
 import type {
   FeatureInterface,
@@ -63,6 +62,10 @@ import {
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import MetricsSelector from "@/components/Experiment/MetricsSelector";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { Popover } from "@/ui/Popover";
 import styles from "./RampScheduleSection.module.scss";
 
@@ -109,6 +112,20 @@ export type UIStep = {
 
 export type RampMode = "off" | "create" | "edit" | "link";
 
+// UI-only builder mode: controls which schedule editing UX is shown.
+// "simple" auto-generates steps from a duration; "advanced" shows the full
+// per-step editor (also used when a template is applied).
+export type RampBuilderMode = "simple" | "advanced";
+
+export interface RampMonitoringState {
+  datasourceId: string;
+  exposureQueryId: string;
+  guardrailMetricIds: string[];
+  autoRollback: boolean;
+  // Per-rollout query cadence override (minutes). null = use org default.
+  updateScheduleMinutes: number | null;
+}
+
 export interface RampSectionState {
   mode: RampMode;
   name: string;
@@ -121,13 +138,73 @@ export interface RampSectionState {
   // Per-row "additional effects" expansion state (force / condition / savedGroups / prerequisites).
   endAdditionalEffectsOpen: boolean;
   // Note: per-step open state lives on UIStep.additionalEffectsOpen
+
+  // Builder mode & monitoring
+  builderMode: RampBuilderMode;
+  monitoring: RampMonitoringState;
+  // Simple mode: total duration, auto-generates steps
+  simpleDurationDays: number;
+  simpleDurationUnit?: IntervalUnit;
 }
+
+const DEFAULT_MONITORING: RampMonitoringState = {
+  datasourceId: "",
+  exposureQueryId: "",
+  guardrailMetricIds: [],
+  autoRollback: true,
+  updateScheduleMinutes: null,
+};
 
 const UNIT_MULT: Record<IntervalUnit, number> = {
   minutes: 60,
   hours: 3600,
   days: 86400,
 };
+
+const SIMPLE_COVERAGES = [10, 25, 50, 75, 100];
+
+export function generateSimpleSteps(
+  duration: number,
+  unit: IntervalUnit = "days",
+): UIStep[] {
+  const intervalValue = Math.max(
+    1,
+    Math.round(duration / SIMPLE_COVERAGES.length),
+  );
+
+  return SIMPLE_COVERAGES.map((cov) => ({
+    patch: { coverage: cov },
+    triggerType: "interval" as const,
+    intervalValue,
+    intervalUnit: unit,
+    approvalNotes: "",
+    notesOpen: false,
+    additionalEffectsOpen: false,
+    monitored: false,
+    requireHealthy: false,
+    minSampleSize: null,
+  }));
+}
+
+// Detects whether steps match the simple pattern:
+// all interval triggers, default coverages (10/25/50/75/100), uniform interval.
+export function stepsMatchSimplePattern(steps: UIStep[]): boolean {
+  if (steps.length !== SIMPLE_COVERAGES.length) return false;
+  if (!steps.every((s) => s.triggerType === "interval")) {
+    return false;
+  }
+  const unit = steps[0].intervalUnit;
+  const interval = steps[0].intervalValue;
+  if (
+    !steps.every((s) => s.intervalUnit === unit && s.intervalValue === interval)
+  ) {
+    return false;
+  }
+  for (let i = 0; i < steps.length; i++) {
+    if ((steps[i].patch.coverage ?? 0) !== SIMPLE_COVERAGES[i]) return false;
+  }
+  return true;
+}
 
 export const VALID_STEP_FIELDS: StepField[] = [
   "savedGroups",
@@ -188,13 +265,11 @@ const COL = {
 
 // ─── Build helpers ───────────────────────────────────────────────────────────
 
-type PatchRuleAction = Extract<RampStepAction, { type: "patch-rule" }>;
-
 export function buildPatch(
   patch: UIStepPatch,
   ruleId: string,
-): PatchRuleAction["patch"] {
-  const out: PatchRuleAction["patch"] = { ruleId };
+): RampStepAction["patch"] {
+  const out: RampStepAction["patch"] = { ruleId };
   if (patch.coverage !== undefined) out.coverage = patch.coverage / 100;
   if (patch.condition !== undefined) out.condition = patch.condition;
   if (patch.savedGroups !== undefined) out.savedGroups = patch.savedGroups;
@@ -220,7 +295,7 @@ export function buildEndActions(
   if (isEmpty) return [];
   return [
     {
-      type: "patch-rule" as const,
+      targetType: "feature-rule" as const,
       targetId: "t1",
       patch,
     },
@@ -243,6 +318,29 @@ function setPatchField(
   return { ...patch, [field]: value };
 }
 
+export function buildMonitoringConfig(monitoring: RampMonitoringState):
+  | {
+      datasourceId: string;
+      exposureQueryId: string;
+      guardrailMetricIds: string[];
+      autoRollback?: boolean;
+    }
+  | undefined {
+  if (
+    !monitoring.datasourceId ||
+    !monitoring.exposureQueryId ||
+    monitoring.guardrailMetricIds.length === 0
+  ) {
+    return undefined;
+  }
+  return {
+    datasourceId: monitoring.datasourceId,
+    exposureQueryId: monitoring.exposureQueryId,
+    guardrailMetricIds: monitoring.guardrailMetricIds,
+    autoRollback: monitoring.autoRollback || undefined,
+  };
+}
+
 export function buildRampSteps(
   steps: UIStep[],
   targetId: string,
@@ -258,7 +356,7 @@ export function buildRampSteps(
               seconds: Math.max(1, s.intervalValue) * UNIT_MULT[s.intervalUnit],
             }
           : { type: "approval" as const },
-      actions: [{ type: "patch-rule" as const, targetId, patch }],
+      actions: [{ targetType: "feature-rule" as const, targetId, patch }],
       ...(s.triggerType === "approval" && s.approvalNotes
         ? { approvalNotes: s.approvalNotes }
         : {}),
@@ -276,7 +374,12 @@ export function buildRampSteps(
 // ── Template structural comparison helpers ────────────────────────────────────
 
 function normalizeActionPatch(patch: Record<string, unknown>) {
-  return pick(patch, [...TEMPLATE_PATCH_FIELDS, "ruleId", "targetId", "type"]);
+  return pick(patch, [
+    ...TEMPLATE_PATCH_FIELDS,
+    "ruleId",
+    "targetId",
+    "targetType",
+  ]);
 }
 
 function normalizeActions(
@@ -408,6 +511,17 @@ export default function RampScheduleSection({
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
   const hasRampSchedulesFeature = hasCommercialFeature("ramp-schedules");
+  const { datasources } = useDefinitions();
+  const settings = useOrgSettings();
+
+  const selectedDatasource = useMemo(
+    () => datasources.find((d) => d.id === state.monitoring.datasourceId),
+    [datasources, state.monitoring.datasourceId],
+  );
+  const exposureQueries = useMemo(
+    () => selectedDatasource?.settings?.queries?.exposure ?? [],
+    [selectedDatasource],
+  );
   const { data: templatesData, mutate: mutateTemplates } = useApi<{
     rampScheduleTemplates: RampScheduleTemplateInterface[];
   }>("/ramp-schedule-templates");
@@ -427,7 +541,7 @@ export default function RampScheduleSection({
       setSelectedTemplateId(matchId);
       return;
     }
-    if (!ruleRampSchedule && !hideTemplateSave) {
+    if (!ruleRampSchedule && !hideTemplateSave && selectedTemplateId) {
       const first = [...templates].sort(
         (a, b) => (b.official ? 1 : 0) - (a.official ? 1 : 0),
       )[0];
@@ -462,9 +576,10 @@ export default function RampScheduleSection({
   // ── Step mutations ──────────────────────────────────────────────────────────
 
   function updateStep(i: number, update: Partial<UIStep>) {
-    patchState({
-      steps: state.steps.map((s, idx) => (idx === i ? { ...s, ...update } : s)),
-    });
+    const newSteps = state.steps.map((s, idx) =>
+      idx === i ? { ...s, ...update } : s,
+    );
+    patchState({ steps: newSteps });
   }
 
   function updateStepPatch(i: number, field: StepField, value: unknown) {
@@ -566,10 +681,6 @@ export default function RampScheduleSection({
   // ── Step grid ─────────────────────────────────────────────────────────────
 
   function renderStepGrid() {
-    const hasAdditionalEffects = activeFields.size > 1;
-    const rowBorder: React.CSSProperties = hasAdditionalEffects
-      ? { borderBottom: "1px solid var(--gray-a6)" }
-      : {};
     const subRowIndent = COL.num + 16;
 
     // Sub-row renderer for feature value + targeting fields.
@@ -732,134 +843,116 @@ export default function RampScheduleSection({
     // ── End anchor row — always visible ──────────────────────────────────────
 
     const endRow = (
-      <div style={rowBorder}>
-        <Flex align="center" gap="4" py="2">
-          <Box style={{ width: COL.num, flexShrink: 0 }}>
-            <Text size="small" weight="medium" color="text-low">
-              end
-            </Text>
-          </Box>
-          {activeFields.has("coverage") && (
-            <Box style={{ width: COL.coverage, flexShrink: 0 }}>
-              <div className={`position-relative ${styles.percentInputWrap}`}>
-                <Field
-                  style={{ width: COL.coverage, minHeight: 38 }}
-                  type="number"
-                  min="0"
-                  max="100"
-                  onFocus={(e) => e.target.select()}
-                  value={String(state.endPatch.coverage ?? 100)}
-                  onChange={(e) =>
-                    patchState({
-                      endPatch: {
-                        ...state.endPatch,
-                        coverage: Math.min(
-                          100,
-                          Math.max(0, parseInt(e.target.value) || 0),
-                        ),
-                      },
-                    })
-                  }
-                />
-                <span>%</span>
-              </div>
+      <Box
+        my="2"
+        style={{
+          position: "relative",
+          border: "1px solid var(--gray-a5)",
+          borderRadius: "var(--radius-2)",
+          paddingBlock: "var(--space-2)",
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 4,
+            borderRadius: "var(--radius-2) 0 0 var(--radius-2)",
+            backgroundColor: "var(--gray-a5)",
+          }}
+        />
+        <Flex direction="column" gap="2" pl="2">
+          <Flex align="center" gap="4">
+            <Box style={{ width: COL.num, flexShrink: 0 }}>
+              <Text size="small" weight="medium" color="text-low">
+                end
+              </Text>
             </Box>
-          )}
-          <Box flexGrow="1" />
-          <DropdownMenu
-            open={openMenuIndex === "end"}
-            onOpenChange={(o) => setOpenMenuIndex(o ? "end" : null)}
-            disabled={state.endAdditionalEffectsOpen}
-            trigger={
-              <IconButton
-                type="button"
-                variant="ghost"
-                color="gray"
-                radius="full"
-                size="2"
-                highContrast
-                disabled={state.endAdditionalEffectsOpen}
-              >
-                <BsThreeDotsVertical size={18} />
-              </IconButton>
-            }
-            variant="soft"
-            menuPlacement="end"
-          >
-            {!state.endAdditionalEffectsOpen ? (
-              <DropdownMenuGroup>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setOpenMenuIndex(null);
-                    patchState({ endAdditionalEffectsOpen: true });
-                  }}
+            {activeFields.has("coverage") && (
+              <Box style={{ width: COL.coverage, flexShrink: 0 }}>
+                <div className={`position-relative ${styles.percentInputWrap}`}>
+                  <Field
+                    style={{ width: COL.coverage, minHeight: 38 }}
+                    type="number"
+                    min="0"
+                    max="100"
+                    onFocus={(e) => e.target.select()}
+                    value={String(state.endPatch.coverage ?? 100)}
+                    onChange={(e) =>
+                      patchState({
+                        endPatch: {
+                          ...state.endPatch,
+                          coverage: Math.min(
+                            100,
+                            Math.max(0, parseInt(e.target.value) || 0),
+                          ),
+                        },
+                      })
+                    }
+                  />
+                  <span>%</span>
+                </div>
+              </Box>
+            )}
+            <Box flexGrow="1" />
+            <DropdownMenu
+              open={openMenuIndex === "end"}
+              onOpenChange={(o) => setOpenMenuIndex(o ? "end" : null)}
+              disabled={state.endAdditionalEffectsOpen}
+              trigger={
+                <IconButton
+                  type="button"
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="2"
+                  highContrast
+                  style={{ marginLeft: 0, marginRight: 0 }}
+                  disabled={state.endAdditionalEffectsOpen}
                 >
-                  Add additional effects
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
-            ) : null}
-          </DropdownMenu>
+                  <BsThreeDotsVertical size={18} />
+                </IconButton>
+              }
+              variant="soft"
+              menuPlacement="end"
+            >
+              {!state.endAdditionalEffectsOpen ? (
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setOpenMenuIndex(null);
+                      patchState({ endAdditionalEffectsOpen: true });
+                    }}
+                  >
+                    Add additional effects
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              ) : null}
+            </DropdownMenu>
+          </Flex>
+          {renderPatchSubRows(
+            state.endPatch,
+            (field, value) =>
+              patchState({
+                endPatch: setPatchField(state.endPatch, field, value),
+              }),
+            "end",
+            state.endAdditionalEffectsOpen,
+          )}
         </Flex>
-        {renderPatchSubRows(
-          state.endPatch,
-          (field, value) =>
-            patchState({
-              endPatch: setPatchField(state.endPatch, field, value),
-            }),
-          "end",
-          state.endAdditionalEffectsOpen,
-        )}
-      </div>
+      </Box>
     );
-
-    const START_OPTIONS = [
-      { value: "immediately", label: "Immediately" },
-      { value: "on-date", label: "On date" },
-    ];
 
     return (
       <Box>
-        {/* Start ramp-up control — hidden for templates (no startDate on templates) */}
-        {!hideTemplateSave && (
-          <Flex align="center" gap="3" my="5">
-            <Box style={{ width: 34 }}>
-              <Text size="small" weight="medium" color="text-low">
-                Start
-              </Text>
-            </Box>
-            <SelectField
-              value={state.startDate ? "on-date" : "immediately"}
-              options={START_OPTIONS}
-              onChange={(v) => {
-                if (v === "immediately") {
-                  patchState({ startDate: "" });
-                } else {
-                  const d = new Date();
-                  d.setSeconds(0, 0);
-                  patchState({ startDate: d.toISOString().slice(0, 16) });
-                }
-              }}
-              containerClassName="mb-0"
-              containerStyle={{ minHeight: 34, width: 150 }}
-            />
-            {state.startDate && (
-              <DatePicker
-                date={state.startDate || undefined}
-                setDate={(d) =>
-                  patchState({ startDate: d ? d.toISOString() : "" })
-                }
-                precision="datetime"
-                containerClassName="mb-0"
-              />
-            )}
-          </Flex>
-        )}
-
         {/* Header row — no label for details column (datetime / interval / text) */}
         <Flex
           align="center"
           gap="4"
           pb="1"
+          pl="2"
           style={{ borderBottom: "1px solid var(--gray-a6)" }}
         >
           <ColHeader width={COL.num}>Step</ColHeader>
@@ -873,336 +966,350 @@ export default function RampScheduleSection({
 
         {state.steps.map((step, i) => {
           return (
-            <div key={i} style={rowBorder}>
-              {/* Main grid row */}
-              <Flex align="center" gap="4" py="2">
-                {/* Step number */}
-                <Box
-                  style={{
-                    width: COL.num,
-                    flexShrink: 0,
-                  }}
-                  pl="1"
-                >
-                  <Flex align="center" gap="1">
+            <Box
+              key={i}
+              my="2"
+              style={{
+                position: "relative",
+                border: "1px solid var(--gray-a5)",
+                borderRadius: "var(--radius-2)",
+                paddingBlock: "var(--space-2)",
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 4,
+                  borderRadius: "var(--radius-2) 0 0 var(--radius-2)",
+                  backgroundColor: step.monitored
+                    ? "var(--blue-9)"
+                    : "var(--gray-a5)",
+                }}
+              />
+              <Flex direction="column" gap="2" pl="2">
+                {/* Main grid row */}
+                <Flex align="center" gap="4">
+                  {/* Step number */}
+                  <Box
+                    style={{
+                      width: COL.num,
+                      flexShrink: 0,
+                    }}
+                    pl="3"
+                  >
                     <Text size="small" color="text-low">
                       {i + 1}
                     </Text>
-                    {step.monitored && (
-                      <Tooltip body="Monitored step — guardrail metrics are evaluated">
-                        <PiShieldCheckBold
-                          size={12}
-                          style={{ color: "var(--blue-9)" }}
-                        />
-                      </Tooltip>
-                    )}
-                  </Flex>
-                </Box>
-
-                {/* Coverage */}
-                {activeFields.has("coverage") && (
-                  <Box style={{ width: COL.coverage, flexShrink: 0 }}>
-                    <div
-                      className={`position-relative ${styles.percentInputWrap}`}
-                    >
-                      <Field
-                        style={{ width: COL.coverage, minHeight: 38 }}
-                        type="number"
-                        min="0"
-                        max="100"
-                        onFocus={(e) => e.target.select()}
-                        value={String(step.patch.coverage ?? 0)}
-                        onChange={(e) =>
-                          updateStepPatch(
-                            i,
-                            "coverage",
-                            parseInt(e.target.value) || 0,
-                          )
-                        }
-                        onBlur={(e) =>
-                          updateStepPatch(
-                            i,
-                            "coverage",
-                            Math.min(
-                              100,
-                              Math.max(0, parseInt(e.target.value) || 0),
-                            ),
-                          )
-                        }
-                      />
-                      <span>%</span>
-                    </div>
                   </Box>
-                )}
-                {/* Hold for — select + detail inline */}
-                <Flex
-                  align="center"
-                  gap="2"
-                  style={
-                    step.triggerType === "approval"
-                      ? { flex: 1, minWidth: COL.trigger }
-                      : { width: COL.trigger + COL.duration, flexShrink: 0 }
-                  }
-                >
-                  <Box style={{ width: COL.trigger, flexShrink: 0 }}>
-                    <SelectField
-                      value={step.triggerType}
-                      options={[
-                        {
-                          value: "interval",
-                          label: "Hold",
-                          tooltip:
-                            "Apply this step's effects, then hold for the interval before advancing",
-                        },
-                        {
-                          value: "approval",
-                          label: "Approval",
-                          tooltip:
-                            "Apply this step's effects, then hold for manual approval before advancing",
-                        },
-                      ]}
-                      onChange={(v) =>
-                        updateStep(i, {
-                          triggerType: v as "interval" | "approval",
-                        })
-                      }
-                      containerClassName="mb-0"
-                      containerStyle={{ minHeight: 38 }}
-                      useMultilineLabels
-                      formatOptionLabel={(option, meta) => {
-                        if (meta.context === "value")
-                          return <>{option.label}</>;
-                        return (
-                          <div>
-                            <div>{option.label}</div>
-                            {option.tooltip && (
-                              <div
-                                style={{
-                                  fontSize: 11,
-                                  color: "var(--color-text-low)",
-                                  marginTop: 1,
-                                }}
-                              >
-                                {option.tooltip}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      }}
-                    />
-                  </Box>
-                  {step.triggerType === "interval" && (
-                    <>
-                      <Field
-                        style={{ minHeight: 38 }}
-                        type="number"
-                        min="1"
-                        onFocus={(e) => e.target.select()}
-                        value={String(step.intervalValue)}
-                        onChange={(e) =>
-                          updateStep(i, {
-                            intervalValue: parseInt(e.target.value) || 0,
-                          })
-                        }
-                        onBlur={(e) =>
-                          updateStep(i, {
-                            intervalValue: Math.max(
-                              1,
-                              parseInt(e.target.value) || 1,
-                            ),
-                          })
-                        }
-                        containerStyle={{ width: 75, flexShrink: 0 }}
-                      />
-                      <Box style={{ flex: 1 }}>
-                        <SelectField
-                          value={step.intervalUnit}
-                          options={[
-                            { value: "minutes", label: "minutes" },
-                            { value: "hours", label: "hours" },
-                            { value: "days", label: "days" },
-                          ]}
-                          onChange={(v) =>
-                            updateStep(i, {
-                              intervalUnit: v as IntervalUnit,
-                            })
-                          }
-                          containerClassName="mb-0"
-                          containerStyle={{ minHeight: 38 }}
-                        />
-                      </Box>
-                    </>
-                  )}
-                  {step.triggerType === "approval" && (
-                    <Flex
-                      align="center"
-                      gap="2"
-                      style={{ flex: 1, minWidth: 0 }}
-                    >
-                      {!step.notesOpen ? (
-                        <Link
-                          size="1"
-                          ml="1"
-                          color="gray"
-                          style={{ flexShrink: 0 }}
-                          onClick={() =>
-                            updateStep(i, {
-                              notesOpen: true,
-                              approvalNotes: "",
-                            })
-                          }
-                        >
-                          <PiPlusBold
-                            style={{ marginRight: 3, verticalAlign: "middle" }}
-                          />
-                          Add approval notes
-                        </Link>
-                      ) : (
-                        <Box style={{ flex: 1, minWidth: 0 }}>
-                          <Field
-                            label=""
-                            placeholder="ex: Check error rates"
-                            value={step.approvalNotes}
-                            onChange={(e) =>
-                              updateStep(i, { approvalNotes: e.target.value })
-                            }
-                            containerClassName="mb-0"
-                            style={{ minHeight: 38 }}
-                          />
-                        </Box>
-                      )}
-                    </Flex>
-                  )}
-                </Flex>
 
-                <Checkbox
-                  value={step.monitored}
-                  setValue={(v) =>
-                    updateStep(i, {
-                      monitored: v,
-                      requireHealthy: v ? true : false,
-                      minSampleSize: v ? step.minSampleSize : null,
-                    })
-                  }
-                  label="Monitor"
-                  size="sm"
-                />
-
-                <Box flexGrow="1" />
-                {/* Three-dot menu — pushed to far right */}
-                <DropdownMenu
-                  open={openMenuIndex === i}
-                  onOpenChange={(o) => setOpenMenuIndex(o ? i : null)}
-                  trigger={
-                    <IconButton
-                      type="button"
-                      variant="ghost"
-                      color="gray"
-                      radius="full"
-                      size="2"
-                      highContrast
-                    >
-                      <BsThreeDotsVertical size={18} />
-                    </IconButton>
-                  }
-                  variant="soft"
-                  menuPlacement="end"
-                >
-                  {!step.additionalEffectsOpen ? (
-                    <DropdownMenuGroup>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setOpenMenuIndex(null);
-                          updateStep(i, { additionalEffectsOpen: true });
-                        }}
+                  {/* Coverage */}
+                  {activeFields.has("coverage") && (
+                    <Box style={{ width: COL.coverage, flexShrink: 0 }}>
+                      <div
+                        className={`position-relative ${styles.percentInputWrap}`}
                       >
-                        Add additional effects
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                  ) : null}
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setOpenMenuIndex(null);
-                        addStepAfter(i);
-                      }}
-                    >
-                      Add step after
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  {state.steps.length > 1 ? (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuGroup>
-                        <DropdownMenuItem
-                          color="red"
-                          onClick={() => {
-                            setOpenMenuIndex(null);
-                            removeStep(i);
-                          }}
-                        >
-                          Remove step
-                        </DropdownMenuItem>
-                      </DropdownMenuGroup>
-                    </>
-                  ) : null}
-                </DropdownMenu>
-              </Flex>
-
-              {/* Monitored step hold conditions */}
-              {step.monitored && (
-                <Box
-                  ml="1"
-                  pl="3"
-                  pb="2"
-                  style={{
-                    borderLeft: "2px solid var(--blue-6)",
-                  }}
-                >
-                  <Flex direction="column" gap="1">
-                    <Checkbox
-                      value={step.requireHealthy}
-                      setValue={(v) => updateStep(i, { requireHealthy: v })}
-                      label="Require healthy guardrails"
-                      size="sm"
-                    />
-                    <Flex align="center" gap="2">
-                      <Checkbox
-                        value={step.minSampleSize !== null}
-                        setValue={(v) =>
+                        <Field
+                          style={{ width: COL.coverage, minHeight: 38 }}
+                          type="number"
+                          min="0"
+                          max="100"
+                          onFocus={(e) => e.target.select()}
+                          value={String(step.patch.coverage ?? 0)}
+                          onChange={(e) =>
+                            updateStepPatch(
+                              i,
+                              "coverage",
+                              parseInt(e.target.value) || 0,
+                            )
+                          }
+                          onBlur={(e) =>
+                            updateStepPatch(
+                              i,
+                              "coverage",
+                              Math.min(
+                                100,
+                                Math.max(0, parseInt(e.target.value) || 0),
+                              ),
+                            )
+                          }
+                        />
+                        <span>%</span>
+                      </div>
+                    </Box>
+                  )}
+                  {/* Hold for — select + detail inline */}
+                  <Flex
+                    align="center"
+                    gap="2"
+                    style={
+                      step.triggerType === "approval"
+                        ? { flex: 1, minWidth: COL.trigger }
+                        : { width: COL.trigger + COL.duration, flexShrink: 0 }
+                    }
+                  >
+                    <Box style={{ width: COL.trigger, flexShrink: 0 }}>
+                      <SelectField
+                        value={step.triggerType}
+                        options={[
+                          {
+                            value: "interval",
+                            label: "Hold",
+                            tooltip:
+                              "Apply this step's effects, then hold for the interval before advancing",
+                          },
+                          {
+                            value: "approval",
+                            label: "Approval",
+                            tooltip:
+                              "Apply this step's effects, then hold for manual approval before advancing",
+                          },
+                        ]}
+                        onChange={(v) =>
                           updateStep(i, {
-                            minSampleSize: v ? 1000 : null,
+                            triggerType: v as "interval" | "approval",
                           })
                         }
-                        label="Min sample size"
-                        size="sm"
+                        className="select-unfixed"
+                        containerClassName="mb-0"
+                        containerStyle={{ minHeight: 38 }}
+                        useMultilineLabels
+                        formatOptionLabel={(option, meta) => {
+                          if (meta.context === "value")
+                            return <>{option.label}</>;
+                          return (
+                            <div>
+                              <div>{option.label}</div>
+                              {option.tooltip && (
+                                <div
+                                  style={{
+                                    fontSize: 11,
+                                    color: "var(--color-text-low)",
+                                    marginTop: 1,
+                                  }}
+                                >
+                                  {option.tooltip}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }}
                       />
-                      {step.minSampleSize !== null && (
+                    </Box>
+                    {step.triggerType === "interval" && (
+                      <>
                         <Field
+                          style={{ minHeight: 38 }}
                           type="number"
                           min="1"
-                          value={String(step.minSampleSize)}
+                          onFocus={(e) => e.target.select()}
+                          value={String(step.intervalValue)}
                           onChange={(e) =>
                             updateStep(i, {
-                              minSampleSize: parseInt(e.target.value) || 0,
+                              intervalValue: parseInt(e.target.value) || 0,
                             })
                           }
-                          containerClassName="mb-0"
-                          style={{ width: 80, minHeight: 30 }}
+                          onBlur={(e) =>
+                            updateStep(i, {
+                              intervalValue: Math.max(
+                                1,
+                                parseInt(e.target.value) || 1,
+                              ),
+                            })
+                          }
+                          containerStyle={{ width: 75, flexShrink: 0 }}
                         />
-                      )}
+                        <Box style={{ flex: 1 }}>
+                          <SelectField
+                            value={step.intervalUnit}
+                            options={[
+                              { value: "minutes", label: "minutes" },
+                              { value: "hours", label: "hours" },
+                              { value: "days", label: "days" },
+                            ]}
+                            onChange={(v) =>
+                              updateStep(i, {
+                                intervalUnit: v as IntervalUnit,
+                              })
+                            }
+                            className="select-unfixed"
+                            containerClassName="mb-0"
+                            containerStyle={{ minHeight: 38 }}
+                          />
+                        </Box>
+                      </>
+                    )}
+                    {step.triggerType === "approval" && (
+                      <Flex
+                        align="center"
+                        gap="2"
+                        style={{ flex: 1, minWidth: 0 }}
+                      >
+                        {!step.notesOpen ? (
+                          <Link
+                            size="1"
+                            ml="1"
+                            color="gray"
+                            style={{ flexShrink: 0 }}
+                            onClick={() =>
+                              updateStep(i, {
+                                notesOpen: true,
+                                approvalNotes: "",
+                              })
+                            }
+                          >
+                            <PiPlusBold
+                              style={{
+                                marginRight: 3,
+                                verticalAlign: "middle",
+                              }}
+                            />
+                            Add approval notes
+                          </Link>
+                        ) : (
+                          <Box style={{ flex: 1, minWidth: 0 }}>
+                            <Field
+                              label=""
+                              placeholder="ex: Check error rates"
+                              value={step.approvalNotes}
+                              onChange={(e) =>
+                                updateStep(i, { approvalNotes: e.target.value })
+                              }
+                              containerClassName="mb-0"
+                              style={{ minHeight: 38 }}
+                            />
+                          </Box>
+                        )}
+                      </Flex>
+                    )}
+                  </Flex>
+
+                  <Box flexGrow="1" />
+
+                  {/* Monitor + menu */}
+                  <Flex align="center" gap="2" pr="1" style={{ flexShrink: 0 }}>
+                    <Checkbox
+                      value={step.monitored}
+                      setValue={(v) =>
+                        updateStep(i, {
+                          monitored: v,
+                          requireHealthy: v ? true : false,
+                          minSampleSize: v ? step.minSampleSize : null,
+                        })
+                      }
+                      label="Monitor this step"
+                      size="sm"
+                    />
+                    <DropdownMenu
+                      open={openMenuIndex === i}
+                      onOpenChange={(o) => setOpenMenuIndex(o ? i : null)}
+                      trigger={
+                        <IconButton
+                          type="button"
+                          variant="ghost"
+                          color="gray"
+                          radius="full"
+                          size="2"
+                          highContrast
+                        >
+                          <BsThreeDotsVertical size={18} />
+                        </IconButton>
+                      }
+                      variant="soft"
+                      menuPlacement="end"
+                    >
+                      {!step.additionalEffectsOpen ? (
+                        <DropdownMenuGroup>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setOpenMenuIndex(null);
+                              updateStep(i, { additionalEffectsOpen: true });
+                            }}
+                          >
+                            Add additional effects
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
+                      ) : null}
+                      <DropdownMenuGroup>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setOpenMenuIndex(null);
+                            addStepAfter(i);
+                          }}
+                        >
+                          Add step after
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                      {state.steps.length > 1 ? (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem
+                              color="red"
+                              onClick={() => {
+                                setOpenMenuIndex(null);
+                                removeStep(i);
+                              }}
+                            >
+                              Remove step
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
+                        </>
+                      ) : null}
+                    </DropdownMenu>
+                  </Flex>
+                </Flex>
+
+                {/* Hold conditions — nested under monitor checkbox */}
+                {step.monitored && (
+                  <Flex justify="end" pr="5">
+                    <Flex direction="column" gap="1" ml="5">
+                      <Checkbox
+                        value={step.requireHealthy}
+                        setValue={(v) => updateStep(i, { requireHealthy: v })}
+                        label="Require healthy guardrails"
+                        size="sm"
+                      />
+                      <Flex align="center" gap="2">
+                        <Checkbox
+                          value={step.minSampleSize !== null}
+                          setValue={(v) =>
+                            updateStep(i, {
+                              minSampleSize: v ? 1000 : null,
+                            })
+                          }
+                          label="Min sample size"
+                          size="sm"
+                        />
+                        {step.minSampleSize !== null && (
+                          <Field
+                            type="number"
+                            min="1"
+                            value={String(step.minSampleSize)}
+                            onChange={(e) =>
+                              updateStep(i, {
+                                minSampleSize: parseInt(e.target.value) || 0,
+                              })
+                            }
+                            containerClassName="mb-0"
+                            style={{ width: 80, minHeight: 30 }}
+                          />
+                        )}
+                      </Flex>
                     </Flex>
                   </Flex>
-                </Box>
-              )}
+                )}
 
-              {renderPatchSubRows(
-                step.patch,
-                (field, value) => updateStepPatch(i, field, value),
-                i,
-                step.additionalEffectsOpen,
-              )}
-            </div>
+                {renderPatchSubRows(
+                  step.patch,
+                  (field, value) => updateStepPatch(i, field, value),
+                  i,
+                  step.additionalEffectsOpen,
+                )}
+              </Flex>
+            </Box>
           );
         })}
 
@@ -1254,8 +1361,8 @@ export default function RampScheduleSection({
     setState({
       ...newState,
       mode: resolvedMode,
+      builderMode: "advanced",
       linkedRampId: state.linkedRampId,
-      // Preserve start date — templates don't carry timing info
       startDate: state.startDate,
       endPatch: mergeForce(newState.endPatch, state.endPatch),
       steps: newState.steps.map((s, i) => ({
@@ -1274,6 +1381,8 @@ export default function RampScheduleSection({
       mode: state.mode === "off" ? "create" : state.mode,
       linkedRampId: state.linkedRampId,
       name: state.name,
+      builderMode: "simple",
+      monitoring: state.monitoring,
     });
     setSelectedTemplateId("");
   };
@@ -1296,88 +1405,11 @@ export default function RampScheduleSection({
         }}
       >
         {selectedTemplate?.name ??
-          (templates.length === 0 ? "No presets available" : "Custom...")}
+          (templates.length === 0 ? "No templates" : "None")}
       </span>
       <PiCaretDownBold style={{ flexShrink: 0 }} />
     </Flex>
   );
-
-  const templateControls =
-    templates.length > 0 && hasRampSchedulesFeature && !hideTemplateSave ? (
-      <Flex direction="column" gap="1" mt="5" mb="5">
-        <Text as="div" weight="semibold" mb="1">
-          Use template
-        </Text>
-        <Text as="div" size="small" color="text-mid" mb="1">
-          Select a premade ramp-up. Manage templates in Organization Settings.
-        </Text>
-        <DropdownMenu
-          variant="soft"
-          open={presetOpen}
-          onOpenChange={setPresetOpen}
-          trigger={presetTrigger}
-          triggerClassName="dropdown-trigger-select-style dropdown-trigger-header"
-          triggerStyle={{ paddingTop: 4, paddingBottom: 4 }}
-          menuWidth="full"
-          menuPlacement="end"
-        >
-          <DropdownMenuItem
-            className={!selectedTemplateId ? "selected-item" : ""}
-            onClick={clearTemplate}
-          >
-            Custom...
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          {[...templates]
-            .sort((a, b) => (b.official ? 1 : 0) - (a.official ? 1 : 0))
-            .map((t) => (
-              <React.Fragment key={t.id}>
-                <DropdownMenuItem
-                  className={`multiline-item${t.id === selectedTemplateId ? " selected-item" : ""}`}
-                  onClick={() => applyTemplate(t)}
-                >
-                  <Flex
-                    justify="between"
-                    align="center"
-                    gap="3"
-                    style={{ width: "100%" }}
-                  >
-                    <Flex
-                      align="center"
-                      gap="1"
-                      style={{ flex: 1, minWidth: 0 }}
-                    >
-                      {t.official && (
-                        <HiBadgeCheck
-                          style={{
-                            fontSize: "1.2em",
-                            lineHeight: "1em",
-                            marginBottom: 2,
-                            color: "var(--blue-11)",
-                            flexShrink: 0,
-                          }}
-                        />
-                      )}
-                      <span
-                        style={{
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {t.name}
-                      </span>
-                    </Flex>
-                    <Text as="span" size="small" color="text-low">
-                      {formatRampStepSummary(t.steps)}
-                    </Text>
-                  </Flex>
-                </DropdownMenuItem>
-              </React.Fragment>
-            ))}
-        </DropdownMenu>
-      </Flex>
-    ) : null;
 
   const saveTemplateButton =
     hasRampSchedulesFeature && !hideTemplateSave ? (
@@ -1467,27 +1499,411 @@ export default function RampScheduleSection({
       />
     ) : null;
 
+  function patchMonitoring(update: Partial<RampMonitoringState>) {
+    patchState({
+      monitoring: { ...state.monitoring, ...update },
+    });
+  }
+
+  function handleSimpleDurationChange(duration: number, unit?: IntervalUnit) {
+    const d = Math.max(1, duration);
+    const u = unit ?? state.simpleDurationUnit ?? "days";
+    const monitored = state.steps.some((s) => s.monitored);
+    const steps = generateSimpleSteps(d, u).map((s) => ({
+      ...s,
+      monitored,
+      requireHealthy: monitored ? true : false,
+    }));
+    patchState({
+      simpleDurationDays: d,
+      simpleDurationUnit: u,
+      steps,
+    });
+  }
+
+  const orgCadenceLabel = useMemo(() => {
+    const s = settings?.updateSchedule;
+    if (!s || s.type === "never") return "6 hours (default)";
+    if (s.type === "stale" && s.hours) {
+      return `${s.hours} hour${s.hours === 1 ? "" : "s"} (org default)`;
+    }
+    if (s.type === "cron" && s.cron) return `cron: ${s.cron} (org default)`;
+    return "6 hours (default)";
+  }, [settings?.updateSchedule]);
+
+  const monitoringConfigUI = (
+    <Box className="bg-highlight rounded p-3" mb="4">
+      <Flex direction="column" gap="3">
+        <SelectField
+          label="Data source"
+          className="select-unfixed"
+          options={datasources.map((d) => ({
+            value: d.id,
+            label: `${d.name}${d.description ? ` — ${d.description}` : ""}${
+              d.id === settings?.defaultDataSource ? " (default)" : ""
+            }`,
+          }))}
+          value={state.monitoring.datasourceId}
+          onChange={(v) =>
+            patchMonitoring({ datasourceId: v, exposureQueryId: "" })
+          }
+          placeholder="Select a data source"
+          containerClassName="mb-0"
+        />
+
+        <SelectField
+          label="Experiment assignment table"
+          className="select-unfixed"
+          options={exposureQueries.map((q) => ({
+            label: q.name,
+            value: q.id,
+          }))}
+          disabled={!state.monitoring.datasourceId}
+          value={state.monitoring.exposureQueryId}
+          onChange={(v) => patchMonitoring({ exposureQueryId: v })}
+          containerClassName="mb-0"
+        />
+
+        <Box>
+          <Text as="label" size="small" weight="medium">
+            Guardrail metrics
+          </Text>
+          <MetricsSelector
+            datasource={state.monitoring.datasourceId}
+            exposureQueryId={state.monitoring.exposureQueryId}
+            project={feature.project ?? ""}
+            includeFacts
+            includeGroups
+            excludeQuantiles
+            selected={state.monitoring.guardrailMetricIds}
+            disabled={!state.monitoring.exposureQueryId}
+            onChange={(v) => patchMonitoring({ guardrailMetricIds: v })}
+          />
+        </Box>
+
+        <SelectField
+          label="Query cadence"
+          className="select-unfixed"
+          options={[
+            { value: "", label: `Use org default (${orgCadenceLabel})` },
+            { value: "10", label: "Every 10 minutes" },
+            { value: "30", label: "Every 30 minutes" },
+            { value: "60", label: "Every 1 hour" },
+            { value: "120", label: "Every 2 hours" },
+            { value: "360", label: "Every 6 hours" },
+            { value: "720", label: "Every 12 hours" },
+            { value: "1440", label: "Every 24 hours" },
+          ]}
+          value={
+            state.monitoring.updateScheduleMinutes != null
+              ? String(state.monitoring.updateScheduleMinutes)
+              : ""
+          }
+          onChange={(v) =>
+            patchMonitoring({
+              updateScheduleMinutes: v ? parseInt(v) : null,
+            })
+          }
+          helpText="How often to query the data warehouse for guardrail results during monitored steps"
+          containerClassName="mb-0"
+        />
+
+        <Checkbox
+          value={state.monitoring.autoRollback}
+          setValue={(v) => patchMonitoring({ autoRollback: v })}
+          label="Auto rollback"
+          description="Automatically rollback when unhealthy or a guardrail fails"
+          size="sm"
+        />
+      </Flex>
+    </Box>
+  );
+
+  const isSimpleMode = state.builderMode === "simple";
+  const hasTemplate = !!selectedTemplateId;
+  const showAdvancedEditor = !isSimpleMode || hasTemplate;
+
+  const hasSafeRolloutFeature = hasCommercialFeature("safe-rollout");
+
+  const allMonitored =
+    state.steps.length > 0 && state.steps.every((s) => s.monitored);
+  const noneMonitored = state.steps.every((s) => !s.monitored);
+  const monitorCheckboxValue: boolean | "indeterminate" = allMonitored
+    ? true
+    : noneMonitored
+      ? false
+      : "indeterminate";
+  const showMonitoringConfig = !noneMonitored;
+
+  function handleMonitorToggle(checked: boolean) {
+    patchState({
+      steps: state.steps.map((s) => ({
+        ...s,
+        monitored: checked,
+        requireHealthy: checked ? s.requireHealthy || true : s.requireHealthy,
+      })),
+    });
+  }
+
+  const monitorCheckbox = (
+    <Box mb="4">
+      <Flex align="center" gap="2">
+        <Checkbox
+          value={monitorCheckboxValue}
+          setValue={handleMonitorToggle}
+          label="Monitor this release"
+          description="Enable guardrail monitoring and auto-rollback for monitored steps"
+          size="lg"
+          disabled={!hasSafeRolloutFeature}
+        />
+        {!hasSafeRolloutFeature && (
+          <PaidFeatureBadge commercialFeature="safe-rollout" />
+        )}
+      </Flex>
+
+      {showMonitoringConfig && monitoringConfigUI}
+    </Box>
+  );
+
+  const templateDropdown =
+    templates.length > 0 && hasRampSchedulesFeature && !hideTemplateSave ? (
+      <Box mb="4">
+        <Text as="div" weight="semibold" mb="1">
+          Template
+        </Text>
+        <DropdownMenu
+          variant="soft"
+          open={presetOpen}
+          onOpenChange={setPresetOpen}
+          trigger={presetTrigger}
+          triggerClassName="dropdown-trigger-select-style dropdown-trigger-header"
+          triggerStyle={{ paddingTop: 4, paddingBottom: 4 }}
+          menuWidth="full"
+          menuPlacement="end"
+        >
+          <DropdownMenuItem
+            className={!selectedTemplateId ? "selected-item" : ""}
+            onClick={clearTemplate}
+          >
+            None
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {[...templates]
+            .sort((a, b) => (b.official ? 1 : 0) - (a.official ? 1 : 0))
+            .map((t) => (
+              <React.Fragment key={t.id}>
+                <DropdownMenuItem
+                  className={`multiline-item${t.id === selectedTemplateId ? " selected-item" : ""}`}
+                  onClick={() => applyTemplate(t)}
+                >
+                  <Flex
+                    justify="between"
+                    align="center"
+                    gap="3"
+                    style={{ width: "100%" }}
+                  >
+                    <Flex
+                      align="center"
+                      gap="1"
+                      style={{ flex: 1, minWidth: 0 }}
+                    >
+                      {t.official && (
+                        <HiBadgeCheck
+                          style={{
+                            fontSize: "1.2em",
+                            lineHeight: "1em",
+                            marginBottom: 2,
+                            color: "var(--blue-11)",
+                            flexShrink: 0,
+                          }}
+                        />
+                      )}
+                      <span
+                        style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {t.name}
+                      </span>
+                    </Flex>
+                    <Text as="span" size="small" color="text-low">
+                      {formatRampStepSummary(t.steps)}
+                    </Text>
+                  </Flex>
+                </DropdownMenuItem>
+              </React.Fragment>
+            ))}
+        </DropdownMenu>
+      </Box>
+    ) : null;
+
+  const durationField =
+    !hasTemplate && isSimpleMode ? (
+      <Flex align="center" gap="3" py="2">
+        <Box style={{ width: 60 }}>
+          <Text as="label" weight="medium" mb="0">
+            Duration
+          </Text>
+        </Box>
+        <Flex align="center" justify="between" style={{ width: 150 }}>
+          <Field
+            type="number"
+            min="1"
+            value={String(state.simpleDurationDays)}
+            onFocus={(e) => e.target.select()}
+            onChange={(e) =>
+              patchState({ simpleDurationDays: parseInt(e.target.value) || 1 })
+            }
+            onBlur={(e) =>
+              handleSimpleDurationChange(
+                Math.max(1, parseInt(e.target.value) || 1),
+              )
+            }
+            containerClassName="mb-0"
+            style={{ width: 60, minHeight: 38 }}
+          />
+          <SelectField
+            value={state.simpleDurationUnit ?? "days"}
+            options={[
+              { value: "minutes", label: "min" },
+              { value: "hours", label: "hrs" },
+              { value: "days", label: "days" },
+            ]}
+            onChange={(v) => {
+              const u = v as IntervalUnit;
+              patchState({ simpleDurationUnit: u });
+              handleSimpleDurationChange(state.simpleDurationDays, u);
+            }}
+            containerClassName="mb-0"
+            containerStyle={{ width: 80 }}
+            className="select-unfixed"
+          />
+        </Flex>
+      </Flex>
+    ) : null;
+
+  const simpleSummary =
+    !hasTemplate && isSimpleMode ? (
+      <Flex align="center" gap="3" mb="4">
+        <Text size="small" color="text-low">
+          {state.steps.length} steps:{" "}
+          {state.steps.map((s) => `${s.patch.coverage ?? 0}%`).join(" → ")} over{" "}
+          {state.simpleDurationDays} {state.simpleDurationUnit ?? "days"}
+        </Text>
+        <Link
+          onClick={() => {
+            patchState({ builderMode: "advanced" });
+            if (selectedTemplateId) {
+              const matchId = findMatchingTemplate(state, templates);
+              if (!matchId) setSelectedTemplateId("");
+            }
+          }}
+          style={{ whiteSpace: "nowrap" }}
+        >
+          Customize schedule
+        </Link>
+      </Flex>
+    ) : null;
+
+  const startSelector = !hideTemplateSave ? (
+    <Flex align="center" gap="3" py="2">
+      <Box style={{ width: 60 }}>
+        <Text as="label" weight="medium" mb="0">
+          Start
+        </Text>
+      </Box>
+      <SelectField
+        value={state.startDate ? "on-date" : "immediately"}
+        options={[
+          { value: "immediately", label: "Immediately" },
+          { value: "on-date", label: "On date" },
+        ]}
+        onChange={(v) => {
+          if (v === "immediately") {
+            patchState({ startDate: "" });
+          } else {
+            const d = new Date();
+            d.setSeconds(0, 0);
+            patchState({ startDate: d.toISOString().slice(0, 16) });
+          }
+        }}
+        containerClassName="mb-0"
+        containerStyle={{ minHeight: 38, width: 150 }}
+      />
+      {state.startDate && (
+        <DatePicker
+          date={state.startDate || undefined}
+          setDate={(d) => patchState({ startDate: d ? d.toISOString() : "" })}
+          precision="datetime"
+          containerClassName="mb-0"
+        />
+      )}
+    </Flex>
+  ) : null;
+
+  const simplifyLink =
+    showAdvancedEditor && !hasTemplate ? (
+      <Flex justify="end" mb="3">
+        <Link
+          onClick={() => {
+            const unit = state.simpleDurationUnit ?? "days";
+            const dur = state.simpleDurationDays;
+            const monitored = state.steps.some((s) => s.monitored);
+            const steps = generateSimpleSteps(dur, unit).map((s) => ({
+              ...s,
+              monitored,
+              requireHealthy: monitored,
+            }));
+            patchState({ builderMode: "simple", steps });
+            setSelectedTemplateId("");
+          }}
+          style={{ whiteSpace: "nowrap" }}
+        >
+          Simplify schedule
+        </Link>
+      </Flex>
+    ) : null;
+
   const createContent = (
     <>
-      {templateControls}
+      {templateDropdown}
 
-      {state.steps.some(
-        (s) =>
-          s.triggerType === "interval" &&
-          Math.max(1, s.intervalValue) * UNIT_MULT[s.intervalUnit] <
-            POLL_INTERVAL_SECONDS,
-      ) && (
-        <Callout status="warning" mb="3">
-          One or more steps are shorter than the minimum check interval (1 min).
-          Short steps may be applied together rather than at their exact
-          scheduled times.
-        </Callout>
-      )}
+      <Flex direction="column" gap="1" mb="4">
+        {durationField}
+        {startSelector}
+      </Flex>
 
-      {boxStepGrid ? (
-        <div className="appbox px-3 pt-3 pb-2 bg-light">{renderStepGrid()}</div>
-      ) : (
-        renderStepGrid()
+      {monitorCheckbox}
+
+      {simpleSummary}
+
+      {simplifyLink}
+
+      {showAdvancedEditor && (
+        <>
+          {state.steps.some(
+            (s) =>
+              s.triggerType === "interval" &&
+              Math.max(1, s.intervalValue) * UNIT_MULT[s.intervalUnit] <
+                POLL_INTERVAL_SECONDS,
+          ) && (
+            <Callout status="warning" mb="3">
+              One or more steps are shorter than the minimum check interval (1
+              min). Short steps may be applied together rather than at their
+              exact scheduled times.
+            </Callout>
+          )}
+
+          {boxStepGrid ? (
+            <div className="appbox px-3 pt-3 pb-2 bg-light">
+              {renderStepGrid()}
+            </div>
+          ) : (
+            renderStepGrid()
+          )}
+        </>
       )}
     </>
   );
@@ -1611,10 +2027,7 @@ export function reconstructUIPatch(
 
 // Converts a stored RampStep back to a UIStep.
 export function reconstructUIStep(step: RampStep): UIStep {
-  const firstAction = step.actions[0];
-  const firstPatch =
-    firstAction?.type === "patch-rule" ? firstAction.patch : undefined;
-  const patch = reconstructUIPatch(firstPatch);
+  const patch = reconstructUIPatch(step.actions[0]?.patch);
   // Open additional effects if the stored patch already has any effect fields set.
   const additionalEffectsOpen = VALID_STEP_FIELDS.some(
     (f) => patch[f] !== undefined,
@@ -1665,9 +2078,7 @@ export function reconstructUIEndPatch(
   endActions: RampScheduleInterface["endActions"],
 ): UIStepPatch {
   if (!endActions?.length) return { coverage: 100 };
-  const first = endActions[0];
-  const patch = first?.type === "patch-rule" ? first.patch : undefined;
-  return reconstructUIPatch(patch);
+  return reconstructUIPatch(endActions[0]?.patch);
 }
 
 // Builds a RampSectionState from an existing RampScheduleInterface for editing.
@@ -1675,11 +2086,14 @@ export function rampScheduleToSectionState(
   rs: RampScheduleInterface,
 ): RampSectionState {
   const endPatch = reconstructUIEndPatch(rs.endActions);
+  const uiSteps = rs.steps.map(reconstructUIStep);
+  const isSimple = stepsMatchSimplePattern(uiSteps);
+  const firstStep = uiSteps[0];
   return {
     mode: "edit",
     name: rs.name,
     startDate: rs.startDate ? new Date(rs.startDate).toISOString() : "",
-    steps: rs.steps.map(reconstructUIStep),
+    steps: uiSteps,
     endScheduleAt:
       rs.endCondition?.trigger?.type === "scheduled"
         ? new Date(rs.endCondition.trigger.at).toISOString()
@@ -1689,6 +2103,21 @@ export function rampScheduleToSectionState(
     endAdditionalEffectsOpen:
       VALID_STEP_FIELDS.some((f) => endPatch[f] !== undefined) ||
       (endPatch.coverage !== undefined && endPatch.coverage !== 100),
+    builderMode: isSimple ? "simple" : "advanced",
+    monitoring: rs.monitoringConfig
+      ? {
+          datasourceId: rs.monitoringConfig.datasourceId,
+          exposureQueryId: rs.monitoringConfig.exposureQueryId,
+          guardrailMetricIds: [...rs.monitoringConfig.guardrailMetricIds],
+          autoRollback: rs.monitoringConfig.autoRollback ?? true,
+          updateScheduleMinutes: null,
+        }
+      : { ...DEFAULT_MONITORING },
+    simpleDurationUnit: isSimple && firstStep ? firstStep.intervalUnit : "days",
+    simpleDurationDays:
+      isSimple && firstStep
+        ? firstStep.intervalValue * SIMPLE_COVERAGES.length
+        : 7,
   };
 }
 
@@ -1702,24 +2131,15 @@ export function defaultRampSectionState(
     mode: "off",
     name: `ramp-up ${formatDate(new Date())}`,
     startDate: "",
-    steps: [
-      {
-        patch: { coverage: 50 },
-        triggerType: "interval",
-        intervalValue: 1,
-        intervalUnit: "hours",
-        approvalNotes: "",
-        notesOpen: false,
-        additionalEffectsOpen: false,
-        monitored: false,
-        requireHealthy: false,
-        minSampleSize: null,
-      },
-    ],
+    steps: generateSimpleSteps(7, "days"),
     endScheduleAt: "",
     endPatch: { coverage: 100 },
     linkedRampId: "",
     endAdditionalEffectsOpen: false,
+    builderMode: "simple",
+    monitoring: { ...DEFAULT_MONITORING },
+    simpleDurationDays: 7,
+    simpleDurationUnit: "days",
   };
 }
 
@@ -1732,11 +2152,14 @@ export function createActionToSectionState(
   action: RevisionRampCreateAction,
 ): RampSectionState {
   const endPatch = reconstructUIEndPatch(action.endActions);
+  const uiSteps = action.steps.map(reconstructUIStep);
+  const isSimple = stepsMatchSimplePattern(uiSteps);
+  const firstStep = uiSteps[0];
   return {
     mode: "create",
     name: action.name ?? "",
     startDate: action.startDate ? new Date(action.startDate).toISOString() : "",
-    steps: action.steps.map(reconstructUIStep),
+    steps: uiSteps,
     endScheduleAt:
       action.endCondition?.trigger?.type === "scheduled"
         ? new Date(action.endCondition.trigger.at).toISOString()
@@ -1746,6 +2169,21 @@ export function createActionToSectionState(
     endAdditionalEffectsOpen:
       VALID_STEP_FIELDS.some((f) => endPatch[f] !== undefined) ||
       (endPatch.coverage !== undefined && endPatch.coverage !== 100),
+    builderMode: isSimple ? "simple" : "advanced",
+    monitoring: action.monitoringConfig
+      ? {
+          datasourceId: action.monitoringConfig.datasourceId,
+          exposureQueryId: action.monitoringConfig.exposureQueryId,
+          guardrailMetricIds: [...action.monitoringConfig.guardrailMetricIds],
+          autoRollback: action.monitoringConfig.autoRollback ?? true,
+          updateScheduleMinutes: null,
+        }
+      : { ...DEFAULT_MONITORING },
+    simpleDurationUnit: isSimple && firstStep ? firstStep.intervalUnit : "days",
+    simpleDurationDays:
+      isSimple && firstStep
+        ? firstStep.intervalValue * SIMPLE_COVERAGES.length
+        : 7,
   };
 }
 
@@ -1758,7 +2196,7 @@ export function templateToSectionState(
 ): RampSectionState {
   const rawEndPatch = template.endPatch;
   const endPatch: UIStepPatch = rawEndPatch
-    ? reconstructUIPatch(rawEndPatch as PatchRuleAction["patch"])
+    ? reconstructUIPatch(rawEndPatch as RampStepAction["patch"])
     : { coverage: 100 };
   return {
     mode,
@@ -1771,6 +2209,9 @@ export function templateToSectionState(
     endAdditionalEffectsOpen:
       VALID_STEP_FIELDS.some((f) => endPatch[f] !== undefined) ||
       (endPatch.coverage !== undefined && endPatch.coverage !== 100),
+    builderMode: "advanced",
+    monitoring: { ...DEFAULT_MONITORING },
+    simpleDurationDays: 7,
   };
 }
 
@@ -1788,17 +2229,14 @@ export function buildTemplatePayload(
   const PLACEHOLDER_RULE = "template-rule";
 
   function stripIds(actions: RampStepAction[]): RampStepAction[] {
-    return actions.map((a) => {
-      if (a.type !== "patch-rule") return a;
-      return {
-        ...a,
-        targetId: PLACEHOLDER_TARGET,
-        patch: {
-          ...pick(a.patch, TEMPLATE_PATCH_FIELDS),
-          ruleId: PLACEHOLDER_RULE,
-        },
-      };
-    });
+    return actions.map((a) => ({
+      ...a,
+      targetId: PLACEHOLDER_TARGET,
+      patch: {
+        ...pick(a.patch, TEMPLATE_PATCH_FIELDS),
+        ruleId: PLACEHOLDER_RULE,
+      },
+    }));
   }
 
   const steps = buildRampSteps(

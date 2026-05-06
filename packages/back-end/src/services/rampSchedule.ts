@@ -6,7 +6,9 @@ import {
   RampScheduleInterface,
   RampScheduleTemplateInterface,
   RampStepAction,
+  SafeRolloutInterface,
 } from "shared/validators";
+import { OrganizationInterface } from "shared/types/organization";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { filterEnvironmentsByFeature, MergeResultChanges } from "shared/util";
 import { getEnvironments } from "back-end/src/services/organizations";
@@ -66,13 +68,13 @@ export function remapTemplateActions(
   valueType: FeatureInterface["valueType"],
 ): RampStepAction[] {
   return (actions ?? []).map((a): RampStepAction => {
-    if (a.type !== "patch-rule") return a;
+    if (a.targetType !== "feature-rule") return a;
     const patch = { ...a.patch, ruleId };
     if ("force" in patch && !forceMatchesValueType(patch.force, valueType)) {
       const { force: _force, ...rest } = patch;
-      return { type: "patch-rule" as const, targetId, patch: rest };
+      return { targetType: "feature-rule" as const, targetId, patch: rest };
     }
-    return { type: "patch-rule" as const, targetId, patch };
+    return { targetType: "feature-rule" as const, targetId, patch };
   });
 }
 
@@ -87,7 +89,7 @@ export function computeEffectivePatch(
   const byTarget = new Map<string, FeatureRulePatch>();
 
   const merge = (act: RampStepAction) => {
-    if (act.type !== "patch-rule") return;
+    if (act.targetType !== "feature-rule") return;
     const { ruleId, ...fields } = act.patch;
     const existing = byTarget.get(act.targetId);
     if (existing) {
@@ -159,7 +161,7 @@ export const featureEntityHandler: EntityHandler = {
     }));
 
     for (const action of actions) {
-      if (action.type !== "patch-rule") continue;
+      if (action.targetType !== "feature-rule") continue;
       const { patch } = action;
       const { ruleId, ...patchFields } = patch;
 
@@ -247,6 +249,9 @@ export function computeNextProcessAt(schedule: {
   nextStepAt?: Date | null;
   endCondition?: RampScheduleInterface["endCondition"];
   startDate?: RampScheduleInterface["startDate"];
+  // When the current step is monitored, the job needs to wake up for
+  // snapshot triggers even though nextStepAt is null.
+  nextSnapshotAt?: Date | null;
 }): Date | null {
   const endAt =
     schedule.endCondition?.trigger?.type === "scheduled"
@@ -256,8 +261,11 @@ export function computeNextProcessAt(schedule: {
   switch (schedule.status) {
     case "running": {
       const stepAt = schedule.nextStepAt ?? null;
-      if (stepAt) return endAt && endAt < stepAt ? endAt : stepAt;
-      return endAt;
+      const snapshotAt = schedule.nextSnapshotAt ?? null;
+      const earliest = [stepAt, snapshotAt, endAt]
+        .filter((d): d is Date => d !== null)
+        .sort((a, b) => a.getTime() - b.getTime())[0];
+      return earliest ?? null;
     }
     case "pending-approval":
       return endAt;
@@ -282,6 +290,38 @@ export function computePhaseStartAfterApproval(
   return new Date(now.getTime() - total * 1000);
 }
 
+// Returns the snapshot refresh interval in ms.
+// Resolution: SafeRollout per-instance override -> org updateSchedule
+// -> EXPERIMENT_REFRESH_FREQUENCY (6h default).
+export function getRefreshIntervalMs(
+  safeRollout: SafeRolloutInterface | null,
+  org: OrganizationInterface,
+): number {
+  // 1. Per-SafeRollout override (minute-level granularity)
+  if (safeRollout?.updateScheduleMinutes && safeRollout.updateScheduleMinutes > 0) {
+    return safeRollout.updateScheduleMinutes * 60 * 1000;
+  }
+  // 2. Org-level update schedule
+  const orgSchedule = org.settings?.updateSchedule;
+  if (orgSchedule) {
+    if (orgSchedule.type === "never") return 24 * 60 * 60 * 1000;
+    if (orgSchedule.type === "stale" && orgSchedule.hours) {
+      return Math.max(orgSchedule.hours, 1) * 60 * 60 * 1000;
+    }
+  }
+  // 3. EXPERIMENT_REFRESH_FREQUENCY env var default (6 hours)
+  return 6 * 60 * 60 * 1000;
+}
+
+// Computes when the next snapshot should be triggered for a monitored step.
+export function computeNextSnapshotAt(
+  safeRollout: SafeRolloutInterface | null,
+  org: OrganizationInterface,
+  now: Date,
+): Date {
+  return new Date(now.getTime() + getRefreshIntervalMs(safeRollout, org));
+}
+
 // Group actions by entity and publish one revision per entity. Partial failure is not rolled back.
 async function executeStepActions(
   ctx: ReqContext | ApiReqContext,
@@ -289,7 +329,7 @@ async function executeStepActions(
   stepIndex: number,
   actions: RampStepAction[],
 ): Promise<void> {
-  const ruleActions = actions.filter((a) => a.type === "patch-rule");
+  const ruleActions = actions.filter((a) => a.targetType === "feature-rule");
   if (!ruleActions.length) return;
 
   const byEntity = new Map<
@@ -303,7 +343,7 @@ async function executeStepActions(
   >();
 
   for (const action of ruleActions) {
-    if (action.type !== "patch-rule") continue;
+    if (action.targetType !== "feature-rule") continue;
     const target = schedule.targets.find((t) => t.id === action.targetId);
     if (!target || target.status !== "active") continue;
 
@@ -359,7 +399,7 @@ export async function applyRampStartActions(
   const enableActions: RampStepAction[] = schedule.targets
     .filter((t) => t.status === "active" && t.entityType === "feature")
     .map((t) => ({
-      type: "patch-rule" as const,
+      targetType: "feature-rule" as const,
       targetId: t.id,
       patch: {
         ruleId: t.ruleId ?? "",
@@ -384,18 +424,32 @@ export async function advanceStep(
 
   const now = new Date();
   const isApprovalStep = step.trigger.type === "approval";
+  const isMonitoredStep = step.monitored === true;
 
   // Apply the accumulated effective state for this step (sparse patches accumulate from start).
   // Approval steps go live right away; the user's approval is the signal to advance.
   const effective = computeEffectivePatch(schedule, nextStepIndex);
   const effectiveActions: RampStepAction[] = [...effective.entries()].map(
-    ([targetId, patch]) => ({ type: "patch-rule" as const, targetId, patch }),
+    ([targetId, patch]) => ({ targetType: "feature-rule" as const, targetId, patch }),
   );
   await executeStepActions(ctx, schedule, nextStepIndex, effectiveActions);
 
-  const nextStepAt = isApprovalStep
+  // Monitored and approval steps don't use the interval timer for advancement.
+  // Monitored steps are advanced by the snapshot pipeline after healthy results;
+  // approval steps are advanced by human action. Both use null nextStepAt.
+  const nextStepAt = (isApprovalStep || isMonitoredStep)
     ? null
     : (computeNextStepAt(schedule, nextStepIndex, now) ?? now);
+
+  // For monitored steps, look up the linked SafeRollout to resolve the
+  // correct query refresh interval (SR override -> org setting -> 6h default).
+  let nextSnapshotAt: Date | null = null;
+  if (isMonitoredStep) {
+    const sr = schedule.safeRolloutId
+      ? await ctx.models.safeRollout.getById(schedule.safeRolloutId)
+      : null;
+    nextSnapshotAt = computeNextSnapshotAt(sr, ctx.org, now);
+  }
 
   const newStatus = isApprovalStep
     ? ("pending-approval" as const)
@@ -403,10 +457,13 @@ export async function advanceStep(
   const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
     status: newStatus,
     currentStepIndex: nextStepIndex,
+    currentStepEnteredAt: now,
     nextStepAt,
+    nextSnapshotAt,
     nextProcessAt: computeNextProcessAt({
       status: newStatus,
       nextStepAt,
+      nextSnapshotAt,
       endCondition: schedule.endCondition,
     }),
   });
@@ -454,7 +511,7 @@ export async function rollbackToStep(
     targetStepIndex === -1 && schedule.steps.length > 0 ? 0 : targetStepIndex;
   const effective = computeEffectivePatch(schedule, patchIndex);
   const rollbackActions: RampStepAction[] = [...effective.entries()].map(
-    ([targetId, patch]) => ({ type: "patch-rule" as const, targetId, patch }),
+    ([targetId, patch]) => ({ targetType: "feature-rule" as const, targetId, patch }),
   );
 
   const now = new Date();
@@ -509,7 +566,7 @@ export async function jumpAheadToStep(
 ): Promise<RampScheduleInterface> {
   const effective = computeEffectivePatch(schedule, jumpTarget);
   const jumpActions: RampStepAction[] = [...effective.entries()].map(
-    ([targetId, patch]) => ({ type: "patch-rule" as const, targetId, patch }),
+    ([targetId, patch]) => ({ targetType: "feature-rule" as const, targetId, patch }),
   );
   const now = new Date();
 
@@ -535,7 +592,7 @@ export async function completeRollout(
 ): Promise<RampScheduleInterface> {
   const effective = computeEffectivePatch(schedule, schedule.steps.length);
   const actionsToApply: RampStepAction[] = [...effective.entries()].map(
-    ([targetId, patch]) => ({ type: "patch-rule" as const, targetId, patch }),
+    ([targetId, patch]) => ({ targetType: "feature-rule" as const, targetId, patch }),
   );
 
   if (actionsToApply.length > 0) {

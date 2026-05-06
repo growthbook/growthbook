@@ -51,24 +51,24 @@ function buildStepsForAllTargets(
       // Preserve savedGroups/prerequisites from existing actions — they are
       // edited via the per-rule surface, not from this shared editor.
       const existingAction = existingStep?.actions?.find(
-        (a) => a.type === "patch-rule" && a.targetId === t.id,
+        (a) => a.targetType === "feature-rule" && a.targetId === t.id,
       );
       if (
-        existingAction?.type === "patch-rule" &&
+        existingAction?.targetType === "feature-rule" &&
         base.savedGroups === undefined &&
         existingAction.patch.savedGroups
       ) {
         base.savedGroups = existingAction.patch.savedGroups;
       }
       if (
-        existingAction?.type === "patch-rule" &&
+        existingAction?.targetType === "feature-rule" &&
         base.prerequisites === undefined &&
         existingAction.patch.prerequisites
       ) {
         base.prerequisites = existingAction.patch.prerequisites;
       }
       return {
-        type: "patch-rule" as const,
+        targetType: "feature-rule" as const,
         targetId: t.id,
         patch: base,
       };
@@ -103,9 +103,9 @@ function buildEndActionsForAllTargets(
     const ruleId = t.ruleId ?? "";
     const base = buildPatch(endPatch, ruleId) as Record<string, unknown>;
     const existingAction = existingEndActions?.find(
-      (a) => a.type === "patch-rule" && a.targetId === t.id,
+      (a) => a.targetType === "feature-rule" && a.targetId === t.id,
     );
-    if (existingAction?.type === "patch-rule") {
+    if (existingAction?.targetType === "feature-rule") {
       if (base.savedGroups === undefined && existingAction.patch.savedGroups) {
         base.savedGroups = existingAction.patch.savedGroups;
       }
@@ -117,7 +117,7 @@ function buildEndActionsForAllTargets(
       }
     }
     return {
-      type: "patch-rule" as const,
+      targetType: "feature-rule" as const,
       targetId: t.id,
       patch: base,
     };

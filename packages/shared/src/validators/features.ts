@@ -17,6 +17,7 @@ import {
   rampStep,
   rampStepAction,
   rampEndTrigger,
+  rampMonitoringConfig,
 } from "./ramp-schedule";
 
 import { namedSchema } from "./openapi-helpers";
@@ -351,6 +352,7 @@ export const revisionRampCreateAction = z.object({
   startDate: z.string().optional().nullable(),
   endCondition: revisionRampEndConditionSchema.optional(),
   ruleId: z.string(),
+  monitoringConfig: rampMonitoringConfig.optional(),
 });
 
 // API input variant — normalize to RevisionRampCreateAction before storing.

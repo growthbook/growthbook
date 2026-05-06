@@ -82,6 +82,7 @@ import {
   createActionToSectionState,
   buildRampSteps,
   buildEndActions,
+  buildMonitoringConfig,
   isRampSectionConfigured,
   scrubRampStateForRuleType,
 } from "@/components/Features/RuleModal/RampScheduleSection";
@@ -495,7 +496,7 @@ export default function RuleModal({
   useEffect(() => {
     // Simple schedules never control coverage — only full ramp-ups do.
     const hasRampWithCoverage =
-      (scheduleType === "ramp" || scheduleType === "safe-rollout") &&
+      scheduleType === "ramp" &&
       rampSectionState.mode !== "off" &&
       (rampSectionState.steps.some(
         (step) => step.patch.coverage !== undefined,
@@ -995,7 +996,7 @@ export default function RuleModal({
       // Rollout rules with sub-100% coverage and ramp-up schedules that control
       // coverage both require a bucketing attribute to be set.
       const rampHasCoverage =
-        (scheduleType === "ramp" || scheduleType === "safe-rollout") &&
+        scheduleType === "ramp" &&
         rampSectionState.mode !== "off" &&
         rampSectionState.steps.some((s) => s.patch.coverage !== undefined);
       if (
@@ -1090,7 +1091,7 @@ export default function RuleModal({
                     : rampState.endScheduleAt
                       ? [
                           {
-                            type: "patch-rule" as const,
+                            targetType: "feature-rule" as const,
                             targetId: "t1",
                             patch: { ruleId, enabled: false },
                           },
@@ -1106,6 +1107,7 @@ export default function RuleModal({
                           },
                         }
                       : undefined,
+                  monitoringConfig: buildMonitoringConfig(rampState.monitoring),
                 };
               } else if (
                 !isNoOpSchedule &&
@@ -1132,7 +1134,7 @@ export default function RuleModal({
                     : rampState.endScheduleAt
                       ? [
                           {
-                            type: "patch-rule" as const,
+                            targetType: "feature-rule" as const,
                             targetId:
                               ruleRampSchedule.targets.find(
                                 (t) => t.status === "active",
@@ -1151,6 +1153,7 @@ export default function RuleModal({
                           },
                         }
                       : null,
+                  monitoringConfig: buildMonitoringConfig(rampState.monitoring),
                 };
               } else if (rampState.mode === "off" && ruleRampSchedule?.id) {
                 // User unchecked the ramp schedule checkbox — detach this rule from the ramp
@@ -1229,7 +1232,7 @@ export default function RuleModal({
                 : rampState.endScheduleAt
                   ? [
                       {
-                        type: "patch-rule" as const,
+                        targetType: "feature-rule" as const,
                         targetId: "t1",
                         patch: { ruleId: effectiveRuleId, enabled: false },
                       },
@@ -1245,6 +1248,7 @@ export default function RuleModal({
                       },
                     }
                   : undefined,
+              monitoringConfig: buildMonitoringConfig(rampState.monitoring),
             };
           }
         }

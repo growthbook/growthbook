@@ -1650,9 +1650,9 @@ async function createRampSchedulesForRevision(
     const normalizeAction = (
       a: RevisionRampCreateAction["steps"][number]["actions"][number],
     ): RampStepAction => {
-      if (a.type !== "patch-rule") return a;
+      if (a.targetType !== "feature-rule") return a;
       return {
-        type: "patch-rule" as const,
+        targetType: "feature-rule" as const,
         targetId,
         patch: {
           ...a.patch,
@@ -1716,7 +1716,7 @@ async function createRampSchedulesForRevision(
         : template?.endPatch && Object.keys(template.endPatch).length > 0
           ? [
               {
-                type: "patch-rule" as const,
+                targetType: "feature-rule" as const,
                 targetId,
                 patch: {
                   ruleId: action.ruleId,

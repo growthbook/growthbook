@@ -67,6 +67,15 @@ const safeRollout = createSafeRolloutValidator.extend({
   rampUpSchedule: rampUpSchedule,
   // Stable seed for the gate when used as a ramp monitor.
   gateSeed: z.string().optional(),
+
+  // Linked RampSchedule ID. When set, advancement is driven by the ramp
+  // scheduler rather than the legacy rampUpSchedule internal state.
+  rampScheduleId: z.string().optional(),
+
+  // Per-SafeRollout query refresh interval override. Allows minute-level
+  // granularity vs the org-level updateSchedule (which floors at 1 hour).
+  // Resolution: this field -> org updateSchedule -> EXPERIMENT_REFRESH_FREQUENCY.
+  updateScheduleMinutes: z.number().positive().optional(),
 });
 export const safeRolloutValidator = baseSchema
   .extend(safeRollout.shape)

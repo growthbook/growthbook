@@ -19,7 +19,7 @@ import { resolveRampTarget } from "back-end/src/util/flattenRules";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
 const postBodyAction = z.object({
-  type: z.literal("patch-rule").optional(),
+  targetType: z.literal("feature-rule").optional(),
   targetId: z.string().optional(),
   patch: featureRulePatch.partial({ ruleId: true }),
 });
@@ -100,9 +100,9 @@ function normalizeApiTrigger(
 
 function normalizeAction(action: PostBodyAction): RampStepAction {
   return {
-    type: "patch-rule" as const,
+    targetType: "feature-rule" as const,
     targetId: action.targetId ?? "",
-    patch: action.patch as Extract<RampStepAction, { type: "patch-rule" }>["patch"],
+    patch: action.patch as RampStepAction["patch"],
   };
 }
 
@@ -113,7 +113,7 @@ function injectTarget(
   ruleId: string,
 ): RampStepAction {
   return {
-    type: "patch-rule" as const,
+    targetType: "feature-rule" as const,
     targetId,
     patch: { ...action.patch, ruleId },
   };
@@ -229,7 +229,7 @@ export const postRampSchedule = createApiRequestHandler(
     ) {
       return [
         {
-          type: "patch-rule" as const,
+          targetType: "feature-rule" as const,
           targetId: targetId!,
           patch: {
             ruleId: body.ruleId!,

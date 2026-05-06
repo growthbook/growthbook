@@ -31,7 +31,7 @@ function normalizeRevisionRampCreateAction(
   input: z.infer<typeof apiRevisionRampCreateAction>,
 ): RevisionRampCreateAction {
   const normalizeAction = (a: { targetId?: string; patch: Record<string, unknown> }) => ({
-    type: "patch-rule" as const,
+    targetType: "feature-rule" as const,
     targetId: a.targetId ?? "",
     patch: a.patch as FeatureRulePatch,
   });
@@ -148,7 +148,7 @@ export function buildScheduleRampAction(
           trigger: { type: "scheduled", at: new Date(startDate) },
           actions: [
             {
-              type: "patch-rule" as const,
+              targetType: "feature-rule" as const,
               targetId: "",
               patch: { ruleId, enabled: true },
             },
@@ -170,7 +170,7 @@ export function buildScheduleRampAction(
     };
     action.endActions = [
       {
-        type: "patch-rule" as const,
+        targetType: "feature-rule" as const,
         targetId: "",
         patch: { ruleId, enabled: false },
       },

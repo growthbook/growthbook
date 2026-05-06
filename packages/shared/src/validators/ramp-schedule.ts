@@ -40,63 +40,27 @@ export const lockdownConfigSchema = z.object({
 export type LockdownConfig = z.infer<typeof lockdownConfigSchema>;
 
 // ---------------------------------------------------------------------------
-// Step action — discriminated union
+// Monitoring config — schedule-level analysis settings for monitored steps
 // ---------------------------------------------------------------------------
 
-const patchRuleAction = z.object({
-  type: z.literal("patch-rule"),
-  targetId: z.string(),
-  patch: featureRulePatch,
+export const rampMonitoringConfig = z.object({
+  datasourceId: z.string(),
+  exposureQueryId: z.string(),
+  guardrailMetricIds: z.array(z.string()).min(1),
+  autoRollback: z.boolean().optional(),
 });
+export type RampMonitoringConfig = z.infer<typeof rampMonitoringConfig>;
 
-const attachMonitoringAction = z.object({
-  type: z.literal("attach-monitoring"),
-  safeRolloutId: z.string(),
-});
+// ---------------------------------------------------------------------------
+// Step action
+// ---------------------------------------------------------------------------
 
-const detachMonitoringAction = z.object({
-  type: z.literal("detach-monitoring"),
-});
-
-const completeRolloutAction = z.object({
-  type: z.literal("complete-rollout"),
-});
-
-export const rampStepAction = z.discriminatedUnion("type", [
-  patchRuleAction,
-  attachMonitoringAction,
-  detachMonitoringAction,
-  completeRolloutAction,
-]);
-export type RampStepAction = z.infer<typeof rampStepAction>;
-
-// Legacy shape: { targetType: "feature-rule", targetId, patch }
-// Read-time migration helper for pre-v2 actions stored in the DB.
-export const legacyRampStepAction = z.object({
+export const rampStepAction = z.object({
   targetType: z.literal("feature-rule"),
   targetId: z.string(),
   patch: featureRulePatch,
 });
-export type LegacyRampStepAction = z.infer<typeof legacyRampStepAction>;
-
-export function migrateLegacyAction(
-  legacy: LegacyRampStepAction,
-): RampStepAction {
-  return {
-    type: "patch-rule",
-    targetId: legacy.targetId,
-    patch: legacy.patch,
-  };
-}
-
-// Parse either legacy or new action format.
-export function parseRampStepAction(raw: unknown): RampStepAction {
-  const newResult = rampStepAction.safeParse(raw);
-  if (newResult.success) return newResult.data;
-  const legacyResult = legacyRampStepAction.safeParse(raw);
-  if (legacyResult.success) return migrateLegacyAction(legacyResult.data);
-  throw newResult.error;
-}
+export type RampStepAction = z.infer<typeof rampStepAction>;
 
 // activatingRevisionVersion: set when ramp is created alongside a rule change; cleared on publish.
 //
@@ -213,8 +177,19 @@ export const rampScheduleValidator = baseSchema
     // Lockdown restrictions while the schedule is active.
     lockdownConfig: lockdownConfigSchema.optional(),
 
+    // Schedule-level monitoring settings (datasource, guardrails, auto-rollback).
+    // Applies to all steps marked `monitored: true`.
+    monitoringConfig: rampMonitoringConfig.optional(),
+
+    // Linked SafeRollout ID. Set when a monitored ramp schedule creates or
+    // attaches to a SafeRollout experiment for analysis/snapshots.
+    safeRolloutId: z.string().nullish(),
+
     // Runtime tracking fields
     currentStepEnteredAt: z.date().nullish(),
+    // Next time the ramp job should trigger a snapshot for the current
+    // monitored step. Drives nextProcessAt when nextStepAt is null.
+    nextSnapshotAt: z.date().nullish(),
     lastRollbackAt: z.date().nullish(),
     lastRollbackReason: z.string().nullish(),
   })
@@ -249,18 +224,9 @@ export const TEMPLATE_STRUCTURAL_KEYS = ["steps", "endPatch"] as const;
 
 // Template patches never store force — it is feature-type-specific and not portable.
 const templateFeatureRulePatch = featureRulePatch.omit({ force: true });
-// Templates use a simplified action set (patch-rule only, no force)
-const templatePatchRuleAction = z.object({
-  type: z.literal("patch-rule"),
-  targetId: z.string(),
+const templateRampStepAction = rampStepAction.extend({
   patch: templateFeatureRulePatch,
 });
-const templateRampStepAction = z.discriminatedUnion("type", [
-  templatePatchRuleAction,
-  attachMonitoringAction,
-  detachMonitoringAction,
-  completeRolloutAction,
-]);
 const templateRampStep = rampStep.extend({
   actions: z.array(templateRampStepAction),
 });
@@ -385,6 +351,7 @@ export const apiRampScheduleInterface = namedSchema(
         "Milliseconds since startedAt (computed at response time, not stored)",
       ),
     lockdownConfig: lockdownConfigSchema.optional(),
+    monitoringConfig: rampMonitoringConfig.optional(),
     currentStepEnteredAt: z.iso.datetime().nullish(),
     lastRollbackAt: z.iso.datetime().nullish(),
     lastRollbackReason: z.string().nullish(),

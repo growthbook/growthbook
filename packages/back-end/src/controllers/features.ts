@@ -3229,7 +3229,7 @@ export async function putFeatureRule(
         (t) => t.status === "active",
       )?.id;
       const remapT1 = (a: RampStepAction): RampStepAction =>
-        a.type === "patch-rule" && primaryTargetId && a.targetId === "t1"
+        a.targetType === "feature-rule" && primaryTargetId && a.targetId === "t1"
           ? { ...a, targetId: primaryTargetId }
           : a;
       if (rampSchedulePayload.name !== undefined)

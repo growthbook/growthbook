@@ -22,8 +22,8 @@ const postBodyPatch = featureRulePatch
   );
 
 const postBodyAction = z.object({
-  type: z
-    .literal("patch-rule")
+  targetType: z
+    .literal("feature-rule")
     .optional()
     .describe("Omit when using featureId+ruleId+environment (auto-injected)"),
   targetId: z
@@ -124,7 +124,7 @@ const createBodySchema = z
 
 // API update body action — relaxed version of patch-rule for partial updates
 const putBodyAction = z.object({
-  type: z.literal("patch-rule").optional(),
+  targetType: z.literal("feature-rule").optional(),
   targetId: z.string().optional(),
   patch: featureRulePatch.optional(),
 });
