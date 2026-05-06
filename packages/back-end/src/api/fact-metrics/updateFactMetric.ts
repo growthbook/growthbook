@@ -55,6 +55,9 @@ export async function getUpdateFactMetricPropsFromBody(
   const effectiveQuantileIgnoreZeros =
     updates.quantileSettings?.ignoreZeros ??
     factMetric.quantileSettings?.ignoreZeros;
+  const effectiveQuantileEventCountColumn =
+    updates.quantileSettings?.quantileEventCountColumn ??
+    factMetric.quantileSettings?.quantileEventCountColumn;
 
   const metricType = updates.metricType;
   if (numerator) {
@@ -76,6 +79,7 @@ export async function getUpdateFactMetricPropsFromBody(
       metricType: effectiveMetricType,
       quantileType: effectiveQuantileType,
       quantileIgnoreZeros: effectiveQuantileIgnoreZeros,
+      quantileEventCountColumn: effectiveQuantileEventCountColumn,
     });
   }
   // remove denominator for non-ratio metrics where existing
@@ -103,6 +107,8 @@ export async function getUpdateFactMetricPropsFromBody(
       metricType: effectiveMetricType,
       quantileType: effectiveQuantileType,
       quantileIgnoreZeros: effectiveQuantileIgnoreZeros,
+      // Override is numerator-only; never relevant for denominators.
+      quantileEventCountColumn: undefined,
     });
   }
   if (cappingSettings) {

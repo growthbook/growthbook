@@ -13961,6 +13961,14 @@ paths:
                       minimum: 0.001
                       maximum: 0.999
                       multipleOf: 0.001
+                    quantileEventCountColumn:
+                      description: >-
+                        Optional override for the source-column name used to
+                        recover per-row event counts when numerator.aggregation
+                        is 'kll merge'. Defaults to
+                        '<numerator.column>_n_events'. Only valid for
+                        event-quantile metrics with a 'kll merge' numerator.
+                      type: string
                   required:
                     - type
                     - ignoreZeros
@@ -14481,6 +14489,14 @@ paths:
                       minimum: 0.001
                       maximum: 0.999
                       multipleOf: 0.001
+                    quantileEventCountColumn:
+                      description: >-
+                        Optional override for the source-column name used to
+                        recover per-row event counts when numerator.aggregation
+                        is 'kll merge'. Defaults to
+                        '<numerator.column>_n_events'. Only valid for
+                        event-quantile metrics with a 'kll merge' numerator.
+                      type: string
                   required:
                     - type
                     - ignoreZeros
@@ -27824,6 +27840,13 @@ components:
               minimum: 0.001
               maximum: 0.999
               multipleOf: 0.001
+            quantileEventCountColumn:
+              description: >-
+                Optional override for the source-column name used to recover
+                per-row event counts when numerator.aggregation is 'kll merge'.
+                Defaults to '<numerator.column>_n_events'. Only valid for
+                event-quantile metrics with a 'kll merge' numerator.
+              type: string
           required:
             - type
             - ignoreZeros

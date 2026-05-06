@@ -405,8 +405,47 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     // and SUM-aggregated for n_events. COUNT(<col>_value) would be wrong:
     // each row is a pre-aggregated sketch covering many events.
     expect(sql).toContain("latency_ms_kll_n_events");
-    expect(sql).toMatch(/SUM\(COALESCE\([^)]+_n_events,\s*0\)\)\s+AS\s+\w+_n_events/);
+    expect(sql).toMatch(
+      /SUM\(COALESCE\([^)]+_n_events,\s*0\)\)\s+AS\s+\w+_n_events/,
+    );
     expect(sql).not.toMatch(/COUNT\([^)]+\)\s+AS\s+\w+_n_events/);
+  });
+
+  it("getInsertMetricSourceDataQuery honors quantileSettings.quantileEventCountColumn override", () => {
+    // The override lets users name the paired count column anything (not
+    // just `<sketch>_n_events`). SQL generation should source from the
+    // override column verbatim.
+    const overrideMetric = factMetricFactory.build({
+      id: "fact_eq_sketch_override",
+      metricType: "quantile",
+      quantileSettings: {
+        type: "event",
+        quantile: 0.9,
+        ignoreZeros: false,
+        quantileEventCountColumn: "rollup_event_count",
+      },
+      numerator: {
+        factTableId: "ft_events",
+        column: "latency_ms_kll",
+        aggregation: "kll merge",
+      },
+    });
+    const sql = integration.getInsertMetricSourceDataQuery({
+      settings,
+      activationMetric: null,
+      factTableMap,
+      metricSourceTableFullName: "proj.ds.metric_source",
+      unitsSourceTableFullName: "proj.ds.units",
+      metrics: [overrideMetric],
+      lastMaxTimestamp: null,
+    });
+    // Override column is projected as the n_events source.
+    expect(sql).toContain("rollup_event_count");
+    // The default convention name must NOT appear when override is set.
+    expect(sql).not.toContain("latency_ms_kll_n_events");
+    expect(sql).toMatch(
+      /SUM\(COALESCE\([^)]+_n_events,\s*0\)\)\s+AS\s+\w+_n_events/,
+    );
   });
 
   it("getIncrementalRefreshStatisticsQuery emits two-pass KLL rank recovery CTEs", () => {

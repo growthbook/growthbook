@@ -28,6 +28,7 @@ export function validateAggregationSpecification({
   metricType,
   quantileType,
   quantileIgnoreZeros,
+  quantileEventCountColumn,
   errorPrefix,
 }: {
   column: ColumnRef;
@@ -35,6 +36,7 @@ export function validateAggregationSpecification({
   metricType?: FactMetricType;
   quantileType?: "unit" | "event";
   quantileIgnoreZeros?: boolean;
+  quantileEventCountColumn?: string;
   errorPrefix?: string;
 }) {
   const datatype = getSelectedColumnDatatype({
@@ -92,20 +94,27 @@ export function validateAggregationSpecification({
       `${errorPrefix}'ignoreZeros' is not supported with 'kll merge' aggregation. Filter zero-valued events before building the KLL sketch in your source pipeline.`,
     );
   }
-  // KLL sketches do not expose an internal "items inserted" count via
-  // any current SQL engine. To recover per-user event counts (needed
-  // for the cluster-aware variance estimator and the two-pass rank
-  // recovery in kllRankApprox), we require the user to materialize a
-  // paired count column named `<sketch>_n_events` of numeric datatype
-  // alongside the sketch column on the same fact table.
+  // KLL sketches do not expose an internal "items inserted" count via any
+  // current SQL engine. To recover per-user event counts (needed for the
+  // cluster-aware variance estimator and the two-pass rank recovery in
+  // kllRankApprox) we require the user to materialize a paired count column
+  // of numeric datatype alongside the sketch column on the same fact table.
+  // Default name: `<sketch>_n_events`. The metric author can override that
+  // default via quantileSettings.quantileEventCountColumn — useful when their
+  // upstream pipeline already emits a count under a different name.
   if (column.aggregation === "kll merge") {
-    const expectedNEventsColumn = `${column.column}_n_events`;
+    const expectedNEventsColumn =
+      quantileEventCountColumn?.trim() || `${column.column}_n_events`;
+    const overrideUsed =
+      !!quantileEventCountColumn && quantileEventCountColumn.trim().length > 0;
     const pairedColumn = factTable.columns.find(
       (c) => c.column === expectedNEventsColumn && !c.deleted,
     );
     if (!pairedColumn) {
       throw new Error(
-        `${errorPrefix}'kll merge' on column '${column.column}' requires a paired event-count column named '${expectedNEventsColumn}' on the same fact table. Add it as a numeric column.`,
+        overrideUsed
+          ? `${errorPrefix}quantileSettings.quantileEventCountColumn references '${expectedNEventsColumn}', which does not exist on the fact table. Add it as a numeric column or remove the override.`
+          : `${errorPrefix}'kll merge' on column '${column.column}' requires a paired event-count column named '${expectedNEventsColumn}' on the same fact table. Add it as a numeric column, or set quantileSettings.quantileEventCountColumn to point at an existing one.`,
       );
     }
     if (pairedColumn.datatype !== "number") {
@@ -113,6 +122,17 @@ export function validateAggregationSpecification({
         `${errorPrefix}Paired event-count column '${expectedNEventsColumn}' must have a numeric datatype (got '${pairedColumn.datatype || "unknown"}').`,
       );
     }
+  } else if (
+    quantileEventCountColumn !== undefined &&
+    quantileEventCountColumn !== ""
+  ) {
+    // The override is only meaningful for 'kll merge'. Any other context (raw
+    // event quantiles, unit quantiles, non-quantile metrics) computes
+    // n_events from the row stream itself, so a custom source column has no
+    // semantics. Reject explicit attempts to combine the two.
+    throw new Error(
+      `${errorPrefix}quantileSettings.quantileEventCountColumn is only valid when numerator.aggregation === 'kll merge'.`,
+    );
   }
 }
 
@@ -162,6 +182,7 @@ export async function getCreateMetricPropsFromBody(
     metricType: body.metricType,
     quantileType: quantileSettings?.type,
     quantileIgnoreZeros: quantileSettings?.ignoreZeros,
+    quantileEventCountColumn: quantileSettings?.quantileEventCountColumn,
   });
 
   const data: CreateFactMetricProps = {
@@ -243,6 +264,9 @@ export async function getCreateMetricPropsFromBody(
       metricType: body.metricType,
       quantileType: quantileSettings?.type,
       quantileIgnoreZeros: quantileSettings?.ignoreZeros,
+      // The override only applies to numerators (denominators don't support
+      // 'kll merge'). Pass undefined so the validator never sees it here.
+      quantileEventCountColumn: undefined,
     });
   }
 

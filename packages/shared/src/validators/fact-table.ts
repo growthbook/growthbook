@@ -206,6 +206,12 @@ export const quantileSettingsValidator = z.object({
   quantile: z.number(),
   type: z.enum(["unit", "event"]),
   ignoreZeros: z.boolean(),
+  // Override the source-column name used to recover per-row event counts for
+  // 'kll merge' event-quantile metrics. When unset, the SQL pipeline falls
+  // back to the convention `<sketch>_n_events` on the same fact table. Only
+  // valid when numerator.aggregation === "kll merge"; the validator rejects
+  // any other usage.
+  quantileEventCountColumn: z.string().optional(),
 });
 
 export const priorSettingsValidator = z.object({

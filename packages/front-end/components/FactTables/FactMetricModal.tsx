@@ -493,8 +493,7 @@ function ColumnRefSelector({
       (aggregationType === "unit" &&
         metricType !== "quantile" &&
         !!datasource.properties?.hasCountDistinctHLL) ||
-      (aggregationType === "event" &&
-        !!datasource.properties?.hasQuantileKLL),
+      (aggregationType === "event" && !!datasource.properties?.hasQuantileKLL),
     includeJSONFields: true,
   });
 
@@ -1618,7 +1617,23 @@ export default function FactMetricModal({
               ignoreZeros: false,
             };
             values.numerator.aggregation = "kll merge";
+          } else if (values.quantileSettings?.quantileEventCountColumn) {
+            // Strip the kll-merge override if the metric is no longer using
+            // a binary numerator. The back-end validator rejects this
+            // combination, so clearing it here keeps form submissions valid
+            // when a user toggles the numerator off a sketch column.
+            values.quantileSettings = {
+              ...values.quantileSettings,
+              quantileEventCountColumn: undefined,
+            };
           }
+        } else if (values.quantileSettings?.quantileEventCountColumn) {
+          // Same defense for non-quantile metric types (e.g. user switched
+          // metricType after configuring the override).
+          values.quantileSettings = {
+            ...values.quantileSettings,
+            quantileEventCountColumn: undefined,
+          };
         }
 
         // reset aggregate filter for certain metrics

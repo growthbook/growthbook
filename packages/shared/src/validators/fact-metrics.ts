@@ -122,6 +122,12 @@ const apiQuantileSettings = z
       .gte(0.001)
       .lte(0.999)
       .describe("The quantile value (from 0.001 to 0.999)"),
+    quantileEventCountColumn: z
+      .string()
+      .describe(
+        "Optional override for the source-column name used to recover per-row event counts when numerator.aggregation is 'kll merge'. Defaults to '<numerator.column>_n_events'. Only valid for event-quantile metrics with a 'kll merge' numerator.",
+      )
+      .optional(),
   })
   .describe(
     'Controls the settings for quantile metrics (mandatory if metricType is "quantile")',
@@ -395,6 +401,12 @@ const postQuantileSettings = z
       .gte(0.001)
       .lte(0.999)
       .describe("The quantile value (from 0.001 to 0.999)"),
+    quantileEventCountColumn: z
+      .string()
+      .describe(
+        "Optional override for the source-column name used to recover per-row event counts when numerator.aggregation is 'kll merge'. Defaults to '<numerator.column>_n_events'. Only valid for event-quantile metrics with a 'kll merge' numerator.",
+      )
+      .optional(),
   })
   .describe(
     'Controls the settings for quantile metrics (mandatory if metricType is "quantile")',

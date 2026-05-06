@@ -355,6 +355,7 @@ export class FactMetricModel extends BaseClass {
       metricType: data.metricType,
       quantileType: data.quantileSettings?.type,
       quantileIgnoreZeros: data.quantileSettings?.ignoreZeros,
+      quantileEventCountColumn: data.quantileSettings?.quantileEventCountColumn,
     });
 
     // validate column
@@ -416,6 +417,8 @@ export class FactMetricModel extends BaseClass {
         metricType: data.metricType,
         quantileType: data.quantileSettings?.type,
         quantileIgnoreZeros: data.quantileSettings?.ignoreZeros,
+        // Override is numerator-only; never relevant for denominators.
+        quantileEventCountColumn: undefined,
       });
     } else if (data.denominator?.factTableId) {
       throw new Error("Denominator not allowed for non-ratio metric");

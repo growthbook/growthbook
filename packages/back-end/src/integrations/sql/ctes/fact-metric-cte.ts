@@ -126,12 +126,16 @@ export function getFactMetricCTE(
         ${column} as m${index}_value`);
 
       // For 'kll merge' metrics, also project the paired event-count
-      // column (`<sketch>_n_events`). KLL sketches do not retain an
-      // accessible item count, so the user must materialize this
-      // alongside the sketch. The validator at metric-create time
-      // requires it to exist as a numeric column on the same fact table.
+      // column. KLL sketches do not retain an accessible item count, so
+      // the user must materialize this alongside the sketch. Source-column
+      // resolution: the metric author may override the default convention
+      // (`<sketch>_n_events`) via quantileSettings.quantileEventCountColumn;
+      // the create-time validator guarantees the resolved column exists
+      // and has a numeric datatype on the same fact table.
       if (m.numerator.aggregation === "kll merge") {
-        const nEventsSourceCol = `${m.numerator.column}_n_events`;
+        const nEventsSourceCol =
+          m.quantileSettings?.quantileEventCountColumn?.trim() ||
+          `${m.numerator.column}_n_events`;
         const nEventsCol =
           filters.length > 0
             ? `CASE WHEN (${filters.join("\n AND ")}) THEN m.${nEventsSourceCol} ELSE NULL END`
