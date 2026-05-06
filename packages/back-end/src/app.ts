@@ -103,6 +103,7 @@ import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
 import { aiRouter } from "./routers/ai/ai.router";
 import { getCustomLogProps, httpLogger, logger } from "./util/logger";
+import { shouldSkipErrorLog } from "./util/errors";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
 import { uploadRouter } from "./routers/upload/upload.router";
@@ -1122,7 +1123,9 @@ app.use(function (req, res) {
 });
 
 if (SENTRY_DSN) {
-  Sentry.setupExpressErrorHandler(app);
+  Sentry.setupExpressErrorHandler(app, {
+    shouldHandleError: (err) => !shouldSkipErrorLog(err),
+  });
 }
 
 const errorHandler: ErrorRequestHandler = (
@@ -1133,11 +1136,12 @@ const errorHandler: ErrorRequestHandler = (
   next,
 ) => {
   const status = err.status || 400;
+  const level = shouldSkipErrorLog(err) ? "debug" : "error";
 
   if (req.log) {
-    req.log.error(err.message);
+    req.log[level](err.message);
   } else {
-    httpLogger.logger.error(getCustomLogProps(req), err.message);
+    httpLogger.logger[level](getCustomLogProps(req), err.message);
   }
 
   res.status(status).json({
