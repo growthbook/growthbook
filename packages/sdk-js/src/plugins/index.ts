@@ -1,7 +1,14 @@
 export { autoAttributesPlugin } from "./auto-attributes";
 export { growthbookTrackingPlugin } from "./growthbook-tracking";
 export { thirdPartyTrackingPlugin } from "./third-party-tracking";
-export { sessionReplayPlugin } from "./session-replay";
+export {
+  sessionReplayPlugin,
+  scrubUrl,
+  scrubEventsPayload,
+  GB_BLOCK_CLASS,
+  GB_MASK_CLASS,
+  GB_IGNORE_CLASS,
+} from "./session-replay";
 export {
   devtoolsPlugin,
   devtoolsNextjsPlugin,
@@ -19,3 +26,9 @@ export type {
   LogEvent,
   SdkInfo,
 } from "./devtools";
+export type {
+  SessionReplayPrivacyConfig,
+  SessionReplayUrlScrubberConfig,
+  SessionReplayRegexScrubberConfig,
+  MaskableInputType,
+} from "./session-replay";

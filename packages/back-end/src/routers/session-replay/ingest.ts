@@ -8,6 +8,7 @@ import {
   uploadSessionReplayChunk,
   writeSessionReplayMetadataForFirstChunk,
 } from "back-end/src/services/session-replay";
+import { serverSideScrubEvents } from "back-end/src/services/session-replay-scrub";
 
 export async function ingestSessionReplay(
   req: Request,
@@ -30,12 +31,32 @@ export async function ingestSessionReplay(
     return;
   }
 
+  // Server-side scrub pass — second line of defense after the SDK's
+  // pre-transmission scrubber. Catches things the client missed (or
+  // would have missed if it was bypassed). Hits are logged with org
+  // context so audits can trace recurring leaks back to a component.
+  const { events: scrubbedEvents, hits: scrubHits } = serverSideScrubEvents(
+    events,
+    // Per-org custom patterns will be plumbed through once admin UI for
+    // them lands; for now, built-ins only.
+    {},
+  );
+  if (scrubHits > 0) {
+    logger.warn(
+      { orgId, sessionId, chunkIndex, scrubHits },
+      "session-replay: server-side regex scrubber redacted matches",
+    );
+  }
+
   const metadata = deriveSessionReplayMetadata(parsedBody);
   const { prefix: storagePrefix, key: storageKey } =
     buildSessionReplayStorageLocation(orgId, sessionId, chunkIndex);
 
   try {
-    await uploadSessionReplayChunk(storageKey, events);
+    // Persist the SCRUBBED events, never the originals. If a client-side
+    // scrubber was bypassed and PII slipped through, redacting before
+    // the S3 PUT means the leaked content never lands at rest.
+    await uploadSessionReplayChunk(storageKey, scrubbedEvents);
   } catch (e) {
     logger.error(e, "session-replay: failed to upload events to S3");
     res.status(500).json({ error: "Failed to store session data" });

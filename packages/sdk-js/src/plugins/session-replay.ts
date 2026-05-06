@@ -5,16 +5,22 @@ import {
   SessionReplayPrivacyConfig,
   buildRrwebPrivacyOptions,
 } from "./session-replay-privacy";
+import { scrubEventUrls } from "./session-replay-url-scrub";
+import { scrubEventsPayload } from "./session-replay-regex-scrub";
 
 export type {
   SessionReplayPrivacyConfig,
   MaskableInputType,
+  SessionReplayUrlScrubberConfig,
+  SessionReplayRegexScrubberConfig,
 } from "./session-replay-privacy";
 export {
   GB_BLOCK_CLASS,
   GB_MASK_CLASS,
   GB_IGNORE_CLASS,
 } from "./session-replay-privacy";
+export { scrubUrl } from "./session-replay-url-scrub";
+export { scrubEventsPayload } from "./session-replay-regex-scrub";
 
 type PluginOptions = {
   trackingHost?: string;
@@ -28,6 +34,18 @@ type PluginOptions = {
    * Default: true.
    */
   enabled?: boolean;
+  /**
+   * How long (ms) the user can be idle before the current session is
+   * finalized and a new one started. Idle = no mouse, keyboard, scroll,
+   * or touch events. Default: 15 minutes.
+   */
+  idleTimeoutMs?: number;
+  /**
+   * Hard cap (ms) on a single session's wall-clock length. When exceeded
+   * the session is finalized and a new one begins automatically.
+   * Default: 30 minutes.
+   */
+  maxDurationMs?: number;
   /**
    * Privacy controls for what rrweb captures. Element-level privacy is
    * fully driven by GrowthBook's three shipped class names —
@@ -80,6 +98,8 @@ export function sessionReplayPlugin({
   trackingHost = "",
   autoRecord = true,
   enabled = true,
+  idleTimeoutMs = 15 * 60 * 1000,
+  maxDurationMs = 30 * 60 * 1000,
   privacy,
 }: PluginOptions = {}) {
   if (typeof window === "undefined" || typeof document === "undefined") {
@@ -95,7 +115,10 @@ export function sessionReplayPlugin({
   let sessionId = "";
   let chunkIndex = 0;
   let hasUserInteraction = false;
+  let sessionStartedAt = 0;
+  let lastInteractionAt = 0;
   let flushInterval: ReturnType<typeof setInterval> | null = null;
+  let idleCheckInterval: ReturnType<typeof setInterval> | null = null;
 
   const flushBuffer = () => {
     if (!gbRef || window._gbReplayEvents?.length === 0) return;
@@ -130,11 +153,23 @@ export function sessionReplayPlugin({
 
     const events = window._gbGetReplayEvents();
 
+    // Pre-transmission regex scrubbing — last line of defense. Replaces
+    // credit-card / SSN / email-shaped strings (and any customer-supplied
+    // patterns) with [REDACTED] anywhere they appear in the event tree,
+    // even fields rrweb's masking doesn't know about (custom event data,
+    // tooltip text, error messages, etc.). Pass `regex: false` in the
+    // privacy config to opt out — not recommended.
+    const scrubbedEvents =
+      privacy?.regex === false
+        ? events
+        : scrubEventsPayload(events, privacy?.regex ?? {});
+
     const payload = JSON.stringify({
       clientKey,
       sessionId,
       chunkIndex,
-      events,
+      sessionStartedAt,
+      events: scrubbedEvents,
       context,
     });
 
@@ -167,19 +202,38 @@ export function sessionReplayPlugin({
     sessionId = generateSessionId();
     chunkIndex = 0;
     hasUserInteraction = false;
+    sessionStartedAt = Date.now();
+    lastInteractionAt = Date.now();
     window._gbReplayEvents = [];
 
     const rrwebStop = record({
       emit(event: eventWithTime) {
+        // Scrub URL fields BEFORE the event lands in the buffer so any
+        // downstream observer (the buffer itself, the flush payload, an
+        // attacker who somehow reads window._gbReplayEvents) only ever
+        // sees a sanitized version. Meta events are the only URL-bearing
+        // events rrweb emits today; see scrubEventUrls for the contract.
+        const scrubbedEvent = scrubEventUrls(event, privacy?.url);
+
         if (window._gbReplayEvents.length < 200) {
-          window._gbReplayEvents.push(event);
+          window._gbReplayEvents.push(scrubbedEvent);
         }
-        // type 3 = IncrementalSnapshot; source 0 = DOM Mutation (not a user action)
-        if (
-          event.type === 3 &&
-          (event.data as { source?: number })?.source !== 0
-        ) {
-          hasUserInteraction = true;
+        // Only deliberate user actions count as interaction. Anything else
+        // — DOM mutations, mouse drift, scroll, viewport resize from Chrome
+        // collapsing its address bar — leaves us with sessions that look
+        // empty in the replay because nothing visible changed. We restrict
+        // to rrweb IncrementalSource values that represent real input:
+        //   2  = MouseInteraction (click, dblclick, contextmenu, focus, blur)
+        //   5  = Input (form input value changes)
+        //   6  = TouchMove (touch input)
+        //   12 = Drag
+        // See rrweb-snapshot's IncrementalSource enum for the full list.
+        if (event.type === 3) {
+          const source = (event.data as { source?: number })?.source;
+          if (source === 2 || source === 5 || source === 6 || source === 12) {
+            hasUserInteraction = true;
+            lastInteractionAt = Date.now();
+          }
         }
       },
       recordCanvas: false,
@@ -204,6 +258,36 @@ export function sessionReplayPlugin({
     isRecording = true;
 
     flushInterval = setInterval(flushBuffer, 30_000);
+    idleCheckInterval = setInterval(checkAndRotate, 60_000);
+    // setInterval is throttled (or frozen entirely) on backgrounded tabs in
+    // most browsers, so a tab left idle in the background can blow past
+    // maxDurationMs without the timer firing. Re-evaluate when visibility
+    // changes too — gives us a chance to rotate as soon as the user returns.
+    document.addEventListener("visibilitychange", onVisibilityChange);
+  };
+
+  // Decide whether the current session should be rotated. Called from the
+  // periodic interval AND from visibilitychange (see startRecording). Pulled
+  // out so both call sites share the same logic.
+  const checkAndRotate = () => {
+    if (!isRecording) return;
+    const now = Date.now();
+    const tooLong = now - sessionStartedAt > maxDurationMs;
+    // Idle rotation only applies once we've seen interaction — otherwise we'd
+    // loop forever rotating empty sessions on idle tabs. maxDuration is
+    // checked unconditionally so background tabs can't escape it.
+    const idle = hasUserInteraction && now - lastInteractionAt > idleTimeoutMs;
+    if (!tooLong && !idle) return;
+
+    stopRecording();
+    // Only spin up a fresh session if the previous one had interaction
+    // worth recording. Tabs left open all day shouldn't endlessly mint
+    // empty session IDs.
+    if (hasUserInteraction) startRecording();
+  };
+
+  const onVisibilityChange = () => {
+    if (document.visibilityState === "visible") checkAndRotate();
   };
 
   const stopRecording = () => {
@@ -218,9 +302,14 @@ export function sessionReplayPlugin({
       clearInterval(flushInterval);
       flushInterval = null;
     }
+    if (idleCheckInterval !== null) {
+      clearInterval(idleCheckInterval);
+      idleCheckInterval = null;
+    }
+    document.removeEventListener("visibilitychange", onVisibilityChange);
   };
 
-  const plugin = (gb: GrowthBook) => {
+  return (gb: GrowthBook) => {
     gbRef = gb;
     gb.setCaptureLogs(true);
 
@@ -262,6 +351,8 @@ export function sessionReplayPlugin({
       return [...window._gbReplayEvents, ...customEvents];
     };
 
+    gb._registerSessionReplay(startRecording, stopRecording);
+
     if (autoRecord) startRecording();
 
     window.addEventListener("pagehide", flushBuffer);
@@ -269,11 +360,8 @@ export function sessionReplayPlugin({
       if (document.visibilityState === "hidden") flushBuffer();
     });
 
-    "onDestroy" in gb &&
-      gb.onDestroy(() => {
-        stopRecording();
-      });
+    gb.onDestroy(() => {
+      stopRecording();
+    });
   };
-
-  return { plugin, startRecording, stopRecording };
 }
