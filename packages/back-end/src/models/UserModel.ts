@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import escapeRegExp from "lodash/escapeRegExp";
 import { UserInterface } from "shared/types/user";
 import {
   usingOpenId,
@@ -24,15 +23,6 @@ const userSchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
-  // Lowercased copy of `email`, used as the canonical lookup key for
-  // case-insensitive matches. Not unique — a small number of legacy
-  // duplicate accounts (e.g. `User@x.com` + `user@x.com`) may share an
-  // emailLower, and the case-sensitive `email` lookup is what
-  // disambiguates them.
-  emailLower: {
-    type: String,
-    index: true,
-  },
   passwordHash: String,
   superAdmin: Boolean,
   verified: Boolean,
@@ -45,11 +35,8 @@ const UserModel = mongoose.model<UserInterface>("User", userSchema);
 const COLLECTION = "users";
 
 const toInterface: ToInterface<UserInterface> = (doc) => {
-  const obj = removeMongooseFields(doc) as UserInterface & {
-    emailLower?: string;
-  };
+  const obj = removeMongooseFields(doc);
   if (!obj.dateCreated) obj.dateCreated = doc._id?.getTimestamp();
-  delete obj.emailLower;
   return obj;
 };
 
@@ -119,29 +106,19 @@ export async function getUserByEmail(
 ): Promise<UserInterface | null> {
   const collection = getCollection(COLLECTION);
 
-  // 1. Exact case-sensitive match wins so existing duplicate accounts (e.g.
-  //    `User@x.com` and `user@x.com`) keep resolving to their own row.
+  // Exact case-sensitive match. Existing duplicate accounts (e.g.
+  // `User@x.com` and `user@x.com`) keep resolving to their own row.
   const exact = await collection.findOne({ email });
   if (exact) return toInterface(exact);
 
-  // 2. Indexed lookup on the canonical lowercase form. Catches the case
-  //    where the input casing differs from the stored casing.
+  // If the input had any uppercase, retry with the lowercased form.
+  // `createUser` lowercases on insert, so for any account created
+  // after this fix landed this second lookup hits the unique `email`
+  // index — no scan.
   const lower = email.toLowerCase();
-  const lowerHit = await collection.findOne({ emailLower: lower });
-  if (lowerHit) return toInterface(lowerHit);
-
-  // 3. Last-resort full collection scan, only for legacy rows written
-  //    before `emailLower` was populated. On hit, backfill `emailLower`
-  //    so subsequent lookups for this user go through path 2.
-  const ci = await collection.findOne({
-    email: { $regex: `^${escapeRegExp(email)}$`, $options: "i" },
-  });
-  if (ci) {
-    await collection.updateOne(
-      { _id: ci._id },
-      { $set: { emailLower: (ci.email || "").toLowerCase() } },
-    );
-    return toInterface(ci);
+  if (lower !== email) {
+    const lowerHit = await collection.findOne({ email: lower });
+    if (lowerHit) return toInterface(lowerHit);
   }
 
   return null;
@@ -185,8 +162,7 @@ export async function createUser({
   return toInterface(
     await UserModel.create({
       name,
-      email,
-      emailLower: email.toLowerCase(),
+      email: email.toLowerCase(),
       passwordHash,
       id: uniqid("u_"),
       verified,
