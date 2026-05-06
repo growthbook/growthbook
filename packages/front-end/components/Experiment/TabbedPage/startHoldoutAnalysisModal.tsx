@@ -24,10 +24,10 @@ export default function StartHoldoutAnalysisModal({
       close={close}
       header="Start Analysis Phase"
     >
-      <Box p="2">
-        <Text size="medium" color="text-mid">
+      <Box>
+        <Text as="div" size="medium" color="text-mid">
           Once you start the Analysis Phase:
-          <ul className="pl-4">
+          <ul style={{ paddingLeft: "var(--space-4)", marginBottom: 0 }}>
             <li>No new features or experiments can be added to the holdout</li>
             <li>
               Traffic will continue to be held out from existing features and
