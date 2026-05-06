@@ -11,7 +11,7 @@ import { tagLinkProps, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import SortedTags from "@/components/Tags/SortedTags";
 import MetricName from "@/components/Metrics/MetricName";
 import FactMetricTypeDisplayName from "@/components/Metrics/FactMetricTypeDisplayName";
@@ -85,36 +85,31 @@ function FactMetricRowMenu({
       menuPlacement="end"
     >
       <DropdownMenuGroup>
-        {canEditMenu && (
+        {(canEditMenu || canShowDisabledEdit) && (
           <DropdownMenuItem
             onClick={() => {
               onEdit();
               setOpen(false);
             }}
+            disabled={canShowDisabledEdit}
           >
-            Edit
-          </DropdownMenuItem>
-        )}
-        {canShowDisabledEdit && (
-          <DropdownMenuItem disabled>
-            <Tooltip body={editDisabledReason}>
+            <Tooltip content={editDisabledReason} enabled={canShowDisabledEdit}>
               <span>Edit</span>
             </Tooltip>
           </DropdownMenuItem>
         )}
-        {canDuplicateMenu && (
+        {(canDuplicateMenu || canShowDisabledDuplicate) && (
           <DropdownMenuItem
             onClick={() => {
               onDuplicate();
               setOpen(false);
             }}
+            disabled={canShowDisabledDuplicate}
           >
-            Duplicate
-          </DropdownMenuItem>
-        )}
-        {canShowDisabledDuplicate && (
-          <DropdownMenuItem disabled>
-            <Tooltip body={editDisabledReason}>
+            <Tooltip
+              content={editDisabledReason}
+              enabled={canShowDisabledDuplicate}
+            >
               <span>Duplicate</span>
             </Tooltip>
           </DropdownMenuItem>
@@ -322,11 +317,8 @@ export default function FactMetricList({
         )}
         <div className="col-auto ml-auto">
           <Tooltip
-            body={
-              canCreateMetrics
-                ? ""
-                : `You don't have permission to add metrics to this fact table`
-            }
+            content={`You don't have permission to add metrics to this fact table`}
+            enabled={!canCreateMetrics}
           >
             <Button
               onClick={() => {
@@ -409,7 +401,7 @@ export default function FactMetricList({
                                 style={{ whiteSpace: "nowrap" }}
                               >
                                 <Tooltip
-                                  body={
+                                  content={
                                     hasNoLevels
                                       ? "No slice levels configured"
                                       : levels?.join(", ") || "No levels"
@@ -454,9 +446,6 @@ export default function FactMetricList({
                     {metric.dateUpdated ? date(metric.dateUpdated) : null}
                   </td>
                   <td>
-                    {/*
-                      KLL/HLL merge metrics must be edited via REST API.
-                    */}
                     <FactMetricRowMenu
                       metric={metric}
                       canEdit={canEdit(metric)}

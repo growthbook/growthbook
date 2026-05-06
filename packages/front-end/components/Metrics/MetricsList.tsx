@@ -43,7 +43,7 @@ import PremiumCallout from "@/ui/PremiumCallout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import LinkButton from "@/ui/LinkButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import {
   isMergeAggregationMetric,
   REST_API_ONLY_EDIT_MESSAGE,
@@ -92,19 +92,18 @@ function MetricRowMenu({ metric }: { metric: MetricTableItem }) {
       menuPlacement="end"
     >
       <DropdownMenuGroup>
-        {canEditMenu && (
+        {(canEditMenu || canShowDisabledEdit) && (
           <DropdownMenuItem
             onClick={() => {
               setOpen(false);
               metric.onEdit?.();
             }}
+            disabled={!!metric.editDisabledReason}
           >
-            Edit
-          </DropdownMenuItem>
-        )}
-        {canShowDisabledEdit && (
-          <DropdownMenuItem disabled>
-            <Tooltip body={metric.editDisabledReason}>
+            <Tooltip
+              content={metric.editDisabledReason}
+              enabled={!!metric.editDisabledReason}
+            >
               <span>Edit</span>
             </Tooltip>
           </DropdownMenuItem>
@@ -115,8 +114,14 @@ function MetricRowMenu({ metric }: { metric: MetricTableItem }) {
               setOpen(false);
               metric.onDuplicate?.();
             }}
+            disabled={!!metric.editDisabledReason}
           >
-            Duplicate
+            <Tooltip
+              content={metric.editDisabledReason}
+              enabled={!!metric.editDisabledReason}
+            >
+              <span>Duplicate</span>
+            </Tooltip>
           </DropdownMenuItem>
         )}
         {canArchive && (

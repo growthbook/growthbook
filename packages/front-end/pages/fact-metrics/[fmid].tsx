@@ -573,13 +573,12 @@ export default function FactMetricPage() {
                 }}
                 disabled={editViaApiOnly}
               >
-                {editViaApiOnly ? (
-                  <Tooltip content={REST_API_ONLY_EDIT_MESSAGE}>
-                    <span>Edit Metric</span>
-                  </Tooltip>
-                ) : (
+                <Tooltip
+                  content={REST_API_ONLY_EDIT_MESSAGE}
+                  enabled={editViaApiOnly}
+                >
                   <span>Edit Metric</span>
-                )}
+                </Tooltip>
               </DropdownMenuItem>
             )}
             {canEdit &&
