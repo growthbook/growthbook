@@ -348,6 +348,7 @@ function OrganizationRow({
                     <div className="col-auto">
                       {managedWarehouseId ? (
                         <ConfirmButton
+                          isDestructive
                           onClick={async () => {
                             await apiCall(
                               `/datasource/${managedWarehouseId}/recreate-managed-warehouse`,

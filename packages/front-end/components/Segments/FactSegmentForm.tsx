@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { SegmentInterface } from "shared/types/segment";
 import { GBArrowLeft } from "@/components/Icons";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -100,7 +100,7 @@ export default function FactSegmentForm({
   );
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       close={close}
       open={true}
@@ -312,6 +312,6 @@ export default function FactSegmentForm({
           }
         />
       </>
-    </Modal>
+    </ModalStandard>
   );
 }

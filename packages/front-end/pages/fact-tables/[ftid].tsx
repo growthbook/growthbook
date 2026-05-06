@@ -300,7 +300,7 @@ export default function FactTablePage() {
                     setDropdownOpen(false);
                   }}
                 >
-                  Edit Fact Table
+                  Edit
                 </DropdownMenuItem>
               )}
               {!factTable.managedBy &&
@@ -316,24 +316,6 @@ export default function FactTablePage() {
                     Convert to Official Fact Table
                   </DropdownMenuItem>
                 )}
-              {canDuplicate && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    setDuplicateFactTable({
-                      ...factTable,
-                      name: `${factTable.name} (Copy)`,
-                      managedBy:
-                        factTable.managedBy === "admin" &&
-                        permissionsUtil.canCreateOfficialResources(factTable)
-                          ? "admin"
-                          : "",
-                    });
-                    setDropdownOpen(false);
-                  }}
-                >
-                  Duplicate Fact Table
-                </DropdownMenuItem>
-              )}
               <DropdownMenuItem
                 onClick={() => {
                   setAuditModal(true);
@@ -342,49 +324,71 @@ export default function FactTablePage() {
               >
                 Audit log
               </DropdownMenuItem>
-              {canEdit && (
-                <DropdownMenuItem
-                  onClick={async () => {
-                    await apiCall(
-                      `/fact-tables/${factTable.id}/${
-                        factTable.archived ? "unarchive" : "archive"
-                      }`,
-                      {
-                        method: "POST",
-                      },
-                    );
-                    mutateDefinitions();
-                    setDropdownOpen(false);
-                  }}
-                >
-                  {factTable.archived ? "Unarchive" : "Archive"} Fact Table
-                </DropdownMenuItem>
-              )}
             </DropdownMenuGroup>
-            {canDelete && (
+            {canEdit || canDelete || canDuplicate ? (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    color="red"
-                    confirmation={{
-                      confirmationTitle: "Delete Fact Table",
-                      cta: "Delete",
-                      submit: async () => {
-                        await apiCall(`/fact-tables/${factTable.id}`, {
-                          method: "DELETE",
+                  {canDuplicate && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setDuplicateFactTable({
+                          ...factTable,
+                          name: `${factTable.name} (Copy)`,
+                          managedBy:
+                            factTable.managedBy === "admin" &&
+                            permissionsUtil.canCreateOfficialResources(
+                              factTable,
+                            )
+                              ? "admin"
+                              : "",
                         });
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Duplicate
+                    </DropdownMenuItem>
+                  )}
+                  {canEdit && (
+                    <DropdownMenuItem
+                      onClick={async () => {
+                        await apiCall(
+                          `/fact-tables/${factTable.id}/${
+                            factTable.archived ? "unarchive" : "archive"
+                          }`,
+                          {
+                            method: "POST",
+                          },
+                        );
                         mutateDefinitions();
-                        router.push("/fact-tables");
-                      },
-                      closeDropdown: () => setDropdownOpen(false),
-                    }}
-                  >
-                    Delete Fact Table
-                  </DropdownMenuItem>
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      {factTable.archived ? "Unarchive" : "Archive"}
+                    </DropdownMenuItem>
+                  )}
+                  {canDelete && (
+                    <DropdownMenuItem
+                      color="red"
+                      confirmation={{
+                        confirmationTitle: "Delete Fact Table",
+                        cta: "Delete",
+                        submit: async () => {
+                          await apiCall(`/fact-tables/${factTable.id}`, {
+                            method: "DELETE",
+                          });
+                          mutateDefinitions();
+                          router.push("/fact-tables");
+                        },
+                        closeDropdown: () => setDropdownOpen(false),
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuGroup>
               </>
-            )}
+            ) : null}
           </DropdownMenu>
         </Flex>
       </Flex>
