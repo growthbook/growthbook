@@ -43,13 +43,13 @@ export const postAttribute = async (
 
   const newAttribute: SDKAttribute = {
     property,
-    description,
+    description: description ?? undefined,
     datatype,
-    projects,
-    format,
-    enum: enumValue,
-    hashAttribute,
-    disableEqualityConditions,
+    projects: projects ?? undefined,
+    format: format ?? undefined,
+    enum: enumValue ?? undefined,
+    hashAttribute: hashAttribute ?? undefined,
+    disableEqualityConditions: disableEqualityConditions ?? undefined,
     tags: tags.length > 0 ? tags : undefined,
   };
 
@@ -104,7 +104,7 @@ export const putAttribute = async (
 
   // If the name is being changed, we need to access the attribute via its previous name
   const index = attributeSchema.findIndex(
-    (a) => a.property === (previousName ? previousName : property),
+    (a) => a.property === (previousName ?? property),
   );
 
   if (index === -1) {
@@ -112,7 +112,11 @@ export const putAttribute = async (
   }
 
   const existing = attributeSchema[index];
-  if (!context.permissions.canUpdateAttribute(existing, { projects })) {
+  if (
+    !context.permissions.canUpdateAttribute(existing, {
+      projects: projects ?? undefined,
+    })
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -133,14 +137,14 @@ export const putAttribute = async (
   attributeSchema[index] = {
     ...attributeSchema[index],
     property,
-    description,
+    description: description ?? undefined,
     datatype,
-    projects,
-    format,
-    enum: enumValue,
-    hashAttribute,
-    archived,
-    disableEqualityConditions,
+    projects: projects ?? undefined,
+    format: format ?? undefined,
+    enum: enumValue ?? undefined,
+    hashAttribute: hashAttribute ?? undefined,
+    archived: archived ?? undefined,
+    disableEqualityConditions: disableEqualityConditions ?? undefined,
     ...(tags !== undefined && { tags: tags.length > 0 ? tags : undefined }),
   };
 

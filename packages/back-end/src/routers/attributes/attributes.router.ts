@@ -29,7 +29,7 @@ router.post(
       enum: z.string().nullish(),
       hashAttribute: z.boolean().nullish(),
       disableEqualityConditions: z.boolean().nullish(),
-      tags: z.array(z.string()).nullish(),
+      tags: z.array(z.string()).optional(),
     }),
   }),
   AttributeController.postAttribute,
