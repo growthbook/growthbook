@@ -44,7 +44,7 @@ import {
   getPercentileLabel,
 } from "@/services/metrics";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -467,7 +467,7 @@ export default function FactMetricPage() {
             <>
               Projects{" "}
               <Tooltip
-                body={
+                content={
                   "The dropdown below has been filtered to only include projects where you have permission to update Metrics"
                 }
               />
@@ -585,7 +585,7 @@ export default function FactMetricPage() {
             )}
             {canEdit && editViaApiOnly && (
               <DropdownMenuItem disabled>
-                <Tooltip body={REST_API_ONLY_EDIT_MESSAGE}>
+                <Tooltip content={REST_API_ONLY_EDIT_MESSAGE}>
                   <span>Edit Metric</span>
                 </Tooltip>
               </DropdownMenuItem>
@@ -896,11 +896,7 @@ export default function FactMetricPage() {
         </div>
         <div className="col-12 col-md-4">
           <div className="appbox p-3">
-            <RightRailSection
-              title="Advanced Settings"
-              open={() => setEditOpen("openWithAdvanced")}
-              canOpen={canEdit}
-            >
+            <RightRailSection title="Advanced Settings">
               {factMetric.windowSettings.delayValue ? (
                 <RightRailSectionGroup type="custom" empty="" className="mt-3">
                   <ul className="right-rail-subsection list-unstyled mb-4">

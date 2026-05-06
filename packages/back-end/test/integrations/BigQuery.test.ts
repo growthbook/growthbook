@@ -537,15 +537,27 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     expect(flat).toMatch(
       /KLL_QUANTILES\.EXTRACT_POINT_FLOAT64\s*\(\s*KLL_QUANTILES\.MERGE_PARTIAL/,
     );
-    // __userMetricAgg must wrap its per-user GROUP BY in a base subquery
-    // and recover per-user "count below threshold" via kllRankApprox.
-    // EXTRACT_FLOAT64 (the cdfArray construction) is the tell-tale sign.
+    // The per-user aggregation lives in __userMetricAggBase; __userMetricAgg
+    // is a thin wrapper that joins __userMetricAggBase against
+    // __eventQuantileMetric to recover per-user "count below threshold" via
+    // kllRankApprox. EXTRACT_FLOAT64 (the cdfArray construction) is the
+    // tell-tale sign of kllRankApprox.
+    expect(sql).toContain("__userMetricAggBase");
     expect(sql).toContain("KLL_QUANTILES.EXTRACT_FLOAT64");
-    expect(flat).toMatch(/\)\s+base\s+LEFT\s+JOIN\s+__eventQuantileMetric/i);
+    expect(flat).toMatch(
+      /FROM\s+__userMetricAggBase\s+base\s+LEFT\s+JOIN\s+__eventQuantileMetric/i,
+    );
     // n_events must come from the paired count column, not COUNT(rows).
     expect(flat).toMatch(
       /SUM\(COALESCE\([^)]+_n_events,\s*0\)\)\s+AS\s+\w+_n_events/,
     );
+    // KLL is mergeable, so __userMetricJoin should be scanned exactly once:
+    // __eventQuantileMetric reads merged per-user sketches from
+    // __userMetricAggBase rather than re-scanning per-event sketches.
+    const userMetricJoinFromCount = (
+      flat.match(/FROM\s+__userMetricJoin\b/gi) || []
+    ).length;
+    expect(userMetricJoinFromCount).toBe(1);
   });
 
   it("getExperimentFactMetricsQuery falls back to APPROX_QUANTILES (no kll wrapper) for raw event quantiles", () => {
@@ -563,9 +575,8 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     // KLL extraction or rank-recovery wrapper.
     expect(sql).toContain("APPROX_QUANTILES");
     expect(sql).not.toContain("KLL_QUANTILES.EXTRACT_FLOAT64");
-    const flat = sql.replace(/\s+/g, " ");
-    expect(flat).not.toMatch(
-      /\)\s+base\s+LEFT\s+JOIN\s+__eventQuantileMetric/i,
-    );
+    // No KLL merge metrics → the per-user aggregation goes directly into
+    // __userMetricAgg without the __userMetricAggBase wrapper.
+    expect(sql).not.toContain("__userMetricAggBase");
   });
 });
