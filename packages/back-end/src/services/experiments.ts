@@ -145,6 +145,7 @@ import {
 import { addTags } from "back-end/src/models/TagModel";
 import {
   addOrUpdateSnapshotAnalysis,
+  addOrUpdateSnapshotMultipleAnalysis,
   createExperimentSnapshotModel,
   getLatestSnapshotMultipleExperiments,
   updateSnapshot,
@@ -1121,7 +1122,7 @@ export function updateExperimentBanditSettings({
       banditResult: { ...banditResult, reweight },
       snapshotId: snapshot?.id,
     });
-  } else {
+  } else if (snapshot) {
     logger.error(
       {
         eid: experiment.id,
@@ -2071,7 +2072,7 @@ export async function createSnapshotAnalyses(
 export async function createSnapshotAnalysis(
   context: ReqContext | ApiReqContext,
   params: SnapshotAnalysisParams,
-): Promise<void> {
+): Promise<ExperimentSnapshotAnalysis> {
   const { snapshot, analysisSettings, experiment, metricMap } = params;
   // check if analysis is possible
   if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
@@ -2119,6 +2120,86 @@ export async function createSnapshotAnalysis(
     id: snapshot.id,
     analysis,
   });
+
+  return analysis;
+}
+
+export async function createSnapshotAnalysesBatched(
+  context: ReqContext | ApiReqContext,
+  {
+    experiment,
+    snapshot,
+    metricMap,
+    analysisSettingsList,
+  }: {
+    experiment: ExperimentInterface;
+    snapshot: ExperimentSnapshotInterface;
+    metricMap: Map<string, ExperimentMetricInterface>;
+    analysisSettingsList: ExperimentSnapshotAnalysisSettings[];
+  },
+): Promise<ExperimentSnapshotAnalysis[]> {
+  if (analysisSettingsList.length === 0) return [];
+
+  for (const settings of analysisSettingsList) {
+    if (!isAnalysisAllowed(snapshot.settings, settings)) {
+      throw new Error("Analysis not allowed with this snapshot");
+    }
+  }
+
+  const totalQueries = snapshot.queries.length;
+  const failedQueries = snapshot.queries.filter((q) => q.status === "failed");
+  const runningQueries = snapshot.queries.filter((q) => q.status === "running");
+  if (runningQueries.length > 0 || failedQueries.length >= totalQueries / 2) {
+    throw new Error("Snapshot queries not available for analysis");
+  }
+
+  const analyses: ExperimentSnapshotAnalysis[] = analysisSettingsList.map(
+    (settings) => ({
+      analysisKey: buildAnalysisKey(),
+      results: [],
+      status: "running",
+      settings,
+      dateCreated: new Date(),
+    }),
+  );
+
+  const queryMap: QueryMap = await getQueryMap(context, snapshot.queries);
+
+  // Single gbstats call -- all analyses share the same queryResults and
+  // metric settings, so we can use a single python process
+  let completedAnalyses: ExperimentSnapshotAnalysis[];
+  try {
+    const { results } = await analyzeExperimentResults({
+      queryData: queryMap,
+      snapshotSettings: snapshot.settings,
+      analysisSettings: analysisSettingsList,
+      variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
+      metricMap,
+    });
+
+    completedAnalyses = analyses.map((analysis, i) => ({
+      ...analysis,
+      results: results[i]?.dimensions ?? [],
+      status: "success" as const,
+      error: undefined,
+    }));
+  } catch (e) {
+    const error = e instanceof Error ? e.message : String(e);
+    completedAnalyses = analyses.map((analysis) => ({
+      ...analysis,
+      results: [],
+      status: "error" as const,
+      error,
+    }));
+  }
+
+  await addOrUpdateSnapshotMultipleAnalysis({
+    context,
+    id: snapshot.id,
+    analyses: completedAnalyses,
+  });
+
+  return completedAnalyses;
 }
 
 function getExperimentMetric(
