@@ -44,7 +44,11 @@ export default function EditScheduleModal({
       subheader="Choose to start an experiment at a specified time. Once the selected time arrives and schedule is approved, linked changes will be activated and users will begin to see your experiment variations immediately. "
       cta={hasSchedule ? "Update" : "Done"}
       ctaColor="violet"
-      ctaEnabled={true}
+      ctaEnabled={
+        !hasSchedule && !form.watch("statusUpdateSchedule.startAt")
+          ? false
+          : true
+      }
       size="lg"
       secondaryAction={
         isApproved ? (
@@ -101,7 +105,9 @@ export default function EditScheduleModal({
           }}
         />
         {scheduleIsInThePast && (
-          <Helpertext status="warning">Scheduled time has passed</Helpertext>
+          <Helpertext mt="2" status="warning">
+            Scheduled time has passed
+          </Helpertext>
         )}
       </Box>
     </ModalStandard>

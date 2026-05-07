@@ -343,12 +343,7 @@ export default function ExperimentHeader({
   async function approveScheduledExperimentStart() {
     await apiCall(`/experiment/${experiment.id}`, {
       method: "POST",
-      body: JSON.stringify({
-        nextScheduledStatusUpdate: {
-          type: "start",
-          date: experiment.statusUpdateSchedule?.startAt,
-        },
-      }),
+      body: JSON.stringify({ approveScheduledStart: true }),
     });
     await mutate();
 
@@ -443,9 +438,6 @@ export default function ExperimentHeader({
       (value) => value !== null,
     );
   const hasExperimentSchedule = !!experiment.statusUpdateSchedule?.startAt;
-  const scheduledStartDate = experiment.statusUpdateSchedule?.startAt
-    ? new Date(experiment.statusUpdateSchedule.startAt)
-    : null;
   const nextScheduledStartDate =
     experiment.nextScheduledStatusUpdate?.type === "start" &&
     experiment.nextScheduledStatusUpdate?.date
@@ -826,7 +818,7 @@ export default function ExperimentHeader({
                     }}
                   >
                     Starts{" "}
-                    {format(nextScheduledStartDate, "MMM d,yyyy 'at' h:mm a")}{" "}
+                    {format(nextScheduledStartDate, "MMM d, yyyy 'at' h:mm a")}{" "}
                     <PiPencilSimpleFill className="ml-1" />
                   </Button>
                 ) : experiment.status === "draft" ? (
@@ -852,9 +844,11 @@ export default function ExperimentHeader({
                           linkedFeatures,
                         )
                       }
-                      icon={<MdRocketLaunch />}
+                      icon={
+                        hasExperimentSchedule ? undefined : <MdRocketLaunch />
+                      }
                     >
-                      {hasExperimentSchedule && scheduledStartDate
+                      {hasExperimentSchedule
                         ? "Approve for Scheduled Start"
                         : `Start ${isHoldout ? "Holdout" : "Experiment"}`}
                     </Button>

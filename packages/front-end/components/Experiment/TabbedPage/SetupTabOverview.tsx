@@ -194,7 +194,7 @@ export default function SetupTabOverview({
                 {experiment.statusUpdateSchedule?.startAt
                   ? format(
                       new Date(experiment.statusUpdateSchedule.startAt),
-                      "MMM d,yyyy 'at' h:mm a",
+                      "MMM d, yyyy 'at' h:mm a",
                     )
                   : ""}{" "}
                 <PiPencilSimpleFill className="ml-1" />

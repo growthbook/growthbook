@@ -1363,6 +1363,7 @@ export async function postExperiment(
       phaseStartDate?: string;
       phaseEndDate?: string;
       variationWeights?: number[];
+      approveScheduledStart?: boolean;
     },
     { id: string }
   >,
@@ -1375,7 +1376,13 @@ export async function postExperiment(
   const context = getContextFromReq(req);
   const { org, userId } = context;
   const { id } = req.params;
-  const { phaseStartDate, phaseEndDate, currentPhase, ...data } = req.body;
+  const {
+    phaseStartDate,
+    phaseEndDate,
+    currentPhase,
+    approveScheduledStart,
+    ...data
+  } = req.body;
 
   const experiment = await getExperimentById(context, id);
   const aiSettings = getAISettingsForOrg(context);
@@ -1724,25 +1731,39 @@ export async function postExperiment(
     changes.nextScheduledStatusUpdate = null;
   }
 
-  // Explicit approval / unapproval of a scheduled status update. The agenda
-  // job uses the existence of nextScheduledStatusUpdate as the signal that the
-  // schedule has been approved and the experiment may be auto-started.
-  if ("nextScheduledStatusUpdate" in changes) {
-    const incoming = changes.nextScheduledStatusUpdate;
-    if (incoming === null) {
-      changes.nextScheduledStatusUpdate = null;
-    } else if (incoming) {
-      const date = getValidDate(incoming.date);
-      if (date <= new Date()) {
-        res.status(400).json({
-          status: 400,
-          message: "nextScheduledStatusUpdate.date must be a future date",
-        });
-        return;
-      }
-      changes.nextScheduledStatusUpdate = { type: incoming.type, date };
+  if (approveScheduledStart) {
+    const startAt = experiment.statusUpdateSchedule?.startAt
+      ? getValidDate(experiment.statusUpdateSchedule.startAt)
+      : null;
+    if (!startAt || startAt <= new Date()) {
+      res.status(400).json({
+        status: 400,
+        message: "No valid future scheduled start date to approve",
+      });
+      return;
     }
+    changes.nextScheduledStatusUpdate = { type: "start", date: startAt };
   }
+
+  // // Explicit approval / unapproval of a scheduled status update. The agenda
+  // // job uses the existence of nextScheduledStatusUpdate as the signal that the
+  // // schedule has been approved and the experiment may be auto-started.
+  // if ("nextScheduledStatusUpdate" in changes) {
+  //   const incoming = changes.nextScheduledStatusUpdate;
+  //   if (incoming === null) {
+  //     changes.nextScheduledStatusUpdate = null;
+  //   } else if (incoming) {
+  //     const date = getValidDate(incoming.date);
+  //     if (date <= new Date()) {
+  //       res.status(400).json({
+  //         status: 400,
+  //         message: "nextScheduledStatusUpdate.date must be a future date",
+  //       });
+  //       return;
+  //     }
+  //     changes.nextScheduledStatusUpdate = { type: incoming.type, date };
+  //   }
+  // }
 
   // Coerce lookbackOverride date value when type is "date"
   if (changes.lookbackOverride?.type === "date") {
