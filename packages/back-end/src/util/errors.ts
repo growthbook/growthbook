@@ -3,10 +3,6 @@ import {
   ApiErrorDetails,
   apiErrorRegistry,
 } from "shared/validators";
-import {
-  PendingDraftFailure,
-  formatPendingDraftFailureMessage,
-} from "back-end/src/services/experiment-feature";
 
 export abstract class ApiError<C extends ApiErrorCode> extends Error {
   readonly code: C;
@@ -37,13 +33,15 @@ export class ChecklistIncompleteError extends ApiError<"checklist_incomplete"> {
   }
 }
 
+// Message is supplied by the caller (typically via formatPendingDraftFailureMessage
+// in services/experiment-feature) to keep this module free of back-end imports
+// — errors.ts is loaded by licenseUtil and other low-level modules.
 export class PendingDraftPublishFailedError extends ApiError<"pending_draft_publish_failed"> {
-  constructor(failedFeatureDrafts: PendingDraftFailure[]) {
-    super(
-      "pending_draft_publish_failed",
-      formatPendingDraftFailureMessage(failedFeatureDrafts),
-      { failedFeatureDrafts },
-    );
+  constructor(
+    message: string,
+    failedFeatureDrafts: ApiErrorDetails<"pending_draft_publish_failed">["failedFeatureDrafts"],
+  ) {
+    super("pending_draft_publish_failed", message, { failedFeatureDrafts });
     this.name = "PendingDraftPublishFailedError";
   }
 }

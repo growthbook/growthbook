@@ -23,7 +23,10 @@ import {
   getChangesToStartExperiment,
   getLinkedFeatureInfo,
 } from "back-end/src/services/experiments";
-import { publishPendingFeatureDraftsForExperiment } from "back-end/src/services/experiment-feature";
+import {
+  formatPendingDraftFailureMessage,
+  publishPendingFeatureDraftsForExperiment,
+} from "back-end/src/services/experiment-feature";
 import {
   ChecklistIncompleteError,
   InvalidExperimentStatusError,
@@ -309,7 +312,10 @@ export async function startExperiment({
     experiment,
   );
   if (publishResult.failed.length > 0) {
-    throw new PendingDraftPublishFailedError(publishResult.failed);
+    throw new PendingDraftPublishFailedError(
+      formatPendingDraftFailureMessage(publishResult.failed),
+      publishResult.failed,
+    );
   }
 
   changes.status = "running";
