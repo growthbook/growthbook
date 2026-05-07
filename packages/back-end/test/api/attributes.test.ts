@@ -567,7 +567,7 @@ describe("attributes API", () => {
     });
   });
 
-  it("blocks attribute create schema sync when events-forwarder commercial feature is disabled", async () => {
+  it("allows attribute create when events-forwarder commercial feature is disabled and no forwarder exists", async () => {
     orgHasPremiumFeatureMock.mockReturnValue(false);
     setReqContext({
       throwPlanDoesNotAllowError: (message: string): never => {
@@ -601,9 +601,13 @@ describe("attributes API", () => {
       })
       .set("Authorization", "Bearer foo");
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(200);
     expect(response.body).toEqual({
-      message: "Event Forwarder is not enabled for this organization.",
+      attribute: {
+        property: "attr3",
+        datatype: "boolean",
+        projects: ["proj1"],
+      },
     });
   });
 
