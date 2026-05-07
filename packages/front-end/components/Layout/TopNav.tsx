@@ -5,13 +5,11 @@ import {
   PiPlusBold,
   PiCaretDownFill,
   PiCircleHalf,
-  PiFiles,
-  PiKey,
+  PiHourglassHigh,
   PiListChecks,
   PiMoon,
   PiSunDim,
   PiBuildingFill,
-  PiClipboardText,
 } from "react-icons/pi";
 import Head from "next/head";
 import { Flex, Text } from "@radix-ui/themes";
@@ -162,7 +160,7 @@ const TopNav: FC<{
           setEditUserOpen(true);
         }}
       >
-        Edit Profile
+        Edit profile
       </DropdownMenuItem>
     );
   };
@@ -187,32 +185,24 @@ const TopNav: FC<{
   const renderPersonalAccessTokensDropDown = () => {
     return (
       <DropdownMenuItem
-        className={styles.dropdownItemIconColor}
         onClick={() => {
           setDropdownOpen(false);
           router.push("/account/personal-access-tokens");
         }}
       >
-        <div className="align-middle">
-          <PiKey size="16" className="mr-1" />
-          Personal Access Tokens
-        </div>
+        Personal Access Tokens
       </DropdownMenuItem>
     );
   };
   const renderMyReportsDropDown = () => {
     return (
       <DropdownMenuItem
-        className={styles.dropdownItemIconColor}
         onClick={() => {
           setDropdownOpen(false);
           router.push("/reports");
         }}
       >
-        <div className="align-middle">
-          <PiFiles size="16" className="mr-1" />
-          My Reports
-        </div>
+        My Reports
       </DropdownMenuItem>
     );
   };
@@ -243,7 +233,7 @@ const TopNav: FC<{
         }}
       >
         <div className="align-middle d-flex align-items-center">
-          <PiClipboardText size="16" className="mr-1" />
+          <PiHourglassHigh size="16" className="mr-1" />
           Pending Reviews
           {pendingReviewCount > 0 && (
             <span
@@ -510,10 +500,12 @@ const TopNav: FC<{
           >
             {renderNameAndEmailDropdownLabel()}
             {renderEditProfileDropDown()}
-            {renderThemeSubDropDown()}
-            {renderMyActivityFeedsDropDown()}
-            {renderMyReportsDropDown()}
+            <DropdownMenuSeparator />
             {renderPendingReviewsDropDown()}
+            {renderMyActivityFeedsDropDown()}
+            {renderThemeSubDropDown()}
+            <DropdownMenuSeparator />
+            {renderMyReportsDropDown()}
             {renderPersonalAccessTokensDropDown()}
             <DropdownMenuSeparator />
             {renderChangePassword()}

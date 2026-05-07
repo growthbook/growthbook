@@ -365,7 +365,11 @@ function RevisionDetail<T>({
               You have conflicts with the current state of the entity. Please
               resolve the conflicts before merging.
             </Text>
-            <Button onClick={() => setShowFixConflicts(true)} variant="outline">
+            <Button
+              onClick={() => setShowFixConflicts(true)}
+              variant="outline"
+              size="sm"
+            >
               Fix Conflicts
             </Button>
           </Flex>
