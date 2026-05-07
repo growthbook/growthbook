@@ -96,3 +96,17 @@ export class ConcurrentIncrementalRefreshError extends Error {
     this.name = "ConcurrentIncrementalRefreshError";
   }
 }
+
+// Some errors are part of normal operation and shouldn't pollute
+// error-level logs or Sentry. Add cases here as we identify them.
+export function shouldSkipErrorLog(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+
+  // express-jwt wraps the underlying jsonwebtoken error under `inner`.
+  // A TokenExpiredError fires every time a logged-in tab makes a request
+  // after its JWT lifespan; the front-end silently refreshes and retries.
+  const inner = (err as { inner?: { name?: string } }).inner;
+  if (inner?.name === "TokenExpiredError") return true;
+
+  return false;
+}

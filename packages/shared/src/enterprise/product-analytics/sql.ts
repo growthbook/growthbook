@@ -81,6 +81,10 @@ interface DateRange {
   endDate: Date;
 }
 
+function assertNever(value: never): never {
+  throw new Error(`Unexpected value: ${value}`);
+}
+
 function getMetricAliases(index: number) {
   return {
     base: `m${index}`,
@@ -525,10 +529,15 @@ function getEventValueExpr(
   return `CASE WHEN (${filters.join(" AND ")}) THEN ${rawValue} ELSE NULL END`;
 }
 
-function getUnitAggregationExpr(columnRef: ColumnRef, alias: string): string {
-  if (columnRef.column === "$$distintDates") {
+function getUnitAggregationExpr(
+  columnRef: ColumnRef,
+  alias: string,
+  helpers: SqlDialect,
+): string {
+  if (columnRef.column === "$$distinctDates") {
     return `COUNT(DISTINCT ${alias})`;
-  } else if (columnRef.column === "$$distinctUsers") {
+  }
+  if (columnRef.column === "$$distinctUsers") {
     if (columnRef.aggregateFilter && columnRef.aggregateFilterColumn) {
       const filters = getAggregateFilters({
         columnRef: columnRef,
@@ -540,24 +549,51 @@ function getUnitAggregationExpr(columnRef: ColumnRef, alias: string): string {
       }
     }
     return `MAX(${alias})`;
-  } else if (columnRef.column === "$$count") {
-    return `SUM(${alias})`;
-  } else if (columnRef.aggregation === "count distinct") {
-    return `COUNT(DISTINCT ${alias})`;
-  } else if (columnRef.aggregation === "max") {
-    return `MAX(${alias})`;
-  } else {
+  }
+  if (columnRef.column === "$$count") {
     return `SUM(${alias})`;
   }
+
+  const aggregation = columnRef.aggregation;
+  switch (aggregation) {
+    case "sum":
+      return `SUM(${alias})`;
+    case "max":
+      return `MAX(${alias})`;
+    case "count distinct":
+      return `COUNT(DISTINCT ${alias})`;
+    case "hll merge":
+      return helpers.hllCardinality(helpers.hllReaggregate(alias));
+    case "kll merge":
+      return helpers.kllMergePartial(alias);
+    case undefined:
+      return `SUM(${alias})`;
+  }
+
+  return assertNever(aggregation);
 }
 
 function getRollupAggregationExpr(
   metric: MinimalMetric,
+  columnRef: ColumnRef,
   alias: string,
   helpers: SqlDialect,
+  fromUnitAggregation: boolean,
 ): string {
+  if (columnRef.aggregation === "hll merge") {
+    return fromUnitAggregation
+      ? `SUM(${alias})`
+      : helpers.hllCardinality(helpers.hllReaggregate(alias));
+  }
+
   // Quantiles
   if (metric.metricType === "quantile" && metric.quantileSettings) {
+    if (columnRef.aggregation === "kll merge") {
+      return helpers.kllExtractPoint(
+        helpers.kllMergePartial(alias),
+        metric.quantileSettings.quantile,
+      );
+    }
     return helpers.percentileApprox(alias, metric.quantileSettings.quantile);
   } else {
     return `SUM(${alias})`;
@@ -655,9 +691,15 @@ function getMetricData(
       cappingSettings,
     ),
     unitAggregationExpr: selectedUnit
-      ? getUnitAggregationExpr(columnRef, alias)
+      ? getUnitAggregationExpr(columnRef, alias, helpers)
       : null,
-    rollupAggregationExpr: getRollupAggregationExpr(metric, alias, helpers),
+    rollupAggregationExpr: getRollupAggregationExpr(
+      metric,
+      columnRef,
+      alias,
+      helpers,
+      !!selectedUnit,
+    ),
     rollupCountExpr,
   };
 }
