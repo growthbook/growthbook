@@ -644,7 +644,14 @@ function ConditionAndGroupInput({
     },
   ];
 
-  const listOperators = ["$in", "$nin", "$ini", "$nini"];
+  const listOperators = [
+    "$in",
+    "$nin",
+    "$ini",
+    "$nini",
+    "$includesAnyOf",
+    "$notIncludesAnyOf",
+  ];
 
   const attributeSchema = useAttributeSchema(false, props.project);
 
@@ -1043,8 +1050,6 @@ function ConditionAndGroupInput({
         } else if (attribute.enum.length) {
           displayType = "enum";
         } else if (listOperators.includes(operator)) {
-          displayType = "array-field";
-        } else if (["$includesAnyOf", "$notIncludesAnyOf"].includes(operator)) {
           displayType = "array-field";
         } else if (attribute.datatype === "number") {
           displayType = "number";

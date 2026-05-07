@@ -1126,11 +1126,18 @@ export function jsonToConds(
               });
             }
             if ("$in" in v && Array.isArray(v["$in"])) {
-              return conds.push({
-                field,
-                operator: "$includesAnyOf",
-                value: v["$in"].join(", "),
-              });
+              const items = v["$in"] as unknown[];
+              if (
+                items.every(
+                  (x) => typeof x !== "object" && !(x + "").includes(","),
+                )
+              ) {
+                return conds.push({
+                  field,
+                  operator: "$includesAnyOf",
+                  value: items.join(", "),
+                });
+              }
             }
           }
           valid = false;
@@ -1164,11 +1171,18 @@ export function jsonToConds(
                   });
                 }
                 if ("$in" in m && Array.isArray(m["$in"])) {
-                  return conds.push({
-                    field,
-                    operator: "$notIncludesAnyOf",
-                    value: m["$in"].join(", "),
-                  });
+                  const items = m["$in"] as unknown[];
+                  if (
+                    items.every(
+                      (x) => typeof x !== "object" && !(x + "").includes(","),
+                    )
+                  ) {
+                    return conds.push({
+                      field,
+                      operator: "$notIncludesAnyOf",
+                      value: items.join(", "),
+                    });
+                  }
                 }
               }
             }
