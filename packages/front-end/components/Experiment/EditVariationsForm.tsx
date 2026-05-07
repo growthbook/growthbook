@@ -6,10 +6,10 @@ import {
 } from "shared/types/experiment";
 import { getEqualWeights } from "shared/experiments";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
 import track from "@/services/track";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import { distributeWeights } from "@/services/utils";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const EditVariationsForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -45,10 +45,10 @@ const EditVariationsForm: FC<{
   const isBandit = experiment.type === "multi-armed-bandit";
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="edit-variations-form"
       trackingEventModalSource={source}
-      header={"Edit Variations"}
+      header="Edit Variations"
       open={true}
       close={cancel}
       size="lg"
@@ -142,7 +142,7 @@ const EditVariationsForm: FC<{
         hideCoverage
         onlySafeToEditVariationMetadata={onlySafeToEditVariationMetadata}
       />
-    </Modal>
+    </ModalStandard>
   );
 };
 

@@ -237,7 +237,6 @@ const StopExperimentForm: FC<{
           <div className="row">
             <SelectField
               label="Conclusion"
-              labelClassName="font-weight-bold"
               containerClassName="col-lg"
               className={decisionDoesNotMatchRecommendedResult ? "warning" : ""}
               value={form.watch("results")}
@@ -277,7 +276,6 @@ const StopExperimentForm: FC<{
             {form.watch("results") === "won" && variations.length > 2 && (
               <SelectField
                 label="Winner"
-                labelClassName="font-weight-bold"
                 containerClassName="col-lg"
                 className={
                   decisionDoesNotMatchRecommendedResult ? "warning" : ""
@@ -352,7 +350,6 @@ const StopExperimentForm: FC<{
                 <div className="row">
                   <SelectField
                     label="Variation to Release"
-                    labelClassName="font-weight-bold"
                     containerClassName="col"
                     value={form.watch("releasedVariationId")}
                     onChange={(v) => {

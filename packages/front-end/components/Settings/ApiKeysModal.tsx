@@ -5,8 +5,8 @@ import { MemberRoleWithProjects } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RoleSelector from "@/components/Settings/Team/RoleSelector";
 
 const ApiKeysModal: FC<{
@@ -64,10 +64,10 @@ const ApiKeysModal: FC<{
   });
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       close={close}
-      header={"Create API Key"}
+      header="Create API Key"
       open={true}
       submit={onSubmit}
       cta="Create"
@@ -80,7 +80,7 @@ const ApiKeysModal: FC<{
       {!personalAccessToken && (
         <RoleSelector value={roleState} setValue={setRoleState} />
       )}
-    </Modal>
+    </ModalStandard>
   );
 };
 

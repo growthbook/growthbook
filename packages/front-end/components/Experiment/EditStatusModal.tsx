@@ -138,7 +138,6 @@ export default function EditStatusModal({
       )}
       <SelectField
         label="Status"
-        labelClassName="font-weight-bold"
         options={statusOptions}
         onChange={(v) => {
           const status = v as ExperimentStatus | "analysis";
@@ -152,7 +151,6 @@ export default function EditStatusModal({
           <>
             <Field
               label="Reason for stopping the test"
-              labelClassName="font-weight-bold"
               textarea
               {...form.register("reason")}
               placeholder="(optional)"
