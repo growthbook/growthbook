@@ -6,7 +6,6 @@ slug: /features/rules
 ---
 
 import MaxWidthImage from "@site/src/components/MaxWidthImage";
-import CommercialFeature from '@site/src/components/CommercialFeature';
 
 # Rules
 
@@ -118,7 +117,8 @@ When a user is placed into an experiment, the SDK fires the `trackingCallback` t
 
 ## Safe Rollout
 
-<CommercialFeature feature="safe-rollout" />
+:::pro-feature[Safe Rollout]
+:::
 
 Safe Rollout rules combine a gradual percentage rollout with automatic guardrail monitoring. GrowthBook monitors key metrics for regressions and can auto-rollback if something goes wrong.
 
@@ -148,7 +148,8 @@ Any rule can include targeting conditions to limit which users it applies to. Co
 
 ## Scheduling Rules
 
-<CommercialFeature feature="schedule-feature-flag" />
+:::pro-feature[Schedule Feature Flag]
+:::
 
 <MaxWidthImage maxWidth={600}>
     ![Feature Scheduling](/images/features/feature-scheduling-2.png)
@@ -168,7 +169,8 @@ Test your rules directly in GrowthBook on the **Simulation** page. Adjust user a
 
 ### Archetypes
 
-<CommercialFeature feature="archetypes" />
+:::pro-feature[Archetypes]
+:::
 
 Archetypes let you save preset user attribute profiles so you can quickly test how rules apply to specific types of users. If you frequently target features to certain groups (e.g., beta testers, enterprise accounts), archetypes let you check the result in one click. They appear at the top of the **Simulation** page. Hover over any value to see debug information.
 

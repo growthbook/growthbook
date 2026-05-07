@@ -5,8 +5,6 @@ sidebar_label: Snowflake
 slug: snowflake
 ---
 
-import CommercialFeature from '@site/src/components/CommercialFeature';
-
 We support multiple [account identifier](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html) formats when connecting to Snowflake. An example account identifier is `xy12345.us-east-2.aws`.
 
 ## Self-Hosting
@@ -21,6 +19,8 @@ SNOWFLAKE_PROXY=http://username:password@proxyserver.company.com:80
 
 ## Enabling Data Pipeline Mode
 
-<CommercialFeature feature="pipeline-mode" description="Pipeline mode can reduce query costs if you grant the GrowthBook service account write permissions in your data warehouse." />
+:::enterprise-feature[Pipeline Mode]
+Pipeline mode can reduce query costs if you grant the GrowthBook service account write permissions in your data warehouse.
+:::
 
 [More details can be found here.](/app/data-pipeline)
