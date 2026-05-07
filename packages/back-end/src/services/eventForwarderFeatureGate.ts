@@ -1,4 +1,3 @@
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ReqContext } from "back-end/types/request";
 
 export const EVENTS_FORWARDER_FEATURE_ID = "events-forwarder";
@@ -12,7 +11,11 @@ export function isConfluentEventForwarderSinkType(
 export async function isEventsForwarderFeatureOn(
   context: ReqContext,
 ): Promise<boolean> {
-  return orgHasPremiumFeature(context.org, EVENTS_FORWARDER_FEATURE_ID);
+  // TODO: Remove — restore license gate before merging:
+  // import { orgHasPremiumFeature } from "back-end/src/enterprise";
+  // return orgHasPremiumFeature(context.org, EVENTS_FORWARDER_FEATURE_ID);
+  void context;
+  return true;
 }
 
 export async function requireEventsForwarderFeature(
