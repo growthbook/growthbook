@@ -1,4 +1,8 @@
-import type { FeatureRule, FeaturePrerequisite, FeatureRulePatch } from "shared/validators";
+import type {
+  FeatureRule,
+  FeaturePrerequisite,
+  FeatureRulePatch,
+} from "shared/validators";
 import {
   apiRevisionRampCreateAction,
   RevisionRampCreateAction,
@@ -30,7 +34,10 @@ type InlineRampScheduleInput = z.infer<typeof inlineRampScheduleInput>;
 function normalizeRevisionRampCreateAction(
   input: z.infer<typeof apiRevisionRampCreateAction>,
 ): RevisionRampCreateAction {
-  const normalizeAction = (a: { targetId?: string; patch: Record<string, unknown> }) => ({
+  const normalizeAction = (a: {
+    targetId?: string;
+    patch: Record<string, unknown>;
+  }) => ({
     targetType: "feature-rule" as const,
     targetId: a.targetId ?? "",
     patch: a.patch as FeatureRulePatch,

@@ -31276,6 +31276,32 @@ components:
           additionalProperties: false
         official:
           type: boolean
+        monitoringConfig:
+          anyOf:
+            - type: object
+              properties:
+                datasourceId:
+                  type: string
+                exposureQueryId:
+                  type: string
+                guardrailMetricIds:
+                  minItems: 1
+                  type: array
+                  items:
+                    type: string
+                autoRollback:
+                  type: boolean
+                updateScheduleMinutes:
+                  anyOf:
+                    - type: number
+                      exclusiveMinimum: 0
+                    - type: 'null'
+              required:
+                - datasourceId
+                - exposureQueryId
+                - guardrailMetricIds
+              additionalProperties: false
+            - type: 'null'
       required:
         - id
         - dateCreated

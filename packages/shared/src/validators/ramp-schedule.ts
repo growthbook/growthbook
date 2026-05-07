@@ -225,7 +225,11 @@ export const TEMPLATE_PATCH_FIELDS = [
 ] as const;
 // Top-level behavioral keys of a template (excludes metadata: id, name, org, dates).
 // Start/end timing is not stored in templates; endPatch (final coverage/effects) is.
-export const TEMPLATE_STRUCTURAL_KEYS = ["steps", "endPatch"] as const;
+export const TEMPLATE_STRUCTURAL_KEYS = [
+  "steps",
+  "endPatch",
+  "monitoringConfig",
+] as const;
 
 // Template patches never store force — it is feature-type-specific and not portable.
 const templateFeatureRulePatch = featureRulePatch.omit({ force: true });
@@ -253,6 +257,7 @@ export const rampScheduleTemplateValidator = baseSchema.extend({
   endPatch: templateEndPatchValidator.optional(),
   official: z.boolean().optional(),
   lockdownConfig: lockdownConfigSchema.optional(),
+  monitoringConfig: rampMonitoringConfig.nullish(),
 });
 export type RampScheduleTemplateInterface = z.infer<
   typeof rampScheduleTemplateValidator
@@ -282,6 +287,7 @@ export const apiRampScheduleTemplateValidator = namedSchema(
     steps: z.array(apiTemplateRampStep),
     endPatch: templateEndPatchValidator.optional(),
     official: z.boolean().optional(),
+    monitoringConfig: rampMonitoringConfig.nullish(),
   }),
 );
 

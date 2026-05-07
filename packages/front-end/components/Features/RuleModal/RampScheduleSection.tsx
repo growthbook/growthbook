@@ -54,6 +54,7 @@ import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingF
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import MonitoredIcon from "@/components/Features/RuleModal/MonitoredIcon";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
@@ -1198,7 +1199,7 @@ export default function RampScheduleSection({
                             Add approval notes
                           </Link>
                         ) : (
-                          <Box style={{ flex: 1, minWidth: 0 }}>
+                          <Box style={{ flex: 1, minWidth: 192 }}>
                             <Field
                               label=""
                               placeholder="ex: Check error rates"
@@ -1218,19 +1219,48 @@ export default function RampScheduleSection({
                   <Box flexGrow="1" />
 
                   {/* Monitor + menu */}
-                  <Flex align="center" gap="2" pr="1" style={{ flexShrink: 0 }}>
-                    <Checkbox
-                      value={step.monitored}
-                      setValue={(v) =>
-                        updateStep(i, {
-                          monitored: v,
-                          requireHealthy: v ? true : false,
-                          minSampleSize: v ? step.minSampleSize : null,
-                        })
+                  <Flex align="center" gap="2" pr="3" style={{ flexShrink: 0 }}>
+                    <Tooltip
+                      body={
+                        step.monitored
+                          ? "This step is monitored"
+                          : "Monitor this step"
                       }
-                      label="Monitor this step"
-                      size="sm"
-                    />
+                    >
+                      <Box
+                        style={{
+                          width: 28,
+                          height: 28,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <IconButton
+                          type="button"
+                          variant={step.monitored ? "soft" : "ghost"}
+                          color={step.monitored ? "indigo" : "gray"}
+                          size="2"
+                          radius="medium"
+                          onClick={() =>
+                            updateStep(i, {
+                              monitored: !step.monitored,
+                              requireHealthy: !step.monitored ? true : false,
+                              minSampleSize: !step.monitored
+                                ? step.minSampleSize
+                                : null,
+                            })
+                          }
+                          style={{
+                            width: 28,
+                            height: 28,
+                            padding: 0,
+                          }}
+                        >
+                          <MonitoredIcon size={16} />
+                        </IconButton>
+                      </Box>
+                    </Tooltip>
                     <DropdownMenu
                       open={openMenuIndex === i}
                       onOpenChange={(o) => setOpenMenuIndex(o ? i : null)}
@@ -1574,7 +1604,7 @@ export default function RampScheduleSection({
     useState(hasAdvancedOverrides);
 
   const monitoringConfigUI = (
-    <Box mt="4" mx="5">
+    <Box>
       <Flex direction="column" gap="2">
         <Flex align="center" gap="1">
           <Text as="label" weight="medium" mb="0">
@@ -1691,15 +1721,42 @@ export default function RampScheduleSection({
           Advanced Settings
         </div>
         {showAdvancedMonitoring && (
-          <Box mt="2">
+          <Box mt="2" style={{ width: 180 }}>
             <Field
-              label="Auto-update frequency"
-              append="hours old"
+              label={
+                <>
+                  Refresh results every{" "}
+                  <Tooltip
+                    body={
+                      <>
+                        {state.steps.some((s) => !s.monitored)
+                          ? "For monitored steps, how"
+                          : "How"}{" "}
+                        frequently your guardrails will be analyzed.
+                        {state.steps.some((s) => !s.monitored) && (
+                          <p className="mt-2 mb-0">
+                            Does not apply to unmonitored steps, which have a
+                            minimum granularity of 1 minute.
+                          </p>
+                        )}
+                        <p className="mt-2 mb-0">
+                          Lower values give more granular data and enable faster
+                          releases, but increase query costs against your data
+                          source.
+                        </p>
+                      </>
+                    }
+                    flipTheme={false}
+                  >
+                    <PiInfo />
+                  </Tooltip>
+                </>
+              }
+              append="hours"
               type="number"
               step="any"
               min={0.25}
               max={168}
-              style={{ width: 120 }}
               value={
                 state.monitoring.updateScheduleMinutes != null
                   ? String(state.monitoring.updateScheduleMinutes / 60)
@@ -1725,7 +1782,7 @@ export default function RampScheduleSection({
                   });
                 }
               }}
-              helpText={`Leave blank to use org default (${orgCadenceLabel})`}
+              helpText={`Blank = org default (${orgCadenceLabel})`}
               containerClassName="mb-0"
             />
           </Box>
@@ -1777,21 +1834,13 @@ export default function RampScheduleSection({
   }
 
   const monitorCheckbox = (
-    <Box
-      mb="4"
-      p="3"
-      style={{
-        backgroundColor: "var(--violet-a2)",
-        borderRadius: "var(--radius-2)",
-      }}
-    >
-      <Flex align="center" gap="2">
+    <>
+      <Flex align="center" gap="2" mb="2">
         <Checkbox
           value={monitorCheckboxValue}
           setValue={handleMonitorToggle}
           label="Monitor this release"
           description="Enable guardrail monitoring and auto-rollback for monitored steps"
-          size="lg"
           disabled={!hasSafeRolloutFeature}
         />
         {!hasSafeRolloutFeature && (
@@ -1799,8 +1848,24 @@ export default function RampScheduleSection({
         )}
       </Flex>
 
-      {showMonitoringConfig && monitoringConfigUI}
-    </Box>
+      {showMonitoringConfig && (
+        <Box
+          mb="4"
+          px="5"
+          p="3"
+          style={{
+            backgroundColor: "var(--indigo-a3)",
+            borderRadius: "var(--radius-2)",
+          }}
+        >
+          <Flex align="center" gap="2" mb="4">
+            <MonitoredIcon size={18} />
+            <Text weight="medium">Monitoring Settings</Text>
+          </Flex>
+          {monitoringConfigUI}
+        </Box>
+      )}
+    </>
   );
 
   const templateDropdown =
@@ -2090,7 +2155,7 @@ export default function RampScheduleSection({
       <Flex direction="column" gap="1" mb="4">
         {startInput}
         {durationInput}
-        {cutoffInput}
+        {!hideTemplateSave && cutoffInput}
       </Flex>
 
       {monitorCheckbox}
@@ -2423,6 +2488,7 @@ export function templateToSectionState(
   const endPatch: UIStepPatch = rawEndPatch
     ? reconstructUIPatch(rawEndPatch as RampStepAction["patch"])
     : { coverage: 100 };
+  const mc = template.monitoringConfig;
   return {
     mode,
     name: template.name,
@@ -2436,7 +2502,15 @@ export function templateToSectionState(
       (endPatch.coverage !== undefined && endPatch.coverage !== 100),
     cutoffDate: "",
     builderMode: "advanced",
-    monitoring: { ...DEFAULT_MONITORING },
+    monitoring: mc
+      ? {
+          datasourceId: mc.datasourceId,
+          exposureQueryId: mc.exposureQueryId,
+          guardrailMetricIds: mc.guardrailMetricIds,
+          autoRollback: mc.autoRollback ?? true,
+          updateScheduleMinutes: mc.updateScheduleMinutes ?? null,
+        }
+      : { ...DEFAULT_MONITORING },
     simpleDurationDays: 5,
   };
 }
@@ -2482,9 +2556,12 @@ export function buildTemplatePayload(
       ? (endPatchFields as TemplateEndPatch)
       : undefined!;
 
+  const monitoringConfig = buildMonitoringConfig(state.monitoring);
+
   return {
     name: state.name || "template",
     steps,
     ...(endPatch ? { endPatch } : {}),
+    ...(monitoringConfig ? { monitoringConfig } : {}),
   };
 }

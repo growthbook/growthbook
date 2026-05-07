@@ -196,7 +196,6 @@ export default function StandardRuleFields({
         renderJSONInline={true}
         useCodeInput={true}
         showFullscreenButton={true}
-        disabled={rampLocksTargeting}
       />
 
       <div className="mb-3">

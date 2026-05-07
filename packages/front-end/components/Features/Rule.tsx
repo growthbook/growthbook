@@ -164,10 +164,9 @@ function RampMonitoringResults({
   const { data } = useApi<{
     status: number;
     timeSeries: MetricTimeSeries[];
-  }>(
-    `/safe-rollout/${safeRolloutId}/time-series?metricIds[]=${urlMetricIds}`,
-    { shouldRun: () => metricIds.length > 0 },
-  );
+  }>(`/safe-rollout/${safeRolloutId}/time-series?metricIds[]=${urlMetricIds}`, {
+    shouldRun: () => metricIds.length > 0,
+  });
 
   const filtered = useMemo(() => {
     if (!data) return undefined;

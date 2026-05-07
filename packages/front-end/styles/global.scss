@@ -3407,6 +3407,10 @@ input:disabled {
     text-overflow: ellipsis;
   }
 }
+.input-group-text {
+  background-color: var(--gray-a2) !important;
+  border-color: var(--border-color-200) !important;
+}
 
 .text-premium {
   color: var(--text-color-premium);
