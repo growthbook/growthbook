@@ -99,6 +99,8 @@ function isCustomTaskComplete(
         experiment.phases?.[experiment.phases.length - 1]?.prerequisites;
       return !!prerequisites && prerequisites.length > 0;
     }
+    case "schedule":
+      return !!experiment.statusUpdateSchedule?.startAt;
     default:
       break;
   }
