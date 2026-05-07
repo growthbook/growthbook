@@ -343,14 +343,14 @@ export async function stopExperiment({
     input.experimentId,
   );
 
-  if (
-    experiment.status !== "running" &&
-    !(allowAlreadyStopped && experiment.status === "stopped")
-  ) {
+  const expectedStopStatuses = allowAlreadyStopped
+    ? ["running", "stopped"]
+    : ["running"];
+  if (!expectedStopStatuses.includes(experiment.status)) {
     throw new InvalidExperimentStatusError(
-      "Can only stop an experiment in running status",
+      `Can only stop an experiment in ${expectedStopStatuses.join(" or ")} status`,
       experiment.status,
-      allowAlreadyStopped ? ["running", "stopped"] : ["running"],
+      expectedStopStatuses,
     );
   }
   if (input.dateEnded && Number.isNaN(new Date(input.dateEnded).getTime())) {

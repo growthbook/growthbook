@@ -6,7 +6,7 @@ import { OrganizationInterface } from "shared/types/organization";
 import { HttpVerb } from "back-end/src/api/apiModelHandlers";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
-import { ApiError, ConflictError } from "./errors";
+import { ApiError, MergeConflictError } from "./errors";
 import { IS_MULTI_ORG } from "./secrets";
 
 export type ApiRequest<
@@ -250,7 +250,7 @@ export function createApiRequestHandler<
             // Transitional back-compat: mirror conflicts to top level so existing
             // external clients of feature-revision publish/rebase don't break.
             // TODO: remove once clients are reading `details.conflicts` instead.
-            if (e instanceof ConflictError) {
+            if (e instanceof MergeConflictError) {
               body.conflicts = e.details.conflicts;
             }
           }

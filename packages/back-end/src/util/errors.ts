@@ -134,10 +134,22 @@ export class NotFoundError extends Error {
   }
 }
 
-export class ConflictError extends ApiError<"conflict"> {
-  constructor(message: string, conflicts: unknown[] = []) {
-    super("conflict", message, { conflicts });
+// Generic 409. Stays as a plain Error so the response body is just `{ message }`
+// — preserving the legacy shape for callers that don't have structured conflict
+// details (e.g. namespace endpoints). Use MergeConflictError for callers that
+// do have a list of conflicts to surface.
+export class ConflictError extends Error {
+  status = 409;
+  constructor(message: string) {
+    super(message);
     this.name = "ConflictError";
+  }
+}
+
+export class MergeConflictError extends ApiError<"conflict"> {
+  constructor(message: string, conflicts: unknown[]) {
+    super("conflict", message, { conflicts });
+    this.name = "MergeConflictError";
   }
 }
 
