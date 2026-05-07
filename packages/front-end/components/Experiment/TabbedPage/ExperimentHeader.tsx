@@ -93,7 +93,7 @@ export interface Props {
   linkedFeatures: LinkedFeatureInfo[];
   holdout?: HoldoutInterfaceStringDates;
   showDashboardView: boolean;
-  editHoldoutSchedule?: (() => void) | null;
+  editSchedule?: (() => void) | null;
 }
 
 const datasourcesWithoutHealthData = new Set(["mixpanel", "google_analytics"]);
@@ -154,7 +154,7 @@ export default function ExperimentHeader({
   linkedFeatures,
   holdout,
   showDashboardView,
-  editHoldoutSchedule,
+  editSchedule,
 }: Props) {
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -424,7 +424,7 @@ export default function ExperimentHeader({
   const showEditHoldoutScheduleButton =
     isHoldout &&
     canEditExperiment &&
-    editHoldoutSchedule &&
+    editSchedule &&
     experiment.status !== "stopped" &&
     !experiment.archived;
 
@@ -919,7 +919,7 @@ export default function ExperimentHeader({
                 {showEditHoldoutScheduleButton && (
                   <DropdownMenuItem
                     onClick={() => {
-                      editHoldoutSchedule();
+                      editSchedule();
                       setDropdownOpen(false);
                     }}
                   >

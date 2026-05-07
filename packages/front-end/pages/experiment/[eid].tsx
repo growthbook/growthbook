@@ -280,7 +280,7 @@ const ExperimentPage = (): ReactElement => {
           setChecklistHardBlockerCount={setChecklistHardBlockerCount}
           visualChangesetEnvStates={visualChangesetEnvStates}
           urlRedirectEnvStates={urlRedirectEnvStates}
-          editHoldoutSchedule={editSchedule}
+          editSchedule={editSchedule}
         />
       </SnapshotProvider>
     </>

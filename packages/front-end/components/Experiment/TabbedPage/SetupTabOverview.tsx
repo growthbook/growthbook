@@ -54,7 +54,7 @@ export interface Props {
   setChecklistItemsRemaining: (value: number | null) => void;
   setChecklistHardBlockerCount?: (value: number) => void;
   envs: string[];
-  editHoldoutSchedule?: (() => void) | null;
+  editSchedule?: (() => void) | null;
 }
 
 export default function SetupTabOverview({
@@ -71,7 +71,7 @@ export default function SetupTabOverview({
   setChecklistItemsRemaining,
   setChecklistHardBlockerCount,
   envs,
-  editHoldoutSchedule,
+  editSchedule,
 }: Props) {
   const { aiEnabled, aiAgreedTo } = useAISettings();
   const [showOptInModal, setShowOptInModal] = useState(false);
@@ -103,7 +103,7 @@ export default function SetupTabOverview({
     new Date(experiment.phases[0].dateStarted) &&
     holdoutExperiments.length > 0 &&
     holdoutExperiments.some((e) => e.status !== "draft");
-  const canEditSchedule = !isBandit && canEditExperiment && editHoldoutSchedule;
+  const canEditSchedule = !isBandit && canEditExperiment && editSchedule;
   const holdoutHasSchedule =
     isHoldout &&
     holdout &&
@@ -173,7 +173,7 @@ export default function SetupTabOverview({
         <Flex justify="between" align="baseline" mb="3">
           <h2>Overview</h2>
           {showAddHoldoutSchedule || showAddExperimentSchedule ? (
-            <Button variant="ghost" onClick={() => editHoldoutSchedule()}>
+            <Button variant="ghost" onClick={() => editSchedule()}>
               + Add Schedule
             </Button>
           ) : null}
@@ -181,12 +181,12 @@ export default function SetupTabOverview({
           experiment.type !== "holdout" &&
           experimentHasSchedule &&
           !experimentScheduleApproved &&
-          editHoldoutSchedule ? (
+          editSchedule ? (
             <Tooltip
               content="Scheduled start date has passed—edit scheduled time"
               enabled={showScheduleIsInThePastWarning}
             >
-              <Button variant="ghost" onClick={() => editHoldoutSchedule()}>
+              <Button variant="ghost" onClick={() => editSchedule()}>
                 {showScheduleIsInThePastWarning && (
                   <PiWarningFill color="var(--warning)" className="mr-1" />
                 )}
@@ -216,7 +216,7 @@ export default function SetupTabOverview({
             setChecklistHardBlockerCount={setChecklistHardBlockerCount}
           />
         ) : null}
-        {isHoldout && holdout && holdoutHasSchedule && editHoldoutSchedule ? (
+        {isHoldout && holdout && holdoutHasSchedule && editSchedule ? (
           <Frame id="holdout-schedule" style={{ scrollMarginTop: "100px" }}>
             <Flex align="center" justify="between" className="text-dark">
               <Heading color="text-high" mb="0" as="h4" size="small">
@@ -249,7 +249,7 @@ export default function SetupTabOverview({
                       stopPropagation={true}
                       mr={experiment.description ? "3" : "0"}
                       onClick={() => {
-                        editHoldoutSchedule();
+                        editSchedule();
                       }}
                     >
                       Edit
