@@ -331,11 +331,21 @@ const GeneralSettingsPage = (): React.ReactElement => {
     hasChanges(value, originalValue) || promptForm.formState.isDirty;
 
   const savePrompts = promptForm.handleSubmit(async (promptValues) => {
-    const formattedPrompts = CUSTOMIZABLE_PROMPT_TYPES.map((type) => ({
-      type,
-      prompt: promptValues[type],
-      overrideModel: promptValues[`${type}-model`] || undefined,
-    }));
+    const formattedPrompts = CUSTOMIZABLE_PROMPT_TYPES.flatMap((type) => {
+      const prompt = promptValues[type];
+      if (typeof prompt !== "string") return [];
+
+      return [
+        {
+          type,
+          prompt,
+          overrideModel: promptValues[`${type}-model`] || undefined,
+        },
+      ];
+    });
+
+    if (!formattedPrompts.length) return;
+
     await apiCall(`/ai/prompts`, {
       method: "POST",
       body: JSON.stringify({ prompts: formattedPrompts }),

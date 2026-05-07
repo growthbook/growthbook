@@ -248,13 +248,13 @@ export default function AISettings({
   useEffect(() => {
     if (data) {
       const prompts = getPrompts(data);
-      prompts.forEach((prompt) => {
-        promptForm.setValue(prompt.promptType, prompt.promptValue);
-        promptForm.setValue(
-          `${prompt.promptType}-model`,
-          prompt.overrideModel || "",
-        );
-      });
+      promptForm.reset(
+        prompts.reduce<Record<string, string>>((acc, prompt) => {
+          acc[prompt.promptType] = prompt.promptValue;
+          acc[`${prompt.promptType}-model`] = prompt.overrideModel || "";
+          return acc;
+        }, {}),
+      );
     }
   }, [data, promptForm]);
 
