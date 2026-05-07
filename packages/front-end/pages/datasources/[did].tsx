@@ -42,6 +42,8 @@ import { FeatureEvaluationQueries } from "@/components/Settings/EditDataSource/F
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import EventForwarder from "@/components/Settings/EditDataSource/EventForwarder/EventForwarder";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import HistoryTable from "@/components/HistoryTable";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -57,6 +59,7 @@ const DataSourcePage: FC = () => {
   const [editConn, setEditConn] = useState(false);
   const [viewSqlExplorer, setViewSqlExplorer] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [auditModal, setAuditModal] = useState(false);
   const router = useRouter();
 
   const {
@@ -228,6 +231,14 @@ const DataSourcePage: FC = () => {
                   Edit Connection Info
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem
+                onClick={() => {
+                  setAuditModal(true);
+                  setDropdownOpen(false);
+                }}
+              >
+                Audit log
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => {
@@ -541,6 +552,17 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           lockDatasource={true}
           trackingEventModalSource="datasource-id-page"
         />
+      )}
+      {auditModal && (
+        <ModalStandard
+          trackingEventModalType=""
+          open={true}
+          header="Audit Log"
+          close={() => setAuditModal(false)}
+          size="lg"
+        >
+          <HistoryTable type={"datasource"} id={d.id} />
+        </ModalStandard>
       )}
     </div>
   );

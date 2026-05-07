@@ -15,9 +15,9 @@ import { FaRedo } from "react-icons/fa";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Button from "./Button";
 import { DocLink } from "./DocLink";
-import Modal from "./Modal";
 import Tooltip from "./Tooltip/Tooltip";
 import AutoMetricCard from "./Settings/AutoMetricCard";
 import SelectField from "./Forms/SelectField";
@@ -276,7 +276,7 @@ export default function AutoGenerateMetricsModal({
   }, [trackedEvents]);
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       size="lg"
       open={true}
@@ -479,6 +479,6 @@ export default function AutoGenerateMetricsModal({
           <div className="alert alert-danger">{refreshingSchemaError}</div>
         ) : null}
       </>
-    </Modal>
+    </ModalStandard>
   );
 }

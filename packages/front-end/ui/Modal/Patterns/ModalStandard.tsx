@@ -1,8 +1,8 @@
 import { ReactNode } from "react";
 import { Box } from "@radix-ui/themes";
 import Button from "@/ui/Button";
-import Dialog, { Size, TrackingEventModalProps } from "@/ui/Dialog";
-import DialogForm, { useDialogForm } from "../DialogForm";
+import Modal, { Size, TrackingEventModalProps } from "@/ui/Modal";
+import ModalForm, { useModalForm } from "../ModalForm";
 
 function SubmitButton({
   cta,
@@ -13,7 +13,7 @@ function SubmitButton({
   ctaColor: "red" | "violet";
   ctaEnabled: boolean;
 }) {
-  const { loading } = useDialogForm();
+  const { loading } = useModalForm();
   return (
     <Button
       type="submit"
@@ -41,11 +41,11 @@ export type Props = TrackingEventModalProps & {
   children: ReactNode;
 };
 
-// DialogLayout is the opinionated wrapper around the composable Dialog
+// ModalStandard is the opinionated wrapper around the composable Modal
 // primitives: header + scrollable body + Cancel / Save footer, optionally
-// wired to a form submit. New dialogs with one-off layouts should compose
-// <Dialog.Root> primitives directly instead of reaching for more props here.
-export default function DialogLayout({
+// wired to a form submit. New modals with one-off layouts should compose
+// <Modal.Root> primitives directly instead of reaching for more props here.
+export default function ModalStandard({
   open,
   header,
   headerAction,
@@ -64,27 +64,27 @@ export default function DialogLayout({
 }: Props) {
   const content = (
     <>
-      <Dialog.Header>
-        <Dialog.Title>{header}</Dialog.Title>
+      <Modal.Header>
+        <Modal.Title>{header}</Modal.Title>
         {headerAction ? <Box>{headerAction}</Box> : null}
-      </Dialog.Header>
-      {subheader && <Dialog.Description>{subheader}</Dialog.Description>}
-      <Dialog.Body>{children}</Dialog.Body>
-      <Dialog.Footer>
-        <Dialog.Close>
+      </Modal.Header>
+      {subheader && <Modal.Description>{subheader}</Modal.Description>}
+      <Modal.Body>{children}</Modal.Body>
+      <Modal.Footer>
+        <Modal.Close>
           <Button variant="ghost" onClick={close}>
             Cancel
           </Button>
-        </Dialog.Close>
+        </Modal.Close>
         {submit && (
           <SubmitButton cta={cta} ctaColor={ctaColor} ctaEnabled={ctaEnabled} />
         )}
-      </Dialog.Footer>
+      </Modal.Footer>
     </>
   );
 
   return (
-    <Dialog.Root
+    <Modal.Root
       open={open}
       onOpenChange={(nextOpen) => {
         if (!nextOpen) close();
@@ -95,7 +95,7 @@ export default function DialogLayout({
       allowlistedTrackingEventProps={allowlistedTrackingEventProps}
     >
       {submit ? (
-        <DialogForm
+        <ModalForm
           onSubmit={async () => {
             await submit();
             close();
@@ -103,10 +103,10 @@ export default function DialogLayout({
           trackOnSubmit={trackOnSubmit}
         >
           {content}
-        </DialogForm>
+        </ModalForm>
       ) : (
         content
       )}
-    </Dialog.Root>
+    </Modal.Root>
   );
 }

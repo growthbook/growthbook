@@ -109,10 +109,10 @@ import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
-  _dangerousRecreateClickhouseTables,
   getReservedColumnNames,
   updateMaterializedColumns,
 } from "back-end/src/services/clickhouse";
+import { dangerousRecreateClickhouseTables } from "back-end/src/services/licenseServerManagedClickhouse";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
 
@@ -2141,7 +2141,7 @@ export async function postRecreateManagedWarehouse(
     );
   }
 
-  await _dangerousRecreateClickhouseTables(context, datasource);
+  await dangerousRecreateClickhouseTables(context.org.id);
 
   res.status(200).json({
     status: 200,

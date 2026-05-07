@@ -147,14 +147,11 @@ export class SafeRolloutSnapshotModel extends BaseClass {
       if (!feature) {
         throw new Error("Feature not found");
       }
-      const environment = feature.environmentSettings[safeRollout.environment];
-      if (!environment) {
-        throw new Error("Environment not found");
-      }
-      const ruleIndex = environment.rules.findIndex(
+      // Locate the safe-rollout rule by safeRolloutId on the flat rules array.
+      const matchingRule = (feature.rules ?? []).find(
         (r) => r.type === "safe-rollout" && r.safeRolloutId === safeRollout.id,
       );
-      if (ruleIndex === -1) {
+      if (!matchingRule) {
         throw new Error("Rule not found");
       }
 
@@ -162,7 +159,7 @@ export class SafeRolloutSnapshotModel extends BaseClass {
         context: this.context,
         updatedSafeRollout,
         safeRolloutSnapshot: updatedDoc,
-        ruleIndex,
+        ruleId: matchingRule.id,
         feature,
       });
       // update the ramp up Schedule if the status is running and the ramp up is enabled and not completed

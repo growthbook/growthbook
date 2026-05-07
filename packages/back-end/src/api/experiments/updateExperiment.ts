@@ -15,6 +15,7 @@ import {
   updateExperimentApiPayloadToInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
+import { startExperiment } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   resolveOwnerEmail,
@@ -237,19 +238,44 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
-  const updatedExperiment = await updateExperimentToDb({
-    context: req.context,
-    experiment: experiment,
-    changes: updateExperimentApiPayloadToInterface(
-      {
-        ...req.body,
-        ...(req.body.owner !== undefined && { owner: resolvedOwner ?? "" }),
-      },
-      experiment,
-      map,
-      req.organization,
-    ),
-  });
+  const changes = updateExperimentApiPayloadToInterface(
+    {
+      ...req.body,
+      ...(req.body.owner !== undefined && { owner: resolvedOwner ?? "" }),
+    },
+    experiment,
+    map,
+    req.organization,
+  );
+
+  const isStartingFromDraft =
+    experiment.status === "draft" && changes.status === "running";
+
+  let experimentForUpdate = experiment;
+  let changesForUpdate = changes;
+
+  if (isStartingFromDraft) {
+    // Route draft->running transitions through the dedicated lifecycle method
+    // so checklist and pending-draft publish behavior stays consistent.
+    const { updated } = await startExperiment({
+      context: req.context,
+      experimentId: experiment.id,
+      // behavior for patch endpoint is to skip pre-launch checklist
+      skipChecklist: true,
+    });
+    experimentForUpdate = updated;
+    const { status: _ignoredStatus, ...remainingChanges } = changes;
+    changesForUpdate = remainingChanges;
+  }
+
+  const updatedExperiment =
+    Object.keys(changesForUpdate).length > 0
+      ? await updateExperimentToDb({
+          context: req.context,
+          experiment: experimentForUpdate,
+          changes: changesForUpdate,
+        })
+      : experimentForUpdate;
 
   if (updatedExperiment === null) {
     throw new Error("Error happened during updating experiment.");

@@ -7,6 +7,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { AppFeatures } from "@/types/app-features";
 import { isCloud } from "@/services/env";
 import useApi from "@/hooks/useApi";
+import Callout from "@/ui/Callout";
 
 export default function Home(): React.ReactElement {
   const router = useRouter();
@@ -47,9 +48,7 @@ export default function Home(): React.ReactElement {
 
   if (error) {
     return (
-      <div className="alert alert-danger">
-        {error.message || "An error occurred"}
-      </div>
+      <Callout status="error">{error.message || "An error occurred"}</Callout>
     );
   }
   if (!data || willRedirect) return <LoadingOverlay />;

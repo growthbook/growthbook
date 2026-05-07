@@ -44,7 +44,7 @@ import {
   getPercentileLabel,
 } from "@/services/metrics";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -72,6 +72,10 @@ import { DocLink } from "@/components/DocLink";
 import Callout from "@/ui/Callout";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import Code from "@/components/SyntaxHighlighting/Code";
+import {
+  isMergeAggregationMetric,
+  REST_API_ONLY_EDIT_MESSAGE,
+} from "@/services/factMetrics";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -242,6 +246,7 @@ export default function FactMetricPage() {
 
   let canEdit = permissionsUtil.canUpdateFactMetric(factMetric, {});
   let canDelete = permissionsUtil.canDeleteFactMetric(factMetric);
+  const editViaApiOnly = isMergeAggregationMetric(factMetric);
 
   if (
     factMetric.managedBy &&
@@ -454,7 +459,7 @@ export default function FactMetricPage() {
             <>
               Projects{" "}
               <Tooltip
-                body={
+                content={
                   "The dropdown below has been filtered to only include projects where you have permission to update Metrics"
                 }
               />
@@ -566,8 +571,14 @@ export default function FactMetricPage() {
                   setOpenDropdown(false);
                   setEditOpen("open");
                 }}
+                disabled={editViaApiOnly}
               >
-                Edit Metric
+                <Tooltip
+                  content={REST_API_ONLY_EDIT_MESSAGE}
+                  enabled={editViaApiOnly}
+                >
+                  <span>Edit Metric</span>
+                </Tooltip>
               </DropdownMenuItem>
             )}
             {canEdit &&
@@ -879,7 +890,7 @@ export default function FactMetricPage() {
             <RightRailSection
               title="Advanced Settings"
               open={() => setEditOpen("openWithAdvanced")}
-              canOpen={canEdit}
+              canOpen={canEdit && !editViaApiOnly}
             >
               {factMetric.windowSettings.delayValue ? (
                 <RightRailSectionGroup type="custom" empty="" className="mt-3">

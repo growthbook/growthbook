@@ -42,7 +42,9 @@ export * from "./experiment-info";
 export * from "./experiment-warnings";
 
 export * from "./features";
+export * from "./features-v2";
 export * from "./feature-revisions";
+export * from "./feature-revisions-v2";
 export * from "./holdout";
 export * from "./namespaces";
 export * from "./projects";
