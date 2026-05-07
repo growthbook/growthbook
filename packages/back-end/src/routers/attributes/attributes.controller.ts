@@ -84,10 +84,16 @@ export const putAttribute = async (
   }
 
   const existing = attributeSchema[index];
+  // Only pass `projects` when the client actually sent it — passing
+  // `{ projects: undefined }` would be interpreted as a request to scope the
+  // attribute globally and incorrectly deny project-scoped users.
   if (
-    !context.permissions.canUpdateAttribute(existing, {
-      projects: attributeFields.projects,
-    })
+    !context.permissions.canUpdateAttribute(
+      existing,
+      "projects" in attributeFields
+        ? { projects: attributeFields.projects }
+        : {},
+    )
   ) {
     context.permissions.throwPermissionError();
   }
