@@ -1,3 +1,53 @@
+import {
+  ApiErrorCode,
+  ApiErrorDetails,
+  apiErrorRegistry,
+} from "shared/validators";
+import {
+  PendingDraftFailure,
+  formatPendingDraftFailureMessage,
+} from "back-end/src/services/experiment-feature";
+
+export abstract class ApiError<C extends ApiErrorCode> extends Error {
+  readonly code: C;
+  readonly status: number;
+  readonly details: ApiErrorDetails<C>;
+
+  constructor(code: C, message: string, details: ApiErrorDetails<C>) {
+    super(message);
+    this.code = code;
+    this.status = apiErrorRegistry[code].status;
+    this.details = details;
+    this.name = "ApiError";
+  }
+}
+
+// Uses ApiErrorDetails<"checklist_incomplete"> directly so we avoid importing
+// StartChecklistItemStatus from changeExperimentStatus (which would create a cycle).
+export class ChecklistIncompleteError extends ApiError<"checklist_incomplete"> {
+  constructor(
+    remainingChecklistItems: ApiErrorDetails<"checklist_incomplete">["remainingChecklistItems"],
+  ) {
+    super(
+      "checklist_incomplete",
+      "Experiment cannot be started: required checklist items are incomplete",
+      { remainingChecklistItems },
+    );
+    this.name = "ChecklistIncompleteError";
+  }
+}
+
+export class PendingDraftPublishFailedError extends ApiError<"pending_draft_publish_failed"> {
+  constructor(failedFeatureDrafts: PendingDraftFailure[]) {
+    super(
+      "pending_draft_publish_failed",
+      formatPendingDraftFailureMessage(failedFeatureDrafts),
+      { failedFeatureDrafts },
+    );
+    this.name = "PendingDraftPublishFailedError";
+  }
+}
+
 export class MissingDatasourceParamsError extends Error {
   constructor(message: string) {
     super(message);
@@ -72,13 +122,10 @@ export class NotFoundError extends Error {
   }
 }
 
-export class ConflictError extends Error {
-  status = 409;
-  conflicts?: unknown[];
-  constructor(message: string, conflicts?: unknown[]) {
-    super(message);
+export class ConflictError extends ApiError<"conflict"> {
+  constructor(message: string, conflicts: unknown[] = []) {
+    super("conflict", message, { conflicts });
     this.name = "ConflictError";
-    this.conflicts = conflicts;
   }
 }
 

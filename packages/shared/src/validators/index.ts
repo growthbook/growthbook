@@ -67,3 +67,4 @@ export * from "./visual-changesets";
 export * from "./sdk-connections";
 export * from "./data-sources";
 export * from "./openapi-helpers";
+export * from "./api-errors";

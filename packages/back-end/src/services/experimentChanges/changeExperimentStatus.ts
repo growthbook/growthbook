@@ -23,11 +23,11 @@ import {
   getChangesToStartExperiment,
   getLinkedFeatureInfo,
 } from "back-end/src/services/experiments";
+import { publishPendingFeatureDraftsForExperiment } from "back-end/src/services/experiment-feature";
 import {
-  formatPendingDraftFailureMessage,
-  PendingDraftFailure,
-  publishPendingFeatureDraftsForExperiment,
-} from "back-end/src/services/experiment-feature";
+  ChecklistIncompleteError,
+  PendingDraftPublishFailedError,
+} from "back-end/src/util/errors";
 
 type ChecklistStatus = "complete" | "incomplete";
 
@@ -256,11 +256,7 @@ export async function startExperiment({
     (item) => item.required && item.status === "incomplete",
   );
   if (incompleteRequiredItems.length > 0 && !skipChecklist) {
-    throw new Error(
-      `checklist_incomplete: ${incompleteRequiredItems
-        .map((i) => i.key)
-        .join(", ")}`,
-    );
+    throw new ChecklistIncompleteError(incompleteRequiredItems);
   }
 
   const allVariations = getAllVariations(experiment);
@@ -308,11 +304,7 @@ export async function startExperiment({
     experiment,
   );
   if (publishResult.failed.length > 0) {
-    const err = new Error(
-      formatPendingDraftFailureMessage(publishResult.failed),
-    ) as Error & { failedFeatureDrafts?: PendingDraftFailure[] };
-    err.failedFeatureDrafts = publishResult.failed;
-    throw err;
+    throw new PendingDraftPublishFailedError(publishResult.failed);
   }
 
   changes.status = "running";

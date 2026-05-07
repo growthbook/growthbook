@@ -1487,6 +1487,10 @@ export const postExperimentStartValidator = {
   exampleRequest: {
     params: { id: "exp_abc123" },
   },
+  possibleErrors: [
+    "checklist_incomplete",
+    "pending_draft_publish_failed",
+  ] as const,
 };
 
 export const postExperimentStopValidator = {
