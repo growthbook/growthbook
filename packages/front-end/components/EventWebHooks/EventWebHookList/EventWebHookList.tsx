@@ -47,7 +47,9 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
           </div>
         </div>
         <p>
-          Monitor specific events globally accross features and experiments.
+          Event Webhooks allow you to monitor specific events, such as features
+          being created or experiment update warnings. Send messages in raw
+          JSON, <strong>Slack</strong>, or <strong>Discord</strong> format.
           <span className="ml-2">
             <DocLink docSection={"eventWebhooks"}>
               View Documentation &gt;

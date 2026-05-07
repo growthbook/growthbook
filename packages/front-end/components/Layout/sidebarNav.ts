@@ -266,13 +266,6 @@ export const navlinks: SidebarLinkProps[] = [
         filter: ({ permissionsUtils }) => permissionsUtils.canViewAuditLogs(),
       },
       {
-        name: "Slack",
-        href: "/integrations/slack",
-        path: /^integrations\/slack/,
-        filter: ({ permissionsUtils }) =>
-          permissionsUtils.canManageIntegrations(),
-      },
-      {
         name: "GitHub",
         href: "/integrations/github",
         path: /^integrations\/github/,

@@ -1,5 +1,6 @@
 import React, { FC, useState } from "react";
 import { datetime } from "shared/dates";
+import { SlackIntegrationInterface } from "shared/types/slack-integration";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { EventWebHookListContainer } from "@/components/EventWebHooks/EventWebHookList/EventWebHookList";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -10,6 +11,8 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
 import Callout from "@/ui/Callout";
+import useApi from "@/hooks/useApi";
+import Link from "@/ui/Link";
 
 const WebhooksPage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
@@ -18,6 +21,10 @@ const WebhooksPage: FC = () => {
     permissionsUtil.canCreateEventWebhook() ||
     permissionsUtil.canUpdateEventWebhook() ||
     permissionsUtil.canDeleteEventWebhook();
+
+  const { data: legacySlack } = useApi<{
+    slackIntegrations: SlackIntegrationInterface[];
+  }>("/integrations/slack");
 
   const { apiCall } = useAuth();
 
@@ -43,6 +50,17 @@ const WebhooksPage: FC = () => {
   return (
     <div className="container-fluid pagecontents">
       <div className="pagecontents">
+        {legacySlack?.slackIntegrations?.length ? (
+          <Callout status="info">
+            <strong>Slack Integrations</strong> are deprecated and have been
+            replaced with Event Webhooks, which offer the same functionality in
+            a more flexible and powerful way. View your{" "}
+            <Link href="/integrations/slack">
+              existing Slack Integrations here
+            </Link>
+            .
+          </Callout>
+        ) : null}
         <EventWebHookListContainer />
 
         <div className="mt-5">
