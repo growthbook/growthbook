@@ -1,13 +1,24 @@
 import request from "supertest";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { setupApp } from "./api.setup";
 
 jest.mock("back-end/src/models/OrganizationModel", () => ({
   updateOrganization: jest.fn(),
 }));
+jest.mock("back-end/src/enterprise", () => ({
+  orgHasPremiumFeature: jest.fn(),
+}));
 
 describe("attributes API", () => {
   const { app, auditMock, setReqContext } = setupApp();
+  const orgHasPremiumFeatureMock = orgHasPremiumFeature as jest.MockedFunction<
+    typeof orgHasPremiumFeature
+  >;
+
+  beforeEach(() => {
+    orgHasPremiumFeatureMock.mockReturnValue(true);
+  });
 
   afterEach(async () => {
     jest.clearAllMocks();
@@ -553,6 +564,50 @@ describe("attributes API", () => {
         object: "attribute",
       },
       event: "attribute.create",
+    });
+  });
+
+  it("allows attribute create when events-forwarder commercial feature is disabled and no forwarder exists", async () => {
+    orgHasPremiumFeatureMock.mockReturnValue(false);
+    setReqContext({
+      throwPlanDoesNotAllowError: (message: string): never => {
+        throw new Error(message);
+      },
+      models: {
+        projects: {
+          getAll: () => [{ id: "proj1" }, { id: "proj2" }, { id: "proj3" }],
+        },
+        eventForwarderConfigs: {
+          getAll: () => [],
+        },
+      },
+      org: {
+        id: "org1",
+        settings: {
+          attributeSchema: [],
+        },
+      },
+      permissions: {
+        canCreateAttribute: () => true,
+      },
+    });
+
+    const response = await request(app)
+      .post("/api/v1/attributes")
+      .send({
+        property: "attr3",
+        datatype: "boolean",
+        projects: ["proj1"],
+      })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      attribute: {
+        property: "attr3",
+        datatype: "boolean",
+        projects: ["proj1"],
+      },
     });
   });
 
