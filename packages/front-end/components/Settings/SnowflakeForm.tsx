@@ -1,51 +1,20 @@
 import { FC, ChangeEventHandler, useState } from "react";
-import { DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME } from "shared/util";
-import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Switch from "@/ui/Switch";
-import Checkbox from "@/ui/Checkbox";
 import { GBInfo } from "@/components/Icons";
 import FileInput from "@/components/FileInput";
-import SnowflakeEventForwarderForm from "./SnowflakeEventForwarderForm";
 
 const SnowflakeForm: FC<{
   params: Partial<SnowflakeConnectionParams>;
-  eventForwarderConfig: EventForwarderConfigDraft | null;
   existing: boolean;
-  setEventForwarderConfig: (
-    eventForwarderConfig: EventForwarderConfigDraft | null,
-  ) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement>;
   onManualParamChange: (name: string, value: string) => void;
-  datasourceId?: string;
-  projects?: string[];
-  eventForwarderAccessSignature: string;
-  setValidatedEventForwarderSignature?: (signature: string | null) => void;
-}> = ({
-  params,
-  eventForwarderConfig,
-  setEventForwarderConfig,
-  existing,
-  onParamChange,
-  onManualParamChange,
-  datasourceId,
-  projects,
-  eventForwarderAccessSignature,
-  setValidatedEventForwarderSignature,
-}) => {
+}> = ({ params, existing, onParamChange, onManualParamChange }) => {
   const [useAccessUrl, setUseAccessUrl] = useState(!!params.accessUrl);
   const [originalAuthMethod] = useState(params.authMethod);
   // Convenience variable for the auth method to handle undefined
   const authMethod = params.authMethod ?? "password";
-  const canEnableEventForwarder = authMethod === "key-pair";
-  const snowflakeEventForwarderConfig =
-    eventForwarderConfig?.sinkType === "snowflake"
-      ? eventForwarderConfig
-      : null;
-  const hasSnowflakePrivateKey =
-    !!params.privateKey?.trim() ||
-    (existing && authMethod === originalAuthMethod);
 
   return (
     <div className="row">
@@ -80,12 +49,7 @@ const SnowflakeForm: FC<{
           autoComplete="off"
           name="authMethod"
           value={params.authMethod ?? "password"}
-          onChange={(e) => {
-            onManualParamChange("authMethod", e.target.value);
-            if (e.target.value !== "key-pair" && eventForwarderConfig) {
-              setEventForwarderConfig(null);
-            }
-          }}
+          onChange={(e) => onManualParamChange("authMethod", e.target.value)}
         >
           <option value="password">Password</option>
           <option value="key-pair">Key Pair</option>
@@ -158,50 +122,6 @@ const SnowflakeForm: FC<{
               }
             />
           </div>
-          <div className="form-group col-md-12">
-            <Checkbox
-              id="enableSnowflakeEventForwarder"
-              label="Enable Event Forwarder"
-              value={!!snowflakeEventForwarderConfig}
-              disabled={!canEnableEventForwarder}
-              disabledMessage="Snowflake event forwarding uses Confluent Snowflake Sink, which requires key-pair authentication."
-              setValue={(value) => {
-                if (!value) {
-                  setEventForwarderConfig(null);
-                  return;
-                }
-
-                setEventForwarderConfig({
-                  sinkType: "snowflake",
-                  config: {
-                    tableName: DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
-                    accessUrl: "",
-                  },
-                });
-              }}
-            />
-            <div>
-              <span className="text-muted small">
-                Enriched events are written to the configured Snowflake database
-                and schema on this page.
-              </span>
-            </div>
-          </div>
-          {snowflakeEventForwarderConfig && (
-            <SnowflakeEventForwarderForm
-              params={params}
-              eventForwarderConfig={snowflakeEventForwarderConfig}
-              existing={existing}
-              setEventForwarderConfig={setEventForwarderConfig}
-              datasourceId={datasourceId}
-              projects={projects}
-              eventForwarderAccessSignature={eventForwarderAccessSignature}
-              setValidatedEventForwarderSignature={
-                setValidatedEventForwarderSignature
-              }
-              hasSnowflakePrivateKey={hasSnowflakePrivateKey}
-            />
-          )}
         </>
       )}
 
