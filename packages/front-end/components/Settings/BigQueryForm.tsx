@@ -1,41 +1,19 @@
 import { ChangeEventHandler, FC, useState } from "react";
 import { stripLeadingUtf8ByteOrderMark } from "shared/util";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
-import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
 import { isCloud } from "@/services/env";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/components/Button";
-import Checkbox from "@/ui/Checkbox";
-import BigQueryEventForwarderForm from "./BigQueryEventForwarderForm";
 
 const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;
-  eventForwarderConfig: EventForwarderConfigDraft | null;
   existing: boolean;
   setParams: (params: { [key: string]: string | boolean }) => void;
-  setEventForwarderConfig: (
-    eventForwarderConfig: EventForwarderConfigDraft | null,
-  ) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
-  datasourceId?: string;
-  projects?: string[];
-  eventForwarderAccessSignature: string;
-  setValidatedEventForwarderSignature?: (signature: string | null) => void;
-}> = ({
-  params,
-  eventForwarderConfig,
-  setParams,
-  setEventForwarderConfig,
-  existing,
-  onParamChange,
-  datasourceId,
-  projects,
-  eventForwarderAccessSignature,
-  setValidatedEventForwarderSignature,
-}) => {
+}> = ({ params, setParams, existing, onParamChange }) => {
   const [testConnectionResults, setTestConnectionResults] = useState<{
     status: "success" | "danger" | "warning";
     message: string;
@@ -153,15 +131,6 @@ const BigQueryForm: FC<{
                           defaultProject: json.project_id,
                           serviceAccountJson: raw,
                         });
-                        if (eventForwarderConfig?.sinkType === "bigquery") {
-                          setEventForwarderConfig({
-                            sinkType: "bigquery",
-                            config: {
-                              ...eventForwarderConfig.config,
-                              serviceAccountKey: raw,
-                            },
-                          });
-                        }
                       }
                     } catch (e) {
                       console.error(e);
@@ -216,53 +185,6 @@ const BigQueryForm: FC<{
             >
               Test Connection
             </Button>
-            {/* TODO: Wrap under enterprise plan */}
-            <div className="mt-3">
-              <Checkbox
-                id="enableEventForwarder"
-                label="Enable Event Forwarder"
-                value={!!eventForwarderConfig}
-                setValue={(value) => {
-                  if (!value) {
-                    setEventForwarderConfig(null);
-                    return;
-                  }
-
-                  setEventForwarderConfig({
-                    sinkType: "bigquery",
-                    config: {
-                      tableName: "gb_events",
-                      serviceAccountKey:
-                        stripLeadingUtf8ByteOrderMark(
-                          params.serviceAccountJson ?? "",
-                        ).trim() || "",
-                    },
-                  });
-                }}
-              />
-              <div>
-                <span className="text-muted small">
-                  Enriched events are written to the Default Dataset on this
-                  page (same as experiment assignment data).
-                </span>
-              </div>
-            </div>
-            {eventForwarderConfig?.sinkType === "bigquery" && (
-              <BigQueryEventForwarderForm
-                params={params}
-                eventForwarderConfig={eventForwarderConfig}
-                existing={existing}
-                setParams={setParams}
-                setEventForwarderConfig={setEventForwarderConfig}
-                onParamChange={onParamChange}
-                datasourceId={datasourceId}
-                projects={projects}
-                eventForwarderAccessSignature={eventForwarderAccessSignature}
-                setValidatedEventForwarderSignature={
-                  setValidatedEventForwarderSignature
-                }
-              />
-            )}
           </div>
         </>
       )}
