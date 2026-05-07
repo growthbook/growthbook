@@ -909,7 +909,9 @@ function ConditionAndGroupInput({
             : attribute.array
               ? [
                   { label: "includes", value: "$includes" },
+                  { label: "includes any of", value: "$includesAnyOf" },
                   { label: "does not include", value: "$notIncludes" },
+                  { label: "includes none of", value: "$notIncludesAnyOf" },
                   { label: "is empty", value: "$empty" },
                   { label: "is not empty", value: "$notEmpty" },
                   { label: "is not NULL", value: "$exists" },
@@ -1041,6 +1043,8 @@ function ConditionAndGroupInput({
         } else if (attribute.enum.length) {
           displayType = "enum";
         } else if (listOperators.includes(operator)) {
+          displayType = "array-field";
+        } else if (["$includesAnyOf", "$notIncludesAnyOf"].includes(operator)) {
           displayType = "array-field";
         } else if (attribute.datatype === "number") {
           displayType = "number";

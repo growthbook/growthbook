@@ -1125,6 +1125,13 @@ export function jsonToConds(
                 value: v["$eq"] + "",
               });
             }
+            if ("$in" in v && Array.isArray(v["$in"])) {
+              return conds.push({
+                field,
+                operator: "$includesAnyOf",
+                value: v["$in"].join(", "),
+              });
+            }
           }
           valid = false;
           return;
@@ -1154,6 +1161,13 @@ export function jsonToConds(
                     field,
                     operator: "$notIncludes",
                     value: m["$eq"] + "",
+                  });
+                }
+                if ("$in" in m && Array.isArray(m["$in"])) {
+                  return conds.push({
+                    field,
+                    operator: "$notIncludesAnyOf",
+                    value: m["$in"].join(", "),
                   });
                 }
               }
@@ -1314,6 +1328,22 @@ export function condToJson(
         obj[field]["$not"] = {
           $elemMatch: {
             $eq: parseValue(value, attributes.get(field)?.datatype),
+          },
+        };
+      } else if (operator === "$includesAnyOf") {
+        obj[field]["$elemMatch"] = {
+          $in: value
+            .split(",")
+            .map((x) => parseValue(x.trim(), attributes.get(field)?.datatype)),
+        };
+      } else if (operator === "$notIncludesAnyOf") {
+        obj[field]["$not"] = {
+          $elemMatch: {
+            $in: value
+              .split(",")
+              .map((x) =>
+                parseValue(x.trim(), attributes.get(field)?.datatype),
+              ),
           },
         };
       } else if (operator === "$empty") {
