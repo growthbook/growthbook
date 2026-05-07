@@ -79,7 +79,10 @@ export default function EditTargetingModal({
 }: Props) {
   const { apiCall } = useAuth();
   const orgSettings = useOrgSettings();
-  const attributeSchema = useAttributeSchema(false, experiment.project);
+  // Unfiltered schema for client-side validation so requireProjectScoping
+  // gating in validateUnregisteredAttributes can actually distinguish
+  // unknown vs out-of-project attributes.
+  const allAttributesSchema = useAttributeSchema(false);
   const [conditionKey, forceConditionRender] = useIncrementer();
 
   const [step, setStep] = useState(0);
@@ -213,8 +216,9 @@ export default function EditTargetingModal({
       },
       "experiment",
       {
-        attributeSchema,
+        attributeSchema: allAttributesSchema,
         requireRegisteredAttributes: orgSettings.requireRegisteredAttributes,
+        project: experiment.project || undefined,
       },
     );
 

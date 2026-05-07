@@ -143,6 +143,10 @@ export default function RuleModal({
   const { apiCall } = useAuth();
 
   const attributeSchema = useAttributeSchema(false, feature.project);
+  // Unfiltered org-wide schema lets validateFeatureRule distinguish between
+  // truly-unknown attributes and attributes that exist but aren't scoped to
+  // this project, so the client-side error wording matches the server.
+  const allAttributesSchema = useAttributeSchema(false);
 
   const flatRules = feature.rules ?? [];
   const rule: FeatureRule | undefined = ruleId
@@ -710,7 +714,7 @@ export default function RuleModal({
           },
           feature,
           {
-            attributeSchema,
+            attributeSchema: allAttributesSchema,
             requireRegisteredAttributes: settings.requireRegisteredAttributes,
           },
         );
@@ -987,7 +991,7 @@ export default function RuleModal({
         values as FeatureRule,
         feature,
         {
-          attributeSchema,
+          attributeSchema: allAttributesSchema,
           requireRegisteredAttributes: settings.requireRegisteredAttributes,
         },
       );

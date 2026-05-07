@@ -15,7 +15,9 @@ import { ApiReqContext } from "back-end/types/api";
 //      the changed field)
 const makeContext = (
   overrides: Partial<{
-    requireRegisteredAttributes: boolean;
+    requireRegisteredAttributes:
+      | boolean
+      | { isOn: boolean; requireProjectScoping: boolean };
     attributeSchema: Array<{
       property: string;
       datatype: "string";
@@ -80,7 +82,7 @@ describe("validateRuleAttributes (V2 helper)", () => {
   it("scopes attribute lookup to the rule's project when provided", () => {
     const ctx = makeContext({
       attributeSchema: [
-        // userId scoped to project A only; not registered for B.
+        // userId is org-wide (no projects[]); must be valid in every project.
         {
           property: "userId",
           datatype: "string",
@@ -92,5 +94,61 @@ describe("validateRuleAttributes (V2 helper)", () => {
     expect(() =>
       validateRuleAttributes({ hashAttribute: "userId" }, ctx, "any-project"),
     ).not.toThrow();
+  });
+
+  it("rejects an attribute that exists but is scoped to a different project, with a project-aware message", () => {
+    const ctx = makeContext({
+      attributeSchema: [
+        // `country` is registered, but only for proj_one. Calling it from
+        // proj_two should fail with the "not available in this project"
+        // message rather than the generic "Unknown attribute key" message.
+        {
+          property: "country",
+          datatype: "string",
+          // Cast through unknown — fixture type forbids `projects` but the
+          // shared util reads it.
+          projects: ["proj_one"],
+        } as unknown as Parameters<
+          typeof makeContext
+        >[0]["attributeSchema"][number],
+      ],
+    });
+    let err: unknown;
+    try {
+      validateRuleAttributes({ hashAttribute: "country" }, ctx, "proj_two");
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeInstanceOf(BadRequestError);
+    expect((err as Error).message).toMatch(/not available in this project/);
+    expect((err as Error).message).toMatch(/country/);
+    // Critical: this is *not* an "Unknown attribute key(s)" error.
+    expect((err as Error).message).not.toMatch(/Unknown attribute key/);
+  });
+
+  it("with requireProjectScoping=false, accepts attributes scoped to other projects but still rejects typos", () => {
+    const ctx = makeContext({
+      requireRegisteredAttributes: { isOn: true, requireProjectScoping: false },
+      attributeSchema: [
+        { property: "userId", datatype: "string" },
+        // `country` is scoped to proj_one; with requireProjectScoping off,
+        // calling it from proj_two should pass.
+        {
+          property: "country",
+          datatype: "string",
+          projects: ["proj_one"],
+        } as unknown as Parameters<
+          typeof makeContext
+        >[0]["attributeSchema"][number],
+      ],
+    });
+    expect(() =>
+      validateRuleAttributes({ hashAttribute: "country" }, ctx, "proj_two"),
+    ).not.toThrow();
+    // Typos still fail — relaxing project-scope is not the same as turning
+    // the registered-attributes check off.
+    expect(() =>
+      validateRuleAttributes({ hashAttribute: "userID" }, ctx, "proj_two"),
+    ).toThrow(BadRequestError);
   });
 });

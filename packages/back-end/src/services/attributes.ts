@@ -1,6 +1,7 @@
 import {
+  categorizeUnregisteredAttributes,
   extractConditionAttributeKeys,
-  findUnregisteredAttributes,
+  getRequireRegisteredAttributesSettings,
 } from "shared/util";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -55,9 +56,13 @@ export function assertRegisteredAttributes(
   existingParts?: AttributeParts,
   project?: string | string[],
 ): void {
-  if (!context.org.settings?.requireRegisteredAttributes) return;
+  const { isOn, requireProjectScoping } =
+    getRequireRegisteredAttributesSettings(
+      context.org.settings?.requireRegisteredAttributes,
+    );
+  if (!isOn) return;
 
-  const attributeSchema = context.org.settings.attributeSchema || [];
+  const attributeSchema = context.org.settings?.attributeSchema || [];
   const keys: string[] = [];
 
   const changed = (field: keyof AttributeParts): boolean =>
@@ -78,12 +83,41 @@ export function assertRegisteredAttributes(
 
   if (!keys.length) return;
 
-  const unknown = findUnregisteredAttributes(keys, attributeSchema, project);
-  if (!unknown.length) return;
-
-  const quoted = unknown.map((k) => `"${k}"`).join(", ");
-  throw new BadRequestError(
-    `Unknown attribute key(s) on ${label}: ${quoted}. ` +
-      `Declare them under Settings > Targeting Attributes or fix the typo.`,
+  // Pass `project` to the categorizer only when the org has opted into the
+  // stricter project-scope check; otherwise out-of-project attributes are
+  // bucketed as "registered" and pass.
+  const { unknown, outOfProject } = categorizeUnregisteredAttributes(
+    keys,
+    attributeSchema,
+    requireProjectScoping ? project : undefined,
   );
+  if (!unknown.length && !outOfProject.length) return;
+
+  throw new BadRequestError(
+    formatUnregisteredAttributesError(label, { unknown, outOfProject }),
+  );
+}
+
+// Shared formatter so the message is identical between assertRegisteredAttributes
+// and the front-end pre-flight (`validateUnregisteredAttributes` mirrors this).
+export function formatUnregisteredAttributesError(
+  label: string,
+  buckets: { unknown: string[]; outOfProject: string[] },
+): string {
+  const parts: string[] = [];
+  if (buckets.unknown.length) {
+    const quoted = buckets.unknown.map((k) => `"${k}"`).join(", ");
+    parts.push(
+      `Unknown attribute key(s) on ${label}: ${quoted}. ` +
+        `Declare them under Settings > Targeting Attributes or fix the typo.`,
+    );
+  }
+  if (buckets.outOfProject.length) {
+    const quoted = buckets.outOfProject.map((k) => `"${k}"`).join(", ");
+    parts.push(
+      `Attribute key(s) on ${label} not available in this project: ${quoted}. ` +
+        `Add this project to the attribute's scope under Settings > Targeting Attributes.`,
+    );
+  }
+  return parts.join(" ");
 }

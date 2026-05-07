@@ -1510,39 +1510,98 @@ export function extractConditionAttributeKeys(condition: unknown): string[] {
   return Array.from(found);
 }
 
+// Canonical shape for the opt-in attribute registration check. The org
+// setting is stored as either a legacy boolean (older orgs) or this object
+// (new orgs / orgs that have toggled the new project-scoping switch). All
+// readers should funnel through `getRequireRegisteredAttributesSettings`
+// rather than poking at the raw setting so they handle both shapes.
+export type RequireRegisteredAttributesSettings = {
+  // Master switch — when false, all checks are skipped.
+  isOn: boolean;
+  // When true, attributes that exist but aren't scoped to the current
+  // project are also rejected. When false, project-scope mismatches are
+  // ignored and only truly-unknown attribute keys fail.
+  requireProjectScoping: boolean;
+};
+
+// Normalizes the raw org setting into `{ isOn, requireProjectScoping }`.
+// Legacy boolean `true` maps to `{ isOn: true, requireProjectScoping: true }`
+// to preserve the strict behavior orgs were already getting before the
+// project-scoping toggle existed. `false` / undefined / null map to off.
+export function getRequireRegisteredAttributesSettings(
+  raw: boolean | RequireRegisteredAttributesSettings | undefined | null,
+): RequireRegisteredAttributesSettings {
+  if (!raw) return { isOn: false, requireProjectScoping: false };
+  if (typeof raw === "boolean") {
+    return { isOn: true, requireProjectScoping: true };
+  }
+  return {
+    isOn: !!raw.isOn,
+    // Default to `true` when the object is missing the field — keeps strict
+    // behavior the default for newly-created objects too.
+    requireProjectScoping: raw.requireProjectScoping !== false,
+  };
+}
+
+// Splits `keys` into two buckets so callers can write a precise error:
+//   - `unknown`: not declared in the schema at all (or archived) — typical typo.
+//   - `outOfProject`: declared and active, but scoped to a different project
+//     than the rule/experiment lives in. Catches the "attribute exists but
+//     this project isn't on its scope list" case, which the user otherwise
+//     reads as "Unknown attribute" and tries to re-create.
+// Dot-notation keys are checked against their root segment, matching how
+// attribute schema is declared.
+export function categorizeUnregisteredAttributes(
+  keys: string[],
+  attributeSchema: SDKAttributeSchema | undefined,
+  project?: string | string[],
+): { unknown: string[]; outOfProject: string[] } {
+  const projects = Array.isArray(project) ? project : project ? [project] : [];
+  // root segment -> projects[] declared on the (active) attribute. Missing
+  // entries mean the attribute isn't declared (or is archived).
+  const declared = new Map<string, string[] | undefined>();
+  for (const attr of attributeSchema ?? []) {
+    if (attr.archived) continue;
+    declared.set(attr.property, attr.projects);
+  }
+
+  const unknown: string[] = [];
+  const outOfProject: string[] = [];
+  const seen = new Set<string>();
+  for (const key of keys) {
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const root = key.split(".")[0];
+    if (!declared.has(root)) {
+      unknown.push(key);
+      continue;
+    }
+    const attrProjects = declared.get(root);
+    // No project context, or the attribute is org-wide: registered.
+    if (!projects.length || !attrProjects?.length) continue;
+    if (!projects.some((p) => attrProjects.includes(p))) {
+      outOfProject.push(key);
+    }
+  }
+  return { unknown, outOfProject };
+}
+
 // Returns the subset of `keys` that are NOT declared as active attributes in
-// `attributeSchema`. An attribute is "registered" when it appears in the
-// schema with `archived !== true` and is either org-wide (no projects) or
-// scoped to the given `project`. Dot-notation keys are checked against
-// their root segment, matching how attribute schema is declared.
+// `attributeSchema`, including those scoped to other projects. Equivalent to
+// `unknown ∪ outOfProject` from `categorizeUnregisteredAttributes`. Kept for
+// backward compatibility; new callers that need a richer error should use
+// `categorizeUnregisteredAttributes` directly.
 export function findUnregisteredAttributes(
   keys: string[],
   attributeSchema: SDKAttributeSchema | undefined,
   project?: string | string[],
 ): string[] {
-  const projects = Array.isArray(project) ? project : project ? [project] : [];
-  const registered = new Set<string>();
-  for (const attr of attributeSchema ?? []) {
-    if (attr.archived) continue;
-    if (
-      projects.length &&
-      attr.projects?.length &&
-      !projects.some((p) => attr.projects!.includes(p))
-    ) {
-      continue;
-    }
-    registered.add(attr.property);
-  }
-  const missing: string[] = [];
-  const seen = new Set<string>();
-  for (const key of keys) {
-    const root = key.split(".")[0];
-    if (registered.has(root)) continue;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    missing.push(key);
-  }
-  return missing;
+  const { unknown, outOfProject } = categorizeUnregisteredAttributes(
+    keys,
+    attributeSchema,
+    project,
+  );
+  return [...unknown, ...outOfProject];
 }
 
 export function getDefaultPrerequisiteCondition(parentFeature?: {

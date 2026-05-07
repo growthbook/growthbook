@@ -259,7 +259,15 @@ export interface OrganizationSettings {
   // fallbackAttribute, or condition keys that don't appear (unarchived) in
   // attributeSchema. Prevents typo'd attributes silently never matching at
   // eval time. Mirrors the existing saved-group "Unknown attributeKey" check.
-  requireRegisteredAttributes?: boolean;
+  // Two-toggle gate for the opt-in attribute registration check. Stored as
+  // an object so we can split the "must be a registered attribute" check
+  // from the stricter "must also be scoped to this project" check. The
+  // legacy boolean shape is still accepted on read for back-compat —
+  // `getRequireRegisteredAttributesSettings` normalizes both into the
+  // canonical { isOn, requireProjectScoping } pair.
+  requireRegisteredAttributes?:
+    | boolean
+    | { isOn: boolean; requireProjectScoping: boolean };
   featureListMarkdown?: string;
   featurePageMarkdown?: string;
   experimentListMarkdown?: string;

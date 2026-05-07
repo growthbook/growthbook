@@ -4,7 +4,9 @@ import { ReqContext } from "back-end/types/request";
 
 const makeContext = (
   overrides: Partial<{
-    requireRegisteredAttributes: boolean;
+    requireRegisteredAttributes:
+      | boolean
+      | { isOn: boolean; requireProjectScoping: boolean };
     attributeSchema: Array<{
       property: string;
       datatype: "string";
@@ -159,6 +161,188 @@ describe("assertRegisteredAttributes", () => {
         ctx,
         { condition: JSON.stringify({ "user.id": "x", "user.role": "y" }) },
         "rule",
+      ),
+    ).not.toThrow();
+  });
+
+  it("emits a project-scope-aware error when the attribute exists but isn't on this project", () => {
+    // `country` is registered, but only for proj_one. Calling it from
+    // proj_two should fail with a "not available in this project" message
+    // rather than the generic "Unknown attribute key" message — the user
+    // otherwise reads the latter as "must declare" and tries to recreate it.
+    const ctx = makeContext({
+      attributeSchema: [
+        { property: "userId", datatype: "string" },
+        {
+          property: "country",
+          datatype: "string",
+          // Cast — fixture type forbids `projects`, but the shared util reads it.
+          projects: ["proj_one"],
+        } as unknown as {
+          property: string;
+          datatype: "string";
+          archived?: boolean;
+        },
+      ],
+    });
+    let err: BadRequestError | undefined;
+    try {
+      assertRegisteredAttributes(
+        ctx,
+        { hashAttribute: "country" },
+        "rule",
+        undefined,
+        "proj_two",
+      );
+    } catch (e) {
+      err = e as BadRequestError;
+    }
+    expect(err).toBeInstanceOf(BadRequestError);
+    expect(err?.message).toMatch(/not available in this project/);
+    expect(err?.message).toMatch(/country/);
+    expect(err?.message).not.toMatch(/Unknown attribute key/);
+  });
+
+  it("splits unknown vs out-of-project attributes in the same error", () => {
+    const ctx = makeContext({
+      attributeSchema: [
+        { property: "userId", datatype: "string" },
+        {
+          property: "country",
+          datatype: "string",
+          projects: ["proj_one"],
+        } as unknown as {
+          property: string;
+          datatype: "string";
+          archived?: boolean;
+        },
+      ],
+    });
+    let err: BadRequestError | undefined;
+    try {
+      assertRegisteredAttributes(
+        ctx,
+        {
+          hashAttribute: "country",
+          fallbackAttribute: "totally_made_up",
+        },
+        "rule",
+        undefined,
+        "proj_two",
+      );
+    } catch (e) {
+      err = e as BadRequestError;
+    }
+    expect(err).toBeInstanceOf(BadRequestError);
+    // Both buckets are surfaced.
+    expect(err?.message).toMatch(/Unknown attribute key/);
+    expect(err?.message).toMatch(/totally_made_up/);
+    expect(err?.message).toMatch(/not available in this project/);
+    expect(err?.message).toMatch(/country/);
+  });
+
+  // The setting is stored as an object on new orgs; legacy boolean shapes
+  // still come through unchanged on older orgs. Lock down both forms behave
+  // the same for the strict (everything-on) case so we don't regress
+  // either path during future edits.
+  it("treats legacy boolean and { isOn:true, requireProjectScoping:true } identically", () => {
+    const schema = [
+      { property: "userId", datatype: "string" as const },
+      {
+        property: "country",
+        datatype: "string" as const,
+        projects: ["proj_one"],
+      } as unknown as {
+        property: string;
+        datatype: "string";
+        archived?: boolean;
+      },
+    ];
+    const legacy = makeContext({
+      requireRegisteredAttributes: true,
+      attributeSchema: schema,
+    });
+    const obj = makeContext({
+      requireRegisteredAttributes: { isOn: true, requireProjectScoping: true },
+      attributeSchema: schema,
+    });
+    for (const ctx of [legacy, obj]) {
+      expect(() =>
+        assertRegisteredAttributes(
+          ctx,
+          { hashAttribute: "country" },
+          "rule",
+          undefined,
+          "proj_two",
+        ),
+      ).toThrow(BadRequestError);
+    }
+  });
+
+  it("with requireProjectScoping=false, accepts an attribute scoped to other projects", () => {
+    // The user has opted into "must be a registered attribute" but NOT into
+    // "must also be in this project's scope". An attribute that exists
+    // anywhere in the org should pass even when the rule's project doesn't
+    // appear on the attribute's scope list.
+    const ctx = makeContext({
+      requireRegisteredAttributes: { isOn: true, requireProjectScoping: false },
+      attributeSchema: [
+        { property: "userId", datatype: "string" },
+        {
+          property: "country",
+          datatype: "string",
+          projects: ["proj_one"],
+        } as unknown as {
+          property: string;
+          datatype: "string";
+          archived?: boolean;
+        },
+      ],
+    });
+    expect(() =>
+      assertRegisteredAttributes(
+        ctx,
+        { hashAttribute: "country" },
+        "rule",
+        undefined,
+        "proj_two",
+      ),
+    ).not.toThrow();
+  });
+
+  it("with requireProjectScoping=false, still rejects truly-unknown / typo'd attributes", () => {
+    const ctx = makeContext({
+      requireRegisteredAttributes: { isOn: true, requireProjectScoping: false },
+    });
+    let err: BadRequestError | undefined;
+    try {
+      assertRegisteredAttributes(
+        ctx,
+        { hashAttribute: "userID" },
+        "rule",
+        undefined,
+        "proj_two",
+      );
+    } catch (e) {
+      err = e as BadRequestError;
+    }
+    expect(err).toBeInstanceOf(BadRequestError);
+    expect(err?.message).toMatch(/Unknown attribute key/);
+    expect(err?.message).toMatch(/userID/);
+    expect(err?.message).not.toMatch(/not available in this project/);
+  });
+
+  it("with isOn=false and a bogus attribute, is a no-op (master switch beats sub-toggles)", () => {
+    const ctx = makeContext({
+      requireRegisteredAttributes: { isOn: false, requireProjectScoping: true },
+    });
+    expect(() =>
+      assertRegisteredAttributes(
+        ctx,
+        { hashAttribute: "totally_fake" },
+        "rule",
+        undefined,
+        "proj_one",
       ),
     ).not.toThrow();
   });

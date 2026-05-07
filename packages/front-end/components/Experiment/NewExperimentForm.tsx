@@ -263,6 +263,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [conditionKey, forceConditionRender] = useIncrementer();
 
   const attributeSchema = useAttributeSchema(false, project);
+  // Unfiltered schema for client-side validation — lets us tell apart
+  // truly-unknown attributes from attributes that exist but are scoped to
+  // other projects, matching the back-end's project-scope-aware check.
+  const allAttributesSchema = useAttributeSchema(false);
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
     [];
@@ -518,8 +522,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         },
         "experiment",
         {
-          attributeSchema,
+          attributeSchema: allAttributesSchema,
           requireRegisteredAttributes: settings.requireRegisteredAttributes,
+          project: data.project || project || undefined,
         },
       );
 

@@ -30,8 +30,10 @@ import {
   getRulesForEnvironment,
   validateAndFixCondition,
   validateFeatureValue,
+  categorizeUnregisteredAttributes,
   extractConditionAttributeKeys,
-  findUnregisteredAttributes,
+  getRequireRegisteredAttributesSettings,
+  type RequireRegisteredAttributesSettings,
 } from "shared/util";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import isEqual from "lodash/isEqual";
@@ -570,16 +572,28 @@ export function useAttributeSchema(
 }
 
 // Shared formatter so the client-side pre-flight error matches the back-end
-// BadRequestError message byte-for-byte.
-function formatUnknownAttributesError(
+// BadRequestError message byte-for-byte. Mirrors
+// `formatUnregisteredAttributesError` in back-end/src/services/attributes.ts.
+function formatUnregisteredAttributesError(
   label: string,
-  unknown: string[],
+  buckets: { unknown: string[]; outOfProject: string[] },
 ): string {
-  const quoted = unknown.map((k) => `"${k}"`).join(", ");
-  return (
-    `Unknown attribute key(s) on ${label}: ${quoted}. ` +
-    `Declare them under Settings > Targeting Attributes or fix the typo.`
-  );
+  const parts: string[] = [];
+  if (buckets.unknown.length) {
+    const quoted = buckets.unknown.map((k) => `"${k}"`).join(", ");
+    parts.push(
+      `Unknown attribute key(s) on ${label}: ${quoted}. ` +
+        `Declare them under Settings > Targeting Attributes or fix the typo.`,
+    );
+  }
+  if (buckets.outOfProject.length) {
+    const quoted = buckets.outOfProject.map((k) => `"${k}"`).join(", ");
+    parts.push(
+      `Attribute key(s) on ${label} not available in this project: ${quoted}. ` +
+        `Add this project to the attribute's scope under Settings > Targeting Attributes.`,
+    );
+  }
+  return parts.join(" ");
 }
 
 type AttributeParts = {
@@ -588,17 +602,29 @@ type AttributeParts = {
   condition?: string;
 };
 
+// Accepts either the raw org setting (legacy boolean | new object) or the
+// already-normalized RequireRegisteredAttributesSettings, so callers can
+// pass `useOrgSettings().requireRegisteredAttributes` directly without
+// repeating the normalization at every call site.
+type RawRequireRegistered =
+  | boolean
+  | RequireRegisteredAttributesSettings
+  | undefined
+  | null;
+
 export function validateUnregisteredAttributes(
   parts: AttributeParts,
   label: string,
   options: {
     attributeSchema?: SDKAttributeSchema;
-    requireRegisteredAttributes?: boolean;
+    requireRegisteredAttributes?: RawRequireRegistered;
     project?: string;
   },
   existingParts?: AttributeParts,
 ): void {
-  if (!options.requireRegisteredAttributes) return;
+  const { isOn, requireProjectScoping } =
+    getRequireRegisteredAttributesSettings(options.requireRegisteredAttributes);
+  if (!isOn) return;
 
   const changed = (field: keyof AttributeParts): boolean =>
     !!parts[field] && (!existingParts || parts[field] !== existingParts[field]);
@@ -616,22 +642,25 @@ export function validateUnregisteredAttributes(
     }
   }
   if (!keys.length) return;
-  const unknown = findUnregisteredAttributes(
+  // Only narrow by project when the org has opted into project-scope checks.
+  // Without this gate, a registered-but-out-of-project attribute would be
+  // surfaced as `outOfProject` even though the back-end would happily save it.
+  const buckets = categorizeUnregisteredAttributes(
     keys,
     options.attributeSchema,
-    options.project,
+    requireProjectScoping ? options.project : undefined,
   );
-  if (unknown.length) {
-    throw new Error(formatUnknownAttributesError(label, unknown));
+  if (buckets.unknown.length || buckets.outOfProject.length) {
+    throw new Error(formatUnregisteredAttributesError(label, buckets));
   }
 }
 
 export function validateFeatureRule(
   rule: FeatureRule,
-  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema" | "project">,
   options: {
     attributeSchema?: SDKAttributeSchema;
-    requireRegisteredAttributes?: boolean;
+    requireRegisteredAttributes?: RawRequireRegistered;
   } = {},
   existingRule?: FeatureRule,
 ): null | FeatureRule {
@@ -663,7 +692,7 @@ export function validateFeatureRule(
       condition: ruleCopy.condition,
     },
     "rule",
-    options,
+    { ...options, project: feature.project },
     existingRule
       ? {
           hashAttribute: (existingRule as { hashAttribute?: string })

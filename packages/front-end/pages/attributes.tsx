@@ -3,6 +3,7 @@ import { FaQuestionCircle } from "react-icons/fa";
 import { Box, Flex } from "@radix-ui/themes";
 import { BiShow } from "react-icons/bi";
 import { SDKAttribute } from "shared/types/organization";
+import { getRequireRegisteredAttributesSettings } from "shared/util";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -334,20 +335,17 @@ const FeatureAttributesPage = (): React.ReactElement => {
               the SDK.
             </Text>
             {canManageOrgSettings && (
-              <Checkbox
-                id="toggle-requireRegisteredAttributes"
-                label="Reject feature rules and experiments that reference unknown attributes"
-                description="When enabled, saving a feature rule or experiment fails if it uses a hashAttribute, fallbackAttribute, or condition key that isn't declared (and unarchived) above. Catches typos like userID vs userId before they ship."
-                value={!!orgSettings.requireRegisteredAttributes}
+              <RequireRegisteredAttributesSettings
+                rawSetting={orgSettings.requireRegisteredAttributes}
                 disabled={savingRequireRegistered}
-                setValue={async (value) => {
+                onChange={async (next) => {
                   setSavingRequireRegistered(true);
                   try {
                     await apiCall(`/organization`, {
                       method: "PUT",
                       body: JSON.stringify({
                         settings: {
-                          requireRegisteredAttributes: value,
+                          requireRegisteredAttributes: next,
                         },
                       }),
                     });
@@ -484,3 +482,53 @@ const FeatureAttributesPage = (): React.ReactElement => {
 };
 
 export default FeatureAttributesPage;
+
+// Two-toggle UI for the opt-in attribute registration check. The outer
+// `isOn` switch master-gates the feature; the inner `requireProjectScoping`
+// switch narrows it to just-this-project. Always writes the object shape
+// so legacy boolean values get migrated to the canonical form on first save.
+function RequireRegisteredAttributesSettings({
+  rawSetting,
+  disabled,
+  onChange,
+}: {
+  rawSetting:
+    | boolean
+    | { isOn: boolean; requireProjectScoping: boolean }
+    | undefined;
+  disabled: boolean;
+  onChange: (next: {
+    isOn: boolean;
+    requireProjectScoping: boolean;
+  }) => void | Promise<void>;
+}) {
+  const { isOn, requireProjectScoping } =
+    getRequireRegisteredAttributesSettings(rawSetting);
+
+  return (
+    <Flex direction="column" gap="2">
+      <Checkbox
+        id="toggle-requireRegisteredAttributes"
+        label="Reject feature rules and experiments that reference unknown attributes"
+        description="When enabled, saving a feature rule or experiment fails if it uses a hashAttribute, fallbackAttribute, or condition key that isn't declared (and unarchived) above. Catches typos like userID vs userId before they ship."
+        value={isOn}
+        disabled={disabled}
+        setValue={(value) => onChange({ isOn: !!value, requireProjectScoping })}
+      />
+      {isOn && (
+        <Box pl="5">
+          <Checkbox
+            id="toggle-requireProjectScoping"
+            label="Also reject attributes that aren't scoped to this project"
+            description="When enabled, an attribute that exists but isn't on the rule or experiment's project also fails. When off, only truly unknown / archived attribute keys are rejected."
+            value={requireProjectScoping}
+            disabled={disabled}
+            setValue={(value) =>
+              onChange({ isOn, requireProjectScoping: !!value })
+            }
+          />
+        </Box>
+      )}
+    </Flex>
+  );
+}
