@@ -11,7 +11,6 @@ import {
   MetricCappingSettings,
   NumberFormat,
   ColumnRef,
-  ColumnAggregation,
 } from "shared/types/fact-table";
 import { DataSourceSettings } from "shared/types/datasource";
 import {
@@ -549,13 +548,7 @@ function getUnitAggregationExpr(
     return `SUM(${alias})`;
   }
 
-  if (!columnRef.aggregation) {
-    throw new Error(
-      `Missing aggregation for fact metric column '${columnRef.column}'.`,
-    );
-  }
-
-  const aggregation: ColumnAggregation = columnRef.aggregation;
+  const aggregation = columnRef.aggregation;
   switch (aggregation) {
     case "sum":
       return `SUM(${alias})`;
@@ -567,6 +560,8 @@ function getUnitAggregationExpr(
       return helpers.hllCardinality(helpers.hllReaggregate(alias));
     case "kll merge":
       return helpers.kllMergePartial(alias);
+    case undefined:
+      return `SUM(${alias})`;
   }
 
   return assertNever(aggregation);
