@@ -312,10 +312,6 @@ export default function ExplorerChart({
       },
       // Only attach the axisPointer key when we actually have a formatter to
       // apply. Setting `axisPointer: undefined` overwrites ECharts' default
-      // (`axisPointer: {}`) during option merge, leaving
-      // `axisPointerModel.option` undefined and causing a runtime crash in
-      // `axisTrigger.updateModelActually` ("can't access property 'status',
-      // option is undefined"). Spreading conditionally keeps the key absent.
       ...(axisPointerLabelFormatter
         ? {
             axisPointer: {
