@@ -9,6 +9,7 @@ import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { syncEventForwarderSchemasAfterAttributeSchemaChange } from "back-end/src/services/eventForwarderProvisioning";
+import { requireEventsForwarderFeature } from "back-end/src/services/eventForwarderFeatureGate";
 import { hasAnyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
 
 export const postAttribute = async (
@@ -67,6 +68,7 @@ export const postAttribute = async (
   // Update the Confluent Schema Registry for orgs with event forwarder configs.
   // Uses the updated schema so the new attribute is included in the registration.
   // Errors are recorded on the EventForwarderConfig record and do not fail this request.
+  await requireEventsForwarderFeature(context);
   await syncEventForwarderSchemasAfterAttributeSchemaChange(
     context,
     updatedAttributeSchema,
