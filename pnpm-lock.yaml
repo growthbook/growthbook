@@ -829,8 +829,8 @@ importers:
         specifier: ^2.10.0
         version: 2.10.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       react-colorful:
-        specifier: ^5.3.0
-        version: 5.5.1(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+        specifier: ^5.7.0
+        version: 5.7.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       react-day-picker:
         specifier: ^9.3.1
         version: 9.3.1(react@18.2.0)
@@ -11541,8 +11541,8 @@ packages:
       react: ~15 || ~16 || ~17 || ~18
       react-dom: ~15 || ~16 || ~17 || ~18
 
-  react-colorful@5.5.1:
-    resolution: {integrity: sha512-M1TJH2X3RXEt12sWkpa6hLc/bbYS0H6F4rIqjQZ+RxNBstpY67d9TrFXtqdZwhpmBXcCwEi7stKqFue3ZRkiOg==}
+  react-colorful@5.7.0:
+    resolution: {integrity: sha512-fuesYIemttah97XmsIHmz4OORDHiSFzyc9HMAIrCHJou2jaRQmL8cFJ76K4zQhhj8jzwOBlOi4BaGTjjOZCfTg==}
     peerDependencies:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
@@ -26859,7 +26859,7 @@ snapshots:
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
 
-  react-colorful@5.5.1(react-dom@18.2.0(react@18.2.0))(react@18.2.0):
+  react-colorful@5.7.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0):
     dependencies:
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
