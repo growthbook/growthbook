@@ -288,10 +288,6 @@ export default function ExperimentHeader({
     }
   }, [shouldHideTabs, setTab]);
 
-  useEffect(() => {
-    setShowStartExperiment(false);
-  }, [experiment.status]);
-
   async function handleWatchUpdates(watch: boolean) {
     await apiCall(
       `/user/${watch ? "watch" : "unwatch"}/experiment/${experiment.id}`,

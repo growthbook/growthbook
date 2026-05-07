@@ -293,15 +293,14 @@ export async function executeExperimentStart(
     startExperimentTarget,
   );
 
-  const merged = {
-    nextScheduledStatusUpdate: null,
-    ...changes,
-  };
+  if (!experiment.phases.length && !changes.phases) {
+    changes.phases = startExperimentTarget.phases;
+  }
 
   const updated = await updateExperiment({
     context,
     experiment,
-    changes: merged,
+    changes: { nextScheduledStatusUpdate: null, ...changes },
   });
   return { updated, publishResult };
 }

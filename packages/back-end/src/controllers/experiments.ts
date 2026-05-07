@@ -636,7 +636,6 @@ export async function getExperimentsFrequencyMonth(
   // create stubs for each month by all the statuses:
   const dataByStatus = {
     draft: JSON.parse(JSON.stringify(allData)),
-    scheduled: JSON.parse(JSON.stringify(allData)),
     running: JSON.parse(JSON.stringify(allData)),
     stopped: JSON.parse(JSON.stringify(allData)),
   };
@@ -1744,26 +1743,6 @@ export async function postExperiment(
     }
     changes.nextScheduledStatusUpdate = { type: "start", date: startAt };
   }
-
-  // // Explicit approval / unapproval of a scheduled status update. The agenda
-  // // job uses the existence of nextScheduledStatusUpdate as the signal that the
-  // // schedule has been approved and the experiment may be auto-started.
-  // if ("nextScheduledStatusUpdate" in changes) {
-  //   const incoming = changes.nextScheduledStatusUpdate;
-  //   if (incoming === null) {
-  //     changes.nextScheduledStatusUpdate = null;
-  //   } else if (incoming) {
-  //     const date = getValidDate(incoming.date);
-  //     if (date <= new Date()) {
-  //       res.status(400).json({
-  //         status: 400,
-  //         message: "nextScheduledStatusUpdate.date must be a future date",
-  //       });
-  //       return;
-  //     }
-  //     changes.nextScheduledStatusUpdate = { type: incoming.type, date };
-  //   }
-  // }
 
   // Coerce lookbackOverride date value when type is "date"
   if (changes.lookbackOverride?.type === "date") {
