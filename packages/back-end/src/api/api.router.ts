@@ -61,8 +61,13 @@ const API_MODELS: ModelClass[] = [
 ];
 
 const router = Router();
+
+router.use(bodyParser.json({ limit: "2mb" }));
+router.use(bodyParser.urlencoded({ limit: "2mb", extended: true }));
+
+// Public route for OpenAPI spec - must be registered BEFORE authentication middleware
 let openapiSpec: string;
-router.get("/openapi.yaml", (req, res) => {
+router.get("/v1/openapi.yaml", (req, res) => {
   if (!openapiSpec) {
     const file = path.join(__dirname, "..", "..", "generated", "spec.yaml");
     if (existsSync(file)) {
@@ -79,9 +84,6 @@ router.get("/openapi.yaml", (req, res) => {
   res.setHeader("Content-Type", "text/yaml");
   res.send(openapiSpec);
 });
-
-router.use(bodyParser.json({ limit: "2mb" }));
-router.use(bodyParser.urlencoded({ limit: "2mb", extended: true }));
 
 router.use(authenticateApiRequestMiddleware as RequestHandler);
 

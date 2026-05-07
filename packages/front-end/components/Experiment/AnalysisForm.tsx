@@ -436,7 +436,6 @@ const AnalysisForm: FC<{
 
         <SelectField
           label="Data Source"
-          labelClassName="font-weight-bold"
           value={datasource?.id || ""}
           disabled={isBandit && experiment.status !== "draft"}
           onChange={(newDatasource) => {
@@ -517,7 +516,6 @@ const AnalysisForm: FC<{
                 <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
               </>
             }
-            labelClassName="font-weight-bold"
             value={form.watch("exposureQueryId") ?? ""}
             onChange={(v) => {
               form.setValue("exposureQueryId", v);
@@ -564,7 +562,6 @@ const AnalysisForm: FC<{
         {datasource && !isHoldout && (
           <Field
             label="Tracking Key"
-            labelClassName="font-weight-bold"
             {...form.register("trackingKey")}
             helpText={
               <>
@@ -650,7 +647,6 @@ const AnalysisForm: FC<{
                 exposureQueryId={exposureQueryId}
                 project={experiment.project}
                 includeFacts={true}
-                labelClassName="font-weight-bold"
                 label={
                   <>
                     Activation Metric
@@ -702,7 +698,6 @@ const AnalysisForm: FC<{
               </>
             ) : undefined
           }
-          labelClassName="font-weight-bold"
           value={form.watch("statsEngine")}
           onChange={(v) => {
             form.setValue("statsEngine", v);
@@ -720,7 +715,6 @@ const AnalysisForm: FC<{
                 </PremiumTooltip>
               }
               style={{ width: 200 }}
-              labelClassName="font-weight-bold"
               value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
               onChange={(v) => {
                 form.setValue("regressionAdjustmentEnabled", v === "on");
@@ -748,7 +742,6 @@ const AnalysisForm: FC<{
                   </PremiumTooltip>
                 }
                 style={{ width: 200 }}
-                labelClassName="font-weight-bold"
                 value={
                   form.watch("postStratificationEnabled") == null
                     ? ""
@@ -817,7 +810,6 @@ const AnalysisForm: FC<{
                       <GBSequential /> Use Sequential Testing
                     </PremiumTooltip>
                   }
-                  labelClassName="font-weight-bold"
                   value={form.watch("sequentialTestingEnabled") ? "on" : "off"}
                   onChange={(v) => {
                     form.setValue("sequentialTestingEnabled", v === "on");

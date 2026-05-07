@@ -24,6 +24,11 @@ import { ReqContext } from "back-end/types/request";
 //   6. partial migration (v1 env rules + v2-shaped top-level rules)
 //                                                 — v2 top-level wins; stale env.rules
 //                                                   ignored (regression: hotfix #5783)
+//   7. sparse/nullish rule slots                  — null/undefined entries tolerated
+//                                                   in v1 env arrays and v2 top-level
+//                                                   array (regression: publish crash
+//                                                   with "Cannot read properties of
+//                                                   undefined (reading 'type')")
 //
 // The critical invariant: v2 documents MUST NOT be re-flattened. Calling the
 // function twice on the same v2 input must produce identical output (same
@@ -1257,8 +1262,9 @@ describe("migrateRawFeatureToV2", () => {
     it("v1 path: preserves rule scoped only to a removed env with the orphan env retained", () => {
       // Org has only `production`. The on-disk doc still has a `staging`
       // entry from before staging was removed. The v1→v2 flatten preserves
-      // the rule body AND the orphan env label so the UI can flag it and
-      // a later publish doesn't drop it silently.
+      // the rule body AND the orphan env label so the UI can flag it
+      // (`RuleEnvScopeBadges` renders disallowed envs as struck-through
+      // amber pills) and a later publish doesn't drop it silently.
       const orgEnvs: Environment[] = [{ id: "production", description: "" }];
       const v1: LegacyFeatureInterface = {
         ...BASE_META,
@@ -1280,8 +1286,9 @@ describe("migrateRawFeatureToV2", () => {
 
     it("v2 path: preserves rule scoped to a removed env as-is (no narrow at migrateRawFeatureToV2)", () => {
       // The v2 read path does NOT filter rules by applicableEnvs at this
-      // layer (the revision read path does); orphan-env references survive
-      // on the live feature unchanged.
+      // layer; orphan-env references survive on the live feature unchanged
+      // so the UI can flag them. (The revision read path narrows in its v2
+      // branch — pre-existing inconsistency, tracked separately.)
       const orgEnvs: Environment[] = [{ id: "production", description: "" }];
       const v2: FeatureInterface = {
         ...BASE_META,
@@ -1310,8 +1317,8 @@ describe("migrateRawFeatureToV2", () => {
     it("v2 path: preserves orphan entries in mixed-env rule footprint", () => {
       // `migrateRawFeatureToV2` does not narrow v2 rule footprints to
       // applicableEnvs. The rule's env list is left intact even if some
-      // entries no longer exist in the org; the revision read path is the
-      // narrow chokepoint.
+      // entries no longer exist in the org, so the UI can render the
+      // orphan portion as a struck-through amber pill.
       const orgEnvs: Environment[] = [{ id: "production", description: "" }];
       const v2: FeatureInterface = {
         ...BASE_META,
@@ -1330,6 +1337,64 @@ describe("migrateRawFeatureToV2", () => {
       expect(out.rules).toHaveLength(1);
       expect(out.rules[0].allEnvironments).toBe(false);
       expect(out.rules[0].environments).toEqual(["staging", "production"]);
+    });
+
+    it("v1 path: tolerates sparse null/undefined entries inside per-env rule arrays", () => {
+      // Regression: `rules` is stored as Mongoose `Mixed`, and pre-v2 docs
+      // can land with `null`/`undefined` slots (partial imports, sparse
+      // arrays). A single nullish entry used to crash the entire JIT
+      // migration with "Cannot read properties of undefined (reading
+      // 'type')", blocking publish on long-lived legacy features.
+      const v1: LegacyFeatureInterface = {
+        ...BASE_META,
+        environmentSettings: {
+          dev: {
+            enabled: true,
+            rules: [
+              v1Rule("r_a") as FeatureRule,
+              null as unknown as FeatureRule,
+              undefined as unknown as FeatureRule,
+              v1Rule("r_b") as FeatureRule,
+            ],
+          },
+          production: {
+            enabled: true,
+            rules: [v1Rule("r_a") as FeatureRule, v1Rule("r_b") as FeatureRule],
+          },
+        },
+      } as LegacyFeatureInterface;
+
+      const out = migrateRawFeatureToV2(v1, mockContext());
+      expect(out.rules.map((r) => r.id).sort()).toEqual(["r_a", "r_b"]);
+      out.rules.forEach((r) => {
+        expect(r.allEnvironments).toBe(true);
+        expect(typeof r.type).toBe("string");
+      });
+    });
+
+    it("v2 path: tolerates sparse null/undefined entries inside the top-level rules array", () => {
+      // Same nullish-tolerance for v2-shaped docs that landed with corrupt
+      // slots on disk. Previously crashed `upgradeFeatureRule(undefined)`.
+      const v2: FeatureInterface = {
+        ...BASE_META,
+        rules: [
+          v2Rule("r_a") as FeatureRule,
+          null as unknown as FeatureRule,
+          v2Rule("r_b") as FeatureRule,
+          undefined as unknown as FeatureRule,
+        ],
+        environmentSettings: {
+          dev: { enabled: true },
+          production: { enabled: true },
+        },
+      } as unknown as FeatureInterface;
+
+      const out = migrateRawFeatureToV2(v2, mockContext());
+      expect(out.rules.map((r) => r.id).sort()).toEqual(["r_a", "r_b"]);
+      out.rules.forEach((r) => {
+        expect(r.allEnvironments).toBe(true);
+        expect(typeof r.type).toBe("string");
+      });
     });
 
     it("v1 path: stale envSettings for a removed env is not pruned (no env-deletion cascade — revisit)", () => {

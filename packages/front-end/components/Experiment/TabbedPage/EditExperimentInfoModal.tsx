@@ -63,14 +63,12 @@ export default function EditExperimentInfoModal({
       <Field
         autoFocus={focusSelector === "name"}
         label="Experiment Name"
-        labelClassName="font-weight-bold"
         {...form.register("name")}
         required
       />
       <Field
         disabled={experiment.status !== "draft"}
         label="Experiment Key"
-        labelClassName="font-weight-bold"
         {...form.register("trackingKey")}
         required
       />

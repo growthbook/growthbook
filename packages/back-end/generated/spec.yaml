@@ -13931,15 +13931,19 @@ paths:
                       description: >-
                         User aggregation of selected column. Either sum or max
                         for numeric columns; count distinct for string columns;
-                        ignored for special columns. Default: sum. If you
-                        specify a string column you must explicitly specify
-                        count distinct. Not used for proportion or event
-                        quantile metrics.
+                        hll merge / kll merge for pre-built sketch columns
+                        (requires data-source support); ignored for special
+                        columns. Default: sum. If you specify a string column
+                        you must explicitly specify count distinct. Not used for
+                        proportion metrics; for event quantile metrics only kll
+                        merge is applicable.
                       type: string
                       enum:
                         - sum
                         - max
                         - count distinct
+                        - hll merge
+                        - kll merge
                     filters:
                       deprecated: true
                       description: >-
@@ -14039,15 +14043,19 @@ paths:
                       description: >-
                         User aggregation of selected column. Either sum or max
                         for numeric columns; count distinct for string columns;
-                        ignored for special columns. Default: sum. If you
-                        specify a string column you must explicitly specify
-                        count distinct. Not used for proportion or event
-                        quantile metrics.
+                        hll merge / kll merge for pre-built sketch columns
+                        (requires data-source support); ignored for special
+                        columns. Default: sum. If you specify a string column
+                        you must explicitly specify count distinct. Not used for
+                        proportion metrics; for event quantile metrics only kll
+                        merge is applicable.
                       type: string
                       enum:
                         - sum
                         - max
                         - count distinct
+                        - hll merge
+                        - kll merge
                     filters:
                       deprecated: true
                       description: >-
@@ -14147,6 +14155,14 @@ paths:
                       minimum: 0.001
                       maximum: 0.999
                       multipleOf: 0.001
+                    quantileEventCountColumn:
+                      description: >-
+                        Optional override for the source-column name used to
+                        recover per-row event counts when numerator.aggregation
+                        is 'kll merge'. Defaults to
+                        '<numerator.column>_n_events'. Only valid for
+                        event-quantile metrics with a 'kll merge' numerator.
+                      type: string
                   required:
                     - type
                     - ignoreZeros
@@ -14443,15 +14459,19 @@ paths:
                       description: >-
                         User aggregation of selected column. Either sum or max
                         for numeric columns; count distinct for string columns;
-                        ignored for special columns. Default: sum. If you
-                        specify a string column you must explicitly specify
-                        count distinct. Not used for proportion or event
-                        quantile metrics.
+                        hll merge / kll merge for pre-built sketch columns
+                        (requires data-source support); ignored for special
+                        columns. Default: sum. If you specify a string column
+                        you must explicitly specify count distinct. Not used for
+                        proportion metrics; for event quantile metrics only kll
+                        merge is applicable.
                       type: string
                       enum:
                         - sum
                         - max
                         - count distinct
+                        - hll merge
+                        - kll merge
                     filters:
                       deprecated: true
                       description: >-
@@ -14551,15 +14571,19 @@ paths:
                       description: >-
                         User aggregation of selected column. Either sum or max
                         for numeric columns; count distinct for string columns;
-                        ignored for special columns. Default: sum. If you
-                        specify a string column you must explicitly specify
-                        count distinct. Not used for proportion or event
-                        quantile metrics.
+                        hll merge / kll merge for pre-built sketch columns
+                        (requires data-source support); ignored for special
+                        columns. Default: sum. If you specify a string column
+                        you must explicitly specify count distinct. Not used for
+                        proportion metrics; for event quantile metrics only kll
+                        merge is applicable.
                       type: string
                       enum:
                         - sum
                         - max
                         - count distinct
+                        - hll merge
+                        - kll merge
                     filters:
                       deprecated: true
                       description: >-
@@ -14659,6 +14683,14 @@ paths:
                       minimum: 0.001
                       maximum: 0.999
                       multipleOf: 0.001
+                    quantileEventCountColumn:
+                      description: >-
+                        Optional override for the source-column name used to
+                        recover per-row event counts when numerator.aggregation
+                        is 'kll merge'. Defaults to
+                        '<numerator.column>_n_events'. Only valid for
+                        event-quantile metrics with a 'kll merge' numerator.
+                      type: string
                   required:
                     - type
                     - ignoreZeros
@@ -15163,16 +15195,20 @@ paths:
                                 description: >-
                                   User aggregation of selected column. Either
                                   sum or max for numeric columns; count distinct
-                                  for string columns; ignored for special
-                                  columns. Default: sum. If you specify a string
-                                  column you must explicitly specify count
-                                  distinct. Not used for proportion or event
-                                  quantile metrics.
+                                  for string columns; hll merge / kll merge for
+                                  pre-built sketch columns (requires data-source
+                                  support); ignored for special columns.
+                                  Default: sum. If you specify a string column
+                                  you must explicitly specify count distinct.
+                                  Not used for proportion metrics; for event
+                                  quantile metrics only kll merge is applicable.
                                 type: string
                                 enum:
                                   - sum
                                   - max
                                   - count distinct
+                                  - hll merge
+                                  - kll merge
                               filters:
                                 deprecated: true
                                 description: >-
@@ -15275,16 +15311,20 @@ paths:
                                 description: >-
                                   User aggregation of selected column. Either
                                   sum or max for numeric columns; count distinct
-                                  for string columns; ignored for special
-                                  columns. Default: sum. If you specify a string
-                                  column you must explicitly specify count
-                                  distinct. Not used for proportion or event
-                                  quantile metrics.
+                                  for string columns; hll merge / kll merge for
+                                  pre-built sketch columns (requires data-source
+                                  support); ignored for special columns.
+                                  Default: sum. If you specify a string column
+                                  you must explicitly specify count distinct.
+                                  Not used for proportion metrics; for event
+                                  quantile metrics only kll merge is applicable.
                                 type: string
                                 enum:
                                   - sum
                                   - max
                                   - count distinct
+                                  - hll merge
+                                  - kll merge
                               filters:
                                 deprecated: true
                                 description: >-
@@ -15385,6 +15425,15 @@ paths:
                                 minimum: 0.001
                                 maximum: 0.999
                                 multipleOf: 0.001
+                              quantileEventCountColumn:
+                                description: >-
+                                  Optional override for the source-column name
+                                  used to recover per-row event counts when
+                                  numerator.aggregation is 'kll merge'. Defaults
+                                  to '<numerator.column>_n_events'. Only valid
+                                  for event-quantile metrics with a 'kll merge'
+                                  numerator.
+                                type: string
                             required:
                               - type
                               - ignoreZeros
@@ -27652,6 +27701,7 @@ components:
             - date
             - boolean
             - json
+            - binary
             - other
             - ''
         numberFormat:
@@ -27678,6 +27728,7 @@ components:
                   - date
                   - boolean
                   - json
+                  - binary
                   - other
                   - ''
             additionalProperties: false
@@ -27811,6 +27862,8 @@ components:
                 - sum
                 - max
                 - count distinct
+                - hll merge
+                - kll merge
             filters:
               deprecated: true
               description: >-
@@ -27998,6 +28051,13 @@ components:
               minimum: 0.001
               maximum: 0.999
               multipleOf: 0.001
+            quantileEventCountColumn:
+              description: >-
+                Optional override for the source-column name used to recover
+                per-row event counts when numerator.aggregation is 'kll merge'.
+                Defaults to '<numerator.column>_n_events'. Only valid for
+                event-quantile metrics with a 'kll merge' numerator.
+              type: string
           required:
             - type
             - ignoreZeros

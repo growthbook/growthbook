@@ -43,17 +43,34 @@ import PremiumCallout from "@/ui/PremiumCallout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import LinkButton from "@/ui/LinkButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import Tooltip from "@/ui/Tooltip";
+import {
+  isMergeAggregationMetric,
+  REST_API_ONLY_EDIT_MESSAGE,
+} from "@/services/factMetrics";
 
 function MetricRowMenu({ metric }: { metric: MetricTableItem }) {
   const [open, setOpen] = useState(false);
 
   const canDuplicate =
     !!metric.onDuplicate && envAllowsCreatingMetrics() && metric.canDuplicate;
-  const canEditMenu = metric.canEdit && !metric.archived && !!metric.onEdit;
+  const canEditMenu =
+    metric.canEdit &&
+    !metric.archived &&
+    !metric.editDisabledReason &&
+    !!metric.onEdit;
+  const canShowDisabledEdit =
+    metric.canEdit && !metric.archived && !!metric.editDisabledReason;
   const canArchive = metric.canEdit && !!metric.onArchive;
   const canDelete = metric.canDelete && !!metric.onDelete;
 
-  if (!canDuplicate && !canEditMenu && !canArchive && !canDelete) {
+  if (
+    !canDuplicate &&
+    !canEditMenu &&
+    !canShowDisabledEdit &&
+    !canArchive &&
+    !canDelete
+  ) {
     return null;
   }
 
@@ -75,14 +92,20 @@ function MetricRowMenu({ metric }: { metric: MetricTableItem }) {
       menuPlacement="end"
     >
       <DropdownMenuGroup>
-        {canEditMenu && (
+        {(canEditMenu || canShowDisabledEdit) && (
           <DropdownMenuItem
             onClick={() => {
               setOpen(false);
               metric.onEdit?.();
             }}
+            disabled={!!metric.editDisabledReason}
           >
-            Edit
+            <Tooltip
+              content={metric.editDisabledReason}
+              enabled={!!metric.editDisabledReason}
+            >
+              <span>Edit</span>
+            </Tooltip>
           </DropdownMenuItem>
         )}
         {canDuplicate && (
@@ -91,8 +114,14 @@ function MetricRowMenu({ metric }: { metric: MetricTableItem }) {
               setOpen(false);
               metric.onDuplicate?.();
             }}
+            disabled={!!metric.editDisabledReason}
           >
-            Duplicate
+            <Tooltip
+              content={metric.editDisabledReason}
+              enabled={!!metric.editDisabledReason}
+            >
+              <span>Duplicate</span>
+            </Tooltip>
           </DropdownMenuItem>
         )}
         {canArchive && (
@@ -147,6 +176,7 @@ export interface MetricTableItem {
   canEdit: boolean;
   canDuplicate: boolean;
   canDelete: boolean;
+  editDisabledReason?: string;
   onArchive?: (desiredState: boolean) => Promise<void>;
   onDuplicate?: () => void;
   onEdit?: () => void;
@@ -284,6 +314,9 @@ export function useCombinedMetrics({
         canDuplicate,
         canEdit,
         canDelete,
+        editDisabledReason: isMergeAggregationMetric(m)
+          ? REST_API_ONLY_EDIT_MESSAGE
+          : undefined,
         onArchive: canEdit
           ? async (archivedState) => {
               await apiCall(`/fact-metrics/${m.id}`, {
