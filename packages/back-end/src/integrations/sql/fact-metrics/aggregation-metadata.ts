@@ -134,25 +134,77 @@ export function getAggregationMetadata(
     };
   }
 
+  // "hll merge": the column is a pre-built HLL sketch (BYTES). Identical to
+  // "count distinct" except the first aggregation step merges existing sketches
+  // (hllReaggregate) rather than building one from raw values (hllAggregate).
   if (
-    metric.metricType === "quantile" &&
-    metric.quantileSettings?.type === "event"
+    !columnRef?.column.startsWith("$$") &&
+    columnRef?.aggregation === "hll merge"
   ) {
-    // For incremental refresh, event quantile metrics store a KLL sketch of
-    // event values per user-date. Sketches are merged (per user, then per
-    // variation) at stats-query time and the quantile grid is extracted via
-    // kllExtractPoint. The per-user "count below threshold" (main_sum) is
-    // recovered via two-pass rank recovery (kllRankApprox) — see
-    // getIncrementalRefreshStatisticsQuery.
+    const reAggregationFunction = nullIfZero
+      ? (column: string) =>
+          `NULLIF(${dialect.hllCardinality(dialect.hllReaggregate(column))}, 0)`
+      : (column: string) =>
+          dialect.hllCardinality(dialect.hllReaggregate(column));
     return {
-      intermediateDataType: "kll",
-      partialAggregationFunction: (column: string) => dialect.kllInit(column),
-      reAggregationFunction: (column: string) =>
-        dialect.kllMergePartial(column),
+      intermediateDataType: "hll",
+      partialAggregationFunction: (column: string) =>
+        castToHllDataType(dialect, dialect.hllReaggregate(column)),
       finalDataType: "integer",
-      fullAggregationFunction: (column: string, quantileColumn?: string) =>
-        `SUM(${dialect.ifElse(`${column} <= ${quantileColumn ?? ""}`, "1", "0")})`,
+      reAggregationFunction,
+      // Full aggregation also starts from sketches, so reuse the re-agg path.
+      fullAggregationFunction: reAggregationFunction,
     };
+  }
+
+  if (metric.metricType === "quantile") {
+    if (!metric.quantileSettings) {
+      throw new Error(
+        `Quantile metric '${metric.id}' is missing quantileSettings.`,
+      );
+    }
+
+    if (metric.quantileSettings.type === "event") {
+      // "kll merge": the column is a pre-built KLL sketch (BYTES). Only valid for
+      // event-quantile metrics. Identical to the event-quantile branch below except
+      // the first aggregation step merges existing sketches (kllMergePartial)
+      // rather than building one from raw numeric values (kllInit). The
+      // fullAggregationFunction is unused for "kll merge" because the non-
+      // incremental per-user path never sees raw event values — only sketches.
+      if (
+        !columnRef?.column.startsWith("$$") &&
+        columnRef?.aggregation === "kll merge"
+      ) {
+        return {
+          intermediateDataType: "kll",
+          partialAggregationFunction: (column: string) =>
+            dialect.kllMergePartial(column),
+          reAggregationFunction: (column: string) =>
+            dialect.kllMergePartial(column),
+          finalDataType: "integer",
+          fullAggregationFunction: (column: string, quantileColumn?: string) =>
+            `SUM(${dialect.ifElse(`${column} <= ${quantileColumn ?? ""}`, "1", "0")})`,
+        };
+      }
+      // For incremental refresh, event quantile metrics store a KLL sketch of
+      // event values per user-date. Sketches are merged (per user, then per
+      // variation) at stats-query time and the quantile grid is extracted via
+      // kllExtractPoint. The per-user "count below threshold" (main_sum) is
+      // recovered via two-pass rank recovery (kllRankApprox) — see
+      // getIncrementalRefreshStatisticsQuery.
+      return {
+        intermediateDataType: "kll",
+        partialAggregationFunction: (column: string) => dialect.kllInit(column),
+        reAggregationFunction: (column: string) =>
+          dialect.kllMergePartial(column),
+        finalDataType: "integer",
+        fullAggregationFunction: (column: string, quantileColumn?: string) =>
+          `SUM(${dialect.ifElse(`${column} <= ${quantileColumn ?? ""}`, "1", "0")})`,
+      };
+    }
+
+    // Unit quantiles are handled however the unit aggregation is specified and the quantile
+    // is applied AFTER the `fullAggregationFunction` in the stats step.
   }
 
   const reAggregationFunction = nullIfZero
