@@ -184,7 +184,7 @@ export const rampScheduleValidator = baseSchema
 
     // Schedule-level monitoring settings (datasource, guardrails, auto-rollback).
     // Applies to all steps marked `monitored: true`.
-    monitoringConfig: rampMonitoringConfig.optional(),
+    monitoringConfig: rampMonitoringConfig.nullish(),
 
     // Linked SafeRollout ID. Set when a monitored ramp schedule creates or
     // attaches to a SafeRollout experiment for analysis/snapshots.
@@ -362,7 +362,7 @@ export const apiRampScheduleInterface = namedSchema(
         "Milliseconds since startedAt (computed at response time, not stored)",
       ),
     lockdownConfig: lockdownConfigSchema.optional(),
-    monitoringConfig: rampMonitoringConfig.optional(),
+    monitoringConfig: rampMonitoringConfig.nullish(),
     currentStepEnteredAt: z.iso.datetime().nullish(),
     lastRollbackAt: z.iso.datetime().nullish(),
     lastRollbackReason: z.string().nullish(),

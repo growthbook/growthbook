@@ -2133,12 +2133,38 @@ export async function postFeatureRule(
     rule.id
   ) {
     if (rampSchedulePayload.mode === "create") {
+      const normalizeAction = (a: {
+        targetType?: string;
+        targetId?: string;
+        patch: Record<string, unknown>;
+      }): RampStepAction => ({
+        targetType: "feature-rule" as const,
+        targetId: a.targetId ?? "",
+        patch: a.patch as RampStepAction["patch"],
+      });
       const createAction: RevisionRampCreateAction = {
         mode: "create",
         name: rampSchedulePayload.name,
-        steps: rampSchedulePayload.steps as RevisionRampCreateAction["steps"],
-        endActions:
-          rampSchedulePayload.endActions as RevisionRampCreateAction["endActions"],
+        steps: (rampSchedulePayload.steps ?? []).map(
+          (s: {
+            trigger: unknown;
+            actions?: unknown[];
+            approvalNotes?: string | null;
+            monitored?: boolean;
+          }) => ({
+            trigger:
+              s.trigger as RevisionRampCreateAction["steps"][number]["trigger"],
+            actions: (s.actions ?? []).map((a: Record<string, unknown>) =>
+              normalizeAction(a as { patch: Record<string, unknown> }),
+            ),
+            approvalNotes: s.approvalNotes ?? undefined,
+            monitored: s.monitored,
+          }),
+        ),
+        endActions: rampSchedulePayload.endActions?.map(
+          (a: Record<string, unknown>) =>
+            normalizeAction(a as { patch: Record<string, unknown> }),
+        ),
         startDate:
           rampSchedulePayload.startDate as RevisionRampCreateAction["startDate"],
         endCondition: (rampSchedulePayload.endCondition ??
@@ -3125,12 +3151,38 @@ export async function putFeatureRule(
     | undefined;
   if (rampSchedulePayload) {
     if (rampSchedulePayload.mode === "create") {
+      const normalizeAction = (a: {
+        targetType?: string;
+        targetId?: string;
+        patch: Record<string, unknown>;
+      }): RampStepAction => ({
+        targetType: "feature-rule" as const,
+        targetId: a.targetId ?? "",
+        patch: a.patch as RampStepAction["patch"],
+      });
       const createAction: RevisionRampCreateAction = {
         mode: "create",
         name: rampSchedulePayload.name,
-        steps: rampSchedulePayload.steps as RevisionRampCreateAction["steps"],
-        endActions:
-          rampSchedulePayload.endActions as RevisionRampCreateAction["endActions"],
+        steps: (rampSchedulePayload.steps ?? []).map(
+          (s: {
+            trigger: unknown;
+            actions?: unknown[];
+            approvalNotes?: string | null;
+            monitored?: boolean;
+          }) => ({
+            trigger:
+              s.trigger as RevisionRampCreateAction["steps"][number]["trigger"],
+            actions: (s.actions ?? []).map((a: Record<string, unknown>) =>
+              normalizeAction(a as { patch: Record<string, unknown> }),
+            ),
+            approvalNotes: s.approvalNotes ?? undefined,
+            monitored: s.monitored,
+          }),
+        ),
+        endActions: rampSchedulePayload.endActions?.map(
+          (a: Record<string, unknown>) =>
+            normalizeAction(a as { patch: Record<string, unknown> }),
+        ),
         startDate:
           rampSchedulePayload.startDate as RevisionRampCreateAction["startDate"],
         endCondition: (rampSchedulePayload.endCondition ??
@@ -3231,7 +3283,9 @@ export async function putFeatureRule(
         (t) => t.status === "active",
       )?.id;
       const remapT1 = (a: RampStepAction): RampStepAction =>
-        a.targetType === "feature-rule" && primaryTargetId && a.targetId === "t1"
+        a.targetType === "feature-rule" &&
+        primaryTargetId &&
+        a.targetId === "t1"
           ? { ...a, targetId: primaryTargetId }
           : a;
       if (rampSchedulePayload.name !== undefined)

@@ -1645,21 +1645,19 @@ async function createRampSchedulesForRevision(
 
     const targetId = uuidv4();
 
-    // Inject the generated targetId into every patch-rule action.
-    // Non-patch-rule actions pass through unchanged.
+    // Inject the generated targetId into every action and ensure targetType
+    // is always set. Handles both correctly-typed actions and legacy drafts
+    // that were stored without targetType.
     const normalizeAction = (
       a: RevisionRampCreateAction["steps"][number]["actions"][number],
-    ): RampStepAction => {
-      if (a.targetType !== "feature-rule") return a;
-      return {
-        targetType: "feature-rule" as const,
-        targetId,
-        patch: {
-          ...a.patch,
-          ruleId: action.ruleId,
-        },
-      };
-    };
+    ): RampStepAction => ({
+      targetType: "feature-rule" as const,
+      targetId,
+      patch: {
+        ...a.patch,
+        ruleId: action.ruleId,
+      },
+    });
 
     // Template is used as a fallback; explicit steps/endActions win.
     let template: RampScheduleTemplateInterface | undefined;

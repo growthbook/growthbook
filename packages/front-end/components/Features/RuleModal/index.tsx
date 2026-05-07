@@ -19,7 +19,7 @@ import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
 import { kebabCase } from "lodash";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import {
   CreateSafeRolloutInterface,
   SafeRolloutInterface,
@@ -78,6 +78,9 @@ import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useBatchPrerequisiteStates } from "@/hooks/usePrerequisiteStates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
+import SelectField from "@/components/Forms/SelectField";
+import RampScheduleSection from "@/components/Features/RuleModal/RampScheduleSection";
+import RampScheduleDisplay from "@/components/RampSchedule/RampScheduleDisplay";
 import {
   type RampSectionState,
   defaultRampSectionState,
@@ -489,6 +492,17 @@ export default function RuleModal({
   const canSubmit = useMemo(() => {
     return !isCyclic && !prerequisiteTargetingSdkIssues && !monitoringError;
   }, [isCyclic, prerequisiteTargetingSdkIssues, monitoringError]);
+
+  const hasRampPage =
+    scheduleType === "ramp" && (ruleType === "force" || ruleType === "rollout");
+  const rampIsEditable =
+    !ruleRampSchedule ||
+    !["running", "pending-approval"].includes(ruleRampSchedule.status);
+
+  // Reset to page 1 when the ramp page disappears (user switched away from ramp).
+  useEffect(() => {
+    if (!hasRampPage && step > 0) setStep(0);
+  }, [hasRampPage, step]);
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
@@ -1401,7 +1415,7 @@ export default function RuleModal({
             }}
           />
 
-          <Callout status="wizard" mt="4">
+          <Callout status="wizard" mt="6" size="sm">
             <Flex align="center" gap="2">
               <Box flexGrow="1">
                 <Text as="div">
@@ -1414,6 +1428,7 @@ export default function RuleModal({
               </Box>
               <Button
                 variant="soft"
+                size="xs"
                 onClick={() => {
                   setOverviewRadioSelectorRuleType("rollout");
                   setOverviewRuleType("rollout");
@@ -1502,9 +1517,27 @@ export default function RuleModal({
         trackingEventModalType={trackingEventModalType}
         close={close}
         size="lg"
-        cta="Save to Draft"
-        ctaEnabled={newRuleOverviewPage ? ruleType !== undefined : canSubmit}
-        disabledMessage={monitoringError ?? undefined}
+        cta={
+          hasRampPage && step === 0 ? (
+            <>
+              Next: Ramp-up{" "}
+              <PiCaretRight className="position-relative" style={{ top: -1 }} />
+            </>
+          ) : (
+            "Save to Draft"
+          )
+        }
+        forceCtaText
+        ctaEnabled={
+          newRuleOverviewPage
+            ? ruleType !== undefined
+            : hasRampPage && step === 0
+              ? !isCyclic && !prerequisiteTargetingSdkIssues
+              : canSubmit
+        }
+        disabledMessage={
+          hasRampPage && step === 0 ? undefined : (monitoringError ?? undefined)
+        }
         header={headerText}
         docSection={
           ruleType === "experiment-ref-new"
@@ -1513,7 +1546,11 @@ export default function RuleModal({
         }
         step={step}
         setStep={setStep}
-        hideNav={ruleType !== "experiment-ref-new" && ruleType !== "experiment"}
+        hideNav={
+          !hasRampPage &&
+          ruleType !== "experiment-ref-new" &&
+          ruleType !== "experiment"
+        }
         backButton={true}
         onBackFirstStep={
           mode === "create" ? () => setNewRuleOverviewPage(true) : undefined
@@ -1534,27 +1571,69 @@ export default function RuleModal({
         }
       >
         {(ruleType === "force" || ruleType === "rollout") && (
-          <StandardRuleFields
-            ruleType={ruleType}
-            feature={feature}
-            environments={effectiveEnvList}
-            defaultValues={defaultValues}
-            setPrerequisiteTargetingSdkIssues={
-              setPrerequisiteTargetingSdkIssues
-            }
-            isCyclic={isCyclic}
-            cyclicFeatureId={cyclicFeatureId}
-            conditionKey={conditionKey}
-            scheduleToggleEnabled={scheduleToggleEnabled}
-            setScheduleToggleEnabled={setScheduleToggleEnabled}
-            ruleRampSchedule={ruleRampSchedule}
-            rampSectionState={rampSectionState}
-            setRampSectionState={setRampSectionState}
-            scheduleType={scheduleType}
-            setScheduleType={setScheduleType}
-            pendingDetach={hasPendingDetach}
-            envScope={envScopeProps!}
-          />
+          <Page display="Rule Configuration">
+            <StandardRuleFields
+              ruleType={ruleType}
+              feature={feature}
+              environments={effectiveEnvList}
+              defaultValues={defaultValues}
+              setPrerequisiteTargetingSdkIssues={
+                setPrerequisiteTargetingSdkIssues
+              }
+              isCyclic={isCyclic}
+              cyclicFeatureId={cyclicFeatureId}
+              conditionKey={conditionKey}
+              scheduleToggleEnabled={scheduleToggleEnabled}
+              setScheduleToggleEnabled={setScheduleToggleEnabled}
+              ruleRampSchedule={ruleRampSchedule}
+              rampSectionState={rampSectionState}
+              setRampSectionState={setRampSectionState}
+              scheduleType={scheduleType}
+              setScheduleType={setScheduleType}
+              pendingDetach={hasPendingDetach}
+              envScope={envScopeProps!}
+            />
+          </Page>
+        )}
+
+        {hasRampPage && (
+          <Page display="Ramp-up Schedule">
+            {(() => {
+              const watchedHash = form.watch("hashAttribute") as string;
+              const hashAttrs = attributeSchema.filter((s) => s.hashAttribute);
+              const needsHash = !watchedHash && hashAttrs.length > 0;
+              return needsHash ? (
+                <Box mb="5">
+                  <SelectField
+                    label="Sample using attribute"
+                    value={watchedHash ?? ""}
+                    options={hashAttrs.map((attr) => ({
+                      label: attr.property,
+                      value: attr.property,
+                    }))}
+                    onChange={(v) => form.setValue("hashAttribute", v)}
+                    helpText="Required for coverage-based ramp steps"
+                    required
+                  />
+                  <Separator size="4" my="5" />
+                </Box>
+              ) : null;
+            })()}
+            {ruleRampSchedule && !rampIsEditable ? (
+              <RampScheduleDisplay rs={ruleRampSchedule} />
+            ) : (
+              <RampScheduleSection
+                ruleRampSchedule={ruleRampSchedule}
+                state={rampSectionState}
+                setState={setRampSectionState}
+                pendingDetach={hasPendingDetach}
+                embedded
+                hideNameField={true}
+                feature={feature}
+                environments={effectiveEnvList}
+              />
+            )}
+          </Page>
         )}
 
         {ruleType === "safe-rollout" && (
