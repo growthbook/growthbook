@@ -65,6 +65,10 @@ export default {
     plan: "enterprise",
     displayName: "Environment Inheritance",
   },
+  "events-forwarder": {
+    plan: "pro",
+    displayName: "Events Forwarder",
+  },
   "experiment-impact": {
     plan: "enterprise",
     displayName: "Experiment Impact",
