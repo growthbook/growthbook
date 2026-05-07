@@ -929,10 +929,13 @@ export async function findInFlightEagerUnitDimensionSnapshots(
     { dimension: 1 },
   );
   return new Set(
-    docs
-      .map(toInterface)
-      .map((d) => d.dimension)
-      .filter((d): d is string => typeof d === "string" && d.length > 0),
+    docs.map((d) =>
+      d
+        .get("dimension")
+        .filter(
+          (d: unknown): d is string => typeof d === "string" && d.length > 0,
+        ),
+    ),
   );
 }
 
