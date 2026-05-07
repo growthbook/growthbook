@@ -5,6 +5,7 @@ import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Text from "@/ui/Text";
 import SingleRoleSelector from "./SingleRoleSelector";
 
 export default function ProjectRolesSelector({
@@ -28,11 +29,11 @@ export default function ProjectRolesSelector({
 
   return (
     <>
-      <label className="mb-2">
+      <Text as="label" weight="semibold" mb="2">
         <PremiumTooltip commercialFeature="advanced-permissions">
           Project Roles (optional)
         </PremiumTooltip>
-      </label>
+      </Text>
       {projectRoles.map((projectRole, i) => (
         <div className="appbox px-3 pt-2 bg-light" key={i}>
           <div style={{ float: "right" }}>
