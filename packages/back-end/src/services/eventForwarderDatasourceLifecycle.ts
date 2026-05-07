@@ -55,12 +55,15 @@ async function deleteEventForwarderAndTeardown({
     );
     try {
       await teardownBigQueryEventForwarderInfrastructureRemote({
-        organizationId: snapshot.organizationId,
-        datasourceId: snapshot.datasourceId,
-        sinkType: snapshot.sinkType,
-        topic: snapshot.topic,
-        connectorName: snapshot.connectorName,
-        connectorId: snapshot.connectorId,
+        context,
+        snapshot: {
+          organizationId: snapshot.organizationId,
+          datasourceId: snapshot.datasourceId,
+          sinkType: snapshot.sinkType,
+          topic: snapshot.topic,
+          connectorName: snapshot.connectorName,
+          connectorId: snapshot.connectorId,
+        },
       });
       logger.info(
         {
