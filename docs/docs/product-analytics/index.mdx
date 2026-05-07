@@ -5,9 +5,6 @@ sidebar_label: Product Analytics
 slug: /app/product-analytics
 ---
 
-import MaxWidthImage from "@site/src/components/MaxWidthImage";
-import CommercialFeature from "@site/src/components/CommercialFeature";
-
 # Product Analytics
 
 Product Analytics turns the data and metrics you've already configured in GrowthBook into a general-purpose analytics workspace. Visualize KPIs, explore raw events, run ad-hoc SQL, and share curated views with your team — without launching an experiment.
@@ -17,7 +14,7 @@ Product Analytics is made up of two surfaces:
 - **[Explorer](/app/product-analytics/explorer)** — Build one-off charts from your metrics, fact tables, or raw warehouse tables. Ask questions in natural language, or configure explorations manually.
 - **[Dashboards](/app/product-analytics/dashboards)** — Combine multiple explorations, SQL queries, and markdown into a single shareable view that auto-refreshes on a schedule.
 
-Both surfaces read from the same [data sources](/warehouses), [fact tables, and metrics](/metrics/metrics) you already use for experimentation, so there's no separate event pipeline or instrumentation to set up.
+Both surfaces read from the same [data sources](/warehouses), [fact tables, and metrics](/app/metrics) you already use for experimentation, so there's no separate event pipeline or instrumentation to set up.
 
 ## Plan Availability
 
@@ -34,7 +31,7 @@ The Explorer is currently in **Beta**. We're actively expanding the supported ch
 ## Getting Started
 
 1. Connect a [data source](/warehouses) so GrowthBook can run queries against your warehouse. If you don't have a warehouse yet, you can use a [Managed Warehouse](/app/managed-warehouse) to get started without provisioning your own.
-2. Define [fact tables and metrics](/metrics/metrics) — these power the Metric and Fact Table explorers, and they're what dashboard blocks visualize.
+2. Define [fact tables and metrics](/app/metrics) — these power the Metric and Fact Table explorers, and they're what dashboard blocks visualize.
 3. Open **Product Analytics** in the left sidebar to start exploring.
 
 The first time you point an explorer at a data source, GrowthBook builds an _information schema_ — an index of databases, schemas, tables, and columns — so the Fact Table and Data Source explorers can show you what's available. This is a one-time, per-data-source step that runs in the background.
