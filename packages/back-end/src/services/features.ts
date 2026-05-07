@@ -393,7 +393,7 @@ export function generateAutoExperimentsPayload({
           `${e.trackingKey}_${data.type}_${implementationId}`,
           "",
         ),
-        status: e.status === "scheduled" ? "draft" : e.status,
+        status: e.status,
         variations: variations.map((v) => {
           if (data.type === "redirect") {
             const match = data.urlRedirect.destinationURLs.find(

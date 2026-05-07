@@ -32,18 +32,17 @@ export function getStatusIndicatorData(
   }
 
   if (experimentData.status === "draft") {
+    if (experimentData.nextScheduledStatusUpdate) {
+      return {
+        color: "indigo",
+        status: "Scheduled",
+        sortOrder: 7,
+      };
+    }
     return {
       color: "pink",
       status: "Draft",
       sortOrder: 6,
-    };
-  }
-
-  if (experimentData.status === "scheduled") {
-    return {
-      color: "indigo",
-      status: "Scheduled",
-      sortOrder: 7,
     };
   }
 

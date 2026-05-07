@@ -104,12 +104,7 @@ export const experimentPhase = z
   .strict();
 export type ExperimentPhase = z.infer<typeof experimentPhase>;
 
-export const experimentStatus = [
-  "draft",
-  "scheduled",
-  "running",
-  "stopped",
-] as const;
+export const experimentStatus = ["draft", "running", "stopped"] as const;
 export type ExperimentStatus = (typeof experimentStatus)[number];
 
 export const screenshot = z
@@ -333,7 +328,7 @@ export const statusUpdateScheduleValidator = z.object({
 });
 
 const nextScheduledStatusUpdateValidator = z.object({
-  type: z.enum(["start", "startAnalysisPeriod", "stop"]),
+  type: z.enum(["start", "stop"]),
   date: z.date(),
 });
 
@@ -782,7 +777,13 @@ export const apiExperimentWithEnhancedStatus = namedSchema(
     z.object({
       enhancedStatus: z
         .object({
-          status: z.enum(["Running", "Stopped", "Draft", "Archived"]),
+          status: z.enum([
+            "Running",
+            "Stopped",
+            "Draft",
+            "Scheduled",
+            "Archived",
+          ]),
           detailedStatus: z.string().optional(),
         })
         .optional(),

@@ -3,11 +3,7 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import {
-  FaAngleRight,
-  FaExclamationTriangle,
-  FaPencilAlt,
-} from "react-icons/fa";
+import { FaAngleRight, FaExclamationTriangle } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { experimentHasLiveLinkedChanges } from "shared/util";
 import { ReactNode, useEffect, useRef, useState } from "react";
@@ -15,7 +11,7 @@ import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
 import Collapsible from "react-collapsible";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiCheck, PiEye, PiLink } from "react-icons/pi";
+import { PiCheck, PiEye, PiLink, PiPencilSimpleFill } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   ExperimentSnapshotReportArgs,
@@ -57,13 +53,13 @@ import HelperText from "@/ui/HelperText";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import StartExperimentModal from "@/components/Experiment/TabbedPage/StartExperimentModal";
-import ScheduleExperimentModal from "@/components/Experiment/TabbedPage/ScheduleExperimentModal";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
 import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RemoveFromHoldoutModal from "@/components/Experiment/holdout/RemoveFromHoldoutModal";
+import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 import ProjectTagBar from "./ProjectTagBar";
 import EditExperimentInfoModal, {
   FocusSelector,
@@ -344,15 +340,19 @@ export default function ExperimentHeader({
     setTab("results");
   }
 
-  async function scheduleExperiment() {
+  async function approveScheduledExperimentStart() {
     await apiCall(`/experiment/${experiment.id}`, {
       method: "POST",
       body: JSON.stringify({
-        status: "scheduled",
+        nextScheduledStatusUpdate: {
+          type: "start",
+          date: experiment.statusUpdateSchedule?.startAt,
+        },
       }),
     });
     await mutate();
-    track("Schedule experiment", {
+
+    track("Approve Scheduled Experiment Start", {
       source: "experiment-start-banner",
       action: "main CTA",
     });
@@ -446,6 +446,11 @@ export default function ExperimentHeader({
   const scheduledStartDate = experiment.statusUpdateSchedule?.startAt
     ? new Date(experiment.statusUpdateSchedule.startAt)
     : null;
+  const nextScheduledStartDate =
+    experiment.nextScheduledStatusUpdate?.type === "start" &&
+    experiment.nextScheduledStatusUpdate?.date
+      ? new Date(experiment.nextScheduledStatusUpdate.date)
+      : null;
   const checklistReady = checklistItemsRemaining === 0;
 
   const runningExperimentDecisionBanner =
@@ -675,19 +680,19 @@ export default function ExperimentHeader({
         <StartExperimentModal
           experiment={experiment}
           close={() => setShowStartExperiment(false)}
-          startExperiment={
-            hasExperimentSchedule ? scheduleExperiment : startExperiment
-          }
+          startExperiment={startExperiment}
+          scheduleExperiment={approveScheduledExperimentStart}
           checklistItemsRemaining={checklistItemsRemaining || 0}
           checklistHardBlockerCount={checklistHardBlockerCount}
           isHoldout={isHoldout}
         />
       )}
       {showScheduleModal && !isHoldout ? (
-        <ScheduleExperimentModal
+        <EditScheduleModal
           experiment={experiment}
           close={() => setShowScheduleModal(false)}
           mutate={mutate}
+          open={true}
         />
       ) : null}
       {showTemplateForm && (
@@ -813,6 +818,17 @@ export default function ExperimentHeader({
                     runningExperimentStatus={runningExperimentStatus}
                     holdout={holdout}
                   />
+                ) : experiment.status === "draft" && nextScheduledStartDate ? (
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setShowScheduleModal(true);
+                    }}
+                  >
+                    Starts{" "}
+                    {format(nextScheduledStartDate, "MMM d,yyyy 'at' h:mm a")}{" "}
+                    <PiPencilSimpleFill className="ml-1" />
+                  </Button>
                 ) : experiment.status === "draft" ? (
                   <Tooltip
                     shouldDisplay={
@@ -838,25 +854,11 @@ export default function ExperimentHeader({
                       }
                       icon={<MdRocketLaunch />}
                     >
-                      Start {holdout ? "Holdout" : "Experiment"}
                       {hasExperimentSchedule && scheduledStartDate
-                        ? ` on ${format(scheduledStartDate, "MMM d")}`
-                        : ""}
+                        ? "Approve for Scheduled Start"
+                        : `Start ${isHoldout ? "Holdout" : "Experiment"}`}
                     </Button>
                   </Tooltip>
-                ) : experiment.status === "scheduled" &&
-                  hasExperimentSchedule &&
-                  scheduledStartDate ? (
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      setShowScheduleModal(true);
-                    }}
-                  >
-                    Starts{" "}
-                    {format(scheduledStartDate, "MMM d,yyyy 'at' h:mm a")}{" "}
-                    <FaPencilAlt />
-                  </Button>
                 ) : null}
                 {experiment.status === "stopped" && experiment.results ? (
                   <>
@@ -934,18 +936,6 @@ export default function ExperimentHeader({
                     {holdoutHasSchedule ? "Edit " : "Add "} Schedule
                   </DropdownMenuItem>
                 )}
-                {canEditExperiment &&
-                  !isHoldout &&
-                  experiment.status !== "running" && (
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setShowScheduleModal(true);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      {hasExperimentSchedule ? "Edit " : "Add "}schedule
-                    </DropdownMenuItem>
-                  )}
                 {canEditExperiment &&
                   !isHoldout &&
                   holdoutsEnabled &&

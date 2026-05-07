@@ -1696,8 +1696,10 @@ export async function postExperiment(
     }
   });
 
-  // Normalize statusUpdateSchedule dates and recompute nextScheduledStatusUpdate
-  // whenever the schedule is updated. We only support `startAt` for now.
+  // Normalize statusUpdateSchedule dates. We only support `startAt` for now.
+  // Clearing the schedule always clears any existing approval. Editing the
+  // schedule to a new value invalidates any existing approval unless the
+  // caller explicitly sets nextScheduledStatusUpdate in the same request.
   if ("statusUpdateSchedule" in changes) {
     const incoming = changes.statusUpdateSchedule;
     if (incoming === null) {
@@ -1708,28 +1710,38 @@ export async function postExperiment(
         ? getValidDate(incoming.startAt)
         : undefined;
       changes.statusUpdateSchedule = startAt ? { startAt } : null;
-
-      const effectiveStatus = changes.status ?? experiment.status;
-      const canScheduleStart =
-        effectiveStatus === "draft" || effectiveStatus === "scheduled";
-      if (startAt && canScheduleStart && startAt > new Date()) {
-        changes.nextScheduledStatusUpdate = {
-          type: "start",
-          date: startAt,
-        };
-      } else {
+      if (!("nextScheduledStatusUpdate" in changes)) {
         changes.nextScheduledStatusUpdate = null;
       }
     }
   } else if (
     changes.status &&
     changes.status !== "draft" &&
-    changes.status !== "scheduled" &&
     experiment.nextScheduledStatusUpdate
   ) {
     // If the experiment moves out of a schedulable state, clear any pending
     // scheduled status update so the agenda job doesn't try to start it.
     changes.nextScheduledStatusUpdate = null;
+  }
+
+  // Explicit approval / unapproval of a scheduled status update. The agenda
+  // job uses the existence of nextScheduledStatusUpdate as the signal that the
+  // schedule has been approved and the experiment may be auto-started.
+  if ("nextScheduledStatusUpdate" in changes) {
+    const incoming = changes.nextScheduledStatusUpdate;
+    if (incoming === null) {
+      changes.nextScheduledStatusUpdate = null;
+    } else if (incoming) {
+      const date = getValidDate(incoming.date);
+      if (date <= new Date()) {
+        res.status(400).json({
+          status: 400,
+          message: "nextScheduledStatusUpdate.date must be a future date",
+        });
+        return;
+      }
+      changes.nextScheduledStatusUpdate = { type: incoming.type, date };
+    }
   }
 
   // Coerce lookbackOverride date value when type is "date"

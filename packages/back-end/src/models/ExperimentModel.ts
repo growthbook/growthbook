@@ -191,7 +191,7 @@ const experimentSchema = new mongoose.Schema({
   },
   nextScheduledStatusUpdate: {
     _id: false,
-    type: String,
+    type: { type: String },
     date: Date,
   },
   results: String,

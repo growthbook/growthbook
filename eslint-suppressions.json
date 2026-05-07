@@ -374,11 +374,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/StartExperimentModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/StoppedExperimentBanner.tsx": {
     "local/no-alert-classname": {
       "count": 1

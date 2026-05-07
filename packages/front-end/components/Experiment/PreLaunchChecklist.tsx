@@ -23,7 +23,6 @@ import InitialSDKConnectionForm from "@/components/Features/SDKConnections/Initi
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
-import ScheduleExperimentModal from "@/components/Experiment/TabbedPage/ScheduleExperimentModal";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Frame from "@/ui/Frame";
@@ -33,6 +32,7 @@ import {
   revisionStatusLabel,
 } from "@/components/Features/RevisionStatusBadge";
 import styles from "./PreLaunchChecklist.module.scss";
+import EditScheduleModal from "./EditScheduleModal";
 
 export type CheckListItem = {
   display: string | ReactElement;
@@ -874,10 +874,11 @@ export function PreLaunchChecklist({
         />
       )}
       {showScheduleModal ? (
-        <ScheduleExperimentModal
+        <EditScheduleModal
           experiment={experiment}
           close={() => setShowScheduleModal(false)}
           mutate={mutateExperiment}
+          open={true}
         />
       ) : null}
       <PreLaunchChecklistUI

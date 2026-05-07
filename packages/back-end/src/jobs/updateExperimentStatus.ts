@@ -103,10 +103,7 @@ const updateSingleExperimentStatus = async (
 
     switch (scheduled.type) {
       case "start": {
-        if (
-          experiment.status !== "scheduled" &&
-          experiment.status !== "draft"
-        ) {
+        if (experiment.status !== "draft") {
           logger.info(
             `Skipping start: Experiment ${experiment.id} is not in a schedulable state (status=${experiment.status}).`,
           );
