@@ -204,6 +204,8 @@ type DropdownItemProps = {
     confirmationTitle: string;
     cta: string;
     ctaColor?: "red" | "violet";
+    /** When false, the confirm CTA is disabled (e.g. explain-only modal). */
+    ctaEnabled?: boolean;
     hideDropdown?: () => void;
     showDropdown?: () => void;
     closeDropdown?: () => void;
@@ -265,6 +267,7 @@ export function DropdownMenuItem({
           open={true}
           cta={confirmation.cta}
           ctaColor={confirmation.ctaColor ?? "red"}
+          ctaEnabled={confirmation.ctaEnabled ?? true}
           submit={confirmation.submit}
         >
           {confirmationContent ?? "Are you sure? This action cannot be undone."}

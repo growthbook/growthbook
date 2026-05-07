@@ -94,6 +94,8 @@ const DataSourcePage: FC = () => {
   const canDelete =
     (d && permissionsUtil.canDeleteDataSource(d) && !hasFileConfig()) || false;
 
+  const deleteBlockedByEventForwarder = Boolean(d?.eventForwarderConfig);
+
   const canUpdateConnectionParams =
     (d &&
       !isManagedWarehouse &&
@@ -279,7 +281,29 @@ const DataSourcePage: FC = () => {
                     confirmation={{
                       confirmationTitle: `Delete "${d.name}" Datasource`,
                       cta: "Delete",
+                      ctaEnabled: !deleteBlockedByEventForwarder,
+                      getConfirmationContent: async () => {
+                        if (deleteBlockedByEventForwarder) {
+                          return (
+                            <>
+                              {"Please "}
+                              <a
+                                href="https://www.growthbook.io/contact"
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                contact us
+                              </a>
+                              {
+                                " to remove the Event Forwarder first; after that, you can delete this data source here."
+                              }
+                            </>
+                          );
+                        }
+                        return "Are you sure? This action cannot be undone.";
+                      },
                       submit: async () => {
+                        if (deleteBlockedByEventForwarder) return;
                         await apiCall(`/datasource/${d.id}`, {
                           method: "DELETE",
                         });
