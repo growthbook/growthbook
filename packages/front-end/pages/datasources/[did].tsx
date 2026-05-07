@@ -63,6 +63,10 @@ const DataSourcePage: FC = () => {
   const [viewSqlExplorer, setViewSqlExplorer] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
+  const [
+    deleteBlockedByEventForwarderModalOpen,
+    setDeleteBlockedByEventForwarderModalOpen,
+  ] = useState(false);
   const router = useRouter();
 
   const {
@@ -96,6 +100,8 @@ const DataSourcePage: FC = () => {
 
   const canDelete =
     (d && permissionsUtil.canDeleteDataSource(d) && !hasFileConfig()) || false;
+
+  const deleteBlockedByEventForwarder = Boolean(d?.eventForwarderConfig);
 
   const canUpdateConnectionParams =
     (d &&
@@ -277,23 +283,35 @@ const DataSourcePage: FC = () => {
               {canDelete && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    color="red"
-                    confirmation={{
-                      confirmationTitle: `Delete "${d.name}" Datasource`,
-                      cta: "Delete",
-                      submit: async () => {
-                        await apiCall(`/datasource/${d.id}`, {
-                          method: "DELETE",
-                        });
-                        mutateDefinitions({});
-                        router.push("/datasources");
-                      },
-                      closeDropdown: () => setDropdownOpen(false),
-                    }}
-                  >
-                    Delete
-                  </DropdownMenuItem>
+                  {deleteBlockedByEventForwarder ? (
+                    <DropdownMenuItem
+                      color="red"
+                      onClick={() => {
+                        setDeleteBlockedByEventForwarderModalOpen(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem
+                      color="red"
+                      confirmation={{
+                        confirmationTitle: `Delete "${d.name}" Datasource`,
+                        cta: "Delete",
+                        submit: async () => {
+                          await apiCall(`/datasource/${d.id}`, {
+                            method: "DELETE",
+                          });
+                          mutateDefinitions({});
+                          router.push("/datasources");
+                        },
+                        closeDropdown: () => setDropdownOpen(false),
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  )}
                 </>
               )}
             </DropdownMenu>
@@ -565,6 +583,28 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           size="lg"
         >
           <HistoryTable type={"datasource"} id={d.id} />
+        </ModalStandard>
+      )}
+      {deleteBlockedByEventForwarderModalOpen && (
+        <ModalStandard
+          trackingEventModalType=""
+          open={true}
+          header={`Cannot delete "${d.name}"`}
+          close={() => setDeleteBlockedByEventForwarderModalOpen(false)}
+        >
+          <>
+            {"Please "}
+            <a
+              href="https://www.growthbook.io/contact"
+              target="_blank"
+              rel="noreferrer"
+            >
+              contact us
+            </a>
+            {
+              " to remove the Event Forwarder first; after that, you can delete this data source here."
+            }
+          </>
         </ModalStandard>
       )}
     </div>
