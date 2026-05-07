@@ -48,6 +48,20 @@ export class PendingDraftPublishFailedError extends ApiError<"pending_draft_publ
   }
 }
 
+export class InvalidExperimentStatusError extends ApiError<"invalid_experiment_status"> {
+  constructor(
+    message: string,
+    currentStatus: string,
+    expectedStatuses: string[],
+  ) {
+    super("invalid_experiment_status", message, {
+      currentStatus,
+      expectedStatuses,
+    });
+    this.name = "InvalidExperimentStatusError";
+  }
+}
+
 export class MissingDatasourceParamsError extends Error {
   constructor(message: string) {
     super(message);

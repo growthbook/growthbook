@@ -33,6 +33,14 @@ export const apiErrorRegistry = {
       failedFeatureDrafts: z.array(pendingDraftFailureSchema),
     }),
   },
+  invalid_experiment_status: {
+    status: 409,
+    description: "Experiment is not in a valid status for this operation",
+    detailsSchema: z.object({
+      currentStatus: z.string(),
+      expectedStatuses: z.array(z.string()),
+    }),
+  },
 } satisfies Record<
   string,
   { status: number; description: string; detailsSchema: z.ZodTypeAny }

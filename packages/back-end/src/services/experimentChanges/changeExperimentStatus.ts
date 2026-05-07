@@ -26,6 +26,7 @@ import {
 import { publishPendingFeatureDraftsForExperiment } from "back-end/src/services/experiment-feature";
 import {
   ChecklistIncompleteError,
+  InvalidExperimentStatusError,
   PendingDraftPublishFailedError,
 } from "back-end/src/util/errors";
 
@@ -245,7 +246,11 @@ export async function startExperiment({
   );
 
   if (experiment.status !== "draft") {
-    throw new Error("invalid_status: Experiment must be in draft status");
+    throw new InvalidExperimentStatusError(
+      "Experiment must be in draft status",
+      experiment.status,
+      ["draft"],
+    );
   }
 
   const checklistItems = await getExperimentStartChecklistStatus(
@@ -336,8 +341,10 @@ export async function stopExperiment({
     experiment.status !== "running" &&
     !(allowAlreadyStopped && experiment.status === "stopped")
   ) {
-    throw new Error(
-      "invalid_status: Can only stop an experiment in running status",
+    throw new InvalidExperimentStatusError(
+      "Can only stop an experiment in running status",
+      experiment.status,
+      allowAlreadyStopped ? ["running", "stopped"] : ["running"],
     );
   }
   if (input.dateEnded && Number.isNaN(new Date(input.dateEnded).getTime())) {
@@ -462,8 +469,10 @@ export async function modifyTemporaryRollout({
     input.experimentId,
   );
   if (experiment.status !== "stopped") {
-    throw new Error(
-      "invalid_status: Can only modify temporary rollout for stopped experiments",
+    throw new InvalidExperimentStatusError(
+      "Can only modify temporary rollout for stopped experiments",
+      experiment.status,
+      ["stopped"],
     );
   }
 

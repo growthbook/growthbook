@@ -10000,6 +10000,27 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: One or more linked feature drafts could not be published
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - pending_draft_publish_failed
+                  details:
+                    $ref: >-
+                      #/components/schemas/ApiError_pending_draft_publish_failed_details
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -10104,6 +10125,22 @@ paths:
                       - message
                       - code
                       - details
+                  - type: object
+                    description: Experiment is not in a valid status for this operation
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - invalid_experiment_status
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiError_invalid_experiment_status_details
+                    required:
+                      - message
+                      - code
+                      - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -10183,6 +10220,27 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Experiment is not in a valid status for this operation
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - invalid_experiment_status
+                  details:
+                    $ref: >-
+                      #/components/schemas/ApiError_invalid_experiment_status_details
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -10233,6 +10291,27 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Experiment is not in a valid status for this operation
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - invalid_experiment_status
+                  details:
+                    $ref: >-
+                      #/components/schemas/ApiError_invalid_experiment_status_details
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -32380,6 +32459,19 @@ components:
             additionalProperties: false
       required:
         - failedFeatureDrafts
+      additionalProperties: false
+    ApiError_invalid_experiment_status_details:
+      type: object
+      properties:
+        currentStatus:
+          type: string
+        expectedStatuses:
+          type: array
+          items:
+            type: string
+      required:
+        - currentStatus
+        - expectedStatuses
       additionalProperties: false
     features:
       description: >-
