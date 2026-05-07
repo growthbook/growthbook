@@ -1,5 +1,4 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
 import { ChangeEventHandler } from "react";
 import AthenaForm from "./AthenaForm";
 import BigQueryForm from "./BigQueryForm";
@@ -20,8 +19,6 @@ export interface Props {
   hasError: boolean;
   setDirty?: (dirty: boolean) => void;
   setDatasource: (newVal: Partial<DataSourceInterfaceWithParams>) => void;
-  eventForwarderAccessSignature?: string;
-  setValidatedEventForwarderSignature?: (signature: string | null) => void;
 }
 
 export default function ConnectionSettings({
@@ -30,8 +27,6 @@ export default function ConnectionSettings({
   setDatasource,
   setDirty,
   hasError,
-  eventForwarderAccessSignature = "",
-  setValidatedEventForwarderSignature,
 }: Props) {
   // Set the new params (specific per-datasource) and optionally settings (shared between datasources)
   const setParams = (
@@ -61,17 +56,6 @@ export default function ConnectionSettings({
   };
   const onManualParamChange = (name, value) => {
     setParams({ [name]: value });
-  };
-  const setEventForwarderConfig = (
-    eventForwarderConfig: EventForwarderConfigDraft | null,
-  ) => {
-    const newVal = {
-      ...datasource,
-      eventForwarderConfig,
-    };
-
-    setDatasource(newVal as Partial<DataSourceInterfaceWithParams>);
-    setDirty && setDirty(true);
   };
 
   if (!datasource.type) return null;
@@ -182,14 +166,6 @@ export default function ConnectionSettings({
           onParamChange={onParamChange}
           onManualParamChange={onManualParamChange}
           params={datasource?.params || {}}
-          eventForwarderConfig={datasource.eventForwarderConfig || null}
-          setEventForwarderConfig={setEventForwarderConfig}
-          datasourceId={datasource.id}
-          projects={datasource.projects}
-          eventForwarderAccessSignature={eventForwarderAccessSignature}
-          setValidatedEventForwarderSignature={
-            setValidatedEventForwarderSignature
-          }
         />
       );
       break;
@@ -209,15 +185,7 @@ export default function ConnectionSettings({
           existing={existing}
           setParams={setParams}
           params={datasource?.params || {}}
-          eventForwarderConfig={datasource.eventForwarderConfig || null}
-          setEventForwarderConfig={setEventForwarderConfig}
           onParamChange={onParamChange}
-          datasourceId={datasource.id}
-          projects={datasource.projects}
-          eventForwarderAccessSignature={eventForwarderAccessSignature}
-          setValidatedEventForwarderSignature={
-            setValidatedEventForwarderSignature
-          }
         />
       );
       break;
