@@ -878,7 +878,6 @@ export function PreLaunchChecklist({
           experiment={experiment}
           close={() => setShowScheduleModal(false)}
           mutate={mutateExperiment}
-          open={true}
         />
       ) : null}
       <PreLaunchChecklistUI

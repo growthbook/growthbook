@@ -239,14 +239,13 @@ const ExperimentPage = (): ReactElement => {
           // source="eid"
         />
       )}
-      {/* {editScheduleModalOpen && ( */}
-      <EditScheduleModal
-        experiment={experiment}
-        close={() => setEditScheduleModalOpen(false)}
-        mutate={mutate}
-        open={editScheduleModalOpen}
-      />
-      {/* )} */}
+      {editScheduleModalOpen && (
+        <EditScheduleModal
+          experiment={experiment}
+          close={() => setEditScheduleModalOpen(false)}
+          mutate={mutate}
+        />
+      )}
 
       <PageHead
         breadcrumb={[

@@ -3,7 +3,7 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { FaAngleRight, FaExclamationTriangle } from "react-icons/fa";
+import { FaAngleRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { experimentHasLiveLinkedChanges } from "shared/util";
 import { ReactNode, useEffect, useRef, useState } from "react";
@@ -535,14 +535,15 @@ export default function ExperimentHeader({
               <strong>{isBandit ? "Experiment" : "Bandit"}</strong>?
             </p>
             {!isBandit && experiment.goalMetrics.length > 0 && (
-              <div className="alert alert-warning">
+              <Callout status="warning">
                 <Collapsible
                   trigger={
-                    <div>
-                      <FaExclamationTriangle className="mr-2" />
-                      Some of your experiment settings may be altered. More info{" "}
-                      <FaAngleRight className="chevron" />
-                    </div>
+                    <Flex justify="between" gap="1">
+                      Some of your experiment settings may be altered.{" "}
+                      <Box>
+                        <FaAngleRight className="chevron" />
+                      </Box>
+                    </Flex>
                   }
                   transitionTime={100}
                 >
@@ -583,7 +584,7 @@ export default function ExperimentHeader({
                     </li>
                   </ul>
                 </Collapsible>
-              </div>
+              </Callout>
             )}
           </div>
         </Modal>
@@ -692,7 +693,6 @@ export default function ExperimentHeader({
           experiment={experiment}
           close={() => setShowScheduleModal(false)}
           mutate={mutate}
-          open={true}
         />
       ) : null}
       {showTemplateForm && (

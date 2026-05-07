@@ -349,9 +349,6 @@
     }
   },
   "packages/front-end/components/Experiment/TabbedPage/ExperimentHeader.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }

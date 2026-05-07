@@ -1,5 +1,4 @@
 import Agenda, { Job } from "agenda";
-import { Changeset } from "shared/types/experiment";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -7,7 +6,7 @@ import {
   getExperimentsWithScheduledStatusUpdate,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { getChangesToStartExperiment } from "back-end/src/services/experiments";
+import { executeExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 
 type UpdateSingleExperimentStatusJob = Job<{
   experimentId: string;
@@ -69,16 +68,20 @@ const updateSingleExperimentStatus = async (
   const experiment = await getExperimentById(context, experimentId);
   if (!experiment) return;
 
-  if (experiment.archived) {
+  if (
+    experiment.archived ||
+    experiment.status === "stopped" ||
+    experiment.status === "running"
+  ) {
     logger.info(
-      `Skipping status update: Experiment ${experiment.id} is archived`,
+      `Skipping status update: Experiment ${experiment.id} is ${experiment.archived ? "archived" : experiment.status}`,
     );
-    return;
-  }
-  if (experiment.status === "stopped") {
-    logger.info(
-      `Skipping status update: Experiment ${experiment.id} is stopped`,
-    );
+    // Clear the scheduled update so it doesn't get re-processed
+    await updateExperiment({
+      context,
+      experiment,
+      changes: { nextScheduledStatusUpdate: null },
+    });
     return;
   }
 
@@ -91,7 +94,7 @@ const updateSingleExperimentStatus = async (
   }
 
   const now = new Date();
-  if (new Date(scheduled.date) > now) {
+  if (scheduled.date > now) {
     logger.info(
       `Skipping status update: Experiment ${experiment.id} scheduled update is in the future (possibly rescheduled).`,
     );
@@ -115,18 +118,7 @@ const updateSingleExperimentStatus = async (
           return;
         }
 
-        const changes: Changeset = await getChangesToStartExperiment(
-          context,
-          experiment,
-        );
-        // Clear the scheduled update so it doesn't get re-processed
-        changes.nextScheduledStatusUpdate = null;
-
-        await updateExperiment({
-          context,
-          experiment,
-          changes,
-        });
+        await executeExperimentStart(context, experiment);
         break;
       }
       // TODO(schedule-status-updates): handle "stop" once stopAt is supported

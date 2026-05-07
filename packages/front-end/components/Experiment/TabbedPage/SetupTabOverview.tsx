@@ -177,7 +177,9 @@ export default function SetupTabOverview({
               + Add Schedule
             </Button>
           ) : null}
-          {experimentHasSchedule &&
+          {experiment.status === "draft" &&
+          experiment.type !== "holdout" &&
+          experimentHasSchedule &&
           !experimentScheduleApproved &&
           editHoldoutSchedule ? (
             <Tooltip

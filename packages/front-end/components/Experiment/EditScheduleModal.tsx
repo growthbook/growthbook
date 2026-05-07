@@ -9,12 +9,10 @@ import Helpertext from "@/ui/HelperText";
 import Button from "@/ui/Button";
 
 export default function EditScheduleModal({
-  open,
   experiment,
   mutate,
   close,
 }: {
-  open: boolean;
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   close: () => void;
@@ -40,7 +38,7 @@ export default function EditScheduleModal({
     <ModalStandard
       trackingEventModalType="edit-schedule-modal"
       trackingEventModalSource="eid"
-      open={open}
+      open={true}
       close={close}
       header={hasSchedule ? "Edit Schedule" : "Add Schedule"}
       subheader="Choose to start an experiment at a specified time. Once the selected time arrives and schedule is approved, linked changes will be activated and users will begin to see your experiment variations immediately. "

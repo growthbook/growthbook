@@ -1867,6 +1867,7 @@ export async function postExperiment(
       "banditScheduleUnit",
       "banditBurnInValue",
       "banditBurnInUnit",
+      "nextScheduledStatusUpdate",
     ] as (keyof ExperimentInterfaceStringDates)[]
   ).some((key) => key in changes);
   if (needsRunExperimentsPermission) {
@@ -2237,6 +2238,12 @@ export async function postExperimentStatus(
   }
 
   changes.status = status;
+
+  // Clear any pending scheduled status update when manually changing status so
+  // the Agenda job doesn't act on a stale approval.
+  if (experiment.nextScheduledStatusUpdate) {
+    changes.nextScheduledStatusUpdate = null;
+  }
 
   const updated = await updateExperiment({
     context,

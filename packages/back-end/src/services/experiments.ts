@@ -4273,7 +4273,7 @@ export function applyVariationWeightsToLatestPhase(
 }
 
 export async function getChangesToStartExperiment(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ) {
   const phases = [...experiment.phases];

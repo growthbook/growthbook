@@ -19,6 +19,7 @@ import {
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
 import {
   getChangesToStartExperiment,
   getLinkedFeatureInfo,
@@ -26,6 +27,7 @@ import {
 import {
   formatPendingDraftFailureMessage,
   PendingDraftFailure,
+  PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
 
@@ -230,39 +232,32 @@ async function loadAndValidateExperimentForStatusChange(
   return experiment;
 }
 
-export async function startExperiment({
-  context,
-  experimentId,
-  skipChecklist = false,
-}: {
-  context: ReqContext;
-  experimentId: string;
-  skipChecklist?: boolean;
-}) {
-  const experiment = await loadAndValidateExperimentForStatusChange(
-    context,
-    experimentId,
-  );
-
-  if (experiment.status !== "draft") {
-    throw new Error("invalid_status: Experiment must be in draft status");
-  }
-
-  const checklistItems = await getExperimentStartChecklistStatus(
+/**
+ * Core experiment start — no permission checks, works from any context
+ * (HTTP request or Agenda job). Publishes pending linked feature drafts
+ * atomically with the status transition and throws if any draft fails.
+ */
+export async function executeExperimentStart(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<{
+  updated: ExperimentInterface;
+  publishResult: PendingDraftPublishResult;
+}> {
+  const publishResult = await publishPendingFeatureDraftsForExperiment(
     context,
     experiment,
   );
-  const incompleteRequiredItems = checklistItems.filter(
-    (item) => item.required && item.status === "incomplete",
-  );
-  if (incompleteRequiredItems.length > 0 && !skipChecklist) {
-    throw new Error(
-      `checklist_incomplete: ${incompleteRequiredItems
-        .map((i) => i.key)
-        .join(", ")}`,
-    );
+  if (publishResult.failed.length > 0) {
+    const err = new Error(
+      formatPendingDraftFailureMessage(publishResult.failed),
+    ) as Error & { failedFeatureDrafts?: PendingDraftFailure[] };
+    err.failedFeatureDrafts = publishResult.failed;
+    throw err;
   }
 
+  // Build a default phase if the experiment has none so getChangesToStartExperiment
+  // has valid phases to work with.
   const allVariations = getAllVariations(experiment);
   const defaultVariationWeight =
     allVariations.length > 0 ? 1 / allVariations.length : 1;
@@ -297,31 +292,54 @@ export async function startExperiment({
     context,
     startExperimentTarget,
   );
-  if (!experiment.phases.length && !changes.phases) {
-    changes.phases = startExperimentTarget.phases;
-  }
 
-  // Publish linked feature drafts atomically with the status transition.
-  // If any draft cannot be published, abort the start.
-  const publishResult = await publishPendingFeatureDraftsForExperiment(
-    context,
-    experiment,
-  );
-  if (publishResult.failed.length > 0) {
-    const err = new Error(
-      formatPendingDraftFailureMessage(publishResult.failed),
-    ) as Error & { failedFeatureDrafts?: PendingDraftFailure[] };
-    err.failedFeatureDrafts = publishResult.failed;
-    throw err;
-  }
-
-  changes.status = "running";
+  const merged = {
+    nextScheduledStatusUpdate: null,
+    ...changes,
+  };
 
   const updated = await updateExperiment({
     context,
     experiment,
-    changes,
+    changes: merged,
   });
+  return { updated, publishResult };
+}
+
+export async function startExperiment({
+  context,
+  experimentId,
+  skipChecklist = false,
+}: {
+  context: ReqContext;
+  experimentId: string;
+  skipChecklist?: boolean;
+}) {
+  const experiment = await loadAndValidateExperimentForStatusChange(
+    context,
+    experimentId,
+  );
+
+  if (experiment.status !== "draft") {
+    throw new Error("invalid_status: Experiment must be in draft status");
+  }
+
+  const checklistItems = await getExperimentStartChecklistStatus(
+    context,
+    experiment,
+  );
+  const incompleteRequiredItems = checklistItems.filter(
+    (item) => item.required && item.status === "incomplete",
+  );
+  if (incompleteRequiredItems.length > 0 && !skipChecklist) {
+    throw new Error(
+      `checklist_incomplete: ${incompleteRequiredItems
+        .map((i) => i.key)
+        .join(", ")}`,
+    );
+  }
+
+  const { updated } = await executeExperimentStart(context, experiment);
 
   return { experiment, updated, checklistItems };
 }
