@@ -50,10 +50,12 @@ export const postAttribute = async (
   // Update the Confluent Schema Registry for orgs with event forwarder configs.
   // Uses the updated schema so the new attribute is included in the registration.
   // Errors are recorded on the EventForwarderConfig record and do not fail this request.
-  await syncEventForwarderSchemasAfterAttributeSchemaChange(
-    context,
-    updatedAttributeSchema,
-  );
+  if (await hasAnyEventForwarderConfig(context)) {
+    await syncEventForwarderSchemasAfterAttributeSchemaChange(
+      context,
+      updatedAttributeSchema,
+    );
+  }
 
   await req.audit({
     event: "attribute.create",
