@@ -17,9 +17,7 @@ import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Modal from "@/components/Modal";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import BigQueryEventForwarderForm from "@/components/Settings/BigQueryEventForwarderForm";
 import SnowflakeEventForwarderForm from "@/components/Settings/SnowflakeEventForwarderForm";
 import Badge from "@/ui/Badge";
@@ -310,38 +308,11 @@ export default function EventForwarder({
         </Flex>
 
         <Flex align="center" gap="4">
-          {canEdit && eventForwarderConfig && (
-            <MoreMenu useRadix size={16}>
-              <button
-                className="dropdown-item py-2"
-                onClick={() => setShowEditModal(true)}
-              >
-                Edit Event Forwarder
-              </button>
-
-              <hr className="dropdown-divider" />
-              <DeleteButton
-                onClick={async () => {
-                  await apiCall(
-                    `/datasource/${dataSource.id}/event-forwarder`,
-                    {
-                      method: "DELETE",
-                    },
-                  );
-                  await onRefresh();
-                }}
-                className="dropdown-item text-danger py-2"
-                iconClassName="mr-2"
-                style={{ borderRadius: 0 }}
-                useIcon={false}
-                displayName="Event Forwarder"
-                deleteMessage="Are you sure you want to delete this event forwarder? This removes the GrowthBook Kafka topic and connector for this datasource."
-                title="Delete"
-                text="Delete Event Forwarder"
-                outline={false}
-              />
-            </MoreMenu>
-          )}
+          {canEdit && eventForwarderConfig ? (
+            <Button variant="outline" onClick={() => setShowEditModal(true)}>
+              Edit Event Forwarder
+            </Button>
+          ) : null}
           {eventForwarderConfig && canToggle && (
             <Button
               variant="outline"
@@ -382,7 +353,19 @@ export default function EventForwarder({
             </Box>
           ) : null}
         </Callout>
-      ) : null}
+      ) : (
+        <Callout status="info" mb="3">
+          To remove the Event Forwarder,{" "}
+          <a
+            href="https://www.growthbook.io/contact"
+            target="_blank"
+            rel="noreferrer"
+          >
+            contact us
+          </a>
+          .
+        </Callout>
+      )}
 
       {eventForwarderConfig ? (
         <Card>
