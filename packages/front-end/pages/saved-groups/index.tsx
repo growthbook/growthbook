@@ -14,7 +14,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import useApi from "@/hooks/useApi";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Link from "@/ui/Link";
@@ -62,21 +61,6 @@ export default function SavedGroupsPage() {
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
-
-  const settings = useOrgSettings();
-  const approvalFlowRequired =
-    settings.approvalFlows?.savedGroups?.[0]?.required ?? false;
-
-  const { data: beaconData } = useApi<{
-    openRevisionTargetIds: string[];
-  }>("/revision/entity/saved-group/beacon", {
-    shouldRun: () => approvalFlowRequired,
-  });
-
-  const openRevisionTargetIds = useMemo(
-    () => new Set(beaconData?.openRevisionTargetIds ?? []),
-    [beaconData],
-  );
 
   // Drives the badge count next to the "Drafts" tab. Uses the lightweight
   // count endpoint so we don't have to fetch full revision documents.
@@ -226,16 +210,11 @@ export default function SavedGroupsPage() {
               <ConditionGroups
                 groups={savedGroups}
                 mutate={mutateDefinitions}
-                openRevisionTargetIds={openRevisionTargetIds}
               />
             </TabsContent>
 
             <TabsContent value="idLists">
-              <IdLists
-                groups={savedGroups}
-                mutate={mutateDefinitions}
-                openRevisionTargetIds={openRevisionTargetIds}
-              />
+              <IdLists groups={savedGroups} mutate={mutateDefinitions} />
             </TabsContent>
 
             <TabsContent value="drafts">

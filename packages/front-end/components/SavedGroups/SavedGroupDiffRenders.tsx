@@ -398,6 +398,53 @@ export function renderSavedGroupSettings(
     );
   }
 
+  // Project changes (merged into settings)
+  if (!isEqual(pre?.projects, post.projects)) {
+    const preProjects = pre?.projects ?? [];
+    const postProjects = post.projects ?? [];
+    if (preProjects.length || postProjects.length) {
+      const added = postProjects.filter((id) => !preProjects.includes(id));
+      const removed = preProjects.filter((id) => !postProjects.includes(id));
+      if (added.length || removed.length) {
+        rows.push(
+          <ChangeField
+            key="projects"
+            label="Project"
+            changed
+            oldNode={
+              preProjects.length ? (
+                <>
+                  {preProjects.map((id, i) => (
+                    <span key={id}>
+                      {i > 0 ? ", " : ""}
+                      <ProjectName id={id} />
+                    </span>
+                  ))}
+                </>
+              ) : (
+                <em>unset</em>
+              )
+            }
+            newNode={
+              postProjects.length ? (
+                <>
+                  {postProjects.map((id, i) => (
+                    <span key={id}>
+                      {i > 0 ? ", " : ""}
+                      <ProjectName id={id} />
+                    </span>
+                  ))}
+                </>
+              ) : (
+                <em>unset</em>
+              )
+            }
+          />,
+        );
+      }
+    }
+  }
+
   rows.push(
     ...renderFallback(
       pre as Record<string, unknown>,
@@ -552,6 +599,22 @@ export function getSavedGroupSettingsBadges(pre: Pre, post: Post): DiffBadge[] {
         : { label: "Unarchive", action: "unarchive" },
     );
   }
+  const preProjects = pre?.projects ?? [];
+  const postProjects = post.projects ?? [];
+  const addedProjects = postProjects.filter((id) => !preProjects.includes(id));
+  const removedProjects = preProjects.filter(
+    (id) => !postProjects.includes(id),
+  );
+  if (addedProjects.length)
+    badges.push({
+      label: `+${addedProjects.length} project${addedProjects.length !== 1 ? "s" : ""}`,
+      action: "add project",
+    });
+  if (removedProjects.length)
+    badges.push({
+      label: `−${removedProjects.length} project${removedProjects.length !== 1 ? "s" : ""}`,
+      action: "remove project",
+    });
   return badges;
 }
 

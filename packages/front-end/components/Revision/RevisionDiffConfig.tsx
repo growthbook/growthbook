@@ -3,11 +3,9 @@ import {
   renderSavedGroupSettings,
   renderSavedGroupTargeting,
   renderSavedGroupValues,
-  renderSavedGroupProjects,
   getSavedGroupSettingsBadges,
   getSavedGroupTargetingBadges,
   getSavedGroupValuesBadges,
-  getSavedGroupProjectsBadges,
 } from "@/components/SavedGroups/SavedGroupDiffRenders";
 import { RevisionDiffConfig } from "./useRevisionDiff";
 
@@ -15,12 +13,13 @@ export const REVISION_SAVED_GROUP_DIFF_CONFIG: RevisionDiffConfig<SavedGroupInte
   {
     sections: [
       {
-        label: "Settings",
+        label: "Saved Group Settings",
         keys: [
           "groupName",
           "owner",
           "description",
           "archived",
+          "projects",
         ] as (keyof SavedGroupInterface)[],
         render: renderSavedGroupSettings,
         getBadges: getSavedGroupSettingsBadges,
@@ -36,12 +35,6 @@ export const REVISION_SAVED_GROUP_DIFF_CONFIG: RevisionDiffConfig<SavedGroupInte
         keys: ["attributeKey", "values"] as (keyof SavedGroupInterface)[],
         render: renderSavedGroupValues,
         getBadges: getSavedGroupValuesBadges,
-      },
-      {
-        label: "Projects",
-        keys: ["projects"] as (keyof SavedGroupInterface)[],
-        render: renderSavedGroupProjects,
-        getBadges: getSavedGroupProjectsBadges,
       },
     ],
     normalizeSnapshot: (snapshot: SavedGroupInterface): SavedGroupInterface => {

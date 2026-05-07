@@ -20,11 +20,12 @@ import {
   PiProhibit,
   PiLockSimple,
   PiPencilSimpleFill,
-  PiArrowsLeftRightBold,
+  PiGitDiff,
+  PiCaretRightFill,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { isIdListSupportedAttribute } from "shared/util";
-import { Box, Card, Flex, IconButton, Separator } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import PageHead from "@/components/Layout/PageHead";
@@ -54,17 +55,15 @@ import LargeSavedGroupPerformanceWarning, {
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import ProjectBadges from "@/components/ProjectBadges";
+import Owner from "@/components/Avatar/Owner";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
 import { OVERFLOW_SECTION_LABEL } from "@/components/AuditHistoryExplorer/useAuditDiff";
 import {
   renderSavedGroupTargeting,
-  renderSavedGroupProjects,
   renderSavedGroupSettings,
   getSavedGroupSettingsBadges,
   getSavedGroupTargetingBadges,
   getSavedGroupValuesBadges,
-  getSavedGroupProjectsBadges,
 } from "@/components/SavedGroups/SavedGroupDiffRenders";
 import { DocLink } from "@/components/DocLink";
 import Callout from "@/ui/Callout";
@@ -86,7 +85,7 @@ import { useSavedGroupRevision } from "@/hooks/useSavedGroupRevision";
 import { useSavedGroupReferences } from "@/hooks/useSavedGroupReferences";
 import { REVISION_SAVED_GROUP_DIFF_CONFIG } from "@/components/Revision/RevisionDiffConfig";
 import { useUser } from "@/services/UserContext";
-import UserAvatar from "@/components/Avatar/UserAvatar";
+import EventUser from "@/components/Avatar/EventUser";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -95,6 +94,55 @@ import SavedGroupDraftSelectorForChanges, {
 } from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
 
 const NUM_PER_PAGE = 10;
+
+function CoAuthorsFromIds({
+  authorId,
+  contributorIds,
+}: {
+  authorId: string;
+  contributorIds: string[];
+}) {
+  const [open, setOpen] = useState(false);
+  const filtered = contributorIds.filter((id) => id !== authorId);
+  if (filtered.length === 0) return null;
+  const label = `Co-author${filtered.length > 1 ? "s" : ""} (${filtered.length})`;
+  return (
+    <Box mt="3" mb="3">
+      <div
+        className="link-purple"
+        style={{
+          cursor: "pointer",
+          userSelect: "none",
+          display: "inline-block",
+        }}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <PiCaretRightFill
+          style={{
+            display: "inline",
+            marginRight: 4,
+            transition: "transform 0.15s ease",
+            transform: open ? "rotate(90deg)" : "none",
+          }}
+        />
+        {label}
+      </div>
+      {open && (
+        <Flex direction="column" gap="2" mt="2" ml="3">
+          {filtered.map((id) => (
+            <EventUser
+              key={id}
+              user={{ type: "dashboard", id, name: "", email: "" }}
+              display="avatar-name-email"
+              size="sm"
+              wrap={true}
+            />
+          ))}
+        </Flex>
+      )}
+    </Box>
+  );
+}
 
 export default function EditSavedGroupPage() {
   const router = useRouter();
@@ -306,7 +354,7 @@ export default function EditSavedGroupPage() {
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
   const valuesPage = sortedValues.slice(start, end);
-  const { getOwnerDisplay, user } = useUser();
+  const { user } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
   const canAdminPublish =
@@ -419,8 +467,8 @@ export default function EditSavedGroupPage() {
             ],
             sections: [
               {
-                label: "Settings",
-                keys: ["groupName", "owner", "description"],
+                label: "Saved Group Settings",
+                keys: ["groupName", "owner", "description", "projects"],
                 render: renderSavedGroupSettings,
                 getBadges: getSavedGroupSettingsBadges,
               },
@@ -434,12 +482,6 @@ export default function EditSavedGroupPage() {
                 label: "Values",
                 keys: ["values", "attributeKey"],
                 getBadges: getSavedGroupValuesBadges,
-              },
-              {
-                label: "Projects",
-                keys: ["projects"],
-                render: renderSavedGroupProjects,
-                getBadges: getSavedGroupProjectsBadges,
               },
             ],
             updateEventNames: ["savedGroup.updated"],
@@ -1148,7 +1190,7 @@ export default function EditSavedGroupPage() {
                     setDropdownOpen(false);
                   }}
                 >
-                  View Audit Log
+                  Audit History
                 </DropdownMenuItem>
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
@@ -1164,7 +1206,6 @@ export default function EditSavedGroupPage() {
                   </DropdownMenuItem>
                 ) : (
                   <DropdownMenuItem
-                    color="red"
                     onClick={() => {
                       setDropdownOpen(false);
                       setShowArchiveModal(true);
@@ -1194,33 +1235,42 @@ export default function EditSavedGroupPage() {
           </Flex>
         </Flex>
         <Flex align="center" gap="4" mb="4" wrap="wrap" justify="between">
-          <Flex align="center" gap="4" wrap="wrap">
+          <Flex gap="4" align="center" wrap="wrap">
             {savedGroup.type === "list" && (
-              <Text>
-                Attribute Key: <strong>{savedGroup.attributeKey}</strong>
-              </Text>
+              <Box>
+                <Text weight="medium">Attribute Key: </Text>
+                {savedGroup.attributeKey}
+              </Box>
             )}
             {(projects.length > 0 ||
-              (savedGroup.projects?.length ?? 0) > 0) && (
-              <Flex align="center" gap="2">
-                <Text>Projects:</Text>
-                {(savedGroup.projects?.length || 0) > 0 ? (
-                  <ProjectBadges
-                    projectIds={savedGroup.projects}
-                    resourceType="saved group"
-                  />
-                ) : (
-                  <ProjectBadges resourceType="saved group" />
-                )}
-              </Flex>
+              (displayedSavedGroup?.projects?.length ?? 0) > 0) && (
+              <Metadata
+                label="Projects"
+                value={
+                  (displayedSavedGroup?.projects?.length || 0) > 0 ? (
+                    <Text weight="regular" color="text-mid">
+                      {displayedSavedGroup?.projects
+                        ?.map(
+                          (p) =>
+                            projects.find((proj) => proj.id === p)?.name || p,
+                        )
+                        .join(", ") || "All projects"}
+                    </Text>
+                  ) : (
+                    <Text weight="regular" color="text-mid">
+                      All projects
+                    </Text>
+                  )
+                }
+              />
             )}
-            <Text>
-              Date Updated: <strong>{ago(savedGroup.dateUpdated)}</strong>
-            </Text>
-            <Text>
-              Owner:{" "}
-              <strong>{getOwnerDisplay(savedGroup.owner) || "None"}</strong>
-            </Text>
+            <Box>
+              <Text weight="medium">Owner: </Text>
+              <Owner
+                ownerId={displayedSavedGroup?.owner ?? savedGroup.owner}
+                gap="1"
+              />
+            </Box>
           </Flex>
           <Flex direction="column" align="end" gap="2">
             <SavedGroupReferences
@@ -1229,9 +1279,9 @@ export default function EditSavedGroupPage() {
             />
           </Flex>
         </Flex>
-        {savedGroup.description && (
+        {displayedSavedGroup?.description && (
           <Text as="p" mb="3">
-            {savedGroup.description}
+            {displayedSavedGroup.description}
           </Text>
         )}
         {savedGroup.type === "list" && !isIdListSupportedAttribute(attr) && (
@@ -1389,7 +1439,7 @@ export default function EditSavedGroupPage() {
                   wrap="wrap"
                   gap="2"
                 >
-                  <Flex align="start" gap="4" style={{ marginTop: 6 }}>
+                  <Flex align="start" gap="4" style={{ marginTop: 5 }}>
                     <Flex direction="column" gap="1">
                       {hasRevisions && (
                         <Flex align="center" gap="2">
@@ -1487,14 +1537,15 @@ export default function EditSavedGroupPage() {
                           orientation="vertical"
                           style={{ marginTop: 2 }}
                         />
-                        <Link
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon={<PiGitDiff />}
                           onClick={() => setCompareRevisionsModalOpen(true)}
+                          style={{ position: "relative", top: -5 }}
                         >
-                          <PiArrowsLeftRightBold
-                            style={{ marginRight: 4, verticalAlign: "middle" }}
-                          />
                           Compare revisions
-                        </Link>
+                        </Button>
                       </>
                     )}
                   </Flex>
@@ -1583,48 +1634,75 @@ export default function EditSavedGroupPage() {
                   </Flex>
                 </Flex>
                 <Separator size="4" my="3" />
-                <Flex direction="column" gap="1">
-                  <Flex align="center" gap="4" wrap="wrap">
+                <Flex direction="column">
+                  <Flex
+                    align="center"
+                    justify="between"
+                    wrap="wrap"
+                    style={{
+                      rowGap: "var(--space-1)",
+                      columnGap: "var(--space-4)",
+                    }}
+                  >
                     <Metadata
                       label={hasRevisions ? "Revised by" : "Created by"}
                       value={
-                        <span>
-                          <UserAvatar
-                            name={getOwnerDisplay(
+                        <EventUser
+                          user={{
+                            type: "dashboard",
+                            id:
                               hasRevisions && displayRevision
                                 ? displayRevision.authorId
                                 : savedGroup.owner,
-                            )}
-                            size="sm"
-                            variant="soft"
-                          />{" "}
-                          {getOwnerDisplay(
-                            hasRevisions && displayRevision
-                              ? displayRevision.authorId
-                              : savedGroup.owner,
-                          )}
-                        </span>
+                            name: "",
+                            email: "",
+                          }}
+                          display="avatar-name-email"
+                          size="sm"
+                        />
                       }
                     />
-                    <Metadata
-                      label="Created"
-                      value={datetime(
-                        hasRevisions && displayRevision
-                          ? displayRevision.dateCreated
-                          : savedGroup.dateCreated,
-                      )}
-                    />
-                    {hasRevisions &&
-                      (isLive || isMerged) &&
-                      displayRevision?.resolution?.dateCreated && (
+                    <Flex align="center" gap="4" wrap="wrap">
+                      <Metadata
+                        label="Created"
+                        value={datetime(
+                          hasRevisions && displayRevision
+                            ? displayRevision.dateCreated
+                            : savedGroup.dateCreated,
+                        )}
+                      />
+                      {hasRevisions &&
+                        (isLive || isMerged) &&
+                        displayRevision?.resolution?.dateCreated && (
+                          <Metadata
+                            label="Published"
+                            value={datetime(
+                              displayRevision.resolution.dateCreated,
+                            )}
+                          />
+                        )}
+                      {hasRevisions && isDraft && displayRevision && (
                         <Metadata
-                          label="Published"
-                          value={datetime(
-                            displayRevision.resolution.dateCreated,
-                          )}
+                          label="Last update"
+                          value={ago(displayRevision.dateUpdated)}
                         />
                       )}
+                    </Flex>
                   </Flex>
+                  {hasRevisions &&
+                    displayRevision &&
+                    (() => {
+                      const coAuthorIds = (
+                        displayRevision.contributors ?? []
+                      ).filter((id) => id !== displayRevision.authorId);
+                      if (coAuthorIds.length === 0) return null;
+                      return (
+                        <CoAuthorsFromIds
+                          authorId={displayRevision.authorId}
+                          contributorIds={coAuthorIds}
+                        />
+                      );
+                    })()}
                 </Flex>
               </Frame>
             </>
@@ -1639,47 +1717,47 @@ export default function EditSavedGroupPage() {
         )}
         {savedGroup.type === "condition" ? (
           <>
-            <Flex align="center" justify="between" mb="3">
-              <Heading size="medium" as="h2" mb="0">
-                Condition
-              </Heading>
-              <Tooltip
-                body={
-                  isMerged
-                    ? "You cannot edit a merged revision."
-                    : isDiscarded
-                      ? "You cannot edit a discarded revision."
-                      : ""
-                }
-              >
-                <Button
-                  variant="outline"
-                  disabled={!!(isMerged || isDiscarded)}
-                  onClick={() => {
-                    if (!selectedRevision && userOpenRevision) {
-                      selectFlow(userOpenRevision);
-                    }
-                    setEditConditionModal(
-                      selectedRevision
-                        ? applyTopLevelPatchOps(
-                            (selectedRevision.target
-                              .snapshot as SavedGroupInterface) || savedGroup,
-                            selectedRevision.target.proposedChanges,
-                          )
-                        : savedGroup,
-                    );
-                  }}
+            <Heading size="medium" as="h2" mb="3">
+              Condition
+            </Heading>
+
+            <Frame mb="4" px="6" py="5">
+              <Flex justify="between" align="center">
+                <Text as="div" weight="semibold" mb="4">
+                  Include all users who match:
+                </Text>
+                <Tooltip
+                  body={
+                    isMerged
+                      ? "You cannot edit a merged revision."
+                      : isDiscarded
+                        ? "You cannot edit a discarded revision."
+                        : ""
+                  }
                 >
-                  <PiPencil className="mr-1" />
-                  Edit Condition
-                </Button>
-              </Tooltip>
-            </Flex>
-            <Text as="p" mb="3">
-              Include all users who match the following:
-            </Text>
-            <Card mb="4">
-              <Flex direction="row" gap="2" p="2">
+                  <Button
+                    variant="ghost"
+                    disabled={!!(isMerged || isDiscarded)}
+                    onClick={() => {
+                      if (!selectedRevision && userOpenRevision) {
+                        selectFlow(userOpenRevision);
+                      }
+                      setEditConditionModal(
+                        selectedRevision
+                          ? applyTopLevelPatchOps(
+                              (selectedRevision.target
+                                .snapshot as SavedGroupInterface) || savedGroup,
+                              selectedRevision.target.proposedChanges,
+                            )
+                          : savedGroup,
+                      );
+                    }}
+                  >
+                    Edit
+                  </Button>
+                </Tooltip>
+              </Flex>
+              <Flex direction="row" gap="2">
                 <Text weight="medium">IF</Text>
                 <Box>
                   <ConditionDisplay
@@ -1688,7 +1766,7 @@ export default function EditSavedGroupPage() {
                   />
                 </Box>
               </Flex>
-            </Card>
+            </Frame>
           </>
         ) : (
           <>
@@ -1710,7 +1788,7 @@ export default function EditSavedGroupPage() {
                     color="red"
                     onClick={() => {
                       setDeleteItemsDraftMode(
-                        canAutoPublish
+                        !approvalRequired
                           ? "publish"
                           : userOpenRevision
                             ? "existing"
@@ -1745,7 +1823,7 @@ export default function EditSavedGroupPage() {
                       }
                       setImportOperation("replace");
                       setAddItemsDraftMode(
-                        canAutoPublish
+                        !approvalRequired
                           ? "publish"
                           : userOpenRevision
                             ? "existing"
@@ -1777,7 +1855,7 @@ export default function EditSavedGroupPage() {
                       }
                       setImportOperation("append");
                       setAddItemsDraftMode(
-                        canAutoPublish
+                        !approvalRequired
                           ? "publish"
                           : userOpenRevision
                             ? "existing"
@@ -1827,9 +1905,8 @@ export default function EditSavedGroupPage() {
                       >
                         <PiArrowsDownUp className="mr-1 lh-full align-middle" />
                         <span className="lh-full align-middle">
-                          {sortNewestFirst
-                            ? "Most Recently Added"
-                            : "Least Recently Added"}
+                          Showing{" "}
+                          {sortNewestFirst ? "newest first" : "oldest first"}
                         </span>
                       </div>
                     </Flex>

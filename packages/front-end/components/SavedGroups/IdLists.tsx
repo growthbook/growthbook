@@ -20,7 +20,6 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
-import { getStatusBadge } from "@/components/Revision/revisionUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SavedGroupForm from "./SavedGroupForm";
 import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
@@ -29,14 +28,9 @@ import SavedGroupRowMenu from "./SavedGroupRowMenu";
 export interface Props {
   groups: SavedGroupWithoutValues[];
   mutate: () => void;
-  openRevisionTargetIds?: Set<string>;
 }
 
-export default function IdLists({
-  groups,
-  mutate,
-  openRevisionTargetIds,
-}: Props) {
+export default function IdLists({ groups, mutate }: Props) {
   const [savedGroupForm, setSavedGroupForm] =
     useState<null | Partial<SavedGroupInterface>>(null);
   const [deleteModal, setDeleteModal] =
@@ -169,7 +163,6 @@ export default function IdLists({
                   <th>Description</th>
                   <th>Projects</th>
                   <SortableTH field={"ownerNameDisplay"}>Owner</SortableTH>
-                  <th>Approval Flows</th>
                   <SortableTH field={"dateUpdated"}>Date Updated</SortableTH>
                   <th />
                 </tr>
@@ -202,10 +195,6 @@ export default function IdLists({
                         )}
                       </td>
                       <td>{s.ownerNameDisplay}</td>
-                      <td>
-                        {openRevisionTargetIds?.has(s.id) &&
-                          getStatusBadge("pending-review")}
-                      </td>
                       <td>{ago(s.dateUpdated)}</td>
                       <td style={{ width: 30 }}>
                         <SavedGroupRowMenu
@@ -225,7 +214,7 @@ export default function IdLists({
                 })}
                 {!items.length && isFiltered && (
                   <tr>
-                    <td colSpan={7} align={"center"}>
+                    <td colSpan={6} align={"center"}>
                       No matching saved groups
                     </td>
                   </tr>

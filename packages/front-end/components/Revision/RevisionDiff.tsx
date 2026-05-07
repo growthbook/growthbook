@@ -49,35 +49,22 @@ export function RevisionDiff({
               {customRenderGroups.some(
                 ({ renders }) => renders.length > 0 && renders[0] != null,
               ) && (
-                <Flex
-                  direction="column"
-                  mb="4"
-                  style={{
-                    border: "1px solid var(--gray-a5)",
-                    borderRadius: "var(--radius-2)",
-                    overflow: "hidden",
-                  }}
-                >
+                <Flex direction="column" gap="0">
                   {customRenderGroups
                     .filter(
                       ({ renders }) => renders.length > 0 && renders[0] != null,
                     )
-                    .map(({ label, renders, suppressCardLabel }, idx) => (
+                    .map(({ label, renders, suppressCardLabel }) => (
                       <Box
                         key={label}
-                        px="3"
-                        pt="3"
-                        pb="3"
-                        style={{
-                          background: "var(--gray-2)",
-                          borderTop:
-                            idx > 0 ? "1px solid var(--gray-a5)" : undefined,
-                        }}
+                        p="3"
+                        my="3"
+                        className="rounded bg-light"
                       >
                         {!suppressCardLabel && (
-                          <Text as="div" weight="semibold" mb="2">
+                          <Heading as="h6" size="small" color="text-mid" mb="2">
                             {label}
-                          </Text>
+                          </Heading>
                         )}
                         {renders.map((r, i) => (
                           <div key={i}>{r}</div>

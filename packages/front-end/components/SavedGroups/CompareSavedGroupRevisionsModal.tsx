@@ -40,6 +40,9 @@ import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
 import Badge from "@/ui/Badge";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import RevisionLabel, {
+  revisionLabelText,
+} from "@/components/Features/RevisionLabel";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import { useUser } from "@/services/UserContext";
 import { RevisionDiff } from "@/components/Revision/RevisionDiff";
@@ -67,14 +70,6 @@ export interface Props {
   initialPreviewDraft?: string;
   initialMode?: "most-recent-live";
   requiresApproval?: boolean;
-}
-
-function RevisionLabel({ title }: { title: string | undefined | null }) {
-  return <span>{title || "Untitled"}</span>;
-}
-
-function revisionLabelText(title: string | undefined | null): string {
-  return title || "Untitled";
 }
 
 function RevisionStatusBadge({
@@ -127,9 +122,14 @@ function RevisionCompareLabel({
             <Text weight="medium" size="medium">
               <OverflowText
                 maxWidth={250}
-                title={revisionLabelText(revA?.title)}
+                title={revisionLabelText(revA?.version ?? 0, revA?.title)}
               >
-                <RevisionLabel title={revA?.title} />
+                <RevisionLabel
+                  version={revA?.version ?? 0}
+                  title={revA?.title}
+                  minWidth={0}
+                  numberSize="inherit"
+                />
               </OverflowText>
             </Text>
           </Flex>
@@ -159,9 +159,14 @@ function RevisionCompareLabel({
             <Text weight="medium" size="medium">
               <OverflowText
                 maxWidth={250}
-                title={revisionLabelText(revB?.title)}
+                title={revisionLabelText(revB?.version ?? 0, revB?.title)}
               >
-                <RevisionLabel title={revB?.title} />
+                <RevisionLabel
+                  version={revB?.version ?? 0}
+                  title={revB?.title}
+                  minWidth={0}
+                  numberSize="inherit"
+                />
               </OverflowText>
             </Text>
           </Flex>
@@ -1044,14 +1049,21 @@ export default function CompareSavedGroupRevisionsModal({
                           maxWidth={160}
                           title={revisionLabelText(
                             revisionById.get(quickActionRanges.draftPreviewId)
+                              ?.version ?? 0,
+                            revisionById.get(quickActionRanges.draftPreviewId)
                               ?.title,
                           )}
                         >
                           <RevisionLabel
+                            version={
+                              revisionById.get(quickActionRanges.draftPreviewId)
+                                ?.version ?? 0
+                            }
                             title={
                               revisionById.get(quickActionRanges.draftPreviewId)
                                 ?.title
                             }
+                            numbered={false}
                           />
                         </OverflowText>{" "}
                         <PiArrowsLeftRightBold /> live (
@@ -1059,16 +1071,26 @@ export default function CompareSavedGroupRevisionsModal({
                           maxWidth={160}
                           title={revisionLabelText(
                             liveRevisionId
+                              ? (revisionById.get(liveRevisionId)?.version ?? 0)
+                              : 0,
+                            liveRevisionId
                               ? revisionById.get(liveRevisionId)?.title
                               : null,
                           )}
                         >
                           <RevisionLabel
+                            version={
+                              liveRevisionId
+                                ? (revisionById.get(liveRevisionId)?.version ??
+                                  0)
+                                : 0
+                            }
                             title={
                               liveRevisionId
                                 ? revisionById.get(liveRevisionId)?.title
                                 : null
                             }
+                            numbered={false}
                           />
                         </OverflowText>
                         )
@@ -1101,14 +1123,21 @@ export default function CompareSavedGroupRevisionsModal({
                           maxWidth={80}
                           title={revisionLabelText(
                             revisionById.get(quickActionRanges.liveRange[0])
+                              ?.version ?? 0,
+                            revisionById.get(quickActionRanges.liveRange[0])
                               ?.title,
                           )}
                         >
                           <RevisionLabel
+                            version={
+                              revisionById.get(quickActionRanges.liveRange[0])
+                                ?.version ?? 0
+                            }
                             title={
                               revisionById.get(quickActionRanges.liveRange[0])
                                 ?.title
                             }
+                            numbered={false}
                           />
                         </OverflowText>{" "}
                         <PiArrowsLeftRightBold />{" "}
@@ -1116,14 +1145,21 @@ export default function CompareSavedGroupRevisionsModal({
                           maxWidth={80}
                           title={revisionLabelText(
                             revisionById.get(quickActionRanges.liveRange[1])
+                              ?.version ?? 0,
+                            revisionById.get(quickActionRanges.liveRange[1])
                               ?.title,
                           )}
                         >
                           <RevisionLabel
+                            version={
+                              revisionById.get(quickActionRanges.liveRange[1])
+                                ?.version ?? 0
+                            }
                             title={
                               revisionById.get(quickActionRanges.liveRange[1])
                                 ?.title
                             }
+                            numbered={false}
                           />
                         </OverflowText>
                       </Text>
@@ -1155,14 +1191,21 @@ export default function CompareSavedGroupRevisionsModal({
                           maxWidth={80}
                           title={revisionLabelText(
                             revisionById.get(quickActionRanges.allRange[0])
+                              ?.version ?? 0,
+                            revisionById.get(quickActionRanges.allRange[0])
                               ?.title,
                           )}
                         >
                           <RevisionLabel
+                            version={
+                              revisionById.get(quickActionRanges.allRange[0])
+                                ?.version ?? 0
+                            }
                             title={
                               revisionById.get(quickActionRanges.allRange[0])
                                 ?.title
                             }
+                            numbered={false}
                           />
                         </OverflowText>{" "}
                         <PiArrowsLeftRightBold />{" "}
@@ -1170,14 +1213,21 @@ export default function CompareSavedGroupRevisionsModal({
                           maxWidth={80}
                           title={revisionLabelText(
                             revisionById.get(quickActionRanges.allRange[1])
+                              ?.version ?? 0,
+                            revisionById.get(quickActionRanges.allRange[1])
                               ?.title,
                           )}
                         >
                           <RevisionLabel
+                            version={
+                              revisionById.get(quickActionRanges.allRange[1])
+                                ?.version ?? 0
+                            }
                             title={
                               revisionById.get(quickActionRanges.allRange[1])
                                 ?.title
                             }
+                            numbered={false}
                           />
                         </OverflowText>
                       </Text>
@@ -1370,9 +1420,15 @@ export default function CompareSavedGroupRevisionsModal({
                                 minWidth: 0,
                                 fontWeight: "bold",
                               }}
-                              title={revisionLabelText(minRev?.title)}
+                              title={revisionLabelText(
+                                minRev?.version ?? 0,
+                                minRev?.title,
+                              )}
                             >
-                              <RevisionLabel title={minRev?.title} />
+                              <RevisionLabel
+                                version={minRev?.version ?? 0}
+                                title={minRev?.title}
+                              />
                             </div>
                           </Flex>
                           {minRev ? (
@@ -1388,6 +1444,9 @@ export default function CompareSavedGroupRevisionsModal({
                         {minRev ? (
                           <Text size="small" color="text-low">
                             {datetime(minRev.dateUpdated)}
+                            {minRev.authorId
+                              ? ` · ${getUserDisplay(minRev.authorId) || minRev.authorId}`
+                              : ""}
                           </Text>
                         ) : null}
                       </Flex>
@@ -1552,7 +1611,7 @@ export default function CompareSavedGroupRevisionsModal({
                       </Heading>
                       {rev ? (
                         <Text size="small" color="text-low">
-                          · {revisionLabelText(rev.title)}
+                          · {revisionLabelText(rev.version ?? 0, rev.title)}
                         </Text>
                       ) : null}
                     </Flex>
