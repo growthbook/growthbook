@@ -19,6 +19,7 @@ import RampScheduleSection, {
   defaultRampSectionState,
   rampScheduleToSectionState,
   buildPatch,
+  buildMonitoringConfig,
   type UIStep,
   type UIStepPatch,
 } from "@/components/Features/RuleModal/RampScheduleSection";
@@ -88,7 +89,11 @@ function buildStepsForAllTargets(
       ...(s.triggerType === "approval" && s.approvalNotes
         ? { approvalNotes: s.approvalNotes }
         : {}),
-      ...(s.monitored ? { monitored: true } : {}),
+      monitored: !!s.monitored,
+      ...(s.guardrailSettings
+        ? { guardrailSettings: s.guardrailSettings }
+        : {}),
+      ...(s.holdConditions ? { holdConditions: s.holdConditions } : {}),
     };
   });
 }
@@ -150,9 +155,6 @@ export default function RampScheduleModal({
   async function handleSubmit() {
     if (!rampState.name.trim()) throw new Error("Ramp name is required");
 
-    // Ramp schedules always complete when steps finish — no end trigger needed.
-    const endCondition = undefined;
-
     if (isEdit) {
       await apiCall(`/ramp-schedule/${rs.id}`, {
         method: "PUT",
@@ -165,7 +167,12 @@ export default function RampScheduleModal({
             rs.endActions,
           ),
           startDate: rampState.startDate || null,
-          endCondition,
+          cutoffDate: rampState.cutoffDate || null,
+          monitoringConfig: buildMonitoringConfig(rampState.monitoring) ?? null,
+          lockdownConfig: rampState.lockFeature
+            ? { mode: "locked" }
+            : { mode: "none" },
+          guardrailSettings: rampState.guardrailSettings ?? null,
         }),
       });
     } else {
@@ -191,10 +198,19 @@ export default function RampScheduleModal({
             ...(s.triggerType === "approval" && s.approvalNotes
               ? { approvalNotes: s.approvalNotes }
               : {}),
+            monitored: !!s.monitored,
+            ...(s.guardrailSettings
+              ? { guardrailSettings: s.guardrailSettings }
+              : {}),
           })),
           endActions: [],
           startDate: rampState.startDate || null,
-          endCondition,
+          cutoffDate: rampState.cutoffDate || null,
+          monitoringConfig: buildMonitoringConfig(rampState.monitoring) ?? null,
+          lockdownConfig: rampState.lockFeature
+            ? { mode: "locked" }
+            : { mode: "none" },
+          guardrailSettings: rampState.guardrailSettings ?? null,
         }),
       });
     }

@@ -49,7 +49,15 @@ export const postRampScheduleTemplate = async (
 
   const body = req.body;
 
-  const { steps, name, official, endPatch, monitoringConfig } = body;
+  const {
+    steps,
+    name,
+    official,
+    endPatch,
+    monitoringConfig,
+    lockdownConfig,
+    guardrailSettings,
+  } = body;
 
   const created = await context.models.rampScheduleTemplates.create({
     name,
@@ -57,6 +65,8 @@ export const postRampScheduleTemplate = async (
     endPatch,
     official,
     monitoringConfig,
+    lockdownConfig,
+    guardrailSettings,
   });
   res.status(201).json({ status: 201, rampScheduleTemplate: created });
 };
@@ -89,6 +99,10 @@ export const putRampScheduleTemplate = async (
   if (body.official !== undefined) updates.official = body.official;
   if (body.monitoringConfig !== undefined)
     updates.monitoringConfig = body.monitoringConfig;
+  if (body.lockdownConfig !== undefined)
+    updates.lockdownConfig = body.lockdownConfig;
+  if (body.guardrailSettings !== undefined)
+    updates.guardrailSettings = body.guardrailSettings;
 
   const updated = await context.models.rampScheduleTemplates.updateById(
     template.id,

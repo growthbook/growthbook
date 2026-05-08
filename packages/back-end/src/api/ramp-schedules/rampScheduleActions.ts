@@ -64,7 +64,7 @@ export const startRampSchedule = createApiRequestHandler({
     nextProcessAt: computeNextProcessAt({
       status: "running",
       nextStepAt: initialNextStepAt,
-      endCondition: schedule.endCondition,
+      cutoffDate: schedule.cutoffDate,
     }),
   });
 
@@ -196,7 +196,7 @@ export const resumeRampSchedule = createApiRequestHandler({
   resumeUpdates.nextProcessAt = computeNextProcessAt({
     status: resumeUpdates.status as "running" | "pending-approval",
     nextStepAt: resumeUpdates.nextStepAt as Date | null | undefined,
-    endCondition: schedule.endCondition,
+    cutoffDate: schedule.cutoffDate,
     startDate: schedule.startDate,
   });
 

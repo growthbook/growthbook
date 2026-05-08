@@ -92,10 +92,10 @@ describe("formatRampStepSummary", () => {
 // ---------------------------------------------------------------------------
 
 describe("buildTemplatePayload", () => {
-  it("returns name, steps, and endPatch (no startDate or endCondition)", () => {
+  it("returns name, steps, and endPatch (no startDate or cutoffDate)", () => {
     const payload = buildTemplatePayload(freshState());
     expect(payload).not.toHaveProperty("startDate");
-    expect(payload).not.toHaveProperty("endCondition");
+    expect(payload).not.toHaveProperty("cutoffDate");
     expect(payload).toHaveProperty("name");
     expect(payload).toHaveProperty("steps");
     expect(payload).toHaveProperty("endPatch");
@@ -110,7 +110,7 @@ describe("buildTemplatePayload", () => {
     const payload = buildTemplatePayload(state);
     // No timing info in the payload
     expect(payload).not.toHaveProperty("startDate");
-    expect(payload).not.toHaveProperty("endCondition");
+    expect(payload).not.toHaveProperty("cutoffDate");
   });
 
   it("uses placeholder IDs for target and rule (not real entity IDs)", () => {
@@ -270,6 +270,7 @@ describe("templateToSectionState", () => {
               patch: { ruleId: PLACEHOLDER_RULE, coverage: 0.5 },
             },
           ],
+          monitored: false,
         },
         {
           trigger: { type: "interval", seconds: 7200 },
@@ -280,6 +281,7 @@ describe("templateToSectionState", () => {
               patch: { ruleId: PLACEHOLDER_RULE, coverage: 1.0 },
             },
           ],
+          monitored: false,
         },
       ],
     });

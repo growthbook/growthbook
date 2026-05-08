@@ -4,7 +4,6 @@ import { logger } from "back-end/src/util/logger";
 import {
   advanceUntilBlocked,
   applyRampStartActions,
-  completeRollout,
   computeNextProcessAt,
   onActivatingRevisionPublished,
   rollbackSchedule,
@@ -69,16 +68,6 @@ export const advanceSingleRampSchedule = async (
   const now = new Date();
 
   try {
-    // Hard deadline — trumps everything else.
-    if (
-      schedule.endCondition?.trigger?.type === "scheduled" &&
-      schedule.endCondition.trigger.at <= now &&
-      ["running", "pending-approval"].includes(schedule.status)
-    ) {
-      await completeRollout(context, schedule);
-      return;
-    }
-
     let current = schedule;
 
     // Crash recovery: replay activation if revision was published before we processed it.
@@ -111,7 +100,7 @@ export const advanceSingleRampSchedule = async (
         nextProcessAt: computeNextProcessAt({
           status: "running",
           nextStepAt: initialNextStepAt,
-          endCondition: current.endCondition,
+          cutoffDate: current.cutoffDate,
         }),
       });
       await applyRampStartActions(context, current);
@@ -126,6 +115,18 @@ export const advanceSingleRampSchedule = async (
           "Evaluator triggered rollback",
         );
         await rollbackSchedule(context, current, decision.reason);
+        return;
+      }
+      if (decision.action === "pause") {
+        logger.info(
+          { scheduleId: current.id, reason: decision.reason },
+          "Evaluator triggered pause",
+        );
+        await context.models.rampSchedules.updateById(current.id, {
+          status: "paused",
+          pausedAt: now,
+          nextProcessAt: null,
+        });
         return;
       }
       if (decision.action === "hold") {

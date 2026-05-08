@@ -4,6 +4,10 @@ import {
   apiRampScheduleInterface,
   featureRulePatch,
   paginationQueryFields,
+  rampMonitoringConfig,
+  stepHoldConditions,
+  stepGuardrailSettings,
+  scheduleGuardrailSettings,
 } from "shared/validators";
 import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
 
@@ -43,6 +47,9 @@ const postBodyStep = z.object({
   trigger: apiRampTrigger,
   actions: z.array(postBodyAction).optional(),
   approvalNotes: z.string().nullish(),
+  monitored: z.boolean().default(false),
+  holdConditions: stepHoldConditions.optional(),
+  guardrailSettings: stepGuardrailSettings.optional(),
 });
 
 const createBodySchema = z
@@ -85,14 +92,24 @@ const createBodySchema = z
       .optional()
       .nullable()
       .describe("When to start. Absent/null = immediately on start action."),
-    endCondition: z
+    cutoffDate: z
+      .string()
+      .datetime()
+      .optional()
+      .nullable()
+      .describe(
+        "Rule-level kill date. When reached, the ramp completes and the rule is disabled. Use for time-boxed rules. Set to null to clear.",
+      ),
+    lockdownConfig: z
       .object({
-        trigger: z
-          .object({ type: z.literal("scheduled"), at: z.string().datetime() })
-          .optional(),
+        mode: z.enum(["none", "locked"]),
       })
       .optional()
-      .describe("Optional hard deadline"),
+      .describe(
+        "When mode is 'locked', blocks all feature edits while the ramp is actively running (not after completion or between end and cutoff).",
+      ),
+    monitoringConfig: rampMonitoringConfig.nullish(),
+    guardrailSettings: scheduleGuardrailSettings.optional(),
     templateId: z
       .string()
       .optional()
@@ -133,6 +150,9 @@ const putBodyStep = z.object({
   trigger: apiRampTrigger,
   actions: z.array(putBodyAction).optional(),
   approvalNotes: z.string().nullish(),
+  monitored: z.boolean().default(false),
+  holdConditions: stepHoldConditions.optional(),
+  guardrailSettings: stepGuardrailSettings.optional(),
 });
 
 const updateBodySchema = z.object({
@@ -140,14 +160,15 @@ const updateBodySchema = z.object({
   steps: z.array(putBodyStep).optional(),
   endActions: z.array(putBodyAction).optional(),
   startDate: z.string().datetime().optional().nullable(),
-  endCondition: z
-    .object({
-      trigger: z
-        .object({ type: z.literal("scheduled"), at: z.string().datetime() })
-        .optional(),
-    })
+  cutoffDate: z.string().datetime().optional().nullable(),
+  monitoringConfig: rampMonitoringConfig.nullish(),
+  guardrailSettings: scheduleGuardrailSettings.nullish(),
+  lockdownConfig: z
+    .object({ mode: z.enum(["none", "locked"]) })
     .optional()
-    .nullable(),
+    .describe(
+      "When mode is 'locked', blocks all feature edits while the ramp is actively running.",
+    ),
 });
 
 // --- List query schema override ---
@@ -194,7 +215,7 @@ export const rampScheduleApiSpec = {
     create:
       "Creates a new ramp schedule, optionally attaching it to a published feature rule.\n\n### Target attachment (optional)\n\nProvide `featureId` and `ruleId` together to attach the schedule to a specific\nrule on creation. The rule must already be live (published). Each rule can only\nbe controlled by one schedule at a time.\n\nWhen both are supplied, **`targetId` and `patch.ruleId` are auto-injected**\ninto every step action and endAction — callers only need to supply the patch\nvalues (`coverage`, `condition`, etc.).\n\n`environment` is accepted for backward compatibility with pre-v2 ramps but is\ndeprecated and no longer required. Post-v2 `rule.id` is uniquely sufficient.\n\nIf rule attachment is omitted, the schedule is created as a free-standing\nskeleton in `pending` status. Use `POST /ramp-schedules/{id}/actions/add-target`\nto attach rules later, and `POST /ramp-schedules/{id}/actions/start` to start it.\n\n### Using templates\n\nProvide `templateId` to inherit steps and endActions from a saved template.\nExplicit `steps` / `endActions` in the request body take precedence over the\ntemplate. Template auto-population requires `featureId` and `ruleId` to be set\n(so targetId can be injected).\n\nRequires an **Enterprise** plan.\n",
     update:
-      'Updates the name, steps, endActions, startDate, or endCondition of a ramp schedule.\n\nOnly allowed when the schedule is in `pending`, `ready`, or `paused` status.\n\n**targetId shorthand**: When providing `steps` or `endActions`, you may omit `targetId`\n(or pass `"t1"`) in each action. If the schedule has exactly one active target, the server\nwill resolve it automatically. For schedules with multiple targets, provide the explicit\ntarget UUID from `targets[].id`.\n',
+      'Updates the name, steps, endActions, startDate, or cutoffDate of a ramp schedule.\n\nOnly allowed when the schedule is in `pending`, `ready`, or `paused` status.\n\n**targetId shorthand**: When providing `steps` or `endActions`, you may omit `targetId`\n(or pass `"t1"`) in each action. If the schedule has exactly one active target, the server\nwill resolve it automatically. For schedules with multiple targets, provide the explicit\ntarget UUID from `targets[].id`.\n',
     delete:
       "Permanently deletes a ramp schedule. This does not undo any rule patches that\nwere already applied by completed steps.\n",
   },

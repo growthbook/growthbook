@@ -3526,6 +3526,52 @@ paths:
                             anyOf:
                               - type: string
                               - type: 'null'
+                          monitored:
+                            type: boolean
+                          holdConditions:
+                            type: object
+                            properties:
+                              minDurationMs:
+                                type: integer
+                                exclusiveMinimum: 0
+                              maxDurationMs:
+                                type: integer
+                                exclusiveMinimum: 0
+                              minSampleSize:
+                                type: integer
+                                exclusiveMinimum: 0
+                              requireHealthy:
+                                type: boolean
+                            additionalProperties: false
+                          guardrailSettings:
+                            type: object
+                            properties:
+                              metrics:
+                                type: object
+                                propertyNames:
+                                  type: string
+                                additionalProperties:
+                                  type: object
+                                  properties:
+                                    onUnhealthy:
+                                      type: string
+                                      enum:
+                                        - hold
+                                        - warn
+                                        - ignore
+                                  required:
+                                    - onUnhealthy
+                                  additionalProperties: false
+                              experimentHealthAction:
+                                type: string
+                                enum:
+                                  - hold
+                                  - warn
+                                  - ignore
+                            required:
+                              - metrics
+                              - experimentHealthAction
+                            additionalProperties: false
                         required:
                           - trigger
                         additionalProperties: false
@@ -3604,22 +3650,6 @@ paths:
                       anyOf:
                         - type: string
                         - type: 'null'
-                    endCondition:
-                      type: object
-                      properties:
-                        trigger:
-                          anyOf:
-                            - type: object
-                              properties:
-                                type:
-                                  type: string
-                                  const: scheduled
-                                at: {}
-                              required:
-                                - type
-                                - at
-                              additionalProperties: false
-                      additionalProperties: false
                     cutoffDate:
                       anyOf:
                         - type: string
@@ -3647,6 +3677,46 @@ paths:
                         - datasourceId
                         - exposureQueryId
                         - guardrailMetricIds
+                      additionalProperties: false
+                    lockdownConfig:
+                      type: object
+                      properties:
+                        mode:
+                          type: string
+                          enum:
+                            - none
+                            - locked
+                      required:
+                        - mode
+                      additionalProperties: false
+                    guardrailSettings:
+                      type: object
+                      properties:
+                        metrics:
+                          type: object
+                          propertyNames:
+                            type: string
+                          additionalProperties:
+                            type: object
+                            properties:
+                              onUnhealthy:
+                                type: string
+                                enum:
+                                  - rollback
+                                  - pause
+                                  - warn
+                            required:
+                              - onUnhealthy
+                            additionalProperties: false
+                        experimentHealthAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - pause
+                            - warn
+                      required:
+                        - metrics
+                        - experimentHealthAction
                       additionalProperties: false
                   additionalProperties: false
                 schedule:
@@ -3953,6 +4023,52 @@ paths:
                             anyOf:
                               - type: string
                               - type: 'null'
+                          monitored:
+                            type: boolean
+                          holdConditions:
+                            type: object
+                            properties:
+                              minDurationMs:
+                                type: integer
+                                exclusiveMinimum: 0
+                              maxDurationMs:
+                                type: integer
+                                exclusiveMinimum: 0
+                              minSampleSize:
+                                type: integer
+                                exclusiveMinimum: 0
+                              requireHealthy:
+                                type: boolean
+                            additionalProperties: false
+                          guardrailSettings:
+                            type: object
+                            properties:
+                              metrics:
+                                type: object
+                                propertyNames:
+                                  type: string
+                                additionalProperties:
+                                  type: object
+                                  properties:
+                                    onUnhealthy:
+                                      type: string
+                                      enum:
+                                        - hold
+                                        - warn
+                                        - ignore
+                                  required:
+                                    - onUnhealthy
+                                  additionalProperties: false
+                              experimentHealthAction:
+                                type: string
+                                enum:
+                                  - hold
+                                  - warn
+                                  - ignore
+                            required:
+                              - metrics
+                              - experimentHealthAction
+                            additionalProperties: false
                         required:
                           - trigger
                         additionalProperties: false
@@ -4031,22 +4147,6 @@ paths:
                       anyOf:
                         - type: string
                         - type: 'null'
-                    endCondition:
-                      type: object
-                      properties:
-                        trigger:
-                          anyOf:
-                            - type: object
-                              properties:
-                                type:
-                                  type: string
-                                  const: scheduled
-                                at: {}
-                              required:
-                                - type
-                                - at
-                              additionalProperties: false
-                      additionalProperties: false
                     cutoffDate:
                       anyOf:
                         - type: string
@@ -4074,6 +4174,46 @@ paths:
                         - datasourceId
                         - exposureQueryId
                         - guardrailMetricIds
+                      additionalProperties: false
+                    lockdownConfig:
+                      type: object
+                      properties:
+                        mode:
+                          type: string
+                          enum:
+                            - none
+                            - locked
+                      required:
+                        - mode
+                      additionalProperties: false
+                    guardrailSettings:
+                      type: object
+                      properties:
+                        metrics:
+                          type: object
+                          propertyNames:
+                            type: string
+                          additionalProperties:
+                            type: object
+                            properties:
+                              onUnhealthy:
+                                type: string
+                                enum:
+                                  - rollback
+                                  - pause
+                                  - warn
+                            required:
+                              - onUnhealthy
+                            additionalProperties: false
+                        experimentHealthAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - pause
+                            - warn
+                      required:
+                        - metrics
+                        - experimentHealthAction
                       additionalProperties: false
                   additionalProperties: false
                 schedule:
@@ -4411,6 +4551,52 @@ paths:
                         anyOf:
                           - type: string
                           - type: 'null'
+                      monitored:
+                        type: boolean
+                      holdConditions:
+                        type: object
+                        properties:
+                          minDurationMs:
+                            type: integer
+                            exclusiveMinimum: 0
+                          maxDurationMs:
+                            type: integer
+                            exclusiveMinimum: 0
+                          minSampleSize:
+                            type: integer
+                            exclusiveMinimum: 0
+                          requireHealthy:
+                            type: boolean
+                        additionalProperties: false
+                      guardrailSettings:
+                        type: object
+                        properties:
+                          metrics:
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              type: object
+                              properties:
+                                onUnhealthy:
+                                  type: string
+                                  enum:
+                                    - hold
+                                    - warn
+                                    - ignore
+                              required:
+                                - onUnhealthy
+                              additionalProperties: false
+                          experimentHealthAction:
+                            type: string
+                            enum:
+                              - hold
+                              - warn
+                              - ignore
+                        required:
+                          - metrics
+                          - experimentHealthAction
+                        additionalProperties: false
                     required:
                       - trigger
                     additionalProperties: false
@@ -4489,22 +4675,6 @@ paths:
                   anyOf:
                     - type: string
                     - type: 'null'
-                endCondition:
-                  type: object
-                  properties:
-                    trigger:
-                      anyOf:
-                        - type: object
-                          properties:
-                            type:
-                              type: string
-                              const: scheduled
-                            at: {}
-                          required:
-                            - type
-                            - at
-                          additionalProperties: false
-                  additionalProperties: false
                 cutoffDate:
                   anyOf:
                     - type: string
@@ -4532,6 +4702,46 @@ paths:
                     - datasourceId
                     - exposureQueryId
                     - guardrailMetricIds
+                  additionalProperties: false
+                lockdownConfig:
+                  type: object
+                  properties:
+                    mode:
+                      type: string
+                      enum:
+                        - none
+                        - locked
+                  required:
+                    - mode
+                  additionalProperties: false
+                guardrailSettings:
+                  type: object
+                  properties:
+                    metrics:
+                      type: object
+                      propertyNames:
+                        type: string
+                      additionalProperties:
+                        type: object
+                        properties:
+                          onUnhealthy:
+                            type: string
+                            enum:
+                              - rollback
+                              - pause
+                              - warn
+                        required:
+                          - onUnhealthy
+                        additionalProperties: false
+                    experimentHealthAction:
+                      type: string
+                      enum:
+                        - rollback
+                        - pause
+                        - warn
+                  required:
+                    - metrics
+                    - experimentHealthAction
                   additionalProperties: false
                 environment:
                   deprecated: true
@@ -7507,6 +7717,52 @@ paths:
                             anyOf:
                               - type: string
                               - type: 'null'
+                          monitored:
+                            type: boolean
+                          holdConditions:
+                            type: object
+                            properties:
+                              minDurationMs:
+                                type: integer
+                                exclusiveMinimum: 0
+                              maxDurationMs:
+                                type: integer
+                                exclusiveMinimum: 0
+                              minSampleSize:
+                                type: integer
+                                exclusiveMinimum: 0
+                              requireHealthy:
+                                type: boolean
+                            additionalProperties: false
+                          guardrailSettings:
+                            type: object
+                            properties:
+                              metrics:
+                                type: object
+                                propertyNames:
+                                  type: string
+                                additionalProperties:
+                                  type: object
+                                  properties:
+                                    onUnhealthy:
+                                      type: string
+                                      enum:
+                                        - hold
+                                        - warn
+                                        - ignore
+                                  required:
+                                    - onUnhealthy
+                                  additionalProperties: false
+                              experimentHealthAction:
+                                type: string
+                                enum:
+                                  - hold
+                                  - warn
+                                  - ignore
+                            required:
+                              - metrics
+                              - experimentHealthAction
+                            additionalProperties: false
                         required:
                           - trigger
                         additionalProperties: false
@@ -7585,22 +7841,6 @@ paths:
                       anyOf:
                         - type: string
                         - type: 'null'
-                    endCondition:
-                      type: object
-                      properties:
-                        trigger:
-                          anyOf:
-                            - type: object
-                              properties:
-                                type:
-                                  type: string
-                                  const: scheduled
-                                at: {}
-                              required:
-                                - type
-                                - at
-                              additionalProperties: false
-                      additionalProperties: false
                     cutoffDate:
                       anyOf:
                         - type: string
@@ -7628,6 +7868,46 @@ paths:
                         - datasourceId
                         - exposureQueryId
                         - guardrailMetricIds
+                      additionalProperties: false
+                    lockdownConfig:
+                      type: object
+                      properties:
+                        mode:
+                          type: string
+                          enum:
+                            - none
+                            - locked
+                      required:
+                        - mode
+                      additionalProperties: false
+                    guardrailSettings:
+                      type: object
+                      properties:
+                        metrics:
+                          type: object
+                          propertyNames:
+                            type: string
+                          additionalProperties:
+                            type: object
+                            properties:
+                              onUnhealthy:
+                                type: string
+                                enum:
+                                  - rollback
+                                  - pause
+                                  - warn
+                            required:
+                              - onUnhealthy
+                            additionalProperties: false
+                        experimentHealthAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - pause
+                            - warn
+                      required:
+                        - metrics
+                        - experimentHealthAction
                       additionalProperties: false
                   additionalProperties: false
                 schedule:
@@ -7930,6 +8210,52 @@ paths:
                             anyOf:
                               - type: string
                               - type: 'null'
+                          monitored:
+                            type: boolean
+                          holdConditions:
+                            type: object
+                            properties:
+                              minDurationMs:
+                                type: integer
+                                exclusiveMinimum: 0
+                              maxDurationMs:
+                                type: integer
+                                exclusiveMinimum: 0
+                              minSampleSize:
+                                type: integer
+                                exclusiveMinimum: 0
+                              requireHealthy:
+                                type: boolean
+                            additionalProperties: false
+                          guardrailSettings:
+                            type: object
+                            properties:
+                              metrics:
+                                type: object
+                                propertyNames:
+                                  type: string
+                                additionalProperties:
+                                  type: object
+                                  properties:
+                                    onUnhealthy:
+                                      type: string
+                                      enum:
+                                        - hold
+                                        - warn
+                                        - ignore
+                                  required:
+                                    - onUnhealthy
+                                  additionalProperties: false
+                              experimentHealthAction:
+                                type: string
+                                enum:
+                                  - hold
+                                  - warn
+                                  - ignore
+                            required:
+                              - metrics
+                              - experimentHealthAction
+                            additionalProperties: false
                         required:
                           - trigger
                         additionalProperties: false
@@ -8008,22 +8334,6 @@ paths:
                       anyOf:
                         - type: string
                         - type: 'null'
-                    endCondition:
-                      type: object
-                      properties:
-                        trigger:
-                          anyOf:
-                            - type: object
-                              properties:
-                                type:
-                                  type: string
-                                  const: scheduled
-                                at: {}
-                              required:
-                                - type
-                                - at
-                              additionalProperties: false
-                      additionalProperties: false
                     cutoffDate:
                       anyOf:
                         - type: string
@@ -8051,6 +8361,46 @@ paths:
                         - datasourceId
                         - exposureQueryId
                         - guardrailMetricIds
+                      additionalProperties: false
+                    lockdownConfig:
+                      type: object
+                      properties:
+                        mode:
+                          type: string
+                          enum:
+                            - none
+                            - locked
+                      required:
+                        - mode
+                      additionalProperties: false
+                    guardrailSettings:
+                      type: object
+                      properties:
+                        metrics:
+                          type: object
+                          propertyNames:
+                            type: string
+                          additionalProperties:
+                            type: object
+                            properties:
+                              onUnhealthy:
+                                type: string
+                                enum:
+                                  - rollback
+                                  - pause
+                                  - warn
+                            required:
+                              - onUnhealthy
+                            additionalProperties: false
+                        experimentHealthAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - pause
+                            - warn
+                      required:
+                        - metrics
+                        - experimentHealthAction
                       additionalProperties: false
                   additionalProperties: false
                 schedule:
@@ -8356,6 +8706,52 @@ paths:
                         anyOf:
                           - type: string
                           - type: 'null'
+                      monitored:
+                        type: boolean
+                      holdConditions:
+                        type: object
+                        properties:
+                          minDurationMs:
+                            type: integer
+                            exclusiveMinimum: 0
+                          maxDurationMs:
+                            type: integer
+                            exclusiveMinimum: 0
+                          minSampleSize:
+                            type: integer
+                            exclusiveMinimum: 0
+                          requireHealthy:
+                            type: boolean
+                        additionalProperties: false
+                      guardrailSettings:
+                        type: object
+                        properties:
+                          metrics:
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              type: object
+                              properties:
+                                onUnhealthy:
+                                  type: string
+                                  enum:
+                                    - hold
+                                    - warn
+                                    - ignore
+                              required:
+                                - onUnhealthy
+                              additionalProperties: false
+                          experimentHealthAction:
+                            type: string
+                            enum:
+                              - hold
+                              - warn
+                              - ignore
+                        required:
+                          - metrics
+                          - experimentHealthAction
+                        additionalProperties: false
                     required:
                       - trigger
                     additionalProperties: false
@@ -8434,22 +8830,6 @@ paths:
                   anyOf:
                     - type: string
                     - type: 'null'
-                endCondition:
-                  type: object
-                  properties:
-                    trigger:
-                      anyOf:
-                        - type: object
-                          properties:
-                            type:
-                              type: string
-                              const: scheduled
-                            at: {}
-                          required:
-                            - type
-                            - at
-                          additionalProperties: false
-                  additionalProperties: false
                 cutoffDate:
                   anyOf:
                     - type: string
@@ -8477,6 +8857,46 @@ paths:
                     - datasourceId
                     - exposureQueryId
                     - guardrailMetricIds
+                  additionalProperties: false
+                lockdownConfig:
+                  type: object
+                  properties:
+                    mode:
+                      type: string
+                      enum:
+                        - none
+                        - locked
+                  required:
+                    - mode
+                  additionalProperties: false
+                guardrailSettings:
+                  type: object
+                  properties:
+                    metrics:
+                      type: object
+                      propertyNames:
+                        type: string
+                      additionalProperties:
+                        type: object
+                        properties:
+                          onUnhealthy:
+                            type: string
+                            enum:
+                              - rollback
+                              - pause
+                              - warn
+                        required:
+                          - onUnhealthy
+                        additionalProperties: false
+                    experimentHealthAction:
+                      type: string
+                      enum:
+                        - rollback
+                        - pause
+                        - warn
+                  required:
+                    - metrics
+                    - experimentHealthAction
                   additionalProperties: false
                 environment:
                   deprecated: true
@@ -16227,8 +16647,56 @@ paths:
                         anyOf:
                           - type: string
                           - type: 'null'
+                      monitored:
+                        default: false
+                        type: boolean
+                      holdConditions:
+                        type: object
+                        properties:
+                          minDurationMs:
+                            type: integer
+                            exclusiveMinimum: 0
+                          maxDurationMs:
+                            type: integer
+                            exclusiveMinimum: 0
+                          minSampleSize:
+                            type: integer
+                            exclusiveMinimum: 0
+                          requireHealthy:
+                            type: boolean
+                        additionalProperties: false
+                      guardrailSettings:
+                        type: object
+                        properties:
+                          metrics:
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              type: object
+                              properties:
+                                onUnhealthy:
+                                  type: string
+                                  enum:
+                                    - hold
+                                    - warn
+                                    - ignore
+                              required:
+                                - onUnhealthy
+                              additionalProperties: false
+                          experimentHealthAction:
+                            type: string
+                            enum:
+                              - hold
+                              - warn
+                              - ignore
+                        required:
+                          - metrics
+                          - experimentHealthAction
+                        additionalProperties: false
                     required:
                       - trigger
+                      - monitored
                     additionalProperties: false
                 endActions:
                   description: >-
@@ -16325,25 +16793,86 @@ paths:
                       pattern: >-
                         ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                     - type: 'null'
-                endCondition:
-                  description: Optional hard deadline
+                cutoffDate:
+                  description: >-
+                    Rule-level kill date. When reached, the ramp completes and
+                    the rule is disabled. Use for time-boxed rules. Set to null
+                    to clear.
+                  anyOf:
+                    - type: string
+                      format: date-time
+                      pattern: >-
+                        ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                    - type: 'null'
+                lockdownConfig:
+                  description: >-
+                    When mode is 'locked', blocks all feature edits while the
+                    ramp is actively running (not after completion or between
+                    end and cutoff).
                   type: object
                   properties:
-                    trigger:
-                      type: object
+                    mode:
+                      type: string
+                      enum:
+                        - none
+                        - locked
+                  required:
+                    - mode
+                  additionalProperties: false
+                monitoringConfig:
+                  anyOf:
+                    - type: object
                       properties:
-                        type:
+                        datasourceId:
                           type: string
-                          const: scheduled
-                        at:
+                        exposureQueryId:
                           type: string
-                          format: date-time
-                          pattern: >-
-                            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                        guardrailMetricIds:
+                          minItems: 1
+                          type: array
+                          items:
+                            type: string
+                        autoRollback:
+                          type: boolean
+                        updateScheduleMinutes:
+                          anyOf:
+                            - type: number
+                              exclusiveMinimum: 0
+                            - type: 'null'
                       required:
-                        - type
-                        - at
+                        - datasourceId
+                        - exposureQueryId
+                        - guardrailMetricIds
                       additionalProperties: false
+                    - type: 'null'
+                guardrailSettings:
+                  type: object
+                  properties:
+                    metrics:
+                      type: object
+                      propertyNames:
+                        type: string
+                      additionalProperties:
+                        type: object
+                        properties:
+                          onUnhealthy:
+                            type: string
+                            enum:
+                              - rollback
+                              - pause
+                              - warn
+                        required:
+                          - onUnhealthy
+                        additionalProperties: false
+                    experimentHealthAction:
+                      type: string
+                      enum:
+                        - rollback
+                        - pause
+                        - warn
+                  required:
+                    - metrics
+                    - experimentHealthAction
                   additionalProperties: false
                 templateId:
                   description: >-
@@ -23410,6 +23939,52 @@ paths:
                         anyOf:
                           - type: string
                           - type: 'null'
+                      monitored:
+                        type: boolean
+                      holdConditions:
+                        type: object
+                        properties:
+                          minDurationMs:
+                            type: integer
+                            exclusiveMinimum: 0
+                          maxDurationMs:
+                            type: integer
+                            exclusiveMinimum: 0
+                          minSampleSize:
+                            type: integer
+                            exclusiveMinimum: 0
+                          requireHealthy:
+                            type: boolean
+                        additionalProperties: false
+                      guardrailSettings:
+                        type: object
+                        properties:
+                          metrics:
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              type: object
+                              properties:
+                                onUnhealthy:
+                                  type: string
+                                  enum:
+                                    - hold
+                                    - warn
+                                    - ignore
+                              required:
+                                - onUnhealthy
+                              additionalProperties: false
+                          experimentHealthAction:
+                            type: string
+                            enum:
+                              - hold
+                              - warn
+                              - ignore
+                        required:
+                          - metrics
+                          - experimentHealthAction
+                        additionalProperties: false
                     required:
                       - trigger
                       - actions
@@ -23458,6 +24033,74 @@ paths:
                   additionalProperties: false
                 official:
                   type: boolean
+                monitoringConfig:
+                  anyOf:
+                    - type: object
+                      properties:
+                        datasourceId:
+                          type: string
+                        exposureQueryId:
+                          type: string
+                        guardrailMetricIds:
+                          minItems: 1
+                          type: array
+                          items:
+                            type: string
+                        autoRollback:
+                          type: boolean
+                        updateScheduleMinutes:
+                          anyOf:
+                            - type: number
+                              exclusiveMinimum: 0
+                            - type: 'null'
+                      required:
+                        - datasourceId
+                        - exposureQueryId
+                        - guardrailMetricIds
+                      additionalProperties: false
+                    - type: 'null'
+                guardrailSettings:
+                  anyOf:
+                    - type: object
+                      properties:
+                        metrics:
+                          type: object
+                          propertyNames:
+                            type: string
+                          additionalProperties:
+                            type: object
+                            properties:
+                              onUnhealthy:
+                                type: string
+                                enum:
+                                  - rollback
+                                  - pause
+                                  - warn
+                            required:
+                              - onUnhealthy
+                            additionalProperties: false
+                        experimentHealthAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - pause
+                            - warn
+                      required:
+                        - metrics
+                        - experimentHealthAction
+                      additionalProperties: false
+                    - type: 'null'
+                lockdownConfig:
+                  type: object
+                  properties:
+                    mode:
+                      type: string
+                      enum:
+                        - none
+                        - locked
+                  required:
+                    - mode
+                  additionalProperties: false
               additionalProperties: false
       responses:
         '200':
@@ -23610,6 +24253,52 @@ paths:
                         anyOf:
                           - type: string
                           - type: 'null'
+                      monitored:
+                        type: boolean
+                      holdConditions:
+                        type: object
+                        properties:
+                          minDurationMs:
+                            type: integer
+                            exclusiveMinimum: 0
+                          maxDurationMs:
+                            type: integer
+                            exclusiveMinimum: 0
+                          minSampleSize:
+                            type: integer
+                            exclusiveMinimum: 0
+                          requireHealthy:
+                            type: boolean
+                        additionalProperties: false
+                      guardrailSettings:
+                        type: object
+                        properties:
+                          metrics:
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              type: object
+                              properties:
+                                onUnhealthy:
+                                  type: string
+                                  enum:
+                                    - hold
+                                    - warn
+                                    - ignore
+                              required:
+                                - onUnhealthy
+                              additionalProperties: false
+                          experimentHealthAction:
+                            type: string
+                            enum:
+                              - hold
+                              - warn
+                              - ignore
+                        required:
+                          - metrics
+                          - experimentHealthAction
+                        additionalProperties: false
                     required:
                       - trigger
                       - actions
@@ -23658,6 +24347,74 @@ paths:
                   additionalProperties: false
                 official:
                   type: boolean
+                monitoringConfig:
+                  anyOf:
+                    - type: object
+                      properties:
+                        datasourceId:
+                          type: string
+                        exposureQueryId:
+                          type: string
+                        guardrailMetricIds:
+                          minItems: 1
+                          type: array
+                          items:
+                            type: string
+                        autoRollback:
+                          type: boolean
+                        updateScheduleMinutes:
+                          anyOf:
+                            - type: number
+                              exclusiveMinimum: 0
+                            - type: 'null'
+                      required:
+                        - datasourceId
+                        - exposureQueryId
+                        - guardrailMetricIds
+                      additionalProperties: false
+                    - type: 'null'
+                guardrailSettings:
+                  anyOf:
+                    - type: object
+                      properties:
+                        metrics:
+                          type: object
+                          propertyNames:
+                            type: string
+                          additionalProperties:
+                            type: object
+                            properties:
+                              onUnhealthy:
+                                type: string
+                                enum:
+                                  - rollback
+                                  - pause
+                                  - warn
+                            required:
+                              - onUnhealthy
+                            additionalProperties: false
+                        experimentHealthAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - pause
+                            - warn
+                      required:
+                        - metrics
+                        - experimentHealthAction
+                      additionalProperties: false
+                    - type: 'null'
+                lockdownConfig:
+                  type: object
+                  properties:
+                    mode:
+                      type: string
+                      enum:
+                        - none
+                        - locked
+                  required:
+                    - mode
+                  additionalProperties: false
               required:
                 - name
                 - steps
@@ -23774,8 +24531,8 @@ paths:
       operationId: updateRampSchedule
       summary: Update a single rampSchedule
       description: >
-        Updates the name, steps, endActions, startDate, or endCondition of a
-        ramp schedule.
+        Updates the name, steps, endActions, startDate, or cutoffDate of a ramp
+        schedule.
 
 
         Only allowed when the schedule is in `pending`, `ready`, or `paused`
@@ -23923,8 +24680,56 @@ paths:
                         anyOf:
                           - type: string
                           - type: 'null'
+                      monitored:
+                        default: false
+                        type: boolean
+                      holdConditions:
+                        type: object
+                        properties:
+                          minDurationMs:
+                            type: integer
+                            exclusiveMinimum: 0
+                          maxDurationMs:
+                            type: integer
+                            exclusiveMinimum: 0
+                          minSampleSize:
+                            type: integer
+                            exclusiveMinimum: 0
+                          requireHealthy:
+                            type: boolean
+                        additionalProperties: false
+                      guardrailSettings:
+                        type: object
+                        properties:
+                          metrics:
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              type: object
+                              properties:
+                                onUnhealthy:
+                                  type: string
+                                  enum:
+                                    - hold
+                                    - warn
+                                    - ignore
+                              required:
+                                - onUnhealthy
+                              additionalProperties: false
+                          experimentHealthAction:
+                            type: string
+                            enum:
+                              - hold
+                              - warn
+                              - ignore
+                        required:
+                          - metrics
+                          - experimentHealthAction
+                        additionalProperties: false
                     required:
                       - trigger
+                      - monitored
                     additionalProperties: false
                 endActions:
                   type: array
@@ -24004,27 +24809,84 @@ paths:
                       pattern: >-
                         ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                     - type: 'null'
-                endCondition:
+                cutoffDate:
+                  anyOf:
+                    - type: string
+                      format: date-time
+                      pattern: >-
+                        ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                    - type: 'null'
+                monitoringConfig:
                   anyOf:
                     - type: object
                       properties:
-                        trigger:
-                          type: object
-                          properties:
-                            type:
-                              type: string
-                              const: scheduled
-                            at:
-                              type: string
-                              format: date-time
-                              pattern: >-
-                                ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
-                          required:
-                            - type
-                            - at
-                          additionalProperties: false
+                        datasourceId:
+                          type: string
+                        exposureQueryId:
+                          type: string
+                        guardrailMetricIds:
+                          minItems: 1
+                          type: array
+                          items:
+                            type: string
+                        autoRollback:
+                          type: boolean
+                        updateScheduleMinutes:
+                          anyOf:
+                            - type: number
+                              exclusiveMinimum: 0
+                            - type: 'null'
+                      required:
+                        - datasourceId
+                        - exposureQueryId
+                        - guardrailMetricIds
                       additionalProperties: false
                     - type: 'null'
+                guardrailSettings:
+                  anyOf:
+                    - type: object
+                      properties:
+                        metrics:
+                          type: object
+                          propertyNames:
+                            type: string
+                          additionalProperties:
+                            type: object
+                            properties:
+                              onUnhealthy:
+                                type: string
+                                enum:
+                                  - rollback
+                                  - pause
+                                  - warn
+                            required:
+                              - onUnhealthy
+                            additionalProperties: false
+                        experimentHealthAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - pause
+                            - warn
+                      required:
+                        - metrics
+                        - experimentHealthAction
+                      additionalProperties: false
+                    - type: 'null'
+                lockdownConfig:
+                  description: >-
+                    When mode is 'locked', blocks all feature edits while the
+                    ramp is actively running.
+                  type: object
+                  properties:
+                    mode:
+                      type: string
+                      enum:
+                        - none
+                        - locked
+                  required:
+                    - mode
+                  additionalProperties: false
               additionalProperties: false
       responses:
         '200':
@@ -28885,6 +29747,35 @@ components:
                   requireHealthy:
                     type: boolean
                 additionalProperties: false
+              guardrailSettings:
+                type: object
+                properties:
+                  metrics:
+                    type: object
+                    propertyNames:
+                      type: string
+                    additionalProperties:
+                      type: object
+                      properties:
+                        onUnhealthy:
+                          type: string
+                          enum:
+                            - hold
+                            - warn
+                            - ignore
+                      required:
+                        - onUnhealthy
+                      additionalProperties: false
+                  experimentHealthAction:
+                    type: string
+                    enum:
+                      - hold
+                      - warn
+                      - ignore
+                required:
+                  - metrics
+                  - experimentHealthAction
+                additionalProperties: false
             required:
               - trigger
               - actions
@@ -28978,34 +29869,12 @@ components:
               pattern: >-
                 ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
             - type: 'null'
-        endCondition:
-          description: Optional hard deadline for standard (no-step) schedules
-          anyOf:
-            - type: object
-              properties:
-                trigger:
-                  anyOf:
-                    - type: object
-                      properties:
-                        type:
-                          type: string
-                          const: scheduled
-                        at:
-                          type: string
-                          format: date-time
-                          pattern: >-
-                            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
-                      required:
-                        - type
-                        - at
-                      additionalProperties: false
-              additionalProperties: false
-            - type: 'null'
         cutoffDate:
           description: >-
-            Hard deadline: if the ramp is still running at this time, it is
-            rolled back and the rule is disabled. Distinct from endCondition
-            which fast-forwards to completion.
+            Rule-level kill date. When reached, the ramp is completed and the
+            rule is disabled (enabled=false). Use for time-boxed rules that must
+            stop serving on a fixed date regardless of ramp progress. Set to
+            null to clear.
           anyOf:
             - type: string
               format: date-time
@@ -29107,6 +29976,37 @@ components:
                 - datasourceId
                 - exposureQueryId
                 - guardrailMetricIds
+              additionalProperties: false
+            - type: 'null'
+        guardrailSettings:
+          anyOf:
+            - type: object
+              properties:
+                metrics:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: object
+                    properties:
+                      onUnhealthy:
+                        type: string
+                        enum:
+                          - rollback
+                          - pause
+                          - warn
+                    required:
+                      - onUnhealthy
+                    additionalProperties: false
+                experimentHealthAction:
+                  type: string
+                  enum:
+                    - rollback
+                    - pause
+                    - warn
+              required:
+                - metrics
+                - experimentHealthAction
               additionalProperties: false
             - type: 'null'
         currentStepEnteredAt:
@@ -31228,6 +32128,52 @@ components:
                 anyOf:
                   - type: string
                   - type: 'null'
+              monitored:
+                type: boolean
+              holdConditions:
+                type: object
+                properties:
+                  minDurationMs:
+                    type: integer
+                    exclusiveMinimum: 0
+                  maxDurationMs:
+                    type: integer
+                    exclusiveMinimum: 0
+                  minSampleSize:
+                    type: integer
+                    exclusiveMinimum: 0
+                  requireHealthy:
+                    type: boolean
+                additionalProperties: false
+              guardrailSettings:
+                type: object
+                properties:
+                  metrics:
+                    type: object
+                    propertyNames:
+                      type: string
+                    additionalProperties:
+                      type: object
+                      properties:
+                        onUnhealthy:
+                          type: string
+                          enum:
+                            - hold
+                            - warn
+                            - ignore
+                      required:
+                        - onUnhealthy
+                      additionalProperties: false
+                  experimentHealthAction:
+                    type: string
+                    enum:
+                      - hold
+                      - warn
+                      - ignore
+                required:
+                  - metrics
+                  - experimentHealthAction
+                additionalProperties: false
             required:
               - trigger
               - actions
@@ -31300,6 +32246,37 @@ components:
                 - datasourceId
                 - exposureQueryId
                 - guardrailMetricIds
+              additionalProperties: false
+            - type: 'null'
+        guardrailSettings:
+          anyOf:
+            - type: object
+              properties:
+                metrics:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: object
+                    properties:
+                      onUnhealthy:
+                        type: string
+                        enum:
+                          - rollback
+                          - pause
+                          - warn
+                    required:
+                      - onUnhealthy
+                    additionalProperties: false
+                experimentHealthAction:
+                  type: string
+                  enum:
+                    - rollback
+                    - pause
+                    - warn
+              required:
+                - metrics
+                - experimentHealthAction
               additionalProperties: false
             - type: 'null'
       required:

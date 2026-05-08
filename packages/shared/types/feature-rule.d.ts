@@ -1,13 +1,12 @@
 import {
   CreateSafeRolloutInterface,
   FeatureRule,
+  LockdownConfig,
   RampMonitoringConfig,
   RampStep,
   RampStepAction,
+  ScheduleGuardrailSettings,
 } from "shared/validators";
-
-/** Wire-format end trigger (dates as ISO strings). */
-export type RampEndTrigger = { type: "scheduled"; at: string };
 
 // Inline ramp schedule to create atomically with the rule.
 export type InlineRampScheduleCreate = {
@@ -22,13 +21,13 @@ export type InlineRampScheduleCreate = {
   // ISO datetime string; if set, rule stays disabled until this date, then Step 1 fires.
   // Absent/null means start immediately when the activating revision is published.
   startDate?: string | null;
-  endCondition?: {
-    trigger?: RampEndTrigger;
-  };
-  // ISO datetime string; if set, rolls back and disables the rule if the ramp
-  // hasn't completed by this date.
+  // Rule-level kill date (ISO string). When reached, the ramp is completed and
+  // the rule is disabled (enabled=false). Use for time-boxed rules that must
+  // stop serving on a fixed date regardless of ramp progress. Set to null to clear.
   cutoffDate?: string | null;
   monitoringConfig?: RampMonitoringConfig;
+  lockdownConfig?: LockdownConfig;
+  guardrailSettings?: ScheduleGuardrailSettings | null;
 };
 
 // Detach a rule from a ramp schedule (removes it from the targets array).
@@ -53,11 +52,11 @@ export type InlineRampScheduleUpdate = {
   endActions?: RampStepAction[];
   // ISO datetime string; null clears startDate (immediate start).
   startDate?: string | null;
-  endCondition?: {
-    trigger?: RampEndTrigger;
-  } | null;
+  // Rule-level kill date (ISO string). Set to null to clear.
   cutoffDate?: string | null;
   monitoringConfig?: RampMonitoringConfig;
+  lockdownConfig?: LockdownConfig;
+  guardrailSettings?: ScheduleGuardrailSettings | null;
 };
 
 export type PostFeatureRuleBody = {

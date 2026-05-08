@@ -115,7 +115,7 @@ export default function ScheduleInputs({ state, setState }: Props) {
 
       {/* Start row */}
       <Flex align="center" gap="3" py="2" style={{ minHeight: 54 }}>
-        <Box style={{ width: 60 }}>
+        <Box style={{ width: 70 }}>
           <Text as="label" weight="medium" mb="0">
             Start
           </Text>
@@ -142,7 +142,7 @@ export default function ScheduleInputs({ state, setState }: Props) {
 
       {/* End row */}
       <Flex align="center" gap="3" py="2" style={{ minHeight: 54 }}>
-        <Box style={{ width: 60 }}>
+        <Box style={{ width: 70 }}>
           <Text as="label" weight="medium" mb="0">
             End
           </Text>

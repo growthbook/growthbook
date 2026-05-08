@@ -32,8 +32,12 @@ import {
   type FeatureRulePatch,
   type TemplateEndPatch,
   type RevisionRampCreateAction,
+  type ScheduleGuardrailSettings,
+  type StepGuardrailSettings,
+  type StepHoldConditions,
 } from "shared/validators";
 import { date as formatDate } from "shared/dates";
+import { expandMetricGroups } from "shared/experiments";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { HiBadgeCheck } from "react-icons/hi";
 import {
@@ -73,6 +77,10 @@ import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { formatRemainingDuration } from "@/components/Features/Rule";
 import { Popover } from "@/ui/Popover";
+import {
+  ScheduleGuardrailEditor,
+  StepGuardrailEditor,
+} from "@/components/Features/RuleModal/GuardrailSettingsEditor";
 import styles from "./RampScheduleSection.module.scss";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -112,8 +120,8 @@ export type UIStep = {
   notesOpen: boolean; // UI-only: whether the notes field is expanded
   additionalEffectsOpen: boolean; // UI-only: whether the effects sub-rows are expanded
   monitored: boolean;
-  requireHealthy: boolean;
-  minSampleSize: number | null;
+  guardrailSettings?: StepGuardrailSettings;
+  holdConditions?: StepHoldConditions;
 };
 
 export type RampMode = "off" | "create" | "edit" | "link";
@@ -127,6 +135,7 @@ export interface RampMonitoringState {
   datasourceId: string;
   exposureQueryId: string;
   guardrailMetricIds: string[];
+  /** @deprecated Use scheduleGuardrailSettings on RampSectionState instead. */
   autoRollback: boolean;
   // Per-rollout query cadence override (minutes). null = use org default.
   updateScheduleMinutes: number | null;
@@ -149,9 +158,16 @@ export interface RampSectionState {
   // "" = no cutoff; non-empty ISO string = active cutoff.
   cutoffDate: string;
 
+  // When true, the entire feature is locked from edits while the ramp is
+  // actively running (status running/pending-approval). Does NOT lock between
+  // ramp completion ("end") and cutoffDate ("disable").
+  lockFeature: boolean;
+
   // Builder mode & monitoring
   builderMode: RampBuilderMode;
   monitoring: RampMonitoringState;
+  // Schedule-level guardrail behavior (per-metric actions + experiment health).
+  guardrailSettings?: ScheduleGuardrailSettings;
   // Simple mode: total duration, auto-generates steps
   simpleDurationDays: number;
   simpleDurationUnit?: IntervalUnit;
@@ -173,6 +189,28 @@ const UNIT_MULT: Record<IntervalUnit, number> = {
 
 const SIMPLE_COVERAGES = [10, 25, 50, 75, 100];
 
+function buildDefaultStepGuardrailSettings(
+  metricIds: string[],
+): StepGuardrailSettings {
+  return {
+    metrics: Object.fromEntries(
+      metricIds.map((id) => [id, { onUnhealthy: "hold" as const }]),
+    ),
+    experimentHealthAction: "hold",
+  };
+}
+
+function buildDefaultScheduleGuardrailSettings(
+  metricIds: string[],
+): ScheduleGuardrailSettings {
+  return {
+    metrics: Object.fromEntries(
+      metricIds.map((id) => [id, { onUnhealthy: "rollback" as const }]),
+    ),
+    experimentHealthAction: "pause",
+  };
+}
+
 export function generateSimpleSteps(
   duration: number,
   unit: IntervalUnit = "days",
@@ -191,8 +229,6 @@ export function generateSimpleSteps(
     notesOpen: false,
     additionalEffectsOpen: false,
     monitored: false,
-    requireHealthy: false,
-    minSampleSize: null,
   }));
 }
 
@@ -213,6 +249,12 @@ export function stepsMatchSimplePattern(steps: UIStep[]): boolean {
   for (let i = 0; i < steps.length; i++) {
     if ((steps[i].patch.coverage ?? 0) !== SIMPLE_COVERAGES[i]) return false;
   }
+  // Per-step guardrail overrides break simple mode — all steps must be uniform.
+  const gsRef = JSON.stringify(steps[0].guardrailSettings ?? null);
+  if (
+    !steps.every((s) => JSON.stringify(s.guardrailSettings ?? null) === gsRef)
+  )
+    return false;
   return true;
 }
 
@@ -390,13 +432,11 @@ export function buildRampSteps(
       ...(s.triggerType === "approval" && s.approvalNotes
         ? { approvalNotes: s.approvalNotes }
         : {}),
-      ...(s.monitored ? { monitored: true } : {}),
-      ...(() => {
-        const hc: Record<string, unknown> = {};
-        if (s.requireHealthy) hc.requireHealthy = true;
-        if (s.minSampleSize) hc.minSampleSize = s.minSampleSize;
-        return Object.keys(hc).length > 0 ? { holdConditions: hc } : {};
-      })(),
+      monitored: !!s.monitored,
+      ...(s.guardrailSettings
+        ? { guardrailSettings: s.guardrailSettings }
+        : {}),
+      ...(s.holdConditions ? { holdConditions: s.holdConditions } : {}),
     };
   });
 }
@@ -433,7 +473,15 @@ function normalizeStructural(p: Record<string, unknown>) {
     ...s,
     actions: normalizeActions(s.actions) ?? [],
   }));
-  return JSON.stringify({ steps });
+  const endPatch = p.endPatch ?? null;
+  const monitoringConfig = p.monitoringConfig ?? null;
+  const guardrailSettings = p.guardrailSettings ?? null;
+  return JSON.stringify({
+    steps,
+    endPatch,
+    monitoringConfig,
+    guardrailSettings,
+  });
 }
 
 export function findMatchingTemplate(
@@ -541,13 +589,22 @@ export default function RampScheduleSection({
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
   const hasRampSchedulesFeature = hasCommercialFeature("ramp-schedules");
-  const { datasources } = useDefinitions();
+  const { datasources, metricGroups } = useDefinitions();
   const settings = useOrgSettings();
 
   const selectedDatasource = useMemo(
     () => datasources.find((d) => d.id === state.monitoring.datasourceId),
     [datasources, state.monitoring.datasourceId],
   );
+
+  // Expand metric group IDs to individual metric IDs (deduped) for guardrail
+  // settings. The raw guardrailMetricIds (including mg_ groups) stay on
+  // monitoringConfig for the snapshot pipeline which expands them itself.
+  const expandedGuardrailMetricIds = useMemo(() => {
+    const raw = state.monitoring.guardrailMetricIds;
+    if (raw.length === 0) return raw;
+    return [...new Set(expandMetricGroups(raw, metricGroups))];
+  }, [state.monitoring.guardrailMetricIds, metricGroups]);
   const exposureQueries = useMemo(
     () => selectedDatasource?.settings?.queries?.exposure ?? [],
     [selectedDatasource],
@@ -658,8 +715,7 @@ export default function RampScheduleSection({
       notesOpen: false,
       additionalEffectsOpen: false,
       monitored: prev?.monitored ?? false,
-      requireHealthy: prev?.requireHealthy ?? false,
-      minSampleSize: prev?.minSampleSize ?? null,
+      guardrailSettings: prev?.guardrailSettings,
     };
     const steps = [...state.steps];
     steps.splice(insertAt, 0, newStep);
@@ -688,8 +744,7 @@ export default function RampScheduleSection({
           notesOpen: false,
           additionalEffectsOpen: false,
           monitored: last?.monitored ?? false,
-          requireHealthy: last?.requireHealthy ?? false,
-          minSampleSize: last?.minSampleSize ?? null,
+          guardrailSettings: last?.guardrailSettings,
         },
       ],
     });
@@ -1245,10 +1300,11 @@ export default function RampScheduleSection({
                           onClick={() =>
                             updateStep(i, {
                               monitored: !step.monitored,
-                              requireHealthy: !step.monitored ? true : false,
-                              minSampleSize: !step.monitored
-                                ? step.minSampleSize
-                                : null,
+                              guardrailSettings: !step.monitored
+                                ? buildDefaultStepGuardrailSettings(
+                                    expandedGuardrailMetricIds,
+                                  )
+                                : undefined,
                             })
                           }
                           style={{
@@ -1321,43 +1377,33 @@ export default function RampScheduleSection({
                   </Flex>
                 </Flex>
 
-                {/* Hold conditions — nested under monitor checkbox */}
+                {/* Step guardrail editor */}
                 {step.monitored && (
                   <Flex justify="end" pr="5">
-                    <Flex direction="column" gap="1" ml="5">
-                      <Checkbox
-                        value={step.requireHealthy}
-                        setValue={(v) => updateStep(i, { requireHealthy: v })}
-                        label="Require healthy guardrails"
-                        size="sm"
-                      />
-                      <Flex align="center" gap="2">
-                        <Checkbox
-                          value={step.minSampleSize !== null}
-                          setValue={(v) =>
-                            updateStep(i, {
-                              minSampleSize: v ? 1000 : null,
-                            })
-                          }
-                          label="Min sample size"
-                          size="sm"
-                        />
-                        {step.minSampleSize !== null && (
-                          <Field
-                            type="number"
-                            min="1"
-                            value={String(step.minSampleSize)}
-                            onChange={(e) =>
-                              updateStep(i, {
-                                minSampleSize: parseInt(e.target.value) || 0,
-                              })
-                            }
-                            containerClassName="mb-0"
-                            style={{ width: 80, minHeight: 30 }}
-                          />
-                        )}
-                      </Flex>
-                    </Flex>
+                    <StepGuardrailEditor
+                      settings={
+                        step.guardrailSettings ??
+                        buildDefaultStepGuardrailSettings(
+                          expandedGuardrailMetricIds,
+                        )
+                      }
+                      metricIds={expandedGuardrailMetricIds}
+                      onChange={(gs) => {
+                        const newSteps = state.steps.map((s, idx) =>
+                          idx === i ? { ...s, guardrailSettings: gs } : s,
+                        );
+                        const patch: Partial<RampSectionState> = {
+                          steps: newSteps,
+                        };
+                        if (
+                          state.builderMode === "simple" &&
+                          !stepsMatchSimplePattern(newSteps)
+                        ) {
+                          patch.builderMode = "advanced";
+                        }
+                        patchState(patch);
+                      }}
+                    />
                   </Flex>
                 )}
 
@@ -1559,9 +1605,46 @@ export default function RampScheduleSection({
     ) : null;
 
   function patchMonitoring(update: Partial<RampMonitoringState>) {
-    patchState({
-      monitoring: { ...state.monitoring, ...update },
-    });
+    const merged = { ...state.monitoring, ...update };
+    const patch: Partial<RampSectionState> = { monitoring: merged };
+
+    if (update.guardrailMetricIds) {
+      // Expand metric groups to individual IDs for guardrail settings keys.
+      // monitoringConfig keeps the raw IDs (the snapshot pipeline expands).
+      const expanded = [
+        ...new Set(expandMetricGroups(update.guardrailMetricIds, metricGroups)),
+      ];
+      const prev = state.guardrailSettings;
+      patch.guardrailSettings = {
+        metrics: Object.fromEntries(
+          expanded.map((id) => [
+            id,
+            prev?.metrics[id] ?? { onUnhealthy: "rollback" as const },
+          ]),
+        ),
+        experimentHealthAction: prev?.experimentHealthAction ?? "pause",
+      };
+      patch.steps = state.steps.map((s) => {
+        if (!s.monitored || !s.guardrailSettings) return s;
+        return {
+          ...s,
+          guardrailSettings: {
+            metrics: Object.fromEntries(
+              expanded.map((id) => [
+                id,
+                s.guardrailSettings!.metrics[id] ?? {
+                  onUnhealthy: "hold" as const,
+                },
+              ]),
+            ),
+            experimentHealthAction:
+              s.guardrailSettings.experimentHealthAction ?? "hold",
+          },
+        };
+      });
+    }
+
+    patchState(patch);
   }
 
   function handleSimpleDurationChange(duration: number, unit?: IntervalUnit) {
@@ -1571,7 +1654,9 @@ export default function RampScheduleSection({
     const steps = generateSimpleSteps(d, u).map((s) => ({
       ...s,
       monitored,
-      requireHealthy: monitored ? true : false,
+      guardrailSettings: monitored
+        ? buildDefaultStepGuardrailSettings(expandedGuardrailMetricIds)
+        : undefined,
     }));
     patchState({
       simpleDurationDays: d,
@@ -1691,20 +1776,19 @@ export default function RampScheduleSection({
           />
         </Box>
 
-        <Checkbox
-          value={state.monitoring.autoRollback}
-          setValue={(v) => patchMonitoring({ autoRollback: v })}
-          label={
-            <>
-              Auto rollback
-              <Text as="span" color="text-mid">
-                {" "}
-                — when unhealthy or a guardrail fails
-              </Text>
-            </>
-          }
-          size="sm"
-        />
+        <Box>
+          <Text as="label" weight="medium" mb="1">
+            Guardrail actions
+          </Text>
+          <ScheduleGuardrailEditor
+            settings={
+              state.guardrailSettings ??
+              buildDefaultScheduleGuardrailSettings(expandedGuardrailMetricIds)
+            }
+            metricIds={expandedGuardrailMetricIds}
+            onChange={(gs) => patchState({ guardrailSettings: gs })}
+          />
+        </Box>
 
         <div
           className="link-purple font-weight-bold mt-2"
@@ -1748,7 +1832,7 @@ export default function RampScheduleSection({
                     }
                     flipTheme={false}
                   >
-                    <PiInfo />
+                    <PiInfo color="var(--color-text-low)" />
                   </Tooltip>
                 </>
               }
@@ -1828,7 +1912,10 @@ export default function RampScheduleSection({
       steps: state.steps.map((s) => ({
         ...s,
         monitored: checked,
-        requireHealthy: checked ? s.requireHealthy || true : s.requireHealthy,
+        guardrailSettings: checked
+          ? (s.guardrailSettings ??
+            buildDefaultStepGuardrailSettings(expandedGuardrailMetricIds))
+          : s.guardrailSettings,
       })),
     });
   }
@@ -1971,7 +2058,7 @@ export default function RampScheduleSection({
 
   const durationInput = (
     <Flex align="center" gap="3" py="2" style={{ minHeight: 54 }}>
-      <Box style={{ width: 60 }}>
+      <Box style={{ width: 70 }}>
         <Text as="label" weight="medium" mb="0">
           Duration
         </Text>
@@ -2023,15 +2110,32 @@ export default function RampScheduleSection({
 
   const cutoffInput = (
     <Flex align="center" gap="3" py="2" style={{ minHeight: 54 }}>
-      <Box style={{ width: 60 }}>
-        <Text as="label" weight="medium" mb="0">
-          Cutoff
-        </Text>
+      <Box style={{ width: 70 }}>
+        <Flex align="center" gap="1">
+          <Text as="label" weight="medium" mb="0">
+            Disable
+          </Text>
+          <Tooltip
+            body={
+              <>
+                <Text as="div" mb="2">
+                  Automatically disables the rule on this date.
+                </Text>
+                <Text as="div" mb="2">
+                  Note: If incomplete, the Ramp-up is automatically completed on
+                  this date.
+                </Text>
+              </>
+            }
+          >
+            <PiInfo color="var(--color-text-low)" />
+          </Tooltip>
+        </Flex>
       </Box>
       <SelectField
         value={state.cutoffDate ? "on-date" : "none"}
         options={[
-          { value: "none", label: "None" },
+          { value: "none", label: "Never" },
           { value: "on-date", label: "On date" },
         ]}
         onChange={(v) => {
@@ -2046,11 +2150,6 @@ export default function RampScheduleSection({
         }}
         containerClassName="mb-0"
         containerStyle={{ minHeight: 38, width: 150 }}
-        helpText={
-          state.cutoffDate
-            ? "Rolls back and disables if the ramp hasn't completed by this date"
-            : undefined
-        }
       />
       {state.cutoffDate && (
         <DatePicker
@@ -2076,7 +2175,9 @@ export default function RampScheduleSection({
             const steps = generateSimpleSteps(dur, unit).map((s) => ({
               ...s,
               monitored,
-              requireHealthy: monitored,
+              guardrailSettings: monitored
+                ? buildDefaultStepGuardrailSettings(expandedGuardrailMetricIds)
+                : undefined,
             }));
             patchState({ builderMode: "advanced", steps });
             setSelectedTemplateId("");
@@ -2090,7 +2191,7 @@ export default function RampScheduleSection({
 
   const startInput = !hideTemplateSave ? (
     <Flex align="center" gap="3" py="2" style={{ minHeight: 54 }}>
-      <Box style={{ width: 60 }}>
+      <Box style={{ width: 70 }}>
         <Text as="label" weight="medium" mb="0">
           Start
         </Text>
@@ -2136,7 +2237,9 @@ export default function RampScheduleSection({
             const steps = generateSimpleSteps(dur, unit).map((s) => ({
               ...s,
               monitored,
-              requireHealthy: monitored,
+              guardrailSettings: monitored
+                ? buildDefaultStepGuardrailSettings(expandedGuardrailMetricIds)
+                : undefined,
             }));
             patchState({ builderMode: "simple", steps });
             setSelectedTemplateId("");
@@ -2156,6 +2259,17 @@ export default function RampScheduleSection({
         {startInput}
         {durationInput}
         {!hideTemplateSave && cutoffInput}
+
+        <Flex align="center" my="2">
+          <Checkbox
+            value={state.lockFeature}
+            setValue={(v) => patchState({ lockFeature: v })}
+            label="Lock feature while running"
+          />
+          <Tooltip body="Prevents all edits to this feature while the ramp is actively progressing. Does not apply when paused, completed, or rolled back.">
+            <PiInfo color="var(--color-text-low)" className="ml-1" />
+          </Tooltip>
+        </Flex>
       </Flex>
 
       {monitorCheckbox}
@@ -2326,8 +2440,8 @@ export function reconstructUIStep(step: RampStep): UIStep {
       notesOpen: approvalNotes.trim().length > 0,
       additionalEffectsOpen,
       monitored: step.monitored ?? false,
-      requireHealthy: step.holdConditions?.requireHealthy ?? false,
-      minSampleSize: step.holdConditions?.minSampleSize ?? null,
+      guardrailSettings: step.guardrailSettings ?? undefined,
+      holdConditions: step.holdConditions ?? undefined,
     };
   }
   const seconds = step.trigger.seconds;
@@ -2351,8 +2465,8 @@ export function reconstructUIStep(step: RampStep): UIStep {
     notesOpen: false,
     additionalEffectsOpen,
     monitored: step.monitored ?? false,
-    requireHealthy: step.holdConditions?.requireHealthy ?? false,
-    minSampleSize: step.holdConditions?.minSampleSize ?? null,
+    guardrailSettings: step.guardrailSettings ?? undefined,
+    holdConditions: step.holdConditions ?? undefined,
   };
 }
 
@@ -2377,16 +2491,14 @@ export function rampScheduleToSectionState(
     name: rs.name,
     startDate: rs.startDate ? new Date(rs.startDate).toISOString() : "",
     steps: uiSteps,
-    endScheduleAt:
-      rs.endCondition?.trigger?.type === "scheduled"
-        ? new Date(rs.endCondition.trigger.at).toISOString()
-        : "",
+    endScheduleAt: rs.cutoffDate ? new Date(rs.cutoffDate).toISOString() : "",
     endPatch,
     linkedRampId: rs.id,
     endAdditionalEffectsOpen:
       VALID_STEP_FIELDS.some((f) => endPatch[f] !== undefined) ||
       (endPatch.coverage !== undefined && endPatch.coverage !== 100),
     cutoffDate: rs.cutoffDate ? new Date(rs.cutoffDate).toISOString() : "",
+    lockFeature: rs.lockdownConfig?.mode === "locked",
     builderMode: isSimple ? "simple" : "advanced",
     monitoring: rs.monitoringConfig
       ? {
@@ -2398,6 +2510,7 @@ export function rampScheduleToSectionState(
             rs.monitoringConfig.updateScheduleMinutes ?? null,
         }
       : { ...DEFAULT_MONITORING },
+    guardrailSettings: rs.guardrailSettings ?? undefined,
     simpleDurationUnit: isSimple && firstStep ? firstStep.intervalUnit : "days",
     simpleDurationDays:
       isSimple && firstStep
@@ -2422,6 +2535,7 @@ export function defaultRampSectionState(
     linkedRampId: "",
     endAdditionalEffectsOpen: false,
     cutoffDate: "",
+    lockFeature: false,
     builderMode: "simple",
     monitoring: { ...DEFAULT_MONITORING },
     simpleDurationDays: 5,
@@ -2446,10 +2560,9 @@ export function createActionToSectionState(
     name: action.name ?? "",
     startDate: action.startDate ? new Date(action.startDate).toISOString() : "",
     steps: uiSteps,
-    endScheduleAt:
-      action.endCondition?.trigger?.type === "scheduled"
-        ? new Date(action.endCondition.trigger.at).toISOString()
-        : "",
+    endScheduleAt: action.cutoffDate
+      ? new Date(action.cutoffDate).toISOString()
+      : "",
     endPatch,
     linkedRampId: "",
     endAdditionalEffectsOpen:
@@ -2458,6 +2571,7 @@ export function createActionToSectionState(
     cutoffDate: action.cutoffDate
       ? new Date(action.cutoffDate).toISOString()
       : "",
+    lockFeature: action.lockdownConfig?.mode === "locked",
     builderMode: isSimple ? "simple" : "advanced",
     monitoring: action.monitoringConfig
       ? {
@@ -2469,6 +2583,7 @@ export function createActionToSectionState(
             action.monitoringConfig.updateScheduleMinutes ?? null,
         }
       : { ...DEFAULT_MONITORING },
+    guardrailSettings: action.guardrailSettings ?? undefined,
     simpleDurationUnit: isSimple && firstStep ? firstStep.intervalUnit : "days",
     simpleDurationDays:
       isSimple && firstStep
@@ -2501,6 +2616,7 @@ export function templateToSectionState(
       VALID_STEP_FIELDS.some((f) => endPatch[f] !== undefined) ||
       (endPatch.coverage !== undefined && endPatch.coverage !== 100),
     cutoffDate: "",
+    lockFeature: template.lockdownConfig?.mode === "locked",
     builderMode: "advanced",
     monitoring: mc
       ? {
@@ -2511,6 +2627,7 @@ export function templateToSectionState(
           updateScheduleMinutes: mc.updateScheduleMinutes ?? null,
         }
       : { ...DEFAULT_MONITORING },
+    guardrailSettings: template.guardrailSettings ?? undefined,
     simpleDurationDays: 5,
   };
 }
@@ -2563,5 +2680,11 @@ export function buildTemplatePayload(
     steps,
     ...(endPatch ? { endPatch } : {}),
     ...(monitoringConfig ? { monitoringConfig } : {}),
+    ...(state.lockFeature
+      ? { lockdownConfig: { mode: "locked" as const } }
+      : {}),
+    ...(state.guardrailSettings
+      ? { guardrailSettings: state.guardrailSettings }
+      : {}),
   };
 }

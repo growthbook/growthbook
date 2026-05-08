@@ -7,6 +7,7 @@ import {
   RampScheduleInterface,
   RampScheduleTemplateInterface,
   RampStepAction,
+  StepHoldConditions,
   rampScheduleValidator,
 } from "shared/validators";
 import { RULE_ID_ENV_SUFFIX_DELIMITER, stemRuleId } from "shared/util";
@@ -25,6 +26,31 @@ import {
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "rampschedules";
+
+/**
+ * JIT migration: if a schedule has a legacy `endCondition` with a scheduled
+ * trigger and no `cutoffDate`, move the date to `cutoffDate` and clear
+ * `endCondition`. This is a readonly normalization — the DB document is not
+ * written back; the caller sees the migrated shape.
+ */
+export function migrateRampScheduleEndCondition<
+  T extends {
+    endCondition?: { trigger?: { type: string; at: unknown } | null } | null;
+    cutoffDate?: Date | string | null;
+  },
+>(doc: T): T {
+  if (doc.cutoffDate) return doc;
+  const trigger = doc.endCondition?.trigger;
+  if (trigger?.type === "scheduled" && trigger.at) {
+    return {
+      ...doc,
+      cutoffDate:
+        trigger.at instanceof Date ? trigger.at : (trigger.at as string),
+      endCondition: null,
+    };
+  }
+  return doc;
+}
 
 const BaseClass = MakeModelClass({
   schema: rampScheduleValidator,
@@ -86,19 +112,13 @@ export function rampScheduleToApiInterface(
       trigger: serializeTrigger(s.trigger),
       actions: s.actions,
       approvalNotes: s.approvalNotes,
+      monitored: !!s.monitored,
+      holdConditions: s.holdConditions ?? undefined,
+      guardrailSettings: s.guardrailSettings ?? undefined,
     })),
     endActions: doc.endActions,
     startDate: dateToIso(doc.startDate),
-    endCondition: doc.endCondition
-      ? {
-          trigger: doc.endCondition.trigger
-            ? {
-                type: "scheduled" as const,
-                at: doc.endCondition.trigger.at.toISOString(),
-              }
-            : undefined,
-        }
-      : doc.endCondition,
+    cutoffDate: dateToIso(doc.cutoffDate),
     status: doc.status,
     currentStepIndex: doc.currentStepIndex,
     startedAt: dateToIso(doc.startedAt),
@@ -107,6 +127,12 @@ export function rampScheduleToApiInterface(
     nextStepAt: dateToIso(doc.nextStepAt) ?? null,
     nextProcessAt: dateToIso(doc.nextProcessAt),
     elapsedMs: doc.elapsedMs,
+    lockdownConfig: doc.lockdownConfig,
+    monitoringConfig: doc.monitoringConfig,
+    guardrailSettings: doc.guardrailSettings,
+    currentStepEnteredAt: dateToIso(doc.currentStepEnteredAt),
+    lastRollbackAt: dateToIso(doc.lastRollbackAt),
+    lastRollbackReason: doc.lastRollbackReason,
   };
 }
 
@@ -217,6 +243,76 @@ export class RampScheduleModel extends BaseClass {
     return this.context.permissions.canDeleteFeature({
       project: this.getProject(existing),
     });
+  }
+
+  protected override migrate(legacyDoc: unknown): RampScheduleInterface {
+    const doc = legacyDoc as RampScheduleInterface;
+    const migrated = migrateRampScheduleEndCondition(doc);
+    const result =
+      migrated.cutoffDate && typeof migrated.cutoffDate === "string"
+        ? { ...migrated, cutoffDate: new Date(migrated.cutoffDate) }
+        : migrated;
+    if (
+      result.steps?.some(
+        (s) =>
+          s.monitored == null ||
+          s.holdConditions === null ||
+          s.guardrailSettings === null,
+      )
+    ) {
+      result.steps = result.steps.map((s) => ({
+        ...s,
+        monitored: !!s.monitored,
+        ...(s.holdConditions === null ? { holdConditions: undefined } : {}),
+        ...(s.guardrailSettings === null
+          ? { guardrailSettings: undefined }
+          : {}),
+      }));
+    }
+    // Migrate legacy autoRollback → schedule-level guardrailSettings
+    if (
+      result.monitoringConfig?.autoRollback != null &&
+      !result.guardrailSettings
+    ) {
+      const metricIds = result.monitoringConfig.guardrailMetricIds ?? [];
+      const action = result.monitoringConfig.autoRollback
+        ? ("rollback" as const)
+        : ("warn" as const);
+      result.guardrailSettings = {
+        metrics: Object.fromEntries(
+          metricIds.map((id) => [id, { onUnhealthy: action }]),
+        ),
+        experimentHealthAction: "pause",
+      };
+    }
+    // Migrate legacy holdConditions.requireHealthy → step-level guardrailSettings
+    if (
+      result.steps?.some(
+        (s) => s.holdConditions?.requireHealthy != null && !s.guardrailSettings,
+      )
+    ) {
+      const metricIds = result.monitoringConfig?.guardrailMetricIds ?? [];
+      result.steps = result.steps.map((s) => {
+        if (s.holdConditions?.requireHealthy != null && !s.guardrailSettings) {
+          const stepAction = s.holdConditions.requireHealthy
+            ? ("hold" as const)
+            : ("ignore" as const);
+          return {
+            ...s,
+            guardrailSettings: {
+              metrics: Object.fromEntries(
+                metricIds.map((id) => [id, { onUnhealthy: stepAction }]),
+              ),
+              experimentHealthAction: s.holdConditions.requireHealthy
+                ? ("hold" as const)
+                : ("ignore" as const),
+            },
+          };
+        }
+        return s;
+      });
+    }
+    return result;
   }
 
   // --- API interface ---
@@ -357,6 +453,9 @@ export class RampScheduleModel extends BaseClass {
             trigger: ApiRampTrigger;
             actions?: PostBodyAction[];
             approvalNotes?: string | null;
+            monitored?: boolean;
+            holdConditions?: StepHoldConditions;
+            guardrailSettings?: RampScheduleInterface["steps"][number]["guardrailSettings"];
           }) => ({
             trigger: normalizeApiTrigger(s.trigger),
             actions: (s.actions ?? []).map((a: PostBodyAction) =>
@@ -365,6 +464,9 @@ export class RampScheduleModel extends BaseClass {
                 : normalizeAction(a),
             ),
             approvalNotes: s.approvalNotes ?? undefined,
+            monitored: !!s.monitored,
+            holdConditions: s.holdConditions ?? undefined,
+            guardrailSettings: s.guardrailSettings ?? undefined,
           }),
         );
       }
@@ -378,6 +480,9 @@ export class RampScheduleModel extends BaseClass {
             feature!.valueType,
           ),
           approvalNotes: s.approvalNotes ?? undefined,
+          monitored: !!s.monitored,
+          holdConditions: s.holdConditions ?? undefined,
+          guardrailSettings: s.guardrailSettings ?? undefined,
         }));
       }
       return [];
@@ -410,17 +515,6 @@ export class RampScheduleModel extends BaseClass {
       return undefined;
     })();
 
-    const rawEndTrigger = body.endCondition?.trigger;
-    const endTrigger = rawEndTrigger
-      ? {
-          type: "scheduled" as const,
-          at: new Date(
-            (rawEndTrigger as { type: string; at: string | Date }).at,
-          ),
-        }
-      : undefined;
-    const endCondition = endTrigger ? { trigger: endTrigger } : undefined;
-
     const schedule = await this.create({
       name: body.name,
       entityType: "feature",
@@ -444,11 +538,18 @@ export class RampScheduleModel extends BaseClass {
       steps: resolvedSteps,
       endActions: resolvedEndActions,
       startDate,
-      endCondition,
+      cutoffDate: body.cutoffDate ? new Date(body.cutoffDate as string) : null,
       status: hasTarget ? "ready" : "pending",
       currentStepIndex: -1,
       nextStepAt: null,
       nextProcessAt: startDate ?? null,
+      ...(body.monitoringConfig
+        ? { monitoringConfig: body.monitoringConfig }
+        : {}),
+      ...(body.lockdownConfig ? { lockdownConfig: body.lockdownConfig } : {}),
+      ...(body.guardrailSettings
+        ? { guardrailSettings: body.guardrailSettings }
+        : {}),
     } as Omit<
       RampScheduleInterface,
       "id" | "organization" | "dateCreated" | "dateUpdated"
@@ -541,25 +642,27 @@ export class RampScheduleModel extends BaseClass {
     if ("startDate" in body) {
       updates.startDate = body.startDate ? new Date(body.startDate) : null;
     }
-    if (body.endCondition !== undefined) {
-      const ec = body.endCondition;
-      if (!ec) {
-        updates.endCondition = null;
-      } else {
-        const rawTrigger = ec.trigger;
-        const trigger = rawTrigger
-          ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
-          : undefined;
-        updates.endCondition = { trigger };
-      }
+    if ("cutoffDate" in body) {
+      updates.cutoffDate = body.cutoffDate
+        ? new Date(body.cutoffDate as string)
+        : null;
+    }
+    if (body.lockdownConfig !== undefined) {
+      updates.lockdownConfig = body.lockdownConfig;
+    }
+    if (body.monitoringConfig !== undefined) {
+      updates.monitoringConfig = body.monitoringConfig;
+    }
+    if (body.guardrailSettings !== undefined) {
+      updates.guardrailSettings = body.guardrailSettings;
     }
 
     updates.nextProcessAt = computeNextProcessAt({
       status: schedule.status,
       nextStepAt: schedule.nextStepAt,
-      endCondition: ("endCondition" in updates
-        ? updates.endCondition
-        : schedule.endCondition) as RampScheduleInterface["endCondition"],
+      cutoffDate: ("cutoffDate" in updates
+        ? updates.cutoffDate
+        : schedule.cutoffDate) as RampScheduleInterface["cutoffDate"],
       startDate: ("startDate" in updates
         ? updates.startDate
         : schedule.startDate) as RampScheduleInterface["startDate"],

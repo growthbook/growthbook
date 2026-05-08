@@ -1314,7 +1314,7 @@ describe("completeRollout", () => {
           ],
         },
       ],
-      // No endCondition.
+      // No cutoffDate.
     });
 
     const { ctx } = makeContext();
@@ -1331,7 +1331,7 @@ describe("completeRollout", () => {
     expect(rule?.condition).toBe('{"country":"US"}');
   });
 
-  it("applies the accumulated patch from all steps (endCondition has no actions)", async () => {
+  it("applies the accumulated patch from all steps (cutoffDate, no end actions)", async () => {
     const schedule = makeSchedule({
       currentStepIndex: 0,
       status: "running",
@@ -1351,9 +1351,7 @@ describe("completeRollout", () => {
           ],
         },
       ],
-      endCondition: {
-        trigger: { type: "scheduled", at: new Date("2030-01-01") },
-      },
+      cutoffDate: new Date("2030-01-01"),
     });
 
     const { ctx } = makeContext();

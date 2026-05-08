@@ -6,6 +6,9 @@ import {
   RampScheduleInterface,
   RampScheduleTemplateInterface,
   RampStepAction,
+  stepHoldConditions,
+  stepGuardrailSettings,
+  scheduleGuardrailSettings,
 } from "shared/validators";
 import type { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -37,6 +40,9 @@ const postBodyStep = z.object({
   trigger: apiRampTrigger,
   actions: z.array(postBodyAction).optional().default([]),
   approvalNotes: z.string().nullish(),
+  monitored: z.boolean().default(false),
+  holdConditions: stepHoldConditions.optional(),
+  guardrailSettings: stepGuardrailSettings.optional(),
 });
 
 const postRampScheduleValidator = {
@@ -55,13 +61,18 @@ const postRampScheduleValidator = {
       steps: z.array(postBodyStep).optional(),
       endActions: z.array(postBodyAction).optional(),
       startDate: z.string().datetime().optional().nullable(),
-      endCondition: z
+      cutoffDate: z.string().datetime().optional().nullable(),
+      monitoringConfig: z
         .object({
-          trigger: z
-            .object({ type: z.literal("scheduled"), at: z.string().datetime() })
-            .optional(),
+          datasourceId: z.string(),
+          exposureQueryId: z.string(),
+          guardrailMetricIds: z.array(z.string()).min(1),
+          autoRollback: z.boolean().optional(),
+          updateScheduleMinutes: z.number().positive().optional().nullable(),
         })
-        .optional(),
+        .nullish(),
+      lockdownConfig: z.object({ mode: z.enum(["none", "locked"]) }).optional(),
+      guardrailSettings: scheduleGuardrailSettings.nullish(),
       templateId: z.string().optional(),
     })
     .superRefine((data, ctx) => {
@@ -197,6 +208,9 @@ export const postRampSchedule = createApiRequestHandler(
             : normalizeAction(a),
         ),
         approvalNotes: s.approvalNotes ?? undefined,
+        monitored: s.monitored,
+        holdConditions: s.holdConditions ?? undefined,
+        guardrailSettings: s.guardrailSettings ?? undefined,
       }));
     }
     if (template && hasTarget) {
@@ -209,6 +223,9 @@ export const postRampSchedule = createApiRequestHandler(
           feature!.valueType,
         ),
         approvalNotes: s.approvalNotes ?? undefined,
+        monitored: !!s.monitored,
+        holdConditions: s.holdConditions ?? undefined,
+        guardrailSettings: s.guardrailSettings ?? undefined,
       }));
     }
     return [];
@@ -241,12 +258,6 @@ export const postRampSchedule = createApiRequestHandler(
     return undefined;
   })();
 
-  const rawEndTrigger = body.endCondition?.trigger;
-  const endTrigger = rawEndTrigger
-    ? { type: "scheduled" as const, at: new Date(rawEndTrigger.at) }
-    : undefined;
-  const endCondition = endTrigger ? { trigger: endTrigger } : undefined;
-
   const defaultName = `Ramp schedule \u2013 ${new Date().toLocaleDateString(
     "en-US",
     { month: "short", year: "numeric" },
@@ -275,7 +286,11 @@ export const postRampSchedule = createApiRequestHandler(
     steps: resolvedSteps,
     endActions: resolvedEndActions,
     startDate,
-    endCondition,
+    cutoffDate: body.cutoffDate ? new Date(body.cutoffDate) : null,
+    monitoringConfig:
+      body.monitoringConfig ?? template?.monitoringConfig ?? null,
+    lockdownConfig: body.lockdownConfig ?? template?.lockdownConfig,
+    guardrailSettings: body.guardrailSettings ?? template?.guardrailSettings,
     status: hasTarget ? "ready" : "pending",
     currentStepIndex: -1,
     nextStepAt: null,

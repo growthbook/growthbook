@@ -456,13 +456,13 @@ export async function publishPendingFeatureDraftsForExperiment(
     }
 
     try {
-      await publishRevision(
+      await publishRevision({
         context,
         feature,
         revision,
-        mergeResult.result,
-        `Experiment "${experiment.name}" started`,
-      );
+        result: mergeResult.result,
+        comment: `Experiment "${experiment.name}" started`,
+      });
       // Belt-and-suspenders: publishRevision's sweep keys off the revision's
       // own experiment-ref rules and would miss entries if those were deleted
       // pre-publish.

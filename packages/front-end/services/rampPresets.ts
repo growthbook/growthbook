@@ -54,6 +54,7 @@ function intervalStep(seconds: number, actions: RampStepAction[]): RampStep {
   return {
     trigger: { type: "interval", seconds },
     actions,
+    monitored: false,
   };
 }
 
@@ -61,6 +62,7 @@ function approvalStep(actions: RampStepAction[]): RampStep {
   return {
     trigger: { type: "approval" },
     actions,
+    monitored: false,
   };
 }
 

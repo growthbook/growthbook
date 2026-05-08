@@ -1120,17 +1120,14 @@ export default function RuleModal({
                         ]
                       : undefined,
                   startDate: rampState.startDate || null,
-                  endCondition:
-                    isScheduleMode && rampState.endScheduleAt
-                      ? {
-                          trigger: {
-                            type: "scheduled",
-                            at: rampState.endScheduleAt,
-                          },
-                        }
-                      : undefined,
-                  cutoffDate: rampState.cutoffDate || null,
+                  cutoffDate: isScheduleMode
+                    ? rampState.endScheduleAt || null
+                    : rampState.cutoffDate || null,
                   monitoringConfig: buildMonitoringConfig(rampState.monitoring),
+                  ...(rampState.lockFeature
+                    ? { lockdownConfig: { mode: "locked" as const } }
+                    : { lockdownConfig: { mode: "none" as const } }),
+                  guardrailSettings: rampState.guardrailSettings ?? null,
                 };
               } else if (
                 !isNoOpSchedule &&
@@ -1167,17 +1164,14 @@ export default function RuleModal({
                         ]
                       : undefined,
                   startDate: rampState.startDate || null,
-                  endCondition:
-                    isScheduleMode && rampState.endScheduleAt
-                      ? {
-                          trigger: {
-                            type: "scheduled",
-                            at: rampState.endScheduleAt,
-                          },
-                        }
-                      : null,
-                  cutoffDate: rampState.cutoffDate || null,
+                  cutoffDate: isScheduleMode
+                    ? rampState.endScheduleAt || null
+                    : rampState.cutoffDate || null,
                   monitoringConfig: buildMonitoringConfig(rampState.monitoring),
+                  ...(rampState.lockFeature
+                    ? { lockdownConfig: { mode: "locked" as const } }
+                    : { lockdownConfig: { mode: "none" as const } }),
+                  guardrailSettings: rampState.guardrailSettings ?? null,
                 };
               } else if (rampState.mode === "off" && ruleRampSchedule?.id) {
                 // User unchecked the ramp schedule checkbox — detach this rule from the ramp
@@ -1198,8 +1192,8 @@ export default function RuleModal({
             }
           }
 
-          // If the ramp has a future start date, publish the rule as disabled
-          // so it remains hidden until the ramp activates.
+          // If the schedule has a start date, publish the rule as disabled
+          // so it remains hidden until the schedule activates.
           if (
             rampScheduleInline &&
             "startDate" in rampScheduleInline &&
@@ -1263,23 +1257,20 @@ export default function RuleModal({
                     ]
                   : undefined,
               startDate: rampState.startDate || null,
-              endCondition:
-                isScheduleMode && rampState.endScheduleAt
-                  ? {
-                      trigger: {
-                        type: "scheduled",
-                        at: rampState.endScheduleAt,
-                      },
-                    }
-                  : undefined,
-              cutoffDate: rampState.cutoffDate || null,
+              cutoffDate: isScheduleMode
+                ? rampState.endScheduleAt || null
+                : rampState.cutoffDate || null,
               monitoringConfig: buildMonitoringConfig(rampState.monitoring),
+              ...(rampState.lockFeature
+                ? { lockdownConfig: { mode: "locked" as const } }
+                : { lockdownConfig: { mode: "none" as const } }),
+              guardrailSettings: rampState.guardrailSettings ?? null,
             };
           }
         }
 
-        // If the ramp has a future start date, publish the rule as disabled
-        // so it remains hidden until the ramp activates.
+        // If the schedule has a start date, publish the rule as disabled
+        // so it remains hidden until the schedule activates.
         if (
           rampScheduleInline &&
           "startDate" in rampScheduleInline &&
@@ -1441,7 +1432,6 @@ export default function RuleModal({
                     steps: prev.steps.map((s) => ({
                       ...s,
                       monitored: true,
-                      requireHealthy: true,
                     })),
                   }));
                 }}

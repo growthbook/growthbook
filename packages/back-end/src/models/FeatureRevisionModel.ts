@@ -39,6 +39,7 @@ import { getEnvironments } from "back-end/src/util/organization.util";
 import { logger } from "back-end/src/util/logger";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import { migrateRampScheduleEndCondition } from "./RampScheduleModel";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
@@ -177,6 +178,21 @@ export function buildFeatureRevisionInterface(
       applicableEnvs,
     });
   }
+
+  // JIT migration: normalize legacy endCondition → cutoffDate on ramp actions.
+  // Old DB documents may still have endCondition even though the schema no
+  // longer defines it — cast through `unknown` so the migration can read it.
+  if (revision.rampActions?.length) {
+    revision.rampActions = revision.rampActions.map((action) => {
+      if (action.mode !== "create") return action;
+      return migrateRampScheduleEndCondition(
+        action as unknown as Parameters<
+          typeof migrateRampScheduleEndCondition
+        >[0],
+      ) as typeof action;
+    });
+  }
+
   return revision;
 }
 

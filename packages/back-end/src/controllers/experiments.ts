@@ -149,6 +149,7 @@ import {
   validateExperimentFeatureUpdates,
   validateExperimentFeatureVariations,
 } from "back-end/src/services/experiment-feature";
+import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -2110,6 +2111,19 @@ export async function postExperimentStatus(
     status === "running" &&
     phases?.length > 0
   ) {
+    // Check if any linked features are locked by an active ramp schedule.
+    for (const f of linkedFeatures) {
+      try {
+        await assertFeatureNotLockedByRamp(context, f.id);
+      } catch (e) {
+        res.status(400).json({
+          status: 400,
+          message: `Cannot start experiment: feature "${f.id}" is locked by an active ramp schedule. Pause the schedule to proceed.`,
+        });
+        return;
+      }
+    }
+
     const additionalChanges: Changeset = await getChangesToStartExperiment(
       context,
       experiment,
@@ -3959,13 +3973,14 @@ export async function postExperimentFeatureValues(
         return;
       }
 
-      const updatedFeature = await publishRevision(
+      const updatedFeature = await publishRevision({
         context,
         feature,
-        updatedRevision,
-        mergeResult.result,
-        "auto-publish experiment variation values change",
-      );
+        revision: updatedRevision,
+        result: mergeResult.result,
+        comment: "auto-publish experiment variation values change",
+        bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+      });
 
       await req.audit({
         event: "feature.publish",

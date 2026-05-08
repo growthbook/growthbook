@@ -153,14 +153,14 @@ export async function checkAndRollbackSafeRollout({
     if (!mergeResult.success) {
       throw new Error("could not merge the status");
     }
-    //publish the revision
-    await publishRevision(
+    await publishRevision({
       context,
       feature,
       revision,
-      mergeResult.result,
-      "auto-publish status change",
-    );
+      result: mergeResult.result,
+      comment: "auto-publish status change",
+      bypassLockdown: true,
+    });
   }
   return status;
 }

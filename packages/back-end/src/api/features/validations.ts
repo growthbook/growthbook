@@ -48,6 +48,9 @@ function normalizeRevisionRampCreateAction(
       trigger: s.trigger,
       actions: (s.actions ?? []).map(normalizeAction),
       approvalNotes: s.approvalNotes ?? undefined,
+      monitored: !!s.monitored,
+      holdConditions: s.holdConditions ?? undefined,
+      guardrailSettings: s.guardrailSettings ?? undefined,
     })),
     endActions: input.endActions?.map(normalizeAction),
   };
@@ -160,6 +163,7 @@ export function buildScheduleRampAction(
               patch: { ruleId, enabled: true },
             },
           ],
+          monitored: false,
         },
       ]
     : [];
@@ -172,9 +176,7 @@ export function buildScheduleRampAction(
   };
 
   if (endDate) {
-    action.endCondition = {
-      trigger: { type: "scheduled", at: new Date(endDate) },
-    };
+    action.cutoffDate = endDate;
     action.endActions = [
       {
         targetType: "feature-rule" as const,

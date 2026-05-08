@@ -15,25 +15,25 @@ import {
   rollbackToStep,
 } from "back-end/src/services/rampSchedule";
 
-type EndTrigger = { type: "scheduled"; at: Date | string };
-
-type EndCondition = {
-  trigger?: EndTrigger;
-};
-
 type CreateBody = Pick<
   RampScheduleInterface,
   "name" | "entityType" | "entityId" | "targets" | "steps"
 > & {
   endActions?: RampScheduleInterface["endActions"];
   startDate?: string | null;
-  endCondition?: EndCondition;
+  cutoffDate?: string | null;
+  lockdownConfig?: RampScheduleInterface["lockdownConfig"];
+  monitoringConfig?: RampScheduleInterface["monitoringConfig"];
+  guardrailSettings?: RampScheduleInterface["guardrailSettings"];
 };
 
 type UpdateBody = Partial<Pick<RampScheduleInterface, "name" | "steps">> & {
   endActions?: RampScheduleInterface["endActions"];
   startDate?: string | null;
-  endCondition?: EndCondition | null;
+  cutoffDate?: string | null;
+  lockdownConfig?: RampScheduleInterface["lockdownConfig"];
+  monitoringConfig?: RampScheduleInterface["monitoringConfig"];
+  guardrailSettings?: RampScheduleInterface["guardrailSettings"];
 };
 
 type ActionBody = {
@@ -95,14 +95,6 @@ export const postRampSchedule = async (
 
   const startDate = body.startDate ? new Date(body.startDate) : undefined;
 
-  const rawEndTrigger = body.endCondition?.trigger;
-  const resolvedEndTrigger = rawEndTrigger
-    ? { type: "scheduled" as const, at: new Date(rawEndTrigger.at) }
-    : undefined;
-  const endCondition = resolvedEndTrigger
-    ? { trigger: resolvedEndTrigger }
-    : undefined;
-
   const schedule = await context.models.rampSchedules.create({
     name: body.name,
     entityType: body.entityType,
@@ -111,8 +103,10 @@ export const postRampSchedule = async (
     steps: body.steps,
     endActions: body.endActions,
     startDate,
-    endCondition,
-    // Standalone ramps have no activating revision — they're immediately eligible to start.
+    cutoffDate: body.cutoffDate ? new Date(body.cutoffDate) : null,
+    lockdownConfig: body.lockdownConfig,
+    monitoringConfig: body.monitoringConfig,
+    guardrailSettings: body.guardrailSettings,
     status: "ready",
     currentStepIndex: -1,
     nextStepAt: null,
@@ -170,24 +164,24 @@ export const putRampSchedule = async (
   if ("startDate" in body) {
     updates.startDate = body.startDate ? new Date(body.startDate) : null;
   }
-  if (body.endCondition !== undefined) {
-    const ec = body.endCondition;
-    if (!ec) {
-      updates.endCondition = null;
-    } else {
-      const rawTrigger = ec.trigger;
-      const trigger = rawTrigger
-        ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
-        : undefined;
-      updates.endCondition = { trigger };
-    }
+  if ("cutoffDate" in body) {
+    updates.cutoffDate = body.cutoffDate ? new Date(body.cutoffDate) : null;
+  }
+  if (body.lockdownConfig !== undefined) {
+    updates.lockdownConfig = body.lockdownConfig;
+  }
+  if (body.monitoringConfig !== undefined) {
+    updates.monitoringConfig = body.monitoringConfig;
+  }
+  if (body.guardrailSettings !== undefined) {
+    updates.guardrailSettings = body.guardrailSettings;
   }
   updates.nextProcessAt = computeNextProcessAt({
     status: schedule.status,
     nextStepAt: schedule.nextStepAt,
-    endCondition: ("endCondition" in updates
-      ? updates.endCondition
-      : schedule.endCondition) as RampScheduleInterface["endCondition"],
+    cutoffDate: ("cutoffDate" in updates
+      ? updates.cutoffDate
+      : schedule.cutoffDate) as RampScheduleInterface["cutoffDate"],
     startDate: ("startDate" in updates
       ? updates.startDate
       : schedule.startDate) as RampScheduleInterface["startDate"],
@@ -264,7 +258,7 @@ export const postRampScheduleAction = async (
         nextProcessAt: computeNextProcessAt({
           status: "running",
           nextStepAt: initialNextStepAt,
-          endCondition: schedule.endCondition,
+          cutoffDate: schedule.cutoffDate,
         }),
       });
       await applyRampStartActions(context, updated);
@@ -367,7 +361,7 @@ export const postRampScheduleAction = async (
       resumeUpdates.nextProcessAt = computeNextProcessAt({
         status: resumeUpdates.status as RampScheduleInterface["status"],
         nextStepAt: resumeUpdates.nextStepAt as Date | null | undefined,
-        endCondition: schedule.endCondition,
+        cutoffDate: schedule.cutoffDate,
         startDate: schedule.startDate,
       });
 

@@ -18,6 +18,7 @@ import {
 } from "shared/types/events/event-types";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaArrowLeft } from "react-icons/fa";
+import { PiLockSimple } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
 import EventUser from "@/components/Avatar/EventUser";
 import { getCurrentUser, useUser } from "@/services/UserContext";
@@ -81,6 +82,12 @@ export default function RequestReviewModal({
   const { organization } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const canAdminPublish = permissionsUtil.canBypassApprovalChecks(feature);
+  const featureLockedByRamp =
+    rampSchedules?.some(
+      (rs) =>
+        rs.lockdownConfig?.mode === "locked" &&
+        ["running", "pending-approval"].includes(rs.status),
+    ) ?? false;
   const revision = revisions.find((r) => r.version === version);
   const isPendingReview =
     revision?.status === "pending-review" ||
@@ -168,8 +175,10 @@ export default function RequestReviewModal({
     [resultDiffs],
   );
 
-  // adminPublish bypasses both the approval requirement and the checklist gate.
-  const submitEnabled = !(experimentsStep && checklistBlocked && !adminPublish);
+  // adminPublish bypasses the approval requirement, checklist gate, and lockdown.
+  const submitEnabled =
+    !(experimentsStep && checklistBlocked && !adminPublish) &&
+    (!featureLockedByRamp || adminPublish);
   const hasNextStep =
     approved && selectedExperiments.size > 0 && !experimentsStep;
 
@@ -247,7 +256,7 @@ export default function RequestReviewModal({
         targets: ramp.targets,
         startDate: ramp.startDate,
         steps: ramp.steps,
-        endCondition: ramp.endCondition,
+        cutoffDate: ramp.cutoffDate,
       };
       const startDescription = ramp.startDate
         ? "Starts at a scheduled date/time."
@@ -276,7 +285,7 @@ export default function RequestReviewModal({
             ruleId: action.ruleId,
             startDate: action.startDate,
             steps: action.steps,
-            endCondition: action.endCondition,
+            cutoffDate: action.cutoffDate,
           };
           return {
             title: `Ramp Schedule – ${action.name} (pending creation)`,
@@ -336,9 +345,15 @@ export default function RequestReviewModal({
   if (!revision || !mergeResult) return null;
   const allDiffsWithChanges = [...resultDiffsWithChanges, ...rampDiffs];
   const hasChanges = mergeResultHasChanges(mergeResult) || rampDiffs.length > 0;
-  let ctaCopy = "Request Review";
+  let ctaCopy: string | JSX.Element = "Request Review";
   if (approved && !hasNextStep) {
-    ctaCopy = "Publish";
+    ctaCopy = featureLockedByRamp ? (
+      <>
+        <PiLockSimple /> Publish
+      </>
+    ) : (
+      "Publish"
+    );
   } else if (canReview || hasNextStep) {
     ctaCopy = "Next";
   }
@@ -362,6 +377,7 @@ export default function RequestReviewModal({
         trackingEventModalType=""
         open={true}
         header={"Review Draft Changes"}
+        useRadixButton={true}
         cta={ctaCopy}
         ctaEnabled={submitEnabled}
         close={close}
@@ -446,10 +462,22 @@ export default function RequestReviewModal({
                 </Flex>
               </div>
             )}
+            {featureLockedByRamp && (
+              <Callout
+                status="warning"
+                icon={<PiLockSimple size={15} />}
+                mb="3"
+              >
+                Publishing is locked by an active ramp-up schedule.
+                {canAdminPublish
+                  ? " Use the admin bypass below to publish anyway."
+                  : ""}
+              </Callout>
+            )}
             {canAdminPublish && (
               <div className="mt-3 mb-4 ml-1">
                 <Checkbox
-                  label="Bypass approval requirement to publish (optional for Admins only)"
+                  label="Bypass approval and lockdown restrictions to publish (optional for Admins only)"
                   value={adminPublish}
                   setValue={(val) => {
                     setAdminPublish(!!val);
@@ -653,6 +681,7 @@ export default function RequestReviewModal({
         open={true}
         close={close}
         header={"Review Draft Changes"}
+        useRadixButton={true}
         cta={"Submit"}
         size="lg"
         includeCloseCta={false}

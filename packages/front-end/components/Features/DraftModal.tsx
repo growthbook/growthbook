@@ -2,6 +2,7 @@ import { FeatureInterface } from "shared/types/feature";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import React, { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight, FaArrowLeft } from "react-icons/fa";
+import { PiLockSimple } from "react-icons/pi";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { RampScheduleInterface } from "shared/validators";
 import {
@@ -225,7 +226,7 @@ export default function DraftModal({
         targets: ramp.targets,
         startDate: ramp.startDate,
         steps: ramp.steps,
-        endCondition: ramp.endCondition,
+        cutoffDate: ramp.cutoffDate,
       };
       const startDescription = ramp.startDate
         ? "Starts at a scheduled date/time."
@@ -254,7 +255,7 @@ export default function DraftModal({
             ruleId: action.ruleId,
             startDate: action.startDate,
             steps: action.steps,
-            endCondition: action.endCondition,
+            cutoffDate: action.cutoffDate,
           };
           const targetIdx = draftRuleIndexById.get(action.ruleId);
           return {
@@ -326,9 +327,17 @@ export default function DraftModal({
 
   const hasChanges = mergeResultHasChanges(mergeResult) || rampDiffs.length > 0;
 
+  const featureLockedByRamp =
+    rampSchedules?.some(
+      (rs) =>
+        rs.lockdownConfig?.mode === "locked" &&
+        ["running", "pending-approval"].includes(rs.status),
+    ) ?? false;
+
   // Users who reach DraftModal already have direct publish permission, so the
   // checklist is advisory — it does not block publishing.
-  const submitEnabled = !!mergeResult.success && hasChanges;
+  const submitEnabled =
+    !!mergeResult.success && hasChanges && !featureLockedByRamp;
 
   // If we're publishing experiments, next step is to review pre-launch checklists
   const hasNextStep =
@@ -342,6 +351,7 @@ export default function DraftModal({
       trackingEventModalType=""
       open={true}
       header={"Review Draft Changes"}
+      useRadixButton={true}
       submit={
         hasPermission
           ? async () => {
@@ -377,6 +387,10 @@ export default function DraftModal({
           <>
             Next <FaAngleRight />
           </>
+        ) : featureLockedByRamp ? (
+          <>
+            <PiLockSimple /> Publish
+          </>
         ) : (
           "Publish"
         )
@@ -399,6 +413,11 @@ export default function DraftModal({
         ) : undefined
       }
     >
+      {featureLockedByRamp && (
+        <Callout status="warning" icon={<PiLockSimple size={15} />} mb="3">
+          Publishing is locked by an active ramp-up schedule.
+        </Callout>
+      )}
       {mergeResult.conflicts.length > 0 && (
         <Callout status="error">
           <strong>Conflicts Detected</strong>. Please fix conflicts before

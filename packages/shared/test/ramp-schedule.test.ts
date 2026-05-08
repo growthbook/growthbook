@@ -167,14 +167,10 @@ describe("rampScheduleValidator — valid documents", () => {
     expect(result.success).toBe(true);
   });
 
-  it("accepts an endCondition with a scheduled trigger", () => {
+  it("accepts a cutoffDate", () => {
     const at = new Date(Date.now() + 86400_000 * 7);
     const result = rampScheduleValidator.safeParse(
-      makeSchedule({
-        endCondition: {
-          trigger: { type: "scheduled", at },
-        },
-      }),
+      makeSchedule({ cutoffDate: at }),
     );
     expect(result.success).toBe(true);
   });
@@ -231,17 +227,8 @@ describe("rampScheduleValidator — invalid documents", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects a zero-step schedule with no startDate and no endCondition trigger", () => {
+  it("rejects a zero-step schedule with no startDate and no cutoffDate", () => {
     const result = rampScheduleValidator.safeParse(makeSchedule({ steps: [] }));
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects endCondition trigger that is not 'scheduled'", () => {
-    const result = rampScheduleValidator.safeParse(
-      makeSchedule({
-        endCondition: { trigger: { type: "immediately" } },
-      }),
-    );
     expect(result.success).toBe(false);
   });
 

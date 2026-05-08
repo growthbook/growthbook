@@ -42,11 +42,21 @@ export function formatTrigger(trigger: RampTrigger): ReactNode {
 }
 
 // Two-line ReactNode for a scheduled datetime; shows year only when it differs from current year.
-export function formatScheduledDate(d: Date | string): ReactNode {
+export function formatScheduledDate(
+  d: Date | string,
+  { compact }: { compact?: boolean } = {},
+): ReactNode {
   const parsed = new Date(d);
   const now = new Date();
   const sameYear = parsed.getFullYear() === now.getFullYear();
   const dateLine = format(parsed, sameYear ? "MMM d" : "MMM d, yyyy");
+  if (compact) {
+    return (
+      <div className={styles.scheduledDateLine}>
+        <Text size="small">{dateLine}</Text>
+      </div>
+    );
+  }
   const timeLine = format(parsed, "h:mm a");
   return (
     <>
@@ -340,11 +350,17 @@ function NodePopoverContent({
             <PopoverEffectRow label="Starts">{triggerLabel}</PopoverEffectRow>
           </Box>
         )
-      ) : stepIndex !== "end" ? (
+      ) : stepIndex === "end" ? (
+        triggerLabel && (
+          <Box mb="2">
+            <PopoverEffectRow label="Ends">{triggerLabel}</PopoverEffectRow>
+          </Box>
+        )
+      ) : (
         <Box mb="2">
           <PopoverEffectRow label="Hold">{triggerLabel}</PopoverEffectRow>
         </Box>
-      ) : null}
+      )}
 
       {isActive &&
         trigger?.type === "interval" &&
@@ -382,13 +398,17 @@ function NodePopoverContent({
   );
 }
 
+function hasDualEndNodes(rs: RampScheduleInterface): boolean {
+  if (!rs.cutoffDate) return false;
+  if (rs.steps.length === 0) return false;
+  return true;
+}
+
 function completedNodeCount(rs: RampScheduleInterface): number {
-  if (rs.status === "completed") return rs.steps.length + 2;
+  const extra = hasDualEndNodes(rs) ? 1 : 0;
+  if (rs.status === "completed") return rs.steps.length + 2 + extra;
 
   if (rs.status === "pending" || rs.status === "ready") return 0;
-  // currentStepIndex is the step currently active/in-progress (0-indexed).
-  // Nodes before it (start + prior steps) are completed; it is active.
-  // Node index = stepIndex + 1 (start occupies node 0).
   return rs.currentStepIndex + 1;
 }
 
@@ -633,11 +653,14 @@ export default function RampTimeline({
     return "future";
   }
 
+  const startDateDisplay = startDate ?? rs.startedAt ?? null;
   const nodes: NodeMeta[] = [
     {
       key: "start",
       label: "start",
-      sublabel: startDate ? formatScheduledDate(startDate) : null,
+      sublabel: startDateDisplay
+        ? formatScheduledDate(startDateDisplay, { compact: true })
+        : null,
       popoverContent: (
         <NodePopoverContent
           heading="Start"
@@ -646,7 +669,9 @@ export default function RampTimeline({
           nodeState={getState(0)}
           status={status}
           trigger={null}
-          triggerLabel={startDate ? formatScheduledDate(startDate) : null}
+          triggerLabel={
+            startDateDisplay ? formatScheduledDate(startDateDisplay) : null
+          }
           actions={[]}
           stepIndex="start"
           isActive={getState(0) === "active"}
@@ -686,35 +711,96 @@ export default function RampTimeline({
         />
       ),
     })),
-    {
-      key: "end",
-      label: "end",
-      sublabel: null,
-      connectorLabel:
+    ...(() => {
+      const dual = hasDualEndNodes(rs);
+      const lastStepConnector =
         steps.length > 0
           ? formatTrigger(steps[steps.length - 1].trigger)
-          : undefined,
-      popoverContent: (() => {
-        const endNodeIndex = steps.length + 1;
-        return (
-          <NodePopoverContent
-            heading="End"
-            headingColor={nodeLabelColor(getState(endNodeIndex), status)}
-            nodeColor={dotColor(getState(endNodeIndex), status)}
-            nodeState={getState(endNodeIndex)}
-            status={status}
-            trigger={null}
-            triggerLabel={null}
-            actions={rs.endActions ?? []}
-            stepIndex="end"
-            isActive={getState(endNodeIndex) === "active"}
-            rs={rs}
-            onJump={onJump}
-            onComplete={onComplete}
-          />
-        );
-      })(),
-    },
+          : undefined;
+
+      if (dual) {
+        const rampEndIdx = steps.length + 1;
+        const cutoffIdx = steps.length + 2;
+        return [
+          {
+            key: "end-ramp",
+            label: "end",
+            sublabel: null,
+            connectorLabel: lastStepConnector,
+            popoverContent: (
+              <NodePopoverContent
+                heading="End"
+                headingColor={nodeLabelColor(getState(rampEndIdx), status)}
+                nodeColor={dotColor(getState(rampEndIdx), status)}
+                nodeState={getState(rampEndIdx)}
+                status={status}
+                trigger={null}
+                triggerLabel={null}
+                actions={rs.endActions ?? []}
+                stepIndex="end"
+                isActive={getState(rampEndIdx) === "active"}
+                rs={rs}
+                onJump={onJump}
+                onComplete={onComplete}
+              />
+            ),
+          },
+          {
+            key: "end-cutoff",
+            label: "disable",
+            sublabel: formatScheduledDate(rs.cutoffDate!, { compact: true }),
+            popoverContent: (
+              <NodePopoverContent
+                heading="Disable"
+                headingColor={nodeLabelColor(getState(cutoffIdx), status)}
+                nodeColor={dotColor(getState(cutoffIdx), status)}
+                nodeState={getState(cutoffIdx)}
+                status={status}
+                trigger={null}
+                triggerLabel={formatScheduledDate(rs.cutoffDate!)}
+                actions={[]}
+                stepIndex="end"
+                isActive={getState(cutoffIdx) === "active"}
+                rs={rs}
+                onJump={onJump}
+                onComplete={onComplete}
+              />
+            ),
+          },
+        ];
+      }
+
+      const singleDate = rs.cutoffDate ?? null;
+      const hasDisableDate = !!singleDate;
+      const endNodeIndex = steps.length + 1;
+      return [
+        {
+          key: "end",
+          label: hasDisableDate ? "disable" : "end",
+          sublabel: singleDate
+            ? formatScheduledDate(singleDate, { compact: true })
+            : null,
+          connectorLabel: lastStepConnector,
+          popoverContent: (
+            <NodePopoverContent
+              heading={hasDisableDate ? "Disable" : "End"}
+              headingColor={nodeLabelColor(getState(endNodeIndex), status)}
+              nodeColor={dotColor(getState(endNodeIndex), status)}
+              nodeState={getState(endNodeIndex)}
+              status={status}
+              trigger={null}
+              triggerLabel={singleDate ? formatScheduledDate(singleDate) : null}
+              actions={rs.endActions ?? []}
+              stepIndex="end"
+              isActive={getState(endNodeIndex) === "active"}
+              rs={rs}
+              onJump={onJump}
+              onComplete={onComplete}
+            />
+          ),
+        },
+      ];
+    })(),
   ];
 
   const sublabelLine = (text: ReactNode) => (

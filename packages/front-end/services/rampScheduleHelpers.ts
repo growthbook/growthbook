@@ -71,15 +71,8 @@ export function buildRuleRampScheduleMap({
         steps: action.steps as RampScheduleForDisplay["steps"],
         endActions: action.endActions as RampScheduleForDisplay["endActions"],
         startDate: action.startDate ? new Date(action.startDate) : undefined,
-        endCondition:
-          action.endCondition?.trigger?.type === "scheduled"
-            ? {
-                trigger: {
-                  type: "scheduled",
-                  at: new Date(action.endCondition.trigger.at),
-                },
-              }
-            : undefined,
+        cutoffDate: action.cutoffDate ? new Date(action.cutoffDate) : undefined,
+        lockdownConfig: action.lockdownConfig,
         status: "pending",
         dateCreated: new Date(),
         dateUpdated: new Date(),

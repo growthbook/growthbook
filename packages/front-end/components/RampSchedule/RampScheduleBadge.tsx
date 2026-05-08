@@ -45,30 +45,56 @@ export default function RampScheduleBadge({
   const startAt = rs.startDate ? new Date(rs.startDate) : null;
   const futureStart = startAt && startAt > now;
 
-  // Simple schedule: show only timing, no status prefix, no tooltip.
-  if (simpleSchedule) {
-    let label: string;
-    if (rs.status === "pending") {
-      // Awaiting publish of the activating revision.
-      label = "Schedule pending publish";
-    } else if (rs.status === "running") {
-      label = "Running";
-    } else if (futureStart) {
-      label = `Starts ${abbreviateAgo(startAt)}`;
-    } else {
-      label = "Active";
-    }
-    return (
-      <Badge label={label} color={getRampBadgeColor(rs.status)} radius="full" />
-    );
-  }
-
   const dateRow = (label: string, d: Date) => (
     <div>
       <span className="text-muted">{label}: </span>
       {datetime(d)}
     </div>
   );
+
+  if (simpleSchedule) {
+    const statusLabels: Partial<Record<string, string>> = {
+      pending: "Schedule pending publish",
+      ready: "Schedule scheduled",
+      running: "Schedule active",
+      paused: "Schedule paused",
+      "pending-approval": "Schedule needs approval",
+      completed: "Schedule complete",
+      "rolled-back": "Rolled Back",
+    };
+    const displayLabel =
+      statusLabels[rs.status] ??
+      `Schedule ${getRampStatusLabel(rs).toLowerCase()}`;
+
+    let timingLabel: string | null = null;
+    if (futureStart) {
+      timingLabel = `Starts ${abbreviateAgo(startAt)}`;
+    }
+
+    const endAt = rs.cutoffDate ? new Date(rs.cutoffDate) : null;
+    const tooltipRows: ReactNode[] = [];
+    if (startAt) tooltipRows.push(dateRow("Starts", startAt));
+    if (endAt) tooltipRows.push(dateRow("Disables", endAt));
+
+    const badge = (
+      <Badge
+        label={displayLabel + (timingLabel ? ` · ${timingLabel}` : "")}
+        color={getRampBadgeColor(rs.status)}
+        radius="full"
+      />
+    );
+
+    if (tooltipRows.length === 0) return badge;
+
+    return (
+      <Tooltip
+        body={<>{tooltipRows}</>}
+        style={{ display: "inline-flex", alignItems: "center" }}
+      >
+        {badge}
+      </Tooltip>
+    );
+  }
 
   const completedAt =
     rs.status === "completed" && rs.dateUpdated
@@ -78,11 +104,16 @@ export default function RampScheduleBadge({
     rs.status === "paused" && rs.pausedAt ? new Date(rs.pausedAt) : null;
 
   let timingLabel: string | null = null;
-  let timingTooltip: ReactNode = null;
+  const timingTooltipRows: ReactNode[] = [];
   if (futureStart) {
     timingLabel = `Starts ${abbreviateAgo(startAt)}`;
-    timingTooltip = dateRow("Starts", startAt);
+    timingTooltipRows.push(dateRow("Starts", startAt));
   }
+  if (rs.cutoffDate) {
+    timingTooltipRows.push(dateRow("Disables", new Date(rs.cutoffDate)));
+  }
+  const timingTooltip =
+    timingTooltipRows.length > 0 ? <>{timingTooltipRows}</> : null;
 
   const baseLabel = getRampStatusLabel(rs);
 

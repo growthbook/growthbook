@@ -40,6 +40,46 @@ export const lockdownConfigSchema = z.object({
 export type LockdownConfig = z.infer<typeof lockdownConfigSchema>;
 
 // ---------------------------------------------------------------------------
+// Guardrail settings — per-metric behavioral configuration
+// ---------------------------------------------------------------------------
+
+// Schedule-level action when a guardrail metric is statistically losing
+export const guardrailTopLevelActionArray = [
+  "rollback",
+  "pause",
+  "warn",
+] as const;
+export const guardrailTopLevelAction = z.enum(guardrailTopLevelActionArray);
+export type GuardrailTopLevelAction = z.infer<typeof guardrailTopLevelAction>;
+
+// Step-level action when a guardrail metric is unhealthy during that step
+export const guardrailStepActionArray = ["hold", "warn", "ignore"] as const;
+export const guardrailStepAction = z.enum(guardrailStepActionArray);
+export type GuardrailStepAction = z.infer<typeof guardrailStepAction>;
+
+const perMetricTopLevel = z.object({
+  onUnhealthy: guardrailTopLevelAction,
+});
+
+const perMetricStepLevel = z.object({
+  onUnhealthy: guardrailStepAction,
+});
+
+export const scheduleGuardrailSettings = z.object({
+  metrics: z.record(z.string(), perMetricTopLevel),
+  experimentHealthAction: guardrailTopLevelAction,
+});
+export type ScheduleGuardrailSettings = z.infer<
+  typeof scheduleGuardrailSettings
+>;
+
+export const stepGuardrailSettings = z.object({
+  metrics: z.record(z.string(), perMetricStepLevel),
+  experimentHealthAction: guardrailStepAction,
+});
+export type StepGuardrailSettings = z.infer<typeof stepGuardrailSettings>;
+
+// ---------------------------------------------------------------------------
 // Monitoring config — schedule-level analysis settings for monitored steps
 // ---------------------------------------------------------------------------
 
@@ -47,6 +87,7 @@ export const rampMonitoringConfig = z.object({
   datasourceId: z.string(),
   exposureQueryId: z.string(),
   guardrailMetricIds: z.array(z.string()).min(1),
+  /** @deprecated Use `guardrailSettings` on the schedule instead. */
   autoRollback: z.boolean().optional(),
   updateScheduleMinutes: z.number().positive().optional().nullable(),
 });
@@ -105,10 +146,11 @@ export const rampTarget = z.object({
 });
 export type RampTarget = z.infer<typeof rampTarget>;
 
-export const rampEndTrigger = z.discriminatedUnion("type", [
+// Internal only — legacy DB compat for existing endCondition documents.
+// New code should use cutoffDate exclusively.
+const rampEndTrigger = z.discriminatedUnion("type", [
   z.object({ type: z.literal("scheduled"), at: z.coerce.date() }),
 ]);
-export type RampEndTrigger = z.infer<typeof rampEndTrigger>;
 
 export const rampTrigger = z.discriminatedUnion("type", [
   z.object({ type: z.literal("interval"), seconds: z.number().positive() }),
@@ -117,11 +159,13 @@ export const rampTrigger = z.discriminatedUnion("type", [
 ]);
 export type RampTrigger = z.infer<typeof rampTrigger>;
 
-// Hold conditions gate step advancement beyond the trigger.
+// Hold conditions gate step advancement beyond the trigger (timing-related).
 export const stepHoldConditions = z.object({
   minDurationMs: z.number().int().positive().optional(),
   maxDurationMs: z.number().int().positive().optional(),
+  /** @deprecated Use step-level `guardrailSettings` instead. */
   minSampleSize: z.number().int().positive().optional(),
+  /** @deprecated Use step-level `guardrailSettings` instead. */
   requireHealthy: z.boolean().optional(),
 });
 export type StepHoldConditions = z.infer<typeof stepHoldConditions>;
@@ -133,6 +177,7 @@ export const rampStep = z.object({
   approvalNotes: z.string().nullish(),
   monitored: z.boolean().optional(),
   holdConditions: stepHoldConditions.optional(),
+  guardrailSettings: stepGuardrailSettings.optional(),
 });
 export type RampStep = z.infer<typeof rampStep>;
 
@@ -161,14 +206,19 @@ export const rampScheduleValidator = baseSchema
     // When set, the rule is kept disabled until this date, then Step 1 is applied.
     // null/absent means the ramp starts immediately when the activating revision is published.
     startDate: z.date().nullish(),
+    /**
+     * @deprecated Use `cutoffDate` instead for new schedules. Retained for
+     * backward compatibility. The backend normalizes legacy endCondition
+     * scheduled triggers to cutoffDate at runtime.
+     */
     endCondition: z
       .object({
         trigger: rampEndTrigger.optional(),
       })
       .nullish(),
-    // Hard deadline: if reached while the ramp is still running, rolls back
-    // the schedule and disables the rule. Distinct from endCondition which
-    // fast-forwards to completion.
+    // Rule-level kill date. When reached, the ramp is completed and the rule
+    // is disabled (enabled=false). Use for time-boxed rules that must stop
+    // serving on a fixed date regardless of ramp progress. Set to null to clear.
     cutoffDate: z.date().nullish(),
     status: z.enum(rampScheduleStatusArray),
     currentStepIndex: z.number().int().min(-1),
@@ -182,9 +232,13 @@ export const rampScheduleValidator = baseSchema
     // Lockdown restrictions while the schedule is active.
     lockdownConfig: lockdownConfigSchema.optional(),
 
-    // Schedule-level monitoring settings (datasource, guardrails, auto-rollback).
+    // Schedule-level monitoring settings (datasource, guardrails, query cadence).
     // Applies to all steps marked `monitored: true`.
     monitoringConfig: rampMonitoringConfig.nullish(),
+
+    // Per-metric guardrail behavior and experiment health action at the schedule level.
+    // null = explicitly cleared (fall back to defaults); undefined = not set.
+    guardrailSettings: scheduleGuardrailSettings.nullish(),
 
     // Linked SafeRollout ID. Set when a monitored ramp schedule creates or
     // attaches to a SafeRollout experiment for analysis/snapshots.
@@ -199,15 +253,11 @@ export const rampScheduleValidator = baseSchema
     lastRollbackReason: z.string().nullish(),
   })
   .superRefine((data, ctx) => {
-    if (
-      data.steps.length === 0 &&
-      !data.startDate &&
-      !data.endCondition?.trigger
-    ) {
+    if (data.steps.length === 0 && !data.startDate && !data.cutoffDate) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message:
-          "A ramp schedule with no steps must have a startDate or an end condition trigger.",
+          "A ramp schedule with no steps must have a startDate or cutoffDate.",
         path: ["steps"],
       });
     }
@@ -229,6 +279,7 @@ export const TEMPLATE_STRUCTURAL_KEYS = [
   "steps",
   "endPatch",
   "monitoringConfig",
+  "guardrailSettings",
 ] as const;
 
 // Template patches never store force — it is feature-type-specific and not portable.
@@ -258,6 +309,7 @@ export const rampScheduleTemplateValidator = baseSchema.extend({
   official: z.boolean().optional(),
   lockdownConfig: lockdownConfigSchema.optional(),
   monitoringConfig: rampMonitoringConfig.nullish(),
+  guardrailSettings: scheduleGuardrailSettings.nullish(),
 });
 export type RampScheduleTemplateInterface = z.infer<
   typeof rampScheduleTemplateValidator
@@ -276,6 +328,9 @@ export const apiTemplateRampStep = z.object({
   trigger: apiRampTrigger,
   actions: z.array(templateRampStepAction),
   approvalNotes: z.string().nullish(),
+  monitored: z.boolean().optional(),
+  holdConditions: stepHoldConditions.optional(),
+  guardrailSettings: stepGuardrailSettings.optional(),
 });
 export type ApiTemplateRampStep = z.infer<typeof apiTemplateRampStep>;
 
@@ -288,13 +343,9 @@ export const apiRampScheduleTemplateValidator = namedSchema(
     endPatch: templateEndPatchValidator.optional(),
     official: z.boolean().optional(),
     monitoringConfig: rampMonitoringConfig.nullish(),
+    guardrailSettings: scheduleGuardrailSettings.nullish(),
   }),
 );
-
-// API-facing ramp end trigger — uses ISO string instead of Date.
-const apiRampEndTrigger = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("scheduled"), at: z.iso.datetime() }),
-]);
 
 // API-facing ramp step — uses ISO strings for scheduled trigger dates.
 const apiRampStep = z.object({
@@ -303,6 +354,7 @@ const apiRampStep = z.object({
   approvalNotes: z.string().nullish(),
   monitored: z.boolean().optional(),
   holdConditions: stepHoldConditions.optional(),
+  guardrailSettings: stepGuardrailSettings.optional(),
 });
 
 // API-facing variant of rampScheduleValidator — uses ISO strings for all dates.
@@ -327,17 +379,11 @@ export const apiRampScheduleInterface = namedSchema(
       .describe(
         "When the ramp fires. Absent/null means immediately on publish; set to a future datetime to delay start and keep the rule disabled until that time.",
       ),
-    endCondition: z
-      .object({
-        trigger: apiRampEndTrigger.optional(),
-      })
-      .nullish()
-      .describe("Optional hard deadline for standard (no-step) schedules"),
     cutoffDate: z.iso
       .datetime()
       .nullish()
       .describe(
-        "Hard deadline: if the ramp is still running at this time, it is rolled back and the rule is disabled. Distinct from endCondition which fast-forwards to completion.",
+        "Rule-level kill date. When reached, the ramp is completed and the rule is disabled (enabled=false). Use for time-boxed rules that must stop serving on a fixed date regardless of ramp progress. Set to null to clear.",
       ),
     status: z.enum(rampScheduleStatusArray),
     currentStepIndex: z
@@ -369,6 +415,7 @@ export const apiRampScheduleInterface = namedSchema(
       ),
     lockdownConfig: lockdownConfigSchema.optional(),
     monitoringConfig: rampMonitoringConfig.nullish(),
+    guardrailSettings: scheduleGuardrailSettings.nullish(),
     currentStepEnteredAt: z.iso.datetime().nullish(),
     lastRollbackAt: z.iso.datetime().nullish(),
     lastRollbackReason: z.string().nullish(),

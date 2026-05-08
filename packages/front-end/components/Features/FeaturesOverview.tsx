@@ -453,6 +453,16 @@ export default function FeaturesOverview({
     setBannerPinned(bannerRef.current.getBoundingClientRect().top <= 110);
   }, [scrollY]);
 
+  const featureLockedByRamp = useMemo(
+    () =>
+      rampSchedules?.some(
+        (rs) =>
+          rs.lockdownConfig?.mode === "locked" &&
+          ["running", "pending-approval"].includes(rs.status),
+      ) ?? false,
+    [rampSchedules],
+  );
+
   if (!baseFeature || !feature || !revision) return null;
 
   const hasConditionalState =
@@ -600,27 +610,11 @@ export default function FeaturesOverview({
     tags: feature.tags || [],
   };
 
-  const renderDraftBannerCopy = () => {
-    if (isPendingReview) {
-      return (
-        <>
-          <BsClock /> Review and Approve
-        </>
-      );
-    }
-    if (approved) {
-      return (
-        <>
-          <MdRocketLaunch /> Review and Publish
-        </>
-      );
-    }
-    return (
-      <>
-        <MdRocketLaunch /> Request Approval to Publish
-      </>
-    );
-  };
+  const draftBannerCopy = isPendingReview
+    ? { label: "Review and Approve", icon: <BsClock /> }
+    : approved
+      ? { label: "Review and Publish", icon: <MdRocketLaunch /> }
+      : { label: "Request Approval to Publish", icon: <MdRocketLaunch /> };
 
   const renderRevisionCTA = () => {
     const actions: JSX.Element[] = [];
@@ -715,11 +709,18 @@ export default function FeaturesOverview({
               >
                 <Button
                   disabled={!revisionHasChanges}
+                  icon={
+                    featureLockedByRamp ? (
+                      <PiLockSimple />
+                    ) : (
+                      draftBannerCopy.icon
+                    )
+                  }
                   onClick={() => {
                     setReviewModal(true);
                   }}
                 >
-                  {renderDraftBannerCopy()}
+                  {draftBannerCopy.label}
                 </Button>
               </Tooltip>,
             );
@@ -736,6 +737,7 @@ export default function FeaturesOverview({
               >
                 <Button
                   disabled={!revisionHasChanges || !hasDraftPublishPermission}
+                  icon={featureLockedByRamp ? <PiLockSimple /> : undefined}
                   onClick={() => {
                     setDraftModal(true);
                   }}

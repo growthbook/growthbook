@@ -48,7 +48,10 @@ import {
   queueSDKPayloadRefresh,
   synthesizeRuleId,
 } from "back-end/src/services/features";
-import { remapTemplateActions } from "back-end/src/services/rampSchedule";
+import {
+  assertFeatureNotLockedByRamp,
+  remapTemplateActions,
+} from "back-end/src/services/rampSchedule";
 import {
   applyNonRuleFeatureUpgrades,
   upgradeFeatureRule,
@@ -1682,15 +1685,14 @@ async function createRampSchedulesForRevision(
 
     const startDate = action.startDate ? new Date(action.startDate) : undefined;
 
-    const endCondition = action.endCondition?.trigger
-      ? { trigger: action.endCondition.trigger }
-      : undefined;
-
     const steps: RampScheduleInterface["steps"] =
       action.steps.length > 0
         ? action.steps.map((step) => ({
             ...step,
             actions: step.actions.map(normalizeAction),
+            monitored: !!step.monitored,
+            holdConditions: step.holdConditions ?? undefined,
+            guardrailSettings: step.guardrailSettings ?? undefined,
           }))
         : template
           ? template.steps.map((s) => ({
@@ -1702,6 +1704,9 @@ async function createRampSchedulesForRevision(
                 feature.valueType,
               ),
               approvalNotes: s.approvalNotes ?? undefined,
+              monitored: !!s.monitored,
+              holdConditions: s.holdConditions ?? undefined,
+              guardrailSettings: s.guardrailSettings ?? undefined,
             }))
           : [];
 
@@ -1746,9 +1751,15 @@ async function createRampSchedulesForRevision(
       steps,
       endActions: endActions.length > 0 ? endActions : undefined,
       startDate,
-      endCondition,
-      cutoffDate: action.cutoffDate ? new Date(action.cutoffDate) : undefined,
-      monitoringConfig: action.monitoringConfig,
+      cutoffDate: action.cutoffDate
+        ? new Date(action.cutoffDate)
+        : action.cutoffDate === null
+          ? null
+          : undefined,
+      monitoringConfig: action.monitoringConfig ?? template?.monitoringConfig,
+      lockdownConfig: action.lockdownConfig ?? template?.lockdownConfig,
+      guardrailSettings:
+        action.guardrailSettings ?? template?.guardrailSettings,
       // Start as "pending" — onActivatingRevisionPublished handles the
       // immediate → "running" transition inline when the revision publishes.
       status: "pending",
@@ -1867,15 +1878,27 @@ async function cleanupOrphanedRampSchedules(
   }
 }
 
-export async function publishRevision(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  revision: FeatureRevisionInterface,
-  result: MergeResultChanges,
-  comment?: string,
-) {
+export async function publishRevision({
+  context,
+  feature,
+  revision,
+  result,
+  comment,
+  bypassLockdown,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  result: MergeResultChanges;
+  comment?: string;
+  bypassLockdown?: boolean;
+}) {
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error("Can only publish a draft revision");
+  }
+
+  if (!bypassLockdown) {
+    await assertFeatureNotLockedByRamp(context, feature.id);
   }
 
   // Create ramp schedules BEFORE writing the feature so that a schedule
@@ -2064,13 +2087,14 @@ export async function createAndPublishRevision({
     );
   }
 
-  const updatedFeature = await publishRevision(
+  const updatedFeature = await publishRevision({
     context,
     feature,
     revision,
-    mergeResult.result,
+    result: mergeResult.result,
     comment,
-  );
+    bypassLockdown: canBypassApprovalChecks,
+  });
 
   return { revision, updatedFeature };
 }

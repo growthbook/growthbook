@@ -27,6 +27,30 @@ import {
   getApplicableEnvIds,
 } from "back-end/src/util/flattenRules";
 
+const LOCKDOWN_ACTIVE_STATUSES = ["running", "pending-approval"] as const;
+
+/**
+ * Throws if any ramp schedule on this feature has lockdown enabled and is
+ * actively running. "Completed" schedules waiting for cutoffDate do NOT
+ * count — lockdown only applies while steps are progressing.
+ */
+export async function assertFeatureNotLockedByRamp(
+  ctx: ReqContext | ApiReqContext,
+  featureId: string,
+): Promise<void> {
+  const schedules = await ctx.models.rampSchedules.getAllByFeatureId(featureId);
+  for (const s of schedules) {
+    if (
+      s.lockdownConfig?.mode === "locked" &&
+      (LOCKDOWN_ACTIVE_STATUSES as readonly string[]).includes(s.status)
+    ) {
+      throw new Error(
+        `Feature is locked by an active ramp schedule ("${s.name}"). Pause the schedule to make changes.`,
+      );
+    }
+  }
+}
+
 // Applies actions for one entity: computes a fresh patch against live state and publishes immediately.
 interface EntityHandler {
   applyActions(
@@ -198,7 +222,14 @@ export const featureEntityHandler: EntityHandler = {
     });
 
     const forceResult: MergeResultChanges = { rules: updatedRules };
-    await publishRevision(ctx, feature, revision, forceResult, stepLabel);
+    await publishRevision({
+      context: ctx,
+      feature,
+      revision,
+      result: forceResult,
+      comment: stepLabel,
+      bypassLockdown: true,
+    });
   },
 };
 
@@ -244,34 +275,25 @@ export function computeNextStepAt(
 export function computeNextProcessAt(schedule: {
   status: RampScheduleInterface["status"];
   nextStepAt?: Date | null;
-  endCondition?: RampScheduleInterface["endCondition"];
   cutoffDate?: RampScheduleInterface["cutoffDate"];
   startDate?: RampScheduleInterface["startDate"];
   // When the current step is monitored, the job needs to wake up for
   // snapshot triggers even though nextStepAt is null.
   nextSnapshotAt?: Date | null;
 }): Date | null {
-  const endAt =
-    schedule.endCondition?.trigger?.type === "scheduled"
-      ? schedule.endCondition.trigger.at
-      : null;
   const cutoff = schedule.cutoffDate ?? null;
 
   switch (schedule.status) {
     case "running": {
       const stepAt = schedule.nextStepAt ?? null;
       const snapshotAt = schedule.nextSnapshotAt ?? null;
-      const earliest = [stepAt, snapshotAt, endAt, cutoff]
+      const earliest = [stepAt, snapshotAt, cutoff]
         .filter((d): d is Date => d !== null)
         .sort((a, b) => a.getTime() - b.getTime())[0];
       return earliest ?? null;
     }
     case "pending-approval":
-      return (
-        [endAt, cutoff]
-          .filter((d): d is Date => d !== null)
-          .sort((a, b) => a.getTime() - b.getTime())[0] ?? null
-      );
+      return cutoff ?? null;
     case "ready":
       return schedule.startDate ?? null;
     default:
@@ -475,7 +497,6 @@ export async function advanceStep(
       status: newStatus,
       nextStepAt,
       nextSnapshotAt,
-      endCondition: schedule.endCondition,
       cutoffDate: schedule.cutoffDate,
     }),
   });
@@ -604,8 +625,8 @@ export async function jumpAheadToStep(
 }
 
 // Fast-forwards to the terminal state, bypassing timing and approval gates.
-// Applies the fully-accumulated effective patch (all steps through endCondition)
-// so any skipped intermediate steps are included. Used by REST "complete" and endCondition deadlines.
+// Applies the fully-accumulated effective patch (all steps) so any skipped
+// intermediate steps are included. Used by REST "complete" and cutoffDate deadlines.
 export async function completeRollout(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -675,7 +696,6 @@ export async function onActivatingRevisionPublished(
       nextProcessAt: computeNextProcessAt({
         status: "running",
         nextStepAt: initialNextStepAt,
-        endCondition: schedule.endCondition,
         cutoffDate: schedule.cutoffDate,
       }),
     });
@@ -801,21 +821,33 @@ export async function advanceUntilBlocked(
   const maxSteps = current.steps.length;
 
   for (let i = 0; i < maxSteps; i++) {
+    // Cutoff date: rule-level kill switch. Completes the ramp schedule, then
+    // disables the rule (enabled=false). Unlike rollback (which reverts to
+    // pre-ramp state), cutoff preserves the current step's effects and just
+    // turns off the rule — used for time-boxed rules (promos, holidays, etc.).
     if (
       current.cutoffDate &&
       current.cutoffDate <= now &&
       ["running", "paused", "pending-approval"].includes(current.status)
     ) {
-      await rollbackSchedule(ctx, current, "cutoff date reached");
-      return;
-    }
-
-    if (
-      current.endCondition?.trigger?.type === "scheduled" &&
-      current.endCondition.trigger.at <= now &&
-      ["running", "paused", "pending-approval"].includes(current.status)
-    ) {
-      await completeRollout(ctx, current);
+      const completed = await completeRollout(ctx, current);
+      // Disable the rule itself by applying enabled=false to all targets.
+      const disableActions: RampStepAction[] = (
+        completed.endActions ??
+        completed.steps[0]?.actions ??
+        []
+      ).map((a) => ({
+        ...a,
+        patch: { ...a.patch, enabled: false },
+      }));
+      if (disableActions.length > 0) {
+        await executeStepActions(
+          ctx,
+          completed,
+          completed.steps.length,
+          disableActions,
+        );
+      }
       return;
     }
 
@@ -900,7 +932,6 @@ export async function approveAndPublishStep(
     nextProcessAt: computeNextProcessAt({
       status: "running",
       nextStepAt,
-      endCondition: schedule.endCondition,
       cutoffDate: schedule.cutoffDate,
     }),
   });

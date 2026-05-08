@@ -22,6 +22,7 @@ import {
   PiTrash,
   PiCaretUp,
   PiCaretDown,
+  PiLockSimple,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { format as formatTimeZone } from "date-fns-tz";
@@ -87,9 +88,15 @@ function fmtScheduleDate(d: Date | string): string {
 }
 
 function formatSimpleScheduleLabel(rs: RampScheduleInterface): string {
+  const parts: string[] = [];
   if (rs.startDate) {
-    return `SCHEDULED to start ${fmtScheduleDate(rs.startDate)}`;
+    parts.push(`Starts ${fmtScheduleDate(rs.startDate)}`);
   }
+  const endAt = rs.cutoffDate ?? null;
+  if (endAt) {
+    parts.push(`Disables ${fmtScheduleDate(endAt)}`);
+  }
+  if (parts.length > 0) return parts.join(" · ");
   return "USING SCHEDULE";
 }
 
@@ -1182,6 +1189,19 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   <Text weight="medium" mb="4">
                     {formatSimpleScheduleLabel(rampSchedule)}
                   </Text>
+                )}
+                {rampSchedule.lockdownConfig?.mode === "locked" && (
+                  <HelperText
+                    status="warning"
+                    icon={<PiLockSimple size={15} />}
+                    mb="3"
+                  >
+                    {["running", "pending-approval"].includes(
+                      rampSchedule.status,
+                    )
+                      ? "Publishing locked by ramp-up"
+                      : "Feature will be locked while ramp-up is running"}
+                  </HelperText>
                 )}
                 {rampApproveError && (
                   <Callout status="error" mb="2">

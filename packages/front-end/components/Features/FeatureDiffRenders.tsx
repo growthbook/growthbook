@@ -234,14 +234,6 @@ export function isSimpleRampAction(action: RevisionRampCreateAction): boolean {
   return action.steps.length === 0;
 }
 
-function extractScheduledEndAt(
-  endCondition: RevisionRampCreateAction["endCondition"],
-): Date | string | null {
-  const trigger = endCondition?.trigger;
-  if (trigger && trigger.type === "scheduled") return trigger.at;
-  return null;
-}
-
 export function RampScheduleSummary({
   startDate,
   endAt,
@@ -299,7 +291,7 @@ function RampActionBody({
   action: RevisionRampCreateAction;
   targetRuleIndices?: number[];
 }) {
-  const endAt = extractScheduledEndAt(action.endCondition);
+  const endAt = action.cutoffDate ?? null;
   const ruleCount = targetRuleIndices?.length;
   return (
     <Flex direction="column" gap="2">

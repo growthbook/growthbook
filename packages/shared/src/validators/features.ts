@@ -13,11 +13,14 @@ import { safeRolloutStatusArray } from "./safe-rollout";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import {
   featureRulePatch,
+  lockdownConfigSchema,
   rampTrigger,
   rampStep,
   rampStepAction,
-  rampEndTrigger,
   rampMonitoringConfig,
+  stepHoldConditions,
+  stepGuardrailSettings,
+  scheduleGuardrailSettings,
 } from "./ramp-schedule";
 
 import { namedSchema } from "./openapi-helpers";
@@ -322,10 +325,6 @@ export type RevisionMetadata = z.infer<typeof revisionMetadataSchema>;
 // Ramp schedule actions stored on a revision. Deferred until publish. Only
 // create/detach are revision-bound — state changes (pause, resume, …) run
 // real-time on the live ramp schedule.
-const revisionRampEndConditionSchema = z.object({
-  trigger: rampEndTrigger.optional(),
-});
-
 // API variant: targetType/targetId are inferred from the top-level ruleId
 // at publish time.
 const revisionApiRampStepAction = z.object({
@@ -338,6 +337,9 @@ const revisionApiRampStep = z.object({
   trigger: rampTrigger,
   actions: z.array(revisionApiRampStepAction).optional(),
   approvalNotes: z.string().nullish(),
+  monitored: z.boolean().optional(),
+  holdConditions: stepHoldConditions.optional(),
+  guardrailSettings: stepGuardrailSettings.optional(),
 });
 
 // Stored type — requires targetType/targetId in actions.
@@ -350,10 +352,11 @@ export const revisionRampCreateAction = z.object({
   steps: z.array(rampStep),
   endActions: z.array(rampStepAction).optional(),
   startDate: z.string().optional().nullable(),
-  endCondition: revisionRampEndConditionSchema.optional(),
   cutoffDate: z.string().optional().nullable(),
   ruleId: z.string(),
   monitoringConfig: rampMonitoringConfig.optional(),
+  lockdownConfig: lockdownConfigSchema.optional(),
+  guardrailSettings: scheduleGuardrailSettings.optional(),
 });
 
 // API input variant — normalize to RevisionRampCreateAction before storing.

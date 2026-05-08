@@ -127,13 +127,14 @@ export async function publishFeatureRevision(
     req.context.permissions.throwPermissionError();
   }
 
-  const updatedFeature = await publishRevision(
-    req.context,
+  const updatedFeature = await publishRevision({
+    context: req.context,
     feature,
     revision,
-    mergeResult.result,
-    req.body.comment ?? "",
-  );
+    result: mergeResult.result,
+    comment: req.body.comment ?? "",
+    bypassLockdown: canBypass,
+  });
 
   if (
     mergeResult.result.metadata?.tags !== undefined &&

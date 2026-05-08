@@ -1451,13 +1451,15 @@ export async function postFeaturePublish(
     }
   }
 
-  const updatedFeature = await publishRevision(
+  const updatedFeature = await publishRevision({
     context,
     feature,
     revision,
-    mergeResult.result,
+    result: mergeResult.result,
     comment,
-  );
+    bypassLockdown:
+      !!adminOverride && context.permissions.canBypassApprovalChecks(feature),
+  });
 
   await req.audit({
     event: "feature.publish",
@@ -1744,12 +1746,13 @@ export async function postFeatureRevert(
   });
 
   await assertCanAutoPublish(context, feature, newRevision);
-  const updatedFeature = await publishRevision(
+  const updatedFeature = await publishRevision({
     context,
     feature,
-    newRevision,
-    mergeChanges,
-  );
+    revision: newRevision,
+    result: mergeChanges,
+    bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+  });
 
   await req.audit({
     event: "feature.revert",
@@ -2151,26 +2154,31 @@ export async function postFeatureRule(
             actions?: unknown[];
             approvalNotes?: string | null;
             monitored?: boolean;
+            holdConditions?: Record<string, unknown>;
+            guardrailSettings?: Record<string, unknown>;
           }) => ({
             trigger:
               s.trigger as RevisionRampCreateAction["steps"][number]["trigger"],
-            actions: (s.actions ?? []).map((a: Record<string, unknown>) =>
+            actions: (s.actions ?? []).map((a: unknown) =>
               normalizeAction(a as { patch: Record<string, unknown> }),
             ),
             approvalNotes: s.approvalNotes ?? undefined,
-            monitored: s.monitored,
+            monitored: !!s.monitored,
+            holdConditions: s.holdConditions ?? undefined,
+            guardrailSettings:
+              (s.guardrailSettings as RevisionRampCreateAction["steps"][number]["guardrailSettings"]) ??
+              undefined,
           }),
         ),
-        endActions: rampSchedulePayload.endActions?.map(
-          (a: Record<string, unknown>) =>
-            normalizeAction(a as { patch: Record<string, unknown> }),
+        endActions: rampSchedulePayload.endActions?.map((a: unknown) =>
+          normalizeAction(a as { patch: Record<string, unknown> }),
         ),
         startDate:
           rampSchedulePayload.startDate as RevisionRampCreateAction["startDate"],
-        endCondition: (rampSchedulePayload.endCondition ??
-          undefined) as RevisionRampCreateAction["endCondition"],
         cutoffDate: rampSchedulePayload.cutoffDate,
         monitoringConfig: rampSchedulePayload.monitoringConfig,
+        lockdownConfig: rampSchedulePayload.lockdownConfig,
+        guardrailSettings: rampSchedulePayload.guardrailSettings ?? undefined,
         ruleId: rule.id,
       };
       rampActionsUpdate = createAction;
@@ -2635,13 +2643,14 @@ export async function postFeatureExperimentRefRule(
         `Unable to auto-publish: please resolve conflicts on draft #${updatedRevision.version} before publishing.`,
       );
     }
-    const updatedFeature = await publishRevision(
+    const updatedFeature = await publishRevision({
       context,
       feature,
-      updatedRevision,
-      mergeResult.result,
-      `Add experiment rule for "${experiment.name}"`,
-    );
+      revision: updatedRevision,
+      result: mergeResult.result,
+      comment: `Add experiment rule for "${experiment.name}"`,
+      bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+    });
     await req.audit({
       event: "feature.publish",
       entity: { object: "feature", id: feature.id },
@@ -2892,8 +2901,12 @@ export async function postFeatureSchema(
   );
   if (autoPublish) {
     await assertCanAutoPublish(context, feature, draft);
-    await publishRevision(context, feature, draft, {
-      metadata: { jsonSchema },
+    await publishRevision({
+      context,
+      feature,
+      revision: draft,
+      result: { metadata: { jsonSchema } },
+      bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
     });
   }
   return res.status(200).json({ status: 200, draftVersion: draft.version });
@@ -3022,13 +3035,14 @@ export async function putSafeRolloutStatus(
         }
       }
     }
-    const updatedFeature = await publishRevision(
+    const updatedFeature = await publishRevision({
       context,
       feature,
       revision,
-      mergeResult.result,
-      "auto-publish status change",
-    );
+      result: mergeResult.result,
+      comment: "auto-publish status change",
+      bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+    });
 
     await req.audit({
       event: "feature.publish",
@@ -3169,26 +3183,31 @@ export async function putFeatureRule(
             actions?: unknown[];
             approvalNotes?: string | null;
             monitored?: boolean;
+            holdConditions?: Record<string, unknown>;
+            guardrailSettings?: Record<string, unknown>;
           }) => ({
             trigger:
               s.trigger as RevisionRampCreateAction["steps"][number]["trigger"],
-            actions: (s.actions ?? []).map((a: Record<string, unknown>) =>
+            actions: (s.actions ?? []).map((a: unknown) =>
               normalizeAction(a as { patch: Record<string, unknown> }),
             ),
             approvalNotes: s.approvalNotes ?? undefined,
-            monitored: s.monitored,
+            monitored: !!s.monitored,
+            holdConditions: s.holdConditions ?? undefined,
+            guardrailSettings:
+              (s.guardrailSettings as RevisionRampCreateAction["steps"][number]["guardrailSettings"]) ??
+              undefined,
           }),
         ),
-        endActions: rampSchedulePayload.endActions?.map(
-          (a: Record<string, unknown>) =>
-            normalizeAction(a as { patch: Record<string, unknown> }),
+        endActions: rampSchedulePayload.endActions?.map((a: unknown) =>
+          normalizeAction(a as { patch: Record<string, unknown> }),
         ),
         startDate:
           rampSchedulePayload.startDate as RevisionRampCreateAction["startDate"],
-        endCondition: (rampSchedulePayload.endCondition ??
-          undefined) as RevisionRampCreateAction["endCondition"],
         cutoffDate: rampSchedulePayload.cutoffDate,
         monitoringConfig: rampSchedulePayload.monitoringConfig,
+        lockdownConfig: rampSchedulePayload.lockdownConfig,
+        guardrailSettings: rampSchedulePayload.guardrailSettings ?? undefined,
         ruleId,
       };
       rampActionsUpdate = createAction;
@@ -3301,18 +3320,6 @@ export async function putFeatureRule(
           ? new Date(rampSchedulePayload.startDate)
           : null;
       }
-      if (rampSchedulePayload.endCondition !== undefined) {
-        const ec = rampSchedulePayload.endCondition;
-        if (!ec) {
-          updates.endCondition = null;
-        } else {
-          const rawTrigger = ec.trigger;
-          const trigger = rawTrigger
-            ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
-            : undefined;
-          updates.endCondition = { trigger };
-        }
-      }
       if (rampSchedulePayload.endActions !== undefined) {
         updates.endActions = rampSchedulePayload.endActions.map(remapT1);
       }
@@ -3323,6 +3330,12 @@ export async function putFeatureRule(
       }
       if (rampSchedulePayload.monitoringConfig !== undefined) {
         updates.monitoringConfig = rampSchedulePayload.monitoringConfig;
+      }
+      if (rampSchedulePayload.lockdownConfig !== undefined) {
+        updates.lockdownConfig = rampSchedulePayload.lockdownConfig;
+      }
+      if (rampSchedulePayload.guardrailSettings !== undefined) {
+        updates.guardrailSettings = rampSchedulePayload.guardrailSettings;
       }
       await context.models.rampSchedules.updateById(existing.id, updates);
     }
@@ -3511,8 +3524,12 @@ export async function postFeatureToggle(
     });
 
     await assertCanAutoPublish(context, feature, revision);
-    await publishRevision(context, feature, revision, {
-      environmentsEnabled: changes,
+    await publishRevision({
+      context,
+      feature,
+      revision,
+      result: { environmentsEnabled: changes },
+      bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
     });
 
     await req.audit({
@@ -3963,12 +3980,13 @@ export async function putFeature(
     let updatedFeature: FeatureInterface = feature;
     if (autoPublish) {
       await assertCanAutoPublish(context, feature, draft);
-      updatedFeature = await publishRevision(
+      updatedFeature = await publishRevision({
         context,
         feature,
-        draft,
-        envelopeChanges,
-      );
+        revision: draft,
+        result: envelopeChanges,
+        bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+      });
     }
     // Keep the tag autocomplete table in sync (side-effect; revision already captures the values).
     if (metadataUpdates.tags !== undefined) {
@@ -4225,12 +4243,13 @@ export async function postFeatureArchive(
 
   if (autoPublish) {
     await assertCanAutoPublish(context, feature, draft);
-    const updatedFeature = await publishRevision(
+    const updatedFeature = await publishRevision({
       context,
       feature,
-      draft,
-      archiveChanges,
-    );
+      revision: draft,
+      result: archiveChanges,
+      bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+    });
     // Re-fetch so the payload reflects the post-publish status ("published").
     const publishedRevision =
       (await getRevision({
@@ -4811,8 +4830,12 @@ export async function toggleStaleFFDetectionForFeature(
       org: context.org,
     });
     await assertCanAutoPublish(context, feature, revision);
-    await publishRevision(context, feature, revision, {
-      metadata: { neverStale },
+    await publishRevision({
+      context,
+      feature,
+      revision,
+      result: { metadata: { neverStale } },
+      bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
     });
     return res
       .status(200)
