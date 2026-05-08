@@ -194,12 +194,8 @@ function featureRevisionToRow(
   // `pending-parent` revisions are held child revisions managed by ramp
   // schedules and are not user-actionable, so they should not appear in the
   // approvals list. Filtering here also narrows revision.status to the values
-  // representable by the unified RevisionStatus.
-  if (revision.status === "pending-parent") return null;
-
-  // Feature revisions use "published" where unified revisions use "merged".
-  // "pending-parent" revisions are system-managed (ramp schedules) and not
-  // user-actionable — skip them entirely.
+  // representable by the unified RevisionStatus (feature revisions use
+  // "published" where unified revisions use "merged").
   if (revision.status === "pending-parent") return null;
   const status: RevisionStatus =
     revision.status === "published" ? "merged" : revision.status;

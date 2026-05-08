@@ -9,7 +9,7 @@ import {
   JsonPatchOperation,
   getApprovalFlowSettings,
 } from "shared/enterprise";
-import type { CreateProps } from "shared/types/base-model";
+import type { CreateProps, UpdateProps } from "shared/types/base-model";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions/index";
 
@@ -223,7 +223,11 @@ export class RevisionModel extends BaseClass {
    * able to edit the target entity (e.g. for reviews). Merged revisions cannot
    * be updated.
    */
-  protected canUpdate(existing: Revision, _updates: Revision): boolean {
+  protected canUpdate(
+    existing: Revision,
+    _updates: UpdateProps<Revision>,
+    _newDoc: Revision,
+  ): boolean {
     if (existing.status === "merged") return false;
 
     if (existing.authorId === this.context.userId) return true;
@@ -320,7 +324,7 @@ export class RevisionModel extends BaseClass {
 
   protected async beforeUpdate(
     existing: Revision,
-    updates: Partial<Revision>,
+    updates: UpdateProps<Revision>,
     newDoc: Revision,
   ) {
     // Clean null values from snapshot before validation via the adapter
@@ -503,7 +507,7 @@ export class RevisionModel extends BaseClass {
           dateCreated: new Date(),
         },
       ],
-    } as Partial<Revision>);
+    } as UpdateProps<Revision>);
   }
 
   async addReview(
@@ -552,7 +556,7 @@ export class RevisionModel extends BaseClass {
           dateCreated: new Date(),
         },
       ],
-    } as Partial<Revision>);
+    } as UpdateProps<Revision>);
   }
 
   // Proposed changes
@@ -594,7 +598,7 @@ export class RevisionModel extends BaseClass {
         },
         ...(resetEntry ? [resetEntry] : []),
       ],
-    } as Partial<Revision>);
+    } as UpdateProps<Revision>);
   }
 
   async rebase(
@@ -636,7 +640,7 @@ export class RevisionModel extends BaseClass {
         },
         ...(resetEntry ? [resetEntry] : []),
       ],
-    } as Partial<Revision>);
+    } as UpdateProps<Revision>);
   }
 
   // Merge / close / reopen
@@ -670,7 +674,7 @@ export class RevisionModel extends BaseClass {
           dateCreated: new Date(),
         },
       ],
-    } as Partial<Revision>);
+    } as UpdateProps<Revision>);
   }
 
   async close(id: string, userId: string, reason?: string) {
@@ -698,7 +702,7 @@ export class RevisionModel extends BaseClass {
           dateCreated: new Date(),
         },
       ],
-    } as Partial<Revision>);
+    } as UpdateProps<Revision>);
   }
 
   async reopen(id: string, userId: string) {
@@ -724,7 +728,7 @@ export class RevisionModel extends BaseClass {
           dateCreated: new Date(),
         },
       ],
-    } as Partial<Revision>);
+    } as UpdateProps<Revision>);
   }
 
   // History
