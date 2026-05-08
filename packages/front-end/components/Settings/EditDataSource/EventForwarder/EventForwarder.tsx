@@ -23,6 +23,7 @@ import SnowflakeEventForwarderForm from "@/components/Settings/SnowflakeEventFor
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 
@@ -149,6 +150,8 @@ function EventForwarderModal({
     validatedEventForwarderSignature,
     setValidatedEventForwarderSignature,
   ] = useState<string | null>(null);
+  const [usEventForwarderFlowConsent, setUsEventForwarderFlowConsent] =
+    useState(false);
 
   const eventForwarderAccessSignature = computeEventForwarderAccessSignature(
     datasourceDraft as Partial<DataSourceInterfaceWithParams>,
@@ -214,18 +217,21 @@ function EventForwarderModal({
       close={onCancel}
       header={modalTitle}
       cta="Confirm"
-      size="lg"
-      ctaEnabled={!eventForwarderSaveBlocked}
+      size="md"
+      ctaEnabled={!eventForwarderSaveBlocked && usEventForwarderFlowConsent}
       disabledMessage={
         eventForwarderSaveBlocked
           ? "Test Event Forwarder access before confirming."
-          : undefined
+          : !usEventForwarderFlowConsent
+            ? "Acknowledge US data flow and authorization to use Confirm."
+            : undefined
       }
     >
-      <p>
-        Confirming will create or update the Kafka topic and connector for this
-        datasource.
-      </p>
+      <Callout status="info" mb="3">
+        Testing write access verifies GrowthBook can create tables in your
+        dataset. A temporary validation table is created and immediately
+        deleted.
+      </Callout>
       {eventForwarderConfig?.sinkType === "bigquery" ? (
         <BigQueryEventForwarderForm
           params={params as Partial<BigQueryConnectionParams>}
@@ -264,6 +270,14 @@ function EventForwarderModal({
           }
         />
       ) : null}
+      <Callout status="info" mx="2" mb="0" mt="3" icon={null}>
+        <Checkbox
+          value={usEventForwarderFlowConsent}
+          setValue={setUsEventForwarderFlowConsent}
+          label="I understand that event data will flow through GrowthBook's US servers and confirm I'm authorized to enable this for my organization."
+          weight="regular"
+        />
+      </Callout>
     </Modal>
   );
 }
@@ -309,9 +323,33 @@ export default function EventForwarder({
 
         <Flex align="center" gap="4">
           {canEdit && eventForwarderConfig ? (
-            <Button variant="outline" onClick={() => setShowEditModal(true)}>
-              Edit Event Forwarder
-            </Button>
+            <>
+              <Button variant="outline" onClick={() => setShowEditModal(true)}>
+                Edit Event Forwarder
+              </Button>
+              {/* TEMP: remove once self-serve delete ships */}
+              <Button
+                variant="outline"
+                color="red"
+                setError={setError}
+                onClick={async () => {
+                  if (
+                    !window.confirm(
+                      "Delete this Event Forwarder configuration? This cannot be undone from the UI.",
+                    )
+                  ) {
+                    return;
+                  }
+                  await apiCall(
+                    `/datasource/${dataSource.id}/event-forwarder`,
+                    { method: "DELETE" },
+                  );
+                  await onRefresh();
+                }}
+              >
+                Delete Event Forwarder (temp)
+              </Button>
+            </>
           ) : null}
           {eventForwarderConfig && canToggle && (
             <Button
@@ -353,7 +391,7 @@ export default function EventForwarder({
             </Box>
           ) : null}
         </Callout>
-      ) : (
+      ) : isPaused ? (
         <Callout status="info" mb="3">
           To remove the Event Forwarder,{" "}
           <a
@@ -365,7 +403,7 @@ export default function EventForwarder({
           </a>
           .
         </Callout>
-      )}
+      ) : null}
 
       {eventForwarderConfig ? (
         <Card>

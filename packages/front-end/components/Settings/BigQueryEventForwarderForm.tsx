@@ -99,8 +99,9 @@ const BigQueryEventForwarderForm: FC<{
       />
       <div>
         <Button
-          color="primary"
+          color="outline-primary"
           disabled={!canTestEventForwarderAccess}
+          loadingClassName="btn-outline-primary disabled"
           loadingCta="Testing access"
           onClick={testEventForwarderAccess}
         >

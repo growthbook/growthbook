@@ -264,8 +264,6 @@ export function buildEventForwarderAvroSchema({
   const seen = new Set(baseFields.map((bf) => bf.name as string));
 
   for (const attr of attributeSchema) {
-    if (attr.archived) continue;
-
     const avroField = sdkDatatypeToAvroField(attr);
     const fname = avroField.name as string;
 

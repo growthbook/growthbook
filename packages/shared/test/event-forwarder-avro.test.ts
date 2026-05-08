@@ -51,7 +51,7 @@ describe("eventForwarderAvro", () => {
     ).toThrow(/reserved or duplicate field name "event_name"/);
   });
 
-  it("skips archived attributes", () => {
+  it("includes archived attributes in Avro fields", () => {
     const schema = buildEventForwarderAvroSchema({
       attributeSchema: [
         {
@@ -62,8 +62,13 @@ describe("eventForwarderAvro", () => {
       ],
     });
     expect(schema.fields).toHaveLength(
-      EVENT_FORWARDER_AVRO_DEFAULT_FIELDS.length,
+      EVENT_FORWARDER_AVRO_DEFAULT_FIELDS.length + 1,
     );
+    const last = schema.fields[schema.fields.length - 1] as Record<
+      string,
+      unknown
+    >;
+    expect(last.name).toBe("gone");
   });
 
   it("sanitizeAvroFieldName strips invalid characters", () => {
