@@ -25,7 +25,6 @@ import {
   type SDKAttributeSchema,
 } from "shared/types/organization";
 import { fetch } from "back-end/src/util/http.util";
-import { omitDeepNull } from "back-end/src/util/omitDeepNull";
 import { LicenseServerError } from "back-end/src/util/errors";
 import { getLicenseByKey, LicenseModel } from "./models/licenseModel";
 import { LICENSE_PUBLIC_KEY } from "./public-key";
@@ -1056,12 +1055,10 @@ export async function postProvisionEventForwarderToLicenseServer(
   const url = `${LICENSE_SERVER_URL}event-forwarder/provision`;
   return callLicenseServer({
     url,
-    body: JSON.stringify(
-      omitDeepNull({
-        ...params,
-        cloudSecret: process.env.CLOUD_SECRET,
-      }),
-    ),
+    body: JSON.stringify({
+      ...params,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
   });
 }
 
@@ -1076,12 +1073,10 @@ export async function postTeardownEventForwarderToLicenseServer(params: {
   const url = `${LICENSE_SERVER_URL}event-forwarder/teardown`;
   return callLicenseServer({
     url,
-    body: JSON.stringify(
-      omitDeepNull({
-        ...params,
-        cloudSecret: process.env.CLOUD_SECRET,
-      }),
-    ),
+    body: JSON.stringify({
+      ...params,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
   });
 }
 
@@ -1093,12 +1088,10 @@ export async function postPauseEventForwarderToLicenseServer(params: {
   const url = `${LICENSE_SERVER_URL}event-forwarder/pause`;
   return callLicenseServer({
     url,
-    body: JSON.stringify(
-      omitDeepNull({
-        ...params,
-        cloudSecret: process.env.CLOUD_SECRET,
-      }),
-    ),
+    body: JSON.stringify({
+      ...params,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
   });
 }
 
@@ -1110,12 +1103,10 @@ export async function postResumeEventForwarderToLicenseServer(params: {
   const url = `${LICENSE_SERVER_URL}event-forwarder/resume`;
   return callLicenseServer({
     url,
-    body: JSON.stringify(
-      omitDeepNull({
-        ...params,
-        cloudSecret: process.env.CLOUD_SECRET,
-      }),
-    ),
+    body: JSON.stringify({
+      ...params,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
   });
 }
 
@@ -1137,12 +1128,10 @@ export async function postUpdateEventForwarderSchemaToLicenseServer(
   const url = `${LICENSE_SERVER_URL}event-forwarder/update-schema`;
   return callLicenseServer({
     url,
-    body: JSON.stringify(
-      omitDeepNull({
-        ...params,
-        cloudSecret: process.env.CLOUD_SECRET,
-      }),
-    ),
+    body: JSON.stringify({
+      ...params,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
   });
 }
 
@@ -1183,11 +1172,9 @@ export async function postUpdateEventForwarderCredentialsToLicenseServer(
   const url = `${LICENSE_SERVER_URL}event-forwarder/update-credentials`;
   return callLicenseServer({
     url,
-    body: JSON.stringify(
-      omitDeepNull({
-        ...params,
-        cloudSecret: process.env.CLOUD_SECRET,
-      }),
-    ),
+    body: JSON.stringify({
+      ...params,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
   });
 }

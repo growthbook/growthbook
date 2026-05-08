@@ -391,7 +391,7 @@ export default function EventForwarder({
             </Box>
           ) : null}
         </Callout>
-      ) : (
+      ) : isPaused ? (
         <Callout status="info" mb="3">
           To remove the Event Forwarder,{" "}
           <a
@@ -403,7 +403,7 @@ export default function EventForwarder({
           </a>
           .
         </Callout>
-      )}
+      ) : null}
 
       {eventForwarderConfig ? (
         <Card>

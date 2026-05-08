@@ -81,15 +81,12 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
     );
     expect(deleteForDatasourceCascade).toHaveBeenCalledWith(existing);
     expect(mockedTeardownRemote).toHaveBeenCalledWith({
-      context,
-      snapshot: {
-        organizationId: "org1",
-        datasourceId: "ds_a",
-        sinkType: "bigquery",
-        topic: "topic-a",
-        connectorName: undefined,
-        connectorId: undefined,
-      },
+      organizationId: "org1",
+      datasourceId: "ds_a",
+      sinkType: "bigquery",
+      topic: "topic-a",
+      connectorName: undefined,
+      connectorId: undefined,
     });
   });
 
@@ -162,15 +159,12 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
 
     expect(deleteForDatasourceCascade).toHaveBeenCalledWith(existing);
     expect(mockedTeardownRemote).toHaveBeenCalledWith({
-      context,
-      snapshot: {
-        organizationId: "org1",
-        datasourceId: "ds_s",
-        sinkType: "snowflake",
-        topic: "topic-s",
-        connectorName: undefined,
-        connectorId: undefined,
-      },
+      organizationId: "org1",
+      datasourceId: "ds_s",
+      sinkType: "snowflake",
+      topic: "topic-s",
+      connectorName: undefined,
+      connectorId: undefined,
     });
   });
 
@@ -221,15 +215,12 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
     );
     expect(mockedTeardownRemote).toHaveBeenCalledTimes(1);
     expect(mockedTeardownRemote).toHaveBeenCalledWith({
-      context,
-      snapshot: {
-        organizationId: "org1",
-        datasourceId: "ds_a",
-        sinkType: "bigquery",
-        topic: "topic-a",
-        connectorName: undefined,
-        connectorId: undefined,
-      },
+      organizationId: "org1",
+      datasourceId: "ds_a",
+      sinkType: "bigquery",
+      topic: "topic-a",
+      connectorName: undefined,
+      connectorId: undefined,
     });
     expect(deleteForDatasourceCascade).toHaveBeenCalledTimes(1);
 
@@ -243,15 +234,12 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
     );
     expect(mockedTeardownRemote).toHaveBeenCalledTimes(1);
     expect(mockedTeardownRemote).toHaveBeenCalledWith({
-      context,
-      snapshot: {
-        organizationId: "org1",
-        datasourceId: "ds_b",
-        sinkType: "bigquery",
-        topic: "topic-b",
-        connectorName: undefined,
-        connectorId: undefined,
-      },
+      organizationId: "org1",
+      datasourceId: "ds_b",
+      sinkType: "bigquery",
+      topic: "topic-b",
+      connectorName: undefined,
+      connectorId: undefined,
     });
   });
 
@@ -352,15 +340,12 @@ describe("deleteEventForwarderConfigForDatasource", () => {
 
     expect(deleteConfig).toHaveBeenCalledWith(existing);
     expect(mockedTeardownRemote).toHaveBeenCalledWith({
-      context,
-      snapshot: {
-        organizationId: "org1",
-        datasourceId: "ds_delete",
-        sinkType: "bigquery",
-        topic: "topic-delete",
-        connectorName: "connector-delete",
-        connectorId: "lcc-delete",
-      },
+      organizationId: "org1",
+      datasourceId: "ds_delete",
+      sinkType: "bigquery",
+      topic: "topic-delete",
+      connectorName: "connector-delete",
+      connectorId: "lcc-delete",
     });
   });
 
@@ -401,15 +386,12 @@ describe("deleteEventForwarderConfigForDatasource", () => {
 
     expect(deleteConfig).toHaveBeenCalledWith(existing);
     expect(mockedTeardownRemote).toHaveBeenCalledWith({
-      context,
-      snapshot: {
-        organizationId: "org1",
-        datasourceId: "ds_orphan",
-        sinkType: "bigquery",
-        topic: "topic-orphan",
-        connectorName: undefined,
-        connectorId: undefined,
-      },
+      organizationId: "org1",
+      datasourceId: "ds_orphan",
+      sinkType: "bigquery",
+      topic: "topic-orphan",
+      connectorName: undefined,
+      connectorId: undefined,
     });
   });
 });

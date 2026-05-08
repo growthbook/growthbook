@@ -18,7 +18,6 @@ import {
 import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarderConfig";
 import { resolveBigQueryEventForwarderTableName } from "back-end/src/services/eventForwarderBqTableResolution";
 import { testEventForwarderWriteAccess } from "back-end/src/services/eventForwarderWriteAccessValidation";
-import { requireEventsForwarderFeature } from "back-end/src/services/eventForwarderFeatureGate";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
@@ -50,7 +49,6 @@ export async function provisionEventForwarderThroughLicenseServer(
   if (eventForwarderConfig.sinkType === "databricks") {
     return;
   }
-  await requireEventsForwarderFeature(context);
 
   try {
     const attributeSchema = context.org.settings?.attributeSchema ?? [];
@@ -194,7 +192,6 @@ export async function updateEventForwarderCredentialsThroughLicenseServer(
   if (eventForwarderConfig.sinkType === "databricks") {
     return;
   }
-  await requireEventsForwarderFeature(context);
 
   const connectorName = eventForwarderConfig.connectorName?.trim();
   if (!connectorName) {
@@ -297,7 +294,6 @@ export async function pauseEventForwarderThroughLicenseServer(
   if (eventForwarderConfig.sinkType === "databricks") {
     throw new Error("Databricks event forwarders cannot be paused");
   }
-  await requireEventsForwarderFeature(context);
 
   const connectorName = eventForwarderConfig.connectorName?.trim();
   if (!connectorName) {
@@ -349,7 +345,6 @@ export async function resumeEventForwarderThroughLicenseServer(
   if (eventForwarderConfig.sinkType === "databricks") {
     throw new Error("Databricks event forwarders cannot be resumed");
   }
-  await requireEventsForwarderFeature(context);
 
   const connectorName = eventForwarderConfig.connectorName?.trim();
   if (!connectorName) {
@@ -398,7 +393,6 @@ export async function syncEventForwarderSchemasAfterAttributeSchemaChange(
   context: ReqContext,
   attributeSchema: SDKAttributeSchema,
 ): Promise<void> {
-  await requireEventsForwarderFeature(context);
   const configs = await context.models.eventForwarderConfigs.getAll();
   if (configs.length === 0) {
     return;
@@ -433,7 +427,6 @@ export async function updateEventForwarderSchemaThroughLicenseServer(
   if (eventForwarderConfig.status !== "ready") {
     return;
   }
-  await requireEventsForwarderFeature(context);
 
   try {
     const result = await postUpdateEventForwarderSchemaToLicenseServer({
@@ -472,21 +465,14 @@ export async function updateEventForwarderSchemaThroughLicenseServer(
 /**
  * Tears down BigQuery Confluent resources via the license server (after Mongo cleanup).
  */
-export async function teardownBigQueryEventForwarderInfrastructureRemote({
-  context,
-  snapshot,
-}: {
-  context: ReqContext;
-  snapshot: {
-    organizationId: string;
-    datasourceId: string;
-    sinkType?: "bigquery" | "snowflake" | "databricks";
-    topic?: string;
-    connectorName?: string;
-    connectorId?: string;
-  };
+export async function teardownBigQueryEventForwarderInfrastructureRemote(snapshot: {
+  organizationId: string;
+  datasourceId: string;
+  sinkType?: "bigquery" | "snowflake" | "databricks";
+  topic?: string;
+  connectorName?: string;
+  connectorId?: string;
 }): Promise<void> {
-  await requireEventsForwarderFeature(context);
   await postTeardownEventForwarderToLicenseServer({
     organizationId: snapshot.organizationId,
     datasourceId: snapshot.datasourceId,
