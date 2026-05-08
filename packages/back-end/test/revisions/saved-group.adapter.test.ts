@@ -117,6 +117,24 @@ describe("savedGroupAdapter", () => {
       const snap = savedGroupAdapter.buildSnapshot(baseGroup);
       expect(snap).toEqual(baseGroup);
     });
+
+    it("strips legacy fields no longer in the schema", () => {
+      // Saved group docs created before #2904 still have `passByReferenceOnly`
+      // (and could in principle have other since-removed fields). The
+      // snapshot validator runs in .strict() mode, so we must drop them.
+      const withLegacy = {
+        ...baseGroup,
+        passByReferenceOnly: true,
+        someOtherUnknownField: "x",
+      } as unknown as SavedGroupInterface;
+
+      const snap = savedGroupAdapter.buildSnapshot(withLegacy);
+
+      expect(snap).not.toHaveProperty("passByReferenceOnly");
+      expect(snap).not.toHaveProperty("someOtherUnknownField");
+      expect(snap.id).toBe("sg-1");
+      expect(snap.groupName).toBe("My Group");
+    });
   });
 
   describe("getUpdatableFields", () => {
