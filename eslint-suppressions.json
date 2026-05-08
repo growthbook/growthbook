@@ -1359,6 +1359,11 @@
       "count": 1
     }
   },
+  "packages/front-end/components/Settings/EditDataSource/EventForwarder/EventForwarder.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal.tsx": {
     "local/no-alert-classname": {
       "count": 1
