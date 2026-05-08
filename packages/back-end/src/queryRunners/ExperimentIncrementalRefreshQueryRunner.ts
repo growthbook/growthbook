@@ -262,9 +262,25 @@ const startExperimentIncrementalRefreshQueries = async (
     );
   }
 
+  // Always load prior state so a full refresh can clean up the previous
+  // generation of metric source / covariate tables instead of orphaning them.
+  const priorIncrementalRefreshModel =
+    await context.models.incrementalRefresh.getByExperimentId(experimentId);
+
   const incrementalRefreshModel = params.fullRefresh
     ? null
-    : await context.models.incrementalRefresh.getByExperimentId(experimentId);
+    : priorIncrementalRefreshModel;
+
+  const priorMetricSourceTables = params.fullRefresh
+    ? (priorIncrementalRefreshModel?.metricSources ?? []).map(
+        (s) => s.tableFullName,
+      )
+    : [];
+  const priorMetricCovariateSourceTables = params.fullRefresh
+    ? (priorIncrementalRefreshModel?.metricCovariateSources ?? []).map(
+        (s) => s.tableFullName,
+      )
+    : [];
 
   const executionId = params.queryParentId;
 
@@ -514,6 +530,10 @@ const startExperimentIncrementalRefreshQueries = async (
   let runningSourceData = existingSources ?? [];
   let runningCovariateSourceData = existingCovariateSources ?? [];
 
+  // Track when each new metric source has been created and persisted so we
+  // only drop prior-generation tables after the replacements exist.
+  const newMetricSourceReadyDependencies: string[] = [];
+
   for (const group of metricSourceGroups) {
     const existingSource = existingSources?.find(
       (s) => s.groupId === group.groupId,
@@ -725,6 +745,9 @@ const startExperimentIncrementalRefreshQueries = async (
         queryType: "experimentIncrementalRefreshInsertMetricsCovariateData",
       });
       queries.push(insertMetricCovariateDataQuery);
+      newMetricSourceReadyDependencies.push(
+        insertMetricCovariateDataQuery.query,
+      );
     }
 
     const maxTimestampMetricsSourceQuery = await startQuery({
@@ -805,6 +828,7 @@ const startExperimentIncrementalRefreshQueries = async (
       queryType: "experimentIncrementalRefreshMaxTimestampMetricsSource",
     });
     queries.push(maxTimestampMetricsSourceQuery);
+    newMetricSourceReadyDependencies.push(maxTimestampMetricsSourceQuery.query);
 
     // Match standard query runner behavior: quantiles only run overall stats
     // (no pre-computed dimensions), regardless of requested dimensions.
@@ -839,6 +863,40 @@ const startExperimentIncrementalRefreshQueries = async (
     });
     queries.push(statisticsQuery);
   }
+
+  // Drop the prior generation of metric source / covariate tables now that the
+  // new sources have been created and persisted. Runs only on full refresh and
+  // only after every new source's max-timestamp query succeeds, so a failed
+  // refresh leaves the previous tables in place.
+  for (const [i, tableFullName] of priorMetricSourceTables.entries()) {
+    const dropPriorMetricsSourceQuery = await startQuery({
+      name: `drop_prior_metrics_source_${queryParentId}_${i}`,
+      displayTitle: "Drop Prior Metrics Source",
+      query: integration.getDropMetricSourceTableQuery({
+        metricSourceTableFullName: tableFullName,
+      }),
+      dependencies: newMetricSourceReadyDependencies,
+      run: (query, setExternalId, queryMetadata) =>
+        integration.runDropTableQuery(query, setExternalId, queryMetadata),
+      queryType: "experimentIncrementalRefreshDropMetricsSourceTable",
+    });
+    queries.push(dropPriorMetricsSourceQuery);
+  }
+  for (const [i, tableFullName] of priorMetricCovariateSourceTables.entries()) {
+    const dropPriorMetricsCovariateQuery = await startQuery({
+      name: `drop_prior_metrics_covariate_${queryParentId}_${i}`,
+      displayTitle: "Drop Prior Metric Covariate Table",
+      query: integration.getDropMetricSourceCovariateTableQuery({
+        metricSourceCovariateTableFullName: tableFullName,
+      }),
+      dependencies: newMetricSourceReadyDependencies,
+      run: (query, setExternalId, queryMetadata) =>
+        integration.runDropTableQuery(query, setExternalId, queryMetadata),
+      queryType: "experimentIncrementalRefreshDropMetricsCovariateTable",
+    });
+    queries.push(dropPriorMetricsCovariateQuery);
+  }
+
   const runTrafficQuery = shouldRunHealthTrafficQuery({
     snapshotType: params.snapshotType,
     snapshotDimensions: snapshotSettings.dimensions,
