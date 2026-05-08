@@ -41,12 +41,9 @@ import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import { FeatureEvaluationQueries } from "@/components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueries";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
-<<<<<<< HEAD
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HistoryTable from "@/components/HistoryTable";
-=======
 import EventForwarder from "@/components/Settings/EditDataSource/EventForwarder/EventForwarder";
->>>>>>> 1e06b0a68 (Disable attributes edit and show event forwarder (#5760))
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
