@@ -15,13 +15,12 @@ import {
   ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Checkbox from "@/ui/Checkbox";
 import RadioGroup from "@/ui/RadioGroup";
-import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { useDashboards } from "@/hooks/useDashboards";
@@ -34,6 +33,7 @@ import {
 } from "@/enterprise/components/Dashboards/DashboardModal";
 import { useCronValidation } from "@/enterprise/components/Dashboards/useCronValidation";
 import DashboardUpdateScheduleSelector from "@/enterprise/components/Dashboards/DashboardUpdateScheduleSelector";
+import track from "@/services/track";
 
 function datasetTypeToBlockType(
   type: "metric" | "fact_table" | "data_source",
@@ -52,12 +52,14 @@ interface Props {
   close: () => void;
   config: ExplorationConfig;
   exploration: ProductAnalyticsExploration | null;
+  trackingSource?: string;
 }
 
 export default function SaveToDashboardModal({
   close,
   config,
   exploration,
+  trackingSource,
 }: Props) {
   const router = useRouter();
   const { dashboards, dashboardsMap, mutateDashboards } = useDashboards(false);
@@ -154,6 +156,16 @@ export default function SaveToDashboardModal({
     }
 
     mutateDashboards();
+
+    if (trackingSource) {
+      track("Product Analytics Explorer: Saved To Dashboard", {
+        source: trackingSource,
+        type: config.type,
+        chart_type: config.chartType,
+        target: createOrAdd === "new" ? "new-dashboard" : "existing-dashboard",
+      });
+    }
+
     router.push(`/product-analytics/dashboards/${dashboardId}`);
   };
 
@@ -164,28 +176,24 @@ export default function SaveToDashboardModal({
       : !!form.watch("title").trim() && !cronError);
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="save-to-dashboard"
       submit={handleSubmit}
       open={true}
-      header={null}
+      header="Save to Dashboard"
       cta={createOrAdd === "existing" ? "Add to Dashboard" : "Create Dashboard"}
       ctaEnabled={ctaEnabled}
-      showHeaderCloseButton={false}
       close={close}
     >
-      <Heading as="h2" mb="5">
-        Save to Dashboard
-      </Heading>
       <Flex direction="column" gap="3">
         <Flex direction="column" gap="2">
-          <Text as="label" weight="medium">
+          <Text as="label" weight="semibold">
             Chart Title
           </Text>
           <Field placeholder="Chart title" {...form.register("chartTitle")} />
         </Flex>
         <Flex direction="column" gap="2">
-          <Text as="label" weight="medium">
+          <Text as="label" weight="semibold">
             Save to...
           </Text>
           <RadioGroup
@@ -342,6 +350,6 @@ export default function SaveToDashboardModal({
           </Flex>
         )}
       </Flex>
-    </Modal>
+    </ModalStandard>
   );
 }

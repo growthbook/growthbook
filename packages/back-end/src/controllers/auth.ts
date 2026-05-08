@@ -9,7 +9,7 @@ import {
   createOrganization,
   hasOrganization,
 } from "back-end/src/models/OrganizationModel";
-import { IS_CLOUD } from "back-end/src/util/secrets";
+import { IS_CLOUD, IS_LOCALHOST } from "back-end/src/util/secrets";
 import {
   deleteAuthCookies,
   getAuthConnection,
@@ -38,7 +38,7 @@ import {
 import { AuthRefreshModel } from "back-end/src/models/AuthRefreshModel";
 
 export async function getHasOrganizations(req: Request, res: Response) {
-  const hasOrg = IS_CLOUD ? true : await hasOrganization();
+  const hasOrg = IS_CLOUD && !IS_LOCALHOST ? true : await hasOrganization();
   return res.json({
     status: 200,
     hasOrganizations: hasOrg,
@@ -69,7 +69,7 @@ export async function postRefresh(req: Request, res: Response) {
       expiresIn,
     } = await auth.refresh(req, res, refreshToken);
 
-    IdTokenCookie.setValue(idToken, req, res, expiresIn);
+    IdTokenCookie.setValue(idToken, req, res, expiresIn * 1000);
     if (newRefreshToken) {
       RefreshTokenCookie.setValue(newRefreshToken, req, res);
     }
@@ -101,7 +101,7 @@ export async function postOAuthCallback(req: Request, res: Response) {
     }
 
     RefreshTokenCookie.setValue(refreshToken, req, res);
-    IdTokenCookie.setValue(idToken, req, res, expiresIn);
+    IdTokenCookie.setValue(idToken, req, res, expiresIn * 1000);
 
     return res.status(200).json({
       status: 200,
@@ -137,7 +137,7 @@ export async function setResponseCookies(
     idToken,
     req,
     res,
-    Math.max(10 * 60 * 1000, expiresIn),
+    Math.max(10 * 60 * 1000, expiresIn * 1000),
   );
   RefreshTokenCookie.setValue(refreshToken, req, res);
 

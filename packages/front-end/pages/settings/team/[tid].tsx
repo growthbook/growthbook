@@ -1,9 +1,9 @@
 import router from "next/router";
 import React, { FC, useState } from "react";
 import { datetime } from "shared/dates";
-import Link from "next/link";
 import { FaExclamationTriangle, FaUserLock } from "react-icons/fa";
 import { Box } from "@radix-ui/themes";
+import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
@@ -16,6 +16,7 @@ import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/ui/Callout";
 
 const TeamPage: FC = () => {
   const { apiCall } = useAuth();
@@ -41,9 +42,9 @@ const TeamPage: FC = () => {
   if (!team) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           Team <code>{tid}</code> does not exist.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -77,12 +78,12 @@ const TeamPage: FC = () => {
           </Link>
         </div>
         {!isEditable && (
-          <div className="alert alert-info">
+          <Callout status="info" mb="3">
             This team is managed by an idP. To make changes to the{" "}
             <b>team name</b> or <b>team membership</b> please access your idP
             and edit the corresponding group. Team permissions must be edited
             via the <b>Edit Permissions</b> button below.
-          </div>
+          </Callout>
         )}
         {team.managedBy?.type ? (
           <div>

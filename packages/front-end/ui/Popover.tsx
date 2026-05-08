@@ -4,6 +4,7 @@ import { IconButton } from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiX } from "react-icons/pi";
 import { RadixTheme } from "@/services/RadixTheme";
+import Button from "./Button";
 import styles from "./Popover.module.scss";
 
 type AllowedChildren = string | React.ReactNode;
@@ -53,13 +54,16 @@ export function Popover({
     ...contentStyle,
   };
 
-  // In case using our own button component, ensure preventDefault is false
-  const clonedTrigger = React.isValidElement(trigger)
-    ? React.cloneElement(trigger, { preventDefault: false } as Record<
-        string,
-        unknown
-      >)
-    : trigger;
+  // Override the @/ui/Button default of preventDefault=true so it doesn't
+  // interfere with Radix Popover's open/close handling. Only applies to that
+  // component — passing the prop to a DOM element triggers a React warning.
+  const clonedTrigger =
+    React.isValidElement(trigger) && trigger.type === Button
+      ? React.cloneElement(trigger, { preventDefault: false } as Record<
+          string,
+          unknown
+        >)
+      : trigger;
 
   return (
     <RadixPopover.Root {...props}>

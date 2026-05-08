@@ -55,16 +55,14 @@ To illustrate the mathematics behind the two approaches, consider an experiment 
 | 456     | 3     |
 | 789     | 99    |
 
-Different quantile settings would yield different results:
+Taking the median (P50) under each approach gives different results:
 
-| Quantile Type | Quantile Value | Ignore Zeros? | Result                                         |
-| ------------- | -------------- | ------------- | ---------------------------------------------- |
-| Event         | 0.5            | False         | `APPROX_PERCENTILE([0, 0, 2, 3, 99], 0.5) = 2` |
-| Event         | 0.5            | True          | `APPROX_PERCENTILE([2, 3, 99], 0.5) = 3`       |
-| Per-User      | 0.5            | False         | `APPROX_PERCENTILE([0, 5, 99], 0.5) = 5`       |
-| Per-User      | 0.5            | True          | `APPROX_PERCENTILE([5, 99], 0.5) = 52`         |
+| Quantile Type | P50 | Formula                                    |
+| ------------- | --- | ------------------------------------------ |
+| Event         | 2   | `APPROX_PERCENTILE([0, 0, 2, 3, 99], 0.5)` |
+| Per-User      | 5   | `APPROX_PERCENTILE([0, 5, 99], 0.5)`       |
 
-Notice that for the Per-User quantiles, we sum at the user level first before passing values to the percentile function. `NULL` values will always be ignored.
+Notice that for the Per-User quantile, we sum values at the user level first (user 123: 0, user 456: 5, user 789: 99) before passing them to the percentile function. `NULL` values are always ignored.
 
 ## How do I run a quantile test in GrowthBook?
 
@@ -73,27 +71,17 @@ Running a quantile test is just as easy as running a mean test.
 1. Navigate to your [Fact Table](/app/metrics) and select "Add Metric".
 2. Select “Quantile” from “Type of Metric”.
 3. Toggle “Aggregate by Experiment User before taking quantile” if you want to compare quantiles across variations at the user granularity, after summing row values at the user level. The default is at the event granularity.
-4. Pick your quantile level from the defaults (p50, p90, p95, p99) or use a custom value. Guidance describing the range of available values is in our [FAQ](#faq).
-5. Decide whether you want zeros to be included in the analysis (see [FAQ](#faq) below).
+4. Pick your quantile level from the defaults (p50, p90, p95, p99) or use a custom value. Guidance describing the range of available values is in our [FAQ](#faq) at the bottom of this page.
+5. Decide whether you want zeros to be included in the analysis (see [FAQ](#faq) at the bottom of this page).
 6. Select your metric window as you would for a mean test.
 7. Submit!
 
 ![User interface for quantile metrics](/images/statistics/quantile.png)
 
-## FAQ
-
-Frequently asked questions:
-
-1. Can I pick any quantile level (e.g., P99.999)? No - the maximum range available is [0.001, 0.999], and that is only for experiments with large sample sizes (i.e., n > 3838). This is because inference can become unreliable for extreme quantile levels and small sample sizes. In general, if you want to compare quantiles at some value $p \in (0, 1)$, and you want a 95% confidence interval, your sample size $n$ must be bigger than $4p/(1-p)$. Similarly, if you want extreme and small quantiles, you need $n \geq 4(1-p)/p$. For $p=0.99$ and $p=0.01$, this corresponds to $n \geq 380$.
-2. Should I include zeros in my quantile test? This depends upon the population that you care about, and what you want to learn. If zero is a common value for your metric, then P90 including zeros can be much less than P90 without zeros. If your metric is typically conceptualized and reported with zeros included, then it will probably makes sense to include zeros in your quantile test metric. If you are using quantile tests to deep dive mean test results, then use the same configuration for both tests.
-3. Can I get quantile test results inside of a Bayesian framework? Yes - GrowthBook puts a prior on the quantile treatment effect, and combines this prior with the effect estimate to obtain a posterior distribution for the quantile treatment effect. So “Chance to Win” and other helpful Bayesian concepts are available.
-4. How does quantile inference connect to mean inference? If you average the quantiles of a distribution, you get the distributional mean. That is, the average of $\left\{P1, P2, ..., P98, P99\right\}$ equals the mean of the distribution. Similarly, the average of the treatment effects at P1, P2, etc. equals the mean treatment effect. So quantile inference can be viewed as a decomposition of mean inference.
-5. How should I conduct quantile inference in the presence of percentile capping? We have disabled percentile capping for quantile testing. For example, if you picked P99 for your quantile level, then your results could be biased, as capping at P98 ignores all information beyond the 98th percentile. Percentile capping at P98 does not affect estimates at any quantile level below P98 (e.g., P50, P90), so percentile capping will either do nothing or potentially bias quantile test results.
-6. How does Quantile Testing intersect with [CUPED](/statistics/cuped), [Multiple Testing Corrections](/statistics/multiple-corrections), and [Sequential Testing](/statistics/sequential)? Currently CUPED and Sequential Testing are not implemented for Quantile Testing. Multiple Testing Corrections is implemented for Quantile Testing.
-7. What is cluster adjustment? Data are clustered when randomization happens at a coarser granularity than the metrics of interest. For example, suppose we are trying to reduce webpage latency. We randomize customers (perhaps due to engineering constraints or testing purposes). A customer may have multiple sessions, i.e., a session is clustered within customer. Latencies for two sessions from the same customer are likelier to be more similar than latencies for two sessions from different customers. Cluster adjustment ensures that we do not overstate the amount of information in the experiment, i.e., uncertainty estimates are valid.
-8. Are quantile estimates available via [incremental refresh](/app/data-pipeline#incremental-refresh-recommended-in-beta)? Yes - event-level quantile metrics are supported for BigQuery, which uses KLL sketches to store approximate event-level data for each experiment unit. This provides approximate inference, as small effects may be undetectable.
-
 ## GrowthBook implementation
+
+<details>
+<summary>Technical details</summary>
 
 Here we describe technical details of our implementation.
 
@@ -120,3 +108,18 @@ This is similar to the delta method approximation of the variance we use for rat
 Let $\hat{\mu}_{C,n\nu}$ be the $\nu^{\text{th}}$ sample quantile for control, and let its associated variance be $\hat\sigma^2_{C,n\nu}$.
 Analogously define $\hat{\mu}_{T,n\nu}$ and $\hat\sigma^2_{C,n\nu}$ for treatment. These quantities are plugged into our lift estimators as described in the [Statistical Details](/statistics/details) page. The result
 from step 7 is our estimate of the variance and the sample quantile is directly computed in the SQL query.
+
+</details>
+
+## FAQ
+
+Frequently asked questions:
+
+1. Can I pick any quantile level (e.g., P99.999)? No - the maximum range available is [0.001, 0.999], and that is only for experiments with large sample sizes (i.e., n > 3838). This is because inference can become unreliable for extreme quantile levels and small sample sizes. In general, if you want to compare quantiles at some value $p \in (0, 1)$, and you want a 95% confidence interval, your sample size $n$ must be bigger than $4p/(1-p)$. Similarly, if you want extreme and small quantiles, you need $n \geq 4(1-p)/p$. For $p=0.99$ and $p=0.01$, this corresponds to $n \geq 380$.
+2. Should I include zeros in my quantile test? This depends upon the population that you care about, and what you want to learn. If zero is a common value for your metric, then P90 including zeros can be much less than P90 without zeros. If your metric is typically conceptualized and reported with zeros included, then it will probably makes sense to include zeros in your quantile test metric. If you are using quantile tests to deep dive mean test results, then use the same configuration for both tests.
+3. Can I get quantile test results inside of a Bayesian framework? Yes - GrowthBook puts a prior on the quantile treatment effect, and combines this prior with the effect estimate to obtain a posterior distribution for the quantile treatment effect. So “Chance to Win” and other helpful Bayesian concepts are available.
+4. How does quantile inference connect to mean inference? If you average the quantiles of a distribution, you get the distributional mean. That is, the average of $\left\{P1, P2, ..., P98, P99\right\}$ equals the mean of the distribution. Similarly, the average of the treatment effects at P1, P2, etc. equals the mean treatment effect. So quantile inference can be viewed as a decomposition of mean inference.
+5. How should I conduct quantile inference in the presence of percentile capping? We have disabled percentile capping for quantile testing. For example, if you picked P99 for your quantile level, then your results could be biased, as capping at P98 ignores all information beyond the 98th percentile. Percentile capping at P98 does not affect estimates at any quantile level below P98 (e.g., P50, P90), so percentile capping will either do nothing or potentially bias quantile test results.
+6. How does Quantile Testing intersect with [CUPED](/statistics/cuped), [Multiple Testing Corrections](/statistics/multiple-corrections), and [Sequential Testing](/statistics/sequential)? Currently CUPED and Sequential Testing are not implemented for Quantile Testing. Multiple Testing Corrections is implemented for Quantile Testing.
+7. What is cluster adjustment? Data are clustered when randomization happens at a coarser granularity than the metrics of interest. For example, suppose we are trying to reduce webpage latency. We randomize customers (perhaps due to engineering constraints or testing purposes). A customer may have multiple sessions, i.e., a session is clustered within customer. Latencies for two sessions from the same customer are likelier to be more similar than latencies for two sessions from different customers. Cluster adjustment ensures that we do not overstate the amount of information in the experiment, i.e., uncertainty estimates are valid.
+8. Are quantile estimates available via [incremental refresh](/app/data-pipeline#incremental-refresh-recommended-in-beta)? Yes - event-level quantile metrics are supported for BigQuery, which uses KLL sketches to store approximate event-level data for each experiment unit. This provides approximate inference, as small effects may be undetectable.

@@ -9,7 +9,6 @@ import {
 import { getFactTable } from "back-end/src/models/FactTableModel";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { validateAggregationSpecification } from "back-end/src/api/fact-metrics/postFactMetric";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 
 function expectsDenominator(metricType: FactMetricType) {
@@ -59,11 +58,6 @@ export async function getUpdateFactMetricPropsFromBody(
     if (!factTable) {
       throw new Error("Could not find numerator fact table");
     }
-    validateAggregationSpecification({
-      errorPrefix: "Numerator misspecified. ",
-      column: updates.numerator,
-      factTable: factTable,
-    });
   }
   // remove denominator for non-ratio metrics where existing
   // metric is a ratio metric
@@ -83,11 +77,6 @@ export async function getUpdateFactMetricPropsFromBody(
     if (!factTable) {
       throw new Error("Could not find denominator fact table");
     }
-    validateAggregationSpecification({
-      errorPrefix: "Denominator misspecified. ",
-      column: updates.denominator,
-      factTable: factTable,
-    });
   }
   if (cappingSettings) {
     updates.cappingSettings = {

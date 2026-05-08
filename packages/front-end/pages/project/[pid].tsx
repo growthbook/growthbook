@@ -1,6 +1,6 @@
 import React, { FC, useEffect, useState } from "react";
 import router from "next/router";
-import Link from "next/link";
+import NextLink from "next/link";
 import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import { ProjectInterface, ProjectSettings } from "shared/types/project";
@@ -8,6 +8,7 @@ import { getScopedSettings } from "shared/settings";
 import { DEFAULT_CONFIDENCE_LEVEL } from "shared/constants";
 import { Box, Flex } from "@radix-ui/themes";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
+import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBCircleArrowLeft } from "@/components/Icons";
@@ -177,7 +178,7 @@ const ProjectPage: FC = () => {
         ) : null}
         <Flex align="center" justify="between" width="100%">
           <Flex align="start" direction="column">
-            <Heading size="2x-large" as="h1">
+            <Heading size="x-large" as="h1">
               {p.name}
             </Heading>
             <Flex gap="6" mb="4">
@@ -210,7 +211,7 @@ const ProjectPage: FC = () => {
           </Box>
         ) : (
           <Box>
-            <Link
+            <NextLink
               href="#"
               onClick={(e) => {
                 e.preventDefault();
@@ -218,7 +219,7 @@ const ProjectPage: FC = () => {
               }}
             >
               Add a description
-            </Link>
+            </NextLink>
           </Box>
         )}
 

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import NextLink from "next/link";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
@@ -13,6 +13,7 @@ import {
 } from "react-icons/fa6";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import FeatureModal from "@/components/Features/FeatureModal";
 import track from "@/services/track";
@@ -252,14 +253,14 @@ export default function FeaturesPage() {
                       />
                     </td>
                     <td className="p-0">
-                      <Link
+                      <NextLink
                         href={`/features/${feature.id}`}
                         className={clsx("featurename d-block p-2", {
                           "text-muted": feature.archived,
                         })}
                       >
                         {feature.id}
-                      </Link>
+                      </NextLink>
                     </td>
                     {showProjectColumn && (
                       <td>
@@ -340,23 +341,27 @@ export default function FeaturesPage() {
                     </td>
                     {showGraphs && (
                       <td style={{ width: 170 }}>
-                        <RealTimeFeatureGraph
-                          data={usage?.[feature.id]?.realtime || []}
-                          yDomain={usageDomain}
-                        />
+                        {!feature.archived && (
+                          <RealTimeFeatureGraph
+                            data={usage?.[feature.id]?.realtime || []}
+                            yDomain={usageDomain}
+                          />
+                        )}
                       </td>
                     )}
                     <td>
-                      <StaleFeatureIcon
-                        context="list"
-                        neverStale={feature.neverStale}
-                        valueType={feature.valueType}
-                        staleData={staleHook.getStaleState(feature.id)}
-                        fetchStaleData={async () => {
-                          staleHook.invalidate([feature.id]);
-                          await staleHook.fetchSome([feature.id]);
-                        }}
-                      />
+                      {!feature.archived && (
+                        <StaleFeatureIcon
+                          context="list"
+                          neverStale={feature.neverStale}
+                          valueType={feature.valueType}
+                          staleData={staleHook.getStaleState(feature.id)}
+                          fetchStaleData={async () => {
+                            staleHook.invalidate([feature.id]);
+                            await staleHook.fetchSome([feature.id]);
+                          }}
+                        />
+                      )}
                     </td>
                     <td>
                       <MoreMenu>

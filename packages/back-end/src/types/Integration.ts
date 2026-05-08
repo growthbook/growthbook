@@ -1,5 +1,5 @@
 import { ExperimentMetricInterface } from "shared/experiments";
-import { FormatDialect, TemplateVariables } from "shared/types/sql";
+import { TemplateVariables } from "shared/types/sql";
 import {
   AlterNewIncrementalUnitsQueryParams,
   AutoMetricTrackedEvent,
@@ -87,7 +87,6 @@ export interface SourceIntegrationInterface {
     activationMetricDoc: ExperimentMetricInterface | null,
     dimension: DimensionInterface | null,
   ): string;
-  getFormatDialect?(): FormatDialect;
   getExperimentResults(
     snapshotSettings: ExperimentSnapshotSettings,
     metrics: ExperimentMetricInterface[],
@@ -107,6 +106,7 @@ export interface SourceIntegrationInterface {
     query: string,
     testDays?: number,
     templateVariables?: TemplateVariables,
+    timestampColumn?: string,
   ): string;
   getTestQuery?(params: TestQueryParams): string;
   getFreeFormQuery?(query: string, limit?: number): string;

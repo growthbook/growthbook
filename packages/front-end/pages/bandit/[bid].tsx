@@ -48,6 +48,7 @@ const BanditExperimentPage = (): ReactElement => {
   const [checklistItemsRemaining, setChecklistItemsRemaining] = useState<
     number | null
   >(null);
+  const [checklistHardBlockerCount, setChecklistHardBlockerCount] = useState(0);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -296,7 +297,9 @@ const BanditExperimentPage = (): ReactElement => {
           envs={data.envs}
           editTargeting={editTargeting}
           checklistItemsRemaining={checklistItemsRemaining}
+          checklistHardBlockerCount={checklistHardBlockerCount}
           setChecklistItemsRemaining={setChecklistItemsRemaining}
+          setChecklistHardBlockerCount={setChecklistHardBlockerCount}
           visualChangesetEnvStates={visualChangesetEnvStates}
           urlRedirectEnvStates={urlRedirectEnvStates}
         />

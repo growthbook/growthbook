@@ -7,7 +7,7 @@ import { getReviewSetting } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useExperiments } from "@/hooks/useExperiments";
 import Callout from "@/ui/Callout";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import DraftSelectorForChanges, {
@@ -64,18 +64,14 @@ const AddToHoldoutModal = ({
         experimentsMap[experimentId]?.holdoutId === feature.holdout?.id),
   );
 
-  // Check if the feature has any safe rollout rules. If it does, we can't add it to a holdout
-  // go through each environment setting object and make sure no rule in its rules array has a type of experiment or safe-rollout
-  const eligibleToAddToHoldout = Object.values(
-    feature.environmentSettings,
-  ).every((setting) =>
-    setting.rules.every((rule) => rule.type !== "safe-rollout"),
+  const eligibleToAddToHoldout = (feature.rules ?? []).every(
+    (rule) => rule.type !== "safe-rollout",
   );
 
   const showHoldoutSelect = experimentsAreInDraft && eligibleToAddToHoldout;
 
   return (
-    <Modal
+    <ModalStandard
       header="Add to holdout"
       close={close}
       open={true}
@@ -105,7 +101,6 @@ const AddToHoldoutModal = ({
                 res.draftVersion ??
                 (mode === "existing" ? selectedDraft : null);
               if (resolvedVersion != null) setVersion(resolvedVersion);
-              close();
             })
           : undefined
       }
@@ -144,7 +139,7 @@ const AddToHoldoutModal = ({
           />
         </>
       )}
-    </Modal>
+    </ModalStandard>
   );
 };
 

@@ -1,5 +1,6 @@
 import { postFeatureRevisionValidator } from "shared/validators";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import type { ApiRequestLocals } from "back-end/types/api";
+import { toApiRevision } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -8,9 +9,12 @@ import { createRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 
-export const postFeatureRevision = createApiRequestHandler(
-  postFeatureRevisionValidator,
-)(async (req) => {
+export async function createFeatureDraft(
+  req: Pick<ApiRequestLocals, "context" | "audit"> & {
+    params: { id: string };
+    body: { comment?: string; title?: string };
+  },
+) {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
@@ -56,5 +60,12 @@ export const postFeatureRevision = createApiRequestHandler(
     {},
   );
 
-  return { revision: revisionToApiInterface(newDraft) };
+  return { feature, revision: newDraft };
+}
+
+export const postFeatureRevision = createApiRequestHandler(
+  postFeatureRevisionValidator,
+)(async (req) => {
+  const { feature, revision } = await createFeatureDraft(req);
+  return { revision: toApiRevision(revision, req.context, feature) };
 });
