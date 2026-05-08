@@ -10126,17 +10126,16 @@ paths:
                       - code
                       - details
                   - type: object
-                    description: Experiment is not in a valid status for this operation
+                    description: Resource is not in a valid status for this operation
                     properties:
                       message:
                         type: string
                       code:
                         type: string
                         enum:
-                          - invalid_experiment_status
+                          - invalid_status
                       details:
-                        $ref: >-
-                          #/components/schemas/ApiError_invalid_experiment_status_details
+                        $ref: '#/components/schemas/ApiError_invalid_status_details'
                     required:
                       - message
                       - code
@@ -10226,17 +10225,16 @@ paths:
             application/json:
               schema:
                 type: object
-                description: Experiment is not in a valid status for this operation
+                description: Resource is not in a valid status for this operation
                 properties:
                   message:
                     type: string
                   code:
                     type: string
                     enum:
-                      - invalid_experiment_status
+                      - invalid_status
                   details:
-                    $ref: >-
-                      #/components/schemas/ApiError_invalid_experiment_status_details
+                    $ref: '#/components/schemas/ApiError_invalid_status_details'
                 required:
                   - message
                   - code
@@ -10297,17 +10295,16 @@ paths:
             application/json:
               schema:
                 type: object
-                description: Experiment is not in a valid status for this operation
+                description: Resource is not in a valid status for this operation
                 properties:
                   message:
                     type: string
                   code:
                     type: string
                     enum:
-                      - invalid_experiment_status
+                      - invalid_status
                   details:
-                    $ref: >-
-                      #/components/schemas/ApiError_invalid_experiment_status_details
+                    $ref: '#/components/schemas/ApiError_invalid_status_details'
                 required:
                   - message
                   - code
@@ -32460,7 +32457,7 @@ components:
       required:
         - failedFeatureDrafts
       additionalProperties: false
-    ApiError_invalid_experiment_status_details:
+    ApiError_invalid_status_details:
       type: object
       properties:
         currentStatus:

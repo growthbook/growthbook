@@ -18,17 +18,12 @@ export abstract class ApiError<C extends ApiErrorCode> extends Error {
   }
 }
 
-// Uses ApiErrorDetails<"checklist_incomplete"> directly so we avoid importing
-// StartChecklistItemStatus from changeExperimentStatus (which would create a cycle).
 export class ChecklistIncompleteError extends ApiError<"checklist_incomplete"> {
   constructor(
+    message: string,
     remainingChecklistItems: ApiErrorDetails<"checklist_incomplete">["remainingChecklistItems"],
   ) {
-    super(
-      "checklist_incomplete",
-      "Experiment cannot be started: required checklist items are incomplete",
-      { remainingChecklistItems },
-    );
+    super("checklist_incomplete", message, { remainingChecklistItems });
     this.name = "ChecklistIncompleteError";
   }
 }
@@ -46,17 +41,17 @@ export class PendingDraftPublishFailedError extends ApiError<"pending_draft_publ
   }
 }
 
-export class InvalidExperimentStatusError extends ApiError<"invalid_experiment_status"> {
+export class InvalidStatusError extends ApiError<"invalid_status"> {
   constructor(
     message: string,
     currentStatus: string,
     expectedStatuses: string[],
   ) {
-    super("invalid_experiment_status", message, {
+    super("invalid_status", message, {
       currentStatus,
       expectedStatuses,
     });
-    this.name = "InvalidExperimentStatusError";
+    this.name = "InvalidStatusError";
   }
 }
 

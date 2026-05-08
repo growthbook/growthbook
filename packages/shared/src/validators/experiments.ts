@@ -1491,7 +1491,7 @@ export const postExperimentStartValidator = {
   possibleErrors: [
     "checklist_incomplete",
     "pending_draft_publish_failed",
-    "invalid_experiment_status",
+    "invalid_status",
   ] as const,
 };
 
@@ -1520,7 +1520,7 @@ export const postExperimentStopValidator = {
         "Reached desired sample size with statistically significant positive lift; shipping treatment",
     },
   },
-  possibleErrors: ["invalid_experiment_status"] as const,
+  possibleErrors: ["invalid_status"] as const,
 };
 
 export const postExperimentModifyTemporaryRolloutValidator = {
@@ -1543,7 +1543,7 @@ export const postExperimentModifyTemporaryRolloutValidator = {
       enableTemporaryRollout: false,
     },
   },
-  possibleErrors: ["invalid_experiment_status"] as const,
+  possibleErrors: ["invalid_status"] as const,
 };
 
 export const postExperimentSnapshotValidator = {

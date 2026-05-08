@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const startChecklistItemStatusSchema = z.object({
+const checklistItemSchema = z.object({
   key: z.string(),
   required: z.boolean(),
   status: z.enum(["complete", "incomplete"]),
@@ -23,7 +23,7 @@ export const apiErrorRegistry = {
     status: 409,
     description: "Required checklist items are incomplete",
     detailsSchema: z.object({
-      remainingChecklistItems: z.array(startChecklistItemStatusSchema),
+      remainingChecklistItems: z.array(checklistItemSchema),
     }),
   },
   pending_draft_publish_failed: {
@@ -33,9 +33,9 @@ export const apiErrorRegistry = {
       failedFeatureDrafts: z.array(pendingDraftFailureSchema),
     }),
   },
-  invalid_experiment_status: {
+  invalid_status: {
     status: 409,
-    description: "Experiment is not in a valid status for this operation",
+    description: "Resource is not in a valid status for this operation",
     detailsSchema: z.object({
       currentStatus: z.string(),
       expectedStatuses: z.array(z.string()),

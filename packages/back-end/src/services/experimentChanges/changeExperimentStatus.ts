@@ -29,7 +29,7 @@ import {
 } from "back-end/src/services/experiment-feature";
 import {
   ChecklistIncompleteError,
-  InvalidExperimentStatusError,
+  InvalidStatusError,
   PendingDraftPublishFailedError,
 } from "back-end/src/util/errors";
 
@@ -249,7 +249,7 @@ export async function startExperiment({
   );
 
   if (experiment.status !== "draft") {
-    throw new InvalidExperimentStatusError(
+    throw new InvalidStatusError(
       "Experiment must be in draft status",
       experiment.status,
       ["draft"],
@@ -264,7 +264,10 @@ export async function startExperiment({
     (item) => item.required && item.status === "incomplete",
   );
   if (incompleteRequiredItems.length > 0 && !skipChecklist) {
-    throw new ChecklistIncompleteError(incompleteRequiredItems);
+    throw new ChecklistIncompleteError(
+      "Experiment cannot be started: required checklist items are incomplete",
+      incompleteRequiredItems,
+    );
   }
 
   const allVariations = getAllVariations(experiment);
@@ -347,7 +350,7 @@ export async function stopExperiment({
     ? ["running", "stopped"]
     : ["running"];
   if (!expectedStopStatuses.includes(experiment.status)) {
-    throw new InvalidExperimentStatusError(
+    throw new InvalidStatusError(
       `Can only stop an experiment in ${expectedStopStatuses.join(" or ")} status`,
       experiment.status,
       expectedStopStatuses,
@@ -475,7 +478,7 @@ export async function modifyTemporaryRollout({
     input.experimentId,
   );
   if (experiment.status !== "stopped") {
-    throw new InvalidExperimentStatusError(
+    throw new InvalidStatusError(
       "Can only modify temporary rollout for stopped experiments",
       experiment.status,
       ["stopped"],
