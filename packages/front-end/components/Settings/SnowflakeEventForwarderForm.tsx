@@ -3,7 +3,6 @@ import { DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME } from "shared/util";
 import { DataSourceParams } from "shared/types/datasource";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Button";
 import Callout from "@/ui/Callout";
 import EventForwarderTableNameField from "./EventForwarderTableNameField";
@@ -65,6 +64,24 @@ const SnowflakeEventForwarderForm: FC<{
     <>
       <div className="form-group col-md-12">
         <EventForwarderTableNameField
+          label="Event Forwarder Access URL"
+          name="eventForwarderAccessUrl"
+          value={snowflakeEventForwarderConfig.config.accessUrl || ""}
+          onChange={(accessUrl) =>
+            setEventForwarderConfig({
+              sinkType: "snowflake",
+              config: {
+                ...snowflakeEventForwarderConfig.config,
+                accessUrl,
+              },
+            })
+          }
+          placeholder="https://abcd12345.us-east-1.snowflakecomputing.com:443"
+          tooltip="Full Snowflake URL for Confluent Snowflake Sink, including the region, for example https://abcd12345.us-east-1.snowflakecomputing.com:443"
+        />
+      </div>
+      <div className="form-group col-md-12">
+        <EventForwarderTableNameField
           value={snowflakeEventForwarderConfig.config.tableName}
           onChange={(tableName) =>
             setEventForwarderConfig({
@@ -77,36 +94,14 @@ const SnowflakeEventForwarderForm: FC<{
           }
           placeholder={DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME}
           tooltip="Defaults to GB_EVENTS. GrowthBook maps the Kafka topic to this Snowflake table."
-          helpText="Letters, numbers, underscores, and dollar signs. Hyphens and spaces are normalized to underscores when saving."
-        />
-      </div>
-      <div className="form-group col-md-12">
-        <label>
-          Event Forwarder Access URL{" "}
-          <Tooltip body="Full Snowflake URL for Confluent Snowflake Sink, including the region, for example https://abcd12345.us-east-1.snowflakecomputing.com:443" />
-        </label>
-        <input
-          type="text"
-          className="form-control"
-          name="eventForwarderAccessUrl"
-          required
-          placeholder="https://abcd12345.us-east-1.snowflakecomputing.com:443"
-          value={snowflakeEventForwarderConfig.config.accessUrl || ""}
-          onChange={(e) =>
-            setEventForwarderConfig({
-              sinkType: "snowflake",
-              config: {
-                ...snowflakeEventForwarderConfig.config,
-                accessUrl: e.target.value,
-              },
-            })
-          }
+          subTitle="Letters, numbers, underscores, and dollar signs. Hyphens and spaces are normalized to underscores when saving."
         />
       </div>
       <div className="form-group col-md-12">
         <Button
-          color="primary"
+          color="outline-primary"
           disabled={!canTestEventForwarderAccess}
+          loadingClassName="btn-outline-primary disabled"
           loadingCta="Testing access"
           onClick={testEventForwarderAccess}
         >
