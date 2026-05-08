@@ -42,7 +42,9 @@ const apiRowFilterValidator = z.object({
 const apiNumeratorRef = z.object({
   factTableId: z.string(),
   column: z.string(),
-  aggregation: z.enum(["sum", "max", "count distinct"]).optional(),
+  aggregation: z
+    .enum(["sum", "max", "count distinct", "hll merge", "kll merge"])
+    .optional(),
   filters: z
     .array(z.string())
     .describe(
@@ -120,6 +122,12 @@ const apiQuantileSettings = z
       .gte(0.001)
       .lte(0.999)
       .describe("The quantile value (from 0.001 to 0.999)"),
+    quantileEventCountColumn: z
+      .string()
+      .describe(
+        "Optional override for the source-column name used to recover per-row event counts when numerator.aggregation is 'kll merge'. Defaults to '<numerator.column>_n_events'. Only valid for event-quantile metrics with a 'kll merge' numerator.",
+      )
+      .optional(),
   })
   .describe(
     'Controls the settings for quantile metrics (mandatory if metricType is "quantile")',
@@ -299,9 +307,9 @@ const postNumeratorRef = z.object({
     )
     .optional(),
   aggregation: z
-    .enum(["sum", "max", "count distinct"])
+    .enum(["sum", "max", "count distinct", "hll merge", "kll merge"])
     .describe(
-      "User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.",
+      "User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; hll merge / kll merge for pre-built sketch columns (requires data-source support); ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion metrics; for event quantile metrics only kll merge is applicable.",
     )
     .optional(),
   filters: z
@@ -347,9 +355,9 @@ const postDenominatorRef = z
         "The column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit')",
       ),
     aggregation: z
-      .enum(["sum", "max", "count distinct"])
+      .enum(["sum", "max", "count distinct", "hll merge", "kll merge"])
       .describe(
-        "User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.",
+        "User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; hll merge / kll merge for pre-built sketch columns (requires data-source support); ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion metrics; for event quantile metrics only kll merge is applicable.",
       )
       .optional(),
     filters: z
@@ -393,6 +401,12 @@ const postQuantileSettings = z
       .gte(0.001)
       .lte(0.999)
       .describe("The quantile value (from 0.001 to 0.999)"),
+    quantileEventCountColumn: z
+      .string()
+      .describe(
+        "Optional override for the source-column name used to recover per-row event counts when numerator.aggregation is 'kll merge'. Defaults to '<numerator.column>_n_events'. Only valid for event-quantile metrics with a 'kll merge' numerator.",
+      )
+      .optional(),
   })
   .describe(
     'Controls the settings for quantile metrics (mandatory if metricType is "quantile")',

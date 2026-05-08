@@ -6,7 +6,6 @@ import { getMetricLink, isFactMetricId } from "shared/experiments";
 import { useRouter } from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { FaArchive } from "react-icons/fa";
 import { startCase } from "lodash";
 import SortedTags from "@/components/Tags/SortedTags";
 import {
@@ -31,7 +30,7 @@ import { useAuth } from "@/services/auth";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import ProjectBadges from "@/components/ProjectBadges";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/ui/Button";
@@ -44,24 +43,34 @@ import PremiumCallout from "@/ui/PremiumCallout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import LinkButton from "@/ui/LinkButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Table, {
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableColumnHeader,
-  TableCell,
-} from "@/ui/Table";
+import Tooltip from "@/ui/Tooltip";
+import {
+  isMergeAggregationMetric,
+  REST_API_ONLY_EDIT_MESSAGE,
+} from "@/services/factMetrics";
 
 function MetricRowMenu({ metric }: { metric: MetricTableItem }) {
   const [open, setOpen] = useState(false);
 
   const canDuplicate =
     !!metric.onDuplicate && envAllowsCreatingMetrics() && metric.canDuplicate;
-  const canEditMenu = metric.canEdit && !metric.archived && !!metric.onEdit;
+  const canEditMenu =
+    metric.canEdit &&
+    !metric.archived &&
+    !metric.editDisabledReason &&
+    !!metric.onEdit;
+  const canShowDisabledEdit =
+    metric.canEdit && !metric.archived && !!metric.editDisabledReason;
   const canArchive = metric.canEdit && !!metric.onArchive;
   const canDelete = metric.canDelete && !!metric.onDelete;
 
-  if (!canDuplicate && !canEditMenu && !canArchive && !canDelete) {
+  if (
+    !canDuplicate &&
+    !canEditMenu &&
+    !canShowDisabledEdit &&
+    !canArchive &&
+    !canDelete
+  ) {
     return null;
   }
 
@@ -83,14 +92,20 @@ function MetricRowMenu({ metric }: { metric: MetricTableItem }) {
       menuPlacement="end"
     >
       <DropdownMenuGroup>
-        {canEditMenu && (
+        {(canEditMenu || canShowDisabledEdit) && (
           <DropdownMenuItem
             onClick={() => {
               setOpen(false);
               metric.onEdit?.();
             }}
+            disabled={!!metric.editDisabledReason}
           >
-            Edit
+            <Tooltip
+              content={metric.editDisabledReason}
+              enabled={!!metric.editDisabledReason}
+            >
+              <span>Edit</span>
+            </Tooltip>
           </DropdownMenuItem>
         )}
         {canDuplicate && (
@@ -99,8 +114,14 @@ function MetricRowMenu({ metric }: { metric: MetricTableItem }) {
               setOpen(false);
               metric.onDuplicate?.();
             }}
+            disabled={!!metric.editDisabledReason}
           >
-            Duplicate
+            <Tooltip
+              content={metric.editDisabledReason}
+              enabled={!!metric.editDisabledReason}
+            >
+              <span>Duplicate</span>
+            </Tooltip>
           </DropdownMenuItem>
         )}
         {canArchive && (
@@ -155,6 +176,7 @@ export interface MetricTableItem {
   canEdit: boolean;
   canDuplicate: boolean;
   canDelete: boolean;
+  editDisabledReason?: string;
   onArchive?: (desiredState: boolean) => Promise<void>;
   onDuplicate?: () => void;
   onEdit?: () => void;
@@ -292,6 +314,9 @@ export function useCombinedMetrics({
         canDuplicate,
         canEdit,
         canDelete,
+        editDisabledReason: isMergeAggregationMetric(m)
+          ? REST_API_ONLY_EDIT_MESSAGE
+          : undefined,
         onArchive: canEdit
           ? async (archivedState) => {
               await apiCall(`/fact-metrics/${m.id}`, {
@@ -425,7 +450,7 @@ const MetricsList = (): React.ReactElement => {
     isFiltered,
     syntaxFilters,
     setSearchValue,
-    SortableTableColumnHeader,
+    SortableTH,
     pagination,
   } = useSearch({
     items: filteredMetrics,
@@ -490,7 +515,7 @@ const MetricsList = (): React.ReactElement => {
   };
 
   return (
-    <Box>
+    <div className="container-fluid pagecontents p-0">
       {modalData ? (
         <MetricModal {...modalData} close={closeModal} source="blank-state" />
       ) : null}
@@ -501,42 +526,36 @@ const MetricsList = (): React.ReactElement => {
           mutate={mutateDefinitions}
         />
       )}
-      <Flex
-        className="filters md-form"
-        mb="3"
-        align="center"
-        gap="3"
-        wrap="wrap"
-      >
-        <Flex align="center" gap="2">
+      <div className="filters md-form row mb-3 align-items-center">
+        <div className="col-auto d-flex">
           <div>
             Define what constitutes success and failure for your business.
           </div>
-          <DocLink docSection="metrics" className="align-self-center pb-1">
+          <DocLink docSection="metrics" className="align-self-center ml-2 pb-1">
             View Docs
           </DocLink>
-        </Flex>
-        <Box style={{ flex: 1 }} />
+        </div>
+        <div style={{ flex: 1 }} />
         {permissionsUtil.canCreateMetric({ projects: [project] }) &&
         envAllowsCreatingMetrics() &&
         !showCreateFactTableButton ? (
-          <Flex gap="2">
+          <div className="col-auto">
             <AutoGenerateMetricsButton
               setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
             />
             <Button onClick={() => setModalData({ mode: "new" })}>
               Add Metric
             </Button>
-          </Flex>
+          </div>
         ) : permissionsUtil.canCreateFactTable({ projects: [project] }) ? (
-          <Box>
+          <div className="col-auto">
             <LinkButton href="/fact-tables">Create Fact Table</LinkButton>
-          </Box>
+          </div>
         ) : null}
-      </Flex>
-      <Box mt="4">
+      </div>
+      <div className="mt-4">
         <CustomMarkdown page={"metricList"} />
-      </Box>
+      </div>
       <Flex justify="between" mb="3" gap="3" align="center">
         <Box className="relative" width="40%">
           <Field placeholder="Search..." type="search" {...searchInputProps} />
@@ -560,42 +579,30 @@ const MetricsList = (): React.ReactElement => {
           metrics at scale.
         </PremiumCallout>
       ) : null}
-      <Table variant="list" stickyHeader roundedCorners className="appbox">
-        <TableHeader>
-          <TableRow>
-            <TableColumnHeader
-              style={{
-                paddingInline: "var(--space-2)",
-              }}
-            >
-              <span className="sr-only">Official</span>
-            </TableColumnHeader>
-            <SortableTableColumnHeader field="name">
+      <table className="table appbox gbtable table-hover">
+        <thead>
+          <tr>
+            <SortableTH field="name" className="col-3">
               Metric Name
-            </SortableTableColumnHeader>
-            <SortableTableColumnHeader field="type">
+            </SortableTH>
+            <SortableTH field="type" className="col-1">
               Type
-            </SortableTableColumnHeader>
-            <TableColumnHeader>Projects</TableColumnHeader>
-            <TableColumnHeader>Tags</TableColumnHeader>
-            <SortableTableColumnHeader
+            </SortableTH>
+            <th>Projects</th>
+            <th className="col-2">Tags</th>
+            <SortableTH
               field="dateUpdated"
-              className="d-none d-md-table-cell"
+              className="d-none d-md-table-cell col-1"
             >
               Last Updated
-            </SortableTableColumnHeader>
-            <TableColumnHeader />
-            <TableColumnHeader
-              style={{
-                paddingInline: "var(--space-2)",
-              }}
-            />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
+            </SortableTH>
+            <th style={{ width: 30 }} className="text-right" />
+          </tr>
+        </thead>
+        <tbody>
           {items.map((metric) => {
             return (
-              <TableRow
+              <tr
                 key={metric.id}
                 onClick={(e) => {
                   // If clicking on a link or button, default to browser behavior
@@ -616,56 +623,36 @@ const MetricsList = (): React.ReactElement => {
                   e.preventDefault();
                   router.push(getMetricLink(metric.id));
                 }}
-                style={{
-                  cursor: "pointer",
-                  color: metric.archived ? "var(--gray-11)" : undefined,
-                }}
+                style={{ cursor: "pointer" }}
+                className={metric.archived ? "text-muted" : ""}
               >
-                <TableCell
-                  style={{
-                    maxWidth: 36,
-                    textAlign: "center",
-                    verticalAlign: "middle",
-                    whiteSpace: "nowrap",
-                    paddingInline: "var(--space-4)",
-                    paddingBlock: "var(--space-2)",
-                    boxSizing: "border-box",
-                    lineHeight: 1,
-                  }}
-                >
-                  <Box
-                    style={{
-                      display: "inline-flex",
-                      justifyContent: "center",
-                      maxWidth: "100%",
-                      marginRight: -3,
-                    }}
-                  >
-                    <OfficialBadge
-                      type="metric"
-                      managedBy={metric.managedBy || ""}
-                    />
-                  </Box>
-                </TableCell>
-                <TableCell>
+                <td>
                   <Link
                     href={getMetricLink(metric.id)}
-                    style={{
-                      color: metric.archived
-                        ? "var(--gray-11)"
-                        : "var(--gray-12)",
-                    }}
+                    className={`${
+                      metric.archived ? "text-muted" : "text-dark"
+                    } font-weight-bold`}
                   >
                     {metric.name}
+                    <OfficialBadge
+                      type="metric"
+                      leftGap={true}
+                      managedBy={metric.managedBy || ""}
+                    />
                   </Link>
-                </TableCell>
-                <TableCell>{startCase(metric.type)}</TableCell>
-                <TableCell>
-                  {metric.projectNames.length === 0
-                    ? null
-                    : metric.projectNames.join(", ")}
-                </TableCell>
-                <TableCell>
+                </td>
+                <td>{startCase(metric.type)}</td>
+                <td className="col-2">
+                  {metric.projects.length > 0 ? (
+                    <ProjectBadges
+                      resourceType="metric"
+                      projectIds={metric.projects}
+                    />
+                  ) : (
+                    <ProjectBadges resourceType="metric" />
+                  )}
+                </td>
+                <td className="col-4">
                   <SortedTags
                     tags={metric.tags ? Object.values(metric.tags) : []}
                     shouldShowEllipsis={true}
@@ -676,57 +663,39 @@ const MetricsList = (): React.ReactElement => {
                       setSearchValue,
                     )}
                   />
-                </TableCell>
-                <TableCell
+                </td>
+                <td
                   title={datetime(metric.dateUpdated || "")}
                   className="d-none d-md-table-cell"
                 >
                   {metric.managedBy === "config"
                     ? ""
                     : date(metric.dateUpdated || "")}
-                </TableCell>
-                <TableCell style={{ color: "var(--gray-11)" }}>
-                  {metric.archived && (
-                    <Tooltip
-                      body={"Archived"}
-                      innerClassName="p-2"
-                      tipMinWidth="auto"
-                    >
-                      <FaArchive />
-                    </Tooltip>
-                  )}
-                </TableCell>
-                <TableCell
-                  style={{
-                    width: "1%",
-                    cursor: "initial",
-                    textAlign: "right",
-                    verticalAlign: "middle",
-                    whiteSpace: "nowrap",
-                    paddingInline: "var(--space-2)",
-                    boxSizing: "border-box",
-                  }}
+                </td>
+                <td
+                  style={{ cursor: "initial", width: 30 }}
+                  className="text-right"
                   onClick={(e) => {
                     e.stopPropagation();
                   }}
                 >
                   <MetricRowMenu metric={metric} />
-                </TableCell>
-              </TableRow>
+                </td>
+              </tr>
             );
           })}
 
           {!items.length && isFiltered && (
-            <TableRow>
-              <TableCell colSpan={8} style={{ textAlign: "center" }}>
+            <tr>
+              <td colSpan={8} align={"center"}>
                 No matching metrics
-              </TableCell>
-            </TableRow>
+              </td>
+            </tr>
           )}
-        </TableBody>
-      </Table>
+        </tbody>
+      </table>
       {pagination}
-    </Box>
+    </div>
   );
 };
 

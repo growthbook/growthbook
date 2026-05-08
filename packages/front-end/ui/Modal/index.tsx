@@ -22,6 +22,7 @@ import { v4 as uuidv4 } from "uuid";
 import track, { TrackEventProps } from "@/services/track";
 import ErrorDisplay from "../ErrorDisplay";
 import Text from "../Text";
+import styles from "./Modal.module.scss";
 
 export type Size = "md" | "lg";
 
@@ -196,15 +197,7 @@ function Root({
 
 function Header({ children }: { children: ReactNode }) {
   return (
-    <Flex
-      py="2"
-      flexShrink="0"
-      justify="between"
-      align="center"
-      gap="3"
-      mb="1"
-      pr="7"
-    >
+    <Flex flexShrink="0" justify="between" align="center" gap="3" pr="7">
       {children}
     </Flex>
   );
@@ -220,7 +213,7 @@ function Title({ children }: { children: ReactNode }) {
 
 function Description({ children }: { children: ReactNode }) {
   return (
-    <Box flexShrink="0" pr="7">
+    <Box flexShrink="0" pr="7" mt="1">
       <Text as="div" color="text-mid" size="large">
         {children}
       </Text>
@@ -238,8 +231,8 @@ function Description({ children }: { children: ReactNode }) {
 function Body({ children }: { children: ReactNode }) {
   const { bodyRef, error } = useModalContext();
   return (
-    <ScrollArea type="auto" mt="4" mb="3" ml="-1" ref={bodyRef}>
-      <Box pr="7" pl="1">
+    <ScrollArea type="auto" mt="5" mb="3" ml="-1" ref={bodyRef}>
+      <Box pr="7" pl="1" className={styles.body}>
         {error && <ErrorDisplay error={error} mb="5" />}
         {children}
       </Box>

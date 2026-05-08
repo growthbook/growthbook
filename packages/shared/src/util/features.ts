@@ -1027,6 +1027,18 @@ function tryRuleLevelMerge(
   live: FeatureRule[],
   revision: FeatureRule[],
 ): FeatureRule[] | null {
+  // Defensive: callers route through `naiveFlattenV1Rules` which already
+  // filters nullish slots, but the merge keys by `r.id` and a stray nullish
+  // entry would collapse every other rule into the `undefined` map slot.
+  // Skip them here too rather than corrupting the merge silently.
+  const filterValid = (rules: FeatureRule[]) =>
+    rules.filter(
+      (r): r is FeatureRule => r != null && typeof r === "object" && !!r.id,
+    );
+  base = filterValid(base);
+  live = filterValid(live);
+  revision = filterValid(revision);
+
   const baseById = new Map(base.map((r) => [r.id, r]));
   const liveById = new Map(live.map((r) => [r.id, r]));
   const revById = new Map(revision.map((r) => [r.id, r]));

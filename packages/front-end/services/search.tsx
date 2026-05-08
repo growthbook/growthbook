@@ -14,7 +14,6 @@ import { useRouter } from "next/router";
 import MiniSearch from "minisearch";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Pagination from "@/components/Pagination";
-import { TableColumnHeader } from "@/ui/Table";
 
 export function useAddComputedFields<T, ExtraFields>(
   items: T[] | undefined,
@@ -95,6 +94,10 @@ export interface SearchProps<T extends { id: string }> {
   items: T[];
   searchFields: SearchFields<T>;
   localStorageKey: string;
+  // When false, the sort state is held in component state and reset each time
+  // the consumer remounts instead of being persisted to localStorage. Defaults
+  // to true to preserve existing behavior across the app.
+  persistSort?: boolean;
   defaultSortField: keyof T;
   defaultSortDir?: number;
   undefinedLast?: boolean;
@@ -135,13 +138,6 @@ export interface SearchReturn<T> {
     children: ReactNode;
     style?: React.CSSProperties;
   }>;
-  /** Radix Table header with same sort UI/callbacks; use with TableColumnHeader in ui/Table. */
-  SortableTableColumnHeader: FC<{
-    field: keyof T;
-    className?: string;
-    children: ReactNode;
-    style?: React.CSSProperties;
-  }>;
   page: number;
   resetPage: () => void;
   pagination: ReactNode;
@@ -152,6 +148,7 @@ export function useSearch<T extends { id: string }>({
   searchFields,
   filterResults,
   localStorageKey,
+  persistSort = true,
   defaultSortField,
   defaultSortDir,
   undefinedLast,
@@ -160,10 +157,13 @@ export function useSearch<T extends { id: string }>({
   updateSearchQueryOnChange,
   pageSize,
 }: SearchProps<T>): SearchReturn<T> {
-  const [sort, setSort] = useLocalStorage(`${localStorageKey}:sort-dir`, {
-    field: defaultSortField,
-    dir: defaultSortDir || 1,
-  });
+  const defaultSort = { field: defaultSortField, dir: defaultSortDir || 1 };
+  const persistedSort = useLocalStorage(
+    `${localStorageKey}:sort-dir`,
+    defaultSort,
+  );
+  const ephemeralSort = useState(defaultSort);
+  const [sort, setSort] = persistSort ? persistedSort : ephemeralSort;
 
   const router = useRouter();
   const { q } = router.query;
@@ -397,50 +397,6 @@ export function useSearch<T extends { id: string }>({
     return th;
   }, [sort.dir, sort.field, isRelevanceSortActive]);
 
-  const SortableTableColumnHeader = useMemo(() => {
-    const Header: FC<{
-      field: keyof T;
-      className?: string;
-      children: ReactNode;
-      style?: React.CSSProperties;
-    }> = ({ children, field, className, style }) => {
-      const showSortDirection = !isRelevanceSortActive && sort.field === field;
-
-      return (
-        <TableColumnHeader className={className} style={style}>
-          <span
-            className="cursor-pointer"
-            onClick={(e) => {
-              e.preventDefault();
-              setDisableRelevanceSort(true);
-              setSort({
-                field,
-                dir: sort.field === field ? sort.dir * -1 : 1,
-              });
-            }}
-          >
-            {children}{" "}
-            <a
-              href="#"
-              className={showSortDirection ? "activesort" : "inactivesort"}
-            >
-              {showSortDirection ? (
-                sort.dir < 0 ? (
-                  <FaSortDown />
-                ) : (
-                  <FaSortUp />
-                )
-              ) : (
-                <FaSort />
-              )}
-            </a>
-          </span>
-        </TableColumnHeader>
-      );
-    };
-    return Header;
-  }, [sort.dir, sort.field, isRelevanceSortActive]);
-
   const clear = useCallback(() => {
     setValue("");
   }, []);
@@ -462,7 +418,6 @@ export function useSearch<T extends { id: string }>({
     },
     setSearchValue: setValue,
     SortableTH,
-    SortableTableColumnHeader,
     page,
     resetPage: () => setPage(1),
     pagination:

@@ -1,11 +1,11 @@
 import { useState, FC, useMemo } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { Environment } from "shared/types/organization";
 import { isProjectListValidForProject } from "shared/util";
 import { BiShow } from "react-icons/bi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
 import { ImBlocked } from "react-icons/im";
+import { Flex, IconButton } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
@@ -73,7 +73,7 @@ const EnvironmentsPage: FC = () => {
   const [modalOpen, setModalOpen] = useState<Partial<Environment> | null>(null);
 
   return (
-    <Box className="pagecontents">
+    <div className="container-fluid pagecontents">
       {modalOpen && (
         <EnvironmentModal
           existing={modalOpen}
@@ -107,13 +107,13 @@ const EnvironmentsPage: FC = () => {
             />
           </Modal>
         )}
-      <Flex align="center" justify="between" mb="1" gap="3" wrap="wrap">
+      <Flex align="center" justify="between" mb="1">
         <Heading as="h1" size="x-large" mb="0">
           Environments
         </Heading>
-        {canCreate ? (
+        {canCreate && (
           <Button onClick={() => setModalOpen({})}>Add Environment</Button>
-        ) : null}
+        )}
       </Flex>
 
       <Text as="p" color="text-mid" mb="3">
@@ -121,205 +121,199 @@ const EnvironmentsPage: FC = () => {
       </Text>
 
       {filteredEnvironments.length > 0 ? (
-        <Box mb="3">
-          <Table variant="list" stickyHeader roundedCorners>
-            <TableHeader>
-              <TableRow>
-                <TableColumnHeader>Environment</TableColumnHeader>
-                <TableColumnHeader>Description</TableColumnHeader>
-                <TableColumnHeader style={{ width: "16%" }}>
-                  Projects
-                </TableColumnHeader>
-                <TableColumnHeader>SDK Connections</TableColumnHeader>
-                <TableColumnHeader>Default state</TableColumnHeader>
-                <TableColumnHeader>
-                  Show toggle on feature list
-                </TableColumnHeader>
-                <TableColumnHeader style={{ width: 30 }} />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredEnvironments.map((e, i) => {
-                const canEdit = permissionsUtil.canUpdateEnvironment(e, {});
-                const canDelete = permissionsUtil.canDeleteEnvironment(e);
-                const sdkConnectionIds = sdkConnectionsMap?.[e.id] || [];
-                const numConnections = sdkConnectionIds.length;
-                const canMoveUp = canEdit && i > 0;
-                const canMoveDown =
-                  canEdit && i < filteredEnvironments.length - 1;
-                const canShowDelete = environments.length > 1 && canDelete;
-                const deleteBlocked = numConnections > 0;
-                const moveTo = async (targetIndex: number) => {
-                  const targetEnv = filteredEnvironments[targetIndex];
-                  const newIndex = environments.findIndex(
-                    (env) => targetEnv.id === env.id,
-                  );
-                  await apiCall(`/environment/order`, {
-                    method: "PUT",
-                    body: JSON.stringify({ envId: e.id, newIndex }),
-                  });
-                  refreshOrganization();
-                };
-                return (
-                  <TableRow key={e.id}>
-                    <TableCell>{e.id}</TableCell>
-                    <TableCell>{e.description}</TableCell>
-                    <TableCell>
-                      {(e?.projects?.length || 0) > 0 ? (
-                        <ProjectBadges
-                          resourceType="environment"
-                          projectIds={e.projects}
+        <Table variant="list">
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Environment</TableColumnHeader>
+              <TableColumnHeader>Description</TableColumnHeader>
+              <TableColumnHeader>Projects</TableColumnHeader>
+              <TableColumnHeader>SDK Connections</TableColumnHeader>
+              <TableColumnHeader>Default state</TableColumnHeader>
+              <TableColumnHeader>Show on features page</TableColumnHeader>
+              <TableColumnHeader style={{ width: 30 }} />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredEnvironments.map((e, i) => {
+              const canEdit = permissionsUtil.canUpdateEnvironment(e, {});
+              const canDelete = permissionsUtil.canDeleteEnvironment(e);
+              const sdkConnectionIds = sdkConnectionsMap?.[e.id] || [];
+              const numConnections = sdkConnectionIds.length;
+              const canMoveUp = canEdit && i > 0;
+              const canMoveDown =
+                canEdit && i < filteredEnvironments.length - 1;
+              const canShowDelete = environments.length > 1 && canDelete;
+              const deleteBlocked = numConnections > 0;
+              const moveTo = async (targetIndex: number) => {
+                const targetEnv = filteredEnvironments[targetIndex];
+                const newIndex = environments.findIndex(
+                  (env) => targetEnv.id === env.id,
+                );
+                await apiCall(`/environment/order`, {
+                  method: "PUT",
+                  body: JSON.stringify({ envId: e.id, newIndex }),
+                });
+                refreshOrganization();
+              };
+              return (
+                <TableRow key={e.id}>
+                  <TableCell>{e.id}</TableCell>
+                  <TableCell>{e.description}</TableCell>
+                  <TableCell>
+                    {(e?.projects?.length || 0) > 0 ? (
+                      <ProjectBadges
+                        resourceType="environment"
+                        projectIds={e.projects}
+                      />
+                    ) : (
+                      <ProjectBadges resourceType="environment" />
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {numConnections > 0 ? (
+                      <Link
+                        onClick={() => setShowConnectionsModal(i)}
+                        className="nowrap"
+                      >
+                        <BiShow /> {numConnections} connection
+                        {numConnections === 1 ? "" : "s"}
+                      </Link>
+                    ) : (
+                      <Tooltip body="No SDK connections use this environment.">
+                        <span
+                          className="nowrap"
+                          style={{
+                            color: "var(--gray-10)",
+                            cursor: "not-allowed",
+                          }}
+                        >
+                          <BiShow /> 0 connections
+                        </span>
+                      </Tooltip>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Tooltip
+                      body={
+                        e.defaultState === false
+                          ? "New features default to disabled"
+                          : "New features default to enabled"
+                      }
+                    >
+                      {e.defaultState === false ? (
+                        <FaRegCircleXmark
+                          style={{ color: "var(--gray-8)", fontSize: 18 }}
                         />
                       ) : (
-                        <ProjectBadges resourceType="environment" />
+                        <FaRegCircleCheck
+                          style={{ color: "var(--green-9)", fontSize: 18 }}
+                        />
                       )}
-                    </TableCell>
-                    <TableCell>
-                      {numConnections > 0 ? (
-                        <Link
-                          onClick={() => setShowConnectionsModal(i)}
-                          className="nowrap"
+                    </Tooltip>
+                  </TableCell>
+                  <TableCell>{e.toggleOnList ? "yes" : ""}</TableCell>
+                  <TableCell>
+                    <DropdownMenu
+                      trigger={
+                        <IconButton
+                          variant="ghost"
+                          color="gray"
+                          radius="full"
+                          size="2"
+                          highContrast
                         >
-                          <BiShow /> {numConnections} connection
-                          {numConnections === 1 ? "" : "s"}
-                        </Link>
-                      ) : (
-                        <Tooltip body="No SDK connections use this environment.">
-                          <span
-                            className="nowrap"
-                            style={{
-                              color: "var(--gray-10)",
-                              cursor: "not-allowed",
-                            }}
-                          >
-                            <BiShow /> 0 connections
-                          </span>
-                        </Tooltip>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Tooltip
-                        body={
-                          e.defaultState === false
-                            ? "New features default to disabled"
-                            : "New features default to enabled"
-                        }
-                      >
-                        {e.defaultState === false ? (
-                          <FaRegCircleXmark
-                            style={{ color: "var(--gray-8)", fontSize: 18 }}
-                          />
-                        ) : (
-                          <FaRegCircleCheck
-                            style={{ color: "var(--green-9)", fontSize: 18 }}
-                          />
+                          <BsThreeDotsVertical size={18} />
+                        </IconButton>
+                      }
+                      menuPlacement="end"
+                      variant="soft"
+                    >
+                      <DropdownMenuGroup>
+                        {canEdit && (
+                          <DropdownMenuItem onClick={() => setModalOpen(e)}>
+                            Edit
+                          </DropdownMenuItem>
                         )}
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell>{e.toggleOnList ? "yes" : "no"}</TableCell>
-                    <TableCell>
-                      <DropdownMenu
-                        trigger={
-                          <IconButton
-                            variant="ghost"
-                            color="gray"
-                            radius="full"
-                            size="2"
-                            highContrast
-                          >
-                            <BsThreeDotsVertical size={18} />
-                          </IconButton>
-                        }
-                        menuPlacement="end"
-                        variant="soft"
-                      >
-                        <DropdownMenuGroup>
-                          {canEdit && (
-                            <DropdownMenuItem onClick={() => setModalOpen(e)}>
-                              Edit
-                            </DropdownMenuItem>
-                          )}
-                          {canMoveUp && (
-                            <DropdownMenuItem onClick={() => moveTo(i - 1)}>
-                              Move up
-                            </DropdownMenuItem>
-                          )}
-                          {canMoveDown && (
-                            <DropdownMenuItem onClick={() => moveTo(i + 1)}>
-                              Move down
-                            </DropdownMenuItem>
-                          )}
-                          {canShowDelete &&
-                            (deleteBlocked ? (
-                              <Tooltip
-                                usePortal={true}
-                                body={
-                                  <>
-                                    <ImBlocked className="text-danger" /> This
-                                    environment has{" "}
-                                    <strong>
-                                      {numConnections} SDK Connection
-                                      {numConnections !== 1 && "s"}
-                                    </strong>{" "}
-                                    associated. This environment cannot be
-                                    deleted until{" "}
-                                    {numConnections === 1
-                                      ? "it has"
-                                      : "they have"}{" "}
-                                    been removed.
-                                  </>
-                                }
-                              >
-                                <span>
-                                  <DropdownMenuItem disabled color="red">
-                                    Delete
-                                  </DropdownMenuItem>
-                                </span>
-                              </Tooltip>
-                            ) : (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  color="red"
-                                  confirmation={{
-                                    submit: async () => {
-                                      await apiCall(`/environment/${e.id}`, {
-                                        method: "DELETE",
-                                        body: JSON.stringify({
-                                          settings: {
-                                            environments: environments.filter(
-                                              (env) => env.id !== e.id,
-                                            ),
-                                          },
-                                        }),
-                                      });
-                                      refreshOrganization();
-                                    },
-                                    confirmationTitle: `Delete ${e.id} Environment`,
-                                    cta: "Delete",
-                                    getConfirmationContent: async () =>
-                                      "Are you sure? This action cannot be undone.",
-                                  }}
-                                >
+                        {canMoveUp && (
+                          <DropdownMenuItem onClick={() => moveTo(i - 1)}>
+                            Move up
+                          </DropdownMenuItem>
+                        )}
+                        {canMoveDown && (
+                          <DropdownMenuItem onClick={() => moveTo(i + 1)}>
+                            Move down
+                          </DropdownMenuItem>
+                        )}
+                        {canShowDelete &&
+                          (deleteBlocked ? (
+                            <Tooltip
+                              usePortal={true}
+                              body={
+                                <>
+                                  <ImBlocked className="text-danger" /> This
+                                  environment has{" "}
+                                  <strong>
+                                    {numConnections} SDK Connection
+                                    {numConnections !== 1 && "s"}
+                                  </strong>{" "}
+                                  associated. This environment cannot be deleted
+                                  until{" "}
+                                  {numConnections === 1
+                                    ? "it has"
+                                    : "they have"}{" "}
+                                  been removed.
+                                </>
+                              }
+                            >
+                              <span>
+                                <DropdownMenuItem disabled color="red">
                                   Delete
                                 </DropdownMenuItem>
-                              </>
-                            ))}
-                        </DropdownMenuGroup>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Box>
+                              </span>
+                            </Tooltip>
+                          ) : (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                color="red"
+                                confirmation={{
+                                  submit: async () => {
+                                    await apiCall(`/environment/${e.id}`, {
+                                      method: "DELETE",
+                                      body: JSON.stringify({
+                                        settings: {
+                                          environments: environments.filter(
+                                            (env) => env.id !== e.id,
+                                          ),
+                                        },
+                                      }),
+                                    });
+                                    refreshOrganization();
+                                  },
+                                  confirmationTitle: `Delete ${e.id} Environment`,
+                                  cta: "Delete",
+                                  getConfirmationContent: async () =>
+                                    "Are you sure? This action cannot be undone.",
+                                }}
+                              >
+                                Delete
+                              </DropdownMenuItem>
+                            </>
+                          ))}
+                      </DropdownMenuGroup>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       ) : canCreate ? (
         <p>Click the button below to add your first environment</p>
       ) : (
         <p>You don&apos;t have any environments defined yet.</p>
       )}
-    </Box>
+    </div>
   );
 };
 export default EnvironmentsPage;

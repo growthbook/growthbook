@@ -714,15 +714,17 @@ export async function inviteUser({
 } & MemberRoleWithProjects) {
   organization.invites = organization.invites || [];
 
-  // User is already invited
-  if (
-    organization.invites.filter((invite) => invite.email === email).length > 0
-  ) {
+  email = email.toLowerCase();
+
+  // User is already invited (legacy invites may have been stored with
+  // mixed case, so compare case-insensitively).
+  const existingInvite = organization.invites.find(
+    (invite) => invite.email.toLowerCase() === email,
+  );
+  if (existingInvite) {
     return {
       emailSent: true,
-      inviteUrl: getInviteUrl(
-        organization.invites.filter((invite) => invite.email === email)[0].key,
-      ),
+      inviteUrl: getInviteUrl(existingInvite.key),
     };
   }
 

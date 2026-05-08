@@ -4,7 +4,6 @@ import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/ui/Badge";
 import { RadixColor } from "@/ui/HelperText";
-import Tooltip from "@/components/Tooltip/Tooltip";
 
 export const TAG_COLORS = [
   "blue",
@@ -22,7 +21,6 @@ export type TagProps = {
   description?: string;
   skipMargin?: boolean;
   variant?: "badge" | "dot";
-  maxChars?: number;
   maxWidth?: number;
   // Overrides the default text label; LinkedTag uses this to inject a link.
   label?: React.ReactElement | string;
@@ -34,7 +32,6 @@ export default function Tag({
   description,
   skipMargin,
   variant = "badge",
-  maxChars,
   maxWidth = 200,
   label,
 }: TagProps) {
@@ -46,27 +43,15 @@ export default function Tag({
   const tagColor = (color ?? fullTag?.color ?? "blue") as RadixColor;
   const content = label ?? tag;
 
-  const truncate = maxChars != null && tag.length > maxChars;
-  const displayLabel = truncate ? `${tag.slice(0, maxChars)}…` : tag;
-  const badgeStyle =
-    truncate || maxChars != null
-      ? {
-          maxWidth: "100%",
-          minWidth: 0,
-          overflow: "hidden" as const,
-          textOverflow: "ellipsis" as const,
-        }
-      : undefined;
-
   if (variant === "dot") {
-    const dotMark = (
+    return (
       <Flex
         gap="2"
         align="center"
-        title={truncate ? tag : displayTitle}
+        title={displayTitle}
         mr={skipMargin ? undefined : "2"}
         mb={skipMargin ? undefined : "1"}
-        style={maxChars != null ? badgeStyle : { maxWidth, overflow: "hidden" }}
+        style={{ maxWidth, overflow: "hidden" }}
       >
         <div
           style={{
@@ -78,48 +63,30 @@ export default function Tag({
           }}
         />
         <div
-          style={
-            maxChars != null
-              ? { overflow: "hidden", textOverflow: "ellipsis" }
-              : {
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  minWidth: 0,
-                }
-          }
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            minWidth: 0,
+          }}
         >
-          {maxChars != null ? displayLabel : content}
+          {content}
         </div>
       </Flex>
     );
-    return truncate ? (
-      <Tooltip body={tag} flipTheme={false}>
-        {dotMark}
-      </Tooltip>
-    ) : (
-      dotMark
-    );
   }
 
-  const badge = (
+  return (
     <Badge
-      title={truncate ? undefined : displayTitle}
-      label={maxChars != null ? displayLabel : content}
+      title={displayTitle}
       color={tagColor}
       variant="soft"
-      className={maxChars != null ? undefined : "text-ellipsis d-inline-block"}
-      style={maxChars != null ? badgeStyle : { maxWidth }}
+      className="text-ellipsis d-inline-block"
+      style={{ maxWidth }}
       mr={skipMargin ? undefined : "2"}
       mb={skipMargin ? undefined : "1"}
+      label={content}
     />
-  );
-  return truncate ? (
-    <Tooltip body={tag} flipTheme={false}>
-      {badge}
-    </Tooltip>
-  ) : (
-    badge
   );
 }
 
