@@ -456,8 +456,13 @@ const SavedGroupForm: FC<{
             if (res.revision.status !== "merged") {
               onRevisionCreated?.(res.revision);
             } else {
-              // When auto-published, refresh the saved group data
-              mutate?.();
+              // When auto-published, the merged revision is the new live
+              // version. Refresh both SWR caches first so liveVersion reflects
+              // the merge, then send the user to "live" (null) so the page
+              // renders the live entity rather than the merged revision's
+              // pre-edit snapshot.
+              await mutate?.();
+              onSelectRevision?.(null);
             }
             close();
             return;

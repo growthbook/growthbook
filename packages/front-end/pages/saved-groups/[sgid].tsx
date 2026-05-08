@@ -710,7 +710,9 @@ export default function EditSavedGroupPage() {
           // bypass required) since the caller asserts approval isn't needed
           // for metadata changes.
           autoBypassApproval={approvalRequired && !metadataReviewRequired}
-          mutate={mutate}
+          mutate={async () => {
+            await Promise.all([mutateRevisions(), mutate()]);
+          }}
         />
       )}
       {editConditionModal && (
@@ -730,7 +732,9 @@ export default function EditSavedGroupPage() {
           onSelectRevision={selectFlow}
           liveVersion={savedGroup}
           editConditionOnly={true}
-          mutate={mutate}
+          mutate={async () => {
+            await Promise.all([mutateRevisions(), mutate()]);
+          }}
         />
       )}
       {showArchiveModal && displayedSavedGroup && (
@@ -739,7 +743,9 @@ export default function EditSavedGroupPage() {
           close={() => setShowArchiveModal(false)}
           openRevisions={openRevisions}
           allRevisions={allRevisions}
-          mutate={mutate}
+          mutate={async () => {
+            await Promise.all([mutateRevisions(), mutate()]);
+          }}
           onRevisionCreated={onRevisionCreated}
           selectFlow={selectFlow}
         />
