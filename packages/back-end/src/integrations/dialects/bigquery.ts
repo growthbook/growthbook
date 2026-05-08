@@ -1,7 +1,85 @@
 import type { DataType } from "shared/types/integrations";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
-import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
+import {
+  defaultPercentileCapSelectClause,
+  PercentileCapSelectClauseValue,
+} from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 import { baseDialect } from "./base";
+
+const APPROX_QUANTILES_MULTIPLIER = 10000;
+
+/**
+ * BigQuery-specific __capValue body: UNPIVOT value columns to long form, compute
+ * one APPROX_QUANTILES sketch per column via GROUP BY, then PIVOT the extracted
+ * scalar caps back to the wide one-row shape downstream expects.
+ *
+ * The default wide form emits one APPROX_QUANTILES per capped column in a single
+ * ungrouped SELECT. Each sketch carries ~1.5MB of intermediate state at ~40M input
+ * rows, so with ~65+ capped columns the single aggregation row exceeds BigQuery's
+ * 100MB-per-row limit. chunkMetrics() doesn't see this because it budgets by
+ * output-column count, not intermediate sketch state.
+ *
+ * Reshaping to GROUP BY col_name keeps exactly one sketch per aggregation row, so
+ * the per-row footprint is constant regardless of how many capped columns there are.
+ * Per-column `percentile` is handled by indexing the per-group sketch array at a
+ * CASE-driven offset; per-column `ignoreZeros` is handled by nulling zeros inside
+ * the aggregate argument for the opted-in columns.
+ */
+function bigQueryPercentileCapSelectClause(
+  values: PercentileCapSelectClauseValue[],
+  metricTable: string,
+  where: string = "",
+): string {
+  // Single column: no row-limit risk and no need for UNPIVOT/PIVOT machinery.
+  if (values.length <= 1) {
+    return defaultPercentileCapSelectClause(
+      bigQueryDialect,
+      values,
+      metricTable,
+      where,
+    );
+  }
+
+  const offsetCase = `CASE col_name ${values
+    .map(
+      ({ valueCol, percentile }) =>
+        `WHEN '${valueCol}' THEN ${Math.trunc(
+          APPROX_QUANTILES_MULTIPLIER * percentile,
+        )}`,
+    )
+    .join(" ")} END`;
+
+  const ignoreZeroCols = values
+    .filter((v) => v.ignoreZeros)
+    .map((v) => `'${v.valueCol}'`);
+  const valExpr =
+    ignoreZeroCols.length > 0
+      ? `IF(col_name IN (${ignoreZeroCols.join(", ")}) AND val = 0, NULL, val)`
+      : `val`;
+
+  // Project + cast to FLOAT64 so UNPIVOT sees a uniform column type and so no
+  // unrelated columns from metricTable are carried through the long-form rows.
+  const sourceProjection = values
+    .map(({ valueCol }) => `CAST(${valueCol} AS FLOAT64) AS ${valueCol}`)
+    .join(", ");
+
+  const unpivotCols = values.map((v) => v.valueCol).join(", ");
+  const pivotCols = values
+    .map((v) => `'${v.valueCol}' AS ${v.outputCol}`)
+    .join(", ");
+
+  return `
+      SELECT * FROM (
+        SELECT
+          col_name,
+          APPROX_QUANTILES(${valExpr}, ${APPROX_QUANTILES_MULTIPLIER} IGNORE NULLS)[OFFSET(${offsetCase})] AS cap
+        FROM (SELECT ${sourceProjection} FROM ${metricTable} ${where})
+        UNPIVOT (val FOR col_name IN (${unpivotCols}))
+        GROUP BY col_name
+      )
+      PIVOT (ANY_VALUE(cap) FOR col_name IN (${pivotCols}))
+      `;
+}
 
 export const bigQueryDialect: SqlDialect = {
   ...baseDialect,
@@ -48,7 +126,7 @@ export const bigQueryDialect: SqlDialect = {
     return `COALESCE(${countBelow} * ${nEventsCol} / ${numQuantiles}.0, 0)`;
   },
   percentileApprox: (value: string, quantile: string | number) => {
-    const multiplier = 10000;
+    const multiplier = APPROX_QUANTILES_MULTIPLIER;
     const quantileVal = Number(quantile)
       ? Math.trunc(multiplier * Number(quantile))
       : `${multiplier} * ${quantile}`;
@@ -84,10 +162,5 @@ export const bigQueryDialect: SqlDialect = {
   },
   getCurrentTimestamp: () => `CURRENT_TIMESTAMP()`,
   percentileCapSelectClause: (values, metricTable, where = "") =>
-    defaultPercentileCapSelectClause(
-      bigQueryDialect,
-      values,
-      metricTable,
-      where,
-    ),
+    bigQueryPercentileCapSelectClause(values, metricTable, where),
 };

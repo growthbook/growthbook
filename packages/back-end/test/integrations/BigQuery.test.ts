@@ -72,6 +72,105 @@ describe("BigQuery reservation job config", () => {
   });
 });
 
+describe("BigQuery percentileCapSelectClause (UNPIVOT reshape)", () => {
+  let integration: BigQuery;
+
+  beforeEach(() => {
+    // @ts-expect-error -- context/datasource not needed for this unit test
+    integration = new BigQuery("", {});
+  });
+
+  const norm = (s: string) => s.replace(/\s+/g, " ").trim();
+
+  it("falls back to wide APPROX_QUANTILES for a single capped column", () => {
+    const sql = integration.getSqlDialect().percentileCapSelectClause(
+      [
+        {
+          valueCol: "m0_value",
+          outputCol: "m0_value_cap",
+          percentile: 0.99,
+          ignoreZeros: false,
+          sourceIndex: 0,
+        },
+      ],
+      "__userMetricAgg",
+    );
+    expect(norm(sql)).toContain(
+      "APPROX_QUANTILES(m0_value, 10000 IGNORE NULLS)[OFFSET(CAST(9900 AS INT64))] AS m0_value_cap",
+    );
+    expect(sql).not.toContain("UNPIVOT");
+    expect(sql).not.toContain("PIVOT");
+  });
+
+  it("reshapes to UNPIVOT/GROUP BY/PIVOT for multiple capped columns", () => {
+    const sql = norm(
+      integration.getSqlDialect().percentileCapSelectClause(
+        [
+          {
+            valueCol: "m0_value",
+            outputCol: "m0_value_cap",
+            percentile: 0.99,
+            ignoreZeros: false,
+            sourceIndex: 0,
+          },
+          {
+            valueCol: "m1_value",
+            outputCol: "m1_value_cap",
+            percentile: 0.999,
+            ignoreZeros: true,
+            sourceIndex: 0,
+          },
+        ],
+        "__userMetricAgg",
+      ),
+    );
+    // one sketch per GROUP BY col_name, not N sketches in one row
+    expect(sql).toContain(
+      "APPROX_QUANTILES(IF(col_name IN ('m1_value') AND val = 0, NULL, val), 10000 IGNORE NULLS)",
+    );
+    // per-column quantile offset
+    expect(sql).toContain(
+      "[OFFSET(CASE col_name WHEN 'm0_value' THEN 9900 WHEN 'm1_value' THEN 9990 END)]",
+    );
+    // long → wide round-trip
+    expect(sql).toContain("UNPIVOT (val FOR col_name IN (m0_value, m1_value))");
+    expect(sql).toContain("GROUP BY col_name");
+    expect(sql).toContain(
+      "PIVOT (ANY_VALUE(cap) FOR col_name IN ('m0_value' AS m0_value_cap, 'm1_value' AS m1_value_cap))",
+    );
+    // float-cast projection so UNPIVOT sees a uniform type
+    expect(sql).toContain(
+      "SELECT CAST(m0_value AS FLOAT64) AS m0_value, CAST(m1_value AS FLOAT64) AS m1_value FROM __userMetricAgg",
+    );
+  });
+
+  it("omits the ignore-zero IF wrapper when no column opts in", () => {
+    const sql = norm(
+      integration.getSqlDialect().percentileCapSelectClause(
+        [
+          {
+            valueCol: "m0_value",
+            outputCol: "m0_value_cap",
+            percentile: 0.99,
+            ignoreZeros: false,
+            sourceIndex: 0,
+          },
+          {
+            valueCol: "m1_value",
+            outputCol: "m1_value_cap",
+            percentile: 0.99,
+            ignoreZeros: false,
+            sourceIndex: 0,
+          },
+        ],
+        "__userMetricAgg",
+      ),
+    );
+    expect(sql).toContain("APPROX_QUANTILES(val, 10000 IGNORE NULLS)");
+    expect(sql).not.toContain("val = 0");
+  });
+});
+
 describe("BigQuery KLL quantile sketch methods", () => {
   let integration: BigQuery;
 
