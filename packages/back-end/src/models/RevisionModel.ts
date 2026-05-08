@@ -766,9 +766,22 @@ export class RevisionModel extends BaseClass {
     title?: string;
     revertedFrom?: string;
   }) {
+    // Normalize the snapshot before validation runs in `_createOne`.
+    // BaseModel parses `createValidator` *before* `beforeCreate`, so we can't
+    // rely on the in-model `beforeUpdate`-style cleanup to strip legacy
+    // fields from the live entity (e.g. removed schema fields still sitting
+    // on stored docs). The adapter's `buildSnapshot` is the single source of
+    // truth for what a snapshot should look like.
+    const cleanedSnapshot = getAdapter(target.type).buildSnapshot(
+      target.snapshot,
+    );
+
     return this.createWithVersionRetry(() =>
       this.create({
-        target,
+        target: {
+          ...target,
+          snapshot: cleanedSnapshot,
+        },
         title: target.title,
         revertedFrom: target.revertedFrom,
         status: "draft",

@@ -5,8 +5,17 @@ import {
   getApprovalFlowSettings,
   isSavedGroupRevisionMetadataOnly,
 } from "shared/enterprise";
+import { savedGroupValidator } from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
 import { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdapter";
+
+// Whitelist of fields the snapshot is allowed to carry, derived from the
+// schema so the two can't drift. The snapshot validator runs in `.strict()`
+// mode, so any leftover legacy field on the stored entity (e.g.
+// `passByReferenceOnly`, removed in #2904) would otherwise fail validation.
+const SNAPSHOT_ALLOWED_KEYS = Object.keys(savedGroupValidator.shape) as Array<
+  keyof SavedGroupInterface
+>;
 
 const UPDATABLE_FIELDS = new Set<string>([
   "groupName",
@@ -51,18 +60,17 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
   },
 
   buildSnapshot(entity: SavedGroupInterface): SavedGroupInterface {
-    const { _id, ...rest } = entity as SavedGroupInterface & {
-      _id?: unknown;
-    };
-    return {
-      ...rest,
-      values: entity.values ?? undefined,
-      condition: entity.condition ?? undefined,
-      attributeKey: entity.attributeKey ?? undefined,
-      description: entity.description ?? undefined,
-      projects: entity.projects ?? undefined,
-      useEmptyListGroup: entity.useEmptyListGroup ?? undefined,
-    };
+    // Pick only schema-defined keys and drop nullish optional fields. This
+    // strips MongoDB internals (`_id`) as well as any legacy fields that may
+    // still exist on stored docs from earlier schema versions.
+    const source = entity as Record<string, unknown>;
+    const snapshot: Record<string, unknown> = {};
+    for (const key of SNAPSHOT_ALLOWED_KEYS) {
+      const value = source[key];
+      if (value === null || value === undefined) continue;
+      snapshot[key] = value;
+    }
+    return snapshot as unknown as SavedGroupInterface;
   },
 
   isRevisionRequired(context: Context): boolean {
