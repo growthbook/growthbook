@@ -16,6 +16,7 @@ import Button from "@/ui/Button";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
+import MonitoredIcon from "@/components/Features/RuleModal/MonitoredIcon";
 import styles from "./RampTimeline.module.scss";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -351,6 +352,13 @@ function NodePopoverContent({
         </span>
       </Flex>
 
+      {monitored && (
+        <Flex align="center" gap="1" mb="2" style={{ color: "var(--blue-9)" }}>
+          <MonitoredIcon size={16} />
+          <Text size="small">Monitored</Text>
+        </Flex>
+      )}
+
       {stepIndex === "start" ? (
         triggerLabel && (
           <Box mb="2">
@@ -488,7 +496,7 @@ function NodeDot({
 
 interface NodeMeta {
   key: string;
-  label: string;
+  label: ReactNode;
   sublabel: ReactNode;
   /** Trigger label rendered underneath the connector that leads INTO this node. */
   connectorLabel?: ReactNode;
@@ -689,37 +697,47 @@ export default function RampTimeline({
         />
       ),
     },
-    ...steps.map((step, i) => ({
-      key: `step-${i}`,
-      label: String(i + 1),
-      sublabel: null,
-      connectorLabel:
-        i === 0 ? (
-          !startDate ? (
-            <Text size="small">auto</Text>
-          ) : undefined
+    ...steps.map((step, i) => {
+      const state = getState(i + 1);
+      return {
+        key: `step-${i}`,
+        label: step.monitored ? (
+          <Flex align="center" gap="1">
+            {i + 1}
+            <MonitoredIcon size={16} style={{ opacity: 0.65 }} />
+          </Flex>
         ) : (
-          formatTrigger(steps[i - 1].trigger)
+          String(i + 1)
         ),
-      popoverContent: (
-        <NodePopoverContent
-          heading={`Step ${i + 1}`}
-          headingColor={nodeLabelColor(getState(i + 1), status)}
-          nodeColor={dotColor(getState(i + 1), status)}
-          nodeState={getState(i + 1)}
-          status={status}
-          trigger={step.trigger}
-          triggerLabel={formatTrigger(step.trigger)}
-          actions={step.actions}
-          monitored={step.monitored}
-          stepIndex={i}
-          isActive={getState(i + 1) === "active"}
-          rs={rs}
-          onJump={onJump}
-          onComplete={onComplete}
-        />
-      ),
-    })),
+        sublabel: null,
+        connectorLabel:
+          i === 0 ? (
+            !startDate ? (
+              <Text size="small">auto</Text>
+            ) : undefined
+          ) : (
+            formatTrigger(steps[i - 1].trigger)
+          ),
+        popoverContent: (
+          <NodePopoverContent
+            heading={`Step ${i + 1}`}
+            headingColor={nodeLabelColor(state, status)}
+            nodeColor={dotColor(state, status)}
+            nodeState={state}
+            status={status}
+            trigger={step.trigger}
+            triggerLabel={formatTrigger(step.trigger)}
+            actions={step.actions}
+            monitored={step.monitored}
+            stepIndex={i}
+            isActive={state === "active"}
+            rs={rs}
+            onJump={onJump}
+            onComplete={onComplete}
+          />
+        ),
+      };
+    }),
     ...(() => {
       const dual = hasDualEndNodes(rs);
       const lastStepConnector =

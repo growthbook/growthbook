@@ -157,14 +157,13 @@
 
 .timelineRoot {
   min-width: 0;
-  overflow: hidden;
 }
 
 .timelineScroll {
-  overflow-x: auto;
   padding: 6px 8px;
 }
 
 .timelineRow {
-  width: fit-content;
+  flex-wrap: wrap;
+  row-gap: 8px;
 }

@@ -37,6 +37,7 @@ import { getValidDate } from "shared/dates";
 import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
 import RampScheduleBadge from "@/components/RampSchedule/RampScheduleBadge";
+import MonitoredIcon from "@/components/Features/RuleModal/MonitoredIcon";
 import RampTimeline, {
   getRampStepsCompleted,
 } from "@/components/RampSchedule/RampTimeline";
@@ -1091,6 +1092,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 coverage={rule.coverage ?? 1}
                 feature={feature}
                 hashAttribute={rule.hashAttribute || ""}
+                monitored={
+                  rampSchedule?.currentStepIndex != null &&
+                  rampSchedule.steps[rampSchedule.currentStepIndex]?.monitored
+                }
               />
             )}
             {rule.type === "safe-rollout" &&
@@ -1155,8 +1160,22 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             {rampSchedule && (
               <Box mt="4">
                 {!isSimpleSchedule && (
-                  <Flex gap="3" align="center" mb="4" wrap="wrap">
-                    <Text weight="medium">RAMP-UP SCHEDULE</Text>
+                  <Flex gapX="3" gapY="1" align="center" mb="4" wrap="wrap">
+                    <span style={{ display: "inline-block" }}>
+                      <Text weight="medium">RAMP-UP SCHEDULE</Text>
+                      {rampSchedule.steps.some((s) => s.monitored) && (
+                        <Tooltip
+                          body="This schedule includes monitored steps"
+                          style={{
+                            position: "relative",
+                            top: 2,
+                            marginLeft: 4,
+                          }}
+                        >
+                          <MonitoredIcon size={18} />
+                        </Tooltip>
+                      )}
+                    </span>
                     {!["pending", "ready", "completed", "rolled-back"].includes(
                       rampSchedule.status,
                     ) && (
@@ -1183,25 +1202,26 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       }
                       return <Text color="text-low">({label} remaining)</Text>;
                     })()}
+                    {rampSchedule.lockdownConfig?.mode === "locked" && (
+                      <Box style={{ flexBasis: "100%" }}>
+                        <HelperText
+                          status="warning"
+                          icon={<PiLockSimple size={15} />}
+                        >
+                          {["running", "pending-approval"].includes(
+                            rampSchedule.status,
+                          )
+                            ? "Feature locked during ramp-up"
+                            : "Feature will be locked while ramp-up is running"}
+                        </HelperText>
+                      </Box>
+                    )}
                   </Flex>
                 )}
                 {isSimpleSchedule && (
                   <Text weight="medium" mb="4">
                     {formatSimpleScheduleLabel(rampSchedule)}
                   </Text>
-                )}
-                {rampSchedule.lockdownConfig?.mode === "locked" && (
-                  <HelperText
-                    status="warning"
-                    icon={<PiLockSimple size={15} />}
-                    mb="3"
-                  >
-                    {["running", "pending-approval"].includes(
-                      rampSchedule.status,
-                    )
-                      ? "Publishing locked by ramp-up"
-                      : "Feature will be locked while ramp-up is running"}
-                  </HelperText>
                 )}
                 {rampApproveError && (
                   <Callout status="error" mb="2">

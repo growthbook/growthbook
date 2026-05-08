@@ -4,12 +4,15 @@ import { PiShield, PiPulseBold } from "react-icons/pi";
 export default function MonitoredIcon({
   size = 20,
   style,
+  className,
 }: {
   size?: number;
   style?: CSSProperties;
+  className?: string;
 }) {
   return (
     <span
+      className={className}
       style={{
         position: "relative",
         display: "inline-flex",
