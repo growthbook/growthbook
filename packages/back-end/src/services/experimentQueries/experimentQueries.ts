@@ -174,10 +174,31 @@ export function maxColumnsNeededForMetric({
   }
 }
 
+// Each percentile-capped metric contributes one APPROX_QUANTILES (or
+// equivalent) aggregate per cap column to the single-row __capValue CTE.
+// On BigQuery the intermediate aggregation state for that row is bounded at
+// 100MB, and each percentile aggregate carries a non-trivial sketch, so a
+// large number of capped metrics in one query can exceed that limit even when
+// the column-count budget is fine. Budget percentile caps separately so we
+// split chunks before hitting that wall. Ratio metrics contribute two caps
+// (numerator + denominator).
+export const DEFAULT_MAX_PERCENTILE_CAPS_PER_CHUNK = 25;
+
+function percentileCapColumnsForMetric(metric: FactMetricInterface): number {
+  if (!isPercentileCappedMetric(metric)) return 0;
+  return (
+    BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS.length +
+    (isRatioMetric(metric)
+      ? RATIO_METRIC_PERCENTILE_CAPPING_FLOAT_COLS.length
+      : 0)
+  );
+}
+
 export function chunkMetrics({
   metrics,
   maxColumnsPerQuery,
   isBandit,
+  maxPercentileCapsPerChunk = DEFAULT_MAX_PERCENTILE_CAPS_PER_CHUNK,
 }: {
   metrics: {
     metric: FactMetricInterface;
@@ -185,6 +206,7 @@ export function chunkMetrics({
   }[];
   maxColumnsPerQuery: number;
   isBandit: boolean;
+  maxPercentileCapsPerChunk?: number;
 }): FactMetricInterface[][] {
   // up to 100 dimensions (overkill, but also adds in buffer)
   // + 1 for variation + 2 for users and count
@@ -193,6 +215,7 @@ export function chunkMetrics({
   const chunks: FactMetricInterface[][] = [];
 
   let runningCols = baseColumnsNeeded;
+  let runningCaps = 0;
   let runningChunk: FactMetricInterface[] = [];
   metrics.forEach(({ metric: m, regressionAdjusted }) => {
     const colsNeeded = maxColumnsNeededForMetric({
@@ -200,17 +223,23 @@ export function chunkMetrics({
       regressionAdjusted,
       isBandit,
     });
+    const capsNeeded = percentileCapColumnsForMetric(m);
     const updatedCols = runningCols + colsNeeded;
+    const updatedCaps = runningCaps + capsNeeded;
     if (
-      updatedCols > maxColumnsPerQuery ||
-      runningChunk.length >= MAX_METRICS_PER_QUERY
+      runningChunk.length > 0 &&
+      (updatedCols > maxColumnsPerQuery ||
+        updatedCaps > maxPercentileCapsPerChunk ||
+        runningChunk.length >= MAX_METRICS_PER_QUERY)
     ) {
       chunks.push([...runningChunk]);
       runningChunk = [m];
       runningCols = baseColumnsNeeded + colsNeeded;
+      runningCaps = capsNeeded;
     } else {
       runningChunk.push(m);
       runningCols = runningCols + colsNeeded;
+      runningCaps = updatedCaps;
     }
   });
   // Add whatever metrics are left in the last chunk
