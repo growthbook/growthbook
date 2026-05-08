@@ -64,6 +64,8 @@ type CommonProps = {
   revisionList: MinimalFeatureRevisionInterface[];
   rampSchedules?: RampScheduleInterface[];
   draftRevision?: FeatureRevisionInterface | null;
+  // allEnvsView visibility filter; reorder still resolves against feature.rules.
+  hiddenRuleIds?: Set<string>;
 };
 
 type RuleListProps = CommonProps &
@@ -100,29 +102,32 @@ export default function RuleList(props: RuleListProps) {
     rampSchedules,
     draftRevision,
     allEnvsView,
+    hiddenRuleIds,
   } = props;
 
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // In allEnvsView the visible items are the flat `feature.rules` array. In
-  // single-env mode we project rules through `getRules(feature, env)` to honor
-  // env applicability + inheritance.
-  const initialItems: FeatureRule[] = allEnvsView
-    ? (feature.rules ?? [])
-    : getRules(feature, props.environment);
-  const [items, setItems] = useState<FeatureRule[]>(initialItems);
+  // allEnvsView: flat feature.rules narrowed by hiddenRuleIds.
+  // single-env: project via getRules to honor env applicability + inheritance.
+  const projectItems = (): FeatureRule[] => {
+    if (!allEnvsView) return getRules(feature, props.environment);
+    const flat = feature.rules ?? [];
+    return hiddenRuleIds && hiddenRuleIds.size > 0
+      ? flat.filter((r) => !hiddenRuleIds.has(r.id))
+      : flat;
+  };
+  const [items, setItems] = useState<FeatureRule[]>(projectItems);
 
-  // `getRules` returns a fresh array every call, so depend on the underlying
-  // rules array identity + view selector rather than the projection itself.
   useEffect(() => {
-    setItems(
-      allEnvsView
-        ? (feature.rules ?? [])
-        : getRules(feature, props.environment),
-    );
-  }, [feature.rules, allEnvsView, allEnvsView ? null : props.environment]);
+    setItems(projectItems());
+  }, [
+    feature.rules,
+    allEnvsView,
+    allEnvsView ? null : props.environment,
+    hiddenRuleIds,
+  ]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -205,11 +210,12 @@ export default function RuleList(props: RuleListProps) {
     return rule.environments[0];
   }
 
-  // In all-envs mode item indices match `feature.rules` indices already.
+  // Items-index → feature.rules flat index. Always id-lookup so allEnvsView
+  // stays correct when items is filtered.
   function flatIndexOf(ruleId: string, fallback: number) {
-    if (allEnvsView) return fallback;
     const flat = feature.rules ?? [];
-    return flat.findIndex((r) => r.id === ruleId);
+    const idx = flat.findIndex((r) => r.id === ruleId);
+    return idx === -1 ? fallback : idx;
   }
 
   function isUnreachable(idx: number, ruleId: string): boolean {

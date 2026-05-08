@@ -1,10 +1,10 @@
 import { useState, FC } from "react";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const CreateOrganization: FC<{
   onCreate: () => void;
-  close?: () => void;
+  close: () => void;
   showExternalId?: boolean;
 }> = ({ onCreate, close, showExternalId }) => {
   const [company, setCompany] = useState("");
@@ -28,14 +28,13 @@ const CreateOrganization: FC<{
   };
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       submit={handleSubmit}
       open={true}
       header={"Create New Organization"}
       cta={"Create"}
       close={close}
-      inline={!close}
     >
       <div className="form-group">
         Company Name
@@ -61,7 +60,7 @@ const CreateOrganization: FC<{
           </div>
         )}
       </div>
-    </Modal>
+    </ModalStandard>
   );
 };
 

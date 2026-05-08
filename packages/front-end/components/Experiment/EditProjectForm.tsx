@@ -1,9 +1,9 @@
 import { FC, ReactElement } from "react";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
 import useProjectOptions from "@/hooks/useProjectOptions";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const EditProjectForm: FC<{
   apiEndpoint: string;
@@ -40,10 +40,10 @@ const EditProjectForm: FC<{
   const initialOption = permissionRequired("") ? "None" : "";
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="edit-project-form"
       trackingEventModalSource={source}
-      header={"Edit Project"}
+      header="Edit Project"
       open={true}
       close={cancel}
       submit={form.handleSubmit(async (data) => {
@@ -68,7 +68,7 @@ const EditProjectForm: FC<{
         initialOption={initialOption}
         autoFocus={true}
       />
-    </Modal>
+    </ModalStandard>
   );
 };
 
