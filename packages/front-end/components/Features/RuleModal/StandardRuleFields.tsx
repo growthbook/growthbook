@@ -22,15 +22,15 @@ import {
   type RampSectionState,
   defaultRampSectionState,
 } from "@/components/Features/RuleModal/RampScheduleSection";
-import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
+import MonitoredIcon from "@/components/Features/RuleModal/MonitoredIcon";
 import RampScheduleBadge from "@/components/RampSchedule/RampScheduleBadge";
 import styles from "@/components/Features/VariationsInput.module.scss";
 import ScheduleInputs from "@/components/Features/RuleModal/ScheduleInputs";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
-export type ScheduleType = "none" | "schedule" | "ramp";
+export type ScheduleType = "none" | "schedule" | "ramp" | "ramp-monitored";
 
 /** Derive the schedule type from existing state on first render. */
 export function deriveScheduleType(
@@ -42,6 +42,8 @@ export function deriveScheduleType(
   if (persisted && persisted !== "none") return persisted;
   if (rampSectionState.mode !== "off") {
     if (rampSectionState.steps.length === 0) return "schedule";
+    if (rampSectionState.steps.some((s) => s.monitored))
+      return "ramp-monitored";
     return "ramp";
   }
   if (scheduleToggleEnabled || hasLegacySchedule) return "schedule";
@@ -125,22 +127,38 @@ export default function StandardRuleFields({
 
     setScheduleType(type);
 
+    const leavingRamp =
+      scheduleType === "ramp" || scheduleType === "ramp-monitored";
+
     if (type === "none") {
       setScheduleToggleEnabled(false);
       setRampSectionState({ ...rampSectionState, mode: "off" });
       const saved = savedStates[type];
-      if (saved) form.setValue("coverage", saved.coverage);
+      form.setValue(
+        "coverage",
+        saved?.coverage ?? (leavingRamp ? 1 : currentCoverage),
+      );
       return;
     }
 
     const saved = savedStates[type];
 
-    if (type === "ramp") {
+    if (type === "ramp" || type === "ramp-monitored") {
       setScheduleToggleEnabled(false);
 
       if (saved && saved.ramp.steps.length > 0) {
-        setRampSectionState(saved.ramp);
-        form.setValue("coverage", saved.coverage);
+        const restoredState = { ...saved.ramp };
+        if (type === "ramp-monitored") {
+          restoredState.steps = restoredState.steps.map((s) => ({
+            ...s,
+            monitored: true,
+            patch: {
+              ...s.patch,
+              coverage: Math.min(s.patch.coverage ?? 0, 50),
+            },
+          }));
+        }
+        setRampSectionState(restoredState);
       } else {
         const seed = !ruleRampSchedule
           ? defaultRampSectionState(undefined)
@@ -154,8 +172,20 @@ export default function StandardRuleFields({
           ...(seed ? { steps: seed.steps, name: seed.name } : {}),
         };
 
+        if (type === "ramp-monitored") {
+          newState.steps = newState.steps.map((s) => ({
+            ...s,
+            monitored: true,
+            patch: {
+              ...s.patch,
+              coverage: Math.min(s.patch.coverage ?? 0, 50),
+            },
+          }));
+        }
+
         setRampSectionState(newState);
       }
+      form.setValue("coverage", 0);
       return;
     }
 
@@ -171,6 +201,7 @@ export default function StandardRuleFields({
         startDate: "",
         endScheduleAt: "",
       });
+      if (leavingRamp) form.setValue("coverage", 1);
     }
   }
 
@@ -218,14 +249,13 @@ export default function StandardRuleFields({
         <RadioGroup
           mt="4"
           mb="2"
-          gap="3"
+          gap="2"
           disabled={releasePlanLocked}
           options={[
             {
               value: "none",
               label: "Live immediately",
               description: "Rule is always on when enabled",
-              labelDescriptionGap: "1",
             },
             {
               value: "schedule",
@@ -239,7 +269,6 @@ export default function StandardRuleFields({
                 </Flex>
               ),
               description: "Enable or disable the rule on specific dates",
-              labelDescriptionGap: "1",
               disabled: !canScheduleFeatureFlags,
             },
             {
@@ -248,40 +277,45 @@ export default function StandardRuleFields({
                 <Flex align="center" gap="2">
                   Ramp-up
                   <PaidFeatureBadge commercialFeature="ramp-schedules" />
-                  {showScheduleBadge && !isSimpleSchedule && (
-                    <RampScheduleBadge
-                      rs={ruleRampSchedule!}
-                      featureRuleContext
-                    />
-                  )}
+                  {showScheduleBadge &&
+                    !isSimpleSchedule &&
+                    !rampSectionState.steps.some((s) => s.monitored) && (
+                      <RampScheduleBadge
+                        rs={ruleRampSchedule!}
+                        featureRuleContext
+                      />
+                    )}
                 </Flex>
               ),
-              description:
-                "Increase traffic over multiple steps, with optional guardrail monitoring and auto-rollback",
-              labelDescriptionGap: "1",
+              description: "Increase traffic over multiple steps",
+              disabled: !canUseRampSchedules,
+            },
+            {
+              value: "ramp-monitored",
+              label: (
+                <Flex align="center" gap="2">
+                  <Flex align="center" gap="1">
+                    <MonitoredIcon size={16} />
+                    Monitored Ramp-up
+                  </Flex>
+                  <PaidFeatureBadge commercialFeature="safe-rollout" />
+                  {showScheduleBadge &&
+                    !isSimpleSchedule &&
+                    rampSectionState.steps.some((s) => s.monitored) && (
+                      <RampScheduleBadge
+                        rs={ruleRampSchedule!}
+                        featureRuleContext
+                      />
+                    )}
+                </Flex>
+              ),
+              description: "Guardrail monitoring and auto-rollback",
               disabled: !canUseRampSchedules,
             },
           ]}
           value={scheduleType}
           setValue={(v) => applyScheduleType(v as ScheduleType)}
         />
-        <Callout
-          status="wizard"
-          variant="outline"
-          size="sm"
-          mb="3"
-          mx="5"
-          dismissible
-          id="safe-rollout-ramp-migration"
-        >
-          <Text as="div">
-            <strong>Safe Rollouts</strong> are now part of{" "}
-            <strong>Ramp-up Schedules</strong> schedules
-          </Text>
-          <Text as="div" size="small" mt="1">
-            Add guardrail monitoring to a Ramp-up schedule make it safe
-          </Text>
-        </Callout>
 
         {scheduleType === "schedule" && (
           <Box my="6">

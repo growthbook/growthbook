@@ -7,8 +7,6 @@ import {
   RampScheduleTemplateInterface,
   RampStepAction,
   stepHoldConditions,
-  stepGuardrailSettings,
-  scheduleGuardrailSettings,
 } from "shared/validators";
 import type { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -42,7 +40,6 @@ const postBodyStep = z.object({
   approvalNotes: z.string().nullish(),
   monitored: z.boolean().default(false),
   holdConditions: stepHoldConditions.optional(),
-  guardrailSettings: stepGuardrailSettings.optional(),
 });
 
 const postRampScheduleValidator = {
@@ -72,7 +69,6 @@ const postRampScheduleValidator = {
         })
         .nullish(),
       lockdownConfig: z.object({ mode: z.enum(["none", "locked"]) }).optional(),
-      guardrailSettings: scheduleGuardrailSettings.nullish(),
       templateId: z.string().optional(),
     })
     .superRefine((data, ctx) => {
@@ -210,7 +206,6 @@ export const postRampSchedule = createApiRequestHandler(
         approvalNotes: s.approvalNotes ?? undefined,
         monitored: s.monitored,
         holdConditions: s.holdConditions ?? undefined,
-        guardrailSettings: s.guardrailSettings ?? undefined,
       }));
     }
     if (template && hasTarget) {
@@ -225,7 +220,6 @@ export const postRampSchedule = createApiRequestHandler(
         approvalNotes: s.approvalNotes ?? undefined,
         monitored: !!s.monitored,
         holdConditions: s.holdConditions ?? undefined,
-        guardrailSettings: s.guardrailSettings ?? undefined,
       }));
     }
     return [];
@@ -290,7 +284,6 @@ export const postRampSchedule = createApiRequestHandler(
     monitoringConfig:
       body.monitoringConfig ?? template?.monitoringConfig ?? null,
     lockdownConfig: body.lockdownConfig ?? template?.lockdownConfig,
-    guardrailSettings: body.guardrailSettings ?? template?.guardrailSettings,
     status: hasTarget ? "ready" : "pending",
     currentStepIndex: -1,
     nextStepAt: null,

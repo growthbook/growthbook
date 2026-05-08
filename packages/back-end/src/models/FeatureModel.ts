@@ -1692,7 +1692,6 @@ async function createRampSchedulesForRevision(
             actions: step.actions.map(normalizeAction),
             monitored: !!step.monitored,
             holdConditions: step.holdConditions ?? undefined,
-            guardrailSettings: step.guardrailSettings ?? undefined,
           }))
         : template
           ? template.steps.map((s) => ({
@@ -1706,7 +1705,6 @@ async function createRampSchedulesForRevision(
               approvalNotes: s.approvalNotes ?? undefined,
               monitored: !!s.monitored,
               holdConditions: s.holdConditions ?? undefined,
-              guardrailSettings: s.guardrailSettings ?? undefined,
             }))
           : [];
 
@@ -1758,8 +1756,6 @@ async function createRampSchedulesForRevision(
           : undefined,
       monitoringConfig: action.monitoringConfig ?? template?.monitoringConfig,
       lockdownConfig: action.lockdownConfig ?? template?.lockdownConfig,
-      guardrailSettings:
-        action.guardrailSettings ?? template?.guardrailSettings,
       // Start as "pending" — onActivatingRevisionPublished handles the
       // immediate → "running" transition inline when the revision publishes.
       status: "pending",

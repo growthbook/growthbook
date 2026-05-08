@@ -50,7 +50,6 @@ function normalizeRevisionRampCreateAction(
       approvalNotes: s.approvalNotes ?? undefined,
       monitored: !!s.monitored,
       holdConditions: s.holdConditions ?? undefined,
-      guardrailSettings: s.guardrailSettings ?? undefined,
     })),
     endActions: input.endActions?.map(normalizeAction),
   };

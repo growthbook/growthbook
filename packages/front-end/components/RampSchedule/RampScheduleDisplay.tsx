@@ -44,10 +44,12 @@ function EffectRow({
 function PatchDisplay({
   actions,
   syntheticEnabled,
+  monitored,
   noChangesLabel = "—",
 }: {
   actions: RampStepAction[];
   syntheticEnabled?: boolean;
+  monitored?: boolean;
   noChangesLabel?: string;
 }) {
   const items: ReactNode[] = [];
@@ -58,9 +60,12 @@ function PatchDisplay({
     const k = (s: string) => `${ai}-${s}`;
 
     if (p.coverage !== null && p.coverage !== undefined) {
+      const displayCov = monitored
+        ? Math.round((p.coverage * 100) / 2)
+        : Math.round(p.coverage * 100);
       items.push(
         <EffectRow key={k("cov")} label="Rollout %">
-          {Math.round(p.coverage * 100)}%
+          {displayCov}%
         </EffectRow>,
       );
     }
@@ -187,6 +192,7 @@ function Row({
   trigger,
   actions,
   syntheticEnabled,
+  monitored,
   dimmed,
   isActive,
 }: {
@@ -194,6 +200,7 @@ function Row({
   trigger: ReactNode;
   actions: RampStepAction[];
   syntheticEnabled?: boolean;
+  monitored?: boolean;
   dimmed?: boolean;
   isActive?: boolean;
 }) {
@@ -214,7 +221,11 @@ function Row({
         </Text>
       </Box>
       <Box style={{ minWidth: 0, flex: 1 }}>
-        <PatchDisplay actions={actions} syntheticEnabled={syntheticEnabled} />
+        <PatchDisplay
+          actions={actions}
+          syntheticEnabled={syntheticEnabled}
+          monitored={monitored}
+        />
       </Box>
     </Flex>
   );
@@ -285,6 +296,7 @@ export default function RampScheduleDisplay({ rs, targetId }: Props) {
             label={i + 1}
             trigger={formatTrigger(step.trigger)}
             actions={filterActions(step.actions, targetId)}
+            monitored={step.monitored}
             isActive={i === current}
           />
         </Fragment>

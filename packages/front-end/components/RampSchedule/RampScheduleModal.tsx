@@ -48,7 +48,10 @@ function buildStepsForAllTargets(
     const existingStep = existingSteps[i];
     const actions = targets.map((t) => {
       const ruleId = t.ruleId ?? "";
-      const base = buildPatch(s.patch, ruleId) as Record<string, unknown>;
+      const base = buildPatch(s.patch, ruleId, s.monitored) as Record<
+        string,
+        unknown
+      >;
       // Preserve savedGroups/prerequisites from existing actions — they are
       // edited via the per-rule surface, not from this shared editor.
       const existingAction = existingStep?.actions?.find(
@@ -90,9 +93,6 @@ function buildStepsForAllTargets(
         ? { approvalNotes: s.approvalNotes }
         : {}),
       monitored: !!s.monitored,
-      ...(s.guardrailSettings
-        ? { guardrailSettings: s.guardrailSettings }
-        : {}),
       ...(s.holdConditions ? { holdConditions: s.holdConditions } : {}),
     };
   });
@@ -168,11 +168,12 @@ export default function RampScheduleModal({
           ),
           startDate: rampState.startDate || null,
           cutoffDate: rampState.cutoffDate || null,
-          monitoringConfig: buildMonitoringConfig(rampState.monitoring) ?? null,
+          monitoringConfig:
+            buildMonitoringConfig(rampState.monitoring, rampState.steps) ??
+            null,
           lockdownConfig: rampState.lockFeature
             ? { mode: "locked" }
             : { mode: "none" },
-          guardrailSettings: rampState.guardrailSettings ?? null,
         }),
       });
     } else {
@@ -200,18 +201,16 @@ export default function RampScheduleModal({
               : {}),
             monitored: !!s.monitored,
             ...(s.holdConditions ? { holdConditions: s.holdConditions } : {}),
-            ...(s.guardrailSettings
-              ? { guardrailSettings: s.guardrailSettings }
-              : {}),
           })),
           endActions: [],
           startDate: rampState.startDate || null,
           cutoffDate: rampState.cutoffDate || null,
-          monitoringConfig: buildMonitoringConfig(rampState.monitoring) ?? null,
+          monitoringConfig:
+            buildMonitoringConfig(rampState.monitoring, rampState.steps) ??
+            null,
           lockdownConfig: rampState.lockFeature
             ? { mode: "locked" }
             : { mode: "none" },
-          guardrailSettings: rampState.guardrailSettings ?? null,
         }),
       });
     }

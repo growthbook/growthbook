@@ -114,7 +114,6 @@ export function rampScheduleToApiInterface(
       approvalNotes: s.approvalNotes ?? undefined,
       monitored: !!s.monitored,
       holdConditions: s.holdConditions ?? undefined,
-      guardrailSettings: s.guardrailSettings ?? undefined,
     })),
     endActions: doc.endActions,
     startDate: dateToIso(doc.startDate),
@@ -128,8 +127,13 @@ export function rampScheduleToApiInterface(
     nextProcessAt: dateToIso(doc.nextProcessAt),
     elapsedMs: doc.elapsedMs,
     lockdownConfig: doc.lockdownConfig,
-    monitoringConfig: doc.monitoringConfig,
-    guardrailSettings: doc.guardrailSettings,
+    monitoringConfig: doc.monitoringConfig
+      ? {
+          ...doc.monitoringConfig,
+          signalMetricIds: doc.monitoringConfig.signalMetricIds ?? [],
+        }
+      : doc.monitoringConfig,
+    experimentHealthAction: doc.experimentHealthAction,
     currentStepEnteredAt: dateToIso(doc.currentStepEnteredAt),
     lastRollbackAt: dateToIso(doc.lastRollbackAt),
     lastRollbackReason: doc.lastRollbackReason,
@@ -254,64 +258,70 @@ export class RampScheduleModel extends BaseClass {
         : migrated;
     if (
       result.steps?.some(
-        (s) =>
-          s.monitored == null ||
-          s.holdConditions === null ||
-          s.guardrailSettings === null,
+        (s) => s.monitored == null || s.holdConditions === null,
       )
     ) {
       result.steps = result.steps.map((s) => ({
         ...s,
         monitored: !!s.monitored,
         ...(s.holdConditions === null ? { holdConditions: undefined } : {}),
-        ...(s.guardrailSettings === null
-          ? { guardrailSettings: undefined }
-          : {}),
       }));
     }
-    // Migrate legacy autoRollback → schedule-level guardrailSettings
+
+    // Migrate legacy per-metric guardrailSettings → schedule-level experimentHealthAction
+    const legacyGs = (result as Record<string, unknown>).guardrailSettings as
+      | { experimentHealthAction?: string }
+      | undefined;
+    if (legacyGs) {
+      if (!result.experimentHealthAction && legacyGs.experimentHealthAction) {
+        const action = legacyGs.experimentHealthAction;
+        if (action === "rollback" || action === "hold" || action === "warn") {
+          result.experimentHealthAction = action;
+        }
+      }
+      delete (result as Record<string, unknown>).guardrailSettings;
+    }
+
+    // Migrate legacy autoRollback → experimentHealthAction
     if (
-      result.monitoringConfig?.autoRollback != null &&
-      !result.guardrailSettings
+      result.monitoringConfig &&
+      (result.monitoringConfig as Record<string, unknown>).autoRollback != null
     ) {
-      const metricIds = result.monitoringConfig.guardrailMetricIds ?? [];
-      const action = result.monitoringConfig.autoRollback
-        ? ("rollback" as const)
-        : ("warn" as const);
-      result.guardrailSettings = {
-        metrics: Object.fromEntries(
-          metricIds.map((id) => [id, { onUnhealthy: action }]),
-        ),
-        experimentHealthAction: "pause",
+      if (!result.experimentHealthAction) {
+        result.experimentHealthAction = (
+          result.monitoringConfig as Record<string, unknown>
+        ).autoRollback
+          ? ("rollback" as const)
+          : ("warn" as const);
+      }
+      delete (result.monitoringConfig as Record<string, unknown>).autoRollback;
+    }
+
+    // Ensure signalMetricIds exists on monitoringConfig
+    if (
+      result.monitoringConfig &&
+      result.monitoringConfig.signalMetricIds == null
+    ) {
+      result.monitoringConfig = {
+        ...result.monitoringConfig,
+        signalMetricIds: [],
       };
     }
-    // Migrate legacy holdConditions.requireHealthy → step-level guardrailSettings
+
+    // Strip legacy step-level guardrailSettings
     if (
       result.steps?.some(
-        (s) => s.holdConditions?.requireHealthy != null && !s.guardrailSettings,
+        (s) => (s as Record<string, unknown>).guardrailSettings != null,
       )
     ) {
-      const metricIds = result.monitoringConfig?.guardrailMetricIds ?? [];
       result.steps = result.steps.map((s) => {
-        if (s.holdConditions?.requireHealthy != null && !s.guardrailSettings) {
-          const stepAction = s.holdConditions.requireHealthy
-            ? ("hold" as const)
-            : ("ignore" as const);
-          return {
-            ...s,
-            guardrailSettings: {
-              metrics: Object.fromEntries(
-                metricIds.map((id) => [id, { onUnhealthy: stepAction }]),
-              ),
-              experimentHealthAction: s.holdConditions.requireHealthy
-                ? ("hold" as const)
-                : ("ignore" as const),
-            },
-          };
-        }
-        return s;
+        const { guardrailSettings: _, ...rest } = s as typeof s & {
+          guardrailSettings?: unknown;
+        };
+        return rest;
       });
     }
+
     return result;
   }
 
@@ -455,7 +465,6 @@ export class RampScheduleModel extends BaseClass {
             approvalNotes?: string | null;
             monitored?: boolean;
             holdConditions?: StepHoldConditions;
-            guardrailSettings?: RampScheduleInterface["steps"][number]["guardrailSettings"];
           }) => ({
             trigger: normalizeApiTrigger(s.trigger),
             actions: (s.actions ?? []).map((a: PostBodyAction) =>
@@ -466,7 +475,6 @@ export class RampScheduleModel extends BaseClass {
             approvalNotes: s.approvalNotes ?? undefined,
             monitored: !!s.monitored,
             holdConditions: s.holdConditions ?? undefined,
-            guardrailSettings: s.guardrailSettings ?? undefined,
           }),
         );
       }
@@ -482,7 +490,6 @@ export class RampScheduleModel extends BaseClass {
           approvalNotes: s.approvalNotes ?? undefined,
           monitored: !!s.monitored,
           holdConditions: s.holdConditions ?? undefined,
-          guardrailSettings: s.guardrailSettings ?? undefined,
         }));
       }
       return [];
@@ -547,8 +554,8 @@ export class RampScheduleModel extends BaseClass {
         ? { monitoringConfig: body.monitoringConfig }
         : {}),
       ...(body.lockdownConfig ? { lockdownConfig: body.lockdownConfig } : {}),
-      ...(body.guardrailSettings
-        ? { guardrailSettings: body.guardrailSettings }
+      ...(body.experimentHealthAction
+        ? { experimentHealthAction: body.experimentHealthAction }
         : {}),
     } as Omit<
       RampScheduleInterface,
@@ -632,13 +639,11 @@ export class RampScheduleModel extends BaseClass {
           approvalNotes?: string | null;
           monitored?: boolean | null;
           holdConditions?: unknown | null;
-          guardrailSettings?: unknown | null;
         }) => ({
           ...step,
           actions: (step.actions ?? []).map(resolveTargetId),
           monitored: !!step.monitored,
           holdConditions: step.holdConditions ?? undefined,
-          guardrailSettings: step.guardrailSettings ?? undefined,
         }),
       );
     }
@@ -659,8 +664,8 @@ export class RampScheduleModel extends BaseClass {
     if (body.monitoringConfig !== undefined) {
       updates.monitoringConfig = body.monitoringConfig;
     }
-    if (body.guardrailSettings !== undefined) {
-      updates.guardrailSettings = body.guardrailSettings;
+    if (body.experimentHealthAction !== undefined) {
+      updates.experimentHealthAction = body.experimentHealthAction;
     }
 
     updates.nextProcessAt = computeNextProcessAt({
@@ -783,7 +788,49 @@ export class RampScheduleModel extends BaseClass {
       },
     });
   }
+
+  /**
+   * Build a map from ruleId → monitored-step info for all running ramp
+   * schedules whose current step is monitored. Used by the SDK payload builder
+   * to emit experiment+filters instead of a simple rollout rule.
+   */
+  public async getPayloadRampMonitoredRuleMap(): Promise<
+    Map<string, RampMonitoredRuleInfo>
+  > {
+    const schedules = await this._find({
+      status: { $in: ["running", "pending-approval"] },
+    });
+    const map = new Map<string, RampMonitoredRuleInfo>();
+    for (const schedule of schedules) {
+      const stepIdx = schedule.currentStepIndex;
+      if (stepIdx < 0 || stepIdx >= schedule.steps.length) continue;
+      const step = schedule.steps[stepIdx];
+      if (!step?.monitored) continue;
+
+      for (const target of schedule.targets) {
+        if (!target.ruleId || target.status !== "active") continue;
+        map.set(target.ruleId, {
+          featureId: target.entityId,
+          rampScheduleId: schedule.id,
+          safeRolloutId: schedule.safeRolloutId ?? undefined,
+        });
+      }
+    }
+    return map;
+  }
 }
+
+/**
+ * Lightweight info about a rule currently on a monitored ramp step.
+ * Consumed by the SDK payload builder to render an experiment with filters
+ * (instead of a simple rollout with coverage) so that hash-space alignment
+ * is maintained across monitored ↔ unmonitored step transitions.
+ */
+export type RampMonitoredRuleInfo = {
+  featureId: string;
+  rampScheduleId: string;
+  safeRolloutId?: string;
+};
 
 /**
  * Cross-org query for the poller: returns minimal docs for every schedule

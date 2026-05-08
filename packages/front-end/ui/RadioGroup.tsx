@@ -20,7 +20,6 @@ export type RadioOptions = {
   renderOutsideItem?: boolean;
   itemClassName?: string;
   disabled?: boolean;
-  labelDescriptionGap?: string;
 }[];
 
 export type Props = {
@@ -81,7 +80,6 @@ export default forwardRef<HTMLDivElement, Props>(function RadioGroup(
                   renderOnSelect,
                   renderOutsideItem = false,
                   itemClassName,
-                  labelDescriptionGap,
                 }) => {
                   const selected = value == selectedValue;
                   return (
@@ -96,7 +94,7 @@ export default forwardRef<HTMLDivElement, Props>(function RadioGroup(
                         <Text
                           className={disabled ? "rt-TextDisabled" : undefined}
                         >
-                          <Flex direction="column" gap={labelDescriptionGap}>
+                          <Flex direction="column">
                             <Text
                               weight="medium"
                               className="main-text"

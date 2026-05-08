@@ -24,7 +24,7 @@ type CreateBody = Pick<
   cutoffDate?: string | null;
   lockdownConfig?: RampScheduleInterface["lockdownConfig"];
   monitoringConfig?: RampScheduleInterface["monitoringConfig"];
-  guardrailSettings?: RampScheduleInterface["guardrailSettings"];
+  experimentHealthAction?: RampScheduleInterface["experimentHealthAction"];
 };
 
 type UpdateBody = Partial<Pick<RampScheduleInterface, "name" | "steps">> & {
@@ -33,7 +33,7 @@ type UpdateBody = Partial<Pick<RampScheduleInterface, "name" | "steps">> & {
   cutoffDate?: string | null;
   lockdownConfig?: RampScheduleInterface["lockdownConfig"];
   monitoringConfig?: RampScheduleInterface["monitoringConfig"];
-  guardrailSettings?: RampScheduleInterface["guardrailSettings"];
+  experimentHealthAction?: RampScheduleInterface["experimentHealthAction"];
 };
 
 type ActionBody = {
@@ -106,7 +106,7 @@ export const postRampSchedule = async (
     cutoffDate: body.cutoffDate ? new Date(body.cutoffDate) : null,
     lockdownConfig: body.lockdownConfig,
     monitoringConfig: body.monitoringConfig,
-    guardrailSettings: body.guardrailSettings,
+    experimentHealthAction: body.experimentHealthAction,
     status: "ready",
     currentStepIndex: -1,
     nextStepAt: null,
@@ -173,8 +173,8 @@ export const putRampSchedule = async (
   if (body.monitoringConfig !== undefined) {
     updates.monitoringConfig = body.monitoringConfig;
   }
-  if (body.guardrailSettings !== undefined) {
-    updates.guardrailSettings = body.guardrailSettings;
+  if (body.experimentHealthAction !== undefined) {
+    updates.experimentHealthAction = body.experimentHealthAction;
   }
   updates.nextProcessAt = computeNextProcessAt({
     status: schedule.status,

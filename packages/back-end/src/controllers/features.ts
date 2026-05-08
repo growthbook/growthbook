@@ -2161,7 +2161,6 @@ export async function postFeatureRule(
             approvalNotes?: string | null;
             monitored?: boolean;
             holdConditions?: Record<string, unknown>;
-            guardrailSettings?: Record<string, unknown>;
           }) => ({
             trigger:
               s.trigger as RevisionRampCreateAction["steps"][number]["trigger"],
@@ -2171,9 +2170,6 @@ export async function postFeatureRule(
             approvalNotes: s.approvalNotes ?? undefined,
             monitored: !!s.monitored,
             holdConditions: s.holdConditions ?? undefined,
-            guardrailSettings:
-              (s.guardrailSettings as RevisionRampCreateAction["steps"][number]["guardrailSettings"]) ??
-              undefined,
           }),
         ),
         endActions: rampSchedulePayload.endActions?.map((a: unknown) =>
@@ -2184,7 +2180,6 @@ export async function postFeatureRule(
         cutoffDate: rampSchedulePayload.cutoffDate,
         monitoringConfig: rampSchedulePayload.monitoringConfig,
         lockdownConfig: rampSchedulePayload.lockdownConfig,
-        guardrailSettings: rampSchedulePayload.guardrailSettings ?? undefined,
         ruleId: rule.id,
       };
       rampActionsUpdate = createAction;
@@ -3190,7 +3185,6 @@ export async function putFeatureRule(
             approvalNotes?: string | null;
             monitored?: boolean;
             holdConditions?: Record<string, unknown>;
-            guardrailSettings?: Record<string, unknown>;
           }) => ({
             trigger:
               s.trigger as RevisionRampCreateAction["steps"][number]["trigger"],
@@ -3200,9 +3194,6 @@ export async function putFeatureRule(
             approvalNotes: s.approvalNotes ?? undefined,
             monitored: !!s.monitored,
             holdConditions: s.holdConditions ?? undefined,
-            guardrailSettings:
-              (s.guardrailSettings as RevisionRampCreateAction["steps"][number]["guardrailSettings"]) ??
-              undefined,
           }),
         ),
         endActions: rampSchedulePayload.endActions?.map((a: unknown) =>
@@ -3213,7 +3204,6 @@ export async function putFeatureRule(
         cutoffDate: rampSchedulePayload.cutoffDate,
         monitoringConfig: rampSchedulePayload.monitoringConfig,
         lockdownConfig: rampSchedulePayload.lockdownConfig,
-        guardrailSettings: rampSchedulePayload.guardrailSettings ?? undefined,
         ruleId,
       };
       rampActionsUpdate = createAction;
@@ -3321,7 +3311,6 @@ export async function putFeatureRule(
           actions: (step.actions ?? []).map(remapT1),
           monitored: !!step.monitored,
           holdConditions: step.holdConditions ?? undefined,
-          guardrailSettings: step.guardrailSettings ?? undefined,
         }));
       }
       if ("startDate" in rampSchedulePayload) {
@@ -3342,9 +3331,6 @@ export async function putFeatureRule(
       }
       if (rampSchedulePayload.lockdownConfig !== undefined) {
         updates.lockdownConfig = rampSchedulePayload.lockdownConfig;
-      }
-      if (rampSchedulePayload.guardrailSettings !== undefined) {
-        updates.guardrailSettings = rampSchedulePayload.guardrailSettings;
       }
       await context.models.rampSchedules.updateById(existing.id, updates);
     }

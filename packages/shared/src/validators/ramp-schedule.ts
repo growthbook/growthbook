@@ -17,7 +17,14 @@ import { namedSchema } from "./openapi-helpers";
 // new ramps omit it. See `resolveRampTarget` in back-end's flattenRules.
 export const featureRulePatch = z.object({
   ruleId: z.string(),
-  coverage: z.number().min(0).max(1).nullish(),
+  coverage: z
+    .number()
+    .min(0)
+    .max(1)
+    .nullish()
+    .describe(
+      "Traffic fraction (0–1). For monitored steps, this is the total experiment enrollment (not the fraction seeing variation 1). The experiment splits enrolled traffic 50/50 between control and variation, so variation-1 exposure is coverage/2. For example, coverage=0.8 means 40% of users see variation 1. The SDK uses hash-based filters (not coverage) on the experiment rule to keep bucketing consistent across monitored and unmonitored transitions.",
+    ),
   condition: z.string().nullish(),
   savedGroups: z.array(savedGroupTargeting).nullish(),
   prerequisites: z.array(featurePrerequisite).nullish(),
@@ -40,44 +47,16 @@ export const lockdownConfigSchema = z.object({
 export type LockdownConfig = z.infer<typeof lockdownConfigSchema>;
 
 // ---------------------------------------------------------------------------
-// Guardrail settings — per-metric behavioral configuration
+// Experiment health action — schedule-level SRM/health configuration
 // ---------------------------------------------------------------------------
 
-// Schedule-level action when a guardrail metric is statistically losing
-export const guardrailTopLevelActionArray = [
+export const experimentHealthActionArray = [
   "rollback",
-  "pause",
+  "hold",
   "warn",
 ] as const;
-export const guardrailTopLevelAction = z.enum(guardrailTopLevelActionArray);
-export type GuardrailTopLevelAction = z.infer<typeof guardrailTopLevelAction>;
-
-// Step-level action when a guardrail metric is unhealthy during that step
-export const guardrailStepActionArray = ["hold", "warn", "ignore"] as const;
-export const guardrailStepAction = z.enum(guardrailStepActionArray);
-export type GuardrailStepAction = z.infer<typeof guardrailStepAction>;
-
-const perMetricTopLevel = z.object({
-  onUnhealthy: guardrailTopLevelAction,
-});
-
-const perMetricStepLevel = z.object({
-  onUnhealthy: guardrailStepAction,
-});
-
-export const scheduleGuardrailSettings = z.object({
-  metrics: z.record(z.string(), perMetricTopLevel),
-  experimentHealthAction: guardrailTopLevelAction,
-});
-export type ScheduleGuardrailSettings = z.infer<
-  typeof scheduleGuardrailSettings
->;
-
-export const stepGuardrailSettings = z.object({
-  metrics: z.record(z.string(), perMetricStepLevel),
-  experimentHealthAction: guardrailStepAction,
-});
-export type StepGuardrailSettings = z.infer<typeof stepGuardrailSettings>;
+export const experimentHealthAction = z.enum(experimentHealthActionArray);
+export type ExperimentHealthAction = z.infer<typeof experimentHealthAction>;
 
 // ---------------------------------------------------------------------------
 // Monitoring config — schedule-level analysis settings for monitored steps
@@ -86,9 +65,8 @@ export type StepGuardrailSettings = z.infer<typeof stepGuardrailSettings>;
 export const rampMonitoringConfig = z.object({
   datasourceId: z.string(),
   exposureQueryId: z.string(),
-  guardrailMetricIds: z.array(z.string()).min(1),
-  /** @deprecated Use `guardrailSettings` on the schedule instead. */
-  autoRollback: z.boolean().optional(),
+  guardrailMetricIds: z.array(z.string()),
+  signalMetricIds: z.array(z.string()).optional(),
   updateScheduleMinutes: z.number().positive().optional().nullable(),
 });
 export type RampMonitoringConfig = z.infer<typeof rampMonitoringConfig>;
@@ -163,10 +141,7 @@ export type RampTrigger = z.infer<typeof rampTrigger>;
 export const stepHoldConditions = z.object({
   minDurationMs: z.number().int().positive().optional(),
   maxDurationMs: z.number().int().positive().optional(),
-  /** @deprecated Use step-level `guardrailSettings` instead. */
   minSampleSize: z.number().int().positive().optional(),
-  /** @deprecated Use step-level `guardrailSettings` instead. */
-  requireHealthy: z.boolean().optional(),
 });
 export type StepHoldConditions = z.infer<typeof stepHoldConditions>;
 
@@ -177,7 +152,6 @@ export const rampStep = z.object({
   approvalNotes: z.string().nullish(),
   monitored: z.boolean().optional(),
   holdConditions: stepHoldConditions.optional(),
-  guardrailSettings: stepGuardrailSettings.optional(),
 });
 export type RampStep = z.infer<typeof rampStep>;
 
@@ -236,9 +210,8 @@ export const rampScheduleValidator = baseSchema
     // Applies to all steps marked `monitored: true`.
     monitoringConfig: rampMonitoringConfig.nullish(),
 
-    // Per-metric guardrail behavior and experiment health action at the schedule level.
-    // null = explicitly cleared (fall back to defaults); undefined = not set.
-    guardrailSettings: scheduleGuardrailSettings.nullish(),
+    // What to do when experiment health (SRM) is unhealthy. Default: "hold".
+    experimentHealthAction: experimentHealthAction.optional(),
 
     // Linked SafeRollout ID. Set when a monitored ramp schedule creates or
     // attaches to a SafeRollout experiment for analysis/snapshots.
@@ -279,7 +252,6 @@ export const TEMPLATE_STRUCTURAL_KEYS = [
   "steps",
   "endPatch",
   "monitoringConfig",
-  "guardrailSettings",
 ] as const;
 
 // Template patches never store force — it is feature-type-specific and not portable.
@@ -309,7 +281,6 @@ export const rampScheduleTemplateValidator = baseSchema.extend({
   official: z.boolean().optional(),
   lockdownConfig: lockdownConfigSchema.optional(),
   monitoringConfig: rampMonitoringConfig.nullish(),
-  guardrailSettings: scheduleGuardrailSettings.nullish(),
 });
 export type RampScheduleTemplateInterface = z.infer<
   typeof rampScheduleTemplateValidator
@@ -328,9 +299,13 @@ export const apiTemplateRampStep = z.object({
   trigger: apiRampTrigger,
   actions: z.array(templateRampStepAction),
   approvalNotes: z.string().nullish(),
-  monitored: z.boolean().optional(),
+  monitored: z
+    .boolean()
+    .optional()
+    .describe(
+      "When true, the step is backed by a safe rollout experiment. Coverage represents total experiment enrollment; variation-1 exposure is coverage/2. The SDK uses hash-based filters on the experiment rule to prevent bucketing shifts across monitored/unmonitored transitions.",
+    ),
   holdConditions: stepHoldConditions.optional(),
-  guardrailSettings: stepGuardrailSettings.optional(),
 });
 export type ApiTemplateRampStep = z.infer<typeof apiTemplateRampStep>;
 
@@ -343,7 +318,6 @@ export const apiRampScheduleTemplateValidator = namedSchema(
     endPatch: templateEndPatchValidator.optional(),
     official: z.boolean().optional(),
     monitoringConfig: rampMonitoringConfig.nullish(),
-    guardrailSettings: scheduleGuardrailSettings.nullish(),
     lockdownConfig: lockdownConfigSchema.nullish(),
   }),
 );
@@ -353,9 +327,13 @@ const apiRampStep = z.object({
   trigger: apiRampTrigger,
   actions: z.array(rampStepAction),
   approvalNotes: z.string().nullish(),
-  monitored: z.boolean().optional(),
+  monitored: z
+    .boolean()
+    .optional()
+    .describe(
+      "When true, the step is backed by a safe rollout experiment. Coverage represents total experiment enrollment; variation-1 exposure is coverage/2. The SDK uses hash-based filters on the experiment rule to prevent bucketing shifts across monitored/unmonitored transitions.",
+    ),
   holdConditions: stepHoldConditions.optional(),
-  guardrailSettings: stepGuardrailSettings.optional(),
 });
 
 // API-facing variant of rampScheduleValidator — uses ISO strings for all dates.
@@ -416,7 +394,7 @@ export const apiRampScheduleInterface = namedSchema(
       ),
     lockdownConfig: lockdownConfigSchema.optional(),
     monitoringConfig: rampMonitoringConfig.nullish(),
-    guardrailSettings: scheduleGuardrailSettings.nullish(),
+    experimentHealthAction: experimentHealthAction.optional(),
     currentStepEnteredAt: z.iso.datetime().nullish(),
     lastRollbackAt: z.iso.datetime().nullish(),
     lastRollbackReason: z.string().nullish(),

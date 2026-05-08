@@ -2,10 +2,8 @@ import {
   RampScheduleInterface,
   SafeRolloutInterface,
   StepHoldConditions,
-  ScheduleGuardrailSettings,
-  StepGuardrailSettings,
-  GuardrailTopLevelAction,
-  GuardrailStepAction,
+  ExperimentHealthAction,
+  RampMonitoringConfig,
 } from "shared/validators";
 import { getHealthSettings } from "shared/enterprise";
 import { getSRMHealthData } from "shared/health";
@@ -67,13 +65,13 @@ async function evaluateMonitoredStep(
   }
 
   const step = schedule.steps[schedule.currentStepIndex];
-  const scheduleSettings = schedule.guardrailSettings ?? undefined;
-  const stepSettings = step?.guardrailSettings;
+  const monitoringConfig = schedule.monitoringConfig ?? undefined;
+  const healthAction = schedule.experimentHealthAction ?? "hold";
 
-  // 1. Check schedule-level guardrail signals (rollback/pause/warn per metric).
+  // 1. Check schedule-level guardrail signals (rollback for guardrail-tier metrics).
   const scheduleLevelDecision = checkScheduleGuardrailSignals(
     safeRollout,
-    scheduleSettings,
+    monitoringConfig,
   );
   if (scheduleLevelDecision) return scheduleLevelDecision;
 
@@ -81,7 +79,7 @@ async function evaluateMonitoredStep(
   const experimentHealthDecision = checkExperimentHealth(
     ctx,
     safeRollout,
-    scheduleSettings,
+    healthAction,
   );
   if (experimentHealthDecision) return experimentHealthDecision;
 
@@ -131,22 +129,20 @@ async function evaluateMonitoredStep(
     return { action: "hold", reason: "No results status available yet" };
   }
 
-  // 7. Step-level guardrail gating (hold/warn/ignore per metric).
-  const stepGuardrailDecision = checkStepGuardrailGating(
-    safeRollout,
-    stepSettings,
-  );
-  if (stepGuardrailDecision) return stepGuardrailDecision;
+  // 7. Check minSampleSize before acting on metric results.
+  const minSampleSize = step?.holdConditions?.minSampleSize;
+  if (minSampleSize && summary.health.totalUsers < minSampleSize) {
+    return {
+      action: "hold",
+      reason: `Waiting for minimum sample size (${summary.health.totalUsers}/${minSampleSize})`,
+    };
+  }
 
-  // 8. Step-level experiment health gating.
-  const stepHealthDecision = checkStepExperimentHealth(
-    ctx,
-    safeRollout,
-    stepSettings,
-  );
-  if (stepHealthDecision) return stepHealthDecision;
+  // 8. Step-level signal metric gating (hold for signal-tier metrics).
+  const signalDecision = checkSignalMetricGating(safeRollout, monitoringConfig);
+  if (signalDecision) return signalDecision;
 
-  // 9. Legacy hold conditions (minDurationMs timing).
+  // 9. Hold conditions (minDurationMs timing).
   if (step?.holdConditions) {
     const holdDecision = checkHoldConditions(
       schedule,
@@ -160,58 +156,34 @@ async function evaluateMonitoredStep(
 }
 
 // ---------------------------------------------------------------------------
-// Schedule-level guardrail checks (rollback / pause / warn)
+// Schedule-level guardrail checks (rollback for guardrail-tier metrics)
 // ---------------------------------------------------------------------------
 
 function checkScheduleGuardrailSignals(
   safeRollout: SafeRolloutInterface,
-  settings?: ScheduleGuardrailSettings,
+  monitoringConfig?: RampMonitoringConfig,
 ): EvalDecision | null {
   const summary = safeRollout.analysisSummary;
   if (!summary?.resultsStatus) return null;
 
-  let pauseReason: string | null = null;
+  const guardrailIds = new Set(monitoringConfig?.guardrailMetricIds ?? []);
+  if (guardrailIds.size === 0) return null;
 
   for (const variation of summary.resultsStatus.variations) {
     if (!variation.guardrailMetrics) continue;
     for (const [metricId, gm] of Object.entries(variation.guardrailMetrics)) {
       if (gm.status !== "lost") continue;
 
-      const action = resolveTopLevelAction(metricId, settings);
-      switch (action) {
-        case "rollback":
-          return {
-            action: "rollback",
-            reason: `Guardrail metric ${metricId} is a significant loser (variation ${variation.variationId})`,
-          };
-        case "pause":
-          pauseReason =
-            pauseReason ??
-            `Guardrail metric ${metricId} is unhealthy — pausing schedule`;
-          break;
-        case "warn":
-          logger.warn(
-            { metricId, variationId: variation.variationId },
-            "Guardrail metric is a significant loser (warn-only)",
-          );
-          break;
+      if (guardrailIds.has(metricId)) {
+        return {
+          action: "rollback",
+          reason: `Guardrail metric ${metricId} is a significant loser (variation ${variation.variationId})`,
+        };
       }
     }
   }
 
-  if (pauseReason) {
-    return { action: "pause", reason: pauseReason };
-  }
-
   return null;
-}
-
-function resolveTopLevelAction(
-  metricId: string,
-  settings?: ScheduleGuardrailSettings,
-): GuardrailTopLevelAction {
-  if (!settings) return "rollback"; // legacy default
-  return settings.metrics?.[metricId]?.onUnhealthy ?? "warn";
 }
 
 // ---------------------------------------------------------------------------
@@ -221,13 +193,16 @@ function resolveTopLevelAction(
 function checkExperimentHealth(
   ctx: ReqContext | ApiReqContext,
   safeRollout: SafeRolloutInterface,
-  settings?: ScheduleGuardrailSettings,
+  healthAction: ExperimentHealthAction,
 ): EvalDecision | null {
   const summary = safeRollout.analysisSummary;
   if (!summary?.health) return null;
 
-  const action = settings?.experimentHealthAction ?? "pause";
-  if (action === "warn" || action === "rollback" || action === "pause") {
+  if (
+    healthAction === "warn" ||
+    healthAction === "rollback" ||
+    healthAction === "hold"
+  ) {
     const healthSettings = getHealthSettings(ctx.org.settings);
     const srmData = getSRMHealthData({
       srm: summary.health.srm,
@@ -238,16 +213,22 @@ function checkExperimentHealth(
     });
 
     if (srmData === "unhealthy") {
-      if (action === "warn") {
+      if (healthAction === "warn") {
         logger.warn(
           { safeRolloutId: safeRollout.id },
           "Experiment health (SRM) is unhealthy (warn-only)",
         );
         return null;
       }
+      if (healthAction === "rollback") {
+        return {
+          action: "rollback",
+          reason: `Experiment health: SRM check failed (p=${summary.health.srm.toFixed(4)})`,
+        };
+      }
       return {
-        action,
-        reason: `Experiment health: SRM check failed (p=${summary.health.srm.toFixed(4)})`,
+        action: "hold",
+        reason: `Experiment health: SRM check failed — holding step (p=${summary.health.srm.toFixed(4)})`,
       };
     }
   }
@@ -256,88 +237,31 @@ function checkExperimentHealth(
 }
 
 // ---------------------------------------------------------------------------
-// Step-level guardrail gating (hold / warn / ignore)
+// Step-level signal metric gating (hold for signal-tier metrics)
 // ---------------------------------------------------------------------------
 
-function checkStepGuardrailGating(
+function checkSignalMetricGating(
   safeRollout: SafeRolloutInterface,
-  stepSettings?: StepGuardrailSettings,
+  monitoringConfig?: RampMonitoringConfig,
 ): EvalDecision | null {
   const summary = safeRollout.analysisSummary;
   if (!summary?.resultsStatus) return null;
 
+  const signalIds = new Set(monitoringConfig?.signalMetricIds ?? []);
+  if (signalIds.size === 0) return null;
+
   for (const variation of summary.resultsStatus.variations) {
     if (!variation.guardrailMetrics) continue;
     for (const [metricId, gm] of Object.entries(variation.guardrailMetrics)) {
-      if (gm.status === "safe") continue;
       if (gm.status !== "lost") continue;
 
-      const action = resolveStepAction(metricId, stepSettings);
-      switch (action) {
-        case "hold":
-          return {
-            action: "hold",
-            reason: `Step hold: guardrail metric ${metricId} is unhealthy`,
-          };
-        case "warn":
-          logger.warn(
-            { metricId, variationId: variation.variationId },
-            "Step-level: guardrail metric unhealthy (warn-only, advancing)",
-          );
-          break;
-        case "ignore":
-          break;
+      if (signalIds.has(metricId)) {
+        return {
+          action: "hold",
+          reason: `Signal metric ${metricId} is unhealthy — holding step`,
+        };
       }
     }
-  }
-
-  return null;
-}
-
-function resolveStepAction(
-  metricId: string,
-  stepSettings?: StepGuardrailSettings,
-): GuardrailStepAction {
-  if (!stepSettings) return "hold"; // legacy default
-  return stepSettings.metrics?.[metricId]?.onUnhealthy ?? "ignore";
-}
-
-// ---------------------------------------------------------------------------
-// Step-level experiment health gating
-// ---------------------------------------------------------------------------
-
-function checkStepExperimentHealth(
-  ctx: ReqContext | ApiReqContext,
-  safeRollout: SafeRolloutInterface,
-  stepSettings?: StepGuardrailSettings,
-): EvalDecision | null {
-  const summary = safeRollout.analysisSummary;
-  if (!summary?.health) return null;
-
-  const action = stepSettings?.experimentHealthAction ?? "hold";
-  if (action === "ignore") return null;
-
-  const healthSettings = getHealthSettings(ctx.org.settings);
-  const srmData = getSRMHealthData({
-    srm: summary.health.srm,
-    srmThreshold: healthSettings.srmThreshold,
-    totalUsersCount: summary.health.totalUsers ?? 0,
-    numOfVariations: summary.resultsStatus?.variations.length ?? 2,
-    minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-  });
-
-  if (srmData === "unhealthy") {
-    if (action === "warn") {
-      logger.warn(
-        { safeRolloutId: safeRollout.id },
-        "Step-level: experiment health (SRM) unhealthy (warn-only, advancing)",
-      );
-      return null;
-    }
-    return {
-      action: "hold",
-      reason: `Step hold: experiment health check failed (SRM p=${summary.health.srm.toFixed(4)})`,
-    };
   }
 
   return null;
@@ -393,7 +317,7 @@ async function maybeTriggerSnapshot(
 }
 
 // ---------------------------------------------------------------------------
-// Legacy hold conditions (timing only — health checks moved to guardrailSettings)
+// Hold conditions (timing + minSampleSize)
 // ---------------------------------------------------------------------------
 
 function checkHoldConditions(

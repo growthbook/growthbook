@@ -1,11 +1,11 @@
 import {
   CreateSafeRolloutInterface,
+  ExperimentHealthAction,
   FeatureRule,
   LockdownConfig,
   RampMonitoringConfig,
   RampStep,
   RampStepAction,
-  ScheduleGuardrailSettings,
 } from "shared/validators";
 
 // Inline ramp schedule to create atomically with the rule.
@@ -27,7 +27,7 @@ export type InlineRampScheduleCreate = {
   cutoffDate?: string | null;
   monitoringConfig?: RampMonitoringConfig;
   lockdownConfig?: LockdownConfig;
-  guardrailSettings?: ScheduleGuardrailSettings | null;
+  experimentHealthAction?: ExperimentHealthAction;
 };
 
 // Detach a rule from a ramp schedule (removes it from the targets array).
@@ -56,7 +56,7 @@ export type InlineRampScheduleUpdate = {
   cutoffDate?: string | null;
   monitoringConfig?: RampMonitoringConfig;
   lockdownConfig?: LockdownConfig;
-  guardrailSettings?: ScheduleGuardrailSettings | null;
+  experimentHealthAction?: ExperimentHealthAction;
 };
 
 export type PostFeatureRuleBody = {

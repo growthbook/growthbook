@@ -45,6 +45,7 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
+import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 import { logger } from "back-end/src/util/logger";
 import { getApplicableEnvIds } from "./flattenRules";
 import { getCurrentEnabledState } from "./scheduleRules";
@@ -493,6 +494,7 @@ export function getFeatureDefinition({
   namespaces,
   metadataOptions,
   projectsMap,
+  rampMonitoredRuleMap,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -517,6 +519,7 @@ export function getFeatureDefinition({
   >;
   metadataOptions?: MetadataOptions;
   projectsMap?: Map<string, ProjectInterface>;
+  rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
 }): FeatureDefinition | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -856,17 +859,76 @@ export function getFeatureDefinition({
             applyNamespaceToPayload(rule, r.namespace, namespacesMap);
           }
         } else if (r.type === "rollout") {
-          rule.force = getJSONValue(feature.valueType, r.value);
-          const clampedCoverage =
-            r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
-          // At 100% coverage, treat as a force rule so users without hashAttribute aren't excluded
-          if (clampedCoverage < 1) {
+          const monitorInfo = rampMonitoredRuleMap?.get(r.id);
+
+          if (monitorInfo && r.hashAttribute && r.seed) {
+            // Monitored ramp step: emit an experiment with filters so that
+            // enrollment uses the same hash space as the rollout rule.
+            // This prevents variation hopping when transitioning between
+            // monitored (experiment) and unmonitored (rollout) steps.
+            //
+            // The same seed/hashAttribute/hashVersion are used for the filter,
+            // the experiment bucketing, and the rollout rule. This means hash
+            // value n is identical across all three, so:
+            //   - filter:  n ∈ [0, coverage)  → enrolled
+            //   - buckets: getBucketRanges(2, coverage, [0.5,0.5])
+            //              → variation 0: [0, coverage/2)      (treatment)
+            //              → variation 1: [coverage/2, coverage) (control)
+            //   - rollout: n ≤ coverage → treatment
+            //
+            // Variation 0 = treatment (the rollout value) so that users who
+            // were in the rollout at any prior coverage keep getting treatment
+            // without hopping when the step switches to monitored.
+            const clampedCoverage =
+              r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
+
+            const defaultValue = revision
+              ? (revision.defaultValue ?? feature.defaultValue)
+              : feature.defaultValue;
+
+            rule.variations = [
+              getJSONValue(feature.valueType, r.value),
+              getJSONValue(feature.valueType, defaultValue),
+            ];
+            rule.weights = [0.5, 0.5];
             rule.coverage = clampedCoverage;
-            if (r.hashAttribute) {
-              rule.hashAttribute = r.hashAttribute;
+
+            if (clampedCoverage < 1) {
+              rule.filters = [
+                {
+                  seed: r.seed,
+                  attribute: r.hashAttribute,
+                  hashVersion: 1,
+                  ranges: [[0, clampedCoverage] as [number, number]],
+                },
+              ];
             }
-            if (r.seed) {
-              rule.seed = r.seed;
+
+            rule.hashAttribute = r.hashAttribute;
+            rule.seed = r.seed;
+            rule.key =
+              monitorInfo.safeRolloutId || `ramp_${monitorInfo.rampScheduleId}`;
+            rule.meta = includeExperimentNames
+              ? [
+                  { key: "0", name: "Variation" },
+                  { key: "1", name: "Control" },
+                ]
+              : [{ key: "0" }, { key: "1" }];
+            rule.phase = "0";
+            if (includeExperimentNames)
+              rule.name = `${feature.id} - Monitored Ramp`;
+          } else {
+            rule.force = getJSONValue(feature.valueType, r.value);
+            const clampedCoverage =
+              r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
+            if (clampedCoverage < 1) {
+              rule.coverage = clampedCoverage;
+              if (r.hashAttribute) {
+                rule.hashAttribute = r.hashAttribute;
+              }
+              if (r.seed) {
+                rule.seed = r.seed;
+              }
             }
           }
         } else if (r.type === "safe-rollout") {

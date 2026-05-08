@@ -122,6 +122,7 @@ import {
   normalizeRulesInputToV2,
 } from "back-end/src/models/FeatureRevisionModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
@@ -146,6 +147,7 @@ export function generateFeaturesPayload({
   savedGroupsMap,
   includeRuleIds,
   includeExperimentNames,
+  rampMonitoredRuleMap,
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
@@ -168,6 +170,7 @@ export function generateFeaturesPayload({
   savedGroupsMap?: Record<string, SavedGroupInterface>;
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
+  rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
 }): Record<string, FeatureDefinition> {
   const defs: Record<string, FeatureDefinition> = {};
   const newFeatures = reduceFeaturesWithPrerequisites(
@@ -190,6 +193,7 @@ export function generateFeaturesPayload({
       savedGroupsMap,
       includeRuleIds,
       includeExperimentNames,
+      rampMonitoredRuleMap,
       metadataOptions: {
         includeProjectIdInMetadata,
         includeCustomFieldsInMetadata,
@@ -677,6 +681,8 @@ export async function refreshSDKPayloadCache({
   const savedGroups = await context.models.savedGroups.getAll();
   const groupMap = await getSavedGroupMap(context, savedGroups);
   const allFeatures = await getAllFeatures(context);
+  const rampMonitoredRuleMap =
+    await context.models.rampSchedules.getPayloadRampMonitoredRuleMap();
 
   const [allVisualExperiments, allURLRedirectExperiments] = await Promise.all([
     getAllVisualExperiments(context, experimentMap),
@@ -691,6 +697,7 @@ export async function refreshSDKPayloadCache({
     savedGroups,
     visualExperiments: allVisualExperiments,
     urlRedirectExperiments: allURLRedirectExperiments,
+    rampMonitoredRuleMap,
   };
 
   const payloadKeyEnvironments = new Set(payloadKeys.map((k) => k.environment));
@@ -1001,6 +1008,7 @@ export type SDKPayloadRawData = {
   visualExperiments?: VisualExperiment[];
   urlRedirectExperiments?: URLRedirectExperiment[];
   projectsMap?: Map<string, ProjectInterface>;
+  rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
 };
 
 // Payload-relevant subset of SDK connection (plus derived capabilities). Pass through encryptPayload + encryptionKey; effective key is derived inside buildSDKPayloadForConnection.
@@ -1146,6 +1154,7 @@ export async function buildSDKPayloadForConnection(
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
     projectsMap,
+    rampMonitoredRuleMap: data.rampMonitoredRuleMap,
   });
 
   const holdoutFeatureDefinitions = generateHoldoutsPayload({
@@ -1247,6 +1256,8 @@ export async function getFeatureDefinitions(
     await context.models.safeRollout.getAllPayloadSafeRollouts();
   const holdoutsMap =
     await context.models.holdout.getAllPayloadHoldouts(environment);
+  const rampMonitoredRuleMap =
+    await context.models.rampSchedules.getPayloadRampMonitoredRuleMap();
 
   return buildSDKPayloadForConnection({
     context,
@@ -1275,6 +1286,7 @@ export async function getFeatureDefinitions(
       safeRolloutMap,
       savedGroups: allSavedGroups,
       holdoutsMap,
+      rampMonitoredRuleMap,
     },
   });
 }

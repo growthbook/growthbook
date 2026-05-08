@@ -486,15 +486,17 @@ export default function RuleModal({
   const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
     useState(false);
   const monitoringError =
-    scheduleType === "ramp"
+    scheduleType === "ramp" || scheduleType === "ramp-monitored"
       ? getMonitoringValidationError(rampSectionState)
       : null;
   const canSubmit = useMemo(() => {
     return !isCyclic && !prerequisiteTargetingSdkIssues && !monitoringError;
   }, [isCyclic, prerequisiteTargetingSdkIssues, monitoringError]);
 
+  const isRampType =
+    scheduleType === "ramp" || scheduleType === "ramp-monitored";
   const hasRampPage =
-    scheduleType === "ramp" && (ruleType === "force" || ruleType === "rollout");
+    isRampType && (ruleType === "force" || ruleType === "rollout");
   const rampIsEditable =
     !ruleRampSchedule ||
     !["running", "pending-approval"].includes(ruleRampSchedule.status);
@@ -503,6 +505,17 @@ export default function RuleModal({
   useEffect(() => {
     if (!hasRampPage && step > 0) setStep(0);
   }, [hasRampPage, step]);
+
+  // Sync radio selection with monitoring state changes on page 2.
+  useEffect(() => {
+    if (!isRampType) return;
+    const hasMonitoring = rampSectionState.steps.some((s) => s.monitored);
+    if (hasMonitoring && scheduleType === "ramp") {
+      setScheduleType("ramp-monitored");
+    } else if (!hasMonitoring && scheduleType === "ramp-monitored") {
+      setScheduleType("ramp");
+    }
+  }, [isRampType, rampSectionState.steps, scheduleType, setScheduleType]);
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
@@ -518,7 +531,7 @@ export default function RuleModal({
   useEffect(() => {
     // Simple schedules never control coverage — only full ramp-ups do.
     const hasRampWithCoverage =
-      scheduleType === "ramp" &&
+      isRampType &&
       rampSectionState.mode !== "off" &&
       (rampSectionState.steps.some(
         (step) => step.patch.coverage !== undefined,
@@ -569,6 +582,7 @@ export default function RuleModal({
     currentCoverage,
     rampSectionState,
     scheduleType,
+    isRampType,
     form,
     attributeSchema,
   ]);
@@ -1018,7 +1032,7 @@ export default function RuleModal({
       // Rollout rules with sub-100% coverage and ramp-up schedules that control
       // coverage both require a bucketing attribute to be set.
       const rampHasCoverage =
-        scheduleType === "ramp" &&
+        isRampType &&
         rampSectionState.mode !== "off" &&
         rampSectionState.steps.some((s) => s.patch.coverage !== undefined);
       if (
@@ -1123,11 +1137,13 @@ export default function RuleModal({
                   cutoffDate: isScheduleMode
                     ? rampState.endScheduleAt || null
                     : rampState.cutoffDate || null,
-                  monitoringConfig: buildMonitoringConfig(rampState.monitoring),
+                  monitoringConfig: buildMonitoringConfig(
+                    rampState.monitoring,
+                    rampState.steps,
+                  ),
                   ...(rampState.lockFeature
                     ? { lockdownConfig: { mode: "locked" as const } }
                     : { lockdownConfig: { mode: "none" as const } }),
-                  guardrailSettings: rampState.guardrailSettings ?? null,
                 };
               } else if (
                 !isNoOpSchedule &&
@@ -1167,11 +1183,13 @@ export default function RuleModal({
                   cutoffDate: isScheduleMode
                     ? rampState.endScheduleAt || null
                     : rampState.cutoffDate || null,
-                  monitoringConfig: buildMonitoringConfig(rampState.monitoring),
+                  monitoringConfig: buildMonitoringConfig(
+                    rampState.monitoring,
+                    rampState.steps,
+                  ),
                   ...(rampState.lockFeature
                     ? { lockdownConfig: { mode: "locked" as const } }
                     : { lockdownConfig: { mode: "none" as const } }),
-                  guardrailSettings: rampState.guardrailSettings ?? null,
                 };
               } else if (rampState.mode === "off" && ruleRampSchedule?.id) {
                 // User unchecked the ramp schedule checkbox — detach this rule from the ramp
@@ -1260,11 +1278,13 @@ export default function RuleModal({
               cutoffDate: isScheduleMode
                 ? rampState.endScheduleAt || null
                 : rampState.cutoffDate || null,
-              monitoringConfig: buildMonitoringConfig(rampState.monitoring),
+              monitoringConfig: buildMonitoringConfig(
+                rampState.monitoring,
+                rampState.steps,
+              ),
               ...(rampState.lockFeature
                 ? { lockdownConfig: { mode: "locked" as const } }
                 : { lockdownConfig: { mode: "none" as const } }),
-              guardrailSettings: rampState.guardrailSettings ?? null,
             };
           }
         }

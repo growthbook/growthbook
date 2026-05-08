@@ -3467,6 +3467,19 @@ paths:
                                     ruleId:
                                       type: string
                                     coverage:
+                                      description: >-
+                                        Traffic fraction (0–1). For monitored
+                                        steps, this is the total experiment
+                                        enrollment (not the fraction seeing
+                                        variation 1). The experiment splits
+                                        enrolled traffic 50/50 between control
+                                        and variation, so variation-1 exposure
+                                        is coverage/2. For example, coverage=0.8
+                                        means 40% of users see variation 1. The
+                                        SDK uses hash-based filters (not
+                                        coverage) on the experiment rule to keep
+                                        bucketing consistent across monitored
+                                        and unmonitored transitions.
                                       anyOf:
                                         - type: number
                                           minimum: 0
@@ -3540,37 +3553,6 @@ paths:
                               minSampleSize:
                                 type: integer
                                 exclusiveMinimum: 0
-                              requireHealthy:
-                                type: boolean
-                            additionalProperties: false
-                          guardrailSettings:
-                            type: object
-                            properties:
-                              metrics:
-                                type: object
-                                propertyNames:
-                                  type: string
-                                additionalProperties:
-                                  type: object
-                                  properties:
-                                    onUnhealthy:
-                                      type: string
-                                      enum:
-                                        - hold
-                                        - warn
-                                        - ignore
-                                  required:
-                                    - onUnhealthy
-                                  additionalProperties: false
-                              experimentHealthAction:
-                                type: string
-                                enum:
-                                  - hold
-                                  - warn
-                                  - ignore
-                            required:
-                              - metrics
-                              - experimentHealthAction
                             additionalProperties: false
                         required:
                           - trigger
@@ -3591,6 +3573,18 @@ paths:
                               ruleId:
                                 type: string
                               coverage:
+                                description: >-
+                                  Traffic fraction (0–1). For monitored steps,
+                                  this is the total experiment enrollment (not
+                                  the fraction seeing variation 1). The
+                                  experiment splits enrolled traffic 50/50
+                                  between control and variation, so variation-1
+                                  exposure is coverage/2. For example,
+                                  coverage=0.8 means 40% of users see variation
+                                  1. The SDK uses hash-based filters (not
+                                  coverage) on the experiment rule to keep
+                                  bucketing consistent across monitored and
+                                  unmonitored transitions.
                                 anyOf:
                                   - type: number
                                     minimum: 0
@@ -3662,12 +3656,13 @@ paths:
                         exposureQueryId:
                           type: string
                         guardrailMetricIds:
-                          minItems: 1
                           type: array
                           items:
                             type: string
-                        autoRollback:
-                          type: boolean
+                        signalMetricIds:
+                          type: array
+                          items:
+                            type: string
                         updateScheduleMinutes:
                           anyOf:
                             - type: number
@@ -3688,35 +3683,6 @@ paths:
                             - locked
                       required:
                         - mode
-                      additionalProperties: false
-                    guardrailSettings:
-                      type: object
-                      properties:
-                        metrics:
-                          type: object
-                          propertyNames:
-                            type: string
-                          additionalProperties:
-                            type: object
-                            properties:
-                              onUnhealthy:
-                                type: string
-                                enum:
-                                  - rollback
-                                  - pause
-                                  - warn
-                            required:
-                              - onUnhealthy
-                            additionalProperties: false
-                        experimentHealthAction:
-                          type: string
-                          enum:
-                            - rollback
-                            - pause
-                            - warn
-                      required:
-                        - metrics
-                        - experimentHealthAction
                       additionalProperties: false
                   additionalProperties: false
                 schedule:
@@ -3964,6 +3930,19 @@ paths:
                                     ruleId:
                                       type: string
                                     coverage:
+                                      description: >-
+                                        Traffic fraction (0–1). For monitored
+                                        steps, this is the total experiment
+                                        enrollment (not the fraction seeing
+                                        variation 1). The experiment splits
+                                        enrolled traffic 50/50 between control
+                                        and variation, so variation-1 exposure
+                                        is coverage/2. For example, coverage=0.8
+                                        means 40% of users see variation 1. The
+                                        SDK uses hash-based filters (not
+                                        coverage) on the experiment rule to keep
+                                        bucketing consistent across monitored
+                                        and unmonitored transitions.
                                       anyOf:
                                         - type: number
                                           minimum: 0
@@ -4037,37 +4016,6 @@ paths:
                               minSampleSize:
                                 type: integer
                                 exclusiveMinimum: 0
-                              requireHealthy:
-                                type: boolean
-                            additionalProperties: false
-                          guardrailSettings:
-                            type: object
-                            properties:
-                              metrics:
-                                type: object
-                                propertyNames:
-                                  type: string
-                                additionalProperties:
-                                  type: object
-                                  properties:
-                                    onUnhealthy:
-                                      type: string
-                                      enum:
-                                        - hold
-                                        - warn
-                                        - ignore
-                                  required:
-                                    - onUnhealthy
-                                  additionalProperties: false
-                              experimentHealthAction:
-                                type: string
-                                enum:
-                                  - hold
-                                  - warn
-                                  - ignore
-                            required:
-                              - metrics
-                              - experimentHealthAction
                             additionalProperties: false
                         required:
                           - trigger
@@ -4088,6 +4036,18 @@ paths:
                               ruleId:
                                 type: string
                               coverage:
+                                description: >-
+                                  Traffic fraction (0–1). For monitored steps,
+                                  this is the total experiment enrollment (not
+                                  the fraction seeing variation 1). The
+                                  experiment splits enrolled traffic 50/50
+                                  between control and variation, so variation-1
+                                  exposure is coverage/2. For example,
+                                  coverage=0.8 means 40% of users see variation
+                                  1. The SDK uses hash-based filters (not
+                                  coverage) on the experiment rule to keep
+                                  bucketing consistent across monitored and
+                                  unmonitored transitions.
                                 anyOf:
                                   - type: number
                                     minimum: 0
@@ -4159,12 +4119,13 @@ paths:
                         exposureQueryId:
                           type: string
                         guardrailMetricIds:
-                          minItems: 1
                           type: array
                           items:
                             type: string
-                        autoRollback:
-                          type: boolean
+                        signalMetricIds:
+                          type: array
+                          items:
+                            type: string
                         updateScheduleMinutes:
                           anyOf:
                             - type: number
@@ -4185,35 +4146,6 @@ paths:
                             - locked
                       required:
                         - mode
-                      additionalProperties: false
-                    guardrailSettings:
-                      type: object
-                      properties:
-                        metrics:
-                          type: object
-                          propertyNames:
-                            type: string
-                          additionalProperties:
-                            type: object
-                            properties:
-                              onUnhealthy:
-                                type: string
-                                enum:
-                                  - rollback
-                                  - pause
-                                  - warn
-                            required:
-                              - onUnhealthy
-                            additionalProperties: false
-                        experimentHealthAction:
-                          type: string
-                          enum:
-                            - rollback
-                            - pause
-                            - warn
-                      required:
-                        - metrics
-                        - experimentHealthAction
                       additionalProperties: false
                   additionalProperties: false
                 schedule:
@@ -4492,6 +4424,18 @@ paths:
                                 ruleId:
                                   type: string
                                 coverage:
+                                  description: >-
+                                    Traffic fraction (0–1). For monitored steps,
+                                    this is the total experiment enrollment (not
+                                    the fraction seeing variation 1). The
+                                    experiment splits enrolled traffic 50/50
+                                    between control and variation, so
+                                    variation-1 exposure is coverage/2. For
+                                    example, coverage=0.8 means 40% of users see
+                                    variation 1. The SDK uses hash-based filters
+                                    (not coverage) on the experiment rule to
+                                    keep bucketing consistent across monitored
+                                    and unmonitored transitions.
                                   anyOf:
                                     - type: number
                                       minimum: 0
@@ -4565,37 +4509,6 @@ paths:
                           minSampleSize:
                             type: integer
                             exclusiveMinimum: 0
-                          requireHealthy:
-                            type: boolean
-                        additionalProperties: false
-                      guardrailSettings:
-                        type: object
-                        properties:
-                          metrics:
-                            type: object
-                            propertyNames:
-                              type: string
-                            additionalProperties:
-                              type: object
-                              properties:
-                                onUnhealthy:
-                                  type: string
-                                  enum:
-                                    - hold
-                                    - warn
-                                    - ignore
-                              required:
-                                - onUnhealthy
-                              additionalProperties: false
-                          experimentHealthAction:
-                            type: string
-                            enum:
-                              - hold
-                              - warn
-                              - ignore
-                        required:
-                          - metrics
-                          - experimentHealthAction
                         additionalProperties: false
                     required:
                       - trigger
@@ -4616,6 +4529,17 @@ paths:
                           ruleId:
                             type: string
                           coverage:
+                            description: >-
+                              Traffic fraction (0–1). For monitored steps, this
+                              is the total experiment enrollment (not the
+                              fraction seeing variation 1). The experiment
+                              splits enrolled traffic 50/50 between control and
+                              variation, so variation-1 exposure is coverage/2.
+                              For example, coverage=0.8 means 40% of users see
+                              variation 1. The SDK uses hash-based filters (not
+                              coverage) on the experiment rule to keep bucketing
+                              consistent across monitored and unmonitored
+                              transitions.
                             anyOf:
                               - type: number
                                 minimum: 0
@@ -4687,12 +4611,13 @@ paths:
                     exposureQueryId:
                       type: string
                     guardrailMetricIds:
-                      minItems: 1
                       type: array
                       items:
                         type: string
-                    autoRollback:
-                      type: boolean
+                    signalMetricIds:
+                      type: array
+                      items:
+                        type: string
                     updateScheduleMinutes:
                       anyOf:
                         - type: number
@@ -4713,35 +4638,6 @@ paths:
                         - locked
                   required:
                     - mode
-                  additionalProperties: false
-                guardrailSettings:
-                  type: object
-                  properties:
-                    metrics:
-                      type: object
-                      propertyNames:
-                        type: string
-                      additionalProperties:
-                        type: object
-                        properties:
-                          onUnhealthy:
-                            type: string
-                            enum:
-                              - rollback
-                              - pause
-                              - warn
-                        required:
-                          - onUnhealthy
-                        additionalProperties: false
-                    experimentHealthAction:
-                      type: string
-                      enum:
-                        - rollback
-                        - pause
-                        - warn
-                  required:
-                    - metrics
-                    - experimentHealthAction
                   additionalProperties: false
                 environment:
                   deprecated: true
@@ -7658,6 +7554,19 @@ paths:
                                     ruleId:
                                       type: string
                                     coverage:
+                                      description: >-
+                                        Traffic fraction (0–1). For monitored
+                                        steps, this is the total experiment
+                                        enrollment (not the fraction seeing
+                                        variation 1). The experiment splits
+                                        enrolled traffic 50/50 between control
+                                        and variation, so variation-1 exposure
+                                        is coverage/2. For example, coverage=0.8
+                                        means 40% of users see variation 1. The
+                                        SDK uses hash-based filters (not
+                                        coverage) on the experiment rule to keep
+                                        bucketing consistent across monitored
+                                        and unmonitored transitions.
                                       anyOf:
                                         - type: number
                                           minimum: 0
@@ -7731,37 +7640,6 @@ paths:
                               minSampleSize:
                                 type: integer
                                 exclusiveMinimum: 0
-                              requireHealthy:
-                                type: boolean
-                            additionalProperties: false
-                          guardrailSettings:
-                            type: object
-                            properties:
-                              metrics:
-                                type: object
-                                propertyNames:
-                                  type: string
-                                additionalProperties:
-                                  type: object
-                                  properties:
-                                    onUnhealthy:
-                                      type: string
-                                      enum:
-                                        - hold
-                                        - warn
-                                        - ignore
-                                  required:
-                                    - onUnhealthy
-                                  additionalProperties: false
-                              experimentHealthAction:
-                                type: string
-                                enum:
-                                  - hold
-                                  - warn
-                                  - ignore
-                            required:
-                              - metrics
-                              - experimentHealthAction
                             additionalProperties: false
                         required:
                           - trigger
@@ -7782,6 +7660,18 @@ paths:
                               ruleId:
                                 type: string
                               coverage:
+                                description: >-
+                                  Traffic fraction (0–1). For monitored steps,
+                                  this is the total experiment enrollment (not
+                                  the fraction seeing variation 1). The
+                                  experiment splits enrolled traffic 50/50
+                                  between control and variation, so variation-1
+                                  exposure is coverage/2. For example,
+                                  coverage=0.8 means 40% of users see variation
+                                  1. The SDK uses hash-based filters (not
+                                  coverage) on the experiment rule to keep
+                                  bucketing consistent across monitored and
+                                  unmonitored transitions.
                                 anyOf:
                                   - type: number
                                     minimum: 0
@@ -7853,12 +7743,13 @@ paths:
                         exposureQueryId:
                           type: string
                         guardrailMetricIds:
-                          minItems: 1
                           type: array
                           items:
                             type: string
-                        autoRollback:
-                          type: boolean
+                        signalMetricIds:
+                          type: array
+                          items:
+                            type: string
                         updateScheduleMinutes:
                           anyOf:
                             - type: number
@@ -7879,35 +7770,6 @@ paths:
                             - locked
                       required:
                         - mode
-                      additionalProperties: false
-                    guardrailSettings:
-                      type: object
-                      properties:
-                        metrics:
-                          type: object
-                          propertyNames:
-                            type: string
-                          additionalProperties:
-                            type: object
-                            properties:
-                              onUnhealthy:
-                                type: string
-                                enum:
-                                  - rollback
-                                  - pause
-                                  - warn
-                            required:
-                              - onUnhealthy
-                            additionalProperties: false
-                        experimentHealthAction:
-                          type: string
-                          enum:
-                            - rollback
-                            - pause
-                            - warn
-                      required:
-                        - metrics
-                        - experimentHealthAction
                       additionalProperties: false
                   additionalProperties: false
                 schedule:
@@ -8151,6 +8013,19 @@ paths:
                                     ruleId:
                                       type: string
                                     coverage:
+                                      description: >-
+                                        Traffic fraction (0–1). For monitored
+                                        steps, this is the total experiment
+                                        enrollment (not the fraction seeing
+                                        variation 1). The experiment splits
+                                        enrolled traffic 50/50 between control
+                                        and variation, so variation-1 exposure
+                                        is coverage/2. For example, coverage=0.8
+                                        means 40% of users see variation 1. The
+                                        SDK uses hash-based filters (not
+                                        coverage) on the experiment rule to keep
+                                        bucketing consistent across monitored
+                                        and unmonitored transitions.
                                       anyOf:
                                         - type: number
                                           minimum: 0
@@ -8224,37 +8099,6 @@ paths:
                               minSampleSize:
                                 type: integer
                                 exclusiveMinimum: 0
-                              requireHealthy:
-                                type: boolean
-                            additionalProperties: false
-                          guardrailSettings:
-                            type: object
-                            properties:
-                              metrics:
-                                type: object
-                                propertyNames:
-                                  type: string
-                                additionalProperties:
-                                  type: object
-                                  properties:
-                                    onUnhealthy:
-                                      type: string
-                                      enum:
-                                        - hold
-                                        - warn
-                                        - ignore
-                                  required:
-                                    - onUnhealthy
-                                  additionalProperties: false
-                              experimentHealthAction:
-                                type: string
-                                enum:
-                                  - hold
-                                  - warn
-                                  - ignore
-                            required:
-                              - metrics
-                              - experimentHealthAction
                             additionalProperties: false
                         required:
                           - trigger
@@ -8275,6 +8119,18 @@ paths:
                               ruleId:
                                 type: string
                               coverage:
+                                description: >-
+                                  Traffic fraction (0–1). For monitored steps,
+                                  this is the total experiment enrollment (not
+                                  the fraction seeing variation 1). The
+                                  experiment splits enrolled traffic 50/50
+                                  between control and variation, so variation-1
+                                  exposure is coverage/2. For example,
+                                  coverage=0.8 means 40% of users see variation
+                                  1. The SDK uses hash-based filters (not
+                                  coverage) on the experiment rule to keep
+                                  bucketing consistent across monitored and
+                                  unmonitored transitions.
                                 anyOf:
                                   - type: number
                                     minimum: 0
@@ -8346,12 +8202,13 @@ paths:
                         exposureQueryId:
                           type: string
                         guardrailMetricIds:
-                          minItems: 1
                           type: array
                           items:
                             type: string
-                        autoRollback:
-                          type: boolean
+                        signalMetricIds:
+                          type: array
+                          items:
+                            type: string
                         updateScheduleMinutes:
                           anyOf:
                             - type: number
@@ -8372,35 +8229,6 @@ paths:
                             - locked
                       required:
                         - mode
-                      additionalProperties: false
-                    guardrailSettings:
-                      type: object
-                      properties:
-                        metrics:
-                          type: object
-                          propertyNames:
-                            type: string
-                          additionalProperties:
-                            type: object
-                            properties:
-                              onUnhealthy:
-                                type: string
-                                enum:
-                                  - rollback
-                                  - pause
-                                  - warn
-                            required:
-                              - onUnhealthy
-                            additionalProperties: false
-                        experimentHealthAction:
-                          type: string
-                          enum:
-                            - rollback
-                            - pause
-                            - warn
-                      required:
-                        - metrics
-                        - experimentHealthAction
                       additionalProperties: false
                   additionalProperties: false
                 schedule:
@@ -8647,6 +8475,18 @@ paths:
                                 ruleId:
                                   type: string
                                 coverage:
+                                  description: >-
+                                    Traffic fraction (0–1). For monitored steps,
+                                    this is the total experiment enrollment (not
+                                    the fraction seeing variation 1). The
+                                    experiment splits enrolled traffic 50/50
+                                    between control and variation, so
+                                    variation-1 exposure is coverage/2. For
+                                    example, coverage=0.8 means 40% of users see
+                                    variation 1. The SDK uses hash-based filters
+                                    (not coverage) on the experiment rule to
+                                    keep bucketing consistent across monitored
+                                    and unmonitored transitions.
                                   anyOf:
                                     - type: number
                                       minimum: 0
@@ -8720,37 +8560,6 @@ paths:
                           minSampleSize:
                             type: integer
                             exclusiveMinimum: 0
-                          requireHealthy:
-                            type: boolean
-                        additionalProperties: false
-                      guardrailSettings:
-                        type: object
-                        properties:
-                          metrics:
-                            type: object
-                            propertyNames:
-                              type: string
-                            additionalProperties:
-                              type: object
-                              properties:
-                                onUnhealthy:
-                                  type: string
-                                  enum:
-                                    - hold
-                                    - warn
-                                    - ignore
-                              required:
-                                - onUnhealthy
-                              additionalProperties: false
-                          experimentHealthAction:
-                            type: string
-                            enum:
-                              - hold
-                              - warn
-                              - ignore
-                        required:
-                          - metrics
-                          - experimentHealthAction
                         additionalProperties: false
                     required:
                       - trigger
@@ -8771,6 +8580,17 @@ paths:
                           ruleId:
                             type: string
                           coverage:
+                            description: >-
+                              Traffic fraction (0–1). For monitored steps, this
+                              is the total experiment enrollment (not the
+                              fraction seeing variation 1). The experiment
+                              splits enrolled traffic 50/50 between control and
+                              variation, so variation-1 exposure is coverage/2.
+                              For example, coverage=0.8 means 40% of users see
+                              variation 1. The SDK uses hash-based filters (not
+                              coverage) on the experiment rule to keep bucketing
+                              consistent across monitored and unmonitored
+                              transitions.
                             anyOf:
                               - type: number
                                 minimum: 0
@@ -8842,12 +8662,13 @@ paths:
                     exposureQueryId:
                       type: string
                     guardrailMetricIds:
-                      minItems: 1
                       type: array
                       items:
                         type: string
-                    autoRollback:
-                      type: boolean
+                    signalMetricIds:
+                      type: array
+                      items:
+                        type: string
                     updateScheduleMinutes:
                       anyOf:
                         - type: number
@@ -8868,35 +8689,6 @@ paths:
                         - locked
                   required:
                     - mode
-                  additionalProperties: false
-                guardrailSettings:
-                  type: object
-                  properties:
-                    metrics:
-                      type: object
-                      propertyNames:
-                        type: string
-                      additionalProperties:
-                        type: object
-                        properties:
-                          onUnhealthy:
-                            type: string
-                            enum:
-                              - rollback
-                              - pause
-                              - warn
-                        required:
-                          - onUnhealthy
-                        additionalProperties: false
-                    experimentHealthAction:
-                      type: string
-                      enum:
-                        - rollback
-                        - pause
-                        - warn
-                  required:
-                    - metrics
-                    - experimentHealthAction
                   additionalProperties: false
                 environment:
                   deprecated: true
@@ -16470,6 +16262,30 @@ paths:
         start it.
 
 
+        ### Coverage on monitored steps
+
+
+        For monitored steps (`monitored: true`), `coverage` represents total
+        experiment
+
+        enrollment (both control and variation), not the fraction of users
+        seeing
+
+        variation 1. The experiment splits enrolled traffic 50/50, so
+        variation-1
+
+        exposure is `coverage / 2`. For example, to show variation 1 to 25% of
+        users,
+
+        set `coverage: 0.5`. The SDK payload uses hash-based filters (not
+        coverage) on
+
+        the experiment rule to prevent bucketing shifts when transitioning
+        between
+
+        monitored and unmonitored steps.
+
+
         ### Using templates
 
 
@@ -16588,6 +16404,18 @@ paths:
                                     top level
                                   type: string
                                 coverage:
+                                  description: >-
+                                    Traffic fraction (0–1). For monitored steps,
+                                    this is the total experiment enrollment (not
+                                    the fraction seeing variation 1). The
+                                    experiment splits enrolled traffic 50/50
+                                    between control and variation, so
+                                    variation-1 exposure is coverage/2. For
+                                    example, coverage=0.8 means 40% of users see
+                                    variation 1. The SDK uses hash-based filters
+                                    (not coverage) on the experiment rule to
+                                    keep bucketing consistent across monitored
+                                    and unmonitored transitions.
                                   anyOf:
                                     - type: number
                                       minimum: 0
@@ -16648,6 +16476,16 @@ paths:
                           - type: string
                           - type: 'null'
                       monitored:
+                        description: >-
+                          When true, the step is backed by a safe rollout
+                          experiment. Coverage represents total experiment
+                          enrollment; the experiment splits enrolled users 50/50
+                          between control and variation, so variation-1 exposure
+                          is coverage/2. For example, coverage=1.0 enrolls 100%
+                          of users and 50% see variation 1. The SDK payload uses
+                          hash-based filters (not coverage) on the experiment
+                          rule to prevent bucketing shifts when transitioning
+                          between monitored and unmonitored steps.
                         default: false
                         type: boolean
                       holdConditions:
@@ -16662,37 +16500,6 @@ paths:
                           minSampleSize:
                             type: integer
                             exclusiveMinimum: 0
-                          requireHealthy:
-                            type: boolean
-                        additionalProperties: false
-                      guardrailSettings:
-                        type: object
-                        properties:
-                          metrics:
-                            type: object
-                            propertyNames:
-                              type: string
-                            additionalProperties:
-                              type: object
-                              properties:
-                                onUnhealthy:
-                                  type: string
-                                  enum:
-                                    - hold
-                                    - warn
-                                    - ignore
-                              required:
-                                - onUnhealthy
-                              additionalProperties: false
-                          experimentHealthAction:
-                            type: string
-                            enum:
-                              - hold
-                              - warn
-                              - ignore
-                        required:
-                          - metrics
-                          - experimentHealthAction
                         additionalProperties: false
                     required:
                       - trigger
@@ -16730,6 +16537,17 @@ paths:
                               level
                             type: string
                           coverage:
+                            description: >-
+                              Traffic fraction (0–1). For monitored steps, this
+                              is the total experiment enrollment (not the
+                              fraction seeing variation 1). The experiment
+                              splits enrolled traffic 50/50 between control and
+                              variation, so variation-1 exposure is coverage/2.
+                              For example, coverage=0.8 means 40% of users see
+                              variation 1. The SDK uses hash-based filters (not
+                              coverage) on the experiment rule to keep bucketing
+                              consistent across monitored and unmonitored
+                              transitions.
                             anyOf:
                               - type: number
                                 minimum: 0
@@ -16828,12 +16646,13 @@ paths:
                         exposureQueryId:
                           type: string
                         guardrailMetricIds:
-                          minItems: 1
                           type: array
                           items:
                             type: string
-                        autoRollback:
-                          type: boolean
+                        signalMetricIds:
+                          type: array
+                          items:
+                            type: string
                         updateScheduleMinutes:
                           anyOf:
                             - type: number
@@ -16845,35 +16664,12 @@ paths:
                         - guardrailMetricIds
                       additionalProperties: false
                     - type: 'null'
-                guardrailSettings:
-                  type: object
-                  properties:
-                    metrics:
-                      type: object
-                      propertyNames:
-                        type: string
-                      additionalProperties:
-                        type: object
-                        properties:
-                          onUnhealthy:
-                            type: string
-                            enum:
-                              - rollback
-                              - pause
-                              - warn
-                        required:
-                          - onUnhealthy
-                        additionalProperties: false
-                    experimentHealthAction:
-                      type: string
-                      enum:
-                        - rollback
-                        - pause
-                        - warn
-                  required:
-                    - metrics
-                    - experimentHealthAction
-                  additionalProperties: false
+                experimentHealthAction:
+                  type: string
+                  enum:
+                    - rollback
+                    - hold
+                    - warn
                 templateId:
                   description: >-
                     Load steps and endActions from a saved template
@@ -23878,6 +23674,18 @@ paths:
                                 ruleId:
                                   type: string
                                 coverage:
+                                  description: >-
+                                    Traffic fraction (0–1). For monitored steps,
+                                    this is the total experiment enrollment (not
+                                    the fraction seeing variation 1). The
+                                    experiment splits enrolled traffic 50/50
+                                    between control and variation, so
+                                    variation-1 exposure is coverage/2. For
+                                    example, coverage=0.8 means 40% of users see
+                                    variation 1. The SDK uses hash-based filters
+                                    (not coverage) on the experiment rule to
+                                    keep bucketing consistent across monitored
+                                    and unmonitored transitions.
                                   anyOf:
                                     - type: number
                                       minimum: 0
@@ -23940,6 +23748,13 @@ paths:
                           - type: string
                           - type: 'null'
                       monitored:
+                        description: >-
+                          When true, the step is backed by a safe rollout
+                          experiment. Coverage represents total experiment
+                          enrollment; variation-1 exposure is coverage/2. The
+                          SDK uses hash-based filters on the experiment rule to
+                          prevent bucketing shifts across monitored/unmonitored
+                          transitions.
                         type: boolean
                       holdConditions:
                         type: object
@@ -23953,37 +23768,6 @@ paths:
                           minSampleSize:
                             type: integer
                             exclusiveMinimum: 0
-                          requireHealthy:
-                            type: boolean
-                        additionalProperties: false
-                      guardrailSettings:
-                        type: object
-                        properties:
-                          metrics:
-                            type: object
-                            propertyNames:
-                              type: string
-                            additionalProperties:
-                              type: object
-                              properties:
-                                onUnhealthy:
-                                  type: string
-                                  enum:
-                                    - hold
-                                    - warn
-                                    - ignore
-                              required:
-                                - onUnhealthy
-                              additionalProperties: false
-                          experimentHealthAction:
-                            type: string
-                            enum:
-                              - hold
-                              - warn
-                              - ignore
-                        required:
-                          - metrics
-                          - experimentHealthAction
                         additionalProperties: false
                     required:
                       - trigger
@@ -24042,12 +23826,13 @@ paths:
                         exposureQueryId:
                           type: string
                         guardrailMetricIds:
-                          minItems: 1
                           type: array
                           items:
                             type: string
-                        autoRollback:
-                          type: boolean
+                        signalMetricIds:
+                          type: array
+                          items:
+                            type: string
                         updateScheduleMinutes:
                           anyOf:
                             - type: number
@@ -24057,37 +23842,6 @@ paths:
                         - datasourceId
                         - exposureQueryId
                         - guardrailMetricIds
-                      additionalProperties: false
-                    - type: 'null'
-                guardrailSettings:
-                  anyOf:
-                    - type: object
-                      properties:
-                        metrics:
-                          type: object
-                          propertyNames:
-                            type: string
-                          additionalProperties:
-                            type: object
-                            properties:
-                              onUnhealthy:
-                                type: string
-                                enum:
-                                  - rollback
-                                  - pause
-                                  - warn
-                            required:
-                              - onUnhealthy
-                            additionalProperties: false
-                        experimentHealthAction:
-                          type: string
-                          enum:
-                            - rollback
-                            - pause
-                            - warn
-                      required:
-                        - metrics
-                        - experimentHealthAction
                       additionalProperties: false
                     - type: 'null'
                 lockdownConfig:
@@ -24192,6 +23946,18 @@ paths:
                                 ruleId:
                                   type: string
                                 coverage:
+                                  description: >-
+                                    Traffic fraction (0–1). For monitored steps,
+                                    this is the total experiment enrollment (not
+                                    the fraction seeing variation 1). The
+                                    experiment splits enrolled traffic 50/50
+                                    between control and variation, so
+                                    variation-1 exposure is coverage/2. For
+                                    example, coverage=0.8 means 40% of users see
+                                    variation 1. The SDK uses hash-based filters
+                                    (not coverage) on the experiment rule to
+                                    keep bucketing consistent across monitored
+                                    and unmonitored transitions.
                                   anyOf:
                                     - type: number
                                       minimum: 0
@@ -24254,6 +24020,13 @@ paths:
                           - type: string
                           - type: 'null'
                       monitored:
+                        description: >-
+                          When true, the step is backed by a safe rollout
+                          experiment. Coverage represents total experiment
+                          enrollment; variation-1 exposure is coverage/2. The
+                          SDK uses hash-based filters on the experiment rule to
+                          prevent bucketing shifts across monitored/unmonitored
+                          transitions.
                         type: boolean
                       holdConditions:
                         type: object
@@ -24267,37 +24040,6 @@ paths:
                           minSampleSize:
                             type: integer
                             exclusiveMinimum: 0
-                          requireHealthy:
-                            type: boolean
-                        additionalProperties: false
-                      guardrailSettings:
-                        type: object
-                        properties:
-                          metrics:
-                            type: object
-                            propertyNames:
-                              type: string
-                            additionalProperties:
-                              type: object
-                              properties:
-                                onUnhealthy:
-                                  type: string
-                                  enum:
-                                    - hold
-                                    - warn
-                                    - ignore
-                              required:
-                                - onUnhealthy
-                              additionalProperties: false
-                          experimentHealthAction:
-                            type: string
-                            enum:
-                              - hold
-                              - warn
-                              - ignore
-                        required:
-                          - metrics
-                          - experimentHealthAction
                         additionalProperties: false
                     required:
                       - trigger
@@ -24356,12 +24098,13 @@ paths:
                         exposureQueryId:
                           type: string
                         guardrailMetricIds:
-                          minItems: 1
                           type: array
                           items:
                             type: string
-                        autoRollback:
-                          type: boolean
+                        signalMetricIds:
+                          type: array
+                          items:
+                            type: string
                         updateScheduleMinutes:
                           anyOf:
                             - type: number
@@ -24371,37 +24114,6 @@ paths:
                         - datasourceId
                         - exposureQueryId
                         - guardrailMetricIds
-                      additionalProperties: false
-                    - type: 'null'
-                guardrailSettings:
-                  anyOf:
-                    - type: object
-                      properties:
-                        metrics:
-                          type: object
-                          propertyNames:
-                            type: string
-                          additionalProperties:
-                            type: object
-                            properties:
-                              onUnhealthy:
-                                type: string
-                                enum:
-                                  - rollback
-                                  - pause
-                                  - warn
-                            required:
-                              - onUnhealthy
-                            additionalProperties: false
-                        experimentHealthAction:
-                          type: string
-                          enum:
-                            - rollback
-                            - pause
-                            - warn
-                      required:
-                        - metrics
-                        - experimentHealthAction
                       additionalProperties: false
                     - type: 'null'
                 lockdownConfig:
@@ -24549,6 +24261,15 @@ paths:
         provide the explicit
 
         target UUID from `targets[].id`.
+
+
+        **Coverage on monitored steps**: See the create endpoint description for
+        details
+
+        on how `coverage` is interpreted for monitored steps (total enrollment,
+        not
+
+        variation-1 exposure).
       tags:
         - ramp-schedules
       parameters:
@@ -24621,6 +24342,18 @@ paths:
                                 ruleId:
                                   type: string
                                 coverage:
+                                  description: >-
+                                    Traffic fraction (0–1). For monitored steps,
+                                    this is the total experiment enrollment (not
+                                    the fraction seeing variation 1). The
+                                    experiment splits enrolled traffic 50/50
+                                    between control and variation, so
+                                    variation-1 exposure is coverage/2. For
+                                    example, coverage=0.8 means 40% of users see
+                                    variation 1. The SDK uses hash-based filters
+                                    (not coverage) on the experiment rule to
+                                    keep bucketing consistent across monitored
+                                    and unmonitored transitions.
                                   anyOf:
                                     - type: number
                                       minimum: 0
@@ -24681,6 +24414,16 @@ paths:
                           - type: string
                           - type: 'null'
                       monitored:
+                        description: >-
+                          When true, the step is backed by a safe rollout
+                          experiment. Coverage represents total experiment
+                          enrollment; the experiment splits enrolled users 50/50
+                          between control and variation, so variation-1 exposure
+                          is coverage/2. For example, coverage=1.0 enrolls 100%
+                          of users and 50% see variation 1. The SDK payload uses
+                          hash-based filters (not coverage) on the experiment
+                          rule to prevent bucketing shifts when transitioning
+                          between monitored and unmonitored steps.
                         default: false
                         type: boolean
                       holdConditions:
@@ -24695,37 +24438,6 @@ paths:
                           minSampleSize:
                             type: integer
                             exclusiveMinimum: 0
-                          requireHealthy:
-                            type: boolean
-                        additionalProperties: false
-                      guardrailSettings:
-                        type: object
-                        properties:
-                          metrics:
-                            type: object
-                            propertyNames:
-                              type: string
-                            additionalProperties:
-                              type: object
-                              properties:
-                                onUnhealthy:
-                                  type: string
-                                  enum:
-                                    - hold
-                                    - warn
-                                    - ignore
-                              required:
-                                - onUnhealthy
-                              additionalProperties: false
-                          experimentHealthAction:
-                            type: string
-                            enum:
-                              - hold
-                              - warn
-                              - ignore
-                        required:
-                          - metrics
-                          - experimentHealthAction
                         additionalProperties: false
                     required:
                       - trigger
@@ -24747,6 +24459,17 @@ paths:
                           ruleId:
                             type: string
                           coverage:
+                            description: >-
+                              Traffic fraction (0–1). For monitored steps, this
+                              is the total experiment enrollment (not the
+                              fraction seeing variation 1). The experiment
+                              splits enrolled traffic 50/50 between control and
+                              variation, so variation-1 exposure is coverage/2.
+                              For example, coverage=0.8 means 40% of users see
+                              variation 1. The SDK uses hash-based filters (not
+                              coverage) on the experiment rule to keep bucketing
+                              consistent across monitored and unmonitored
+                              transitions.
                             anyOf:
                               - type: number
                                 minimum: 0
@@ -24825,12 +24548,13 @@ paths:
                         exposureQueryId:
                           type: string
                         guardrailMetricIds:
-                          minItems: 1
                           type: array
                           items:
                             type: string
-                        autoRollback:
-                          type: boolean
+                        signalMetricIds:
+                          type: array
+                          items:
+                            type: string
                         updateScheduleMinutes:
                           anyOf:
                             - type: number
@@ -24842,37 +24566,12 @@ paths:
                         - guardrailMetricIds
                       additionalProperties: false
                     - type: 'null'
-                guardrailSettings:
-                  anyOf:
-                    - type: object
-                      properties:
-                        metrics:
-                          type: object
-                          propertyNames:
-                            type: string
-                          additionalProperties:
-                            type: object
-                            properties:
-                              onUnhealthy:
-                                type: string
-                                enum:
-                                  - rollback
-                                  - pause
-                                  - warn
-                            required:
-                              - onUnhealthy
-                            additionalProperties: false
-                        experimentHealthAction:
-                          type: string
-                          enum:
-                            - rollback
-                            - pause
-                            - warn
-                      required:
-                        - metrics
-                        - experimentHealthAction
-                      additionalProperties: false
-                    - type: 'null'
+                experimentHealthAction:
+                  type: string
+                  enum:
+                    - rollback
+                    - hold
+                    - warn
                 lockdownConfig:
                   description: >-
                     When mode is 'locked', blocks all feature edits while the
@@ -29667,6 +29366,16 @@ components:
                         ruleId:
                           type: string
                         coverage:
+                          description: >-
+                            Traffic fraction (0–1). For monitored steps, this is
+                            the total experiment enrollment (not the fraction
+                            seeing variation 1). The experiment splits enrolled
+                            traffic 50/50 between control and variation, so
+                            variation-1 exposure is coverage/2. For example,
+                            coverage=0.8 means 40% of users see variation 1. The
+                            SDK uses hash-based filters (not coverage) on the
+                            experiment rule to keep bucketing consistent across
+                            monitored and unmonitored transitions.
                           anyOf:
                             - type: number
                               minimum: 0
@@ -29731,6 +29440,12 @@ components:
                   - type: string
                   - type: 'null'
               monitored:
+                description: >-
+                  When true, the step is backed by a safe rollout experiment.
+                  Coverage represents total experiment enrollment; variation-1
+                  exposure is coverage/2. The SDK uses hash-based filters on the
+                  experiment rule to prevent bucketing shifts across
+                  monitored/unmonitored transitions.
                 type: boolean
               holdConditions:
                 type: object
@@ -29744,37 +29459,6 @@ components:
                   minSampleSize:
                     type: integer
                     exclusiveMinimum: 0
-                  requireHealthy:
-                    type: boolean
-                additionalProperties: false
-              guardrailSettings:
-                type: object
-                properties:
-                  metrics:
-                    type: object
-                    propertyNames:
-                      type: string
-                    additionalProperties:
-                      type: object
-                      properties:
-                        onUnhealthy:
-                          type: string
-                          enum:
-                            - hold
-                            - warn
-                            - ignore
-                      required:
-                        - onUnhealthy
-                      additionalProperties: false
-                  experimentHealthAction:
-                    type: string
-                    enum:
-                      - hold
-                      - warn
-                      - ignore
-                required:
-                  - metrics
-                  - experimentHealthAction
                 additionalProperties: false
             required:
               - trigger
@@ -29799,6 +29483,15 @@ components:
                   ruleId:
                     type: string
                   coverage:
+                    description: >-
+                      Traffic fraction (0–1). For monitored steps, this is the
+                      total experiment enrollment (not the fraction seeing
+                      variation 1). The experiment splits enrolled traffic 50/50
+                      between control and variation, so variation-1 exposure is
+                      coverage/2. For example, coverage=0.8 means 40% of users
+                      see variation 1. The SDK uses hash-based filters (not
+                      coverage) on the experiment rule to keep bucketing
+                      consistent across monitored and unmonitored transitions.
                     anyOf:
                       - type: number
                         minimum: 0
@@ -29961,12 +29654,13 @@ components:
                 exposureQueryId:
                   type: string
                 guardrailMetricIds:
-                  minItems: 1
                   type: array
                   items:
                     type: string
-                autoRollback:
-                  type: boolean
+                signalMetricIds:
+                  type: array
+                  items:
+                    type: string
                 updateScheduleMinutes:
                   anyOf:
                     - type: number
@@ -29978,37 +29672,12 @@ components:
                 - guardrailMetricIds
               additionalProperties: false
             - type: 'null'
-        guardrailSettings:
-          anyOf:
-            - type: object
-              properties:
-                metrics:
-                  type: object
-                  propertyNames:
-                    type: string
-                  additionalProperties:
-                    type: object
-                    properties:
-                      onUnhealthy:
-                        type: string
-                        enum:
-                          - rollback
-                          - pause
-                          - warn
-                    required:
-                      - onUnhealthy
-                    additionalProperties: false
-                experimentHealthAction:
-                  type: string
-                  enum:
-                    - rollback
-                    - pause
-                    - warn
-              required:
-                - metrics
-                - experimentHealthAction
-              additionalProperties: false
-            - type: 'null'
+        experimentHealthAction:
+          type: string
+          enum:
+            - rollback
+            - hold
+            - warn
         currentStepEnteredAt:
           anyOf:
             - type: string
@@ -32067,6 +31736,16 @@ components:
                         ruleId:
                           type: string
                         coverage:
+                          description: >-
+                            Traffic fraction (0–1). For monitored steps, this is
+                            the total experiment enrollment (not the fraction
+                            seeing variation 1). The experiment splits enrolled
+                            traffic 50/50 between control and variation, so
+                            variation-1 exposure is coverage/2. For example,
+                            coverage=0.8 means 40% of users see variation 1. The
+                            SDK uses hash-based filters (not coverage) on the
+                            experiment rule to keep bucketing consistent across
+                            monitored and unmonitored transitions.
                           anyOf:
                             - type: number
                               minimum: 0
@@ -32129,6 +31808,12 @@ components:
                   - type: string
                   - type: 'null'
               monitored:
+                description: >-
+                  When true, the step is backed by a safe rollout experiment.
+                  Coverage represents total experiment enrollment; variation-1
+                  exposure is coverage/2. The SDK uses hash-based filters on the
+                  experiment rule to prevent bucketing shifts across
+                  monitored/unmonitored transitions.
                 type: boolean
               holdConditions:
                 type: object
@@ -32142,37 +31827,6 @@ components:
                   minSampleSize:
                     type: integer
                     exclusiveMinimum: 0
-                  requireHealthy:
-                    type: boolean
-                additionalProperties: false
-              guardrailSettings:
-                type: object
-                properties:
-                  metrics:
-                    type: object
-                    propertyNames:
-                      type: string
-                    additionalProperties:
-                      type: object
-                      properties:
-                        onUnhealthy:
-                          type: string
-                          enum:
-                            - hold
-                            - warn
-                            - ignore
-                      required:
-                        - onUnhealthy
-                      additionalProperties: false
-                  experimentHealthAction:
-                    type: string
-                    enum:
-                      - hold
-                      - warn
-                      - ignore
-                required:
-                  - metrics
-                  - experimentHealthAction
                 additionalProperties: false
             required:
               - trigger
@@ -32231,12 +31885,13 @@ components:
                 exposureQueryId:
                   type: string
                 guardrailMetricIds:
-                  minItems: 1
                   type: array
                   items:
                     type: string
-                autoRollback:
-                  type: boolean
+                signalMetricIds:
+                  type: array
+                  items:
+                    type: string
                 updateScheduleMinutes:
                   anyOf:
                     - type: number
@@ -32246,37 +31901,6 @@ components:
                 - datasourceId
                 - exposureQueryId
                 - guardrailMetricIds
-              additionalProperties: false
-            - type: 'null'
-        guardrailSettings:
-          anyOf:
-            - type: object
-              properties:
-                metrics:
-                  type: object
-                  propertyNames:
-                    type: string
-                  additionalProperties:
-                    type: object
-                    properties:
-                      onUnhealthy:
-                        type: string
-                        enum:
-                          - rollback
-                          - pause
-                          - warn
-                    required:
-                      - onUnhealthy
-                    additionalProperties: false
-                experimentHealthAction:
-                  type: string
-                  enum:
-                    - rollback
-                    - pause
-                    - warn
-              required:
-                - metrics
-                - experimentHealthAction
               additionalProperties: false
             - type: 'null'
         lockdownConfig:

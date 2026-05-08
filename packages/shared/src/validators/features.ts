@@ -19,8 +19,6 @@ import {
   rampStepAction,
   rampMonitoringConfig,
   stepHoldConditions,
-  stepGuardrailSettings,
-  scheduleGuardrailSettings,
 } from "./ramp-schedule";
 
 import { namedSchema } from "./openapi-helpers";
@@ -339,7 +337,6 @@ const revisionApiRampStep = z.object({
   approvalNotes: z.string().nullish(),
   monitored: z.boolean().optional(),
   holdConditions: stepHoldConditions.optional(),
-  guardrailSettings: stepGuardrailSettings.optional(),
 });
 
 // Stored type — requires targetType/targetId in actions.
@@ -356,7 +353,6 @@ export const revisionRampCreateAction = z.object({
   ruleId: z.string(),
   monitoringConfig: rampMonitoringConfig.optional(),
   lockdownConfig: lockdownConfigSchema.optional(),
-  guardrailSettings: scheduleGuardrailSettings.optional(),
 });
 
 // API input variant — normalize to RevisionRampCreateAction before storing.
