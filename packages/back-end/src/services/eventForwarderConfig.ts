@@ -153,6 +153,19 @@ function buildBigQueryStoredConfigFromDraft(
   };
 }
 
+// Confluent's `snowflake.private.key` expects a single base64 blob without
+// PEM armor or whitespace. Strip both the unencrypted and encrypted PKCS#8
+// headers/footers and collapse all whitespace.
+export function normalizeSnowflakePrivateKeyForEventForwarder(
+  raw: string | undefined,
+): string {
+  if (!raw) return "";
+  return raw
+    .replace(/-----BEGIN (?:ENCRYPTED )?PRIVATE KEY-----/g, "")
+    .replace(/-----END (?:ENCRYPTED )?PRIVATE KEY-----/g, "")
+    .replace(/\s+/g, "");
+}
+
 function buildSnowflakeStoredConfigFromDraft(
   draft: SnowflakeEventForwarderConfigDraft,
   datasourceParams: SnowflakeConnectionParams | undefined,
@@ -197,8 +210,12 @@ function buildSnowflakeStoredConfigFromDraft(
     schema:
       datasourceParams?.schema?.trim() || existingStored?.schema?.trim() || "",
     privateKey:
-      datasourceParams?.privateKey?.trim() ||
-      existingStored?.privateKey?.trim() ||
+      normalizeSnowflakePrivateKeyForEventForwarder(
+        datasourceParams?.privateKey,
+      ) ||
+      normalizeSnowflakePrivateKeyForEventForwarder(
+        existingStored?.privateKey,
+      ) ||
       "",
     privateKeyPassword:
       datasourceParams?.privateKeyPassword?.trim() ||
