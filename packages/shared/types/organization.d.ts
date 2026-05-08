@@ -31,7 +31,6 @@ import {
   projectMemberRole,
 } from "shared/validators";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
-import { ApiKeyInterface } from "shared/types/apikey";
 import { TeamInterface } from "shared/types/team";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
@@ -405,7 +404,6 @@ export type GetOrganizationResponse = {
   seatsInUse: number;
   roles: Role[];
   agreements: AgreementType[];
-  apiKeys: ApiKeyInterface[];
   enterpriseSSO: Partial<SSOConnectionInterface> | null;
   accountPlan: AccountPlan;
   effectiveAccountPlan: AccountPlan;

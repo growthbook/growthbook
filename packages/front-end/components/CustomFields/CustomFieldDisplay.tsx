@@ -3,7 +3,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { FeatureInterface } from "shared/types/feature";
-import { Box, Flex, Heading } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { useUser } from "@/services/UserContext";
@@ -14,10 +14,11 @@ import {
   filterCustomFieldsForSectionAndProject,
 } from "@/hooks/useCustomFields";
 import Markdown from "@/components/Markdown/Markdown";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import DataList, { DataListItem } from "@/ui/DataList";
 import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
+import Heading from "@/ui/Heading";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
@@ -187,7 +188,7 @@ const CustomFieldDisplay: FC<{
   return (
     <>
       {editModal && (
-        <Modal
+        <ModalStandard
           trackingEventModalType="edit-custom-fields"
           header={"Edit Custom Fields"}
           open={editModal}
@@ -206,7 +207,6 @@ const CustomFieldDisplay: FC<{
               : "Save"
           }
           ctaEnabled={form.formState.isDirty}
-          useRadixButton={!!draftInfo}
         >
           {draftInfo && (
             <DraftSelectorForChanges
@@ -237,14 +237,14 @@ const CustomFieldDisplay: FC<{
               </PremiumTooltip>
             </div>
           )}
-        </Modal>
+        </ModalStandard>
       )}
       {displayFieldsObj &&
         (section === "feature" ? (
           <>
             <Flex justify="between" align="center" mt={mt}>
               <Flex align="center" gap="1">
-                <Heading as="h4" size="3" mb="0">
+                <Heading as="h4" size="small" mb="0">
                   {label ? label : ""}
                 </Heading>
               </Flex>
@@ -261,7 +261,7 @@ const CustomFieldDisplay: FC<{
           <Frame className={className} my="3">
             <Box>
               <Flex justify="between" align="center">
-                <Heading as="h4" size="3">
+                <Heading as="h4" size="small">
                   {label ? label : ""}
                 </Heading>
                 <div className="flex-1" />

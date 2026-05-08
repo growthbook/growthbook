@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export default function PickSegmentModal({
   close,
@@ -35,7 +35,7 @@ export default function PickSegmentModal({
   }, [segments]);
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       open={true}
       close={close}
@@ -50,6 +50,6 @@ export default function PickSegmentModal({
         initialOption="None"
         {...form.register("segment")}
       />
-    </Modal>
+    </ModalStandard>
   );
 }

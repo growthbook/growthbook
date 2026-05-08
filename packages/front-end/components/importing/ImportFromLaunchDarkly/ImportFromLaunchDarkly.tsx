@@ -18,7 +18,7 @@ import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Code from "@/components/SyntaxHighlighting/Code";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Button from "@/components/Button";
 import Checkbox from "@/ui/Checkbox";
 import { ApiCallType, useAuth } from "@/services/auth";
@@ -575,7 +575,7 @@ function FeatureImportRow({
         </td>
       </tr>
       {open && data.feature && (
-        <Modal
+        <ModalStandard
           trackingEventModalType=""
           open
           close={() => setOpen(false)}
@@ -607,7 +607,7 @@ function FeatureImportRow({
               />
             </>
           )}
-        </Modal>
+        </ModalStandard>
       )}
     </>
   );
