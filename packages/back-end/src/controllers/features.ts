@@ -1503,8 +1503,14 @@ export async function postFeaturePublish(
     // Throwing aborts the experiment status transition; the already-published
     // current feature stays live. Closing this gap fully would require cross-
     // collection transactions.
+    const adminBypass =
+      !!adminOverride && context.permissions.canBypassApprovalChecks(feature);
     const publishResult: PendingDraftPublishResult =
-      await publishPendingFeatureDraftsForExperiment(context, reloadedExp);
+      await publishPendingFeatureDraftsForExperiment(
+        context,
+        reloadedExp,
+        adminBypass,
+      );
     if (publishResult.failed.length > 0) {
       throw new Error(formatPendingDraftFailureMessage(publishResult.failed));
     }
@@ -3313,6 +3319,9 @@ export async function putFeatureRule(
         updates.steps = rampSchedulePayload.steps.map((step) => ({
           ...step,
           actions: (step.actions ?? []).map(remapT1),
+          monitored: !!step.monitored,
+          holdConditions: step.holdConditions ?? undefined,
+          guardrailSettings: step.guardrailSettings ?? undefined,
         }));
       }
       if ("startDate" in rampSchedulePayload) {

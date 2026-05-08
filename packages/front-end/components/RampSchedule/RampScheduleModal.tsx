@@ -199,6 +199,7 @@ export default function RampScheduleModal({
               ? { approvalNotes: s.approvalNotes }
               : {}),
             monitored: !!s.monitored,
+            ...(s.holdConditions ? { holdConditions: s.holdConditions } : {}),
             ...(s.guardrailSettings
               ? { guardrailSettings: s.guardrailSettings }
               : {}),

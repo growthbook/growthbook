@@ -249,11 +249,14 @@ export function stepsMatchSimplePattern(steps: UIStep[]): boolean {
   for (let i = 0; i < steps.length; i++) {
     if ((steps[i].patch.coverage ?? 0) !== SIMPLE_COVERAGES[i]) return false;
   }
-  // Per-step guardrail overrides break simple mode — all steps must be uniform.
+  // Per-step guardrail or hold-condition overrides break simple mode.
   const gsRef = JSON.stringify(steps[0].guardrailSettings ?? null);
   if (
     !steps.every((s) => JSON.stringify(s.guardrailSettings ?? null) === gsRef)
   )
+    return false;
+  const hcRef = JSON.stringify(steps[0].holdConditions ?? null);
+  if (!steps.every((s) => JSON.stringify(s.holdConditions ?? null) === hcRef))
     return false;
   return true;
 }
@@ -1625,20 +1628,20 @@ export default function RampScheduleSection({
         experimentHealthAction: prev?.experimentHealthAction ?? "pause",
       };
       patch.steps = state.steps.map((s) => {
-        if (!s.monitored || !s.guardrailSettings) return s;
+        if (!s.monitored) return s;
+        const existing = s.guardrailSettings;
         return {
           ...s,
           guardrailSettings: {
             metrics: Object.fromEntries(
               expanded.map((id) => [
                 id,
-                s.guardrailSettings!.metrics[id] ?? {
-                  onUnhealthy: "hold" as const,
+                existing?.metrics?.[id] ?? {
+                  onUnhealthy: "ignore" as const,
                 },
               ]),
             ),
-            experimentHealthAction:
-              s.guardrailSettings.experimentHealthAction ?? "hold",
+            experimentHealthAction: existing?.experimentHealthAction ?? "hold",
           },
         };
       });

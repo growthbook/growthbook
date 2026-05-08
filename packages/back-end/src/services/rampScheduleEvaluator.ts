@@ -211,8 +211,7 @@ function resolveTopLevelAction(
   settings?: ScheduleGuardrailSettings,
 ): GuardrailTopLevelAction {
   if (!settings) return "rollback"; // legacy default
-  // Missing entry = metric was added to a group after ramp start; ignore it.
-  return settings.metrics[metricId]?.onUnhealthy ?? "warn";
+  return settings.metrics?.[metricId]?.onUnhealthy ?? "warn";
 }
 
 // ---------------------------------------------------------------------------
@@ -271,7 +270,6 @@ function checkStepGuardrailGating(
     if (!variation.guardrailMetrics) continue;
     for (const [metricId, gm] of Object.entries(variation.guardrailMetrics)) {
       if (gm.status === "safe") continue;
-      // "lost" or "neutral" — check step settings
       if (gm.status !== "lost") continue;
 
       const action = resolveStepAction(metricId, stepSettings);
@@ -301,8 +299,7 @@ function resolveStepAction(
   stepSettings?: StepGuardrailSettings,
 ): GuardrailStepAction {
   if (!stepSettings) return "hold"; // legacy default
-  // Missing entry = metric was added to a group after ramp start; ignore it.
-  return stepSettings.metrics[metricId]?.onUnhealthy ?? "ignore";
+  return stepSettings.metrics?.[metricId]?.onUnhealthy ?? "ignore";
 }
 
 // ---------------------------------------------------------------------------

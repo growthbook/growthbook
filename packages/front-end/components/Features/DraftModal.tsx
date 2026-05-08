@@ -148,6 +148,9 @@ export default function DraftModal({
   }, [revision, baseRevision, liveRevision, envIds, feature]);
 
   const [comment, setComment] = useState(revision?.comment || "");
+  const [adminPublish, setAdminPublish] = useState(false);
+
+  const canAdminPublish = permissionsUtil.canBypassApprovalChecks(feature);
 
   const { experiments } = useFeatureExperimentChecklists({
     feature,
@@ -337,7 +340,9 @@ export default function DraftModal({
   // Users who reach DraftModal already have direct publish permission, so the
   // checklist is advisory — it does not block publishing.
   const submitEnabled =
-    !!mergeResult.success && hasChanges && !featureLockedByRamp;
+    !!mergeResult.success &&
+    hasChanges &&
+    (!featureLockedByRamp || adminPublish);
 
   // If we're publishing experiments, next step is to review pre-launch checklists
   const hasNextStep =
@@ -369,6 +374,7 @@ export default function DraftModal({
                       mergeResultSerialized: JSON.stringify(mergeResult),
                       publishExperimentIds: Array.from(selectedExperiments),
                       comment,
+                      adminOverride: adminPublish,
                     }),
                   },
                 );
@@ -416,7 +422,21 @@ export default function DraftModal({
       {featureLockedByRamp && (
         <Callout status="warning" icon={<PiLockSimple size={15} />} mb="3">
           Publishing is locked by an active ramp-up schedule.
+          {canAdminPublish
+            ? " Use the admin bypass below to publish anyway."
+            : ""}
         </Callout>
+      )}
+      {canAdminPublish && featureLockedByRamp && (
+        <div className="mt-3 mb-4 ml-1">
+          <Checkbox
+            label="Bypass lockdown to publish (admin only)"
+            value={adminPublish}
+            setValue={(val) => {
+              setAdminPublish(!!val);
+            }}
+          />
+        </div>
       )}
       {mergeResult.conflicts.length > 0 && (
         <Callout status="error">

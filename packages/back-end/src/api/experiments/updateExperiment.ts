@@ -27,6 +27,7 @@ import {
   formatPendingDraftFailureMessage,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
+import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
 import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
@@ -251,11 +252,13 @@ export const updateExperiment = createApiRequestHandler(
     req.organization,
   );
 
-  // If the request transitions the experiment from draft → running, publish
-  // any pending feature drafts BEFORE persisting the status change. This
-  // mirrors the UI controller (postExperimentStatus) so the REST API can't
-  // bypass approval/conflict gates that would otherwise block the start.
+  // If the request transitions the experiment from draft → running, check
+  // lockdown on linked features and publish pending feature drafts BEFORE
+  // persisting the status change.
   if (experiment.status === "draft" && changes.status === "running") {
+    for (const fid of experiment.linkedFeatures ?? []) {
+      await assertFeatureNotLockedByRamp(req.context, fid);
+    }
     const publishResult = await publishPendingFeatureDraftsForExperiment(
       req.context,
       experiment,

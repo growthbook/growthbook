@@ -59,7 +59,7 @@ export function summarizeScheduleGuardrails(
 
   const byAction: Record<string, number> = {};
   for (const id of metricIds) {
-    const action = gs.metrics[id]?.onUnhealthy ?? "rollback";
+    const action = gs.metrics?.[id]?.onUnhealthy ?? "warn";
     byAction[action] = (byAction[action] ?? 0) + 1;
   }
   for (const [action, count] of Object.entries(byAction)) {
@@ -95,7 +95,7 @@ export function summarizeStepGuardrails(
 
   const byAction: Record<string, number> = {};
   for (const id of metricIds) {
-    const action = gs.metrics[id]?.onUnhealthy ?? "hold";
+    const action = gs.metrics?.[id]?.onUnhealthy ?? "ignore";
     byAction[action] = (byAction[action] ?? 0) + 1;
   }
   for (const [action, count] of Object.entries(byAction)) {
@@ -230,10 +230,10 @@ export function ScheduleGuardrailEditor({
     metricIds.length > 1 &&
     metricIds.every(
       (id) =>
-        (settings.metrics[id]?.onUnhealthy ?? "rollback") ===
-        (settings.metrics[metricIds[0]]?.onUnhealthy ?? "rollback"),
+        (settings.metrics?.[id]?.onUnhealthy ?? "warn") ===
+        (settings.metrics?.[metricIds[0]]?.onUnhealthy ?? "warn"),
     )
-      ? (settings.metrics[metricIds[0]]?.onUnhealthy ?? "rollback")
+      ? (settings.metrics?.[metricIds[0]]?.onUnhealthy ?? "warn")
       : "";
 
   const rows = [
@@ -254,7 +254,7 @@ export function ScheduleGuardrailEditor({
         getFactMetricById,
         getMetricGroupById,
       ),
-      value: settings.metrics[id]?.onUnhealthy ?? "rollback",
+      value: settings.metrics?.[id]?.onUnhealthy ?? "warn",
       onChange: (v: string) => updateMetric(id, v as GuardrailTopLevelAction),
     })),
   ];
@@ -357,10 +357,10 @@ export function StepGuardrailEditor({
     metricIds.length > 1 &&
     metricIds.every(
       (id) =>
-        (settings.metrics[id]?.onUnhealthy ?? "hold") ===
-        (settings.metrics[metricIds[0]]?.onUnhealthy ?? "hold"),
+        (settings.metrics?.[id]?.onUnhealthy ?? "ignore") ===
+        (settings.metrics?.[metricIds[0]]?.onUnhealthy ?? "ignore"),
     )
-      ? (settings.metrics[metricIds[0]]?.onUnhealthy ?? "hold")
+      ? (settings.metrics?.[metricIds[0]]?.onUnhealthy ?? "ignore")
       : "";
 
   const rows = [
@@ -380,7 +380,7 @@ export function StepGuardrailEditor({
         getFactMetricById,
         getMetricGroupById,
       ),
-      value: settings.metrics[id]?.onUnhealthy ?? "hold",
+      value: settings.metrics?.[id]?.onUnhealthy ?? "ignore",
       onChange: (v: string) => updateMetric(id, v as GuardrailStepAction),
     })),
   ];

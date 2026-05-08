@@ -111,7 +111,7 @@ export function rampScheduleToApiInterface(
     steps: doc.steps.map((s) => ({
       trigger: serializeTrigger(s.trigger),
       actions: s.actions,
-      approvalNotes: s.approvalNotes,
+      approvalNotes: s.approvalNotes ?? undefined,
       monitored: !!s.monitored,
       holdConditions: s.holdConditions ?? undefined,
       guardrailSettings: s.guardrailSettings ?? undefined,
@@ -630,9 +630,15 @@ export class RampScheduleModel extends BaseClass {
             patch?: unknown;
           }[];
           approvalNotes?: string | null;
+          monitored?: boolean | null;
+          holdConditions?: unknown | null;
+          guardrailSettings?: unknown | null;
         }) => ({
           ...step,
           actions: (step.actions ?? []).map(resolveTargetId),
+          monitored: !!step.monitored,
+          holdConditions: step.holdConditions ?? undefined,
+          guardrailSettings: step.guardrailSettings ?? undefined,
         }),
       );
     }

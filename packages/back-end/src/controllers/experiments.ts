@@ -2035,6 +2035,7 @@ export async function postExperimentStatus(
       status: ExperimentStatus;
       reason: string;
       dateEnded: string;
+      bypassLockdown?: boolean;
     },
     { id: string }
   >,
@@ -2043,7 +2044,7 @@ export async function postExperimentStatus(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id } = req.params;
-  const { status, reason, dateEnded } = req.body;
+  const { status, reason, dateEnded, bypassLockdown } = req.body;
 
   const changes: Changeset = {};
 
@@ -2111,16 +2112,22 @@ export async function postExperimentStatus(
     status === "running" &&
     phases?.length > 0
   ) {
+    const adminBypass =
+      !!bypassLockdown &&
+      context.permissions.canBypassApprovalChecks(experiment);
+
     // Check if any linked features are locked by an active ramp schedule.
-    for (const f of linkedFeatures) {
-      try {
-        await assertFeatureNotLockedByRamp(context, f.id);
-      } catch (e) {
-        res.status(400).json({
-          status: 400,
-          message: `Cannot start experiment: feature "${f.id}" is locked by an active ramp schedule. Pause the schedule to proceed.`,
-        });
-        return;
+    if (!adminBypass) {
+      for (const f of linkedFeatures) {
+        try {
+          await assertFeatureNotLockedByRamp(context, f.id);
+        } catch (e) {
+          res.status(400).json({
+            status: 400,
+            message: `Cannot start experiment: feature "${f.id}" is locked by an active ramp schedule. Pause the schedule to proceed.`,
+          });
+          return;
+        }
       }
     }
 
@@ -2133,7 +2140,11 @@ export async function postExperimentStatus(
     // Publish any pending feature drafts in lockstep with the start.
     // Abort the experiment start if any drafts cannot be published.
     const publishResult: PendingDraftPublishResult =
-      await publishPendingFeatureDraftsForExperiment(context, experiment);
+      await publishPendingFeatureDraftsForExperiment(
+        context,
+        experiment,
+        adminBypass,
+      );
     if (publishResult.failed.length > 0) {
       res.status(400).json({
         status: 400,

@@ -344,6 +344,7 @@ export const apiRampScheduleTemplateValidator = namedSchema(
     official: z.boolean().optional(),
     monitoringConfig: rampMonitoringConfig.nullish(),
     guardrailSettings: scheduleGuardrailSettings.nullish(),
+    lockdownConfig: lockdownConfigSchema.nullish(),
   }),
 );
 
