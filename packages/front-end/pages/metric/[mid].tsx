@@ -19,6 +19,7 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { isBinomialMetric } from "shared/experiments";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
@@ -68,8 +69,6 @@ import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
 import { MetricModal } from "@/components/FactTables/NewMetricModal";
 import { AppFeatures } from "@/types/app-features";
-import Link from "@/ui/Link";
-import Callout from "@/ui/Callout";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -434,8 +433,8 @@ const MetricPage: FC = () => {
       {metric.projects?.includes(
         getDemoDatasourceProjectIdForOrganization(organization.id),
       ) && (
-        <Callout status="info" mb="3">
-          <Flex align="center" justify="between">
+        <Callout status="info" mb="3" contentsAs="div">
+          <Flex align="center" justify="between" my="-1">
             This metric is part of our sample dataset. You can safely delete
             this once you are done exploring.
             <DeleteDemoDatasourceButton

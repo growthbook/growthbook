@@ -171,7 +171,7 @@ const DataSourcePage: FC = () => {
       {d.decryptionError && (
         <Callout status="error" mb="3" contentsAs="div">
           <Flex align="center" justify="between">
-            Error Decrypting Data Source Credentials.
+            <strong>Error Decrypting Data Source Credentials.</strong>
             <DocLink docSection="env_prod" className="btn btn-primary">
               View instructions for fixing
             </DocLink>
