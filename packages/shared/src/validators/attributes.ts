@@ -2,6 +2,14 @@ import { z } from "zod";
 
 import { namedSchema } from "./openapi-helpers";
 
+const documentationUrlSchema = z
+  .string()
+  .url()
+  .refine((val) => val.startsWith("http://") || val.startsWith("https://"), {
+    message: "URL must use http or https scheme",
+  })
+  .optional();
+
 // Corresponds to schemas/Attribute.yaml
 export const apiAttributeValidator = namedSchema(
   "Attribute",
@@ -19,6 +27,7 @@ export const apiAttributeValidator = namedSchema(
         "secureString[]",
       ]),
       description: z.string().optional(),
+      documentationUrl: documentationUrlSchema,
       hashAttribute: z.boolean().optional(),
       archived: z.boolean().optional(),
       enum: z.string().optional(),
@@ -50,6 +59,7 @@ const postAttributeBody = z
       .describe("The description of the new attribute")
       .optional(),
     archived: z.boolean().describe("The attribute is archived").optional(),
+    documentationUrl: documentationUrlSchema,
     hashAttribute: z
       .boolean()
       .describe("Shall the attribute be hashed")
@@ -85,6 +95,7 @@ const putAttributeBody = z
       .describe("The description of the new attribute")
       .optional(),
     archived: z.boolean().describe("The attribute is archived").optional(),
+    documentationUrl: documentationUrlSchema,
     hashAttribute: z
       .boolean()
       .describe("Shall the attribute be hashed")
