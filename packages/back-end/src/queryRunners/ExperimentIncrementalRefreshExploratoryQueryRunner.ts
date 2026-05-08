@@ -61,7 +61,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
   startQuery: (
     params: StartQueryParams<RowsType, ProcessedRowsType>,
   ) => Promise<QueryPointer>,
-): Promise<Queries> => {
+): Promise<{ queries: Queries; skippedMetricIds: string[] }> => {
   const snapshotSettings = params.snapshotSettings;
   const experimentId = params.experimentId;
   const metricMap = params.metricMap;
@@ -129,12 +129,19 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     snapshotSettings,
   });
 
+  // Metrics whose source tables have not yet been materialized by the standard
+  // (non-exploratory) runner. We still skip them so the rest of the dimension
+  // breakdown succeeds, but we surface a warning on the snapshot so users know
+  // why these metrics are missing instead of seeing them silently disappear.
+  const skippedMetricIds: string[] = [];
+
   for (const group of metricSourceGroups) {
     const existingSource = existingSources?.find(
       (s) => s.groupId === group.groupId,
     );
     if (!existingSource) {
       // skip in case the group just has new metrics
+      skippedMetricIds.push(...group.metrics.map((m) => m.id));
       continue;
     }
 
@@ -196,7 +203,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     });
     queries.push(statisticsQuery);
   }
-  return queries;
+  return { queries, skippedMetricIds };
 };
 
 export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRunner<
@@ -206,6 +213,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
 > {
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
+  private skippedMetricIds: string[] = [];
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
@@ -248,12 +256,15 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       analysisType: "exploratory",
     });
 
-    return startExperimentIncrementalRefreshExploratoryQueries(
-      this.context,
-      params,
-      this.integration,
-      this.startQuery.bind(this),
-    );
+    const { queries, skippedMetricIds } =
+      await startExperimentIncrementalRefreshExploratoryQueries(
+        this.context,
+        params,
+        this.integration,
+        this.startQuery.bind(this),
+      );
+    this.skippedMetricIds = skippedMetricIds;
+    return queries;
   }
 
   // largely copied from ExperimentResultsQueryRunner
@@ -286,6 +297,20 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       result.unknownVariations = results.unknownVariations || [];
       result.multipleExposures = results.multipleExposures ?? 0;
     });
+
+    if (this.skippedMetricIds.length) {
+      const names = this.skippedMetricIds.map(
+        (id) => this.metricMap.get(id)?.name ?? id,
+      );
+      result.warnings = [
+        ...(result.warnings ?? []),
+        `${names.length} metric${
+          names.length === 1 ? " has" : "s have"
+        } not been materialized for dimension breakdown yet. ` +
+          `Run "Update" on the main Results tab first, then re-run this analysis. ` +
+          `Skipped: ${names.join(", ")}.`,
+      ];
+    }
     return result;
   }
 
