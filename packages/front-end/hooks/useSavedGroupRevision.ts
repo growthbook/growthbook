@@ -45,16 +45,28 @@ export function useSavedGroupRevision(
     [data?.revisions],
   );
 
-  // The "live" version is the version of the latest merged revision. This
-  // number is what `?v=` points to when viewing the live saved group.
+  // The "live" version is the version of the most-recently-merged revision —
+  // i.e., the merge that actually produced the current on-disk state. This
+  // intentionally tracks merge order (`dateUpdated` for merged revisions,
+  // which is frozen at merge time since `canUpdate` rejects merged docs)
+  // rather than version number, because drafts can be merged out of creation
+  // order (an older draft left open while newer ones are merged, then
+  // merged later). In that case the highest-numbered merged revision is
+  // *not* what's on disk, and using it caused the header dropdown — which
+  // already derives its "live" badge from the most-recently-merged
+  // revision — to silently snap the user back to a different revision when
+  // they tried to select a higher-numbered, locked/merged revision.
   const liveVersion = useMemo<number | null>(() => {
-    let max: number | null = null;
+    let latest: { version: number; dateUpdated: number } | null = null;
     for (const r of data?.revisions ?? []) {
       if (r.status !== "merged") continue;
       if (r.version == null) continue;
-      if (max == null || r.version > max) max = r.version;
+      const t = new Date(r.dateUpdated).getTime();
+      if (latest == null || t > latest.dateUpdated) {
+        latest = { version: r.version, dateUpdated: t };
+      }
     }
-    if (max != null) return max;
+    if (latest != null) return latest.version;
     // No real merged revisions yet: the synthetic "Revision 1" stands in as live.
     if (savedGroup && (data?.revisions?.length ?? 0) === 0) return 1;
     return null;

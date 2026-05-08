@@ -32,23 +32,11 @@ export const putVisualChangeset = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  const updates = {
-    ...req.body,
-    ...(req.body.visualChanges && {
-      visualChanges: req.body.visualChanges.map((vc) => ({
-        css: "",
-        description: "",
-        domMutations: [],
-        ...vc,
-      })),
-    }),
-  } as Partial<VisualChangesetInterface>;
-
   const res = await updateVisualChangeset({
     visualChangeset,
     experiment,
     context: req.context,
-    updates,
+    updates: req.body,
   });
 
   const updatedVisualChangeset = await findVisualChangesetById(

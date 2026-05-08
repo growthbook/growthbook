@@ -27,10 +27,7 @@ export interface Props {
   mutate: () => void;
 }
 
-export default function ConditionGroups({
-  groups,
-  mutate,
-}: Props) {
+export default function ConditionGroups({ groups, mutate }: Props) {
   const [savedGroupForm, setSavedGroupForm] =
     useState<null | Partial<SavedGroupInterface>>(null);
   const [deleteModal, setDeleteModal] =
