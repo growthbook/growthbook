@@ -620,4 +620,133 @@ describe("attributes API", () => {
     expect(updateOrganization).not.toHaveBeenCalled();
     expect(auditMock).not.toHaveBeenCalled();
   });
+
+  it("can create attribute with documentationUrl", async () => {
+    setReqContext({
+      models: {
+        projects: {
+          getAll: () => [],
+        },
+      },
+      org: {
+        id: "org1",
+        settings: {
+          attributeSchema: [
+            { property: "attr1", datatype: "string[]" },
+            { property: "attr2", datatype: "string" },
+          ],
+        },
+      },
+      permissions: {
+        canCreateAttribute: () => true,
+      },
+    });
+
+    const response = await request(app)
+      .post("/api/v1/attributes")
+      .send({
+        property: "attr3",
+        datatype: "boolean",
+        documentationUrl: "https://docs.example.com/attr3",
+      })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      attribute: {
+        property: "attr3",
+        datatype: "boolean",
+        documentationUrl: "https://docs.example.com/attr3",
+        projects: [],
+      },
+    });
+    expect(updateOrganization).toHaveBeenCalledWith("org1", {
+      settings: {
+        attributeSchema: [
+          { property: "attr1", datatype: "string[]" },
+          { property: "attr2", datatype: "string" },
+          {
+            property: "attr3",
+            datatype: "boolean",
+            documentationUrl: "https://docs.example.com/attr3",
+            projects: [],
+          },
+        ],
+      },
+    });
+  });
+
+  it("can update attribute with documentationUrl", async () => {
+    setReqContext({
+      models: {
+        projects: {
+          getAll: () => [],
+        },
+      },
+      org: {
+        id: "org1",
+        settings: {
+          attributeSchema: [
+            { property: "attr1", datatype: "string[]" },
+            { property: "attr2", datatype: "string" },
+          ],
+        },
+      },
+      permissions: {
+        canUpdateAttribute: () => true,
+      },
+    });
+
+    const response = await request(app)
+      .put("/api/v1/attributes/attr2")
+      .send({ documentationUrl: "https://docs.example.com/attr2" })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      attribute: {
+        property: "attr2",
+        datatype: "string",
+        documentationUrl: "https://docs.example.com/attr2",
+        projects: [],
+      },
+    });
+    expect(updateOrganization).toHaveBeenCalledWith("org1", {
+      settings: {
+        attributeSchema: [
+          { property: "attr1", datatype: "string[]" },
+          {
+            property: "attr2",
+            datatype: "string",
+            documentationUrl: "https://docs.example.com/attr2",
+            projects: [],
+          },
+        ],
+      },
+    });
+  });
+
+  it("rejects create with invalid documentationUrl", async () => {
+    setReqContext({
+      org: {
+        id: "org1",
+        settings: { attributeSchema: [] },
+      },
+      permissions: {
+        canCreateAttribute: () => true,
+      },
+    });
+
+    const response = await request(app)
+      .post("/api/v1/attributes")
+      .send({
+        property: "attr3",
+        datatype: "boolean",
+        documentationUrl: "not-a-url",
+      })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(400);
+    expect(updateOrganization).not.toHaveBeenCalled();
+  });
 });

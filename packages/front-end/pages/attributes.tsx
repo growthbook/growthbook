@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import { Box, Flex } from "@radix-ui/themes";
 import { BiShow } from "react-icons/bi";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { SDKAttribute } from "shared/types/organization";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -140,6 +141,16 @@ const FeatureAttributesPage = (): React.ReactElement => {
           <Link href={`/attributes/${encodeURIComponent(v.property)}`}>
             {v.property}
           </Link>{" "}
+          {v.documentationUrl && (
+            <a
+              href={v.documentationUrl}
+              target="_blank"
+              rel="noreferrer"
+              title="Documentation"
+            >
+              <PiArrowSquareOut className="ml-1" />
+            </a>
+          )}
           {v.archived && (
             <span className="badge badge-secondary ml-2">archived</span>
           )}
