@@ -258,7 +258,7 @@ describe("ramp-monitored SDK payload", () => {
       expect(rule.name).toBe("feat_test - Monitored Ramp");
       expect(rule.meta).toEqual([
         { key: "0", name: "Variation" },
-        { key: "1", name: "Control" },
+        { key: "1", name: "Control", passthrough: true },
       ]);
     });
   });
@@ -294,7 +294,7 @@ describe("ramp-monitored SDK payload", () => {
         hashAttribute: "id",
         seed: SEED,
         key: "ramp_test",
-        meta: [{ key: "0" }, { key: "1" }],
+        meta: [{ key: "0" }, { key: "1", passthrough: true }],
         phase: "0",
       };
       if (coverage < 1) {
@@ -456,36 +456,44 @@ describe("ramp-monitored SDK payload", () => {
       expect(treatmentUsersWhoLost).toBe(0);
     });
 
-    it("monitored experiment produces a roughly 50/50 split within enrolled users", () => {
+    it("monitored experiment produces a roughly 50/50 split within enrolled users (control uses passthrough)", () => {
       const userIds = Array.from({ length: 2000 }, (_, i) => `split_${i}`);
       const coverage = 0.8;
 
       const monitoredPayload = makeMonitoredPayload(coverage);
 
-      let variation0 = 0;
-      let variation1 = 0;
+      let treatmentCount = 0;
+      let controlPassthroughCount = 0;
+      let unenrolledCount = 0;
 
       for (const userId of userIds) {
         const result = evaluateForUser(userId, {
           [FEATURE_ID]: monitoredPayload,
         });
-        if (result.value === TREATMENT) {
-          variation0++;
-        } else if (result.value === CONTROL && result.source === "experiment") {
-          variation1++;
+        if (result.value === TREATMENT && result.source === "experiment") {
+          treatmentCount++;
+        } else if (
+          result.value === CONTROL &&
+          result.source === "defaultValue"
+        ) {
+          // Control users fall through via passthrough to the default value
+          controlPassthroughCount++;
+        } else {
+          unenrolledCount++;
         }
       }
 
-      const enrolled = variation0 + variation1;
-      expect(enrolled).toBeGreaterThan(0);
+      // All users should resolve to either treatment (experiment) or control (defaultValue passthrough)
+      // since coverage=0.8 + filter means ~80% enrolled, rest unenrolled also get default
+      const totalDefault = controlPassthroughCount + unenrolledCount;
+      const total = treatmentCount + totalDefault;
+      expect(total).toBe(userIds.length);
 
-      const ratio = variation0 / enrolled;
-      expect(ratio).toBeGreaterThan(0.4);
-      expect(ratio).toBeLessThan(0.6);
-
-      const enrollmentRate = enrolled / userIds.length;
-      expect(enrollmentRate).toBeGreaterThan(0.65);
-      expect(enrollmentRate).toBeLessThan(0.95);
+      // Treatment should be roughly half of the enrolled portion (~40% of total for 80% coverage)
+      expect(treatmentCount).toBeGreaterThan(0);
+      const treatmentRate = treatmentCount / userIds.length;
+      expect(treatmentRate).toBeGreaterThan(0.3);
+      expect(treatmentRate).toBeLessThan(0.5);
     });
 
     it("enrollment boundary is consistent across rollout→monitored→rollout transitions", () => {

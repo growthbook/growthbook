@@ -24,6 +24,7 @@ export interface StatusLabels {
   draw?: string;
   insignificant?: string;
   notEnoughData?: string;
+  badgeColor?: string;
 }
 
 interface ExperimentResultTooltipContentProps {
@@ -128,7 +129,7 @@ export default function ExperimentResultTooltipContent({
   const renderBadge = () => (
     <Flex
       className={clsx(styles.badge, {
-        [styles.badgeWon]: isWon,
+        [styles.badgeWon]: isWon && !statusLabels?.badgeColor,
         [styles.badgeLost]: isLost,
       })}
       px="4"
@@ -136,6 +137,11 @@ export default function ExperimentResultTooltipContent({
       align="center"
       justify="between"
       gap="1"
+      style={
+        !isLost && statusLabels?.badgeColor
+          ? { backgroundColor: statusLabels.badgeColor }
+          : undefined
+      }
     >
       <Text size="1" weight="bold">
         {getBadgeText()}

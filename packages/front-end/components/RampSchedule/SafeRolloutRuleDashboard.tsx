@@ -251,6 +251,8 @@ function EventMarkerLabels({
                 const isRed = m.color === "red";
                 const lineStroke = isRed ? "var(--red-a5)" : "var(--indigo-a5)";
                 const labelFill = isRed ? "var(--red-11)" : "var(--indigo-11)";
+                const labelX = Math.max(10, Math.min(x, width - 10));
+                const anchor = x <= 0 ? "start" : x >= width ? "end" : "middle";
                 return (
                   <g key={i}>
                     <line
@@ -262,11 +264,11 @@ function EventMarkerLabels({
                       strokeWidth={1}
                     />
                     <text
-                      x={x}
+                      x={labelX}
                       y={17}
                       fontSize={9}
                       fill={labelFill}
-                      textAnchor="middle"
+                      textAnchor={anchor}
                     >
                       {m.label}
                     </text>
@@ -516,6 +518,7 @@ const SAFE_ROLLOUT_STATUS_LABELS = {
   draw: "Within bounds",
   insignificant: "Within bounds",
   notEnoughData: "Not enough data",
+  badgeColor: "var(--blue-a7)",
 };
 
 const GRAPH_WIDTH = 250;
@@ -640,26 +643,28 @@ function MetricSection({
         {subtitle}
       </Text>
 
-      <div className="experiment-results-wrapper">
-        <div className="w-100" style={{ minWidth: 600 }}>
+      <div style={{ overflowX: "auto" }}>
+        <div style={{ minWidth: 950 }}>
           <table className="experiment-results table-sm">
             <thead>
               <tr className="results-top-row">
                 <th
-                  className="axis-col label"
+                  className="axis-col noStickyHeader label"
                   style={{ width: 200, whiteSpace: "nowrap" }}
                 >
                   Metric
                 </th>
                 <th
-                  className="axis-col label"
+                  className="axis-col noStickyHeader label"
                   style={{ width: 90, whiteSpace: "nowrap" }}
                 >
                   % Change
                 </th>
-                <th className="axis-col label">Metric Boundary</th>
+                <th className="axis-col noStickyHeader label">
+                  Metric Boundary
+                </th>
                 <th
-                  className="axis-col graph-cell"
+                  className="axis-col noStickyHeader graph-cell"
                   style={{ width: GRAPH_WIDTH }}
                 >
                   <div className="position-relative">
@@ -676,7 +681,7 @@ function MetricSection({
                   </div>
                 </th>
                 <th
-                  className="axis-col label"
+                  className="axis-col noStickyHeader label"
                   style={{ width: 160, whiteSpace: "nowrap" }}
                 >
                   Status
@@ -728,7 +733,7 @@ function MetricSection({
                     className="results-variation-row"
                     style={{
                       height: ROW_HEIGHT,
-                      boxShadow: "rgba(102, 102, 102, 0.2) 0 -1px inset",
+                      boxShadow: "var(--slate-a5) 0 -1px inset",
                     }}
                   >
                     {/* Metric label */}
@@ -799,7 +804,7 @@ function MetricSection({
 
                     {/* Time series sparkline */}
                     <td style={{ padding: 0 }}>
-                      <div style={{ height: ROW_HEIGHT }}>
+                      <div style={{ height: ROW_HEIGHT, minWidth: 250 }}>
                         <SafeRolloutTimeSeriesGraph
                           data={metricTs ?? emptyTimeSeries(row.metric.id)}
                           xDateRange={dateExtent}

@@ -248,7 +248,7 @@ const SafeRolloutTimeSeriesGraphContent = ({
             <Line
               from={{ x: 0, y: zeroY }}
               to={{ x: innerWidth, y: zeroY }}
-              stroke="var(--slate-a7)"
+              stroke="var(--amber-a6)"
               strokeWidth={1}
               strokeDasharray="6,4"
               strokeLinecap="butt"

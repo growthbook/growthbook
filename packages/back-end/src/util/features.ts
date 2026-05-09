@@ -910,9 +910,9 @@ export function getFeatureDefinition({
             rule.meta = includeExperimentNames
               ? [
                   { key: "0", name: "Variation" },
-                  { key: "1", name: "Control" },
+                  { key: "1", name: "Control", passthrough: true },
                 ]
-              : [{ key: "0" }, { key: "1" }];
+              : [{ key: "0" }, { key: "1", passthrough: true }];
             rule.phase = "0";
             if (includeExperimentNames)
               rule.name = `${feature.id} - Monitored Ramp`;
