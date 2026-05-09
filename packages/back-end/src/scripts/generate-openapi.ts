@@ -25,6 +25,7 @@ const openApiTags = [
   "sdk-connections",
   "visual-changesets",
   "saved-groups",
+  "saved-group-revisions",
   "organizations",
   "members",
   "code-references",
@@ -127,6 +128,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
     display: "Saved Groups",
     description:
       "Defined sets of attribute values which can be used with feature rules for targeting features at particular users.",
+  },
+  "saved-group-revisions": {
+    display: "Saved Group Revisions",
+    description:
+      'Draft revisions for saved groups, including pending changes, approvals, and lifecycle (publish, discard, revert).\n\nMost callers can interact with these endpoints via shorthand actions (`/items/add`, `/items/remove`, single-field PUTs) instead of authoring JSON Patch ops directly. Pass `version: "new"` on edit endpoints to auto-create a draft.',
   },
   members: {
     display: "Members",

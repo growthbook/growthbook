@@ -123,6 +123,8 @@ export class SavedGroupModel extends BaseClass {
       owner: savedGroup.owner || "",
       description: savedGroup.description,
       projects: savedGroup.projects || [],
+      archived: savedGroup.archived,
+      useEmptyListGroup: savedGroup.useEmptyListGroup,
     };
   }
 }

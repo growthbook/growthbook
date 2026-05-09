@@ -80,6 +80,8 @@ export const apiSavedGroupValidator = namedSchema(
         .optional(),
       description: z.string().optional(),
       projects: z.array(z.string()).optional(),
+      archived: z.boolean().optional(),
+      useEmptyListGroup: z.boolean().optional(),
     })
     .strict(),
 );
@@ -116,6 +118,12 @@ const postSavedGroupBody = z
       .optional(),
     owner: ownerInputField.optional(),
     projects: z.array(z.string()).optional(),
+    bypassApproval: z
+      .boolean()
+      .describe(
+        "Set to true to skip the approval flow when the org requires approvals on saved groups. Requires the `bypassApprovalChecks` permission on every project the saved group belongs to. When the org does not require approvals, this flag has no effect.",
+      )
+      .optional(),
   })
   .strict();
 
@@ -137,6 +145,12 @@ const updateSavedGroupBody = z
       .optional(),
     owner: ownerInputField.optional(),
     projects: z.array(z.string()).optional(),
+    bypassApproval: z
+      .boolean()
+      .describe(
+        "Set to true to skip the approval flow when the org requires approvals on saved groups. Requires the `bypassApprovalChecks` permission on the saved group's existing projects. When the org does not require approvals, this flag has no effect.",
+      )
+      .optional(),
   })
   .strict();
 

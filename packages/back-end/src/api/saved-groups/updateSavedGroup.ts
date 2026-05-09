@@ -5,11 +5,19 @@ import { UpdateSavedGroupProps } from "shared/types/saved-group";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
+import { BadRequestError } from "back-end/src/util/errors";
+import { getAdapter } from "back-end/src/revisions";
+import {
+  buildPatchOps,
+  createOrUpdateRevision,
+  ensureLiveRevisionExists,
+} from "back-end/src/revisions/util";
 
 export const updateSavedGroup = createApiRequestHandler(
   updateSavedGroupValidator,
 )(async (req) => {
   const { name, values, condition, owner, projects } = req.body;
+  const bypassApproval = req.body.bypassApproval === true;
 
   const { id } = req.params;
 
@@ -88,6 +96,65 @@ export const updateSavedGroup = createApiRequestHandler(
     return {
       savedGroup: await resolveOwnerEmail(
         req.context.models.savedGroups.toApiInterface(savedGroup),
+        req.context,
+      ),
+    };
+  }
+
+  const adapter = getAdapter("saved-group");
+  const approvalRequired = adapter.isApprovalRequired(req.context);
+
+  if (approvalRequired) {
+    if (!bypassApproval) {
+      throw new BadRequestError(
+        "This organization requires approvals on saved groups. " +
+          `Use \`POST /saved-groups/${savedGroup.id}/revisions\` to open a draft, ` +
+          'or pass `{ "bypassApproval": true }` if you have the `bypassApprovalChecks` permission.',
+      );
+    }
+    // Scope the bypass permission to the *existing* group's projects so a
+    // `projects` move can't be paired with bypass-merge to launder a permission gap.
+    const canBypass = adapter.canBypassApproval(
+      req.context,
+      savedGroup as Parameters<typeof adapter.canBypassApproval>[1],
+    );
+    if (!canBypass) {
+      req.context.permissions.throwPermissionError();
+    }
+
+    // Route the bypass change through the revision system so the action lands
+    // in `Revision.activityLog`. Mirrors the internal controller's bypass branch.
+    await ensureLiveRevisionExists(
+      req.context,
+      "saved-group",
+      savedGroup as unknown as Record<string, unknown> & {
+        id: string;
+        owner?: string;
+        dateCreated?: Date;
+      },
+    );
+
+    const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
+    const revision = await createOrUpdateRevision(
+      req.context,
+      "saved-group",
+      savedGroup as unknown as Record<string, unknown> & { id: string },
+      patchOps,
+      false,
+      true,
+    );
+
+    await req.context.models.savedGroups.update(savedGroup, fieldsToUpdate);
+    await req.context.models.revisions.merge(revision.id, req.context.userId, {
+      bypass: true,
+    });
+
+    const refreshed = await req.context.models.savedGroups.getById(
+      savedGroup.id,
+    );
+    return {
+      savedGroup: await resolveOwnerEmail(
+        req.context.models.savedGroups.toApiInterface(refreshed ?? savedGroup),
         req.context,
       ),
     };

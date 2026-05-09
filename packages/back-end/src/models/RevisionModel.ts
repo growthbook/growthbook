@@ -480,6 +480,80 @@ export class RevisionModel extends BaseClass {
     } as Record<string, unknown>);
   }
 
+  /** Look up a single revision by entity type, entity id, and 1-based version. */
+  async getByTargetAndVersion(
+    entityType: RevisionTargetType,
+    entityId: string,
+    version: number,
+  ) {
+    return this._findOne({
+      "target.type": entityType,
+      "target.id": entityId,
+      version,
+    } as Record<string, unknown>);
+  }
+
+  /**
+   * Most-recently-updated open revision for the entity (any author). When
+   * `authorId` is supplied, restrict to revisions authored by that user — the
+   * `?mine=true` query path. Used by the public `revisions/latest` endpoint.
+   */
+  async getLatestOpenByTarget(
+    entityType: RevisionTargetType,
+    entityId: string,
+    options: { authorId?: string } = {},
+  ) {
+    const filter: Record<string, unknown> = {
+      "target.type": entityType,
+      "target.id": entityId,
+      status: { $nin: ["merged", "discarded"] },
+    };
+    if (options.authorId) {
+      filter.authorId = options.authorId;
+    }
+    const results = await this._find(filter, {
+      sort: { dateUpdated: -1, id: -1 },
+      limit: 1,
+    });
+    return results[0] ?? null;
+  }
+
+  /**
+   * Paginated revisions for a single entity. Mirrors `getByTargetTypePaginated`
+   * but adds an entity-id filter and optional author/mine filters used by the
+   * per-entity list endpoint.
+   */
+  async getByTargetPaginated(
+    entityType: RevisionTargetType,
+    entityId: string,
+    opts: {
+      status?: string | string[];
+      authorId?: string;
+      limit?: number;
+      skip?: number;
+    } = {},
+  ): Promise<{ revisions: Revision[]; total: number }> {
+    const { limit, skip } = opts;
+    const statusFilter = this.buildStatusFilter(opts.status);
+    const filter: Record<string, unknown> = {
+      "target.type": entityType,
+      "target.id": entityId,
+      ...(statusFilter ? { status: statusFilter } : {}),
+      ...(opts.authorId ? { authorId: opts.authorId } : {}),
+    };
+
+    const [revisions, total] = await Promise.all([
+      this._find(filter, {
+        limit,
+        skip,
+        sort: { dateCreated: -1, id: -1 },
+      }),
+      this._countDocuments(filter),
+    ]);
+
+    return { revisions, total };
+  }
+
   // Review
 
   async submitForReview(id: string, userId: string) {
