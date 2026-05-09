@@ -5,6 +5,7 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   advanceStep,
   advanceUntilBlocked,
+  appendRampEvent,
   applyRampStartActions,
   approveAndPublishStep,
   completeRollout,
@@ -187,6 +188,17 @@ export const putRampSchedule = async (
       : schedule.startDate) as RampScheduleInterface["startDate"],
   });
 
+  const editedFields = Object.keys(updates).filter(
+    (k) => k !== "nextProcessAt" && k !== "eventHistory",
+  );
+  if (editedFields.length > 0) {
+    updates.eventHistory = appendRampEvent(schedule, "config-edited", {
+      stepIndex: schedule.currentStepIndex,
+      status: schedule.status,
+      reason: `Edited: ${editedFields.join(", ")}`,
+    });
+  }
+
   const updated = await context.models.rampSchedules.updateById(
     schedule.id,
     updates,
@@ -260,6 +272,11 @@ export const postRampScheduleAction = async (
           nextStepAt: initialNextStepAt,
           cutoffDate: schedule.cutoffDate,
         }),
+        eventHistory: appendRampEvent(schedule, "started", {
+          stepIndex: -1,
+          status: "running",
+          previousStatus: schedule.status,
+        }),
       });
       await applyRampStartActions(context, updated);
       await advanceUntilBlocked(context, updated, now);
@@ -293,6 +310,11 @@ export const postRampScheduleAction = async (
         status: "paused",
         pausedAt: now,
         nextProcessAt: null,
+        eventHistory: appendRampEvent(schedule, "paused", {
+          stepIndex: schedule.currentStepIndex,
+          status: "paused",
+          previousStatus: schedule.status,
+        }),
       });
       break;
 
@@ -365,6 +387,11 @@ export const postRampScheduleAction = async (
         startDate: schedule.startDate,
       });
 
+      resumeUpdates.eventHistory = appendRampEvent(schedule, "resumed", {
+        stepIndex: schedule.currentStepIndex,
+        status: resumeUpdates.status as RampScheduleInterface["status"],
+        previousStatus: schedule.status,
+      });
       updated = await context.models.rampSchedules.updateById(
         schedule.id,
         resumeUpdates,
@@ -433,6 +460,12 @@ export const postRampScheduleAction = async (
           startedAt: null,
           phaseStartedAt: null,
         }),
+        eventHistory: appendRampEvent(resetRolled, "reset", {
+          stepIndex: -1,
+          previousStepIndex: schedule.currentStepIndex,
+          status: "paused",
+          previousStatus: schedule.status,
+        }),
       });
       break;
     }
@@ -485,6 +518,13 @@ export const postRampScheduleAction = async (
           phaseStartedAt: freshPhaseStartedAt,
           nextStepAt: null,
           nextProcessAt: null,
+          eventHistory: appendRampEvent(schedule, "step-jumped", {
+            stepIndex: jumpTarget,
+            previousStepIndex: schedule.currentStepIndex,
+            status: "paused",
+            previousStatus: schedule.status,
+            reason: "Re-entered current step",
+          }),
         });
       }
       await dispatchRampEvent(context, updated, "rampSchedule.actions.jumped", {

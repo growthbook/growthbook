@@ -68,6 +68,7 @@ import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
 } from "shared/types/feature-rule";
+import { appendRampEvent } from "back-end/src/services/rampSchedule";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getContextForAgendaJobByOrgId,
@@ -3331,6 +3332,14 @@ export async function putFeatureRule(
       }
       if (rampSchedulePayload.lockdownConfig !== undefined) {
         updates.lockdownConfig = rampSchedulePayload.lockdownConfig;
+      }
+      const editedFields = Object.keys(updates);
+      if (editedFields.length > 0) {
+        updates.eventHistory = appendRampEvent(existing, "config-edited", {
+          stepIndex: existing.currentStepIndex,
+          status: existing.status,
+          reason: `Edited: ${editedFields.join(", ")}`,
+        });
       }
       await context.models.rampSchedules.updateById(existing.id, updates);
     }

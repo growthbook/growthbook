@@ -14,6 +14,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { RowResults } from "@/services/experiments";
 import AlignedGraph from "./AlignedGraph";
+import { StatusLabels } from "./ExperimentResultTooltipContent/ExperimentResultTooltipContent";
 import { useResultPopover } from "./useResultPopover";
 
 interface Props
@@ -25,7 +26,8 @@ interface Props
   domain: [number, number];
   id: string;
   barType?: "pill" | "violin";
-  barFillType?: "gradient" | "significant";
+  barFillType?: "gradient" | "significant" | "color";
+  barFillColor?: string;
   significant?: boolean;
   disabled?: boolean;
   graphWidth?: number;
@@ -48,6 +50,7 @@ interface Props
   minPercentChange?: number;
   currentMetricTotal?: number;
   pValueAdjustmentEnabled?: boolean;
+  statusLabels?: StatusLabels;
 }
 
 export default function PercentGraph({
@@ -59,6 +62,7 @@ export default function PercentGraph({
   id,
   barType: _barType,
   barFillType = "gradient",
+  barFillColor,
   significant,
   disabled,
   graphWidth,
@@ -81,6 +85,7 @@ export default function PercentGraph({
   minPercentChange = 0,
   currentMetricTotal = 0,
   pValueAdjustmentEnabled,
+  statusLabels,
 }: Props) {
   const { metricDefaults: _metricDefaults } = useOrganizationMetricDefaults();
 
@@ -135,6 +140,7 @@ export default function PercentGraph({
       minPercentChange,
       currentMetricTotal,
       pValueAdjustmentEnabled,
+      statusLabels,
     },
   });
 
@@ -163,6 +169,7 @@ export default function PercentGraph({
         expected={showGraph ? stats.expected : undefined}
         barType={barType}
         barFillType={barFillType}
+        barFillColor={barFillColor}
         axisOnly={!showGraph}
         showAxis={false}
         significant={significant}

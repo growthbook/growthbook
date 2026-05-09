@@ -72,6 +72,11 @@ const safeRollout = createSafeRolloutValidator.extend({
   // scheduler rather than the legacy rampUpSchedule internal state.
   rampScheduleId: z.string().optional(),
 
+  // Experiment tracking key used in the SDK payload. For ramp-monitored
+  // rollout rules this is set explicitly (e.g. "ramp_{scheduleId}") because
+  // there is no safe-rollout rule on the feature to derive it from.
+  trackingKey: z.string().optional(),
+
   // Per-SafeRollout query refresh interval override. Allows minute-level
   // granularity vs the org-level updateSchedule (which floors at 1 hour).
   // Resolution: this field -> org updateSchedule -> EXPERIMENT_REFRESH_FREQUENCY.

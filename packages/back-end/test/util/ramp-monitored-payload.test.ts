@@ -142,12 +142,12 @@ describe("ramp-monitored SDK payload", () => {
       expect(rule.filters).toBeUndefined();
     });
 
-    it("uses safeRolloutId as tracking key when available", () => {
+    it("always uses ramp schedule id as tracking key (not safeRolloutId)", () => {
       const def = getDefinition(
         makeRolloutFeature(),
         monitoredMap("rule_1", { safeRolloutId: "sr_xyz" }),
       );
-      expect(def!.rules![0].key).toBe("sr_xyz");
+      expect(def!.rules![0].key).toBe("ramp_rs_abc");
     });
 
     it("variation 0 is treatment, variation 1 is control", () => {

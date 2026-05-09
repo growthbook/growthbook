@@ -166,6 +166,41 @@ export const rampScheduleStatusArray = [
 ] as const;
 export type RampScheduleStatus = (typeof rampScheduleStatusArray)[number];
 
+// ---------------------------------------------------------------------------
+// Event history — append-only audit log of ramp playhead changes.
+// Never exposed via REST API or included in templates.
+// ---------------------------------------------------------------------------
+
+export const rampEventTypeArray = [
+  "started",
+  "step-advanced",
+  "step-jumped",
+  "paused",
+  "resumed",
+  "approval-requested",
+  "approval-granted",
+  "rollback",
+  "reset",
+  "completed",
+  "config-edited",
+  "error-paused",
+  "snapshot-triggered",
+  "safe-rollout-linked",
+] as const;
+export type RampEventType = (typeof rampEventTypeArray)[number];
+
+export const rampEvent = z.object({
+  type: z.enum(rampEventTypeArray),
+  timestamp: z.date(),
+  stepIndex: z.number().int().min(-1).optional(),
+  previousStepIndex: z.number().int().min(-1).optional(),
+  status: z.enum(rampScheduleStatusArray).optional(),
+  previousStatus: z.enum(rampScheduleStatusArray).optional(),
+  reason: z.string().optional(),
+  userId: z.string().optional(),
+});
+export type RampEvent = z.infer<typeof rampEvent>;
+
 export const rampScheduleValidator = baseSchema
   .extend({
     name: z.string(),
@@ -224,6 +259,9 @@ export const rampScheduleValidator = baseSchema
     nextSnapshotAt: z.date().nullish(),
     lastRollbackAt: z.date().nullish(),
     lastRollbackReason: z.string().nullish(),
+
+    // Append-only audit log. Not exposed via REST API or templates.
+    eventHistory: z.array(rampEvent).optional(),
   })
   .superRefine((data, ctx) => {
     if (data.steps.length === 0 && !data.startDate && !data.cutoffDate) {

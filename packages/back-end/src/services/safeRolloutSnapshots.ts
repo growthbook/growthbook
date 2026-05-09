@@ -34,7 +34,6 @@ import {
   SafeRolloutSnapshotInterface,
   SafeRolloutSnapshotSettings,
   FeatureInterface,
-  SafeRolloutRule,
 } from "shared/validators";
 import {
   ExperimentSnapshotAnalysisSettings,
@@ -279,7 +278,7 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
 
 function getSafeRolloutSnapshotSettings({
   safeRollout,
-  safeRolloutRule,
+  trackingKey,
   settings,
   orgPriorSettings,
   settingsForSnapshotMetrics,
@@ -290,7 +289,7 @@ function getSafeRolloutSnapshotSettings({
   customFields,
 }: {
   safeRollout: SafeRolloutInterface;
-  safeRolloutRule: SafeRolloutRule;
+  trackingKey: string;
   settings: ExperimentSnapshotAnalysisSettings;
   orgPriorSettings: MetricPriorSettings | undefined;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
@@ -343,7 +342,7 @@ function getSafeRolloutSnapshotSettings({
 
   return {
     queryFilter: "",
-    experimentId: safeRolloutRule.trackingKey,
+    experimentId: trackingKey,
     phase: {
       index: "0",
     },
@@ -392,12 +391,19 @@ export async function _createSafeRolloutSnapshot({
   if (!feature) {
     throw new Error("Could not load safe rollout feature");
   }
+  // For ramp-monitored rollout rules, there is no safe-rollout rule on the
+  // feature — the tracking key lives on the SafeRollout entity itself.
   const safeRolloutRule = getSafeRolloutRuleFromFeature(
     feature,
     safeRollout.id,
   );
-  if (!safeRolloutRule) {
-    throw new Error("Could not find safe rollout rule");
+  const trackingKey =
+    safeRolloutRule?.trackingKey ?? safeRollout.trackingKey;
+  if (!trackingKey) {
+    throw new Error(
+      "Could not determine tracking key for safe rollout snapshot " +
+        "(no matching rule on feature and no trackingKey on SafeRollout)",
+    );
   }
 
   const datasource = await getDataSourceById(context, safeRollout.datasourceId);
@@ -407,7 +413,7 @@ export async function _createSafeRolloutSnapshot({
 
   const snapshotSettings = getSafeRolloutSnapshotSettings({
     safeRollout,
-    safeRolloutRule,
+    trackingKey,
     orgPriorSettings: organization.settings?.metricDefaults?.priorSettings,
     settings: defaultAnalysisSettings,
     settingsForSnapshotMetrics,

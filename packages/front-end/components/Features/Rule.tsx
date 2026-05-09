@@ -4,10 +4,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React, { forwardRef, ReactElement, useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
-  filterEnvironmentsByFeature,
-  filterInvalidMetricTimeSeries,
-} from "shared/util";
+import { filterEnvironmentsByFeature } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { RiAlertLine } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
@@ -29,14 +26,12 @@ import { format as formatTimeZone } from "date-fns-tz";
 import {
   SafeRolloutInterface,
   HoldoutInterface,
-  MetricTimeSeries,
   RampScheduleInterface,
 } from "shared/validators";
-import { extent } from "@visx/vendor/d3-array";
-import { getValidDate } from "shared/dates";
 import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
 import RampScheduleBadge from "@/components/RampSchedule/RampScheduleBadge";
+import SafeRolloutRuleDashboard from "@/components/RampSchedule/SafeRolloutRuleDashboard";
 import MonitoredIcon from "@/components/Features/RuleModal/MonitoredIcon";
 import RampTimeline, {
   getRampStepsCompleted,
@@ -75,8 +70,6 @@ import {
   DropdownMenuSeparator,
   DropdownSubMenu,
 } from "@/ui/DropdownMenu";
-import useApi from "@/hooks/useApi";
-import SafeRolloutTimeSeriesGraph from "@/components/Experiment/SafeRolloutTimeSeriesGraph";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
 
@@ -157,68 +150,6 @@ import ExperimentRefSummary, {
   isExperimentRefRuleSkipped,
 } from "./ExperimentRefSummary";
 
-function RampMonitoringResults({
-  safeRolloutId,
-  rampSchedule,
-}: {
-  safeRolloutId: string;
-  rampSchedule: RampScheduleInterface;
-}) {
-  const metricIds = rampSchedule.monitoringConfig?.guardrailMetricIds ?? [];
-  const urlMetricIds = metricIds
-    .map((id) => encodeURIComponent(id))
-    .join("&metricIds[]=");
-
-  const { data } = useApi<{
-    status: number;
-    timeSeries: MetricTimeSeries[];
-  }>(`/safe-rollout/${safeRolloutId}/time-series?metricIds[]=${urlMetricIds}`, {
-    shouldRun: () => metricIds.length > 0,
-  });
-
-  const filtered = useMemo(() => {
-    if (!data) return undefined;
-    return filterInvalidMetricTimeSeries(data.timeSeries);
-  }, [data]);
-
-  const dateRange = useMemo(() => {
-    const points = filtered?.flatMap((t) =>
-      t.dataPoints.map((d) => getValidDate(d.date)),
-    );
-    if (!points || points.length === 0)
-      return [undefined, undefined] as [undefined, undefined];
-    return extent(points);
-  }, [filtered]);
-
-  if (!filtered || filtered.length === 0) return null;
-
-  return (
-    <Box mt="3">
-      <Text as="div" size="medium" weight="medium" mb="1">
-        Guardrail metrics
-      </Text>
-      <Flex direction="column" gap="2">
-        {filtered.map((ts) => (
-          <Box
-            key={ts.metricId}
-            style={{
-              border: "1px solid var(--gray-a4)",
-              borderRadius: "var(--radius-2)",
-              padding: "var(--space-2)",
-            }}
-          >
-            <Text as="div" size="small" weight="medium" mb="1">
-              {ts.metricId}
-            </Text>
-            <Box style={{ height: 80 }}>
-              <SafeRolloutTimeSeriesGraph data={ts} xDateRange={dateRange} />
-            </Box>
-          </Box>
-        ))}
-      </Flex>
-    </Box>
-  );
-}
 
 interface SortableProps {
   // Global flat index into `feature.rules`; fallback addressing for the modal.
@@ -1260,14 +1191,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     await mutate();
                   }}
                 />
-                {rampSchedule.safeRolloutId &&
-                  rampSchedule.steps.some((s) => s.monitored) &&
-                  ["running", "paused"].includes(rampSchedule.status) && (
-                    <RampMonitoringResults
-                      safeRolloutId={rampSchedule.safeRolloutId}
-                      rampSchedule={rampSchedule}
-                    />
-                  )}
+                {rampSchedule.steps.some((s) => s.monitored) && (
+                  <SafeRolloutRuleDashboard
+                    safeRolloutId={rampSchedule.safeRolloutId ?? undefined}
+                    rampSchedule={rampSchedule}
+                  />
+                )}
               </Box>
             )}
           </Box>

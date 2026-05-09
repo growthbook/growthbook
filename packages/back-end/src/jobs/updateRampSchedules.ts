@@ -3,8 +3,10 @@ import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizatio
 import { logger } from "back-end/src/util/logger";
 import {
   advanceUntilBlocked,
+  appendRampEvent,
   applyRampStartActions,
   computeNextProcessAt,
+  ensureSafeRolloutForMonitoredRamp,
   onActivatingRevisionPublished,
   rollbackSchedule,
 } from "back-end/src/services/rampSchedule";
@@ -102,12 +104,23 @@ export const advanceSingleRampSchedule = async (
           nextStepAt: initialNextStepAt,
           cutoffDate: current.cutoffDate,
         }),
+        eventHistory: appendRampEvent(current, "started", {
+          stepIndex: -1,
+          status: "running",
+          previousStatus: current.status,
+          reason: "Scheduled start",
+        }),
       });
       await applyRampStartActions(context, current);
+      current = await ensureSafeRolloutForMonitoredRamp(context, current);
     }
 
     // Evaluate monitoring and hold conditions before advancing
     if (current.status === "running") {
+      // Self-healing: create the SafeRollout if it doesn't exist yet
+      // (covers schedules that started before this code was deployed).
+      current = await ensureSafeRolloutForMonitoredRamp(context, current);
+
       const decision = await evaluateCurrentStep(context, current, now);
       if (decision.action === "rollback") {
         logger.info(
@@ -126,6 +139,12 @@ export const advanceSingleRampSchedule = async (
           status: "paused",
           pausedAt: now,
           nextProcessAt: null,
+          eventHistory: appendRampEvent(current, "paused", {
+            stepIndex: current.currentStepIndex,
+            status: "paused",
+            previousStatus: current.status,
+            reason: decision.reason,
+          }),
         });
         return;
       }
@@ -142,9 +161,22 @@ export const advanceSingleRampSchedule = async (
   } catch (e) {
     logger.error(e, `Error advancing ramp schedule ${rampScheduleId}`);
     try {
+      const errorSchedule = await context.models.rampSchedules.getById(
+        rampScheduleId,
+      );
       await context.models.rampSchedules.updateById(rampScheduleId, {
         status: "paused",
         nextProcessAt: null,
+        ...(errorSchedule
+          ? {
+              eventHistory: appendRampEvent(errorSchedule, "error-paused", {
+                stepIndex: errorSchedule.currentStepIndex,
+                status: "paused",
+                previousStatus: errorSchedule.status,
+                reason: e instanceof Error ? e.message : String(e),
+              }),
+            }
+          : {}),
       });
     } catch (inner) {
       logger.error(inner, "Error updating ramp schedule status after failure");

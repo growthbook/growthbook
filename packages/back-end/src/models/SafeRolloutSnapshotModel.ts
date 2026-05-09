@@ -143,6 +143,12 @@ export class SafeRolloutSnapshotModel extends BaseClass {
         );
       }
 
+      // Ramp-schedule-backed safe rollouts are evaluated by the
+      // rampScheduleEvaluator, not the legacy safe-rollout rule path.
+      if (safeRollout.rampScheduleId) {
+        return;
+      }
+
       const feature = await getFeature(this.context, safeRollout.featureId);
       if (!feature) {
         throw new Error("Feature not found");

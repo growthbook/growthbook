@@ -14,6 +14,7 @@ import { RULE_ID_ENV_SUFFIX_DELIMITER, stemRuleId } from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
+  appendRampEvent,
   computeNextProcessAt,
   dispatchRampEvent,
 } from "back-end/src/services/rampSchedule";
@@ -678,6 +679,17 @@ export class RampScheduleModel extends BaseClass {
         ? updates.startDate
         : schedule.startDate) as RampScheduleInterface["startDate"],
     });
+
+    const editedFields = Object.keys(updates).filter(
+      (k) => k !== "nextProcessAt" && k !== "eventHistory",
+    );
+    if (editedFields.length > 0) {
+      updates.eventHistory = appendRampEvent(schedule, "config-edited", {
+        stepIndex: schedule.currentStepIndex,
+        status: schedule.status,
+        reason: `Edited: ${editedFields.join(", ")}`,
+      });
+    }
 
     const updated = await this.updateById(schedule.id, updates);
 

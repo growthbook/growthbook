@@ -906,8 +906,7 @@ export function getFeatureDefinition({
 
             rule.hashAttribute = r.hashAttribute;
             rule.seed = r.seed;
-            rule.key =
-              monitorInfo.safeRolloutId || `ramp_${monitorInfo.rampScheduleId}`;
+            rule.key = `ramp_${monitorInfo.rampScheduleId}`;
             rule.meta = includeExperimentNames
               ? [
                   { key: "0", name: "Variation" },

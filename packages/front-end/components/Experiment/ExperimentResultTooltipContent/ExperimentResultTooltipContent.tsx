@@ -18,6 +18,14 @@ import {
 } from "@/services/metrics";
 import styles from "./ExperimentResultTooltipContent.module.scss";
 
+export interface StatusLabels {
+  won?: string;
+  lost?: string;
+  draw?: string;
+  insignificant?: string;
+  notEnoughData?: string;
+}
+
 interface ExperimentResultTooltipContentProps {
   stats: SnapshotMetric;
   metric: ExperimentMetricInterface;
@@ -35,6 +43,7 @@ interface ExperimentResultTooltipContentProps {
   currentMetricTotal: number;
   timeRemainingMs?: number;
   pValueAdjustmentEnabled?: boolean;
+  statusLabels?: StatusLabels;
 }
 
 const numberFormatter = Intl.NumberFormat(undefined, {
@@ -63,6 +72,7 @@ export default function ExperimentResultTooltipContent({
   currentMetricTotal,
   timeRemainingMs,
   pValueAdjustmentEnabled,
+  statusLabels,
 }: ExperimentResultTooltipContentProps) {
   const _displayCurrency = useCurrency();
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
@@ -106,13 +116,13 @@ export default function ExperimentResultTooltipContent({
     notEnoughData || suspiciousChange || resultsStatus === "draw";
 
   const getBadgeText = () => {
-    if (notEnoughData) return "Not enough data";
+    if (notEnoughData) return statusLabels?.notEnoughData ?? "Not enough data";
     if (significant) {
-      if (resultsStatus === "won") return "Won";
-      if (resultsStatus === "lost") return "Lost";
-      if (resultsStatus === "draw") return "Draw";
+      if (resultsStatus === "won") return statusLabels?.won ?? "Won";
+      if (resultsStatus === "lost") return statusLabels?.lost ?? "Lost";
+      if (resultsStatus === "draw") return statusLabels?.draw ?? "Draw";
     }
-    return "Insignificant";
+    return statusLabels?.insignificant ?? "Insignificant";
   };
 
   const renderBadge = () => (

@@ -3,6 +3,8 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
 import {
   FeatureRulePatch,
+  RampEvent,
+  RampEventType,
   RampScheduleInterface,
   RampScheduleTemplateInterface,
   RampStepAction,
@@ -28,6 +30,42 @@ import {
 } from "back-end/src/util/flattenRules";
 
 const LOCKDOWN_ACTIVE_STATUSES = ["running", "pending-approval"] as const;
+
+const MAX_EVENT_HISTORY = 500;
+
+/**
+ * Append a RampEvent to a schedule's eventHistory, capped at MAX_EVENT_HISTORY.
+ * Returns the updated array to include in `updateById` payloads.
+ */
+export function appendRampEvent(
+  schedule: RampScheduleInterface,
+  type: RampEventType,
+  opts: {
+    stepIndex?: number;
+    previousStepIndex?: number;
+    status?: RampScheduleInterface["status"];
+    previousStatus?: RampScheduleInterface["status"];
+    reason?: string;
+    userId?: string;
+  } = {},
+): RampEvent[] {
+  const event: RampEvent = {
+    type,
+    timestamp: new Date(),
+    ...(opts.stepIndex !== undefined ? { stepIndex: opts.stepIndex } : {}),
+    ...(opts.previousStepIndex !== undefined
+      ? { previousStepIndex: opts.previousStepIndex }
+      : {}),
+    ...(opts.status !== undefined ? { status: opts.status } : {}),
+    ...(opts.previousStatus !== undefined
+      ? { previousStatus: opts.previousStatus }
+      : {}),
+    ...(opts.reason ? { reason: opts.reason } : {}),
+    ...(opts.userId ? { userId: opts.userId } : {}),
+  };
+  const history = [...(schedule.eventHistory ?? []), event];
+  return history.slice(-MAX_EVENT_HISTORY);
+}
 
 /**
  * Throws if any ramp schedule on this feature has lockdown enabled and is
@@ -321,6 +359,7 @@ export function computePhaseStartAfterApproval(
 export function getRefreshIntervalMs(
   safeRollout: SafeRolloutInterface | null,
   org: OrganizationInterface,
+  monitoringUpdateScheduleMinutes?: number | null,
 ): number {
   // 1. Per-SafeRollout override (minute-level granularity)
   if (
@@ -329,7 +368,11 @@ export function getRefreshIntervalMs(
   ) {
     return safeRollout.updateScheduleMinutes * 60 * 1000;
   }
-  // 2. Org-level update schedule
+  // 2. RampSchedule monitoringConfig fallback (belt-and-suspenders)
+  if (monitoringUpdateScheduleMinutes && monitoringUpdateScheduleMinutes > 0) {
+    return monitoringUpdateScheduleMinutes * 60 * 1000;
+  }
+  // 3. Org-level update schedule
   const orgSchedule = org.settings?.updateSchedule;
   if (orgSchedule) {
     if (orgSchedule.type === "never") return 24 * 60 * 60 * 1000;
@@ -337,7 +380,7 @@ export function getRefreshIntervalMs(
       return Math.max(orgSchedule.hours, 1) * 60 * 60 * 1000;
     }
   }
-  // 3. EXPERIMENT_REFRESH_FREQUENCY env var default (6 hours)
+  // 4. EXPERIMENT_REFRESH_FREQUENCY env var default (6 hours)
   return 6 * 60 * 60 * 1000;
 }
 
@@ -346,8 +389,12 @@ export function computeNextSnapshotAt(
   safeRollout: SafeRolloutInterface | null,
   org: OrganizationInterface,
   now: Date,
+  monitoringUpdateScheduleMinutes?: number | null,
 ): Date {
-  return new Date(now.getTime() + getRefreshIntervalMs(safeRollout, org));
+  return new Date(
+    now.getTime() +
+      getRefreshIntervalMs(safeRollout, org, monitoringUpdateScheduleMinutes),
+  );
 }
 
 // Group actions by entity and publish one revision per entity. Partial failure is not rolled back.
@@ -438,6 +485,63 @@ export async function applyRampStartActions(
   await executeStepActions(ctx, schedule, -1, enableActions);
 }
 
+/**
+ * Creates a SafeRollout entity for a monitored ramp schedule and links it
+ * back via `safeRolloutId`. Called once when the schedule transitions to
+ * "running" and has at least one monitored step.
+ *
+ * Returns the updated schedule with safeRolloutId set, or the original
+ * schedule if monitoring is not configured.
+ */
+export async function ensureSafeRolloutForMonitoredRamp(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+): Promise<RampScheduleInterface> {
+  if (schedule.safeRolloutId) return schedule;
+
+  const hasMonitoredSteps = schedule.steps.some((s) => s.monitored);
+  const mc = schedule.monitoringConfig;
+  if (!hasMonitoredSteps || !mc) return schedule;
+
+  const allMetricIds = [
+    ...mc.guardrailMetricIds,
+    ...(mc.signalMetricIds ?? []),
+  ];
+  if (allMetricIds.length === 0) return schedule;
+
+  const trackingKey = `ramp_${schedule.id}`;
+
+  const sr = await ctx.models.safeRollout.create({
+    featureId: schedule.entityId,
+    datasourceId: mc.datasourceId,
+    exposureQueryId: mc.exposureQueryId,
+    guardrailMetricIds: allMetricIds,
+    maxDuration: { amount: 90, unit: "days" },
+    autoRollback: false,
+    autoSnapshots: true,
+    status: "running",
+    startedAt: new Date(),
+    rampScheduleId: schedule.id,
+    trackingKey,
+    updateScheduleMinutes: mc.updateScheduleMinutes ?? undefined,
+    rampUpSchedule: {
+      enabled: false,
+      step: 0,
+      steps: [],
+      rampUpCompleted: false,
+    },
+  });
+
+  return ctx.models.rampSchedules.updateById(schedule.id, {
+    safeRolloutId: sr.id,
+    eventHistory: appendRampEvent(schedule, "safe-rollout-linked", {
+      stepIndex: schedule.currentStepIndex,
+      status: schedule.status,
+      reason: `Linked safe rollout ${sr.id}`,
+    }),
+  });
+}
+
 export async function advanceStep(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -481,7 +585,12 @@ export async function advanceStep(
     const sr = schedule.safeRolloutId
       ? await ctx.models.safeRollout.getById(schedule.safeRolloutId)
       : null;
-    nextSnapshotAt = computeNextSnapshotAt(sr, ctx.org, now);
+    nextSnapshotAt = computeNextSnapshotAt(
+      sr,
+      ctx.org,
+      now,
+      schedule.monitoringConfig?.updateScheduleMinutes,
+    );
   }
 
   const newStatus = isApprovalStep
@@ -498,6 +607,12 @@ export async function advanceStep(
       nextStepAt,
       nextSnapshotAt,
       cutoffDate: schedule.cutoffDate,
+    }),
+    eventHistory: appendRampEvent(schedule, "step-advanced", {
+      stepIndex: nextStepIndex,
+      previousStepIndex: schedule.currentStepIndex,
+      status: newStatus,
+      previousStatus: schedule.status,
     }),
   });
 
@@ -536,6 +651,7 @@ export async function rollbackToStep(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
   targetStepIndex: number,
+  reason?: string,
 ): Promise<RampScheduleInterface> {
   // For a pre-start rollback (-1), use step 0's accumulated state so the live rule
   // immediately reflects the ramp's starting position rather than staying at wherever
@@ -565,6 +681,13 @@ export async function rollbackToStep(
     nextStepAt: null,
     pausedAt: newStatus === "paused" ? now : null,
     nextProcessAt: null,
+    eventHistory: appendRampEvent(schedule, "rollback", {
+      stepIndex: targetStepIndex,
+      previousStepIndex: schedule.currentStepIndex,
+      status: newStatus,
+      previousStatus: schedule.status,
+      reason,
+    }),
   });
 
   await dispatchRampEvent(ctx, updated, "rampSchedule.actions.rolledBack", {
@@ -592,7 +715,7 @@ export async function rollbackSchedule(
     lastRollbackAt: now,
     lastRollbackReason: reason,
   });
-  return rollbackToStep(ctx, schedule, -1);
+  return rollbackToStep(ctx, schedule, -1, reason);
 }
 
 // Jump to jumpTarget (forward or backward), applying the accumulated effective state.
@@ -621,6 +744,12 @@ export async function jumpAheadToStep(
     nextStepAt: null,
     pausedAt: now,
     nextProcessAt: null,
+    eventHistory: appendRampEvent(schedule, "step-jumped", {
+      stepIndex: jumpTarget,
+      previousStepIndex: schedule.currentStepIndex,
+      status: "paused",
+      previousStatus: schedule.status,
+    }),
   });
 }
 
@@ -659,6 +788,12 @@ export async function completeRollout(
     currentStepIndex: finalStepIndex,
     nextStepAt: null,
     nextProcessAt: null,
+    eventHistory: appendRampEvent(schedule, "completed", {
+      stepIndex: finalStepIndex,
+      previousStepIndex: schedule.currentStepIndex,
+      status: "completed",
+      previousStatus: schedule.status,
+    }),
   });
 
   await dispatchRampEvent(ctx, updated, "rampSchedule.actions.completed", {
@@ -697,6 +832,11 @@ export async function onActivatingRevisionPublished(
         status: "running",
         nextStepAt: initialNextStepAt,
         cutoffDate: schedule.cutoffDate,
+      }),
+      eventHistory: appendRampEvent(schedule, "started", {
+        stepIndex: -1,
+        status: "running",
+        previousStatus: schedule.status,
       }),
     });
 
@@ -933,6 +1073,11 @@ export async function approveAndPublishStep(
       status: "running",
       nextStepAt,
       cutoffDate: schedule.cutoffDate,
+    }),
+    eventHistory: appendRampEvent(schedule, "approval-granted", {
+      stepIndex: schedule.currentStepIndex,
+      status: "running",
+      previousStatus: schedule.status,
     }),
   });
 

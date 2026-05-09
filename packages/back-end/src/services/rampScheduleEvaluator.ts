@@ -3,8 +3,8 @@ import {
   SafeRolloutInterface,
   StepHoldConditions,
   ExperimentHealthAction,
-  RampMonitoringConfig,
 } from "shared/validators";
+import { expandMetricGroups } from "shared/experiments";
 import { getHealthSettings } from "shared/enterprise";
 import { getSRMHealthData } from "shared/health";
 import { DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION } from "shared/constants";
@@ -12,6 +12,7 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import {
+  appendRampEvent,
   computeNextSnapshotAt,
   getRefreshIntervalMs,
 } from "back-end/src/services/rampSchedule";
@@ -68,10 +69,26 @@ async function evaluateMonitoredStep(
   const monitoringConfig = schedule.monitoringConfig ?? undefined;
   const healthAction = schedule.experimentHealthAction ?? "hold";
 
+  // Expand metric group IDs so guardrail/signal checks match individual
+  // metric IDs in the analysis summary (which stores expanded keys).
+  const metricGroups = await ctx.models.metricGroups.getAll();
+  const expandedGuardrailIds = expandMetricGroups(
+    monitoringConfig?.guardrailMetricIds ?? [],
+    metricGroups,
+  );
+  const expandedSignalIds = expandMetricGroups(
+    monitoringConfig?.signalMetricIds ?? [],
+    metricGroups,
+  );
+
   // 1. Check schedule-level guardrail signals (rollback for guardrail-tier metrics).
+  // Dedupe: if a metric appears in both tiers, treat it as guardrail only.
+  const signalOnly = expandedSignalIds.filter(
+    (id) => !expandedGuardrailIds.includes(id),
+  );
   const scheduleLevelDecision = checkScheduleGuardrailSignals(
     safeRollout,
-    monitoringConfig,
+    expandedGuardrailIds,
   );
   if (scheduleLevelDecision) return scheduleLevelDecision;
 
@@ -139,7 +156,7 @@ async function evaluateMonitoredStep(
   }
 
   // 8. Step-level signal metric gating (hold for signal-tier metrics).
-  const signalDecision = checkSignalMetricGating(safeRollout, monitoringConfig);
+  const signalDecision = checkSignalMetricGating(safeRollout, signalOnly);
   if (signalDecision) return signalDecision;
 
   // 9. Hold conditions (minDurationMs timing).
@@ -161,12 +178,12 @@ async function evaluateMonitoredStep(
 
 function checkScheduleGuardrailSignals(
   safeRollout: SafeRolloutInterface,
-  monitoringConfig?: RampMonitoringConfig,
+  expandedGuardrailIds: string[],
 ): EvalDecision | null {
   const summary = safeRollout.analysisSummary;
   if (!summary?.resultsStatus) return null;
 
-  const guardrailIds = new Set(monitoringConfig?.guardrailMetricIds ?? []);
+  const guardrailIds = new Set(expandedGuardrailIds);
   if (guardrailIds.size === 0) return null;
 
   for (const variation of summary.resultsStatus.variations) {
@@ -242,12 +259,12 @@ function checkExperimentHealth(
 
 function checkSignalMetricGating(
   safeRollout: SafeRolloutInterface,
-  monitoringConfig?: RampMonitoringConfig,
+  expandedSignalIds: string[],
 ): EvalDecision | null {
   const summary = safeRollout.analysisSummary;
   if (!summary?.resultsStatus) return null;
 
-  const signalIds = new Set(monitoringConfig?.signalMetricIds ?? []);
+  const signalIds = new Set(expandedSignalIds);
   if (signalIds.size === 0) return null;
 
   for (const variation of summary.resultsStatus.variations) {
@@ -277,7 +294,11 @@ async function maybeTriggerSnapshot(
   safeRollout: SafeRolloutInterface,
   now: Date,
 ): Promise<void> {
-  const refreshMs = getRefreshIntervalMs(safeRollout, ctx.org);
+  const refreshMs = getRefreshIntervalMs(
+    safeRollout,
+    ctx.org,
+    schedule.monitoringConfig?.updateScheduleMinutes,
+  );
   const lastAttempt = safeRollout.lastSnapshotAttempt;
 
   const isDue =
@@ -302,9 +323,18 @@ async function maybeTriggerSnapshot(
       triggeredBy: "schedule",
     });
 
-    const nextSnapshotAt = computeNextSnapshotAt(safeRollout, ctx.org, now);
+    const nextSnapshotAt = computeNextSnapshotAt(
+      safeRollout,
+      ctx.org,
+      now,
+      schedule.monitoringConfig?.updateScheduleMinutes,
+    );
     await ctx.models.rampSchedules.updateById(schedule.id, {
       nextSnapshotAt,
+      eventHistory: appendRampEvent(schedule, "snapshot-triggered", {
+        stepIndex: schedule.currentStepIndex,
+        status: schedule.status,
+      }),
     });
 
     logger.info(

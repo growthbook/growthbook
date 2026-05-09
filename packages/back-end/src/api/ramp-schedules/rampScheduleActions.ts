@@ -1,10 +1,14 @@
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { PermissionError } from "shared/util";
-import { apiRampScheduleInterface } from "shared/validators";
+import {
+  apiRampScheduleInterface,
+  RampScheduleInterface,
+} from "shared/validators";
 import {
   advanceUntilBlocked,
   advanceStep,
+  appendRampEvent,
   approveAndPublishStep,
   applyRampStartActions,
   completeRollout,
@@ -66,6 +70,11 @@ export const startRampSchedule = createApiRequestHandler({
       nextStepAt: initialNextStepAt,
       cutoffDate: schedule.cutoffDate,
     }),
+    eventHistory: appendRampEvent(schedule, "started", {
+      stepIndex: -1,
+      status: "running",
+      previousStatus: schedule.status,
+    }),
   });
 
   await applyRampStartActions(req.context, current);
@@ -116,7 +125,16 @@ export const pauseRampSchedule = createApiRequestHandler({
 
   const updated = await req.context.models.rampSchedules.updateById(
     schedule.id,
-    { status: "paused", pausedAt: new Date(), nextProcessAt: null },
+    {
+      status: "paused",
+      pausedAt: new Date(),
+      nextProcessAt: null,
+      eventHistory: appendRampEvent(schedule, "paused", {
+        stepIndex: schedule.currentStepIndex,
+        status: "paused",
+        previousStatus: schedule.status,
+      }),
+    },
   );
 
   return { rampSchedule: rampScheduleToApiInterface(updated) };
@@ -200,6 +218,11 @@ export const resumeRampSchedule = createApiRequestHandler({
     startDate: schedule.startDate,
   });
 
+  resumeUpdates.eventHistory = appendRampEvent(schedule, "resumed", {
+    stepIndex: schedule.currentStepIndex,
+    status: resumeUpdates.status as RampScheduleInterface["status"],
+    previousStatus: schedule.status,
+  });
   let updated = await req.context.models.rampSchedules.updateById(
     schedule.id,
     resumeUpdates,
@@ -279,6 +302,13 @@ export const jumpRampSchedule = createApiRequestHandler({
       phaseStartedAt: freshPhaseStartedAt,
       nextStepAt: null,
       nextProcessAt: null,
+      eventHistory: appendRampEvent(schedule, "step-jumped", {
+        stepIndex: targetStepIndex,
+        previousStepIndex: schedule.currentStepIndex,
+        status: "paused",
+        previousStatus: schedule.status,
+        reason: "Re-entered current step",
+      }),
     });
   }
 

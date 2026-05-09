@@ -16,24 +16,35 @@ export default function StatusColumn({
   rowResults,
   hideScaledImpact = false,
 }: Props) {
-  const statusText = () => {
-    if (rowResults.resultsStatus === "lost" && rowResults.significant) {
-      return "Failing";
+  const isFailing =
+    rowResults.resultsStatus === "lost" && rowResults.significant;
+  const conclusive = rowResults.enoughData && rowResults.significant;
+
+  const status = (() => {
+    if (isFailing) {
+      return { text: "Failing", color: "var(--red-11)" } as const;
     } else if (!rowResults.enoughData) {
-      return "Not enough data";
+      return { text: "Not enough data", color: "var(--gray-9)" } as const;
     } else if (!baseline || !stats) {
-      return "No data";
+      return { text: "No data", color: "var(--gray-9)" } as const;
     } else {
-      return "Within bounds";
+      return { text: "Within bounds", color: "var(--blue-11)" } as const;
     }
-  };
+  })();
 
   if (hideScaledImpact) {
     return <NoScaledImpact />;
   } else {
     return (
       <div className="d-flex align-items-center h-100">
-        <div className="result-number d-inline-block">{statusText()}</div>
+        <span
+          style={{
+            color: status.color,
+            fontWeight: conclusive ? 600 : undefined,
+          }}
+        >
+          {status.text}
+        </span>
       </div>
     );
   }
