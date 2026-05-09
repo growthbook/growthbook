@@ -76,6 +76,14 @@ export async function postRefresh(req: Request, res: Response) {
       refreshToken,
     );
 
+    // Defend against a freshly-issued token that's already expired (severe
+    // clock skew, misbehaving provider). Returning it would make the client
+    // 401 on every call until the next /auth/refresh; bail to the
+    // unauthenticated path instead.
+    if (isIdTokenExpired(idToken)) {
+      throw new Error("Refreshed idToken is already expired");
+    }
+
     setIdTokenCookie(idToken, req, res);
     if (newRefreshToken) {
       RefreshTokenCookie.setValue(newRefreshToken, req, res);
