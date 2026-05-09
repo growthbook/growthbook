@@ -90,6 +90,22 @@ const postRampScheduleValidator = {
       // `rule.id` is uniquely sufficient within a feature's unified rule list;
       // env is a deprecated pre-v2 disambiguator. See `rampTarget` in
       // shared/validators.
+      if (data.steps) {
+        for (let i = 0; i < data.steps.length; i++) {
+          const step = data.steps[i];
+          if (!step.monitored) continue;
+          for (const action of step.actions) {
+            if (action.patch.coverage === 0) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message:
+                  "Monitored steps must have coverage greater than 0. There is nothing to monitor at 0% traffic.",
+                path: ["steps", i],
+              });
+            }
+          }
+        }
+      }
     }),
 };
 

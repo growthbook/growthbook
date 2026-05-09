@@ -1,5 +1,5 @@
 import { FC, useMemo, useState } from "react";
-import { Box, Separator } from "@radix-ui/themes";
+import { AlertDialog, Box, Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { extent } from "@visx/vendor/d3-array";
 import { scaleTime } from "@visx/scale";
@@ -24,9 +24,16 @@ import {
   getMetricLink,
   isFactMetric,
 } from "shared/experiments";
+import {
+  DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+  DEFAULT_SRM_THRESHOLD,
+  DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+  DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
+} from "shared/constants";
+import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { PiInfo } from "react-icons/pi";
-import Link from "next/link";
+import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -41,6 +48,10 @@ import PercentGraph from "@/components/Experiment/PercentGraph";
 import StatusColumn from "@/components/SafeRollout/Results/StatusColumn";
 import MetricName from "@/components/Metrics/MetricName";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
+import Callout from "@/ui/Callout";
+import { useUser } from "@/services/UserContext";
+import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 
 // ─── Dummy data helpers ──────────────────────────────────────────────────────
 
@@ -510,6 +521,38 @@ function generateDummyTimeSeries(
   });
 }
 
+function generateDummyTrafficSnapshot(): SafeRolloutSnapshotInterface {
+  const treatmentUsers = 4821;
+  const controlUsers = 5203;
+  return {
+    id: "srsnp_dummy",
+    organization: "",
+    safeRolloutId: "",
+    dateCreated: new Date(),
+    runStarted: new Date(),
+    status: "success",
+    queries: [],
+    multipleExposures: 347,
+    analyses: [],
+    health: {
+      traffic: {
+        overall: {
+          name: "All",
+          srm: 0.42,
+          variationUnits: [treatmentUsers, controlUsers],
+        },
+        dimension: {},
+      },
+    },
+    settings: {
+      datasourceId: "",
+      exposureQueryId: "",
+      startDate: new Date(),
+      metricSettings: [],
+    },
+  } as unknown as SafeRolloutSnapshotInterface;
+}
+
 // ─── Metric section (table-based, matching experiment results UI) ─────────────
 
 const SAFE_ROLLOUT_STATUS_LABELS = {
@@ -527,6 +570,7 @@ function MetricSection({
   title,
   subtitle,
   metricIds,
+  resultGroup,
   snapshotMetrics,
   timeSeries,
   dateExtent,
@@ -537,6 +581,7 @@ function MetricSection({
   title: string;
   subtitle: string;
   metricIds: string[];
+  resultGroup: "guardrail" | "secondary";
   snapshotMetrics: Record<
     string,
     { baseline: SnapshotMetric; variation: SnapshotMetric }
@@ -567,11 +612,11 @@ function MetricSection({
                 { value: 0, cr: 0, users: 0 },
                 { value: 0, cr: 0, users: 0 },
               ],
-          resultGroup: "guardrail",
+          resultGroup,
         };
       })
       .filter(Boolean) as ExperimentTableRow[];
-  }, [metricIds, snapshotMetrics, getExperimentMetricById]);
+  }, [metricIds, snapshotMetrics, getExperimentMetricById, resultGroup]);
 
   const allRowResults = useMemo(() => {
     return rows.map((row) => {
@@ -639,7 +684,7 @@ function MetricSection({
       <Text as="div" weight="medium" size="medium" mb="1">
         {title}
       </Text>
-      <Text as="div" size="small" color="text-low" mb="3">
+      <Text as="div" size="small" color="text-low" mb="2">
         {subtitle}
       </Text>
 
@@ -907,6 +952,373 @@ function MetricSection({
   );
 }
 
+// ─── Health checks ───────────────────────────────────────────────────────────
+
+const numberFmt = Intl.NumberFormat(undefined, {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+const pctFmt = Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 2,
+});
+
+type SRMHealthStatus = "healthy" | "unhealthy" | "not-enough-traffic";
+
+function pValueFmt(p: number): string {
+  if (typeof p !== "number") return "";
+  return p < 0.001 ? "<0.001" : p.toFixed(3);
+}
+
+function HealthChecks({
+  snapshot,
+}: {
+  snapshot: SafeRolloutSnapshotInterface | undefined;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [srmModalOpen, setSrmModalOpen] = useState(false);
+  const { settings } = useUser();
+
+  const traffic = snapshot?.health?.traffic;
+  const units = traffic?.overall?.variationUnits;
+  const srmPValue = traffic?.overall?.srm;
+  const totalUsers = units?.reduce((a, b) => a + b, 0) ?? 0;
+  const meCount = snapshot?.multipleExposures ?? 0;
+
+  const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
+  const meMinPercent =
+    settings.multipleExposureMinPercent ?? DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD;
+
+  const srmHealth: SRMHealthStatus = useMemo(() => {
+    if (srmPValue === undefined || totalUsers === 0)
+      return "not-enough-traffic";
+    return getSRMHealthData({
+      srm: srmPValue,
+      srmThreshold,
+      numOfVariations: 2,
+      totalUsersCount: totalUsers,
+      minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+    });
+  }, [srmPValue, srmThreshold, totalUsers]);
+
+  const meHealth = useMemo(
+    () =>
+      getMultipleExposureHealthData({
+        multipleExposuresCount: meCount,
+        totalUsersCount: totalUsers,
+        minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+        minPercentThreshold: meMinPercent,
+      }),
+    [meCount, totalUsers, meMinPercent],
+  );
+
+  const hasData = !!units && totalUsers > 0;
+
+  const hasIssue = srmHealth === "unhealthy" || meHealth.status === "unhealthy";
+
+  const overallColor = !hasData
+    ? "var(--slate-11)"
+    : hasIssue
+      ? "var(--amber-11)"
+      : "var(--blue-11)";
+  const overallBg = !hasData
+    ? "var(--slate-a3)"
+    : hasIssue
+      ? "var(--amber-a3)"
+      : "var(--blue-a3)";
+  const overallLabel = !hasData
+    ? "Awaiting data"
+    : hasIssue
+      ? "Issues detected"
+      : "All clear";
+
+  const variations = [
+    { name: "Treatment", expected: 0.5 },
+    { name: "Control", expected: 0.5 },
+  ];
+
+  return (
+    <Box mt="3">
+      {/* SRM Learn More dialog */}
+      {srmModalOpen && (
+        <AlertDialog.Root open={true}>
+          <AlertDialog.Content maxWidth="720px">
+            <Flex direction="column" gap="4">
+              <Box>
+                <AlertDialog.Title>
+                  <Text as="div" size="x-large" weight="medium">
+                    Sample Ratio Mismatch (SRM)
+                  </Text>
+                </AlertDialog.Title>
+                <AlertDialog.Description>
+                  <Text as="div" size="medium" color="text-low">
+                    When actual traffic splits are significantly different from
+                    expected, we raise an SRM issue.
+                  </Text>
+                </AlertDialog.Description>
+              </Box>
+
+              {srmHealth !== "unhealthy" ? (
+                <Callout status="info">
+                  There is not enough evidence to raise an issue. Any imbalances
+                  in the percentages you see may be due to chance and
+                  aren&apos;t cause for concern at this time.
+                </Callout>
+              ) : (
+                <Callout status="warning">
+                  The threshold for firing an SRM warning is{" "}
+                  <b>{srmThreshold}</b> and the p-value is{" "}
+                  <b>{srmPValue !== undefined ? pValueFmt(srmPValue) : "—"}</b>.
+                  This is a strong indicator that your traffic is imbalanced.
+                </Callout>
+              )}
+
+              {hasData && (
+                <VariationUsersTable
+                  variations={variations.map((v, i) => ({
+                    id: String(i),
+                    name: v.name,
+                    weight: v.expected,
+                    index: i,
+                  }))}
+                  users={units ? [...units] : []}
+                  srm={srmPValue}
+                  hideVariationIndex
+                />
+              )}
+
+              {srmHealth === "unhealthy" && (
+                <Box>
+                  <Text as="div" size="small" mb="2">
+                    Most common causes:
+                  </Text>
+                  <ul style={{ margin: 0, paddingLeft: 20 }}>
+                    <li>
+                      <Text size="small">
+                        Broken event firing or SDK trackingCallback issues
+                      </Text>
+                    </li>
+                    <li>
+                      <Text size="small">
+                        Mismatch between SDK attribute and data ID
+                      </Text>
+                    </li>
+                    <li>
+                      <Text size="small">
+                        Coverage or targeting changes mid-rollout
+                      </Text>
+                    </li>
+                    <li>
+                      <Text size="small">
+                        Step jumps that re-randomize traffic
+                      </Text>
+                    </li>
+                  </ul>
+                  <Text as="div" size="small" mt="2">
+                    <a
+                      target="_blank"
+                      rel="noreferrer"
+                      href="https://docs.growthbook.io/kb/experiments/troubleshooting-experiments"
+                    >
+                      Read about troubleshooting in our docs
+                    </a>
+                  </Text>
+                </Box>
+              )}
+
+              <Flex justify="end">
+                <Link onClick={() => setSrmModalOpen(false)}>Close</Link>
+              </Flex>
+            </Flex>
+          </AlertDialog.Content>
+        </AlertDialog.Root>
+      )}
+
+      {/* Accordion header */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setExpanded(!expanded)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") setExpanded(!expanded);
+        }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          cursor: "pointer",
+          userSelect: "none",
+        }}
+      >
+        <Text size="medium" weight="medium">
+          {expanded ? "▾" : "▸"} Health Checks
+        </Text>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            color: overallColor,
+            backgroundColor: overallBg,
+            borderRadius: "var(--radius-1)",
+            padding: "1px 6px",
+          }}
+        >
+          {overallLabel}
+        </span>
+      </div>
+
+      {expanded && (
+        <Box mt="2">
+          {!hasData ? (
+            <Text as="div" size="small" color="text-low">
+              No traffic data available yet. Data will appear after the first
+              snapshot completes.
+            </Text>
+          ) : (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 20,
+                fontSize: 13,
+              }}
+            >
+              {/* ── 1. Total Users ── */}
+              <div>
+                Total Users: <strong>{numberFmt.format(totalUsers)}</strong>
+              </div>
+
+              {/* ── 2. Experiment Balance (SRM) ── */}
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 8 }}>
+                  Experiment Balance
+                </div>
+                <table
+                  className="table-sm"
+                  style={{
+                    width: "100%",
+                    maxWidth: 460,
+                    borderCollapse: "collapse",
+                  }}
+                >
+                  <thead>
+                    <tr>
+                      {["Variation", "Users", "Actual", "Expected"].map((h) => (
+                        <th
+                          key={h}
+                          style={{
+                            fontWeight: 500,
+                            width: "25%",
+                            padding: "6px 8px",
+                            borderBottom: "1px solid var(--slate-a5)",
+                            textAlign: "left",
+                          }}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {variations.map((v, i) => {
+                      const actual = units[i] ?? 0;
+                      const actualPct =
+                        totalUsers > 0 ? actual / totalUsers : 0;
+                      const isOff = Math.abs(actualPct - v.expected) > 0.02;
+                      return (
+                        <tr key={i}>
+                          <td style={{ padding: "6px 8px" }}>{v.name}</td>
+                          <td style={{ padding: "6px 8px" }}>
+                            {numberFmt.format(actual)}
+                          </td>
+                          <td
+                            style={{
+                              padding: "6px 8px",
+                              color: isOff ? "var(--red-11)" : undefined,
+                            }}
+                          >
+                            {pctFmt.format(actualPct)}
+                          </td>
+                          <td
+                            style={{
+                              padding: "6px 8px",
+                              color: "var(--slate-11)",
+                            }}
+                          >
+                            {pctFmt.format(v.expected)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                <div style={{ marginTop: 8 }}>
+                  {srmHealth === "unhealthy" ? (
+                    <Callout status="warning" size="sm">
+                      <strong>Sample Ratio Mismatch (SRM) detected.</strong>{" "}
+                      P-value {pValueFmt(srmPValue!)} is below {srmThreshold}.{" "}
+                      <a
+                        className="a"
+                        role="button"
+                        onClick={() => setSrmModalOpen(true)}
+                      >
+                        Learn More {">"}
+                      </a>
+                    </Callout>
+                  ) : (
+                    <Callout status="success" size="sm">
+                      No Sample Ratio Mismatch (SRM) detected.
+                      {srmHealth === "healthy" && (
+                        <> P-value above {srmThreshold}.</>
+                      )}{" "}
+                      <a
+                        className="a"
+                        role="button"
+                        onClick={() => setSrmModalOpen(true)}
+                      >
+                        Learn More {">"}
+                      </a>
+                    </Callout>
+                  )}
+                </div>
+              </div>
+
+              {/* ── 3. Multiple Exposures ── */}
+              {meHealth.status !== "not-enough-traffic" && (
+                <div>
+                  <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                    Multiple Exposures
+                  </div>
+                  <div>
+                    {numberFmt.format(meCount)} users (
+                    {pctFmt.format(meHealth.rawDecimal)})
+                  </div>
+                  <div style={{ marginTop: 8 }}>
+                    {meHealth.status === "unhealthy" ? (
+                      <Callout status="warning" size="sm">
+                        <strong>Multiple Exposures Warning.</strong>{" "}
+                        {numberFmt.format(meCount)} users saw multiple
+                        variations. Check for bugs in your implementation, event
+                        tracking, or data pipeline.
+                      </Callout>
+                    ) : (
+                      <Callout status="success" size="sm">
+                        {meCount === 0
+                          ? "No multiple exposures detected."
+                          : `${numberFmt.format(meCount)} multiple exposures detected, below the ${pctFmt.format(meMinPercent)} threshold.`}
+                      </Callout>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 // ─── Main dashboard ──────────────────────────────────────────────────────────
 
 interface SafeRolloutRuleDashboardProps {
@@ -991,13 +1403,26 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
     [useDummyData, allMetricIds.join(","), dummyMetrics, dummyStartMs],
   );
 
-  // ── Real data: snapshot ──
-  const { data: snapshotData } = useApi<{
+  const dummyTrafficSnapshot = useMemo(
+    () => (useDummyData ? generateDummyTrafficSnapshot() : undefined),
+    [useDummyData],
+  );
+
+  // ── Real data: snapshot (prefer context from SafeRolloutSnapshotProvider) ──
+  const snapshotCtx = useSafeRolloutSnapshot();
+  const { data: snapshotDataDirect } = useApi<{
     snapshot: SafeRolloutSnapshotInterface;
     latest?: SafeRolloutSnapshotInterface;
   }>(`/safe-rollout/${safeRolloutId}/snapshot`, {
-    shouldRun: () => !useDummyData && !!safeRolloutId,
+    shouldRun: () => !useDummyData && !!safeRolloutId && !snapshotCtx.snapshot,
   });
+  const snapshotData = useMemo(
+    () =>
+      snapshotCtx.snapshot
+        ? { snapshot: snapshotCtx.snapshot, latest: snapshotCtx.latest }
+        : snapshotDataDirect,
+    [snapshotCtx.snapshot, snapshotCtx.latest, snapshotDataDirect],
+  );
 
   const snapshotAnalysis = useMemo(() => {
     if (!snapshotData?.snapshot) return null;
@@ -1065,15 +1490,18 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
   );
 
   const dateExtent = useMemo((): [Date, Date] | [undefined, undefined] => {
-    const dates: Date[] = [
-      ...filteredTs.flatMap((t) =>
-        t.dataPoints.map((d) => getValidDate(d.date)),
-      ),
-      ...eventMarkers.map((m) => m.date),
-    ];
+    const dataDates: Date[] = filteredTs.flatMap((t) =>
+      t.dataPoints.map((d) => getValidDate(d.date)),
+    );
+    // Exclude "started" from range — only include step-level events (S1+)
+    const stepEventDates = eventMarkers
+      .filter((m) => m.label !== "Start")
+      .map((m) => m.date);
+
+    const dates = [...dataDates, ...stepEventDates];
     if (dates.length > 0) {
       const [lo, hi] = extent(dates) as [Date, Date];
-      return [lo, new Date(Math.max(hi.getTime(), Date.now()))];
+      return [lo, hi];
     }
     const fallbackStart = rampSchedule.startedAt
       ? getValidDate(rampSchedule.startedAt)
@@ -1088,8 +1516,9 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
       {guardrailMetricIds.length > 0 && (
         <MetricSection
           title="Guardrail Metrics"
-          subtitle="Automatically roll back the entire schedule if any of these metrics show a statistically significant regression"
+          subtitle="Automatically roll back the ramp-up if any of these metrics show a statistically significant regression"
           metricIds={guardrailMetricIds}
+          resultGroup="guardrail"
           snapshotMetrics={snapshotMetrics}
           timeSeries={timeSeriesMap}
           dateExtent={dateExtent}
@@ -1097,10 +1526,6 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
           startDate={startDate}
           eventMarkers={eventMarkers}
         />
-      )}
-
-      {guardrailMetricIds.length > 0 && signalMetricIds.length > 0 && (
-        <Separator size="4" my="4" />
       )}
 
       {signalMetricIds.length > 0 && (
@@ -1108,6 +1533,7 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
           title="Signal Metrics"
           subtitle="If any of these metrics show a regression, hold at the current step until healthy or manual advancement"
           metricIds={signalMetricIds}
+          resultGroup="secondary"
           snapshotMetrics={snapshotMetrics}
           timeSeries={timeSeriesMap}
           dateExtent={dateExtent}
@@ -1116,6 +1542,10 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
           eventMarkers={eventMarkers}
         />
       )}
+
+      <HealthChecks
+        snapshot={useDummyData ? dummyTrafficSnapshot : snapshotData?.snapshot}
+      />
     </Box>
   );
 };

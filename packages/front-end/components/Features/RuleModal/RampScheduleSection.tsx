@@ -271,6 +271,11 @@ export function getMonitoringValidationError(
   if (!m.exposureQueryId) return "Select an assignment table for monitoring";
   if (m.guardrailMetricIds.length === 0 && m.signalMetricIds.length === 0)
     return "Add at least one guardrail or signal metric for monitoring";
+  const zeroTrafficStep = state.steps.find(
+    (s) => s.monitored && (s.patch.coverage ?? 0) === 0,
+  );
+  if (zeroTrafficStep)
+    return "Monitored steps must have traffic greater than 0%";
   return null;
 }
 
@@ -1140,6 +1145,7 @@ export default function RampScheduleSection({
                   {activeFields.has("coverage") &&
                     (() => {
                       const maxCov = step.monitored ? 50 : 100;
+                      const minCov = step.monitored ? 1 : 0;
                       return (
                         <Box style={{ width: COL.coverage, flexShrink: 0 }}>
                           <div
@@ -1148,7 +1154,7 @@ export default function RampScheduleSection({
                             <Field
                               style={{ width: COL.coverage, minHeight: 38 }}
                               type="number"
-                              min="0"
+                              min={minCov}
                               max={maxCov}
                               onFocus={(e) => e.target.select()}
                               value={String(step.patch.coverage ?? 0)}
@@ -1165,7 +1171,10 @@ export default function RampScheduleSection({
                                   "coverage",
                                   Math.min(
                                     maxCov,
-                                    Math.max(0, parseInt(e.target.value) || 0),
+                                    Math.max(
+                                      minCov,
+                                      parseInt(e.target.value) || 0,
+                                    ),
                                   ),
                                 )
                               }
@@ -1359,14 +1368,17 @@ export default function RampScheduleSection({
                             const update: Partial<UIStep> = {
                               monitored: nowMonitored,
                             };
-                            if (
-                              nowMonitored &&
-                              (step.patch.coverage ?? 0) > 50
-                            ) {
-                              update.patch = {
-                                ...step.patch,
-                                coverage: 50,
-                              };
+                            if (nowMonitored) {
+                              const cov = step.patch.coverage ?? 0;
+                              if (cov === 0 || cov > 50) {
+                                update.patch = {
+                                  ...step.patch,
+                                  coverage: Math.min(
+                                    50,
+                                    Math.max(1, cov),
+                                  ),
+                                };
+                              }
                             }
                             updateStep(i, update);
                           }}
@@ -1948,10 +1960,13 @@ export default function RampScheduleSection({
 
   function handleMonitorToggle(checked: boolean) {
     patchState({
-      steps: state.steps.map((s) => ({
-        ...s,
-        monitored: checked,
-      })),
+      steps: state.steps.map((s) => {
+        const updated = { ...s, monitored: checked };
+        if (checked && (s.patch.coverage ?? 0) === 0) {
+          updated.patch = { ...s.patch, coverage: 1 };
+        }
+        return updated;
+      }),
     });
   }
 

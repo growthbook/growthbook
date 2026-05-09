@@ -2,7 +2,7 @@ import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import React, { forwardRef, ReactElement, useMemo, useState } from "react";
+import React, { forwardRef, ReactElement, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { filterEnvironmentsByFeature } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -62,6 +62,10 @@ import SafeRolloutStatusModal from "@/components/Features/SafeRollout/SafeRollou
 import SafeRolloutStatusBadge from "@/components/SafeRollout/SafeRolloutStatusBadge";
 import DecisionCTA from "@/components/SafeRollout/DecisionCTA";
 import DecisionHelpText from "@/components/SafeRollout/DecisionHelpText";
+import {
+  RampMonitoringBadges,
+  RampMonitoringCTAs,
+} from "@/components/RampSchedule/RampMonitoringSignals";
 import TruncatedConditionDisplay from "@/components/SavedGroups/TruncatedConditionDisplay";
 import {
   DropdownMenu,
@@ -149,7 +153,6 @@ import ExperimentSummary from "./ExperimentSummary";
 import ExperimentRefSummary, {
   isExperimentRefRuleSkipped,
 } from "./ExperimentRefSummary";
-
 
 interface SortableProps {
   // Global flat index into `feature.rules`; fallback addressing for the modal.
@@ -318,6 +321,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
     if (rule.type === "safe-rollout") {
       safeRollout = safeRolloutsMap.get(rule.safeRolloutId);
+    } else if (rampSchedule?.safeRolloutId) {
+      safeRollout = safeRolloutsMap.get(rampSchedule.safeRolloutId);
     }
 
     const info = getRuleMetaInfo({
@@ -505,9 +510,31 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               )}
 
               {ruleTags}
+
+              {rampSchedule &&
+                rampSchedule.steps.some((s) => s.monitored) &&
+                safeRollout && (
+                  <RampMonitoringBadges rampSchedule={rampSchedule} />
+                )}
             </Flex>
 
             <Flex align="center" gap="3" flexShrink="0">
+              {rampSchedule &&
+                rampSchedule.steps.some((s) => s.monitored) &&
+                safeRollout &&
+                !locked &&
+                rampSchedule.status === "running" && (
+                  <RampMonitoringCTAs
+                    rampSchedule={rampSchedule}
+                    onRollback={async () => {
+                      await apiCall(
+                        `/ramp-schedule/${rampSchedule.id}/actions/reset`,
+                        { method: "POST" },
+                      );
+                      await mutate();
+                    }}
+                  />
+                )}
               {ruleCtas}
 
               {info.pill}
