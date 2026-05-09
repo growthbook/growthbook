@@ -199,6 +199,22 @@ export type ExperimentUpdateSchedule = {
 
 export type Environment = z.infer<typeof environment>;
 
+export type ApprovalFlowConfiguration = {
+  requireMetadataReview: boolean;
+  required: boolean;
+  // When true, anyone listed in `revision.contributors` (including the author)
+  // is blocked from approving the revision. A separate, non-contributor
+  // reviewer is required.
+  blockSelfApproval?: boolean;
+  // TODO: Should we add support for these additional settings?
+  canBypassReview?: boolean;
+  resetReviewOnChange?: boolean;
+};
+
+export type ApprovalFlowConfigurations = {
+  savedGroups: ApprovalFlowConfiguration[];
+};
+
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;
   confidenceLevel?: number;
@@ -279,6 +295,7 @@ export interface OrganizationSettings {
   /** @deprecated Use postStratificationEnabled instead */
   postStratificationDisabled?: boolean;
   postStratificationEnabled?: boolean;
+  approvalFlows?: ApprovalFlowConfigurations;
 }
 
 export interface OrganizationConnections {
