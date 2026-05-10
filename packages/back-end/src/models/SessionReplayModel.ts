@@ -79,7 +79,7 @@ export class SessionReplayModel {
     limit?: number;
     offset?: number;
   }): Promise<SessionReplayInterface[]> {
-    const rows = await listSessionReplays(this.context.org.id, options);
+    const rows = await listSessionReplays(this.context, options);
     return rows
       .map((row) => this.toInterface(row))
       .filter((doc) => this.canRead(doc));
@@ -93,10 +93,7 @@ export class SessionReplayModel {
   public async getBySessionId(
     sessionId: string,
   ): Promise<SessionReplayInterface | null> {
-    const row = await getSessionReplayBySessionId(
-      this.context.org.id,
-      sessionId,
-    );
+    const row = await getSessionReplayBySessionId(this.context, sessionId);
     if (!row) return null;
     const doc = this.toInterface(row);
     if (!this.canRead(doc)) return null;
