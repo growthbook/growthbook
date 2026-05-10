@@ -4,12 +4,38 @@ import {
   GrowthbookClickhouseDataSource,
   MaterializedColumn,
 } from "shared/types/datasource";
+import { DailyUsage } from "shared/types/organization";
+import {
+  CLICKHOUSE_HOST,
+  CLICKHOUSE_ADMIN_USER,
+  CLICKHOUSE_ADMIN_PASSWORD,
+  CLICKHOUSE_DATABASE,
+  CLICKHOUSE_MAIN_TABLE,
+  CLICKHOUSE_SESSION_REPLAY_TABLE,
+  ENVIRONMENT,
+  IS_CLOUD,
+  CLICKHOUSE_OVERAGE_TABLE,
+} from "back-end/src/util/secrets";
 import type { ReqContext } from "back-end/types/request";
 import {
   getFactTablesForDatasource,
   updateFactTableColumns,
 } from "back-end/src/models/FactTableModel";
-import { updateMaterializedColumnsInClickhouse } from "back-end/src/services/licenseServerManagedClickhouse";
+import {
+  getGrowthbookDatasource,
+  lockDataSource,
+  unlockDataSource,
+} from "back-end/src/models/DataSourceModel";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import SqlIntegration from "back-end/src/integrations/SqlIntegration";
+import {
+  addCloudSDKMappingViaLicenseServer,
+  createClickhouseUserViaLicenseServer,
+  dangerousRecreateClickhouseTablesViaLicenseServer,
+  deleteClickhouseUserViaLicenseServer,
+  migrateOverageEventsForOrgIdViaLicenseServer,
+  updateMaterializedColumnsInClickhouseViaLicenseServer,
+} from "back-end/src/services/licenseServerManagedClickhouse";
 
 type ClickHouseDataType =
   | "DateTime"
@@ -39,6 +65,598 @@ export function getReservedColumnNames(): Set<string> {
       ...Object.keys(REMAINING_COLUMNS_SCHEMA),
     ].map((col) => col.toLowerCase()),
   );
+}
+
+type ColumnDef = {
+  source: string;
+  alias?: string;
+  datatype: ClickHouseDataType;
+};
+
+function getCreateTableColumnList(columns: ColumnDef[]): string[] {
+  return columns.map(
+    ({ source, alias, datatype }) => `${alias || source} ${datatype}`,
+  );
+}
+function getSelectColumnList(columns: ColumnDef[]): string[] {
+  return columns.map(
+    ({ source, alias }) =>
+      `${source}${alias && alias !== source ? ` as ${alias}` : ""}`,
+  );
+}
+
+function getRemainingColumnDefs(): ColumnDef[] {
+  return Object.entries(REMAINING_COLUMNS_SCHEMA).map(([colName, colType]) => ({
+    source: colName,
+    datatype: colType as ClickHouseDataType,
+  }));
+}
+
+function getMaterializedColumnDefs(
+  materializedColumns: MaterializedColumn[],
+): ColumnDef[] {
+  return materializedColumns.map(({ columnName, datatype, sourceField }) => ({
+    source: getClickhouseExtractClause(sourceField, datatype),
+    alias: columnName,
+    datatype: getClickhouseDatatype(datatype),
+  }));
+}
+
+function getMaterializedViewSQL({
+  orgId,
+  colDefs,
+  orderBy,
+  filter,
+  baseTableName,
+}: {
+  orgId: string;
+  colDefs: ColumnDef[];
+  orderBy: string;
+  filter: string;
+  baseTableName: string;
+}): {
+  createTable: string;
+  createView: string;
+  populateTable: string;
+  select: string;
+  tableName: string;
+  viewName: string;
+} {
+  const tableName = getTableName(orgId, baseTableName);
+  const viewName = getTableName(orgId, `${baseTableName}_mv`);
+
+  const createTable = `CREATE TABLE ${tableName} (
+  ${getCreateTableColumnList(colDefs).join(",\n  ")}
+) ENGINE = MergeTree()
+PARTITION BY toYYYYMM(timestamp) 
+ORDER BY ${orderBy}`;
+
+  const select = `SELECT ${getSelectColumnList(colDefs).join(", ")}
+    FROM ${CLICKHOUSE_MAIN_TABLE} 
+    WHERE (organization = '${orgId}') AND (${filter})`;
+
+  const populateTable = `INSERT INTO ${tableName} ${select}`;
+  const createView = `CREATE MATERIALIZED VIEW ${viewName} TO ${tableName} 
+DEFINER=CURRENT_USER SQL SECURITY DEFINER
+AS ${select}`;
+
+  return {
+    createTable,
+    select,
+    populateTable,
+    createView,
+    tableName,
+    viewName,
+  };
+}
+
+function getEventsSQL(
+  orgId: string,
+  materializedColumns: MaterializedColumn[],
+) {
+  return getMaterializedViewSQL({
+    orgId,
+    baseTableName: "events",
+    filter: "event_name NOT IN ('Experiment Viewed', 'Feature Evaluated')",
+    orderBy: "(event_name, timestamp)",
+    colDefs: [
+      { source: "timestamp", datatype: "DateTime" },
+      { source: "client_key", datatype: "String" },
+      { source: "event_name", datatype: "String" },
+      { source: "properties_json", alias: "properties", datatype: "String" },
+      { source: "context_json", alias: "attributes", datatype: "String" },
+      ...getRemainingColumnDefs(),
+      ...getMaterializedColumnDefs(materializedColumns),
+    ],
+  });
+}
+
+function getExperimentViewSQL(
+  orgId: string,
+  materializedColumns: MaterializedColumn[],
+) {
+  return getMaterializedViewSQL({
+    orgId,
+    baseTableName: "experiment_views",
+    filter: "event_name = 'Experiment Viewed'",
+    orderBy: "(experiment_id, timestamp)",
+    colDefs: [
+      { source: "timestamp", datatype: "DateTime" },
+      { source: "client_key", datatype: "String" },
+      {
+        source: "JSONExtractString(properties_json, 'experimentId')",
+        alias: "experiment_id",
+        datatype: "String",
+      },
+      {
+        source: "JSONExtractString(properties_json, 'variationId')",
+        alias: "variation_id",
+        datatype: "String",
+      },
+      { source: "properties_json", alias: "properties", datatype: "String" },
+      { source: "context_json", alias: "attributes", datatype: "String" },
+      ...getRemainingColumnDefs(),
+      ...getMaterializedColumnDefs(materializedColumns),
+    ],
+  });
+}
+
+function getFeatureusageSQL(orgId: string) {
+  return getMaterializedViewSQL({
+    orgId,
+    baseTableName: "feature_usage",
+    filter: "event_name = 'Feature Evaluated'",
+    orderBy: "(feature, timestamp)",
+    colDefs: [
+      { source: "timestamp", datatype: "DateTime" },
+      { source: "client_key", datatype: "String" },
+      {
+        source: "JSONExtractString(properties_json, 'feature')",
+        alias: "feature",
+        datatype: "String",
+      },
+      {
+        source: "JSONExtractString(properties_json, 'revision')",
+        alias: "revision",
+        datatype: "String",
+      },
+      {
+        source: "JSONExtractString(properties_json, 'source')",
+        alias: "source",
+        datatype: "String",
+      },
+      {
+        source: "JSONExtractString(properties_json, 'value')",
+        alias: "value",
+        datatype: "String",
+      },
+      {
+        source: "JSONExtractString(properties_json, 'ruleId')",
+        alias: "ruleId",
+        datatype: "String",
+      },
+      {
+        source: "JSONExtractString(properties_json, 'variationId')",
+        alias: "variationId",
+        datatype: "String",
+      },
+      { source: "context_json", alias: "attributes", datatype: "String" },
+      ...getRemainingColumnDefs(),
+    ],
+  });
+}
+
+function getSessionReplaySQL(orgId: string): {
+  createTable: string;
+  createView: string;
+  populateTable: string;
+  tableName: string;
+  viewName: string;
+} {
+  const tableName = getTableName(orgId, "session_replays");
+  const viewName = getTableName(orgId, "session_replays_mv");
+
+  const createTable = `CREATE TABLE ${tableName} (
+  session_id       String,
+  org_id           String,
+  client_key       String,
+  chunk_index      UInt32,
+  user_id          String,
+  s3_key           String,
+  started_at       DateTime64(3),
+  ended_at         DateTime64(3),
+  last_event_at    DateTime64(3),
+  duration_ms      UInt32,
+  event_count      UInt32,
+  error_count      UInt16,
+  url_first        String,
+  urls_visited     Array(String),
+  attributes       Map(String, String),
+  experiments      Array(Tuple(String, String)),
+  flags            Map(String, String),
+  user_agent       String,
+  country          LowCardinality(String),
+  device           LowCardinality(String),
+  browser          LowCardinality(String),
+  state            LowCardinality(String),
+  created_at       DateTime64(3)
+) ENGINE = ReplacingMergeTree(chunk_index)
+ORDER BY session_id`;
+
+  const select = `SELECT
+  session_id, org_id, client_key, chunk_index, user_id, s3_key,
+  started_at, ended_at, last_event_at, duration_ms, event_count,
+  error_count, url_first, urls_visited, attributes, experiments,
+  flags, user_agent, country, device, browser, state,
+  ingested_at AS created_at
+FROM ${CLICKHOUSE_SESSION_REPLAY_TABLE}
+WHERE org_id = '${orgId}'`;
+
+  const populateTable = `INSERT INTO ${tableName} ${select}`;
+  const createView = `CREATE MATERIALIZED VIEW ${viewName} TO ${tableName}
+DEFINER=CURRENT_USER SQL SECURITY DEFINER
+AS ${select}`;
+
+  return { createTable, createView, populateTable, tableName, viewName };
+}
+
+async function runCommand(
+  client: ReturnType<typeof createClickhouseClient>,
+  query: string,
+): Promise<void> {
+  await client.command({ query });
+}
+
+function getTableName(orgId: string, name: string) {
+  const user = clickhouseUserId(orgId);
+  const database = user;
+  return `${database}.${name}`;
+}
+
+export async function createClickhouseUser(
+  context: ReqContext,
+  materializedColumns: MaterializedColumn[] = [],
+): Promise<DataSourceParams> {
+  if (MANAGED_CLICKHOUSE_USE_LICENSE_SERVER) {
+    return createClickhouseUserViaLicenseServer(
+      context.org.id,
+      materializedColumns,
+    );
+  }
+
+  const client = createAdminClickhouseClient();
+
+  const orgId = context.org.id;
+  const user = clickhouseUserId(orgId);
+  const password = generator.generate({
+    length: 30,
+    numbers: true,
+  });
+  const hashedPassword = crypto
+    .createHash("sha256")
+    .update(password)
+    .digest("hex");
+
+  const database = user;
+  logger.info(`creating Clickhouse database ${database}`);
+  // It's important this does not have "IF NOT EXISTS" to protect against race conditions
+  await runCommand(client, `CREATE DATABASE ${database}`);
+
+  logger.info(`Creating Clickhouse user ${user}`);
+  await runCommand(
+    client,
+    `CREATE USER ${user} IDENTIFIED WITH sha256_hash BY '${hashedPassword}' DEFAULT DATABASE ${database}`,
+  );
+
+  await createClickhouseTables(client, orgId, materializedColumns);
+
+  logger.info(
+    `Granting select permissions on information_schema.columns to ${user}`,
+  );
+  // For schema browser.  They can only see info on tables that they have select permissions on.
+  await runCommand(
+    client,
+    `GRANT SELECT(data_type, table_name, table_catalog, table_schema, column_name) ON information_schema.columns TO ${user}`,
+  );
+
+  const url = new URL(CLICKHOUSE_HOST);
+
+  const params = {
+    port: parseIntWithDefault(url.port, 9000),
+    url: url.toString(),
+    user: user,
+    password: password,
+    database: database,
+  };
+
+  return params;
+}
+
+export async function createClickhouseTables(
+  client: ReturnType<typeof createAdminClickhouseClient>,
+  orgId: string,
+  materializedColumns: MaterializedColumn[] = [],
+): Promise<void> {
+  const user = clickhouseUserId(orgId);
+  const database = user;
+
+  // Events table
+  const eventsSQL = getEventsSQL(orgId, materializedColumns);
+  logger.info(`Creating table ${eventsSQL.tableName}`);
+  await runCommand(client, eventsSQL.createTable);
+  logger.info(`Populating table ${eventsSQL.tableName}`);
+  await runCommand(client, eventsSQL.populateTable);
+  logger.info(`Creating materialized view ${eventsSQL.viewName}`);
+  await runCommand(client, eventsSQL.createView);
+
+  // Experiment views table
+  const experimentViewSQL = getExperimentViewSQL(orgId, materializedColumns);
+  logger.info(`Creating table ${experimentViewSQL.tableName}`);
+  await runCommand(client, experimentViewSQL.createTable);
+  logger.info(`Populating table ${experimentViewSQL.tableName}`);
+  await runCommand(client, experimentViewSQL.populateTable);
+  logger.info(`Creating materialized view ${experimentViewSQL.viewName}`);
+  await runCommand(client, experimentViewSQL.createView);
+
+  // Feature usage table
+  const featureUsageSQL = getFeatureusageSQL(orgId);
+  logger.info(`Creating table ${featureUsageSQL.tableName}`);
+  await runCommand(client, featureUsageSQL.createTable);
+  logger.info(`Populating table ${featureUsageSQL.tableName}`);
+  await runCommand(client, featureUsageSQL.populateTable);
+  logger.info(`Creating materialized view ${featureUsageSQL.viewName}`);
+  await runCommand(client, featureUsageSQL.createView);
+
+  // Session replays table — only provisioned when the shared source table is configured
+  if (CLICKHOUSE_SESSION_REPLAY_TABLE) {
+    const sessionReplaySQL = getSessionReplaySQL(orgId);
+    logger.info(`Creating table ${sessionReplaySQL.tableName}`);
+    await runCommand(client, sessionReplaySQL.createTable);
+    logger.info(`Populating table ${sessionReplaySQL.tableName}`);
+    await runCommand(client, sessionReplaySQL.populateTable);
+    logger.info(`Creating materialized view ${sessionReplaySQL.viewName}`);
+    await runCommand(client, sessionReplaySQL.createView);
+  }
+
+  logger.info(`Granting select permissions on ${database}.* to ${user}`);
+  await runCommand(client, `GRANT SELECT ON ${database}.* TO ${user}`);
+}
+
+export async function _dangerousRecreateClickhouseTables(
+  context: ReqContext,
+  datasource: GrowthbookClickhouseDataSource,
+): Promise<void> {
+  const orgId = context.org.id;
+
+  // Backfilling data can take a while, so lock the datasource for 30 minutes
+  await lockDataSource(context, datasource, 1800);
+
+  try {
+    if (MANAGED_CLICKHOUSE_USE_LICENSE_SERVER) {
+      await dangerousRecreateClickhouseTablesViaLicenseServer(
+        orgId,
+        datasource.settings.materializedColumns || [],
+      );
+    } else {
+      const client = createAdminClickhouseClient();
+      const user = clickhouseUserId(orgId);
+      const database = user;
+
+      // Drop the entire database and recreate it
+      logger.info(`Dropping Clickhouse database ${database}`);
+      await runCommand(client, `DROP DATABASE IF EXISTS ${database}`);
+
+      logger.info(`Creating Clickhouse database ${database}`);
+      await runCommand(client, `CREATE DATABASE ${database}`);
+
+      await createClickhouseTables(
+        client,
+        orgId,
+        datasource.settings.materializedColumns || [],
+      );
+    }
+  } finally {
+    await unlockDataSource(context, datasource);
+  }
+}
+
+export async function deleteClickhouseUser(organization: string) {
+  if (MANAGED_CLICKHOUSE_USE_LICENSE_SERVER) {
+    return deleteClickhouseUserViaLicenseServer(organization);
+  }
+
+  const client = createAdminClickhouseClient();
+  const user = clickhouseUserId(organization);
+  const database = user;
+
+  logger.info(`Deleting Clickhouse user ${user}`);
+  await runCommand(client, `DROP USER IF EXISTS ${user}`);
+
+  logger.info(`Deleting Clickhouse database ${database}`);
+  await runCommand(client, `DROP DATABASE IF EXISTS ${database}`);
+}
+
+export async function addCloudSDKMapping(connection: SDKConnectionInterface) {
+  const { key, organization } = connection;
+
+  // This is not a fatal error, so just log instead of throwing
+  try {
+    if (MANAGED_CLICKHOUSE_USE_LICENSE_SERVER) {
+      await addCloudSDKMappingViaLicenseServer(key, organization);
+    } else {
+      const client = createAdminClickhouseClient();
+      await client.insert({
+        table: "usage.sdk_key_mapping",
+        values: [{ key, organization }],
+        format: "JSONEachRow",
+      });
+    }
+  } catch (e) {
+    logger.error(
+      e,
+      `Error inserting sdk key mapping (${key} -> ${organization})`,
+    );
+  }
+}
+
+export async function migrateOverageEventsForOrgId(orgId: string) {
+  if (MANAGED_CLICKHOUSE_USE_LICENSE_SERVER) {
+    return migrateOverageEventsForOrgIdViaLicenseServer(orgId);
+  }
+
+  const client = createAdminClickhouseClient();
+  await runCommand(
+    client,
+    `INSERT INTO ${CLICKHOUSE_MAIN_TABLE} SELECT * FROM ${CLICKHOUSE_OVERAGE_TABLE} WHERE organization = '${orgId}'`,
+  );
+  await runCommand(
+    client,
+    `ALTER TABLE ${CLICKHOUSE_OVERAGE_TABLE} DELETE WHERE organization = '${orgId}'`,
+  );
+}
+
+// In order to monitor usage and quality of AI responses on cloud we log each request to AI agents
+export async function logCloudAIUsage({
+  organization,
+  type,
+  model,
+  temperature,
+  numPromptTokensUsed,
+  numCompletionTokensUsed,
+  usedDefaultPrompt,
+}: {
+  organization: string;
+  model: string;
+  numPromptTokensUsed?: number;
+  numCompletionTokensUsed?: number;
+  type: AIPromptType;
+  temperature?: number;
+  usedDefaultPrompt: boolean;
+}): Promise<void> {
+  if (!IS_CLOUD) {
+    // This is only for cloud
+    return;
+  }
+
+  const env = ENVIRONMENT === "production" ? "prod" : ENVIRONMENT;
+  // As this is just for logging, there is no need to make this a fatal error if it fails
+  try {
+    const client = createAdminClickhouseClient();
+    await client.insert({
+      table: "usage.ai_usage",
+      values: [
+        {
+          env,
+          organization,
+          type,
+          model,
+          num_prompt_tokens_used: numPromptTokensUsed,
+          num_completion_tokens_used: numCompletionTokensUsed,
+          temperature,
+          used_default_prompt: usedDefaultPrompt,
+          date_created: new Date(),
+        },
+      ],
+      format: "JSONEachRow",
+    });
+  } catch (e) {
+    logger.error(e, "Failed to log AI usage to Clickhouse");
+  }
+}
+
+export async function getDailyUsageForOrg(
+  orgId: string,
+  start: Date,
+  end: Date,
+): Promise<DailyUsage[]> {
+  const client = createAdminClickhouseClient();
+
+  // orgId is coming from the back-end, so this should not be necessary, but just in case
+  const sanitizedOrgId = orgId.replace(/[^a-zA-Z0-9_-]/g, "");
+
+  const startString = start.toISOString().replace("T", " ").substring(0, 19);
+  const endString = end.toISOString().replace("T", " ").substring(0, 19);
+
+  // Don't fill forward beyond the current date
+  const fillEnd = end > new Date() ? new Date() : end;
+  const fillEndString = fillEnd
+    .toISOString()
+    .replace("T", " ")
+    .substring(0, 19);
+
+  const sql = `
+select
+  date,
+  sum(requests) as requests,
+  sum(bandwidth) as bandwidth,
+  sum(managedClickhouseEvents) as managedClickhouseEvents
+from (
+  select
+    toStartOfDay(hour) as date,
+    sum(requests) as requests,
+    sum(bandwidth) as bandwidth,
+    0 as managedClickhouseEvents
+  from usage.cdn_hourly
+  where
+    organization = '${sanitizedOrgId}'
+    AND date BETWEEN '${startString}' AND '${endString}'
+  group by date
+  
+  union all
+  
+  select
+    toStartOfDay(received_at) as date,
+    0 as requests,
+    0 as bandwidth,
+    count(1) as managedClickhouseEvents
+  from ${CLICKHOUSE_MAIN_TABLE}
+  where
+    organization = '${sanitizedOrgId}'
+    AND received_at BETWEEN '${startString}' AND '${endString}'
+  group by date
+  
+  union all
+  
+  select
+    toStartOfDay(received_at) as date,
+    0 as requests,
+    0 as bandwidth,
+    count(1) as managedClickhouseEvents
+  from ${CLICKHOUSE_OVERAGE_TABLE}
+  where
+    organization = '${sanitizedOrgId}'
+    AND received_at BETWEEN '${startString}' AND '${endString}'
+  group by date
+)
+group by date
+order by date ASC
+WITH FILL
+  FROM toDateTime('${startString}')
+  TO toDateTime('${fillEndString}')
+  STEP toIntervalDay(1)
+  `.trim();
+
+  const res = await client.query({
+    query: sql,
+    format: "JSONEachRow",
+  });
+
+  const data: {
+    date: string;
+    // These are returned as strings because they could in theory be bigger than MAX_SAFE_INTEGER
+    // That is very unlikely, and even if it happens it will still be approximately correct
+    requests: string;
+    bandwidth: string;
+    managedClickhouseEvents: string;
+  }[] = await res.json();
+
+  // Convert strings to numbers for all metrics
+  return data.map((d) => ({
+    date: d.date,
+    requests: parseIntWithDefault(d.requests, 0),
+    bandwidth: parseIntWithDefault(d.bandwidth, 0),
+    managedClickhouseEvents: parseIntWithDefault(d.managedClickhouseEvents, 0),
+  }));
 }
 
 export async function updateMaterializedColumns({
@@ -171,124 +789,88 @@ export type SessionReplayRow = {
   created_at: string;
 };
 
-export async function createSessionReplayTable(): Promise<void> {
-  const client = createAdminClickhouseClient();
-  // NOTE: IF NOT EXISTS won't update an existing table — drop manually in ClickHouse
-  // when the schema changes during development:
-  //   DROP TABLE local_sample.session_replays
-  await runCommand(
-    client,
-    `CREATE TABLE IF NOT EXISTS ${CLICKHOUSE_DATABASE}.session_replays (
-      session_id        String,
-      org_id            String,
-      client_key        String,
-      user_id           String,
-      s3_key            String,
-      started_at        DateTime64(3),
-      ended_at          DateTime64(3),
-      last_event_at     DateTime64(3),
-      duration_ms       UInt32,
-      event_count       UInt32,
-      error_count       UInt16,
-      url_first         String,
-      urls_visited      Array(String),
-      attributes        Map(String, String),
-      experiments       Array(Tuple(String, String)),
-      flags             Map(String, String),
-      country           String,
-      user_agent        String,
-      device            String,
-      browser           String,
-      state             Enum8('recording' = 1, 'finalized' = 2, 'deleted' = 3),
-      created_at        DateTime64(3) DEFAULT now64(3)
-    ) ENGINE = MergeTree()
-    ORDER BY (org_id, created_at)`,
-  );
-}
-
-export async function insertSessionReplayMetadata(row: {
-  session_id: string;
-  org_id: string;
-  client_key: string;
-  user_id: string;
-  s3_key: string;
-  started_at: Date;
-  ended_at: Date;
-  duration_ms: number;
-  event_count: number;
-  url_first: string;
-  urls_visited: string[];
-  attributes: Record<string, string>;
-  experiments: [string, string][];
-  flags: Record<string, string>;
-  user_agent: string;
-}): Promise<void> {
-  const toDateTime64 = (d: Date) =>
-    d.toISOString().replace("T", " ").replace("Z", "");
-
-  const client = createAdminClickhouseClient();
-  await client.insert({
-    table: `${CLICKHOUSE_DATABASE}.session_replays`,
-    values: [
-      {
-        session_id: row.session_id,
-        org_id: row.org_id,
-        client_key: row.client_key,
-        user_id: row.user_id,
-        s3_key: row.s3_key,
-        started_at: toDateTime64(row.started_at),
-        ended_at: toDateTime64(row.ended_at),
-        last_event_at: toDateTime64(row.ended_at),
-        duration_ms: row.duration_ms,
-        event_count: row.event_count,
-        error_count: 0,
-        url_first: row.url_first,
-        urls_visited: row.urls_visited,
-        attributes: row.attributes,
-        experiments: row.experiments,
-        flags: row.flags,
-        country: "",
-        user_agent: row.user_agent,
-        device: "",
-        browser: "",
-        state: "recording",
-      },
-    ],
-    format: "JSONEachRow",
-  });
-}
-
 export async function listSessionReplays(
-  orgId: string,
+  context: ReqContext,
+  options?: {
+    userId?: string;
+    clientKey?: string;
+    state?: "recording" | "finalized" | "deleted";
+    url?: string;
+    limit?: number;
+    offset?: number;
+  },
 ): Promise<SessionReplayRow[]> {
-  const client = createAdminClickhouseClient();
-  // orgId comes from the authenticated back-end context, sanitize defensively
-  const sanitizedOrgId = orgId.replace(/[^a-zA-Z0-9_-]/g, "");
-  const result = await client.query({
-    query: `SELECT *
-            FROM ${CLICKHOUSE_DATABASE}.session_replays
-            WHERE org_id = '${sanitizedOrgId}'
-            ORDER BY created_at DESC
-            LIMIT 100`,
-    format: "JSONEachRow",
-  });
-  return result.json<SessionReplayRow>();
+  const datasource = await getGrowthbookDatasource(context);
+  if (!datasource) return [];
+
+  const integration = getSourceIntegrationObject(
+    context,
+    datasource,
+  ) as SqlIntegration;
+  const conditions: string[] = [];
+
+  if (options?.userId) {
+    conditions.push(`user_id = '${escapeClickhouseString(options.userId)}'`);
+  }
+  if (options?.clientKey) {
+    conditions.push(
+      `client_key = '${escapeClickhouseString(options.clientKey)}'`,
+    );
+  }
+  if (options?.state) {
+    conditions.push(`state = '${escapeClickhouseString(options.state)}'`);
+  }
+  if (options?.url) {
+    conditions.push(
+      `positionCaseInsensitive(url_first, ${toClickhouseStringLiteral(options.url)}) > 0`,
+    );
+  }
+
+  const limit = Math.max(1, Math.min(100, Math.floor(options?.limit ?? 100)));
+  const offset = Math.max(0, Math.floor(options?.offset ?? 0));
+  const where =
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  const { rows } = await integration.runQuery(`
+    SELECT *
+    FROM session_replays FINAL
+    ${where}
+    ORDER BY created_at DESC
+    LIMIT ${limit}
+    OFFSET ${offset}
+  `);
+
+  return rows as unknown as SessionReplayRow[];
+}
+
+function escapeClickhouseString(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+function toClickhouseStringLiteral(value: string): string {
+  return `'${escapeClickhouseString(value)}'`;
 }
 
 export async function getSessionReplayBySessionId(
-  orgId: string,
+  context: ReqContext,
   sessionId: string,
 ): Promise<SessionReplayRow | null> {
-  const client = createAdminClickhouseClient();
-  const sanitizedOrgId = orgId.replace(/[^a-zA-Z0-9_-]/g, "");
+  const datasource = await getGrowthbookDatasource(context);
+  if (!datasource) return null;
+
+  const integration = getSourceIntegrationObject(
+    context,
+    datasource,
+  ) as SqlIntegration;
   const sanitizedSessionId = sessionId.replace(/[^a-zA-Z0-9_-]/g, "");
-  const result = await client.query({
-    query: `SELECT *
-            FROM ${CLICKHOUSE_DATABASE}.session_replays
-            WHERE org_id = '${sanitizedOrgId}' AND session_id = '${sanitizedSessionId}'
-            LIMIT 1`,
-    format: "JSONEachRow",
-  });
-  const rows = await result.json<SessionReplayRow>();
-  return rows[0] ?? null;
+
+  const { rows } = await integration.runQuery(`
+    SELECT *
+    FROM session_replays FINAL
+    WHERE session_id = '${sanitizedSessionId}'
+    LIMIT 1
+  `);
+
+  const row = rows[0];
+  return row ? (row as unknown as SessionReplayRow) : null;
 }
