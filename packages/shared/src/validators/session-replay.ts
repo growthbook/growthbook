@@ -20,59 +20,6 @@ export type SessionReplayRrwebEvent = z.infer<
 >;
 
 /**
- * Context the SDK ships alongside each chunk so we can index sessions by
- * the user attributes and experiment exposures that were active when the
- * events were captured.
- */
-export const sessionReplayIngestContextSchema = z
-  .object({
-    attributes: z.record(z.string(), z.unknown()).optional(),
-    experiments: z.record(z.string(), z.number()).optional(),
-    flags: z.record(z.string(), z.unknown()).optional(),
-  })
-  .strict();
-
-export type SessionReplayIngestContext = z.infer<
-  typeof sessionReplayIngestContextSchema
->;
-
-/**
- * Body of POST /api/v1/session-replay/ingest. One request = one chunk of
- * events from one browser session. Spec §5.4.
- *
- * NOTE: this matches the current SDK output (camelCase, chunkIndex). The
- * wire-format alignment to snake_case + `sequence` lives in task #33; this
- * validator will be updated as part of that task without breaking callers
- * because the type is inferred.
- */
-export const sessionReplayIngestBodySchema = z
-  .object({
-    clientKey: z.string().min(1),
-    sessionId: z.string().min(1),
-    chunkIndex: z.number().int().nonnegative(),
-    events: z.array(sessionReplayRrwebEventSchema).min(1),
-    context: sessionReplayIngestContextSchema.optional(),
-  })
-  .strict()
-  .superRefine((body, ctx) => {
-    // The first chunk must contain a FullSnapshot (rrweb event type 2);
-    // without it the player can't initialize. Reject early instead of
-    // letting an unplayable session land in S3.
-    if (body.chunkIndex === 0 && !body.events.some((e) => e.type === 2)) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["events"],
-        message:
-          "First chunk (chunkIndex=0) must include at least one full snapshot (type 2)",
-      });
-    }
-  });
-
-export type SessionReplayIngestBody = z.infer<
-  typeof sessionReplayIngestBodySchema
->;
-
-/**
  * Internal session metadata document — the source-of-truth shape consumed
  * by the front-end list/replay UI. Today this is backed by ClickHouse (not
  * Mongo); the BaseModel migration in task #11 will wrap ClickHouse access
