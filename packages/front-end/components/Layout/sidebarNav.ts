@@ -1,4 +1,5 @@
 import { BsFlag, BsCodeSlash, BsHouse } from "react-icons/bs";
+import { GrTarget } from "react-icons/gr";
 import {
   GBDatabase,
   GBExperiment,
@@ -21,7 +22,7 @@ export const navlinks: SidebarLinkProps[] = [
     name: "Features",
     href: "/features",
     Icon: BsFlag,
-    path: /^(features)/,
+    path: /^(features|archetypes)/,
   },
   {
     name: "Experimentation",
@@ -60,6 +61,11 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Namespaces",
         href: "/namespaces",
         path: /^namespaces/,
+      },
+      {
+        name: "Exposures Debugger",
+        href: "/exposure-debugger",
+        path: /^exposure-debugger/,
       },
       // {
       //   name: "Search",
@@ -166,26 +172,16 @@ export const navlinks: SidebarLinkProps[] = [
     ],
   },
   {
-    name: "SDK Configuration",
-    href: "/sdks",
-    path: /^(attributes|environments|saved-groups|sdks|archetypes)/,
+    name: "Targeting",
+    href: "/attributes",
+    path: /^(attributes|saved-groups|environments)/,
     autoClose: true,
-    Icon: BsCodeSlash,
+    Icon: GrTarget,
     subLinks: [
-      {
-        name: "SDK Connections",
-        href: "/sdks",
-        path: /^sdks/,
-      },
       {
         name: "Attributes",
         href: "/attributes",
         path: /^attributes/,
-      },
-      {
-        name: "Environments",
-        href: "/environments",
-        path: /^environments/,
       },
       {
         name: "Saved Groups",
@@ -193,16 +189,17 @@ export const navlinks: SidebarLinkProps[] = [
         path: /^saved-groups/,
       },
       {
-        name: "Archetypes",
-        href: "/archetypes",
-        path: /^archetypes/,
-      },
-      {
-        name: "Exposures Debugger",
-        href: "/exposure-debugger",
-        path: /^exposure-debugger/,
+        name: "Environments",
+        href: "/environments",
+        path: /^environments/,
       },
     ],
+  },
+  {
+    name: "SDK Connections",
+    href: "/sdks",
+    path: /^sdks/,
+    Icon: BsCodeSlash,
   },
   {
     name: "Settings",
@@ -340,7 +337,7 @@ export type FlatNavItem = {
  * filter rules as {@link SidebarLink}: parent hidden if its filter fails; if it
  * has subLinks, hidden when no child passes filter (same as empty permittedSubLinks).
  *
- * Parent section rows (e.g. "Experimentation", "SDK Configuration") are omitted;
+ * Parent section rows (e.g. "Experimentation", "Targeting") are omitted;
  * only standalone top-level links and permitted children are included.
  */
 export function flattenNavItems(
