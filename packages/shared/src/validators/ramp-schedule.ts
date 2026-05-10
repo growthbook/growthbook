@@ -68,6 +68,7 @@ export const rampMonitoringConfig = z.object({
   guardrailMetricIds: z.array(z.string()),
   signalMetricIds: z.array(z.string()).optional(),
   updateScheduleMinutes: z.number().positive().optional().nullable(),
+  autoUpdate: z.boolean().optional(),
 });
 export type RampMonitoringConfig = z.infer<typeof rampMonitoringConfig>;
 
@@ -186,6 +187,7 @@ export const rampEventTypeArray = [
   "error-paused",
   "snapshot-triggered",
   "safe-rollout-linked",
+  "auto-update-toggled",
 ] as const;
 export type RampEventType = (typeof rampEventTypeArray)[number];
 
@@ -450,6 +452,28 @@ export const apiRampScheduleInterface = namedSchema(
     currentStepEnteredAt: z.iso.datetime().nullish(),
     lastRollbackAt: z.iso.datetime().nullish(),
     lastRollbackReason: z.string().nullish(),
+    monitoringStatus: z
+      .object({
+        safeRolloutId: z.string().nullish(),
+        autoUpdate: z
+          .boolean()
+          .describe(
+            "Whether automatic snapshot queries are enabled. Toggle via the set-auto-update action.",
+          ),
+        nextSnapshotAt: z.iso
+          .datetime()
+          .nullish()
+          .describe("When the next automatic snapshot query will run"),
+        currentStepMonitored: z
+          .boolean()
+          .describe(
+            "Whether the step at currentStepIndex has monitoring enabled",
+          ),
+      })
+      .nullish()
+      .describe(
+        "Read-only monitoring status. Present when monitoringConfig is set.",
+      ),
   }),
 );
 export type ApiRampScheduleInterface = z.infer<typeof apiRampScheduleInterface>;

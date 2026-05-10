@@ -11,6 +11,7 @@ import {
   ejectTargetRampSchedule,
   apiAdvanceRampSchedule,
   getRampScheduleStatus,
+  setAutoUpdateRampSchedule,
 } from "./rampScheduleActions";
 import { listRampSchedules } from "./listRampSchedules";
 import { postRampSchedule } from "./postRampSchedule";
@@ -31,4 +32,5 @@ export const rampSchedulesRoutes: OpenApiRoute[] = [
   ejectTargetRampSchedule,
   apiAdvanceRampSchedule,
   getRampScheduleStatus,
+  setAutoUpdateRampSchedule,
 ];

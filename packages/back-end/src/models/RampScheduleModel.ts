@@ -138,6 +138,16 @@ export function rampScheduleToApiInterface(
     currentStepEnteredAt: dateToIso(doc.currentStepEnteredAt),
     lastRollbackAt: dateToIso(doc.lastRollbackAt),
     lastRollbackReason: doc.lastRollbackReason,
+    monitoringStatus: doc.monitoringConfig
+      ? {
+          safeRolloutId: doc.safeRolloutId ?? null,
+          autoUpdate: doc.monitoringConfig.autoUpdate !== false,
+          nextSnapshotAt: dateToIso(doc.nextSnapshotAt),
+          currentStepMonitored:
+            doc.currentStepIndex >= 0 &&
+            !!doc.steps[doc.currentStepIndex]?.monitored,
+        }
+      : undefined,
   };
 }
 
@@ -692,6 +702,20 @@ export class RampScheduleModel extends BaseClass {
     }
 
     const updated = await this.updateById(schedule.id, updates);
+
+    if (
+      body.monitoringConfig?.autoUpdate !== undefined &&
+      schedule.safeRolloutId
+    ) {
+      const sr = await this.context.models.safeRollout.getById(
+        schedule.safeRolloutId,
+      );
+      if (sr) {
+        await this.context.models.safeRollout.update(sr, {
+          autoSnapshots: body.monitoringConfig.autoUpdate !== false,
+        });
+      }
+    }
 
     return this.toApiInterface(updated);
   }

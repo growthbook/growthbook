@@ -146,6 +146,16 @@ export const advanceSingleRampSchedule = async (
             reason: decision.reason,
           }),
         });
+        if (current.safeRolloutId) {
+          const sr = await context.models.safeRollout.getById(
+            current.safeRolloutId,
+          );
+          if (sr) {
+            await context.models.safeRollout.update(sr, {
+              autoSnapshots: false,
+            });
+          }
+        }
         return;
       }
       if (decision.action === "hold") {

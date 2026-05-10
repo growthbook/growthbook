@@ -1,4 +1,4 @@
-import { FC, useMemo, useState } from "react";
+import { FC, useCallback, useMemo, useState } from "react";
 import { AlertDialog, Box, Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { extent } from "@visx/vendor/d3-array";
@@ -32,7 +32,7 @@ import {
 } from "shared/constants";
 import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
-import { PiInfo } from "react-icons/pi";
+import { PiInfo, PiLightning, PiLightningSlash } from "react-icons/pi";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import useApi from "@/hooks/useApi";
@@ -51,7 +51,14 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
+import { useAuth } from "@/services/auth";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import RunQueriesButton, {
+  getQueryStatus,
+} from "@/components/Queries/RunQueriesButton";
+import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
+import Metadata from "@/ui/Metadata";
 
 // ─── Dummy data helpers ──────────────────────────────────────────────────────
 
@@ -1319,16 +1326,284 @@ function HealthChecks({
   );
 }
 
+// ─── Monitoring controls ─────────────────────────────────────────────────────
+
+function getMonitoringInactiveReason(
+  rampSchedule: RampScheduleInterface,
+): string | null {
+  const { status, currentStepIndex, steps } = rampSchedule;
+  if (status === "paused") return "Monitoring paused — ramp is paused";
+  if (status === "completed") return "Monitoring stopped — ramp is complete";
+  if (status === "rolled-back")
+    return "Monitoring stopped — ramp was rolled back";
+  if (status === "pending" || status === "ready")
+    return "Monitoring inactive — ramp has not started";
+  if (status === "pending-approval")
+    return "Monitoring paused — awaiting approval";
+  const step = steps[currentStepIndex];
+  if (step && !step.monitored)
+    return "Monitoring inactive — current step is not monitored";
+  return null;
+}
+
+function MonitoringControls({
+  rampSchedule,
+  safeRolloutId,
+  snapshot,
+  latest,
+  mutateSnapshot,
+}: {
+  rampSchedule: RampScheduleInterface;
+  safeRolloutId: string;
+  snapshot?: SafeRolloutSnapshotInterface;
+  latest?: SafeRolloutSnapshotInterface;
+  mutateSnapshot: () => void;
+}) {
+  const { apiCall } = useAuth();
+  const permissionsUtil = usePermissionsUtil();
+  const snapshotCtx = useSafeRolloutSnapshot();
+
+  const { getDatasourceById } = useDefinitions();
+  const safeRollout = snapshotCtx.safeRollout;
+
+  // Fetch the SafeRollout directly when the provider doesn't have it
+  // (ramp-backed SRs may not be in the safeRolloutsMap that feeds the provider)
+  const { data: srData, mutate: mutateSr } = useApi<{
+    safeRollout: {
+      id: string;
+      autoSnapshots?: boolean;
+      datasourceId?: string;
+      nextSnapshotAttempt?: string | Date;
+    };
+  }>(`/safe-rollout/${safeRolloutId}`, {
+    shouldRun: () => !safeRollout && !!safeRolloutId,
+  });
+  const srFromApi = useMemo(() => {
+    if (safeRollout) return safeRollout;
+    return srData?.safeRollout as typeof safeRollout | undefined;
+  }, [safeRollout, srData]);
+
+  const autoSnapshots = srFromApi?.autoSnapshots ?? true;
+  const datasourceId =
+    srFromApi?.datasourceId ??
+    snapshot?.settings?.datasourceId ??
+    rampSchedule.monitoringConfig?.datasourceId;
+
+  const inactiveReason = getMonitoringInactiveReason(rampSchedule);
+  const isMonitoringActive = !inactiveReason;
+
+  const [queriesModalOpen, setQueriesModalOpen] = useState(false);
+  const [refreshError, setRefreshError] = useState("");
+
+  const latestSnap = latest ?? snapshot;
+
+  const queryStatusData = useMemo(() => {
+    if (!latestSnap) return null;
+    return getQueryStatus(latestSnap.queries, latestSnap.error);
+  }, [latestSnap]);
+
+  const status = queryStatusData?.status ?? "succeeded";
+  const ds = datasourceId ? getDatasourceById(datasourceId) : null;
+  const canRunQueries = ds
+    ? permissionsUtil.canRunExperimentQueries(ds)
+    : !!datasourceId;
+
+  const totalUsers = useMemo(() => {
+    const analysis = snapshot
+      ? getSafeRolloutSnapshotAnalysis(snapshot)
+      : undefined;
+    if (!analysis?.results?.[0]) return undefined;
+    const vars = analysis.results[0].variations;
+    return vars.reduce((sum, v) => sum + v.users, 0);
+  }, [snapshot]);
+
+  const handleToggleAutoSnapshots = async () => {
+    await apiCall(`/safe-rollout/${safeRolloutId}/auto-snapshots`, {
+      method: "PUT",
+      body: JSON.stringify({ enabled: !autoSnapshots }),
+    });
+    mutateSnapshot();
+    mutateSr();
+  };
+
+  const nextUpdate = srFromApi?.nextSnapshotAttempt
+    ? getValidDate(srFromApi.nextSnapshotAttempt)
+    : undefined;
+
+  const autoUpdateTooltipBody = (() => {
+    if (!isMonitoringActive) return inactiveReason;
+    if (!autoSnapshots) return "Auto-updates are disabled. Click to enable.";
+    if (nextUpdate && nextUpdate > new Date()) {
+      const mins = Math.max(
+        1,
+        Math.round((nextUpdate.getTime() - Date.now()) / 60_000),
+      );
+      return `Auto-update enabled. Next update in ~${mins}m`;
+    }
+    return "Auto-update enabled. Click to disable.";
+  })();
+
+  const lastUpdated = snapshot?.dateCreated
+    ? getValidDate(snapshot.dateCreated)
+    : undefined;
+
+  return (
+    <>
+      <Flex
+        align="center"
+        justify="between"
+        mb="2"
+        style={{ fontSize: 13, minHeight: 32 }}
+      >
+        <Flex align="center" gap="3">
+          {totalUsers !== undefined && (
+            <Metadata
+              label="Monitored Users"
+              value={numberFmt.format(totalUsers)}
+              style={{ whiteSpace: "nowrap" }}
+            />
+          )}
+        </Flex>
+
+        <Flex align="center" gap="3">
+          {/* Auto-update status + toggle */}
+          <Flex align="center" gap="1">
+            <Tooltip body={autoUpdateTooltipBody}>
+              {isMonitoringActive && autoSnapshots ? (
+                <PiLightning
+                  size={18}
+                  style={{ color: "var(--violet-11)", cursor: "pointer" }}
+                  onClick={
+                    canRunQueries ? handleToggleAutoSnapshots : undefined
+                  }
+                />
+              ) : (
+                <PiLightningSlash
+                  size={18}
+                  style={{
+                    color: "var(--gray-8)",
+                    cursor: canRunQueries ? "pointer" : "default",
+                  }}
+                  onClick={
+                    canRunQueries && isMonitoringActive
+                      ? handleToggleAutoSnapshots
+                      : undefined
+                  }
+                />
+              )}
+            </Tooltip>
+            {lastUpdated && (
+              <Tooltip
+                body={`Last update: ${getValidDate(lastUpdated).toLocaleString()}`}
+              >
+                <span style={{ color: "var(--color-text-mid)" }}>
+                  Updated{" "}
+                  {(() => {
+                    const diffMs = Date.now() - lastUpdated.getTime();
+                    const mins = Math.round(diffMs / 60_000);
+                    if (mins < 1) return "just now";
+                    if (mins < 60) return `${mins}m ago`;
+                    const hrs = Math.round(mins / 60);
+                    if (hrs < 24) return `${hrs}h ago`;
+                    return `${Math.round(hrs / 24)}d ago`;
+                  })()}
+                </span>
+              </Tooltip>
+            )}
+            {!lastUpdated && (
+              <span style={{ color: "var(--color-text-mid)" }}>
+                Not updated yet
+              </span>
+            )}
+          </Flex>
+
+          {/* Update button — always available with permissions */}
+          {canRunQueries && (
+            <RunQueriesButton
+              cta="Update"
+              cancelEndpoint={
+                latestSnap
+                  ? `/safe-rollout/snapshot/${latestSnap.id}/cancel`
+                  : ""
+              }
+              mutate={mutateSnapshot}
+              model={{
+                queries: latestSnap?.queries || [],
+                runStarted: latestSnap?.runStarted ?? null,
+              }}
+              icon="refresh"
+              useRadixButton
+              radixVariant="outline"
+              onSubmit={async () => {
+                try {
+                  await apiCall(`/safe-rollout/${safeRolloutId}/snapshot`, {
+                    method: "POST",
+                  });
+                  setRefreshError("");
+                } catch (e) {
+                  setRefreshError(e instanceof Error ? e.message : String(e));
+                }
+                mutateSnapshot();
+              }}
+            />
+          )}
+
+          {/* Query errors — show inline warning with link to details */}
+          {latestSnap &&
+            (status === "failed" || status === "partially-succeeded") && (
+              <Tooltip
+                body={
+                  status === "failed"
+                    ? "Snapshot update failed. Click to view queries."
+                    : "Some queries had errors. Click to view."
+                }
+              >
+                <span
+                  style={{
+                    color: "var(--red-9)",
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontWeight: 500,
+                  }}
+                  onClick={() => setQueriesModalOpen(true)}
+                >
+                  {status === "failed" ? "Failed" : "Partial errors"} — view
+                </span>
+              </Tooltip>
+            )}
+        </Flex>
+      </Flex>
+
+      {refreshError && (
+        <Callout status="error" mb="2">
+          <strong>Error updating data: </strong> {refreshError}
+        </Callout>
+      )}
+
+      {queriesModalOpen && latestSnap && (
+        <AsyncQueriesModal
+          queries={latestSnap.queries.map((q) => q.query)}
+          savedQueries={[]}
+          error={latestSnap.error ?? undefined}
+          close={() => setQueriesModalOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
 // ─── Main dashboard ──────────────────────────────────────────────────────────
 
 interface SafeRolloutRuleDashboardProps {
   rampSchedule: RampScheduleInterface;
   safeRolloutId?: string;
+  mutateRule?: () => void;
 }
 
 const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
   rampSchedule,
   safeRolloutId,
+  mutateRule,
 }) => {
   const router = useRouter();
   const useDummyData = router.query["dummy"] === "true";
@@ -1410,7 +1685,7 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
 
   // ── Real data: snapshot (prefer context from SafeRolloutSnapshotProvider) ──
   const snapshotCtx = useSafeRolloutSnapshot();
-  const { data: snapshotDataDirect } = useApi<{
+  const { data: snapshotDataDirect, mutate: mutateSnapshotDirect } = useApi<{
     snapshot: SafeRolloutSnapshotInterface;
     latest?: SafeRolloutSnapshotInterface;
   }>(`/safe-rollout/${safeRolloutId}/snapshot`, {
@@ -1442,13 +1717,21 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
     .map((id) => encodeURIComponent(id))
     .join("&metricIds[]=");
 
-  const { data: tsData } = useApi<{
+  const { data: tsData, mutate: mutateTimeSeries } = useApi<{
     status: number;
     timeSeries: MetricTimeSeries[];
   }>(`/safe-rollout/${safeRolloutId}/time-series?metricIds[]=${urlMetricIds}`, {
     shouldRun: () =>
       !useDummyData && !!safeRolloutId && allMetricIds.length > 0,
   });
+
+  const { mutateSnapshot: mutateSnapshotCtx } = snapshotCtx;
+  const mutateAll = useCallback(() => {
+    mutateSnapshotCtx();
+    mutateSnapshotDirect();
+    mutateTimeSeries();
+    mutateRule?.();
+  }, [mutateSnapshotCtx, mutateSnapshotDirect, mutateTimeSeries, mutateRule]);
 
   // ── Merge real + dummy ──
   const snapshotMetrics = useMemo(() => {
@@ -1513,6 +1796,16 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
 
   return (
     <Box mt="3" mb="2">
+      {!useDummyData && safeRolloutId && (
+        <MonitoringControls
+          rampSchedule={rampSchedule}
+          safeRolloutId={safeRolloutId}
+          snapshot={snapshotData?.snapshot}
+          latest={snapshotData?.latest}
+          mutateSnapshot={mutateAll}
+        />
+      )}
+
       {guardrailMetricIds.length > 0 && (
         <MetricSection
           title="Guardrail Metrics"

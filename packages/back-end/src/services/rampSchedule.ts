@@ -518,7 +518,7 @@ export async function ensureSafeRolloutForMonitoredRamp(
     guardrailMetricIds: allMetricIds,
     maxDuration: { amount: 90, unit: "days" },
     autoRollback: false,
-    autoSnapshots: true,
+    autoSnapshots: mc.autoUpdate !== false,
     status: "running",
     startedAt: new Date(),
     rampScheduleId: schedule.id,
@@ -539,6 +539,26 @@ export async function ensureSafeRolloutForMonitoredRamp(
       status: schedule.status,
       reason: `Linked safe rollout ${sr.id}`,
     }),
+  });
+}
+
+/**
+ * Transition the linked SafeRollout's status when the ramp schedule reaches
+ * a terminal or inactive state (completed, rolled-back, paused).
+ * Prevents the legacy snapshot job from picking up a stale "running" SR,
+ * and keeps the SR document consistent with the ramp state.
+ */
+export async function transitionLinkedSafeRollout(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+  targetStatus: "stopped" | "released" | "rolled-back",
+): Promise<void> {
+  if (!schedule.safeRolloutId) return;
+  const sr = await ctx.models.safeRollout.getById(schedule.safeRolloutId);
+  if (!sr || sr.status !== "running") return;
+  await ctx.models.safeRollout.update(sr, {
+    status: targetStatus,
+    autoSnapshots: false,
   });
 }
 
@@ -690,6 +710,13 @@ export async function rollbackToStep(
     }),
   });
 
+  // Full rollback → stop monitoring; partial rollback (pause) → stop auto snapshots
+  if (targetStepIndex === -1) {
+    await transitionLinkedSafeRollout(ctx, schedule, "rolled-back");
+  } else {
+    await transitionLinkedSafeRollout(ctx, schedule, "stopped");
+  }
+
   await dispatchRampEvent(ctx, updated, "rampSchedule.actions.rolledBack", {
     object: {
       rampScheduleId: updated.id,
@@ -738,7 +765,7 @@ export async function jumpAheadToStep(
     await executeStepActions(ctx, schedule, jumpTarget, jumpActions);
   }
 
-  return ctx.models.rampSchedules.updateById(schedule.id, {
+  const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
     status: "paused",
     currentStepIndex: jumpTarget,
     nextStepAt: null,
@@ -751,6 +778,15 @@ export async function jumpAheadToStep(
       previousStatus: schedule.status,
     }),
   });
+
+  if (schedule.safeRolloutId) {
+    const sr = await ctx.models.safeRollout.getById(schedule.safeRolloutId);
+    if (sr && sr.autoSnapshots) {
+      await ctx.models.safeRollout.update(sr, { autoSnapshots: false });
+    }
+  }
+
+  return updated;
 }
 
 // Fast-forwards to the terminal state, bypassing timing and approval gates.
@@ -795,6 +831,8 @@ export async function completeRollout(
       previousStatus: schedule.status,
     }),
   });
+
+  await transitionLinkedSafeRollout(ctx, schedule, "released");
 
   await dispatchRampEvent(ctx, updated, "rampSchedule.actions.completed", {
     object: {
@@ -841,6 +879,7 @@ export async function onActivatingRevisionPublished(
     });
 
     await applyRampStartActions(ctx, current);
+    current = await ensureSafeRolloutForMonitoredRamp(ctx, current);
 
     if (current.steps.length > 0) {
       await advanceUntilBlocked(ctx, current, now);

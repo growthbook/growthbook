@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { RampScheduleInterface } from "shared/validators";
+import { RampScheduleInterface, SafeRolloutInterface } from "shared/validators";
 import { SafeRolloutSnapshotInterface } from "shared/types/safe-rollout";
 import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
@@ -8,12 +8,12 @@ import {
   DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
 } from "shared/constants";
 import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
-import { getMetricResultStatus } from "shared/experiments";
-import { getSafeRolloutSnapshotAnalysis } from "shared/util";
+import { expandMetricGroups } from "shared/experiments";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 import { useUser } from "@/services/UserContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 export type RampHealthSignal =
   | "guardrail-failing"
@@ -27,8 +27,11 @@ export type RampHealthSignal =
 function computeSignals(
   rampSchedule: RampScheduleInterface,
   snapshot: SafeRolloutSnapshotInterface | undefined,
+  safeRollout: SafeRolloutInterface | undefined,
   srmThreshold: number,
   meMinPercent: number,
+  expandedGuardrailIds: string[],
+  expandedSignalIds: string[],
 ): RampHealthSignal[] {
   const signals: RampHealthSignal[] = [];
 
@@ -36,9 +39,6 @@ function computeSignals(
   if (!isMonitored || !["running", "paused"].includes(rampSchedule.status)) {
     return signals;
   }
-
-  const analysis = snapshot ? getSafeRolloutSnapshotAnalysis(snapshot) : null;
-  const results = analysis?.results?.[0];
 
   const traffic = snapshot?.health?.traffic;
   const units = traffic?.overall?.variationUnits;
@@ -50,7 +50,7 @@ function computeSignals(
     return signals;
   }
 
-  if (!snapshot || !results) {
+  if (!snapshot || !safeRollout?.analysisSummary?.resultsStatus) {
     signals.push("awaiting-data");
     return signals;
   }
@@ -80,50 +80,27 @@ function computeSignals(
     signals.push("multiple-exposures");
   }
 
-  // Guardrail regression
-  const guardrailIds = rampSchedule.monitoringConfig?.guardrailMetricIds ?? [];
-  const variationResults = results.variations?.[1];
+  const resultsStatus = safeRollout.analysisSummary.resultsStatus;
+  const guardrailSet = new Set(expandedGuardrailIds);
+  const signalSet = new Set(
+    expandedSignalIds.filter((id) => !guardrailSet.has(id)),
+  );
 
-  if (variationResults?.metrics) {
-    for (const metricId of guardrailIds) {
-      const metric = variationResults.metrics[metricId];
-      if (!metric) continue;
-      const status = getMetricResultStatus({
-        metric,
-        ciLower: metric.ci?.[0] ?? 0,
-        ciUpper: metric.ci?.[1] ?? 0,
-        pValueThreshold: 0.05,
-        statsEngine: "frequentist",
-        isGuardrail: true,
-      });
-      if (status.status === "lost") {
-        signals.push("guardrail-failing");
-        break;
+  let hasGuardrailFailing = false;
+  let hasSignalRegression = false;
+  for (const variation of resultsStatus.variations) {
+    if (!variation.guardrailMetrics) continue;
+    for (const [metricId, gm] of Object.entries(variation.guardrailMetrics)) {
+      if (gm.status !== "lost") continue;
+      if (guardrailSet.has(metricId)) {
+        hasGuardrailFailing = true;
+      } else if (signalSet.has(metricId)) {
+        hasSignalRegression = true;
       }
     }
   }
-
-  // Signal metric regression
-  const signalIds = rampSchedule.monitoringConfig?.signalMetricIds ?? [];
-  if (variationResults?.metrics) {
-    for (const metricId of signalIds) {
-      if (guardrailIds.includes(metricId)) continue;
-      const metric = variationResults.metrics[metricId];
-      if (!metric) continue;
-      const status = getMetricResultStatus({
-        metric,
-        ciLower: metric.ci?.[0] ?? 0,
-        ciUpper: metric.ci?.[1] ?? 0,
-        pValueThreshold: 0.05,
-        statsEngine: "frequentist",
-        isGuardrail: true,
-      });
-      if (status.status === "lost") {
-        signals.push("signal-regression");
-        break;
-      }
-    }
-  }
+  if (hasGuardrailFailing) signals.push("guardrail-failing");
+  if (hasSignalRegression) signals.push("signal-regression");
 
   if (signals.length === 0) {
     signals.push("healthy");
@@ -177,15 +154,50 @@ export function RampMonitoringBadges({
 }: {
   rampSchedule: RampScheduleInterface;
 }) {
-  const { snapshot } = useSafeRolloutSnapshot();
+  const { snapshot, safeRollout } = useSafeRolloutSnapshot();
   const { settings } = useUser();
+  const { metricGroups } = useDefinitions();
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
   const meMinPercent =
     settings.multipleExposureMinPercent ?? DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD;
 
+  const expandedGuardrailIds = useMemo(
+    () =>
+      expandMetricGroups(
+        rampSchedule.monitoringConfig?.guardrailMetricIds ?? [],
+        metricGroups,
+      ),
+    [rampSchedule.monitoringConfig?.guardrailMetricIds, metricGroups],
+  );
+  const expandedSignalIds = useMemo(
+    () =>
+      expandMetricGroups(
+        rampSchedule.monitoringConfig?.signalMetricIds ?? [],
+        metricGroups,
+      ),
+    [rampSchedule.monitoringConfig?.signalMetricIds, metricGroups],
+  );
+
   const signals = useMemo(
-    () => computeSignals(rampSchedule, snapshot, srmThreshold, meMinPercent),
-    [rampSchedule, snapshot, srmThreshold, meMinPercent],
+    () =>
+      computeSignals(
+        rampSchedule,
+        snapshot,
+        safeRollout,
+        srmThreshold,
+        meMinPercent,
+        expandedGuardrailIds,
+        expandedSignalIds,
+      ),
+    [
+      rampSchedule,
+      snapshot,
+      safeRollout,
+      srmThreshold,
+      meMinPercent,
+      expandedGuardrailIds,
+      expandedSignalIds,
+    ],
   );
 
   return (
@@ -204,15 +216,50 @@ export function RampMonitoringCTAs({
   rampSchedule: RampScheduleInterface;
   onRollback: () => void;
 }) {
-  const { snapshot } = useSafeRolloutSnapshot();
+  const { snapshot, safeRollout } = useSafeRolloutSnapshot();
   const { settings } = useUser();
+  const { metricGroups } = useDefinitions();
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
   const meMinPercent =
     settings.multipleExposureMinPercent ?? DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD;
 
+  const expandedGuardrailIds = useMemo(
+    () =>
+      expandMetricGroups(
+        rampSchedule.monitoringConfig?.guardrailMetricIds ?? [],
+        metricGroups,
+      ),
+    [rampSchedule.monitoringConfig?.guardrailMetricIds, metricGroups],
+  );
+  const expandedSignalIds = useMemo(
+    () =>
+      expandMetricGroups(
+        rampSchedule.monitoringConfig?.signalMetricIds ?? [],
+        metricGroups,
+      ),
+    [rampSchedule.monitoringConfig?.signalMetricIds, metricGroups],
+  );
+
   const signals = useMemo(
-    () => computeSignals(rampSchedule, snapshot, srmThreshold, meMinPercent),
-    [rampSchedule, snapshot, srmThreshold, meMinPercent],
+    () =>
+      computeSignals(
+        rampSchedule,
+        snapshot,
+        safeRollout,
+        srmThreshold,
+        meMinPercent,
+        expandedGuardrailIds,
+        expandedSignalIds,
+      ),
+    [
+      rampSchedule,
+      snapshot,
+      safeRollout,
+      srmThreshold,
+      meMinPercent,
+      expandedGuardrailIds,
+      expandedSignalIds,
+    ],
   );
 
   const hasUrgent =
@@ -237,7 +284,7 @@ export function RampMonitoringCTAs({
     signals.includes("no-traffic")
   ) {
     return (
-      <Button size="xs" variant="soft" color="amber" onClick={onRollback}>
+      <Button size="xs" variant="soft" onClick={onRollback}>
         Investigate
       </Button>
     );

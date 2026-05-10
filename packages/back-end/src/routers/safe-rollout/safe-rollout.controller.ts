@@ -13,6 +13,7 @@ import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
+import { appendRampEvent } from "back-end/src/services/rampSchedule";
 
 // region GET /safe-rollout/:id/snapshot
 /**
@@ -221,6 +222,46 @@ export async function putSafeRollout(
 }
 // endregion PUT /safe-rollout/:id
 
+// region PUT /safe-rollout/:id/auto-snapshots
+export async function putAutoSnapshots(
+  req: AuthRequest<{ enabled: boolean }, { id: string }>,
+  res: Response<{ status: 200 }>,
+) {
+  const { id } = req.params;
+  const { enabled } = req.body;
+  const context = getContextFromReq(req);
+  const safeRollout = await context.models.safeRollout.getById(id);
+  if (!safeRollout) {
+    throw new Error("Could not find safe rollout");
+  }
+
+  await context.models.safeRollout.update(safeRollout, {
+    autoSnapshots: enabled,
+  });
+
+  if (safeRollout.rampScheduleId) {
+    const schedule = await context.models.rampSchedules.getById(
+      safeRollout.rampScheduleId,
+    );
+    if (schedule?.monitoringConfig) {
+      await context.models.rampSchedules.updateById(schedule.id, {
+        monitoringConfig: {
+          ...schedule.monitoringConfig,
+          autoUpdate: enabled,
+        },
+        eventHistory: appendRampEvent(schedule, "auto-update-toggled", {
+          stepIndex: schedule.currentStepIndex,
+          status: schedule.status,
+          reason: enabled ? "Auto-update enabled" : "Auto-update disabled",
+        }),
+      });
+    }
+  }
+
+  res.status(200).json({ status: 200 });
+}
+// endregion PUT /safe-rollout/:id/auto-snapshots
+
 // region GET /safe-rollout/:id/time-series
 /**
  * GET /safe-rollout/:id/time-series
@@ -259,6 +300,24 @@ export const getSafeRolloutTimeSeries = async (
   });
 };
 // endregion GET /safe-rollout/:id/time-series
+
+// region GET /safe-rollout/:id
+/**
+ * GET /safe-rollout/:id
+ * Get a single safe rollout rule by ID
+ */
+export const getSafeRolloutById = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200; safeRollout: SafeRolloutInterface } | { status: 404; message: string }>,
+) => {
+  const context = getContextFromReq(req);
+  const safeRollout = await context.models.safeRollout.getById(req.params.id);
+  if (!safeRollout) {
+    return res.status(404).json({ status: 404, message: "Safe Rollout not found" });
+  }
+  res.status(200).json({ status: 200, safeRollout });
+};
+// endregion GET /safe-rollout/:id
 
 // region GET /safe-rollout
 /**

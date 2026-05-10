@@ -448,6 +448,7 @@ export async function _createSafeRolloutSnapshot({
   );
   await context.models.safeRollout.update(safeRollout, {
     nextSnapshotAttempt: nextSnapshot,
+    lastSnapshotAttempt: new Date(),
   });
 
   const snapshot = await context.models.safeRolloutSnapshots.create(data);

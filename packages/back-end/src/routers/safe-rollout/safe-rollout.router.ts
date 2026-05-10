@@ -63,6 +63,14 @@ router.put(
   }),
   safeRolloutController.putSafeRollout,
 );
+router.put(
+  "/:id/auto-snapshots",
+  validateRequestMiddleware({
+    params: safeRolloutParams,
+    body: z.object({ enabled: z.boolean() }).strict(),
+  }),
+  safeRolloutController.putAutoSnapshots,
+);
 
 // Get the latest snapshot for a safe rollout rule
 router.get(
@@ -71,6 +79,12 @@ router.get(
     params: snapshotParams,
   }),
   safeRolloutController.getSafeRolloutTimeSeries,
+);
+// Get a single safe rollout by ID
+router.get(
+  "/:id",
+  validateRequestMiddleware({ params: safeRolloutParams }),
+  safeRolloutController.getSafeRolloutById,
 );
 router.get("/", safeRolloutController.getSafeRollouts);
 

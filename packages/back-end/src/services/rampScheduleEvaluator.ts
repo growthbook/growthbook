@@ -13,6 +13,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import {
   appendRampEvent,
+  computeNextProcessAt,
   computeNextSnapshotAt,
   getRefreshIntervalMs,
 } from "back-end/src/services/rampSchedule";
@@ -101,7 +102,12 @@ async function evaluateMonitoredStep(
   if (experimentHealthDecision) return experimentHealthDecision;
 
   // 3. Trigger a new snapshot if the query interval has elapsed.
-  await maybeTriggerSnapshot(ctx, schedule, safeRollout, now);
+  const snapshotTriggered = await maybeTriggerSnapshot(
+    ctx,
+    schedule,
+    safeRollout,
+    now,
+  );
 
   // 4. Check if the step interval has elapsed.
   const stepEnteredAt = schedule.currentStepEnteredAt;
@@ -124,7 +130,11 @@ async function evaluateMonitoredStep(
       ? new Date(stepEnteredAt.getTime() + step.trigger.seconds * 1000)
       : null;
 
-  const latestSnapshot = safeRollout.lastSnapshotAttempt;
+  // Use the DB value if available, but if we just triggered a snapshot in this
+  // tick, treat `now` as the attempt time (avoids stale in-memory object).
+  const latestSnapshot = snapshotTriggered
+    ? now
+    : safeRollout.lastSnapshotAttempt;
   const hasPostIntervalSnapshot =
     intervalEndAt && latestSnapshot && latestSnapshot >= intervalEndAt;
 
@@ -293,7 +303,10 @@ async function maybeTriggerSnapshot(
   schedule: RampScheduleInterface,
   safeRollout: SafeRolloutInterface,
   now: Date,
-): Promise<void> {
+): Promise<boolean> {
+  if (!safeRollout.autoSnapshots) return false;
+  if (schedule.monitoringConfig?.autoUpdate === false) return false;
+
   const refreshMs = getRefreshIntervalMs(
     safeRollout,
     ctx.org,
@@ -304,7 +317,7 @@ async function maybeTriggerSnapshot(
   const isDue =
     !lastAttempt || now.getTime() - lastAttempt.getTime() >= refreshMs;
 
-  if (!isDue) return;
+  if (!isDue) return false;
 
   try {
     const { createSafeRolloutSnapshot } = await import(
@@ -323,6 +336,9 @@ async function maybeTriggerSnapshot(
       triggeredBy: "schedule",
     });
 
+    // _createSafeRolloutSnapshot already sets lastSnapshotAttempt on the SR;
+    // no need to write it again here.
+
     const nextSnapshotAt = computeNextSnapshotAt(
       safeRollout,
       ctx.org,
@@ -331,6 +347,12 @@ async function maybeTriggerSnapshot(
     );
     await ctx.models.rampSchedules.updateById(schedule.id, {
       nextSnapshotAt,
+      nextProcessAt: computeNextProcessAt({
+        status: schedule.status,
+        nextStepAt: schedule.nextStepAt,
+        nextSnapshotAt,
+        cutoffDate: schedule.cutoffDate,
+      }),
       eventHistory: appendRampEvent(schedule, "snapshot-triggered", {
         stepIndex: schedule.currentStepIndex,
         status: schedule.status,
@@ -341,8 +363,10 @@ async function maybeTriggerSnapshot(
       { scheduleId: schedule.id, safeRolloutId: safeRollout.id },
       "Triggered snapshot for monitored ramp step",
     );
+    return true;
   } catch (e) {
     logger.error(e, `Failed to trigger snapshot for schedule ${schedule.id}`);
+    return false;
   }
 }
 

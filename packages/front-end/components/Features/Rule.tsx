@@ -1222,6 +1222,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   <SafeRolloutRuleDashboard
                     safeRolloutId={rampSchedule.safeRolloutId ?? undefined}
                     rampSchedule={rampSchedule}
+                    mutateRule={mutate}
                   />
                 )}
               </Box>
