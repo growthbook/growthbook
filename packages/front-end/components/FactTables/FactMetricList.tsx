@@ -11,7 +11,7 @@ import { tagLinkProps, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import SortedTags from "@/components/Tags/SortedTags";
 import MetricName from "@/components/Metrics/MetricName";
 import FactMetricTypeDisplayName from "@/components/Metrics/FactMetricTypeDisplayName";
@@ -30,6 +30,10 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
+import {
+  isMergeAggregationMetric,
+  REST_API_ONLY_EDIT_MESSAGE,
+} from "@/services/factMetrics";
 import FactMetricModal from "./FactMetricModal";
 
 function FactMetricRowMenu({
@@ -39,6 +43,7 @@ function FactMetricRowMenu({
   canDuplicate,
   onEdit,
   onDuplicate,
+  editDisabledReason,
 }: {
   metric: FactMetricInterface;
   canEdit: boolean;
@@ -46,10 +51,21 @@ function FactMetricRowMenu({
   canDuplicate: boolean;
   onEdit: () => void;
   onDuplicate: () => void;
+  editDisabledReason?: string;
 }) {
   const [open, setOpen] = useState(false);
   const { apiCall } = useAuth();
   const { mutateDefinitions } = useDefinitions();
+  const canEditMenu =
+    canEdit && !metric.archived && !editDisabledReason && !!onEdit;
+  const canShowDisabledEdit =
+    canEdit && !metric.archived && !!editDisabledReason;
+  // Duplicate uses the same FactMetricModal as Edit, so anything that locks
+  // editing to the REST API also has to lock Duplicate — otherwise a user
+  // could open a half-broken modal pre-filled with values the picker can no
+  // longer represent.
+  const canDuplicateMenu = canDuplicate && !editDisabledReason;
+  const canShowDisabledDuplicate = canDuplicate && !!editDisabledReason;
 
   return (
     <DropdownMenu
@@ -69,24 +85,33 @@ function FactMetricRowMenu({
       menuPlacement="end"
     >
       <DropdownMenuGroup>
-        {canEdit && (
+        {(canEditMenu || canShowDisabledEdit) && (
           <DropdownMenuItem
             onClick={() => {
               onEdit();
               setOpen(false);
             }}
+            disabled={canShowDisabledEdit}
           >
-            Edit
+            <Tooltip content={editDisabledReason} enabled={canShowDisabledEdit}>
+              <span>Edit</span>
+            </Tooltip>
           </DropdownMenuItem>
         )}
-        {canDuplicate && (
+        {(canDuplicateMenu || canShowDisabledDuplicate) && (
           <DropdownMenuItem
             onClick={() => {
               onDuplicate();
               setOpen(false);
             }}
+            disabled={canShowDisabledDuplicate}
           >
-            Duplicate
+            <Tooltip
+              content={editDisabledReason}
+              enabled={canShowDisabledDuplicate}
+            >
+              <span>Duplicate</span>
+            </Tooltip>
           </DropdownMenuItem>
         )}
         {canEdit && (
@@ -292,11 +317,8 @@ export default function FactMetricList({
         )}
         <div className="col-auto ml-auto">
           <Tooltip
-            body={
-              canCreateMetrics
-                ? ""
-                : `You don't have permission to add metrics to this fact table`
-            }
+            content={`You don't have permission to add metrics to this fact table`}
+            enabled={!canCreateMetrics}
           >
             <Button
               onClick={() => {
@@ -379,7 +401,7 @@ export default function FactMetricList({
                                 style={{ whiteSpace: "nowrap" }}
                               >
                                 <Tooltip
-                                  body={
+                                  content={
                                     hasNoLevels
                                       ? "No slice levels configured"
                                       : levels?.join(", ") || "No levels"
@@ -430,6 +452,11 @@ export default function FactMetricList({
                       canDelete={canDelete(metric)}
                       canDuplicate={canCreateMetrics}
                       onEdit={() => setEditMetric(metric)}
+                      editDisabledReason={
+                        isMergeAggregationMetric(metric)
+                          ? REST_API_ONLY_EDIT_MESSAGE
+                          : undefined
+                      }
                       onDuplicate={() =>
                         setDuplicateMetric({
                           ...metric,

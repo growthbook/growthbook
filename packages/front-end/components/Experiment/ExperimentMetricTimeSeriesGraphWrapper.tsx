@@ -34,6 +34,8 @@ interface ExperimentMetricTimeSeriesGraphWrapperProps {
   sliceId?: string;
   baselineRow?: number;
   unavailableMessage?: string;
+  dimensionId?: string;
+  dimensionValue?: string;
 }
 
 export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
@@ -67,6 +69,8 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   sliceId,
   baselineRow = 0,
   unavailableMessage,
+  dimensionId,
+  dimensionValue,
 }: ExperimentMetricTimeSeriesGraphWrapperProps) {
   const { getFactTableById } = useDefinitions();
 
@@ -78,14 +82,32 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   );
 
   const metricId = sliceId ?? metric.id;
+  const dimensionQuery =
+    dimensionId && dimensionValue !== undefined
+      ? `&dimensions[0][id]=${encodeURIComponent(
+          dimensionId,
+        )}&dimensions[0][value]=${encodeURIComponent(dimensionValue)}`
+      : dimensionId
+        ? `&dimensions[0][id]=${encodeURIComponent(dimensionId)}`
+        : "";
 
   const { data, isLoading, error } = useApi<{ timeSeries: MetricTimeSeries[] }>(
-    `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${encodeURIComponent(metricId)}`,
+    `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${encodeURIComponent(metricId)}${dimensionQuery}`,
   );
 
   const filteredMetricTimeSeries = useMemo(() => {
-    return filterInvalidMetricTimeSeries(data?.timeSeries || []);
-  }, [data]);
+    const all = filterInvalidMetricTimeSeries(data?.timeSeries || []);
+    if (!dimensionId) {
+      return all.filter((t) => !t.dimensionId);
+    }
+    if (dimensionValue === undefined) {
+      return all.filter((t) => t.dimensionId === dimensionId);
+    }
+    return all.filter(
+      (t) =>
+        t.dimensionId === dimensionId && t.dimensionValue === dimensionValue,
+    );
+  }, [data, dimensionId, dimensionValue]);
 
   if (unavailableMessage) {
     return <Message height="70px">{unavailableMessage}</Message>;

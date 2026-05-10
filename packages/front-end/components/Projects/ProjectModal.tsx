@@ -2,8 +2,8 @@ import { ProjectInterface } from "shared/types/project";
 import { useForm } from "react-hook-form";
 import { postProjectValidator, putProjectValidator } from "shared/validators";
 import { useRestApiCall } from "@/services/restApi";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export default function ProjectModal({
   existing,
@@ -24,7 +24,7 @@ export default function ProjectModal({
   const restApiCall = useRestApiCall();
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       open={true}
       close={close}
@@ -63,6 +63,6 @@ export default function ProjectModal({
         textarea={true}
         {...form.register("description")}
       />
-    </Modal>
+    </ModalStandard>
   );
 }
