@@ -1,5 +1,4 @@
 import { BsFlag, BsCodeSlash, BsHouse } from "react-icons/bs";
-import { GrTarget } from "react-icons/gr";
 import {
   GBDatabase,
   GBExperiment,
@@ -22,12 +21,30 @@ export const navlinks: SidebarLinkProps[] = [
     name: "Features",
     href: "/features",
     Icon: BsFlag,
-    path: /^(features|archetypes)/,
+    path: /^(features|feature-drafts|archetypes)/,
+    navigateOnExpand: true,
+    subLinks: [
+      {
+        name: "All Features",
+        href: "/features",
+        path: /^features/,
+      },
+      {
+        name: "Drafts",
+        href: "/feature-drafts",
+        path: /^feature-drafts/,
+      },
+      {
+        name: "Simulate",
+        href: "/archetypes",
+        path: /^archetypes/,
+      },
+    ],
   },
   {
     name: "Experimentation",
     href: "/experiments",
-    path: /^(experiments|experiment\/|bandit|namespaces|power-calculator)/,
+    path: /^(experiments|experiment\/|bandit|power-calculator|exposure-debugger)/,
     Icon: GBExperiment,
     navigateOnExpand: true,
     subLinks: [
@@ -56,11 +73,6 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Power Calculator",
         href: "/power-calculator",
         path: /^power-calculator/,
-      },
-      {
-        name: "Namespaces",
-        href: "/namespaces",
-        path: /^namespaces/,
       },
       {
         name: "Exposures Debugger",
@@ -172,11 +184,11 @@ export const navlinks: SidebarLinkProps[] = [
     ],
   },
   {
-    name: "Targeting",
+    name: "Targeting and SDKs",
     href: "/attributes",
-    path: /^(attributes|saved-groups|environments)/,
+    path: /^(attributes|saved-groups|environments|namespaces|sdks)/,
     autoClose: true,
-    Icon: GrTarget,
+    Icon: BsCodeSlash,
     subLinks: [
       {
         name: "Attributes",
@@ -193,13 +205,17 @@ export const navlinks: SidebarLinkProps[] = [
         href: "/environments",
         path: /^environments/,
       },
+      {
+        name: "Namespaces",
+        href: "/namespaces",
+        path: /^namespaces/,
+      },
+      {
+        name: "SDK Connections",
+        href: "/sdks",
+        path: /^sdks/,
+      },
     ],
-  },
-  {
-    name: "SDK Connections",
-    href: "/sdks",
-    path: /^sdks/,
-    Icon: BsCodeSlash,
   },
   {
     name: "Settings",

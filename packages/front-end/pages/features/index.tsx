@@ -13,7 +13,6 @@ import {
 } from "react-icons/fa6";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import FeatureModal from "@/components/Features/FeatureModal";
 import track from "@/services/track";
@@ -32,11 +31,9 @@ import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/ui/Button";
-import Callout from "@/ui/Callout";
 import LinkButton from "@/ui/LinkButton";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -48,7 +45,6 @@ import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useFeaturesStatus } from "@/hooks/useFeaturesStatus";
 import { useFeatureDraftStates } from "@/hooks/useFeatureDraftStates";
 import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
-import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
 const HEADER_HEIGHT_PX = 55;
@@ -551,26 +547,7 @@ export default function FeaturesPage() {
           />
         </>
       ) : (
-        <Tabs defaultValue="all-features" persistInURL={true}>
-          <Box mb="3">
-            <TabsList>
-              <TabsTrigger value="all-features">All Features</TabsTrigger>
-              <TabsTrigger value="drafts">Drafts</TabsTrigger>
-            </TabsList>
-          </Box>
-
-          <TabsContent value="all-features">
-            {renderFeaturesTable()}
-            <Callout status="info" mt="5" mb="3">
-              Test what values these features will return for your users from
-              the <Link href="/archetypes#simulate">Simulate</Link> page.
-            </Callout>
-          </TabsContent>
-
-          <TabsContent value="drafts">
-            <FeaturesDraftTable />
-          </TabsContent>
-        </Tabs>
+        renderFeaturesTable()
       )}
     </div>
   );
