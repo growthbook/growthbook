@@ -366,9 +366,13 @@ export async function runRefreshColumnsQuery(
           }
         }
       } catch (e) {
-        logger.error(e, "Error running top values query", {
-          columns: columnChunk.map((c) => c.column),
-        });
+        logger.error(
+          e,
+          `Error running top values query on ${datasource.type}`,
+          {
+            columns: columnChunk.map((c) => c.column),
+          },
+        );
       }
     }
   }

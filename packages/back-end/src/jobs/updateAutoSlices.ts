@@ -175,10 +175,14 @@ async function updateAutoSlicesForColumns(
           col.dateUpdated = new Date();
         }
       } catch (e) {
-        logger.error(e, "Error updating auto-slices for columns", {
-          factTableId: factTable.id,
-          columns: columnChunk.map((c) => c.column),
-        });
+        logger.error(
+          e,
+          `Error updating auto-slices for columns on ${datasource.type}`,
+          {
+            factTableId: factTable.id,
+            columns: columnChunk.map((c) => c.column),
+          },
+        );
       }
     }
   }

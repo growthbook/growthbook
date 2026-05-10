@@ -501,9 +501,13 @@ export const postColumnTopValues = async (
         changes,
       });
     } catch (e) {
-      logger.error(e, "Error running top values query for specific column", {
-        column: req.params.column,
-      });
+      logger.error(
+        e,
+        `Error running top values query for specific column on ${datasource.type}`,
+        {
+          column: req.params.column,
+        },
+      );
       throw e;
     }
   } else {
@@ -577,7 +581,10 @@ export const putColumn = async (
           });
         })
         .catch((e) => {
-          logger.warn("Failed to get top values for column", e);
+          logger.warn(
+            `Failed to get top values for column on ${datasource.type}`,
+            e,
+          );
         });
     }
   }
