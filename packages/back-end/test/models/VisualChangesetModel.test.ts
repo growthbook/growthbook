@@ -139,5 +139,48 @@ describe("updateVisualChangeset", () => {
         );
       });
     });
+    describe("and incoming updates has empty visualChanges", () => {
+      const updates = {
+        editorUrl: "https://editor2.url",
+        urlPatterns: [],
+        visualChanges: [],
+      };
+      const updateFn = jest
+        .spyOn(VisualChangesetModel, "updateOne")
+        .mockResolvedValue({
+          acknowledged: true,
+          matchedCount: 1,
+          modifiedCount: 1,
+          upsertedCount: 0,
+          upsertedId: null,
+        });
+
+      it("should overwrite the existing visual changes with an empty list", async () => {
+        (getCollection as jest.Mock).mockReturnValue({
+          findOne: jest.fn().mockResolvedValue(null),
+        });
+
+        const res = await updateVisualChangeset({
+          visualChangeset,
+          // @ts-expect-error TODO
+          experiment,
+          updates,
+          context,
+        });
+        expect(updateFn).toHaveBeenCalledWith(
+          {
+            id: visualChangeset.id,
+            organization: context.org.id,
+          },
+          {
+            $set: {
+              ...updates,
+              visualChanges: [],
+            },
+          },
+        );
+        expect(res.visualChanges).toEqual([]);
+      });
+    });
   });
 });

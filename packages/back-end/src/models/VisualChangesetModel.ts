@@ -310,7 +310,7 @@ const _isUpdatingVisualChanges = (
 ): updates is {
   visualChanges: Partial<VisualChange>[];
 } & VisualChangesetUpdates =>
-  updates.visualChanges !== undefined && updates.visualChanges.length > 0;
+  updates.visualChanges !== undefined;
 
 const UPDATABLE_VISUAL_CHANGESET_FIELDS = [
   "editorUrl",
