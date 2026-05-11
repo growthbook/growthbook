@@ -25,7 +25,9 @@ import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
-import Modal from "@/components/Modal";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import Modal from "@/ui/Modal";
+import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
 
 type Props = {
   dataSource: DataSourceInterfaceWithParams;
@@ -60,6 +62,12 @@ const statusColors: Record<
   error: "red",
   schema_update_error: "red",
 };
+
+const EVENT_FORWARDER_MODAL_FAILURE_MESSAGE =
+  "Something went wrong. Update your settings and use Test write access to try again.";
+
+const EVENT_FORWARDER_STANDALONE_TEST_SUCCESS_MESSAGE =
+  "Write test succeeded. You can confirm to save.";
 
 function getEventForwarderDraft(
   dataSource: DataSourceInterfaceWithParams,
@@ -156,6 +164,38 @@ function getCanConfirmEventForwarder(
   return false;
 }
 
+function EventForwarderConfirmButton({
+  canConfirmEventForwarder,
+  usEventForwarderFlowConsent,
+  datasourceDraft,
+}: {
+  canConfirmEventForwarder: boolean;
+  usEventForwarderFlowConsent: boolean;
+  datasourceDraft: EventForwarderDatasourceDraft;
+}) {
+  const { loading } = useModalForm();
+  const ctaEnabled = canConfirmEventForwarder && usEventForwarderFlowConsent;
+  const disabledMessage = !canConfirmEventForwarder
+    ? datasourceDraft.type === "bigquery"
+      ? "Enter a default dataset and table name before confirming."
+      : "Enter all required Snowflake fields before confirming."
+    : !usEventForwarderFlowConsent
+      ? "Acknowledge US data flow and authorization to use Confirm."
+      : undefined;
+
+  return (
+    <Tooltip
+      body={disabledMessage || ""}
+      shouldDisplay={!ctaEnabled && !!disabledMessage}
+      tipPosition="top"
+    >
+      <Button type="submit" disabled={!ctaEnabled} loading={loading}>
+        Confirm
+      </Button>
+    </Tooltip>
+  );
+}
+
 function EventForwarderModal({
   dataSource,
   onCancel,
@@ -177,6 +217,9 @@ function EventForwarderModal({
     }));
   const [usEventForwarderFlowConsent, setUsEventForwarderFlowConsent] =
     useState(false);
+  const [standaloneTestFeedback, setStandaloneTestFeedback] = useState<
+    null | "success" | "error"
+  >(null);
 
   const setParams = (params: { [key: string]: string | boolean }) => {
     setDatasourceDraft((current) => ({
@@ -220,70 +263,116 @@ function EventForwarderModal({
 
   const canConfirmEventForwarder = getCanConfirmEventForwarder(datasourceDraft);
 
+  const runStandaloneWriteTest = async () => {
+    if (!eventForwarderConfig || !canConfirmEventForwarder) return;
+    setStandaloneTestFeedback(null);
+    try {
+      await testEventForwarderAccess();
+      setStandaloneTestFeedback("success");
+    } catch {
+      setStandaloneTestFeedback("error");
+    }
+  };
+
   return (
-    <Modal
-      trackingEventModalType=""
+    <Modal.Root
       open={true}
-      submit={async () => {
-        if (!eventForwarderConfig) return;
-        await testEventForwarderAccess();
-        await apiCall(`/datasource/${dataSource.id}/event-forwarder`, {
-          method: "PUT",
-          body: JSON.stringify({
-            eventForwarderConfig,
-            ...(eventForwarderParamsForSubmit
-              ? { params: eventForwarderParamsForSubmit }
-              : {}),
-          }),
-        });
-        await onRefresh();
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onCancel();
       }}
-      close={onCancel}
-      header={modalTitle}
-      cta="Confirm"
       size="md"
-      ctaEnabled={canConfirmEventForwarder && usEventForwarderFlowConsent}
-      disabledMessage={
-        !canConfirmEventForwarder
-          ? datasourceDraft.type === "bigquery"
-            ? "Enter a default dataset and table name before confirming."
-            : "Enter all required Snowflake fields before confirming."
-          : !usEventForwarderFlowConsent
-            ? "Acknowledge US data flow and authorization to use Confirm."
-            : undefined
-      }
+      trackingEventModalType=""
     >
-      <Callout status="info" mb="3">
-        Confirm runs a write test (create and delete a temporary validation
-        table), then saves your Event Forwarder configuration. If the test
-        fails, nothing is saved and the error is shown above.
-      </Callout>
-      {eventForwarderConfig?.sinkType === "bigquery" ? (
-        <BigQueryEventForwarderForm
-          params={params as Partial<BigQueryConnectionParams>}
-          eventForwarderConfig={eventForwarderConfig}
-          setParams={setParams}
-          setEventForwarderConfig={setEventForwarderConfig}
-          showDefaultDatasetField
-          className="form-group col-md-12 px-0"
-        />
-      ) : null}
-      {eventForwarderConfig?.sinkType === "snowflake" ? (
-        <SnowflakeEventForwarderForm
-          params={params as Partial<SnowflakeConnectionParams>}
-          eventForwarderConfig={eventForwarderConfig}
-          setEventForwarderConfig={setEventForwarderConfig}
-        />
-      ) : null}
-      <Callout status="info" mx="2" mb="0" mt="3" icon={null}>
-        <Checkbox
-          value={usEventForwarderFlowConsent}
-          setValue={setUsEventForwarderFlowConsent}
-          label="I understand that event data will flow through GrowthBook's US servers and confirm I'm authorized to enable this for my organization."
-          weight="regular"
-        />
-      </Callout>
-    </Modal>
+      <ModalForm
+        onSubmit={async () => {
+          setStandaloneTestFeedback(null);
+          if (!eventForwarderConfig) return;
+          try {
+            await testEventForwarderAccess();
+            await apiCall(`/datasource/${dataSource.id}/event-forwarder`, {
+              method: "PUT",
+              body: JSON.stringify({
+                eventForwarderConfig,
+                ...(eventForwarderParamsForSubmit
+                  ? { params: eventForwarderParamsForSubmit }
+                  : {}),
+              }),
+            });
+            await onRefresh();
+            onCancel();
+          } catch {
+            throw new Error(EVENT_FORWARDER_MODAL_FAILURE_MESSAGE);
+          }
+        }}
+      >
+        <Modal.Header>
+          <Modal.Title>{modalTitle}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {standaloneTestFeedback === "success" ? (
+            <Callout status="success" mb="3">
+              {EVENT_FORWARDER_STANDALONE_TEST_SUCCESS_MESSAGE}
+            </Callout>
+          ) : null}
+          {standaloneTestFeedback === "error" ? (
+            <Callout status="error" mb="3">
+              {EVENT_FORWARDER_MODAL_FAILURE_MESSAGE}
+            </Callout>
+          ) : null}
+          <Callout status="info" mb="3">
+            Use <strong>Test write access</strong> to validate permissions
+            without saving. <strong>Confirm</strong> runs the same write test,
+            then saves your configuration. If something fails, nothing is saved
+            and a short message is shown above; adjust your settings and use
+            Test write access to try again.
+          </Callout>
+          {eventForwarderConfig?.sinkType === "bigquery" ? (
+            <BigQueryEventForwarderForm
+              params={params as Partial<BigQueryConnectionParams>}
+              eventForwarderConfig={eventForwarderConfig}
+              setParams={setParams}
+              setEventForwarderConfig={setEventForwarderConfig}
+              showDefaultDatasetField
+              className="form-group col-md-12 px-0"
+            />
+          ) : null}
+          {eventForwarderConfig?.sinkType === "snowflake" ? (
+            <SnowflakeEventForwarderForm
+              eventForwarderConfig={eventForwarderConfig}
+              setEventForwarderConfig={setEventForwarderConfig}
+            />
+          ) : null}
+          <Callout status="info" mx="2" mb="0" mt="3" icon={null}>
+            <Checkbox
+              value={usEventForwarderFlowConsent}
+              setValue={setUsEventForwarderFlowConsent}
+              label="I understand that event data will flow through GrowthBook's US servers and confirm I'm authorized to enable this for my organization."
+              weight="regular"
+            />
+          </Callout>
+        </Modal.Body>
+        <Modal.Footer>
+          <Modal.Close>
+            <Button variant="ghost" onClick={onCancel}>
+              Cancel
+            </Button>
+          </Modal.Close>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!canConfirmEventForwarder}
+            onClick={runStandaloneWriteTest}
+          >
+            Test write access
+          </Button>
+          <EventForwarderConfirmButton
+            canConfirmEventForwarder={canConfirmEventForwarder}
+            usEventForwarderFlowConsent={usEventForwarderFlowConsent}
+            datasourceDraft={datasourceDraft}
+          />
+        </Modal.Footer>
+      </ModalForm>
+    </Modal.Root>
   );
 }
 
