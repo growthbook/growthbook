@@ -17337,6 +17337,32 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 11
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               content:
                                 type: string
                             required:
@@ -17356,6 +17382,32 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 11
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               experimentId:
                                 type: string
                               showDescription:
@@ -17388,6 +17440,32 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 11
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               experimentId:
                                 type: string
                               metricIds:
@@ -17468,6 +17546,32 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 11
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               experimentId:
                                 type: string
                               dimensionId:
@@ -17551,6 +17655,32 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 11
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               experimentId:
                                 type: string
                               metricId:
@@ -17618,6 +17748,32 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 11
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               experimentId:
                                 type: string
                               showTable:
@@ -17643,6 +17799,32 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 11
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               savedQueryId:
                                 type: string
                               dataVizConfigIndex:
@@ -17669,6 +17851,32 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 11
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               factMetricId:
                                 type: string
                               visualizationType:
@@ -17751,6 +17959,32 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 11
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               factMetricId:
                                 type: string
                               visualizationType:
@@ -17835,6 +18069,32 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 11
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               content:
                                 type: string
                             required:
@@ -17863,6 +18123,32 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 11
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               experimentId:
                                 type: string
                               showDescription:
@@ -17904,6 +18190,32 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 11
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               experimentId:
                                 type: string
                               metricIds:
@@ -17993,6 +18305,32 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 11
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               experimentId:
                                 type: string
                               dimensionId:
@@ -18085,6 +18423,32 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 11
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               experimentId:
                                 type: string
                               metricId:
@@ -18161,6 +18525,32 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 11
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               experimentId:
                                 type: string
                               showTable:
@@ -18195,6 +18585,32 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 11
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               savedQueryId:
                                 type: string
                               dataVizConfigIndex:
@@ -18230,6 +18646,32 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 11
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               explorerAnalysisId:
                                 type: string
                               config:
@@ -18516,6 +18958,32 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 11
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               explorerAnalysisId:
                                 type: string
                               config:
@@ -18811,6 +19279,32 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 11
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 12
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               explorerAnalysisId:
                                 type: string
                               config:
@@ -19216,6 +19710,32 @@ paths:
                             type: string
                           snapshotId:
                             type: string
+                          layout:
+                            type: object
+                            properties:
+                              x:
+                                type: integer
+                                minimum: 0
+                                maximum: 11
+                              'y':
+                                type: integer
+                                minimum: 0
+                              w:
+                                type: integer
+                                minimum: 1
+                                maximum: 12
+                              h:
+                                type: integer
+                                minimum: 1
+                                maximum: 12
+                              static:
+                                type: boolean
+                            required:
+                              - x
+                              - 'y'
+                              - w
+                              - h
+                            additionalProperties: false
                           content:
                             type: string
                         required:
@@ -19235,6 +19755,32 @@ paths:
                             type: string
                           snapshotId:
                             type: string
+                          layout:
+                            type: object
+                            properties:
+                              x:
+                                type: integer
+                                minimum: 0
+                                maximum: 11
+                              'y':
+                                type: integer
+                                minimum: 0
+                              w:
+                                type: integer
+                                minimum: 1
+                                maximum: 12
+                              h:
+                                type: integer
+                                minimum: 1
+                                maximum: 12
+                              static:
+                                type: boolean
+                            required:
+                              - x
+                              - 'y'
+                              - w
+                              - h
+                            additionalProperties: false
                           experimentId:
                             type: string
                           showDescription:
@@ -19267,6 +19813,32 @@ paths:
                             type: string
                           snapshotId:
                             type: string
+                          layout:
+                            type: object
+                            properties:
+                              x:
+                                type: integer
+                                minimum: 0
+                                maximum: 11
+                              'y':
+                                type: integer
+                                minimum: 0
+                              w:
+                                type: integer
+                                minimum: 1
+                                maximum: 12
+                              h:
+                                type: integer
+                                minimum: 1
+                                maximum: 12
+                              static:
+                                type: boolean
+                            required:
+                              - x
+                              - 'y'
+                              - w
+                              - h
+                            additionalProperties: false
                           experimentId:
                             type: string
                           metricIds:
@@ -19347,6 +19919,32 @@ paths:
                             type: string
                           snapshotId:
                             type: string
+                          layout:
+                            type: object
+                            properties:
+                              x:
+                                type: integer
+                                minimum: 0
+                                maximum: 11
+                              'y':
+                                type: integer
+                                minimum: 0
+                              w:
+                                type: integer
+                                minimum: 1
+                                maximum: 12
+                              h:
+                                type: integer
+                                minimum: 1
+                                maximum: 12
+                              static:
+                                type: boolean
+                            required:
+                              - x
+                              - 'y'
+                              - w
+                              - h
+                            additionalProperties: false
                           experimentId:
                             type: string
                           dimensionId:
@@ -19430,6 +20028,32 @@ paths:
                             type: string
                           snapshotId:
                             type: string
+                          layout:
+                            type: object
+                            properties:
+                              x:
+                                type: integer
+                                minimum: 0
+                                maximum: 11
+                              'y':
+                                type: integer
+                                minimum: 0
+                              w:
+                                type: integer
+                                minimum: 1
+                                maximum: 12
+                              h:
+                                type: integer
+                                minimum: 1
+                                maximum: 12
+                              static:
+                                type: boolean
+                            required:
+                              - x
+                              - 'y'
+                              - w
+                              - h
+                            additionalProperties: false
                           experimentId:
                             type: string
                           metricId:
@@ -19497,6 +20121,32 @@ paths:
                             type: string
                           snapshotId:
                             type: string
+                          layout:
+                            type: object
+                            properties:
+                              x:
+                                type: integer
+                                minimum: 0
+                                maximum: 11
+                              'y':
+                                type: integer
+                                minimum: 0
+                              w:
+                                type: integer
+                                minimum: 1
+                                maximum: 12
+                              h:
+                                type: integer
+                                minimum: 1
+                                maximum: 12
+                              static:
+                                type: boolean
+                            required:
+                              - x
+                              - 'y'
+                              - w
+                              - h
+                            additionalProperties: false
                           experimentId:
                             type: string
                           showTable:
@@ -19522,6 +20172,32 @@ paths:
                             type: string
                           snapshotId:
                             type: string
+                          layout:
+                            type: object
+                            properties:
+                              x:
+                                type: integer
+                                minimum: 0
+                                maximum: 11
+                              'y':
+                                type: integer
+                                minimum: 0
+                              w:
+                                type: integer
+                                minimum: 1
+                                maximum: 12
+                              h:
+                                type: integer
+                                minimum: 1
+                                maximum: 12
+                              static:
+                                type: boolean
+                            required:
+                              - x
+                              - 'y'
+                              - w
+                              - h
+                            additionalProperties: false
                           savedQueryId:
                             type: string
                           dataVizConfigIndex:
@@ -19548,6 +20224,32 @@ paths:
                             type: string
                           snapshotId:
                             type: string
+                          layout:
+                            type: object
+                            properties:
+                              x:
+                                type: integer
+                                minimum: 0
+                                maximum: 11
+                              'y':
+                                type: integer
+                                minimum: 0
+                              w:
+                                type: integer
+                                minimum: 1
+                                maximum: 12
+                              h:
+                                type: integer
+                                minimum: 1
+                                maximum: 12
+                              static:
+                                type: boolean
+                            required:
+                              - x
+                              - 'y'
+                              - w
+                              - h
+                            additionalProperties: false
                           factMetricId:
                             type: string
                           visualizationType:
@@ -29169,6 +29871,22 @@ components:
               additionalProperties: false
         title:
           type: string
+        grid:
+          type: object
+          properties:
+            cols:
+              default: 12
+              type: integer
+              minimum: 1
+              maximum: 24
+            rowHeight:
+              default: 40
+              type: integer
+              minimum: 8
+          required:
+            - cols
+            - rowHeight
+          additionalProperties: false
         projects:
           type: array
           items:
@@ -29214,6 +29932,32 @@ components:
                     type: string
                   snapshotId:
                     type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 11
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 12
+                      h:
+                        type: integer
+                        minimum: 1
+                        maximum: 12
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
                   factMetricId:
                     type: string
                   visualizationType:
@@ -29298,6 +30042,32 @@ components:
                     type: string
                   snapshotId:
                     type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 11
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 12
+                      h:
+                        type: integer
+                        minimum: 1
+                        maximum: 12
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
                   content:
                     type: string
                 required:
@@ -29326,6 +30096,32 @@ components:
                     type: string
                   snapshotId:
                     type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 11
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 12
+                      h:
+                        type: integer
+                        minimum: 1
+                        maximum: 12
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
                   experimentId:
                     type: string
                   showDescription:
@@ -29367,6 +30163,32 @@ components:
                     type: string
                   snapshotId:
                     type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 11
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 12
+                      h:
+                        type: integer
+                        minimum: 1
+                        maximum: 12
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
                   experimentId:
                     type: string
                   metricIds:
@@ -29456,6 +30278,32 @@ components:
                     type: string
                   snapshotId:
                     type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 11
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 12
+                      h:
+                        type: integer
+                        minimum: 1
+                        maximum: 12
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
                   experimentId:
                     type: string
                   dimensionId:
@@ -29548,6 +30396,32 @@ components:
                     type: string
                   snapshotId:
                     type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 11
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 12
+                      h:
+                        type: integer
+                        minimum: 1
+                        maximum: 12
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
                   experimentId:
                     type: string
                   metricId:
@@ -29624,6 +30498,32 @@ components:
                     type: string
                   snapshotId:
                     type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 11
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 12
+                      h:
+                        type: integer
+                        minimum: 1
+                        maximum: 12
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
                   experimentId:
                     type: string
                   showTable:
@@ -29658,6 +30558,32 @@ components:
                     type: string
                   snapshotId:
                     type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 11
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 12
+                      h:
+                        type: integer
+                        minimum: 1
+                        maximum: 12
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
                   savedQueryId:
                     type: string
                   dataVizConfigIndex:
@@ -29693,6 +30619,32 @@ components:
                     type: string
                   snapshotId:
                     type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 11
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 12
+                      h:
+                        type: integer
+                        minimum: 1
+                        maximum: 12
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
                   explorerAnalysisId:
                     type: string
                   config:
@@ -29979,6 +30931,32 @@ components:
                     type: string
                   snapshotId:
                     type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 11
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 12
+                      h:
+                        type: integer
+                        minimum: 1
+                        maximum: 12
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
                   explorerAnalysisId:
                     type: string
                   config:
@@ -30274,6 +31252,32 @@ components:
                     type: string
                   snapshotId:
                     type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 11
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 12
+                      h:
+                        type: integer
+                        minimum: 1
+                        maximum: 12
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
                   explorerAnalysisId:
                     type: string
                   config:
