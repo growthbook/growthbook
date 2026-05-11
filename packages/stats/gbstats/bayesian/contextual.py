@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field, asdict
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List
 import pandas as pd
 
 from gbstats.models.results import BanditResult
@@ -36,9 +36,6 @@ from gbstats.bayesian.tests import GaussianPrior
 
 import numpy as np
 import copy
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.compose import ColumnTransformer
-from sklearn.tree import DecisionTreeRegressor
 
 BANDIT_DIMENSION_COLUMN = "dimension"
 BANDIT_DIMENSION_VALUE = "All"
@@ -226,90 +223,6 @@ class UpdateWeightsContextualBandit:
             return ContextualBanditResponse(responses=per_context_responses)
 
 
-class BuildRegressionTree:
-    """Fit a decision tree from precomputed context index matrices and per-context variation targets."""
-
-    def __init__(
-        self,
-        x_train: np.ndarray,
-        y_train: np.ndarray,
-        sample_weight_list: Sequence[float] | np.ndarray,
-        context_keys: list[tuple[str, ...]],
-        attributes: list[str],
-        max_leaves: int,
-        rng: np.random.Generator,
-    ) -> None:
-        """Attach encoded training data, full ``context_keys``, and tree fitting parameters."""
-        self.x_train = np.asarray(x_train, dtype=np.float64)
-        self.y_train = np.asarray(y_train, dtype=np.float64)
-        self.sample_weight_list = np.asarray(sample_weight_list, dtype=np.float64)
-        self.context_keys = list(context_keys)
-        self.attributes = list(attributes)
-        self.num_attributes = len(self.attributes)
-        self.max_leaves = max_leaves
-        self.rng = rng
-        self.leaf_map: dict[tuple[str, ...], int] = {}
-        self.leaf_ids: list[int] = []
-        self.fitted_tree: DecisionTreeRegressor | None = None
-        self.tree_feature_names: list[str] = []
-
-    def build(self) -> dict[tuple[str, ...], int]:
-        """Populate ``leaf_map``, ``leaf_ids``, ``fitted_tree``, and ``tree_feature_names``."""
-        if self.x_train.shape[0] == 0:
-            self.leaf_map = {}
-            self.leaf_ids = []
-            self.fitted_tree = None
-            self.tree_feature_names = []
-            return {}
-
-        unique_levels_by_attribute: list[list[str]] = [
-            sorted(set(c[i] for c in self.context_keys))
-            for i in range(self.num_attributes)
-        ]
-        transformers = []
-        for i in range(self.num_attributes):
-            n_levels = len(unique_levels_by_attribute[i])
-            one_hot_encoder_kwargs: dict[str, Any] = {
-                "categories": [list(range(n_levels))],
-                "sparse_output": False,
-            }
-            transformers.append(
-                (f"dim_{i}", OneHotEncoder(**one_hot_encoder_kwargs), [i])
-            )
-        column_transformer = ColumnTransformer(transformers, remainder="drop")
-        x_train_encoded = column_transformer.fit_transform(self.x_train)
-        tree = DecisionTreeRegressor(
-            max_leaf_nodes=self.max_leaves,
-            random_state=np.random.RandomState(self.rng.integers(0, 2**31 - 1)),
-        )
-        tree.fit(
-            x_train_encoded,
-            self.y_train,
-            sample_weight=self.sample_weight_list,
-        )
-
-        def _row(c: tuple[str, ...]) -> list[float]:
-            """Encode one context tuple as float column indices for ``ColumnTransformer`` input."""
-            return [
-                float(unique_levels_by_attribute[i].index(c[i]))
-                for i in range(self.num_attributes)
-            ]
-
-        x_full = np.array([_row(c) for c in self.context_keys], dtype=np.float64)
-        x_full_encoded = column_transformer.transform(x_full)
-        leaf_ids_arr = tree.apply(x_full_encoded)
-        self.leaf_map = {
-            self.context_keys[i]: int(leaf_ids_arr[i])
-            for i in range(len(self.context_keys))
-        }
-        self.leaf_ids = sorted(set(self.leaf_map.values()))
-        self.fitted_tree = tree
-        self.tree_feature_names = column_transformer.get_feature_names_out(
-            self.attributes
-        ).tolist()
-        return self.leaf_map
-
-
 class UpdateWeightsContextualTree:
     """Fits a tree over contexts and updates variation weights per leaf via UpdateWeightsContextualBandit.
 
@@ -491,45 +404,6 @@ class UpdateWeightsContextualTree:
                 )
             records.append(record)
         return pd.DataFrame.from_records(records, columns=out_columns)
-
-    def _tree_training_arrays_from_partition(
-        self,
-    ) -> tuple[np.ndarray, np.ndarray, list[int]] | None:
-        """Build ``x_train``, ``y_train``, and sample weights for :class:`BuildRegressionTree` from grouped metric rows."""
-        if not self.partition.unique_keys:
-            return None
-
-        stats_df = UpdateWeightsContextualTree.summable_statistics_per_variation_from_experiment_metric_rows(
-            self.partition,
-            self.metric_settings,
-            self.bandit_settings,
-            self.var_id_map,
-        )
-
-        num_attributes = len(self.bandit_settings.attributes)
-        unique_levels_by_attribute = [
-            sorted(set(c[i] for c in self.partition.unique_keys))
-            for i in range(num_attributes)
-        ]
-        var_ids = list(self.bandit_settings.var_ids)
-        x_list: list[list[int]] = []
-        y_list: list[list[float]] = []
-        sample_weight_list: list[int] = []
-        for _, row in stats_df.iterrows():
-            means = [float(row[var_id].mean) for var_id in var_ids]
-            n_ctx = sum(int(row[var_id].n) for var_id in var_ids)
-            x_row = [
-                unique_levels_by_attribute[i].index(
-                    str(row[self.bandit_settings.attributes[i]])
-                )
-                for i in range(num_attributes)
-            ]
-            x_list.append(x_row)
-            y_list.append(means)
-            sample_weight_list.append(n_ctx)
-        x_train = np.array(x_list, dtype=np.float64)
-        y_train = np.array(y_list, dtype=np.float64)
-        return x_train, y_train, sample_weight_list
 
     @staticmethod
     def contextual_bandit_settings_for_tree(
@@ -927,47 +801,7 @@ class UpdateWeightsContextualTree:
         )
 
 
-class UpdateWeightsContextualTreePackage(UpdateWeightsContextualTree):
-    """Like :class:`UpdateWeightsContextualTree` but uses sklearn."""
-
-    def build_tree(self):
-        """Preprocess rows-by-context into training matrices, then fit :class:`BuildRegressionTree`."""
-        pre = self._tree_training_arrays_from_partition()
-        if pre is None:
-            self.set_leaf_structure({})
-            self._last_fitted_tree = None
-            self._last_tree_feature_names = []
-            return
-        x_train, y_train, sample_weight_list = pre
-        builder = BuildRegressionTree(
-            x_train=x_train,
-            y_train=y_train,
-            sample_weight_list=sample_weight_list,
-            context_keys=self.partition.unique_keys,
-            attributes=self.bandit_settings.attributes,
-            max_leaves=self.max_leaves,
-            rng=self.rng,
-        )
-        builder.build()
-        variation_columns = [str(v) for v in list(self.bandit_settings.var_ids)]
-        self.stats_df = UpdateWeightsContextualTree.create_stats_df(
-            self.partition,
-            self.metric_settings,
-            self.bandit_settings,
-        )
-        self.stats_encoded = UpdateWeightsContextualTree.create_stats_encoded(
-            self.stats_df, self.bandit_settings
-        )
-        self.stats_encoded["current_leaf"] = self.stats_df["key"].map(
-            builder.leaf_map
-        ) - int(1)
-        self.set_leaf_structure(builder.leaf_map)
-        self.sse_final = UpdateWeightsContextualTree.calculate_sse_final(
-            self.stats_encoded, variation_columns
-        )
-
-
-class UpdateWeightsContextualTreeWeighted(UpdateWeightsContextualTree):
+class UpdateWeightsContextualTreeReward(UpdateWeightsContextualTree):
     @staticmethod
     def calculate_expected_reward(
         aggregated: Dict[str, SummableStatistic],
@@ -1044,7 +878,7 @@ class UpdateWeightsContextualTreeWeighted(UpdateWeightsContextualTree):
                 this_leaf, variation_columns
             )
             expected_reward_current[leaf_index] = (
-                UpdateWeightsContextualTreeWeighted.calculate_expected_reward(
+                UpdateWeightsContextualTreeReward.calculate_expected_reward(
                     aggregated,
                     variation_columns,
                     rng,
@@ -1077,7 +911,7 @@ class UpdateWeightsContextualTreeWeighted(UpdateWeightsContextualTree):
                         )
                     )
                     expected_reward_0 = (
-                        UpdateWeightsContextualTreeWeighted.calculate_expected_reward(
+                        UpdateWeightsContextualTreeReward.calculate_expected_reward(
                             aggregated_0,
                             variation_columns,
                             rng,
@@ -1086,7 +920,7 @@ class UpdateWeightsContextualTreeWeighted(UpdateWeightsContextualTree):
                         )
                     )
                     expected_reward_1 = (
-                        UpdateWeightsContextualTreeWeighted.calculate_expected_reward(
+                        UpdateWeightsContextualTreeReward.calculate_expected_reward(
                             aggregated_1,
                             variation_columns,
                             rng,
