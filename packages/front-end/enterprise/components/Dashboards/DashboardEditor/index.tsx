@@ -36,7 +36,7 @@ import {
   getBlockSizeBounds,
 } from "shared/enterprise";
 import { isDefined } from "shared/util";
-import { Flex, Heading, IconButton, Text } from "@radix-ui/themes";
+import { Flex, IconButton } from "@radix-ui/themes";
 import clsx from "clsx";
 import { withErrorBoundary } from "@sentry/nextjs";
 import {
@@ -45,6 +45,8 @@ import {
   useContainerWidth,
   verticalCompactor,
 } from "react-grid-layout";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import {
   DropdownMenu,
@@ -283,9 +285,7 @@ function AddBlockDropdown({
         return (
           <Fragment key={`${subgroup}-${i}`}>
             <DropdownMenuLabel className="font-weight-bold">
-              <Text style={{ color: "var(--color-text-high)" }}>
-                {subgroup}
-              </Text>
+              <Text color="text-high">{subgroup}</Text>
             </DropdownMenuLabel>
             {allowedBlockTypes.map((bType) => {
               if (BLOCK_TYPE_INFO[bType].deprecated) {
@@ -567,33 +567,21 @@ function DashboardEditor({
               View Regular Experiment View
             </Button>
           ) : (
-            <Text
-              weight="medium"
-              size="5"
-              style={{
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                flexShrink: 1,
-              }}
-            >
-              <Flex align="center" gap="2">
+            <Flex align="center" gap="2" flexGrow="1" minWidth="0">
+              <Text truncate={true} size="x-large">
                 {title}
-                <ShareStatusBadge
-                  shareLevel={
-                    initialShareLevel === "published"
-                      ? "organization"
-                      : "private"
-                  }
-                  editLevel={
-                    initialEditLevel === "private" ? "private" : "organization"
-                  }
-                  isOwner={dashboardOwnerId === userId}
-                />
-              </Flex>
-            </Text>
+              </Text>
+              <ShareStatusBadge
+                shareLevel={
+                  initialShareLevel === "published" ? "organization" : "private"
+                }
+                editLevel={
+                  initialEditLevel === "private" ? "private" : "organization"
+                }
+                isOwner={dashboardOwnerId === userId}
+              />
+            </Flex>
           )}
-          <div style={{ flexGrow: 1 }} />
           <DashboardUpdateDisplay
             dashboardId={id}
             enableAutoUpdates={enableAutoUpdates}
@@ -603,7 +591,7 @@ function DashboardEditor({
             isEditing={isEditing}
           />
           {isGeneralDashboard && setIsEditing && !isEditing ? (
-            <Flex align="center" gap="4" ml="4">
+            <Flex align="center" gap="4" ml="4" flexShrink="0">
               {canManageSharingAndEditLevels && (
                 <Button
                   variant="outline"
@@ -765,7 +753,7 @@ function DashboardEditor({
               gap="5"
             >
               <Flex direction="column">
-                <Heading weight="medium" align="center">
+                <Heading as="h1" size="large" weight="medium" align="center">
                   Add Content Blocks
                 </Heading>
                 <Text align="center">
