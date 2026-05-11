@@ -4,6 +4,7 @@ import type {
   ProductAnalyticsExploration,
 } from "shared/validators";
 import {
+  alignComparisonOverlayToCategories,
   alignSeriesByIndex,
   buildComparisonTrend,
   computeBigNumberComparisonTrend,
@@ -95,6 +96,86 @@ describe("compareUtil", () => {
     expect(alignSeriesByIndex([10, 20], [5])).toEqual({
       current: [10, 20],
       previous: [5, 0],
+    });
+  });
+
+  it("aligns categorical bar overlay by category label", () => {
+    const seriesKey = JSON.stringify({ i: 0, g: "" });
+    const comparisonDataMap = {
+      [seriesKey]: {
+        A: 10,
+        B: 20,
+        C: 5,
+      },
+    };
+
+    const aligned = alignComparisonOverlayToCategories(
+      "bar",
+      ["C", "A", "B"],
+      comparisonDataMap,
+      [seriesKey],
+      ["A", "B", "C"],
+    );
+
+    expect(aligned[seriesKey]).toEqual({
+      C: 5,
+      A: 10,
+      B: 20,
+    });
+  });
+
+  it("aligns line overlay buckets by ordinal index", () => {
+    const seriesKey = JSON.stringify({ i: 0, g: "" });
+    const comparisonDataMap = {
+      [seriesKey]: {
+        "2026-05-03T00:00:00.000Z": 10,
+        "2026-05-04T00:00:00.000Z": 20,
+        "2026-05-05T00:00:00.000Z": 30,
+      },
+    };
+
+    const aligned = alignComparisonOverlayToCategories(
+      "line",
+      [
+        "2026-05-10T00:00:00.000Z",
+        "2026-05-11T00:00:00.000Z",
+        "2026-05-12T00:00:00.000Z",
+      ],
+      comparisonDataMap,
+      [seriesKey],
+      [
+        "2026-05-05T00:00:00.000Z",
+        "2026-05-03T00:00:00.000Z",
+        "2026-05-04T00:00:00.000Z",
+      ],
+    );
+
+    expect(aligned[seriesKey]).toEqual({
+      "2026-05-10T00:00:00.000Z": 10,
+      "2026-05-11T00:00:00.000Z": 20,
+      "2026-05-12T00:00:00.000Z": 30,
+    });
+  });
+
+  it("maps missing prior categories to zero in bar overlay", () => {
+    const seriesKey = JSON.stringify({ i: 0, g: "" });
+    const comparisonDataMap = {
+      [seriesKey]: {
+        A: 10,
+      },
+    };
+
+    const aligned = alignComparisonOverlayToCategories(
+      "horizontalBar",
+      ["A", "B"],
+      comparisonDataMap,
+      [seriesKey],
+      ["A"],
+    );
+
+    expect(aligned[seriesKey]).toEqual({
+      A: 10,
+      B: 0,
     });
   });
 

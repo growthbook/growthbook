@@ -32,6 +32,7 @@ import Text from "@/ui/Text";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import ComparisonTrendLabel from "@/enterprise/components/ProductAnalytics/ComparisonTrendLabel";
 import {
+  alignComparisonOverlayToCategories,
   computeBigNumberComparisonTrend,
   supportsAlwaysOnComparisonOverlay,
 } from "@/enterprise/components/ProductAnalytics/compareUtil";
@@ -270,6 +271,11 @@ export default function ExplorerChart({
     const comparisonSeriesColor = (i: number) =>
       COMPARISON_SERIES_COLORS[i % COMPARISON_SERIES_COLORS.length];
 
+    const compareOverlayActive =
+      compareEnabled &&
+      Boolean(comparisonExploration?.result?.rows?.length) &&
+      supportsAlwaysOnComparisonOverlay(chartType);
+
     const buildSeriesConfigs = (
       sourceDataMap: Record<string, Record<string, number>>,
       sourceSeriesMeta: Record<string, { metricId: string; name: string }>,
@@ -296,7 +302,12 @@ export default function ExplorerChart({
               "horizontalBar",
             ].includes(chartType)
           ) {
-            if (numMetrics === 1 && numDimensions === 1 && !isPrevious) {
+            if (
+              numMetrics === 1 &&
+              numDimensions === 1 &&
+              !isPrevious &&
+              !compareOverlayActive
+            ) {
               const data = sourceSortedXValues.map((x, i) => ({
                 value: seriesDataMap[x] ?? 0,
                 itemStyle: { color: seriesColor(i) },
@@ -405,27 +416,13 @@ export default function ExplorerChart({
         });
       });
 
-      const comparisonSortedXValues = Array.from(comparisonUniqueXValues).sort(
-        (a, b) => new Date(a).getTime() - new Date(b).getTime(),
+      const alignedComparisonDataMap = alignComparisonOverlayToCategories(
+        chartType,
+        sortedXValues,
+        comparisonDataMap,
+        sortedSeriesKeys,
+        Array.from(comparisonUniqueXValues),
       );
-      const alignedComparisonXValues = sortedXValues.map(
-        (_, index) => comparisonSortedXValues[index] ?? "",
-      );
-      const alignedComparisonDataMap: Record<
-        string,
-        Record<string, number>
-      > = {};
-
-      for (const seriesKey of sortedSeriesKeys) {
-        alignedComparisonDataMap[seriesKey] = {};
-        alignedComparisonXValues.forEach((comparisonXValue, index) => {
-          const currentXValue = sortedXValues[index];
-          if (!currentXValue) return;
-          alignedComparisonDataMap[seriesKey][currentXValue] = comparisonXValue
-            ? (comparisonDataMap[seriesKey]?.[comparisonXValue] ?? 0)
-            : 0;
-        });
-      }
 
       seriesConfigs = [
         ...seriesConfigs,
@@ -638,17 +635,20 @@ export default function ExplorerChart({
           style={{ flex: 1, minHeight: 0 }}
           align="center"
           justify="center"
-          direction="column"
-          gap="2"
         >
           <BigValueChart
             value={chartConfig.value}
             formatter={formatNumber}
             label={submittedExploreState?.dataset?.values?.[0]?.name}
+            compareSlot={
+              bigNumberComparisonTrend ? (
+                <ComparisonTrendLabel
+                  trend={bigNumberComparisonTrend}
+                  priorValueScale={0.5}
+                />
+              ) : undefined
+            }
           />
-          {bigNumberComparisonTrend ? (
-            <ComparisonTrendLabel trend={bigNumberComparisonTrend} />
-          ) : null}
         </Flex>
       ) : chartConfig ? (
         <Box style={{ flex: 1, minHeight: 0, position: "relative" }}>

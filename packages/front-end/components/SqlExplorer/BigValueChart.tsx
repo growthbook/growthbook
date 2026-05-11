@@ -9,6 +9,7 @@ type Props = {
   format?: BigValueFormat;
   formatter?: (value: number) => string;
   label?: string;
+  compareSlot?: React.ReactNode;
 };
 
 function formatValue(value: number, format: BigValueFormat, currency: string) {
@@ -41,6 +42,7 @@ export default function BigValueChart({
   label,
   format,
   formatter,
+  compareSlot,
 }: Props) {
   const currency = useCurrency();
   if (value === undefined || value === null) {
@@ -55,11 +57,20 @@ export default function BigValueChart({
       pt="2"
       pb="2"
     >
-      <Heading as="h1" size="9">
-        {formatter
-          ? formatter(value)
-          : formatValue(value, format ?? "longNumber", currency)}
-      </Heading>
+      <Flex
+        align="baseline"
+        justify="center"
+        gap="2"
+        wrap="wrap"
+        style={{ fontSize: "var(--font-size-9)" }}
+      >
+        <Heading as="h1" size="9" style={{ fontSize: "1em", lineHeight: 1.1 }}>
+          {formatter
+            ? formatter(value)
+            : formatValue(value, format ?? "longNumber", currency)}
+        </Heading>
+        {compareSlot}
+      </Flex>
       {label && (
         <Text as="div" size="3" color="gray">
           {label}

@@ -33,6 +33,10 @@ const INLINE_COMPARISON_CHART_TYPES = new Set<ExplorationConfig["chartType"]>([
   "bigNumber",
 ]);
 
+const CATEGORICAL_OVERLAY_CHART_TYPES = new Set<ExplorationConfig["chartType"]>(
+  ["bar", "stackedBar", "horizontalBar", "stackedHorizontalBar"],
+);
+
 export type ComparisonTrendDirection = "up" | "down" | "flat" | "none";
 
 export type ComparisonTrend = {
@@ -112,6 +116,45 @@ export function buildComparisonTrend(
     percentChange: formatPercentChange(delta, previous),
     direction,
   };
+}
+
+export function alignComparisonOverlayToCategories(
+  chartType: ExplorationConfig["chartType"],
+  sortedXValues: string[],
+  comparisonDataMap: Record<string, Record<string, number>>,
+  seriesKeys: string[],
+  comparisonCategoryLabels: string[],
+): Record<string, Record<string, number>> {
+  const alignedComparisonDataMap: Record<string, Record<string, number>> = {};
+
+  for (const seriesKey of seriesKeys) {
+    alignedComparisonDataMap[seriesKey] = {};
+
+    if (CATEGORICAL_OVERLAY_CHART_TYPES.has(chartType)) {
+      for (const currentXValue of sortedXValues) {
+        alignedComparisonDataMap[seriesKey][currentXValue] =
+          comparisonDataMap[seriesKey]?.[currentXValue] ?? 0;
+      }
+      continue;
+    }
+
+    const comparisonSortedXValues = [...comparisonCategoryLabels].sort(
+      (a, b) => new Date(a).getTime() - new Date(b).getTime(),
+    );
+    const alignedComparisonXValues = sortedXValues.map(
+      (_, index) => comparisonSortedXValues[index] ?? "",
+    );
+
+    alignedComparisonXValues.forEach((comparisonXValue, index) => {
+      const currentXValue = sortedXValues[index];
+      if (!currentXValue) return;
+      alignedComparisonDataMap[seriesKey][currentXValue] = comparisonXValue
+        ? (comparisonDataMap[seriesKey]?.[comparisonXValue] ?? 0)
+        : 0;
+    });
+  }
+
+  return alignedComparisonDataMap;
 }
 
 export function alignSeriesByIndex(
