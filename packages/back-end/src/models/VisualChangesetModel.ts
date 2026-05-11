@@ -365,14 +365,13 @@ export const updateVisualChangeset = async ({
     });
   }
 
-  const updatedDoc = await findVisualChangesetById(
-    visualChangeset.id,
-    context.org.id,
-  );
-
   await onVisualChangesetUpdate({
     oldVisualChangeset: visualChangeset,
-    newVisualChangeset: updatedDoc ?? visualChangeset,
+    newVisualChangeset: {
+      ...visualChangeset,
+      ...safeUpdates,
+      visualChanges,
+    } as VisualChangesetInterface,
     context,
     bypassWebhooks,
   });
