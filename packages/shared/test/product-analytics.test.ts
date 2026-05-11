@@ -1,4 +1,9 @@
-import { generateProductAnalyticsSQL } from "shared/enterprise";
+import {
+  buildComparisonExplorationConfig,
+  calculateComparisonDateRange,
+  calculateProductAnalyticsDateRange,
+  generateProductAnalyticsSQL,
+} from "shared/enterprise";
 import { format } from "shared/sql";
 import { ExplorationConfig } from "shared/validators";
 import { SqlDialect } from "shared/types/sql";
@@ -837,5 +842,153 @@ describe("productAnalytics", () => {
       /CAST\s*\(\s*KLL_POINT\s*\(\s*KLL_MERGE\s*\(\s*m0\s*\),\s*0\.9\s*\)\s+AS\s+FLOAT\s*\)\s+AS\s+m0_numerator/,
     );
     expect(sql).not.toContain("APPROX_PERCENTILE(m0, 0.9)");
+  });
+});
+
+describe("product analytics comparison date ranges", () => {
+  const referenceDate = new Date("2026-05-11T15:30:00.000Z");
+
+  function daysAgo(days: number): Date {
+    return new Date(referenceDate.getTime() - days * 24 * 60 * 60 * 1000);
+  }
+
+  it("compares last 7 days against the prior 7 days", () => {
+    const comparison = calculateComparisonDateRange(
+      {
+        predefined: "last7Days",
+        lookbackValue: null,
+        lookbackUnit: null,
+        startDate: null,
+        endDate: null,
+      },
+      referenceDate,
+    );
+
+    expect(comparison.startDate.toISOString()).toBe(daysAgo(14).toISOString());
+    expect(comparison.endDate.toISOString()).toBe(daysAgo(7).toISOString());
+  });
+
+  it("compares last 30 days against the prior 30 days", () => {
+    const comparison = calculateComparisonDateRange(
+      {
+        predefined: "last30Days",
+        lookbackValue: null,
+        lookbackUnit: null,
+        startDate: null,
+        endDate: null,
+      },
+      referenceDate,
+    );
+
+    expect(comparison.startDate.toISOString()).toBe(daysAgo(60).toISOString());
+    expect(comparison.endDate.toISOString()).toBe(daysAgo(30).toISOString());
+  });
+
+  it("compares last 90 days against the prior 90 days", () => {
+    const comparison = calculateComparisonDateRange(
+      {
+        predefined: "last90Days",
+        lookbackValue: null,
+        lookbackUnit: null,
+        startDate: null,
+        endDate: null,
+      },
+      referenceDate,
+    );
+
+    expect(comparison.startDate.toISOString()).toBe(daysAgo(180).toISOString());
+    expect(comparison.endDate.toISOString()).toBe(daysAgo(90).toISOString());
+  });
+
+  it("compares today against the prior 24 hours", () => {
+    const current = calculateProductAnalyticsDateRange(
+      {
+        predefined: "today",
+        lookbackValue: null,
+        lookbackUnit: null,
+        startDate: null,
+        endDate: null,
+      },
+      referenceDate,
+    );
+    const comparison = calculateComparisonDateRange(
+      {
+        predefined: "today",
+        lookbackValue: null,
+        lookbackUnit: null,
+        startDate: null,
+        endDate: null,
+      },
+      referenceDate,
+    );
+
+    expect(comparison.endDate.toISOString()).toBe(
+      current.startDate.toISOString(),
+    );
+    expect(comparison.startDate.toISOString()).toBe(
+      new Date(current.startDate.getTime() - 24 * 60 * 60 * 1000).toISOString(),
+    );
+  });
+
+  it("compares custom lookback against the immediately prior window", () => {
+    const comparison = calculateComparisonDateRange(
+      {
+        predefined: "customLookback",
+        lookbackValue: 3,
+        lookbackUnit: "week",
+        startDate: null,
+        endDate: null,
+      },
+      referenceDate,
+    );
+
+    expect(comparison.startDate.toISOString()).toBe(daysAgo(42).toISOString());
+    expect(comparison.endDate.toISOString()).toBe(daysAgo(21).toISOString());
+  });
+
+  it("compares custom date ranges against the immediately prior window", () => {
+    const comparison = calculateComparisonDateRange(
+      {
+        predefined: "customDateRange",
+        lookbackValue: null,
+        lookbackUnit: null,
+        startDate: "2026-04-01",
+        endDate: "2026-04-07",
+      },
+      referenceDate,
+    );
+
+    expect(comparison.startDate.toISOString()).toBe("2026-03-25T00:00:00.000Z");
+    expect(comparison.endDate.toISOString()).toBe("2026-04-01T00:00:00.000Z");
+  });
+
+  it("builds a comparison exploration config as a custom date range", () => {
+    const config: ExplorationConfig = {
+      type: "metric",
+      datasource: "ds_123",
+      chartType: "line",
+      showAs: "total",
+      dateRange: {
+        predefined: "last7Days",
+        lookbackValue: null,
+        lookbackUnit: null,
+        startDate: null,
+        endDate: null,
+      },
+      dimensions: [],
+      dataset: {
+        type: "metric",
+        values: [],
+      },
+    };
+
+    const comparisonConfig = buildComparisonExplorationConfig(
+      config,
+      referenceDate,
+    );
+
+    expect(comparisonConfig.dateRange.predefined).toBe("customDateRange");
+    expect(comparisonConfig.dateRange.startDate).toBe("2026-04-27");
+    expect(comparisonConfig.dateRange.endDate).toBe("2026-05-04");
   });
 });

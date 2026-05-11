@@ -17,6 +17,7 @@ import {
 } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
 import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
+import { buildComparisonExplorationConfig } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   cleanConfigForSubmission,
@@ -32,6 +33,7 @@ import {
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import track from "@/services/track";
+import { supportsComparisonOverlay } from "@/enterprise/components/ProductAnalytics/compareUtil";
 import { useExploreData, CacheOption } from "./useExploreData";
 
 const MAX_TRACKED_ERROR_LENGTH = 500;
@@ -55,6 +57,11 @@ export interface ExplorerContextValue {
   isSubmittable: boolean;
   managedWarehouseAwaitingProvisioning: boolean;
   trackingSource: string | undefined;
+  compareEnabled: boolean;
+  overlayOnChart: boolean;
+  comparisonExploration: ProductAnalyticsExploration | null;
+  comparisonLoading: boolean;
+  comparisonError: string | null;
 
   // ─── Modifiers ─────────────────────────────────────────────────────────
   setDraftExploreState: (action: SetDraftStateAction) => void;
@@ -69,6 +76,8 @@ export interface ExplorerContextValue {
   updateTimestampColumn: (column: string) => void;
   changeChartType: (chartType: ExplorationConfig["chartType"]) => void;
   clearAllDatasets: (newDatasourceId?: string) => void;
+  setCompareEnabled: (enabled: boolean) => void;
+  setOverlayOnChart: (enabled: boolean) => void;
 }
 const ExplorerContext = createContext<ExplorerContextValue | null>(null);
 
@@ -143,9 +152,16 @@ export function ExplorerProvider({
     };
   });
   const [isStale, setIsStale] = useState(false);
+  const [compareEnabled, setCompareEnabledState] = useState(false);
+  const [overlayOnChart, setOverlayOnChartState] = useState(false);
+  const [comparisonExploration, setComparisonExploration] =
+    useState<ProductAnalyticsExploration | null>(null);
+  const [comparisonError, setComparisonError] = useState<string | null>(null);
+  const [comparisonLoading, setComparisonLoading] = useState(false);
   const hasEverFetchedRef = useRef(false);
   const skipNextAutoSubmitRef = useRef(false);
   const submitRequestIdRef = useRef(0);
+  const compareRequestIdRef = useRef(0);
 
   const draftExploreState: ExplorationConfig = explorerState.draftState;
 
@@ -255,6 +271,69 @@ export function ExplorerProvider({
     return isSubmittableConfig(cleanedDraftExploreState);
   }, [cleanedDraftExploreState]);
 
+  const clearComparisonState = useCallback(() => {
+    compareRequestIdRef.current += 1;
+    setComparisonExploration(null);
+    setComparisonError(null);
+    setComparisonLoading(false);
+  }, []);
+
+  const fetchComparisonForConfig = useCallback(
+    async (config: ExplorationConfig, options?: { cache?: CacheOption }) => {
+      const configToSubmit = cleanConfigForSubmission(config);
+      if (!isSubmittableConfig(configToSubmit)) {
+        clearComparisonState();
+        return;
+      }
+
+      const compareRequestId = ++compareRequestIdRef.current;
+      setComparisonLoading(true);
+
+      const comparisonConfig = buildComparisonExplorationConfig(configToSubmit);
+      const { data: comparisonResult, error: comparisonFetchError } =
+        await fetchData(comparisonConfig, {
+          cache: options?.cache ?? "preferred",
+        });
+
+      if (compareRequestId !== compareRequestIdRef.current) {
+        return;
+      }
+
+      setComparisonExploration(comparisonResult);
+      setComparisonError(
+        comparisonFetchError || comparisonResult?.error || null,
+      );
+      setComparisonLoading(false);
+    },
+    [clearComparisonState, fetchData],
+  );
+
+  const setCompareEnabled = useCallback(
+    (enabled: boolean) => {
+      setCompareEnabledState(enabled);
+      if (!enabled) {
+        setOverlayOnChartState(false);
+        clearComparisonState();
+        return;
+      }
+
+      const config = submittedExploreState ?? cleanedDraftExploreState;
+      if (isSubmittableConfig(cleanConfigForSubmission(config))) {
+        void fetchComparisonForConfig(config);
+      }
+    },
+    [
+      clearComparisonState,
+      cleanedDraftExploreState,
+      fetchComparisonForConfig,
+      submittedExploreState,
+    ],
+  );
+
+  const setOverlayOnChart = useCallback((enabled: boolean) => {
+    setOverlayOnChartState(enabled);
+  }, []);
+
   const doSubmit = useCallback(
     async (options?: { cache?: CacheOption; config?: ExplorationConfig }) => {
       const configToSubmit = cleanConfigForSubmission(
@@ -344,6 +423,12 @@ export function ExplorerProvider({
           });
         }
       }
+
+      if (compareEnabled && fetchResult && !fetchError) {
+        await fetchComparisonForConfig(configToSubmit, { cache });
+      } else if (!compareEnabled) {
+        clearComparisonState();
+      }
     },
     [
       draftExploreState,
@@ -354,6 +439,9 @@ export function ExplorerProvider({
       managedWarehouseAwaitingProvisioning,
       trackingSource,
       getDatasourceById,
+      compareEnabled,
+      fetchComparisonForConfig,
+      clearComparisonState,
     ],
   );
 
@@ -406,6 +494,12 @@ export function ExplorerProvider({
       setIsStale(false);
     }
   }, [isStale, needsFetch, needsUpdate]);
+
+  useEffect(() => {
+    if (!supportsComparisonOverlay(draftExploreState.chartType)) {
+      setOverlayOnChartState(false);
+    }
+  }, [draftExploreState.chartType]);
 
   const createDefaultValue = useCallback(
     (datasetType: DatasetType): ProductAnalyticsValue => {
@@ -573,6 +667,9 @@ export function ExplorerProvider({
         });
       }
 
+      setCompareEnabledState(false);
+      setOverlayOnChartState(false);
+      clearComparisonState();
       setExplorerState((prev) => {
         const type = prev.draftState.dataset.type;
         return {
@@ -600,6 +697,7 @@ export function ExplorerProvider({
       trackingSource,
       draftExploreState.datasource,
       draftExploreState.type,
+      clearComparisonState,
     ],
   );
 
@@ -626,6 +724,13 @@ export function ExplorerProvider({
       clearAllDatasets,
       query,
       trackingSource,
+      compareEnabled,
+      overlayOnChart,
+      comparisonExploration,
+      comparisonLoading,
+      comparisonError,
+      setCompareEnabled,
+      setOverlayOnChart,
     }),
     [
       draftExploreState,
@@ -649,6 +754,13 @@ export function ExplorerProvider({
       clearAllDatasets,
       query,
       trackingSource,
+      compareEnabled,
+      overlayOnChart,
+      comparisonExploration,
+      comparisonLoading,
+      comparisonError,
+      setCompareEnabled,
+      setOverlayOnChart,
     ],
   );
 

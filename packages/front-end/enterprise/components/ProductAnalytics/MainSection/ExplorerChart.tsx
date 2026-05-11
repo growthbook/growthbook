@@ -30,6 +30,7 @@ import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
+import { supportsComparisonOverlay } from "@/enterprise/components/ProductAnalytics/compareUtil";
 
 const CHART_ID = "explorer-chart";
 
@@ -65,12 +66,16 @@ function getSeriesTitle(
 
 export default function ExplorerChart({
   exploration,
+  comparisonExploration = null,
+  overlayOnChart = false,
   error,
   submittedExploreState,
   loading,
   animate = true,
 }: {
   exploration: ProductAnalyticsExploration | null;
+  comparisonExploration?: ProductAnalyticsExploration | null;
+  overlayOnChart?: boolean;
   error: string | null;
   submittedExploreState: ExplorationConfig;
   loading: boolean;
@@ -235,54 +240,173 @@ export default function ExplorerChart({
     // 3. Build Series (ordered by cumulative total, highest first)
     const seriesColor = (i: number) => CHART_COLORS[i % CHART_COLORS.length];
 
-    const seriesConfigs = sortedSeriesKeys.map((seriesKey, idx) => {
-      const { name } = seriesMeta[seriesKey];
-      const seriesDataMap = dataMap[seriesKey];
+    const buildSeriesConfigs = (
+      sourceDataMap: Record<string, Record<string, number>>,
+      sourceSeriesMeta: Record<string, { metricId: string; name: string }>,
+      sourceSeriesKeys: string[],
+      sourceSortedXValues: string[],
+      options?: { previous?: boolean },
+    ) => {
+      const isPrevious = options?.previous ?? false;
 
-      if (
-        ["bar", "stackedBar", "stackedHorizontalBar", "horizontalBar"].includes(
-          chartType,
-        )
-      ) {
-        // Single metric + single dimension: one series with itemStyle per bar so each bar gets a different color (no grouping)
-        if (numMetrics === 1 && numDimensions === 1) {
-          const data = sortedXValues.map((x, i) => ({
-            value: seriesDataMap[x] ?? 0,
-            itemStyle: { color: seriesColor(i) },
-          }));
-          return { name, data, type: "bar" as const };
-        }
-        const data = sortedXValues.map((x) => seriesDataMap[x] ?? 0);
-        return {
-          name,
-          data,
-          color: seriesColor(idx),
-          type: "bar" as const,
-          stack: isStacked ? "stack" : undefined,
-        };
+      return sourceSeriesKeys
+        .map((seriesKey, idx) => {
+          const { name } = sourceSeriesMeta[seriesKey];
+          const seriesDataMap = sourceDataMap[seriesKey];
+          const displayName = isPrevious ? `${name} (Previous)` : name;
+          const colorIndex = isPrevious ? idx + sourceSeriesKeys.length : idx;
+          const color = seriesColor(colorIndex);
+
+          if (
+            [
+              "bar",
+              "stackedBar",
+              "stackedHorizontalBar",
+              "horizontalBar",
+            ].includes(chartType)
+          ) {
+            if (numMetrics === 1 && numDimensions === 1 && !isPrevious) {
+              const data = sourceSortedXValues.map((x, i) => ({
+                value: seriesDataMap[x] ?? 0,
+                itemStyle: { color: seriesColor(i) },
+              }));
+              return { name: displayName, data, type: "bar" as const };
+            }
+
+            const data = sourceSortedXValues.map((x) => seriesDataMap[x] ?? 0);
+            return {
+              name: displayName,
+              data,
+              color,
+              type: "bar" as const,
+              stack: isStacked
+                ? isPrevious
+                  ? "previous"
+                  : "stack"
+                : undefined,
+            };
+          }
+
+          if (chartType === "line" || chartType === "area") {
+            const data = sourceSortedXValues.map((x) => [
+              new Date(x).getTime(),
+              seriesDataMap[x] ?? 0,
+            ]);
+            const lineConfig = {
+              name: displayName,
+              data,
+              color,
+              type: "line" as const,
+              animation: animate,
+              animationDuration: animate ? 300 : 0,
+              animationEasing: "linear" as const,
+              symbol: "circle" as const,
+              symbolSize: 4,
+              lineStyle: isPrevious
+                ? { type: "dashed" as const, opacity: 0.75 }
+                : undefined,
+            };
+            if (chartType === "line") return lineConfig;
+            if (chartType === "area")
+              return { ...lineConfig, areaStyle: {}, stack: "stack" };
+          }
+
+          return undefined;
+        })
+        .filter((series) => series !== undefined);
+    };
+
+    let seriesConfigs = buildSeriesConfigs(
+      dataMap,
+      seriesMeta,
+      sortedSeriesKeys,
+      sortedXValues,
+    );
+
+    if (
+      overlayOnChart &&
+      comparisonExploration?.result?.rows?.length &&
+      supportsComparisonOverlay(chartType)
+    ) {
+      const comparisonRows = comparisonExploration.result.rows;
+      const comparisonUniqueXValues = new Set<string>();
+      const comparisonDataMap: Record<string, Record<string, number>> = {};
+      const comparisonSeriesMeta: Record<
+        string,
+        { metricId: string; name: string }
+      > = {};
+
+      comparisonRows.forEach((row) => {
+        const xValue = row.dimensions[0] || "";
+        comparisonUniqueXValues.add(xValue);
+        const groupParts = row.dimensions.slice(1);
+        const groupKey = groupParts.length > 0 ? groupParts.join(" - ") : "";
+
+        row.values.forEach((v, valueIndex) => {
+          const seriesKey = JSON.stringify({ i: valueIndex, g: groupKey });
+          if (!comparisonDataMap[seriesKey]) {
+            comparisonDataMap[seriesKey] = {};
+            const metricName = getSeriesTitle(
+              submittedExploreState,
+              valueIndex,
+              v.metricId,
+            );
+            let name: string;
+            if (groupKey) {
+              if (numMetrics > 1) {
+                name = `${metricName} (${groupKey})`;
+              } else {
+                name = groupKey;
+              }
+            } else {
+              name = metricName;
+            }
+            comparisonSeriesMeta[seriesKey] = {
+              metricId: v.metricId,
+              name,
+            };
+          }
+
+          comparisonDataMap[seriesKey][xValue] = getEffectiveMetricValue(v, {
+            showAs: renderOpts.showAs,
+            isRatio: renderOpts.isRatioByIndex[valueIndex] ?? false,
+          });
+        });
+      });
+
+      const comparisonSortedXValues = Array.from(comparisonUniqueXValues).sort(
+        (a, b) => new Date(a).getTime() - new Date(b).getTime(),
+      );
+      const alignedComparisonXValues = sortedXValues.map(
+        (_, index) => comparisonSortedXValues[index] ?? "",
+      );
+      const alignedComparisonDataMap: Record<
+        string,
+        Record<string, number>
+      > = {};
+
+      for (const seriesKey of sortedSeriesKeys) {
+        alignedComparisonDataMap[seriesKey] = {};
+        alignedComparisonXValues.forEach((comparisonXValue, index) => {
+          const currentXValue = sortedXValues[index];
+          if (!currentXValue) return;
+          alignedComparisonDataMap[seriesKey][currentXValue] = comparisonXValue
+            ? (comparisonDataMap[seriesKey]?.[comparisonXValue] ?? 0)
+            : 0;
+        });
       }
 
-      if (chartType === "line" || chartType === "area") {
-        const data = sortedXValues.map((x) => [
-          new Date(x).getTime(),
-          seriesDataMap[x] ?? 0,
-        ]);
-        const lineConfig = {
-          name,
-          data,
-          color: seriesColor(idx),
-          type: "line" as const,
-          animation: animate,
-          animationDuration: animate ? 300 : 0,
-          animationEasing: "linear" as const,
-          symbol: "circle" as const,
-          symbolSize: 4,
-        };
-        if (chartType === "line") return lineConfig;
-        if (chartType === "area")
-          return { ...lineConfig, areaStyle: {}, stack: "stack" };
-      }
-    });
+      seriesConfigs = [
+        ...seriesConfigs,
+        ...buildSeriesConfigs(
+          alignedComparisonDataMap,
+          seriesMeta,
+          sortedSeriesKeys,
+          sortedXValues,
+          { previous: true },
+        ),
+      ];
+    }
 
     const axisPointerLabelFormatter = resolvedGranularity
       ? (params: { value: string | number }) => {
@@ -411,6 +535,8 @@ export default function ExplorerChart({
     };
   }, [
     exploration?.result?.rows,
+    comparisonExploration?.result?.rows,
+    overlayOnChart,
     submittedExploreState,
     renderOpts,
     textColor,

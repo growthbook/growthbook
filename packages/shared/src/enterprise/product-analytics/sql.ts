@@ -263,11 +263,16 @@ function getFactTableGroups({
       })();
   }
 }
+function toUtcDateString(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
 export function calculateProductAnalyticsDateRange(
   dateRange: ExplorationConfig["dateRange"],
+  referenceDate: Date = new Date(),
 ): DateRange {
-  const startDate = new Date();
-  const endDate = new Date();
+  const startDate = new Date(referenceDate);
+  const endDate = new Date(referenceDate);
 
   switch (dateRange.predefined) {
     case "today":
@@ -311,6 +316,58 @@ export function calculateProductAnalyticsDateRange(
       return { startDate, endDate };
     }
   }
+}
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+export function calculateComparisonDateRange(
+  dateRange: ExplorationConfig["dateRange"],
+  referenceDate: Date = new Date(),
+): DateRange {
+  const current = calculateProductAnalyticsDateRange(dateRange, referenceDate);
+
+  if (dateRange.predefined === "today") {
+    const comparisonEnd = new Date(current.startDate);
+    const comparisonStart = new Date(comparisonEnd.getTime() - MS_PER_DAY);
+    return { startDate: comparisonStart, endDate: comparisonEnd };
+  }
+
+  if (dateRange.predefined === "customDateRange") {
+    const comparisonEnd = new Date(current.startDate);
+    const comparisonStart = new Date(current.startDate);
+    const inclusiveDays =
+      Math.floor(
+        (current.endDate.getTime() - current.startDate.getTime()) / MS_PER_DAY,
+      ) + 1;
+    comparisonStart.setUTCDate(comparisonStart.getUTCDate() - inclusiveDays);
+    return { startDate: comparisonStart, endDate: comparisonEnd };
+  }
+
+  const durationMs = current.endDate.getTime() - current.startDate.getTime();
+  const comparisonEnd = new Date(current.startDate.getTime());
+  const comparisonStart = new Date(comparisonEnd.getTime() - durationMs);
+  return { startDate: comparisonStart, endDate: comparisonEnd };
+}
+
+export function buildComparisonExplorationConfig(
+  config: ExplorationConfig,
+  referenceDate: Date = new Date(),
+): ExplorationConfig {
+  const comparisonRange = calculateComparisonDateRange(
+    config.dateRange,
+    referenceDate,
+  );
+
+  return {
+    ...config,
+    dateRange: {
+      predefined: "customDateRange",
+      lookbackValue: null,
+      lookbackUnit: null,
+      startDate: toUtcDateString(comparisonRange.startDate),
+      endDate: toUtcDateString(new Date(comparisonRange.endDate.getTime() - 1)),
+    },
+  };
 }
 
 // Get date granularity

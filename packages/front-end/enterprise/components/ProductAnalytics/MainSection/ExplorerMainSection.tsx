@@ -10,6 +10,7 @@ import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ExplorerChart from "./ExplorerChart";
 import ExplorerDataTable from "./ExplorerDataTable";
+import ComparisonSummary from "./ComparisonSummary";
 import Toolbar from "./Toolbar";
 
 export default function ExplorerMainSection() {
@@ -23,6 +24,9 @@ export default function ExplorerMainSection() {
     draftExploreState,
     handleSubmit,
     isSubmittable,
+    compareEnabled,
+    overlayOnChart,
+    comparisonExploration,
   } = useExplorerContext();
 
   const showChartSection = shouldChartSectionShow({
@@ -62,10 +66,18 @@ export default function ExplorerMainSection() {
                     display: "flex",
                     flexDirection: "column",
                     minHeight: 0,
+                    gap: "var(--space-3)",
                   }}
                 >
+                  {compareEnabled && submittedExploreState ? (
+                    <ComparisonSummary
+                      submittedExploreState={submittedExploreState}
+                    />
+                  ) : null}
                   <ExplorerChart
                     exploration={exploration}
+                    comparisonExploration={comparisonExploration}
+                    overlayOnChart={overlayOnChart}
                     error={error}
                     submittedExploreState={submittedExploreState}
                     loading={loading}
