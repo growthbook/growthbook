@@ -442,6 +442,10 @@ export default function EventForwarder({
             </Box>
           ) : null}
         </Callout>
+      ) : isPaused ? (
+        <Callout status="info" mb="3">
+          To remove the Event Forwarder, contact your account manager.
+        </Callout>
       ) : null}
 
       {eventForwarderConfig ? (
