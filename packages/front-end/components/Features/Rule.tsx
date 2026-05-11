@@ -271,6 +271,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const [rampApproveError, setRampApproveError] = useState("");
 
     const toggleRuleEnabled = async () => {
+      setDropdownOpen(false);
       track(rule.enabled ? "Disable Feature Rule" : "Enable Feature Rule", {
         ruleIndex: i,
         environment,
