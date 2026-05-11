@@ -23,7 +23,7 @@ const ArchetypesPage = (): React.ReactElement => {
       <div className="container-fluid pagecontents pt-4">
         <Tabs defaultValue="simulate" persistInURL={true}>
           <TabsList>
-          <TabsTrigger value="simulate">Simulate</TabsTrigger>
+            <TabsTrigger value="simulate">Simulate</TabsTrigger>
             <TabsTrigger value="archetypes">Archetypes</TabsTrigger>
           </TabsList>
           <Box pt="4">

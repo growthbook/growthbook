@@ -1,6 +1,5 @@
 import FeaturesDraftTable from "@/components/Features/FeaturesDraftTable";
 
-
 export default function FeatureDraftsPage() {
   return (
     <div className="contents container pagecontents">
