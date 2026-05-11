@@ -589,19 +589,10 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           header={`Cannot delete "${d.name}"`}
           close={() => setDeleteBlockedByEventForwarderModalOpen(false)}
         >
-          <>
-            {"Please "}
-            <a
-              href="https://www.growthbook.io/contact"
-              target="_blank"
-              rel="noreferrer"
-            >
-              contact us
-            </a>
-            {
-              " to remove the Event Forwarder first; after that, you can delete this data source here."
-            }
-          </>
+          <Text>
+            Please contact your account manager to remove the Event Forwarder
+            first; after that, you can delete this data source here.
+          </Text>
         </ModalStandard>
       )}
     </div>

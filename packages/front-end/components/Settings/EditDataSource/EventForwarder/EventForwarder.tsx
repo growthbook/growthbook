@@ -442,18 +442,6 @@ export default function EventForwarder({
             </Box>
           ) : null}
         </Callout>
-      ) : isPaused ? (
-        <Callout status="info" mb="3">
-          To remove the Event Forwarder,{" "}
-          <a
-            href="https://www.growthbook.io/contact"
-            target="_blank"
-            rel="noreferrer"
-          >
-            contact us
-          </a>
-          .
-        </Callout>
       ) : null}
 
       {eventForwarderConfig ? (
