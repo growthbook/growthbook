@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
   DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
-  computeEventForwarderAccessSignature,
   stripLeadingUtf8ByteOrderMark,
 } from "shared/util";
 import {
@@ -17,15 +16,18 @@ import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
 import BigQueryEventForwarderForm from "@/components/Settings/BigQueryEventForwarderForm";
 import SnowflakeEventForwarderForm from "@/components/Settings/SnowflakeEventForwarderForm";
+import { useEventForwarderAccessTest } from "@/components/Settings/useEventForwarderAccessTest";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import Modal from "@/ui/Modal";
+import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
 
 type Props = {
   dataSource: DataSourceInterfaceWithParams;
@@ -60,6 +62,9 @@ const statusColors: Record<
   error: "red",
   schema_update_error: "red",
 };
+
+const EVENT_FORWARDER_MODAL_FAILURE_MESSAGE =
+  "Something went wrong. Update your settings and try again.";
 
 function getEventForwarderDraft(
   dataSource: DataSourceInterfaceWithParams,
@@ -127,6 +132,67 @@ function getEventForwarderParamsForSubmit(
   } as Partial<DataSourceParams>;
 }
 
+function getCanConfirmEventForwarder(
+  draft: EventForwarderDatasourceDraft,
+): boolean {
+  const cfg = draft.eventForwarderConfig;
+  if (!cfg) return false;
+  const rawParams = draft.params || {};
+  if (cfg.sinkType === "bigquery") {
+    const p = rawParams as Partial<BigQueryConnectionParams>;
+    return !!p.defaultDataset?.trim() && !!cfg.config.tableName.trim();
+  }
+  if (cfg.sinkType === "snowflake") {
+    const p = rawParams as Partial<SnowflakeConnectionParams>;
+    const authMethod = p.authMethod ?? "password";
+    const hasSnowflakePrivateKey =
+      authMethod === "key-pair" || !!p.privateKey?.trim();
+    return (
+      !!cfg.config.tableName.trim() &&
+      !!cfg.config.accessUrl?.trim() &&
+      !!p.account?.trim() &&
+      !!p.username?.trim() &&
+      !!p.database?.trim() &&
+      !!p.schema?.trim() &&
+      authMethod === "key-pair" &&
+      hasSnowflakePrivateKey
+    );
+  }
+  return false;
+}
+
+function EventForwarderConfirmButton({
+  canConfirmEventForwarder,
+  usEventForwarderFlowConsent,
+  datasourceDraft,
+}: {
+  canConfirmEventForwarder: boolean;
+  usEventForwarderFlowConsent: boolean;
+  datasourceDraft: EventForwarderDatasourceDraft;
+}) {
+  const { loading } = useModalForm();
+  const ctaEnabled = canConfirmEventForwarder && usEventForwarderFlowConsent;
+  const disabledMessage = !canConfirmEventForwarder
+    ? datasourceDraft.type === "bigquery"
+      ? "Enter a default dataset and table name before confirming."
+      : "Enter all required Snowflake fields before confirming."
+    : !usEventForwarderFlowConsent
+      ? "Acknowledge US data flow and authorization to use Confirm."
+      : undefined;
+
+  return (
+    <Tooltip
+      body={disabledMessage || ""}
+      shouldDisplay={!ctaEnabled && !!disabledMessage}
+      tipPosition="top"
+    >
+      <Button type="submit" disabled={!ctaEnabled} loading={loading}>
+        Confirm
+      </Button>
+    </Tooltip>
+  );
+}
+
 function EventForwarderModal({
   dataSource,
   onCancel,
@@ -146,28 +212,8 @@ function EventForwarderModal({
       projects: dataSource.projects,
       eventForwarderConfig: getEventForwarderDraft(dataSource),
     }));
-  const [
-    validatedEventForwarderSignature,
-    setValidatedEventForwarderSignature,
-  ] = useState<string | null>(null);
   const [usEventForwarderFlowConsent, setUsEventForwarderFlowConsent] =
     useState(false);
-
-  const eventForwarderAccessSignature = computeEventForwarderAccessSignature(
-    datasourceDraft as Partial<DataSourceInterfaceWithParams>,
-  );
-  const eventForwarderSaveBlocked =
-    !!datasourceDraft.eventForwarderConfig &&
-    validatedEventForwarderSignature !== eventForwarderAccessSignature;
-
-  useEffect(() => {
-    if (
-      validatedEventForwarderSignature &&
-      validatedEventForwarderSignature !== eventForwarderAccessSignature
-    ) {
-      setValidatedEventForwarderSignature(null);
-    }
-  }, [eventForwarderAccessSignature, validatedEventForwarderSignature]);
 
   const setParams = (params: { [key: string]: string | boolean }) => {
     setDatasourceDraft((current) => ({
@@ -197,88 +243,93 @@ function EventForwarderModal({
     datasourceDraft,
   );
 
+  const accessTestParams =
+    eventForwarderParamsForSubmit ?? (params as Partial<DataSourceParams>);
+
+  const { testEventForwarderAccess } = useEventForwarderAccessTest({
+    existing: true,
+    datasourceId: dataSource.id,
+    type: datasourceDraft.type,
+    params: accessTestParams,
+    projects: dataSource.projects,
+    eventForwarderConfig,
+  });
+
+  const canConfirmEventForwarder = getCanConfirmEventForwarder(datasourceDraft);
+
   return (
-    <Modal
-      trackingEventModalType=""
+    <Modal.Root
       open={true}
-      submit={async () => {
-        if (!eventForwarderConfig) return;
-        await apiCall(`/datasource/${dataSource.id}/event-forwarder`, {
-          method: "PUT",
-          body: JSON.stringify({
-            eventForwarderConfig,
-            ...(eventForwarderParamsForSubmit
-              ? { params: eventForwarderParamsForSubmit }
-              : {}),
-          }),
-        });
-        await onRefresh();
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onCancel();
       }}
-      close={onCancel}
-      header={modalTitle}
-      cta="Confirm"
       size="md"
-      ctaEnabled={!eventForwarderSaveBlocked && usEventForwarderFlowConsent}
-      disabledMessage={
-        eventForwarderSaveBlocked
-          ? "Test Event Forwarder access before confirming."
-          : !usEventForwarderFlowConsent
-            ? "Acknowledge US data flow and authorization to use Confirm."
-            : undefined
-      }
+      trackingEventModalType=""
     >
-      <Callout status="info" mb="3">
-        Testing write access verifies GrowthBook can create tables in your
-        dataset. A temporary validation table is created and immediately
-        deleted.
-      </Callout>
-      {eventForwarderConfig?.sinkType === "bigquery" ? (
-        <BigQueryEventForwarderForm
-          params={params as Partial<BigQueryConnectionParams>}
-          accessTestParams={eventForwarderParamsForSubmit}
-          eventForwarderConfig={eventForwarderConfig}
-          existing={true}
-          setParams={setParams}
-          setEventForwarderConfig={setEventForwarderConfig}
-          datasourceId={dataSource.id}
-          projects={dataSource.projects}
-          eventForwarderAccessSignature={eventForwarderAccessSignature}
-          setValidatedEventForwarderSignature={
-            setValidatedEventForwarderSignature
+      <ModalForm
+        onSubmit={async () => {
+          if (!eventForwarderConfig) return;
+          try {
+            await testEventForwarderAccess();
+            await apiCall(`/datasource/${dataSource.id}/event-forwarder`, {
+              method: "PUT",
+              body: JSON.stringify({
+                eventForwarderConfig,
+                ...(eventForwarderParamsForSubmit
+                  ? { params: eventForwarderParamsForSubmit }
+                  : {}),
+              }),
+            });
+            await onRefresh();
+            onCancel();
+          } catch {
+            throw new Error(EVENT_FORWARDER_MODAL_FAILURE_MESSAGE);
           }
-          showDefaultDatasetField
-          className="form-group col-md-12 px-0"
-        />
-      ) : null}
-      {eventForwarderConfig?.sinkType === "snowflake" ? (
-        <SnowflakeEventForwarderForm
-          params={params as Partial<SnowflakeConnectionParams>}
-          eventForwarderConfig={eventForwarderConfig}
-          existing={true}
-          setEventForwarderConfig={setEventForwarderConfig}
-          datasourceId={dataSource.id}
-          projects={dataSource.projects}
-          eventForwarderAccessSignature={eventForwarderAccessSignature}
-          setValidatedEventForwarderSignature={
-            setValidatedEventForwarderSignature
-          }
-          accessTestParams={undefined}
-          hasSnowflakePrivateKey={
-            (params as Partial<SnowflakeConnectionParams>).authMethod ===
-              "key-pair" ||
-            !!(params as Partial<SnowflakeConnectionParams>).privateKey?.trim()
-          }
-        />
-      ) : null}
-      <Callout status="info" mx="2" mb="0" mt="3" icon={null}>
-        <Checkbox
-          value={usEventForwarderFlowConsent}
-          setValue={setUsEventForwarderFlowConsent}
-          label="I understand that event data will flow through GrowthBook's US servers and confirm I'm authorized to enable this for my organization."
-          weight="regular"
-        />
-      </Callout>
-    </Modal>
+        }}
+      >
+        <Modal.Header>
+          <Modal.Title>{modalTitle}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {eventForwarderConfig?.sinkType === "bigquery" ? (
+            <BigQueryEventForwarderForm
+              params={params as Partial<BigQueryConnectionParams>}
+              eventForwarderConfig={eventForwarderConfig}
+              setParams={setParams}
+              setEventForwarderConfig={setEventForwarderConfig}
+              showDefaultDatasetField
+              className="form-group col-md-12 px-0"
+            />
+          ) : null}
+          {eventForwarderConfig?.sinkType === "snowflake" ? (
+            <SnowflakeEventForwarderForm
+              eventForwarderConfig={eventForwarderConfig}
+              setEventForwarderConfig={setEventForwarderConfig}
+            />
+          ) : null}
+          <Callout status="info" mb="0" mt="3" icon={null}>
+            <Checkbox
+              value={usEventForwarderFlowConsent}
+              setValue={setUsEventForwarderFlowConsent}
+              label="I understand that event data will flow through GrowthBook's US servers and confirm I'm authorized to enable this for my organization."
+              weight="regular"
+            />
+          </Callout>
+        </Modal.Body>
+        <Modal.Footer>
+          <Modal.Close>
+            <Button variant="ghost" onClick={onCancel}>
+              Cancel
+            </Button>
+          </Modal.Close>
+          <EventForwarderConfirmButton
+            canConfirmEventForwarder={canConfirmEventForwarder}
+            usEventForwarderFlowConsent={usEventForwarderFlowConsent}
+            datasourceDraft={datasourceDraft}
+          />
+        </Modal.Footer>
+      </ModalForm>
+    </Modal.Root>
   );
 }
 
