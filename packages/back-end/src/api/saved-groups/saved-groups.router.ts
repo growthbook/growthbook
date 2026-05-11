@@ -3,6 +3,7 @@ import { getSavedGroup } from "./getSavedGroup";
 import { listSavedGroups } from "./listSavedGroups";
 import { postSavedGroup } from "./postSavedGroup";
 import { updateSavedGroup } from "./updateSavedGroup";
+import { archiveSavedGroup } from "./archiveSavedGroup";
 import { deleteSavedGroup } from "./deleteSavedGroup";
 
 export const savedGroupsRoutes: OpenApiRoute[] = [
@@ -10,5 +11,6 @@ export const savedGroupsRoutes: OpenApiRoute[] = [
   postSavedGroup,
   getSavedGroup,
   updateSavedGroup,
+  archiveSavedGroup,
   deleteSavedGroup,
 ];

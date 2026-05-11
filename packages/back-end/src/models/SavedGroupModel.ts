@@ -84,8 +84,14 @@ export class SavedGroupModel extends BaseClass {
     _existing: SavedGroupInterface,
     updates: UpdateProps<SavedGroupInterface>,
   ) {
-    // If the values, condition, or projects change, we need to invalidate cached feature rules
-    if (updates.values || updates.condition || updates.projects) {
+    // If the values, condition, projects, or archived status change, we need
+    // to invalidate cached feature rules
+    if (
+      updates.values ||
+      updates.condition ||
+      updates.projects ||
+      typeof updates.archived !== "undefined"
+    ) {
       savedGroupUpdated(this.context).catch((e) => {
         this.context.logger.error(
           e,
@@ -123,6 +129,7 @@ export class SavedGroupModel extends BaseClass {
       owner: savedGroup.owner || "",
       description: savedGroup.description,
       projects: savedGroup.projects || [],
+      archived: !!savedGroup.archived,
     };
   }
 }

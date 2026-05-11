@@ -13196,6 +13196,32 @@ paths:
             curl -X DELETE
             'https://api.growthbook.io/api/v1/saved-groups/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups/{id}/archive:
+    post:
+      operationId: archiveSavedGroup
+      summary: Archive a single saved group
+      tags:
+        - saved-groups
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  savedGroup:
+                    $ref: '#/components/schemas/SavedGroup'
+                required:
+                  - savedGroup
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/saved-groups/abc123/archive' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/organizations:
     get:
       operationId: listOrganizations
@@ -27565,6 +27591,8 @@ components:
           type: array
           items:
             type: string
+        archived:
+          type: boolean
       required:
         - id
         - type
