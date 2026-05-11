@@ -1,4 +1,3 @@
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { putVisualChangesetValidator } from "shared/validators";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
@@ -48,9 +47,6 @@ export const putVisualChangeset = createApiRequestHandler(
     nModified: res.nModified,
     visualChangeset: updatedVisualChangeset
       ? toVisualChangesetApiInterface(updatedVisualChangeset)
-      : {
-          ...toVisualChangesetApiInterface(visualChangeset),
-          ...(req.body as Partial<VisualChangesetInterface>),
-        },
+      : toVisualChangesetApiInterface(visualChangeset),
   };
 });

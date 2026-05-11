@@ -167,8 +167,54 @@ export const getVisualChangesetValidator = {
   exampleRequest: { params: { id: "abc123" } },
 };
 
+const putVisualChangesetBody = z
+  .object({
+    editorUrl: z
+      .string()
+      .describe(
+        "URL of the page opened in the visual editor when creating this changeset",
+      )
+      .optional(),
+    urlPatterns: z
+      .array(
+        z.object({
+          include: z.boolean(),
+          type: z.enum(["simple", "regex"]),
+          pattern: z.string(),
+        }),
+      )
+      .describe(
+        "URL patterns that determine which pages this visual changeset applies to",
+      )
+      .optional(),
+    visualChanges: z
+      .array(
+        z.object({
+          id: z.string().optional(),
+          description: z.string().optional(),
+          css: z.string().optional(),
+          js: z.string().optional(),
+          variation: z.string(),
+          domMutations: z
+            .array(
+              z.object({
+                selector: z.string(),
+                action: z.enum(["append", "set", "remove"]),
+                attribute: z.string(),
+                value: z.string().optional(),
+                parentSelector: z.string().optional(),
+                insertBeforeSelector: z.string().optional(),
+              }),
+            )
+            .optional(),
+        }),
+      )
+      .optional(),
+  })
+  .strict();
+
 export const putVisualChangesetValidator = {
-  bodySchema: z.never(),
+  bodySchema: putVisualChangesetBody,
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: z
@@ -184,11 +230,35 @@ export const putVisualChangesetValidator = {
   path: "/visual-changesets/:id",
   exampleRequest: {
     params: { id: "abc123" },
+    body: {
+      editorUrl: "https://example.com/",
+    },
   },
 };
 
+const visualChangeBody = z
+  .object({
+    description: z.string().optional(),
+    css: z.string().optional(),
+    js: z.string().optional(),
+    variation: z.string(),
+    domMutations: z
+      .array(
+        z.object({
+          selector: z.string(),
+          action: z.enum(["append", "set", "remove"]),
+          attribute: z.string(),
+          value: z.string().optional(),
+          parentSelector: z.string().optional(),
+          insertBeforeSelector: z.string().optional(),
+        }),
+      )
+      .optional(),
+  })
+  .strict();
+
 export const postVisualChangeValidator = {
-  bodySchema: z.never(),
+  bodySchema: visualChangeBody,
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: z
@@ -201,11 +271,17 @@ export const postVisualChangeValidator = {
   tags: ["visual-changesets"],
   method: "post" as const,
   path: "/visual-changesets/:id/visual-change",
-  exampleRequest: {},
+  exampleRequest: {
+    params: { id: "abc123" },
+    body: {
+      variation: "var_abc123",
+      domMutations: [],
+    },
+  },
 };
 
 export const putVisualChangeValidator = {
-  bodySchema: z.never(),
+  bodySchema: visualChangeBody.partial(),
   querySchema: z.never(),
   paramsSchema: z
     .object({
@@ -223,5 +299,10 @@ export const putVisualChangeValidator = {
   tags: ["visual-changesets"],
   method: "put" as const,
   path: "/visual-changesets/:id/visual-change/:visualChangeId",
-  exampleRequest: {},
+  exampleRequest: {
+    params: { id: "abc123", visualChangeId: "vc_abc123" },
+    body: {
+      css: "h1 { color: red; }",
+    },
+  },
 };

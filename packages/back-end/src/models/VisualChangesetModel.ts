@@ -1,5 +1,6 @@
 import { keyBy } from "lodash";
 import omit from "lodash/omit";
+import pick from "lodash/pick";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { hasVisualChanges } from "shared/util";
@@ -297,13 +298,25 @@ export const createVisualChangeset = async ({
   return visualChangeset;
 };
 
+export type VisualChangesetUpdates = {
+  editorUrl?: string;
+  urlPatterns?: VisualChangesetURLPattern[];
+  visualChanges?: Partial<VisualChange>[];
+};
+
 // type guard
 const _isUpdatingVisualChanges = (
-  updates: Partial<VisualChangesetInterface>,
+  updates: VisualChangesetUpdates,
 ): updates is {
-  visualChanges: VisualChange[];
-} & Partial<VisualChangesetInterface> =>
+  visualChanges: Partial<VisualChange>[];
+} & VisualChangesetUpdates =>
   updates.visualChanges !== undefined && updates.visualChanges.length > 0;
+
+const UPDATABLE_VISUAL_CHANGESET_FIELDS = [
+  "editorUrl",
+  "urlPatterns",
+  "visualChanges",
+] as const;
 
 export const updateVisualChangeset = async ({
   visualChangeset,
@@ -315,14 +328,15 @@ export const updateVisualChangeset = async ({
   visualChangeset: VisualChangesetInterface;
   experiment: ExperimentInterface | null;
   context: ReqContext | ApiReqContext;
-  updates: Partial<VisualChangesetInterface>;
+  updates: VisualChangesetUpdates;
   bypassWebhooks?: boolean;
 }) => {
-  const isUpdatingVisualChanges = _isUpdatingVisualChanges(updates);
+  const safeUpdates = pick(updates, UPDATABLE_VISUAL_CHANGESET_FIELDS);
+  const isUpdatingVisualChanges = _isUpdatingVisualChanges(safeUpdates);
 
   // ensure new visual changes have ids assigned
   const visualChanges = isUpdatingVisualChanges
-    ? updates.visualChanges.map((vc) => ({
+    ? safeUpdates.visualChanges.map((vc) => ({
         ...vc,
         id: vc.id || uniqid("vc_"),
       }))
@@ -335,7 +349,7 @@ export const updateVisualChangeset = async ({
     },
     {
       $set: {
-        ...updates,
+        ...safeUpdates,
         visualChanges,
       },
     },
@@ -351,13 +365,14 @@ export const updateVisualChangeset = async ({
     });
   }
 
+  const updatedDoc = await findVisualChangesetById(
+    visualChangeset.id,
+    context.org.id,
+  );
+
   await onVisualChangesetUpdate({
     oldVisualChangeset: visualChangeset,
-    newVisualChangeset: {
-      ...visualChangeset,
-      ...updates,
-      visualChanges,
-    },
+    newVisualChangeset: updatedDoc ?? visualChangeset,
     context,
     bypassWebhooks,
   });
