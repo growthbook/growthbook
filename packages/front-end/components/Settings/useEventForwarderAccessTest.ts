@@ -1,13 +1,7 @@
-import { useState } from "react";
 import { DataSourceParams, DataSourceType } from "shared/types/datasource";
 import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
 import { EventForwarderAccessTestResponse } from "shared/validators";
 import { useAuth } from "@/services/auth";
-
-export type EventForwarderAccessTestResult = {
-  status: "success" | "error";
-  message: string;
-};
 
 export function useEventForwarderAccessTest({
   existing,
@@ -16,8 +10,6 @@ export function useEventForwarderAccessTest({
   params,
   projects,
   eventForwarderConfig,
-  eventForwarderAccessSignature,
-  setValidatedEventForwarderSignature,
 }: {
   existing: boolean;
   datasourceId?: string;
@@ -25,18 +17,12 @@ export function useEventForwarderAccessTest({
   params?: Partial<DataSourceParams>;
   projects?: string[];
   eventForwarderConfig: EventForwarderConfigDraft | null;
-  eventForwarderAccessSignature: string;
-  setValidatedEventForwarderSignature?: (signature: string | null) => void;
 }) {
   const { apiCall } = useAuth();
-  const [eventForwarderTestResult, setEventForwarderTestResult] =
-    useState<EventForwarderAccessTestResult | null>(null);
 
   async function testEventForwarderAccess() {
     if (!eventForwarderConfig) return;
 
-    setEventForwarderTestResult(null);
-    setValidatedEventForwarderSignature?.(null);
     const endpoint =
       existing && datasourceId
         ? `/datasource/${datasourceId}/event-forwarder/test-access`
@@ -60,24 +46,12 @@ export function useEventForwarderAccessTest({
     });
     const sinkWrite = response.results.sinkWrite;
     if (sinkWrite.result === "success") {
-      setValidatedEventForwarderSignature?.(eventForwarderAccessSignature);
-      setEventForwarderTestResult({
-        status: "success",
-        message:
-          "Event Forwarder table creation access verified. GrowthBook created and deleted a temporary validation table.",
-      });
-    } else {
-      setEventForwarderTestResult({
-        status: "error",
-        message:
-          sinkWrite.resultMessage ||
-          "Event Forwarder table creation access failed.",
-      });
+      return;
     }
+    throw new Error(sinkWrite.resultMessage || "Write test permission denied.");
   }
 
   return {
-    eventForwarderTestResult,
     testEventForwarderAccess,
   };
 }
