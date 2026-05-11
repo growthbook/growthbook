@@ -289,6 +289,27 @@ export function assertUserScopedKeyForMine(
 }
 
 /**
+ * Translate the public `status` query param (which accepts a single status, a
+ * comma-separated list, or the literal `"open"` shortcut) into the model's
+ * filter shape — `string | string[] | undefined`.
+ *
+ * The `"open"` alias is passed through as a single string so the model can
+ * expand it into its own non-terminal status set (see `buildStatusFilter` on
+ * `RevisionModel`).
+ */
+export function buildRevisionStatusFilter(
+  input?: string,
+): string | string[] | undefined {
+  if (!input) return undefined;
+  const parts = input
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (parts.includes("open")) return "open";
+  return parts.length === 1 ? parts[0] : parts;
+}
+
+/**
  * Build a deduplicated values array from the existing draft state, applying
  * the supplied transform. Used by the items/add and items/remove handlers
  * to compose changes on top of any existing pending draft so that successive

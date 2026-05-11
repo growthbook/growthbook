@@ -6,6 +6,7 @@ import { updateSavedGroup } from "./updateSavedGroup";
 import { deleteSavedGroup } from "./deleteSavedGroup";
 
 // Revision routes
+import { listSavedGroupRevisions } from "./listSavedGroupRevisions";
 import { getSavedGroupRevisions } from "./getSavedGroupRevisions";
 import { getSavedGroupRevisionLatest } from "./getSavedGroupRevisionLatest";
 import { getSavedGroupRevision } from "./getSavedGroupRevision";
@@ -28,6 +29,9 @@ export const savedGroupsRoutes: OpenApiRoute[] = [
   // Saved-group CRUD
   listSavedGroups,
   postSavedGroup,
+  // MUST precede getSavedGroup: GET /saved-groups/revisions would otherwise be
+  // matched by GET /saved-groups/:id with `id = "revisions"`.
+  listSavedGroupRevisions,
   getSavedGroup,
   updateSavedGroup,
   deleteSavedGroup,

@@ -160,6 +160,48 @@ const mergeConflictSchema = z
 
 // ---- Read endpoint validators ----
 
+export const listSavedGroupRevisionsValidator = {
+  method: "get" as const,
+  // Sits at the saved-groups collection root rather than `/revisions` so it
+  // mirrors the entity-scoped layout used elsewhere (e.g. /v2/features/...).
+  // Router order MUST register this before `GET /saved-groups/:id`, otherwise
+  // the literal `revisions` would be captured as `id` and fail validation.
+  path: "/saved-groups/revisions",
+  operationId: "listSavedGroupRevisions",
+  summary: "List saved-group revisions across the organization",
+  description:
+    "Returns a paginated list of revisions across all saved groups in the organization, sorted newest-first. Optionally filtered by saved group, status, author, or the calling user's involvement.",
+  tags: ["saved-group-revisions"],
+  paramsSchema: z.never(),
+  bodySchema: z.never(),
+  querySchema: z
+    .object({
+      ...paginationQueryFields,
+      ...skipPaginationQueryField,
+      savedGroupId: z
+        .string()
+        .optional()
+        .describe(
+          "Restrict results to revisions for a single saved group. When omitted, returns revisions across every saved group the caller can read.",
+        ),
+      status: revisionStatusQuery
+        .optional()
+        .describe(
+          "Filter by revision status. Accepts a comma-separated list, or the literal `open` for non-merged/non-discarded revisions.",
+        ),
+      author: z.string().optional(),
+      mine: booleanQueryField.describe(
+        "If true, return only revisions authored by the calling user. Requires a user-scoped API key. Mutually exclusive with `author`.",
+      ),
+    })
+    .strict(),
+  responseSchema: z
+    .object({
+      revisions: z.array(apiSavedGroupRevisionValidator),
+    })
+    .extend(apiPaginationFieldsValidator.shape),
+};
+
 export const getSavedGroupRevisionsValidator = {
   method: "get" as const,
   path: "/saved-groups/:id/revisions",

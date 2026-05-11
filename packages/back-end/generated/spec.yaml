@@ -2285,8 +2285,8 @@ paths:
       operationId: listRevisions
       summary: List feature revisions
       description: >-
-        **Deprecated.** Use [GET /v2/revisions](#operation/listRevisionsV2)
-        instead.
+        **Deprecated.** Use [GET
+        /v2/features/revisions](#operation/listRevisionsV2) instead.
 
 
         Returns a paginated list of feature revisions across all features in the
@@ -5466,6 +5466,80 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v2/features' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v2/features/revisions:
+    get:
+      operationId: listRevisionsV2
+      summary: List feature revisions
+      description: >-
+        Returns a paginated list of feature revisions across all features in the
+        organization. Revision `rules` is a flat array with per-rule scope.
+      tags:
+        - feature-revisions-v2
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/skipPagination'
+        - $ref: '#/components/parameters/featureId'
+        - $ref: '#/components/parameters/status'
+        - $ref: '#/components/parameters/author'
+        - name: mine
+          in: query
+          description: >-
+            If true, return only revisions authored by or contributed to by the
+            calling user.
+          schema:
+            description: >-
+              If true, return only revisions authored by or contributed to by
+              the calling user.
+            anyOf:
+              - type: string
+                const: 'true'
+              - type: string
+                const: 'false'
+              - type: string
+                const: '0'
+              - type: string
+                const: '1'
+              - type: boolean
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revisions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FeatureRevisionV2'
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  count:
+                    type: integer
+                  total:
+                    type: integer
+                  hasMore:
+                    type: boolean
+                  nextOffset:
+                    anyOf:
+                      - type: integer
+                      - type: 'null'
+                required:
+                  - revisions
+                  - limit
+                  - offset
+                  - count
+                  - total
+                  - hasMore
+                  - nextOffset
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v2/features/revisions' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v2/features/{id}:
     get:
       operationId: getFeatureV2
@@ -6231,80 +6305,6 @@ paths:
         - lang: cURL
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v2/stale-features' \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /v2/revisions:
-    get:
-      operationId: listRevisionsV2
-      summary: List feature revisions
-      description: >-
-        Returns a paginated list of feature revisions across all features in the
-        organization. Revision `rules` is a flat array with per-rule scope.
-      tags:
-        - feature-revisions-v2
-      parameters:
-        - $ref: '#/components/parameters/limit'
-        - $ref: '#/components/parameters/offset'
-        - $ref: '#/components/parameters/skipPagination'
-        - $ref: '#/components/parameters/featureId'
-        - $ref: '#/components/parameters/status'
-        - $ref: '#/components/parameters/author'
-        - name: mine
-          in: query
-          description: >-
-            If true, return only revisions authored by or contributed to by the
-            calling user.
-          schema:
-            description: >-
-              If true, return only revisions authored by or contributed to by
-              the calling user.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  revisions:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/FeatureRevisionV2'
-                  limit:
-                    type: integer
-                  offset:
-                    type: integer
-                  count:
-                    type: integer
-                  total:
-                    type: integer
-                  hasMore:
-                    type: boolean
-                  nextOffset:
-                    anyOf:
-                      - type: integer
-                      - type: 'null'
-                required:
-                  - revisions
-                  - limit
-                  - offset
-                  - count
-                  - total
-                  - hasMore
-                  - nextOffset
-                additionalProperties: false
-      x-codeSamples:
-        - lang: cURL
-          source: |-
-            curl -X GET 'https://api.growthbook.io/api/v2/revisions' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v2/features/{id}/revisions:
     get:
@@ -13117,6 +13117,91 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"interal-users","values":["userId-123","userId-345","userId-678"],"attributeKey":"userId","owner":""}'
+  /v1/saved-groups/revisions:
+    get:
+      operationId: listSavedGroupRevisions
+      summary: List saved-group revisions across the organization
+      description: >-
+        Returns a paginated list of revisions across all saved groups in the
+        organization, sorted newest-first. Optionally filtered by saved group,
+        status, author, or the calling user's involvement.
+      tags:
+        - saved-group-revisions
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/skipPagination'
+        - $ref: '#/components/parameters/savedGroupId'
+        - name: status
+          in: query
+          description: >-
+            Filter by revision status. Accepts a comma-separated list, or the
+            literal `open` for non-merged/non-discarded revisions.
+          schema:
+            description: >-
+              Filter by revision status. Accepts a comma-separated list, or the
+              literal `open` for non-merged/non-discarded revisions.
+            type: string
+        - $ref: '#/components/parameters/author'
+        - name: mine
+          in: query
+          description: >-
+            If true, return only revisions authored by the calling user.
+            Requires a user-scoped API key. Mutually exclusive with `author`.
+          schema:
+            description: >-
+              If true, return only revisions authored by the calling user.
+              Requires a user-scoped API key. Mutually exclusive with `author`.
+            anyOf:
+              - type: string
+                const: 'true'
+              - type: string
+                const: 'false'
+              - type: string
+                const: '0'
+              - type: string
+                const: '1'
+              - type: boolean
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revisions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SavedGroupRevision'
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  count:
+                    type: integer
+                  total:
+                    type: integer
+                  hasMore:
+                    type: boolean
+                  nextOffset:
+                    anyOf:
+                      - type: integer
+                      - type: 'null'
+                required:
+                  - revisions
+                  - limit
+                  - offset
+                  - count
+                  - total
+                  - hasMore
+                  - nextOffset
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/saved-groups/revisions' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/saved-groups/{id}:
     get:
       operationId: getSavedGroup
@@ -25292,6 +25377,17 @@ components:
       schema:
         description: Specify a specific visual change
         type: string
+    savedGroupId:
+      name: savedGroupId
+      in: query
+      description: >-
+        Restrict results to revisions for a single saved group. When omitted,
+        returns revisions across every saved group the caller can read.
+      schema:
+        description: >-
+          Restrict results to revisions for a single saved group. When omitted,
+          returns revisions across every saved group the caller can read.
+        type: string
     search:
       name: search
       in: query
@@ -26429,16 +26525,6 @@ components:
         - enabled
         - defaultValue
       additionalProperties: false
-    FeatureWithRevisionsV2:
-      allOf:
-        - $ref: '#/components/schemas/FeatureV2'
-        - type: object
-          properties:
-            revisions:
-              type: array
-              items:
-                $ref: '#/components/schemas/FeatureRevisionV2'
-          additionalProperties: false
     FeatureRevisionV2:
       type: object
       properties:
@@ -26585,6 +26671,16 @@ components:
         - status
         - rules
       additionalProperties: false
+    FeatureWithRevisionsV2:
+      allOf:
+        - $ref: '#/components/schemas/FeatureV2'
+        - type: object
+          properties:
+            revisions:
+              type: array
+              items:
+                $ref: '#/components/schemas/FeatureRevisionV2'
+          additionalProperties: false
     Archetype:
       type: object
       properties:

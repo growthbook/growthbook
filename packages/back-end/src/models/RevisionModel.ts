@@ -398,11 +398,19 @@ export class RevisionModel extends BaseClass {
     return { revisions, total };
   }
 
-  /** Same permission/count caveat as `getAllPaginated`. */
+  /**
+   * Same permission/count caveat as `getAllPaginated`.
+   *
+   * `entityId` / `authorId` are optional filters layered on top of the
+   * type-scoped query — used by the cross-entity REST listing endpoints
+   * (e.g. `GET /v1/saved-groups/revisions?savedGroupId=...&author=...`).
+   */
   async getByTargetTypePaginated(
     entityType: RevisionTargetType,
     opts: {
       status?: string | string[];
+      entityId?: string;
+      authorId?: string;
       limit?: number;
       skip?: number;
     } = {},
@@ -411,6 +419,8 @@ export class RevisionModel extends BaseClass {
     const statusFilter = this.buildStatusFilter(opts.status);
     const filter = {
       "target.type": entityType,
+      ...(opts.entityId ? { "target.id": opts.entityId } : {}),
+      ...(opts.authorId ? { authorId: opts.authorId } : {}),
       ...(statusFilter ? { status: statusFilter } : {}),
     } as Record<string, unknown>;
 

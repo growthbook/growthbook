@@ -37,6 +37,9 @@ export const featureV2Routes: OpenApiRoute[] = [
   // Feature CRUD
   listFeaturesV2,
   postFeatureV2,
+  // MUST precede getFeatureV2: GET /features/revisions would otherwise be
+  // matched by GET /features/:id with `id = "revisions"`.
+  listRevisionsV2,
   getFeatureV2,
   updateFeatureV2,
   deleteFeatureByIdV2,
@@ -46,7 +49,6 @@ export const featureV2Routes: OpenApiRoute[] = [
   getFeatureStaleV2,
 
   // Reading & listing revisions
-  listRevisionsV2,
   getFeatureRevisionsV2,
   // Must precede getFeatureRevisionV2: "latest" literal would otherwise be
   // swallowed by the :version param and fail int validation.
