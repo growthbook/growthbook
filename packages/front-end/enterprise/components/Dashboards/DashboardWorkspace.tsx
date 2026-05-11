@@ -287,6 +287,16 @@ export default function DashboardWorkspace({
     clearEditingState();
   };
 
+  // Strip layout so the duplicate doesn't land on top of the source block
+  // (normalizeLayouts on the server doesn't resolve overlaps).
+  const duplicateBlock = (i: number) => {
+    setAddBlockIndex(i + 1);
+    setStagedAddBlock({
+      ...getBlockData(effectiveBlocks[i]),
+      layout: undefined,
+    });
+  };
+
   return (
     <>
       {showSaveModal && (
@@ -496,10 +506,7 @@ export default function DashboardWorkspace({
                 },
                 addBlockType: addBlockType,
                 editBlock: editBlock,
-                duplicateBlock: (i) => {
-                  setAddBlockIndex(i + 1);
-                  setStagedAddBlock(getBlockData(effectiveBlocks[i]));
-                },
+                duplicateBlock,
                 deleteBlock: deleteBlock,
               }}
               mutate={mutate}
@@ -583,10 +590,7 @@ export default function DashboardWorkspace({
               addBlockType={addBlockType}
               focusBlock={focusBlock}
               editBlock={editBlock}
-              duplicateBlock={(i) => {
-                setAddBlockIndex(i + 1);
-                setStagedAddBlock(getBlockData(effectiveBlocks[i]));
-              }}
+              duplicateBlock={duplicateBlock}
               deleteBlock={deleteBlock}
             />
           </Flex>

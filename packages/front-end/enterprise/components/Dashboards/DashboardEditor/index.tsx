@@ -736,87 +736,34 @@ function DashboardEditor({
         )}
       </div>
       <div>
-        <div
-          className={clsx("dashboard-grid-container", {
-            "is-editing": isEditing,
-          })}
-        >
-          {blocks.length === 0 ? (
-            <Flex
-              direction="column"
-              align="center"
-              justify="center"
-              px="80px"
-              pt="60px"
-              pb="70px"
-              className="appbox"
-              gap="5"
-            >
-              <Flex direction="column">
-                <Heading as="h1" size="large" weight="medium" align="center">
-                  Add Content Blocks
-                </Heading>
-                <Text align="center">
-                  {addBlockType
-                    ? "Choose a block type to get started."
-                    : "Add some blocks to get started"}
-                </Text>
-              </Flex>
-              {addBlockType ? (
-                <AddBlockDropdown
-                  addBlockType={addBlockType}
-                  isGeneralDashboard={isGeneralDashboard}
-                  trigger={
-                    <Button
-                      size="sm"
-                      icon={<PiCaretDownFill />}
-                      iconPosition="right"
-                    >
-                      Add Block
-                    </Button>
-                  }
-                />
-              ) : canEdit && setIsEditing ? (
-                <Button size="md" onClick={() => setIsEditing(true)}>
-                  Add Block
-                </Button>
-              ) : null}
+        {blocks.length === 0 ? (
+          <Flex
+            direction="column"
+            align="center"
+            justify="center"
+            px="80px"
+            pt="60px"
+            pb="70px"
+            className="appbox"
+            gap="5"
+          >
+            <Flex direction="column">
+              <Heading as="h1" size="large" weight="medium" align="center">
+                Add Content Blocks
+              </Heading>
+              <Text align="center">
+                {addBlockType
+                  ? "Choose a block type to get started."
+                  : "Add some blocks to get started"}
+              </Text>
             </Flex>
-          ) : (
-            <DashboardGrid
-              blocks={blocks}
-              isEditing={isEditing}
-              editSidebarDirty={!!editSidebarDirty}
-              stagedBlockIndex={stagedBlockIndex}
-              updateLayout={updateLayout}
-              renderBlock={(block, i) =>
-                renderSingleBlock({
-                  i,
-                  block,
-                  isFocused: focusedBlockIndex === i,
-                  setBlock: setBlock
-                    ? (block) => setBlock(i, block)
-                    : undefined,
-                  isEditingBlock: stagedBlockIndex === i,
-                })
-              }
-            />
-          )}
-          {isEditing && blocks.length > 0 && addBlockType && (
-            <Flex
-              justify="center"
-              mt="3"
-              className={clsx({
-                "dashboard-disabled": editSidebarDirty,
-              })}
-            >
+            {addBlockType ? (
               <AddBlockDropdown
                 addBlockType={addBlockType}
                 isGeneralDashboard={isGeneralDashboard}
                 trigger={
                   <Button
                     size="sm"
-                    variant="outline"
                     icon={<PiCaretDownFill />}
                     iconPosition="right"
                   >
@@ -824,11 +771,56 @@ function DashboardEditor({
                   </Button>
                 }
               />
-            </Flex>
-          )}
-          {/* Add padding at the bottom so there's room to scroll the selected block to the middle/top of the page */}
-          {isEditing && <div style={{ height: 350 }} />}
-        </div>
+            ) : canEdit && setIsEditing ? (
+              <Button size="md" onClick={() => setIsEditing(true)}>
+                Add Block
+              </Button>
+            ) : null}
+          </Flex>
+        ) : (
+          <DashboardGrid
+            blocks={blocks}
+            isEditing={isEditing}
+            editSidebarDirty={!!editSidebarDirty}
+            stagedBlockIndex={stagedBlockIndex}
+            updateLayout={updateLayout}
+            renderBlock={(block, i) =>
+              renderSingleBlock({
+                i,
+                block,
+                isFocused: focusedBlockIndex === i,
+                setBlock: setBlock ? (block) => setBlock(i, block) : undefined,
+                isEditingBlock: stagedBlockIndex === i,
+              })
+            }
+          />
+        )}
+        {isEditing && blocks.length > 0 && addBlockType && (
+          <Flex
+            justify="center"
+            mt="3"
+            className={clsx({
+              "dashboard-disabled": editSidebarDirty,
+            })}
+          >
+            <AddBlockDropdown
+              addBlockType={addBlockType}
+              isGeneralDashboard={isGeneralDashboard}
+              trigger={
+                <Button
+                  size="sm"
+                  variant="outline"
+                  icon={<PiCaretDownFill />}
+                  iconPosition="right"
+                >
+                  Add Block
+                </Button>
+              }
+            />
+          </Flex>
+        )}
+        {/* Add padding at the bottom so there's room to scroll the selected block to the middle/top of the page */}
+        {isEditing && <div style={{ height: 350 }} />}
       </div>
     </DashboardChartsProvider>
   );
