@@ -782,12 +782,51 @@ export const apiExperimentSnapshotValidator = namedSchema(
   apiExperimentSnapshotShape.strict(),
 );
 
+const apiExperimentResultAnalysisSettingsValidator = z
+  .object({
+    statsEngine: z.enum(statsEngines),
+    differenceType: z.enum(["relative", "absolute", "scaled"]),
+    baselineVariationIndex: z.number(),
+    regressionAdjusted: z.boolean(),
+    postStratificationEnabled: z.boolean().optional(),
+    sequentialTesting: z.boolean(),
+    sequentialTestingTuningParameter: z.number().optional(),
+    pValueCorrection: z
+      .enum(["holm-bonferroni", "benjamini-hochberg"])
+      .nullable()
+      .optional(),
+    pValueThreshold: z.number().optional(),
+  })
+  .describe("Analysis settings used to produce this result payload.");
+
 // Corresponds to schemas/ExperimentResults.yaml
 export const apiExperimentResultsValidator = namedSchema(
   "ExperimentResults",
   z
     .object({
-      id: z.string(),
+      id: z
+        .string()
+        .describe(
+          "The source experiment snapshot ID. For exact result identity, use resultId.",
+        ),
+      resultId: z
+        .string()
+        .describe(
+          "Opaque identifier for this exact result payload. When an analysis key is available, this identifies the specific snapshot-analysis tuple.",
+        ),
+      sourceSnapshotId: z
+        .string()
+        .describe("The experiment snapshot ID used as the source for results."),
+      analysisKey: z
+        .string()
+        .describe("Stable key of the analysis within sourceSnapshotId.")
+        .optional(),
+      source: z
+        .enum(["snapshot", "precomputedFallback"])
+        .describe(
+          'How the result payload was selected. "precomputedFallback" means a precomputed analysis from the latest standard snapshot was returned because no exact on-demand dimension snapshot existed.',
+        ),
+      analysisSettings: apiExperimentResultAnalysisSettingsValidator.optional(),
       dateUpdated: z.string(),
       experimentId: z.string(),
       phase: z.string(),
@@ -1648,8 +1687,18 @@ export const getExperimentResultsValidator = {
   bodySchema: z.never(),
   querySchema: z
     .object({
-      phase: z.string().optional(),
-      dimension: z.string().optional(),
+      phase: z
+        .string()
+        .describe(
+          "Zero-based phase index to retrieve results for, where 0 is the first experiment phase. Defaults to the latest phase.",
+        )
+        .optional(),
+      dimension: z
+        .string()
+        .describe(
+          'Dimension to break results down by. For Unit Dimensions, use the dimension id (e.g. "dim_abc123"). For Experiment Dimensions, use "exp:<dimensionName>" (e.g. "exp:country"). Built-in pre-exposure dimensions include "pre:date" and, when configured, "pre:activation". For Experiment Dimensions, this endpoint can return an existing precomputed analysis from the latest standard snapshot when no exact on-demand dimension snapshot exists. In that case, result.id remains the source snapshot ID; use result.resultId and result.analysisKey to identify the exact returned result payload, and result.analysisSettings to inspect the settings used to calculate it.',
+        )
+        .optional(),
     })
     .strict(),
   paramsSchema: idParams,
@@ -1659,6 +1708,8 @@ export const getExperimentResultsValidator = {
     })
     .strict(),
   summary: "Get results for an experiment",
+  description:
+    "Retrieves existing experiment results. Omit `dimension` to return the default overall analysis from the latest standard snapshot. Pass `dimension` as a Unit Dimension id (`dim_...`), Experiment Dimension (`exp:<dimensionName>`), or built-in pre-exposure dimension (`pre:date` or `pre:activation`). Experiment Dimensions are defined by data source assignment query `dimensionColumns`. If no exact on-demand Experiment Dimension snapshot exists, this endpoint may return an existing precomputed analysis from the latest standard snapshot; in that case `result.id` remains the source snapshot ID, `result.resultId` identifies the exact snapshot-analysis result payload, and `result.analysisSettings` describes the settings used to calculate it.",
   operationId: "getExperimentResults",
   tags: ["experiments"],
   method: "get" as const,

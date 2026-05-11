@@ -30,7 +30,11 @@ export const apiDataSourceValidator = namedSchema(
           identifierType: z.string(),
           sql: z.string(),
           includesNameColumns: z.boolean(),
-          dimensionColumns: z.array(z.string()),
+          dimensionColumns: z
+            .array(z.string())
+            .describe(
+              'Experiment Dimension column names available for results queries. Use these with the "exp:<dimensionName>" dimension format.',
+            ),
         }),
       ),
       identifierJoinQueries: z.array(
@@ -75,6 +79,8 @@ export const listDataSourcesValidator = {
     apiPaginationFieldsValidator,
   ),
   summary: "Get all data sources",
+  description:
+    "Lists data sources, including assignment query `dimensionColumns` that define Experiment Dimensions for use as `exp:<dimensionName>` in experiment result APIs.",
   operationId: "listDataSources",
   tags: ["data-sources"],
   method: "get" as const,
@@ -91,6 +97,8 @@ export const getDataSourceValidator = {
     })
     .strict(),
   summary: "Get a single data source",
+  description:
+    "Gets a data source, including assignment query `dimensionColumns` that define Experiment Dimensions for use as `exp:<dimensionName>` in experiment result APIs.",
   operationId: "getDataSource",
   tags: ["data-sources"],
   method: "get" as const,

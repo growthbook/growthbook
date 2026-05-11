@@ -19,6 +19,7 @@ import {
   AnalysisMetaEntry,
   buildAnalysisKey,
 } from "shared/snapshot-analysis-chunks";
+import { PRECOMPUTED_DIMENSION_PREFIX } from "shared/constants";
 import { logger } from "back-end/src/util/logger";
 import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
@@ -238,6 +239,13 @@ const ExperimentSnapshotModel =
     "ExperimentSnapshot",
     experimentSnapshotSchema,
   );
+
+export type LatestDimensionResult = {
+  snapshot: ExperimentSnapshotInterface;
+  analysis?: ExperimentSnapshotAnalysis;
+  dimension?: { type: "experiment"; id: string };
+  source?: "precomputedFallback";
+};
 
 const toInterface = (
   doc: ExperimentSnapshotDocument,
@@ -1019,6 +1027,160 @@ export async function getLatestSnapshot({
   }).exec();
 
   return all[0] ? populateSnapshotAnalyses(context, toInterface(all[0])) : null;
+}
+
+function getExperimentDimensionName(
+  dimension: string | undefined,
+): string | null {
+  if (!dimension?.startsWith("exp:")) return null;
+  return dimension.substring(4);
+}
+
+function findPrecomputedExperimentDimensionAnalysis({
+  analyses,
+  dimensionName,
+}: {
+  analyses: ExperimentSnapshotAnalysis[];
+  dimensionName: string;
+}): ExperimentSnapshotAnalysis | null {
+  const precomputedDimension = `${PRECOMPUTED_DIMENSION_PREFIX}${dimensionName}`;
+  const isMatchingSuccessfulAnalysis = (analysis: ExperimentSnapshotAnalysis) =>
+    analysis.status === "success" &&
+    analysis.settings.dimensions.length === 1 &&
+    analysis.settings.dimensions[0] === precomputedDimension;
+
+  return (
+    analyses.find(
+      (analysis) =>
+        isMatchingSuccessfulAnalysis(analysis) &&
+        analysis.settings.differenceType === "relative",
+    ) ??
+    analyses.find(isMatchingSuccessfulAnalysis) ??
+    null
+  );
+}
+
+async function getLatestExperimentDimensionCandidate({
+  context,
+  experiment,
+  phase,
+  dimension,
+}: {
+  context: Context;
+  experiment: string;
+  phase: number;
+  dimension: string;
+}): Promise<ExperimentSnapshotInterface | null> {
+  const query: FilterQuery<ExperimentSnapshotDocument> = {
+    organization: context.org.id,
+    experiment,
+    phase,
+    status: "success",
+    $or: [
+      {
+        dimension,
+        type: { $ne: "report" },
+      },
+      {
+        dimension: null,
+        type: "standard",
+      },
+    ],
+  };
+
+  const latest = await ExperimentSnapshotModel.findOne(query, null, {
+    // Prefer an exact on-demand snapshot over any standard fallback snapshot.
+    sort: { dimension: -1, dateCreated: -1 },
+  }).exec();
+
+  if (latest) {
+    return populateSnapshotAnalyses(context, toInterface(latest));
+  }
+
+  // Legacy snapshots may not have a status field. This keeps the same fallback
+  // behaviour as getLatestSnapshot while preserving one query for modern data.
+  const legacyQuery: FilterQuery<ExperimentSnapshotDocument> = {
+    organization: context.org.id,
+    experiment,
+    phase,
+    $or: [
+      {
+        dimension,
+        type: { $ne: "report" },
+      },
+      {
+        dimension: null,
+        type: "standard",
+      },
+    ],
+    results: { $exists: true, $type: "array", $ne: [] },
+  };
+
+  const latestLegacy = await ExperimentSnapshotModel.findOne(
+    legacyQuery,
+    null,
+    {
+      sort: { dimension: -1, dateCreated: -1 },
+    },
+  ).exec();
+
+  return latestLegacy
+    ? populateSnapshotAnalyses(context, toInterface(latestLegacy))
+    : null;
+}
+
+export async function getLatestDimensionResult({
+  context,
+  experiment,
+  phase,
+  dimension,
+}: {
+  context: Context;
+  experiment: string;
+  phase: number;
+  dimension?: string;
+}): Promise<LatestDimensionResult | null> {
+  const experimentDimensionName = getExperimentDimensionName(dimension);
+  if (!experimentDimensionName || !dimension) {
+    const snapshot = await getLatestSnapshot({
+      context,
+      experiment,
+      phase,
+      dimension,
+      withResults: true,
+    });
+    return snapshot ? { snapshot } : null;
+  }
+
+  const snapshot = await getLatestExperimentDimensionCandidate({
+    context,
+    experiment,
+    phase,
+    dimension,
+  });
+
+  if (!snapshot) return null;
+
+  if (snapshot.dimension === dimension) {
+    return { snapshot };
+  }
+
+  const analysis = findPrecomputedExperimentDimensionAnalysis({
+    analyses: snapshot.analyses,
+    dimensionName: experimentDimensionName,
+  });
+
+  if (!analysis) return null;
+
+  return {
+    snapshot,
+    analysis,
+    dimension: {
+      type: "experiment",
+      id: experimentDimensionName,
+    },
+    source: "precomputedFallback",
+  };
 }
 
 // Gets latest snapshots per experiment-phase pair

@@ -7,6 +7,7 @@ import {
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import {
   getLatestSnapshot,
+  getLatestDimensionResult,
   createExperimentSnapshotModel,
   updateSnapshot,
   addOrUpdateSnapshotAnalysis,
@@ -231,18 +232,25 @@ async function insertLegacyInlineSnapshot({
   id,
   experimentId,
   analyses,
+  dimension = null,
+  type,
+  dateCreated = new Date(),
 }: {
   id: string;
   experimentId: string;
   analyses: Partial<ExperimentSnapshotAnalysis>[];
+  dimension?: string | null;
+  type?: "standard" | "exploratory" | "report";
+  dateCreated?: Date;
 }) {
   await mongoose.connection.db!.collection("experimentsnapshots").insertOne({
     id,
     organization: "org_1",
     experiment: experimentId,
     phase: 0,
-    dimension: null,
-    dateCreated: new Date(),
+    dimension,
+    ...(type ? { type } : {}),
+    dateCreated,
     runStarted: null,
     status: "success",
     queries: [],
@@ -729,6 +737,110 @@ describe("ExperimentSnapshotModel", () => {
 
       expect(result?.id).toBe(scheduledSuccess.id);
       expect(result?.status).toBe("success");
+    });
+  });
+
+  describe("getLatestDimensionResult", () => {
+    const experiment = "exp_dimension_result";
+    const phase = 0;
+
+    it("prefers an exact experiment-dimension snapshot over a newer standard fallback snapshot", async () => {
+      const exactAnalysis = makeAnalysisWithoutMetrics({
+        settings: makeAnalysisSettings({ dimensions: ["exp:country"] }),
+      });
+      const precomputedAnalysis = makeAnalysisWithoutMetrics({
+        settings: makeAnalysisSettings({ dimensions: ["precomputed:country"] }),
+      });
+
+      await insertLegacyInlineSnapshot({
+        id: "snp_standard_newer",
+        experimentId: experiment,
+        type: "standard",
+        dimension: null,
+        dateCreated: new Date("2025-01-02T00:00:00Z"),
+        analyses: [precomputedAnalysis],
+      });
+      await insertLegacyInlineSnapshot({
+        id: "snp_exact_older",
+        experimentId: experiment,
+        type: "exploratory",
+        dimension: "exp:country",
+        dateCreated: new Date("2025-01-01T00:00:00Z"),
+        analyses: [exactAnalysis],
+      });
+
+      const result = await getLatestDimensionResult({
+        context: snapshotTestContext,
+        experiment,
+        phase,
+        dimension: "exp:country",
+      });
+
+      expect(result?.snapshot.id).toBe("snp_exact_older");
+      expect(result?.source).toBeUndefined();
+      expect(result?.analysis).toBeUndefined();
+    });
+
+    it("uses the matching relative precomputed analysis from the standard snapshot", async () => {
+      const absoluteAnalysis = makeAnalysisWithoutMetrics({
+        settings: makeAnalysisSettings({
+          dimensions: ["precomputed:country"],
+          differenceType: "absolute",
+        }),
+      });
+      const relativeAnalysis = makeAnalysisWithoutMetrics({
+        settings: makeAnalysisSettings({
+          dimensions: ["precomputed:country"],
+          differenceType: "relative",
+        }),
+      });
+
+      await insertLegacyInlineSnapshot({
+        id: "snp_standard_precomputed",
+        experimentId: experiment,
+        type: "standard",
+        dimension: null,
+        analyses: [absoluteAnalysis, relativeAnalysis],
+      });
+
+      const result = await getLatestDimensionResult({
+        context: snapshotTestContext,
+        experiment,
+        phase,
+        dimension: "exp:country",
+      });
+
+      expect(result?.snapshot.id).toBe("snp_standard_precomputed");
+      expect(result?.source).toBe("precomputedFallback");
+      expect(result?.analysis?.analysisKey).toBe(relativeAnalysis.analysisKey);
+      expect(result?.dimension).toEqual({
+        type: "experiment",
+        id: "country",
+      });
+    });
+
+    it("does not use non-success precomputed analyses", async () => {
+      const erroredAnalysis = makeAnalysisWithoutMetrics({
+        settings: makeAnalysisSettings({ dimensions: ["precomputed:country"] }),
+        status: "error",
+      });
+
+      await insertLegacyInlineSnapshot({
+        id: "snp_standard_error_analysis",
+        experimentId: experiment,
+        type: "standard",
+        dimension: null,
+        analyses: [erroredAnalysis],
+      });
+
+      const result = await getLatestDimensionResult({
+        context: snapshotTestContext,
+        experiment,
+        phase,
+        dimension: "exp:country",
+      });
+
+      expect(result).toBeNull();
     });
   });
 

@@ -78,6 +78,8 @@ export const listDimensionsValidator = {
     apiPaginationFieldsValidator,
   ),
   summary: "Get all dimensions",
+  description:
+    "Lists Unit Dimensions. Experiment Dimensions are defined on data source assignment queries and are discoverable from `/api/v1/data-sources` in `assignmentQueries[].dimensionColumns`.",
   operationId: "listDimensions",
   tags: ["dimensions"],
   method: "get" as const,

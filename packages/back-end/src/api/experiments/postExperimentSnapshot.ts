@@ -53,6 +53,7 @@ export const postExperimentSnapshot = createApiRequestHandler(
       experiment,
       datasource,
       dimension,
+      logger: context.logger,
       organization: context.org.id,
     });
   }
