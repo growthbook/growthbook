@@ -6,9 +6,13 @@ import {
   DashboardBlockInterface,
   DashboardBlockType,
   CREATE_BLOCK_TYPE,
+  dashboardBlockHasIds,
   getBlockData,
   getInitialConfigByBlockType,
+  DASHBOARD_GRID_COLS,
+  DASHBOARD_BLOCK_MAX_H,
 } from "shared/enterprise";
+import { LayoutItem } from "react-grid-layout";
 import { Container, Flex, IconButton, Text } from "@radix-ui/themes";
 import {
   PiCaretDoubleLeft,
@@ -184,6 +188,17 @@ export default function DashboardWorkspace({
   const [stagedEditBlock, setStagedEditBlock] = useState<
     DashboardBlockInterfaceOrData<DashboardBlockInterface> | undefined
   >(undefined);
+
+  // Whenever a block becomes staged (via add, duplicate, or edit), make sure
+  // the editing drawer is open so the user can actually configure/save it.
+  // Without this, paths like duplicateBlock - which only set addBlockIndex +
+  // stagedAddBlock - leave a staged block with no visible way to commit it
+  // when the drawer happens to be collapsed.
+  useEffect(() => {
+    if (isDefined(addBlockIndex) || isDefined(editingBlockIndex)) {
+      setEditSidebarExpanded(true);
+    }
+  }, [addBlockIndex, editingBlockIndex]);
 
   const [dashboardCopy] = useState<DashboardInterface | undefined>(
     cloneDeep(dashboard),
@@ -445,15 +460,39 @@ export default function DashboardWorkspace({
                 focusedBlockIndex: focusedBlockIndex,
                 stagedBlockIndex: addBlockIndex ?? editingBlockIndex,
                 scrollAreaRef: scrollAreaRef,
-                moveBlock: (i, direction) => {
+                updateLayout: (layouts: readonly LayoutItem[]) => {
                   if (isDefined(addBlockIndex) || isDefined(editingBlockIndex))
                     return;
-                  const otherBlocks = blocks.toSpliced(i, 1);
-                  setBlocksAndSubmit([
-                    ...otherBlocks.slice(0, i + direction),
-                    blocks[i],
-                    ...otherBlocks.slice(i + direction),
-                  ]);
+                  const byId = new Map(layouts.map((l) => [l.i, l] as const));
+                  let changed = false;
+                  const next = blocks.map((b) => {
+                    if (!dashboardBlockHasIds(b)) return b;
+                    const l = byId.get(b.id);
+                    if (!l) return b;
+                    const w = Math.min(l.w, DASHBOARD_GRID_COLS);
+                    const h = Math.min(l.h, DASHBOARD_BLOCK_MAX_H);
+                    const nextLayout = {
+                      x: l.x,
+                      y: l.y,
+                      w,
+                      h,
+                      ...(b.layout?.static ? { static: true } : {}),
+                    };
+                    const prev = b.layout;
+                    if (
+                      prev &&
+                      prev.x === nextLayout.x &&
+                      prev.y === nextLayout.y &&
+                      prev.w === nextLayout.w &&
+                      prev.h === nextLayout.h
+                    ) {
+                      return b;
+                    }
+                    changed = true;
+                    return { ...b, layout: nextLayout };
+                  });
+                  if (!changed) return;
+                  setBlocksAndSubmit(next);
                 },
                 addBlockType: addBlockType,
                 editBlock: editBlock,

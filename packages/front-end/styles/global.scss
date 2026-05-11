@@ -3793,6 +3793,60 @@ input:disabled {
   pointer-events: none;
 }
 
+// react-grid-layout overrides for dashboard blocks
+.dashboard-grid {
+  position: relative;
+
+  // Make sure each grid item is a clean stacking context so the inner
+  // .appbox shadow/border don't get clipped by RGL's positioning.
+  .dashboard-grid-item {
+    height: 100%;
+    width: 100%;
+  }
+
+  // RGL adds .react-resizable-handle on every item; only show it while the
+  // user is actively editing the dashboard. In view/share mode the block is
+  // a static container.
+  .react-resizable-handle {
+    display: none;
+  }
+  &.is-editing .react-resizable-handle {
+    display: block;
+  }
+
+  // Tone down the default Tabler-style resize handle so it blends in with
+  // the Radix violet palette.
+  &.is-editing .react-resizable-handle::after {
+    border-color: var(--violet-9);
+  }
+
+  // The placeholder RGL shows under a dragging block - match the violet
+  // accent and round the corners to look like an inset block outline.
+  .react-grid-placeholder {
+    background: var(--violet-a4) !important;
+    border: 2px dashed var(--violet-9);
+    border-radius: 6px;
+    opacity: 1 !important;
+  }
+}
+
+// Drag handle inside the block toolbar.
+.dashboard-block-drag-handle {
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+// Inner block container needs to fill the RGL cell so resizing the block
+// shrinks/grows the content area, not just the outer wrapper.
+.dashboard-block.appbox {
+  height: 100%;
+  width: 100%;
+  margin-bottom: 0;
+}
+
 .opacity-0 {
   opacity: 0;
 }

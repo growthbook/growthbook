@@ -11,6 +11,67 @@ import {
 } from "../../validators/product-analytics";
 import { differenceTypes, pinSources } from "../dashboards/utils";
 
+// Hard caps used both as zod ceilings and as defaults the back-end clamps to.
+// The dashboard renders on a 12-column grid; block height is capped at 12 row
+// units so a single block can never be wider/taller than a square viewport.
+export const DASHBOARD_GRID_COLS = 12;
+export const DASHBOARD_BLOCK_MAX_H = 12;
+
+// Per-block layout only stores user-driven coordinates. Per-type sizing
+// constraints (initial w/h, drag/resize min) live in
+// DEFAULT_BLOCK_SIZE_BY_TYPE below so we have one source of truth and existing
+// dashboards pick up tweaks automatically. `.strict()` is intentionally
+// omitted so legacy docs with stale minW/maxW/etc. quietly strip on parse.
+export const blockLayoutInterface = z.object({
+  x: z
+    .number()
+    .int()
+    .min(0)
+    .max(DASHBOARD_GRID_COLS - 1),
+  y: z.number().int().min(0),
+  w: z.number().int().min(1).max(DASHBOARD_GRID_COLS),
+  h: z.number().int().min(1).max(DASHBOARD_BLOCK_MAX_H),
+  static: z.boolean().optional(),
+});
+
+export type BlockLayout = z.infer<typeof blockLayoutInterface>;
+
+// Default size and drag/resize minimums per block type. The maximum width is
+// always DASHBOARD_GRID_COLS and the maximum height is DASHBOARD_BLOCK_MAX_H,
+// so we don't repeat them here.
+export type BlockSizeBounds = {
+  w: number;
+  h: number;
+  minW: number;
+  minH: number;
+};
+
+export const DEFAULT_BLOCK_SIZE_BY_TYPE: Record<
+  DashboardBlockType,
+  BlockSizeBounds
+> = {
+  markdown: { w: DASHBOARD_GRID_COLS, h: 3, minW: 2, minH: 2 },
+  "experiment-metadata": { w: DASHBOARD_GRID_COLS, h: 8, minW: 6, minH: 4 },
+  "experiment-traffic": { w: DASHBOARD_GRID_COLS, h: 8, minW: 6, minH: 4 },
+  "experiment-metric": { w: DASHBOARD_GRID_COLS, h: 8, minW: 6, minH: 4 },
+  "experiment-dimension": { w: DASHBOARD_GRID_COLS, h: 8, minW: 6, minH: 4 },
+  "experiment-time-series": { w: DASHBOARD_GRID_COLS, h: 8, minW: 6, minH: 4 },
+  "sql-explorer": { w: DASHBOARD_GRID_COLS, h: 8, minW: 4, minH: 4 },
+  "metric-explorer": { w: DASHBOARD_GRID_COLS, h: 8, minW: 4, minH: 4 },
+  "metric-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 4, minH: 4 },
+  "fact-table-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 4, minH: 4 },
+  "data-source-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 4, minH: 4 },
+};
+
+export function getBlockSizeBounds(
+  blockType: DashboardBlockType | string,
+): BlockSizeBounds {
+  return (
+    DEFAULT_BLOCK_SIZE_BY_TYPE[blockType as DashboardBlockType] ??
+    DEFAULT_BLOCK_SIZE_BY_TYPE.markdown
+  );
+}
+
 const baseBlockInterface = z
   .object({
     organization: z.string(),
@@ -20,6 +81,7 @@ const baseBlockInterface = z
     title: z.string(),
     description: z.string(),
     snapshotId: z.string().optional(),
+    layout: blockLayoutInterface.optional(),
   })
   .strict();
 
