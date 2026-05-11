@@ -64,10 +64,7 @@ const statusColors: Record<
 };
 
 const EVENT_FORWARDER_MODAL_FAILURE_MESSAGE =
-  "Something went wrong. Update your settings and use Test write access to try again.";
-
-const EVENT_FORWARDER_STANDALONE_TEST_SUCCESS_MESSAGE =
-  "Write test succeeded. You can confirm to save.";
+  "Something went wrong. Update your settings and try again.";
 
 function getEventForwarderDraft(
   dataSource: DataSourceInterfaceWithParams,
@@ -217,9 +214,6 @@ function EventForwarderModal({
     }));
   const [usEventForwarderFlowConsent, setUsEventForwarderFlowConsent] =
     useState(false);
-  const [standaloneTestFeedback, setStandaloneTestFeedback] = useState<
-    null | "success" | "error"
-  >(null);
 
   const setParams = (params: { [key: string]: string | boolean }) => {
     setDatasourceDraft((current) => ({
@@ -263,17 +257,6 @@ function EventForwarderModal({
 
   const canConfirmEventForwarder = getCanConfirmEventForwarder(datasourceDraft);
 
-  const runStandaloneWriteTest = async () => {
-    if (!eventForwarderConfig || !canConfirmEventForwarder) return;
-    setStandaloneTestFeedback(null);
-    try {
-      await testEventForwarderAccess();
-      setStandaloneTestFeedback("success");
-    } catch {
-      setStandaloneTestFeedback("error");
-    }
-  };
-
   return (
     <Modal.Root
       open={true}
@@ -285,7 +268,6 @@ function EventForwarderModal({
     >
       <ModalForm
         onSubmit={async () => {
-          setStandaloneTestFeedback(null);
           if (!eventForwarderConfig) return;
           try {
             await testEventForwarderAccess();
@@ -309,23 +291,6 @@ function EventForwarderModal({
           <Modal.Title>{modalTitle}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {standaloneTestFeedback === "success" ? (
-            <Callout status="success" mb="3">
-              {EVENT_FORWARDER_STANDALONE_TEST_SUCCESS_MESSAGE}
-            </Callout>
-          ) : null}
-          {standaloneTestFeedback === "error" ? (
-            <Callout status="error" mb="3">
-              {EVENT_FORWARDER_MODAL_FAILURE_MESSAGE}
-            </Callout>
-          ) : null}
-          <Callout status="info" mb="3">
-            Use <strong>Test write access</strong> to validate permissions
-            without saving. <strong>Confirm</strong> runs the same write test,
-            then saves your configuration. If something fails, nothing is saved
-            and a short message is shown above; adjust your settings and use
-            Test write access to try again.
-          </Callout>
           {eventForwarderConfig?.sinkType === "bigquery" ? (
             <BigQueryEventForwarderForm
               params={params as Partial<BigQueryConnectionParams>}
@@ -342,7 +307,7 @@ function EventForwarderModal({
               setEventForwarderConfig={setEventForwarderConfig}
             />
           ) : null}
-          <Callout status="info" mx="2" mb="0" mt="3" icon={null}>
+          <Callout status="info" mb="0" mt="3" icon={null}>
             <Checkbox
               value={usEventForwarderFlowConsent}
               setValue={setUsEventForwarderFlowConsent}
@@ -357,14 +322,6 @@ function EventForwarderModal({
               Cancel
             </Button>
           </Modal.Close>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={!canConfirmEventForwarder}
-            onClick={runStandaloneWriteTest}
-          >
-            Test write access
-          </Button>
           <EventForwarderConfirmButton
             canConfirmEventForwarder={canConfirmEventForwarder}
             usEventForwarderFlowConsent={usEventForwarderFlowConsent}
