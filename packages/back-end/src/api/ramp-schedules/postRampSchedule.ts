@@ -66,6 +66,9 @@ const postRampScheduleValidator = {
           guardrailMetricIds: z.array(z.string()).min(1),
           autoRollback: z.boolean().optional(),
           updateScheduleMinutes: z.number().positive().optional().nullable(),
+          srmAction: z.enum(["warn", "hold", "rollback"]).optional(),
+          noTrafficAction: z.enum(["warn", "hold", "rollback"]).optional(),
+          multipleExposureAction: z.enum(["warn", "hold", "rollback"]).optional(),
         })
         .nullish(),
       lockdownConfig: z.object({ mode: z.enum(["none", "locked"]) }).optional(),

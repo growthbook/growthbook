@@ -3670,6 +3670,24 @@ paths:
                             - type: 'null'
                         autoUpdate:
                           type: boolean
+                        srmAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
+                        noTrafficAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
+                        multipleExposureAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
                       required:
                         - datasourceId
                         - exposureQueryId
@@ -4135,6 +4153,24 @@ paths:
                             - type: 'null'
                         autoUpdate:
                           type: boolean
+                        srmAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
+                        noTrafficAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
+                        multipleExposureAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
                       required:
                         - datasourceId
                         - exposureQueryId
@@ -4629,6 +4665,24 @@ paths:
                         - type: 'null'
                     autoUpdate:
                       type: boolean
+                    srmAction:
+                      type: string
+                      enum:
+                        - rollback
+                        - hold
+                        - warn
+                    noTrafficAction:
+                      type: string
+                      enum:
+                        - rollback
+                        - hold
+                        - warn
+                    multipleExposureAction:
+                      type: string
+                      enum:
+                        - rollback
+                        - hold
+                        - warn
                   required:
                     - datasourceId
                     - exposureQueryId
@@ -7763,6 +7817,24 @@ paths:
                             - type: 'null'
                         autoUpdate:
                           type: boolean
+                        srmAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
+                        noTrafficAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
+                        multipleExposureAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
                       required:
                         - datasourceId
                         - exposureQueryId
@@ -8224,6 +8296,24 @@ paths:
                             - type: 'null'
                         autoUpdate:
                           type: boolean
+                        srmAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
+                        noTrafficAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
+                        multipleExposureAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
                       required:
                         - datasourceId
                         - exposureQueryId
@@ -8686,6 +8776,24 @@ paths:
                         - type: 'null'
                     autoUpdate:
                       type: boolean
+                    srmAction:
+                      type: string
+                      enum:
+                        - rollback
+                        - hold
+                        - warn
+                    noTrafficAction:
+                      type: string
+                      enum:
+                        - rollback
+                        - hold
+                        - warn
+                    multipleExposureAction:
+                      type: string
+                      enum:
+                        - rollback
+                        - hold
+                        - warn
                   required:
                     - datasourceId
                     - exposureQueryId
@@ -16672,6 +16780,24 @@ paths:
                             - type: 'null'
                         autoUpdate:
                           type: boolean
+                        srmAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
+                        noTrafficAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
+                        multipleExposureAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
                       required:
                         - datasourceId
                         - exposureQueryId
@@ -17409,6 +17535,24 @@ paths:
                               - type: 'null'
                           autoUpdate:
                             type: boolean
+                          srmAction:
+                            type: string
+                            enum:
+                              - rollback
+                              - hold
+                              - warn
+                          noTrafficAction:
+                            type: string
+                            enum:
+                              - rollback
+                              - hold
+                              - warn
+                          multipleExposureAction:
+                            type: string
+                            enum:
+                              - rollback
+                              - hold
+                              - warn
                         required:
                           - datasourceId
                           - exposureQueryId
@@ -24132,6 +24276,24 @@ paths:
                             - type: 'null'
                         autoUpdate:
                           type: boolean
+                        srmAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
+                        noTrafficAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
+                        multipleExposureAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
                       required:
                         - datasourceId
                         - exposureQueryId
@@ -24406,6 +24568,24 @@ paths:
                             - type: 'null'
                         autoUpdate:
                           type: boolean
+                        srmAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
+                        noTrafficAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
+                        multipleExposureAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
                       required:
                         - datasourceId
                         - exposureQueryId
@@ -24858,6 +25038,24 @@ paths:
                             - type: 'null'
                         autoUpdate:
                           type: boolean
+                        srmAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
+                        noTrafficAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
+                        multipleExposureAction:
+                          type: string
+                          enum:
+                            - rollback
+                            - hold
+                            - warn
                       required:
                         - datasourceId
                         - exposureQueryId
@@ -29966,6 +30164,24 @@ components:
                     - type: 'null'
                 autoUpdate:
                   type: boolean
+                srmAction:
+                  type: string
+                  enum:
+                    - rollback
+                    - hold
+                    - warn
+                noTrafficAction:
+                  type: string
+                  enum:
+                    - rollback
+                    - hold
+                    - warn
+                multipleExposureAction:
+                  type: string
+                  enum:
+                    - rollback
+                    - hold
+                    - warn
               required:
                 - datasourceId
                 - exposureQueryId
@@ -32229,6 +32445,24 @@ components:
                     - type: 'null'
                 autoUpdate:
                   type: boolean
+                srmAction:
+                  type: string
+                  enum:
+                    - rollback
+                    - hold
+                    - warn
+                noTrafficAction:
+                  type: string
+                  enum:
+                    - rollback
+                    - hold
+                    - warn
+                multipleExposureAction:
+                  type: string
+                  enum:
+                    - rollback
+                    - hold
+                    - warn
               required:
                 - datasourceId
                 - exposureQueryId

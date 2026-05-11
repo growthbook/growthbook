@@ -6,8 +6,11 @@ import {
 } from "shared/validators";
 import { expandMetricGroups } from "shared/experiments";
 import { getHealthSettings } from "shared/enterprise";
-import { getSRMHealthData } from "shared/health";
-import { DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION } from "shared/constants";
+import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
+import {
+  DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+  DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+} from "shared/constants";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
@@ -35,7 +38,12 @@ export async function evaluateCurrentStep(
   if (!step) return { action: "advance" };
 
   if (step.monitored) {
-    return evaluateMonitoredStep(ctx, schedule, now);
+    const decision = await evaluateMonitoredStep(ctx, schedule, now);
+    logger.info(
+      { scheduleId: schedule.id, decision },
+      "evaluateCurrentStep: monitored step decision",
+    );
+    return decision;
   }
 
   if (step.holdConditions) {
@@ -55,6 +63,19 @@ async function evaluateMonitoredStep(
   schedule: RampScheduleInterface,
   now: Date,
 ): Promise<EvalDecision> {
+  logger.info(
+    {
+      scheduleId: schedule.id,
+      stepIndex: schedule.currentStepIndex,
+      safeRolloutId: schedule.safeRolloutId,
+      status: schedule.status,
+      nextStepAt: schedule.nextStepAt,
+      nextSnapshotAt: schedule.nextSnapshotAt,
+      currentStepEnteredAt: schedule.currentStepEnteredAt,
+    },
+    "evaluateMonitoredStep: entry",
+  );
+
   const safeRollout = schedule.safeRolloutId
     ? await ctx.models.safeRollout.getById(schedule.safeRolloutId)
     : null;
@@ -66,9 +87,25 @@ async function evaluateMonitoredStep(
     };
   }
 
+  logger.info(
+    {
+      scheduleId: schedule.id,
+      srId: safeRollout.id,
+      autoSnapshots: safeRollout.autoSnapshots,
+      lastSnapshotAttempt: safeRollout.lastSnapshotAttempt,
+      hasSummary: !!safeRollout.analysisSummary,
+      totalUsers: safeRollout.analysisSummary?.health?.totalUsers ?? null,
+    },
+    "evaluateMonitoredStep: safeRollout state",
+  );
+
   const step = schedule.steps[schedule.currentStepIndex];
   const monitoringConfig = schedule.monitoringConfig ?? undefined;
-  const healthAction = schedule.experimentHealthAction ?? "hold";
+  const srmAction =
+    monitoringConfig?.srmAction ?? schedule.experimentHealthAction ?? "hold";
+  const noTrafficAction = monitoringConfig?.noTrafficAction ?? "hold";
+  const multipleExposureAction =
+    monitoringConfig?.multipleExposureAction ?? "hold";
 
   // Expand metric group IDs so guardrail/signal checks match individual
   // metric IDs in the analysis summary (which stores expanded keys).
@@ -93,11 +130,12 @@ async function evaluateMonitoredStep(
   );
   if (scheduleLevelDecision) return scheduleLevelDecision;
 
-  // 2. Check experiment health (SRM) at schedule level.
+  // 2. Check experiment health (SRM, multiple exposures) at schedule level.
   const experimentHealthDecision = checkExperimentHealth(
     ctx,
     safeRollout,
-    healthAction,
+    srmAction,
+    multipleExposureAction,
   );
   if (experimentHealthDecision) return experimentHealthDecision;
 
@@ -147,8 +185,28 @@ async function evaluateMonitoredStep(
 
   // 6. Verify analysis results are present.
   const summary = safeRollout.analysisSummary;
-  if (!summary?.health?.totalUsers) {
+  if (!summary?.health) {
     return { action: "hold", reason: "Waiting for analysis results" };
+  }
+
+  if (!summary.health.totalUsers) {
+    if (noTrafficAction === "rollback") {
+      return {
+        action: "rollback",
+        reason: "No traffic detected — rolling back (noTrafficAction=rollback)",
+      };
+    }
+    if (noTrafficAction === "hold") {
+      return {
+        action: "hold",
+        reason: "No traffic detected — holding step (noTrafficAction=hold)",
+      };
+    }
+    // noTrafficAction === "warn" → log and continue (don't block advancement)
+    logger.warn(
+      { safeRolloutId: safeRollout.id },
+      "No traffic detected on monitored step (noTrafficAction=warn)",
+    );
   }
 
   const resultsStatus = summary.resultsStatus;
@@ -157,11 +215,12 @@ async function evaluateMonitoredStep(
   }
 
   // 7. Check minSampleSize before acting on metric results.
+  const totalUsers = summary.health.totalUsers ?? 0;
   const minSampleSize = step?.holdConditions?.minSampleSize;
-  if (minSampleSize && summary.health.totalUsers < minSampleSize) {
+  if (minSampleSize && totalUsers < minSampleSize) {
     return {
       action: "hold",
-      reason: `Waiting for minimum sample size (${summary.health.totalUsers}/${minSampleSize})`,
+      reason: `Waiting for minimum sample size (${totalUsers}/${minSampleSize})`,
     };
   }
 
@@ -220,42 +279,66 @@ function checkScheduleGuardrailSignals(
 function checkExperimentHealth(
   ctx: ReqContext | ApiReqContext,
   safeRollout: SafeRolloutInterface,
-  healthAction: ExperimentHealthAction,
+  srmAction: ExperimentHealthAction,
+  meAction: ExperimentHealthAction,
 ): EvalDecision | null {
   const summary = safeRollout.analysisSummary;
   if (!summary?.health) return null;
 
-  if (
-    healthAction === "warn" ||
-    healthAction === "rollback" ||
-    healthAction === "hold"
-  ) {
-    const healthSettings = getHealthSettings(ctx.org.settings);
-    const srmData = getSRMHealthData({
-      srm: summary.health.srm,
-      srmThreshold: healthSettings.srmThreshold,
-      totalUsersCount: summary.health.totalUsers ?? 0,
-      numOfVariations: summary.resultsStatus?.variations.length ?? 2,
-      minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-    });
+  const healthSettings = getHealthSettings(ctx.org.settings);
+  const totalUsers = summary.health.totalUsers ?? 0;
 
-    if (srmData === "unhealthy") {
-      if (healthAction === "warn") {
-        logger.warn(
-          { safeRolloutId: safeRollout.id },
-          "Experiment health (SRM) is unhealthy (warn-only)",
-        );
-        return null;
-      }
-      if (healthAction === "rollback") {
-        return {
-          action: "rollback",
-          reason: `Experiment health: SRM check failed (p=${summary.health.srm.toFixed(4)})`,
-        };
-      }
+  // SRM check
+  const srmData = getSRMHealthData({
+    srm: summary.health.srm,
+    srmThreshold: healthSettings.srmThreshold,
+    totalUsersCount: totalUsers,
+    numOfVariations: summary.resultsStatus?.variations.length ?? 2,
+    minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+  });
+
+  if (srmData === "unhealthy") {
+    if (srmAction === "warn") {
+      logger.warn(
+        { safeRolloutId: safeRollout.id },
+        "Experiment health (SRM) is unhealthy (warn-only)",
+      );
+    } else if (srmAction === "rollback") {
+      return {
+        action: "rollback",
+        reason: `Experiment health: SRM check failed (p=${summary.health.srm.toFixed(4)})`,
+      };
+    } else {
       return {
         action: "hold",
         reason: `Experiment health: SRM check failed — holding step (p=${summary.health.srm.toFixed(4)})`,
+      };
+    }
+  }
+
+  // Multiple exposures check
+  const meData = getMultipleExposureHealthData({
+    multipleExposuresCount: summary.health.multipleExposures ?? 0,
+    totalUsersCount: totalUsers,
+    minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+    minPercentThreshold: healthSettings.multipleExposureMinPercent,
+  });
+
+  if (meData.status === "unhealthy") {
+    if (meAction === "warn") {
+      logger.warn(
+        { safeRolloutId: safeRollout.id },
+        "Experiment health (multiple exposures) is unhealthy (warn-only)",
+      );
+    } else if (meAction === "rollback") {
+      return {
+        action: "rollback",
+        reason: `Experiment health: multiple exposures detected (${(meData.rawDecimal * 100).toFixed(1)}% of users)`,
+      };
+    } else {
+      return {
+        action: "hold",
+        reason: `Experiment health: multiple exposures detected — holding step (${(meData.rawDecimal * 100).toFixed(1)}% of users)`,
       };
     }
   }
@@ -345,11 +428,22 @@ async function maybeTriggerSnapshot(
       now,
       schedule.monitoringConfig?.updateScheduleMinutes,
     );
+
+    // For monitored interval steps, ensure we wake up when the step
+    // interval elapses — not just when the next snapshot is due.
+    const step = schedule.steps[schedule.currentStepIndex];
+    let monitoredStepDueAt: Date | null = null;
+    if (step?.monitored && step.trigger.type === "interval" && schedule.currentStepEnteredAt) {
+      monitoredStepDueAt = new Date(
+        schedule.currentStepEnteredAt.getTime() + step.trigger.seconds * 1000,
+      );
+    }
+
     await ctx.models.rampSchedules.updateById(schedule.id, {
       nextSnapshotAt,
       nextProcessAt: computeNextProcessAt({
         status: schedule.status,
-        nextStepAt: schedule.nextStepAt,
+        nextStepAt: monitoredStepDueAt ?? schedule.nextStepAt,
         nextSnapshotAt,
         cutoffDate: schedule.cutoffDate,
       }),

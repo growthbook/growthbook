@@ -14,6 +14,7 @@ import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRol
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { appendRampEvent } from "back-end/src/services/rampSchedule";
+import { logger } from "back-end/src/util/logger";
 
 // region GET /safe-rollout/:id/snapshot
 /**
@@ -87,12 +88,30 @@ export const postSafeRolloutSnapshot = async (
     });
   }
 
+  logger.info(
+    { safeRolloutId: id, useCache },
+    "POST /safe-rollout/:id/snapshot — creating snapshot",
+  );
+
   const { snapshot } = await createSafeRolloutSnapshot({
     context,
     useCache,
     safeRollout,
     customFields: feature.customFields,
   });
+
+  logger.info(
+    {
+      safeRolloutId: id,
+      snapshotId: snapshot.id,
+      hasHealth: !!snapshot.health,
+      totalUsers: snapshot.health?.traffic?.overall?.variationUnits?.reduce(
+        (a: number, b: number) => a + b,
+        0,
+      ) ?? 0,
+    },
+    "POST /safe-rollout/:id/snapshot — snapshot created",
+  );
 
   res.status(200).json({
     status: 200,

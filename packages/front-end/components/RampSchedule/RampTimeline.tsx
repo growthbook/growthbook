@@ -325,6 +325,8 @@ function NodePopoverContent({
         return { label: "Needs Approval", color: "var(--orange-9)" };
       if (status === "paused")
         return { label: "Paused", color: "var(--amber-11)" };
+      if (monitored)
+        return { label: "Monitoring", color: "var(--blue-9)" };
       return { label: "Running", color: "var(--green-9)" };
     }
     return { label: "Upcoming", color: "var(--gray-12)" };
@@ -373,12 +375,15 @@ function NodePopoverContent({
         )
       ) : (
         <Box mb="2">
-          <PopoverEffectRow label="Hold">{triggerLabel}</PopoverEffectRow>
+          <PopoverEffectRow label={monitored ? "Min hold" : "Hold"}>
+            {triggerLabel}
+          </PopoverEffectRow>
         </Box>
       )}
 
       {isActive &&
         trigger?.type === "interval" &&
+        !monitored &&
         (() => {
           if (!rs.nextStepAt) return null;
           const remainingMs = new Date(rs.nextStepAt).getTime() - Date.now();

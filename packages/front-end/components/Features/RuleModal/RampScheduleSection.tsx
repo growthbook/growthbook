@@ -136,6 +136,9 @@ export interface RampMonitoringState {
   signalMetricIds: string[];
   // Per-rollout query cadence override (minutes). null = use org default.
   updateScheduleMinutes: number | null;
+  srmAction?: "warn" | "hold" | "rollback";
+  noTrafficAction?: "warn" | "hold" | "rollback";
+  multipleExposureAction?: "warn" | "hold" | "rollback";
 }
 
 export interface RampSectionState {
@@ -378,6 +381,9 @@ export function buildMonitoringConfig(
       guardrailMetricIds: string[];
       signalMetricIds?: string[];
       updateScheduleMinutes?: number | null;
+      srmAction?: "warn" | "hold" | "rollback";
+      noTrafficAction?: "warn" | "hold" | "rollback";
+      multipleExposureAction?: "warn" | "hold" | "rollback";
     }
   | undefined {
   if (steps && !steps.some((s) => s.monitored)) return undefined;
@@ -398,6 +404,9 @@ export function buildMonitoringConfig(
         ? monitoring.signalMetricIds
         : undefined,
     updateScheduleMinutes: monitoring.updateScheduleMinutes ?? undefined,
+    srmAction: monitoring.srmAction,
+    noTrafficAction: monitoring.noTrafficAction,
+    multipleExposureAction: monitoring.multipleExposureAction,
   };
 }
 
@@ -1723,8 +1732,11 @@ export default function RampScheduleSection({
       ?.name ?? (exposureQueries.length > 0 ? "Select" : "—");
 
   const hasAdvancedOverrides =
-    state.monitoring.updateScheduleMinutes != null &&
-    state.monitoring.updateScheduleMinutes > 0;
+    (state.monitoring.updateScheduleMinutes != null &&
+      state.monitoring.updateScheduleMinutes > 0) ||
+    !!state.monitoring.srmAction ||
+    !!state.monitoring.noTrafficAction ||
+    !!state.monitoring.multipleExposureAction;
   const [showAdvancedMonitoring, setShowAdvancedMonitoring] =
     useState(hasAdvancedOverrides);
 
@@ -1856,71 +1868,211 @@ export default function RampScheduleSection({
           Advanced Settings
         </div>
         {showAdvancedMonitoring && (
-          <Box mt="2" style={{ width: 180 }}>
-            <Field
-              label={
-                <>
-                  Refresh results every{" "}
-                  <Tooltip
-                    body={
-                      <>
-                        {state.steps.some((s) => !s.monitored)
-                          ? "For monitored steps, how"
-                          : "How"}{" "}
-                        frequently your guardrails will be analyzed.
-                        {state.steps.some((s) => !s.monitored) && (
+          <Flex direction="column" gap="3" mt="2">
+            <Box style={{ width: 180 }}>
+              <Field
+                label={
+                  <>
+                    Refresh results every{" "}
+                    <Tooltip
+                      body={
+                        <>
+                          {state.steps.some((s) => !s.monitored)
+                            ? "For monitored steps, how"
+                            : "How"}{" "}
+                          frequently your guardrails will be analyzed.
+                          {state.steps.some((s) => !s.monitored) && (
+                            <p className="mt-2 mb-0">
+                              Does not apply to unmonitored steps, which have a
+                              minimum granularity of 1 minute.
+                            </p>
+                          )}
                           <p className="mt-2 mb-0">
-                            Does not apply to unmonitored steps, which have a
-                            minimum granularity of 1 minute.
+                            Lower values give more granular data and enable
+                            faster releases, but increase query costs against
+                            your data source.
                           </p>
-                        )}
-                        <p className="mt-2 mb-0">
-                          Lower values give more granular data and enable faster
-                          releases, but increase query costs against your data
-                          source.
-                        </p>
-                      </>
-                    }
-                    flipTheme={false}
-                  >
-                    <PiInfo color="var(--color-text-low)" />
-                  </Tooltip>
-                </>
-              }
-              append="hours"
-              type="number"
-              step="any"
-              min={0.25}
-              max={168}
-              value={
-                state.monitoring.updateScheduleMinutes != null
-                  ? String(state.monitoring.updateScheduleMinutes / 60)
-                  : ""
-              }
-              placeholder="org default"
-              onChange={(e) => {
-                const v = e.target.value;
-                patchMonitoring({
-                  updateScheduleMinutes: v
-                    ? Math.round(parseFloat(v) * 60)
-                    : null,
-                });
-              }}
-              onBlur={(e) => {
-                const v = parseFloat(e.target.value);
-                if (!v || v <= 0) {
-                  patchMonitoring({ updateScheduleMinutes: null });
-                } else {
-                  const clamped = Math.min(168, Math.max(0.25, v));
-                  patchMonitoring({
-                    updateScheduleMinutes: Math.round(clamped * 60),
-                  });
+                        </>
+                      }
+                      flipTheme={false}
+                    >
+                      <PiInfo color="var(--color-text-low)" />
+                    </Tooltip>
+                  </>
                 }
-              }}
-              helpText={`Blank = org default (${orgCadenceLabel})`}
-              containerClassName="mb-0"
-            />
-          </Box>
+                append="hours"
+                type="number"
+                step="any"
+                min={0.25}
+                max={168}
+                value={
+                  state.monitoring.updateScheduleMinutes != null
+                    ? String(state.monitoring.updateScheduleMinutes / 60)
+                    : ""
+                }
+                placeholder="org default"
+                onChange={(e) => {
+                  const v = e.target.value;
+                  patchMonitoring({
+                    updateScheduleMinutes: v
+                      ? Math.round(parseFloat(v) * 60)
+                      : null,
+                  });
+                }}
+                onBlur={(e) => {
+                  const v = parseFloat(e.target.value);
+                  if (!v || v <= 0) {
+                    patchMonitoring({ updateScheduleMinutes: null });
+                  } else {
+                    const clamped = Math.min(168, Math.max(0.25, v));
+                    patchMonitoring({
+                      updateScheduleMinutes: Math.round(clamped * 60),
+                    });
+                  }
+                }}
+                helpText={`Blank = org default (${orgCadenceLabel})`}
+                containerClassName="mb-0"
+              />
+            </Box>
+            <Flex align="center" gap="1">
+              <Text as="label" weight="medium" mb="0">
+                If SRM detected:
+              </Text>
+              <DropdownMenu
+                trigger={
+                  <Link
+                    type="button"
+                    style={{ color: "var(--color-text-high)" }}
+                  >
+                    <Text mr="1">
+                      {state.monitoring.srmAction === "rollback"
+                        ? "Roll back"
+                        : state.monitoring.srmAction === "warn"
+                          ? "Warn only"
+                          : "Hold step"}
+                    </Text>
+                    <PiCaretDownFill />
+                  </Link>
+                }
+                menuPlacement="start"
+                variant="soft"
+              >
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    onClick={() => patchMonitoring({ srmAction: undefined })}
+                  >
+                    Hold step (default)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => patchMonitoring({ srmAction: "rollback" })}
+                  >
+                    Roll back
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => patchMonitoring({ srmAction: "warn" })}
+                  >
+                    Warn only
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenu>
+            </Flex>
+            <Flex align="center" gap="1">
+              <Text as="label" weight="medium" mb="0">
+                If no traffic:
+              </Text>
+              <DropdownMenu
+                trigger={
+                  <Link
+                    type="button"
+                    style={{ color: "var(--color-text-high)" }}
+                  >
+                    <Text mr="1">
+                      {state.monitoring.noTrafficAction === "rollback"
+                        ? "Roll back"
+                        : state.monitoring.noTrafficAction === "warn"
+                          ? "Warn only"
+                          : "Hold step"}
+                    </Text>
+                    <PiCaretDownFill />
+                  </Link>
+                }
+                menuPlacement="start"
+                variant="soft"
+              >
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      patchMonitoring({ noTrafficAction: undefined })
+                    }
+                  >
+                    Hold step (default)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      patchMonitoring({ noTrafficAction: "rollback" })
+                    }
+                  >
+                    Roll back
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      patchMonitoring({ noTrafficAction: "warn" })
+                    }
+                  >
+                    Warn only
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenu>
+            </Flex>
+            <Flex align="center" gap="1">
+              <Text as="label" weight="medium" mb="0">
+                If multiple exposures:
+              </Text>
+              <DropdownMenu
+                trigger={
+                  <Link
+                    type="button"
+                    style={{ color: "var(--color-text-high)" }}
+                  >
+                    <Text mr="1">
+                      {state.monitoring.multipleExposureAction === "rollback"
+                        ? "Roll back"
+                        : state.monitoring.multipleExposureAction === "warn"
+                          ? "Warn only"
+                          : "Hold step"}
+                    </Text>
+                    <PiCaretDownFill />
+                  </Link>
+                }
+                menuPlacement="start"
+                variant="soft"
+              >
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      patchMonitoring({ multipleExposureAction: undefined })
+                    }
+                  >
+                    Hold step (default)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      patchMonitoring({ multipleExposureAction: "warn" })
+                    }
+                  >
+                    Warn only
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      patchMonitoring({ multipleExposureAction: "rollback" })
+                    }
+                  >
+                    Roll back
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenu>
+            </Flex>
+          </Flex>
         )}
       </Flex>
     </Box>
@@ -2568,6 +2720,9 @@ export function rampScheduleToSectionState(
           signalMetricIds: [...(rs.monitoringConfig.signalMetricIds ?? [])],
           updateScheduleMinutes:
             rs.monitoringConfig.updateScheduleMinutes ?? null,
+          srmAction: rs.monitoringConfig.srmAction,
+          noTrafficAction: rs.monitoringConfig.noTrafficAction,
+          multipleExposureAction: rs.monitoringConfig.multipleExposureAction,
         }
       : { ...DEFAULT_MONITORING },
     simpleDurationUnit: isSimple && firstStep ? firstStep.intervalUnit : "days",
@@ -2640,6 +2795,10 @@ export function createActionToSectionState(
           signalMetricIds: [...(action.monitoringConfig.signalMetricIds ?? [])],
           updateScheduleMinutes:
             action.monitoringConfig.updateScheduleMinutes ?? null,
+          srmAction: action.monitoringConfig.srmAction,
+          noTrafficAction: action.monitoringConfig.noTrafficAction,
+          multipleExposureAction:
+            action.monitoringConfig.multipleExposureAction,
         }
       : { ...DEFAULT_MONITORING },
     simpleDurationUnit: isSimple && firstStep ? firstStep.intervalUnit : "days",
@@ -2683,6 +2842,9 @@ export function templateToSectionState(
           guardrailMetricIds: mc.guardrailMetricIds,
           signalMetricIds: mc.signalMetricIds ?? [],
           updateScheduleMinutes: mc.updateScheduleMinutes ?? null,
+          srmAction: mc.srmAction,
+          noTrafficAction: mc.noTrafficAction,
+          multipleExposureAction: mc.multipleExposureAction,
         }
       : { ...DEFAULT_MONITORING },
     simpleDurationDays: 5,

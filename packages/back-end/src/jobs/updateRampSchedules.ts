@@ -12,7 +12,11 @@ import {
 } from "back-end/src/services/rampSchedule";
 import { evaluateCurrentStep } from "back-end/src/services/rampScheduleEvaluator";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { findSchedulesDueForProcessing } from "back-end/src/models/RampScheduleModel";
+import {
+  findSchedulesDueForProcessing,
+  findRunningSchedulesSummary,
+  healStaleNextProcessAt,
+} from "back-end/src/models/RampScheduleModel";
 
 type AdvanceSingleRampScheduleJob = Job<{
   rampScheduleId: string;
@@ -44,6 +48,33 @@ export default async function addRampScheduleJob(agenda: Agenda) {
   agenda.define(QUEUE_RAMP_SCHEDULE_ADVANCES, async () => {
     const now = new Date();
     const scheduleDocs = await findSchedulesDueForProcessing(now);
+    logger.info(
+      { count: scheduleDocs.length, now: now.toISOString() },
+      "queueRampScheduleAdvances: poll tick",
+    );
+    if (scheduleDocs.length === 0) {
+      const running = await findRunningSchedulesSummary();
+      if (running.length > 0) {
+        logger.info(
+          { running },
+          "queueRampScheduleAdvances: running schedules not yet due",
+        );
+        // Self-heal: fix running schedules with stale/null nextProcessAt.
+        // If a schedule is running but nextProcessAt is null or >60s in the
+        // future, force it to now so the evaluator picks it up immediately.
+        for (const rs of running) {
+          const npa = rs.nextProcessAt ? new Date(rs.nextProcessAt) : null;
+          if (!npa || npa.getTime() > now.getTime() + 60_000) {
+            logger.info(
+              { scheduleId: rs.id, staleNextProcessAt: rs.nextProcessAt },
+              "queueRampScheduleAdvances: self-healing stale nextProcessAt",
+            );
+            await healStaleNextProcessAt(rs.id, now);
+            scheduleDocs.push({ id: rs.id, organization: rs.organization });
+          }
+        }
+      }
+    }
     for (const doc of scheduleDocs) {
       await queueRampScheduleAdvance(agenda, doc);
     }
@@ -68,6 +99,17 @@ export const advanceSingleRampSchedule = async (
   if (!schedule) return;
 
   const now = new Date();
+  logger.info(
+    {
+      scheduleId: rampScheduleId,
+      status: schedule.status,
+      stepIndex: schedule.currentStepIndex,
+      nextStepAt: schedule.nextStepAt,
+      nextProcessAt: schedule.nextProcessAt,
+      isMonitored: schedule.steps[schedule.currentStepIndex]?.monitored ?? false,
+    },
+    "advanceSingleRampSchedule: picked up",
+  );
 
   try {
     let current = schedule;
@@ -159,9 +201,38 @@ export const advanceSingleRampSchedule = async (
         return;
       }
       if (decision.action === "hold") {
-        logger.debug(
-          { scheduleId: current.id, reason: decision.reason },
-          "Evaluator holding step",
+        // Re-schedule so the poller picks us up again on the next cycle.
+        // Without this, nextProcessAt stays stale and the schedule is never
+        // re-evaluated.
+        const step = current.steps[current.currentStepIndex];
+        let wakeAt: Date | null = null;
+        if (step?.monitored && step.trigger.type === "interval" && current.currentStepEnteredAt) {
+          wakeAt = new Date(
+            current.currentStepEnteredAt.getTime() + step.trigger.seconds * 1000,
+          );
+          if (wakeAt <= now) wakeAt = null;
+        }
+        const nextProcess = computeNextProcessAt({
+          status: current.status,
+          nextStepAt: wakeAt ?? current.nextStepAt,
+          nextSnapshotAt: current.nextSnapshotAt,
+          cutoffDate: current.cutoffDate,
+        });
+        // Floor: re-check within 60s at most so we don't go dark.
+        const maxWake = new Date(now.getTime() + 60_000);
+        const effectiveNext = nextProcess && nextProcess < maxWake
+          ? nextProcess
+          : maxWake;
+        await context.models.rampSchedules.updateById(current.id, {
+          nextProcessAt: effectiveNext,
+        });
+        logger.info(
+          {
+            scheduleId: current.id,
+            reason: decision.reason,
+            nextProcessAt: effectiveNext.toISOString(),
+          },
+          "Evaluator holding step — rescheduled",
         );
         return;
       }

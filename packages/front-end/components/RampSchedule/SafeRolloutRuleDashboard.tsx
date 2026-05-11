@@ -1535,12 +1535,23 @@ function MonitoringControls({
               useRadixButton
               radixVariant="outline"
               onSubmit={async () => {
+                console.log("[RampDashboard] Update clicked", {
+                  safeRolloutId,
+                  rampScheduleId: rampSchedule.id,
+                  status: rampSchedule.status,
+                  stepIndex: rampSchedule.currentStepIndex,
+                  nextStepAt: rampSchedule.nextStepAt,
+                  nextProcessAt: rampSchedule.nextProcessAt,
+                  nextSnapshotAt: rampSchedule.nextSnapshotAt,
+                });
                 try {
                   await apiCall(`/safe-rollout/${safeRolloutId}/snapshot`, {
                     method: "POST",
                   });
+                  console.log("[RampDashboard] Snapshot created successfully");
                   setRefreshError("");
                 } catch (e) {
+                  console.error("[RampDashboard] Snapshot creation failed", e);
                   setRefreshError(e instanceof Error ? e.message : String(e));
                 }
                 mutateSnapshot();

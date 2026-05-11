@@ -21,8 +21,16 @@ export type RampHealthSignal =
   | "srm"
   | "multiple-exposures"
   | "no-traffic"
+  | "below-min-sample"
   | "healthy"
   | "awaiting-data";
+
+type SignalAction = "warn" | "hold" | "rollback";
+
+type SignalResult = {
+  signals: RampHealthSignal[];
+  actions: Partial<Record<RampHealthSignal, SignalAction>>;
+};
 
 function computeSignals(
   rampSchedule: RampScheduleInterface,
@@ -32,12 +40,14 @@ function computeSignals(
   meMinPercent: number,
   expandedGuardrailIds: string[],
   expandedSignalIds: string[],
-): RampHealthSignal[] {
+): SignalResult {
   const signals: RampHealthSignal[] = [];
+  const actions: Partial<Record<RampHealthSignal, SignalAction>> = {};
+  const mc = rampSchedule.monitoringConfig;
 
   const isMonitored = rampSchedule.steps.some((s) => s.monitored);
   if (!isMonitored || !["running", "paused"].includes(rampSchedule.status)) {
-    return signals;
+    return { signals, actions };
   }
 
   const traffic = snapshot?.health?.traffic;
@@ -47,12 +57,13 @@ function computeSignals(
 
   if (snapshot && totalUsers === 0) {
     signals.push("no-traffic");
-    return signals;
+    actions["no-traffic"] = (mc?.noTrafficAction as SignalAction) ?? "hold";
+    return { signals, actions };
   }
 
   if (!snapshot || !safeRollout?.analysisSummary?.resultsStatus) {
     signals.push("awaiting-data");
-    return signals;
+    return { signals, actions };
   }
 
   // SRM
@@ -66,6 +77,7 @@ function computeSignals(
     });
     if (srmHealth === "unhealthy") {
       signals.push("srm");
+      actions["srm"] = (mc?.srmAction as SignalAction) ?? "hold";
     }
   }
 
@@ -78,6 +90,17 @@ function computeSignals(
   });
   if (meHealth.status === "unhealthy") {
     signals.push("multiple-exposures");
+    actions["multiple-exposures"] = (mc?.multipleExposureAction as SignalAction) ?? "hold";
+  }
+
+  // Min sample size check — uses the current step's holdConditions
+  const currentStep =
+    rampSchedule.currentStepIndex >= 0
+      ? rampSchedule.steps[rampSchedule.currentStepIndex]
+      : undefined;
+  const minSample = currentStep?.holdConditions?.minSampleSize;
+  if (minSample && totalUsers < minSample) {
+    signals.push("below-min-sample");
   }
 
   const resultsStatus = safeRollout.analysisSummary.resultsStatus;
@@ -106,10 +129,30 @@ function computeSignals(
     signals.push("healthy");
   }
 
-  return signals;
+  return { signals, actions };
 }
 
-function signalToBadge(signal: RampHealthSignal): React.ReactNode {
+function actionSuffix(action?: SignalAction): string {
+  if (action === "hold") return " · Holding";
+  if (action === "rollback") return " · Rolling back";
+  if (action === "warn") return " · Warning";
+  return "";
+}
+
+function actionColor(
+  defaultColor: "red" | "orange" | "amber" | "blue",
+  action?: SignalAction,
+): "red" | "orange" | "amber" | "blue" {
+  if (action === "hold") return "amber";
+  if (action === "rollback") return "red";
+  if (action === "warn") return "blue";
+  return defaultColor;
+}
+
+function signalToBadge(
+  signal: RampHealthSignal,
+  action?: SignalAction,
+): React.ReactNode {
   switch (signal) {
     case "guardrail-failing":
       return (
@@ -130,19 +173,40 @@ function signalToBadge(signal: RampHealthSignal): React.ReactNode {
         />
       );
     case "srm":
-      return <Badge color="amber" variant="soft" label="SRM" radius="full" />;
+      return (
+        <Badge
+          color={actionColor("amber", action)}
+          variant="soft"
+          label={`SRM${actionSuffix(action)}`}
+          radius="full"
+        />
+      );
     case "multiple-exposures":
       return (
         <Badge
-          color="amber"
+          color={actionColor("amber", action)}
           variant="soft"
-          label="Multi-exposure"
+          label={`Multi-exposure${actionSuffix(action)}`}
           radius="full"
         />
       );
     case "no-traffic":
       return (
-        <Badge color="amber" variant="soft" label="No Traffic" radius="full" />
+        <Badge
+          color={actionColor("amber", action)}
+          variant="soft"
+          label={`No Traffic${actionSuffix(action)}`}
+          radius="full"
+        />
+      );
+    case "below-min-sample":
+      return (
+        <Badge
+          color="blue"
+          variant="soft"
+          label="Awaiting Sample"
+          radius="full"
+        />
       );
     default:
       return null;
@@ -178,7 +242,7 @@ export function RampMonitoringBadges({
     [rampSchedule.monitoringConfig?.signalMetricIds, metricGroups],
   );
 
-  const signals = useMemo(
+  const result = useMemo(
     () =>
       computeSignals(
         rampSchedule,
@@ -200,10 +264,19 @@ export function RampMonitoringBadges({
     ],
   );
 
+  console.log("[RampMonitoringBadges]", {
+    scheduleId: rampSchedule.id,
+    status: rampSchedule.status,
+    signals: result.signals,
+    actions: result.actions,
+  });
+
   return (
     <>
-      {signals.map((s, i) => (
-        <span key={`${s}-${i}`}>{signalToBadge(s)}</span>
+      {result.signals.map((s, i) => (
+        <span key={`${s}-${i}`}>
+          {signalToBadge(s, result.actions[s])}
+        </span>
       ))}
     </>
   );
@@ -240,7 +313,7 @@ export function RampMonitoringCTAs({
     [rampSchedule.monitoringConfig?.signalMetricIds, metricGroups],
   );
 
-  const signals = useMemo(
+  const result = useMemo(
     () =>
       computeSignals(
         rampSchedule,
@@ -262,14 +335,11 @@ export function RampMonitoringCTAs({
     ],
   );
 
-  const hasUrgent =
-    signals.includes("guardrail-failing") ||
-    signals.includes("srm") ||
-    signals.includes("multiple-exposures") ||
-    signals.includes("no-traffic");
+  if (rampSchedule.status !== "running") return null;
 
-  if (!hasUrgent || rampSchedule.status !== "running") return null;
+  const { signals, actions } = result;
 
+  // Only show "Roll Back" CTA for guardrail failures (always auto-rollback).
   if (signals.includes("guardrail-failing")) {
     return (
       <Button size="xs" variant="solid" color="red" onClick={onRollback}>
@@ -278,14 +348,17 @@ export function RampMonitoringCTAs({
     );
   }
 
-  if (
-    signals.includes("srm") ||
-    signals.includes("multiple-exposures") ||
-    signals.includes("no-traffic")
-  ) {
+  // For other signals, only show a CTA if the configured action is "rollback".
+  // "hold" signals are already being held by the evaluator — no user action needed.
+  // "warn" signals are informational only.
+  const hasRollbackSignal = (
+    ["srm", "multiple-exposures", "no-traffic"] as RampHealthSignal[]
+  ).some((s) => signals.includes(s) && actions[s] === "rollback");
+
+  if (hasRollbackSignal) {
     return (
-      <Button size="xs" variant="soft" onClick={onRollback}>
-        Investigate
+      <Button size="xs" variant="solid" color="red" onClick={onRollback}>
+        Roll Back
       </Button>
     );
   }

@@ -145,6 +145,10 @@ export default function RampScheduleBadge({
       <strong>{rs.name}</strong>)
     </p>
   );
+  const rolledBackAt =
+    rs.status === "rolled-back" && rs.lastRollbackAt
+      ? new Date(rs.lastRollbackAt)
+      : null;
   const statusLine =
     rs.status === "completed" ? (
       <p>
@@ -155,6 +159,16 @@ export default function RampScheduleBadge({
           <>The ramp may be safely removed by editing this rule.</>
         )}
       </p>
+    ) : rs.status === "rolled-back" ? (
+      <div>
+        {rolledBackAt && dateRow("Rolled back", rolledBackAt)}
+        {rs.lastRollbackReason && (
+          <div>
+            <span className="text-muted">Reason: </span>
+            {rs.lastRollbackReason}
+          </div>
+        )}
+      </div>
     ) : pausedAt ? (
       dateRow("Paused", pausedAt)
     ) : null;

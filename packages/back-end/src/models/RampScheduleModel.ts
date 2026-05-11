@@ -899,3 +899,50 @@ export async function findSchedulesDueForProcessing(
     organization: d.organization as string,
   }));
 }
+
+/**
+ * Diagnostic: returns a summary of all running/pending-approval schedules
+ * so the poller can log why they aren't being picked up.
+ */
+export async function findRunningSchedulesSummary(): Promise<
+  { id: string; organization: string; status: string; nextProcessAt: string | null; nextSnapshotAt: string | null; nextStepAt: string | null; stepIndex: number }[]
+> {
+  const docs = await getCollection(COLLECTION_NAME)
+    .find(
+      { status: { $in: ["running", "pending-approval"] } },
+      {
+        projection: {
+          id: 1,
+          organization: 1,
+          status: 1,
+          nextProcessAt: 1,
+          nextSnapshotAt: 1,
+          nextStepAt: 1,
+          currentStepIndex: 1,
+        },
+      },
+    )
+    .toArray();
+  return docs.map((d) => ({
+    id: (d.id as string) || String(d._id),
+    organization: d.organization as string,
+    status: d.status as string,
+    nextProcessAt: d.nextProcessAt ? new Date(d.nextProcessAt as Date).toISOString() : null,
+    nextSnapshotAt: d.nextSnapshotAt ? new Date(d.nextSnapshotAt as Date).toISOString() : null,
+    nextStepAt: d.nextStepAt ? new Date(d.nextStepAt as Date).toISOString() : null,
+    stepIndex: (d.currentStepIndex as number) ?? -1,
+  }));
+}
+
+/**
+ * Force-fix a running schedule whose nextProcessAt is stale or null.
+ */
+export async function healStaleNextProcessAt(
+  scheduleId: string,
+  now: Date,
+): Promise<void> {
+  await getCollection(COLLECTION_NAME).updateOne(
+    { id: scheduleId },
+    { $set: { nextProcessAt: now } },
+  );
+}

@@ -4542,13 +4542,35 @@ export async function getFeatureById(
       experimentsMap.set(exp.id, exp);
     });
   }
-  if (hasSafeRollout) {
+  // find active ramp schedules for this feature (before safe rollouts so we
+  // can check for ramp-linked safe rollout IDs).
+  const now = Date.now();
+  const rampSchedules = (
+    await context.models.rampSchedules.getAllByFeatureId(feature.id)
+  ).map((rs) =>
+    rs.startedAt ? { ...rs, elapsedMs: now - rs.startedAt.getTime() } : rs,
+  );
+
+  // Also check ramp schedules for linked safe rollouts (v2 monitoring).
+  const rampLinkedSrIds = rampSchedules
+    .map((rs) => rs.safeRolloutId)
+    .filter((id): id is string => !!id);
+
+  if (hasSafeRollout || rampLinkedSrIds.length > 0) {
     const safeRollouts = await context.models.safeRollout.getAllByFeatureId(
       feature.id,
     );
     safeRollouts.forEach((safeRollout: SafeRolloutInterface) => {
       safeRolloutMap.set(safeRollout.id, safeRollout);
     });
+    // Ensure ramp-linked safe rollouts are included even if getAllByFeatureId
+    // missed them (e.g. featureId mismatch in legacy data).
+    for (const srId of rampLinkedSrIds) {
+      if (!safeRolloutMap.has(srId)) {
+        const sr = await context.models.safeRollout.getById(srId);
+        if (sr) safeRolloutMap.set(sr.id, sr);
+      }
+    }
   }
 
   const live = fullRevisions.find((r) => r.version === feature.version);
@@ -4565,14 +4587,6 @@ export async function getFeatureById(
   if (feature.holdout) {
     holdout = await context.models.holdout.getById(feature.holdout.id);
   }
-
-  // find active ramp schedules for this feature
-  const now = Date.now();
-  const rampSchedules = (
-    await context.models.rampSchedules.getAllByFeatureId(feature.id)
-  ).map((rs) =>
-    rs.startedAt ? { ...rs, elapsedMs: now - rs.startedAt.getTime() } : rs,
-  );
 
   res.status(200).json({
     status: 200,

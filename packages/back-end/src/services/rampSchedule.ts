@@ -613,6 +613,13 @@ export async function advanceStep(
     );
   }
 
+  // For monitored interval steps, also compute when the hold interval will
+  // elapse so the evaluator wakes up in time to check health/advance.
+  let monitoredStepDueAt: Date | null = null;
+  if (isMonitoredStep && step?.trigger.type === "interval") {
+    monitoredStepDueAt = new Date(now.getTime() + step.trigger.seconds * 1000);
+  }
+
   const newStatus = isApprovalStep
     ? ("pending-approval" as const)
     : ("running" as const);
@@ -624,7 +631,7 @@ export async function advanceStep(
     nextSnapshotAt,
     nextProcessAt: computeNextProcessAt({
       status: newStatus,
-      nextStepAt,
+      nextStepAt: monitoredStepDueAt ?? nextStepAt,
       nextSnapshotAt,
       cutoffDate: schedule.cutoffDate,
     }),

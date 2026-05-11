@@ -69,6 +69,9 @@ export const rampMonitoringConfig = z.object({
   signalMetricIds: z.array(z.string()).optional(),
   updateScheduleMinutes: z.number().positive().optional().nullable(),
   autoUpdate: z.boolean().optional(),
+  srmAction: experimentHealthAction.optional(),
+  noTrafficAction: experimentHealthAction.optional(),
+  multipleExposureAction: experimentHealthAction.optional(),
 });
 export type RampMonitoringConfig = z.infer<typeof rampMonitoringConfig>;
 
