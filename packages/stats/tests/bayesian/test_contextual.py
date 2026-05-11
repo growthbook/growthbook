@@ -21,12 +21,20 @@ from gbstats.gbstats import (
 )
 from gbstats.bayesian.bandits import BanditsSimple
 
-from gbstats.models.settings import ContextualBanditSettingsForStatsEngine
+from gbstats.models.settings import (
+    ContextualBanditSettingsForStatsEngine,
+    ContextualTreeBanditSettingsForStatsEngine,
+)
 
-from gbstats.bayesian.contextual import UpdateWeightsContextualBandit
+from gbstats.bayesian.contextual import (
+    RowsByContextWithData,
+    UpdateWeightsContextualBandit,
+    UpdateWeightsContextualTree,
+)
 
 from gbstats.models.settings import BanditWeightsSinglePeriod
 from gbstats.models.statistics import (
+    ProportionStatistic,
     RegressionAdjustedStatistic,
     SampleMeanStatistic,
 )
@@ -266,7 +274,6 @@ class TestContextualBandit(TestCase):
             current_weights=[0.2, 0.2, 0.2, 0.2, 0.2],
             reweight=True,
             decision_metric="count_metric",
-            bandit_weights_seed=100,
             bandit_weights_rng=rng_individual_bandit,
             weight_by_period=True,
             top_two=False,
@@ -277,11 +284,10 @@ class TestContextualBandit(TestCase):
             current_weights=[0.2, 0.2, 0.2, 0.2, 0.2],
             reweight=True,
             decision_metric="count_metric",
-            bandit_weights_seed=100,
             bandit_weights_rng=rng_contextual_bandit,
             weight_by_period=True,
             top_two=False,
-            contexts=["dim_exp_device_platform", "dim_exp_page"],
+            attributes=["dim_exp_device_platform", "dim_exp_page"],
         )
         metric_settings = METRIC_SETTINGS
         analysis_settings = ANALYSIS_SETTINGS
@@ -308,3 +314,198 @@ class TestContextualBandit(TestCase):
                 result_contextual.responses[context].bestArmProbabilities,
                 r_bandit.bestArmProbabilities,
             )
+
+
+class TestSummableStatisticsPerVariation(TestCase):
+    def test_two_arms_mean_count_order_matches_var_ids(self):
+
+        bandit_settings = ContextualTreeBanditSettingsForStatsEngine(
+            var_names=["control", "treatment"],
+            var_ids=["control", "treatment"],
+            current_weights=[0.5, 0.5],
+            reweight=True,
+            decision_metric="count_metric",
+            bandit_weights_rng=np.random.default_rng(100),
+            attributes=["dim"],
+        )
+
+        var_id_map = {"control": 0, "treatment": 1}
+        rows = [
+            {
+                "dim": "all",
+                "variation": "control",
+                "users": 100,
+                "count": 100,
+                "main_sum": 1000.0,
+                "main_sum_squares": 12000.0,
+            },
+            {
+                "dim": "all",
+                "variation": "treatment",
+                "users": 50,
+                "count": 50,
+                "main_sum": 600.0,
+                "main_sum_squares": 8000.0,
+            },
+        ]
+        self.partition = RowsByContextWithData.from_experiment_rows(
+            rows,
+            bandit_settings,
+        )
+
+        stats_df = UpdateWeightsContextualTree.summable_statistics_per_variation_from_experiment_metric_rows(
+            self.partition, METRIC_SETTINGS, bandit_settings, var_id_map
+        )
+        self.assertIsInstance(stats_df["control"].iloc[0], SampleMeanStatistic)
+        self.assertIsInstance(stats_df["treatment"].iloc[0], SampleMeanStatistic)
+        self.assertEqual(stats_df["control"].iloc[0].mean, 10.0)
+        self.assertEqual(stats_df["treatment"].iloc[0].mean, 12.0)
+
+    def test_missing_arm_zero_sample_mean(self):
+        bandit_settings = ContextualTreeBanditSettingsForStatsEngine(
+            var_names=["a", "b", "c"],
+            var_ids=["a", "b", "c"],
+            current_weights=[1 / 3, 1 / 3, 1 / 3],
+            reweight=True,
+            decision_metric="m",
+            bandit_weights_rng=np.random.default_rng(0),
+            attributes=["dim"],
+        )
+        var_id_map = {"a": 0, "b": 1, "c": 2}
+        rows = [
+            {
+                "dim": "x",
+                "variation": "a",
+                "users": 10,
+                "count": 10,
+                "main_sum": 5.0,
+                "main_sum_squares": 25.0,
+            },
+        ]
+        partition = RowsByContextWithData.from_experiment_rows(rows, bandit_settings)
+        stats_df = UpdateWeightsContextualTree.summable_statistics_per_variation_from_experiment_metric_rows(
+            partition, METRIC_SETTINGS, bandit_settings, var_id_map
+        )
+        self.assertEqual(stats_df["a"].iloc[0].mean, 0.5)
+        self.assertEqual(stats_df["b"].iloc[0].n, 0)
+        self.assertEqual(stats_df["b"].iloc[0].mean, 0.0)
+        self.assertEqual(stats_df["c"].iloc[0].n, 0)
+
+    def test_merge_duplicate_variation_rows(self):
+        bandit_settings = ContextualTreeBanditSettingsForStatsEngine(
+            var_names=["v0"],
+            var_ids=["v0"],
+            current_weights=[1.0],
+            reweight=True,
+            decision_metric="m",
+            bandit_weights_rng=np.random.default_rng(0),
+            attributes=["dim"],
+        )
+        var_id_map = {"v0": 0}
+        rows = [
+            {
+                "dim": "x",
+                "variation": "v0",
+                "users": 10,
+                "count": 10,
+                "main_sum": 100.0,
+                "main_sum_squares": 1000.0,
+            },
+            {
+                "dim": "x",
+                "variation": "v0",
+                "users": 20,
+                "count": 20,
+                "main_sum": 200.0,
+                "main_sum_squares": 2200.0,
+            },
+        ]
+        partition = RowsByContextWithData.from_experiment_rows(rows, bandit_settings)
+        stats_df = UpdateWeightsContextualTree.summable_statistics_per_variation_from_experiment_metric_rows(
+            partition, METRIC_SETTINGS, bandit_settings, var_id_map
+        )
+        merged = stats_df["v0"].iloc[0]
+        self.assertEqual(merged.n, 30)
+        self.assertEqual(merged.sum, 300.0)
+
+    def test_quantile_metric_raises(self):
+        q_metric = MetricSettingsForStatsEngine(
+            id="q",
+            name="q",
+            inverse=False,
+            statistic_type="quantile_unit",
+            main_metric_type="count",
+            quantile_value=0.5,
+        )
+        bandit_settings = ContextualTreeBanditSettingsForStatsEngine(
+            var_names=["a"],
+            var_ids=["a"],
+            current_weights=[1.0],
+            reweight=True,
+            decision_metric="m",
+            bandit_weights_rng=np.random.default_rng(0),
+            attributes=["dim"],
+        )
+        var_id_map = {"a": 0}
+        partition = RowsByContextWithData(
+            rows_with_data={
+                ("x",): [
+                    {
+                        "dim": "x",
+                        "variation": "a",
+                        "users": 10,
+                        "count": 10,
+                        "main_sum": 1.0,
+                        "main_sum_squares": 1.0,
+                        "quantile_n": 10,
+                        "quantile_nstar": 10,
+                        "quantile": 0.5,
+                        "quantile_lower": 0.4,
+                        "quantile_upper": 0.6,
+                    },
+                ],
+            },
+            unique_keys=[("x",)],
+        )
+        with self.assertRaises(TypeError):
+            UpdateWeightsContextualTree.summable_statistics_per_variation_from_experiment_metric_rows(
+                partition, q_metric, bandit_settings, var_id_map
+            )
+
+    def test_binomial_arm_returns_proportion_statistic(self):
+        binomial_metric = MetricSettingsForStatsEngine(
+            id="b",
+            name="b",
+            inverse=False,
+            statistic_type="mean",
+            main_metric_type="binomial",
+        )
+        bandit_settings = ContextualTreeBanditSettingsForStatsEngine(
+            var_names=["0", "1"],
+            var_ids=["0", "1"],
+            current_weights=[0.5, 0.5],
+            reweight=True,
+            decision_metric="b",
+            bandit_weights_rng=np.random.default_rng(0),
+            attributes=["dim"],
+        )
+        var_id_map = {"0": 0, "1": 1}
+        rows = [
+            {
+                "dim": "all",
+                "variation": 0,
+                "users": 100,
+                "count": 100,
+                "main_sum": 30.0,
+                "main_sum_squares": 30.0,
+            },
+        ]
+        partition = RowsByContextWithData.from_experiment_rows(rows, bandit_settings)
+        stats_df = UpdateWeightsContextualTree.summable_statistics_per_variation_from_experiment_metric_rows(
+            partition, binomial_metric, bandit_settings, var_id_map
+        )
+        stat_0 = stats_df["0"].iloc[0]
+        stat_1 = stats_df["1"].iloc[0]
+        self.assertIsInstance(stat_0, ProportionStatistic)
+        self.assertEqual(stat_0.mean, 0.3)
+        self.assertIsInstance(stat_1, ProportionStatistic)
