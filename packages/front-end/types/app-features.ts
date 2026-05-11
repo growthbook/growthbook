@@ -106,4 +106,10 @@ export type AppFeatures = {
   "top-banner": Record<string, unknown>;
   "gbdemo-checkout-layout": boolean;
   "experimentation-focused-onboarding": boolean;
+  "login-ff-test-1": {
+    body: string;
+    image: string;
+    cta: string;
+    link: string;
+  } | null;
 };

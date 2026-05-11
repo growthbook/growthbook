@@ -1,10 +1,22 @@
 import { ReactElement, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
+import { useFeatureValue } from "@growthbook/growthbook-react";
+import { Box } from "@radix-ui/themes";
 import track from "@/services/track";
 import { getApiHost } from "@/services/env";
 import Field from "@/components/Forms/Field";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import Markdown from "@/components/Markdown/Markdown";
 import WelcomeFrame from "./WelcomeFrame";
+
+type LoginHeroContent = {
+  body: string;
+  image: string;
+  cta: string;
+  link: string;
+};
 
 export default function Welcome({
   onSuccess,
@@ -28,6 +40,10 @@ export default function Welcome({
   const [error, setError] = useState(null);
   const [welcomeMsgIndex] = useState(Math.floor(Math.random() * 4));
   const { pathname } = useRouter();
+  const hero = useFeatureValue<LoginHeroContent | null>(
+    "login-ff-test-1",
+    null,
+  );
 
   useEffect(() => {
     if (pathname === "/invitation") {
@@ -109,7 +125,31 @@ export default function Welcome({
       <p>Let&apos;s get started with some experimentation</p>
     );
 
-  const leftside = (
+  const leftside = hero?.body ? (
+    <>
+      {hero.image && (
+        <img
+          src={hero.image}
+          alt=""
+          style={{ maxWidth: 220, marginBottom: "1.5rem" }}
+        />
+      )}
+      <Markdown>{hero.body}</Markdown>
+      {hero.cta && hero.link && (
+        <Box mt="3">
+          <Button
+            variant="ghost"
+            size="lg"
+            onClick={() =>
+              window.open(hero.link, "_blank", "noopener,noreferrer")
+            }
+          >
+            {hero.cta}
+          </Button>
+        </Box>
+      )}
+    </>
+  ) : (
     <>
       <h1 className="title h1">{welcomeMsg[welcomeMsgIndex]}</h1>
       {welcomeContent}
@@ -202,9 +242,9 @@ export default function Welcome({
           {state === "forgotSuccess" && (
             <div>
               <h3 className="h2">Forgot Password</h3>
-              <div className="alert alert-success">
+              <Callout status="success" mb="3">
                 Password reset link sent to <strong>{email}</strong>.
-              </div>
+              </Callout>
               <p>Click the link in the email to reset your password.</p>
               <p>
                 Sent to the wrong email or need to resend?{" "}
@@ -279,7 +319,11 @@ export default function Welcome({
               }
             />
           )}
-          {error && <div className="alert alert-danger mr-auto">{error}</div>}
+          {error && (
+            <Callout status="error" mb="3">
+              {error}
+            </Callout>
+          )}
           <button className={`btn btn-primary btn-block btn-lg`} type="submit">
             {cta}
           </button>

@@ -44,11 +44,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Auth/Welcome.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/AutoGenerateMetricsModal.tsx": {
     "local/no-alert-classname": {
       "count": 5
