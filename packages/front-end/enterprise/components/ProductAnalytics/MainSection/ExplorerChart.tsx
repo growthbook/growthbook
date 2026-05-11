@@ -495,12 +495,7 @@ export default function ExplorerChart({
           </Text>
         </Flex>
       ) : chartConfig?.type === "bigNumber" ? (
-        <Flex
-          p="4"
-          style={{ flex: 1, minHeight: 0 }}
-          align="center"
-          justify="center"
-        >
+        <Flex style={{ flex: 1, minHeight: 0 }} align="center" justify="center">
           <BigValueChart
             value={chartConfig.value}
             formatter={formatNumber}
