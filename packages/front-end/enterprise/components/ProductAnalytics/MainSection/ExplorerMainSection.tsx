@@ -5,6 +5,7 @@ import { PiArrowsClockwise, PiDotsSix, PiInfo } from "react-icons/pi";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
+import { showsCompactComparisonSummary } from "@/enterprise/components/ProductAnalytics/compareUtil";
 import { shouldChartSectionShow } from "@/enterprise/components/ProductAnalytics/util";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -25,7 +26,6 @@ export default function ExplorerMainSection() {
     handleSubmit,
     isSubmittable,
     compareEnabled,
-    overlayOnChart,
     comparisonExploration,
   } = useExplorerContext();
 
@@ -69,7 +69,11 @@ export default function ExplorerMainSection() {
                     gap: "var(--space-3)",
                   }}
                 >
-                  {compareEnabled && submittedExploreState ? (
+                  {compareEnabled &&
+                  submittedExploreState &&
+                  showsCompactComparisonSummary(
+                    submittedExploreState.chartType,
+                  ) ? (
                     <ComparisonSummary
                       submittedExploreState={submittedExploreState}
                     />
@@ -77,7 +81,7 @@ export default function ExplorerMainSection() {
                   <ExplorerChart
                     exploration={exploration}
                     comparisonExploration={comparisonExploration}
-                    overlayOnChart={overlayOnChart}
+                    compareEnabled={compareEnabled}
                     error={error}
                     submittedExploreState={submittedExploreState}
                     loading={loading}

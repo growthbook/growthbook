@@ -5,10 +5,13 @@ import type {
 } from "shared/validators";
 import {
   alignSeriesByIndex,
-  computeBucketComparisons,
-  computePeriodTotals,
+  buildComparisonTrend,
+  computeBigNumberComparisonTrend,
+  computePeriodSummary,
   formatPercentChange,
-  supportsComparisonOverlay,
+  showsCompactComparisonSummary,
+  supportsAlwaysOnComparisonOverlay,
+  usesInlineComparison,
 } from "@/enterprise/components/ProductAnalytics/compareUtil";
 
 const submittedExploreState = {
@@ -74,6 +77,20 @@ describe("compareUtil", () => {
     expect(formatPercentChange(10, 0)).toBeNull();
   });
 
+  it("builds comparison trends", () => {
+    expect(buildComparisonTrend(50, 10)).toMatchObject({
+      current: 50,
+      previous: 10,
+      delta: 40,
+      percentChange: "+400%",
+      direction: "up",
+    });
+    expect(buildComparisonTrend(10, 0)).toMatchObject({
+      direction: "none",
+      percentChange: null,
+    });
+  });
+
   it("aligns bucket series by index", () => {
     expect(alignSeriesByIndex([10, 20], [5])).toEqual({
       current: [10, 20],
@@ -81,14 +98,16 @@ describe("compareUtil", () => {
     });
   });
 
-  it("supports line and bar overlays only", () => {
-    expect(supportsComparisonOverlay("line")).toBe(true);
-    expect(supportsComparisonOverlay("bar")).toBe(true);
-    expect(supportsComparisonOverlay("area")).toBe(false);
-    expect(supportsComparisonOverlay("bigNumber")).toBe(false);
+  it("routes chart types to summary, overlay, and inline compare", () => {
+    expect(supportsAlwaysOnComparisonOverlay("line")).toBe(true);
+    expect(supportsAlwaysOnComparisonOverlay("area")).toBe(true);
+    expect(supportsAlwaysOnComparisonOverlay("bigNumber")).toBe(false);
+    expect(showsCompactComparisonSummary("line")).toBe(true);
+    expect(showsCompactComparisonSummary("table")).toBe(false);
+    expect(usesInlineComparison("timeseries-table")).toBe(true);
   });
 
-  it("computes period totals per metric", () => {
+  it("computes period summary totals and averages", () => {
     const current = buildExploration([
       {
         dimensions: ["2026-05-10T00:00:00.000Z"],
@@ -112,58 +131,55 @@ describe("compareUtil", () => {
       },
     ]);
 
-    const totals = computePeriodTotals(
+    const summaries = computePeriodSummary(
       current,
       comparison,
       submittedExploreState,
       () => null,
     );
 
-    expect(totals).toEqual([
-      {
-        metricId: "metric_signups",
-        metricName: "Signups",
-        groupKey: "",
-        currentTotal: 50,
-        previousTotal: 10,
-        delta: 40,
-        percentChange: "+400%",
-      },
-    ]);
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0].totalTrend).toMatchObject({
+      current: 50,
+      previous: 10,
+      percentChange: "+400%",
+    });
+    expect(summaries[0].averageTrend).toMatchObject({
+      current: 25,
+      previous: 10,
+      percentChange: "+150%",
+    });
   });
 
-  it("computes index-aligned bucket comparisons", () => {
+  it("computes big number comparison trend", () => {
     const current = buildExploration([
       {
-        dimensions: ["2026-05-10T00:00:00.000Z"],
+        dimensions: [],
         values: [
-          { metricId: "metric_signups", numerator: 30, denominator: null },
+          { metricId: "metric_signups", numerator: 40, denominator: null },
         ],
       },
     ]);
     const comparison = buildExploration([
       {
-        dimensions: ["2026-05-03T00:00:00.000Z"],
+        dimensions: [],
         values: [
-          { metricId: "metric_signups", numerator: 10, denominator: null },
+          { metricId: "metric_signups", numerator: 20, denominator: null },
         ],
       },
     ]);
 
-    const buckets = computeBucketComparisons(
-      current,
-      comparison,
-      submittedExploreState,
-      () => null,
-    );
-
-    expect(buckets).toHaveLength(1);
-    expect(buckets[0]).toMatchObject({
-      metricName: "Signups",
-      currentTotal: 30,
-      previousTotal: 10,
-      delta: 20,
-      percentChange: "+200%",
+    expect(
+      computeBigNumberComparisonTrend(
+        current,
+        comparison,
+        submittedExploreState,
+        () => null,
+      ),
+    ).toMatchObject({
+      current: 40,
+      previous: 20,
+      percentChange: "+100%",
     });
   });
 });

@@ -3,6 +3,8 @@ import type {
   ProductAnalyticsExploration,
 } from "shared/validators";
 import type { QueryInterface } from "shared/types/query";
+import { usesInlineComparison } from "@/enterprise/components/ProductAnalytics/compareUtil";
+import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import useExplorationTableData from "./useExplorationTableData";
 
@@ -23,13 +25,23 @@ export default function ExplorerDataTable({
   isStale?: boolean;
   query?: QueryInterface | null;
 }) {
+  const { compareEnabled, comparisonExploration } = useExplorerContext();
+  const inlineComparisonEnabled =
+    compareEnabled &&
+    !!submittedExploreState &&
+    usesInlineComparison(submittedExploreState.chartType) &&
+    submittedExploreState.chartType !== "bigNumber";
+
   const {
     rowData,
     orderedColumnKeys,
     columnLabels,
     headerStructure,
     explorationReturnedNoData,
-  } = useExplorationTableData(exploration, submittedExploreState);
+  } = useExplorationTableData(exploration, submittedExploreState, {
+    compareEnabled: inlineComparisonEnabled,
+    comparisonExploration,
+  });
 
   return (
     <DisplayTestQueryResults

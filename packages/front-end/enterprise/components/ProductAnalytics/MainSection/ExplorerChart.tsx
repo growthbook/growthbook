@@ -30,7 +30,11 @@ import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
-import { supportsComparisonOverlay } from "@/enterprise/components/ProductAnalytics/compareUtil";
+import ComparisonTrendLabel from "@/enterprise/components/ProductAnalytics/ComparisonTrendLabel";
+import {
+  computeBigNumberComparisonTrend,
+  supportsAlwaysOnComparisonOverlay,
+} from "@/enterprise/components/ProductAnalytics/compareUtil";
 
 const CHART_ID = "explorer-chart";
 
@@ -44,6 +48,14 @@ const CHART_COLORS = [
   "#ef4444",
   "#ec4899",
   "#6b7280",
+];
+
+const COMPARISON_SERIES_COLORS = [
+  "#d97706",
+  "#a8a29e",
+  "#fbbf24",
+  "#9ca3af",
+  "#78716c",
 ];
 
 // Simple number formatter
@@ -67,7 +79,7 @@ function getSeriesTitle(
 export default function ExplorerChart({
   exploration,
   comparisonExploration = null,
-  overlayOnChart = false,
+  compareEnabled = false,
   error,
   submittedExploreState,
   loading,
@@ -75,7 +87,7 @@ export default function ExplorerChart({
 }: {
   exploration: ProductAnalyticsExploration | null;
   comparisonExploration?: ProductAnalyticsExploration | null;
-  overlayOnChart?: boolean;
+  compareEnabled?: boolean;
   error: string | null;
   submittedExploreState: ExplorationConfig;
   loading: boolean;
@@ -110,6 +122,22 @@ export default function ExplorerChart({
     const sharedUnit = getSharedUnit(submittedExploreState);
     return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
   }, [submittedExploreState, getFactMetricById, renderOpts.showAs]);
+
+  const bigNumberComparisonTrend = useMemo(() => {
+    if (!compareEnabled) return null;
+    return computeBigNumberComparisonTrend(
+      exploration,
+      comparisonExploration,
+      submittedExploreState,
+      getFactMetricById,
+    );
+  }, [
+    compareEnabled,
+    exploration,
+    comparisonExploration,
+    submittedExploreState,
+    getFactMetricById,
+  ]);
 
   // Transform ProductAnalyticsResult + exploreState to ECharts format
   const chartConfig = useMemo(() => {
@@ -239,6 +267,8 @@ export default function ExplorerChart({
 
     // 3. Build Series (ordered by cumulative total, highest first)
     const seriesColor = (i: number) => CHART_COLORS[i % CHART_COLORS.length];
+    const comparisonSeriesColor = (i: number) =>
+      COMPARISON_SERIES_COLORS[i % COMPARISON_SERIES_COLORS.length];
 
     const buildSeriesConfigs = (
       sourceDataMap: Record<string, Record<string, number>>,
@@ -254,8 +284,9 @@ export default function ExplorerChart({
           const { name } = sourceSeriesMeta[seriesKey];
           const seriesDataMap = sourceDataMap[seriesKey];
           const displayName = isPrevious ? `${name} (Previous)` : name;
-          const colorIndex = isPrevious ? idx + sourceSeriesKeys.length : idx;
-          const color = seriesColor(colorIndex);
+          const color = isPrevious
+            ? comparisonSeriesColor(idx)
+            : seriesColor(idx);
 
           if (
             [
@@ -324,9 +355,9 @@ export default function ExplorerChart({
     );
 
     if (
-      overlayOnChart &&
+      compareEnabled &&
       comparisonExploration?.result?.rows?.length &&
-      supportsComparisonOverlay(chartType)
+      supportsAlwaysOnComparisonOverlay(chartType)
     ) {
       const comparisonRows = comparisonExploration.result.rows;
       const comparisonUniqueXValues = new Set<string>();
@@ -536,7 +567,7 @@ export default function ExplorerChart({
   }, [
     exploration?.result?.rows,
     comparisonExploration?.result?.rows,
-    overlayOnChart,
+    compareEnabled,
     submittedExploreState,
     renderOpts,
     textColor,
@@ -607,12 +638,17 @@ export default function ExplorerChart({
           style={{ flex: 1, minHeight: 0 }}
           align="center"
           justify="center"
+          direction="column"
+          gap="2"
         >
           <BigValueChart
             value={chartConfig.value}
             formatter={formatNumber}
             label={submittedExploreState?.dataset?.values?.[0]?.name}
           />
+          {bigNumberComparisonTrend ? (
+            <ComparisonTrendLabel trend={bigNumberComparisonTrend} />
+          ) : null}
         </Flex>
       ) : chartConfig ? (
         <Box style={{ flex: 1, minHeight: 0, position: "relative" }}>

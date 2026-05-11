@@ -1,7 +1,7 @@
 import { FaExclamationTriangle } from "react-icons/fa";
 import { PiArrowLineDownThin, PiCaretLeft, PiCaretRight } from "react-icons/pi";
 import { Flex, Separator } from "@radix-ui/themes";
-import { useRef, useState } from "react";
+import { isValidElement, useRef, useState } from "react";
 import { isManagedWarehousePendingQueryError } from "shared/util";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
@@ -40,6 +40,13 @@ export type Props = {
   paddingTop?: number;
   showNoRowsWarning?: boolean;
 };
+
+function renderCellValue(value: unknown) {
+  if (isValidElement(value)) {
+    return value;
+  }
+  return JSON.stringify(value);
+}
 
 export default function DisplayTestQueryResults({
   results,
@@ -284,7 +291,7 @@ export default function DisplayTestQueryResults({
                     .map((result, i) => (
                       <tr key={i}>
                         {cols.map((key, j) => (
-                          <td key={j}>{JSON.stringify(result[key])}</td>
+                          <td key={j}>{renderCellValue(result[key])}</td>
                         ))}
                       </tr>
                     ))}

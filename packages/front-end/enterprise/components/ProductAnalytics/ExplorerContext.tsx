@@ -33,7 +33,6 @@ import {
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import track from "@/services/track";
-import { supportsComparisonOverlay } from "@/enterprise/components/ProductAnalytics/compareUtil";
 import { useExploreData, CacheOption } from "./useExploreData";
 
 const MAX_TRACKED_ERROR_LENGTH = 500;
@@ -58,7 +57,6 @@ export interface ExplorerContextValue {
   managedWarehouseAwaitingProvisioning: boolean;
   trackingSource: string | undefined;
   compareEnabled: boolean;
-  overlayOnChart: boolean;
   comparisonExploration: ProductAnalyticsExploration | null;
   comparisonLoading: boolean;
   comparisonError: string | null;
@@ -77,7 +75,6 @@ export interface ExplorerContextValue {
   changeChartType: (chartType: ExplorationConfig["chartType"]) => void;
   clearAllDatasets: (newDatasourceId?: string) => void;
   setCompareEnabled: (enabled: boolean) => void;
-  setOverlayOnChart: (enabled: boolean) => void;
 }
 const ExplorerContext = createContext<ExplorerContextValue | null>(null);
 
@@ -153,7 +150,6 @@ export function ExplorerProvider({
   });
   const [isStale, setIsStale] = useState(false);
   const [compareEnabled, setCompareEnabledState] = useState(false);
-  const [overlayOnChart, setOverlayOnChartState] = useState(false);
   const [comparisonExploration, setComparisonExploration] =
     useState<ProductAnalyticsExploration | null>(null);
   const [comparisonError, setComparisonError] = useState<string | null>(null);
@@ -312,7 +308,6 @@ export function ExplorerProvider({
     (enabled: boolean) => {
       setCompareEnabledState(enabled);
       if (!enabled) {
-        setOverlayOnChartState(false);
         clearComparisonState();
         return;
       }
@@ -329,10 +324,6 @@ export function ExplorerProvider({
       submittedExploreState,
     ],
   );
-
-  const setOverlayOnChart = useCallback((enabled: boolean) => {
-    setOverlayOnChartState(enabled);
-  }, []);
 
   const doSubmit = useCallback(
     async (options?: { cache?: CacheOption; config?: ExplorationConfig }) => {
@@ -494,12 +485,6 @@ export function ExplorerProvider({
       setIsStale(false);
     }
   }, [isStale, needsFetch, needsUpdate]);
-
-  useEffect(() => {
-    if (!supportsComparisonOverlay(draftExploreState.chartType)) {
-      setOverlayOnChartState(false);
-    }
-  }, [draftExploreState.chartType]);
 
   const createDefaultValue = useCallback(
     (datasetType: DatasetType): ProductAnalyticsValue => {
@@ -668,7 +653,6 @@ export function ExplorerProvider({
       }
 
       setCompareEnabledState(false);
-      setOverlayOnChartState(false);
       clearComparisonState();
       setExplorerState((prev) => {
         const type = prev.draftState.dataset.type;
@@ -725,12 +709,10 @@ export function ExplorerProvider({
       query,
       trackingSource,
       compareEnabled,
-      overlayOnChart,
       comparisonExploration,
       comparisonLoading,
       comparisonError,
       setCompareEnabled,
-      setOverlayOnChart,
     }),
     [
       draftExploreState,
@@ -755,12 +737,10 @@ export function ExplorerProvider({
       query,
       trackingSource,
       compareEnabled,
-      overlayOnChart,
       comparisonExploration,
       comparisonLoading,
       comparisonError,
       setCompareEnabled,
-      setOverlayOnChart,
     ],
   );
 

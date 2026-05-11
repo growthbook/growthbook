@@ -1,7 +1,6 @@
 import { Flex } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
-import { supportsComparisonOverlay } from "@/enterprise/components/ProductAnalytics/compareUtil";
 import Switch from "@/ui/Switch";
 import GraphTypeSelector from "./GraphTypeSelector";
 import DateRangePicker from "./DateRangePicker";
@@ -10,17 +9,8 @@ import LastRefreshedIndicator from "./LastRefreshedIndicator";
 import DataSourceDropdown from "./DataSourceDropdown";
 
 export default function Toolbar() {
-  const {
-    exploration,
-    draftExploreState,
-    compareEnabled,
-    overlayOnChart,
-    setCompareEnabled,
-    setOverlayOnChart,
-  } = useExplorerContext();
-  const overlaySupported = supportsComparisonOverlay(
-    draftExploreState.chartType,
-  );
+  const { exploration, draftExploreState, compareEnabled, setCompareEnabled } =
+    useExplorerContext();
 
   return (
     <Flex direction="column" gap="3">
@@ -57,13 +47,6 @@ export default function Toolbar() {
             value={compareEnabled}
             onChange={setCompareEnabled}
           />
-          {compareEnabled && overlaySupported ? (
-            <Switch
-              label="Show previous period on chart"
-              value={overlayOnChart}
-              onChange={setOverlayOnChart}
-            />
-          ) : null}
           <DateRangePicker />
           {["line", "area", "timeseries-table"].includes(
             draftExploreState.chartType,

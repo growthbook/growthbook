@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Flex } from "@radix-ui/themes";
 import type {
   ExplorationConfig,
   ProductAnalyticsExploration,
@@ -19,6 +20,12 @@ import {
   type ExplorationColumn,
   type RenderOpts,
 } from "@/enterprise/components/ProductAnalytics/util";
+import ComparisonTrendLabel from "@/enterprise/components/ProductAnalytics/ComparisonTrendLabel";
+import {
+  buildComparisonTrend,
+  findComparisonRow,
+  getComparisonMetricValue,
+} from "@/enterprise/components/ProductAnalytics/compareUtil";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 /**
@@ -72,7 +79,13 @@ export interface ExplorationTableData {
 export default function useExplorationTableData(
   exploration: ProductAnalyticsExploration | null,
   submittedExploreState: ExplorationConfig | null,
+  options?: {
+    compareEnabled?: boolean;
+    comparisonExploration?: ProductAnalyticsExploration | null;
+  },
 ): ExplorationTableData {
+  const compareEnabled = options?.compareEnabled ?? false;
+  const comparisonExploration = options?.comparisonExploration ?? null;
   const { getFactMetricById } = useDefinitions();
 
   const renderOpts: RenderOpts = useMemo(
@@ -155,22 +168,60 @@ export default function useExplorationTableData(
       !submittedExploreState?.dimensions ||
       submittedExploreState.dimensions.length === 0;
 
-    return sortedRows.map((row) => {
+    const comparisonRows =
+      compareEnabled && comparisonExploration?.result?.rows
+        ? sortExplorationRows(
+            comparisonExploration.result.rows,
+            isTimeseries,
+            renderOpts,
+          )
+        : [];
+
+    return sortedRows.map((row, rowIndex) => {
+      const comparisonRow = compareEnabled
+        ? findComparisonRow(row, comparisonRows, rowIndex, isTimeseries)
+        : null;
+
       const entries = columns.map((col) => {
         const raw = getExplorationCellValue(row, col, renderOpts);
+        const formatted = formatCellForTable(raw, col, {
+          resolvedGranularity,
+          submittedExploreState,
+          hasNoDimensions,
+        });
+
+        const shouldCompareCell =
+          compareEnabled &&
+          col.kind === "metric" &&
+          (col.sub === "single" || col.sub === "value");
+
+        if (!shouldCompareCell) {
+          return [col.key, formatted] as const;
+        }
+
+        const currentValue =
+          typeof raw === "number" ? raw : raw === null ? 0 : Number(raw);
+        const previousValue = getComparisonMetricValue(
+          comparisonRow,
+          col,
+          renderOpts,
+        );
+        const trend = buildComparisonTrend(currentValue, previousValue);
+
         return [
           col.key,
-          formatCellForTable(raw, col, {
-            resolvedGranularity,
-            submittedExploreState,
-            hasNoDimensions,
-          }),
+          <Flex key={col.key} direction="column" gap="1">
+            <span>{String(formatted)}</span>
+            <ComparisonTrendLabel trend={trend} />
+          </Flex>,
         ] as const;
       });
       return Object.fromEntries(entries) as Record<string, unknown>;
     });
   }, [
     exploration?.result?.rows,
+    comparisonExploration?.result?.rows,
+    compareEnabled,
     columns,
     renderOpts,
     resolvedGranularity,

@@ -4,6 +4,7 @@ import {
   getEffectiveMetricValue,
   getEffectiveShowAs,
   getIsRatioByIndex,
+  type ExplorationColumn,
 } from "shared/enterprise";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type {
@@ -12,23 +13,61 @@ import type {
   ProductAnalyticsResultRow,
 } from "shared/validators";
 import {
-  formatDateByGranularity,
+  getExplorationCellValue,
   type RenderOpts,
   type ResolvedGranularity,
 } from "@/enterprise/components/ProductAnalytics/util";
 
-const OVERLAY_SUPPORTED_CHART_TYPES = new Set<ExplorationConfig["chartType"]>([
+const ALWAYS_ON_OVERLAY_CHART_TYPES = new Set<ExplorationConfig["chartType"]>([
   "line",
+  "area",
   "bar",
   "stackedBar",
   "horizontalBar",
   "stackedHorizontalBar",
 ]);
 
-export function supportsComparisonOverlay(
+const INLINE_COMPARISON_CHART_TYPES = new Set<ExplorationConfig["chartType"]>([
+  "table",
+  "timeseries-table",
+  "bigNumber",
+]);
+
+export type ComparisonTrendDirection = "up" | "down" | "flat" | "none";
+
+export type ComparisonTrend = {
+  current: number;
+  previous: number;
+  delta: number;
+  percentChange: string | null;
+  direction: ComparisonTrendDirection;
+};
+
+export type PeriodSummary = {
+  metricId: string;
+  metricName: string;
+  groupKey: string;
+  totalTrend: ComparisonTrend;
+  averageTrend?: ComparisonTrend;
+  averageLabel?: ResolvedGranularity;
+};
+
+export function supportsAlwaysOnComparisonOverlay(
   chartType: ExplorationConfig["chartType"],
 ): boolean {
-  return OVERLAY_SUPPORTED_CHART_TYPES.has(chartType);
+  return ALWAYS_ON_OVERLAY_CHART_TYPES.has(chartType);
+}
+
+export function showsCompactComparisonSummary(
+  chartType: ExplorationConfig["chartType"],
+): boolean {
+  return !INLINE_COMPARISON_CHART_TYPES.has(chartType);
+}
+
+export function usesInlineComparison(
+  chartType: ExplorationConfig["chartType"],
+): boolean {
+  return INLINE_COMPARISON_CHART_TYPES.has(chartType);
 }
 
 export function formatPercentChange(
@@ -47,6 +86,34 @@ export function formatPercentChange(
   return `${sign}${rounded}%`;
 }
 
+export function buildComparisonTrend(
+  current: number,
+  previous: number | null | undefined,
+): ComparisonTrend {
+  if (previous === null || previous === undefined || previous === 0) {
+    return {
+      current,
+      previous: previous ?? 0,
+      delta: current - (previous ?? 0),
+      percentChange: null,
+      direction: "none",
+    };
+  }
+
+  const delta = current - previous;
+  let direction: ComparisonTrendDirection = "flat";
+  if (delta > 0) direction = "up";
+  if (delta < 0) direction = "down";
+
+  return {
+    current,
+    previous,
+    delta,
+    percentChange: formatPercentChange(delta, previous),
+    direction,
+  };
+}
+
 export function alignSeriesByIndex(
   currentBuckets: number[],
   comparisonBuckets: number[],
@@ -62,27 +129,6 @@ export function alignSeriesByIndex(
 
   return { current, previous };
 }
-
-export type PeriodTotal = {
-  metricId: string;
-  metricName: string;
-  groupKey: string;
-  currentTotal: number;
-  previousTotal: number;
-  delta: number;
-  percentChange: string | null;
-};
-
-export type BucketComparison = {
-  metricId: string;
-  metricName: string;
-  groupKey: string;
-  bucketLabel: string;
-  currentTotal: number;
-  previousTotal: number;
-  delta: number;
-  percentChange: string | null;
-};
 
 function getRenderOpts(
   submittedExploreState: ExplorationConfig,
@@ -124,7 +170,7 @@ function sumMetricValues(
   }, 0);
 }
 
-function getSortedDateBuckets(rows: ProductAnalyticsResultRow[]): string[] {
+function countDateBuckets(rows: ProductAnalyticsResultRow[]): number {
   const buckets = new Set<string>();
   for (const row of rows) {
     const bucket = row.dimensions[0];
@@ -132,24 +178,48 @@ function getSortedDateBuckets(rows: ProductAnalyticsResultRow[]): string[] {
       buckets.add(bucket);
     }
   }
-  return Array.from(buckets).sort(
-    (a, b) => new Date(a).getTime() - new Date(b).getTime(),
+  return buckets.size;
+}
+
+export function findComparisonRow(
+  currentRow: ProductAnalyticsResultRow,
+  comparisonRows: ProductAnalyticsResultRow[],
+  rowIndex: number,
+  isTimeseries: boolean,
+): ProductAnalyticsResultRow | null {
+  if (isTimeseries) {
+    return comparisonRows[rowIndex] ?? null;
+  }
+
+  const dimensionKey = currentRow.dimensions.join("||");
+  return (
+    comparisonRows.find((row) => row.dimensions.join("||") === dimensionKey) ??
+    null
   );
 }
 
-function getBucketLabel(
-  bucket: string,
-  granularity: ResolvedGranularity,
-): string {
-  return formatDateByGranularity(new Date(bucket), granularity);
+export function getComparisonMetricValue(
+  comparisonRow: ProductAnalyticsResultRow | null,
+  column: ExplorationColumn,
+  renderOpts: RenderOpts,
+): number | null {
+  if (!comparisonRow || column.kind !== "metric") {
+    return null;
+  }
+
+  const raw = getExplorationCellValue(comparisonRow, column, renderOpts);
+  if (raw === null || raw === "") {
+    return null;
+  }
+  return typeof raw === "number" ? raw : Number(raw);
 }
 
-export function computePeriodTotals(
+export function computePeriodSummary(
   currentExploration: ProductAnalyticsExploration | null,
   comparisonExploration: ProductAnalyticsExploration | null,
   submittedExploreState: ExplorationConfig,
   getFactMetricById: (id: string) => FactMetricInterface | null,
-): PeriodTotal[] {
+): PeriodSummary[] {
   const currentRows = currentExploration?.result?.rows ?? [];
   const comparisonRows = comparisonExploration?.result?.rows ?? [];
   if (!currentRows.length && !comparisonRows.length) {
@@ -158,13 +228,22 @@ export function computePeriodTotals(
 
   const renderOpts = getRenderOpts(submittedExploreState, getFactMetricById);
   const valueCount = submittedExploreState.dataset?.values?.length ?? 0;
+  const dateDimension = submittedExploreState.dimensions?.find(
+    (dimension) => dimension.dimensionType === "date",
+  );
+  const resolvedGranularity = dateDimension
+    ? getDateGranularity(
+        dateDimension.dateGranularity,
+        calculateProductAnalyticsDateRange(submittedExploreState.dateRange),
+      )
+    : null;
   const groupKeys = new Set<string>();
 
   for (const row of [...currentRows, ...comparisonRows]) {
     groupKeys.add(getGroupKey(row));
   }
 
-  const totals: PeriodTotal[] = [];
+  const summaries: PeriodSummary[] = [];
 
   for (let valueIndex = 0; valueIndex < valueCount; valueIndex++) {
     const datasetValue = submittedExploreState.dataset?.values?.[valueIndex];
@@ -195,148 +274,59 @@ export function computePeriodTotals(
         valueIndex,
         renderOpts,
       );
-      const delta = currentTotal - previousTotal;
+      const totalTrend = buildComparisonTrend(currentTotal, previousTotal);
 
-      totals.push({
+      const summary: PeriodSummary = {
         metricId,
         metricName,
         groupKey,
-        currentTotal,
-        previousTotal,
-        delta,
-        percentChange: formatPercentChange(delta, previousTotal),
-      });
+        totalTrend,
+      };
+
+      if (dateDimension && resolvedGranularity) {
+        const currentBucketCount = countDateBuckets(currentGroupRows);
+        const previousBucketCount = countDateBuckets(comparisonGroupRows);
+        if (currentBucketCount > 0 && previousBucketCount > 0) {
+          const currentAverage = currentTotal / currentBucketCount;
+          const previousAverage = previousTotal / previousBucketCount;
+          summary.averageTrend = buildComparisonTrend(
+            currentAverage,
+            previousAverage,
+          );
+          summary.averageLabel = resolvedGranularity;
+        }
+      }
+
+      summaries.push(summary);
     }
   }
 
-  return totals;
+  return summaries;
 }
 
-export function computeBucketComparisons(
+export function computeBigNumberComparisonTrend(
   currentExploration: ProductAnalyticsExploration | null,
   comparisonExploration: ProductAnalyticsExploration | null,
   submittedExploreState: ExplorationConfig,
   getFactMetricById: (id: string) => FactMetricInterface | null,
-): BucketComparison[] {
-  const currentRows = currentExploration?.result?.rows ?? [];
-  const comparisonRows = comparisonExploration?.result?.rows ?? [];
-  const dateDimension = submittedExploreState.dimensions?.find(
-    (dimension) => dimension.dimensionType === "date",
-  );
-  if (!dateDimension || (!currentRows.length && !comparisonRows.length)) {
-    return [];
+): ComparisonTrend | null {
+  const currentRow = currentExploration?.result?.rows?.[0];
+  const comparisonRow = comparisonExploration?.result?.rows?.[0];
+  if (!currentRow) {
+    return null;
   }
 
   const renderOpts = getRenderOpts(submittedExploreState, getFactMetricById);
-  const resolvedGranularity = getDateGranularity(
-    dateDimension.dateGranularity,
-    calculateProductAnalyticsDateRange(submittedExploreState.dateRange),
-  );
-  const currentBuckets = getSortedDateBuckets(currentRows);
-  const comparisonBuckets = getSortedDateBuckets(comparisonRows);
-  const aligned = alignSeriesByIndex(
-    currentBuckets.map((bucket) => {
-      const rows = currentRows.filter((row) => row.dimensions[0] === bucket);
-      return rows.reduce((sum, row) => {
-        return (
-          sum +
-          row.values.reduce((rowSum, value, valueIndex) => {
-            return (
-              rowSum +
-              getEffectiveMetricValue(value, {
-                showAs: renderOpts.showAs,
-                isRatio: renderOpts.isRatioByIndex[valueIndex] ?? false,
-              })
-            );
-          }, 0)
-        );
-      }, 0);
-    }),
-    comparisonBuckets.map((bucket) => {
-      const rows = comparisonRows.filter((row) => row.dimensions[0] === bucket);
-      return rows.reduce((sum, row) => {
-        return (
-          sum +
-          row.values.reduce((rowSum, value, valueIndex) => {
-            return (
-              rowSum +
-              getEffectiveMetricValue(value, {
-                showAs: renderOpts.showAs,
-                isRatio: renderOpts.isRatioByIndex[valueIndex] ?? false,
-              })
-            );
-          }, 0)
-        );
-      }, 0);
-    }),
-  );
+  const currentValue = getEffectiveMetricValue(currentRow.values[0], {
+    showAs: renderOpts.showAs,
+    isRatio: renderOpts.isRatioByIndex[0] ?? false,
+  });
+  const previousValue = comparisonRow
+    ? getEffectiveMetricValue(comparisonRow.values[0], {
+        showAs: renderOpts.showAs,
+        isRatio: renderOpts.isRatioByIndex[0] ?? false,
+      })
+    : null;
 
-  const valueCount = submittedExploreState.dataset?.values?.length ?? 0;
-  const comparisons: BucketComparison[] = [];
-  const length = Math.max(currentBuckets.length, comparisonBuckets.length);
-
-  for (let valueIndex = 0; valueIndex < valueCount; valueIndex++) {
-    const datasetValue = submittedExploreState.dataset?.values?.[valueIndex];
-    const metricId =
-      datasetValue?.type === "metric"
-        ? datasetValue.metricId
-        : `value-${valueIndex}`;
-    const metricName = getMetricName(
-      submittedExploreState,
-      valueIndex,
-      metricId,
-    );
-    const groupKeys = new Set<string>();
-    for (const row of [...currentRows, ...comparisonRows]) {
-      groupKeys.add(getGroupKey(row));
-    }
-
-    for (const groupKey of groupKeys) {
-      for (let bucketIndex = 0; bucketIndex < length; bucketIndex++) {
-        const currentBucket = currentBuckets[bucketIndex];
-        const comparisonBucket = comparisonBuckets[bucketIndex];
-        const currentTotal = currentBucket
-          ? sumMetricValues(
-              currentRows.filter(
-                (row) =>
-                  row.dimensions[0] === currentBucket &&
-                  getGroupKey(row) === groupKey,
-              ),
-              valueIndex,
-              renderOpts,
-            )
-          : 0;
-        const previousTotal = comparisonBucket
-          ? sumMetricValues(
-              comparisonRows.filter(
-                (row) =>
-                  row.dimensions[0] === comparisonBucket &&
-                  getGroupKey(row) === groupKey,
-              ),
-              valueIndex,
-              renderOpts,
-            )
-          : (aligned.previous[bucketIndex] ?? 0);
-        const delta = currentTotal - previousTotal;
-        const bucketLabel = currentBucket
-          ? getBucketLabel(currentBucket, resolvedGranularity)
-          : comparisonBucket
-            ? getBucketLabel(comparisonBucket, resolvedGranularity)
-            : `Bucket ${bucketIndex + 1}`;
-
-        comparisons.push({
-          metricId,
-          metricName,
-          groupKey,
-          bucketLabel,
-          currentTotal,
-          previousTotal,
-          delta,
-          percentChange: formatPercentChange(delta, previousTotal),
-        });
-      }
-    }
-  }
-
-  return comparisons;
+  return buildComparisonTrend(currentValue, previousValue);
 }
