@@ -336,6 +336,9 @@ export const updateVisualChangeset = async ({
   // ensure new visual changes have ids assigned
   const visualChanges = isUpdatingVisualChanges
     ? safeUpdates.visualChanges.map((vc) => ({
+        description: "",
+        css: "",
+        domMutations: [],
         ...vc,
         id: vc.id || uniqid("vc_"),
       }))

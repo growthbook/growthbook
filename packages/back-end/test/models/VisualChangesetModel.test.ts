@@ -182,5 +182,61 @@ describe("updateVisualChangeset", () => {
         expect(res.visualChanges).toEqual([]);
       });
     });
+    describe("and incoming updates has partial visualChanges", () => {
+      const updateFn = jest
+        .spyOn(VisualChangesetModel, "updateOne")
+        .mockResolvedValue({
+          acknowledged: true,
+          matchedCount: 1,
+          modifiedCount: 1,
+          upsertedCount: 0,
+          upsertedId: null,
+        });
+
+      it("should default required visual change fields", async () => {
+        (getCollection as jest.Mock).mockReturnValue({
+          findOne: jest.fn().mockResolvedValue(null),
+        });
+
+        const res = await updateVisualChangeset({
+          visualChangeset,
+          // @ts-expect-error TODO
+          experiment,
+          updates: {
+            visualChanges: [{ variation: "var_123" }],
+          },
+          context,
+        });
+
+        expect(updateFn).toHaveBeenCalledWith(
+          {
+            id: visualChangeset.id,
+            organization: context.org.id,
+          },
+          {
+            $set: {
+              visualChanges: [
+                {
+                  id: expect.stringMatching(/^vc_/),
+                  description: "",
+                  css: "",
+                  variation: "var_123",
+                  domMutations: [],
+                },
+              ],
+            },
+          },
+        );
+        expect(res.visualChanges).toEqual([
+          {
+            id: expect.stringMatching(/^vc_/),
+            description: "",
+            css: "",
+            variation: "var_123",
+            domMutations: [],
+          },
+        ]);
+      });
+    });
   });
 });
