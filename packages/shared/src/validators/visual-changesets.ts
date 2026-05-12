@@ -178,7 +178,7 @@ const putVisualChangesetBody = z
     urlPatterns: z
       .array(
         z.object({
-          include: z.boolean(),
+          include: z.boolean().optional(),
           type: z.enum(["simple", "regex"]),
           pattern: z.string(),
         }),

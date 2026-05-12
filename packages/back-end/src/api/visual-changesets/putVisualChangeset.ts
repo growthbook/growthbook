@@ -4,6 +4,7 @@ import {
   findVisualChangesetById,
   toVisualChangesetApiInterface,
   updateVisualChangeset,
+  VisualChangesetUpdates,
 } from "back-end/src/models/VisualChangesetModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
@@ -31,11 +32,20 @@ export const putVisualChangeset = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
+  const updates: VisualChangesetUpdates = {
+    ...req.body,
+    urlPatterns: req.body.urlPatterns?.map((p) => ({
+      type: p.type,
+      pattern: p.pattern,
+      include: p.include ?? true,
+    })),
+  };
+
   const res = await updateVisualChangeset({
     visualChangeset,
     experiment,
     context: req.context,
-    updates: req.body,
+    updates,
   });
 
   const updatedVisualChangeset = await findVisualChangesetById(

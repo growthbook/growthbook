@@ -298,17 +298,20 @@ export const createVisualChangeset = async ({
   return visualChangeset;
 };
 
+type VisualChangeUpdate = Partial<VisualChange> &
+  Pick<VisualChange, "variation">;
+
 export type VisualChangesetUpdates = {
   editorUrl?: string;
   urlPatterns?: VisualChangesetURLPattern[];
-  visualChanges?: Partial<VisualChange>[];
+  visualChanges?: VisualChangeUpdate[];
 };
 
 // type guard
 const _isUpdatingVisualChanges = (
   updates: VisualChangesetUpdates,
 ): updates is {
-  visualChanges: Partial<VisualChange>[];
+  visualChanges: VisualChangeUpdate[];
 } & VisualChangesetUpdates => updates.visualChanges !== undefined;
 
 const UPDATABLE_VISUAL_CHANGESET_FIELDS = [
@@ -367,13 +370,20 @@ export const updateVisualChangeset = async ({
     });
   }
 
+  const updatedVisualChangeset: VisualChangesetInterface = {
+    ...visualChangeset,
+    ...(safeUpdates.editorUrl !== undefined
+      ? { editorUrl: safeUpdates.editorUrl }
+      : {}),
+    ...(safeUpdates.urlPatterns !== undefined
+      ? { urlPatterns: safeUpdates.urlPatterns }
+      : {}),
+    visualChanges,
+  };
+
   await onVisualChangesetUpdate({
     oldVisualChangeset: visualChangeset,
-    newVisualChangeset: {
-      ...visualChangeset,
-      ...safeUpdates,
-      visualChanges,
-    } as VisualChangesetInterface,
+    newVisualChangeset: updatedVisualChangeset,
     context,
     bypassWebhooks,
   });
