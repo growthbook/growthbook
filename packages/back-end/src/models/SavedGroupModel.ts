@@ -84,14 +84,15 @@ export class SavedGroupModel extends BaseClass {
     _existing: SavedGroupInterface,
     updates: UpdateProps<SavedGroupInterface>,
   ) {
-    // If the values, condition, projects, or archived status change, we need
-    // to invalidate cached feature rules
-    if (
-      updates.values ||
-      updates.condition ||
-      updates.projects ||
-      typeof updates.archived !== "undefined"
-    ) {
+    // If the values, condition, or projects change, we need to invalidate
+    // cached feature rules.
+    //
+    // We don't refresh on `archived` changes: archiving is blocked while the
+    // group is referenced (see the controller / archive endpoint guards), so
+    // `filterUsedSavedGroups` will already exclude it from the payload, and
+    // unarchiving doesn't change anything live until the group is referenced
+    // again (which itself triggers a refresh via the feature edit).
+    if (updates.values || updates.condition || updates.projects) {
       savedGroupUpdated(this.context).catch((e) => {
         this.context.logger.error(
           e,
