@@ -37,6 +37,11 @@ export type Props = {
    * pass human-readable keys).
    */
   columnLabels?: string[];
+  /**
+   * Optional primitive-only rows for CSV export. When provided, download uses
+   * these values instead of `results` so UI-only cell content is omitted.
+   */
+  csvResults?: Record<string, unknown>[];
   paddingTop?: number;
   showNoRowsWarning?: boolean;
 };
@@ -62,6 +67,7 @@ export default function DisplayTestQueryResults({
   headerStructure,
   orderedColumnKeys,
   columnLabels,
+  csvResults,
   paddingTop = 0,
   showNoRowsWarning = true,
 }: Props) {
@@ -89,12 +95,13 @@ export default function DisplayTestQueryResults({
     : undefined;
 
   function handleDownload(results: Record<string, unknown>[]) {
+    const sourceRows = csvResults ?? results;
     // When the caller passes stable keys + separate labels, rewrite each row
     // so the CSV column headers (derived from Object.keys) are the display
     // labels. Otherwise fall through unchanged — the key *is* the label.
     const rowsForCsv =
       columnLabels && orderedColumnKeys
-        ? results.map((row) =>
+        ? sourceRows.map((row) =>
             Object.fromEntries(
               orderedColumnKeys.map((key, i) => [
                 columnLabels[i] ?? key,
@@ -102,7 +109,7 @@ export default function DisplayTestQueryResults({
               ]),
             ),
           )
-        : results;
+        : sourceRows;
     const csv = convertToCSV(rowsForCsv);
     if (!csv) {
       throw new Error(

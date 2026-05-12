@@ -34,6 +34,8 @@ import ComparisonTrendLabel from "@/enterprise/components/ProductAnalytics/Compa
 import {
   alignComparisonOverlayToCategories,
   computeBigNumberComparisonTrend,
+  formatComparisonMetricLabel,
+  getComparisonPeriodLabels,
   supportsAlwaysOnComparisonOverlay,
 } from "@/enterprise/components/ProductAnalytics/compareUtil";
 
@@ -275,6 +277,9 @@ export default function ExplorerChart({
       compareEnabled &&
       Boolean(comparisonExploration?.result?.rows?.length) &&
       supportsAlwaysOnComparisonOverlay(chartType);
+    const comparisonPeriodLabels = compareOverlayActive
+      ? getComparisonPeriodLabels(submittedExploreState.dateRange)
+      : null;
 
     const buildSeriesConfigs = (
       sourceDataMap: Record<string, Record<string, number>>,
@@ -289,7 +294,14 @@ export default function ExplorerChart({
         .map((seriesKey, idx) => {
           const { name } = sourceSeriesMeta[seriesKey];
           const seriesDataMap = sourceDataMap[seriesKey];
-          const displayName = isPrevious ? `${name} (Previous)` : name;
+          const displayName = comparisonPeriodLabels
+            ? formatComparisonMetricLabel(
+                name,
+                isPrevious
+                  ? comparisonPeriodLabels.previousLabel
+                  : comparisonPeriodLabels.currentLabel,
+              )
+            : name;
           const color = isPrevious
             ? comparisonSeriesColor(idx)
             : seriesColor(idx);

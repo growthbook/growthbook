@@ -5,7 +5,10 @@ import { PiArrowsClockwise, PiDotsSix, PiInfo } from "react-icons/pi";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
-import { showsCompactComparisonSummary } from "@/enterprise/components/ProductAnalytics/compareUtil";
+import {
+  showsCompactComparisonSummary,
+  showsComparisonOverview,
+} from "@/enterprise/components/ProductAnalytics/compareUtil";
 import { shouldChartSectionShow } from "@/enterprise/components/ProductAnalytics/util";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -34,6 +37,15 @@ export default function ExplorerMainSection() {
     error,
     submittedExploreState,
   });
+  const showComparisonOverview =
+    compareEnabled &&
+    !!submittedExploreState &&
+    showsComparisonOverview(submittedExploreState.chartType);
+  const showComparisonOverviewInChartPanel =
+    showComparisonOverview &&
+    showsCompactComparisonSummary(submittedExploreState.chartType);
+  const showComparisonOverviewInTablePanel =
+    showComparisonOverview && !showChartSection;
 
   return (
     <Flex
@@ -69,11 +81,7 @@ export default function ExplorerMainSection() {
                     gap: "var(--space-3)",
                   }}
                 >
-                  {compareEnabled &&
-                  submittedExploreState &&
-                  showsCompactComparisonSummary(
-                    submittedExploreState.chartType,
-                  ) ? (
+                  {showComparisonOverviewInChartPanel ? (
                     <ComparisonSummary
                       submittedExploreState={submittedExploreState}
                     />
@@ -114,7 +122,18 @@ export default function ExplorerMainSection() {
               order={2}
               defaultSize={showChartSection ? 40 : 100}
               minSize={20}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                minHeight: 0,
+                gap: "var(--space-3)",
+              }}
             >
+              {showComparisonOverviewInTablePanel ? (
+                <ComparisonSummary
+                  submittedExploreState={submittedExploreState}
+                />
+              ) : null}
               <ExplorerDataTable
                 exploration={exploration}
                 error={error}

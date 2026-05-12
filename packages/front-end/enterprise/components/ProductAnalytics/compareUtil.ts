@@ -1,4 +1,5 @@
 import {
+  calculateComparisonDateRange,
   calculateProductAnalyticsDateRange,
   getDateGranularity,
   getEffectiveMetricValue,
@@ -72,6 +73,96 @@ export function usesInlineComparison(
   chartType: ExplorationConfig["chartType"],
 ): boolean {
   return INLINE_COMPARISON_CHART_TYPES.has(chartType);
+}
+
+export function showsComparisonOverview(
+  chartType: ExplorationConfig["chartType"],
+): boolean {
+  return chartType !== "bigNumber";
+}
+
+function formatShortUtcDate(date: Date, includeYear: boolean): string {
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(includeYear ? { year: "numeric" } : {}),
+    timeZone: "UTC",
+  });
+}
+
+function formatShortInclusiveUtcDateRange(
+  startDate: Date,
+  endDate: Date,
+  referenceDate: Date = new Date(),
+): string {
+  const startYear = startDate.getUTCFullYear();
+  const endYear = endDate.getUTCFullYear();
+  const startMonth = startDate.getUTCMonth();
+  const endMonth = endDate.getUTCMonth();
+  const referenceYear = referenceDate.getUTCFullYear();
+  const includeYear =
+    startYear !== endYear ||
+    startYear !== referenceYear ||
+    endYear !== referenceYear;
+  const startDay = startDate.getUTCDate();
+  const endDay = endDate.getUTCDate();
+
+  if (startYear === endYear && startMonth === endMonth) {
+    const month = startDate.toLocaleDateString("en-US", {
+      month: "short",
+      timeZone: "UTC",
+    });
+    if (startDay === endDay) {
+      return includeYear
+        ? formatShortUtcDate(startDate, true)
+        : `${month} ${startDay}`;
+    }
+    return includeYear
+      ? `${month} ${startDay}–${endDay}, ${startYear}`
+      : `${month} ${startDay}–${endDay}`;
+  }
+
+  if (startYear === endYear && !includeYear) {
+    return `${formatShortUtcDate(startDate, false)}–${formatShortUtcDate(endDate, false)}`;
+  }
+
+  return `${formatShortUtcDate(startDate, true)}–${formatShortUtcDate(endDate, true)}`;
+}
+
+export function formatComparisonMetricLabel(
+  metricName: string,
+  periodLabel: string,
+): string {
+  return `${metricName} (${periodLabel})`;
+}
+
+export function getComparisonPeriodLabels(
+  dateRange: ExplorationConfig["dateRange"],
+  referenceDate: Date = new Date(),
+): { currentLabel: string; previousLabel: string } {
+  const currentRange = calculateProductAnalyticsDateRange(
+    dateRange,
+    referenceDate,
+  );
+  const previousRange = calculateComparisonDateRange(dateRange, referenceDate);
+  const previousInclusiveEnd = new Date(currentRange.startDate);
+  previousInclusiveEnd.setUTCHours(0, 0, 0, 0);
+  previousInclusiveEnd.setUTCMilliseconds(
+    previousInclusiveEnd.getUTCMilliseconds() - 1,
+  );
+
+  return {
+    currentLabel: formatShortInclusiveUtcDateRange(
+      currentRange.startDate,
+      currentRange.endDate,
+      referenceDate,
+    ),
+    previousLabel: formatShortInclusiveUtcDateRange(
+      previousRange.startDate,
+      previousInclusiveEnd,
+      referenceDate,
+    ),
+  };
 }
 
 export function formatPercentChange(

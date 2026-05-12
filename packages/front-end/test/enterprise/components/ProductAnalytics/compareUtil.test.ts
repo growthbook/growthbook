@@ -10,7 +10,9 @@ import {
   computeBigNumberComparisonTrend,
   computePeriodSummary,
   formatPercentChange,
+  getComparisonPeriodLabels,
   showsCompactComparisonSummary,
+  showsComparisonOverview,
   supportsAlwaysOnComparisonOverlay,
   usesInlineComparison,
 } from "@/enterprise/components/ProductAnalytics/compareUtil";
@@ -185,7 +187,45 @@ describe("compareUtil", () => {
     expect(supportsAlwaysOnComparisonOverlay("bigNumber")).toBe(false);
     expect(showsCompactComparisonSummary("line")).toBe(true);
     expect(showsCompactComparisonSummary("table")).toBe(false);
+    expect(showsComparisonOverview("table")).toBe(true);
+    expect(showsComparisonOverview("bigNumber")).toBe(false);
     expect(usesInlineComparison("timeseries-table")).toBe(true);
+  });
+
+  it("formats short comparison period labels for charts and tables", () => {
+    const referenceDate = new Date("2026-05-11T12:00:00.000Z");
+
+    expect(
+      getComparisonPeriodLabels(
+        {
+          predefined: "last7Days",
+          lookbackValue: null,
+          lookbackUnit: null,
+          startDate: null,
+          endDate: null,
+        },
+        referenceDate,
+      ),
+    ).toEqual({
+      currentLabel: "May 4–11",
+      previousLabel: "Apr 27–May 3",
+    });
+
+    expect(
+      getComparisonPeriodLabels(
+        {
+          predefined: "customDateRange",
+          lookbackValue: null,
+          lookbackUnit: null,
+          startDate: "2026-04-01",
+          endDate: "2026-05-01",
+        },
+        referenceDate,
+      ),
+    ).toEqual({
+      currentLabel: "Apr 1–May 1",
+      previousLabel: "Mar 1–31",
+    });
   });
 
   it("computes period summary totals and averages", () => {

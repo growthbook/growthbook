@@ -25,6 +25,8 @@ import {
   buildComparisonTrend,
   findComparisonRow,
   getComparisonMetricValue,
+  formatComparisonMetricLabel,
+  getComparisonPeriodLabels,
 } from "@/enterprise/components/ProductAnalytics/compareUtil";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
@@ -43,7 +45,7 @@ function formatCellForTable(
     } | null;
     hasNoDimensions: boolean;
   },
-): unknown {
+): string | number {
   if (col.kind === "dimension") {
     if (raw == null || raw === "") {
       return context.hasNoDimensions ? "Total" : "";
@@ -66,8 +68,25 @@ function formatCellForTable(
   return typeof raw === "number" ? raw.toFixed(2) : raw;
 }
 
+function getPreviousPeriodColumnKey(columnKey: string): string {
+  return `${columnKey}__compare__`;
+}
+
+function shouldCompareColumn(
+  compareEnabled: boolean,
+  col: ExplorationColumn,
+): boolean {
+  return (
+    compareEnabled &&
+    col.kind === "metric" &&
+    (col.sub === "single" || col.sub === "value")
+  );
+}
+
 export interface ExplorationTableData {
   rowData: Record<string, unknown>[];
+  /** Primitive-only rows used for CSV export (no inline compare UI). */
+  exportRowData: Record<string, string | number>[];
   /** Stable machine keys used to index into each row object. */
   orderedColumnKeys: string[];
   /** Display labels, 1:1 aligned with orderedColumnKeys. */
@@ -104,8 +123,47 @@ export default function useExplorationTableData(
     [submittedExploreState, getFactMetricById],
   );
 
-  const orderedColumnKeys = useMemo(() => columns.map((c) => c.key), [columns]);
-  const columnLabels = useMemo(() => columns.map((c) => c.label), [columns]);
+  const comparisonPeriodLabels = useMemo(() => {
+    if (!compareEnabled || !submittedExploreState) {
+      return null;
+    }
+    return getComparisonPeriodLabels(submittedExploreState.dateRange);
+  }, [compareEnabled, submittedExploreState]);
+
+  const orderedColumnKeys = useMemo(() => {
+    const keys: string[] = [];
+    for (const col of columns) {
+      keys.push(col.key);
+      if (shouldCompareColumn(compareEnabled, col)) {
+        keys.push(getPreviousPeriodColumnKey(col.key));
+      }
+    }
+    return keys;
+  }, [columns, compareEnabled]);
+
+  const columnLabels = useMemo(() => {
+    const labels: string[] = [];
+    for (const col of columns) {
+      if (shouldCompareColumn(compareEnabled, col) && comparisonPeriodLabels) {
+        labels.push(
+          formatComparisonMetricLabel(
+            col.label,
+            comparisonPeriodLabels.currentLabel,
+          ),
+        );
+        labels.push(
+          formatComparisonMetricLabel(
+            col.label,
+            comparisonPeriodLabels.previousLabel,
+          ),
+        );
+        continue;
+      }
+
+      labels.push(col.label);
+    }
+    return labels;
+  }, [columns, compareEnabled, comparisonPeriodLabels]);
 
   const hasAnyRatio = useMemo(
     () => columns.some((c) => c.kind === "metric" && c.sub !== "single"),
@@ -157,7 +215,7 @@ export default function useExplorationTableData(
     return getDateGranularity(dateDimension.dateGranularity, dateRange);
   }, [submittedExploreState]);
 
-  const rowData = useMemo(() => {
+  const { rowData, exportRowData } = useMemo(() => {
     const rawRows = exploration?.result?.rows ?? [];
     const isTimeseries =
       submittedExploreState?.dimensions?.[0]?.dimensionType === "date";
@@ -177,12 +235,18 @@ export default function useExplorationTableData(
           )
         : [];
 
-    return sortedRows.map((row, rowIndex) => {
+    const displayRows: Record<string, unknown>[] = [];
+    const csvRows: Record<string, string | number>[] = [];
+
+    for (const [rowIndex, row] of sortedRows.entries()) {
       const comparisonRow = compareEnabled
         ? findComparisonRow(row, comparisonRows, rowIndex, isTimeseries)
         : null;
 
-      const entries = columns.map((col) => {
+      const displayEntries: [string, unknown][] = [];
+      const exportEntries: [string, string | number][] = [];
+
+      for (const col of columns) {
         const raw = getExplorationCellValue(row, col, renderOpts);
         const formatted = formatCellForTable(raw, col, {
           resolvedGranularity,
@@ -190,13 +254,10 @@ export default function useExplorationTableData(
           hasNoDimensions,
         });
 
-        const shouldCompareCell =
-          compareEnabled &&
-          col.kind === "metric" &&
-          (col.sub === "single" || col.sub === "value");
-
-        if (!shouldCompareCell) {
-          return [col.key, formatted] as const;
+        if (!shouldCompareColumn(compareEnabled, col)) {
+          displayEntries.push([col.key, formatted]);
+          exportEntries.push([col.key, formatted]);
+          continue;
         }
 
         const currentValue =
@@ -207,8 +268,17 @@ export default function useExplorationTableData(
           renderOpts,
         );
         const trend = buildComparisonTrend(currentValue, previousValue);
+        const previousRaw = comparisonRow
+          ? getExplorationCellValue(comparisonRow, col, renderOpts)
+          : null;
+        const previousFormatted = formatCellForTable(previousRaw, col, {
+          resolvedGranularity,
+          submittedExploreState,
+          hasNoDimensions,
+        });
+        const previousColumnKey = getPreviousPeriodColumnKey(col.key);
 
-        return [
+        displayEntries.push([
           col.key,
           <Flex
             key={col.key}
@@ -220,10 +290,17 @@ export default function useExplorationTableData(
             <span>{String(formatted)}</span>
             <ComparisonTrendLabel trend={trend} />
           </Flex>,
-        ] as const;
-      });
-      return Object.fromEntries(entries) as Record<string, unknown>;
-    });
+        ]);
+        displayEntries.push([previousColumnKey, previousFormatted]);
+        exportEntries.push([col.key, formatted]);
+        exportEntries.push([previousColumnKey, previousFormatted]);
+      }
+
+      displayRows.push(Object.fromEntries(displayEntries));
+      csvRows.push(Object.fromEntries(exportEntries));
+    }
+
+    return { rowData: displayRows, exportRowData: csvRows };
   }, [
     exploration?.result?.rows,
     comparisonExploration?.result?.rows,
@@ -241,6 +318,7 @@ export default function useExplorationTableData(
 
   return {
     rowData,
+    exportRowData,
     orderedColumnKeys,
     columnLabels,
     headerStructure,

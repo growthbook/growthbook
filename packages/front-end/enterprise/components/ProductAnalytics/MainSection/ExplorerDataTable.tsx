@@ -34,6 +34,7 @@ export default function ExplorerDataTable({
 
   const {
     rowData,
+    exportRowData,
     orderedColumnKeys,
     columnLabels,
     headerStructure,
@@ -56,6 +57,7 @@ export default function ExplorerDataTable({
       headerStructure={headerStructure ?? undefined}
       orderedColumnKeys={orderedColumnKeys}
       columnLabels={columnLabels}
+      csvResults={inlineComparisonEnabled ? exportRowData : undefined}
       paddingTop={(isStale || loading) && !hasChart ? 35 : 0}
     />
   );
