@@ -252,8 +252,8 @@ export function ExplorerProvider({
   }, [baselineConfig, cleanedDraftExploreState]);
 
   const isSubmittable = useMemo(() => {
-    return isSubmittableConfig(cleanedDraftExploreState);
-  }, [cleanedDraftExploreState]);
+    return isSubmittableConfig(cleanedDraftExploreState, getFactTableById);
+  }, [cleanedDraftExploreState, getFactTableById]);
 
   const doSubmit = useCallback(
     async (options?: { cache?: CacheOption; config?: ExplorationConfig }) => {
@@ -329,7 +329,10 @@ export function ExplorerProvider({
           datasource_type: datasourceType,
           duration_ms: durationMs,
           cache,
-          num_values: configToSubmit.dataset?.values?.length ?? 0,
+          num_values:
+            configToSubmit.dataset?.type === "funnel"
+              ? (configToSubmit.dataset.steps?.length ?? 0)
+              : (configToSubmit.dataset?.values?.length ?? 0),
           num_dimensions: configToSubmit.dimensions?.length ?? 0,
         };
         if (errorMessage) {
@@ -416,8 +419,15 @@ export function ExplorerProvider({
 
   const addValueToDataset = useCallback(
     (datasetType: DatasetType) => {
+      // Funnels don't carry "values"; the FunnelTabContent manages steps
+      // directly via setDraftExploreState.
+      if (datasetType === "funnel") return;
       setDraftExploreState((prev) => {
-        if (!prev.dataset || prev.dataset.type !== datasetType) {
+        if (
+          !prev.dataset ||
+          prev.dataset.type === "funnel" ||
+          prev.dataset.type !== datasetType
+        ) {
           return prev;
         }
         const value = createDefaultValue(datasetType);
@@ -442,7 +452,11 @@ export function ExplorerProvider({
   const updateValueInDataset = useCallback(
     (index: number, value: ProductAnalyticsValue) => {
       setDraftExploreState((prev) => {
-        if (!prev.dataset || prev.dataset.type !== value.type) {
+        if (
+          !prev.dataset ||
+          prev.dataset.type === "funnel" ||
+          prev.dataset.type !== value.type
+        ) {
           return prev;
         }
         return {
@@ -464,7 +478,7 @@ export function ExplorerProvider({
   const deleteValueFromDataset = useCallback(
     (index: number) => {
       setDraftExploreState((prev) => {
-        if (!prev.dataset) {
+        if (!prev.dataset || prev.dataset.type === "funnel") {
           return prev;
         }
         const newValues = [
@@ -512,12 +526,17 @@ export function ExplorerProvider({
         // Big Number: normalize to single value and no dimensions so config matches what we display
         if (chartType === "bigNumber") {
           dimensions = [];
-          const values = prev.dataset?.values ?? [];
-          if (values.length > 1) {
-            dataset = {
-              ...prev.dataset,
-              values: values.slice(0, 1),
-            } as ExplorationConfig["dataset"];
+          // Funnels don't carry `values` and the bigNumber chart doesn't
+          // apply to them anyway; the FunnelGraphTypeSelector doesn't
+          // expose bigNumber, but guard defensively in case it slips in.
+          if (prev.dataset?.type !== "funnel") {
+            const values = prev.dataset?.values ?? [];
+            if (values.length > 1) {
+              dataset = {
+                ...prev.dataset,
+                values: values.slice(0, 1),
+              } as ExplorationConfig["dataset"];
+            }
           }
         } else {
           // Time-series charts (line, area) need date dimensions
@@ -575,14 +594,23 @@ export function ExplorerProvider({
 
       setExplorerState((prev) => {
         const type = prev.draftState.dataset.type;
+        const emptyDataset = createEmptyDataset(type);
+        // Funnel datasets manage their own initial state (a single empty
+        // step) inside createEmptyDataset and have no `values`. For the
+        // other dataset types we still want to seed one default value so
+        // the sidebar opens with a ready-to-edit row.
+        const dataset =
+          type === "funnel"
+            ? emptyDataset
+            : ({
+                ...emptyDataset,
+                values: [createDefaultValue(type)],
+              } as ExplorationConfig["dataset"]);
         return {
           draftState: {
             ...initialConfig,
             datasource: datasourceId,
-            dataset: {
-              ...createEmptyDataset(type),
-              values: [createDefaultValue(type)],
-            },
+            dataset,
           } as ExplorationConfig,
           submittedState: null,
           exploration: null,

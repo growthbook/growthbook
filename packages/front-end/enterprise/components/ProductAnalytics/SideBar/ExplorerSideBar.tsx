@@ -30,6 +30,7 @@ import track from "@/services/track";
 import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
+import FunnelTabContent from "./FunnelTabContent";
 import GroupBySection from "./GroupBySection";
 import ShowAsSection from "./ShowAsSection";
 import DatasourceConfigurator from "./DatasourceConfigurator";
@@ -78,7 +79,9 @@ export default function ExplorerSideBar({
       ? "You do not have permission to create or edit dashboards."
       : !isSubmittable
         ? "Configure a valid exploration before saving."
-        : undefined;
+        : draftExploreState.dataset?.type === "funnel"
+          ? "Saving funnels to dashboards isn't supported yet."
+          : undefined;
 
   const dataset = draftExploreState.dataset;
   const activeType: DatasetType = dataset?.type ?? "metric";
@@ -86,6 +89,36 @@ export default function ExplorerSideBar({
     activeType === "fact_table" && dataset?.type === "fact_table"
       ? dataset
       : null;
+  const funnelDataset =
+    activeType === "funnel" && dataset?.type === "funnel" ? dataset : null;
+  // Available units for a funnel: intersection of userIdTypes across every
+  // step's selected fact table. Drives the funnel "Unit" select below.
+  const funnelUnitOptions = (() => {
+    if (!funnelDataset) return [];
+    const factTablesForSteps = funnelDataset.steps
+      .map((s) =>
+        s.factTable ? factTables.find((ft) => ft.id === s.factTable) : null,
+      )
+      .filter((ft): ft is NonNullable<typeof ft> => !!ft);
+    if (
+      !factTablesForSteps.length ||
+      factTablesForSteps.length < funnelDataset.steps.length
+    ) {
+      return [];
+    }
+    return (
+      factTablesForSteps.reduce<string[] | null>((acc, ft) => {
+        const ids = ft.userIdTypes ?? [];
+        if (acc === null) return [...ids];
+        return acc.filter((id) => ids.includes(id));
+      }, null) ?? []
+    );
+  })();
+  const hasFunnelInputs = !!funnelDataset?.steps?.some((s) => !!s.factTable);
+  const hasInputs =
+    dataset?.type === "funnel"
+      ? hasFunnelInputs
+      : (dataset?.values?.length ?? 0) > 0;
 
   return (
     <Flex
@@ -178,11 +211,7 @@ export default function ExplorerSideBar({
               <Button
                 size="sm"
                 variant="solid"
-                disabled={
-                  loading ||
-                  !draftExploreState?.dataset?.values?.length ||
-                  !isSubmittable
-                }
+                disabled={loading || !hasInputs || !isSubmittable}
                 onClick={() => handleSubmit({ force: isStale })}
               >
                 <Flex align="center" gap="2">
@@ -303,16 +332,59 @@ export default function ExplorerSideBar({
           <DatasourceConfigurator dataset={dataset} />
         </Flex>
       )}
+
+      {activeType === "funnel" && funnelDataset && (
+        <Flex
+          width="100%"
+          direction="column"
+          p="3"
+          gap="2"
+          style={{
+            border: "1px solid var(--gray-a3)",
+            borderRadius: "var(--radius-4)",
+            backgroundColor: "var(--color-panel-translucent)",
+          }}
+        >
+          <Text weight="medium" mt="2">
+            Unit
+          </Text>
+          <SelectField
+            value={funnelDataset.unit ?? ""}
+            disabled={!hasFunnelInputs || funnelUnitOptions.length === 0}
+            onChange={(unit) => {
+              setDraftExploreState((prev) => {
+                if (prev.dataset.type !== "funnel") return prev;
+                return {
+                  ...prev,
+                  dataset: { ...prev.dataset, unit: unit || null },
+                } as ExplorationConfig;
+              });
+            }}
+            options={funnelUnitOptions.map((u) => ({ label: u, value: u }))}
+            placeholder={
+              !hasFunnelInputs
+                ? "Pick a fact table first"
+                : funnelUnitOptions.length === 0
+                  ? "No shared user identifier across steps"
+                  : "Select unit..."
+            }
+            forceUndefinedValueToNull
+          />
+        </Flex>
+      )}
+
       <Box p="0">
         {activeType === "metric" && <MetricTabContent />}
         {activeType === "fact_table" && <FactTableTabContent />}
         {activeType === "data_source" && <DatasourceTabContent />}
+        {activeType === "funnel" && <FunnelTabContent />}
       </Box>
 
-      {showAsAppliesTo(draftExploreState, getFactMetricById) && (
-        <ShowAsSection />
-      )}
-      {dataset?.values?.length > 0 && <GroupBySection />}
+      {activeType !== "funnel" &&
+        showAsAppliesTo(draftExploreState, getFactMetricById) && (
+          <ShowAsSection />
+        )}
+      {hasInputs && <GroupBySection />}
     </Flex>
   );
 }

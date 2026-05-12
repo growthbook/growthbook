@@ -9,7 +9,10 @@ import {
   DropdownMenuGroup,
 } from "@/ui/DropdownMenu";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
-import { getRefreshInterval } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  getRefreshInterval,
+  hasSubmittablePayload,
+} from "@/enterprise/components/ProductAnalytics/util";
 
 interface LastRefreshedIndicatorProps {
   lastRefreshedAt: Date | null;
@@ -53,7 +56,7 @@ export default function LastRefreshedIndicator({
   if (!lastRefreshedAt) return null;
 
   const isUpdateDisabled =
-    loading || !draftExploreState?.dataset?.values?.length || !isSubmittable;
+    loading || !hasSubmittablePayload(draftExploreState) || !isSubmittable;
 
   const trigger = (
     <Flex

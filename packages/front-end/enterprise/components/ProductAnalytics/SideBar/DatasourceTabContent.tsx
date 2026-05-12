@@ -103,7 +103,11 @@ export default function DatasourceTabContent() {
                         getValueTypeLabel(
                           val as "count" | "unit_count" | "sum",
                         ),
-                        draftExploreState.dataset.values,
+                        // Tab content only renders when the dataset is
+                        // "data_source"; narrow defensively.
+                        draftExploreState.dataset.type === "data_source"
+                          ? draftExploreState.dataset.values
+                          : [],
                       ),
                     } as DataSourceValue)
                   }

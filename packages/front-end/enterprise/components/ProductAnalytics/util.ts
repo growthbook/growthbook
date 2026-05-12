@@ -14,6 +14,7 @@ import type {
   ExplorationConfig,
   ProductAnalyticsResultRow,
   ShowAs,
+  FunnelStep,
 } from "shared/validators";
 import { isEqual } from "lodash";
 import { createParser } from "nuqs";
@@ -108,9 +109,30 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
         valueColumn: null,
         unit: null,
       } as DataSourceValue;
+    case "funnel":
+      // The funnel sidebar manages steps directly; nothing in the codebase
+      // should ask for a "value" on a funnel dataset.
+      throw new Error("Funnels do not use values");
     default:
       throw new Error(`Invalid dataset type: ${type}`);
   }
+}
+
+/** Builds an empty funnel step. `factTable` is optional so the "Add step"
+ *  button can prefill from the previous step (the inherited default). */
+export function createEmptyFunnelStep({
+  name,
+  factTable = "",
+}: {
+  name: string;
+  factTable?: string;
+}): FunnelStep {
+  return {
+    name,
+    factTable,
+    rowFilters: [],
+    optional: false,
+  };
 }
 
 export function generateUniqueValueName(
@@ -149,6 +171,12 @@ export function createEmptyDataset(type: DatasetType): ExplorationDataset {
       timestampColumn: "",
       columnTypes: {},
     };
+  } else if (type === "funnel") {
+    return {
+      type,
+      unit: null,
+      steps: [createEmptyFunnelStep({ name: "Step 1" })],
+    };
   } else {
     throw new Error(`Invalid dataset type: ${type}`);
   }
@@ -159,7 +187,15 @@ export function getCommonColumns(
   getFactTableById: (id: string) => FactTableInterface | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): Pick<ColumnInterface, "column" | "name">[] {
-  if (!dataset || !dataset.values || dataset.values.length === 0) return [];
+  if (!dataset) return [];
+  // Funnels use first-touch dimensions on the initial step's fact table,
+  // so the candidate columns come from that one fact table — even when
+  // later steps reference different fact tables.
+  if (dataset.type !== "funnel") {
+    if (!dataset.values || dataset.values.length === 0) return [];
+  } else {
+    if (!dataset.steps || dataset.steps.length === 0) return [];
+  }
 
   type SimpleColumn = Pick<ColumnInterface, "column" | "name" | "deleted">;
   let columns: SimpleColumn[] | null = null;
@@ -192,6 +228,12 @@ export function getCommonColumns(
       name,
       deleted: false,
     }));
+  } else if (dataset.type === "funnel") {
+    const initialStep = dataset.steps[0];
+    const ft = initialStep?.factTable
+      ? getFactTableById(initialStep.factTable)
+      : null;
+    columns = ft?.columns || [];
   }
 
   return (columns || [])
@@ -201,6 +243,8 @@ export function getCommonColumns(
 }
 
 export function getMaxDimensions(dataset: ExplorationDataset): number {
+  // Phase 1 funnels are capped at a single dimension.
+  if (dataset.type === "funnel") return 1;
   let maxDimensions = 2;
   if (dataset.values.length > 1) {
     maxDimensions -= 1;
@@ -301,7 +345,32 @@ export function fillMissingUnits(
   getFactTableById: (id: string) => FactTableInterface | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): ExplorationConfig {
-  if (!config.dataset || config.dataset.type !== "metric") return config;
+  if (!config.dataset) return config;
+
+  if (config.dataset.type === "funnel") {
+    // Funnels store unit at the dataset level (not per-step). Default to the
+    // first userIdType that exists on every step's fact table.
+    if (config.dataset.unit) return config;
+    const steps = config.dataset.steps;
+    if (!steps.length) return config;
+    const factTables = steps
+      .map((s) => (s.factTable ? getFactTableById(s.factTable) : null))
+      .filter((ft): ft is FactTableInterface => !!ft);
+    if (factTables.length !== steps.length) return config;
+    const intersection = factTables.reduce<string[] | null>((acc, ft) => {
+      const ids = ft.userIdTypes ?? [];
+      if (acc === null) return [...ids];
+      return acc.filter((id) => ids.includes(id));
+    }, null);
+    const defaultUnit = intersection?.[0];
+    if (!defaultUnit) return config;
+    return {
+      ...config,
+      dataset: { ...config.dataset, unit: defaultUnit },
+    } as ExplorationConfig;
+  }
+
+  if (config.dataset.type !== "metric") return config;
 
   let changed = false;
   const newValues = config.dataset.values.map((v) => {
@@ -340,11 +409,11 @@ function isCompleteFilter(filter: RowFilter): boolean {
 }
 
 /** Removes incomplete (partially configured) row filters from a value. */
-function cleanRowFilters<T extends ProductAnalyticsValue>(value: T): T {
+function cleanRowFilters<T extends { rowFilters: RowFilter[] }>(value: T): T {
   return {
     ...value,
     rowFilters: value.rowFilters.filter(isCompleteFilter),
-  } as T;
+  };
 }
 
 /** Removes incomplete (partially configured) inputs (values, filters) from a dataset. (e.g. sum values without a value column) */
@@ -379,6 +448,11 @@ export function removeIncompleteInputs(
           return !!v.valueColumn;
         })
         .map(cleanRowFilters),
+    };
+  } else if (dataset.type === "funnel") {
+    return {
+      ...dataset,
+      steps: dataset.steps.filter((s) => !!s.factTable).map(cleanRowFilters),
     };
   }
   return dataset;
@@ -426,6 +500,18 @@ function getChartCategory(chartType: ExplorationConfig["chartType"]): string {
 function toFetchKey(config: ExplorationConfig): unknown {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { showAs, ...rest } = config;
+  if (config.dataset.type === "funnel") {
+    return {
+      ...rest,
+      chartType: getChartCategory(config.chartType),
+      dataset: {
+        ...config.dataset,
+        // Renaming a step shouldn't trigger a refetch — only its data inputs do.
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        steps: config.dataset.steps.map(({ name, ...stepRest }) => stepRest),
+      },
+    };
+  }
   return {
     ...rest,
     chartType: getChartCategory(config.chartType),
@@ -437,28 +523,48 @@ function toFetchKey(config: ExplorationConfig): unknown {
   };
 }
 
-/** Checks if a config is minimally complete in order to be submitted
- *  metrics just need at least 1 value
- *  fact tables just need a fact table id
- *  data sources just need a datasource, table, and timestamp column
+/** Checks if a config is minimally complete in order to be submitted.
+ *  - metric/fact_table/data_source: need at least 1 value
+ *  - fact_table: also needs a fact table id
+ *  - data_source: also needs a table + timestamp column
+ *  - funnel: needs ≥2 steps with fact tables, a `unit`, and the unit must
+ *    exist as a userIdType on every step's fact table.
  */
-export function isSubmittableConfig(cleanedConfig: ExplorationConfig): boolean {
-  if (!cleanedConfig?.dataset || !Array.isArray(cleanedConfig.dataset.values)) {
-    return false;
+export function isSubmittableConfig(
+  cleanedConfig: ExplorationConfig,
+  getFactTableById?: (id: string) => FactTableInterface | null,
+): boolean {
+  if (!cleanedConfig?.dataset) return false;
+
+  if (cleanedConfig.dataset.type === "funnel") {
+    const { unit, steps } = cleanedConfig.dataset;
+    if (!unit) return false;
+    if (!Array.isArray(steps) || steps.length < 2) return false;
+    if (!steps.every((s) => !!s.factTable)) return false;
+    if (getFactTableById) {
+      // Every step's fact table must expose the funnel-level unit as a
+      // userIdType — otherwise per-user joins across steps are impossible.
+      // We block submission rather than silently returning empty results.
+      for (const step of steps) {
+        const ft = getFactTableById(step.factTable);
+        if (!ft) return false;
+        if (!ft.userIdTypes?.includes(unit)) return false;
+      }
+    }
+  } else {
+    if (!Array.isArray(cleanedConfig.dataset.values)) return false;
+    if (cleanedConfig.dataset.values.length === 0) return false;
+    if (
+      cleanedConfig.dataset.type == "fact_table" &&
+      cleanedConfig.dataset.factTableId === null
+    )
+      return false;
+    if (
+      cleanedConfig.dataset.type === "data_source" &&
+      (!cleanedConfig.dataset.table || !cleanedConfig.dataset.timestampColumn)
+    )
+      return false;
   }
-
-  if (cleanedConfig.dataset.values.length === 0) return false;
-  if (
-    cleanedConfig.dataset.type == "fact_table" &&
-    cleanedConfig.dataset.factTableId === null
-  )
-    return false;
-
-  if (
-    cleanedConfig.dataset.type === "data_source" &&
-    (!cleanedConfig.dataset.table || !cleanedConfig.dataset.timestampColumn)
-  )
-    return false;
 
   if (
     cleanedConfig.dateRange.predefined === "customDateRange" &&
@@ -476,8 +582,11 @@ export function compareConfig(
   newConfig: ExplorationConfig,
 ): { needsFetch: boolean; needsUpdate: boolean } {
   if (!lastSubmittedConfig) {
-    const hasValues = newConfig.dataset.values.length > 0;
-    return { needsFetch: hasValues, needsUpdate: hasValues };
+    const hasInputs =
+      newConfig.dataset.type === "funnel"
+        ? newConfig.dataset.steps.length > 0
+        : newConfig.dataset.values.length > 0;
+    return { needsFetch: hasInputs, needsUpdate: hasInputs };
   }
 
   if (isEqual(lastSubmittedConfig, newConfig)) {
@@ -530,11 +639,49 @@ export function formatDateByGranularity(
   }
 }
 
+/** Formats a millisecond duration as a compact "1m 23s" style string. */
+export function formatDurationMs(ms: number | null | undefined): string {
+  if (ms == null || !Number.isFinite(ms) || ms < 0) return "—";
+  const totalSec = Math.round(ms / 1000);
+  if (totalSec < 60) return `${totalSec}s`;
+  const totalMin = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  if (totalMin < 60) {
+    return sec ? `${totalMin}m ${sec}s` : `${totalMin}m`;
+  }
+  const totalHr = Math.floor(totalMin / 60);
+  const min = totalMin % 60;
+  if (totalHr < 24) {
+    return min ? `${totalHr}h ${min}m` : `${totalHr}h`;
+  }
+  const days = Math.floor(totalHr / 24);
+  const hr = totalHr % 24;
+  return hr ? `${days}d ${hr}h` : `${days}d`;
+}
+
 export function getRefreshInterval(elapsedSeconds: number): number {
   if (elapsedSeconds < 60) return 10_000; // 0-59s: update every 10s
   if (elapsedSeconds < 3600) return 60_000; // 1-59m: update every 60s
   if (elapsedSeconds < 86400) return 300_000; // 1-23h: update every 5m
   return 900_000; // 24h+: update every 15m
+}
+
+/**
+ * True when a submitted state has enough inputs to render results. Used by
+ * the main section's empty-state guard. Funnels need ≥2 steps; other dataset
+ * types need ≥1 value. `cleanConfigForSubmission` is expected to have run
+ * already (we don't re-check completeness here). Acts as a type predicate
+ * so callers can pass the narrowed `ExplorationConfig` straight to children
+ * that require a non-null config.
+ */
+export function hasSubmittablePayload(
+  config: ExplorationConfig | null,
+): config is ExplorationConfig {
+  if (!config?.dataset) return false;
+  if (config.dataset.type === "funnel") {
+    return (config.dataset.steps?.length ?? 0) >= 2;
+  }
+  return (config.dataset.values?.length ?? 0) > 0;
 }
 
 export function shouldChartSectionShow(params: {
@@ -585,7 +732,12 @@ export interface RenderOpts {
 }
 
 function getRowTotal(row: ProductAnalyticsResultRow, opts: RenderOpts): number {
-  return row.values.reduce(
+  // Funnel rows define "row total" as the count at the first step — that is
+  // the funnel's size at this dimension and is what we want to sort by.
+  if (row.steps) {
+    return row.steps[0]?.count ?? 0;
+  }
+  return (row.values ?? []).reduce(
     (sum, v, i) =>
       sum +
       getEffectiveMetricValue(v, {

@@ -23,6 +23,10 @@ export const clickHouseDialect: SqlDialect = {
     `dateTrunc('${granularity}', ${col})`,
   dateDiff: (startCol: string, endCol: string) =>
     `dateDiff('day', ${startCol}, ${endCol})`,
+  dateDiffMs: (startCol: string, endCol: string) =>
+    `dateDiff('millisecond', ${startCol}, ${endCol})`,
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
+    `date${sign === "+" ? "Add" : "Sub"}(second, ${amount}, ${col})`,
   formatDate: (col: string) => `formatDateTime(${col}, '%F')`,
   formatDateTimeString: (col: string) =>
     `formatDateTime(${col}, '%Y-%m-%d %H:%i:%S.%f')`,

@@ -5,7 +5,10 @@ import { PiArrowsClockwise, PiDotsSix, PiInfo } from "react-icons/pi";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
-import { shouldChartSectionShow } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  hasSubmittablePayload,
+  shouldChartSectionShow,
+} from "@/enterprise/components/ProductAnalytics/util";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ExplorerChart from "./ExplorerChart";
@@ -48,8 +51,7 @@ export default function ExplorerMainSection() {
         style={{ flex: "1", minHeight: 0, position: "relative" }}
         id="main-section-visuals"
       >
-        {submittedExploreState?.dataset?.values?.length &&
-        submittedExploreState?.dataset?.values?.length > 0 ? (
+        {hasSubmittablePayload(submittedExploreState) ? (
           <PanelGroup direction="vertical" id="visualization-group">
             {showChartSection && (
               <>
@@ -157,7 +159,7 @@ export default function ExplorerMainSection() {
                       size="sm"
                       variant="solid"
                       disabled={
-                        !draftExploreState?.dataset?.values?.length ||
+                        !hasSubmittablePayload(draftExploreState) ||
                         !isSubmittable
                       }
                       onClick={() => handleSubmit({ force: true })}

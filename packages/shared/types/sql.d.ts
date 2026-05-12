@@ -33,6 +33,19 @@ export interface SqlDialect {
     granularity: "hour" | "day" | "week" | "month" | "year",
   ) => string;
   dateDiff: (startCol: string, endCol: string) => string;
+  /**
+   * Millisecond difference `endCol - startCol`. Used by funnel SQL for
+   * per-step time-from-previous stats. Default implementation works in
+   * Postgres-flavored dialects; ClickHouse and friends override it.
+   */
+  dateDiffMs: (startCol: string, endCol: string) => string;
+  /**
+   * Shift a timestamp expression by `amount` seconds. `sign` is "+" or "-".
+   * Used by funnel SQL to apply concurrency tolerance / conversion-window
+   * bounds. Default implementation uses ANSI `INTERVAL '<n> seconds'`
+   * arithmetic; dialects without that syntax should override.
+   */
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) => string;
   percentileApprox: (column: string, percentile: number | string) => string;
   toTimestamp: (date: Date) => string;
   castToFloat: (column: string) => string;

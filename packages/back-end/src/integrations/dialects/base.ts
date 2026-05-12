@@ -19,6 +19,12 @@ export const baseDialect: SqlDialect = {
   dateDiff: (startCol: string, endCol: string) =>
     `datediff(day, ${startCol}, ${endCol})`,
 
+  dateDiffMs: (startCol: string, endCol: string) =>
+    `(EXTRACT(EPOCH FROM (${endCol} - ${startCol})) * 1000)`,
+
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
+    `${col} ${sign} INTERVAL '${amount} seconds'`,
+
   percentileApprox: (column: string, percentile: number | string) =>
     `APPROX_PERCENTILE(${column}, ${percentile})`,
 

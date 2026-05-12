@@ -30,6 +30,7 @@ import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
+import FunnelChart from "./FunnelChart";
 
 const CHART_ID = "explorer-chart";
 
@@ -60,6 +61,9 @@ function getSeriesTitle(
   valueIndex: number,
   fallback: string,
 ): string {
+  // Funnel rendering goes through FunnelChart; this helper is only ever
+  // called for metric/fact_table/data_source datasets.
+  if (config?.dataset?.type === "funnel") return fallback;
   return config?.dataset?.values?.[valueIndex]?.name ?? fallback;
 }
 
@@ -111,7 +115,10 @@ export default function ExplorerChart({
     if (
       !exploration?.result?.rows?.length ||
       !submittedExploreState ||
-      ["table", "timeseries-table"].includes(submittedExploreState.chartType)
+      ["table", "timeseries-table"].includes(submittedExploreState.chartType) ||
+      // Funnels render through FunnelChart (early-returned below); this
+      // ECharts config builder doesn't know how to read `row.steps`.
+      submittedExploreState.dataset?.type === "funnel"
     )
       return null;
     const rows = exploration.result.rows;
@@ -133,7 +140,7 @@ export default function ExplorerChart({
       chartType === "stackedBar" || chartType === "stackedHorizontalBar";
 
     if (chartType === "bigNumber") {
-      const firstValue = rows[0]?.values[0];
+      const firstValue = rows[0]?.values?.[0];
       const value = firstValue
         ? getEffectiveMetricValue(firstValue, {
             showAs: renderOpts.showAs,
@@ -162,7 +169,7 @@ export default function ExplorerChart({
       const groupParts = row.dimensions.slice(1);
       const groupKey = groupParts.length > 0 ? groupParts.join(" - ") : "";
 
-      row.values.forEach((v, valueIndex) => {
+      (row.values ?? []).forEach((v, valueIndex) => {
         // Create a unique key for this series: Value index + Group
         const seriesKey = JSON.stringify({ i: valueIndex, g: groupKey });
 
@@ -422,7 +429,12 @@ export default function ExplorerChart({
 
   const hasEmptyData = useMemo(() => {
     if (!exploration?.result?.rows?.length) return true;
-    return exploration.result.rows.every((r) => r.values.length === 0);
+    // Funnels carry `steps` instead of `values`; treat a row as empty when
+    // neither array has entries (a result row should always be one or the
+    // other based on dataset.type).
+    return exploration.result.rows.every(
+      (r) => !(r.values?.length || r.steps?.length),
+    );
   }, [exploration?.result?.rows]);
 
   if (
@@ -433,6 +445,40 @@ export default function ExplorerChart({
     })
   )
     return null;
+
+  // Funnels have a wholly different visualization than metric/fact-table/
+  // data-source datasets. Render the funnel-specific chart and bypass the
+  // ECharts config we built above.
+  if (submittedExploreState?.dataset?.type === "funnel") {
+    return (
+      <Flex
+        direction="column"
+        position="relative"
+        style={{
+          border: "1px solid var(--gray-a3)",
+          borderRadius: "var(--radius-4)",
+          flex: 1,
+          minHeight: 0,
+        }}
+      >
+        {error ? (
+          <Box p="4">
+            {isManagedWarehousePendingQueryError(error) ? (
+              <ManagedWarehouseNoEventsCallout />
+            ) : (
+              <Callout status="error">{error}</Callout>
+            )}
+          </Box>
+        ) : (
+          <FunnelChart
+            exploration={exploration}
+            submittedExploreState={submittedExploreState}
+            animate={animate}
+          />
+        )}
+      </Flex>
+    );
+  }
 
   return (
     <Flex

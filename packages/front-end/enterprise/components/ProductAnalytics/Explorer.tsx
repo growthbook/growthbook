@@ -27,6 +27,7 @@ const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
   metric: "Metric",
   fact_table: "Fact Table",
   data_source: "Data Source",
+  funnel: "Funnel",
 };
 
 const explorationQueryParser = explorationConfigParser.withOptions({
@@ -160,12 +161,18 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     () => configError,
   );
 
+  // Funnels manage their initial state via createEmptyDataset (which seeds
+  // one empty step); the other dataset types still seed an empty value here
+  // so the sidebar opens with one ready-to-edit row.
   const defaultDataset = createEmptyDataset(type);
   const defaultDraftState = {
     ...DEFAULT_EXPLORE_STATE,
     type,
     datasource: defaultDataSourceId,
-    dataset: { ...defaultDataset, values: [createEmptyValue(type)] },
+    dataset:
+      type === "funnel"
+        ? defaultDataset
+        : { ...defaultDataset, values: [createEmptyValue(type)] },
   } as ExplorationConfig;
 
   const initialConfig =
