@@ -280,13 +280,7 @@ export default function useExplorationTableData(
 
         displayEntries.push([
           col.key,
-          <Flex
-            key={col.key}
-            direction="row"
-            align="center"
-            gap="1"
-            wrap="wrap"
-          >
+          <Flex key={col.key} direction="row" align="center" gap="1" wrap="wrap">
             <span>{String(formatted)}</span>
             <ComparisonTrendLabel trend={trend} />
           </Flex>,

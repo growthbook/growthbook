@@ -38,6 +38,17 @@ const CATEGORICAL_OVERLAY_CHART_TYPES = new Set<ExplorationConfig["chartType"]>(
   ["bar", "stackedBar", "horizontalBar", "stackedHorizontalBar"],
 );
 
+export const CURRENT_COMPARISON_STACK_ID = "stack";
+export const PREVIOUS_COMPARISON_STACK_ID = "previous";
+
+export type ComparisonOverlayPresentationMode =
+  | "overlay"
+  | "grouped"
+  | "normalized";
+
+export const DEFAULT_COMPARISON_OVERLAY_PRESENTATION_MODE: ComparisonOverlayPresentationMode =
+  "overlay";
+
 export type ComparisonTrendDirection = "up" | "down" | "flat" | "none";
 
 export type ComparisonTrend = {
@@ -134,6 +145,95 @@ export function formatComparisonMetricLabel(
   periodLabel: string,
 ): string {
   return `${metricName} (${periodLabel})`;
+}
+
+export function getComparisonGroupKey(row: ProductAnalyticsResultRow): string {
+  return row.dimensions.slice(1).join(" - ");
+}
+
+export function buildComparisonSeriesKey(
+  valueIndex: number,
+  groupKey: string,
+): string {
+  return JSON.stringify({ i: valueIndex, g: groupKey });
+}
+
+export function buildComparisonSeriesName({
+  metricName,
+  groupKey,
+  numMetrics,
+}: {
+  metricName: string;
+  groupKey: string;
+  numMetrics: number;
+}): string {
+  if (groupKey) {
+    if (numMetrics > 1) {
+      return `${metricName} (${groupKey})`;
+    }
+    return groupKey;
+  }
+  return metricName;
+}
+
+export function getComparisonStackId(
+  isPrevious: boolean,
+  isStacked: boolean,
+): string | undefined {
+  if (!isStacked) {
+    return undefined;
+  }
+  return isPrevious
+    ? PREVIOUS_COMPARISON_STACK_ID
+    : CURRENT_COMPARISON_STACK_ID;
+}
+
+export function buildComparisonOverlaySeriesMaps(
+  rows: ProductAnalyticsResultRow[],
+  submittedExploreState: ExplorationConfig,
+  renderOpts: RenderOpts,
+): {
+  uniqueXValues: Set<string>;
+  dataMap: Record<string, Record<string, number>>;
+  seriesMeta: Record<string, { metricId: string; name: string }>;
+} {
+  const uniqueXValues = new Set<string>();
+  const dataMap: Record<string, Record<string, number>> = {};
+  const seriesMeta: Record<string, { metricId: string; name: string }> = {};
+  const numMetrics = submittedExploreState.dataset?.values?.length ?? 0;
+
+  rows.forEach((row) => {
+    const xValue = row.dimensions[0] || "";
+    uniqueXValues.add(xValue);
+    const groupKey = getComparisonGroupKey(row);
+
+    row.values.forEach((value, valueIndex) => {
+      const seriesKey = buildComparisonSeriesKey(valueIndex, groupKey);
+      if (!dataMap[seriesKey]) {
+        dataMap[seriesKey] = {};
+        const metricName = getMetricName(
+          submittedExploreState,
+          valueIndex,
+          value.metricId,
+        );
+        seriesMeta[seriesKey] = {
+          metricId: value.metricId,
+          name: buildComparisonSeriesName({
+            metricName,
+            groupKey,
+            numMetrics,
+          }),
+        };
+      }
+
+      dataMap[seriesKey][xValue] = getEffectiveMetricValue(value, {
+        showAs: renderOpts.showAs,
+        isRatio: renderOpts.isRatioByIndex[valueIndex] ?? false,
+      });
+    });
+  });
+
+  return { uniqueXValues, dataMap, seriesMeta };
 }
 
 export function getComparisonPeriodLabels(
@@ -282,10 +382,6 @@ function getMetricName(
   return submittedExploreState.dataset?.values?.[valueIndex]?.name ?? metricId;
 }
 
-function getGroupKey(row: ProductAnalyticsResultRow): string {
-  return row.dimensions.slice(1).join(" - ");
-}
-
 function sumMetricValues(
   rows: ProductAnalyticsResultRow[],
   valueIndex: number,
@@ -374,7 +470,7 @@ export function computePeriodSummary(
   const groupKeys = new Set<string>();
 
   for (const row of [...currentRows, ...comparisonRows]) {
-    groupKeys.add(getGroupKey(row));
+    groupKeys.add(getComparisonGroupKey(row));
   }
 
   const summaries: PeriodSummary[] = [];
@@ -393,10 +489,10 @@ export function computePeriodSummary(
 
     for (const groupKey of groupKeys) {
       const currentGroupRows = currentRows.filter(
-        (row) => getGroupKey(row) === groupKey,
+        (row) => getComparisonGroupKey(row) === groupKey,
       );
       const comparisonGroupRows = comparisonRows.filter(
-        (row) => getGroupKey(row) === groupKey,
+        (row) => getComparisonGroupKey(row) === groupKey,
       );
       const currentTotal = sumMetricValues(
         currentGroupRows,

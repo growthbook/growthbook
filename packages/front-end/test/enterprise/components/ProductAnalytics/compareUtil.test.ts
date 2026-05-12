@@ -6,11 +6,18 @@ import type {
 import {
   alignComparisonOverlayToCategories,
   alignSeriesByIndex,
+  buildComparisonOverlaySeriesMaps,
+  buildComparisonSeriesKey,
+  buildComparisonSeriesName,
   buildComparisonTrend,
   computeBigNumberComparisonTrend,
   computePeriodSummary,
+  CURRENT_COMPARISON_STACK_ID,
   formatPercentChange,
+  getComparisonGroupKey,
   getComparisonPeriodLabels,
+  getComparisonStackId,
+  PREVIOUS_COMPARISON_STACK_ID,
   showsCompactComparisonSummary,
   showsComparisonOverview,
   supportsAlwaysOnComparisonOverlay,
@@ -101,8 +108,41 @@ describe("compareUtil", () => {
     });
   });
 
+  it("builds comparison series keys and display names per metric and group", () => {
+    expect(buildComparisonSeriesKey(1, "US")).toBe(
+      JSON.stringify({ i: 1, g: "US" }),
+    );
+    expect(
+      buildComparisonSeriesName({
+        metricName: "Signups",
+        groupKey: "US",
+        numMetrics: 2,
+      }),
+    ).toBe("Signups (US)");
+    expect(
+      buildComparisonSeriesName({
+        metricName: "Signups",
+        groupKey: "US",
+        numMetrics: 1,
+      }),
+    ).toBe("US");
+    expect(
+      buildComparisonSeriesName({
+        metricName: "Signups",
+        groupKey: "",
+        numMetrics: 1,
+      }),
+    ).toBe("Signups");
+  });
+
+  it("uses separate stack ids for current and previous stacked bars", () => {
+    expect(getComparisonStackId(false, true)).toBe(CURRENT_COMPARISON_STACK_ID);
+    expect(getComparisonStackId(true, true)).toBe(PREVIOUS_COMPARISON_STACK_ID);
+    expect(getComparisonStackId(false, false)).toBeUndefined();
+  });
+
   it("aligns categorical bar overlay by category label", () => {
-    const seriesKey = JSON.stringify({ i: 0, g: "" });
+    const seriesKey = buildComparisonSeriesKey(0, "");
     const comparisonDataMap = {
       [seriesKey]: {
         A: 10,
@@ -126,8 +166,31 @@ describe("compareUtil", () => {
     });
   });
 
+  it("aligns stacked bar overlay by category label", () => {
+    const seriesKey = buildComparisonSeriesKey(0, "US");
+    const comparisonDataMap = {
+      [seriesKey]: {
+        A: 10,
+        B: 20,
+      },
+    };
+
+    const aligned = alignComparisonOverlayToCategories(
+      "stackedBar",
+      ["B", "A"],
+      comparisonDataMap,
+      [seriesKey],
+      ["A", "B"],
+    );
+
+    expect(aligned[seriesKey]).toEqual({
+      B: 20,
+      A: 10,
+    });
+  });
+
   it("aligns line overlay buckets by ordinal index", () => {
-    const seriesKey = JSON.stringify({ i: 0, g: "" });
+    const seriesKey = buildComparisonSeriesKey(0, "");
     const comparisonDataMap = {
       [seriesKey]: {
         "2026-05-03T00:00:00.000Z": 10,
@@ -160,7 +223,7 @@ describe("compareUtil", () => {
   });
 
   it("maps missing prior categories to zero in bar overlay", () => {
-    const seriesKey = JSON.stringify({ i: 0, g: "" });
+    const seriesKey = buildComparisonSeriesKey(0, "");
     const comparisonDataMap = {
       [seriesKey]: {
         A: 10,
@@ -226,6 +289,64 @@ describe("compareUtil", () => {
       currentLabel: "Apr 1–May 1",
       previousLabel: "Mar 1–31",
     });
+  });
+
+  it("builds overlay series maps with one pair per metric and group", () => {
+    const rows = [
+      {
+        dimensions: ["2026-05-10T00:00:00.000Z", "US"],
+        values: [
+          { metricId: "metric_signups", numerator: 30, denominator: null },
+          { metricId: "metric_revenue", numerator: 100, denominator: null },
+        ],
+      },
+      {
+        dimensions: ["2026-05-10T00:00:00.000Z", "CA"],
+        values: [
+          { metricId: "metric_signups", numerator: 10, denominator: null },
+          { metricId: "metric_revenue", numerator: 40, denominator: null },
+        ],
+      },
+    ];
+    const { dataMap, seriesMeta } = buildComparisonOverlaySeriesMaps(
+      rows,
+      {
+        ...submittedExploreState,
+        dataset: {
+          type: "metric",
+          values: [
+            {
+              name: "Signups",
+              type: "metric",
+              metricId: "metric_signups",
+              rowFilters: [],
+              unit: null,
+              denominatorUnit: null,
+            },
+            {
+              name: "Revenue",
+              type: "metric",
+              metricId: "metric_revenue",
+              rowFilters: [],
+              unit: null,
+              denominatorUnit: null,
+            },
+          ],
+        },
+      },
+      {
+        showAs: "total",
+        isRatioByIndex: [false, false],
+      },
+    );
+
+    const signupsKey = buildComparisonSeriesKey(0, "US");
+    const revenueKey = buildComparisonSeriesKey(1, "CA");
+    expect(getComparisonGroupKey(rows[0])).toBe("US");
+    expect(seriesMeta[signupsKey].name).toBe("Signups (US)");
+    expect(seriesMeta[revenueKey].name).toBe("Revenue (CA)");
+    expect(dataMap[signupsKey]["2026-05-10T00:00:00.000Z"]).toBe(30);
+    expect(dataMap[revenueKey]["2026-05-10T00:00:00.000Z"]).toBe(40);
   });
 
   it("computes period summary totals and averages", () => {

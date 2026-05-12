@@ -33,9 +33,11 @@ import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/Manag
 import ComparisonTrendLabel from "@/enterprise/components/ProductAnalytics/ComparisonTrendLabel";
 import {
   alignComparisonOverlayToCategories,
+  buildComparisonOverlaySeriesMaps,
   computeBigNumberComparisonTrend,
   formatComparisonMetricLabel,
   getComparisonPeriodLabels,
+  getComparisonStackId,
   supportsAlwaysOnComparisonOverlay,
 } from "@/enterprise/components/ProductAnalytics/compareUtil";
 
@@ -69,14 +71,6 @@ function formatNumber(value: number): string {
     return `${(value / 1000).toFixed(1)}K`;
   }
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
-}
-
-function getSeriesTitle(
-  config: ExplorationConfig | null,
-  valueIndex: number,
-  fallback: string,
-): string {
-  return config?.dataset?.values?.[valueIndex]?.name ?? fallback;
 }
 
 export default function ExplorerChart({
@@ -179,61 +173,11 @@ export default function ExplorerChart({
       return { type: "bigNumber" as const, value };
     }
 
-    // 1. Collect all unique dates/categories (X-axis) and data points
-    const uniqueXValues = new Set<string>();
-    // Map structure: { "seriesKey": { "xValue": value } }
-    const dataMap: Record<string, Record<string, number>> = {};
-    // Track metadata for each series key to build the final series config
-    const seriesMeta: Record<string, { metricId: string; name: string }> = {};
+    const { uniqueXValues, dataMap, seriesMeta } =
+      buildComparisonOverlaySeriesMaps(rows, submittedExploreState, renderOpts);
 
     const numMetrics = submittedExploreState?.dataset?.values?.length ?? 0;
     const numDimensions = submittedExploreState?.dimensions?.length ?? 0;
-
-    rows.forEach((row) => {
-      // First dimension is the X-axis value (Date or Category)
-      const xValue = row.dimensions[0] || "";
-      uniqueXValues.add(xValue);
-
-      // Remaining dimensions form the group key
-      const groupParts = row.dimensions.slice(1);
-      const groupKey = groupParts.length > 0 ? groupParts.join(" - ") : "";
-
-      row.values.forEach((v, valueIndex) => {
-        // Create a unique key for this series: Value index + Group
-        const seriesKey = JSON.stringify({ i: valueIndex, g: groupKey });
-
-        if (!dataMap[seriesKey]) {
-          dataMap[seriesKey] = {};
-
-          // Construct a friendly name using the config's value name by index
-          const metricName = getSeriesTitle(
-            submittedExploreState,
-            valueIndex,
-            v.metricId,
-          );
-          let name: string;
-          if (groupKey) {
-            if (numMetrics > 1) {
-              name = `${metricName} (${groupKey})`;
-            } else {
-              name = groupKey;
-            }
-          } else {
-            name = metricName;
-          }
-
-          seriesMeta[seriesKey] = {
-            metricId: v.metricId,
-            name,
-          };
-        }
-
-        dataMap[seriesKey][xValue] = getEffectiveMetricValue(v, {
-          showAs: renderOpts.showAs,
-          isRatio: renderOpts.isRatioByIndex[valueIndex] ?? false,
-        });
-      });
-    });
 
     // 2. Compute cumulative totals for sorting
     const seriesTotals: Record<string, number> = {};
@@ -333,11 +277,7 @@ export default function ExplorerChart({
               data,
               color,
               type: "bar" as const,
-              stack: isStacked
-                ? isPrevious
-                  ? "previous"
-                  : "stack"
-                : undefined,
+              stack: getComparisonStackId(isPrevious, isStacked),
             };
           }
 
@@ -382,51 +322,14 @@ export default function ExplorerChart({
       comparisonExploration?.result?.rows?.length &&
       supportsAlwaysOnComparisonOverlay(chartType)
     ) {
-      const comparisonRows = comparisonExploration.result.rows;
-      const comparisonUniqueXValues = new Set<string>();
-      const comparisonDataMap: Record<string, Record<string, number>> = {};
-      const comparisonSeriesMeta: Record<
-        string,
-        { metricId: string; name: string }
-      > = {};
-
-      comparisonRows.forEach((row) => {
-        const xValue = row.dimensions[0] || "";
-        comparisonUniqueXValues.add(xValue);
-        const groupParts = row.dimensions.slice(1);
-        const groupKey = groupParts.length > 0 ? groupParts.join(" - ") : "";
-
-        row.values.forEach((v, valueIndex) => {
-          const seriesKey = JSON.stringify({ i: valueIndex, g: groupKey });
-          if (!comparisonDataMap[seriesKey]) {
-            comparisonDataMap[seriesKey] = {};
-            const metricName = getSeriesTitle(
-              submittedExploreState,
-              valueIndex,
-              v.metricId,
-            );
-            let name: string;
-            if (groupKey) {
-              if (numMetrics > 1) {
-                name = `${metricName} (${groupKey})`;
-              } else {
-                name = groupKey;
-              }
-            } else {
-              name = metricName;
-            }
-            comparisonSeriesMeta[seriesKey] = {
-              metricId: v.metricId,
-              name,
-            };
-          }
-
-          comparisonDataMap[seriesKey][xValue] = getEffectiveMetricValue(v, {
-            showAs: renderOpts.showAs,
-            isRatio: renderOpts.isRatioByIndex[valueIndex] ?? false,
-          });
-        });
-      });
+      const {
+        uniqueXValues: comparisonUniqueXValues,
+        dataMap: comparisonDataMap,
+      } = buildComparisonOverlaySeriesMaps(
+        comparisonExploration.result.rows,
+        submittedExploreState,
+        renderOpts,
+      );
 
       const alignedComparisonDataMap = alignComparisonOverlayToCategories(
         chartType,

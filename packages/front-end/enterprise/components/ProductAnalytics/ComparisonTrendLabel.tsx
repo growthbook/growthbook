@@ -66,9 +66,6 @@ export default function ComparisonTrendLabel({
 
   return (
     <Flex align="center" gap="1" wrap="wrap">
-      <PriorValueText priorValueScale={priorValueScale}>
-        ({formatValue(trend.previous)})
-      </PriorValueText>
       {trend.direction === "up" ? (
         <PiArrowUp size={12} color="var(--green-11)" />
       ) : null}
