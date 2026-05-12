@@ -39,6 +39,8 @@ export const baseDialect: SqlDialect = {
 
   castToDate: (col: string) => `CAST(${col} AS DATE)`,
 
+  castToTimestamp: (col: string) => `CAST(${col} AS TIMESTAMP)`,
+
   castUserDateCol: (column: string) => column,
 
   getCurrentTimestamp: () => `CURRENT_TIMESTAMP`,

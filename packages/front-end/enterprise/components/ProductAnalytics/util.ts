@@ -18,6 +18,7 @@ import type {
 } from "shared/validators";
 import { isEqual } from "lodash";
 import { createParser } from "nuqs";
+import { canInlineFilterColumn } from "shared/experiments";
 import {
   encodeExplorationConfig,
   calculateProductAnalyticsDateRange,
@@ -40,6 +41,7 @@ export {
 } from "shared/enterprise";
 export type { MetricMixClass, ExplorationColumn } from "shared/enterprise";
 import { dateGranularity, explorationConfigValidator } from "shared/validators";
+import { operatorLabelMap } from "@/components/FactTables/rowFilterUtils";
 
 export { mapDatabaseTypeToEnum };
 
@@ -74,6 +76,214 @@ export function getValueTypeLabel(
   return (
     VALUE_TYPE_OPTIONS.find((o) => o.value === valueType)?.label ?? valueType
   );
+}
+
+/** Returns rowFilters with empty placeholder entries appended for every
+ *  fact-table column that has `alwaysInlineFilter` enabled and isn't already
+ *  represented in the existing filters. Mirrors the behavior used when
+ *  authoring fact metrics — keeps the explorer consistent with metrics UX. */
+export function getInitialInlineFilters(
+  factTable: FactTableInterface,
+  existingRowFilters: RowFilter[] = [],
+): RowFilter[] {
+  const rowFilters = [...existingRowFilters];
+  factTable.columns
+    .filter(
+      (c) => c.alwaysInlineFilter && canInlineFilterColumn(factTable, c.column),
+    )
+    .forEach((c) => {
+      if (!rowFilters.some((rf) => rf.column === c.column)) {
+        rowFilters.push({
+          column: c.column,
+          operator: "=",
+          values: [""],
+        });
+      }
+    });
+  return rowFilters;
+}
+
+/** Returns true if the row filter has enough info to be meaningful in a
+ *  preview (would survive cleanRowFilters at submission). */
+function isPreviewableFilter(f: RowFilter): boolean {
+  if (f.operator === "sql_expr" || f.operator === "saved_filter") {
+    return (f.values ?? []).some((v) => v !== "");
+  }
+  if (["is_true", "is_false", "is_null", "not_null"].includes(f.operator)) {
+    return !!f.column;
+  }
+  return !!f.column && (f.values ?? []).some((v) => v !== "");
+}
+
+/** A stable key for a column-based filter — identifies "the same predicate
+ *  shape" across steps (same column + same operator; values may differ).
+ *  Returns null for sql_expr / saved_filter, which don't carry an obvious
+ *  per-step "context" to factor out. */
+function filterCommonKey(f: RowFilter): string | null {
+  if (f.operator === "sql_expr" || f.operator === "saved_filter") return null;
+  if (!f.column) return null;
+  return `${f.column}|${f.operator}`;
+}
+
+/** Set of (column|operator) keys whose filters appear on every step. We use
+ *  this to strip universal context from per-step previews — if every step
+ *  filters on `event_name=…`, the column+operator becomes redundant noise
+ *  and we render just the matching values instead.
+ *
+ *  Only meaningful when ≥2 steps exist; with a single step "universal" is
+ *  trivially true for everything it has, and stripping would just hide
+ *  information that the user typed. */
+export function getCommonFunnelFilterKeys(steps: FunnelStep[]): Set<string> {
+  if (steps.length < 2) return new Set();
+  let candidates: Set<string> | null = null;
+  for (const step of steps) {
+    const stepKeys = new Set<string>();
+    for (const f of step.rowFilters) {
+      if (!isPreviewableFilter(f)) continue;
+      const key = filterCommonKey(f);
+      if (key) stepKeys.add(key);
+    }
+    if (candidates === null) {
+      candidates = stepKeys;
+    } else {
+      candidates = new Set([...candidates].filter((k) => stepKeys.has(k)));
+    }
+    if (candidates.size === 0) break;
+  }
+  return candidates ?? new Set();
+}
+
+function formatValuesOnly(filter: RowFilter): string {
+  const valueRequired = ![
+    "is_true",
+    "is_false",
+    "is_null",
+    "not_null",
+  ].includes(filter.operator);
+  if (!valueRequired) return ""; // value-less universal filters drop out entirely
+  const values = (filter.values ?? []).filter((v) => v !== "");
+  return values.length ? values.join(", ") : "…";
+}
+
+/** One-line, human-readable summary of a single row filter. Symbol operators
+ *  (`=`, `!=`, `<`, `<=`, `>`, `>=`) render with no surrounding whitespace
+ *  (e.g. `path=/search`); word operators keep the surrounding spaces. */
+export function formatFilterPreview(
+  filter: RowFilter,
+  factTable: FactTableInterface | null,
+): string {
+  if (filter.operator === "sql_expr") return "SQL expr";
+  if (filter.operator === "saved_filter") {
+    const savedId = filter.values?.[0];
+    const saved = factTable?.filters?.find((sf) => sf.id === savedId);
+    return saved ? saved.name : "Saved Filter";
+  }
+  const colName =
+    factTable?.columns.find((c) => c.column === filter.column)?.name ||
+    filter.column ||
+    "?";
+  const op = operatorLabelMap[filter.operator] ?? filter.operator;
+  const valueRequired = ![
+    "is_true",
+    "is_false",
+    "is_null",
+    "not_null",
+  ].includes(filter.operator);
+  // Symbol-style operators (start with a non-letter) read better tight,
+  // matching how engineers write the predicate inline.
+  const isSymbolOp = !/^[a-zA-Z]/.test(op);
+  if (!valueRequired) {
+    return `${colName} ${op}`;
+  }
+  const values = (filter.values ?? []).filter((v) => v !== "");
+  const valueStr = values.length ? values.join(", ") : "…";
+  return isSymbolOp
+    ? `${colName}${op}${valueStr}`
+    : `${colName} ${op} ${valueStr}`;
+}
+
+/** Compose the collapsed/inline summary used for a funnel step. Joins the
+ *  fact-table label (when shown) with up to `maxFilters` filter previews
+ *  concatenated with ` AND `; additional filters surface as `+N more`.
+ *
+ *  When `allSteps` is supplied, filters whose `column+operator` appears on
+ *  every step have their `{column}{operator}` prefix stripped — the universal
+ *  context is implicit, and showing it on each step adds noise. Step-specific
+ *  filters still render with the full `{column}{operator}{value}`. */
+export function getFunnelStepPreview({
+  step,
+  factTable,
+  showFactTable,
+  maxFilters = 2,
+  allSteps,
+}: {
+  step: FunnelStep;
+  factTable: FactTableInterface | null;
+  showFactTable: boolean;
+  maxFilters?: number;
+  allSteps?: FunnelStep[];
+}): string {
+  const factTableLabel = showFactTable
+    ? (factTable?.name ?? step.factTable ?? "")
+    : "";
+  const complete = step.rowFilters.filter(isPreviewableFilter);
+  const commonKeys = allSteps
+    ? getCommonFunnelFilterKeys(allSteps)
+    : new Set<string>();
+  const rendered = complete.map((f) => {
+    const key = filterCommonKey(f);
+    if (key && commonKeys.has(key)) {
+      return formatValuesOnly(f);
+    }
+    return formatFilterPreview(f, factTable);
+  });
+  // Drop empties produced by value-less universal filters (e.g. every step
+  // has `path is_null` — there's nothing left to render for that filter).
+  const nonEmpty = rendered.filter((s) => s !== "");
+  const previewCount = Math.min(maxFilters, nonEmpty.length);
+  const previews = nonEmpty.slice(0, previewCount);
+  const remaining = nonEmpty.length - previewCount;
+  let filtersText = previews.join(" AND ");
+  if (remaining > 0) {
+    filtersText += `${previews.length ? " " : ""}+${remaining} more`;
+  }
+  return [factTableLabel, filtersText].filter(Boolean).join(" · ");
+}
+
+const DEFAULT_STEP_NAME_RE = /^Step \d+$/;
+
+/** Returns the human-friendly label for a funnel step. When the step name
+ *  still matches the autogenerated `Step N` pattern, we substitute the
+ *  filter preview so chart/table labels carry the actual semantics (e.g.
+ *  `event_name=Purchase`, or just `Purchase` when `event_name=…` is the
+ *  universal context across every step). Falls back to the literal name
+ *  when there's nothing to preview. */
+export function getFunnelStepDisplayLabel({
+  step,
+  factTable,
+  fallbackIndex,
+  allSteps,
+}: {
+  step: FunnelStep;
+  factTable: FactTableInterface | null;
+  /** Zero-based step position; used to back-compute `Step N` when the name
+   *  has been edited to something empty/whitespace. */
+  fallbackIndex: number;
+  /** Pass the full steps array to enable common-prefix stripping. */
+  allSteps?: FunnelStep[];
+}): string {
+  const trimmed = step.name?.trim() ?? "";
+  const isAutoName = !trimmed || DEFAULT_STEP_NAME_RE.test(trimmed);
+  if (!isAutoName) return trimmed;
+  // For an auto-named step we prefer the filter preview; the fact-table
+  // segment would just repeat what the chart's funnel context already shows.
+  const preview = getFunnelStepPreview({
+    step,
+    factTable,
+    showFactTable: false,
+    allSteps,
+  });
+  return preview || trimmed || `Step ${fallbackIndex + 1}`;
 }
 
 export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
@@ -521,6 +731,51 @@ function toFetchKey(config: ExplorationConfig): unknown {
       values: config.dataset.values.map(({ name, ...rest }) => rest),
     },
   };
+}
+
+/** Returns true if any value/step targets a fact table whose `alwaysInlineFilter`
+ *  columns are auto-seeded into rowFilters but still left at an empty value.
+ *  We operate on the *raw* (uncleaned) config so we can see the placeholder
+ *  filter that cleanRowFilters would otherwise strip before submission. */
+export function hasUnsatisfiedInlineFilters(
+  rawConfig: ExplorationConfig,
+  getFactTableById: (id: string) => FactTableInterface | null,
+): boolean {
+  const dataset = rawConfig?.dataset;
+  if (!dataset) return false;
+
+  const stepHasUnsatisfied = (
+    factTableId: string | null,
+    rowFilters: RowFilter[],
+  ): boolean => {
+    if (!factTableId) return false;
+    const ft = getFactTableById(factTableId);
+    if (!ft) return false;
+    const inlineColumns = new Set(
+      ft.columns
+        .filter(
+          (c) => c.alwaysInlineFilter && canInlineFilterColumn(ft, c.column),
+        )
+        .map((c) => c.column),
+    );
+    if (inlineColumns.size === 0) return false;
+    return rowFilters.some(
+      (rf) =>
+        !!rf.column && inlineColumns.has(rf.column) && !isCompleteFilter(rf),
+    );
+  };
+
+  if (dataset.type === "fact_table") {
+    return dataset.values.some((v) =>
+      stepHasUnsatisfied(dataset.factTableId, v.rowFilters),
+    );
+  }
+  if (dataset.type === "funnel") {
+    return dataset.steps.some((s) =>
+      stepHasUnsatisfied(s.factTable || null, s.rowFilters),
+    );
+  }
+  return false;
 }
 
 /** Checks if a config is minimally complete in order to be submitted.

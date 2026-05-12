@@ -27,6 +27,8 @@ import {
   fillMissingUnits,
   generateUniqueValueName,
   getCommonColumns,
+  getInitialInlineFilters,
+  hasUnsatisfiedInlineFilters,
   isSubmittableConfig,
   validateDimensions,
 } from "@/enterprise/components/ProductAnalytics/util";
@@ -252,8 +254,14 @@ export function ExplorerProvider({
   }, [baselineConfig, cleanedDraftExploreState]);
 
   const isSubmittable = useMemo(() => {
-    return isSubmittableConfig(cleanedDraftExploreState, getFactTableById);
-  }, [cleanedDraftExploreState, getFactTableById]);
+    return (
+      isSubmittableConfig(cleanedDraftExploreState, getFactTableById) &&
+      // Block submission while alwaysInlineFilter columns are seeded but empty.
+      // cleanConfigForSubmission would otherwise strip the placeholder filter
+      // and let the query run unfiltered, contradicting the "always filter" intent.
+      !hasUnsatisfiedInlineFilters(draftExploreState, getFactTableById)
+    );
+  }, [cleanedDraftExploreState, draftExploreState, getFactTableById]);
 
   const doSubmit = useCallback(
     async (options?: { cache?: CacheOption; config?: ExplorationConfig }) => {
@@ -437,6 +445,15 @@ export function ExplorerProvider({
           value.name = generateUniqueValueName(value.name, prev.dataset.values);
         }
 
+        // Pre-seed alwaysInlineFilter columns for fact_table values so the
+        // user is prompted to fill them in (matches fact-metric authoring UX).
+        if (prev.dataset.type === "fact_table" && prev.dataset.factTableId) {
+          const ft = getFactTableById(prev.dataset.factTableId);
+          if (ft) {
+            value.rowFilters = getInitialInlineFilters(ft, value.rowFilters);
+          }
+        }
+
         return {
           ...prev,
           dataset: {
@@ -446,7 +463,7 @@ export function ExplorerProvider({
         } as ExplorationConfig;
       });
     },
-    [createDefaultValue, setDraftExploreState],
+    [createDefaultValue, setDraftExploreState, getFactTableById],
   );
 
   const updateValueInDataset = useCallback(

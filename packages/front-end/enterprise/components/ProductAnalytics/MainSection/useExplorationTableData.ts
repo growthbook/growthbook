@@ -7,6 +7,7 @@ import {
   calculateProductAnalyticsDateRange,
   getDateGranularity,
 } from "shared/enterprise";
+import { FactTableInterface } from "shared/types/fact-table";
 import type { HeaderStructure } from "@/components/Settings/DisplayTestQueryResults";
 import {
   sortExplorationRows,
@@ -16,6 +17,7 @@ import {
   getExplorationCellValue,
   formatDateByGranularity,
   formatDurationMs,
+  getFunnelStepDisplayLabel,
   type ResolvedGranularity,
   type ExplorationColumn,
   type RenderOpts,
@@ -92,6 +94,7 @@ function formatPct(value: number | null): string {
 function buildFunnelTableData(
   exploration: ProductAnalyticsExploration | null,
   submittedExploreState: ExplorationConfig,
+  getFactTableById: (id: string) => FactTableInterface | null,
 ): ExplorationTableData {
   if (submittedExploreState.dataset.type !== "funnel") {
     return {
@@ -105,6 +108,18 @@ function buildFunnelTableData(
   const steps = submittedExploreState.dataset.steps;
   const rows = exploration?.result?.rows ?? [];
   const hasDimension = (submittedExploreState.dimensions?.length ?? 0) > 0;
+  // Substitute filter previews for the default `Step N` names so table
+  // column headers communicate which step is which. Passing `allSteps`
+  // strips column+operator prefixes that are universal across every step
+  // (e.g. `event_name=` when all steps filter on event_name).
+  const stepLabels = steps.map((s, i) =>
+    getFunnelStepDisplayLabel({
+      step: s,
+      factTable: s.factTable ? getFactTableById(s.factTable) : null,
+      fallbackIndex: i,
+      allSteps: steps,
+    }),
+  );
 
   if (!hasDimension) {
     // Long format: row per step, one row in the result.
@@ -138,7 +153,7 @@ function buildFunnelTableData(
           ? result.timeFromPrevSumMs / result.count
           : null;
       return {
-        step: step.name,
+        step: stepLabels[i] ?? step.name,
         count,
         fromPrev: i === 0 ? "—" : formatPct(fromPrev),
         fromStart: formatPct(fromStart),
@@ -170,14 +185,15 @@ function buildFunnelTableData(
   const row1: HeaderStructure["row1"] = [{ label: dimensionLabel, rowSpan: 2 }];
   const row2Labels: string[] = [];
   steps.forEach((step, stepIdx) => {
+    const label = stepLabels[stepIdx] ?? step.name;
     row1.push({
-      label: step.name,
+      label,
       colSpan: FUNNEL_STEP_SUBCOLS.length,
     });
     FUNNEL_STEP_SUBCOLS.forEach((sub) => {
       const key = `__step_${stepIdx}_${sub.key}__`;
       orderedColumnKeys.push(key);
-      columnLabels.push(`${step.name} ${sub.label}`);
+      columnLabels.push(`${label} ${sub.label}`);
       row2Labels.push(sub.label);
     });
   });
@@ -230,15 +246,19 @@ export default function useExplorationTableData(
   exploration: ProductAnalyticsExploration | null,
   submittedExploreState: ExplorationConfig | null,
 ): ExplorationTableData {
-  const { getFactMetricById } = useDefinitions();
+  const { getFactMetricById, getFactTableById } = useDefinitions();
 
   // Funnels have a wholly different column shape. Compute it once at the top
   // and bypass the rest of this hook (the metric/fact-table/data-source
   // shared schema below doesn't know about `row.steps`).
   const funnelTableData = useMemo(() => {
     if (submittedExploreState?.dataset?.type !== "funnel") return null;
-    return buildFunnelTableData(exploration, submittedExploreState);
-  }, [exploration, submittedExploreState]);
+    return buildFunnelTableData(
+      exploration,
+      submittedExploreState,
+      getFactTableById,
+    );
+  }, [exploration, submittedExploreState, getFactTableById]);
 
   const renderOpts: RenderOpts = useMemo(
     () => ({

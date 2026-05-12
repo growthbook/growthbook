@@ -22,6 +22,7 @@ import Callout from "@/ui/Callout";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
 import {
   createEmptyValue,
+  getInitialInlineFilters,
   showAsAppliesTo,
 } from "@/enterprise/components/ProductAnalytics/util";
 import SaveToDashboardModal from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
@@ -56,7 +57,8 @@ export default function ExplorerSideBar({
     error,
     trackingSource,
   } = useExplorerContext();
-  const { factTables, getFactMetricById, project } = useDefinitions();
+  const { factTables, getFactMetricById, getFactTableById, project } =
+    useDefinitions();
   const { hasCommercialFeature, permissionsUtil } = useUser();
   // Check if the user can create dashboards for the current project or globally
   const canCreateDashboards =
@@ -293,14 +295,31 @@ export default function ExplorerSideBar({
               setDraftExploreState((prev) => {
                 const prevDataset =
                   prev.dataset?.type === "fact_table" ? prev.dataset : null;
+                const newFactTable = factTableId
+                  ? getFactTableById(factTableId)
+                  : null;
+                const baseValues = prevDataset?.values?.length
+                  ? prevDataset.values
+                  : [createEmptyValue("fact_table") as FactTableValue];
+                // Seed alwaysInlineFilter columns on every value (newly
+                // created or carried over). getInitialInlineFilters is a
+                // no-op when the column is already in rowFilters, so this
+                // is safe to apply on each fact-table change.
+                const values = newFactTable
+                  ? baseValues.map((v) => ({
+                      ...v,
+                      rowFilters: getInitialInlineFilters(
+                        newFactTable,
+                        v.rowFilters,
+                      ),
+                    }))
+                  : baseValues;
                 return {
                   ...prev,
                   dataset: {
                     ...factTableDataset,
                     factTableId,
-                    values: prevDataset?.values?.length
-                      ? prevDataset.values
-                      : [createEmptyValue("fact_table") as FactTableValue],
+                    values,
                   },
                 } as ExplorationConfig;
               });

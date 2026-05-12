@@ -4,6 +4,7 @@ import {
   PiArrowDown,
   PiArrowUp,
   PiCaretDown,
+  PiCaretRight,
   PiCaretUp,
   PiPencilSimple,
   PiPlus,
@@ -26,6 +27,10 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
+import {
+  getFunnelStepPreview,
+  getInitialInlineFilters,
+} from "@/enterprise/components/ProductAnalytics/util";
 import { factTableToColumnSource } from "./ExplorerFilterRow";
 import { ExplorerRowFilterInput } from "./ExplorerRowFilterInput";
 import styles from "./ValueCard.module.scss";
@@ -56,41 +61,20 @@ function updateStep(
   } as ExplorationConfig;
 }
 
-/** Removes the funnel step at `index`. */
-function deleteStep(prev: ExplorationConfig, index: number): ExplorationConfig {
-  if (prev.dataset.type !== "funnel") return prev;
-  return {
-    ...prev,
-    dataset: {
-      ...prev.dataset,
-      steps: prev.dataset.steps.filter((_, i) => i !== index),
-    } as FunnelDataset,
-  } as ExplorationConfig;
-}
-
-/** Swaps the funnel step at `index` with the step at `index + delta`. */
-function moveStep(
-  prev: ExplorationConfig,
-  index: number,
-  delta: number,
-): ExplorationConfig {
-  if (prev.dataset.type !== "funnel") return prev;
-  const target = index + delta;
-  if (target < 0 || target >= prev.dataset.steps.length) return prev;
-  const steps = [...prev.dataset.steps];
-  [steps[index], steps[target]] = [steps[target], steps[index]];
-  return {
-    ...prev,
-    dataset: { ...prev.dataset, steps } as FunnelDataset,
-  } as ExplorationConfig;
-}
-
 interface Props {
   index: number;
   step: FunnelStep;
   steps: FunnelStep[];
   /** Fact table id of the previous step (used to derive the "inherited" state). */
   previousFactTable: string | null;
+  /** Controlled collapse state — owned by FunnelTabContent so it can
+   *  auto-collapse non-user-expanded steps when a new step is added. */
+  isCollapsed: boolean;
+  onToggleCollapsed: () => void;
+  /** Reorder + delete handlers live in the parent so it can keep the per-step
+   *  collapse state aligned with the underlying steps array. */
+  onMove: (index: number, delta: number) => void;
+  onDelete: (index: number) => void;
 }
 
 export default function FunnelStepCard({
@@ -98,13 +82,17 @@ export default function FunnelStepCard({
   step,
   steps,
   previousFactTable,
+  isCollapsed,
+  onToggleCollapsed,
+  onMove,
+  onDelete,
 }: Props) {
   const { setDraftExploreState, draftExploreState } = useExplorerContext();
   const { factTables, getFactTableById } = useDefinitions();
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(step.name);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   // For follow-on steps: when the step inherits, we hide the picker until the
   // user clicks "Override". Once they're overriding (or the step was loaded
   // with an override already), we show the picker inline.
@@ -148,7 +136,12 @@ export default function FunnelStepCard({
           }
           return !f.column || newColumns.has(f.column);
         });
-        return { ...s, factTable: newFactTableId, rowFilters: cleanedFilters };
+        // Pre-seed alwaysInlineFilter columns from the new fact table so the
+        // user is prompted to fill them in before the funnel can run.
+        const seededFilters = newFt
+          ? getInitialInlineFilters(newFt, cleanedFilters)
+          : cleanedFilters;
+        return { ...s, factTable: newFactTableId, rowFilters: seededFilters };
       }),
     );
   };
@@ -163,6 +156,22 @@ export default function FunnelStepCard({
     );
     setIsEditingName(false);
   };
+
+  // Collapsed-mode subline: fact-table label (when the step is the first or
+  // an override) plus up to 2 filter previews, joined by " · " on one line.
+  // Passing the full steps array lets the helper strip universal
+  // column+operator prefixes so e.g. `event_name=` doesn't repeat on every
+  // collapsed card when every step filters on it.
+  const collapsedSubline = useMemo(
+    () =>
+      getFunnelStepPreview({
+        step,
+        factTable,
+        showFactTable: index === 0 || !isInherited,
+        allSteps: steps,
+      }),
+    [step, factTable, isInherited, index, steps],
+  );
 
   const handleConversionWindowChange = (
     update: Partial<ConversionWindow> | null,
@@ -250,9 +259,7 @@ export default function FunnelStepCard({
             variant="ghost"
             size="xs"
             disabled={index === 0}
-            onClick={() =>
-              setDraftExploreState((prev) => moveStep(prev, index, -1))
-            }
+            onClick={() => onMove(index, -1)}
             title="Move up"
           >
             <PiArrowUp size={14} />
@@ -261,9 +268,7 @@ export default function FunnelStepCard({
             variant="ghost"
             size="xs"
             disabled={index === steps.length - 1}
-            onClick={() =>
-              setDraftExploreState((prev) => moveStep(prev, index, 1))
-            }
+            onClick={() => onMove(index, 1)}
             title="Move down"
           >
             <PiArrowDown size={14} />
@@ -271,7 +276,7 @@ export default function FunnelStepCard({
           <Button
             variant="ghost"
             size="xs"
-            onClick={() => setIsCollapsed((p) => !p)}
+            onClick={onToggleCollapsed}
             title={isCollapsed ? "Expand" : "Collapse"}
           >
             {isCollapsed ? <PiCaretDown size={14} /> : <PiCaretUp size={14} />}
@@ -280,15 +285,31 @@ export default function FunnelStepCard({
             variant="ghost"
             size="xs"
             disabled={steps.length === 1}
-            onClick={() =>
-              setDraftExploreState((prev) => deleteStep(prev, index))
-            }
+            onClick={() => onDelete(index)}
             title="Delete step"
           >
             <PiX size={14} />
           </Button>
         </Flex>
       </Flex>
+      {isCollapsed && collapsedSubline && (
+        <Box
+          mt="1"
+          onClick={onToggleCollapsed}
+          style={{ minWidth: 0, cursor: "pointer" }}
+          title="Expand step"
+        >
+          <Text
+            size="small"
+            color="text-low"
+            truncate
+            whiteSpace="nowrap"
+            as="div"
+          >
+            {collapsedSubline}
+          </Text>
+        </Box>
+      )}
       <Collapsible
         open={!isCollapsed}
         trigger=""
@@ -378,72 +399,107 @@ export default function FunnelStepCard({
             </Box>
           )}
 
-          {/* Follow-on step controls: optional + conversion window */}
+          {/* Follow-on step controls (Optional + conversion window) live
+              under an "Advanced Options" disclosure to keep the step card
+              lean — matches the Group By section's advanced-settings UX. */}
           {index > 0 && (
             <Flex direction="column" gap="2" mt="3">
-              <Checkbox
-                label="Optional step"
-                value={step.optional}
-                setValue={(value) =>
-                  setDraftExploreState((prev) =>
-                    updateStep(prev, index, (s) => ({
-                      ...s,
-                      optional: !!value,
-                    })),
-                  )
-                }
-                description="Users who skip this step can still convert to later steps."
-              />
-              <Text weight="medium" mt="1">
-                Conversion window
-              </Text>
-              {step.conversionWindow ? (
-                <Flex align="center" gap="2">
-                  <Field
-                    type="number"
-                    min={1}
-                    value={step.conversionWindow.value}
-                    onChange={(e) =>
-                      handleConversionWindowChange({
-                        value: Math.max(1, Number(e.currentTarget.value) || 1),
-                      })
-                    }
-                    containerStyle={{ marginBottom: 0, width: 80 }}
-                  />
-                  <SelectField
-                    value={step.conversionWindow.unit}
-                    onChange={(unit) =>
-                      handleConversionWindowChange({
-                        unit: unit as ConversionWindow["unit"],
-                      })
-                    }
-                    options={CONVERSION_WINDOW_UNITS.map((u) => ({
-                      label: u,
-                      value: u,
-                    }))}
-                  />
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    onClick={() => handleConversionWindowChange(null)}
-                    title="Remove conversion window"
-                  >
-                    Clear
-                  </Button>
-                </Flex>
-              ) : (
+              <Flex direction="row">
                 <Button
-                  variant="ghost"
                   size="xs"
-                  onClick={() =>
-                    handleConversionWindowChange({ value: 1, unit: "days" })
-                  }
+                  variant="ghost"
+                  onClick={() => setAdvancedOpen((p) => !p)}
                 >
-                  <Flex align="center" gap="2">
-                    <PiPlus size={14} /> Set conversion window
+                  <Flex direction="row" gap="2" align="center">
+                    {advancedOpen ? (
+                      <PiCaretDown size={14} />
+                    ) : (
+                      <PiCaretRight size={14} />
+                    )}
+                    <Text size="small" weight="medium">
+                      Advanced Options
+                    </Text>
                   </Flex>
                 </Button>
-              )}
+              </Flex>
+              <Collapsible
+                transitionTime={100}
+                open={advancedOpen}
+                trigger=""
+                triggerDisabled
+              >
+                <Flex direction="column" gap="2" mt="1">
+                  <Checkbox
+                    label="Optional step"
+                    value={step.optional}
+                    setValue={(value) =>
+                      setDraftExploreState((prev) =>
+                        updateStep(prev, index, (s) => ({
+                          ...s,
+                          optional: !!value,
+                        })),
+                      )
+                    }
+                    description="Users who skip this step can still convert to later steps."
+                  />
+                  <Text weight="medium" mt="1">
+                    Conversion window
+                  </Text>
+                  {step.conversionWindow ? (
+                    <Flex align="center" gap="2">
+                      <Field
+                        type="number"
+                        min={1}
+                        value={step.conversionWindow.value}
+                        onChange={(e) =>
+                          handleConversionWindowChange({
+                            value: Math.max(
+                              1,
+                              Number(e.currentTarget.value) || 1,
+                            ),
+                          })
+                        }
+                        containerStyle={{ marginBottom: 0, width: 80 }}
+                      />
+                      <SelectField
+                        value={step.conversionWindow.unit}
+                        onChange={(unit) =>
+                          handleConversionWindowChange({
+                            unit: unit as ConversionWindow["unit"],
+                          })
+                        }
+                        options={CONVERSION_WINDOW_UNITS.map((u) => ({
+                          label: u,
+                          value: u,
+                        }))}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => handleConversionWindowChange(null)}
+                        title="Remove conversion window"
+                      >
+                        Clear
+                      </Button>
+                    </Flex>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={() =>
+                        handleConversionWindowChange({
+                          value: 1,
+                          unit: "days",
+                        })
+                      }
+                    >
+                      <Flex align="center" gap="2">
+                        <PiPlus size={14} /> Set conversion window
+                      </Flex>
+                    </Button>
+                  )}
+                </Flex>
+              </Collapsible>
             </Flex>
           )}
         </Box>

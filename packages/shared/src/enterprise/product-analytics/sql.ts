@@ -1308,7 +1308,10 @@ export function buildFunnelSql(
           `CASE WHEN ${filterClause} THEN ${timestampColumn} END AS ${colName}`,
         );
       } else {
-        selectCols.push(`NULL AS ${colName}`);
+        // Wrap NULL in a typed cast so the multi-fact-table UNION matches
+        // up. Postgres infers a bare `NULL` as `text`, which then conflicts
+        // with the real timestamp values emitted by other fact tables.
+        selectCols.push(`${dialect.castToTimestamp("NULL")} AS ${colName}`);
       }
     });
     ctes.push({

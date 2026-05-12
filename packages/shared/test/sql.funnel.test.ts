@@ -23,6 +23,7 @@ const helpers: SqlDialect = {
   castToFloat: (col) => `CAST(${col} AS FLOAT)`,
   castToString: (col) => `cast(${col} as varchar)`,
   castToDate: (col) => `CAST(${col} AS DATE)`,
+  castToTimestamp: (col) => `CAST(${col} AS TIMESTAMP)`,
   castUserDateCol: (col) => col,
   getCurrentTimestamp: () => `CURRENT_TIMESTAMP`,
   ifElse: (c, t, f) => `(CASE WHEN ${c} THEN ${t} ELSE ${f} END)`,
@@ -202,6 +203,12 @@ describe("buildFunnelSql", () => {
     expect(sql).toContain("__funnel_ft1_raw");
     expect(sql).toContain("__funnel_events");
     expect(sql).toContain("UNION ALL");
+    // The "this fact table doesn't source step N" placeholder must carry a
+    // concrete TIMESTAMP type — bare NULLs are inferred as `text` in
+    // Postgres and break the UNION (mismatched column types).
+    expect(sql).toContain("CAST(NULL AS TIMESTAMP) AS step1_ts");
+    expect(sql).toContain("CAST(NULL AS TIMESTAMP) AS step2_ts");
+    expect(sql).not.toMatch(/[^S]NULL AS step\d+_ts/);
   });
 
   it("applies the conversion window upper bound on follow-on steps", () => {

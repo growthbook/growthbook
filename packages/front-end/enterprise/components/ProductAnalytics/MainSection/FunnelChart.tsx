@@ -6,7 +6,11 @@ import type {
   ProductAnalyticsExploration,
 } from "shared/validators";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-import { formatDurationMs } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  formatDurationMs,
+  getFunnelStepDisplayLabel,
+} from "@/enterprise/components/ProductAnalytics/util";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
 
 const CHART_COLORS = [
@@ -57,15 +61,28 @@ export default function FunnelChart({
   animate?: boolean;
 }) {
   const { theme } = useAppearanceUITheme();
+  const { getFactTableById } = useDefinitions();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
   const tooltipBackgroundColor = theme === "dark" ? "#1c2339" : "#FFFFFF";
   const gridLineColor =
     theme === "dark" ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)";
 
+  // Step labels: when the user hasn't renamed the step from the default
+  // "Step N", substitute the filter preview (e.g. `event_name=Purchase`,
+  // or just `Purchase` when `event_name=` is the universal context across
+  // every step) so chart axes communicate what each step actually is.
   const stepNames = useMemo(() => {
     if (submittedExploreState.dataset.type !== "funnel") return [];
-    return submittedExploreState.dataset.steps.map((s) => s.name);
-  }, [submittedExploreState]);
+    const allSteps = submittedExploreState.dataset.steps;
+    return allSteps.map((s, i) =>
+      getFunnelStepDisplayLabel({
+        step: s,
+        factTable: s.factTable ? getFactTableById(s.factTable) : null,
+        fallbackIndex: i,
+        allSteps,
+      }),
+    );
+  }, [submittedExploreState, getFactTableById]);
 
   const dimensionSeries: DimensionSeries[] = useMemo(() => {
     const rows = exploration?.result?.rows ?? [];

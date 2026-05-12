@@ -51,6 +51,17 @@ export interface SqlDialect {
   castToFloat: (column: string) => string;
   castToString: (column: string) => string;
   castToDate: (column: string) => string;
+  /**
+   * Cast `column` to the dialect's TIMESTAMP type. Used by funnel SQL when
+   * UNION-ing per-fact-table events: a fact table that doesn't source a
+   * given step emits `NULL` for that step's timestamp column, and Postgres
+   * (along with some other engines) infers untyped `NULL` as `text` —
+   * which then mismatches the actual timestamp values from the other side
+   * of the UNION. Wrapping the NULL with this gives it a concrete type.
+   * Dialects whose nullable type system requires a different form (e.g.
+   * ClickHouse's `Nullable(DateTime)`) should override.
+   */
+  castToTimestamp: (column: string) => string;
   castUserDateCol: (column: string) => string;
   getCurrentTimestamp: () => string;
   ifElse: (condition: string, ifTrue: string, ifFalse: string) => string;

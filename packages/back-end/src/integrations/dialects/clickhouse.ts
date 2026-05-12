@@ -36,6 +36,11 @@ export const clickHouseDialect: SqlDialect = {
     const columType = col === "NULL" ? "Nullable(DATE)" : "DATE";
     return `CAST(${col} AS ${columType})`;
   },
+  castToTimestamp: (col: string) => {
+    // CH demands `Nullable(...)` to hold NULL; `DateTime` alone rejects it.
+    const colType = col === "NULL" ? "Nullable(DateTime)" : "DateTime";
+    return `CAST(${col} AS ${colType})`;
+  },
   castToString: (col: string) => `toString(${col})`,
   castToFloat: (col: string) => `toFloat64(${col})`,
   hasCountDistinctHLL: () => true,
