@@ -39,10 +39,6 @@ export async function evaluateCurrentStep(
 
   if (step.monitored) {
     const decision = await evaluateMonitoredStep(ctx, schedule, now);
-    logger.info(
-      { scheduleId: schedule.id, decision },
-      "evaluateCurrentStep: monitored step decision",
-    );
     return decision;
   }
 
@@ -63,19 +59,6 @@ async function evaluateMonitoredStep(
   schedule: RampScheduleInterface,
   now: Date,
 ): Promise<EvalDecision> {
-  logger.info(
-    {
-      scheduleId: schedule.id,
-      stepIndex: schedule.currentStepIndex,
-      safeRolloutId: schedule.safeRolloutId,
-      status: schedule.status,
-      nextStepAt: schedule.nextStepAt,
-      nextSnapshotAt: schedule.nextSnapshotAt,
-      currentStepEnteredAt: schedule.currentStepEnteredAt,
-    },
-    "evaluateMonitoredStep: entry",
-  );
-
   const safeRollout = schedule.safeRolloutId
     ? await ctx.models.safeRollout.getById(schedule.safeRolloutId)
     : null;
@@ -86,18 +69,6 @@ async function evaluateMonitoredStep(
       reason: "No linked SafeRollout — waiting for monitoring to be attached",
     };
   }
-
-  logger.info(
-    {
-      scheduleId: schedule.id,
-      srId: safeRollout.id,
-      autoSnapshots: safeRollout.autoSnapshots,
-      lastSnapshotAttempt: safeRollout.lastSnapshotAttempt,
-      hasSummary: !!safeRollout.analysisSummary,
-      totalUsers: safeRollout.analysisSummary?.health?.totalUsers ?? null,
-    },
-    "evaluateMonitoredStep: safeRollout state",
-  );
 
   const step = schedule.steps[schedule.currentStepIndex];
   const monitoringConfig = schedule.monitoringConfig ?? undefined;
@@ -453,10 +424,6 @@ async function maybeTriggerSnapshot(
       }),
     });
 
-    logger.info(
-      { scheduleId: schedule.id, safeRolloutId: safeRollout.id },
-      "Triggered snapshot for monitored ramp step",
-    );
     return true;
   } catch (e) {
     logger.error(e, `Failed to trigger snapshot for schedule ${schedule.id}`);

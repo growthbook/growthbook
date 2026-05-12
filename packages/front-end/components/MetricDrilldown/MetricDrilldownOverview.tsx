@@ -9,6 +9,7 @@ import {
 } from "shared/types/stats";
 import { ExperimentStatus, LookbackOverride } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
+import { MetricTimeSeries } from "shared/validators";
 import { isRatioMetric } from "shared/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { ExperimentTableRow } from "@/services/experiments";
@@ -43,6 +44,7 @@ interface MetricDrilldownOverviewProps {
   sequentialTestingEnabled?: boolean;
   lookbackOverride?: LookbackOverride;
   timeSeriesMessage?: string;
+  preloadedTimeSeries?: MetricTimeSeries;
 }
 
 function MetricDrilldownOverview({
@@ -69,6 +71,7 @@ function MetricDrilldownOverview({
   sequentialTestingEnabled,
   lookbackOverride,
   timeSeriesMessage,
+  preloadedTimeSeries,
 }: MetricDrilldownOverviewProps) {
   const [statsExpanded, setStatsExpanded] = useState(false);
   const { isAuthenticated } = useAuth();
@@ -77,6 +80,8 @@ function MetricDrilldownOverview({
 
   const { metric } = row;
   const tableId = `${experimentId}_${metric.id}_modal`;
+
+  // Time series: ExperimentMetricTimeSeriesGraphWrapper shows a message when there are no data points (or while loading).
 
   // Determine result group based on metric categorization
   const resultGroup: "goal" | "secondary" | "guardrail" = goalMetrics.includes(
@@ -141,6 +146,7 @@ function MetricDrilldownOverview({
           isAuthenticated ? [`${tableId}-${metric.id}-0`] : []
         }
         timeSeriesMessage={timeSeriesMessage}
+        preloadedTimeSeries={preloadedTimeSeries}
         snapshot={snapshot}
         analysis={analysis}
         setAnalysisSettings={setAnalysisSettings}

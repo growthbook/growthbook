@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import { listAllOrganizationIds } from "back-end/src/models/OrganizationModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -12,11 +13,6 @@ import {
 } from "back-end/src/services/rampSchedule";
 import { evaluateCurrentStep } from "back-end/src/services/rampScheduleEvaluator";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import {
-  findSchedulesDueForProcessing,
-  findRunningSchedulesSummary,
-  healStaleNextProcessAt,
-} from "back-end/src/models/RampScheduleModel";
 
 type AdvanceSingleRampScheduleJob = Job<{
   rampScheduleId: string;
@@ -47,36 +43,22 @@ async function queueRampScheduleAdvance(
 export default async function addRampScheduleJob(agenda: Agenda) {
   agenda.define(QUEUE_RAMP_SCHEDULE_ADVANCES, async () => {
     const now = new Date();
-    const scheduleDocs = await findSchedulesDueForProcessing(now);
-    logger.info(
-      { count: scheduleDocs.length, now: now.toISOString() },
-      "queueRampScheduleAdvances: poll tick",
-    );
-    if (scheduleDocs.length === 0) {
-      const running = await findRunningSchedulesSummary();
-      if (running.length > 0) {
-        logger.info(
-          { running },
-          "queueRampScheduleAdvances: running schedules not yet due",
-        );
-        // Self-heal: fix running schedules with stale/null nextProcessAt.
-        // If a schedule is running but nextProcessAt is null or >60s in the
-        // future, force it to now so the evaluator picks it up immediately.
-        for (const rs of running) {
-          const npa = rs.nextProcessAt ? new Date(rs.nextProcessAt) : null;
-          if (!npa || npa.getTime() > now.getTime() + 60_000) {
-            logger.info(
-              { scheduleId: rs.id, staleNextProcessAt: rs.nextProcessAt },
-              "queueRampScheduleAdvances: self-healing stale nextProcessAt",
-            );
-            await healStaleNextProcessAt(rs.id, now);
-            scheduleDocs.push({ id: rs.id, organization: rs.organization });
-          }
+    const orgIds = await listAllOrganizationIds();
+
+    for (const organization of orgIds) {
+      try {
+        const context = await getContextForAgendaJobByOrgId(organization);
+        const dueIds =
+          await context.models.rampSchedules.agendaFindDueScheduleIds(now);
+        for (const id of dueIds) {
+          await queueRampScheduleAdvance(agenda, { id, organization });
         }
+      } catch (e) {
+        logger.warn(
+          e,
+          `queueRampScheduleAdvances: skipped organization ${organization}`,
+        );
       }
-    }
-    for (const doc of scheduleDocs) {
-      await queueRampScheduleAdvance(agenda, doc);
     }
   });
 
@@ -99,17 +81,6 @@ export const advanceSingleRampSchedule = async (
   if (!schedule) return;
 
   const now = new Date();
-  logger.info(
-    {
-      scheduleId: rampScheduleId,
-      status: schedule.status,
-      stepIndex: schedule.currentStepIndex,
-      nextStepAt: schedule.nextStepAt,
-      nextProcessAt: schedule.nextProcessAt,
-      isMonitored: schedule.steps[schedule.currentStepIndex]?.monitored ?? false,
-    },
-    "advanceSingleRampSchedule: picked up",
-  );
 
   try {
     let current = schedule;

@@ -264,13 +264,6 @@ export function RampMonitoringBadges({
     ],
   );
 
-  console.log("[RampMonitoringBadges]", {
-    scheduleId: rampSchedule.id,
-    status: rampSchedule.status,
-    signals: result.signals,
-    actions: result.actions,
-  });
-
   return (
     <>
       {result.signals.map((s, i) => (

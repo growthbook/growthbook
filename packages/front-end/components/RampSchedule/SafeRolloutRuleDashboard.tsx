@@ -5,7 +5,6 @@ import { extent } from "@visx/vendor/d3-array";
 import { scaleTime } from "@visx/scale";
 import { ParentSizeModern } from "@visx/responsive";
 import { localPoint } from "@visx/event";
-import clsx from "clsx";
 import {
   MetricTimeSeries,
   MetricTimeSeriesDataPoint,
@@ -21,7 +20,9 @@ import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { SafeRolloutSnapshotInterface } from "shared/types/safe-rollout";
 import {
   expandMetricGroups,
+  ExperimentMetricInterface,
   getMetricLink,
+  isBinomialMetric,
   isFactMetric,
 } from "shared/experiments";
 import {
@@ -29,9 +30,9 @@ import {
   DEFAULT_SRM_THRESHOLD,
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
   DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
+  SAFE_ROLLOUT_VARIATIONS,
 } from "shared/constants";
 import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
-import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { PiInfo, PiLightning, PiLightningSlash } from "react-icons/pi";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -39,12 +40,9 @@ import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { ExperimentTableRow, getRowResults } from "@/services/experiments";
-import { formatPercent } from "@/services/metrics";
 import SafeRolloutTimeSeriesGraph, {
   TimeSeriesEventMarker,
 } from "@/components/Experiment/SafeRolloutTimeSeriesGraph";
-import AlignedGraph from "@/components/Experiment/AlignedGraph";
-import PercentGraph from "@/components/Experiment/PercentGraph";
 import StatusColumn from "@/components/SafeRollout/Results/StatusColumn";
 import MetricName from "@/components/Metrics/MetricName";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -59,6 +57,9 @@ import RunQueriesButton, {
 } from "@/components/Queries/RunQueriesButton";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import Metadata from "@/ui/Metadata";
+import { ExperimentReportVariation } from "shared/types/report";
+import Modal from "@/components/Modal";
+import MetricDrilldownOverview from "@/components/MetricDrilldown/MetricDrilldownOverview";
 
 // ─── Dummy data helpers ──────────────────────────────────────────────────────
 
@@ -350,9 +351,27 @@ function hashString(str: string): number {
 
 type DummyScenario = "passing" | "failing" | "nodata";
 
+/** Proportion / binomial-style rates stay in (0,1); revenue-like metrics need currency-scale means or Value shows ¥0. */
+function dummyPerUnitMeanAndTotal(
+  metricId: string,
+  users: number,
+  rand: () => number,
+  getExperimentMetricById?: (id: string) => ExperimentMetricInterface | null,
+): { mean: number; total: number } {
+  const metric = getExperimentMetricById?.(metricId);
+  if (metric && !isBinomialMetric(metric)) {
+    const mean = 50 + rand() * 350;
+    return { mean, total: mean * users };
+  }
+  const mean = 0.02 + rand() * 0.15;
+  return { mean, total: mean * users };
+}
+
 function generateDummySnapshotMetrics(
   metricIds: string[],
   scenarios: DummyScenario[],
+  isInverseMetric: (metricId: string) => boolean = () => false,
+  getExperimentMetricById?: (id: string) => ExperimentMetricInterface | null,
 ): Record<string, { baseline: SnapshotMetric; variation: SnapshotMetric }> {
   const result: Record<
     string,
@@ -362,14 +381,19 @@ function generateDummySnapshotMetrics(
     const rand = seededRandom(hashString(id));
     const scenario = scenarios[idx % scenarios.length];
     const baseUsers = 800 + Math.floor(rand() * 4000);
-    const baseCr = 0.02 + rand() * 0.15;
-    const baseValue = baseUsers * baseCr;
+    const { mean: baseCr, total: baseValue } = dummyPerUnitMeanAndTotal(
+      id,
+      baseUsers,
+      rand,
+      getExperimentMetricById,
+    );
 
     const baseline: SnapshotMetric = {
       value: baseValue,
       cr: baseCr,
       users: baseUsers,
-      ci: [-0.05, 0.05],
+      // Match one-sided frequentist style (safe rollouts use oneSidedIntervals)
+      ci: [-Infinity, 0.05],
       expected: 0,
       pValue: 1,
     };
@@ -401,11 +425,14 @@ function generateDummySnapshotMetrics(
         ? Math.abs(effect) * (0.3 + rand() * 0.5)
         : Math.abs(effect) * (1.5 + rand() * 2);
 
+    const inverse = isInverseMetric(id);
     const variation: SnapshotMetric = {
       value: varValue,
       cr: varCr,
       users: varUsers,
-      ci: [effect - ciHalf, effect + ciHalf],
+      ci: inverse
+        ? ([effect - ciHalf, Infinity] as [number, number])
+        : ([-Infinity, effect + ciHalf] as [number, number]),
       expected: effect,
       pValue,
     };
@@ -431,7 +458,9 @@ function generateDummyTimeSeries(
   return metricIds.map((metricId, idx) => {
     const rand = seededRandom(hashString(metricId) + 999);
     const scenario = scenarios[idx % scenarios.length];
-    const baseCr = 0.02 + rand() * 0.15;
+    const baseCr =
+      snapshotMetrics?.[metricId]?.baseline?.cr ??
+      0.02 + rand() * 0.15;
 
     // Use snapshot's final effect so the time series endpoint matches the table
     const snapshotEffect =
@@ -560,6 +589,86 @@ function generateDummyTrafficSnapshot(): SafeRolloutSnapshotInterface {
   } as unknown as SafeRolloutSnapshotInterface;
 }
 
+// ─── Metric drilldown modal (safe-rollout-specific) ──────────────────────────
+
+function SafeRolloutMetricDrilldownModal({
+  row,
+  resultGroup,
+  guardrailMetricIds,
+  signalMetricIds,
+  timeSeries,
+  reportDate,
+  startDate,
+  close,
+}: {
+  row: ExperimentTableRow;
+  resultGroup: "guardrail" | "secondary";
+  guardrailMetricIds: string[];
+  signalMetricIds: string[];
+  timeSeries?: MetricTimeSeries;
+  reportDate: Date;
+  startDate: Date;
+  close: () => void;
+}) {
+  const { metric } = row;
+  const variations = useMemo(
+    (): ExperimentReportVariation[] =>
+      SAFE_ROLLOUT_VARIATIONS.map((v) => ({ ...v })),
+    [],
+  );
+
+  return (
+    <Modal
+      open={true}
+      header={<MetricName metric={metric} officialBadgePosition="right" />}
+      subHeader={
+        metric.description ? (
+          <Text as="div" size="small" color="text-mid">
+            {metric.description}
+          </Text>
+        ) : undefined
+      }
+      close={close}
+      size="max"
+      cta="Close"
+      submit={close}
+      autoFocusSelector=""
+      trackingEventModalType="safe-rollout-metric-drilldown"
+    >
+      <MetricDrilldownOverview
+        row={row}
+        experimentId=""
+        significanceThresholds={{
+          pValueThreshold: 0.05,
+          bayesianConfidenceLevels: {
+            ciUpper: 0.975,
+            ciLower: 0.025,
+            ciUpperDisplay: "97.5%",
+            ciLowerDisplay: "2.5%",
+          },
+        }}
+        reportDate={reportDate}
+        isLatestPhase={true}
+        phase={0}
+        startDate={startDate.toISOString()}
+        endDate={new Date().toISOString()}
+        experimentStatus="running"
+        variations={variations}
+        localBaselineRow={0}
+        setLocalBaselineRow={() => {}}
+        localVariationFilter={undefined}
+        setLocalVariationFilter={() => {}}
+        goalMetrics={[]}
+        secondaryMetrics={resultGroup === "secondary" ? signalMetricIds : []}
+        statsEngine="frequentist"
+        localDifferenceType="relative"
+        setLocalDifferenceType={() => {}}
+        preloadedTimeSeries={timeSeries}
+      />
+    </Modal>
+  );
+}
+
 // ─── Metric section (table-based, matching experiment results UI) ─────────────
 
 const SAFE_ROLLOUT_STATUS_LABELS = {
@@ -570,8 +679,6 @@ const SAFE_ROLLOUT_STATUS_LABELS = {
   notEnoughData: "Not enough data",
   badgeColor: "var(--blue-a7)",
 };
-
-const GRAPH_WIDTH = 250;
 
 function MetricSection({
   title,
@@ -584,6 +691,8 @@ function MetricSection({
   reportDate,
   startDate,
   eventMarkers,
+  guardrailMetricIds,
+  signalMetricIds,
 }: {
   title: string;
   subtitle: string;
@@ -598,6 +707,8 @@ function MetricSection({
   reportDate: Date;
   startDate: Date;
   eventMarkers?: TimeSeriesEventMarker[];
+  guardrailMetricIds: string[];
+  signalMetricIds: string[];
 }) {
   const { getExperimentMetricById } = useDefinitions();
   const { metricDefaults, getMinSampleSizeForMetric } =
@@ -660,31 +771,13 @@ function MetricSection({
     startDate,
   ]);
 
-  const domain = useMemo((): [number, number] => {
-    let lo = 0;
-    let hi = 0;
-    for (const row of rows) {
-      const stats = row.variations[1];
-      if (!stats?.ci) continue;
-      const [ciLo, ciHi] = stats.ciAdjusted ?? stats.ci;
-      if (ciLo < lo) lo = ciLo;
-      if (ciHi > hi) hi = ciHi;
-    }
-    const pad = Math.max(Math.abs(lo), Math.abs(hi)) * 0.1 || 0.05;
-    return [lo - pad, hi + pad];
-  }, [rows]);
+  const [drilldownRowIndex, setDrilldownRowIndex] = useState<number | null>(
+    null,
+  );
 
   if (rows.length === 0) return null;
 
-  const sigThresholds = {
-    pValueThreshold: 0.05,
-    bayesianConfidenceLevels: {
-      ciUpper: 0.975,
-      ciLower: 0.025,
-      ciUpperDisplay: "97.5%",
-      ciLowerDisplay: "2.5%",
-    },
-  };
+  const ROW_HEIGHT = 55;
 
   return (
     <Box>
@@ -696,45 +789,22 @@ function MetricSection({
       </Text>
 
       <div style={{ overflowX: "auto" }}>
-        <div style={{ minWidth: 950 }}>
+        <div style={{ minWidth: 600 }}>
           <table className="experiment-results table-sm">
             <thead>
               <tr className="results-top-row">
                 <th
                   className="axis-col noStickyHeader label"
-                  style={{ width: 200, whiteSpace: "nowrap" }}
+                  style={{ width: 280, whiteSpace: "nowrap" }}
                 >
                   Metric
-                </th>
-                <th
-                  className="axis-col noStickyHeader label"
-                  style={{ width: 90, whiteSpace: "nowrap" }}
-                >
-                  % Change
                 </th>
                 <th className="axis-col noStickyHeader label">
                   Metric Boundary
                 </th>
                 <th
-                  className="axis-col noStickyHeader graph-cell"
-                  style={{ width: GRAPH_WIDTH }}
-                >
-                  <div className="position-relative">
-                    <AlignedGraph
-                      id="ramp-ci-axis"
-                      domain={domain}
-                      significant={true}
-                      showAxis={true}
-                      axisOnly={true}
-                      graphWidth={GRAPH_WIDTH}
-                      percent
-                      height={45}
-                    />
-                  </div>
-                </th>
-                <th
                   className="axis-col noStickyHeader label"
-                  style={{ width: 160, whiteSpace: "nowrap" }}
+                  style={{ width: 200, whiteSpace: "nowrap" }}
                 >
                   Status
                   <Tooltip
@@ -772,26 +842,23 @@ function MetricSection({
               const rr = allRowResults[i];
               const metricTs = timeSeries[row.metric.id];
               const isInverse = !!row.metric.inverse;
-              const expected = stats?.expected ?? 0;
-              const resultsHighlightClassname = clsx(rr.resultsStatus, {
-                "non-significant": !rr.significant,
-              });
 
-              const ROW_HEIGHT = 55;
+              const hasData = rr.enoughData || (stats.users ?? 0) > 0;
 
               return (
                 <tbody className="results-group-row" key={row.metric.id}>
                   <tr
-                    className="results-variation-row"
-                    style={{
-                      height: ROW_HEIGHT,
-                      boxShadow: "var(--slate-a5) 0 -1px inset",
-                    }}
+                    className={`results-variation-row results-metric-row${hasData ? " results-clickable-row" : ""}`}
+                    onClick={
+                      hasData
+                        ? () => setDrilldownRowIndex(i)
+                        : undefined
+                    }
                   >
                     {/* Metric label */}
                     <td
                       className="variation with-variation-label"
-                      style={{ width: 200 }}
+                      style={{ width: 280 }}
                     >
                       <div
                         className="d-flex align-items-center"
@@ -819,41 +886,6 @@ function MetricSection({
                       </div>
                     </td>
 
-                    {/* % Change */}
-                    <td
-                      className={clsx(
-                        "variation change results-change",
-                        resultsHighlightClassname,
-                      )}
-                    >
-                      <div
-                        className="d-flex align-items-center justify-content-end"
-                        style={{
-                          minHeight: ROW_HEIGHT,
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {rr.enoughData && expected !== 0 ? (
-                          <span className="nowrap">
-                            <span className="expectedArrows">
-                              {rr.directionalStatus === "winning" ? (
-                                <FaArrowUp />
-                              ) : (
-                                <FaArrowDown />
-                              )}
-                            </span>{" "}
-                            <span className="expected">
-                              {formatPercent(expected, {
-                                maximumFractionDigits: 1,
-                              })}
-                            </span>
-                          </span>
-                        ) : (
-                          <span className="result-number text-muted">—</span>
-                        )}
-                      </div>
-                    </td>
-
                     {/* Time series sparkline */}
                     <td style={{ padding: 0 }}>
                       <div style={{ height: ROW_HEIGHT, minWidth: 250 }}>
@@ -862,54 +894,6 @@ function MetricSection({
                           xDateRange={dateExtent}
                           inverse={isInverse}
                           eventMarkers={eventMarkers}
-                        />
-                      </div>
-                    </td>
-
-                    {/* CI Graph pill */}
-                    <td className="graph-cell">
-                      <div
-                        className="d-flex align-items-center"
-                        style={{ minHeight: ROW_HEIGHT }}
-                      >
-                        <PercentGraph
-                          significanceThresholds={sigThresholds}
-                          barType="pill"
-                          barFillType={
-                            rr.resultsStatus === "lost"
-                              ? "significant"
-                              : "color"
-                          }
-                          barFillColor={
-                            rr.resultsStatus === "lost"
-                              ? undefined
-                              : "var(--blue-a7)"
-                          }
-                          significant={rr.significant}
-                          baseline={baseline}
-                          domain={domain}
-                          metric={row.metric}
-                          stats={stats}
-                          id={`ramp-ci-${row.metric.id}`}
-                          graphWidth={GRAPH_WIDTH}
-                          height={ROW_HEIGHT}
-                          percent
-                          differenceType="relative"
-                          className={clsx(
-                            resultsHighlightClassname,
-                            "overflow-hidden",
-                          )}
-                          rowStatus={
-                            rr.resultsStatus === "lost" ||
-                            rr.resultsStatus === "won"
-                              ? rr.resultsStatus
-                              : undefined
-                          }
-                          resultsStatus={rr.resultsStatus}
-                          statsEngine="frequentist"
-                          notEnoughData={!rr.enoughData}
-                          minSampleSize={getMinSampleSizeForMetric(row.metric)}
-                          statusLabels={SAFE_ROLLOUT_STATUS_LABELS}
                         />
                       </div>
                     </td>
@@ -939,7 +923,7 @@ function MetricSection({
             {eventMarkers && eventMarkers.length > 0 && (
               <tfoot>
                 <tr style={{ height: 20 }}>
-                  <td colSpan={2} />
+                  <td />
                   <td style={{ padding: 0 }}>
                     <div style={{ height: 20, position: "relative" }}>
                       <EventMarkerLabels
@@ -948,13 +932,26 @@ function MetricSection({
                       />
                     </div>
                   </td>
-                  <td colSpan={2} />
+                  <td />
                 </tr>
               </tfoot>
             )}
           </table>
         </div>
       </div>
+
+      {drilldownRowIndex !== null && rows[drilldownRowIndex] && (
+        <SafeRolloutMetricDrilldownModal
+          row={rows[drilldownRowIndex]}
+          resultGroup={resultGroup}
+          guardrailMetricIds={guardrailMetricIds}
+          signalMetricIds={signalMetricIds}
+          timeSeries={timeSeries[rows[drilldownRowIndex].metric.id]}
+          reportDate={reportDate}
+          startDate={startDate}
+          close={() => setDrilldownRowIndex(null)}
+        />
+      )}
     </Box>
   );
 }
@@ -1535,23 +1532,12 @@ function MonitoringControls({
               useRadixButton
               radixVariant="outline"
               onSubmit={async () => {
-                console.log("[RampDashboard] Update clicked", {
-                  safeRolloutId,
-                  rampScheduleId: rampSchedule.id,
-                  status: rampSchedule.status,
-                  stepIndex: rampSchedule.currentStepIndex,
-                  nextStepAt: rampSchedule.nextStepAt,
-                  nextProcessAt: rampSchedule.nextProcessAt,
-                  nextSnapshotAt: rampSchedule.nextSnapshotAt,
-                });
                 try {
                   await apiCall(`/safe-rollout/${safeRolloutId}/snapshot`, {
                     method: "POST",
                   });
-                  console.log("[RampDashboard] Snapshot created successfully");
                   setRefreshError("");
                 } catch (e) {
-                  console.error("[RampDashboard] Snapshot creation failed", e);
                   setRefreshError(e instanceof Error ? e.message : String(e));
                 }
                 mutateSnapshot();
@@ -1619,7 +1605,7 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
   const router = useRouter();
   const useDummyData = router.query["dummy"] === "true";
 
-  const { metricGroups } = useDefinitions();
+  const { metricGroups, getExperimentMetricById } = useDefinitions();
 
   // Expand metric groups and dedupe: if a metric appears in both tiers,
   // promote it to guardrail and drop from signal.
@@ -1657,10 +1643,14 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
   const dummyMetrics = useMemo(
     () =>
       useDummyData
-        ? generateDummySnapshotMetrics(allMetricIds, dummyScenarios)
+        ? generateDummySnapshotMetrics(
+            allMetricIds,
+            dummyScenarios,
+            (metricId) => !!getExperimentMetricById(metricId)?.inverse,
+            getExperimentMetricById,
+          )
         : undefined,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [useDummyData, allMetricIds.join(",")],
+    [useDummyData, allMetricIds, dummyScenarios, getExperimentMetricById],
   );
 
   const dummyStartMs = useMemo(() => {
@@ -1829,6 +1819,8 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
           reportDate={snapshotDate}
           startDate={startDate}
           eventMarkers={eventMarkers}
+          guardrailMetricIds={guardrailMetricIds}
+          signalMetricIds={signalMetricIds}
         />
       )}
 
@@ -1844,6 +1836,8 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
           reportDate={snapshotDate}
           startDate={startDate}
           eventMarkers={eventMarkers}
+          guardrailMetricIds={guardrailMetricIds}
+          signalMetricIds={signalMetricIds}
         />
       )}
 

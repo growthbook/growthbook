@@ -656,24 +656,42 @@ pre {
     tr {
       &:not(.slice-header-row) {
         box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
+        &.results-clickable-row:hover {
+          box-shadow: var(--shadow-3);
+        }
       }
 
       &.slice-collapsed {
         box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
         &.last-slice-header {
           box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
+          &.results-clickable-row:hover {
+            box-shadow: var(--shadow-3);
+          }
+        }
+        &.results-clickable-row:hover {
+          box-shadow: var(--shadow-3);
         }
       }
       &.slice-expanded {
         box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
+        &.results-clickable-row:hover {
+          box-shadow: var(--shadow-3);
+        }
       }
 
       &:last-of-type:not(.slice-collapsed):not(.slice-expanded) {
         box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
+        &.results-clickable-row:hover {
+          box-shadow: var(--shadow-3);
+        }
       }
 
       &.last-before-slice-header {
         box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
+        &.results-clickable-row:hover {
+          box-shadow: var(--shadow-3);
+        }
       }
 
       &:not(.results-label-row):not(.slice-header-row) {
@@ -810,6 +828,14 @@ pre {
   .hover {
     cursor: pointer;
     transition: 100ms all;
+  }
+  tr.results-metric-row {
+    height: 55px;
+    box-shadow: var(--slate-a5) 0 -1px inset;
+  }
+  tr.results-clickable-row {
+    cursor: pointer;
+    transition: box-shadow 100ms ease;
   }
   .visx-axis-left .visx-axis-line {
     // axis line has a 0.5 pixel offset. reverse it

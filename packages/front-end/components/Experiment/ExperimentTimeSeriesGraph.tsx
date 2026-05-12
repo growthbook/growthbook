@@ -7,7 +7,7 @@ import { GridColumns, GridRows } from "@visx/grid";
 import { scaleLinear, scaleTime } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { AreaClosed, LinePath } from "@visx/shape";
-import { curveLinear, curveMonotoneX } from "@visx/curve";
+import { curveLinear } from "@visx/curve";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import { datetime, getValidDate } from "shared/dates";
 import { StatsEngine } from "shared/types/stats";
@@ -78,6 +78,52 @@ type TooltipData = {
 const height = 220;
 const margin = [15, 30, 30, 80];
 
+function renderCiTooltipCell(
+  ci: [number, number] | undefined,
+  formatter: (value: number, options?: Intl.NumberFormatOptions) => string,
+  formatterOptions?: Intl.NumberFormatOptions,
+): React.ReactNode {
+  if (!ci) return "—";
+  const [lo, hi] = ci;
+  const loF = Number.isFinite(lo);
+  const hiF = Number.isFinite(hi);
+  if (loF && hiF) {
+    return (
+      <Text as="span" weight="bold">
+        [
+        {formatter(lo, formatterOptions)}, {formatter(hi, formatterOptions)}]
+      </Text>
+    );
+  }
+  if (!loF && hiF) {
+    return (
+      <>
+        <Text as="span" weight="bold">
+          {formatter(hi, formatterOptions)}
+        </Text>
+        <Text as="span" size="1" color="gray">
+          {" "}
+          (upper)
+        </Text>
+      </>
+    );
+  }
+  if (loF && !hiF) {
+    return (
+      <>
+        <Text as="span" weight="bold">
+          {formatter(lo, formatterOptions)}
+        </Text>
+        <Text as="span" size="1" color="gray">
+          {" "}
+          (lower)
+        </Text>
+      </>
+    );
+  }
+  return "—";
+}
+
 // Render the contents of a tooltip
 const getTooltipContents = (
   data: TooltipData,
@@ -104,6 +150,13 @@ const getTooltipContents = (
     statsEngine === "frequentist" &&
     usedStatsEngine === "frequentist";
 
+  const hasOneSidedCiInTooltip = d.variations?.some(
+    (v, i) =>
+      i > 0 &&
+      !!v?.ci &&
+      (!Number.isFinite(v.ci[0]) || !Number.isFinite(v.ci[1])),
+  );
+
   return (
     <>
       <Text weight="medium">{datetime(d.d)}</Text>
@@ -122,7 +175,8 @@ const getTooltipContents = (
             {hasStats && (
               <>
                 <TableColumnHeader justify="center">
-                  CI{showAdjustmentNote ? "*" : null}
+                  {hasOneSidedCiInTooltip ? "95% CI" : "CI"}
+                  {showAdjustmentNote ? "*" : null}
                 </TableColumnHeader>
                 <TableColumnHeader justify="center">
                   {usedStatsEngine === "frequentist"
@@ -202,21 +256,12 @@ const getTooltipContents = (
                           justify="center"
                           style={{ fontWeight: "normal" }}
                         >
-                          {i > 0 && (
-                            <>
-                              [
-                              {formatter(
-                                variation?.ci?.[0] ?? 0,
-                                formatterOptions,
-                              )}
-                              ,{" "}
-                              {formatter(
-                                variation?.ci?.[1] ?? 0,
-                                formatterOptions,
-                              )}
-                              ]
-                            </>
-                          )}
+                          {i > 0 &&
+                            renderCiTooltipCell(
+                              variation?.ci,
+                              formatter,
+                              formatterOptions,
+                            )}
                         </TableCell>
                         <TableCell justify="center">
                           {i > 0 && (
@@ -293,6 +338,39 @@ const getYVal = (variation?: DataPointVariation, yaxis?: AxisType) => {
       return variation.up;
   }
 };
+
+/** Non-finite CI bounds must not expand the y-axis; use the point for domain math only. */
+function finiteCiForDomain(
+  bound: number | undefined,
+  point: number,
+): number {
+  if (bound === undefined) return point;
+  if (Number.isFinite(bound)) return bound;
+  return point;
+}
+
+/** Map open CI bound to plot edge in **data** space (current y domain), for ribbon fill only. */
+function ciLowerForArea(
+  lo: number | undefined,
+  point: number,
+  yDomainMin: number,
+): number {
+  if (lo === undefined) return point;
+  if (Number.isFinite(lo)) return lo;
+  if (lo === Number.NEGATIVE_INFINITY) return yDomainMin;
+  return point;
+}
+
+function ciUpperForArea(
+  hi: number | undefined,
+  point: number,
+  yDomainMax: number,
+): number {
+  if (hi === undefined) return point;
+  if (Number.isFinite(hi)) return hi;
+  if (hi === Number.POSITIVE_INFINITY) return yDomainMax;
+  return point;
+}
 
 const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
   yaxis,
@@ -402,9 +480,10 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
               ...d.variations
                 .filter((_, i) => showVariations[i])
                 .map((variation) =>
-                  variation?.ci?.[0]
-                    ? variation.ci[0]
-                    : (getYVal(variation ?? undefined, yaxis) ?? 0),
+                  finiteCiForDomain(
+                    variation?.ci?.[0],
+                    getYVal(variation ?? undefined, yaxis) ?? 0,
+                  ),
                 ),
             )
           : 0,
@@ -417,9 +496,10 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
               ...d.variations
                 .filter((_, i) => showVariations[i])
                 .map((variation) =>
-                  variation?.ci?.[1]
-                    ? variation.ci[1]
-                    : (getYVal(variation ?? undefined, yaxis) ?? 0),
+                  finiteCiForDomain(
+                    variation?.ci?.[1],
+                    getYVal(variation ?? undefined, yaxis) ?? 0,
+                  ),
                 ),
             )
           : 0,
@@ -436,9 +516,10 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
             .filter((_, i) => showVariations[i])
             .map(
               (variation) =>
-                variation?.ci?.[0] ??
-                getYVal(variation ?? undefined, yaxis) ??
-                0,
+                finiteCiForDomain(
+                  variation?.ci?.[0],
+                  getYVal(variation ?? undefined, yaxis) ?? 0,
+                ),
             ),
         )
       : 0;
@@ -449,9 +530,10 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
             .filter((_, i) => showVariations[i])
             .map(
               (variation) =>
-                variation?.ci?.[1] ??
-                getYVal(variation ?? undefined, yaxis) ??
-                0,
+                finiteCiForDomain(
+                  variation?.ci?.[1],
+                  getYVal(variation ?? undefined, yaxis) ?? 0,
+                ),
             ),
         )
       : 0;
@@ -476,7 +558,15 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
     const range = max - min;
     const expandedRange2 = range * 1.05;
     const buffer = (expandedRange2 - range) / 2;
-    return [min - buffer, max + buffer];
+    const paddedMin = min - buffer;
+    const paddedMax = max + buffer;
+    const halfSpan = (paddedMax - paddedMin) / 2;
+    // Keep the y=0 reference inside the domain with a minimum margin on each side.
+    const minHalfWidthAboutZero = Math.max(0.001, halfSpan * 0.02);
+    return [
+      Math.min(paddedMin, -minHalfWidthAboutZero),
+      Math.max(paddedMax, minHalfWidthAboutZero),
+    ];
   }, [datapoints, yaxis, showVariations, sortedDatesWithData]);
 
   // Get x-axis domain
@@ -719,14 +809,46 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                           data={sortedDataForVariation}
                           x={(d) => xScale(d.d) ?? 0}
                           y0={(d) => {
-                            return yScale(d?.variation?.ci?.[0] ?? 0) ?? 0;
+                            const pt =
+                              getYVal(d.variation ?? undefined, yaxis) ?? 0;
+                            const [yMin, yMax] = yScale.domain();
+                            const loData = ciLowerForArea(
+                              d.variation?.ci?.[0],
+                              pt,
+                              yMin,
+                            );
+                            const hiData = ciUpperForArea(
+                              d.variation?.ci?.[1],
+                              pt,
+                              yMax,
+                            );
+                            const yLo = yScale(loData) ?? 0;
+                            const yHi = yScale(hiData) ?? 0;
+                            return Math.max(yLo, yHi);
                           }}
                           y1={(d) => {
-                            return yScale(d?.variation?.ci?.[1] ?? 0) ?? 0;
+                            const pt =
+                              getYVal(d.variation ?? undefined, yaxis) ?? 0;
+                            const [yMin, yMax] = yScale.domain();
+                            const loData = ciLowerForArea(
+                              d.variation?.ci?.[0],
+                              pt,
+                              yMin,
+                            );
+                            const hiData = ciUpperForArea(
+                              d.variation?.ci?.[1],
+                              pt,
+                              yMax,
+                            );
+                            const yLo = yScale(loData) ?? 0;
+                            const yHi = yScale(hiData) ?? 0;
+                            return Math.min(yLo, yHi);
                           }}
                           fill={getVariationColor(v.index, true)}
                           opacity={0.12}
-                          curve={curveMonotoneX}
+                          // curveMonotoneX is invalid for d3 areas: the y0 boundary is traced
+                          // with decreasing x, which breaks monotone-X splines and collapses the fill.
+                          curve={curveLinear}
                         />
                       )
                     );

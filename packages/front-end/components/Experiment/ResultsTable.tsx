@@ -27,6 +27,7 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
+import { MetricTimeSeries } from "shared/validators";
 import { Flex } from "@radix-ui/themes";
 import {
   ExperimentMetricInterface,
@@ -131,6 +132,7 @@ export type ResultsTableProps = {
   visibleTimeSeriesRowIds?: string[];
   onVisibleTimeSeriesRowIdsChange?: (ids: string[]) => void;
   timeSeriesMessage?: string;
+  preloadedTimeSeries?: MetricTimeSeries;
 };
 
 const ROW_HEIGHT = 46;
@@ -200,6 +202,7 @@ export default function ResultsTable({
   visibleTimeSeriesRowIds: visibleTimeSeriesRowIdsProp,
   onVisibleTimeSeriesRowIdsChange,
   timeSeriesMessage,
+  preloadedTimeSeries,
 }: ResultsTableProps) {
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
@@ -1306,6 +1309,7 @@ export default function ResultsTable({
                                           sliceId={row.sliceId}
                                           baselineRow={baselineRow}
                                           unavailableMessage={timeSeriesMessage}
+                                          preloadedTimeSeries={preloadedTimeSeries}
                                         />
                                       </div>
                                     </div>

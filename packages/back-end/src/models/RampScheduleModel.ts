@@ -18,7 +18,6 @@ import {
   computeNextProcessAt,
   dispatchRampEvent,
 } from "back-end/src/services/rampSchedule";
-import { getCollection } from "back-end/src/util/mongo.util";
 import { applyPagination } from "back-end/src/util/handler";
 import {
   rampTargetsEquivalent,
@@ -854,6 +853,25 @@ export class RampScheduleModel extends BaseClass {
     }
     return map;
   }
+
+  // --- Agenda poller (org-scoped via BaseModel; no cross-org collection reads) ---
+
+  /** Schedules that should run the advance/evaluator path, or pending crash-recovery. */
+  public async agendaFindDueScheduleIds(now: Date): Promise<string[]> {
+    const docs = await this._find(
+      {
+        $or: [
+          { nextProcessAt: { $ne: null, $lte: now } },
+          {
+            status: "pending",
+            "targets.activatingRevisionVersion": { $exists: true, $ne: null },
+          },
+        ],
+      },
+      { bypassReadPermissionChecks: true, projection: { id: 1 } },
+    );
+    return docs.map((d) => d.id);
+  }
 }
 
 /**
@@ -867,82 +885,3 @@ export type RampMonitoredRuleInfo = {
   rampScheduleId: string;
   safeRolloutId?: string;
 };
-
-/**
- * Cross-org query for the poller: returns minimal docs for every schedule
- * that is due for processing or pending crash-recovery.
- * Bypasses org-scoped BaseModel intentionally — the caller must load the
- * full document via a proper context after queuing the work.
- */
-export async function findSchedulesDueForProcessing(
-  now: Date,
-): Promise<{ id: string; organization: string }[]> {
-  const docs = await getCollection(COLLECTION_NAME)
-    .find(
-      {
-        $or: [
-          // Primary path: any schedule with a due process time
-          { nextProcessAt: { $ne: null, $lte: now } },
-          // Crash recovery: pending schedules whose activation hook may have missed
-          {
-            status: "pending",
-            "targets.activatingRevisionVersion": { $exists: true, $ne: null },
-          },
-        ],
-      },
-      { projection: { _id: 1, id: 1, organization: 1 } },
-    )
-    .toArray();
-
-  return docs.map((d) => ({
-    id: (d.id as string | undefined) || String(d._id),
-    organization: d.organization as string,
-  }));
-}
-
-/**
- * Diagnostic: returns a summary of all running/pending-approval schedules
- * so the poller can log why they aren't being picked up.
- */
-export async function findRunningSchedulesSummary(): Promise<
-  { id: string; organization: string; status: string; nextProcessAt: string | null; nextSnapshotAt: string | null; nextStepAt: string | null; stepIndex: number }[]
-> {
-  const docs = await getCollection(COLLECTION_NAME)
-    .find(
-      { status: { $in: ["running", "pending-approval"] } },
-      {
-        projection: {
-          id: 1,
-          organization: 1,
-          status: 1,
-          nextProcessAt: 1,
-          nextSnapshotAt: 1,
-          nextStepAt: 1,
-          currentStepIndex: 1,
-        },
-      },
-    )
-    .toArray();
-  return docs.map((d) => ({
-    id: (d.id as string) || String(d._id),
-    organization: d.organization as string,
-    status: d.status as string,
-    nextProcessAt: d.nextProcessAt ? new Date(d.nextProcessAt as Date).toISOString() : null,
-    nextSnapshotAt: d.nextSnapshotAt ? new Date(d.nextSnapshotAt as Date).toISOString() : null,
-    nextStepAt: d.nextStepAt ? new Date(d.nextStepAt as Date).toISOString() : null,
-    stepIndex: (d.currentStepIndex as number) ?? -1,
-  }));
-}
-
-/**
- * Force-fix a running schedule whose nextProcessAt is stale or null.
- */
-export async function healStaleNextProcessAt(
-  scheduleId: string,
-  now: Date,
-): Promise<void> {
-  await getCollection(COLLECTION_NAME).updateOne(
-    { id: scheduleId },
-    { $set: { nextProcessAt: now } },
-  );
-}
