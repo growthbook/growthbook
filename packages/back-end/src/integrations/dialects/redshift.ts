@@ -43,15 +43,19 @@ export const redshiftDialect: SqlDialect = {
           .join(",\n        ")}
       `,
 
-  // Single-scan unpivot (Redshift 1.0.14631+ LATERAL + VALUES, PostgreSQL-style).
+  // Redshift LATERAL only supports SELECT subqueries (not VALUES), so we emit
+  // a UNION ALL chain.
   unpivotLabeledPairs: (pairs) => {
-    const valueRows = pairs
-      .map((p) => `('${p.keyLiteral}', ${p.valueSql})`)
-      .join(", ");
+    const first = `SELECT '${pairs[0].keyLiteral}' AS column_name, ${pairs[0].valueSql} AS value`;
+    const rest = pairs
+      .slice(1)
+      .map((p) => `UNION ALL SELECT '${p.keyLiteral}', ${p.valueSql}`)
+      .join(" ");
     return {
       fromContinuation: `CROSS JOIN LATERAL (
-        VALUES ${valueRows}
-      ) AS __col(column_name, value)`,
+        ${first}
+        ${pairs.length > 1 ? `\n${rest}` : ""}
+      ) AS __col`,
       keyExpr: "__col.column_name",
       valueExpr: "__col.value",
     };

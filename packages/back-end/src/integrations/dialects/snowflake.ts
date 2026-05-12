@@ -53,17 +53,23 @@ export const snowflakeDialect: SqlDialect = {
       where,
     ),
 
+  // LATERAL FLATTEN(input => ARRAY_CONSTRUCT(OBJECT_CONSTRUCT(...))) doesn't
+  // reliably correlate the column references back to the outer table in
+  // Snowflake, producing "invalid identifier" errors at runtime. Use a plain
+  // LATERAL inline view with a UNION ALL chain instead.
   unpivotLabeledPairs: (pairs) => {
-    const objects = pairs
-      .map(
-        (p) =>
-          `OBJECT_CONSTRUCT('column_name', '${p.keyLiteral}', 'value', ${p.valueSql})`,
-      )
-      .join(", ");
+    const first = `SELECT '${pairs[0].keyLiteral}' AS column_name, ${pairs[0].valueSql} AS value`;
+    const rest = pairs
+      .slice(1)
+      .map((p) => `UNION ALL SELECT '${p.keyLiteral}', ${p.valueSql}`)
+      .join(" ");
     return {
-      fromContinuation: `,\n LATERAL FLATTEN(input => ARRAY_CONSTRUCT(${objects})) __col`,
-      keyExpr: "__col.value:column_name::VARCHAR",
-      valueExpr: "__col.value:value::VARCHAR",
+      fromContinuation: `, LATERAL (
+        ${first}
+        ${pairs.length > 1 ? `\n${rest}` : ""}
+      ) __col`,
+      keyExpr: "__col.column_name",
+      valueExpr: "__col.value",
     };
   },
 };
