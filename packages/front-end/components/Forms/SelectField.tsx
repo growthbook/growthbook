@@ -49,7 +49,13 @@ export type FormatOptionLabelType = (
 
 export type SelectFieldProps = Omit<
   FieldProps,
-  "value" | "onChange" | "options" | "multi" | "initialOption" | "placeholder"
+  | "value"
+  | "onChange"
+  | "options"
+  | "multi"
+  | "initialOption"
+  | "placeholder"
+  | "size"
 > & {
   value: string;
   markRequired?: boolean;
@@ -73,7 +79,7 @@ export type SelectFieldProps = Omit<
   legacyLabelFormatting?: boolean;
   labelSize?: TextSizes;
   labelWeight?: TextWeights;
-  size?: "sm" | "md" | "legacy" | "lg";
+  size?: "x-small" | "small" | "legacy" | "medium";
   errorLevel?: "error" | "warning";
 };
 
@@ -250,7 +256,7 @@ const SelectField: FC<SelectFieldProps> = ({
   legacyLabelFormatting = true,
   labelSize,
   labelWeight = "semibold",
-  size = "legacy" as "sm" | "md" | "legacy" | "lg",
+  size = "legacy" as "x-small" | "small" | "legacy" | "medium",
   errorLevel = "error",
   ...otherProps
 }) => {
@@ -308,16 +314,16 @@ const SelectField: FC<SelectFieldProps> = ({
     });
 
     const sizeMinHeight: Record<string, number> = {
-      sm: 24,
-      md: 32,
+      "x-small": 24,
+      small: 32,
       legacy: 36,
-      lg: 40,
+      medium: 40,
     };
     const sizeVPadding: Record<string, number> = {
-      sm: 0,
-      md: 0,
+      "x-small": 0,
+      small: 0,
       legacy: 2,
-      lg: 4,
+      medium: 4,
     };
     const prevControl = merged.control;
     merged.control = (base, state) => ({
@@ -337,14 +343,7 @@ const SelectField: FC<SelectFieldProps> = ({
     return (
       <>
         {!legacyLabelFormatting && label !== undefined && (
-          <Text
-            as="label"
-            size={
-              labelSize ??
-              (size === "lg" ? "large" : size === "sm" ? "small" : "medium")
-            }
-            weight={labelWeight}
-          >
+          <Text as="label" size={labelSize ?? "medium"} weight={labelWeight}>
             {label}
           </Text>
         )}
@@ -378,7 +377,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 <Text
                   as="label"
                   htmlFor={id}
-                  size={labelSize ?? (size === "lg" ? "large" : "medium")}
+                  size={labelSize ?? "medium"}
                   weight={labelWeight}
                 >
                   {label}

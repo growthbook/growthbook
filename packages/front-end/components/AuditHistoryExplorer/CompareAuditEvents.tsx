@@ -907,7 +907,7 @@ export default function CompareAuditEvents<T>({
                     <Select
                       value={diffViewMode}
                       setValue={(v) => setDiffViewModeRaw(v)}
-                      size="sm"
+                      size="x-small"
                       mb="0"
                     >
                       <SelectItem value="steps">Steps</SelectItem>

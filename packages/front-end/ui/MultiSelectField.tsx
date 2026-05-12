@@ -273,7 +273,7 @@ export type MultiSelectFieldProps = Omit<
   isOptionDisabled?: (_: Option) => boolean;
   noMenu?: boolean;
   showCopyButton?: boolean;
-  size?: "md" | "legacy" | "lg";
+  size?: "small" | "legacy" | "medium";
   labelSize?: TextSizes;
   labelWeight?: TextWeights;
   errorLevel?: "error" | "warning";
@@ -301,7 +301,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   required,
   pattern,
   showCopyButton = true,
-  size = "legacy" as "md" | "legacy" | "lg",
+  size = "legacy" as "small" | "legacy" | "medium",
   labelSize,
   labelWeight = "semibold",
   errorLevel = "error",
@@ -401,11 +401,15 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   };
   const mergeStyles = useMemo(() => {
     const sizeMinHeight: Record<string, number> = {
-      md: 32,
+      small: 32,
       legacy: 36,
-      lg: 40,
+      medium: 40,
     };
-    const sizeVPadding: Record<string, number> = { md: 0, legacy: 2, lg: 4 };
+    const sizeVPadding: Record<string, number> = {
+      small: 0,
+      legacy: 2,
+      medium: 4,
+    };
     return {
       styles: {
         ...ReactSelectProps.styles,
@@ -432,7 +436,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
 
   const labelStyle = useMemo<MultiValueLabelStyle>(
     () => ({
-      fontSize: size === "lg" ? "14px" : "12px",
+      fontSize: size === "medium" ? "14px" : "12px",
       fontWeight: 500,
       cursor: sort ? "grab" : undefined,
     }),
@@ -454,7 +458,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                   <Text
                     as="label"
                     htmlFor={id}
-                    size={labelSize ?? (size === "lg" ? "large" : "medium")}
+                    size={labelSize ?? "medium"}
                     weight={labelWeight}
                   >
                     {label}

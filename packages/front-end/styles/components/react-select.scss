@@ -16,7 +16,7 @@
   font-size: var(--font-size-2) !important;
 }
 
-.gb-multi-select--md {
+.gb-multi-select--small {
   .gb-multi-select__control {
     min-height: 32px !important;
     border-radius: var(--radius-2) !important;
@@ -38,7 +38,7 @@
   }
 }
 
-.gb-multi-select--lg {
+.gb-multi-select--medium {
   .gb-multi-select__control {
     min-height: 40px !important;
     border-radius: var(--radius-3) !important;
@@ -70,7 +70,7 @@
   font-size: var(--font-size-2) !important;
 }
 
-.gb-select-wrapper--sm {
+.gb-select-wrapper--x-small {
   .gb-select__control {
     min-height: 24px !important;
     border-radius: var(--radius-2) !important;
@@ -100,7 +100,7 @@
   }
 }
 
-.gb-select-wrapper--md {
+.gb-select-wrapper--small {
   .gb-select__control {
     min-height: 32px !important;
     border-radius: var(--radius-2) !important;
@@ -114,7 +114,7 @@
   }
 }
 
-.gb-select-wrapper--lg {
+.gb-select-wrapper--medium {
   .gb-select__control {
     min-height: 40px !important;
     border-radius: var(--radius-3) !important;
@@ -234,7 +234,7 @@
   // This one is dynamic. Style it in JS.
 }
 
-.gb-multi-select--md .gb-multi-select__multi-value {
+.gb-multi-select--small .gb-multi-select__multi-value {
   height: 22px;
   border-radius: var(--radius-1);
 }
@@ -243,7 +243,7 @@
   height: 24px;
   border-radius: var(--radius-1);
 }
-.gb-multi-select--lg .gb-multi-select__multi-value {
+.gb-multi-select--medium .gb-multi-select__multi-value {
   height: 26px;
   border-radius: var(--radius-2);
 }

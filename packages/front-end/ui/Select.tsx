@@ -5,25 +5,17 @@ import clsx from "clsx";
 import HelperText from "./HelperText";
 import Text, { TextSizes, TextWeights } from "./Text";
 
-export type SelectSize = "sm" | "md" | "legacy" | "lg";
+export type SelectSize = "x-small" | "small" | "medium";
 
 function toRadixSize(size: SelectSize): "1" | "2" | "3" {
   switch (size) {
-    case "sm":
+    case "x-small":
       return "1";
-    case "md":
+    case "small":
       return "2";
-    case "lg":
+    case "medium":
       return "3";
-    case "legacy":
-      return "2";
   }
-}
-
-function toLabelSize(size: SelectSize): TextSizes {
-  if (size === "lg") return "large";
-  if (size === "sm") return "small";
-  return "medium";
 }
 
 type SelectProps = {
@@ -57,7 +49,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     children,
     value,
     setValue,
-    size = "legacy",
+    size = "small",
     placeholder,
     variant = "surface",
     triggerClassName,
@@ -74,11 +66,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
       className={`gb-select--${size}`}
     >
       {typeof label === "string" ? (
-        <Text
-          as="label"
-          size={labelSize ?? toLabelSize(size)}
-          weight={labelWeight}
-        >
+        <Text as="label" size={labelSize ?? "medium"} weight={labelWeight}>
           {label}
         </Text>
       ) : label !== undefined ? (

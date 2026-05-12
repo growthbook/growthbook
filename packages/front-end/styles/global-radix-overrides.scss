@@ -351,17 +351,17 @@
   }
 }
 
-.gb-select--legacy .rt-SelectTrigger {
-  height: 36px;
+.gb-select--x-small .rt-SelectTrigger {
+  height: 24px;
   border-radius: var(--radius-2);
 }
 
-.gb-select--md .rt-SelectTrigger {
+.gb-select--small .rt-SelectTrigger {
   height: 32px;
   border-radius: var(--radius-2);
 }
 
-.gb-select--lg .rt-SelectTrigger {
+.gb-select--medium .rt-SelectTrigger {
   height: 40px;
   border-radius: var(--radius-3);
 }

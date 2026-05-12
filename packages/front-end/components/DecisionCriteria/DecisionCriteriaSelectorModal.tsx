@@ -96,7 +96,7 @@ const DecisionCriteriaSelectorModal: FC<DecisionCriteriaSelectorModalProps> = ({
               );
               form.setValue("decisionCriteriaId", value);
             }}
-            size="sm"
+            size="x-small"
             disabled={!canEdit}
           >
             {decisionCriterias.map((criteria) => (

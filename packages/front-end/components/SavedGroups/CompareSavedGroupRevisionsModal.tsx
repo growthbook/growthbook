@@ -1721,7 +1721,7 @@ export default function CompareSavedGroupRevisionsModal({
                     <Select
                       value={diffViewMode}
                       setValue={(v) => setDiffViewModeRaw(v)}
-                      size="2"
+                      size="x-small"
                       mb="0"
                     >
                       <SelectItem value="steps">Steps</SelectItem>

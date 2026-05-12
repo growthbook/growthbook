@@ -69,7 +69,7 @@ export default function DateRangePicker({
       style={shouldWrap ? { minWidth: 0 } : undefined}
     >
       <Select
-        size="sm"
+        size="x-small"
         value={dateRange.predefined}
         placeholder="Select range"
         setValue={(v) => {
@@ -136,7 +136,7 @@ export default function DateRangePicker({
             }}
           />
           <Select
-            size="sm"
+            size="x-small"
             value={dateRange.lookbackUnit || "day"}
             setValue={(v) => {
               setDraftExploreState((prev) => ({
