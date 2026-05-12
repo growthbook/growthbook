@@ -70,6 +70,25 @@ export const mysqlDialect: SqlDialect = {
     const raw = `JSON_EXTRACT(${jsonCol}, '$.${path}')`;
     return isNumeric ? mysqlDialect.castToFloat(raw) : raw;
   },
+  // MySQL 8.0.14+ LATERAL derived table; requires MySQL 8 for window functions in top-N ranking.
+  unpivotLabeledPairs: (pairs) => {
+    const first = `SELECT '${pairs[0].keyLiteral}' AS column_name, ${pairs[0].valueSql} AS value`;
+    const rest = pairs
+      .slice(1)
+      .map((p) => `UNION ALL SELECT '${p.keyLiteral}', ${p.valueSql}`)
+      .join(" ");
+    return {
+      fromContinuation: `CROSS JOIN LATERAL (
+        ${first}
+        ${pairs.length > 1 ? `\n${rest}` : ""}
+      ) AS __col`,
+      keyExpr: "__col.column_name",
+      valueExpr: "__col.value",
+    };
+  },
+
+  stringLength: (column: string) => `CHAR_LENGTH(${column})`,
+
   escapeStringLiteral: (value: string) =>
     value.replace(/\\/g, "\\\\").replace(/'/g, "''"),
 };

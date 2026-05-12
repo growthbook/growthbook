@@ -67,4 +67,19 @@ if(
       metricTable,
       where,
     ),
+  unpivotLabeledPairs: (pairs) => {
+    const namesArr = pairs.map((p) => `'${p.keyLiteral}'`).join(", ");
+    const valsArr = pairs.map((p) => p.valueSql).join(", ");
+    return {
+      fromContinuation: `ARRAY JOIN
+        [${namesArr}] AS column_name,
+        [${valsArr}] AS value`,
+      keyExpr: "column_name",
+      valueExpr: "value",
+    };
+  },
+
+  // ClickHouse's LENGTH returns bytes (not characters); that's stricter
+  // than JS .length but fine for the document-size guard.
+  stringLength: (column: string) => `length(${column})`,
 };

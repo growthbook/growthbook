@@ -52,4 +52,18 @@ export const snowflakeDialect: SqlDialect = {
       metricTable,
       where,
     ),
+
+  unpivotLabeledPairs: (pairs) => {
+    const objects = pairs
+      .map(
+        (p) =>
+          `OBJECT_CONSTRUCT('column_name', '${p.keyLiteral}', 'value', ${p.valueSql})`,
+      )
+      .join(", ");
+    return {
+      fromContinuation: `,\n LATERAL FLATTEN(input => ARRAY_CONSTRUCT(${objects})) __col`,
+      keyExpr: "__col.value:column_name::VARCHAR",
+      valueExpr: "__col.value:value::VARCHAR",
+    };
+  },
 };

@@ -90,4 +90,17 @@ export const bigQueryDialect: SqlDialect = {
       metricTable,
       where,
     ),
+  unpivotLabeledPairs: (pairs) => {
+    const structs = pairs
+      .map(
+        (p) =>
+          `STRUCT('${p.keyLiteral}' AS column_name, ${p.valueSql} AS value)`,
+      )
+      .join(", ");
+    return {
+      fromContinuation: `CROSS JOIN UNNEST([${structs}]) AS col`,
+      keyExpr: "col.column_name",
+      valueExpr: "col.value",
+    };
+  },
 };

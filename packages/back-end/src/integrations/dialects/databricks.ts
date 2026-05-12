@@ -59,4 +59,17 @@ export const databricksDialect: SqlDialect = {
       metricTable,
       where,
     ),
+
+  unpivotLabeledPairs: (pairs) => {
+    const stackPairs = pairs
+      .map((p) => `'${p.keyLiteral}', ${p.valueSql}`)
+      .join(", ");
+    return {
+      fromContinuation: `LATERAL VIEW STACK(${pairs.length},
+        ${stackPairs}
+      ) __col AS column_name, value`,
+      keyExpr: "column_name",
+      valueExpr: "value",
+    };
+  },
 };
