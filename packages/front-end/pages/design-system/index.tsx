@@ -36,7 +36,7 @@ import TableStories from "@/ui/Table.stories";
 import TabsStories from "@/ui/Tabs.stories";
 import ProgressBarStories from "@/ui/ProgressBar.stories";
 import VariationStatsTableStories from "@/ui/VariationStatsTable.stories";
-import DialogStories from "@/ui/Dialog/Dialog.stories";
+import ModalStories from "@/ui/Modal/Modal.stories";
 
 type StoryEntry = {
   name: string;
@@ -102,7 +102,7 @@ export default function DesignSystemPage() {
     { name: "Switch", Stories: SwitchStories },
     { name: "Table", Stories: TableStories },
     { name: "Tabs", Stories: TabsStories },
-    { name: "Dialog", Stories: DialogStories },
+    { name: "Modal", Stories: ModalStories },
   ] satisfies StoryEntry[];
 
   const entries = useMemo(

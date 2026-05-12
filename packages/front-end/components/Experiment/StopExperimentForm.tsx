@@ -23,7 +23,7 @@ import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import { AppFeatures } from "@/types/app-features";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { Results } from "./ResultsIndicator";
 
 const StopExperimentForm: FC<{
@@ -206,7 +206,7 @@ const StopExperimentForm: FC<{
   });
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType="stop-experiment-form"
       trackingEventModalSource={source}
       header={
@@ -237,7 +237,6 @@ const StopExperimentForm: FC<{
           <div className="row">
             <SelectField
               label="Conclusion"
-              labelClassName="font-weight-bold"
               containerClassName="col-lg"
               className={decisionDoesNotMatchRecommendedResult ? "warning" : ""}
               value={form.watch("results")}
@@ -277,7 +276,6 @@ const StopExperimentForm: FC<{
             {form.watch("results") === "won" && variations.length > 2 && (
               <SelectField
                 label="Winner"
-                labelClassName="font-weight-bold"
                 containerClassName="col-lg"
                 className={
                   decisionDoesNotMatchRecommendedResult ? "warning" : ""
@@ -352,7 +350,6 @@ const StopExperimentForm: FC<{
                 <div className="row">
                   <SelectField
                     label="Variation to Release"
-                    labelClassName="font-weight-bold"
                     containerClassName="col"
                     value={form.watch("releasedVariationId")}
                     onChange={(v) => {
@@ -407,7 +404,7 @@ const StopExperimentForm: FC<{
           </div>
         </div>
       </Flex>
-    </DialogLayout>
+    </ModalStandard>
   );
 };
 

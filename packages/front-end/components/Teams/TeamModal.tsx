@@ -1,12 +1,12 @@
 import { useForm } from "react-hook-form";
 import { MemberRoleWithProjects } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import { Team } from "@/services/UserContext";
 import RoleSelector from "@/components/Settings/Team/RoleSelector";
 import SelectField, { SingleValue } from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export default function TeamModal({
   existing,
@@ -46,7 +46,7 @@ export default function TeamModal({
   const { apiCall } = useAuth();
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       open={true}
       close={close}
@@ -97,6 +97,6 @@ export default function TeamModal({
           options={availableProjects}
         />
       )}
-    </Modal>
+    </ModalStandard>
   );
 }

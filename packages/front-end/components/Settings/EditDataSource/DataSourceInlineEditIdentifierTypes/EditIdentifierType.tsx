@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import MultiSelectField from "@/ui/MultiSelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 
 type EditIdentifierTypeProps = {
@@ -93,7 +93,7 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
     : "";
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType=""
       open={true}
       submit={handleSubmit}
@@ -107,7 +107,6 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
       <>
         <Field
           label="Identifier Type"
-          labelClassName="font-weight-bold"
           {...form.register("idType")}
           pattern="^[a-z_]+$"
           readOnly={mode === "edit"}
@@ -117,7 +116,6 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
         />
         <Field
           label="Description (optional)"
-          labelClassName="font-weight-bold"
           {...form.register("description")}
           minRows={1}
           maxRows={5}
@@ -126,7 +124,6 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
         {hashAttributes && (
           <MultiSelectField
             label="Hash Attributes"
-            labelClassName="font-weight-bold"
             value={form.watch("attributes")}
             helpText="Select the hash attributes that map to this identifier type."
             onChange={(value) => {
@@ -139,6 +136,6 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
           />
         )}
       </>
-    </DialogLayout>
+    </ModalStandard>
   );
 };

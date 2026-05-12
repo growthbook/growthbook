@@ -10033,6 +10033,177 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/experiments/{id}/results' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/start:
+    post:
+      operationId: postExperimentStart
+      summary: Start an experiment
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                skipChecklist:
+                  description: >-
+                    If true, skips validating the experiment satisifies all
+                    pre-launch checklist items
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
+                required:
+                  - experiment
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/start' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/stop:
+    post:
+      operationId: postExperimentStop
+      summary: Stop an experiment
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                results:
+                  description: The experiment conclusion status.
+                  type: string
+                  enum:
+                    - dnf
+                    - won
+                    - lost
+                    - inconclusive
+                enableTemporaryRollout:
+                  description: >-
+                    If true, include this stopped experiment in SDK payload and
+                    force the release variation (`releasedVariationId`) to all
+                    traffic.
+                  type: boolean
+                releasedVariationId:
+                  description: >-
+                    Required if enableTemporaryRollout is true. Variation ID
+                    (e.g. var_abc123) to release to 100% of traffic eligible for
+                    this experiment.
+                  type: string
+                winnerVariationId:
+                  description: >-
+                    Variation ID (e.g. var_abc123) of the winning variation.
+                    Used only as metadata. Required if results is 'won' and
+                    there are multiple test variations. Otherwise, defaults to
+                    the test variation when results is 'won' and to the baseline
+                    variation for other results.
+                  type: string
+                analysis:
+                  description: >-
+                    Optional markdown summary displayed on the experiment
+                    results page.
+                  type: string
+                reason:
+                  description: >-
+                    Optional reason for ending the phase stored on the latest
+                    phase metadata.
+                  type: string
+                dateEnded:
+                  description: >-
+                    Optional ISO datetime for ending the latest phase. Defaults
+                    to the current date and time.
+                  type: string
+              required:
+                - results
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
+                required:
+                  - experiment
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/stop' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"results":"won","releasedVariationId":"var_treatment","winnerVariationId":"var_treatment","enableTemporaryRollout":true,"analysis":"Reached desired sample size with statistically significant positive lift; shipping treatment"}'
+  /v1/experiments/{id}/modify-temporary-rollout:
+    post:
+      operationId: postExperimentModifyTemporaryRollout
+      summary: Modify temporary rollout status for a stopped experiment
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enableTemporaryRollout:
+                  description: >-
+                    If true, keep the stopped experiment in SDK payload and
+                    force traffic to the winner variation. If false, end
+                    temporary rollout and remove from SDK payload.
+                  type: boolean
+                releasedVariationId:
+                  description: >-
+                    Variation ID (e.g. var_abc123) to release to 100% of traffic
+                    eligible for this experiment. Required if
+                    enableTemporaryRollout is true.
+                  type: string
+              required:
+                - enableTemporaryRollout
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
+                required:
+                  - experiment
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/modify-temporary-rollout'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"enableTemporaryRollout":false}'
   /v1/experiments/{id}/snapshot:
     post:
       operationId: postExperimentSnapshot
@@ -10064,6 +10235,21 @@ paths:
                   enum:
                     - manual
                     - schedule
+                dimension:
+                  description: >-
+                    Dimension to break results down by. For Unit Dimensions, use
+                    the dimension id (e.g. "dim_abc123"). For Experiment
+                    Dimensions, use "exp:<dimensionName>" (e.g. "exp:country").
+                    Built-in pre-exposure dimensions include "pre:date" and,
+                    when configured, "pre:activation". Omit this field to create
+                    a standard snapshot.
+                  type: string
+                phase:
+                  description: >-
+                    Zero-based phase index to snapshot, where 0 is the first
+                    experiment phase. Defaults to the latest phase.
+                  type: integer
+                  minimum: 0
               additionalProperties: false
       responses:
         '200':
@@ -13737,15 +13923,19 @@ paths:
                       description: >-
                         User aggregation of selected column. Either sum or max
                         for numeric columns; count distinct for string columns;
-                        ignored for special columns. Default: sum. If you
-                        specify a string column you must explicitly specify
-                        count distinct. Not used for proportion or event
-                        quantile metrics.
+                        hll merge / kll merge for pre-built sketch columns
+                        (requires data-source support); ignored for special
+                        columns. Default: sum. If you specify a string column
+                        you must explicitly specify count distinct. Not used for
+                        proportion metrics; for event quantile metrics only kll
+                        merge is applicable.
                       type: string
                       enum:
                         - sum
                         - max
                         - count distinct
+                        - hll merge
+                        - kll merge
                     filters:
                       deprecated: true
                       description: >-
@@ -13845,15 +14035,19 @@ paths:
                       description: >-
                         User aggregation of selected column. Either sum or max
                         for numeric columns; count distinct for string columns;
-                        ignored for special columns. Default: sum. If you
-                        specify a string column you must explicitly specify
-                        count distinct. Not used for proportion or event
-                        quantile metrics.
+                        hll merge / kll merge for pre-built sketch columns
+                        (requires data-source support); ignored for special
+                        columns. Default: sum. If you specify a string column
+                        you must explicitly specify count distinct. Not used for
+                        proportion metrics; for event quantile metrics only kll
+                        merge is applicable.
                       type: string
                       enum:
                         - sum
                         - max
                         - count distinct
+                        - hll merge
+                        - kll merge
                     filters:
                       deprecated: true
                       description: >-
@@ -13953,6 +14147,14 @@ paths:
                       minimum: 0.001
                       maximum: 0.999
                       multipleOf: 0.001
+                    quantileEventCountColumn:
+                      description: >-
+                        Optional override for the source-column name used to
+                        recover per-row event counts when numerator.aggregation
+                        is 'kll merge'. Defaults to
+                        '<numerator.column>_n_events'. Only valid for
+                        event-quantile metrics with a 'kll merge' numerator.
+                      type: string
                   required:
                     - type
                     - ignoreZeros
@@ -14249,15 +14451,19 @@ paths:
                       description: >-
                         User aggregation of selected column. Either sum or max
                         for numeric columns; count distinct for string columns;
-                        ignored for special columns. Default: sum. If you
-                        specify a string column you must explicitly specify
-                        count distinct. Not used for proportion or event
-                        quantile metrics.
+                        hll merge / kll merge for pre-built sketch columns
+                        (requires data-source support); ignored for special
+                        columns. Default: sum. If you specify a string column
+                        you must explicitly specify count distinct. Not used for
+                        proportion metrics; for event quantile metrics only kll
+                        merge is applicable.
                       type: string
                       enum:
                         - sum
                         - max
                         - count distinct
+                        - hll merge
+                        - kll merge
                     filters:
                       deprecated: true
                       description: >-
@@ -14357,15 +14563,19 @@ paths:
                       description: >-
                         User aggregation of selected column. Either sum or max
                         for numeric columns; count distinct for string columns;
-                        ignored for special columns. Default: sum. If you
-                        specify a string column you must explicitly specify
-                        count distinct. Not used for proportion or event
-                        quantile metrics.
+                        hll merge / kll merge for pre-built sketch columns
+                        (requires data-source support); ignored for special
+                        columns. Default: sum. If you specify a string column
+                        you must explicitly specify count distinct. Not used for
+                        proportion metrics; for event quantile metrics only kll
+                        merge is applicable.
                       type: string
                       enum:
                         - sum
                         - max
                         - count distinct
+                        - hll merge
+                        - kll merge
                     filters:
                       deprecated: true
                       description: >-
@@ -14465,6 +14675,14 @@ paths:
                       minimum: 0.001
                       maximum: 0.999
                       multipleOf: 0.001
+                    quantileEventCountColumn:
+                      description: >-
+                        Optional override for the source-column name used to
+                        recover per-row event counts when numerator.aggregation
+                        is 'kll merge'. Defaults to
+                        '<numerator.column>_n_events'. Only valid for
+                        event-quantile metrics with a 'kll merge' numerator.
+                      type: string
                   required:
                     - type
                     - ignoreZeros
@@ -14969,16 +15187,20 @@ paths:
                                 description: >-
                                   User aggregation of selected column. Either
                                   sum or max for numeric columns; count distinct
-                                  for string columns; ignored for special
-                                  columns. Default: sum. If you specify a string
-                                  column you must explicitly specify count
-                                  distinct. Not used for proportion or event
-                                  quantile metrics.
+                                  for string columns; hll merge / kll merge for
+                                  pre-built sketch columns (requires data-source
+                                  support); ignored for special columns.
+                                  Default: sum. If you specify a string column
+                                  you must explicitly specify count distinct.
+                                  Not used for proportion metrics; for event
+                                  quantile metrics only kll merge is applicable.
                                 type: string
                                 enum:
                                   - sum
                                   - max
                                   - count distinct
+                                  - hll merge
+                                  - kll merge
                               filters:
                                 deprecated: true
                                 description: >-
@@ -15081,16 +15303,20 @@ paths:
                                 description: >-
                                   User aggregation of selected column. Either
                                   sum or max for numeric columns; count distinct
-                                  for string columns; ignored for special
-                                  columns. Default: sum. If you specify a string
-                                  column you must explicitly specify count
-                                  distinct. Not used for proportion or event
-                                  quantile metrics.
+                                  for string columns; hll merge / kll merge for
+                                  pre-built sketch columns (requires data-source
+                                  support); ignored for special columns.
+                                  Default: sum. If you specify a string column
+                                  you must explicitly specify count distinct.
+                                  Not used for proportion metrics; for event
+                                  quantile metrics only kll merge is applicable.
                                 type: string
                                 enum:
                                   - sum
                                   - max
                                   - count distinct
+                                  - hll merge
+                                  - kll merge
                               filters:
                                 deprecated: true
                                 description: >-
@@ -15191,6 +15417,15 @@ paths:
                                 minimum: 0.001
                                 maximum: 0.999
                                 multipleOf: 0.001
+                              quantileEventCountColumn:
+                                description: >-
+                                  Optional override for the source-column name
+                                  used to recover per-row event counts when
+                                  numerator.aggregation is 'kll merge'. Defaults
+                                  to '<numerator.column>_n_events'. Only valid
+                                  for event-quantile metrics with a 'kll merge'
+                                  numerator.
+                                type: string
                             required:
                               - type
                               - ignoreZeros
@@ -27450,6 +27685,7 @@ components:
             - date
             - boolean
             - json
+            - binary
             - other
             - ''
         numberFormat:
@@ -27476,6 +27712,7 @@ components:
                   - date
                   - boolean
                   - json
+                  - binary
                   - other
                   - ''
             additionalProperties: false
@@ -27609,6 +27846,8 @@ components:
                 - sum
                 - max
                 - count distinct
+                - hll merge
+                - kll merge
             filters:
               deprecated: true
               description: >-
@@ -27796,6 +28035,13 @@ components:
               minimum: 0.001
               maximum: 0.999
               multipleOf: 0.001
+            quantileEventCountColumn:
+              description: >-
+                Optional override for the source-column name used to recover
+                per-row event counts when numerator.aggregation is 'kll merge'.
+                Defaults to '<numerator.column>_n_events'. Only valid for
+                event-quantile metrics with a 'kll merge' numerator.
+              type: string
           required:
             - type
             - ignoreZeros

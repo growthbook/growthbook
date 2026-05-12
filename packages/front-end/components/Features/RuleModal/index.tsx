@@ -1177,8 +1177,7 @@ export default function RuleModal({
             }
           }
 
-          // If the ramp has a future start date, publish the rule as disabled
-          // so it remains hidden until the ramp activates.
+          // Future-dated schedule → start with rule disabled.
           if (
             rampScheduleInline &&
             "startDate" in rampScheduleInline &&
@@ -1255,8 +1254,7 @@ export default function RuleModal({
           }
         }
 
-        // If the ramp has a future start date, publish the rule as disabled
-        // so it remains hidden until the ramp activates.
+        // Future-dated schedule → start with rule disabled until the ramp activates.
         if (
           rampScheduleInline &&
           "startDate" in rampScheduleInline &&
@@ -1265,9 +1263,14 @@ export default function RuleModal({
           values = { ...values, enabled: false };
         }
 
-        // Clear rule-level targeting for new ramp rules — steps own state over time.
+        // Ramp-up steps own targeting over time; clear rule-level targeting so
+        // they don't conflict. Standard schedules (no steps) don't control
+        // targeting, so preserve user-set values.
         if (
           rampScheduleInline &&
+          "steps" in rampScheduleInline &&
+          rampScheduleInline.steps &&
+          rampScheduleInline.steps.length > 0 &&
           (values.type === "rollout" || values.type === "force")
         ) {
           values = {

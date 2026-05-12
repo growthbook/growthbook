@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Flex } from "@radix-ui/themes";
+import { format } from "date-fns";
 import { dateRangePredefined, lookbackUnit } from "shared/validators";
-import { getValidDate } from "shared/dates";
+import { getValidDateOffsetByUTC } from "shared/dates";
 import { Select, SelectItem } from "@/ui/Select";
 import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
@@ -162,17 +163,21 @@ export default function DateRangePicker({
           compact
           wrapRangeInputs={shouldWrap}
           date={
-            dateRange.startDate ? getValidDate(dateRange.startDate) : undefined
+            dateRange.startDate
+              ? getValidDateOffsetByUTC(dateRange.startDate)
+              : undefined
           }
           date2={
-            dateRange.endDate ? getValidDate(dateRange.endDate) : undefined
+            dateRange.endDate
+              ? getValidDateOffsetByUTC(dateRange.endDate)
+              : undefined
           }
           setDate={(d) => {
             setDraftExploreState((prev) => ({
               ...prev,
               dateRange: {
                 ...prev.dateRange,
-                startDate: d?.toISOString() || null,
+                startDate: d ? format(d, "yyyy-MM-dd") : null,
               },
             }));
           }}
@@ -181,7 +186,7 @@ export default function DateRangePicker({
               ...prev,
               dateRange: {
                 ...prev.dateRange,
-                endDate: d?.toISOString() || null,
+                endDate: d ? format(d, "yyyy-MM-dd") : null,
               },
             }));
           }}

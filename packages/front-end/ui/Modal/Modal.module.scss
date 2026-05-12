@@ -1,0 +1,6 @@
+.body {
+  label:not(.rt-Text) {
+    color: var(--text-color-main);
+    font-weight: var(--font-weight-bold);
+  }
+}

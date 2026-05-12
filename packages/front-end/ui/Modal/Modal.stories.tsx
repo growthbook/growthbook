@@ -1,14 +1,14 @@
 import { Box, Flex, TextField } from "@radix-ui/themes";
 import { useState } from "react";
-import Dialog, { Size } from "@/ui/Dialog";
+import Modal, { Size } from "@/ui/Modal";
 import Button from "../Button";
 import { Select, SelectItem } from "../Select";
 import Text from "../Text";
 import Checkbox from "../Checkbox";
-import DialogForm, { useDialogForm } from "./DialogForm";
+import ModalForm, { useModalForm } from "./ModalForm";
 
 function SubmitButton() {
-  const { loading } = useDialogForm();
+  const { loading } = useModalForm();
   return (
     <Button type="submit" loading={loading}>
       Save
@@ -16,13 +16,13 @@ function SubmitButton() {
   );
 }
 
-export default function DialogStories() {
+export default function ModalStories() {
   const [size, setSize] = useState<Size | null>(null);
   const [environment, setEnvironment] = useState("production");
   const [disableStickyBucketing, setDisableStickyBucketing] = useState(false);
   return (
     <>
-      <Dialog.Root
+      <Modal.Root
         open={!!size}
         onOpenChange={(open) => {
           if (!open) setSize(null);
@@ -30,13 +30,13 @@ export default function DialogStories() {
         size={size ?? "md"}
         trackingEventModalType="test-modal"
       >
-        <DialogForm
+        <ModalForm
           onSubmit={() => {
             throw new Error("This is a test error");
           }}
         >
-          <Dialog.Header>
-            <Dialog.Title>GrowthBook Modal</Dialog.Title>
+          <Modal.Header>
+            <Modal.Title>GrowthBook Modal</Modal.Title>
             <Box width="140px">
               <Select value={environment} setValue={setEnvironment} size="sm">
                 <SelectItem value="production">Production</SelectItem>
@@ -44,11 +44,11 @@ export default function DialogStories() {
                 <SelectItem value="development">Development</SelectItem>
               </Select>
             </Box>
-          </Dialog.Header>
-          <Dialog.Description>
+          </Modal.Header>
+          <Modal.Description>
             {`This is a ${size === "md" ? "medium" : "large"} example modal`}
-          </Dialog.Description>
-          <Dialog.Body>
+          </Modal.Description>
+          <Modal.Body>
             <Flex direction="column" gap="5">
               <Flex direction="column" gap="1">
                 <Text weight="semibold">Experiment name</Text>
@@ -64,21 +64,21 @@ export default function DialogStories() {
                 setValue={setDisableStickyBucketing}
               />
             </Flex>
-          </Dialog.Body>
-          <Dialog.Footer>
-            <Dialog.Close>
+          </Modal.Body>
+          <Modal.Footer>
+            <Modal.Close>
               <Button variant="ghost" onClick={() => setSize(null)}>
                 Cancel
               </Button>
-            </Dialog.Close>
+            </Modal.Close>
             <SubmitButton />
-          </Dialog.Footer>
-        </DialogForm>
-      </Dialog.Root>
+          </Modal.Footer>
+        </ModalForm>
+      </Modal.Root>
 
       <Flex direction="row" gap="3">
-        <Button onClick={() => setSize("md")}>Medium Dialog</Button>
-        <Button onClick={() => setSize("lg")}>Large Dialog</Button>
+        <Button onClick={() => setSize("md")}>Medium Modal</Button>
+        <Button onClick={() => setSize("lg")}>Large Modal</Button>
       </Flex>
     </>
   );

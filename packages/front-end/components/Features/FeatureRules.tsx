@@ -1,5 +1,5 @@
 import { FeatureInterface } from "shared/types/feature";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PiFunnel, PiPlusBold, PiMagnifyingGlass } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
@@ -79,9 +79,34 @@ export default function FeatureRules({
     "hide-disabled-rules",
     false,
   );
+  const [showOrphaned, setShowOrphaned] = useLocalStorage(
+    "show-orphaned-rules",
+    false,
+  );
   const hasInactiveRules = (feature.rules ?? []).some((r) =>
     isRuleInactive(r, experimentsMap),
   );
+
+  // Orphaned: non-empty `environments` list referencing only deleted envs.
+  // `environments: []` (pending) and `allEnvironments: true` are not orphaned.
+  // Memoized so RuleList's `hiddenRuleIds` effect dep stays stable.
+  const orphanedRuleIds = useMemo(() => {
+    const knownEnvIds = new Set(environments.map((e) => e.id));
+    return new Set<string>(
+      (feature.rules ?? [])
+        .filter(
+          (r) =>
+            r &&
+            !r.allEnvironments &&
+            Array.isArray(r.environments) &&
+            r.environments.length > 0 &&
+            r.environments.every((e) => !knownEnvIds.has(e)),
+        )
+        .map((r) => r.id)
+        .filter((id): id is string => !!id),
+    );
+  }, [feature.rules, environments]);
+  const hasOrphanedRules = orphanedRuleIds.size > 0;
 
   // Externally triggered rule open (e.g. ramp timeline CTA). Switch to the
   // requested env if it projects there, else any env that has it.
@@ -374,8 +399,8 @@ export default function FeatureRules({
                 </Button>
               }
             >
-              <Box px="3" py="2">
-                <Flex align="center" gap="2" justify="end">
+              <Box px="3">
+                <Flex align="center" gap="2" justify="end" py="2">
                   <Text size="small" color="text-low">
                     Show inactive rules
                   </Text>
@@ -386,6 +411,18 @@ export default function FeatureRules({
                     disabled={!hasInactiveRules}
                   />
                 </Flex>
+                {env === null && hasOrphanedRules && (
+                  <Flex align="center" gap="2" justify="end" py="2">
+                    <Text size="small" color="text-low">
+                      Show missing environment rules
+                    </Text>
+                    <Switch
+                      size="1"
+                      value={showOrphaned}
+                      onChange={(v) => setShowOrphaned(v)}
+                    />
+                  </Flex>
+                )}
               </Box>
               {overflowLabels.length > 0 && <DropdownMenuSeparator />}
               {showOverflowSearch && (
@@ -460,6 +497,7 @@ export default function FeatureRules({
                 revisionList={revisionList}
                 rampSchedules={rampSchedules}
                 draftRevision={draftRevision}
+                hiddenRuleIds={showOrphaned ? undefined : orphanedRuleIds}
               />
             ) : (
               <Box py="4" className="text-muted">
