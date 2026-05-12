@@ -41,6 +41,27 @@ export const clickHouseDialect: SqlDialect = {
     const colType = col === "NULL" ? "Nullable(DateTime)" : "DateTime";
     return `CAST(${col} AS ${colType})`;
   },
+
+  // ClickHouse uses functional array operators (no `unnest`-style relational
+  // expansion). These match the funnel SQL's array-based step resolution.
+  arrayAggSorted: (col: string) =>
+    // groupArrayIf skips NULLs entirely; we then sort ascending.
+    `arraySort(groupArrayIf(${col}, isNotNull(${col})))`,
+
+  argMinByTimestamp: (valueCol: string, tsCol: string) =>
+    `argMinIf(${valueCol}, ${tsCol}, isNotNull(${tsCol}))`,
+
+  arrayMinInRange: (col, lowerBound, upperBound) => {
+    const preds: string[] = [];
+    if (lowerBound) preds.push(`x >= ${lowerBound}`);
+    if (upperBound) preds.push(`x <= ${upperBound}`);
+    const predicate = preds.length ? preds.join(" AND ") : "1";
+    // `arrayMin([])` returned 0/epoch in older CH versions, which would
+    // pollute downstream DateTime math; guard with a length check so the
+    // result is properly NULL when no element falls in the window.
+    const filtered = `arrayFilter(x -> ${predicate}, ${col})`;
+    return `if(length(${filtered}) > 0, arrayMin(${filtered}), NULL)`;
+  },
   castToString: (col: string) => `toString(${col})`,
   castToFloat: (col: string) => `toFloat64(${col})`,
   hasCountDistinctHLL: () => true,

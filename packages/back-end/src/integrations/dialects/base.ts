@@ -43,6 +43,28 @@ export const baseDialect: SqlDialect = {
 
   castUserDateCol: (column: string) => column,
 
+  // Postgres-flavored array helpers. Redshift inherits these unchanged.
+  // BigQuery/Snowflake/Athena/ClickHouse have their own array syntax and
+  // override below; if a dialect doesn't support arrays at all (MySQL,
+  // older MSSQL) it'll need to override these to throw or to express the
+  // operation through a different mechanism (e.g. JSON_TABLE).
+  arrayAggSorted: (col: string) =>
+    `ARRAY_AGG(${col} ORDER BY ${col}) FILTER (WHERE ${col} IS NOT NULL)`,
+
+  argMinByTimestamp: (valueCol: string, tsCol: string) =>
+    // No standard ARG_MIN in Postgres. Trick: build a value-array ordered
+    // by the timestamp column (NULLs filtered), then index [1] gives the
+    // value paired with the earliest timestamp.
+    `(ARRAY_AGG(${valueCol} ORDER BY ${tsCol}) FILTER (WHERE ${tsCol} IS NOT NULL))[1]`,
+
+  arrayMinInRange: (col, lowerBound, upperBound) => {
+    const conditions: string[] = [];
+    if (lowerBound) conditions.push(`t >= ${lowerBound}`);
+    if (upperBound) conditions.push(`t <= ${upperBound}`);
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    return `(SELECT MIN(t) FROM unnest(${col}) AS t ${where})`;
+  },
+
   getCurrentTimestamp: () => `CURRENT_TIMESTAMP`,
 
   ifElse: (condition: string, ifTrue: string, ifFalse: string) =>

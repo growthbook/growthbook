@@ -25,6 +25,18 @@ const helpers: SqlDialect = {
   castToDate: (col) => `CAST(${col} AS DATE)`,
   castToTimestamp: (col) => `CAST(${col} AS TIMESTAMP)`,
   castUserDateCol: (col) => col,
+  // Postgres-flavored array helpers (mirror baseDialect).
+  arrayAggSorted: (col) =>
+    `ARRAY_AGG(${col} ORDER BY ${col}) FILTER (WHERE ${col} IS NOT NULL)`,
+  argMinByTimestamp: (valueCol, tsCol) =>
+    `(ARRAY_AGG(${valueCol} ORDER BY ${tsCol}) FILTER (WHERE ${tsCol} IS NOT NULL))[1]`,
+  arrayMinInRange: (col, lower, upper) => {
+    const conds: string[] = [];
+    if (lower) conds.push(`t >= ${lower}`);
+    if (upper) conds.push(`t <= ${upper}`);
+    const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
+    return `(SELECT MIN(t) FROM unnest(${col}) AS t ${where})`;
+  },
   getCurrentTimestamp: () => `CURRENT_TIMESTAMP`,
   ifElse: (c, t, f) => `(CASE WHEN ${c} THEN ${t} ELSE ${f} END)`,
   getDataType: () => "VARCHAR",
@@ -179,11 +191,19 @@ describe("buildFunnelSql", () => {
     expect(sql).toContain("__funnel_ft0_events");
     // Single-fact-table funnels skip the UNION wrapper.
     expect(sql).not.toContain("__funnel_events");
-    // ROW_NUMBER captures the first-touch event for step 1.
-    expect(sql).toContain("ROW_NUMBER() OVER (PARTITION BY user_id");
-    expect(sql).toContain("__funnel_resolved_step1");
+    // Step 1's earliest qualifying timestamp comes from a single per-user
+    // GROUP BY pass — no per-step ROW_NUMBER fan-out.
+    expect(sql).toContain("__funnel_user_aggregates");
+    expect(sql).toContain("MIN(step1_ts) AS step1_resolved_ts");
+    expect(sql).not.toContain("ROW_NUMBER()");
+    // Follow-on step CTEs exist; there is intentionally no
+    // `__funnel_resolved_step1` (step 1 lives on __funnel_user_aggregates).
+    expect(sql).not.toContain("__funnel_resolved_step1");
     expect(sql).toContain("__funnel_resolved_step2");
     expect(sql).toContain("__funnel_resolved_step3");
+    // Per-step sorted timestamp arrays back the in-memory lookups.
+    expect(sql).toContain("AS step2_arr");
+    expect(sql).toContain("AS step3_arr");
     // Per-step counts and time-from-previous stats are emitted at the end.
     expect(sql).toContain("AS step1_count");
     expect(sql).toContain("AS step2_count");
@@ -191,6 +211,27 @@ describe("buildFunnelSql", () => {
     expect(sql).toContain("AS step2_tfp_sum_sq_ms");
     // No step1 timing column — first step has nothing to measure from.
     expect(sql).not.toContain("step1_tfp_sum_ms");
+  });
+
+  it("aggregates the event log exactly once and looks step 2+ up in arrays", () => {
+    const config = baseFunnelConfig([
+      { name: "Step 1", factTable: "orders" },
+      { name: "Step 2", factTable: "orders" },
+      { name: "Step 3", factTable: "orders" },
+    ]);
+    const { sql } = buildFunnelSql(config, factTableMap, helpers);
+    // Each follow-on step CTE reads directly from the previous CTE — the
+    // per-step arrays are forwarded through, so no JOIN back to the
+    // aggregate (or the events log) is needed.
+    expect(sql).not.toMatch(/JOIN __funnel_/);
+    // The arrayMinInRange subquery materializes for each follow-on step.
+    expect(sql).toMatch(/FROM unnest\(r\.step2_arr\) AS t/);
+    expect(sql).toMatch(/FROM unnest\(r\.step3_arr\) AS t/);
+    // The events CTE is referenced only by the aggregate CTE — not by
+    // any of the chained step-resolution CTEs (that was the old per-step
+    // self-join we replaced).
+    const eventsRefs = sql.match(/FROM __funnel_ft0_events/g) ?? [];
+    expect(eventsRefs.length).toBe(1);
   });
 
   it("emits a UNION ALL events CTE when steps span multiple fact tables", () => {

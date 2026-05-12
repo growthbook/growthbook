@@ -63,6 +63,36 @@ export interface SqlDialect {
    */
   castToTimestamp: (column: string) => string;
   castUserDateCol: (column: string) => string;
+  /**
+   * Aggregate `col` across the group into an array sorted ascending, with
+   * NULL values filtered out. Used by funnel SQL to materialize one
+   * sorted timestamp array per user per step in a single GROUP BY pass —
+   * the chained step-resolution CTEs then look up matching timestamps via
+   * `arrayMinInRange` instead of self-joining the full event log.
+   */
+  arrayAggSorted: (col: string) => string;
+  /**
+   * Aggregate value: returns `valueCol` from the row where `tsCol` is the
+   * minimum non-null timestamp in the group. Used by funnel SQL to capture
+   * the first-touch dimension alongside step 1's resolved timestamp without
+   * a separate ROW_NUMBER pass over the events.
+   */
+  argMinByTimestamp: (valueCol: string, tsCol: string) => string;
+  /**
+   * Scalar expression: returns the smallest element of `arrayExpr` that
+   * lies in `[lowerBound, upperBound]`, or NULL if no element matches.
+   * Either bound may be `null` for "no constraint on that side". Used by
+   * funnel SQL to resolve follow-on steps within the conversion window
+   * after the prior step's resolved timestamp. NULL-typed bounds
+   * (e.g. when the previous step wasn't resolved for this user) must
+   * propagate through to a NULL result — `t >= NULL` is NULL/FALSE for
+   * every `t`, so the natural filter semantics short-circuit correctly.
+   */
+  arrayMinInRange: (
+    arrayExpr: string,
+    lowerBound: string | null,
+    upperBound: string | null,
+  ) => string;
   getCurrentTimestamp: () => string;
   ifElse: (condition: string, ifTrue: string, ifFalse: string) => string;
   getDataType: (dataType: DataType) => string;

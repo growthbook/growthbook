@@ -1183,12 +1183,16 @@ function groupFunnelStepsByFactTable(
  *      qualifies for. Date-range filter is applied here.
  *   2. `__funnel_events` UNIONs the fact-table CTEs into a common shape
  *      (NULLs for non-applicable step columns / dimension column).
- *   3. Chained `__funnel_resolved_step{N}` CTEs resolve each step's
- *      timestamp per user, with `MIN(...) FILTER` semantics expressed as
- *      `MIN(CASE WHEN ... THEN candidate END)` so it works across dialects.
- *      First-touch dimension is captured via a ROW_NUMBER window on step 1's
- *      candidates.
- *   4. The final SELECT aggregates per dimension: per-step counts +
+ *   3. `__funnel_user_aggregates`: a SINGLE per-user GROUP BY that pulls
+ *      step 1's earliest timestamp + first-touch dimension AND materializes
+ *      a sorted timestamp array per follow-on step. This is the only place
+ *      the full per-event log is scanned for step resolution.
+ *   4. Chained `__funnel_resolved_step{N}` CTEs resolve each follow-on
+ *      step's timestamp via the dialect's `arrayMinInRange` lookup against
+ *      that step's pre-sorted array — one row per user, no joins back to
+ *      the raw events. The conversion-window and concurrency-window bounds
+ *      live in the array filter predicate.
+ *   5. The final SELECT aggregates per dimension: per-step counts +
  *      sum/sum-of-squares of time-from-previous-step (ms).
  */
 export function buildFunnelSql(
@@ -1337,69 +1341,83 @@ export function buildFunnelSql(
         };
   if (ftGroups.length > 1) ctes.push(eventsCTE);
 
-  // 3a. Resolve step 1 per user (first-touch). ROW_NUMBER is portable across
-  // Postgres + ClickHouse and lets us simultaneously capture the dimension
-  // from the row with the earliest qualifying step1 timestamp.
-  const step1Cte: CTE = {
-    name: "__funnel_resolved_step1",
+  // 3. Per-user aggregate CTE. One GROUP BY user_id pass over the unified
+  // events table captures everything we need to resolve the funnel:
+  //   - step 1's earliest qualifying timestamp (MIN of step1_ts)
+  //   - the first-touch dimension (argMin valueCol=dimension_1 by tsCol=step1_ts)
+  //   - one sorted timestamp array per follow-on step (stepN_arr) so the
+  //     chained CTEs below can look up the next step in-memory.
+  //
+  // This replaces the old approach of doing one LEFT JOIN back to the full
+  // event log per step. The event log gets scanned exactly once here.
+  const userAggregateCols: string[] = ["user_id"];
+  if (dimensionExpr) {
+    userAggregateCols.push(
+      `${dialect.argMinByTimestamp("dimension_1", "step1_ts")} AS dimension_1`,
+    );
+  }
+  userAggregateCols.push(`MIN(step1_ts) AS step1_resolved_ts`);
+  for (let i = 1; i < steps.length; i++) {
+    const stepN = i + 1;
+    userAggregateCols.push(
+      `${dialect.arrayAggSorted(`step${stepN}_ts`)} AS step${stepN}_arr`,
+    );
+  }
+  const userAggregatesCte: CTE = {
+    name: "__funnel_user_aggregates",
     sql: `
-      SELECT user_id, dimension_1, ts AS step1_resolved_ts FROM (
-        SELECT
-          user_id,
-          dimension_1,
-          ts,
-          ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY ts ASC) AS rn
-        FROM ${eventsCTE.name}
-        WHERE step1_ts IS NOT NULL
-      ) t
-      WHERE rn = 1
+      SELECT
+        ${userAggregateCols.join(",\n        ")}
+      FROM ${eventsCTE.name}
+      GROUP BY user_id
     `,
   };
-  ctes.push(step1Cte);
+  ctes.push(userAggregatesCte);
 
-  // 3b. Resolve subsequent steps with a LEFT JOIN back to the events CTE.
-  // We can't reference computed columns inside the same SELECT list, so
-  // each step gets its own CTE that depends on the previous one.
-  let prevCte: CTE = step1Cte;
-  const resolvedSelectCols: string[] = [
-    "user_id",
-    "dimension_1",
-    "step1_resolved_ts",
-  ];
+  // 3b. Chained step-N resolution. Each CTE reads directly from the
+  // previous one — the prev CTE already carries `stepN_arr` forward from
+  // __funnel_user_aggregates, so a JOIN back to the aggregate would be
+  // a redundant self-join on user_id. Each step "consumes" its own array
+  // column (replacing it with `stepN_resolved_ts`) and forwards the
+  // remaining arrays for later steps.
+  let prevCte: CTE = userAggregatesCte;
+  const carriedCols: string[] = [];
+  if (dimensionExpr) carriedCols.push("dimension_1");
+  carriedCols.push("step1_resolved_ts");
   for (let i = 1; i < steps.length; i++) {
     const step = steps[i];
     const stepN = i + 1;
     const prevExpr = buildPrevResolvedExpr(steps, i, "r");
+    const windowSeconds = step.conversionWindow
+      ? conversionWindowToSeconds(step.conversionWindow)
+      : null;
     const lowerBound =
       concurrencyWindowSeconds > 0
         ? dialect.addIntervalSeconds(prevExpr, "-", concurrencyWindowSeconds)
         : prevExpr;
-    const windowSeconds = step.conversionWindow
-      ? conversionWindowToSeconds(step.conversionWindow)
-      : null;
-    const upperBoundClause =
+    const upperBound =
       windowSeconds != null
-        ? `AND e.step${stepN}_ts <= ${dialect.addIntervalSeconds(prevExpr, "+", windowSeconds)}`
-        : "";
-    const candidateExpr = `MIN(CASE WHEN e.step${stepN}_ts IS NOT NULL
-        AND ${prevExpr} IS NOT NULL
-        AND e.step${stepN}_ts >= ${lowerBound}
-        ${upperBoundClause}
-      THEN e.step${stepN}_ts END) AS step${stepN}_resolved_ts`;
-    const passthroughCols = resolvedSelectCols.map((c) => `r.${c}`);
+        ? dialect.addIntervalSeconds(prevExpr, "+", windowSeconds)
+        : null;
+    const selectCols: string[] = ["r.user_id"];
+    for (const c of carriedCols) selectCols.push(`r.${c}`);
+    selectCols.push(
+      `${dialect.arrayMinInRange(`r.step${stepN}_arr`, lowerBound, upperBound)} AS step${stepN}_resolved_ts`,
+    );
+    // Forward arrays that subsequent step CTEs still need to consume.
+    for (let j = i + 1; j < steps.length; j++) {
+      selectCols.push(`r.step${j + 1}_arr`);
+    }
     const cte: CTE = {
       name: `__funnel_resolved_step${stepN}`,
       sql: `
         SELECT
-          ${passthroughCols.join(",\n          ")},
-          ${candidateExpr}
+          ${selectCols.join(",\n          ")}
         FROM ${prevCte.name} r
-        LEFT JOIN ${eventsCTE.name} e ON e.user_id = r.user_id
-        GROUP BY ${passthroughCols.join(", ")}
       `,
     };
     ctes.push(cte);
-    resolvedSelectCols.push(`step${stepN}_resolved_ts`);
+    carriedCols.push(`step${stepN}_resolved_ts`);
     prevCte = cte;
   }
 
