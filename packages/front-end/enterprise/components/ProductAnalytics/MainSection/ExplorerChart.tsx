@@ -18,6 +18,7 @@ import {
   getEffectiveShowAs,
   getSharedUnit,
   showAsAppliesTo,
+  formatCompactNumber,
   formatDateByGranularity,
   type ResolvedGranularity,
   type RenderOpts,
@@ -62,16 +63,6 @@ const COMPARISON_SERIES_COLORS = [
   "#9ca3af",
   "#78716c",
 ];
-
-// Simple number formatter
-function formatNumber(value: number): string {
-  if (Math.abs(value) >= 1000000) {
-    return `${(value / 1000000).toFixed(2)}M`;
-  } else if (Math.abs(value) >= 1000) {
-    return `${(value / 1000).toFixed(1)}K`;
-  }
-  return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
-}
 
 export default function ExplorerChart({
   exploration,
@@ -250,6 +241,33 @@ export default function ExplorerChart({
             ? comparisonSeriesColor(idx)
             : seriesColor(idx);
 
+          const usesBarCompareOverlay =
+            chartType === "bar" || chartType === "stackedBar";
+
+          if (isPrevious && !usesBarCompareOverlay) {
+            const usesTimeAxis = chartType === "line" || chartType === "area";
+            const data = usesTimeAxis
+              ? sourceSortedXValues.map((x) => [
+                  new Date(x).getTime(),
+                  seriesDataMap[x] ?? 0,
+                ])
+              : sourceSortedXValues.map((x) => seriesDataMap[x] ?? 0);
+
+            return {
+              name: displayName,
+              data,
+              color,
+              type: "line" as const,
+              animation: animate,
+              animationDuration: animate ? 300 : 0,
+              animationEasing: "linear" as const,
+              showSymbol: false,
+              symbol: "circle" as const,
+              symbolSize: 4,
+              lineStyle: { type: "dashed" as const, width: 2, opacity: 0.75 },
+            };
+          }
+
           if (
             [
               "bar",
@@ -296,9 +314,6 @@ export default function ExplorerChart({
               animationEasing: "linear" as const,
               symbol: "circle" as const,
               symbolSize: 4,
-              lineStyle: isPrevious
-                ? { type: "dashed" as const, opacity: 0.75 }
-                : undefined,
             };
             if (chartType === "line") return lineConfig;
             if (chartType === "area")
@@ -402,7 +417,7 @@ export default function ExplorerChart({
         padding: [40, 0],
         color: textColor,
       },
-      axisLabel: { color: textColor, formatter: formatNumber },
+      axisLabel: { color: textColor, formatter: formatCompactNumber },
       splitLine: { lineStyle: { color: gridLineColor, width: 1 } },
     };
 
@@ -436,7 +451,7 @@ export default function ExplorerChart({
                 : item.value;
               const formatted =
                 typeof numValue === "number"
-                  ? formatNumber(numValue)
+                  ? formatCompactNumber(numValue)
                   : String(numValue);
               return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${item.marker}${item.seriesName}</span><span><b>${formatted}</b></span></div>`;
             })
@@ -553,7 +568,7 @@ export default function ExplorerChart({
         >
           <BigValueChart
             value={chartConfig.value}
-            formatter={formatNumber}
+            formatter={formatCompactNumber}
             label={submittedExploreState?.dataset?.values?.[0]?.name}
             compareSlot={
               bigNumberComparisonTrend ? (

@@ -8,19 +8,10 @@ import {
   computePeriodSummary,
   showsComparisonOverview,
 } from "@/enterprise/components/ProductAnalytics/compareUtil";
+import { formatCompactNumber } from "@/enterprise/components/ProductAnalytics/util";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
-
-function formatTotal(value: number): string {
-  if (Math.abs(value) >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(2)}M`;
-  }
-  if (Math.abs(value) >= 1_000) {
-    return `${(value / 1_000).toFixed(1)}K`;
-  }
-  return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
-}
 
 export default function ComparisonSummary({
   submittedExploreState,
@@ -103,14 +94,14 @@ export default function ComparisonSummary({
                   </Text>
                   <Flex align="center" gap="2" wrap="wrap">
                     <Text size="medium" weight="semibold">
-                      {formatTotal(summary.totalTrend.current)}
+                      {formatCompactNumber(summary.totalTrend.current)}
                     </Text>
                     <ComparisonTrendLabel trend={summary.totalTrend} />
                     {summary.averageTrend && summary.averageLabel ? (
                       <Flex align="center" gap="2" wrap="wrap">
                         <Text size="small" color="text-mid">
                           Avg per {summary.averageLabel}:{" "}
-                          {formatTotal(summary.averageTrend.current)}
+                          {formatCompactNumber(summary.averageTrend.current)}
                         </Text>
                         <ComparisonTrendLabel trend={summary.averageTrend} />
                       </Flex>

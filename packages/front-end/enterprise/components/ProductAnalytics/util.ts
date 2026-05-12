@@ -530,6 +530,16 @@ export function formatDateByGranularity(
   }
 }
 
+export function formatCompactNumber(value: number): string {
+  if (Math.abs(value) >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(2)}M`;
+  }
+  if (Math.abs(value) >= 1_000) {
+    return `${(value / 1_000).toFixed(1)}K`;
+  }
+  return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
 export function getRefreshInterval(elapsedSeconds: number): number {
   if (elapsedSeconds < 60) return 10_000; // 0-59s: update every 10s
   if (elapsedSeconds < 3600) return 60_000; // 1-59m: update every 60s

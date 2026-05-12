@@ -2,17 +2,8 @@ import type { ReactNode } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiArrowDown, PiArrowUp } from "react-icons/pi";
 import type { ComparisonTrend } from "@/enterprise/components/ProductAnalytics/compareUtil";
+import { formatCompactNumber } from "@/enterprise/components/ProductAnalytics/util";
 import Text from "@/ui/Text";
-
-function formatValue(value: number): string {
-  if (Math.abs(value) >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(2)}M`;
-  }
-  if (Math.abs(value) >= 1_000) {
-    return `${(value / 1_000).toFixed(1)}K`;
-  }
-  return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
-}
 
 function PriorValueText({
   children,
@@ -52,7 +43,7 @@ export default function ComparisonTrendLabel({
   if (trend.direction === "none") {
     return (
       <PriorValueText priorValueScale={priorValueScale}>
-        {formatValue(trend.previous)}
+        {formatCompactNumber(trend.previous)}
       </PriorValueText>
     );
   }
