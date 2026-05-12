@@ -93,6 +93,14 @@ export const funnelStepValidator = z.object({
 });
 export type FunnelStep = z.infer<typeof funnelStepValidator>;
 
+/** Y-axis scaling for the funnel bar chart.
+ *  - `count`: raw user counts per step.
+ *  - `percent`: each series is normalized so step 1 is 100%, surfacing
+ *    cross-dimension conversion rates directly.
+ *  Optional for backward compatibility; read sites default to "percent". */
+export const funnelYAxisScaleValidator = z.enum(["count", "percent"]);
+export type FunnelYAxisScale = z.infer<typeof funnelYAxisScaleValidator>;
+
 const funnelDatasetValidator = z
   .object({
     type: z.literal("funnel"),
@@ -104,6 +112,7 @@ const funnelDatasetValidator = z
     // Seconds of out-of-order tolerance applied between adjacent steps.
     // Defaults to 0 (strict chronological ordering).
     concurrencyWindowSeconds: z.number().int().min(0).optional(),
+    yAxisScale: funnelYAxisScaleValidator.optional(),
   })
   .strict();
 export type FunnelDataset = z.infer<typeof funnelDatasetValidator>;

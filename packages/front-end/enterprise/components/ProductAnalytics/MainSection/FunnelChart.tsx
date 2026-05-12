@@ -25,6 +25,20 @@ const CHART_COLORS = [
   "#6b7280",
 ];
 
+/** Convert a `#rrggbb` hex into `rgba(…)` with the given alpha. Used to
+ *  paint the drop-off ghost bar in the same hue as its main series at a
+ *  much lower opacity. */
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/** Series name prefix for drop-off ghost bars — used to exclude them from
+ *  the legend and the tooltip's table. */
+const DROPOFF_SERIES_PREFIX = "__dropoff_";
+
 function formatNumber(value: number): string {
   if (Math.abs(value) >= 1000000) {
     return `${(value / 1000000).toFixed(2)}M`;
@@ -114,21 +128,77 @@ export default function FunnelChart({
     );
   }, [dimensionSeries]);
 
+  // Y-axis scaling: "percent" normalizes each series so step 1 = 100%,
+  // surfacing per-dimension conversion rates directly. "count" preserves
+  // raw user counts. Default to "percent" when the config field is unset
+  // (back-compat with explorations saved before this option existed).
+  const yAxisScale: "count" | "percent" =
+    submittedExploreState.dataset.type === "funnel"
+      ? (submittedExploreState.dataset.yAxisScale ?? "percent")
+      : "count";
+
   const option = useMemo(() => {
     if (!sortedSeries.length || !stepNames.length) return null;
 
-    const seriesConfigs = sortedSeries.map((s, idx) => ({
-      name: s.label,
-      data: s.counts.map((count, stepIdx) => ({
-        value: count,
-        stepIdx,
-        seriesIdx: idx,
-      })),
-      type: "bar" as const,
-      color: CHART_COLORS[idx % CHART_COLORS.length],
-      animation: animate,
-      animationDuration: animate ? 300 : 0,
-    }));
+    // Each dimension series renders as two stacked bars per step:
+    //   - the main (solid) bar with the step's count
+    //   - a low-opacity "drop-off" bar stacked on top showing how many
+    //     users were lost vs. the previous step (0 for step 1)
+    // Stacked together they visually reconstruct the previous step's
+    // height, making the per-step drop-off legible at a glance.
+    //
+    // In "percent" scale we feed normalized values to the y-axis but
+    // still carry the raw count on each data point so the tooltip can
+    // surface actual user numbers alongside the percentage.
+    const seriesConfigs = sortedSeries.flatMap((s, idx) => {
+      const baseColor = CHART_COLORS[idx % CHART_COLORS.length];
+      const stackKey = `stack_${idx}`;
+      const firstStep = s.counts[0] ?? 0;
+      const toY = (n: number) =>
+        yAxisScale === "percent"
+          ? firstStep > 0
+            ? (n / firstStep) * 100
+            : 0
+          : n;
+      const mainSeries = {
+        name: s.label,
+        data: s.counts.map((count, stepIdx) => ({
+          value: toY(count),
+          rawCount: count,
+          stepIdx,
+          seriesIdx: idx,
+        })),
+        type: "bar" as const,
+        stack: stackKey,
+        color: baseColor,
+        animation: animate,
+        animationDuration: animate ? 300 : 0,
+      };
+      const ghostSeries = {
+        // Distinct, predictable name so we can filter it out of legend
+        // and tooltip without exposing it to the user.
+        name: `${DROPOFF_SERIES_PREFIX}${idx}`,
+        data: s.counts.map((count, stepIdx) => {
+          if (stepIdx === 0) return 0;
+          const prev = s.counts[stepIdx - 1] ?? 0;
+          // Funnel counts should be monotonically non-increasing, but
+          // clamp defensively so any data anomaly doesn't push the ghost
+          // below zero (which would render below the main bar).
+          return toY(Math.max(0, prev - count));
+        }),
+        type: "bar" as const,
+        stack: stackKey,
+        itemStyle: { color: hexToRgba(baseColor, 0.18) },
+        // Ghost bars are decorative — don't react to hover, don't get
+        // their own tooltip line. The filter in the formatter below
+        // keeps them out of the table regardless.
+        silent: true,
+        tooltip: { show: false },
+        animation: animate,
+        animationDuration: animate ? 300 : 0,
+      };
+      return [mainSeries, ghostSeries];
+    });
 
     return {
       tooltip: {
@@ -139,43 +209,67 @@ export default function FunnelChart({
         textStyle: { color: textColor },
         axisPointer: { type: "shadow" },
         formatter: (params: unknown) => {
-          const items = (Array.isArray(params) ? params : [params]) as {
+          const raw = (Array.isArray(params) ? params : [params]) as {
             seriesName: string;
             marker: string;
             value: number;
             dataIndex: number;
-            data?: { stepIdx?: number; seriesIdx?: number };
+            data?: {
+              stepIdx?: number;
+              seriesIdx?: number;
+              rawCount?: number;
+            };
           }[];
+          // Drop-off ghost bars share the axis-trigger but shouldn't
+          // appear as their own rows in the tooltip table.
+          const items = raw.filter(
+            (i) => !i.seriesName.startsWith(DROPOFF_SERIES_PREFIX),
+          );
           if (!items.length) return "";
           const stepIdx = items[0].dataIndex;
           const header = stepNames[stepIdx] ?? `Step ${stepIdx + 1}`;
+          // Single row per dimension keeps the tooltip compact when several
+          // series are stacked at the same step. First step's "from prev"
+          // and "avg time" don't apply, so we render em-dashes there to
+          // keep column alignment consistent across rows.
+          const headerCell =
+            "padding:2px 8px 4px 0;font-weight:600;text-align:left;border-bottom:1px solid var(--gray-a4)";
+          const numHeaderCell =
+            "padding:2px 0 4px 8px;font-weight:600;text-align:right;border-bottom:1px solid var(--gray-a4)";
+          const labelCell = "padding:3px 8px 3px 0;text-align:left";
+          const numCell = "padding:3px 0 3px 8px;text-align:right";
           const rows = items
             .map((item) => {
               const sIdx = item.data?.seriesIdx ?? 0;
               const series = sortedSeries[sIdx];
-              const count = item.value;
+              // In "percent" scale `item.value` is the normalized 0–100
+              // value used for the bar height; the raw user count is
+              // stashed on the data object for tooltip rendering.
+              const count = item.data?.rawCount ?? item.value;
               const firstStepCount = series?.counts[0] ?? 0;
               const prevCount =
                 stepIdx > 0 ? series?.counts[stepIdx - 1] : null;
               const fromStart =
                 firstStepCount > 0 ? formatPct(count / firstStepCount) : "—";
               const fromPrev =
-                prevCount != null && prevCount > 0
-                  ? formatPct(count / prevCount)
-                  : "—";
-              const avgMs = series?.avgTimes[stepIdx] ?? null;
-              const avgLabel =
                 stepIdx === 0
-                  ? ""
-                  : `Avg time: ${formatDurationMs(avgMs)}<br/>`;
-              return `<div style="margin-top:4px"><b>${item.marker}${item.seriesName}</b><br/>Count: <b>${formatNumber(count)}</b><br/>From start: ${fromStart}<br/>From prev: ${fromPrev}<br/>${avgLabel}</div>`;
+                  ? "—"
+                  : prevCount != null && prevCount > 0
+                    ? formatPct(count / prevCount)
+                    : "—";
+              const avgMs = series?.avgTimes[stepIdx] ?? null;
+              const avgLabel = stepIdx === 0 ? "—" : formatDurationMs(avgMs);
+              return `<tr><td style="${labelCell}">${item.marker}${item.seriesName}</td><td style="${numCell}"><b>${formatNumber(count)}</b></td><td style="${numCell}">${fromStart}</td><td style="${numCell}">${fromPrev}</td><td style="${numCell}">${avgLabel}</td></tr>`;
             })
             .join("");
-          return `<div><div style="margin-bottom:4px"><b>${header}</b></div>${rows}</div>`;
+          return `<div><div style="margin-bottom:6px"><b>${header}</b></div><table style="border-collapse:collapse;font-size:inherit"><thead><tr><th style="${headerCell}"></th><th style="${numHeaderCell}">Count</th><th style="${numHeaderCell}">From start</th><th style="${numHeaderCell}">From prev</th><th style="${numHeaderCell}">Avg time</th></tr></thead><tbody>${rows}</tbody></table></div>`;
         },
       },
       legend: {
         show: sortedSeries.length > 1,
+        // Whitelist only the main series names so the drop-off ghosts
+        // don't pollute the legend.
+        data: sortedSeries.map((s) => s.label),
         top: 8,
         padding: [8, 0, 8, 0],
         textStyle: { color: textColor },
@@ -189,7 +283,14 @@ export default function FunnelChart({
       },
       yAxis: {
         type: "value",
-        axisLabel: { color: textColor, formatter: formatNumber },
+        axisLabel: {
+          color: textColor,
+          formatter: (v: number) =>
+            yAxisScale === "percent" ? `${Math.round(v)}%` : formatNumber(v),
+        },
+        // Percent mode anchors at 0–100 (drop-off ghosts can push series
+        // totals to exactly 100, so we don't need a hard max).
+        min: 0,
         splitLine: { lineStyle: { color: gridLineColor, width: 1 } },
       },
       series: seriesConfigs,
@@ -201,6 +302,7 @@ export default function FunnelChart({
     gridLineColor,
     tooltipBackgroundColor,
     animate,
+    yAxisScale,
   ]);
 
   if (!exploration || !stepNames.length) {

@@ -3,6 +3,7 @@ import { getValidDate } from "shared/dates";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import GraphTypeSelector from "./GraphTypeSelector";
 import FunnelGraphTypeSelector from "./FunnelGraphTypeSelector";
+import FunnelYAxisSelector from "./FunnelYAxisSelector";
 import DateRangePicker from "./DateRangePicker";
 import GranularitySelector from "./GranularitySelector";
 import LastRefreshedIndicator from "./LastRefreshedIndicator";
@@ -38,6 +39,11 @@ export default function Toolbar() {
         {/* Left Side */}
         <Flex align="center" gap="3">
           {isFunnel ? <FunnelGraphTypeSelector /> : <GraphTypeSelector />}
+          {/* Y-axis scale only applies to the bar chart view — the funnel
+              table renders raw counts and percentages in their own columns. */}
+          {isFunnel && draftExploreState.chartType !== "table" && (
+            <FunnelYAxisSelector />
+          )}
         </Flex>
 
         {/* Right Side */}

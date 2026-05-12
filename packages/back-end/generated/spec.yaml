@@ -23503,6 +23503,11 @@ paths:
                     concurrencyWindowSeconds:
                       type: integer
                       minimum: 0
+                    yAxisScale:
+                      type: string
+                      enum:
+                        - count
+                        - percent
                   required:
                     - type
                     - unit
@@ -23875,6 +23880,11 @@ paths:
                                   concurrencyWindowSeconds:
                                     type: integer
                                     minimum: 0
+                                  yAxisScale:
+                                    type: string
+                                    enum:
+                                      - count
+                                      - percent
                                 required:
                                   - type
                                   - unit
@@ -33259,6 +33269,11 @@ components:
                       type: integer
                       minimum: 0
                       maximum: 9007199254740991
+                    yAxisScale:
+                      type: string
+                      enum:
+                        - count
+                        - percent
                   required:
                     - type
                     - unit
