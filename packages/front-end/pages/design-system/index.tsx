@@ -15,6 +15,7 @@ import DataListStories from "@/ui/DataList.stories";
 import DatePickerStories from "@/ui/DatePicker.stories";
 import DropdownMenuStories from "@/ui/DropdownMenu.stories";
 import ExperimentResultIndicatorStories from "@/ui/ExperimentResultIndicator.stories";
+import FieldStories from "@/ui/Field.stories";
 import ExperimentStatusIndicatorStories from "@/ui/ExperimentStatusIndicator.stories";
 import TextStories from "@/ui/Text.stories";
 import HeadingStories from "@/ui/Heading.stories";
@@ -95,6 +96,7 @@ export default function DesignSystemPage() {
     { name: "RadioCards", Stories: RadioCardsStories },
     { name: "RadioGroup", Stories: RadioGroupStories },
     { name: "Select", Stories: SelectStories },
+    { name: "Field (legacy)", Stories: FieldStories },
     { name: "SelectField (legacy)", Stories: SelectFieldStories },
     { name: "MultiSelectField", Stories: MultiSelectFieldStories },
     { name: "Slider", Stories: SliderStories },

@@ -6,6 +6,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import TagsInput from "@/components/Tags/TagsInput";
 import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
 
 const IdeaForm: FC<{
   idea: Partial<IdeaInterface>;
@@ -57,11 +58,13 @@ const IdeaForm: FC<{
         helpText="You'll be able to add more details later"
       />
       {edit && (
-        <Field
+        <SelectField
           label="Project"
-          {...form.register("project")}
-          options={projects.map((p) => ({ display: p.name, value: p.id }))}
-          initialOption="None"
+          options={projects.map((p) => ({ label: p.name, value: p.id }))}
+          isClearable
+          placeholder="None"
+          value={form.watch("project")}
+          onChange={(value) => form.setValue("project", value)}
         />
       )}
       <div className="form-group">

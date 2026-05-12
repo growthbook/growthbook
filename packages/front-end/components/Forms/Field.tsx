@@ -1,27 +1,9 @@
 import clsx from "clsx";
-import {
-  ReactElement,
-  ReactNode,
-  useState,
-  forwardRef,
-  DetailedHTMLProps,
-  SelectHTMLAttributes,
-} from "react";
+import { ReactElement, ReactNode, useState, forwardRef } from "react";
 import TextareaAutosize, {
   TextareaAutosizeProps,
 } from "react-textarea-autosize";
-
-export type SelectOptions =
-  | (
-      | string
-      | number
-      | null
-      | {
-          value: string | number;
-          display: string;
-        }
-    )[]
-  | Record<string, string>;
+import HelperText from "@/ui/HelperText";
 
 export type FieldSize = "sm" | "md" | "legacy" | "lg";
 
@@ -29,6 +11,7 @@ export type BaseFieldProps = {
   label?: ReactNode;
   markRequired?: boolean;
   error?: ReactNode;
+  errorLevel?: "error" | "warning";
   helpText?: ReactNode;
   helpTextClassName?: string;
   containerClassName?: string;
@@ -38,15 +21,11 @@ export type BaseFieldProps = {
   customClassName?: string;
   // eslint-disable-next-line
   render?: (id: string, ref: any) => ReactElement;
-  options?: SelectOptions;
-  optionGroups?: { [key: string]: SelectOptions };
-  initialOption?: string;
   minRows?: number;
   maxRows?: number;
   textarea?: boolean;
   prepend?: ReactElement | string;
   append?: ReactElement | string;
-  comboBox?: boolean;
   currentLength?: number;
   size?: FieldSize;
 };
@@ -60,49 +39,13 @@ export type FieldProps = BaseFieldProps &
     "size"
   >;
 
-function Options({ options }: { options: SelectOptions }) {
-  if (Array.isArray(options)) {
-    return (
-      <>
-        {options.map((o) => {
-          if (o === null || o === undefined) return null;
-          if (typeof o === "object") {
-            return (
-              <option key={o.value + ""} value={o.value + ""}>
-                {o.display}
-              </option>
-            );
-          } else {
-            return (
-              <option key={o + ""} value={o + ""}>
-                {o}
-              </option>
-            );
-          }
-        })}
-      </>
-    );
-  }
-
-  return (
-    <>
-      {Object.keys(options).map((k) => {
-        return (
-          <option key={k} value={k}>
-            {options[k]}
-          </option>
-        );
-      })}
-    </>
-  );
-}
-
 const Field = forwardRef(
   (
     {
       id,
       className,
       error,
+      errorLevel = "error",
       helpText,
       helpTextClassName,
       containerClassName,
@@ -117,11 +60,7 @@ const Field = forwardRef(
       textarea,
       minRows,
       maxRows,
-      options,
-      optionGroups,
       type = "text",
-      initialOption,
-      comboBox,
       customClassName: customClassNameProp,
       size = "legacy",
       ...otherProps
@@ -133,7 +72,15 @@ const Field = forwardRef(
       () => id || `field_${Math.floor(Math.random() * 1000000)}`,
     );
 
-    const cn = clsx("form-control", `form-control--${size}`, className);
+    const cn = clsx(
+      "form-control",
+      `form-control--${size}`,
+      {
+        "form-control--error": !!error && errorLevel === "error",
+        "form-control--warning": !!error && errorLevel === "warning",
+      },
+      className,
+    );
 
     let component: ReactElement;
     if (render) {
@@ -149,47 +96,6 @@ const Field = forwardRef(
           maxRows={maxRows || 6}
         />
       );
-    } else if (comboBox && options) {
-      const listId = `${fieldId}_datalist`;
-      component = (
-        <>
-          <input
-            {...otherProps}
-            ref={ref}
-            id={fieldId}
-            type={type}
-            className={cn}
-            list={listId}
-            autoComplete="off"
-          />
-          <datalist id={listId}>
-            {options && <Options options={options} />}
-          </datalist>
-        </>
-      );
-    } else if (options || optionGroups) {
-      component = (
-        <select
-          {...(otherProps as unknown as DetailedHTMLProps<
-            SelectHTMLAttributes<HTMLSelectElement>,
-            HTMLSelectElement
-          >)}
-          ref={ref}
-          id={fieldId}
-          className={cn}
-        >
-          {initialOption && <option value="">{initialOption}</option>}
-          {options && <Options options={options} />}
-          {optionGroups &&
-            Object.keys(optionGroups).map((k) => {
-              return (
-                <optgroup label={k} key={k}>
-                  <Options options={optionGroups[k]} />
-                </optgroup>
-              );
-            })}
-        </select>
-      );
     } else {
       component = (
         <input
@@ -204,7 +110,13 @@ const Field = forwardRef(
 
     if (prepend || append) {
       component = (
-        <div className={clsx("input-group", inputGroupClassName)}>
+        <div
+          className={clsx(
+            "input-group",
+            `input-group--${size}`,
+            inputGroupClassName,
+          )}
+        >
           {prepend && (
             <div className="input-group-prepend">
               <div className="input-group-text">{prepend}</div>
@@ -249,7 +161,11 @@ const Field = forwardRef(
           ) : null}
         </div>
         {component}
-        {error && <div className="form-text text-danger">{error}</div>}
+        {error && (
+          <HelperText status={errorLevel} mt="1">
+            {error}
+          </HelperText>
+        )}
         {helpText && (
           <small className={clsx("form-text text-muted", helpTextClassName)}>
             {helpText}

@@ -441,29 +441,18 @@ const ImportExperimentList: FC<{
               />
             </div>
             <div className="col-auto">
-              <Field
+              <SelectField
                 label="Status"
                 labelClassName="small mb-0"
                 options={[
-                  {
-                    display: "All",
-                    value: "",
-                  },
-                  {
-                    display: "Running",
-                    value: "running",
-                  },
-                  {
-                    display: "Stopped",
-                    value: "stopped",
-                  },
+                  { label: "All", value: "" },
+                  { label: "Running", value: "running" },
+                  { label: "Stopped", value: "stopped" },
                 ]}
                 value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(
-                    (e.target.value as "" | "stopped" | "running") || "",
-                  );
-                }}
+                onChange={(value) =>
+                  setStatusFilter((value as "" | "stopped" | "running") || "")
+                }
               />
             </div>
             <div className="col-auto align-self-center">

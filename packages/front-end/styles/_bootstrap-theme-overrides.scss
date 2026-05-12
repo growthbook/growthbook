@@ -53,9 +53,35 @@ pre {
 }
 
 .input-group-text {
-  border-color: var(--border-color-300);
-  background-color: var(--form-input-group-background);
+  background-color: var(--gray-a2);
+  border-color: var(--gray-a7);
   color: var(--form-input-group-color);
+  font-size: var(--font-size-2);
+}
+
+.input-group--sm .input-group-text {
+  height: 28px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  font-size: var(--font-size-1);
+  border-radius: var(--radius-2);
+}
+.input-group--md .input-group-text {
+  height: 32px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  border-radius: var(--radius-2);
+}
+.input-group--legacy .input-group-text {
+  height: 36px;
+  border-radius: var(--radius-2);
+}
+.input-group--lg .input-group-text {
+  height: 40px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  font-size: var(--font-size-3);
+  border-radius: var(--radius-3);
 }
 
 // endregion Forms

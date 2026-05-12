@@ -119,16 +119,17 @@ const ImpactModal: FC<{
         autoFocus={true}
         helpText="Only binomial metrics are supported at this time"
       />
-      <Field
+      <SelectField
         label="Effect Size"
-        {...form.register("improvement", { valueAsNumber: true })}
         options={[
-          { display: "Tiny (<1%)", value: "1" },
-          { display: "Small (5%)", value: "5" },
-          { display: "Medium (10%)", value: "10" },
-          { display: "Large (20%)", value: "20" },
-          { display: "Huge (50%)", value: "50" },
+          { label: "Tiny (<1%)", value: "1" },
+          { label: "Small (5%)", value: "5" },
+          { label: "Medium (10%)", value: "10" },
+          { label: "Large (20%)", value: "20" },
+          { label: "Huge (50%)", value: "50" },
         ]}
+        value={String(form.watch("improvement") || "")}
+        onChange={(value) => form.setValue("improvement", Number(value))}
         helpText="How much do you think this will improve the metric?"
       />
       <Field

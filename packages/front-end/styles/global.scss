@@ -3414,26 +3414,52 @@ textarea.form-control {
 input.form-control--sm,
 select.form-control--sm {
   height: 28px;
+  border-radius: var(--radius-2);
+}
+input.form-control--sm,
+select.form-control--sm,
+textarea.form-control--sm {
   padding-top: 2px;
   padding-bottom: 2px;
   font-size: var(--font-size-1);
-  border-radius: var(--radius-2);
 }
 input.form-control--md,
 select.form-control--md {
   height: 32px;
+  border-radius: var(--radius-2);
+}
+input.form-control--md,
+select.form-control--md,
+textarea.form-control--md {
   padding-top: 2px;
   padding-bottom: 2px;
   font-size: var(--font-size-2);
-  border-radius: var(--radius-2);
 }
 input.form-control--lg,
 select.form-control--lg {
   height: 40px;
+  border-radius: var(--radius-3);
+}
+input.form-control--lg,
+select.form-control--lg,
+textarea.form-control--lg {
   padding-top: 6px;
   padding-bottom: 6px;
-  border-radius: var(--radius-3);
   font-size: var(--font-size-3);
+}
+.form-control--error {
+  border-color: var(--red-8) !important;
+  &:focus {
+    border-color: var(--violet-8) !important;
+    outline-color: var(--violet-8) !important;
+  }
+}
+.form-control--warning {
+  border-color: var(--amber-8) !important;
+  &:focus {
+    border-color: var(--violet-8) !important;
+    outline-color: var(--violet-8) !important;
+  }
 }
 input:disabled {
   cursor: not-allowed;

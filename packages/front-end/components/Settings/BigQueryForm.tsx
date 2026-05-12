@@ -65,25 +65,15 @@ const BigQueryForm: FC<{
     <div className="row">
       {!isCloud() && (
         <div className="col-md-12">
-          <Field
+          <SelectField
             label="Authentication Method"
             options={[
-              {
-                value: "json",
-                display: "JSON key file",
-              },
-              {
-                value: "auto",
-                display: "Auto-discovery",
-              },
+              { value: "json", label: "JSON key file" },
+              { value: "auto", label: "Auto-discovery" },
             ]}
             helpText="'Auto-discovery' will look for credentials in environment variables and GCP metadata."
             value={params.authType || "json"}
-            onChange={(e) => {
-              setParams({
-                authType: e.target.value,
-              });
-            }}
+            onChange={(value) => setParams({ authType: value })}
           />
         </div>
       )}

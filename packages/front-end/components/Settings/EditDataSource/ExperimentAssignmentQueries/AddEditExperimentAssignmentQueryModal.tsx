@@ -14,6 +14,7 @@ import StringArrayField from "@/components/Forms/StringArrayField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Checkbox from "@/ui/Checkbox";
 
@@ -250,11 +251,15 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                 minRows={1}
                 {...form.register("description")}
               />
-              <Field
+              <SelectField
                 label="Identifier Type"
-                options={identityTypes.map((i) => i.userIdType)}
+                options={identityTypes.map((i) => ({
+                  value: i.userIdType,
+                  label: i.userIdType,
+                }))}
                 required
-                {...form.register("userIdType")}
+                value={form.watch("userIdType")}
+                onChange={(value) => form.setValue("userIdType", value)}
               />
               <div className="form-group">
                 <label className="mr-5">Query</label>

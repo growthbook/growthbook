@@ -266,6 +266,28 @@
   cursor: inherit !important;
 }
 
+.gb-select__multi-value {
+  height: 24px;
+  border-radius: var(--radius-1);
+}
+.gb-select-wrapper--small .gb-select__multi-value {
+  height: 22px;
+  border-radius: var(--radius-1);
+}
+.gb-select-wrapper--medium .gb-select__multi-value {
+  height: 26px;
+  border-radius: var(--radius-2);
+}
+
+.gb-select__multi-value__remove,
+.gb-select__multi-value__label {
+  font-weight: 500;
+  font-size: var(--font-size-1) !important;
+}
+.gb-select-wrapper--medium .gb-select__multi-value__label {
+  font-size: var(--font-size-2) !important;
+}
+
 .gb-multi-select__multi-value__remove,
 .gb-select__multi-value__remove {
   opacity: 0.25;
