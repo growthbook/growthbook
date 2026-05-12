@@ -3,6 +3,7 @@ import {
   FC,
   Fragment,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -19,7 +20,7 @@ import { SearchTermFilterOperator, SyntaxFilter } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 
-const USE_SEARCH_BOX = false;
+const USE_SEARCH_BOX = true;
 
 // Common interfaces
 export interface SearchFiltersItem {
@@ -110,9 +111,20 @@ export const FilterDropdown: FC<{
 }) => {
   const [filterSearch, setFilterSearch] = useState<string>("");
   const showSearchFilter = useMemo(
-    () => USE_SEARCH_BOX && items.length > 10,
+    () => USE_SEARCH_BOX && items.length > 5,
     [items],
   );
+  const isOpen = open === filter;
+
+  // Reset search and auto-focus input when dropdown opens/closes
+  useEffect(() => {
+    if (!isOpen) {
+      setFilterSearch("");
+    } else if (showSearchFilter) {
+      // Small delay to let the dropdown render before focusing
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [isOpen, showSearchFilter]);
   const filteredItems = useMemo(
     () =>
       filterSearch
@@ -137,10 +149,10 @@ export const FilterDropdown: FC<{
     <DropdownMenu
       trigger={FilterHeading({
         heading: heading ?? filter,
-        open: open === filter,
+        open: isOpen,
       })}
       variant="soft"
-      open={open === filter}
+      open={isOpen}
       menuPlacement={menuPlacement}
       onOpenChange={(o) => {
         setOpen(o ? filter : "");
