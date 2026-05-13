@@ -215,6 +215,13 @@ export default function ReportResults({
             differenceType={analysis?.settings.differenceType}
             ssrPolyfills={ssrPolyfills}
             isReportContext
+            snapshot={snapshot}
+            experiment={
+              experiment?.id
+                ? (experiment as ExperimentInterfaceStringDates)
+                : undefined
+            }
+            dimension={snapshot.dimension ?? undefined}
           >
             {showDateResults ? (
               <DateResults

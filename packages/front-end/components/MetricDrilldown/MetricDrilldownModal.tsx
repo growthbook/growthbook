@@ -14,10 +14,12 @@ import {
   StatsEngine,
 } from "shared/types/stats";
 import {
+  ExperimentInterfaceStringDates,
   ExperimentStatus,
   LookbackOverride,
   MetricOverride,
 } from "shared/types/experiment";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -104,6 +106,12 @@ interface MetricDrilldownModalProps {
 
   // When true, timeseries is unavailable and a message is shown instead
   isReportContext?: boolean;
+
+  // Optional snapshot and experiment for report context (no parent SnapshotProvider)
+  // These are used to create a LocalSnapshotProvider when parent context is empty
+  snapshot?: ExperimentSnapshotInterface;
+  experiment?: ExperimentInterfaceStringDates;
+  dimension?: string;
 }
 
 /**
@@ -445,6 +453,10 @@ const MetricDrilldownModal = ({
   dimensionInfo,
   // Report context
   isReportContext: isReportContextProp,
+  // Optional snapshot and experiment for report context
+  snapshot: snapshotProp,
+  experiment: experimentProp,
+  dimension: dimensionProp,
 }: MetricDrilldownModalProps) => {
   useBodyScrollLock(true);
   const { metric } = row;
@@ -458,11 +470,16 @@ const MetricDrilldownModal = ({
   // Get snapshot from global snapshot context, to initialize LocalSnapshotProvider
   const {
     snapshot: parentSnapshot,
-    experiment,
+    experiment: contextExperiment,
     phase: contextPhase,
-    dimension,
+    dimension: contextDimension,
     analysisSettings: parentAnalysisSettings,
   } = useSnapshot();
+
+  // Use prop values when parent context is empty (report context)
+  const effectiveSnapshot = parentSnapshot ?? snapshotProp;
+  const effectiveExperiment = contextExperiment ?? experimentProp;
+  const effectiveDimension = contextDimension ?? dimensionProp ?? "";
 
   const isReportContext = isReportContextProp ?? false;
 
@@ -600,12 +617,12 @@ const MetricDrilldownModal = ({
         autoFocusSelector=""
       >
         <MetricDrilldownContext.Provider value={null}>
-          {parentSnapshot && experiment ? (
+          {effectiveSnapshot && effectiveExperiment ? (
             <LocalSnapshotProvider
-              experiment={experiment}
-              snapshot={parentSnapshot}
+              experiment={effectiveExperiment}
+              snapshot={effectiveSnapshot}
               phase={contextPhase}
-              dimension={dimension}
+              dimension={effectiveDimension}
               initialAnalysisSettings={parentAnalysisSettings}
             >
               <MetricDrilldownContent {...contentProps} />
