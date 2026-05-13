@@ -159,7 +159,7 @@ export async function processJWT(
     req.email = user.email;
     req.userId = user.id;
     req.name = user.name;
-    req.superAdmin = !!user.superAdmin;
+    req.superAdmin = user.superAdmin || false;
 
     // If using default Cloud SSO (Auth0), once a user logs in with a verified email address,
     // require all future logins to be verified too.

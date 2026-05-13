@@ -20,7 +20,7 @@ export const listOrganizations = createApiRequestHandler(
   const organizations = await findAllOrganizations(
     1 + offset / limit,
     req.query.search || "",
-    limit,
+    { limit },
   );
 
   return {

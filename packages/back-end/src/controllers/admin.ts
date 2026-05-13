@@ -6,6 +6,7 @@ import {
 } from "shared/types/organization";
 import { UserInterface } from "shared/types/user";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
+import { canSuperAdminWrite, SuperAdmin } from "shared/validators";
 import {
   _dangerousCreateSSOConnection,
   _dangerousUpdateSSOConnection,
@@ -13,6 +14,7 @@ import {
   _dangerousGetSSOConnectionById,
 } from "back-end/src/models/SSOConnectionModel";
 import {
+  AdminUserFilters,
   getAllUsersFiltered,
   getTotalNumUsers,
   getUserById,
@@ -21,6 +23,8 @@ import {
 } from "back-end/src/models/UserModel";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
+  AdminOrgMemberRange,
+  AdminOrgPlanFilter,
   findAllOrganizations,
   findOrganizationsByMemberIds,
   updateOrganization,
@@ -35,9 +39,82 @@ import {
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
 import { _dangerourslyGetAllDatasourcesByOrganizations } from "back-end/src/models/DataSourceModel";
+import { getEffectiveAccountPlan } from "back-end/src/enterprise/licenseUtil";
+
+// Maps the coarse buckets exposed in the admin UI to the precise AccountPlan values.
+const adminPlanGroups: Record<AdminOrgPlanFilter, ReadonlySet<string>> = {
+  free: new Set(["oss", "starter"]),
+  pro: new Set(["pro", "pro_sso"]),
+  enterprise: new Set(["enterprise"]),
+};
+
+function buildPlanFilter(plans: AdminOrgPlanFilter[] | undefined) {
+  if (!plans?.length) return undefined;
+  const allowed = new Set<string>();
+  for (const plan of plans) {
+    for (const p of adminPlanGroups[plan] || []) allowed.add(p);
+  }
+  return (org: OrganizationInterface) =>
+    allowed.has(getEffectiveAccountPlan(org));
+}
+
+function parseCsvParam<T extends string>(
+  raw: string | undefined,
+  allowed: ReadonlySet<string>,
+): T[] | undefined {
+  if (!raw) return undefined;
+  const values = raw
+    .split(",")
+    .map((v) => v.trim())
+    .filter((v) => allowed.has(v)) as T[];
+  return values.length ? values : undefined;
+}
+
+const memberRangeSet: ReadonlySet<string> = new Set([
+  "<5",
+  "5-20",
+  "20-50",
+  "50+",
+]);
+const planFilterSet: ReadonlySet<string> = new Set([
+  "free",
+  "pro",
+  "enterprise",
+]);
+
+function requireSuperAdminWrite(
+  req: AuthRequest<unknown, unknown, unknown>,
+  res: Response,
+  action: string,
+): boolean {
+  if (!req.superAdmin) {
+    res.status(403).json({
+      status: 403,
+      message: `Only superAdmins can ${action}`,
+    });
+    return false;
+  }
+  if (!canSuperAdminWrite(req.superAdmin)) {
+    res.status(403).json({
+      status: 403,
+      message: `Read-only superAdmins cannot ${action}`,
+    });
+    return false;
+  }
+  return true;
+}
 
 export async function _dangerousAdminGetOrganizations(
-  req: AuthRequest<never, never, { page?: string; search?: string }>,
+  req: AuthRequest<
+    never,
+    never,
+    {
+      page?: string;
+      search?: string;
+      memberRanges?: string;
+      plans?: string;
+    }
+  >,
   res: Response,
 ) {
   if (!req.superAdmin) {
@@ -47,11 +124,21 @@ export async function _dangerousAdminGetOrganizations(
     });
   }
 
-  const { page, search } = req.query;
+  const { page, search, memberRanges, plans } = req.query;
+
+  const parsedMemberRanges = parseCsvParam<AdminOrgMemberRange>(
+    memberRanges,
+    memberRangeSet,
+  );
+  const parsedPlans = parseCsvParam<AdminOrgPlanFilter>(plans, planFilterSet);
 
   const { organizations, total } = await findAllOrganizations(
     parseIntWithDefault(page, 1),
     search || "",
+    {
+      memberRanges: parsedMemberRanges,
+      planFilter: buildPlanFilter(parsedPlans),
+    },
   );
 
   const rawSSOs = await _dangerousGetAllSSOConnections();
@@ -93,11 +180,10 @@ export async function _dangerousAdminPutOrganization(
   }>,
   res: Response,
 ) {
-  if (!req.superAdmin) {
-    return res.status(403).json({
-      status: 403,
-      message: "Only superAdmins can update organizations via admin page",
-    });
+  if (
+    !requireSuperAdminWrite(req, res, "update organizations via admin page")
+  ) {
+    return;
   }
 
   const {
@@ -208,11 +294,8 @@ export async function _dangerousAdminDisableOrganization(
   req: AuthRequest<{ orgId: string }>,
   res: Response,
 ) {
-  if (!req.superAdmin) {
-    return res.status(403).json({
-      status: 403,
-      message: "Only superAdmins can disable organizations",
-    });
+  if (!requireSuperAdminWrite(req, res, "disable organizations")) {
+    return;
   }
 
   const updates: Partial<OrganizationInterface> = {};
@@ -250,11 +333,8 @@ export async function _dangerousAdminEnableOrganization(
   req: AuthRequest<{ orgId: string }>,
   res: Response,
 ) {
-  if (!req.superAdmin) {
-    return res.status(403).json({
-      status: 403,
-      message: "Only superAdmins can enable organizations",
-    });
+  if (!requireSuperAdminWrite(req, res, "enable organizations")) {
+    return;
   }
 
   const updates: Partial<OrganizationInterface> = {};
@@ -288,7 +368,11 @@ export async function _dangerousAdminEnableOrganization(
   });
 }
 export async function _dangerousAdminGetMembers(
-  req: AuthRequest<never, never, { page?: string; search?: string }>,
+  req: AuthRequest<
+    never,
+    never,
+    { page?: string; search?: string; superAdmin?: string }
+  >,
   res: Response,
 ) {
   if (!req.superAdmin) {
@@ -298,13 +382,63 @@ export async function _dangerousAdminGetMembers(
     });
   }
 
-  const { page, search } = req.query;
+  const { page, search, superAdmin } = req.query;
+  const parsedPage = parseIntWithDefault(page, 1);
+  const superAdminFilter =
+    superAdmin === "yes" || superAdmin === "no" ? superAdmin : undefined;
+
+  // When the search starts with `org_`, look up the org directly and pull its
+  // members instead of regex-scanning the users collection.
+  const trimmedSearch = (search || "").trim();
+  const orgIdSearch = /^org_[a-z0-9_-]+$/i.test(trimmedSearch)
+    ? trimmedSearch
+    : null;
+
+  if (orgIdSearch) {
+    const org = await getOrganizationById(orgIdSearch);
+    if (!org) {
+      return res.status(200).json({
+        status: 200,
+        members: [],
+        total: 0,
+        memberOrgs: {},
+      });
+    }
+    const memberIds = org.members.map((m) => m.id);
+    const filteredUsers = memberIds.length
+      ? await getAllUsersFiltered(parsedPage, {
+          ids: memberIds,
+          superAdmin: superAdminFilter,
+        })
+      : [];
+    const total = memberIds.length
+      ? await getTotalNumUsers({ ids: memberIds, superAdmin: superAdminFilter })
+      : 0;
+    const condensedOrg = {
+      id: org.id,
+      name: org.name,
+      members: org.members.length,
+    };
+    const memberOrgs: Record<string, object> = {};
+    filteredUsers.forEach((u) => {
+      const role = org.members.find((m) => m.id === u.id)?.role;
+      memberOrgs[u.id] = [{ ...condensedOrg, role }];
+    });
+    return res.status(200).json({
+      status: 200,
+      members: filteredUsers,
+      total,
+      memberOrgs,
+    });
+  }
+
+  const filters: AdminUserFilters = {
+    search: trimmedSearch,
+    superAdmin: superAdminFilter,
+  };
 
   const organizationInfo: Record<string, object> = {};
-  const filteredUsers = await getAllUsersFiltered(
-    parseIntWithDefault(page, 1),
-    search,
-  );
+  const filteredUsers = await getAllUsersFiltered(parsedPage, filters);
   if (filteredUsers?.length > 0) {
     const memberOrgs = await findOrganizationsByMemberIds(
       filteredUsers.map((u) => u.id),
@@ -334,7 +468,7 @@ export async function _dangerousAdminGetMembers(
   return res.status(200).json({
     status: 200,
     members: filteredUsers,
-    total: await getTotalNumUsers(search),
+    total: await getTotalNumUsers(filters),
     memberOrgs: organizationInfo,
   });
 }
@@ -377,20 +511,18 @@ export async function _dangerousAdminGetOrganizationMembers(
 export async function _dangerousAdminPutMember(
   req: AuthRequest<{
     userId: string;
-    name: string;
-    email: string;
-    verified: boolean;
+    name?: string;
+    email?: string;
+    verified?: boolean;
+    superAdmin?: SuperAdmin;
   }>,
   res: Response,
 ) {
-  if (!req.superAdmin) {
-    return res.status(403).json({
-      status: 403,
-      message: "Only superAdmins can update members",
-    });
+  if (!requireSuperAdminWrite(req, res, "update members")) {
+    return;
   }
 
-  const { userId, email, verified, name } = req.body;
+  const { userId, email, verified, name, superAdmin } = req.body;
   const updates: Partial<UserInterface> = {};
   const orig: Partial<UserInterface> = {};
   const member = await getUserById(userId);
@@ -408,9 +540,23 @@ export async function _dangerousAdminPutMember(
     updates.name = name;
     orig.name = member.name;
   }
-  if (verified !== member.verified) {
+  if (verified !== undefined && verified !== member.verified) {
     updates.verified = verified;
     orig.verified = member.verified;
+  }
+  if (superAdmin !== undefined && superAdmin !== (member.superAdmin ?? false)) {
+    if (
+      superAdmin !== true &&
+      superAdmin !== false &&
+      superAdmin !== "readonly"
+    ) {
+      return res.status(400).json({
+        status: 400,
+        message: "superAdmin must be true, false, or 'readonly'",
+      });
+    }
+    updates.superAdmin = superAdmin;
+    orig.superAdmin = member.superAdmin ?? false;
   }
 
   await updateUser(userId, updates);
@@ -437,11 +583,8 @@ export async function _dangerousAdminUpsertSSOConnection(
   >,
   res: Response,
 ) {
-  if (!req.superAdmin) {
-    return res.status(403).json({
-      status: 403,
-      message: "Only superAdmins can upsert SSO connections",
-    });
+  if (!requireSuperAdminWrite(req, res, "upsert SSO connections")) {
+    return;
   }
 
   const context = getContextFromReq(req);

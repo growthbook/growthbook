@@ -249,33 +249,85 @@ export async function createOrganization({
   return toInterface(doc);
 }
 
+export type AdminOrgMemberRange = "<5" | "5-20" | "20-50" | "50+";
+
+export type AdminOrgPlanFilter = "free" | "pro" | "enterprise";
+
+const memberRangeToBounds: Record<
+  AdminOrgMemberRange,
+  { min?: number; max?: number }
+> = {
+  "<5": { max: 5 },
+  "5-20": { min: 5, max: 20 },
+  "20-50": { min: 20, max: 50 },
+  "50+": { min: 50 },
+};
+
+function escapeRegex(input: string) {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export async function findAllOrganizations(
   page: number,
   search: string,
-  limit: number = 50,
+  options: {
+    limit?: number;
+    memberRanges?: AdminOrgMemberRange[];
+    planFilter?: (org: OrganizationInterface) => boolean;
+  } = {},
 ) {
-  const regex = new RegExp(search, "i");
+  const { limit = 50, memberRanges, planFilter } = options;
+  const regex = search ? new RegExp(escapeRegex(search), "i") : null;
 
-  const query = search
-    ? {
-        $or: [
-          { name: regex },
-          { ownerEmail: regex },
-          { id: regex },
-          { externalId: regex },
-          { verifiedDomain: regex },
-        ],
-      }
-    : {};
+  const query: Record<string, unknown> = {};
+  if (regex) {
+    query.$or = [
+      { name: regex },
+      { ownerEmail: regex },
+      { id: regex },
+      { externalId: regex },
+      { verifiedDomain: regex },
+    ];
+  }
+
+  if (memberRanges?.length) {
+    query.$expr = {
+      $or: memberRanges.map((range) => {
+        const { min, max } = memberRangeToBounds[range];
+        const conds: object[] = [];
+        if (min !== undefined) {
+          conds.push({ $gte: [{ $size: "$members" }, min] });
+        }
+        if (max !== undefined) {
+          conds.push({ $lt: [{ $size: "$members" }, max] });
+        }
+        return conds.length === 1 ? conds[0] : { $and: conds };
+      }),
+    };
+  }
+
+  // Plan filter is applied in JS after the Mongo query because the effective
+  // plan depends on the license, which is not stored on the org doc. When a
+  // plan filter is set we need to fetch all matching orgs and slice in JS.
+  if (planFilter) {
+    const docs = await OrganizationModel.find(query).sort({ _id: -1 });
+    const filtered = docs.map(toInterface).filter(planFilter);
+    const start = (page - 1) * limit;
+    return {
+      organizations: filtered.slice(start, start + limit),
+      total: filtered.length,
+    };
+  }
 
   const docs = await OrganizationModel.find(query)
     .sort({ _id: -1 })
     .skip((page - 1) * limit)
     .limit(limit);
 
-  const total = await (search
-    ? OrganizationModel.find(query).countDocuments()
-    : OrganizationModel.find().estimatedDocumentCount());
+  const total =
+    regex || memberRanges?.length
+      ? await OrganizationModel.find(query).countDocuments()
+      : await OrganizationModel.find().estimatedDocumentCount();
 
   return { organizations: docs.map(toInterface), total };
 }

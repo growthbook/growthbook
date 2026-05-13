@@ -106,7 +106,7 @@ export async function getUser(req: AuthRequest, res: Response) {
     userName: req.name,
     email: req.email,
     pylonHmacHash: createPylonHmacHash(req.email),
-    superAdmin: !!req.superAdmin,
+    superAdmin: req.superAdmin ?? false,
     organizations: validOrgs.map((org) => {
       return {
         id: org.id,

@@ -47,7 +47,7 @@ export type SidebarLinkProps = {
 export function buildSidebarLinkFilterProps(input: {
   permissionsUtils: Permissions;
   permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
-  superAdmin: boolean | undefined;
+  superAdmin: boolean | "readonly" | undefined;
   gb: GrowthBook<AppFeatures> | undefined;
   project: string | undefined;
   segments: SegmentInterface[];

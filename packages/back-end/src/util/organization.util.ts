@@ -14,6 +14,7 @@ import {
   UserPermissions,
 } from "shared/types/organization";
 import { TeamInterface } from "shared/types/team";
+import { SuperAdmin } from "shared/validators";
 import { SUPERADMIN_DEFAULT_ROLE } from "./secrets";
 
 function hasEnvScopedPermissions(userPermission: PermissionsObject): boolean {
@@ -273,18 +274,28 @@ export function getRolePermissions(
 }
 
 export function getUserPermissions(
-  user: { id: string; superAdmin?: boolean },
+  user: { id: string; superAdmin?: SuperAdmin },
   org: OrganizationInterface,
   teams: TeamInterface[],
 ): UserPermissions {
   const memberInfo = org.members.find((m) => m.id === user.id);
 
-  // If the user is a super admin, fall back to a default role if they aren't in the org
-  if (!memberInfo && user.superAdmin && SUPERADMIN_DEFAULT_ROLE) {
-    return {
-      global: getUserPermission({ role: SUPERADMIN_DEFAULT_ROLE }, org),
-      projects: {},
-    };
+  // If the user is a super admin, fall back to a default role if they aren't in the org.
+  // Readonly super admins always get the `readonly` role so they can browse without
+  // being able to perform writes — even if SUPERADMIN_DEFAULT_ROLE is more permissive.
+  if (!memberInfo && user.superAdmin) {
+    if (user.superAdmin === "readonly") {
+      return {
+        global: getUserPermission({ role: "readonly" }, org),
+        projects: {},
+      };
+    }
+    if (SUPERADMIN_DEFAULT_ROLE) {
+      return {
+        global: getUserPermission({ role: SUPERADMIN_DEFAULT_ROLE }, org),
+        projects: {},
+      };
+    }
   }
 
   if (!memberInfo) {

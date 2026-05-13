@@ -3,10 +3,13 @@ import {
   OrganizationInterface,
   OrganizationMessage,
 } from "shared/types/organization";
+import { canSuperAdminWrite } from "shared/validators";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";
 import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 
 type MessageWithId = OrganizationMessage & { id: string };
 
@@ -42,6 +45,8 @@ const EditOrganization: FC<{
   );
 
   const { apiCall } = useAuth();
+  const { superAdmin } = useUser();
+  const canWrite = canSuperAdminWrite(superAdmin);
 
   const handleSubmit = async () => {
     await apiCall<{
@@ -90,14 +95,14 @@ const EditOrganization: FC<{
   return (
     <Modal
       trackingEventModalType=""
-      submit={handleSubmit}
+      submit={canWrite ? handleSubmit : undefined}
       open={true}
-      header={"Edit Organization"}
-      cta={"Update"}
+      header={canWrite ? "Edit Organization" : "View Organization"}
+      cta={canWrite ? "Update" : "Close"}
       close={close}
       inline={!close}
       secondaryCTA={
-        disablable ? (
+        disablable && canWrite ? (
           <div className="flex-grow-1">
             {currentOrg.disabled ? (
               <button
@@ -150,6 +155,11 @@ const EditOrganization: FC<{
         ) : null
       }
     >
+      {!canWrite && (
+        <Callout status="info" mb="3">
+          Read-only super admins cannot edit organizations.
+        </Callout>
+      )}
       <div className="form-group">
         Company Name
         <input

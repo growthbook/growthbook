@@ -9,6 +9,7 @@ import {
 } from "shared/types/organization";
 import { TeamInterface } from "shared/types/team";
 import { UserInterface } from "shared/types/user";
+import { SuperAdmin } from "shared/validators";
 
 export type PermissionFunctions = {
   checkPermissions(permission: GlobalPermission): void;
@@ -39,7 +40,7 @@ export type AuthRequest<
   authSubject?: string;
   name?: string;
   vercelInstallationId?: string;
-  superAdmin?: boolean;
+  superAdmin?: SuperAdmin;
   organization?: OrganizationInterface;
   teams: TeamInterface[];
   audit: (

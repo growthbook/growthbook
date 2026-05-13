@@ -17,6 +17,7 @@ import {
 } from "shared/types/sso-connection";
 import { setUser as sentrySetUser } from "@sentry/nextjs";
 import { roleSupportsEnvLimit } from "shared/permissions";
+import { SuperAdmin } from "shared/validators";
 import Modal from "@/components/Modal";
 import { DocLink } from "@/components/DocLink";
 import Welcome from "@/components/Auth/Welcome";
@@ -47,7 +48,7 @@ export interface AuthContextValue {
   orgId: string | null;
   setOrgId?: (orgId: string) => void;
   organizations?: UserOrganizations;
-  setOrganizations?: (orgs: UserOrganizations, superAdmin: boolean) => void;
+  setOrganizations?: (orgs: UserOrganizations, superAdmin: SuperAdmin) => void;
   specialOrg?: null | Partial<OrganizationInterface>;
   setOrgName?: (name: string) => void;
   setSpecialOrg?: (org: null | Partial<OrganizationInterface>) => void;
@@ -470,7 +471,7 @@ export const AuthProvider: React.FC<{
   );
 
   const wrappedSetOrganizations = useCallback(
-    (orgs: UserOrganizations, superAdmin: boolean) => {
+    (orgs: UserOrganizations, superAdmin: SuperAdmin) => {
       setOrganizations(orgs);
       if (orgId && orgs.map((o) => o.id).includes(orgId)) {
         return;

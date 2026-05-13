@@ -56,19 +56,40 @@ export async function getAllUsers(): Promise<UserInterface[]> {
   return users.map((u) => toInterface(u));
 }
 
-export async function getAllUsersFiltered(
-  page: number,
-  search?: string,
-): Promise<UserInterface[]> {
-  const query: {
-    $or?: [{ name: unknown }, { email: unknown }];
-  } = {};
+export type AdminUserFilters = {
+  search?: string;
+  superAdmin?: "yes" | "no";
+  ids?: string[];
+};
+
+function buildAdminUserQuery(
+  filters: AdminUserFilters,
+): Record<string, unknown> {
+  const query: Record<string, unknown> = {};
+  const { search, superAdmin, ids } = filters;
   if (search) {
     query["$or"] = [
       { name: { $regex: `${search}.*`, $options: "i" } },
       { email: { $regex: `${search}`, $options: "i" } },
     ];
   }
+  if (superAdmin === "yes") {
+    // Truthy: either `true` or `"readonly"`.
+    query["superAdmin"] = { $in: [true, "readonly"] };
+  } else if (superAdmin === "no") {
+    query["superAdmin"] = { $nin: [true, "readonly"] };
+  }
+  if (ids) {
+    query["id"] = { $in: ids };
+  }
+  return query;
+}
+
+export async function getAllUsersFiltered(
+  page: number,
+  filters: AdminUserFilters,
+): Promise<UserInterface[]> {
+  const query = buildAdminUserQuery(filters);
 
   const docs = await getCollection(COLLECTION)
     .find(query)
@@ -83,16 +104,10 @@ export async function getAllUsersFiltered(
     .map((u) => ({ ...u, passwordHash: "" }));
 }
 
-export async function getTotalNumUsers(search?: string): Promise<number> {
-  const query: {
-    $or?: [{ name: unknown }, { email: unknown }];
-  } = {};
-  if (search) {
-    query["$or"] = [
-      { name: { $regex: `${search}.*`, $options: "i" } },
-      { email: { $regex: `${search}`, $options: "i" } },
-    ];
-  }
+export async function getTotalNumUsers(
+  filters: AdminUserFilters,
+): Promise<number> {
+  const query = buildAdminUserQuery(filters);
   return await getCollection(COLLECTION).countDocuments(query);
 }
 
@@ -188,7 +203,12 @@ export async function resetMinTokenDate(userId: string) {
 
 export async function updateUser(
   id: string,
-  updates: Partial<Pick<UserInterface, "passwordHash" | "name">>,
+  updates: Partial<
+    Pick<
+      UserInterface,
+      "passwordHash" | "name" | "email" | "verified" | "superAdmin"
+    >
+  >,
 ) {
   await UserModel.updateOne(
     {

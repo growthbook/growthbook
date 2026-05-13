@@ -37,7 +37,7 @@ import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { Permissions, userHasPermission } from "shared/permissions";
 import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
-import { AgreementType } from "shared/validators";
+import { AgreementType, SuperAdmin } from "shared/validators";
 import { getOwnerDisplay as getOwnerDisplayName } from "@/services/owners";
 import {
   getGrowthBookBuild,
@@ -97,7 +97,7 @@ export interface UserContextValue {
   name?: string;
   pylonHmacHash?: string;
   email?: string;
-  superAdmin?: boolean;
+  superAdmin?: SuperAdmin;
   license?: Partial<LicenseInterface> | null;
   installationName?: string;
   subscription: SubscriptionInfo | null;
@@ -139,7 +139,7 @@ interface UserResponse {
   email: string;
   pylonHmacHash: string;
   verified: boolean;
-  superAdmin: boolean;
+  superAdmin: SuperAdmin;
   organizations?: UserOrganizations;
   currentUserPermissions: UserPermissions;
 }

@@ -21,6 +21,7 @@ import { DataSourceInterface } from "shared/types/datasource";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { useForm } from "react-hook-form";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import { canSuperAdminWrite, SuperAdmin } from "shared/validators";
 import Field from "@/components/Forms/Field";
 import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
@@ -50,6 +51,66 @@ interface memberOrgProps {
 }
 const numberFormatter = new Intl.NumberFormat();
 
+type PlanFilter = "free" | "pro" | "enterprise";
+type MemberRangeFilter = "<5" | "5-20" | "20-50" | "50+";
+
+const PLAN_FILTER_OPTIONS: { value: PlanFilter; label: string }[] = [
+  { value: "free", label: "Free" },
+  { value: "pro", label: "Pro" },
+  { value: "enterprise", label: "Enterprise" },
+];
+
+const MEMBER_RANGE_OPTIONS: { value: MemberRangeFilter; label: string }[] = [
+  { value: "<5", label: "<5" },
+  { value: "5-20", label: "5–20" },
+  { value: "20-50", label: "20–50" },
+  { value: "50+", label: "50+" },
+];
+
+function toggleSetValue<T>(set: Set<T>, value: T): Set<T> {
+  const next = new Set(set);
+  if (next.has(value)) {
+    next.delete(value);
+  } else {
+    next.add(value);
+  }
+  return next;
+}
+
+function FilterCheckboxes<T extends string>({
+  label,
+  options,
+  selected,
+  onToggle,
+}: {
+  label: string;
+  options: { value: T; label: string }[];
+  selected: Set<T>;
+  onToggle: (value: T) => void;
+}) {
+  return (
+    <div className="d-flex align-items-center" style={{ gap: 8 }}>
+      <span className="text-muted small">{label}:</span>
+      {options.map((opt) => {
+        const active = selected.has(opt.value);
+        return (
+          <button
+            type="button"
+            key={opt.value}
+            className={clsx("btn btn-sm", {
+              "btn-primary": active,
+              "btn-outline-secondary": !active,
+            })}
+            onClick={() => onToggle(opt.value)}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function OrganizationRow({
   organization,
   current,
@@ -59,6 +120,7 @@ function OrganizationRow({
   onEdit,
   ssoInfo,
   datasources,
+  canWrite,
 }: {
   organization: OrganizationInterface;
   switchTo: (organization: OrganizationInterface) => void;
@@ -68,6 +130,7 @@ function OrganizationRow({
   onEdit: () => void;
   ssoInfo: SSOConnectionInterface | undefined;
   datasources: DataSourceInterface[];
+  canWrite: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editOrgModalOpen, setEditOrgModalOpen] = useState(false);
@@ -213,17 +276,27 @@ function OrganizationRow({
         )}
         <td>{organization.members.length ?? 0}</td>
         <td className="p-0 text-center">
-          <a
-            href="#"
-            className="d-block w-100 h-100"
-            onClick={(e) => {
-              e.preventDefault();
-              setEditOrgModalOpen(true);
-            }}
-            style={{ lineHeight: "40px" }}
-          >
-            <FaPencilAlt />
-          </a>
+          {canWrite ? (
+            <a
+              href="#"
+              className="d-block w-100 h-100"
+              onClick={(e) => {
+                e.preventDefault();
+                setEditOrgModalOpen(true);
+              }}
+              style={{ lineHeight: "40px" }}
+            >
+              <FaPencilAlt />
+            </a>
+          ) : (
+            <span
+              className="d-block w-100 h-100 text-muted"
+              style={{ lineHeight: "40px" }}
+              title="Read-only super admin — editing is disabled"
+            >
+              <FaPencilAlt />
+            </span>
+          )}
         </td>
         <td style={{ width: 40 }} className="p-0 text-center">
           <a
@@ -280,7 +353,7 @@ function OrganizationRow({
                       } for domains: ${ssoInfo.emailDomains?.join(", ")})`
                     : "no"}
                 </div>
-                {isCloud() && (
+                {isCloud() && canWrite && (
                   <div className="col-auto">
                     <a
                       href="#"
@@ -346,7 +419,13 @@ function OrganizationRow({
                   <div className="row">
                     <div className="col-2 text-right">Managed Warehouse</div>
                     <div className="col-auto">
-                      {managedWarehouseId ? (
+                      {!canWrite ? (
+                        <span className="text-muted">
+                          {managedWarehouseId
+                            ? "(read-only)"
+                            : "No database created"}
+                        </span>
+                      ) : managedWarehouseId ? (
                         <ConfirmButton
                           isDestructive
                           onClick={async () => {
@@ -457,16 +536,24 @@ function OrganizationRow({
   );
 }
 
+function describeSuperAdmin(value: SuperAdmin | undefined): string {
+  if (value === true) return "Yes";
+  if (value === "readonly") return "Read-only";
+  return "No";
+}
+
 function MemberRow({
   member,
   current,
   memberOrgs,
   onEdit,
+  canWrite,
 }: {
-  member: ExpandedMember;
+  member: ExpandedMember & { superAdmin?: SuperAdmin };
   current: boolean;
   memberOrgs: memberOrgProps[];
   onEdit: () => void;
+  canWrite: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editMemberModalOpen, setEditMemberModalOpen] = useState(false);
@@ -490,21 +577,32 @@ function MemberRow({
         <td>{member.id}</td>
         <td>{member.dateCreated ? date(member.dateCreated) : "-"}</td>
         <td>{member.verified ? "Yes" : "No"}</td>
+        <td>{describeSuperAdmin(member.superAdmin)}</td>
         <td>
           {memberOrgs.length ? memberOrgs.map((mo) => mo.name).join(", ") : "-"}
         </td>
         <td className="p-0 text-center">
-          <a
-            href="#"
-            className="d-block w-100 h-100"
-            onClick={(e) => {
-              e.preventDefault();
-              setEditMemberModalOpen(true);
-            }}
-            style={{ lineHeight: "40px" }}
-          >
-            <FaPencilAlt />
-          </a>
+          {canWrite ? (
+            <a
+              href="#"
+              className="d-block w-100 h-100"
+              onClick={(e) => {
+                e.preventDefault();
+                setEditMemberModalOpen(true);
+              }}
+              style={{ lineHeight: "40px" }}
+            >
+              <FaPencilAlt />
+            </a>
+          ) : (
+            <span
+              className="d-block w-100 h-100 text-muted"
+              style={{ lineHeight: "40px" }}
+              title="Read-only super admin — editing is disabled"
+            >
+              <FaPencilAlt />
+            </span>
+          )}
         </td>
         <td style={{ width: 40 }} className="p-0 text-center">
           <a
@@ -522,7 +620,7 @@ function MemberRow({
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={8} className="bg-light">
+          <td colSpan={9} className="bg-light">
             <div className="mb-3">
               <h4>Organization Info</h4>
               <div className="row">
@@ -560,20 +658,30 @@ function MemberRow({
 const Admin: FC = () => {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [planFilters, setPlanFilters] = useState<Set<PlanFilter>>(new Set());
+  const [memberRangeFilters, setMemberRangeFilters] = useState<
+    Set<MemberRangeFilter>
+  >(new Set());
 
   const [memberPage, setMemberPage] = useState(1);
   const [memberSearch, setMemberSearch] = useState("");
+  const [superAdminFilter, setSuperAdminFilter] = useState<
+    "all" | "yes" | "no"
+  >("all");
 
   const { orgId, setOrgId, setSpecialOrg, apiCall } = useAuth();
 
   const { license, superAdmin } = useUser();
+  const canWrite = canSuperAdminWrite(superAdmin);
   const [orgs, setOrgs] = useState<OrganizationInterface[]>([]);
   const [ssoConnections, setSsoConnections] = useState<
     SSOConnectionInterface[]
   >([]);
   const [datasources, setDatasources] = useState<DataSourceInterface[]>([]);
   const [total, setTotal] = useState(0);
-  const [members, setMembers] = useState<ExpandedMember[]>([]);
+  const [members, setMembers] = useState<
+    (ExpandedMember & { superAdmin?: SuperAdmin })[]
+  >([]);
   const [memberOrgs, setMemberOrgs] = useState<{
     string?: memberOrgProps[];
   }>({});
@@ -584,12 +692,20 @@ const Admin: FC = () => {
   const [memberLoading, setMemberLoading] = useState(false);
 
   const loadOrgs = useCallback(
-    async (page: number, search: string) => {
+    async (
+      page: number,
+      search: string,
+      planValues: PlanFilter[],
+      memberRangeValues: MemberRangeFilter[],
+    ) => {
       setLoading(true);
       const params = new URLSearchParams();
 
       params.append("page", page + "");
       params.append("search", search);
+      if (planValues.length) params.append("plans", planValues.join(","));
+      if (memberRangeValues.length)
+        params.append("memberRanges", memberRangeValues.join(","));
 
       try {
         const res = await apiCall<{
@@ -613,16 +729,23 @@ const Admin: FC = () => {
   );
 
   const loadMembers = useCallback(
-    async (page: number, search: string) => {
+    async (
+      page: number,
+      search: string,
+      superAdminValue: "all" | "yes" | "no",
+    ) => {
       setMemberLoading(true);
       const params = new URLSearchParams();
 
       params.append("page", page + "");
       params.append("search", search);
+      if (superAdminValue !== "all") {
+        params.append("superAdmin", superAdminValue);
+      }
 
       try {
         const res = await apiCall<{
-          members: ExpandedMember[];
+          members: (ExpandedMember & { superAdmin?: SuperAdmin })[];
           total: number;
           memberOrgs: { string: memberOrgProps[] };
         }>(`/admin/members?${params.toString()}`);
@@ -631,7 +754,7 @@ const Admin: FC = () => {
         setTotalMembers(res.total);
         setMemberError("");
       } catch (e) {
-        setError(e.message);
+        setMemberError(e.message);
       }
 
       setMemberLoading(false);
@@ -639,11 +762,22 @@ const Admin: FC = () => {
     [apiCall],
   );
 
+  const reloadOrgs = useCallback(
+    (nextPage: number) =>
+      loadOrgs(nextPage, search, [...planFilters], [...memberRangeFilters]),
+    [loadOrgs, search, planFilters, memberRangeFilters],
+  );
+
+  const reloadMembers = useCallback(
+    (nextPage: number) => loadMembers(nextPage, memberSearch, superAdminFilter),
+    [loadMembers, memberSearch, superAdminFilter],
+  );
+
   useEffect(() => {
     if (!superAdmin) return;
 
-    loadOrgs(page, search);
-    loadMembers(memberPage, memberSearch);
+    loadOrgs(page, search, [...planFilters], [...memberRangeFilters]);
+    loadMembers(memberPage, memberSearch, superAdminFilter);
     // eslint-disable-next-line
   }, [superAdmin]);
 
@@ -668,12 +802,19 @@ const Admin: FC = () => {
         <CreateOrganization
           showExternalId={!isCloud()}
           onCreate={() => {
-            loadOrgs(page, search);
+            reloadOrgs(page);
           }}
           close={() => setOrgModalOpen(false)}
         />
       )}
       <h1>GrowthBook Admin</h1>
+      {superAdmin === "readonly" && (
+        <Callout status="info" mb="3">
+          You are signed in as a read-only super admin. View access is granted
+          across all organizations, but super admin writes (disabling orgs,
+          editing SSO, marking other super admins, etc.) are blocked.
+        </Callout>
+      )}
       {!isCloud() && (
         <>
           <div
@@ -694,15 +835,17 @@ const Admin: FC = () => {
         </Box>
 
         <TabsContent value="organizations">
-          <button
-            className="btn btn-primary float-right"
-            onClick={(e) => {
-              e.preventDefault();
-              setOrgModalOpen(true);
-            }}
-          >
-            <FaPlus /> New Organization
-          </button>
+          {canWrite && (
+            <button
+              className="btn btn-primary float-right"
+              onClick={(e) => {
+                e.preventDefault();
+                setOrgModalOpen(true);
+              }}
+            >
+              <FaPlus /> New Organization
+            </button>
+          )}
           <div className="mb-2 row align-items-center">
             <div className="col-auto">
               <form
@@ -710,7 +853,12 @@ const Admin: FC = () => {
                 onSubmit={(e) => {
                   e.preventDefault();
                   setPage(1);
-                  loadOrgs(1, search);
+                  loadOrgs(
+                    1,
+                    search,
+                    [...planFilters],
+                    [...memberRangeFilters],
+                  );
                 }}
               >
                 <Field
@@ -733,6 +881,47 @@ const Admin: FC = () => {
                 {total === 1 ? "" : "s"}
               </span>
             </div>
+          </div>
+          <div
+            className="mb-2 d-flex flex-wrap align-items-center"
+            style={{ gap: 16 }}
+          >
+            <FilterCheckboxes<PlanFilter>
+              label="Plan"
+              options={PLAN_FILTER_OPTIONS}
+              selected={planFilters}
+              onToggle={(value) => {
+                const next = toggleSetValue(planFilters, value);
+                setPlanFilters(next);
+                setPage(1);
+                loadOrgs(1, search, [...next], [...memberRangeFilters]);
+              }}
+            />
+            <FilterCheckboxes<MemberRangeFilter>
+              label="Members"
+              options={MEMBER_RANGE_OPTIONS}
+              selected={memberRangeFilters}
+              onToggle={(value) => {
+                const next = toggleSetValue(memberRangeFilters, value);
+                setMemberRangeFilters(next);
+                setPage(1);
+                loadOrgs(1, search, [...planFilters], [...next]);
+              }}
+            />
+            {(planFilters.size > 0 || memberRangeFilters.size > 0) && (
+              <button
+                type="button"
+                className="btn btn-sm btn-link"
+                onClick={() => {
+                  setPlanFilters(new Set());
+                  setMemberRangeFilters(new Set());
+                  setPage(1);
+                  loadOrgs(1, search, [], []);
+                }}
+              >
+                Clear filters
+              </button>
+            )}
           </div>
           {error && <Callout status="error">{error}</Callout>}
           <div className="position-relative">
@@ -763,10 +952,11 @@ const Admin: FC = () => {
                     )}
                     showExternalId={!isCloud()}
                     showVerfiedDomain={isCloud()}
+                    canWrite={canWrite}
                     key={o.id}
                     current={o.id === orgId}
                     onEdit={() => {
-                      loadOrgs(page, search);
+                      reloadOrgs(page);
                     }}
                     switchTo={(org) => {
                       if (setOrgId) {
@@ -792,9 +982,9 @@ const Admin: FC = () => {
               currentPage={page}
               numItemsTotal={total}
               perPage={50}
-              onPageChange={(page) => {
-                setPage(page);
-                loadOrgs(page, search);
+              onPageChange={(p) => {
+                setPage(p);
+                reloadOrgs(p);
               }}
             />
           </div>
@@ -802,7 +992,7 @@ const Admin: FC = () => {
             <div className="divider border-top mt-3">
               <OrphanedUsersList
                 mutateUsers={() => {
-                  loadOrgs(page, search);
+                  reloadOrgs(page);
                 }}
                 numUsersInAccount={0}
                 enableAdd={false}
@@ -819,13 +1009,14 @@ const Admin: FC = () => {
                 onSubmit={(e) => {
                   e.preventDefault();
                   setMemberPage(1);
-                  loadMembers(1, memberSearch);
+                  loadMembers(1, memberSearch, superAdminFilter);
                 }}
               >
                 <Field
                   label="Search:"
                   labelClassName="mr-2"
                   value={memberSearch}
+                  placeholder="name, email, or org_..."
                   onChange={(e) => setMemberSearch(e.target.value)}
                   type="search"
                 />
@@ -844,6 +1035,32 @@ const Admin: FC = () => {
               </span>
             </div>
           </div>
+          <div
+            className="mb-2 d-flex flex-wrap align-items-center"
+            style={{ gap: 16 }}
+          >
+            <FilterCheckboxes<"yes" | "no" | "all">
+              label="Super Admin"
+              options={[
+                { value: "all", label: "All" },
+                { value: "yes", label: "Yes" },
+                { value: "no", label: "No" },
+              ]}
+              selected={new Set([superAdminFilter])}
+              onToggle={(value) => {
+                const next = value;
+                if (next === superAdminFilter) return;
+                setSuperAdminFilter(next);
+                setMemberPage(1);
+                loadMembers(1, memberSearch, next);
+              }}
+            />
+            {memberSearch.startsWith("org_") && (
+              <span className="text-muted small">
+                Searching members of organization {memberSearch}
+              </span>
+            )}
+          </div>
           {memberError && <Callout status="error">{memberError}</Callout>}
           <div className="position-relative">
             {memberLoading && <LoadingOverlay />}
@@ -855,6 +1072,7 @@ const Admin: FC = () => {
                   <th>Id</th>
                   <th>Created</th>
                   <th title="Verified Email">Verified</th>
+                  <th title="Super Admin">Super Admin</th>
                   <th>Orgs</th>
                   <th style={{ width: 40 }}></th>
                   <th style={{ width: 40 }}></th>
@@ -867,8 +1085,9 @@ const Admin: FC = () => {
                     memberOrgs={memberOrgs[m.id] ?? []}
                     key={m.id}
                     current={m.id === orgId}
+                    canWrite={canWrite}
                     onEdit={() => {
-                      loadMembers(memberPage, memberSearch);
+                      reloadMembers(memberPage);
                     }}
                   />
                 ))}
@@ -878,9 +1097,9 @@ const Admin: FC = () => {
               currentPage={memberPage}
               numItemsTotal={totalMembers}
               perPage={50}
-              onPageChange={(page) => {
-                setMemberPage(page);
-                loadMembers(memberPage, memberSearch);
+              onPageChange={(p) => {
+                setMemberPage(p);
+                reloadMembers(p);
               }}
             />
           </div>
@@ -890,16 +1109,36 @@ const Admin: FC = () => {
   );
 };
 
+type SuperAdminSelect = "no" | "yes" | "readonly";
+
+function superAdminToSelect(value: SuperAdmin | undefined): SuperAdminSelect {
+  if (value === true) return "yes";
+  if (value === "readonly") return "readonly";
+  return "no";
+}
+
+function superAdminFromSelect(value: SuperAdminSelect): SuperAdmin {
+  if (value === "yes") return true;
+  if (value === "readonly") return "readonly";
+  return false;
+}
+
 const EditMember: FC<{
   onEdit: () => void;
   close?: () => void;
-  member: ExpandedMember;
+  member: ExpandedMember & { superAdmin?: SuperAdmin };
 }> = ({ onEdit, close, member }) => {
   const [verified, setVerified] = useState(member.verified);
   const [name, setName] = useState(member.name);
   const [email, setEmail] = useState(member.email);
+  const [superAdminValue, setSuperAdminValue] = useState<SuperAdminSelect>(
+    superAdminToSelect(member.superAdmin),
+  );
 
   const { apiCall } = useAuth();
+  const { superAdmin: currentSuperAdmin, userId: currentUserId } = useUser();
+  const canEditSuperAdmin =
+    canSuperAdminWrite(currentSuperAdmin) && currentUserId !== member.id;
 
   const handleSubmit = async () => {
     await apiCall<{
@@ -912,6 +1151,9 @@ const EditMember: FC<{
         verified: verified,
         email: email,
         name: name,
+        ...(canEditSuperAdmin
+          ? { superAdmin: superAdminFromSelect(superAdminValue) }
+          : {}),
       }),
     });
     onEdit();
@@ -953,6 +1195,26 @@ const EditMember: FC<{
             id="verified"
             value={verified}
             onChange={(e) => setVerified(e)}
+          />
+        </div>
+        <div className="mt-4">
+          <SelectField
+            label="Super Admin"
+            value={superAdminValue}
+            disabled={!canEditSuperAdmin}
+            helpText={
+              currentUserId === member.id
+                ? "You cannot change your own super admin status"
+                : !canSuperAdminWrite(currentSuperAdmin)
+                  ? "Read-only super admins cannot change super admin status"
+                  : "Readonly super admins can view all orgs and members but cannot perform super admin writes."
+            }
+            onChange={(v) => setSuperAdminValue(v as SuperAdminSelect)}
+            options={[
+              { label: "No", value: "no" },
+              { label: "Yes (full access)", value: "yes" },
+              { label: "Read-only", value: "readonly" },
+            ]}
           />
         </div>
       </div>

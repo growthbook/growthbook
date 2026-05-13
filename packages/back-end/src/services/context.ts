@@ -18,6 +18,7 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import { FeatureInterface } from "shared/types/feature";
 import { UserInterface } from "shared/types/user";
+import { SuperAdmin } from "shared/validators";
 import {
   BadRequestError,
   UnauthorizedError,
@@ -217,7 +218,7 @@ export class ReqContextClass {
   public userId = "";
   public email = "";
   public userName = "";
-  public superAdmin = false;
+  public superAdmin: SuperAdmin = false;
   public teams: TeamInterface[] = [];
   public role?: string;
   public isApiRequest = false;
@@ -245,7 +246,7 @@ export class ReqContextClass {
       id: string;
       email: string;
       name?: string;
-      superAdmin?: boolean;
+      superAdmin?: SuperAdmin;
     };
     apiKey?: string;
     role?: string;
@@ -276,7 +277,7 @@ export class ReqContextClass {
       this.userId = user.id;
       this.email = user.email;
       this.userName = user.name || "";
-      this.superAdmin = user.superAdmin || false;
+      this.superAdmin = user.superAdmin ?? false;
       this.userPermissions = getUserPermissions(user, org, teams || []);
     }
     // If an API key or background job is making this request

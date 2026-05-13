@@ -4,6 +4,7 @@ import { EventUserApiKey } from "shared/types/events/event-types";
 import { OrganizationInterface, Permission } from "shared/types/organization";
 import { ApiKeyInterface, ApiKeyWithRole } from "shared/types/apikey";
 import { TeamInterface } from "shared/types/team";
+import { SuperAdmin } from "shared/validators";
 import { licenseInit } from "back-end/src/enterprise";
 import { ApiRequestLocals } from "back-end/types/api";
 import { getOrganizationById } from "back-end/src/services/organizations";
@@ -205,7 +206,7 @@ function doesUserHavePermission(
   permission: Permission,
   apiKeyDoc: ApiKeyInterface,
   teams: TeamInterface[],
-  superAdmin: boolean | undefined,
+  superAdmin: SuperAdmin | undefined,
   project?: string,
   envs?: string[],
 ): boolean {
@@ -236,7 +237,7 @@ type VerifyApiKeyPermissionOptions = {
   project?: string;
   environments?: string[];
   teams: TeamInterface[];
-  superAdmin: boolean | undefined;
+  superAdmin: SuperAdmin | undefined;
 };
 
 /**
