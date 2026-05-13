@@ -337,6 +337,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 variations:
                   initialValue.phases[lastPhase].variations ??
                   toPhaseVariations(initialExpVariations),
+                // Clear seed when duplicating to generate a fresh one on the backend
+                ...(duplicate ? { seed: undefined } : {}),
               },
             ]
           : [
