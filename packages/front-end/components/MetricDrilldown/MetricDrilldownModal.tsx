@@ -480,6 +480,8 @@ const MetricDrilldownModal = ({
   const effectiveSnapshot = parentSnapshot ?? snapshotProp;
   const effectiveExperiment = contextExperiment ?? experimentProp;
   const effectiveDimension = contextDimension ?? dimensionProp ?? "";
+  // Use contextPhase from snapshot context when available, otherwise use phase prop
+  const effectivePhase = parentSnapshot ? contextPhase : phase;
 
   const isReportContext = isReportContextProp ?? false;
 
@@ -621,7 +623,7 @@ const MetricDrilldownModal = ({
             <LocalSnapshotProvider
               experiment={effectiveExperiment}
               snapshot={effectiveSnapshot}
-              phase={contextPhase}
+              phase={effectivePhase}
               dimension={effectiveDimension}
               initialAnalysisSettings={parentAnalysisSettings}
             >
