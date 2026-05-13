@@ -52,6 +52,94 @@ export function formatComparisonMetricLabel(
   return `${name} (${periodLabel})`;
 }
 
+export type ComparisonTooltipSeriesPeriod = "current" | "previous" | "neutral";
+
+/**
+ * Splits a compare-overlay series name into metric/series base and period
+ * (same rules as tooltip row ordering).
+ */
+export function parseComparisonTooltipSeriesName(
+  seriesName: string,
+  comparisonPeriodLabels: {
+    currentLabel: string;
+    previousLabel: string;
+  } | null,
+): { baseName: string; period: ComparisonTooltipSeriesPeriod } {
+  if (!comparisonPeriodLabels) {
+    return { baseName: seriesName, period: "neutral" };
+  }
+  const { currentLabel, previousLabel } = comparisonPeriodLabels;
+  const currentSuffix = ` (${currentLabel})`;
+  const previousSuffix = ` (${previousLabel})`;
+  if (seriesName === currentLabel) {
+    return { baseName: "", period: "current" };
+  }
+  if (seriesName === previousLabel) {
+    return { baseName: "", period: "previous" };
+  }
+  if (seriesName.endsWith(currentSuffix)) {
+    return {
+      baseName: seriesName.slice(0, -currentSuffix.length),
+      period: "current",
+    };
+  }
+  if (seriesName.endsWith(previousSuffix)) {
+    return {
+      baseName: seriesName.slice(0, -previousSuffix.length),
+      period: "previous",
+    };
+  }
+  return { baseName: seriesName, period: "neutral" };
+}
+
+function comparisonTooltipPeriodOrder(
+  period: ComparisonTooltipSeriesPeriod,
+): number {
+  return period === "previous" ? 1 : 0;
+}
+
+/**
+ * Orders axis-tooltip rows: alphabetically by metric/series label, and for
+ * period-compare charts keeps current vs previous for the same metric adjacent
+ * (current first, then previous).
+ */
+export function sortProductAnalyticsTooltipAxisItems<
+  T extends { seriesName: string },
+>(
+  items: T[],
+  comparisonPeriodLabels: {
+    currentLabel: string;
+    previousLabel: string;
+  } | null,
+): T[] {
+  if (items.length <= 1) return [...items];
+  if (!comparisonPeriodLabels) {
+    return [...items].sort((a, b) =>
+      a.seriesName.localeCompare(b.seriesName, undefined, {
+        sensitivity: "base",
+      }),
+    );
+  }
+  return [...items].sort((a, b) => {
+    const ka = parseComparisonTooltipSeriesName(
+      a.seriesName,
+      comparisonPeriodLabels,
+    );
+    const kb = parseComparisonTooltipSeriesName(
+      b.seriesName,
+      comparisonPeriodLabels,
+    );
+    const cmp = ka.baseName.localeCompare(kb.baseName, undefined, {
+      sensitivity: "base",
+    });
+    if (cmp !== 0) return cmp;
+    return (
+      comparisonTooltipPeriodOrder(ka.period) -
+      comparisonTooltipPeriodOrder(kb.period)
+    );
+  });
+}
+
 export function getComparisonStackId(
   isPrevious: boolean,
   isStacked: boolean,
@@ -82,6 +170,46 @@ function compareDateStringsAsc(a: string, b: string): number {
   return new Date(a).getTime() - new Date(b).getTime();
 }
 
+function createComparisonAlignmentResolver(
+  sortedXValues: string[],
+  comparisonXValues: readonly string[],
+  firstDimensionIsDate: boolean,
+): (currentKey: string) => string | undefined {
+  if (!firstDimensionIsDate) {
+    return (currentKey) => currentKey;
+  }
+  const chronoCurrent = [...new Set(sortedXValues)].sort(compareDateStringsAsc);
+  const chronoComp = [...new Set(comparisonXValues)].sort(
+    compareDateStringsAsc,
+  );
+  const rankByCurrentX = new Map<string, number>();
+  chronoCurrent.forEach((x, i) => {
+    rankByCurrentX.set(x, i);
+  });
+  return (currentKey: string) => {
+    const rank = rankByCurrentX.get(currentKey);
+    if (rank === undefined) return undefined;
+    return chronoComp[rank];
+  };
+}
+
+/**
+ * Returns the comparison period’s primary-dimension key aligned to a current
+ * bucket (same rules as {@link alignComparisonOverlayToCategories}).
+ */
+export function getAlignedComparisonDimensionKeyForTooltip(
+  sortedXValues: string[],
+  comparisonXValues: readonly string[],
+  currentKey: string,
+  firstDimensionIsDate: boolean,
+): string | undefined {
+  return createComparisonAlignmentResolver(
+    sortedXValues,
+    comparisonXValues,
+    firstDimensionIsDate,
+  )(currentKey);
+}
+
 /**
  * Maps comparison-period values onto the chart's x categories.
  *
@@ -100,33 +228,17 @@ export function alignComparisonOverlayToCategories(
   firstDimensionIsDate: boolean,
 ): Record<string, Record<string, number>> {
   const aligned: Record<string, Record<string, number>> = {};
-
-  if (!firstDimensionIsDate) {
-    for (const seriesKey of sortedSeriesKeys) {
-      const src = comparisonDataMap[seriesKey] ?? {};
-      aligned[seriesKey] = {};
-      for (const x of sortedXValues) {
-        aligned[seriesKey][x] = src[x] ?? 0;
-      }
-    }
-    return aligned;
-  }
-
-  const chronoCurrent = [...new Set(sortedXValues)].sort(compareDateStringsAsc);
-  const chronoComp = [...new Set(comparisonXValues)].sort(
-    compareDateStringsAsc,
+  const resolveComparisonKey = createComparisonAlignmentResolver(
+    sortedXValues,
+    comparisonXValues,
+    firstDimensionIsDate,
   );
-  const rankByCurrentX = new Map<string, number>();
-  chronoCurrent.forEach((x, i) => {
-    rankByCurrentX.set(x, i);
-  });
 
   for (const seriesKey of sortedSeriesKeys) {
     const src = comparisonDataMap[seriesKey] ?? {};
     aligned[seriesKey] = {};
     for (const x of sortedXValues) {
-      const rank = rankByCurrentX.get(x);
-      const compKey = rank !== undefined ? chronoComp[rank] : undefined;
+      const compKey = resolveComparisonKey(x);
       aligned[seriesKey][x] = compKey !== undefined ? (src[compKey] ?? 0) : 0;
     }
   }
@@ -291,20 +403,25 @@ export function buildAlignedComparisonOverlayForExplorer(args: {
   renderOpts: RenderOpts;
   sortedSeriesKeys: string[];
   firstDimensionIsDate: boolean;
-}): Record<string, Record<string, number>> | null {
+}): {
+  alignedMap: Record<string, Record<string, number>>;
+  comparisonXValues: string[];
+} | null {
   if (!args.comparisonRows.length) return null;
   const { uniqueXValues, dataMap } = buildComparisonOverlaySeriesMaps(
     args.comparisonRows,
     args.submittedExploreState,
     args.renderOpts,
   );
-  return alignComparisonOverlayToCategories(
+  const comparisonXValues = Array.from(uniqueXValues);
+  const alignedMap = alignComparisonOverlayToCategories(
     args.sortedXValues,
     dataMap,
     args.sortedSeriesKeys,
-    Array.from(uniqueXValues),
+    comparisonXValues,
     args.firstDimensionIsDate,
   );
+  return { alignedMap, comparisonXValues };
 }
 
 export type ExplorerChartCompareSeriesMeta = {
