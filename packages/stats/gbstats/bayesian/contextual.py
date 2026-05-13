@@ -674,7 +674,9 @@ class UpdateWeightsContextualTree:
 
         # initialize the tree with all contexts in leaf 0
         self.stats_encoded["leaf_0"] = 0
-        self.stats_encoded["current_leaf"] = self.stats_encoded["leaf_0"].astype(int)
+        self.stats_encoded["current_leaf"] = copy.deepcopy(
+            self.stats_encoded["leaf_0"].astype(int)
+        )
 
         dummy_feature_names = [
             c for c in self.stats_encoded.columns if c not in self.stats_df.columns
@@ -849,7 +851,18 @@ class UpdateWeightsContextualTreeReward(UpdateWeightsContextualTree):
             if leaf_response.cr is not None
             else [stat.mean for stat in aggregated.values()]
         )
-        return float(np.sum(leaf_means * leaf_weights))
+        # remove this later
+        if leaf_response.bandit_weights is None:
+            raise ValueError(f"Leaf response weights are None: {leaf_response}")
+        cr = np.asarray(leaf_response.cr)
+        diff = np.max(
+            np.abs(cr - np.array([stat.mean for stat in aggregated.values()]))
+        )
+        if diff > 0.0001:
+            raise ValueError(f"Leaf response means are not equal: {diff}")
+        # remove above here later
+        n = np.sum([stat.n for stat in ordered_stats])
+        return float(n * np.sum(leaf_means * leaf_weights))
 
     @staticmethod
     def identify_update(
@@ -860,7 +873,7 @@ class UpdateWeightsContextualTreeReward(UpdateWeightsContextualTree):
         metric_settings: MetricSettingsForStatsEngine,
         rng: np.random.Generator,
     ) -> tuple[int, int]:
-        """Given the current tree, which feature inside of which leaf most reduces SSE?
+        """Given the current tree, which feature inside of which leaf most increases expected reward?
 
         ``variation_columns`` must match stat columns from ``summable_statistics_...``, i.e.
         ``bandit_settings.var_ids`` in canonical form.
@@ -931,9 +944,19 @@ class UpdateWeightsContextualTreeReward(UpdateWeightsContextualTree):
                     expected_reward_split[feature_index, leaf_index] = (
                         expected_reward_0 + expected_reward_1
                     )
-        diff = expected_reward_split - np.tile(
-            expected_reward_current, (num_features, 1)
+        current_matrix = np.tile(expected_reward_current, (num_features, 1))
+        diff = expected_reward_split - current_matrix
+
+        # delete below me later
+        dir_desktop = "/Users/lukesmith/Desktop/"
+        pd.DataFrame(expected_reward_split).to_csv(
+            dir_desktop + "expected_reward_split_" + str(num_leaves_current) + ".csv"
         )
+        pd.DataFrame(expected_reward_current).to_csv(
+            dir_desktop + "expected_reward_current_" + str(num_leaves_current) + ".csv"
+        )
+        # delete above me later
+
         idx = np.argmax(diff)
         pos = np.unravel_index(idx, diff.shape)
         return (int(pos[0]), int(pos[1]))
