@@ -23,6 +23,8 @@ export default function ExplorerMainSection() {
     draftExploreState,
     handleSubmit,
     isSubmittable,
+    compareEnabled,
+    comparisonExploration,
   } = useExplorerContext();
 
   const showChartSection = shouldChartSectionShow({
@@ -69,6 +71,8 @@ export default function ExplorerMainSection() {
                     error={error}
                     submittedExploreState={submittedExploreState}
                     loading={loading}
+                    compareEnabled={compareEnabled}
+                    comparisonExploration={comparisonExploration}
                   />
                 </Panel>
                 <PanelResizeHandle
@@ -107,6 +111,8 @@ export default function ExplorerMainSection() {
                 hasChart={showChartSection}
                 isStale={isStale}
                 query={query}
+                compareEnabled={compareEnabled}
+                comparisonExploration={comparisonExploration}
               />
             </Panel>
           </PanelGroup>

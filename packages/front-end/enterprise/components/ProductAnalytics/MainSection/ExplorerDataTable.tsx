@@ -14,6 +14,8 @@ export default function ExplorerDataTable({
   hasChart = false,
   isStale = false,
   query = null,
+  compareEnabled = false,
+  comparisonExploration = null,
 }: {
   exploration: ProductAnalyticsExploration | null;
   error: string | null;
@@ -22,6 +24,8 @@ export default function ExplorerDataTable({
   hasChart?: boolean;
   isStale?: boolean;
   query?: QueryInterface | null;
+  compareEnabled?: boolean;
+  comparisonExploration?: ProductAnalyticsExploration | null;
 }) {
   const {
     rowData,
@@ -29,7 +33,13 @@ export default function ExplorerDataTable({
     columnLabels,
     headerStructure,
     explorationReturnedNoData,
-  } = useExplorationTableData(exploration, submittedExploreState);
+    csvColumnKeys,
+    csvColumnLabels,
+    renderCell,
+  } = useExplorationTableData(exploration, submittedExploreState, {
+    compareEnabled,
+    comparisonExploration,
+  });
 
   return (
     <DisplayTestQueryResults
@@ -44,6 +54,9 @@ export default function ExplorerDataTable({
       headerStructure={headerStructure ?? undefined}
       orderedColumnKeys={orderedColumnKeys}
       columnLabels={columnLabels}
+      csvColumnKeys={csvColumnKeys}
+      csvColumnLabels={csvColumnLabels}
+      renderCell={renderCell}
       paddingTop={(isStale || loading) && !hasChart ? 35 : 0}
     />
   );
