@@ -161,7 +161,10 @@ describe("snapshots API", () => {
 
     getExperimentById.mockReturnValueOnce(experiment);
     getDataSourceById.mockReturnValueOnce(datasource);
-    findDimensionById.mockResolvedValueOnce({ id: "dim_123" });
+    findDimensionById.mockResolvedValueOnce({
+      id: "dim_123",
+      datasource: "ds_123",
+    });
     createExperimentSnapshot.mockResolvedValueOnce({
       snapshot,
       queryRunner: {},
@@ -195,6 +198,99 @@ describe("snapshots API", () => {
     });
   });
 
+  it("accepts a config.yml unit dimension id without a dim_ prefix", async () => {
+    setReqContext({
+      org,
+      permissions: {
+        canCreateExperimentSnapshot: () => true,
+        canReadSingleProjectResource: () => true,
+      },
+    });
+
+    const snapshot = snapshotFactory.build({
+      organization: org.id,
+    });
+    const experiment = {
+      id: snapshot.experiment,
+      datasource: "ds_123",
+      phases: [{}],
+    };
+    const datasource = { id: "ds_123" };
+
+    getExperimentById.mockReturnValueOnce(experiment);
+    getDataSourceById.mockReturnValueOnce(datasource);
+    findDimensionById.mockResolvedValueOnce({
+      id: "country",
+      datasource: "ds_123",
+    });
+    createExperimentSnapshot.mockResolvedValueOnce({
+      snapshot,
+      queryRunner: {},
+    });
+
+    const response = await request(app)
+      .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)
+      .set("Authorization", "Bearer foo")
+      .send({ dimension: "country" });
+
+    expect(response.status).toBe(200);
+    expect(findDimensionById).toHaveBeenCalledWith("country", org.id);
+    expect(createExperimentSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ dimension: "country" }),
+    );
+  });
+
+  it("allows unit dimensions without datasource and logs a warning", async () => {
+    const warn = jest.fn();
+    setReqContext({
+      org,
+      logger: { warn },
+      permissions: {
+        canCreateExperimentSnapshot: () => true,
+        canReadSingleProjectResource: () => true,
+      },
+    });
+
+    const snapshot = snapshotFactory.build({
+      organization: org.id,
+    });
+    const experiment = {
+      id: snapshot.experiment,
+      datasource: "ds_123",
+      phases: [{}],
+    };
+    const datasource = { id: "ds_123" };
+
+    getExperimentById.mockReturnValueOnce(experiment);
+    getDataSourceById.mockReturnValueOnce(datasource);
+    findDimensionById.mockResolvedValueOnce({
+      id: "country",
+    });
+    createExperimentSnapshot.mockResolvedValueOnce({
+      snapshot,
+      queryRunner: {},
+    });
+
+    const response = await request(app)
+      .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)
+      .set("Authorization", "Bearer foo")
+      .send({ dimension: "country" });
+
+    expect(response.status).toBe(200);
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organization: org.id,
+        experimentId: experiment.id,
+        datasourceId: datasource.id,
+        dimension: "country",
+      }),
+      "Unit dimension has no datasource; allowing for compatibility",
+    );
+    expect(createExperimentSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ dimension: "country" }),
+    );
+  });
+
   it("rejects a dimension that does not exist", async () => {
     setReqContext({
       org,
@@ -223,9 +319,9 @@ describe("snapshots API", () => {
       .send({ dimension: "dim_missing" });
 
     expect(response.status).toBe(400);
-    expect(response.body).toEqual({
-      message: "Dimension dim_missing not found",
-    });
+    expect(response.body.message).toContain(
+      'Dimension "dim_missing" not found',
+    );
     expect(findDimensionById).toHaveBeenCalledWith("dim_missing", org.id);
     expect(createExperimentSnapshot).not.toHaveBeenCalled();
   });

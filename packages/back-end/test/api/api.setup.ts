@@ -33,6 +33,7 @@ jest.mock("back-end/src/middleware/authenticateApiRequestMiddleware", () => ({
 export const setupApp = () => {
   let mongodb;
   let reqContext;
+  let requestCount = 0;
   const auditMock = jest.fn();
   const OLD_ENV = process.env;
   const isReady = new Promise((resolve) => {
@@ -46,6 +47,8 @@ export const setupApp = () => {
 
       authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
         req.audit = auditMock;
+        // Keep route tests focused on handler behavior instead of shared rate-limit state.
+        req.apiKey = `test-api-key-${requestCount++}`;
         req.context = reqContext;
         req.organization = reqContext?.org;
         next();

@@ -10009,6 +10009,18 @@ paths:
     get:
       operationId: getExperimentResults
       summary: Get results for an experiment
+      description: >-
+        Retrieves existing experiment results. Omit `dimension` to return the
+        default overall analysis from the latest standard snapshot. Pass
+        `dimension` as a Unit Dimension id (`dim_...`), Experiment Dimension
+        (`exp:<dimensionName>`), or built-in pre-exposure dimension (`pre:date`
+        or `pre:activation`). Experiment Dimensions are defined by data source
+        assignment query `dimensionColumns`. If no exact on-demand Experiment
+        Dimension snapshot exists, this endpoint may return an existing
+        precomputed analysis from the latest standard snapshot; in that case
+        `result.id` remains the source snapshot ID, `result.resultId` identifies
+        the exact snapshot-analysis result payload, and
+        `result.analysisSettings` describes the settings used to calculate it.
       tags:
         - experiments
       parameters:
@@ -11727,6 +11739,10 @@ paths:
     get:
       operationId: listDimensions
       summary: Get all dimensions
+      description: >-
+        Lists Unit Dimensions. Experiment Dimensions are defined on data source
+        assignment queries and are discoverable from `/api/v1/data-sources` in
+        `assignmentQueries[].dimensionColumns`.
       tags:
         - dimensions
       parameters:
@@ -12786,6 +12802,10 @@ paths:
     get:
       operationId: listDataSources
       summary: Get all data sources
+      description: >-
+        Lists data sources, including assignment query `dimensionColumns` that
+        define Experiment Dimensions for use as `exp:<dimensionName>` in
+        experiment result APIs.
       tags:
         - data-sources
       parameters:
@@ -12817,6 +12837,10 @@ paths:
     get:
       operationId: getDataSource
       summary: Get a single data source
+      description: >-
+        Gets a data source, including assignment query `dimensionColumns` that
+        define Experiment Dimensions for use as `exp:<dimensionName>` in
+        experiment result APIs.
       tags:
         - data-sources
       parameters:
@@ -24252,14 +24276,40 @@ components:
     phase:
       name: phase
       in: query
-      description: ''
+      description: >-
+        Zero-based phase index to retrieve results for, where 0 is the first
+        experiment phase. Defaults to the latest phase.
       schema:
+        description: >-
+          Zero-based phase index to retrieve results for, where 0 is the first
+          experiment phase. Defaults to the latest phase.
         type: string
     dimension:
       name: dimension
       in: query
-      description: ''
+      description: >-
+        Dimension to break results down by. For Unit Dimensions, use the
+        dimension id (e.g. "dim_abc123"). For Experiment Dimensions, use
+        "exp:<dimensionName>" (e.g. "exp:country"). Built-in pre-exposure
+        dimensions include "pre:date" and, when configured, "pre:activation".
+        For Experiment Dimensions, this endpoint can return an existing
+        precomputed analysis from the latest standard snapshot when no exact
+        on-demand dimension snapshot exists. In that case, result.id remains the
+        source snapshot ID; use result.resultId and result.analysisKey to
+        identify the exact returned result payload, and result.analysisSettings
+        to inspect the settings used to calculate it.
       schema:
+        description: >-
+          Dimension to break results down by. For Unit Dimensions, use the
+          dimension id (e.g. "dim_abc123"). For Experiment Dimensions, use
+          "exp:<dimensionName>" (e.g. "exp:country"). Built-in pre-exposure
+          dimensions include "pre:date" and, when configured, "pre:activation".
+          For Experiment Dimensions, this endpoint can return an existing
+          precomputed analysis from the latest standard snapshot when no exact
+          on-demand dimension snapshot exists. In that case, result.id remains
+          the source snapshot ID; use result.resultId and result.analysisKey to
+          identify the exact returned result payload, and
+          result.analysisSettings to inspect the settings used to calculate it.
         type: string
     variationId:
       name: variationId
@@ -26506,7 +26556,72 @@ components:
       type: object
       properties:
         id:
+          description: >-
+            The source experiment snapshot ID. For exact result identity, use
+            resultId.
           type: string
+        resultId:
+          description: >-
+            Opaque identifier for this exact result payload. When an analysis
+            key is available, this identifies the specific snapshot-analysis
+            tuple.
+          type: string
+        sourceSnapshotId:
+          description: The experiment snapshot ID used as the source for results.
+          type: string
+        analysisKey:
+          description: Stable key of the analysis within sourceSnapshotId.
+          type: string
+        source:
+          description: >-
+            How the result payload was selected. "precomputedFallback" means a
+            precomputed analysis from the latest standard snapshot was returned
+            because no exact on-demand dimension snapshot existed.
+          type: string
+          enum:
+            - snapshot
+            - precomputedFallback
+        analysisSettings:
+          description: Analysis settings used to produce this result payload.
+          type: object
+          properties:
+            statsEngine:
+              type: string
+              enum:
+                - bayesian
+                - frequentist
+            differenceType:
+              type: string
+              enum:
+                - relative
+                - absolute
+                - scaled
+            baselineVariationIndex:
+              type: number
+            regressionAdjusted:
+              type: boolean
+            postStratificationEnabled:
+              type: boolean
+            sequentialTesting:
+              type: boolean
+            sequentialTestingTuningParameter:
+              type: number
+            pValueCorrection:
+              anyOf:
+                - type: string
+                  enum:
+                    - holm-bonferroni
+                    - benjamini-hochberg
+                - type: 'null'
+            pValueThreshold:
+              type: number
+          required:
+            - statsEngine
+            - differenceType
+            - baselineVariationIndex
+            - regressionAdjusted
+            - sequentialTesting
+          additionalProperties: false
         dateUpdated:
           type: string
         experimentId:
@@ -26622,6 +26737,9 @@ components:
             additionalProperties: false
       required:
         - id
+        - resultId
+        - sourceSnapshotId
+        - source
         - dateUpdated
         - experimentId
         - phase
@@ -27406,6 +27524,10 @@ components:
               includesNameColumns:
                 type: boolean
               dimensionColumns:
+                description: >-
+                  Experiment Dimension column names available for results
+                  queries. Use these with the "exp:<dimensionName>" dimension
+                  format.
                 type: array
                 items:
                   type: string

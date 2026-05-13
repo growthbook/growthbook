@@ -2451,27 +2451,60 @@ function safeFloat(n: number | undefined, fallback = 0): number {
   return parseFloat(n.toFixed(20));
 }
 
+type SnapshotApiDimensionOverride = { type: "experiment"; id: string };
+type SnapshotApiSource = "snapshot" | "precomputedFallback";
+
+function getSnapshotApiResultId(
+  snapshotId: string,
+  analysisKey: string | undefined,
+): string {
+  return analysisKey ? `${snapshotId}:analysis:${analysisKey}` : snapshotId;
+}
+
+function getSnapshotApiAnalysisSettings(
+  settings: ExperimentSnapshotAnalysisSettings,
+): ApiExperimentResults["analysisSettings"] {
+  return {
+    statsEngine: settings.statsEngine,
+    differenceType: settings.differenceType,
+    baselineVariationIndex: settings.baselineVariationIndex ?? 0,
+    regressionAdjusted: !!settings.regressionAdjusted,
+    postStratificationEnabled: settings.postStratificationEnabled,
+    sequentialTesting: !!settings.sequentialTesting,
+    sequentialTestingTuningParameter: settings.sequentialTestingTuningParameter,
+    pValueCorrection: settings.pValueCorrection ?? null,
+    pValueThreshold: settings.pValueThreshold,
+  };
+}
+
 export function toSnapshotApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
+  options: {
+    analysis?: ExperimentSnapshotAnalysis;
+    dimension?: SnapshotApiDimensionOverride;
+    source?: SnapshotApiSource;
+  } = {},
 ): ApiExperimentResults {
-  const dimension = !snapshot.dimension
-    ? {
-        type: "none",
-      }
-    : snapshot.dimension.match(/^exp:/)
+  const dimension =
+    options.dimension ??
+    (!snapshot.dimension
       ? {
-          type: "experiment",
-          id: snapshot.dimension.substring(4),
+          type: "none",
         }
-      : snapshot.dimension.match(/^pre:/)
+      : snapshot.dimension.match(/^exp:/)
         ? {
-            type: snapshot.dimension.substring(4),
+            type: "experiment",
+            id: snapshot.dimension.substring(4),
           }
-        : {
-            type: "user",
-            id: snapshot.dimension,
-          };
+        : snapshot.dimension.match(/^pre:/)
+          ? {
+              type: snapshot.dimension.substring(4),
+            }
+          : {
+              type: "user",
+              id: snapshot.dimension,
+            });
 
   const phase = experiment.phases[snapshot.phase];
 
@@ -2481,7 +2514,11 @@ export function toSnapshotApiInterface(
   const variationIds = getLatestPhaseVariations(experiment).map((v) => v.id);
 
   // Get the default analysis
-  const analysis = getSnapshotAnalysis(snapshot);
+  const analysis = options.analysis ?? getSnapshotAnalysis(snapshot);
+  const source = options.source ?? "snapshot";
+  const analysisSettings = analysis
+    ? getSnapshotApiAnalysisSettings(analysis.settings)
+    : undefined;
 
   // Get all metric IDs from the snapshot results
   const metricIds = new Set<string>();
@@ -2493,6 +2530,11 @@ export function toSnapshotApiInterface(
 
   return {
     id: snapshot.id,
+    resultId: getSnapshotApiResultId(snapshot.id, analysis?.analysisKey),
+    sourceSnapshotId: snapshot.id,
+    ...(analysis?.analysisKey ? { analysisKey: analysis.analysisKey } : {}),
+    source,
+    ...(analysisSettings ? { analysisSettings } : {}),
     dateUpdated: snapshot.dateCreated.toISOString(),
     experimentId: snapshot.experiment,
     phase: snapshot.phase + "",

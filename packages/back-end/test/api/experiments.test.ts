@@ -6,8 +6,9 @@ import {
   getAllExperiments,
   updateExperiment,
 } from "../../src/models/ExperimentModel";
-import { getLatestSnapshot } from "../../src/models/ExperimentSnapshotModel";
+import { getLatestDimensionResult } from "../../src/models/ExperimentSnapshotModel";
 import { getDataSourceById } from "../../src/models/DataSourceModel";
+import { findDimensionById } from "../../src/models/DimensionModel";
 import { setupApp } from "./api.setup";
 
 jest.mock("../../src/services/files", () => ({
@@ -26,7 +27,7 @@ jest.mock("../../src/models/ExperimentModel", () => ({
 }));
 
 jest.mock("../../src/models/ExperimentSnapshotModel", () => ({
-  getLatestSnapshot: jest.fn(),
+  getLatestDimensionResult: jest.fn(),
 }));
 
 jest.mock("../../src/models/MetricModel", () => ({
@@ -35,6 +36,10 @@ jest.mock("../../src/models/MetricModel", () => ({
 
 jest.mock("../../src/models/DataSourceModel", () => ({
   getDataSourceById: jest.fn(),
+}));
+
+jest.mock("../../src/models/DimensionModel", () => ({
+  findDimensionById: jest.fn(),
 }));
 
 describe("experiments API", () => {
@@ -1835,6 +1840,157 @@ describe("experiments API", () => {
   });
 
   describe("GET /api/v1/experiments/:id/results", () => {
+    const makePhase = (name = "Main") => ({
+      name,
+      dateStarted: new Date("2024-01-01"),
+      dateEnded: null,
+      reason: "",
+      seed: "test-seed",
+      coverage: 1,
+      variationWeights: [0.5, 0.5],
+      condition: "",
+      savedGroups: [],
+      prerequisites: [],
+      namespace: { enabled: false },
+    });
+
+    const makeExperimentWithPhases = (
+      overrides: Record<string, unknown> = {},
+    ) => ({
+      ...experiment,
+      datasource: "ds_123",
+      exposureQueryId: "eq_1",
+      variations: [
+        {
+          id: "0",
+          key: "control",
+          name: "Control",
+          description: "",
+          screenshots: [],
+        },
+        {
+          id: "1",
+          key: "treatment",
+          name: "Treatment",
+          description: "",
+          screenshots: [],
+        },
+      ],
+      phases: [makePhase()],
+      ...overrides,
+    });
+
+    const datasource = {
+      id: "ds_123",
+      settings: {
+        queries: {
+          exposure: [
+            {
+              id: "eq_1",
+              dimensions: ["new_existing_member", "country"],
+            },
+          ],
+        },
+      },
+    };
+
+    const makeAnalysis = ({
+      dimensions = [],
+      resultDimension = "",
+      status = "success",
+      differenceType = "relative",
+    }: {
+      dimensions?: string[];
+      resultDimension?: string;
+      status?: string;
+      differenceType?: string;
+    } = {}) => ({
+      analysisKey: `analysis_${dimensions.join("_")}_${differenceType}`,
+      dateCreated: new Date("2024-01-02"),
+      status,
+      settings: {
+        dimensions,
+        statsEngine: "bayesian",
+        sequentialTesting: false,
+        sequentialTestingTuningParameter: 5000,
+        differenceType,
+        baselineVariationIndex: 0,
+        numGoalMetrics: 0,
+        numGuardrailMetrics: 0,
+      },
+      results: [
+        {
+          name: resultDimension,
+          srm: 1,
+          variations: [
+            {
+              users: 100,
+              metrics: {},
+            },
+            {
+              users: 120,
+              metrics: {},
+            },
+          ],
+        },
+      ],
+    });
+
+    const makeSnapshot = ({
+      id = "snap_123",
+      phase = 0,
+      dimension = null,
+      analyses = [makeAnalysis()],
+      type = "standard",
+    }: {
+      id?: string;
+      phase?: number;
+      dimension?: string | null;
+      analyses?: ReturnType<typeof makeAnalysis>[];
+      type?: string;
+    } = {}) => ({
+      id,
+      organization: "org_1",
+      experiment: "exp_123",
+      phase,
+      dimension,
+      dateCreated: new Date("2024-01-02"),
+      runStarted: new Date("2024-01-02"),
+      queries: [],
+      unknownVariations: [],
+      multipleExposures: 0,
+      hasCorrectedStats: false,
+      status: "success",
+      results: [],
+      settings: {
+        manual: false,
+        dimensions: [],
+        activationMetric: null,
+        queryFilter: "",
+        segment: "",
+        skipPartialData: false,
+        attributionModel: "firstExposure",
+        experimentId: "exp_123",
+        statsEngine: "bayesian",
+        regressionAdjustmentEnabled: false,
+        sequentialTestingEnabled: false,
+        sequentialTestingTuningParameter: 5000,
+        pValueThreshold: 0.05,
+        pValueCorrection: null,
+        differenceType: "relative",
+      },
+      analyses,
+      type,
+    });
+
+    const makeDimensionResult = (
+      snapshot: ReturnType<typeof makeSnapshot>,
+      overrides: Record<string, unknown> = {},
+    ) => ({
+      snapshot,
+      ...overrides,
+    });
+
     it("returns experiment results", async () => {
       updateReqContext({
         org,
@@ -1843,55 +1999,22 @@ describe("experiments API", () => {
         },
       });
 
-      const experimentWithPhases = {
-        ...experiment,
-        phases: [
-          {
-            name: "Main",
-            dateStarted: new Date("2024-01-01"),
-            dateEnded: null,
-            reason: "",
-            seed: "test-seed",
-            coverage: 1,
-            variationWeights: [0.5, 0.5],
-            condition: "",
-            savedGroups: [],
-            prerequisites: [],
-            namespace: { enabled: false },
-          },
-        ],
-      };
-      (getExperimentById as jest.Mock).mockResolvedValue(experimentWithPhases);
-      (getLatestSnapshot as jest.Mock).mockResolvedValue({
-        id: "snap_123",
-        organization: "org_1",
-        experiment: "exp_123",
-        phase: 0,
-        dimension: null,
-        dateCreated: new Date(),
-        runStarted: new Date(),
-        queries: [],
-        unknownVariations: [],
-        multipleExposures: 0,
-        hasCorrectedStats: false,
-        results: [],
-        settings: {
-          manual: false,
-          activationMetric: null,
-          queryFilter: "",
-          segment: "",
-          skipPartialData: false,
-          attributionModel: "firstExposure",
-          experimentId: "exp_123",
-          statsEngine: "bayesian",
-          regressionAdjustmentEnabled: false,
-          sequentialTestingEnabled: false,
-          sequentialTestingTuningParameter: 5000,
-          pValueThreshold: 0.05,
-          pValueCorrection: null,
-          differenceType: "relative",
-        },
-      });
+      (getExperimentById as jest.Mock).mockResolvedValue(
+        makeExperimentWithPhases(),
+      );
+      (getLatestDimensionResult as jest.Mock).mockResolvedValue(
+        makeDimensionResult(
+          makeSnapshot({
+            analyses: [
+              makeAnalysis({ resultDimension: "overall" }),
+              makeAnalysis({
+                dimensions: ["precomputed:new_existing_member"],
+                resultDimension: "precomputed",
+              }),
+            ],
+          }),
+        ),
+      );
 
       const res = await request(app)
         .get("/api/v1/experiments/exp_123/results")
@@ -1899,6 +2022,431 @@ describe("experiments API", () => {
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("result");
+      expect(res.body.result).toMatchObject({
+        id: "snap_123",
+        resultId: "snap_123:analysis:analysis__relative",
+        sourceSnapshotId: "snap_123",
+        analysisKey: "analysis__relative",
+        source: "snapshot",
+      });
+      expect(res.body.result.dimension).toEqual({ type: "none" });
+      expect(res.body.result.results).toHaveLength(1);
+      expect(res.body.result.results[0].dimension).toBe("overall");
+      expect(getLatestDimensionResult).toHaveBeenCalledWith(
+        expect.objectContaining({
+          phase: 0,
+          dimension: undefined,
+        }),
+      );
+      expect(
+        (getLatestDimensionResult as jest.Mock).mock.calls[0][0],
+      ).not.toHaveProperty("type");
+    });
+
+    it("returns an exact on-demand experiment dimension snapshot when present", async () => {
+      const exactAnalysis = makeAnalysis({
+        dimensions: ["exp:new_existing_member"],
+        resultDimension: "exact",
+      });
+      (getExperimentById as jest.Mock).mockResolvedValue(
+        makeExperimentWithPhases(),
+      );
+      (getDataSourceById as jest.Mock).mockResolvedValue(datasource);
+      (getLatestDimensionResult as jest.Mock).mockResolvedValue(
+        makeDimensionResult(
+          makeSnapshot({
+            id: "snap_exact",
+            dimension: "exp:new_existing_member",
+            type: "exploratory",
+            analyses: [exactAnalysis],
+          }),
+        ),
+      );
+
+      const res = await request(app)
+        .get(
+          "/api/v1/experiments/exp_123/results?dimension=exp:new_existing_member",
+        )
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.result).toMatchObject({
+        id: "snap_exact",
+        resultId: `snap_exact:analysis:${exactAnalysis.analysisKey}`,
+        sourceSnapshotId: "snap_exact",
+        analysisKey: exactAnalysis.analysisKey,
+        source: "snapshot",
+      });
+      expect(res.body.result.dimension).toEqual({
+        type: "experiment",
+        id: "new_existing_member",
+      });
+      expect(res.body.result.results[0].dimension).toBe("exact");
+      expect(getLatestDimensionResult).toHaveBeenCalledTimes(1);
+    });
+
+    it("falls back to a precomputed experiment dimension analysis when no exact snapshot exists", async () => {
+      const precomputedAnalysis = makeAnalysis({
+        dimensions: ["precomputed:new_existing_member"],
+        resultDimension: "precomputed",
+      });
+      (getExperimentById as jest.Mock).mockResolvedValue(
+        makeExperimentWithPhases(),
+      );
+      (getDataSourceById as jest.Mock).mockResolvedValue(datasource);
+      (getLatestDimensionResult as jest.Mock).mockResolvedValue(
+        makeDimensionResult(
+          makeSnapshot({
+            analyses: [
+              makeAnalysis({ resultDimension: "overall" }),
+              precomputedAnalysis,
+            ],
+          }),
+          {
+            analysis: precomputedAnalysis,
+            dimension: {
+              type: "experiment",
+              id: "new_existing_member",
+            },
+            source: "precomputedFallback",
+          },
+        ),
+      );
+
+      const res = await request(app)
+        .get(
+          "/api/v1/experiments/exp_123/results?dimension=exp:new_existing_member",
+        )
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.result).toMatchObject({
+        id: "snap_123",
+        resultId: `snap_123:analysis:${precomputedAnalysis.analysisKey}`,
+        sourceSnapshotId: "snap_123",
+        analysisKey: precomputedAnalysis.analysisKey,
+        source: "precomputedFallback",
+        analysisSettings: {
+          statsEngine: "bayesian",
+          differenceType: "relative",
+          baselineVariationIndex: 0,
+          regressionAdjusted: false,
+          sequentialTesting: false,
+          sequentialTestingTuningParameter: 5000,
+          pValueCorrection: null,
+        },
+      });
+      expect(res.body.result.dimension).toEqual({
+        type: "experiment",
+        id: "new_existing_member",
+      });
+      expect(res.body.result.results).toHaveLength(1);
+      expect(res.body.result.results[0].dimension).toBe("precomputed");
+      expect(getLatestDimensionResult).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dimension: "exp:new_existing_member",
+        }),
+      );
+    });
+
+    it("prefers exact on-demand results over precomputed experiment dimension results", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue(
+        makeExperimentWithPhases(),
+      );
+      (getDataSourceById as jest.Mock).mockResolvedValue(datasource);
+      (getLatestDimensionResult as jest.Mock).mockResolvedValue(
+        makeDimensionResult(
+          makeSnapshot({
+            id: "snap_exact",
+            dimension: "exp:new_existing_member",
+            type: "exploratory",
+            analyses: [
+              makeAnalysis({
+                dimensions: ["exp:new_existing_member"],
+                resultDimension: "exact",
+              }),
+            ],
+          }),
+        ),
+      );
+
+      const res = await request(app)
+        .get(
+          "/api/v1/experiments/exp_123/results?dimension=exp:new_existing_member",
+        )
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.result.results[0].dimension).toBe("exact");
+      expect(getLatestDimensionResult).toHaveBeenCalledTimes(1);
+    });
+
+    it("rejects an unknown experiment dimension before looking up snapshots", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue(
+        makeExperimentWithPhases(),
+      );
+      (getDataSourceById as jest.Mock).mockResolvedValue({
+        ...datasource,
+        settings: {
+          queries: {
+            exposure: [
+              {
+                id: "eq_1",
+                dimensions: ["country"],
+              },
+            ],
+          },
+        },
+      });
+
+      const res = await request(app)
+        .get(
+          "/api/v1/experiments/exp_123/results?dimension=exp:new_existing_member",
+        )
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain(
+        'Experiment dimension "new_existing_member" is not available',
+      );
+      expect(getLatestDimensionResult).not.toHaveBeenCalled();
+    });
+
+    it("does not leak datasource ids when the experiment datasource is missing", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue(
+        makeExperimentWithPhases(),
+      );
+      (getDataSourceById as jest.Mock).mockResolvedValue(null);
+
+      const res = await request(app)
+        .get(
+          "/api/v1/experiments/exp_123/results?dimension=exp:new_existing_member",
+        )
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe(
+        "Could not find the experiment's datasource",
+      );
+      expect(res.body.message).not.toContain("ds_123");
+      expect(getLatestDimensionResult).not.toHaveBeenCalled();
+    });
+
+    it("returns a clear error for a valid experiment dimension without exact or precomputed results", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue(
+        makeExperimentWithPhases(),
+      );
+      (getDataSourceById as jest.Mock).mockResolvedValue(datasource);
+      (getLatestDimensionResult as jest.Mock).mockResolvedValue(null);
+
+      const res = await request(app)
+        .get(
+          "/api/v1/experiments/exp_123/results?dimension=exp:new_existing_member",
+        )
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain("No results found");
+      expect(getLatestDimensionResult).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(["dim_123", "country"])(
+      "does not use the precomputed fallback for unit dimension %s",
+      async (dimension) => {
+        (getExperimentById as jest.Mock).mockResolvedValue(
+          makeExperimentWithPhases(),
+        );
+        (getDataSourceById as jest.Mock).mockResolvedValue(datasource);
+        (findDimensionById as jest.Mock).mockResolvedValue({
+          id: dimension,
+          datasource: "ds_123",
+        });
+        (getLatestDimensionResult as jest.Mock).mockResolvedValue(null);
+
+        const res = await request(app)
+          .get(`/api/v1/experiments/exp_123/results?dimension=${dimension}`)
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toContain("No results found");
+        expect(findDimensionById).toHaveBeenCalledWith(dimension, org.id);
+        expect(getLatestDimensionResult).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it.each(["pre:date", "pre:activation"])(
+      "does not use the precomputed fallback for %s",
+      async (dimension) => {
+        (getExperimentById as jest.Mock).mockResolvedValue(
+          makeExperimentWithPhases({
+            activationMetric: "met_activation",
+          }),
+        );
+        (getDataSourceById as jest.Mock).mockResolvedValue(datasource);
+        (getLatestDimensionResult as jest.Mock).mockResolvedValue(null);
+
+        const res = await request(app)
+          .get(`/api/v1/experiments/exp_123/results?dimension=${dimension}`)
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toContain("No results found");
+        expect(getLatestDimensionResult).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it("rejects pre:activation when the experiment has no activation metric", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue(
+        makeExperimentWithPhases({
+          activationMetric: undefined,
+        }),
+      );
+      (getDataSourceById as jest.Mock).mockResolvedValue(datasource);
+
+      const res = await request(app)
+        .get("/api/v1/experiments/exp_123/results?dimension=pre:activation")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain(
+        'Cannot use "pre:activation" because this experiment has no activation metric configured.',
+      );
+      expect(getLatestDimensionResult).not.toHaveBeenCalled();
+    });
+
+    it("rejects unknown unit dimensions before looking up snapshots", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue(
+        makeExperimentWithPhases(),
+      );
+      (getDataSourceById as jest.Mock).mockResolvedValue(datasource);
+      (findDimensionById as jest.Mock).mockResolvedValue(null);
+
+      const res = await request(app)
+        .get(
+          "/api/v1/experiments/exp_123/results?dimension=new_existing_member",
+        )
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain(
+        'Dimension "new_existing_member" not found',
+      );
+      expect(findDimensionById).toHaveBeenCalledWith(
+        "new_existing_member",
+        org.id,
+      );
+      expect(getLatestDimensionResult).not.toHaveBeenCalled();
+    });
+
+    it.each(["-1", "1.5", "abc", "99999999999999999999"])(
+      "rejects invalid phase value %s",
+      async (phase) => {
+        (getExperimentById as jest.Mock).mockResolvedValue(
+          makeExperimentWithPhases(),
+        );
+
+        const res = await request(app)
+          .get(`/api/v1/experiments/exp_123/results?phase=${phase}`)
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toContain(
+          "Phase must be a non-negative integer",
+        );
+        expect(getLatestDimensionResult).not.toHaveBeenCalled();
+      },
+    );
+
+    it("rejects an out-of-range phase", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue(
+        makeExperimentWithPhases(),
+      );
+
+      const res = await request(app)
+        .get("/api/v1/experiments/exp_123/results?phase=5")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe("Phase 5 not found");
+      expect(getLatestDimensionResult).not.toHaveBeenCalled();
+    });
+
+    it("rejects an experiment without phases", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue({
+        ...experiment,
+        phases: [],
+      });
+
+      const res = await request(app)
+        .get("/api/v1/experiments/exp_123/results")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe("Experiment has no phases");
+      expect(getLatestDimensionResult).not.toHaveBeenCalled();
+    });
+
+    it("uses the latest phase by default", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue(
+        makeExperimentWithPhases({
+          phases: [makePhase("Phase 1"), makePhase("Phase 2")],
+        }),
+      );
+      (getLatestDimensionResult as jest.Mock).mockResolvedValue(
+        makeDimensionResult(makeSnapshot({ phase: 1 })),
+      );
+
+      await request(app)
+        .get("/api/v1/experiments/exp_123/results")
+        .set("Authorization", "Bearer foo");
+
+      expect(getLatestDimensionResult).toHaveBeenCalledWith(
+        expect.objectContaining({
+          phase: 1,
+        }),
+      );
+    });
+
+    it("returns results for an explicit phase", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue(
+        makeExperimentWithPhases({
+          phases: [makePhase("Phase 1"), makePhase("Phase 2")],
+        }),
+      );
+      (getLatestDimensionResult as jest.Mock).mockResolvedValue(
+        makeDimensionResult(makeSnapshot({ phase: 0 })),
+      );
+
+      await request(app)
+        .get("/api/v1/experiments/exp_123/results?phase=0")
+        .set("Authorization", "Bearer foo");
+
+      expect(getLatestDimensionResult).toHaveBeenCalledWith(
+        expect.objectContaining({
+          phase: 0,
+        }),
+      );
+    });
+
+    it("validates user dimensions against the experiment datasource", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue(
+        makeExperimentWithPhases(),
+      );
+      (getDataSourceById as jest.Mock).mockResolvedValue(datasource);
+      (findDimensionById as jest.Mock).mockResolvedValue({
+        id: "dim_123",
+        datasource: "ds_other",
+      });
+
+      const res = await request(app)
+        .get("/api/v1/experiments/exp_123/results?dimension=dim_123")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain(
+        "is not available on the experiment's datasource",
+      );
+      expect(getLatestDimensionResult).not.toHaveBeenCalled();
     });
 
     it("returns 400 when experiment not found", async () => {
@@ -1913,8 +2461,10 @@ describe("experiments API", () => {
     });
 
     it("returns 400 when no results found", async () => {
-      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
-      (getLatestSnapshot as jest.Mock).mockResolvedValue(null);
+      (getExperimentById as jest.Mock).mockResolvedValue(
+        makeExperimentWithPhases(),
+      );
+      (getLatestDimensionResult as jest.Mock).mockResolvedValue(null);
 
       const res = await request(app)
         .get("/api/v1/experiments/exp_123/results")
