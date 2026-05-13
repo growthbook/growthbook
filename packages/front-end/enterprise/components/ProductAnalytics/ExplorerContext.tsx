@@ -18,7 +18,6 @@ import {
 import { QueryInterface } from "shared/types/query";
 import { buildComparisonDateRange } from "shared/enterprise";
 import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   cleanConfigForSubmission,
   clearInapplicableShowAs,
@@ -33,6 +32,7 @@ import {
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import track from "@/services/track";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExploreData, CacheOption } from "./useExploreData";
 
 const MAX_TRACKED_ERROR_LENGTH = 500;

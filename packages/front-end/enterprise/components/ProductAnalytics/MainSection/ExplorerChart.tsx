@@ -35,7 +35,7 @@ import {
   buildComparisonOverlaySeriesMaps,
   buildExplorerChartComparisonSeriesList,
   buildIndividualBarComparePivotSeriesAndCategories,
-  computeBigNumberComparisonTrend,
+  computeBigNumberComparisonTrends,
   getAlignedComparisonDimensionKeyForTooltip,
   getComparisonPeriodLabels,
   parseComparisonTooltipSeriesName,
@@ -248,9 +248,9 @@ export default function ExplorerChart({
     return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
   }, [submittedExploreState, getFactMetricById, renderOpts.showAs]);
 
-  const bigNumberComparisonTrend = useMemo(() => {
+  const bigNumberComparisonTrends = useMemo(() => {
     if (!compareEnabled) return null;
-    return computeBigNumberComparisonTrend(
+    return computeBigNumberComparisonTrends(
       exploration,
       comparisonExploration,
       submittedExploreState,
@@ -264,12 +264,43 @@ export default function ExplorerChart({
     getFactMetricById,
   ]);
 
+  const bigNumberCards = useMemo(() => {
+    if (
+      !exploration?.result?.rows?.length ||
+      submittedExploreState.chartType !== "bigNumber"
+    ) {
+      return null;
+    }
+    const row = exploration.result.rows[0];
+    const valuesMeta = submittedExploreState.dataset?.values ?? [];
+    return valuesMeta.map((v, metricIndex) => {
+      const cell = row?.values[metricIndex];
+      const value = cell
+        ? getEffectiveMetricValue(cell, {
+            showAs: renderOpts.showAs,
+            isRatio: renderOpts.isRatioByIndex[metricIndex] ?? false,
+          })
+        : 0;
+      return {
+        value,
+        label: v.name?.trim() ? v.name : `Metric ${metricIndex + 1}`,
+      };
+    });
+  }, [
+    exploration?.result?.rows,
+    submittedExploreState,
+    renderOpts.showAs,
+    renderOpts.isRatioByIndex,
+  ]);
+
   // Transform ProductAnalyticsResult + exploreState to ECharts format
   const chartConfig = useMemo(() => {
     if (
       !exploration?.result?.rows?.length ||
       !submittedExploreState ||
-      ["table", "timeseries-table"].includes(submittedExploreState.chartType)
+      ["table", "timeseries-table", "bigNumber"].includes(
+        submittedExploreState.chartType,
+      )
     )
       return null;
     const rows = exploration.result.rows;
@@ -291,17 +322,6 @@ export default function ExplorerChart({
       chartType === "horizontalBar" || chartType === "stackedHorizontalBar";
     const isStacked =
       chartType === "stackedBar" || chartType === "stackedHorizontalBar";
-
-    if (chartType === "bigNumber") {
-      const firstValue = rows[0]?.values[0];
-      const value = firstValue
-        ? getEffectiveMetricValue(firstValue, {
-            showAs: renderOpts.showAs,
-            isRatio: renderOpts.isRatioByIndex[0] ?? false,
-          })
-        : 0;
-      return { type: "bigNumber" as const, value };
-    }
 
     const { uniqueXValues, dataMap, seriesMeta } =
       buildComparisonOverlaySeriesMaps(rows, submittedExploreState, renderOpts);
@@ -830,26 +850,66 @@ export default function ExplorerChart({
             The query ran successfully, but no data was returned.
           </Text>
         </Flex>
-      ) : chartConfig?.type === "bigNumber" ? (
+      ) : bigNumberCards && bigNumberCards.length > 0 ? (
         <Flex
+          direction="column"
           p="4"
-          style={{ flex: 1, minHeight: 0 }}
-          align="center"
-          justify="center"
+          style={{ flex: 1, minHeight: 0, minWidth: 0 }}
         >
-          <BigValueChart
-            value={chartConfig.value}
-            formatter={formatNumber}
-            label={submittedExploreState?.dataset?.values?.[0]?.name}
-            compareSlot={
-              bigNumberComparisonTrend ? (
-                <ComparisonTrendLabel
-                  trend={bigNumberComparisonTrend}
-                  priorValueScale={0.5}
-                />
-              ) : undefined
-            }
-          />
+          <Box
+            style={{
+              display: "grid",
+              flex: 1,
+              minHeight: 0,
+              width: "100%",
+              height: "100%",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(min(100%, max(11rem, calc((100% - 3rem) / 4))), 1fr))",
+              gridAutoRows: "minmax(0, 1fr)",
+              gap: "var(--space-4)",
+              alignItems: "stretch",
+            }}
+          >
+            {bigNumberCards.map((card, metricIndex) => {
+              const trend = bigNumberComparisonTrends?.[metricIndex];
+              return (
+                <Box
+                  key={`${card.label}-${metricIndex}`}
+                  style={{
+                    minWidth: 0,
+                    minHeight: 0,
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: "#ffffff",
+                    borderRadius: "var(--radius-4)",
+                    boxShadow:
+                      theme === "dark"
+                        ? "0 1px 3px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.25)"
+                        : "var(--shadow-3)",
+                    padding: "var(--space-4)",
+                  }}
+                >
+                  <BigValueChart
+                    value={card.value}
+                    formatter={formatNumber}
+                    label={card.label}
+                    compact
+                    compareSlot={
+                      trend ? (
+                        <ComparisonTrendLabel
+                          trend={trend}
+                          priorValueScale={0.5}
+                        />
+                      ) : undefined
+                    }
+                  />
+                </Box>
+              );
+            })}
+          </Box>
         </Flex>
       ) : chartConfig ? (
         <Box style={{ flex: 1, minHeight: 0, position: "relative" }}>

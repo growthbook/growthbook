@@ -1,5 +1,12 @@
+import type {
+  ExplorationConfig,
+  ProductAnalyticsExploration,
+} from "shared/validators";
 import {
   alignComparisonOverlayToCategories,
+  computeBigNumberComparisonTrend,
+  computeBigNumberComparisonTrendForMetricIndex,
+  computeBigNumberComparisonTrends,
   formatComparisonMetricLabel,
   getAlignedComparisonDimensionKeyForTooltip,
   parseComparisonTooltipSeriesName,
@@ -238,5 +245,170 @@ describe("getAlignedComparisonDimensionKeyForTooltip", () => {
         true,
       ),
     ).toBeUndefined();
+  });
+});
+
+const getFactMetricById = () => null;
+
+function cell(numerator: number, denominator: number | null = null) {
+  return { metricId: "", numerator, denominator };
+}
+
+function explorationFromValues(
+  values: ReturnType<typeof cell>[],
+): ProductAnalyticsExploration {
+  return {
+    result: { rows: [{ dimensions: [], values }] },
+  } as unknown as ProductAnalyticsExploration;
+}
+
+const submittedExploreStateFixture = {
+  type: "fact_table",
+  datasource: "ds",
+  chartType: "bigNumber",
+  dimensions: [],
+  dateRange: {
+    predefined: "last7Days",
+    lookbackValue: null,
+    lookbackUnit: null,
+    startDate: null,
+    endDate: null,
+  },
+  showAs: "total",
+  dataset: {
+    type: "fact_table",
+    factTableId: "ft",
+    values: [
+      {
+        type: "fact_table",
+        name: "M0",
+        rowFilters: [],
+        valueType: "sum",
+        valueColumn: "a",
+        unit: null,
+      },
+      {
+        type: "fact_table",
+        name: "M1",
+        rowFilters: [],
+        valueType: "sum",
+        valueColumn: "b",
+        unit: null,
+      },
+    ],
+  },
+} as unknown as ExplorationConfig;
+
+describe("computeBigNumberComparisonTrendForMetricIndex", () => {
+  it("returns pctChange from current and previous aggregate cells", () => {
+    const current = explorationFromValues([cell(100), cell(50)]);
+    const previous = explorationFromValues([cell(80), cell(40)]);
+    expect(
+      computeBigNumberComparisonTrendForMetricIndex(
+        current,
+        previous,
+        submittedExploreStateFixture,
+        getFactMetricById,
+        0,
+      ),
+    ).toEqual({
+      currentValue: 100,
+      previousValue: 80,
+      pctChange: 0.25,
+    });
+    expect(
+      computeBigNumberComparisonTrendForMetricIndex(
+        current,
+        previous,
+        submittedExploreStateFixture,
+        getFactMetricById,
+        1,
+      ),
+    ).toEqual({
+      currentValue: 50,
+      previousValue: 40,
+      pctChange: 0.25,
+    });
+  });
+
+  it("returns pctChange 0 when previous value is 0", () => {
+    const current = explorationFromValues([cell(10)]);
+    const previous = explorationFromValues([cell(0)]);
+    expect(
+      computeBigNumberComparisonTrendForMetricIndex(
+        current,
+        previous,
+        submittedExploreStateFixture,
+        getFactMetricById,
+        0,
+      ),
+    ).toEqual({ currentValue: 10, previousValue: 0, pctChange: 0 });
+  });
+
+  it("returns null when comparison cell is missing", () => {
+    const current = explorationFromValues([cell(1), cell(2)]);
+    const previous = explorationFromValues([cell(1)]);
+    expect(
+      computeBigNumberComparisonTrendForMetricIndex(
+        current,
+        previous,
+        submittedExploreStateFixture,
+        getFactMetricById,
+        1,
+      ),
+    ).toBeNull();
+  });
+
+  it("returns null for negative metric index", () => {
+    const current = explorationFromValues([cell(1)]);
+    const previous = explorationFromValues([cell(1)]);
+    expect(
+      computeBigNumberComparisonTrendForMetricIndex(
+        current,
+        previous,
+        submittedExploreStateFixture,
+        getFactMetricById,
+        -1,
+      ),
+    ).toBeNull();
+  });
+});
+
+describe("computeBigNumberComparisonTrends", () => {
+  it("returns one trend entry per dataset value", () => {
+    const current = explorationFromValues([cell(100), cell(50)]);
+    const previous = explorationFromValues([cell(80), cell(40)]);
+    const trends = computeBigNumberComparisonTrends(
+      current,
+      previous,
+      submittedExploreStateFixture,
+      getFactMetricById,
+    );
+    expect(trends).toHaveLength(2);
+    expect(trends[0]?.pctChange).toBe(0.25);
+    expect(trends[1]?.pctChange).toBe(0.25);
+  });
+});
+
+describe("computeBigNumberComparisonTrend", () => {
+  it("matches metric index 0 helper", () => {
+    const current = explorationFromValues([cell(30), cell(2)]);
+    const previous = explorationFromValues([cell(20), cell(2)]);
+    expect(
+      computeBigNumberComparisonTrend(
+        current,
+        previous,
+        submittedExploreStateFixture,
+        getFactMetricById,
+      ),
+    ).toEqual(
+      computeBigNumberComparisonTrendForMetricIndex(
+        current,
+        previous,
+        submittedExploreStateFixture,
+        getFactMetricById,
+        0,
+      ),
+    );
   });
 });
