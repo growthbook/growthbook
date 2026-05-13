@@ -104,6 +104,9 @@ export default function LinkedChanges({
               canEdit={canEditFeatureFlags}
               mutate={mutate}
               key={info.feature.id}
+              onReAdd={
+                setFeatureModal ? () => setFeatureModal(true) : undefined
+              }
             />
           ))}
           <VisualChangesetTable

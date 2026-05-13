@@ -150,6 +150,9 @@ export const dateRangePredefined = [
 
 export const lookbackUnit = ["hour", "day", "week", "month"] as const;
 
+export const showAsValidator = z.enum(["total", "per_unit"]);
+export type ShowAs = z.infer<typeof showAsValidator>;
+
 export const baseExplorationConfigValidator = z.object({
   datasource: z.string().describe("ID of the datasource to query"),
   dimensions: z.array(dimensionValidator),
@@ -161,6 +164,13 @@ export const baseExplorationConfigValidator = z.object({
     startDate: z.string().nullish(),
     endDate: z.string().nullish(),
   }),
+  // Controls how values with a denominator are rendered at the chart level.
+  // "total"    -> render the raw numerator (e.g. total events)
+  // "per_unit" -> divide numerator by denominator (e.g. events per unit)
+  // Ratio metrics are self-contained and always render as numerator/denominator
+  // regardless of this setting.
+  // Optional for backward compatibility; read sites default to "total".
+  showAs: showAsValidator.optional(),
 });
 
 export const metricExplorationConfigValidator =

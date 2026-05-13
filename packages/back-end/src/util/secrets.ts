@@ -1,4 +1,5 @@
 import Handlebars from "handlebars";
+import escapeRegExp from "lodash/escapeRegExp";
 import trimEnd from "lodash/trimEnd";
 import { parseEnvInt, stringToBoolean } from "shared/util";
 import { DEFAULT_METRIC_WINDOW_HOURS } from "shared/constants";
@@ -19,8 +20,6 @@ export const ALLOW_SELF_ORG_CREATION = stringToBoolean(
 );
 
 export const UPLOAD_METHOD = (() => {
-  if (IS_CLOUD) return "s3";
-
   const method = process.env.UPLOAD_METHOD;
   if (method && ["s3", "google-cloud"].includes(method)) {
     return method;
@@ -62,7 +61,7 @@ if (MONGODB_URI.match(/:27017(\/)?$/)) {
 export { MONGODB_URI };
 
 export const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
-const isLocalhost = APP_ORIGIN.includes("localhost");
+export const IS_LOCALHOST = APP_ORIGIN.startsWith("http://localhost:");
 
 const corsOriginRegex = process.env.CORS_ORIGIN_REGEX;
 export const CORS_ORIGIN_REGEX = corsOriginRegex
@@ -90,7 +89,7 @@ export const GCS_DOMAIN =
   `https://storage.googleapis.com/${GCS_BUCKET_NAME}/`;
 
 export const JWT_SECRET = process.env.JWT_SECRET || "dev";
-if ((prod || !isLocalhost) && !IS_CLOUD && JWT_SECRET === "dev") {
+if ((prod || !IS_LOCALHOST) && !IS_CLOUD && JWT_SECRET === "dev") {
   throw new Error(
     "Cannot use JWT_SECRET=dev in production. Please set to a long random string.",
   );
@@ -221,7 +220,7 @@ export const API_USER_AGENT =
 // Only allowed while self-hosting and not multi org
 let secretAPIKey = IS_MULTI_ORG ? "" : process.env.SECRET_API_KEY || "";
 // Don't allow using "dev" (default value) in prod
-if ((prod || !isLocalhost) && secretAPIKey === "dev") {
+if ((prod || !IS_LOCALHOST) && secretAPIKey === "dev") {
   secretAPIKey = "";
   // eslint-disable-next-line
   console.error(
@@ -324,8 +323,8 @@ export const CLICKHOUSE_DATABASE = process.env.CLICKHOUSE_DATABASE || "";
 export const CLICKHOUSE_MAIN_TABLE = process.env.CLICKHOUSE_MAIN_TABLE || "";
 export const CLICKHOUSE_OVERAGE_TABLE =
   process.env.CLICKHOUSE_OVERAGE_TABLE || "overage_events";
-export const CLICKHOUSE_DEV_PREFIX =
-  process.env.CLICKHOUSE_DEV_PREFIX || "test_";
+
+export const CLOUD_SECRET = process.env.CLOUD_SECRET ?? "";
 
 // Note: the Visual Editor relies on the information in this path, so disabling it will prevent some features from working correctly.
 export const DISABLE_API_ROOT_PATH = stringToBoolean(
@@ -360,7 +359,7 @@ export const secretsReplacer = (
       let processed = s;
       for (const key of Object.keys(encodedSecrets)) {
         if (!/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key)) {
-          const escapedForRegex = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const escapedForRegex = escapeRegExp(key);
           const escapedForReplacement = key.replace(/\$/g, "$$$$");
           processed = processed.replace(
             new RegExp(`\\{\\{\\s*${escapedForRegex}\\s*\\}\\}`, "g"),

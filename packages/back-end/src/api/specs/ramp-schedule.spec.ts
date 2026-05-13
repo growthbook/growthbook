@@ -53,31 +53,32 @@ const createBodySchema = z
       .string()
       .optional()
       .describe(
-        "Feature that anchors this schedule. Required when ruleId/environment are set.",
+        "Feature that anchors this schedule. Required when `ruleId` is set.",
       ),
     ruleId: z
       .string()
       .optional()
       .describe(
-        "Rule to attach as the initial target. Requires featureId and environment.",
+        "Rule to attach as the initial target. Requires `featureId`. Post-v2 `rule.id` is uniquely sufficient; `environment` is optional and deprecated.",
       ),
     environment: z
       .string()
       .optional()
+      .meta({ deprecated: true })
       .describe(
-        "Environment of the target rule. Requires featureId and ruleId.",
+        "Deprecated. Legacy disambiguator for pre-v2 rules whose `ruleId` could repeat across envs. Omit on new schedules — the resolver uses `rule.id` directly.",
       ),
     steps: z
       .array(postBodyStep)
       .optional()
       .describe(
-        "Ordered ramp steps. When featureId+ruleId+environment are provided,\n`targetId` and `patch.ruleId` in actions are auto-injected — only\nsupply the patch fields you want to change.\n",
+        "Ordered ramp steps. When `featureId`+`ruleId` are provided,\n`targetId` and `patch.ruleId` in actions are auto-injected — only\nsupply the patch fields you want to change.\n",
       ),
     endActions: z
       .array(postBodyAction)
       .optional()
       .describe(
-        "Actions applied when the ramp completes. targetId and patch.ruleId are auto-injected when featureId+ruleId+environment are provided.",
+        "Actions applied when the ramp completes. `targetId` and `patch.ruleId` are auto-injected when `featureId`+`ruleId` are provided.",
       ),
     startDate: z
       .string()
@@ -97,7 +98,7 @@ const createBodySchema = z
       .string()
       .optional()
       .describe(
-        "Load steps and endActions from a saved template (featureId+ruleId+environment must also be set for auto-injection)",
+        "Load steps and endActions from a saved template (featureId+ruleId must also be set for auto-injection)",
       ),
   })
   .superRefine((data, ctx) => {
@@ -115,13 +116,9 @@ const createBodySchema = z
         message: "ruleId is required when environment is provided",
       });
     }
-    if (data.ruleId && !data.environment) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["environment"],
-        message: "environment is required when ruleId is provided",
-      });
-    }
+    // `environment` is no longer required alongside `ruleId`. Post-v2
+    // `rule.id` is uniquely sufficient; env is an optional legacy
+    // disambiguator. See `rampTarget` in shared/validators.
   });
 
 // --- Update body schemas ---
@@ -196,7 +193,7 @@ export const rampScheduleApiSpec = {
   crudDescriptions: {
     list: "Returns all ramp schedules for the organization, with optional filters.\n",
     create:
-      "Creates a new ramp schedule, optionally attaching it to a published feature rule.\n\n### Target attachment (optional)\n\nProvide `featureId`, `ruleId`, and `environment` together to attach the schedule\nto a specific rule on creation. The rule must already be live (published). Each\n`[ruleId, environment]` pair can only be controlled by one schedule at a time.\n\nWhen all three are supplied, **`targetId` and `patch.ruleId` are auto-injected**\ninto every step action and endAction — callers only need to supply the patch\nvalues (`coverage`, `condition`, etc.).\n\nIf omitted, the schedule is created as a free-standing skeleton in `pending`\nstatus. Use `POST /ramp-schedules/{id}/actions/add-target` to attach rules later,\nand `POST /ramp-schedules/{id}/actions/start` to start it.\n\n### Using templates\n\nProvide `templateId` to inherit steps and endActions from a saved template.\nExplicit `steps` / `endActions` in the request body take precedence over the\ntemplate. Template auto-population requires `featureId`, `ruleId`, and\n`environment` to be set (so targetId can be injected).\n\nRequires an **Enterprise** plan.\n",
+      "Creates a new ramp schedule, optionally attaching it to a published feature rule.\n\n### Target attachment (optional)\n\nProvide `featureId` and `ruleId` together to attach the schedule to a specific\nrule on creation. The rule must already be live (published). Each rule can only\nbe controlled by one schedule at a time.\n\nWhen both are supplied, **`targetId` and `patch.ruleId` are auto-injected**\ninto every step action and endAction — callers only need to supply the patch\nvalues (`coverage`, `condition`, etc.).\n\n`environment` is accepted for backward compatibility with pre-v2 ramps but is\ndeprecated and no longer required. Post-v2 `rule.id` is uniquely sufficient.\n\nIf rule attachment is omitted, the schedule is created as a free-standing\nskeleton in `pending` status. Use `POST /ramp-schedules/{id}/actions/add-target`\nto attach rules later, and `POST /ramp-schedules/{id}/actions/start` to start it.\n\n### Using templates\n\nProvide `templateId` to inherit steps and endActions from a saved template.\nExplicit `steps` / `endActions` in the request body take precedence over the\ntemplate. Template auto-population requires `featureId` and `ruleId` to be set\n(so targetId can be injected).\n\nRequires an **Enterprise** plan.\n",
     update:
       'Updates the name, steps, endActions, startDate, or endCondition of a ramp schedule.\n\nOnly allowed when the schedule is in `pending`, `ready`, or `paused` status.\n\n**targetId shorthand**: When providing `steps` or `endActions`, you may omit `targetId`\n(or pass `"t1"`) in each action. If the schedule has exactly one active target, the server\nwill resolve it automatically. For schedules with multiple targets, provide the explicit\ntarget UUID from `targets[].id`.\n',
     delete:

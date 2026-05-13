@@ -26,6 +26,7 @@ const allCapabilities: Record<SDKCapability, boolean> = {
   visualEditorJS: true,
   caseInsensitiveRegex: true,
   caseInsensitiveMembership: true,
+  namespacesV2: true,
 };
 
 const languages = Object.keys(sdks);

@@ -16,6 +16,31 @@ export type IndexedPValue = {
 
 export type DifferenceType = "relative" | "absolute" | "scaled";
 
+// Mirrors the return shape of `useConfidenceLevels`. Grouped together so
+// consumers can receive either the whole bundle (for Bayesian chance-to-win
+// comparisons / display strings) or any single piece of it without pulling
+// in an unrelated p-value threshold.
+export interface BayesianConfidenceLevels {
+  // Upper confidence bound (e.g. 0.95).
+  ciUpper: number;
+  // Lower confidence bound (e.g. 0.05, = 1 - ciUpper).
+  ciLower: number;
+  // Pre-rendered display strings (e.g. "95%" / "5%").
+  ciUpperDisplay: string;
+  ciLowerDisplay: string;
+}
+
+// Project-aware significance thresholds used by experiment result UIs. Keep
+// these resolved (via useConfidenceLevels / usePValueThreshold) at the top of
+// the results tree and thread them through to all sub-components so they all
+// render against the same project-scoped settings.
+export interface SignificanceThresholds {
+  // Bayesian CI bounds + display strings.
+  bayesianConfidenceLevels: BayesianConfidenceLevels;
+  // Used for frequentist analysis.
+  pValueThreshold: number;
+}
+
 export type RiskType = "relative" | "absolute";
 
 export type PValueErrorMessage =

@@ -18,10 +18,10 @@ import {
 } from "shared/constants";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { OrganizationSettings } from "shared/types/organization";
-import Link from "next/link";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
 import { CUSTOMIZABLE_PROMPT_TYPES } from "shared/ai";
+import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
@@ -47,6 +47,7 @@ import HelperText from "@/ui/HelperText";
 import { StickyTabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
 import Frame from "@/ui/Frame";
 import SavedGroupSettings from "@/components/GeneralSettings/SavedGroupSettings";
+import ApprovalFlowSettings from "@/components/GeneralSettings/ApprovalFlowSettings";
 
 export const ConnectSettingsForm = ({ children }) => {
   const methods = useFormContext();
@@ -158,6 +159,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       banditBurnInValue: settings.banditBurnInValue ?? 1,
       banditBurnInUnit: settings.banditBurnInUnit ?? "days",
       requireExperimentTemplates: settings.requireExperimentTemplates ?? false,
+      requireUniqueExperimentTrackingKeys:
+        settings.requireUniqueExperimentTrackingKeys ?? false,
       experimentMinLengthDays:
         settings.experimentMinLengthDays ?? DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
       experimentMaxLengthDays:
@@ -184,6 +187,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       postStratificationEnabled:
         settings.postStratificationEnabled ??
         DEFAULT_POST_STRATIFICATION_ENABLED,
+      approvalFlows: settings.approvalFlows,
     },
   });
   const { apiCall } = useAuth();
@@ -236,6 +240,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     preferredEnvironment: form.watch("preferredEnvironment") || "",
     maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
     savedGroupSizeLimit: form.watch("savedGroupSizeLimit"),
+    approvalFlows: form.watch("approvalFlows"),
   };
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";
@@ -418,6 +423,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
             <TabsTrigger value="experiment">Experiment Settings</TabsTrigger>
             <TabsTrigger value="feature">Feature Settings</TabsTrigger>
             <TabsTrigger value="metrics">Metrics &amp; Data</TabsTrigger>
+            <TabsTrigger value="approval-flow">
+              {/* TODO: Check if we want to reuse this feature flag or not */}
+              <PremiumTooltip commercialFeature="require-approvals">
+                Approval Flows
+              </PremiumTooltip>
+            </TabsTrigger>
             <TabsTrigger value="sdk">SDK Configuration</TabsTrigger>
             <TabsTrigger value="import">Import &amp; Export</TabsTrigger>
             <TabsTrigger value="custom">
@@ -493,6 +504,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
               <>
                 <SavedGroupSettings />
               </>
+            </TabsContent>
+            <TabsContent value="approval-flow">
+              <ApprovalFlowSettings />
             </TabsContent>
           </Box>
         </Tabs>

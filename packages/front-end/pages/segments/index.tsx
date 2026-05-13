@@ -3,9 +3,9 @@ import { FaPencilAlt } from "react-icons/fa";
 import { SegmentInterface } from "shared/types/segment";
 import { IdeaInterface } from "shared/types/idea";
 import { MetricInterface } from "shared/types/metric";
-import Link from "next/link";
 import clsx from "clsx";
 import { ago } from "shared/dates";
+import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
 import SegmentForm from "@/components/Segments/SegmentForm";
@@ -20,6 +20,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ProjectBadges from "@/components/ProjectBadges";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { useUser } from "@/services/UserContext";
+import Callout from "@/ui/Callout";
 
 const SegmentPage: FC = () => {
   const {
@@ -80,11 +81,7 @@ const SegmentPage: FC = () => {
                 : res.metrics.length + " metrics",
             );
             res.metrics.forEach((m) => {
-              metricLinks.push(
-                <Link href={`/metric/${m.id}`} className="">
-                  {m.name}
-                </Link>,
-              );
+              metricLinks.push(<Link href={`/metric/${m.id}`}>{m.name}</Link>);
             });
           }
           if (res.ideas && res.ideas.length) {
@@ -171,9 +168,9 @@ const SegmentPage: FC = () => {
       } catch (e) {
         console.error(e);
         return (
-          <div className="alert alert-danger">
+          <Callout status="error">
             An error occurred getting the segment usage
-          </div>
+          </Callout>
         );
       }
       return null;
@@ -192,12 +189,12 @@ const SegmentPage: FC = () => {
             <h1>Segments</h1>
           </div>
         </div>
-        <div className="alert alert-info">
+        <Callout status="info">
           Segments are only available if you connect GrowthBook to a compatible
           data source (Snowflake, Redshift, BigQuery, ClickHouse, Athena,
           Postgres, MySQL, MS SQL, Presto, Databricks, or Mixpanel). Support for
           other data sources like Google Analytics is coming soon.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -225,9 +222,9 @@ const SegmentPage: FC = () => {
         )}
       </div>
       {segmentsError && (
-        <div className="alert alert-danger">
+        <Callout status="error">
           There was an error loading the list of segments
-        </div>
+        </Callout>
       )}
       {segments.length > 0 && (
         <div className="row mb-4">
@@ -364,30 +361,30 @@ const SegmentPage: FC = () => {
         </div>
       )}
       {segments.length === 0 && !hasFileConfig() && (
-        <div className="alert alert-info">
+        <Callout status="info">
           You don&apos;t have any segments defined yet.{" "}
           {hasCreatePermission &&
             "Click the button above to create your first one."}
-        </div>
+        </Callout>
       )}
       {segments.length === 0 && hasFileConfig() && storeSegmentsInMongo() && (
-        <div className="alert alert-info">
+        <Callout status="info">
           You don&apos;t have any segments defined yet. You can add them to your{" "}
           <code>config.yml</code> file and remove the{" "}
           <code>STORE_SEGMENTS_IN_MONGO</code> environment variable
           {hasCreatePermission &&
             " or click the button above to create your first one"}
           . <DocLink docSection="config_yml">View Documentation</DocLink>
-        </div>
+        </Callout>
       )}
       {segments.length === 0 && hasFileConfig() && !storeSegmentsInMongo() && (
-        <div className="alert alert-info">
+        <Callout status="info">
           It looks like you have a <code>config.yml</code> file. Segments
           defined there will show up on this page. If you would like to store
           and access segments in MongoDB instead, please add the{" "}
           <code>STORE_SEGMENTS_IN_MONGO</code> environment variable.{" "}
           <DocLink docSection="config_yml">View Documentation</DocLink>
-        </div>
+        </Callout>
       )}
     </div>
   );

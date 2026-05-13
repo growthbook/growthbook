@@ -11,7 +11,7 @@ import DraftSelectorDropdown, {
   DraftMode,
 } from "@/components/Features/DraftSelectorDropdown";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import FeatureValueField from "./FeatureValueField";
 export interface Props {
   feature: FeatureInterface;
@@ -62,7 +62,7 @@ export default function EditDefaultValueModal({
       : feature.version;
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType=""
       header="Edit Default Value"
       headerAction={
@@ -119,6 +119,6 @@ export default function EditDefaultValueModal({
           showFullscreenButton={true}
         />
       </Box>
-    </DialogLayout>
+    </ModalStandard>
   );
 }

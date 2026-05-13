@@ -1,7 +1,7 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
 import { FaKey } from "react-icons/fa";
-import Link from "next/link";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
+import Link from "@/ui/Link";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
 import ApiKeysModal from "@/components/Settings/ApiKeysModal";
 import { useAuth } from "@/services/auth";

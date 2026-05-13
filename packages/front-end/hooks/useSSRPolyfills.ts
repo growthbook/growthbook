@@ -1,5 +1,8 @@
 import { useCallback, useMemo } from "react";
-import { DEFAULT_P_VALUE_THRESHOLD } from "shared/constants";
+import {
+  DEFAULT_CONFIDENCE_LEVEL,
+  DEFAULT_P_VALUE_THRESHOLD,
+} from "shared/constants";
 import { ExperimentReportSSRData } from "shared/types/report";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { CommercialFeature } from "shared/enterprise";
@@ -7,6 +10,7 @@ import { MetricGroupInterface } from "shared/types/metric-groups";
 import { FactTableInterface } from "shared/types/fact-table";
 import { DimensionInterface } from "shared/types/dimension";
 import { ProjectInterface } from "shared/types/project";
+import { getScopedSettings } from "shared/settings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
@@ -85,16 +89,31 @@ export default function useSSRPolyfills(
       ? (ssrData?.settings?.displayCurrency ?? "USD")
       : "USD";
   };
-  const usePValueThresholdSSR = () => {
-    const pValueThreshold = usePValueThreshold();
-    return hasCsrSettings
-      ? pValueThreshold
-      : ssrData?.settings?.pValueThreshold || DEFAULT_P_VALUE_THRESHOLD;
+  const usePValueThresholdSSR = (projectId: string | undefined) => {
+    const pValueThreshold = usePValueThreshold(projectId);
+    if (hasCsrSettings) return pValueThreshold;
+    const project =
+      projectId && projectId.length > 0
+        ? (getProjectByIdSSR(projectId) ?? undefined)
+        : undefined;
+    const { settings } = getScopedSettings({
+      organization: { settings: ssrData?.settings || {} },
+      project,
+    });
+    return settings.pValueThreshold.value || DEFAULT_P_VALUE_THRESHOLD;
   };
-  const useConfidenceLevelsSSR = () => {
-    const confidenceLevels = useConfidenceLevels();
+  const useConfidenceLevelsSSR = (projectId: string | undefined) => {
+    const confidenceLevels = useConfidenceLevels(projectId);
     if (hasCsrSettings) return confidenceLevels;
-    const ciUpper = ssrData?.settings?.confidenceLevel || 0.95;
+    const project =
+      projectId && projectId.length > 0
+        ? (getProjectByIdSSR(projectId) ?? undefined)
+        : undefined;
+    const { settings } = getScopedSettings({
+      organization: { settings: ssrData?.settings || {} },
+      project,
+    });
+    const ciUpper = settings.confidenceLevel.value || DEFAULT_CONFIDENCE_LEVEL;
     return {
       ciUpper,
       ciLower: 1 - ciUpper,

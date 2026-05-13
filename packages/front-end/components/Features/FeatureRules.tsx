@@ -1,8 +1,8 @@
 import { FeatureInterface } from "shared/types/feature";
-import React, { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PiFunnel, PiPlusBold, PiMagnifyingGlass } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
-  FeatureRule,
   SafeRolloutInterface,
   HoldoutInterface,
   RampScheduleInterface,
@@ -12,24 +12,27 @@ import {
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
-import { Box, Container, Flex, Text } from "@radix-ui/themes";
-import clsx from "clsx";
-import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "@/types/app-features";
+import { Box, Flex, TextField } from "@radix-ui/themes";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
-import { getRules, useEnvironmentState } from "@/services/features";
-import CopyRuleModal from "@/components/Features/CopyRuleModal";
+import {
+  getRules,
+  isRuleInactive,
+  useFeatureRulesEnv,
+  FEATURE_RULES_ALL_ENVS,
+} from "@/services/features";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import Switch from "@/ui/Switch";
 import Button from "@/ui/Button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Badge from "@/ui/Badge";
-import Link from "@/ui/Link";
-import Callout from "@/ui/Callout";
-import { useUser } from "@/services/UserContext";
-import PremiumCallout from "@/ui/PremiumCallout";
-import EnvironmentDropdown from "@/components/Environments/EnvironmentDropdown";
-import CompareEnvironmentsModal from "./CompareEnvironmentsModal";
+import Text from "@/ui/Text";
+import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import HoldoutValueModal from "./HoldoutValueModal";
 
 export default function FeatureRules({
@@ -41,7 +44,6 @@ export default function FeatureRules({
   mutate,
   currentVersion,
   setVersion,
-  hideInactive,
   isDraft,
   safeRolloutsMap,
   holdout,
@@ -61,7 +63,6 @@ export default function FeatureRules({
   mutate: () => Promise<unknown>;
   currentVersion: number;
   setVersion: (v: number) => void;
-  hideInactive: boolean;
   isDraft: boolean;
   safeRolloutsMap: Map<string, SafeRolloutInterface>;
   holdout: HoldoutInterface | undefined;
@@ -71,46 +72,87 @@ export default function FeatureRules({
   pendingRuleEdit?: { environment: string; ruleId: string } | null;
   onPendingRuleEditHandled?: () => void;
 }) {
-  const { hasCommercialFeature } = useUser();
   const envs = environments.map((e) => e.id);
-  const [env, setEnv] = useEnvironmentState();
+  // null = "All environments" view.
+  const [storedEnv, setEnv] = useFeatureRulesEnv();
+  const [hideInactive, setHideInactive] = useLocalStorage(
+    "hide-disabled-rules",
+    false,
+  );
+  const [showOrphaned, setShowOrphaned] = useLocalStorage(
+    "show-orphaned-rules",
+    false,
+  );
+  const hasInactiveRules = (feature.rules ?? []).some((r) =>
+    isRuleInactive(r, experimentsMap),
+  );
 
-  // Open the rule modal when triggered externally (e.g. from the ramp timeline CTA).
+  // Orphaned: non-empty `environments` list referencing only deleted envs.
+  // `environments: []` (pending) and `allEnvironments: true` are not orphaned.
+  // Memoized so RuleList's `hiddenRuleIds` effect dep stays stable.
+  const orphanedRuleIds = useMemo(() => {
+    const knownEnvIds = new Set(environments.map((e) => e.id));
+    return new Set<string>(
+      (feature.rules ?? [])
+        .filter(
+          (r) =>
+            r &&
+            !r.allEnvironments &&
+            Array.isArray(r.environments) &&
+            r.environments.length > 0 &&
+            r.environments.every((e) => !knownEnvIds.has(e)),
+        )
+        .map((r) => r.id)
+        .filter((id): id is string => !!id),
+    );
+  }, [feature.rules, environments]);
+  const hasOrphanedRules = orphanedRuleIds.size > 0;
+
+  // Externally triggered rule open (e.g. ramp timeline CTA). Switch to the
+  // requested env if it projects there, else any env that has it.
   useEffect(() => {
     if (!pendingRuleEdit) return;
     const { environment, ruleId } = pendingRuleEdit;
-    const rules = getRules(feature, environment);
-    const idx = rules.findIndex((r) => r.id === ruleId);
-    if (idx !== -1) {
-      setEnv(environment);
-      setRuleModal({ i: idx, environment, mode: "edit" });
+    const handled = () => onPendingRuleEditHandled?.();
+
+    const flatIdx = (feature.rules ?? []).findIndex((r) => r.id === ruleId);
+    if (flatIdx === -1) {
+      handled();
+      return;
     }
-    onPendingRuleEditHandled?.();
+
+    const preferredHas =
+      getRules(feature, environment).findIndex((r) => r.id === ruleId) !== -1;
+    const projectedEnv = preferredHas
+      ? environment
+      : (environments.find(
+          (e) =>
+            getRules(feature, e.id).findIndex((r) => r.id === ruleId) !== -1,
+        )?.id ?? "");
+
+    setEnv(projectedEnv || null);
+    setRuleModal({
+      i: flatIdx,
+      environment: projectedEnv,
+      ruleId,
+      mode: "edit",
+    });
+    handled();
   }, [pendingRuleEdit]); // eslint-disable-line react-hooks/exhaustive-deps
   const [ruleModal, setRuleModal] = useState<{
     i: number;
     environment: string;
+    ruleId?: string;
     defaultType?: string;
     mode: "create" | "edit" | "duplicate";
     detachRampOnSave?: boolean;
   } | null>(null);
-  const [copyRuleModal, setCopyRuleModal] = useState<{
-    environment: string;
-    rules: FeatureRule[];
-  } | null>(null);
-  const [compareEnvModal, setCompareEnvModal] = useState<{
-    sourceEnv?: string;
-    targetEnv?: string;
-  } | null>(null);
   const [holdoutModal, setHoldoutModal] = useState<boolean>(false);
 
-  // Make sure you can't access an invalid env tab, since active env tab is persisted via localStorage
-  useEffect(() => {
-    if (!envs?.length) return;
-    if (!envs.includes(env)) {
-      setEnv(envs[0]);
-    }
-  }, [envs, env, setEnv]);
+  // Stored env may be stale (renamed/removed/cross-org); fall back to All
+  // for this render without persisting.
+  const env =
+    storedEnv !== null && !envs.includes(storedEnv) ? null : storedEnv;
 
   const rulesByEnv = Object.fromEntries(
     environments.map((e) => {
@@ -119,227 +161,428 @@ export default function FeatureRules({
     }),
   );
 
-  const tabEnvs = environments.slice(0, 4);
-  const dropdownEnvs = environments.slice(4);
-  const selectedDropdownEnv = dropdownEnvs.find((e) => e.id === env)?.id;
+  const activeEnv =
+    env === null ? null : (environments.find((e) => e.id === env) ?? null);
+  const liveHoldoutActive =
+    !!activeEnv &&
+    !!holdout &&
+    !!holdout?.environmentSettings?.[activeEnv.id]?.enabled;
+  const draftDeletesHoldout =
+    !!activeEnv &&
+    !feature.holdout?.id &&
+    !!baseFeature.holdout?.id &&
+    !!holdout?.environmentSettings?.[activeEnv.id]?.enabled;
+  const includeHoldoutRule = liveHoldoutActive || draftDeletesHoldout;
 
-  const gb = useGrowthBook<AppFeatures>();
-  const isSafeRolloutPromoEnabled = gb.isOn("safe-rollout-promo");
-  const hasSafeRollout = hasCommercialFeature("safe-rollout");
+  // Show holdout in All-Envs whenever it's enabled in any env.
+  const holdoutEnabledAnyEnv =
+    !!holdout && envs.some((id) => holdout?.environmentSettings?.[id]?.enabled);
+  const liveHoldoutActiveAnyEnv = !!feature.holdout?.id && holdoutEnabledAnyEnv;
+  const draftDeletesHoldoutAnyEnv =
+    !feature.holdout?.id && !!baseFeature.holdout?.id && holdoutEnabledAnyEnv;
+  const includeHoldoutRuleAllEnvs =
+    liveHoldoutActiveAnyEnv || draftDeletesHoldoutAnyEnv;
+
+  // Tab overflow: cache each trigger's natural width once, then compute
+  // cumulative-width overflow against the tabs-bar. Caching avoids the
+  // hide-then-remeasure oscillation.
+  const tabsBarRef = useRef<HTMLDivElement>(null);
+  const triggerRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const widthsRef = useRef<Map<string, number>>(new Map());
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [measureTick, setMeasureTick] = useState(0);
+  const setTriggerRef = useCallback(
+    (key: string) => (el: HTMLButtonElement | null) => {
+      if (!el) {
+        triggerRefs.current.delete(key);
+        return;
+      }
+      triggerRefs.current.set(key, el);
+      if (!widthsRef.current.has(key)) {
+        const w = el.getBoundingClientRect().width;
+        if (w > 0) {
+          widthsRef.current.set(key, w);
+          setMeasureTick((n) => n + 1);
+        }
+      }
+    },
+    [],
+  );
+  const tabKeysSig = [FEATURE_RULES_ALL_ENVS, ...envs].join("|");
+
+  // Drop cached widths for tabs that no longer exist.
+  useEffect(() => {
+    const valid = new Set([FEATURE_RULES_ALL_ENVS, ...envs]);
+    let changed = false;
+    for (const key of widthsRef.current.keys()) {
+      if (!valid.has(key)) {
+        widthsRef.current.delete(key);
+        changed = true;
+      }
+    }
+    if (changed) setMeasureTick((n) => n + 1);
+  }, [tabKeysSig, envs]);
+
+  useEffect(() => {
+    const root = tabsBarRef.current;
+    if (!root) return;
+    setContainerWidth(root.getBoundingClientRect().width);
+    const ro = new ResizeObserver(([entry]) => {
+      setContainerWidth(entry.contentRect.width);
+    });
+    ro.observe(root);
+    return () => ro.disconnect();
+  }, []);
+
+  const computeOverflow = (order: string[]): Set<string> => {
+    const out = new Set<string>();
+    if (containerWidth <= 0 || widthsRef.current.size === 0) return out;
+    let cumulative = 0;
+    for (const key of order) {
+      const w = widthsRef.current.get(key);
+      if (w == null) continue;
+      cumulative += w;
+      if (cumulative > containerWidth) out.add(key);
+    }
+    return out;
+  };
+
+  // If the active env would clip into overflow, hoist it to position 2 so
+  // the current view stays visible.
+  const baseOrder = [FEATURE_RULES_ALL_ENVS, ...envs];
+  const naturalOverflow = computeOverflow(baseOrder);
+  const renderOrder =
+    env && naturalOverflow.has(env)
+      ? [FEATURE_RULES_ALL_ENVS, env, ...envs.filter((e) => e !== env)]
+      : baseOrder;
+  const overflowKeys = computeOverflow(renderOrder);
+  void measureTick; // re-render dep so overflow recomputes when widths cache
+
+  const envById = new Map(environments.map((e) => [e.id, e]));
+  const orderedEnvIds = renderOrder.filter((k) => k !== FEATURE_RULES_ALL_ENVS);
+  const overflowLabels: Array<{ key: string; label: string; count: number }> =
+    [];
+  for (const key of renderOrder) {
+    if (!overflowKeys.has(key)) continue;
+    if (key === FEATURE_RULES_ALL_ENVS) {
+      overflowLabels.push({
+        key,
+        label: "All Environments",
+        count:
+          (feature.rules?.length ?? 0) + (includeHoldoutRuleAllEnvs ? 1 : 0),
+      });
+      continue;
+    }
+    const e = envById.get(key);
+    if (!e) continue;
+    const count = holdout?.environmentSettings?.[e.id]?.enabled
+      ? rulesByEnv[e.id].length + 1
+      : rulesByEnv[e.id].length;
+    overflowLabels.push({ key: e.id, label: e.id, count });
+  }
+
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [overflowSearch, setOverflowSearch] = useState("");
+  useEffect(() => {
+    if (!moreOpen) setOverflowSearch("");
+  }, [moreOpen]);
+  const showOverflowSearch = overflowLabels.length >= 5;
+  const filteredOverflowLabels = showOverflowSearch
+    ? overflowLabels.filter((l) =>
+        l.label.toLowerCase().includes(overflowSearch.trim().toLowerCase()),
+      )
+    : overflowLabels;
 
   return (
     <>
-      <Tabs value={env} onValueChange={setEnv}>
-        <Container maxWidth="100%">
-          <Flex
-            align="center"
-            justify="between"
-            style={{ boxShadow: "inset 0 -1px 0 0 var(--slate-a3)" }}
+      <Tabs
+        value={env ?? FEATURE_RULES_ALL_ENVS}
+        onValueChange={(v) => setEnv(v === FEATURE_RULES_ALL_ENVS ? null : v)}
+        mb="3"
+      >
+        <Flex
+          align="center"
+          justify="between"
+          style={{
+            boxShadow: "inset 0 -1px 0 0 var(--slate-a3)",
+            position: "relative",
+          }}
+        >
+          <Box
+            ref={tabsBarRef}
+            style={{
+              flex: 1,
+              minWidth: 0,
+            }}
           >
-            <TabsList className="w-full" style={{ boxShadow: "none" }}>
-              <Flex wrap="wrap" overflow="hidden">
-                {tabEnvs.map((e) => (
-                  <TabsTrigger value={e.id} key={e.id}>
-                    <Flex maxWidth="220px">
-                      <Text truncate title={e.id}>
-                        {e.id}
-                      </Text>
-                    </Flex>
-                    <Badge
-                      ml="2"
-                      label={
-                        holdout?.environmentSettings?.[e.id]?.enabled
-                          ? (rulesByEnv[e.id].length + 1).toString()
-                          : rulesByEnv[e.id].length.toString()
-                      }
-                      radius="full"
-                      variant="solid"
-                      color="violet"
-                    />
-                  </TabsTrigger>
-                ))}
-                {dropdownEnvs.length === 1 && (
-                  <TabsTrigger value={dropdownEnvs[0].id}>
-                    <Flex maxWidth="220px">
-                      <Text truncate title={dropdownEnvs[0].id}>
-                        {dropdownEnvs[0].id}
-                      </Text>
-                    </Flex>
-                    <Badge
-                      ml="2"
-                      label={
-                        holdout?.environmentSettings[dropdownEnvs[0].id].enabled
-                          ? (
-                              rulesByEnv[dropdownEnvs[0].id].length + 1
-                            ).toString()
-                          : rulesByEnv[dropdownEnvs[0].id].length.toString()
-                      }
-                      radius="full"
-                      variant="solid"
-                      color="violet"
-                    />
-                  </TabsTrigger>
-                )}
-                {dropdownEnvs.length > 1 && (
-                  <Flex
-                    px="1"
-                    direction="column"
-                    justify="center"
-                    align="center"
-                    className={clsx("tab-trigger-container", {
-                      active: !!selectedDropdownEnv,
-                    })}
+            <TabsList style={{ boxShadow: "none", flexWrap: "nowrap" }}>
+              <TabsTrigger
+                value={FEATURE_RULES_ALL_ENVS}
+                ref={setTriggerRef(FEATURE_RULES_ALL_ENVS)}
+                style={
+                  overflowKeys.has(FEATURE_RULES_ALL_ENVS)
+                    ? { display: "none" }
+                    : undefined
+                }
+              >
+                <Flex align="center" gap="2">
+                  All Environments
+                  <Badge
+                    label={String(
+                      (feature.rules?.length ?? 0) +
+                        (includeHoldoutRuleAllEnvs ? 1 : 0),
+                    )}
+                    radius="full"
+                    variant="soft"
+                    color="gray"
+                    size="sm"
+                    style={{ marginRight: -4 }}
+                  />
+                </Flex>
+              </TabsTrigger>
+              {orderedEnvIds.map((id) => {
+                const e = envById.get(id);
+                if (!e) return null;
+                const count = holdout?.environmentSettings?.[e.id]?.enabled
+                  ? rulesByEnv[e.id].length + 1
+                  : rulesByEnv[e.id].length;
+                return (
+                  <TabsTrigger
+                    key={e.id}
+                    value={e.id}
+                    ref={setTriggerRef(e.id)}
+                    style={
+                      overflowKeys.has(e.id) ? { display: "none" } : undefined
+                    }
                   >
-                    <Container
-                      flexGrow="0"
-                      minWidth={selectedDropdownEnv ? undefined : "100px"}
-                    >
-                      <EnvironmentDropdown
-                        containerClassName={"select-dropdown-no-underline"}
-                        env={selectedDropdownEnv}
-                        setEnv={setEnv}
-                        environments={dropdownEnvs}
-                        placeholder="Other..."
-                        formatOptionLabel={({ value }) => (
-                          <Flex align="center">
-                            <Flex maxWidth="150px">
-                              <Text weight="medium" truncate title={value}>
-                                {value}
-                              </Text>
-                            </Flex>
-                            <Badge
-                              ml="2"
-                              mr="3"
-                              label={
-                                holdout?.environmentSettings[value].enabled
-                                  ? (rulesByEnv[value].length + 1).toString()
-                                  : rulesByEnv[value].length.toString()
-                              }
-                              radius="full"
-                              variant="solid"
-                              color="violet"
-                            />
-                          </Flex>
-                        )}
+                    <Flex align="center" gap="2">
+                      {e.id}
+                      <Badge
+                        label={String(count)}
+                        radius="full"
+                        variant="soft"
+                        color="gray"
+                        size="sm"
+                        style={{ marginRight: -4 }}
                       />
-                    </Container>
+                    </Flex>
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </Box>
+          <Box
+            style={{
+              flexShrink: 0,
+              display: "flex",
+              justifyContent: "flex-end",
+              alignItems: "center",
+              paddingLeft: 8,
+            }}
+          >
+            <DropdownMenu
+              menuPlacement="end"
+              color="violet"
+              variant="soft"
+              open={moreOpen}
+              onOpenChange={setMoreOpen}
+              trigger={
+                <Button
+                  variant="ghost"
+                  color="violet"
+                  icon={<PiFunnel />}
+                  iconPosition="left"
+                >
+                  {overflowLabels.length > 0
+                    ? `More (${overflowLabels.length})`
+                    : "More"}
+                </Button>
+              }
+            >
+              <Box px="3">
+                <Flex align="center" gap="2" justify="end" py="2">
+                  <Text size="small" color="text-low">
+                    Show inactive rules
+                  </Text>
+                  <Switch
+                    size="1"
+                    value={!hasInactiveRules ? false : !hideInactive}
+                    onChange={(v) => setHideInactive(!v)}
+                    disabled={!hasInactiveRules}
+                  />
+                </Flex>
+                {env === null && hasOrphanedRules && (
+                  <Flex align="center" gap="2" justify="end" py="2">
+                    <Text size="small" color="text-low">
+                      Show missing environment rules
+                    </Text>
+                    <Switch
+                      size="1"
+                      value={showOrphaned}
+                      onChange={(v) => setShowOrphaned(v)}
+                    />
                   </Flex>
                 )}
-              </Flex>
-            </TabsList>
-            {!isLocked && (
-              <Link
-                ml="2"
-                onClick={() => setCompareEnvModal({ sourceEnv: env })}
-                wrap="nowrap"
-                size="1"
-              >
-                Sync rules across environments
-              </Link>
-            )}
-          </Flex>
-        </Container>
-        {environments.map((e) => {
-          const liveHoldoutActive =
-            !!holdout && !!holdout?.environmentSettings?.[e.id]?.enabled;
-          // Also show as deleted if the draft removes the holdout but it's still live
-          const draftDeletesHoldout =
-            !feature.holdout?.id &&
-            !!baseFeature.holdout?.id &&
-            !!holdout?.environmentSettings?.[e.id]?.enabled;
-          const includeHoldoutRule = liveHoldoutActive || draftDeletesHoldout;
-          return (
-            <TabsContent key={e.id} value={e.id}>
-              <div className="mt-2">
-                {rulesByEnv[e.id].length > 0 || includeHoldoutRule ? (
-                  <RuleList
-                    environment={e.id}
-                    feature={feature}
-                    baseFeature={baseFeature}
-                    mutate={mutate}
-                    setRuleModal={setRuleModal}
-                    setCopyRuleModal={setCopyRuleModal}
-                    version={currentVersion}
-                    setVersion={setVersion}
-                    locked={isLocked}
-                    experimentsMap={experimentsMap}
-                    hideInactive={hideInactive}
-                    isDraft={isDraft}
-                    safeRolloutsMap={safeRolloutsMap}
-                    holdout={liveHoldoutActive ? holdout : undefined}
-                    holdoutIsDeleted={draftDeletesHoldout}
-                    openHoldoutModal={() => setHoldoutModal(true)}
-                    revisionList={revisionList}
-                    rampSchedules={rampSchedules}
-                    draftRevision={draftRevision}
-                  />
-                ) : (
-                  <Box py="4" className="text-muted">
-                    <em>No rules have been added to this environment yet</em>
-                  </Box>
-                )}
-
-                {canEditDrafts && !isLocked && (
-                  <>
-                    <Flex pt="4" justify="between" align="center">
-                      <Text weight="bold" size="3">
-                        Add rule to {env}
-                      </Text>
-                      <Button
-                        onClick={() => {
-                          setRuleModal({
-                            environment: env,
-                            i: getRules(feature, env).length,
-                            mode: "create",
-                          });
-                          track("Viewed Rule Modal", {
-                            source: "add-rule",
-                            type: "force",
-                          });
-                        }}
-                      >
-                        Add Rule
-                      </Button>
-                    </Flex>
-                    {/* TODO: This if/else should be handled by PremiumCallout component */}
-                    {isSafeRolloutPromoEnabled && !hasSafeRollout ? (
-                      <PremiumCallout
-                        id="feature-rules-add-rule"
-                        commercialFeature="safe-rollout"
-                        mt="5"
-                      >
-                        <Flex direction="row" gap="3">
-                          <Text>
-                            <strong>Safe Rollouts</strong> can be used to
-                            release new values while monitoring for errors.
-                          </Text>
-                        </Flex>
-                      </PremiumCallout>
-                    ) : isSafeRolloutPromoEnabled && hasSafeRollout ? (
-                      <Callout
-                        mt="5"
-                        status="info"
-                        icon={<Badge label="NEW!" />}
-                        dismissible
-                        id="safe-rollout-promo"
-                      >
-                        Use <strong>Safe Rollouts</strong> to test for guardrail
-                        errors while releasing a new value. Click &lsquo;Add
-                        Rule&rsquo; to get started.
-                      </Callout>
-                    ) : null}
-                  </>
-                )}
-              </div>
-            </TabsContent>
-          );
-        })}
+              </Box>
+              {overflowLabels.length > 0 && <DropdownMenuSeparator />}
+              {showOverflowSearch && (
+                <Box px="3" pt="1" pb="2">
+                  <TextField.Root
+                    size="2"
+                    placeholder="Search..."
+                    value={overflowSearch}
+                    onChange={(e) => setOverflowSearch(e.target.value)}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                    autoFocus
+                  >
+                    <TextField.Slot>
+                      <PiMagnifyingGlass />
+                    </TextField.Slot>
+                  </TextField.Root>
+                </Box>
+              )}
+              {filteredOverflowLabels.map(({ key, label, count }) => (
+                <DropdownMenuItem
+                  key={key}
+                  onClick={() =>
+                    setEnv(key === FEATURE_RULES_ALL_ENVS ? null : key)
+                  }
+                >
+                  <Flex align="center" justify="between" gap="3" width="100%">
+                    <span>{label}</span>
+                    <Badge
+                      label={String(count)}
+                      radius="full"
+                      variant="soft"
+                      color="gray"
+                      size="sm"
+                    />
+                  </Flex>
+                </DropdownMenuItem>
+              ))}
+              {showOverflowSearch && filteredOverflowLabels.length === 0 && (
+                <Box px="3" py="2">
+                  <Text size="small" color="text-low">
+                    No matches
+                  </Text>
+                </Box>
+              )}
+            </DropdownMenu>
+          </Box>
+        </Flex>
       </Tabs>
+
+      <Box mt="4">
+        {env === null ? (
+          <>
+            {(feature.rules ?? []).length > 0 || includeHoldoutRuleAllEnvs ? (
+              <RuleList
+                allEnvsView
+                environments={environments}
+                feature={feature}
+                baseFeature={baseFeature}
+                mutate={mutate}
+                setRuleModal={setRuleModal}
+                version={currentVersion}
+                setVersion={setVersion}
+                locked={isLocked}
+                experimentsMap={experimentsMap}
+                hideInactive={hideInactive}
+                isDraft={isDraft}
+                safeRolloutsMap={safeRolloutsMap}
+                holdout={liveHoldoutActiveAnyEnv ? holdout : undefined}
+                holdoutIsDeleted={draftDeletesHoldoutAnyEnv}
+                openHoldoutModal={() => setHoldoutModal(true)}
+                revisionList={revisionList}
+                rampSchedules={rampSchedules}
+                draftRevision={draftRevision}
+                hiddenRuleIds={showOrphaned ? undefined : orphanedRuleIds}
+              />
+            ) : (
+              <Box py="4" className="text-muted">
+                <em>No rules have been added yet</em>
+              </Box>
+            )}
+            {canEditDrafts && !isLocked && (
+              <Flex mt="5" mb="1" justify="end">
+                <Button
+                  onClick={() => {
+                    // environment="" → rule modal defaults to allEnvironments scope
+                    setRuleModal({
+                      environment: "",
+                      i: (feature.rules ?? []).length,
+                      mode: "create",
+                    });
+                    track("Viewed Rule Modal", {
+                      source: "add-rule",
+                      type: "force",
+                    });
+                  }}
+                  icon={<PiPlusBold />}
+                >
+                  Add Rule
+                </Button>
+              </Flex>
+            )}
+          </>
+        ) : activeEnv ? (
+          <>
+            {rulesByEnv[activeEnv.id]?.length > 0 || includeHoldoutRule ? (
+              <RuleList
+                environment={activeEnv.id}
+                feature={feature}
+                baseFeature={baseFeature}
+                mutate={mutate}
+                setRuleModal={setRuleModal}
+                version={currentVersion}
+                setVersion={setVersion}
+                locked={isLocked}
+                experimentsMap={experimentsMap}
+                hideInactive={hideInactive}
+                isDraft={isDraft}
+                safeRolloutsMap={safeRolloutsMap}
+                holdout={liveHoldoutActive ? holdout : undefined}
+                holdoutIsDeleted={draftDeletesHoldout}
+                openHoldoutModal={() => setHoldoutModal(true)}
+                revisionList={revisionList}
+                rampSchedules={rampSchedules}
+                draftRevision={draftRevision}
+              />
+            ) : (
+              <Box py="4" className="text-muted">
+                <em>No rules have been added to this environment yet</em>
+              </Box>
+            )}
+            {canEditDrafts && !isLocked && (
+              <>
+                <Flex pt="4" justify="between" align="center">
+                  <Text weight="semibold" size="large">
+                    Add rule to {activeEnv.id}
+                  </Text>
+                  <Button
+                    onClick={() => {
+                      setRuleModal({
+                        environment: activeEnv.id,
+                        i: (feature.rules ?? []).length,
+                        mode: "create",
+                      });
+                    }}
+                  >
+                    Add Rule
+                  </Button>
+                </Flex>
+              </>
+            )}
+          </>
+        ) : null}
+      </Box>
       {ruleModal !== null && (
         <RuleModal
           feature={feature}
           close={() => setRuleModal(null)}
           i={ruleModal.i}
+          ruleId={ruleModal.ruleId}
           safeRolloutsMap={safeRolloutsMap}
           environment={ruleModal.environment}
           mutate={mutate}
@@ -350,36 +593,6 @@ export default function FeatureRules({
           rampSchedules={rampSchedules}
           detachRampOnSave={ruleModal.detachRampOnSave}
           draftRevision={draftRevision}
-        />
-      )}
-      {copyRuleModal !== null && (
-        <CopyRuleModal
-          feature={feature}
-          environment={copyRuleModal.environment}
-          version={currentVersion}
-          setVersion={setVersion}
-          rules={copyRuleModal.rules}
-          cancel={() => setCopyRuleModal(null)}
-          mutate={mutate}
-          safeRolloutsMap={safeRolloutsMap}
-        />
-      )}
-      {compareEnvModal !== null && (
-        <CompareEnvironmentsModal
-          feature={feature}
-          sourceEnv={compareEnvModal.sourceEnv}
-          targetEnv={compareEnvModal.targetEnv}
-          setSourceEnv={(sourceEnv) =>
-            setCompareEnvModal({ ...compareEnvModal, sourceEnv })
-          }
-          setTargetEnv={(targetEnv) =>
-            setCompareEnvModal({ ...compareEnvModal, targetEnv })
-          }
-          version={currentVersion}
-          setVersion={setVersion}
-          setEnvironment={setEnv}
-          cancel={() => setCompareEnvModal(null)}
-          mutate={mutate}
         />
       )}
       {holdoutModal && (

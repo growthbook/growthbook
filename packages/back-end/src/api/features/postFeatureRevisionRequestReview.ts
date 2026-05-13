@@ -1,5 +1,6 @@
 import { postFeatureRevisionRequestReviewValidator } from "shared/validators";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import type { ApiRequestLocals } from "back-end/types/api";
+import { toApiRevision } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -10,9 +11,12 @@ import {
   markRevisionAsReviewRequested,
 } from "back-end/src/models/FeatureRevisionModel";
 
-export const postFeatureRevisionRequestReview = createApiRequestHandler(
-  postFeatureRevisionRequestReviewValidator,
-)(async (req) => {
+export async function requestReview(
+  req: Pick<ApiRequestLocals, "context" | "organization" | "audit"> & {
+    params: { id: string; version: number };
+    body: { comment?: string };
+  },
+) {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
@@ -26,6 +30,7 @@ export const postFeatureRevisionRequestReview = createApiRequestHandler(
     context: req.context,
     organization: req.organization.id,
     featureId: feature.id,
+    feature,
     version: req.params.version,
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
@@ -47,6 +52,7 @@ export const postFeatureRevisionRequestReview = createApiRequestHandler(
     context: req.context,
     organization: req.organization.id,
     featureId: feature.id,
+    feature,
     version: req.params.version,
   });
   const finalRevision = updated ?? revision;
@@ -69,5 +75,12 @@ export const postFeatureRevisionRequestReview = createApiRequestHandler(
     { reviewComment: req.body.comment ?? null },
   );
 
-  return { revision: revisionToApiInterface(finalRevision) };
+  return { feature, revision: finalRevision };
+}
+
+export const postFeatureRevisionRequestReview = createApiRequestHandler(
+  postFeatureRevisionRequestReviewValidator,
+)(async (req) => {
+  const { feature, revision } = await requestReview(req);
+  return { revision: toApiRevision(revision, req.context, feature) };
 });

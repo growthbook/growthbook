@@ -40,6 +40,7 @@ import ConfirmButton from "@/components/Modal/ConfirmButton";
 import SelectField from "@/components/Forms/SelectField";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 
 interface memberOrgProps {
   id: string;
@@ -347,6 +348,7 @@ function OrganizationRow({
                     <div className="col-auto">
                       {managedWarehouseId ? (
                         <ConfirmButton
+                          isDestructive
                           onClick={async () => {
                             await apiCall(
                               `/datasource/${managedWarehouseId}/recreate-managed-warehouse`,
@@ -649,16 +651,14 @@ const Admin: FC = () => {
 
   if (!superAdmin) {
     return (
-      <div className="alert alert-danger">
-        Only super admins can view this page
-      </div>
+      <Callout status="error">Only super admins can view this page</Callout>
     );
   }
   if (!isCloud() && license?.plan != "enterprise") {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error">
         You must be on an enterprise license to view this page
-      </div>
+      </Callout>
     );
   }
 
@@ -734,7 +734,7 @@ const Admin: FC = () => {
               </span>
             </div>
           </div>
-          {error && <div className="alert alert-danger">{error}</div>}
+          {error && <Callout status="error">{error}</Callout>}
           <div className="position-relative">
             {loading && <LoadingOverlay />}
             <table className="table appbox" style={{ tableLayout: "fixed" }}>
@@ -844,9 +844,7 @@ const Admin: FC = () => {
               </span>
             </div>
           </div>
-          {memberError && (
-            <div className="alert alert-danger">{memberError}</div>
-          )}
+          {memberError && <Callout status="error">{memberError}</Callout>}
           <div className="position-relative">
             {memberLoading && <LoadingOverlay />}
             <table className="table appbox" style={{ tableLayout: "fixed" }}>

@@ -19,7 +19,7 @@ import DraftSelectorDropdown, {
   DraftMode,
 } from "@/components/Features/DraftSelectorDropdown";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Text from "@/ui/Text";
@@ -113,7 +113,7 @@ export default function EditFeatureFlagValuesModal({
   const variationValues = form.watch("variationValues");
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType="edit-experiment-feature-values"
       header="Edit Feature Flag Values"
       subheader="Changes made here will be reflected on the linked Feature Flag rule."
@@ -249,6 +249,6 @@ export default function EditFeatureFlagValuesModal({
           ))}
         </Flex>
       )}
-    </DialogLayout>
+    </ModalStandard>
   );
 }

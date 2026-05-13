@@ -354,6 +354,10 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             value: "json",
           },
           {
+            label: "Binary",
+            value: "binary",
+          },
+          {
             label: "Other",
             value: "other",
           },
@@ -480,6 +484,10 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                                 {
                                   label: "Boolean",
                                   value: "boolean",
+                                },
+                                {
+                                  label: "Binary",
+                                  value: "binary",
                                 },
                                 {
                                   label: "Other",

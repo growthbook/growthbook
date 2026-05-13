@@ -6,23 +6,11 @@ import {
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import type { ReqContext } from "back-end/types/request";
 import { updateMaterializedColumns } from "back-end/src/services/clickhouse";
+import { updateMaterializedColumnsInClickhouse } from "back-end/src/services/licenseServerManagedClickhouse";
 import {
   getFactTablesForDatasource,
   updateFactTableColumns,
 } from "back-end/src/models/FactTableModel";
-import {
-  lockDataSource,
-  unlockDataSource,
-} from "back-end/src/models/DataSourceModel";
-
-const mockCommand = jest.fn();
-const mockClickhouseClient = {
-  command: mockCommand,
-};
-
-jest.mock("@clickhouse/client", () => ({
-  createClient: jest.fn(() => mockClickhouseClient),
-}));
 
 jest.mock("back-end/src/util/secrets", () => ({
   CLICKHOUSE_HOST: "http://localhost:8123",
@@ -32,8 +20,11 @@ jest.mock("back-end/src/util/secrets", () => ({
   CLICKHOUSE_MAIN_TABLE: "events",
   ENVIRONMENT: "development",
   IS_CLOUD: false,
-  CLICKHOUSE_DEV_PREFIX: "dev_",
   CLICKHOUSE_OVERAGE_TABLE: "overage",
+}));
+
+jest.mock("back-end/src/services/licenseServerManagedClickhouse", () => ({
+  updateMaterializedColumnsInClickhouse: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock("back-end/src/models/FactTableModel", () => ({
@@ -41,15 +32,11 @@ jest.mock("back-end/src/models/FactTableModel", () => ({
   updateFactTableColumns: jest.fn(),
 }));
 
-jest.mock("back-end/src/models/DataSourceModel", () => ({
-  lockDataSource: jest.fn(),
-  unlockDataSource: jest.fn(),
-}));
-
 const mockGetFactTablesForDatasource = jest.mocked(getFactTablesForDatasource);
 const mockUpdateFactTableColumns = jest.mocked(updateFactTableColumns);
-const mockLockDataSource = jest.mocked(lockDataSource);
-const mockUnlockDataSource = jest.mocked(unlockDataSource);
+const mockUpdateMaterializedColumnsLicense = jest.mocked(
+  updateMaterializedColumnsInClickhouse,
+);
 
 function makeFactTableColumn(
   column: string,
@@ -90,9 +77,6 @@ describe("updateMaterializedColumns", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockCommand.mockResolvedValue(undefined);
-    mockLockDataSource.mockResolvedValue(undefined as never);
-    mockUnlockDataSource.mockResolvedValue(undefined as never);
     mockUpdateFactTableColumns.mockResolvedValue(undefined as never);
   });
 
@@ -123,6 +107,7 @@ describe("updateMaterializedColumns", () => {
       originalColumns: [],
     });
 
+    expect(mockUpdateMaterializedColumnsLicense).toHaveBeenCalledTimes(1);
     expect(mockUpdateFactTableColumns).toHaveBeenCalledTimes(1);
     const changes = mockUpdateFactTableColumns.mock.calls[0][1] as {
       columns: ColumnInterface[];
@@ -132,6 +117,25 @@ describe("updateMaterializedColumns", () => {
     expect(changes.columns.find((c) => c.column === "user_id")?.deleted).toBe(
       false,
     );
+  });
+
+  it("does not call the managed warehouse service when provisioning is not complete", async () => {
+    const unprovisionedDs = {
+      ...datasource,
+      settings: { hasBeenProvisioned: false },
+    } as unknown as GrowthbookClickhouseDataSource;
+
+    await updateMaterializedColumns({
+      context,
+      datasource: unprovisionedDs,
+      columnsToAdd: [],
+      columnsToDelete: [],
+      columnsToRename: [],
+      finalColumns: [],
+      originalColumns: [],
+    });
+
+    expect(mockUpdateMaterializedColumnsLicense).not.toHaveBeenCalled();
   });
 
   it("restores deleted rename destination and tombstones source when destination name already exists", async () => {
@@ -162,6 +166,7 @@ describe("updateMaterializedColumns", () => {
       originalColumns: [],
     });
 
+    expect(mockUpdateMaterializedColumnsLicense).toHaveBeenCalledTimes(1);
     expect(mockUpdateFactTableColumns).toHaveBeenCalledTimes(1);
     const changes = mockUpdateFactTableColumns.mock.calls[0][1] as {
       columns: ColumnInterface[];
