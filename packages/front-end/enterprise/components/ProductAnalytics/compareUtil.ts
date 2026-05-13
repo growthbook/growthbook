@@ -250,6 +250,273 @@ export function buildComparisonOverlaySeriesMaps(
   return { uniqueXValues, dataMap, seriesMeta };
 }
 
+// --- Explorer chart: ECharts compare overlay (constants + series builders) ---
+
+/** ECharts `z`: previous period draws under current bars/areas. */
+export const COMPARE_OVERLAY_Z_PREVIOUS_UNDER = 1;
+/** ECharts `z`: current period sits above overlapped comparison. */
+export const COMPARE_OVERLAY_Z_CURRENT_OVER = 2;
+/** ECharts `z`: dashed comparison line on top of current line strokes. */
+export const COMPARE_OVERLAY_Z_PREVIOUS_LINE_ON_TOP = 3;
+
+export const COMPARE_OVERLAY_AREA_FILL_OPACITY = 0.38;
+export const COMPARE_OVERLAY_PREVIOUS_AREA_FILL_OPACITY = 0.42;
+export const COMPARE_OVERLAY_BAR_GAP = "-100%";
+export const COMPARE_OVERLAY_PREVIOUS_BAR_OPACITY = 0.55;
+export const COMPARE_OVERLAY_CURRENT_BAR_WHEN_ABOVE_PREVIOUS_OPACITY = 0.72;
+/** When any bucket in the series exceeds previous (no per-segment area opacity in ECharts). */
+export const COMPARE_OVERLAY_AREA_FILL_WHEN_SERIES_ABOVE_ANY_BUCKET = 0.28;
+
+const EXPLORER_BAR_CHART_TYPES: ExplorationConfig["chartType"][] = [
+  "bar",
+  "stackedBar",
+  "stackedHorizontalBar",
+  "horizontalBar",
+];
+
+function isExplorerBarChartType(
+  chartType: ExplorationConfig["chartType"],
+): boolean {
+  return (EXPLORER_BAR_CHART_TYPES as readonly string[]).includes(chartType);
+}
+
+/**
+ * Aligns comparison-period rows to the explorer’s current `sortedXValues` / series keys.
+ * Returns `null` when there are no comparison rows.
+ */
+export function buildAlignedComparisonOverlayForExplorer(args: {
+  sortedXValues: string[];
+  comparisonRows: ProductAnalyticsResultRow[];
+  submittedExploreState: ExplorationConfig;
+  renderOpts: RenderOpts;
+  sortedSeriesKeys: string[];
+  firstDimensionIsDate: boolean;
+}): Record<string, Record<string, number>> | null {
+  if (!args.comparisonRows.length) return null;
+  const { uniqueXValues, dataMap } = buildComparisonOverlaySeriesMaps(
+    args.comparisonRows,
+    args.submittedExploreState,
+    args.renderOpts,
+  );
+  return alignComparisonOverlayToCategories(
+    args.sortedXValues,
+    dataMap,
+    args.sortedSeriesKeys,
+    Array.from(uniqueXValues),
+    args.firstDimensionIsDate,
+  );
+}
+
+export type ExplorerChartCompareSeriesMeta = {
+  metricId: string;
+  name: string;
+};
+
+/**
+ * Builds ECharts `series` entries for the explorer chart (current and/or previous period),
+ * including compare-overlap styling for bar and area charts.
+ */
+export function buildExplorerChartComparisonSeriesList(params: {
+  chartType: ExplorationConfig["chartType"];
+  sourceDataMap: Record<string, Record<string, number>>;
+  sourceSeriesMeta: Record<string, ExplorerChartCompareSeriesMeta>;
+  sourceSeriesKeys: string[];
+  sourceSortedXValues: string[];
+  numMetrics: number;
+  numDimensions: number;
+  isStacked: boolean;
+  compareOverlayActive: boolean;
+  comparisonPeriodLabels: {
+    currentLabel: string;
+    previousLabel: string;
+  } | null;
+  previousAlignedMap?: Record<string, Record<string, number>> | null;
+  previous?: boolean;
+  seriesColor: (index: number) => string;
+  comparisonSeriesColor: (index: number) => string;
+  animate: boolean;
+}): unknown[] {
+  const {
+    chartType,
+    sourceDataMap,
+    sourceSeriesMeta,
+    sourceSeriesKeys,
+    sourceSortedXValues,
+    numMetrics,
+    numDimensions,
+    isStacked,
+    compareOverlayActive,
+    comparisonPeriodLabels,
+    seriesColor,
+    comparisonSeriesColor,
+    animate,
+  } = params;
+  const isPrevious = params.previous ?? false;
+  const previousAlignedMap = params.previousAlignedMap ?? null;
+
+  return sourceSeriesKeys
+    .map((seriesKey, idx) => {
+      const { name } = sourceSeriesMeta[seriesKey];
+      const seriesDataMap = sourceDataMap[seriesKey];
+      const displayName = comparisonPeriodLabels
+        ? formatComparisonMetricLabel(
+            name,
+            isPrevious
+              ? comparisonPeriodLabels.previousLabel
+              : comparisonPeriodLabels.currentLabel,
+          )
+        : name;
+      const color = isPrevious ? comparisonSeriesColor(idx) : seriesColor(idx);
+
+      if (isPrevious && chartType === "line") {
+        const data = sourceSortedXValues.map((x) => [
+          new Date(x).getTime(),
+          seriesDataMap[x] ?? 0,
+        ]);
+
+        return {
+          name: displayName,
+          data,
+          color,
+          type: "line" as const,
+          animation: animate,
+          animationDuration: animate ? 300 : 0,
+          animationEasing: "linear" as const,
+          showSymbol: false,
+          symbol: "circle" as const,
+          symbolSize: 4,
+          lineStyle: { type: "dashed" as const, width: 2, opacity: 0.75 },
+          z: COMPARE_OVERLAY_Z_PREVIOUS_LINE_ON_TOP,
+        };
+      }
+
+      if (isExplorerBarChartType(chartType)) {
+        if (
+          numMetrics === 1 &&
+          numDimensions === 1 &&
+          !isPrevious &&
+          !compareOverlayActive
+        ) {
+          const data = sourceSortedXValues.map((x, i) => ({
+            value: seriesDataMap[x] ?? 0,
+            itemStyle: { color: seriesColor(i) },
+          }));
+          return { name: displayName, data, type: "bar" as const };
+        }
+
+        const prevForSeries = previousAlignedMap?.[seriesKey];
+        const data =
+          compareOverlayActive && !isPrevious && prevForSeries
+            ? sourceSortedXValues.map((x) => {
+                const curr = seriesDataMap[x] ?? 0;
+                const prev = prevForSeries[x] ?? 0;
+                return curr > prev
+                  ? {
+                      value: curr,
+                      itemStyle: {
+                        opacity:
+                          COMPARE_OVERLAY_CURRENT_BAR_WHEN_ABOVE_PREVIOUS_OPACITY,
+                      },
+                    }
+                  : curr;
+              })
+            : sourceSortedXValues.map((x) => seriesDataMap[x] ?? 0);
+        if (compareOverlayActive) {
+          return {
+            name: displayName,
+            data,
+            color,
+            type: "bar" as const,
+            stack: getComparisonStackId(isPrevious, isStacked),
+            barGap: COMPARE_OVERLAY_BAR_GAP,
+            z: isPrevious
+              ? COMPARE_OVERLAY_Z_PREVIOUS_UNDER
+              : COMPARE_OVERLAY_Z_CURRENT_OVER,
+            ...(isPrevious
+              ? { itemStyle: { opacity: COMPARE_OVERLAY_PREVIOUS_BAR_OPACITY } }
+              : {}),
+          };
+        }
+        return {
+          name: displayName,
+          data,
+          color,
+          type: "bar" as const,
+          stack: getComparisonStackId(isPrevious, isStacked),
+        };
+      }
+
+      if (chartType === "line" || chartType === "area") {
+        const data = sourceSortedXValues.map((x) => [
+          new Date(x).getTime(),
+          seriesDataMap[x] ?? 0,
+        ]);
+        let anyCurrentAbovePrev = false;
+        if (chartType === "area" && !isPrevious && compareOverlayActive) {
+          const prevMap = previousAlignedMap?.[seriesKey];
+          if (prevMap) {
+            anyCurrentAbovePrev = sourceSortedXValues.some(
+              (x) => (seriesDataMap[x] ?? 0) > (prevMap[x] ?? 0),
+            );
+          }
+        }
+
+        if (chartType === "area" && isPrevious && compareOverlayActive) {
+          return {
+            name: displayName,
+            data,
+            color,
+            type: "line" as const,
+            animation: animate,
+            animationDuration: animate ? 300 : 0,
+            animationEasing: "linear" as const,
+            showSymbol: false,
+            symbol: "circle" as const,
+            symbolSize: 4,
+            lineStyle: { width: 1, opacity: 0.65 },
+            areaStyle: {
+              opacity: COMPARE_OVERLAY_PREVIOUS_AREA_FILL_OPACITY,
+              color,
+            },
+            stack: getComparisonAreaPreviousStackId(),
+            z: COMPARE_OVERLAY_Z_PREVIOUS_UNDER,
+          };
+        }
+
+        const lineConfig = {
+          name: displayName,
+          data,
+          color,
+          type: "line" as const,
+          animation: animate,
+          animationDuration: animate ? 300 : 0,
+          animationEasing: "linear" as const,
+          symbol: "circle" as const,
+          symbolSize: 4,
+          ...(compareOverlayActive
+            ? { z: COMPARE_OVERLAY_Z_CURRENT_OVER }
+            : {}),
+        };
+        if (chartType === "line") return lineConfig;
+        if (chartType === "area")
+          return {
+            ...lineConfig,
+            areaStyle: compareOverlayActive
+              ? {
+                  opacity: anyCurrentAbovePrev
+                    ? COMPARE_OVERLAY_AREA_FILL_WHEN_SERIES_ABOVE_ANY_BUCKET
+                    : COMPARE_OVERLAY_AREA_FILL_OPACITY,
+                }
+              : {},
+            stack: "stack",
+          };
+      }
+
+      return undefined;
+    })
+    .filter((series) => series !== undefined);
+}
+
 export function computeBigNumberComparisonTrend(
   exploration: ProductAnalyticsExploration | null,
   comparisonExploration: ProductAnalyticsExploration | null,

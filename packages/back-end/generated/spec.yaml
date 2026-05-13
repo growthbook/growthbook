@@ -26077,6 +26077,8 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                  compare:
+                                    type: boolean
                                   type:
                                     type: string
                                     const: metric
@@ -26388,6 +26390,8 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                  compare:
+                                    type: boolean
                                   type:
                                     type: string
                                     const: fact_table
@@ -26708,6 +26712,8 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                  compare:
+                                    type: boolean
                                   type:
                                     type: string
                                     const: data_source
@@ -29282,6 +29288,8 @@ paths:
                   enum:
                     - total
                     - per_unit
+                compare:
+                  type: boolean
                 type:
                   type: string
                   const: metric
@@ -29615,6 +29623,8 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                              compare:
+                                type: boolean
                               type:
                                 type: string
                                 const: metric
@@ -29921,6 +29931,8 @@ paths:
                   enum:
                     - total
                     - per_unit
+                compare:
+                  type: boolean
                 type:
                   type: string
                   const: fact_table
@@ -30263,6 +30275,8 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                              compare:
+                                type: boolean
                               type:
                                 type: string
                                 const: fact_table
@@ -30578,6 +30592,8 @@ paths:
                   enum:
                     - total
                     - per_unit
+                compare:
+                  type: boolean
                 type:
                   type: string
                   const: data_source
@@ -30937,6 +30953,8 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                              compare:
+                                type: boolean
                               type:
                                 type: string
                                 const: data_source
@@ -41966,6 +41984,8 @@ components:
                         enum:
                           - total
                           - per_unit
+                      compare:
+                        type: boolean
                       type:
                         type: string
                         const: metric
@@ -42277,6 +42297,8 @@ components:
                         enum:
                           - total
                           - per_unit
+                      compare:
+                        type: boolean
                       type:
                         type: string
                         const: fact_table
@@ -42597,6 +42619,8 @@ components:
                         enum:
                           - total
                           - per_unit
+                      compare:
+                        type: boolean
                       type:
                         type: string
                         const: data_source
@@ -43831,6 +43855,8 @@ components:
                   enum:
                     - total
                     - per_unit
+                compare:
+                  type: boolean
                 type:
                   type: string
                   const: metric
@@ -44087,6 +44113,8 @@ components:
                   enum:
                     - total
                     - per_unit
+                compare:
+                  type: boolean
                 type:
                   type: string
                   const: fact_table
@@ -44352,6 +44380,8 @@ components:
                   enum:
                     - total
                     - per_unit
+                compare:
+                  type: boolean
                 type:
                   type: string
                   const: data_source

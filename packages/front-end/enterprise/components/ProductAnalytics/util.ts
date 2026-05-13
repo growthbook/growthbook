@@ -434,7 +434,7 @@ function getChartCategory(chartType: ExplorationConfig["chartType"]): string {
 /** Strips fields that only affect rendering, not data fetching. */
 function toFetchKey(config: ExplorationConfig): unknown {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { showAs, ...rest } = config;
+  const { showAs, compare, ...rest } = config;
   return {
     ...rest,
     chartType: getChartCategory(config.chartType),
