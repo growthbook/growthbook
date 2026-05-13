@@ -132,6 +132,8 @@ interface ExperimentMetricTimeSeriesGraphWrapperProps {
   baselineRow?: number;
   unavailableMessage?: string;
   preloadedTimeSeries?: MetricTimeSeries;
+  dimensionId?: string;
+  dimensionValue?: string;
 }
 
 export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
@@ -166,6 +168,8 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   baselineRow = 0,
   unavailableMessage,
   preloadedTimeSeries,
+  dimensionId,
+  dimensionValue,
 }: ExperimentMetricTimeSeriesGraphWrapperProps) {
   const { getFactTableById } = useDefinitions();
 
@@ -177,16 +181,34 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   );
 
   const metricId = sliceId ?? metric.id;
+  const dimensionQuery =
+    dimensionId && dimensionValue !== undefined
+      ? `&dimensions[0][id]=${encodeURIComponent(
+          dimensionId,
+        )}&dimensions[0][value]=${encodeURIComponent(dimensionValue)}`
+      : dimensionId
+        ? `&dimensions[0][id]=${encodeURIComponent(dimensionId)}`
+        : "";
 
   const { data, isLoading, error } = useApi<{ timeSeries: MetricTimeSeries[] }>(
-    `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${encodeURIComponent(metricId)}`,
+    `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${encodeURIComponent(metricId)}${dimensionQuery}`,
     { shouldRun: () => !preloadedTimeSeries },
   );
 
   const filteredMetricTimeSeries = useMemo(() => {
     if (preloadedTimeSeries) return [preloadedTimeSeries];
-    return filterInvalidMetricTimeSeries(data?.timeSeries || []);
-  }, [data, preloadedTimeSeries]);
+    const all = filterInvalidMetricTimeSeries(data?.timeSeries || []);
+    if (!dimensionId) {
+      return all.filter((t) => !t.dimensionId);
+    }
+    if (dimensionValue === undefined) {
+      return all.filter((t) => t.dimensionId === dimensionId);
+    }
+    return all.filter(
+      (t) =>
+        t.dimensionId === dimensionId && t.dimensionValue === dimensionValue,
+    );
+  }, [data, preloadedTimeSeries, dimensionId, dimensionValue]);
 
   if (unavailableMessage) {
     return <Message height="70px">{unavailableMessage}</Message>;
@@ -329,7 +351,9 @@ function ExperimentMetricTimeSeriesGraphWrapper({
           : getExperimentMetricFormatter(
               metric,
               getFactTableById,
-              displayDifferenceType === "absolute" ? "percentagePoints" : "number",
+              displayDifferenceType === "absolute"
+                ? "percentagePoints"
+                : "number",
             )
       }
       statsEngine={statsEngine}

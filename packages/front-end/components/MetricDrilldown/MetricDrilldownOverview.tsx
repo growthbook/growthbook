@@ -19,6 +19,7 @@ import Link from "@/ui/Link";
 import VariationStatsTable from "@/ui/VariationStatsTable";
 import { MetricDrilldownMetadata } from "./MetricDrilldownMetadata";
 import MetricDrilldownMetricCard from "./MetricDrilldownMetricCard";
+import { type DrilldownDimensionInfo } from "./useMetricDrilldownContext";
 
 interface MetricDrilldownOverviewProps {
   row: ExperimentTableRow;
@@ -45,6 +46,7 @@ interface MetricDrilldownOverviewProps {
   lookbackOverride?: LookbackOverride;
   timeSeriesMessage?: string;
   preloadedTimeSeries?: MetricTimeSeries;
+  dimensionInfo?: DrilldownDimensionInfo;
 }
 
 function MetricDrilldownOverview({
@@ -72,6 +74,7 @@ function MetricDrilldownOverview({
   lookbackOverride,
   timeSeriesMessage,
   preloadedTimeSeries,
+  dimensionInfo,
 }: MetricDrilldownOverviewProps) {
   const [statsExpanded, setStatsExpanded] = useState(false);
   const { isAuthenticated } = useAuth();
@@ -147,6 +150,8 @@ function MetricDrilldownOverview({
         }
         timeSeriesMessage={timeSeriesMessage}
         preloadedTimeSeries={preloadedTimeSeries}
+        dimensionId={dimensionInfo?.id}
+        dimensionValue={dimensionInfo?.rawValue}
         snapshot={snapshot}
         analysis={analysis}
         setAnalysisSettings={setAnalysisSettings}

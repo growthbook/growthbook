@@ -98,6 +98,22 @@ function formatSimpleScheduleLabel(rs: RampScheduleInterface): string {
   return "USING SCHEDULE";
 }
 
+function getRampEnableDate(
+  rampSchedule: RampScheduleInterface | undefined,
+): Date | null {
+  if (!rampSchedule) return null;
+  const { status, startDate } = rampSchedule;
+  if (!startDate) return null;
+  const d = new Date(startDate);
+  if (
+    (status === "ready" || status === "pending") &&
+    d.getTime() > Date.now()
+  ) {
+    return d;
+  }
+  return null;
+}
+
 export function formatRemainingDuration(totalSeconds: number): string {
   if (totalSeconds < 60) return `${Math.round(totalSeconds)}s`;
   const minutes = totalSeconds / 60;
@@ -267,6 +283,30 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const [rampApproveLoading, setRampApproveLoading] = useState(false);
     const [rampApproveError, setRampApproveError] = useState("");
 
+    const toggleRuleEnabled = async () => {
+      setDropdownOpen(false);
+      track(rule.enabled ? "Disable Feature Rule" : "Enable Feature Rule", {
+        ruleIndex: i,
+        environment,
+        type: rule.type,
+      });
+      const res = await apiCall<{ version: number }>(
+        `/feature/${feature.id}/${version}/rule`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            ruleId: rule.id,
+            rule: {
+              ...rule,
+              enabled: !rule.enabled,
+            },
+          }),
+        },
+      );
+      await mutate();
+      res.version && setVersion(res.version);
+    };
+
     const attributeMap = useAttributeMap(feature.project);
     const attributesWithVersionStringOperatorMismatches =
       getAttributesWithVersionStringMismatches(
@@ -330,6 +370,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       experimentsMap,
       isDraft,
       unreachable,
+      rampSchedule,
     });
 
     if (hideInactive && isInactive) {
@@ -589,34 +630,25 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuItem
-                      onClick={async () => {
-                        track(
-                          rule.enabled
-                            ? "Disable Feature Rule"
-                            : "Enable Feature Rule",
-                          {
-                            ruleIndex: i,
-                            environment,
-                            type: rule.type,
-                          },
-                        );
-                        const res = await apiCall<{ version: number }>(
-                          `/feature/${feature.id}/${version}/rule`,
-                          {
-                            method: "PUT",
-                            body: JSON.stringify({
-                              ruleId: rule.id,
-                              rule: {
-                                ...rule,
-                                enabled: !rule.enabled,
-                              },
-                            }),
-                          },
-                        );
-                        await mutate();
-                        res.version && setVersion(res.version);
-                        setDropdownOpen(false);
-                      }}
+                      onClick={
+                        !rule.enabled && getRampEnableDate(rampSchedule)
+                          ? undefined
+                          : toggleRuleEnabled
+                      }
+                      confirmation={(() => {
+                        const d = !rule.enabled
+                          ? getRampEnableDate(rampSchedule)
+                          : null;
+                        if (!d) return undefined;
+                        return {
+                          confirmationTitle: "Enable rule now?",
+                          getConfirmationContent: async () =>
+                            `This rule is scheduled to go live on ${fmtScheduleDate(d)}. Enabling now bypasses the schedule and will set the rule live immediately.`,
+                          cta: "Enable now",
+                          ctaColor: "violet",
+                          submit: toggleRuleEnabled,
+                        };
+                      })()}
                     >
                       {rule.enabled ? "Disable" : "Enable"}
                     </DropdownMenuItem>
@@ -1301,11 +1333,13 @@ export function getRuleMetaInfo({
   experimentsMap,
   isDraft,
   unreachable,
+  rampSchedule,
 }: {
   rule: FeatureRule;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   isDraft: boolean;
   unreachable?: boolean;
+  rampSchedule?: RampScheduleInterface;
 }): RuleMetaInfo {
   const linkedExperiment =
     rule.type === "experiment-ref"
@@ -1326,6 +1360,24 @@ export function getRuleMetaInfo({
     rule.scheduleRules.at(-1)?.timestamp !== null;
 
   if (!rule.enabled) {
+    const rampEnableDate = getRampEnableDate(rampSchedule);
+    if (rampEnableDate) {
+      return {
+        pill: (
+          <Badge
+            color="gray"
+            title={`Rule will be enabled by its schedule on ${rampEnableDate.toLocaleDateString()}`}
+            label={
+              <>
+                <RxCircleBackslash />
+                Disabled &middot; enables {fmtScheduleDate(rampEnableDate)}
+              </>
+            }
+          />
+        ),
+        sideColor: "disabled",
+      };
+    }
     return {
       pill: (
         <Badge

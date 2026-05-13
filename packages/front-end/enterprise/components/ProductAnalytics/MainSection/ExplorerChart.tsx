@@ -310,9 +310,15 @@ export default function ExplorerChart({
         rotate: isHorizontalBar ? 0 : -45,
         hideOverlap: true,
       },
-      axisPointer: axisPointerLabelFormatter
-        ? { label: { formatter: axisPointerLabelFormatter } }
-        : undefined,
+      // Only attach the axisPointer key when we actually have a formatter to
+      // apply. Setting `axisPointer: undefined` overwrites ECharts' default
+      ...(axisPointerLabelFormatter
+        ? {
+            axisPointer: {
+              label: { formatter: axisPointerLabelFormatter },
+            },
+          }
+        : {}),
       splitLine: { lineStyle: { color: gridLineColor, width: 1 } },
     };
 

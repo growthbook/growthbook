@@ -623,8 +623,9 @@ export async function putMember(
   }
 
   try {
+    const reqEmailLower = req.email.toLowerCase();
     const invite: Invite | undefined = organization.invites.find(
-      (inv) => inv.email === req.email,
+      (inv) => inv.email.toLowerCase() === reqEmailLower,
     );
     if (invite) {
       // if user already invited, accept invite
@@ -903,7 +904,6 @@ export async function getOrganization(
     : invites.map((i) => ({ email: i.email }));
 
   // Some other global org data needed by the front-end
-  const apiKeys = await context.models.apiKeys.getAll();
   const enterpriseSSO = isEnterpriseSSO(req.loginMethod)
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
@@ -937,7 +937,6 @@ export async function getOrganization(
 
   return res.status(200).json({
     status: 200,
-    apiKeys,
     enterpriseSSO,
     accountPlan: getAccountPlan(org),
     effectiveAccountPlan: getEffectiveAccountPlan(org),

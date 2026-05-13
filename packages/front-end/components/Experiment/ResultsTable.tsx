@@ -133,6 +133,8 @@ export type ResultsTableProps = {
   onVisibleTimeSeriesRowIdsChange?: (ids: string[]) => void;
   timeSeriesMessage?: string;
   preloadedTimeSeries?: MetricTimeSeries;
+  dimensionId?: string;
+  dimensionValue?: string;
 };
 
 const ROW_HEIGHT = 46;
@@ -203,6 +205,8 @@ export default function ResultsTable({
   onVisibleTimeSeriesRowIdsChange,
   timeSeriesMessage,
   preloadedTimeSeries,
+  dimensionId,
+  dimensionValue,
 }: ResultsTableProps) {
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
@@ -1309,7 +1313,11 @@ export default function ResultsTable({
                                           sliceId={row.sliceId}
                                           baselineRow={baselineRow}
                                           unavailableMessage={timeSeriesMessage}
-                                          preloadedTimeSeries={preloadedTimeSeries}
+                                          preloadedTimeSeries={
+                                            preloadedTimeSeries
+                                          }
+                                          dimensionId={dimensionId}
+                                          dimensionValue={dimensionValue}
                                         />
                                       </div>
                                     </div>

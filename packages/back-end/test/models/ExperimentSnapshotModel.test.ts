@@ -10,6 +10,7 @@ import {
   createExperimentSnapshotModel,
   updateSnapshot,
   addOrUpdateSnapshotAnalysis,
+  addOrUpdateSnapshotMultipleAnalysis,
   updateSnapshotAnalysis,
   findSnapshotById,
 } from "back-end/src/models/ExperimentSnapshotModel";
@@ -20,6 +21,7 @@ import { ExperimentSnapshotAnalysisChunkModel } from "back-end/src/models/Experi
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
+import { runEagerPrecomputedDimensionAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
@@ -36,6 +38,10 @@ jest.mock("back-end/src/services/experimentNotifications", () => ({
 
 jest.mock("back-end/src/services/experimentTimeSeries", () => ({
   updateExperimentTimeSeries: jest.fn(),
+}));
+
+jest.mock("back-end/src/services/experimentDimensionAnalyses", () => ({
+  runEagerPrecomputedDimensionAnalyses: jest.fn().mockResolvedValue(undefined),
 }));
 
 const snapshotTestContext = {
@@ -727,6 +733,27 @@ describe("ExperimentSnapshotModel", () => {
   });
 
   describe("updateSnapshot", () => {
+    function mockSuccessfulExperimentLoad(
+      experimentId: string,
+      phases: unknown[] = [{}],
+    ) {
+      const experiment = {
+        id: experimentId,
+        phases,
+        analysisSummary: undefined,
+      };
+      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
+      (updateExperimentAnalysisSummary as jest.Mock).mockResolvedValue(
+        experiment,
+      );
+      (notifyExperimentChange as jest.Mock).mockResolvedValue([]);
+      (updateExperimentTimeSeries as jest.Mock).mockResolvedValue(undefined);
+      (runEagerPrecomputedDimensionAnalyses as jest.Mock).mockResolvedValue(
+        undefined,
+      );
+      return experiment;
+    }
+
     it("passes populated chunked analyses to post-success side effects", async () => {
       const context = getSnapshotUpdateContext();
       const experimentId = "exp_chunked_results";
@@ -828,6 +855,154 @@ describe("ExperimentSnapshotModel", () => {
         passedSnapshot.analyses[0].results[0].variations[1].metrics.met_1.value,
       ).toBe(15);
       expect(populateChunkedAnalysesSpy).not.toHaveBeenCalled();
+    });
+
+    it("runs eager dimension analyses for latest standard dimensionless success snapshots with populated analyses", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_eager_success");
+      snapshot.type = "standard";
+      snapshot.settings = {
+        ...snapshot.settings,
+        dimensions: [{ id: "precomputed:country" }],
+      };
+      mockSuccessfulExperimentLoad(snapshot.experiment);
+
+      await createExperimentSnapshotModel({ data: snapshot, context });
+
+      const analysis = makeAnalysis({
+        settings: makeAnalysisSettings(),
+        value: 10,
+      });
+
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: {
+          status: "success",
+          analyses: [analysis],
+        },
+      });
+
+      expect(runEagerPrecomputedDimensionAnalyses).toHaveBeenCalledTimes(1);
+      expect(runEagerPrecomputedDimensionAnalyses).toHaveBeenCalledWith({
+        context,
+        experiment: expect.objectContaining({ id: snapshot.experiment }),
+        experimentSnapshot: expect.objectContaining({
+          id: snapshot.id,
+          analyses: expect.arrayContaining([
+            expect.objectContaining({
+              results: expect.arrayContaining([
+                expect.objectContaining({ variations: expect.any(Array) }),
+              ]),
+            }),
+          ]),
+        }),
+      });
+    });
+
+    it.each([
+      {
+        label: "non-success",
+        snapshot: { type: "standard" as const, dimension: null, phase: 0 },
+        updates: { status: "error" as const },
+        phases: [{}],
+      },
+      {
+        label: "non-latest",
+        snapshot: { type: "standard" as const, dimension: null, phase: 0 },
+        updates: {
+          status: "success" as const,
+          analyses: [
+            makeAnalysis({
+              settings: makeAnalysisSettings(),
+              value: 10,
+            }),
+          ],
+        },
+        phases: [{}, {}],
+      },
+      {
+        label: "report",
+        snapshot: { type: "report" as const, dimension: null, phase: 0 },
+        updates: {
+          status: "success" as const,
+          analyses: [
+            makeAnalysis({
+              settings: makeAnalysisSettings(),
+              value: 10,
+            }),
+          ],
+        },
+        phases: [{}],
+      },
+      {
+        label: "exploratory",
+        snapshot: { type: "exploratory" as const, dimension: null, phase: 0 },
+        updates: {
+          status: "success" as const,
+          analyses: [
+            makeAnalysis({
+              settings: makeAnalysisSettings(),
+              value: 10,
+            }),
+          ],
+        },
+        phases: [{}],
+      },
+    ])(
+      "does not run eager dimension analyses for $label updates",
+      async (testCase) => {
+        const context = getSnapshotUpdateContext();
+        const snapshot = makeSnapshotWithMetric(`snp_eager_${testCase.label}`);
+        snapshot.type = testCase.snapshot.type;
+        snapshot.dimension = testCase.snapshot.dimension;
+        snapshot.phase = testCase.snapshot.phase;
+        snapshot.settings = {
+          ...snapshot.settings,
+          dimensions: [{ id: "precomputed:country" }],
+        };
+        mockSuccessfulExperimentLoad(snapshot.experiment, testCase.phases);
+
+        await createExperimentSnapshotModel({ data: snapshot, context });
+
+        await updateSnapshot({
+          context,
+          id: snapshot.id,
+          updates: testCase.updates,
+        });
+
+        expect(runEagerPrecomputedDimensionAnalyses).not.toHaveBeenCalled();
+      },
+    );
+
+    it("does not rerun eager dimension analyses for metadata-only updates", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_eager_metadata");
+      snapshot.type = "standard";
+      snapshot.status = "success";
+      snapshot.settings = {
+        ...snapshot.settings,
+        dimensions: [{ id: "precomputed:country" }],
+      };
+      snapshot.analyses = [
+        makeAnalysis({
+          settings: makeAnalysisSettings(),
+          value: 10,
+        }),
+      ];
+      mockSuccessfulExperimentLoad(snapshot.experiment);
+
+      await createExperimentSnapshotModel({ data: snapshot, context });
+
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: {
+          multipleExposures: 1,
+        },
+      });
+
+      expect(runEagerPrecomputedDimensionAnalyses).not.toHaveBeenCalled();
     });
 
     it("preserves distinct analysisKeys when multiple analyses share identical settings", async () => {
@@ -947,6 +1122,49 @@ describe("ExperimentSnapshotModel", () => {
       expect(chunks).toHaveLength(1);
       expect(chunks[0].id).toBe(initialChunks[0].id);
       expect(chunks[0].metricId).toBe("met_1");
+    });
+
+    it("writes multiple completed analyses through the plural wrapper", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_update_many_analysis");
+      const relativeSettings = makeAnalysisSettings({
+        differenceType: "relative",
+        dimensions: ["precomputed:country"],
+      });
+      const absoluteSettings = makeAnalysisSettings({
+        differenceType: "absolute",
+        dimensions: ["precomputed:country"],
+      });
+      const scaledSettings = makeAnalysisSettings({
+        differenceType: "scaled",
+        dimensions: ["precomputed:country"],
+      });
+
+      await createExperimentSnapshotModel({ data: snapshot, context });
+      await addOrUpdateSnapshotMultipleAnalysis({
+        context,
+        id: snapshot.id,
+        analyses: [
+          makeAnalysis({ settings: relativeSettings, value: 10 }),
+          makeAnalysis({ settings: absoluteSettings, value: 20 }),
+          makeAnalysis({ settings: scaledSettings, value: 30 }),
+        ],
+      });
+
+      const result = await findSnapshotById(context, snapshot.id);
+      expect(result?.analyses).toHaveLength(3);
+      expect(
+        result?.analyses.find((a) => a.settings.differenceType === "relative")
+          ?.results[0].variations[0].metrics.met_1.value,
+      ).toBe(10);
+      expect(
+        result?.analyses.find((a) => a.settings.differenceType === "absolute")
+          ?.results[0].variations[0].metrics.met_1.value,
+      ).toBe(20);
+      expect(
+        result?.analyses.find((a) => a.settings.differenceType === "scaled")
+          ?.results[0].variations[0].metrics.met_1.value,
+      ).toBe(30);
     });
 
     it("skips chunk rewrites for a new empty running analysis", async () => {
@@ -1398,6 +1616,51 @@ describe("ExperimentSnapshotModel", () => {
       expect(chunks).toHaveLength(1);
       // Every sub-path that matters (i.e., has matching meta) decodes
       // correctly; orphan sub-paths with no meta entry are ignored.
+      expect(chunks[0].data[survivingKey]?.numRows).toBe(2);
+    });
+
+    it("deduplicates to one analysis when plural writers race on the same settings", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_race_same_settings_plural");
+      await createExperimentSnapshotModel({ data: snapshot, context });
+
+      const settings = makeAnalysisSettings({
+        differenceType: "relative",
+        dimensions: ["precomputed:country"],
+      });
+
+      await Promise.all([
+        addOrUpdateSnapshotMultipleAnalysis({
+          context,
+          id: snapshot.id,
+          analyses: [makeAnalysis({ settings, value: 10 })],
+        }),
+        addOrUpdateSnapshotMultipleAnalysis({
+          context,
+          id: snapshot.id,
+          analyses: [makeAnalysis({ settings, value: 20 })],
+        }),
+      ]);
+
+      const result = await findSnapshotById(context, snapshot.id);
+      expect(result?.analyses).toHaveLength(1);
+
+      const survivingKey = result?.analyses[0].analysisKey as string;
+      expect(Object.keys(result?.chunkedAnalysesMeta ?? {})).toEqual([
+        survivingKey,
+      ]);
+      expect(
+        result?.analyses[0].results[0].variations[0].metrics.met_1.value,
+      ).toEqual(expect.any(Number));
+      expect([10, 20]).toContain(
+        result?.analyses[0].results[0].variations[0].metrics.met_1.value ?? -1,
+      );
+
+      const chunks =
+        await context.models.experimentSnapshotAnalysisChunks.getAllChunksForSnapshot(
+          snapshot.id,
+        );
+      expect(chunks).toHaveLength(1);
       expect(chunks[0].data[survivingKey]?.numRows).toBe(2);
     });
 

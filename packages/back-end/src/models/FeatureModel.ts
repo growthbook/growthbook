@@ -61,6 +61,7 @@ import {
   ensureUniqueRuleIds,
   flattenV1ToV2Rules,
   getApplicableEnvIds,
+  isPlausibleFeatureRule,
   V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
 import { ReqContext } from "back-end/types/request";
@@ -283,20 +284,32 @@ export function migrateRawFeatureToV2(
     // docs silently lose rules in child envs (origin/main applied inheritance
     // at read time on the per-env shape). Top-level legacy `rules` cruft has
     // already been folded into per-env settings above where applicable.
+    //
+    // `isPlausibleFeatureRule` filters sparse `null`/`undefined` array slots
+    // — Mongoose `Mixed` storage doesn't enforce shape, and pre-v2 docs
+    // occasionally landed with corrupt entries that would otherwise crash
+    // every downstream `.type`/`.id`/`.environments` access (the
+    // "Cannot read properties of undefined (reading 'type')" publish crash).
+    // Orphan env IDs are intentionally preserved on the output rules so the
+    // UI's `RuleEnvScopeBadges` can render them as struck-through amber pills.
     const inheritedSettings = applyEnvironmentInheritance(orgEnvs, envSettings);
     const rulesByEnv: V1RulesByEnv = {};
     for (const [envId, envObj] of Object.entries(inheritedSettings)) {
-      rulesByEnv[envId] = (envObj?.rules || []).map((r) => {
-        const upgraded = upgradeFeatureRule(r as FeatureRule) as V1FeatureRule;
-        // Legacy rules occasionally land here without an id; without one
-        // `flattenV1ToV2Rules` would skip them. Hash from content so the
-        // synthesized id is stable across re-reads and identical-content
-        // rules across envs still merge.
-        if (!upgraded.id) {
-          upgraded.id = synthesizeRuleId(upgraded);
-        }
-        return upgraded;
-      });
+      rulesByEnv[envId] = (envObj?.rules || [])
+        .filter(isPlausibleFeatureRule)
+        .map((r) => {
+          const upgraded = upgradeFeatureRule(
+            r as FeatureRule,
+          ) as V1FeatureRule;
+          // Legacy rules occasionally land here without an id; without one
+          // `flattenV1ToV2Rules` would skip them. Hash from content so the
+          // synthesized id is stable across re-reads and identical-content
+          // rules across envs still merge.
+          if (!upgraded.id) {
+            upgraded.id = synthesizeRuleId(upgraded);
+          }
+          return upgraded;
+        });
     }
     const applicableEnvs = getApplicableEnvIds(orgEnvs, postV0Doc.project);
     const v2 = postV0Doc as unknown as FeatureInterface;
@@ -328,7 +341,7 @@ export function migrateRawFeatureToV2(
     orgEnvs,
     originalEnvSettings,
   );
-  v2.rules = (v2.rules || []).map((r) => {
+  v2.rules = (v2.rules || []).filter(isPlausibleFeatureRule).map((r) => {
     const upgraded = upgradeFeatureRule(r as FeatureRule);
     // Defensive — v2 docs we author always carry ids, but imports and
     // hand-edited backups can land here unstamped.
@@ -399,9 +412,17 @@ export function buildFeatureUpdate<
 
   // `allEnvironments: true` is wildcard at runtime; strip any stale
   // `environments` list so the on-disk doc stays consistent with the model.
+  // Also drop nullish slots at this write chokepoint so a regression in any
+  // upstream filter (autoMerge, normalizeRulesInputToV2, JIT migration) can't
+  // re-persist `null`/`undefined` rules to disk and resurrect the
+  // "Cannot read properties of undefined (reading 'type')" publish crash.
   if (Array.isArray(next.rules)) {
-    const normalized = (next.rules as FeatureRule[]).map((r) => {
-      if (r?.allEnvironments && Array.isArray(r.environments)) {
+    const inputRules = next.rules as FeatureRule[];
+    const filtered = inputRules.filter(
+      (r): r is FeatureRule => r != null && typeof r === "object",
+    );
+    const normalized = filtered.map((r) => {
+      if (r.allEnvironments && Array.isArray(r.environments)) {
         return {
           ...omit(r, ["environments"]),
           allEnvironments: true,
@@ -409,9 +430,9 @@ export function buildFeatureUpdate<
       }
       return r;
     });
-    const changed = normalized.some(
-      (r, i) => r !== (next.rules as FeatureRule[])[i],
-    );
+    const changed =
+      filtered.length !== inputRules.length ||
+      normalized.some((r, i) => r !== filtered[i]);
     if (changed) next = { ...next, rules: normalized } as T;
   }
 

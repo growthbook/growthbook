@@ -26,7 +26,9 @@ import {
   ensureUniqueRuleIds,
   flattenV1ToV2Rules,
   getApplicableEnvIds,
+  isPlausibleFeatureRule,
   isV2RevisionRules,
+  narrowRuleToApplicableEnvs,
   V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
 import { upgradeFeatureRule } from "back-end/src/util/migrations";
@@ -38,6 +40,7 @@ import {
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { logger } from "back-end/src/util/logger";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
+import { createWithVersionRetry } from "back-end/src/util/mongo.util";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { migrateRampScheduleEndCondition } from "./RampScheduleModel";
 
@@ -155,8 +158,11 @@ export function buildFeatureRevisionInterface(
     // rules; inheritance expansion adds any parent->child env propagation
     // missed at write time; `narrowRuleToApplicableEnvs` strips
     // non-applicable envs and collapses fully-orphaned rules to the no-env
-    // pending state instead of dropping them.
+    // pending state instead of dropping them. The `isPlausibleFeatureRule`
+    // filter drops sparse `null`/`undefined` array entries so a single
+    // corrupt slot can't abort the entire migration.
     revision.rules = rawRules
+      .filter(isPlausibleFeatureRule)
       .map((r) => upgradeFeatureRule(r))
       .map((r) => expandRuleEnvsForInheritance(r, childrenByAncestor))
       .map((r) => narrowRuleToApplicableEnvs(r, applicableSet));
@@ -169,9 +175,9 @@ export function buildFeatureRevisionInterface(
     const inheritedRecord = applyEnvironmentInheritance(orgEnvs, v1Record);
     const upgraded: V1RulesByEnv = {};
     for (const [envId, envRules] of Object.entries(inheritedRecord)) {
-      upgraded[envId] = (envRules || []).map(
-        (r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule,
-      );
+      upgraded[envId] = (envRules || [])
+        .filter(isPlausibleFeatureRule)
+        .map((r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule);
     }
     revision.rules = flattenV1ToV2Rules(upgraded, {
       envOrder: orgEnvs.map((e) => e.id),
@@ -194,38 +200,6 @@ export function buildFeatureRevisionInterface(
   }
 
   return revision;
-}
-
-// Strip a v2 rule's non-applicable envs. When every env is non-applicable
-// (env removed from project, env deleted from org), collapse to the
-// no-env "pending" state (`environments: []`, `allEnvironments: false`)
-// rather than dropping the rule — preserves the rule body so a publish
-// during the orphaned period doesn't silently delete it. The UI surfaces
-// these as a red "No environments" badge.
-function narrowRuleToApplicableEnvs(
-  rule: FeatureRule,
-  applicableSet: Set<string>,
-): FeatureRule {
-  if (rule.allEnvironments) {
-    if (applicableSet.size === 0) {
-      return {
-        ...rule,
-        allEnvironments: false,
-        environments: [],
-      } as FeatureRule;
-    }
-    return rule;
-  }
-  if (rule.environments === undefined) {
-    if (applicableSet.size === 0) {
-      return { ...rule, environments: [] } as FeatureRule;
-    }
-    return rule;
-  }
-  if (rule.environments.length === 0) return rule;
-  const filtered = rule.environments.filter((e) => applicableSet.has(e));
-  if (filtered.length === rule.environments.length) return rule;
-  return { ...rule, environments: filtered } as FeatureRule;
 }
 
 // Mongoose wrapper over `buildFeatureRevisionInterface`.
@@ -600,15 +574,17 @@ export function normalizeRulesInputToV2(
 
   let flat: FeatureRule[];
   if (isV2RevisionRules(rulesInput)) {
-    flat = rulesInput.map((r) => upgradeFeatureRule(r));
+    flat = rulesInput
+      .filter(isPlausibleFeatureRule)
+      .map((r) => upgradeFeatureRule(r));
   } else {
     const record = rulesInput as Record<string, FeatureRule[] | undefined>;
     const inheritedRecord = applyEnvironmentInheritance(opts.orgEnvs, record);
     const upgraded: V1RulesByEnv = {};
     for (const [envId, envRules] of Object.entries(inheritedRecord)) {
-      upgraded[envId] = (envRules || []).map(
-        (r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule,
-      );
+      upgraded[envId] = (envRules || [])
+        .filter(isPlausibleFeatureRule)
+        .map((r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule);
     }
     const applicableEnvs = getApplicableEnvIds(
       opts.orgEnvs,
@@ -641,9 +617,9 @@ export async function createInitialRevision(
   environments: string[],
   date?: Date,
 ) {
-  const rules: FeatureRule[] = (feature.rules ?? []).map((r) =>
-    upgradeFeatureRule(r),
-  );
+  const rules: FeatureRule[] = (feature.rules ?? [])
+    .filter(isPlausibleFeatureRule)
+    .map((r) => upgradeFeatureRule(r));
   const environmentsEnabled: Record<string, boolean> = {};
   environments.forEach((env) => {
     environmentsEnabled[env] =
@@ -734,7 +710,11 @@ export async function createRevision({
   org: OrganizationInterface;
   canBypassApprovalChecks?: boolean;
 }) {
-  // Get max version number
+  // Read once to (a) seed the baseVersion default, (b) compute the initial
+  // version guess used for validation hooks, and (c) prime the first attempt
+  // of the retry loop below. The version is reassigned inside
+  // `createWithVersionRetry` on retry so concurrent creates can't collide
+  // on the (organization, featureId, version) unique index.
   const lastRevision = await getLastRevision(context, feature);
   const newVersion = lastRevision ? lastRevision.version + 1 : 1;
 
@@ -749,7 +729,9 @@ export async function createRevision({
           orgEnvs: getEnvironments(context.org),
           featureProject: feature.project,
         })
-      : (feature.rules ?? []).map((r) => upgradeFeatureRule(r));
+      : (feature.rules ?? [])
+          .filter(isPlausibleFeatureRule)
+          .map((r) => upgradeFeatureRule(r));
 
   // All fields are always written as a complete snapshot so revisions are
   // self-contained and HEAD can be set to any revision without base traversal.
@@ -805,6 +787,9 @@ export async function createRevision({
     throw new Error("can not find a base revision");
   }
   const status = "draft";
+  // Version is initially set to the best-guess `newVersion` so validation
+  // hooks see a realistic value. On a duplicate-key collision the retry loop
+  // below reassigns it before the actual insert.
   const revision = {
     organization: feature.organization,
     featureId: feature.id,
@@ -842,6 +827,9 @@ export async function createRevision({
     revision.status = "pending-review";
   }
 
+  // Validation hooks (no-op on cloud; custom user code on self-hosted) MUST
+  // run exactly once — keep them outside the retry loop so a duplicate-key
+  // race never causes a hook to fire twice.
   await runValidateFeatureRevisionHooks({
     context,
     feature,
@@ -849,7 +837,20 @@ export async function createRevision({
     original: baseRevision,
   });
 
-  const doc = await FeatureRevisionModel.create(revision);
+  // Retry the insert on duplicate-key collisions from the
+  // (organization, featureId, version) unique index. The first attempt uses
+  // the already-assigned `newVersion`; on retry we re-read the max version
+  // to pick up the concurrent insert that won the previous race, then
+  // reassign `revision.version` before retrying.
+  let firstAttempt = true;
+  const doc = await createWithVersionRetry(async () => {
+    if (!firstAttempt) {
+      const latest = await getLastRevision(context, feature);
+      revision.version = latest ? latest.version + 1 : 1;
+    }
+    firstAttempt = false;
+    return FeatureRevisionModel.create(revision);
+  });
 
   // Fire and forget - no route that creates the revision expects the log to be there immediately
   context.models.featureRevisionLogs

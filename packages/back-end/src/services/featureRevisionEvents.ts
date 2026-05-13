@@ -48,10 +48,14 @@ export function deriveRevisionEventEnvironments(
     rawEnvironments = overrideEnvironments;
   } else if (Array.isArray(revision.rules) && revision.rules.length > 0) {
     // Union of each rule's scope. `allEnvironments: true` expands to the
-    // feature's applicable envs, not every org env.
+    // feature's applicable envs, not every org env. Nullish slots (sparse
+    // pre-v2 docs) are skipped defensively — JIT-boundary filters already
+    // drop them, but this loop fans out into event dispatch so a guard here
+    // protects against any future regression.
     const applicableEnvs = getApplicableEnvIds(orgEnvs, featureProject);
     const declared = new Set<string>();
     for (const rule of revision.rules) {
+      if (rule == null || typeof rule !== "object") continue;
       if (rule.allEnvironments) {
         applicableEnvs.forEach((e) => declared.add(e));
       } else if (rule.environments?.length) {
