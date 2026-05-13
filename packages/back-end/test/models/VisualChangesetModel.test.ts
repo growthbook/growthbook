@@ -238,5 +238,44 @@ describe("updateVisualChangeset", () => {
         ]);
       });
     });
+    describe("and incoming updates include a disallowed organization field", () => {
+      const updateFn = jest
+        .spyOn(VisualChangesetModel, "updateOne")
+        .mockResolvedValue({
+          acknowledged: true,
+          matchedCount: 1,
+          modifiedCount: 1,
+          upsertedCount: 0,
+          upsertedId: null,
+        });
+
+      it("should not write disallowed fields to the visual changeset", async () => {
+        const updates = {
+          editorUrl: "https://editor2.url",
+          organization: "org_attack",
+        } as unknown as Parameters<typeof updateVisualChangeset>[0]["updates"];
+
+        await updateVisualChangeset({
+          visualChangeset,
+          // @ts-expect-error TODO
+          experiment,
+          updates,
+          context,
+        });
+
+        expect(updateFn).toHaveBeenCalledWith(
+          {
+            id: visualChangeset.id,
+            organization: context.org.id,
+          },
+          {
+            $set: {
+              editorUrl: "https://editor2.url",
+              visualChanges: visualChangeset.visualChanges,
+            },
+          },
+        );
+      });
+    });
   });
 });
