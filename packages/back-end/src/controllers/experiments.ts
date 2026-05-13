@@ -1061,6 +1061,7 @@ export async function postExperiments(
       allowDuplicateTrackingKey?: boolean;
       originalId?: string;
       autoRefreshResults?: boolean;
+      allowSameSeedAsOriginal?: boolean;
     }
   >,
   res: Response<
@@ -1212,7 +1213,7 @@ export async function postExperiments(
   // The NewExperimentForm should already have cleared the seed, but this
   // ensures that the seed is always removed when duplicating an
   // experiment.
-  if (req.query.originalId) {
+  if (req.query.originalId && !req.query.allowSameSeedAsOriginal) {
     obj.phases = obj.phases.map((phase) => {
       return {
         ...phase,
