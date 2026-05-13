@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useRef } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import type {
@@ -305,6 +305,32 @@ export default function FunnelChart({
     yAxisScale,
   ]);
 
+  // Mirror legend toggles onto the matching low-opacity drop-off ghost so
+  // hiding a dimension also hides its previous-step shadow. The ghost
+  // series aren't in `legend.data`, so ECharts' default click handler
+  // doesn't reach them — we dispatch the action ourselves.
+  const chartRef = useRef<EChartsReact>(null);
+  const onEvents = useMemo(
+    () => ({
+      legendselectchanged: (params: {
+        name: string;
+        selected: Record<string, boolean>;
+      }) => {
+        const idx = sortedSeries.findIndex((s) => s.label === params.name);
+        if (idx === -1) return;
+        const instance = chartRef.current?.getEchartsInstance();
+        if (!instance) return;
+        instance.dispatchAction({
+          type: params.selected[params.name]
+            ? "legendSelect"
+            : "legendUnSelect",
+          name: `${DROPOFF_SERIES_PREFIX}${idx}`,
+        });
+      },
+    }),
+    [sortedSeries],
+  );
+
   if (!exploration || !stepNames.length) {
     return (
       <Flex
@@ -338,6 +364,7 @@ export default function FunnelChart({
   return (
     <Box style={{ flex: 1, minHeight: 0, position: "relative" }}>
       <EChartsReact
+        ref={chartRef}
         key={JSON.stringify(option)}
         option={{
           ...option,
@@ -351,6 +378,7 @@ export default function FunnelChart({
           },
         }}
         style={{ width: "100%", height: "100%" }}
+        onEvents={onEvents}
       />
     </Box>
   );
