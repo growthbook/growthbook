@@ -22,6 +22,53 @@ import { deriveUserIdTypesFromColumns } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 
 const JOB_NAME = "refreshFactTableColumns";
+
+export const MAX_COLUMNS_WITH_TOP_VALUES = 50;
+export const MAX_TOP_VALUE_LENGTH = 100;
+export const TOP_VALUES_CHUNK_SIZE = 25;
+
+// Selects the string columns on a fact table that should have topValues
+// populated. Columns explicitly opted-in via alwaysInlineFilter or
+// isAutoSliceColumn are always included.
+//
+// We then fill up to maxColumns total with additional eligible string columns
+// to give users dropdown filter pickers by default.
+//
+// The total cap keeps the stored fact-table document well under Mongo's
+// 16MB per-doc limit, and matching it to a multiple of TOP_VALUES_CHUNK_SIZE
+// avoids small trailing chunks in the batch query. Running top-values for every string column would
+// re-scan the fact table once per column, so we fall back to the legacy
+// behavior of only populating the explicitly-opted-in columns.
+export function selectColumnsForTopValues({
+  columns,
+  userIdTypes,
+  maxColumns = MAX_COLUMNS_WITH_TOP_VALUES,
+}: {
+  columns: ColumnInterface[];
+  userIdTypes: string[];
+  maxColumns?: number;
+}): ColumnInterface[] {
+  const factTableLike = { columns, userIdTypes };
+
+  const eligible = columns.filter(
+    (col) =>
+      col.datatype === "string" &&
+      !col.deleted &&
+      canInlineFilterColumn(factTableLike, col.column),
+  );
+
+  const alwaysCaptured = eligible.filter(
+    (c) => c.alwaysInlineFilter || c.isAutoSliceColumn,
+  );
+
+  const remainingSlots = Math.max(0, maxColumns - alwaysCaptured.length);
+  const newlyCaptured = eligible
+    .filter((c) => !c.alwaysInlineFilter && !c.isAutoSliceColumn)
+    .slice(0, remainingSlots);
+
+  return [...alwaysCaptured, ...newlyCaptured];
+}
+
 type RefreshFactTableColumnsJob = Job<{
   organization: string;
   factTableId: string;
@@ -97,6 +144,7 @@ export async function runColumnsTopValuesQuery(
       context.org.settings?.maxMetricSliceLevels ??
         DEFAULT_MAX_METRIC_SLICE_LEVELS,
     ),
+    maxValueLength: MAX_TOP_VALUE_LENGTH,
   });
   const result = await integration.runColumnsTopValuesQuery(sql);
 
@@ -273,8 +321,6 @@ export async function runRefreshColumnsQuery(
     }
   });
 
-  // Collect columns that need top values
-  const columnsNeedingTopValues: ColumnInterface[] = [];
   for (const col of columns) {
     if (col.numberFormat === undefined) {
       col.numberFormat = "";
@@ -282,19 +328,19 @@ export async function runRefreshColumnsQuery(
 
     if (col.datatype === "boolean" && col.isAutoSliceColumn) {
       col.autoSlices = ["true", "false"];
-    } else if (
-      (col.alwaysInlineFilter || col.isAutoSliceColumn) &&
-      canInlineFilterColumn(factTable, col.column) &&
-      col.datatype === "string"
-    ) {
-      columnsNeedingTopValues.push(col);
     }
   }
 
-  // Batch query for all columns that need top values, chunked into groups of 10
-  // to prevent returning more than 1k rows per update (10 columns * 100 values = 1000 rows max per chunk)
+  const columnsNeedingTopValues = selectColumnsForTopValues({
+    columns,
+    userIdTypes: factTable.userIdTypes,
+  });
+
+  // Batch query for all columns that need top values. Datasources
+  // scan the fact table once per chunk, so we batch aggressively (25
+  // columns * ~100 values = ~2500 rows per chunk).
   if (columnsNeedingTopValues.length > 0) {
-    const columnChunks = chunk(columnsNeedingTopValues, 10);
+    const columnChunks = chunk(columnsNeedingTopValues, TOP_VALUES_CHUNK_SIZE);
 
     for (const columnChunk of columnChunks) {
       try {
@@ -320,9 +366,13 @@ export async function runRefreshColumnsQuery(
           }
         }
       } catch (e) {
-        logger.error(e, "Error running top values query", {
-          columns: columnChunk.map((c) => c.column),
-        });
+        logger.error(
+          e,
+          `Error running top values query on ${datasource.type}`,
+          {
+            columns: columnChunk.map((c) => c.column),
+          },
+        );
       }
     }
   }

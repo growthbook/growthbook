@@ -1,9 +1,9 @@
 import { MemberRoleWithProjects } from "shared/types/organization";
 import { useForm } from "react-hook-form";
-import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import { Team } from "@/services/UserContext";
 import RoleSelector from "@/components/Settings/Team/RoleSelector";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export const PermissionsModal = ({
   team,
@@ -31,11 +31,11 @@ export const PermissionsModal = ({
   const { apiCall } = useAuth();
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       open={open}
       close={() => onClose()}
-      header={"Edit Team Permissions"}
+      header="Edit Team Permissions"
       submit={form.handleSubmit(async (value) => {
         await apiCall(`/teams/${team.id}`, {
           method: "PUT",
@@ -50,6 +50,6 @@ export const PermissionsModal = ({
         value={form.watch("roleInfo")}
         setValue={(value) => form.setValue("roleInfo", value)}
       />
-    </Modal>
+    </ModalStandard>
   );
 };

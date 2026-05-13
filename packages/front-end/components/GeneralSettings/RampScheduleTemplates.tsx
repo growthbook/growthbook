@@ -211,6 +211,7 @@ export default function RampScheduleTemplates() {
                 </Box>
                 {canDelete && (
                   <ConfirmButton
+                    isDestructive
                     onClick={async () => {
                       await apiCall(`/ramp-schedule-templates/${tmpl.id}`, {
                         method: "DELETE",
@@ -220,7 +221,6 @@ export default function RampScheduleTemplates() {
                     modalHeader="Delete Template"
                     confirmationText={`Delete "${tmpl.name}"? This cannot be undone.`}
                     cta="Delete"
-                    ctaColor="danger"
                   >
                     <IconButton
                       type="button"

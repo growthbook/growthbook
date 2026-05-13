@@ -5,6 +5,8 @@ import { isValidDataPoint } from "shared/util";
 import { getValidDate } from "shared/dates";
 import {
   metricTimeSeriesSchema,
+  metricTimeSeriesStripSchema,
+  metricTimeSeriesBaseModelSchema,
   MetricTimeSeries,
   CreateMetricTimeSeries,
   CreateMetricTimeSeriesSingleDataPoint,
@@ -12,8 +14,20 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { MakeModelClass } from "./BaseModel";
 
+// The unique fields for a given MetricTimeSeries
+// matches the unique index on BaseClass below
+type MetricTimeSeriesUniqueFields = Pick<
+  MetricTimeSeries,
+  | "source"
+  | "sourceId"
+  | "sourcePhase"
+  | "metricId"
+  | "dimensionId"
+  | "dimensionValue"
+>;
+
 const BaseClass = MakeModelClass({
-  schema: metricTimeSeriesSchema,
+  schema: metricTimeSeriesBaseModelSchema,
   collectionName: "metrictimeseries",
   idPrefix: "mts_",
   additionalIndexes: [
@@ -25,10 +39,15 @@ const BaseClass = MakeModelClass({
         sourceId: 1,
         sourcePhase: 1,
         metricId: 1,
+        dimensionId: 1,
+        dimensionValue: 1,
       },
     },
   ],
-  indexesToRemove: ["organization_1_source_1_sourceId_1_metricId_1"],
+  indexesToRemove: [
+    "organization_1_source_1_sourceId_1_metricId_1",
+    "organization_1_source_1_sourceId_1_sourcePhase_1_metricId_1",
+  ],
 });
 
 export class MetricTimeSeriesModel extends BaseClass {
@@ -51,33 +70,36 @@ export class MetricTimeSeriesModel extends BaseClass {
     sourceId,
     sourcePhase,
     metricIds,
+    dimensions,
   }: {
     source: MetricTimeSeries["source"];
     sourceId: MetricTimeSeries["sourceId"];
     sourcePhase: MetricTimeSeries["sourcePhase"];
     metricIds: Array<MetricTimeSeries["metricId"]>;
+    dimensions?: Array<{
+      id: string;
+      value?: string;
+    }>;
   }): Promise<MetricTimeSeries[]> {
-    const query: FilterQuery<MetricTimeSeries> = {
+    const query = this.getMetricTimeSeriesByMetricIdsQuery({
       source,
       sourceId,
-      metricId: { $in: metricIds },
-    };
+      sourcePhase,
+      metricIds,
+    });
 
-    // For experiments, ensure sourcePhase is always defined.
-    if (source === "experiment") {
-      if (sourcePhase !== undefined) {
-        query.sourcePhase = sourcePhase;
-      } else {
-        // If sourcePhase is undefined for an experiment, ensure we only get records with defined sourcePhase
-        query.sourcePhase = { $exists: true, $ne: null };
-      }
+    if (dimensions && dimensions.length > 0) {
+      query.$or = dimensions.map(({ id, value }) =>
+        value === undefined
+          ? { dimensionId: id }
+          : { dimensionId: id, dimensionValue: value },
+      );
     } else {
-      query.sourcePhase = sourcePhase;
+      query.dimensionId = { $in: [null, undefined] };
     }
 
     const results = await this._find(query);
-
-    return results;
+    return results.map((result) => metricTimeSeriesSchema.parse(result));
   }
 
   public async deleteAllBySource(
@@ -91,51 +113,129 @@ export class MetricTimeSeriesModel extends BaseClass {
     });
   }
 
-  public async findMany(
-    metricTimeSeriesIdentifiers: Pick<
-      MetricTimeSeries,
-      "source" | "sourceId" | "sourcePhase" | "metricId"
-    >[],
-  ) {
-    const metricTimeSeriesPerSource = new Map<
+  private async findExistingForUpsert(
+    metricTimeSeriesIdentifiers: MetricTimeSeriesUniqueFields[],
+  ): Promise<MetricTimeSeries[]> {
+    const groups = new Map<
       string,
       {
         source: MetricTimeSeries["source"];
         sourceId: MetricTimeSeries["sourceId"];
         sourcePhase: MetricTimeSeries["sourcePhase"];
+        dimensionId: MetricTimeSeries["dimensionId"];
+        dimensionValue: MetricTimeSeries["dimensionValue"];
+
+        // Note: the groups are well-defined by dimension and value, but we can
+        // handle multiple metricIds per group
         metricIds: MetricTimeSeries["metricId"][];
       }
     >();
 
     metricTimeSeriesIdentifiers.forEach((mts) => {
-      const sourceIdentifier = `${mts.source}::${mts.sourceId}::${mts.sourcePhase}`;
-      if (!metricTimeSeriesPerSource.has(sourceIdentifier)) {
-        metricTimeSeriesPerSource.set(sourceIdentifier, {
+      const groupIdentifier = JSON.stringify([
+        mts.source,
+        mts.sourceId,
+        mts.sourcePhase,
+        mts.dimensionId,
+        mts.dimensionValue,
+      ]);
+
+      const group = groups.get(groupIdentifier);
+      if (group) {
+        group.metricIds.push(mts.metricId);
+      } else {
+        groups.set(groupIdentifier, {
           source: mts.source,
           sourceId: mts.sourceId,
           sourcePhase: mts.sourcePhase,
+          dimensionId: mts.dimensionId,
+          dimensionValue: mts.dimensionValue,
           metricIds: [mts.metricId],
         });
-      } else {
-        metricTimeSeriesPerSource
-          .get(sourceIdentifier)!
-          .metricIds.push(mts.metricId);
       }
     });
 
-    const allPromises = Array.from(metricTimeSeriesPerSource.values()).map(
-      ({ source, sourceId, sourcePhase, metricIds }) =>
-        this.getBySourceAndMetricIds({
-          source,
-          sourceId,
-          sourcePhase,
-          metricIds,
-        }),
+    const allPromises = Array.from(groups.values()).map(
+      ({
+        source,
+        sourceId,
+        sourcePhase,
+        dimensionId,
+        dimensionValue,
+        metricIds,
+      }) =>
+        this._find(
+          this.getMetricTimeSeriesUpsertQuery({
+            source,
+            sourceId,
+            sourcePhase,
+            dimensionId,
+            dimensionValue,
+            metricIds,
+          }),
+        ),
     );
 
     const allResults = await Promise.all(allPromises);
+    return allResults
+      .flat()
+      .map((result) => metricTimeSeriesSchema.parse(result));
+  }
 
-    return allResults.flat();
+  private getMetricTimeSeriesUpsertQuery({
+    source,
+    sourceId,
+    sourcePhase,
+    dimensionId,
+    dimensionValue,
+    metricIds,
+  }: Omit<MetricTimeSeriesUniqueFields, "metricId"> & {
+    metricIds: MetricTimeSeriesUniqueFields["metricId"][];
+  }): FilterQuery<MetricTimeSeries> {
+    return {
+      ...this.getMetricTimeSeriesByMetricIdsQuery({
+        source,
+        sourceId,
+        sourcePhase,
+        metricIds,
+      }),
+
+      // Match absent/null for main series, exact value for dimension series.
+      dimensionId:
+        dimensionId === undefined ? { $in: [null, undefined] } : dimensionId,
+      dimensionValue:
+        dimensionValue === undefined
+          ? { $in: [null, undefined] }
+          : dimensionValue,
+    };
+  }
+
+  private getMetricTimeSeriesByMetricIdsQuery({
+    source,
+    sourceId,
+    sourcePhase,
+    metricIds,
+  }: Omit<MetricTimeSeriesUniqueFields, "metricId"> & {
+    metricIds: MetricTimeSeriesUniqueFields["metricId"][];
+  }): FilterQuery<MetricTimeSeries> {
+    const query: FilterQuery<MetricTimeSeries> = {
+      source,
+      sourceId,
+      metricId: { $in: metricIds },
+    };
+
+    // For experiments, ensure sourcePhase is always defined.
+    if (source === "experiment") {
+      if (sourcePhase !== undefined) {
+        query.sourcePhase = sourcePhase;
+      } else {
+        query.sourcePhase = { $exists: true, $ne: null };
+      }
+    } else {
+      query.sourcePhase = sourcePhase;
+    }
+
+    return query;
   }
 
   /**
@@ -148,18 +248,35 @@ export class MetricTimeSeriesModel extends BaseClass {
   public async upsertMultipleSingleDataPoint(
     metricTimeSeries: CreateMetricTimeSeriesSingleDataPoint[],
   ) {
-    const existingMetricTimeSeries = await this.findMany(metricTimeSeries);
+    const existingMetricTimeSeries =
+      await this.findExistingForUpsert(metricTimeSeries);
+    const existingByKey = new Map(
+      existingMetricTimeSeries.map((series) => [
+        JSON.stringify([
+          series.source,
+          series.sourceId,
+          series.sourcePhase ?? null,
+          series.metricId,
+          series.dimensionId ?? null,
+          series.dimensionValue ?? null,
+        ]),
+        series,
+      ]),
+    );
 
     const toCreate: CreateMetricTimeSeries[] = [];
     const toUpdate: MetricTimeSeries[] = [];
 
     metricTimeSeries.forEach((mts) => {
-      const existing = existingMetricTimeSeries.find(
-        (existing) =>
-          existing.source === mts.source &&
-          existing.sourceId === mts.sourceId &&
-          existing.sourcePhase === mts.sourcePhase &&
-          existing.metricId === mts.metricId,
+      const existing = existingByKey.get(
+        JSON.stringify([
+          mts.source,
+          mts.sourceId,
+          mts.sourcePhase ?? null,
+          mts.metricId,
+          mts.dimensionId ?? null,
+          mts.dimensionValue ?? null,
+        ]),
       );
 
       if (existing) {
@@ -237,7 +354,7 @@ export class MetricTimeSeriesModel extends BaseClass {
       return existing;
     }
 
-    return metricTimeSeriesSchema.strip().parse({
+    return metricTimeSeriesStripSchema.parse({
       ...existing,
       lastMetricSettingsHash: newTimeSeries.lastMetricSettingsHash,
       lastExperimentSettingsHash: newTimeSeries.lastExperimentSettingsHash,
@@ -259,7 +376,7 @@ export class MetricTimeSeriesModel extends BaseClass {
       return;
     }
 
-    return metricTimeSeriesSchema.strip().parse({
+    return metricTimeSeriesStripSchema.parse({
       ...newTimeSeries,
       dataPoints: [newTimeSeries.singleDataPoint],
 

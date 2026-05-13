@@ -586,7 +586,7 @@ export async function createExperiment({
     uid: uuidv4().replace(/-/g, ""),
     // If this is a sample experiment, we'll override the id with data.id
     ...data,
-    //set the default phase seed to uuid
+    // set the default phase seed to uuid
     phases: data.phases
       ? data.phases.map(({ ...phase }) => {
           return {
@@ -1550,11 +1550,17 @@ export async function clearPendingFeatureDraftsForRevision(
   context: ReqContext | ApiReqContext,
   featureId: string,
   revisionVersion: number,
-  rules: { type?: string; experimentId?: string }[] | undefined,
+  rules:
+    | ({ type?: string; experimentId?: string } | null | undefined)[]
+    | undefined,
 ) {
   const experimentIds = new Set<string>();
   for (const rule of rules ?? []) {
-    if (rule.type === "experiment-ref" && rule.experimentId) {
+    // Defensive: pre-v2 docs persisted via Mongoose `Mixed` can carry
+    // sparse `null`/`undefined` rule slots. JIT-boundary filters strip
+    // them on read, but guard here so a regression in those filters
+    // can't crash the publish pipeline (called from `publishRevision`).
+    if (rule?.type === "experiment-ref" && rule.experimentId) {
       experimentIds.add(rule.experimentId);
     }
   }

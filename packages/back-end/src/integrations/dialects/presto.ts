@@ -28,4 +28,17 @@ export const prestoDialect: SqlDialect = {
   hllCardinality: (col: string) => `CARDINALITY(${col})`,
   percentileCapSelectClause: (values, metricTable, where = "") =>
     defaultPercentileCapSelectClause(prestoDialect, values, metricTable, where),
+
+  unpivotLabeledPairs: (pairs) => {
+    const rows = pairs
+      .map((p) => `ROW('${p.keyLiteral}', ${p.valueSql})`)
+      .join(", ");
+    return {
+      fromContinuation: `CROSS JOIN UNNEST(ARRAY[
+        ${rows}
+      ]) AS __col(column_name, value)`,
+      keyExpr: "__col.column_name",
+      valueExpr: "__col.value",
+    };
+  },
 };

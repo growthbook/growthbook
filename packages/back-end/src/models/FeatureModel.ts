@@ -58,7 +58,7 @@ import {
   ensureUniqueRuleIds,
   flattenV1ToV2Rules,
   getApplicableEnvIds,
-  hasNoV1EnvRules,
+  isPlausibleFeatureRule,
   V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
 import { ReqContext } from "back-end/types/request";
@@ -192,7 +192,7 @@ export function migrateRawFeatureToV2(
     : [];
 
   // Post-v0-normalization doc; v1-vs-v2 classification is still pending and
-  // happens via `hasNoV1EnvRules` below.
+  // happens via `topLevelRulesAreV2Shaped` below.
   let postV0Doc: V1FeatureInterface;
   if (!hasEnvSettings) {
     postV0Doc = upgradeV0Feature(raw);
@@ -213,12 +213,22 @@ export function migrateRawFeatureToV2(
 
   const envSettings = postV0Doc.environmentSettings || {};
 
-  // v2 detection requires (a) all per-env rules empty AND (b) top-level
-  // `rules` looks v2-shaped. Hybrid v0/v1 docs (legacy top-level `rules` left
-  // behind alongside an `environmentSettings` map) would otherwise be misread
-  // as v2 and re-emit the stale legacy rules. Every rule our branch writes
+  // v2 detection: the doc has v2-shaped top-level rules (every rule we write
   // via `flattenV1ToV2Rules` carries either `allEnvironments` or
-  // `environments`, so their presence on any rule is a reliable v2 marker.
+  // `environments`, so their presence on any rule is a reliable v2 marker).
+  //
+  // We INTENTIONALLY do NOT also require `hasNoV1EnvRules(envSettings)` here.
+  // A pre-hotfix write path could leave stale `environmentSettings.{env}.rules`
+  // on disk while writing a fresh v2 top-level array. Gating on env.rules
+  // emptiness made those docs route through the v1 path on every read,
+  // silently shadowing the authoritative v2 rules and breaking publish/SDK
+  // diffs (see hotfix #5783). The v2 path's own `scrubEnvRules` strips the
+  // legacy key from the in-memory output, so stale env.rules can't leak.
+  //
+  // Hybrid v0/v1 docs (legacy top-level `rules` left behind alongside an
+  // `environmentSettings` map) are still safe: v0 rules don't carry
+  // `allEnvironments`/`environments`, so `topLevelRulesAreV2Shaped` is false
+  // and we fall to the v1 path correctly.
   const topLevelRules = ((postV0Doc as { rules?: unknown[] }).rules ??
     []) as Array<Record<string, unknown>>;
   const topLevelRulesAreV2Shaped = topLevelRules.some(
@@ -265,26 +275,38 @@ export function migrateRawFeatureToV2(
     }
   }
 
-  if (!hasNoV1EnvRules(envSettings) || !topLevelRulesAreV2Shaped) {
+  if (!topLevelRulesAreV2Shaped) {
     // v1 path. Inheritance must run BEFORE flattening so a rule defined only
     // on a parent env reaches inheriting children — otherwise sparse legacy
     // docs silently lose rules in child envs (origin/main applied inheritance
     // at read time on the per-env shape). Top-level legacy `rules` cruft has
     // already been folded into per-env settings above where applicable.
+    //
+    // `isPlausibleFeatureRule` filters sparse `null`/`undefined` array slots
+    // — Mongoose `Mixed` storage doesn't enforce shape, and pre-v2 docs
+    // occasionally landed with corrupt entries that would otherwise crash
+    // every downstream `.type`/`.id`/`.environments` access (the
+    // "Cannot read properties of undefined (reading 'type')" publish crash).
+    // Orphan env IDs are intentionally preserved on the output rules so the
+    // UI's `RuleEnvScopeBadges` can render them as struck-through amber pills.
     const inheritedSettings = applyEnvironmentInheritance(orgEnvs, envSettings);
     const rulesByEnv: V1RulesByEnv = {};
     for (const [envId, envObj] of Object.entries(inheritedSettings)) {
-      rulesByEnv[envId] = (envObj?.rules || []).map((r) => {
-        const upgraded = upgradeFeatureRule(r as FeatureRule) as V1FeatureRule;
-        // Legacy rules occasionally land here without an id; without one
-        // `flattenV1ToV2Rules` would skip them. Hash from content so the
-        // synthesized id is stable across re-reads and identical-content
-        // rules across envs still merge.
-        if (!upgraded.id) {
-          upgraded.id = synthesizeRuleId(upgraded);
-        }
-        return upgraded;
-      });
+      rulesByEnv[envId] = (envObj?.rules || [])
+        .filter(isPlausibleFeatureRule)
+        .map((r) => {
+          const upgraded = upgradeFeatureRule(
+            r as FeatureRule,
+          ) as V1FeatureRule;
+          // Legacy rules occasionally land here without an id; without one
+          // `flattenV1ToV2Rules` would skip them. Hash from content so the
+          // synthesized id is stable across re-reads and identical-content
+          // rules across envs still merge.
+          if (!upgraded.id) {
+            upgraded.id = synthesizeRuleId(upgraded);
+          }
+          return upgraded;
+        });
     }
     const applicableEnvs = getApplicableEnvIds(orgEnvs, postV0Doc.project);
     const v2 = postV0Doc as unknown as FeatureInterface;
@@ -316,7 +338,7 @@ export function migrateRawFeatureToV2(
     orgEnvs,
     originalEnvSettings,
   );
-  v2.rules = (v2.rules || []).map((r) => {
+  v2.rules = (v2.rules || []).filter(isPlausibleFeatureRule).map((r) => {
     const upgraded = upgradeFeatureRule(r as FeatureRule);
     // Defensive — v2 docs we author always carry ids, but imports and
     // hand-edited backups can land here unstamped.
@@ -387,9 +409,17 @@ export function buildFeatureUpdate<
 
   // `allEnvironments: true` is wildcard at runtime; strip any stale
   // `environments` list so the on-disk doc stays consistent with the model.
+  // Also drop nullish slots at this write chokepoint so a regression in any
+  // upstream filter (autoMerge, normalizeRulesInputToV2, JIT migration) can't
+  // re-persist `null`/`undefined` rules to disk and resurrect the
+  // "Cannot read properties of undefined (reading 'type')" publish crash.
   if (Array.isArray(next.rules)) {
-    const normalized = (next.rules as FeatureRule[]).map((r) => {
-      if (r?.allEnvironments && Array.isArray(r.environments)) {
+    const inputRules = next.rules as FeatureRule[];
+    const filtered = inputRules.filter(
+      (r): r is FeatureRule => r != null && typeof r === "object",
+    );
+    const normalized = filtered.map((r) => {
+      if (r.allEnvironments && Array.isArray(r.environments)) {
         return {
           ...omit(r, ["environments"]),
           allEnvironments: true,
@@ -397,9 +427,9 @@ export function buildFeatureUpdate<
       }
       return r;
     });
-    const changed = normalized.some(
-      (r, i) => r !== (next.rules as FeatureRule[])[i],
-    );
+    const changed =
+      filtered.length !== inputRules.length ||
+      normalized.some((r, i) => r !== filtered[i]);
     if (changed) next = { ...next, rules: normalized } as T;
   }
 
@@ -964,13 +994,14 @@ export async function updateFeature(
     original: feature,
   });
 
-  // When persisting a new top-level v2 `rules` array, also force-scrub any
-  // legacy `environmentSettings.{env}.rules` from the doc. Pre-migration docs
-  // that still carry per-env `rules` flip the JIT read-time migration into
-  // the v1 path (`hasNoV1EnvRules` returns false), which rebuilds rules from
-  // those stale env arrays and silently shadows our top-level write. Inject
-  // a scrubbed `environmentSettings` payload so `buildFeatureUpdate`'s scrub
-  // path overwrites them.
+  // Hygiene: when persisting a new top-level v2 `rules` array, also force-scrub
+  // any legacy `environmentSettings.{env}.rules` from the doc. The JIT read
+  // migration trusts top-level v2 rules over env.rules now (so this is no
+  // longer load-bearing for correctness), but leaving the legacy key around
+  // bloats the doc, confuses direct-mongo readers, and would re-introduce the
+  // shadow if the JIT routing ever regressed. Inject a scrubbed
+  // `environmentSettings` payload so `buildFeatureUpdate`'s scrub path
+  // overwrites them.
   if (
     Array.isArray(allUpdates.rules) &&
     allUpdates.environmentSettings === undefined &&
