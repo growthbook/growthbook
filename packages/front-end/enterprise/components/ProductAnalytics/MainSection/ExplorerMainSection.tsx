@@ -5,16 +5,12 @@ import { PiArrowsClockwise, PiDotsSix, PiInfo } from "react-icons/pi";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
-import {
-  showsCompactComparisonSummary,
-  showsComparisonOverview,
-} from "@/enterprise/components/ProductAnalytics/compareUtil";
 import { shouldChartSectionShow } from "@/enterprise/components/ProductAnalytics/util";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ExplorerChart from "./ExplorerChart";
 import ExplorerDataTable from "./ExplorerDataTable";
-import ComparisonSummary from "./ComparisonSummary";
 import Toolbar from "./Toolbar";
 
 export default function ExplorerMainSection() {
@@ -30,6 +26,8 @@ export default function ExplorerMainSection() {
     isSubmittable,
     compareEnabled,
     comparisonExploration,
+    comparisonLoading,
+    comparisonError,
   } = useExplorerContext();
 
   const showChartSection = shouldChartSectionShow({
@@ -37,15 +35,6 @@ export default function ExplorerMainSection() {
     error,
     submittedExploreState,
   });
-  const showComparisonOverview =
-    compareEnabled &&
-    !!submittedExploreState &&
-    showsComparisonOverview(submittedExploreState.chartType);
-  const showComparisonOverviewInChartPanel =
-    showComparisonOverview &&
-    showsCompactComparisonSummary(submittedExploreState.chartType);
-  const showComparisonOverviewInTablePanel =
-    showComparisonOverview && !showChartSection;
 
   return (
     <Flex
@@ -81,11 +70,6 @@ export default function ExplorerMainSection() {
                     gap: "var(--space-3)",
                   }}
                 >
-                  {showComparisonOverviewInChartPanel ? (
-                    <ComparisonSummary
-                      submittedExploreState={submittedExploreState}
-                    />
-                  ) : null}
                   <ExplorerChart
                     exploration={exploration}
                     comparisonExploration={comparisonExploration}
@@ -129,10 +113,17 @@ export default function ExplorerMainSection() {
                 gap: "var(--space-3)",
               }}
             >
-              {showComparisonOverviewInTablePanel ? (
-                <ComparisonSummary
-                  submittedExploreState={submittedExploreState}
-                />
+              {compareEnabled && (comparisonLoading || comparisonError) ? (
+                <Flex direction="column" gap="2">
+                  {comparisonLoading ? (
+                    <HelperText status="info">
+                      Loading comparison period...
+                    </HelperText>
+                  ) : null}
+                  {comparisonError ? (
+                    <Callout status="error">{comparisonError}</Callout>
+                  ) : null}
+                </Flex>
               ) : null}
               <ExplorerDataTable
                 exploration={exploration}

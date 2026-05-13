@@ -18,10 +18,7 @@ import {
   getComparisonPeriodLabels,
   getComparisonStackId,
   PREVIOUS_COMPARISON_STACK_ID,
-  showsCompactComparisonSummary,
-  showsComparisonOverview,
   supportsAlwaysOnComparisonOverlay,
-  usesInlineComparison,
 } from "@/enterprise/components/ProductAnalytics/compareUtil";
 
 const submittedExploreState = {
@@ -244,15 +241,11 @@ describe("compareUtil", () => {
     });
   });
 
-  it("routes chart types to summary, overlay, and inline compare", () => {
+  it("routes chart types to overlay-capable chart types", () => {
     expect(supportsAlwaysOnComparisonOverlay("line")).toBe(true);
     expect(supportsAlwaysOnComparisonOverlay("area")).toBe(true);
     expect(supportsAlwaysOnComparisonOverlay("bigNumber")).toBe(false);
-    expect(showsCompactComparisonSummary("line")).toBe(true);
-    expect(showsCompactComparisonSummary("table")).toBe(false);
-    expect(showsComparisonOverview("table")).toBe(true);
-    expect(showsComparisonOverview("bigNumber")).toBe(false);
-    expect(usesInlineComparison("timeseries-table")).toBe(true);
+    expect(supportsAlwaysOnComparisonOverlay("table")).toBe(false);
   });
 
   it("formats short comparison period labels for charts and tables", () => {

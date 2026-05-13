@@ -183,25 +183,66 @@ export default function useExplorationTableData(
       // header rows so their column doesn't render a blank second-row cell
       // next to the ratio metric's Numerator / Denominator / Value trio.
       if (col.sub === "single") {
-        row1.push({ label: col.label, rowSpan: 2 });
+        if (compareEnabled && comparisonPeriodLabels) {
+          row1.push({
+            label: formatComparisonMetricLabel(
+              col.label,
+              comparisonPeriodLabels.currentLabel,
+            ),
+            rowSpan: 2,
+          });
+          row1.push({
+            label: formatComparisonMetricLabel(
+              col.label,
+              comparisonPeriodLabels.previousLabel,
+            ),
+            rowSpan: 2,
+          });
+        } else {
+          row1.push({ label: col.label, rowSpan: 2 });
+        }
         continue;
       }
       const metricName =
         submittedExploreState?.dataset?.values?.[col.metricIndex]?.name ??
         col.label;
       if (col.sub === "numerator") {
-        row1.push({ label: metricName, colSpan: 3 });
+        row1.push({
+          label: metricName,
+          colSpan: compareEnabled ? 4 : 3,
+        });
       }
-      row2Labels.push(
-        col.sub === "numerator"
-          ? "Numerator"
-          : col.sub === "denominator"
-            ? "Denominator"
-            : "Value",
-      );
+      if (col.sub === "numerator") {
+        row2Labels.push("Numerator");
+      } else if (col.sub === "denominator") {
+        row2Labels.push("Denominator");
+      } else if (col.sub === "value") {
+        if (compareEnabled && comparisonPeriodLabels) {
+          row2Labels.push(
+            formatComparisonMetricLabel(
+              col.label,
+              comparisonPeriodLabels.currentLabel,
+            ),
+          );
+          row2Labels.push(
+            formatComparisonMetricLabel(
+              col.label,
+              comparisonPeriodLabels.previousLabel,
+            ),
+          );
+        } else {
+          row2Labels.push("Value");
+        }
+      }
     }
     return { row1, row2Labels };
-  }, [hasAnyRatio, columns, submittedExploreState]);
+  }, [
+    hasAnyRatio,
+    columns,
+    submittedExploreState,
+    compareEnabled,
+    comparisonPeriodLabels,
+  ]);
 
   const resolvedGranularity = useMemo((): ResolvedGranularity | null => {
     if (!submittedExploreState) return null;
@@ -280,7 +321,13 @@ export default function useExplorationTableData(
 
         displayEntries.push([
           col.key,
-          <Flex key={col.key} direction="row" align="center" gap="1" wrap="wrap">
+          <Flex
+            key={col.key}
+            direction="row"
+            align="center"
+            gap="1"
+            wrap="wrap"
+          >
             <span>{String(formatted)}</span>
             <ComparisonTrendLabel trend={trend} />
           </Flex>,

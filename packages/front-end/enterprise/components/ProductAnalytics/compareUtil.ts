@@ -28,12 +28,6 @@ const ALWAYS_ON_OVERLAY_CHART_TYPES = new Set<ExplorationConfig["chartType"]>([
   "stackedHorizontalBar",
 ]);
 
-const INLINE_COMPARISON_CHART_TYPES = new Set<ExplorationConfig["chartType"]>([
-  "table",
-  "timeseries-table",
-  "bigNumber",
-]);
-
 const CATEGORICAL_OVERLAY_CHART_TYPES = new Set<ExplorationConfig["chartType"]>(
   ["bar", "stackedBar", "horizontalBar", "stackedHorizontalBar"],
 );
@@ -72,24 +66,6 @@ export function supportsAlwaysOnComparisonOverlay(
   chartType: ExplorationConfig["chartType"],
 ): boolean {
   return ALWAYS_ON_OVERLAY_CHART_TYPES.has(chartType);
-}
-
-export function showsCompactComparisonSummary(
-  chartType: ExplorationConfig["chartType"],
-): boolean {
-  return !INLINE_COMPARISON_CHART_TYPES.has(chartType);
-}
-
-export function usesInlineComparison(
-  chartType: ExplorationConfig["chartType"],
-): boolean {
-  return INLINE_COMPARISON_CHART_TYPES.has(chartType);
-}
-
-export function showsComparisonOverview(
-  chartType: ExplorationConfig["chartType"],
-): boolean {
-  return chartType !== "bigNumber";
 }
 
 function formatShortUtcDate(date: Date, includeYear: boolean): string {

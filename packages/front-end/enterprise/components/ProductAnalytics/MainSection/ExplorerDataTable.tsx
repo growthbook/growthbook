@@ -3,7 +3,6 @@ import type {
   ProductAnalyticsExploration,
 } from "shared/validators";
 import type { QueryInterface } from "shared/types/query";
-import { usesInlineComparison } from "@/enterprise/components/ProductAnalytics/compareUtil";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import useExplorationTableData from "./useExplorationTableData";
@@ -26,11 +25,7 @@ export default function ExplorerDataTable({
   query?: QueryInterface | null;
 }) {
   const { compareEnabled, comparisonExploration } = useExplorerContext();
-  const inlineComparisonEnabled =
-    compareEnabled &&
-    !!submittedExploreState &&
-    usesInlineComparison(submittedExploreState.chartType) &&
-    submittedExploreState.chartType !== "bigNumber";
+  const tableComparisonEnabled = compareEnabled && !!submittedExploreState;
 
   const {
     rowData,
@@ -40,7 +35,7 @@ export default function ExplorerDataTable({
     headerStructure,
     explorationReturnedNoData,
   } = useExplorationTableData(exploration, submittedExploreState, {
-    compareEnabled: inlineComparisonEnabled,
+    compareEnabled: tableComparisonEnabled,
     comparisonExploration,
   });
 
@@ -57,7 +52,7 @@ export default function ExplorerDataTable({
       headerStructure={headerStructure ?? undefined}
       orderedColumnKeys={orderedColumnKeys}
       columnLabels={columnLabels}
-      csvResults={inlineComparisonEnabled ? exportRowData : undefined}
+      csvResults={tableComparisonEnabled ? exportRowData : undefined}
       paddingTop={(isStale || loading) && !hasChart ? 35 : 0}
     />
   );

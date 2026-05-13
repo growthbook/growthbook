@@ -31,11 +31,9 @@ import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
-import ComparisonTrendLabel from "@/enterprise/components/ProductAnalytics/ComparisonTrendLabel";
 import {
   alignComparisonOverlayToCategories,
   buildComparisonOverlaySeriesMaps,
-  computeBigNumberComparisonTrend,
   formatComparisonMetricLabel,
   getComparisonPeriodLabels,
   getComparisonStackId,
@@ -110,22 +108,6 @@ export default function ExplorerChart({
     const sharedUnit = getSharedUnit(submittedExploreState);
     return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
   }, [submittedExploreState, getFactMetricById, renderOpts.showAs]);
-
-  const bigNumberComparisonTrend = useMemo(() => {
-    if (!compareEnabled) return null;
-    return computeBigNumberComparisonTrend(
-      exploration,
-      comparisonExploration,
-      submittedExploreState,
-      getFactMetricById,
-    );
-  }, [
-    compareEnabled,
-    exploration,
-    comparisonExploration,
-    submittedExploreState,
-    getFactMetricById,
-  ]);
 
   // Transform ProductAnalyticsResult + exploreState to ECharts format
   const chartConfig = useMemo(() => {
@@ -570,14 +552,6 @@ export default function ExplorerChart({
             value={chartConfig.value}
             formatter={formatCompactNumber}
             label={submittedExploreState?.dataset?.values?.[0]?.name}
-            compareSlot={
-              bigNumberComparisonTrend ? (
-                <ComparisonTrendLabel
-                  trend={bigNumberComparisonTrend}
-                  priorValueScale={0.5}
-                />
-              ) : undefined
-            }
           />
         </Flex>
       ) : chartConfig ? (
