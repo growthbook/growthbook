@@ -555,6 +555,15 @@ export async function _dangerousAdminPutMember(
         message: "superAdmin must be true, false, or 'readonly'",
       });
     }
+    // Guard against self-lockout: a super admin cannot change their own
+    // super admin level (e.g. downgrading themselves to readonly or removing
+    // it entirely would leave them unable to undo the change).
+    if (userId === req.userId) {
+      return res.status(400).json({
+        status: 400,
+        message: "You cannot change your own super admin status",
+      });
+    }
     updates.superAdmin = superAdmin;
     orig.superAdmin = member.superAdmin ?? false;
   }
