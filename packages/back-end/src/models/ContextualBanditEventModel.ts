@@ -13,6 +13,9 @@ const BaseClass = MakeModelClass({
   auditLog: {
     entity: "contextualBanditEvent",
     createEvent: "contextualBanditEvent.create",
+    // CBE is immutable (canUpdate returns false); the event is required by
+    // AuditLogConfig but never fires in practice.
+    updateEvent: "contextualBanditEvent.update",
     deleteEvent: "contextualBanditEvent.delete",
   },
   globallyUniquePrimaryKeys: false,

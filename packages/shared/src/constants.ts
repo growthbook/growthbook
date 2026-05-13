@@ -255,7 +255,7 @@ export const entityEvents = {
   rampSchedule: ["create", "update", "delete"],
   rampScheduleTemplate: ["create", "update", "delete"],
   contextualBanditQuery: ["create", "update", "delete", "refresh"],
-  contextualBanditEvent: ["create", "delete"],
+  contextualBanditEvent: ["create", "update", "delete"],
   contextualBanditSnapshot: ["create", "update", "delete"],
 } as const;
 

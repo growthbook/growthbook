@@ -468,12 +468,15 @@ export const experimentInterface = z
   .merge(experimentAnalysisSettings);
 export type ExperimentInterface = z.infer<typeof experimentInterface>;
 
-// Excludes "holdout" from the type property for the experiments API
+// Excludes "holdout" and "contextual-bandit" from the type property for the
+// experiments API. Contextual bandits are not yet exposed on the public REST
+// surface (source plan defers external-API surface to A6 and gates it behind
+// the `contextual-bandits` license check).
 export type ExperimentInterfaceExcludingHoldouts = Omit<
   ExperimentInterface,
   "type"
 > & {
-  type?: Exclude<ExperimentInterface["type"], "holdout">;
+  type?: Exclude<ExperimentInterface["type"], "holdout" | "contextual-bandit">;
 };
 
 // ---------------------------------------------------------------------------
