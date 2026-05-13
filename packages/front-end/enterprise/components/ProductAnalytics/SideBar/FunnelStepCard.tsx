@@ -1,8 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Box, Flex, TextField } from "@radix-ui/themes";
 import {
-  PiArrowDown,
-  PiArrowUp,
   PiCaretDown,
   PiCaretRight,
   PiCaretUp,
@@ -71,9 +69,8 @@ interface Props {
    *  auto-collapse non-user-expanded steps when a new step is added. */
   isCollapsed: boolean;
   onToggleCollapsed: () => void;
-  /** Reorder + delete handlers live in the parent so it can keep the per-step
+  /** Delete handler lives in the parent so it can keep the per-step
    *  collapse state aligned with the underlying steps array. */
-  onMove: (index: number, delta: number) => void;
   onDelete: (index: number) => void;
 }
 
@@ -84,7 +81,6 @@ export default function FunnelStepCard({
   previousFactTable,
   isCollapsed,
   onToggleCollapsed,
-  onMove,
   onDelete,
 }: Props) {
   const { setDraftExploreState, draftExploreState } = useExplorerContext();
@@ -228,51 +224,26 @@ export default function FunnelStepCard({
               style={{ flex: 1, minWidth: 0 }}
             />
           ) : (
-            <>
-              <Box style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
-                <Text
-                  weight="medium"
-                  truncate
-                  as="div"
-                  whiteSpace="nowrap"
-                  title={step.name}
-                >
-                  {step.name}
-                </Text>
-              </Box>
-              <Button
-                variant="ghost"
-                size="xs"
-                onClick={() => {
-                  setNameDraft(step.name);
-                  setIsEditingName(true);
-                }}
-                title="Edit name"
+            <Box
+              style={{ flex: 1, minWidth: 0, overflow: "hidden" }}
+              onDoubleClick={() => {
+                setNameDraft(step.name);
+                setIsEditingName(true);
+              }}
+            >
+              <Text
+                weight="medium"
+                truncate
+                as="div"
+                whiteSpace="nowrap"
+                title="Double-click to rename"
               >
-                <PiPencilSimple size={14} />
-              </Button>
-            </>
+                {step.name}
+              </Text>
+            </Box>
           )}
         </Flex>
         <Flex align="center" style={{ flexShrink: 0 }}>
-          <Button
-            variant="ghost"
-            size="xs"
-            disabled={index === 0}
-            onClick={() => onMove(index, -1)}
-            title="Move up"
-          >
-            <PiArrowUp size={14} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="xs"
-            disabled={index === steps.length - 1}
-            onClick={() => onMove(index, 1)}
-            title="Move down"
-          >
-            <PiArrowDown size={14} />
-          </Button>
           <Button
             variant="ghost"
             size="xs"

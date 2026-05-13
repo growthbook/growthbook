@@ -77,26 +77,6 @@ export default function FunnelTabContent() {
     );
   };
 
-  const handleMove = (index: number, delta: number) => {
-    const target = index + delta;
-    if (target < 0 || target >= steps.length) return;
-    setDraftExploreState((prev) => {
-      if (prev.dataset.type !== "funnel") return prev;
-      const newSteps = [...prev.dataset.steps];
-      [newSteps[index], newSteps[target]] = [newSteps[target], newSteps[index]];
-      return {
-        ...prev,
-        dataset: { ...prev.dataset, steps: newSteps } as FunnelDataset,
-      } as ExplorationConfig;
-    });
-    setUiState((prev) => {
-      if (prev.length <= Math.max(index, target)) return prev;
-      const next = [...prev];
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
-  };
-
   const handleDelete = (index: number) => {
     setDraftExploreState((prev) => {
       if (prev.dataset.type !== "funnel") return prev;
@@ -178,7 +158,6 @@ export default function FunnelTabContent() {
           }
           isCollapsed={uiState[index]?.collapsed ?? false}
           onToggleCollapsed={() => handleToggleCollapsed(index)}
-          onMove={handleMove}
           onDelete={handleDelete}
         />
       ))}
