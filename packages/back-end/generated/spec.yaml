@@ -267,6 +267,11 @@ tags:
   - name: CodeRef_model
     x-displayName: CodeRef
     description: <SchemaDefinition schemaRef="#/components/schemas/CodeRef" />
+  - name: ContextualBanditQuery_model
+    x-displayName: ContextualBanditQuery
+    description: >-
+      <SchemaDefinition schemaRef="#/components/schemas/ContextualBanditQuery"
+      />
   - name: CustomField_model
     x-displayName: CustomField
     description: <SchemaDefinition schemaRef="#/components/schemas/CustomField" />
@@ -32240,6 +32245,84 @@ components:
         - result
         - config
       additionalProperties: false
+    ContextualBanditQuery:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+          pattern: >-
+            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        dateUpdated:
+          type: string
+          format: date-time
+          pattern: >-
+            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        datasource:
+          type: string
+        projects:
+          type: array
+          items:
+            type: string
+        attributes:
+          type: array
+          items:
+            type: object
+            properties:
+              attribute:
+                type: string
+              kind:
+                type: string
+                enum:
+                  - categorical
+                  - quantitative
+              maxLevels:
+                type: number
+              topValues:
+                type: array
+                items:
+                  type: string
+              bucketEdges:
+                type: array
+                items:
+                  type: number
+            required:
+              - attribute
+              - kind
+            additionalProperties: false
+        topValuesLookbackDays:
+          type: number
+        topValuesLastRefreshed:
+          type: string
+          format: date-time
+          pattern: >-
+            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - owner
+        - name
+        - description
+        - datasource
+        - projects
+        - attributes
+        - topValuesLookbackDays
+      additionalProperties: false
     VisualChange:
       type: object
       properties:
@@ -32649,6 +32732,31 @@ components:
                     enum:
                       - standard
                       - multi-armed-bandit
+                      - contextual-bandit
+                  isContextualBandit:
+                    type: boolean
+                  contexts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        contextId:
+                          type: string
+                        condition:
+                          type: string
+                        weights:
+                          type: array
+                          items:
+                            type: number
+                      required:
+                        - contextId
+                        - condition
+                        - weights
+                      additionalProperties: false
+                  attributesRequired:
+                    type: array
+                    items:
+                      type: string
                   hypothesis:
                     type: string
                   trackingKey:
@@ -33201,6 +33309,7 @@ x-tagGroups:
       - Archetype_model
       - Attribute_model
       - CodeRef_model
+      - ContextualBanditQuery_model
       - CustomField_model
       - Dashboard_model
       - DataSource_model

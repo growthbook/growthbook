@@ -74,6 +74,9 @@ import { AIConversationModel } from "back-end/src/models/AIConversationModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
+import { ContextualBanditQueryModel } from "back-end/src/models/ContextualBanditQueryModel";
+import { ContextualBanditEventModel } from "back-end/src/models/ContextualBanditEventModel";
+import { ContextualBanditSnapshotModel } from "back-end/src/models/ContextualBanditSnapshotModel";
 import { getUserByEmail, getUsersByIds } from "back-end/src/models/UserModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
@@ -121,7 +124,10 @@ export type ModelName =
   | "apiKeys"
   | "rampSchedules"
   | "rampScheduleTemplates"
-  | "aiConversations";
+  | "aiConversations"
+  | "contextualBanditQueries"
+  | "contextualBanditEvents"
+  | "contextualBanditSnapshots";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -161,6 +167,9 @@ export const modelClasses = {
   rampSchedules: RampScheduleModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
+  contextualBanditQueries: ContextualBanditQueryModel,
+  contextualBanditEvents: ContextualBanditEventModel,
+  contextualBanditSnapshots: ContextualBanditSnapshotModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -210,6 +219,9 @@ export class ReqContextClass {
       rampSchedules: new RampScheduleModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
+      contextualBanditQueries: new ContextualBanditQueryModel(this),
+      contextualBanditEvents: new ContextualBanditEventModel(this),
+      contextualBanditSnapshots: new ContextualBanditSnapshotModel(this),
     };
   }
 

@@ -108,13 +108,49 @@ const experimentValue = z
 
 export type ExperimentValue = z.infer<typeof experimentValue>;
 
-const experimentType = ["standard", "multi-armed-bandit"] as const;
+const experimentType = [
+  "standard",
+  "multi-armed-bandit",
+  "contextual-bandit",
+] as const;
 const banditStageType = ["explore", "exploit", "paused"] as const;
+
+/**
+ * A single leaf of a `ContextualBanditEvent`'s policy tree, projected onto
+ * the SDK payload. The SDK evaluates `contexts` in order at feature eval
+ * time (A4 `evalContextualBanditRule`): first match wins, then hash-bucket
+ * on `weights` parallel to the rule's `values`. `contextId` is the
+ * canonical hash from `deriveContextId` (A1) — stable across ticks.
+ */
+export const contextsEntryValidator = z
+  .object({
+    contextId: z.string(),
+    /** Canonical-JSON GrowthBook condition (A1 output). */
+    condition: z.string(),
+    /** Variation weights parallel to `experimentRule.values`. */
+    weights: z.array(z.number()),
+  })
+  .strict();
+export type ContextsEntry = z.infer<typeof contextsEntryValidator>;
 
 const experimentRule = baseRule
   .extend({
     type: z.literal("experiment"), // refers to RuleType, not experiment.type
     experimentType: z.enum(experimentType).optional(),
+    /**
+     * Flips the SDK eval path to `evalContextualBanditRule` (A4). Mutually
+     * inclusive with `contexts`: the rule MUST also carry a non-empty
+     * `contexts` array when this is true (orchestrator A6 ensures both).
+     */
+    isContextualBandit: z.boolean().optional(),
+    /** Per-leaf weights emitted by the latest CBE (A6 payload builder). */
+    contexts: z.array(contextsEntryValidator).optional(),
+    /**
+     * Attribute keys the SDK must have populated to evaluate any context.
+     * Emitted from `contextualBanditConfig.attributes` so the SDK can
+     * short-circuit to the catch-all when any attribute is missing.
+     */
+    attributesRequired: z.array(z.string()).optional(),
     hypothesis: z.string().optional(),
     trackingKey: z.string(),
     hashAttribute: z.string(),
