@@ -689,6 +689,10 @@ export function getSnapshotSettings({
                   windowUnit: experiment.banditConversionWindowUnit,
                 }
               : undefined,
+          banditIsContextual: experiment.banditIsContextual ?? false,
+          targetingAttributeColumns: [
+            ...(exposureQuery?.targetingAttributeColumns ?? []),
+          ],
         }
       : undefined;
 

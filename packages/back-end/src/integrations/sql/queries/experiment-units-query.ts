@@ -18,6 +18,12 @@ import { getMetricStart } from "back-end/src/integrations/sql/dates/metric-start
 import { processActivationMetric } from "back-end/src/integrations/sql/processing/process-activation-metric";
 import { processDimensions } from "back-end/src/integrations/sql/processing/process-dimensions";
 import { getSegmentCTE } from "back-end/src/integrations/sql/ctes/segment-cte";
+import {
+  getContextualBanditExposureSelectCols,
+  getContextualBanditExperimentUnitsJoinAndSelect,
+  getContextualBanditIntermediateCtes,
+  getContextualBanditUnitsSqlConfig,
+} from "back-end/src/integrations/sql/contextual-bandit/contextual-bandit-experiment-units-sql";
 
 export function getExperimentUnitsQuery(
   dialect: SqlDialect,
@@ -75,6 +81,28 @@ export function getExperimentUnitsQuery(
     settings.attributionModel === "experimentDuration" ||
     settings.attributionModel === "lookbackOverride";
 
+  const contextualBanditCfg = getContextualBanditUnitsSqlConfig(settings);
+  const contextualExposureCols = contextualBanditCfg
+    ? getContextualBanditExposureSelectCols(
+        dialect,
+        contextualBanditCfg.aliases,
+      )
+    : "";
+  const contextualIntermediateCtes = contextualBanditCfg
+    ? getContextualBanditIntermediateCtes(dialect, {
+        baseIdType,
+        timestampColumn,
+        aliases: contextualBanditCfg.aliases,
+        maxRankedContexts: contextualBanditCfg.maxRankedContexts,
+      })
+    : "";
+  const contextualUnitsParts = contextualBanditCfg
+    ? getContextualBanditExperimentUnitsJoinAndSelect(
+        baseIdType,
+        contextualBanditCfg.aliases,
+      )
+    : { joinSql: "", selectCols: "", groupByCols: "" };
+
   return `
     ${params.includeIdJoins ? idJoinSQL : ""}
     __rawExperiment AS (
@@ -108,6 +136,7 @@ export function getExperimentUnitsQuery(
             return `, e.${d.id} AS dim_${d.id}`;
           })
           .join("\n")}
+        ${contextualExposureCols}
       FROM
           __rawExperiment e
       WHERE
@@ -120,6 +149,7 @@ export function getExperimentUnitsQuery(
           }
           ${settings.queryFilter ? `AND (\n${settings.queryFilter}\n)` : ""}
     )
+    ${contextualIntermediateCtes}
     ${
       activationMetric
         ? `, __activationMetric as (${getMetricCTE(dialect, {
@@ -215,8 +245,10 @@ export function getExperimentUnitsQuery(
             `
             : ""
         }
+        ${contextualUnitsParts.selectCols}
       FROM
         __experimentExposures e
+        ${contextualUnitsParts.joinSql}
         ${
           segment
             ? `JOIN __segment s ON (s.${baseIdType} = e.${baseIdType})`
@@ -239,5 +271,6 @@ export function getExperimentUnitsQuery(
       ${segment ? `WHERE s.date <= e.timestamp` : ""}
       GROUP BY
         e.${baseIdType}
+        ${contextualUnitsParts.groupByCols}
     )`;
 }
