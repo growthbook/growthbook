@@ -77,17 +77,19 @@ const postVisualChangesetBody = z
       ),
     urlPatterns: z
       .array(
-        z.object({
-          include: z.boolean().optional(),
-          type: z.enum(["simple", "regex"]),
-          pattern: z.string(),
-        }),
+        z
+          .object({
+            include: z.boolean().optional(),
+            type: z.enum(["simple", "regex"]),
+            pattern: z.string(),
+          })
+          .passthrough(),
       )
       .describe(
         "URL patterns that determine which pages this visual changeset applies to",
       ),
   })
-  .strict();
+  .passthrough();
 
 const idParams = z
   .object({
@@ -177,11 +179,13 @@ const putVisualChangesetBody = z
       .optional(),
     urlPatterns: z
       .array(
-        z.object({
-          include: z.boolean().optional(),
-          type: z.enum(["simple", "regex"]),
-          pattern: z.string(),
-        }),
+        z
+          .object({
+            include: z.boolean().optional(),
+            type: z.enum(["simple", "regex"]),
+            pattern: z.string(),
+          })
+          .passthrough(),
       )
       .describe(
         "URL patterns that determine which pages this visual changeset applies to",
@@ -189,29 +193,33 @@ const putVisualChangesetBody = z
       .optional(),
     visualChanges: z
       .array(
-        z.object({
-          id: z.string().optional(),
-          description: z.string().optional(),
-          css: z.string().optional(),
-          js: z.string().optional(),
-          variation: z.string(),
-          domMutations: z
-            .array(
-              z.object({
-                selector: z.string(),
-                action: z.enum(["append", "set", "remove"]),
-                attribute: z.string(),
-                value: z.string().optional(),
-                parentSelector: z.string().optional(),
-                insertBeforeSelector: z.string().optional(),
-              }),
-            )
-            .optional(),
-        }),
+        z
+          .object({
+            id: z.string().optional(),
+            description: z.string().optional(),
+            css: z.string().optional(),
+            js: z.string().optional(),
+            variation: z.string(),
+            domMutations: z
+              .array(
+                z
+                  .object({
+                    selector: z.string(),
+                    action: z.enum(["append", "set", "remove"]),
+                    attribute: z.string(),
+                    value: z.string().optional(),
+                    parentSelector: z.string().optional(),
+                    insertBeforeSelector: z.string().optional(),
+                  })
+                  .passthrough(),
+              )
+              .optional(),
+          })
+          .passthrough(),
       )
       .optional(),
   })
-  .strict();
+  .passthrough();
 
 export const putVisualChangesetValidator = {
   bodySchema: putVisualChangesetBody,
@@ -238,31 +246,30 @@ export const putVisualChangesetValidator = {
 
 const visualChangeBody = z
   .object({
+    id: z.string().optional(),
     description: z.string().optional(),
     css: z.string().optional(),
     js: z.string().optional(),
     variation: z.string(),
     domMutations: z
       .array(
-        z.object({
-          selector: z.string(),
-          action: z.enum(["append", "set", "remove"]),
-          attribute: z.string(),
-          value: z.string().optional(),
-          parentSelector: z.string().optional(),
-          insertBeforeSelector: z.string().optional(),
-        }),
+        z
+          .object({
+            selector: z.string(),
+            action: z.enum(["append", "set", "remove"]),
+            attribute: z.string(),
+            value: z.string().optional(),
+            parentSelector: z.string().optional(),
+            insertBeforeSelector: z.string().optional(),
+          })
+          .passthrough(),
       )
       .optional(),
   })
-  .strict();
-
-const postVisualChangeBody = visualChangeBody.extend({
-  id: z.string().optional(),
-});
+  .passthrough();
 
 export const postVisualChangeValidator = {
-  bodySchema: postVisualChangeBody,
+  bodySchema: visualChangeBody,
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: z

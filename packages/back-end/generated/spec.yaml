@@ -10473,11 +10473,11 @@ paths:
                     required:
                       - type
                       - pattern
-                    additionalProperties: false
+                    additionalProperties: {}
               required:
                 - editorUrl
                 - urlPatterns
-              additionalProperties: false
+              additionalProperties: {}
       responses:
         '200':
           content:
@@ -12938,7 +12938,7 @@ paths:
                     required:
                       - type
                       - pattern
-                    additionalProperties: false
+                    additionalProperties: {}
                 visualChanges:
                   type: array
                   items:
@@ -12979,11 +12979,11 @@ paths:
                             - selector
                             - action
                             - attribute
-                          additionalProperties: false
+                          additionalProperties: {}
                     required:
                       - variation
-                    additionalProperties: false
-              additionalProperties: false
+                    additionalProperties: {}
+              additionalProperties: {}
       responses:
         '200':
           content:
@@ -13022,6 +13022,8 @@ paths:
             schema:
               type: object
               properties:
+                id:
+                  type: string
                 description:
                   type: string
                 css:
@@ -13055,12 +13057,10 @@ paths:
                       - selector
                       - action
                       - attribute
-                    additionalProperties: false
-                id:
-                  type: string
+                    additionalProperties: {}
               required:
                 - variation
-              additionalProperties: false
+              additionalProperties: {}
       responses:
         '200':
           content:
@@ -13101,6 +13101,8 @@ paths:
             schema:
               type: object
               properties:
+                id:
+                  type: string
                 description:
                   type: string
                 css:
@@ -13134,8 +13136,8 @@ paths:
                       - selector
                       - action
                       - attribute
-                    additionalProperties: false
-              additionalProperties: false
+                    additionalProperties: {}
+              additionalProperties: {}
       responses:
         '200':
           content:
