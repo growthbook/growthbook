@@ -2,16 +2,20 @@ import { ReactElement, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { useFeatureValue } from "@growthbook/growthbook-react";
-import { Box } from "@radix-ui/themes";
+import { Flex, Box } from "@radix-ui/themes";
 import track from "@/services/track";
+import Text from "@/ui/Text";
 import { getApiHost } from "@/services/env";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
-import Markdown from "@/components/Markdown/Markdown";
 import WelcomeFrame from "./WelcomeFrame";
 
 type LoginHeroContent = {
+  type: string;
+  headline: string;
+  subhead?: string;
   body: string;
   image: string;
   cta: string;
@@ -125,35 +129,65 @@ export default function Welcome({
       <p>Let&apos;s get started with some experimentation</p>
     );
 
-  const leftside = hero?.body ? (
-    <>
-      {hero.image && (
-        <img
-          src={hero.image}
-          alt=""
-          style={{ maxWidth: 220, marginBottom: "1.5rem" }}
-        />
-      )}
-      <Markdown>{hero.body}</Markdown>
-      {hero.cta && hero.link && (
-        <Box mt="3">
-          <Button
-            variant="ghost"
-            size="lg"
-            onClick={() =>
-              window.open(hero.link, "_blank", "noopener,noreferrer")
-            }
-          >
-            {hero.cta}
-          </Button>
-        </Box>
-      )}
-    </>
-  ) : (
-    <>
-      <h1 className="title h1">{welcomeMsg[welcomeMsgIndex]}</h1>
-      {welcomeContent}
-    </>
+  const leftside = (
+    <Flex direction="column" justify="between" height="100%" p="6">
+      <Box>
+        <a href="https://www.growthbook.io" target="_blank" rel="noreferrer">
+          <img
+            src="/logo/growth-book-logo-white.svg"
+            style={{ maxWidth: "150px" }}
+            alt="GrowthBook"
+          />
+        </a>
+      </Box>
+      <Box>
+        {hero?.body ? (
+          <>
+            {hero.image && (
+              <img
+                src={hero.image}
+                alt=""
+                style={{ width: "100%", height: "auto", marginBottom: "48px" }}
+              />
+            )}
+            <Box>
+              <Text as="span" size="small" textTransform="uppercase">
+                -- {hero.type} --
+              </Text>
+              <Heading size="x-large" weight="medium" as="h2" mt="4" mb="4">
+                {hero.headline}
+              </Heading>
+              {hero.subhead && (
+                <Heading size="medium" weight="semibold" as="h3" mb="1">
+                  {hero.subhead}
+                </Heading>
+              )}
+              <Text as="span" size="medium" weight="regular">
+                {hero.body}
+              </Text>
+              <Box mt="5" mb="5">
+                {hero.cta && hero.link && (
+                  <Button
+                    variant="outline"
+                    size="md"
+                    onClick={() =>
+                      window.open(hero.link, "_blank", "noopener,noreferrer")
+                    }
+                  >
+                    {hero.cta}
+                  </Button>
+                )}
+              </Box>
+            </Box>
+          </>
+        ) : (
+          <Box mb="9">
+            <h1 className="title h1">{welcomeMsg[welcomeMsgIndex]}</h1>
+            {welcomeContent}
+          </Box>
+        )}
+      </Box>
+    </Flex>
   );
 
   const email = form.watch("email");
@@ -207,21 +241,14 @@ export default function Welcome({
             </div>
           )}
           {state === "login" && (
-            <div>
-              <h3 className="h2">Log In</h3>
-              <p>
-                Don&apos;t have an account yet?{" "}
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setState("register");
-                  }}
-                >
-                  Register
-                </a>
-              </p>
-            </div>
+            <Flex direction="column" mb="5" gap="2">
+              <Heading size="x-large" weight="medium" as="h1">
+                Welcome back
+              </Heading>
+              <Text as="span" size="medium" weight="regular">
+                Sign in to your GrowthBook account
+              </Text>
+            </Flex>
           )}
           {state === "forgot" && (
             <div>
@@ -324,9 +351,32 @@ export default function Welcome({
               {error}
             </Callout>
           )}
-          <button className={`btn btn-primary btn-block btn-lg`} type="submit">
+          <Button
+            type="submit"
+            size="lg"
+            loading={loading}
+            style={{ width: "100%" }}
+            mt="5"
+            mb="5"
+          >
             {cta}
-          </button>
+          </Button>
+          {state === "login" && (
+            <Flex justify="center" align="center">
+              <Text color="text-mid" weight="regular" align="center">
+                Don&apos;t have an account yet?{" "}
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setState("register");
+                  }}
+                >
+                  Start for free
+                </a>
+              </Text>
+            </Flex>
+          )}
         </form>
       </WelcomeFrame>
     </>
