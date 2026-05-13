@@ -238,6 +238,88 @@ describe("updateVisualChangeset", () => {
         ]);
       });
     });
+    describe("and incoming updates partially modify an existing visual change", () => {
+      const existingChangeset: VisualChangesetInterface = {
+        ...visualChangeset,
+        visualChanges: [
+          {
+            id: "vch_123",
+            css: "body { color: red; }",
+            description: "old description",
+            js: "console.log('old');",
+            variation: "var_123",
+            domMutations: [
+              {
+                selector: ".old",
+                action: "set",
+                attribute: "data-x",
+                value: "1",
+              },
+            ],
+          },
+        ],
+      };
+      const updateFn = jest
+        .spyOn(VisualChangesetModel, "updateOne")
+        .mockResolvedValue({
+          acknowledged: true,
+          matchedCount: 1,
+          modifiedCount: 1,
+          upsertedCount: 0,
+          upsertedId: null,
+        });
+
+      it("should preserve fields the caller did not supply", async () => {
+        (getCollection as jest.Mock).mockReturnValue({
+          findOne: jest.fn().mockResolvedValue(null),
+        });
+
+        const res = await updateVisualChangeset({
+          visualChangeset: existingChangeset,
+          // @ts-expect-error TODO
+          experiment,
+          updates: {
+            visualChanges: [
+              {
+                id: "vch_123",
+                variation: "var_123",
+                css: "body { color: blue; }",
+              },
+            ],
+          },
+          context,
+        });
+
+        const expectedMerged = {
+          id: "vch_123",
+          css: "body { color: blue; }",
+          description: "old description",
+          js: "console.log('old');",
+          variation: "var_123",
+          domMutations: [
+            {
+              selector: ".old",
+              action: "set",
+              attribute: "data-x",
+              value: "1",
+            },
+          ],
+        };
+
+        expect(updateFn).toHaveBeenCalledWith(
+          {
+            id: existingChangeset.id,
+            organization: context.org.id,
+          },
+          {
+            $set: {
+              visualChanges: [expectedMerged],
+            },
+          },
+        );
+        expect(res.visualChanges).toEqual([expectedMerged]);
+      });
+    });
     describe("and incoming updates include a disallowed organization field", () => {
       const updateFn = jest
         .spyOn(VisualChangesetModel, "updateOne")

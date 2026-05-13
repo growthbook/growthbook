@@ -336,15 +336,27 @@ export const updateVisualChangeset = async ({
   const safeUpdates = pick(updates, UPDATABLE_VISUAL_CHANGESET_FIELDS);
   const isUpdatingVisualChanges = _isUpdatingVisualChanges(safeUpdates);
 
-  // ensure new visual changes have ids assigned
+  // For partial updates, merge with the existing visual change by id so
+  // fields the caller omitted aren't wiped. Brand-new entries (no id, or an
+  // id that doesn't match an existing change) get defaults applied.
+  const existingVisualChangesById = keyBy(
+    visualChangeset.visualChanges || [],
+    "id",
+  );
   const visualChanges = isUpdatingVisualChanges
-    ? safeUpdates.visualChanges.map((vc) => ({
-        description: "",
-        css: "",
-        domMutations: [],
-        ...vc,
-        id: vc.id || uniqid("vc_"),
-      }))
+    ? safeUpdates.visualChanges.map((vc) => {
+        const existing = vc.id ? existingVisualChangesById[vc.id] : undefined;
+        if (existing) {
+          return { ...existing, ...vc };
+        }
+        return {
+          description: "",
+          css: "",
+          domMutations: [],
+          ...vc,
+          id: vc.id || uniqid("vc_"),
+        };
+      })
     : visualChangeset.visualChanges || [];
 
   const res = await VisualChangesetModel.updateOne(
