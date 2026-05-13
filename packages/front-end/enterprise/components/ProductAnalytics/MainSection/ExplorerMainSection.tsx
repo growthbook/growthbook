@@ -145,6 +145,8 @@ export default function ExplorerMainSection() {
               top: 15,
               right: 15,
               width: "auto",
+              backgroundColor: "var(--color-panel-solid)",
+              borderRadius: "var(--radius-3)",
             }}
           >
             <Callout status="info" size="sm" icon={null} contentsAs="div">

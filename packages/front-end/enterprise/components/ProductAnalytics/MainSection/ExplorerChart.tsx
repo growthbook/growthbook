@@ -36,13 +36,12 @@ import {
   buildExplorerChartComparisonSeriesList,
   buildIndividualBarComparePivotSeriesAndCategories,
   computeBigNumberComparisonTrends,
-  getAlignedComparisonDimensionKeyForTooltip,
   getComparisonPeriodLabels,
-  parseComparisonTooltipSeriesName,
   sortProductAnalyticsTooltipAxisItems,
   supportsAlwaysOnComparisonOverlay,
 } from "@/enterprise/components/ProductAnalytics/compareUtil";
 import ComparisonTrendLabel from "@/enterprise/components/ProductAnalytics/ComparisonTrendLabel";
+import { buildExplorerChartTooltipFormatter } from "@/enterprise/components/ProductAnalytics/MainSection/explorerChartTooltipFormatter";
 
 const CHART_ID = "explorer-chart";
 
@@ -74,101 +73,6 @@ function formatNumber(value: number): string {
     return `${(value / 1000).toFixed(1)}K`;
   }
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
-}
-
-function escapeHtmlForProductAnalyticsTooltip(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function buildGroupedLineAreaCompareTooltipRows(
-  items: Array<{
-    marker: string;
-    seriesName: string;
-    value: number | [number, number];
-  }>,
-  comparisonPeriodLabels: { currentLabel: string; previousLabel: string },
-): string {
-  const groupKey = (seriesName: string) => {
-    const { baseName } = parseComparisonTooltipSeriesName(
-      seriesName,
-      comparisonPeriodLabels,
-    );
-    return baseName === "" ? "\0pivot\0" : baseName;
-  };
-  const parse = (seriesName: string) =>
-    parseComparisonTooltipSeriesName(seriesName, comparisonPeriodLabels);
-
-  const fmtVal = (item: (typeof items)[0]) => {
-    const numValue = Array.isArray(item.value) ? item.value[1] : item.value;
-    return typeof numValue === "number"
-      ? formatNumber(numValue)
-      : String(numValue);
-  };
-
-  let idx = 0;
-  const blocks: string[] = [];
-  let blockIndex = 0;
-  while (idx < items.length) {
-    const key = groupKey(items[idx].seriesName);
-    const group: typeof items = [];
-    while (idx < items.length && groupKey(items[idx].seriesName) === key) {
-      group.push(items[idx]);
-      idx += 1;
-    }
-    const currentItem = group.find(
-      (it) => parse(it.seriesName).period === "current",
-    );
-    const previousItem = group.find(
-      (it) => parse(it.seriesName).period === "previous",
-    );
-    const neutrals = group.filter(
-      (it) => parse(it.seriesName).period === "neutral",
-    );
-
-    const baseName = parse(group[0].seriesName).baseName;
-    const title =
-      baseName.trim() !== ""
-        ? escapeHtmlForProductAnalyticsTooltip(baseName)
-        : null;
-
-    const marginTop = blockIndex === 0 ? "0" : "6px";
-    blockIndex += 1;
-
-    const inner: string[] = [];
-    if (title) {
-      inner.push(`<div style="font-weight:600">${title}</div>`);
-    }
-    if (currentItem || previousItem) {
-      inner.push(
-        `<div style="display:flex;justify-content:space-between;gap:16px;margin-top:2px">`,
-      );
-      inner.push(
-        currentItem
-          ? `<span>${currentItem.marker}<b>${fmtVal(currentItem)}</b></span>`
-          : `<span></span>`,
-      );
-      inner.push(
-        previousItem
-          ? `<span>${previousItem.marker}<b>${fmtVal(previousItem)}</b></span>`
-          : `<span></span>`,
-      );
-      inner.push(`</div>`);
-    }
-    for (const n of neutrals) {
-      inner.push(
-        `<div style="display:flex;justify-content:space-between;gap:16px;margin-top:2px"><span>${n.marker}${escapeHtmlForProductAnalyticsTooltip(n.seriesName)}</span><span><b>${fmtVal(n)}</b></span></div>`,
-      );
-    }
-    if (!title && !currentItem && !previousItem) {
-      for (const it of group) {
-        inner.push(
-          `<div style="display:flex;justify-content:space-between;gap:16px;margin-top:2px"><span>${it.marker}${escapeHtmlForProductAnalyticsTooltip(it.seriesName)}</span><span><b>${fmtVal(it)}</b></span></div>`,
-        );
-      }
-    }
-    blocks.push(`<div style="margin-top:${marginTop}">${inner.join("")}</div>`);
-  }
-  return blocks.join("");
 }
 
 function seriesNameFromEChartsSeriesConfig(s: unknown): string | undefined {
@@ -416,17 +320,12 @@ export default function ExplorerChart({
         : null;
 
     let seriesConfigs: unknown[];
-    /** When set, legend lists only these series names (excludes previous-period overlay). */
-    let legendDataCurrentPeriodOnly: string[] | null = null;
     const categoryAxisData = individualBarComparePivot
       ? individualBarComparePivot.categoryAxisData
       : sortedXValues;
 
     if (individualBarComparePivot) {
       seriesConfigs = individualBarComparePivot.series;
-      if (comparisonPeriodLabels) {
-        legendDataCurrentPeriodOnly = [comparisonPeriodLabels.currentLabel];
-      }
     } else {
       seriesConfigs = buildExplorerChartComparisonSeriesList({
         chartType,
@@ -445,9 +344,6 @@ export default function ExplorerChart({
       });
 
       if (compareOverlayActive && alignedComparisonDataForCurrent) {
-        legendDataCurrentPeriodOnly = seriesConfigs
-          .map((s) => seriesNameFromEChartsSeriesConfig(s))
-          .filter((n): n is string => typeof n === "string" && n.length > 0);
         seriesConfigs = [
           ...seriesConfigs,
           ...buildExplorerChartComparisonSeriesList({
@@ -481,10 +377,7 @@ export default function ExplorerChart({
       );
     }
 
-    const legendShow =
-      legendDataCurrentPeriodOnly !== null
-        ? legendDataCurrentPeriodOnly.length > 0
-        : seriesConfigs.length > 1;
+    const legendShow = seriesConfigs.length > 0;
 
     const axisPointerLabelFormatter =
       individualBarComparePivot && resolvedGranularity && firstDimensionIsDate
@@ -571,184 +464,17 @@ export default function ExplorerChart({
     const xAxis = isHorizontalBar ? valueAxis : categoryAxis;
     const yAxis = isHorizontalBar ? categoryAxis : valueAxis;
 
-    // Build a custom tooltip formatter: pivot compare bars (dimension + attribute
-    // header), timeseries (granularity-aware date), or default ECharts tooltip.
-    const tooltipFormatter = individualBarComparePivot
-      ? (params: unknown) => {
-          const itemsRaw = (Array.isArray(params) ? params : [params]) as {
-            axisValue: string | number;
-            dataIndex: number;
-            marker: string;
-            seriesName: string;
-            value: number | [number, number];
-          }[];
-          if (!itemsRaw.length) return "";
-          const items = sortProductAnalyticsTooltipAxisItems(
-            itemsRaw,
-            comparisonPeriodLabels,
-          );
-          const idx =
-            typeof items[0].dataIndex === "number" ? items[0].dataIndex : 0;
-          const slot = individualBarComparePivot.slots[idx];
-          if (!slot) return "";
-
-          const dimHeader =
-            firstDimensionIsDate && resolvedGranularity
-              ? (() => {
-                  const d = new Date(slot.x);
-                  return Number.isNaN(d.getTime())
-                    ? slot.x
-                    : formatDateByGranularity(d, resolvedGranularity);
-                })()
-              : slot.x;
-
-          const header = `<div style="margin-bottom:4px"><div>${dimHeader}</div><div style="font-size:12px;opacity:0.9">${slot.attributeName}</div></div>`;
-
-          const seriesRows = items
-            .map((item) => {
-              const numValue = Array.isArray(item.value)
-                ? item.value[1]
-                : item.value;
-              const formatted =
-                typeof numValue === "number"
-                  ? formatNumber(numValue)
-                  : String(numValue);
-              return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${item.marker}${item.seriesName}</span><span><b>${formatted}</b></span></div>`;
-            })
-            .join("");
-
-          return `<div>${header}${seriesRows}</div>`;
-        }
-      : resolvedGranularity
-        ? (params: unknown) => {
-            const itemsRaw = (Array.isArray(params) ? params : [params]) as {
-              axisValue: string | number;
-              marker: string;
-              seriesName: string;
-              value: number | [number, number];
-            }[];
-            if (!itemsRaw.length) return "";
-            const items = sortProductAnalyticsTooltipAxisItems(
-              itemsRaw,
-              comparisonPeriodLabels,
-            );
-
-            // axisValue is a timestamp (ms) for time axis, raw string for category axis
-            const rawAxisValue = items[0].axisValue;
-            const date =
-              typeof rawAxisValue === "number"
-                ? new Date(rawAxisValue)
-                : new Date(String(rawAxisValue));
-            let header: string;
-            let groupedLineAreaCompareRows = false;
-            if (
-              showLineAreaCompareTooltipDates &&
-              alignedComparisonOverlay &&
-              resolvedGranularity &&
-              comparisonPeriodLabels
-            ) {
-              const axisMs =
-                typeof rawAxisValue === "number"
-                  ? rawAxisValue
-                  : new Date(String(rawAxisValue)).getTime();
-              const currentX = sortedXValues.find(
-                (xv) => new Date(xv).getTime() === axisMs,
-              );
-              if (
-                currentX !== undefined &&
-                !Number.isNaN(new Date(currentX).getTime())
-              ) {
-                const compKey = getAlignedComparisonDimensionKeyForTooltip(
-                  sortedXValues,
-                  alignedComparisonOverlay.comparisonXValues,
-                  currentX,
-                  firstDimensionIsDate,
-                );
-                const currentFormatted = formatDateByGranularity(
-                  new Date(currentX),
-                  resolvedGranularity,
-                );
-                if (
-                  compKey !== undefined &&
-                  !Number.isNaN(new Date(compKey).getTime())
-                ) {
-                  const prevFormatted = formatDateByGranularity(
-                    new Date(compKey),
-                    resolvedGranularity,
-                  );
-                  groupedLineAreaCompareRows = true;
-                  header = `<div>${escapeHtmlForProductAnalyticsTooltip(currentFormatted)}</div><div style="font-size:12px;opacity:0.9">${escapeHtmlForProductAnalyticsTooltip(prevFormatted)}</div>`;
-                } else {
-                  header =
-                    escapeHtmlForProductAnalyticsTooltip(currentFormatted);
-                }
-              } else {
-                header = escapeHtmlForProductAnalyticsTooltip(
-                  formatDateByGranularity(date, resolvedGranularity),
-                );
-              }
-            } else {
-              header = escapeHtmlForProductAnalyticsTooltip(
-                formatDateByGranularity(date, resolvedGranularity),
-              );
-            }
-
-            const seriesRows =
-              groupedLineAreaCompareRows && comparisonPeriodLabels
-                ? buildGroupedLineAreaCompareTooltipRows(
-                    items,
-                    comparisonPeriodLabels,
-                  )
-                : items
-                    .map((item) => {
-                      const numValue = Array.isArray(item.value)
-                        ? item.value[1]
-                        : item.value;
-                      const formatted =
-                        typeof numValue === "number"
-                          ? formatNumber(numValue)
-                          : String(numValue);
-                      return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${item.marker}${item.seriesName}</span><span><b>${formatted}</b></span></div>`;
-                    })
-                    .join("");
-
-            return `<div><div style="margin-bottom:4px">${header}</div>${seriesRows}</div>`;
-          }
-        : seriesConfigs.length > 1
-          ? (params: unknown) => {
-              const itemsRaw = (Array.isArray(params) ? params : [params]) as {
-                axisValue: string | number;
-                marker: string;
-                seriesName: string;
-                value: number | [number, number];
-              }[];
-              if (!itemsRaw.length) return "";
-              const items = sortProductAnalyticsTooltipAxisItems(
-                itemsRaw,
-                comparisonPeriodLabels,
-              );
-              const rawAxisValue = items[0].axisValue;
-              const header =
-                typeof rawAxisValue === "number"
-                  ? formatNumber(rawAxisValue)
-                  : String(rawAxisValue);
-
-              const seriesRows = items
-                .map((item) => {
-                  const numValue = Array.isArray(item.value)
-                    ? item.value[1]
-                    : item.value;
-                  const formatted =
-                    typeof numValue === "number"
-                      ? formatNumber(numValue)
-                      : String(numValue);
-                  return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${item.marker}${item.seriesName}</span><span><b>${formatted}</b></span></div>`;
-                })
-                .join("");
-
-              return `<div><div style="margin-bottom:4px">${header}</div>${seriesRows}</div>`;
-            }
-          : undefined;
+    const tooltipFormatter = buildExplorerChartTooltipFormatter({
+      individualBarComparePivot,
+      resolvedGranularity,
+      firstDimensionIsDate,
+      comparisonPeriodLabels,
+      showLineAreaCompareTooltipDates,
+      alignedComparisonOverlay,
+      sortedXValues,
+      seriesConfigsLength: seriesConfigs.length,
+      formatNumber,
+    });
 
     return {
       tooltip: {
@@ -775,7 +501,7 @@ export default function ExplorerChart({
         left: "center",
         top: 8,
         width: "88%",
-        padding: [8, 0, 16, 0],
+        padding: [8, 0, 20, 0],
         textStyle: { color: textColor },
       },
       xAxis,
