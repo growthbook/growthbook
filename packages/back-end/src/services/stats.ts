@@ -65,6 +65,7 @@ import {
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { statsServerPool } from "back-end/src/services/python";
 import { metrics } from "back-end/src/util/metrics";
+import { getSafeTargetingSqlIdentifiers } from "back-end/src/integrations/sql/contextual-bandit/contextual-bandit-experiment-units-sql";
 
 export const MAX_DIMENSIONS = 20;
 
@@ -122,6 +123,14 @@ export function getBanditSettingsForStatsEngine(
     variations,
     settings.baselineVariationIndex ?? 0,
   );
+  const contextualContextColumns =
+    banditSettings.banditIsContextual &&
+    banditSettings.targetingAttributeColumns?.length
+      ? getSafeTargetingSqlIdentifiers(
+          banditSettings.targetingAttributeColumns,
+        ).map((col) => `gb_ctx_${col}`)
+      : undefined;
+
   return {
     reweight: banditSettings.reweight,
     var_names: sortedVariations.map((v) => v.name),
@@ -134,6 +143,9 @@ export function getBanditSettingsForStatsEngine(
       weights: hw.weights,
       total_users: hw.totalUsers,
     })),
+    ...(contextualContextColumns?.length
+      ? { contexts: contextualContextColumns }
+      : {}),
   };
 }
 

@@ -114,7 +114,9 @@ class DataForStatsEngine:
     metrics: Dict[str, MetricSettingsForStatsEngine]
     analyses: List[AnalysisSettingsForStatsEngine]
     query_results: List[QueryResultsForStatsEngine]
-    bandit_settings: Optional[BanditSettingsForStatsEngine]
+    bandit_settings: Optional[
+        Union[BanditSettingsForStatsEngine, ContextualBanditSettingsForStatsEngine]
+    ]
 
 
 @dataclass
