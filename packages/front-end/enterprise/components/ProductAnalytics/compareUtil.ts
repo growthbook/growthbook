@@ -428,7 +428,10 @@ export function buildExplorerChartComparisonSeriesList(params: {
             color,
             type: "bar" as const,
             stack: getComparisonStackId(isPrevious, isStacked),
-            barGap: COMPARE_OVERLAY_BAR_GAP,
+            // Overlap only for non-stacked bars (single pair per category slot).
+            // Stacked current vs previous use separate stack ids; -100% barGap
+            // would collapse the two stacks onto the same slot.
+            ...(!isStacked ? { barGap: COMPARE_OVERLAY_BAR_GAP } : {}),
             z: isPrevious
               ? COMPARE_OVERLAY_Z_PREVIOUS_UNDER
               : COMPARE_OVERLAY_Z_CURRENT_OVER,
@@ -515,6 +518,115 @@ export function buildExplorerChartComparisonSeriesList(params: {
       return undefined;
     })
     .filter((series) => series !== undefined);
+}
+
+/** One category slot per (primary dimension value × series/attribute). */
+export type IndividualBarComparePivotSlot = {
+  x: string;
+  seriesKey: string;
+  attributeName: string;
+  seriesKeyIndex: number;
+};
+
+/**
+ * For non-stacked bar charts with compare, builds one axis category per attribute
+ * slot and exactly two bar series (current vs previous) so `barGap: -100%` overlays
+ * periods without ECharts mis-pairing multiple series.
+ */
+export function buildIndividualBarComparePivotSeriesAndCategories(args: {
+  sortedXValues: string[];
+  sortedSeriesKeys: string[];
+  dataMap: Record<string, Record<string, number>>;
+  previousAlignedMap: Record<string, Record<string, number>>;
+  sourceSeriesMeta: Record<string, ExplorerChartCompareSeriesMeta>;
+  comparisonPeriodLabels: { currentLabel: string; previousLabel: string };
+  seriesColor: (index: number) => string;
+  comparisonSeriesColor: (index: number) => string;
+  animate: boolean;
+}): {
+  categoryAxisData: string[];
+  slots: IndividualBarComparePivotSlot[];
+  series: unknown[];
+} | null {
+  const {
+    sortedXValues,
+    sortedSeriesKeys,
+    dataMap,
+    previousAlignedMap,
+    sourceSeriesMeta,
+    comparisonPeriodLabels,
+    seriesColor,
+    comparisonSeriesColor,
+    animate,
+  } = args;
+
+  if (!sortedSeriesKeys.length) return null;
+
+  const slots: IndividualBarComparePivotSlot[] = [];
+  for (const x of sortedXValues) {
+    sortedSeriesKeys.forEach((seriesKey, seriesKeyIndex) => {
+      slots.push({
+        x,
+        seriesKey,
+        attributeName: sourceSeriesMeta[seriesKey]?.name ?? seriesKey,
+        seriesKeyIndex,
+      });
+    });
+  }
+
+  const categoryAxisData = slots.map((s) => `${s.x}\n${s.attributeName}`);
+
+  const currentData = slots.map((slot) => {
+    const curr = dataMap[slot.seriesKey]?.[slot.x] ?? 0;
+    const prev = previousAlignedMap[slot.seriesKey]?.[slot.x] ?? 0;
+    const color = seriesColor(slot.seriesKeyIndex);
+    if (curr > prev) {
+      return {
+        value: curr,
+        itemStyle: {
+          color,
+          opacity: COMPARE_OVERLAY_CURRENT_BAR_WHEN_ABOVE_PREVIOUS_OPACITY,
+        },
+      };
+    }
+    return {
+      value: curr,
+      itemStyle: { color },
+    };
+  });
+
+  const previousData = slots.map((slot) => ({
+    value: previousAlignedMap[slot.seriesKey]?.[slot.x] ?? 0,
+    itemStyle: {
+      color: comparisonSeriesColor(slot.seriesKeyIndex),
+      opacity: COMPARE_OVERLAY_PREVIOUS_BAR_OPACITY,
+    },
+  }));
+
+  const series = [
+    {
+      name: comparisonPeriodLabels.currentLabel,
+      type: "bar" as const,
+      data: currentData,
+      barGap: COMPARE_OVERLAY_BAR_GAP,
+      z: COMPARE_OVERLAY_Z_CURRENT_OVER,
+      animation: animate,
+      animationDuration: animate ? 300 : 0,
+      animationEasing: "cubicOut" as const,
+    },
+    {
+      name: comparisonPeriodLabels.previousLabel,
+      type: "bar" as const,
+      data: previousData,
+      barGap: COMPARE_OVERLAY_BAR_GAP,
+      z: COMPARE_OVERLAY_Z_PREVIOUS_UNDER,
+      animation: animate,
+      animationDuration: animate ? 300 : 0,
+      animationEasing: "cubicOut" as const,
+    },
+  ];
+
+  return { categoryAxisData, slots, series };
 }
 
 export function computeBigNumberComparisonTrend(

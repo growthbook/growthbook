@@ -35,6 +35,7 @@ import {
   buildAlignedComparisonOverlayForExplorer,
   buildComparisonOverlaySeriesMaps,
   buildExplorerChartComparisonSeriesList,
+  buildIndividualBarComparePivotSeriesAndCategories,
   computeBigNumberComparisonTrend,
   getComparisonPeriodLabels,
   supportsAlwaysOnComparisonOverlay,
@@ -257,59 +258,96 @@ export default function ExplorerChart({
           })
         : null;
 
-    let seriesConfigs = buildExplorerChartComparisonSeriesList({
-      chartType,
-      sourceDataMap: dataMap,
-      sourceSeriesMeta: seriesMeta,
-      sourceSeriesKeys: sortedSeriesKeys,
-      sourceSortedXValues: sortedXValues,
-      numMetrics,
-      numDimensions,
-      isStacked,
-      compareOverlayActive,
-      comparisonPeriodLabels,
-      previousAlignedMap: alignedComparisonDataForCurrent,
-      seriesColor,
-      comparisonSeriesColor,
-      animate,
-    });
+    const individualBarComparePivot =
+      compareOverlayActive &&
+      !isStacked &&
+      (chartType === "bar" || chartType === "horizontalBar") &&
+      alignedComparisonDataForCurrent &&
+      comparisonPeriodLabels
+        ? buildIndividualBarComparePivotSeriesAndCategories({
+            sortedXValues,
+            sortedSeriesKeys,
+            dataMap,
+            previousAlignedMap: alignedComparisonDataForCurrent,
+            sourceSeriesMeta: seriesMeta,
+            comparisonPeriodLabels,
+            seriesColor,
+            comparisonSeriesColor,
+            animate,
+          })
+        : null;
 
-    if (compareOverlayActive && alignedComparisonDataForCurrent) {
-      seriesConfigs = [
-        ...seriesConfigs,
-        ...buildExplorerChartComparisonSeriesList({
-          chartType,
-          sourceDataMap: alignedComparisonDataForCurrent,
-          sourceSeriesMeta: seriesMeta,
-          sourceSeriesKeys: sortedSeriesKeys,
-          sourceSortedXValues: sortedXValues,
-          numMetrics,
-          numDimensions,
-          isStacked,
-          compareOverlayActive,
-          comparisonPeriodLabels,
-          previous: true,
-          seriesColor,
-          comparisonSeriesColor,
-          animate,
-        }),
-      ];
+    let seriesConfigs: unknown[];
+    const categoryAxisData = individualBarComparePivot
+      ? individualBarComparePivot.categoryAxisData
+      : sortedXValues;
+
+    if (individualBarComparePivot) {
+      seriesConfigs = individualBarComparePivot.series;
+    } else {
+      seriesConfigs = buildExplorerChartComparisonSeriesList({
+        chartType,
+        sourceDataMap: dataMap,
+        sourceSeriesMeta: seriesMeta,
+        sourceSeriesKeys: sortedSeriesKeys,
+        sourceSortedXValues: sortedXValues,
+        numMetrics,
+        numDimensions,
+        isStacked,
+        compareOverlayActive,
+        comparisonPeriodLabels,
+        previousAlignedMap: alignedComparisonDataForCurrent,
+        seriesColor,
+        comparisonSeriesColor,
+        animate,
+      });
+
+      if (compareOverlayActive && alignedComparisonDataForCurrent) {
+        seriesConfigs = [
+          ...seriesConfigs,
+          ...buildExplorerChartComparisonSeriesList({
+            chartType,
+            sourceDataMap: alignedComparisonDataForCurrent,
+            sourceSeriesMeta: seriesMeta,
+            sourceSeriesKeys: sortedSeriesKeys,
+            sourceSortedXValues: sortedXValues,
+            numMetrics,
+            numDimensions,
+            isStacked,
+            compareOverlayActive,
+            comparisonPeriodLabels,
+            previous: true,
+            seriesColor,
+            comparisonSeriesColor,
+            animate,
+          }),
+        ];
+      }
     }
 
-    const axisPointerLabelFormatter = resolvedGranularity
-      ? (params: { value: string | number }) => {
-          const date =
-            typeof params.value === "number"
-              ? new Date(params.value)
-              : new Date(String(params.value));
-          return formatDateByGranularity(date, resolvedGranularity);
-        }
-      : undefined;
+    const axisPointerLabelFormatter =
+      individualBarComparePivot && resolvedGranularity && firstDimensionIsDate
+        ? (params: { value: string | number }) => {
+            const raw = String(params.value);
+            const firstLine = raw.split("\n")[0] ?? raw;
+            const date = new Date(firstLine);
+            if (Number.isNaN(date.getTime())) return raw;
+            return formatDateByGranularity(date, resolvedGranularity);
+          }
+        : resolvedGranularity
+          ? (params: { value: string | number }) => {
+              const date =
+                typeof params.value === "number"
+                  ? new Date(params.value)
+                  : new Date(String(params.value));
+              return formatDateByGranularity(date, resolvedGranularity);
+            }
+          : undefined;
 
     // Define the category axis (shows the dimension labels)
     const categoryAxis = {
       type: chartType === "line" || chartType === "area" ? "time" : "category",
-      data: sortedXValues,
+      data: categoryAxisData,
       nameLocation: "middle" as const,
       nameTextStyle: {
         fontSize: 14,
@@ -321,6 +359,23 @@ export default function ExplorerChart({
         color: textColor,
         rotate: isHorizontalBar ? 0 : -45,
         hideOverlap: true,
+        ...(individualBarComparePivot
+          ? {
+              formatter: (value: string) => {
+                const lines = String(value).split("\n");
+                if (lines.length < 2) return value;
+                const [dimVal, ...attrParts] = lines;
+                const attr = attrParts.join("\n");
+                if (firstDimensionIsDate && resolvedGranularity) {
+                  const d = new Date(dimVal);
+                  if (!Number.isNaN(d.getTime())) {
+                    return `${formatDateByGranularity(d, resolvedGranularity)}\n${attr}`;
+                  }
+                }
+                return `${dimVal}\n${attr}`;
+              },
+            }
+          : {}),
       },
       // Only attach the axisPointer key when we actually have a formatter to
       // apply. Setting `axisPointer: undefined` overwrites ECharts' default
@@ -355,24 +410,34 @@ export default function ExplorerChart({
     const xAxis = isHorizontalBar ? valueAxis : categoryAxis;
     const yAxis = isHorizontalBar ? categoryAxis : valueAxis;
 
-    // Build a custom tooltip formatter that applies granularity-aware date formatting
-    const tooltipFormatter = resolvedGranularity
+    // Build a custom tooltip formatter: pivot compare bars (dimension + attribute
+    // header), timeseries (granularity-aware date), or default ECharts tooltip.
+    const tooltipFormatter = individualBarComparePivot
       ? (params: unknown) => {
           const items = (Array.isArray(params) ? params : [params]) as {
             axisValue: string | number;
+            dataIndex: number;
             marker: string;
             seriesName: string;
             value: number | [number, number];
           }[];
           if (!items.length) return "";
+          const idx =
+            typeof items[0].dataIndex === "number" ? items[0].dataIndex : 0;
+          const slot = individualBarComparePivot.slots[idx];
+          if (!slot) return "";
 
-          // axisValue is a timestamp (ms) for time axis, raw string for category axis
-          const rawAxisValue = items[0].axisValue;
-          const date =
-            typeof rawAxisValue === "number"
-              ? new Date(rawAxisValue)
-              : new Date(String(rawAxisValue));
-          const header = formatDateByGranularity(date, resolvedGranularity);
+          const dimHeader =
+            firstDimensionIsDate && resolvedGranularity
+              ? (() => {
+                  const d = new Date(slot.x);
+                  return Number.isNaN(d.getTime())
+                    ? slot.x
+                    : formatDateByGranularity(d, resolvedGranularity);
+                })()
+              : slot.x;
+
+          const header = `<div style="margin-bottom:4px"><div>${dimHeader}</div><div style="font-size:12px;opacity:0.9">${slot.attributeName}</div></div>`;
 
           const seriesRows = items
             .map((item) => {
@@ -387,9 +452,42 @@ export default function ExplorerChart({
             })
             .join("");
 
-          return `<div><div style="margin-bottom:4px">${header}</div>${seriesRows}</div>`;
+          return `<div>${header}${seriesRows}</div>`;
         }
-      : undefined;
+      : resolvedGranularity
+        ? (params: unknown) => {
+            const items = (Array.isArray(params) ? params : [params]) as {
+              axisValue: string | number;
+              marker: string;
+              seriesName: string;
+              value: number | [number, number];
+            }[];
+            if (!items.length) return "";
+
+            // axisValue is a timestamp (ms) for time axis, raw string for category axis
+            const rawAxisValue = items[0].axisValue;
+            const date =
+              typeof rawAxisValue === "number"
+                ? new Date(rawAxisValue)
+                : new Date(String(rawAxisValue));
+            const header = formatDateByGranularity(date, resolvedGranularity);
+
+            const seriesRows = items
+              .map((item) => {
+                const numValue = Array.isArray(item.value)
+                  ? item.value[1]
+                  : item.value;
+                const formatted =
+                  typeof numValue === "number"
+                    ? formatNumber(numValue)
+                    : String(numValue);
+                return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${item.marker}${item.seriesName}</span><span><b>${formatted}</b></span></div>`;
+              })
+              .join("");
+
+            return `<div><div style="margin-bottom:4px">${header}</div>${seriesRows}</div>`;
+          }
+        : undefined;
 
     return {
       tooltip: {
