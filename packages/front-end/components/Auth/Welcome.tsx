@@ -7,7 +7,7 @@ import track from "@/services/track";
 import Text from "@/ui/Text";
 import { getApiHost } from "@/services/env";
 import Field from "@/components/Forms/Field";
-import Button from "@/ui/Button";
+import Button, { WhiteButton } from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import WelcomeFrame from "./WelcomeFrame";
@@ -167,15 +167,16 @@ export default function Welcome({
               </Text>
               <Box mt="5" mb="5">
                 {hero.cta && hero.link && (
-                  <Button
+                  <WhiteButton
                     variant="outline"
                     size="md"
+                    fullWidth={false}
                     onClick={() =>
                       window.open(hero.link, "_blank", "noopener,noreferrer")
                     }
                   >
                     {hero.cta}
-                  </Button>
+                  </WhiteButton>
                 )}
               </Box>
             </Box>
