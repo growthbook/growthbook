@@ -710,15 +710,20 @@ export function buildIndividualBarComparePivotSeriesAndCategories(args: {
   return { categoryAxisData, slots, series };
 }
 
-export function computeBigNumberComparisonTrend(
+/**
+ * Comparison trend for one metric column on the aggregate row (Big Number view).
+ */
+export function computeBigNumberComparisonTrendForMetricIndex(
   exploration: ProductAnalyticsExploration | null,
   comparisonExploration: ProductAnalyticsExploration | null,
   submittedExploreState: ExplorationConfig,
   getFactMetricById: (id: string) => FactMetricInterface | null,
+  metricIndex: number,
 ): BigNumberComparisonTrend | null {
   if (
     !exploration?.result?.rows?.length ||
-    !comparisonExploration?.result?.rows?.length
+    !comparisonExploration?.result?.rows?.length ||
+    metricIndex < 0
   ) {
     return null;
   }
@@ -728,17 +733,18 @@ export function computeBigNumberComparisonTrend(
     isRatioByIndex: getIsRatioByIndex(submittedExploreState, getFactMetricById),
   };
 
-  const currCell = exploration.result.rows[0]?.values[0];
-  const prevCell = comparisonExploration.result.rows[0]?.values[0];
+  const currCell = exploration.result.rows[0]?.values[metricIndex];
+  const prevCell = comparisonExploration.result.rows[0]?.values[metricIndex];
   if (!currCell || !prevCell) return null;
 
+  const isRatio = renderOpts.isRatioByIndex[metricIndex] ?? false;
   const currentValue = getEffectiveMetricValue(currCell, {
     showAs: renderOpts.showAs,
-    isRatio: renderOpts.isRatioByIndex[0] ?? false,
+    isRatio,
   });
   const previousValue = getEffectiveMetricValue(prevCell, {
     showAs: renderOpts.showAs,
-    isRatio: renderOpts.isRatioByIndex[0] ?? false,
+    isRatio,
   });
 
   if (previousValue === 0) {
@@ -750,4 +756,38 @@ export function computeBigNumberComparisonTrend(
     previousValue,
     pctChange: (currentValue - previousValue) / Math.abs(previousValue),
   };
+}
+
+/** One entry per `dataset.values` index (aligned with explorer metric slots). */
+export function computeBigNumberComparisonTrends(
+  exploration: ProductAnalyticsExploration | null,
+  comparisonExploration: ProductAnalyticsExploration | null,
+  submittedExploreState: ExplorationConfig,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): (BigNumberComparisonTrend | null)[] {
+  const n = submittedExploreState.dataset?.values?.length ?? 0;
+  return Array.from({ length: n }, (_, metricIndex) =>
+    computeBigNumberComparisonTrendForMetricIndex(
+      exploration,
+      comparisonExploration,
+      submittedExploreState,
+      getFactMetricById,
+      metricIndex,
+    ),
+  );
+}
+
+export function computeBigNumberComparisonTrend(
+  exploration: ProductAnalyticsExploration | null,
+  comparisonExploration: ProductAnalyticsExploration | null,
+  submittedExploreState: ExplorationConfig,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): BigNumberComparisonTrend | null {
+  return computeBigNumberComparisonTrendForMetricIndex(
+    exploration,
+    comparisonExploration,
+    submittedExploreState,
+    getFactMetricById,
+    0,
+  );
 }
