@@ -26,7 +26,10 @@ import { useUser } from "@/services/UserContext";
 import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
 import { isCloud, isMultiOrg } from "@/services/env";
 import EditOrganization from "@/components/Admin/EditOrganization";
-import { OrganizationSuperAdminExpanded } from "@/components/Admin/OrganizationSuperAdminExpanded";
+import {
+  OrganizationSuperAdminExpanded,
+  SuperAdminOrganizationUsage,
+} from "@/components/Admin/OrganizationSuperAdminExpanded";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import CreateOrganization from "@/components/Admin/CreateOrganization";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
@@ -147,6 +150,11 @@ function OrganizationRow({
   > | null>(null);
   const [license, setLicense] = useState<LicenseInterface | null>(null);
   const [licenseLoading, setLicenseLoading] = useState(false);
+  const [orgUsage, setOrgUsage] = useState<SuperAdminOrganizationUsage | null>(
+    null,
+  );
+  const [orgUsageLoading, setOrgUsageLoading] = useState(false);
+  const [orgUsageError, setOrgUsageError] = useState(false);
   const { apiCall } = useAuth();
   const [clickhouseModalOpen, setClickhouseModalOpen] = useState(false);
   const [managedWarehouseId, setManagedWarehouseId] = useState(
@@ -208,6 +216,39 @@ function OrganizationRow({
       fetchOrgMembers();
     }
   }, [expanded, apiCall, orgMembers, organization]);
+
+  useEffect(() => {
+    if (!expanded) return;
+    let cancelled = false;
+    setOrgUsage(null);
+    setOrgUsageError(false);
+    setOrgUsageLoading(true);
+
+    const load = async () => {
+      try {
+        const res = await apiCall<{
+          status: number;
+          usage?: SuperAdminOrganizationUsage;
+        }>(`/admin/organization/${organization.id}/usage`);
+
+        if (cancelled) return;
+        if (res.status === 200 && res.usage) {
+          setOrgUsage(res.usage);
+        } else {
+          setOrgUsageError(true);
+        }
+      } catch {
+        if (!cancelled) setOrgUsageError(true);
+      } finally {
+        if (!cancelled) setOrgUsageLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [expanded, organization.id, apiCall]);
 
   const createClickhouseDatasource = async () => {
     const { id } = await apiCall<{ id: string }>(
@@ -331,7 +372,11 @@ function OrganizationRow({
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={8} className="bg-light p-3">
+          <td
+            colSpan={8}
+            className="bg-light p-3"
+            style={{ minWidth: 0, width: "100%", maxWidth: "100%" }}
+          >
             <OrganizationSuperAdminExpanded
               organization={organization}
               ssoInfo={ssoInfo}
@@ -339,6 +384,9 @@ function OrganizationRow({
               license={license}
               licenseLoading={licenseLoading}
               managedWarehouseId={managedWarehouseId}
+              orgUsage={orgUsage}
+              orgUsageLoading={orgUsageLoading}
+              orgUsageError={orgUsageError}
               canWrite={canWrite}
               onOrgListRefresh={onEdit}
               onOpenEditSSO={() => setEditSSOOpen(true)}

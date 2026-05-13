@@ -44,6 +44,7 @@ import {
 } from "back-end/src/services/audit";
 import { _dangerourslyGetAllDatasourcesByOrganizations } from "back-end/src/models/DataSourceModel";
 import { getEffectiveAccountPlan } from "back-end/src/enterprise/licenseUtil";
+import { getSuperAdminOrganizationUsage } from "back-end/src/services/superAdminOrganizationUsage";
 
 // Maps the coarse buckets exposed in the admin UI to the precise AccountPlan values.
 const adminPlanGroups: Record<AdminOrgPlanFilter, ReadonlySet<string>> = {
@@ -537,6 +538,39 @@ export async function _dangerousAdminGetOrganizationMembers(
   return res.status(200).json({
     status: 200,
     members,
+  });
+}
+
+export async function _dangerousAdminGetOrganizationUsage(
+  req: AuthRequest<
+    null,
+    {
+      orgId: string;
+    }
+  >,
+  res: Response,
+) {
+  if (!req.superAdmin) {
+    return res.status(403).json({
+      status: 403,
+      message: "Only superAdmins can load organization usage",
+    });
+  }
+  const { orgId } = req.params;
+
+  const org = await getOrganizationById(orgId);
+  if (!org) {
+    return res.status(404).json({
+      status: 404,
+      message: "Organization not found",
+    });
+  }
+
+  const usage = await getSuperAdminOrganizationUsage(org);
+
+  return res.status(200).json({
+    status: 200,
+    usage,
   });
 }
 

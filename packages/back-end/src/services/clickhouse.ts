@@ -231,6 +231,42 @@ WITH FILL
   }));
 }
 
+/**
+ * Total ingested events for a managed warehouse org across main + overage tables.
+ */
+export async function countManagedWarehouseEventsForOrganization(
+  orgId: string,
+  start: Date,
+  end: Date,
+): Promise<number> {
+  const client = createAdminClickhouseClient();
+  const sanitizedOrgId = orgId.replace(/[^a-zA-Z0-9_-]/g, "");
+  const startString = start.toISOString().replace("T", " ").substring(0, 19);
+  const endString = end.toISOString().replace("T", " ").substring(0, 19);
+
+  const sql = `
+SELECT
+  (SELECT count() FROM ${CLICKHOUSE_MAIN_TABLE}
+   WHERE organization = '${sanitizedOrgId}'
+     AND received_at >= '${startString}'
+     AND received_at <= '${endString}')
+  + (SELECT count() FROM ${CLICKHOUSE_OVERAGE_TABLE}
+     WHERE organization = '${sanitizedOrgId}'
+       AND received_at >= '${startString}'
+       AND received_at <= '${endString}')
+  AS total
+`.trim();
+
+  const res = await client.query({
+    query: sql,
+    format: "JSONEachRow",
+  });
+
+  const data: { total: string }[] = await res.json();
+  const row = data[0];
+  return parseIntWithDefault(row?.total, 0);
+}
+
 export async function updateMaterializedColumns({
   context,
   datasource,

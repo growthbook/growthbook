@@ -1065,6 +1065,10 @@ app.get(
   "/admin/organization/:orgId/members",
   adminController._dangerousAdminGetOrganizationMembers,
 );
+app.get(
+  "/admin/organization/:orgId/usage",
+  adminController._dangerousAdminGetOrganizationUsage,
+);
 app.get("/admin/members", adminController._dangerousAdminGetMembers);
 app.put("/admin/member", adminController._dangerousAdminPutMember);
 app.post(

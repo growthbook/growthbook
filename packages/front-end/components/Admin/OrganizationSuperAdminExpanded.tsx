@@ -12,6 +12,7 @@ import { LicenseInterface } from "shared/enterprise";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { OWNER_JOB_TITLES } from "shared/constants";
 import { date } from "shared/dates";
+import { PiPencil } from "react-icons/pi";
 import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
@@ -21,6 +22,35 @@ import Callout from "@/ui/Callout";
 import type { Status } from "@/ui/HelperText";
 import { useAuth } from "@/services/auth";
 import EditOrganizationMessages from "@/components/Admin/EditOrganizationMessages";
+
+export type SuperAdminOrganizationUsage = {
+  seats: {
+    fullMembers: number;
+    readonlyMembers: number;
+    invited: number;
+    overall: number;
+  };
+  activity: {
+    activeMembers: { past30: number; past365: number };
+    experimentsCreated: { past30: number; past365: number };
+    featuresCreated: { past30: number; past365: number };
+    metricsCreated: { past30: number; past365: number };
+    productAnalyticsDashboardsCreated: { past30: number; past365: number };
+    sdkConnectionsCreated: { past30: number; past365: number };
+  };
+  managedWarehouse: boolean;
+  managedWarehouseEvents: {
+    past30: number | null;
+    past365: number | null;
+  } | null;
+  current: {
+    dataSourceTypes: string[];
+    metricsTotal: number;
+    runningExperiments: number;
+    draftExperiments: number;
+    activeFeatureFlags: number;
+  };
+};
 
 function orgMessageLevelToCalloutStatus(
   level: OrganizationMessage["level"],
@@ -104,11 +134,11 @@ function displaySubscriptionStatus(
 function OrgCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div
-      className="bg-white border rounded p-3"
+      className="bg-white border rounded p-3 h-100 d-flex flex-column"
       style={{
-        flex: "1 1 280px",
-        minWidth: 260,
-        maxWidth: 520,
+        width: "100%",
+        minWidth: 0,
+        maxWidth: "100%",
         borderColor: "var(--border-color-200)",
         color: "var(--text-color-main)",
       }}
@@ -116,7 +146,9 @@ function OrgCard({ title, children }: { title: string; children: ReactNode }) {
       <div className="font-weight-bold mb-2 small text-uppercase text-muted">
         {title}
       </div>
-      {children}
+      <div className="flex-grow-1" style={{ minHeight: 0 }}>
+        {children}
+      </div>
     </div>
   );
 }
@@ -130,21 +162,25 @@ function OrgCardFullWidth({
 }) {
   return (
     <div
-      className="bg-white border rounded p-3 w-100"
+      className="bg-white border rounded p-3 w-100 h-100 d-flex flex-column"
       style={{
         borderColor: "var(--border-color-200)",
         color: "var(--text-color-main)",
+        minWidth: 0,
+        maxWidth: "100%",
       }}
     >
       <div className="font-weight-bold mb-2 small text-uppercase text-muted">
         {title}
       </div>
-      {children}
+      <div className="flex-grow-1" style={{ minHeight: 0 }}>
+        {children}
+      </div>
     </div>
   );
 }
 
-function KV({ label, children }: { label: string; children: ReactNode }) {
+function KV({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
     <div className="d-flex flex-wrap justify-content-between gap-2 small mb-1">
       <span className="text-muted">{label}</span>
@@ -175,6 +211,11 @@ function JsonCollapsible({ label, json }: { label: string; json: unknown }) {
   );
 }
 
+function formatUsageInt(n: number | null | undefined): string {
+  if (n === null || n === undefined) return "—";
+  return n.toLocaleString();
+}
+
 export const OrganizationSuperAdminExpanded: FC<{
   organization: OrganizationInterface;
   ssoInfo: SSOConnectionInterface | undefined;
@@ -182,6 +223,9 @@ export const OrganizationSuperAdminExpanded: FC<{
   license: LicenseInterface | null;
   licenseLoading: boolean;
   managedWarehouseId: string | null;
+  orgUsage: SuperAdminOrganizationUsage | null;
+  orgUsageLoading: boolean;
+  orgUsageError: boolean;
   canWrite: boolean;
   onOrgListRefresh: () => void;
   onOpenEditSSO: () => void;
@@ -193,12 +237,15 @@ export const OrganizationSuperAdminExpanded: FC<{
   license,
   licenseLoading,
   managedWarehouseId,
+  orgUsage,
+  orgUsageLoading,
+  orgUsageError,
   canWrite,
   onOrgListRefresh,
   onOpenEditSSO,
   onOpenCreateManagedWarehouse,
 }) => {
-  const { settings, members, messages, ...otherAttributes } = organization;
+  const { members, messages } = organization;
   const { apiCall } = useAuth();
   const [messagesModalOpen, setMessagesModalOpen] = useState(false);
 
@@ -239,352 +286,581 @@ export const OrganizationSuperAdminExpanded: FC<{
         />
       )}
 
-      <div
-        className="d-flex flex-wrap"
-        style={{ gap: 12, alignItems: "stretch", width: "100%" }}
-      >
-        <OrgCard title="Meta">
-          <KV label="Name">{organization.name}</KV>
-          <KV label="Id">
-            <code className="small">{organization.id}</code>
-          </KV>
-          <KV label="Owner email">{organization.ownerEmail}</KV>
-          <KV label="Usage intent">
-            {formatUsageIntentLabel(organization.demographicData)}
-          </KV>
-          <KV label="Owner role">
-            {formatOwnerJobTitle(organization.demographicData)}
-          </KV>
-          <div className="mt-2">
-            <JsonCollapsible
-              label="Full organization JSON"
-              json={organization}
-            />
-          </div>
-        </OrgCard>
-
-        <OrgCard title="Auth settings">
-          <KV label="Verified domain">{organization.verifiedDomain || "—"}</KV>
-          <KV label="Auto approve members">
-            {organization.autoApproveMembers ? "Yes" : "No"}
-          </KV>
-          <KV label="SSO enabled">
-            <span>
-              {ssoInfo
-                ? `Yes (${ssoInfo.id}; ${ssoInfo.emailDomains?.join(", ") || "no domains"})`
-                : "No"}
-            </span>
-            {isCloud() && canWrite && (
-              <>
-                {" "}
-                <button
-                  type="button"
-                  className="btn btn-link btn-sm p-0 align-baseline"
-                  onClick={onOpenEditSSO}
-                >
-                  Edit SSO
-                </button>
-              </>
-            )}
-          </KV>
-          <KV label="Restrict login method">
-            {organization.restrictLoginMethod || "—"}
-          </KV>
-        </OrgCard>
-
-        <OrgCard title="Messages / alerts">
-          {(messages?.length ?? 0) === 0 ? (
-            <>
-              <div className="text-muted small mb-2">
-                No messages configured.
-              </div>
-              {isCloud() && canWrite && (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary"
-                  onClick={() => setMessagesModalOpen(true)}
-                >
-                  Add message
-                </button>
-              )}
-              {isCloud() && !canWrite && (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={() => setMessagesModalOpen(true)}
-                >
-                  View messages
-                </button>
-              )}
-            </>
-          ) : (
-            <>
-              <div
-                className="d-flex flex-column mb-2"
-                style={{ gap: "0.5rem", maxHeight: 320, overflow: "auto" }}
-              >
-                {(messages || []).map((m: OrganizationMessage, i: number) => (
-                  <Callout
-                    key={`org-msg-${organization.id}-${i}-${m.level}`}
-                    status={orgMessageLevelToCalloutStatus(m.level)}
-                    size="sm"
-                    contentsAs="div"
-                  >
-                    <Markdown>{m.message}</Markdown>
-                  </Callout>
-                ))}
-              </div>
-              {isCloud() && canWrite && (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-primary"
-                  onClick={() => setMessagesModalOpen(true)}
-                >
-                  Edit messages
-                </button>
-              )}
-              {isCloud() && !canWrite && (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={() => setMessagesModalOpen(true)}
-                >
-                  View messages
-                </button>
-              )}
-            </>
-          )}
-        </OrgCard>
-
-        {isCloud() && (
-          <OrgCard title="Managed warehouse">
-            <KV label="Status">
-              {managedWarehouseId ? (
-                <span className="text-success">Enabled</span>
-              ) : (
-                <span className="text-muted">Disabled</span>
-              )}
+      <div className="w-100" style={{ minWidth: 0, maxWidth: "100%" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+            gap: 12,
+            width: "100%",
+          }}
+        >
+          <OrgCard title="Info">
+            <KV label="Name">{organization.name}</KV>
+            <KV label="Id">
+              <code className="small">{organization.id}</code>
             </KV>
+            <KV label="Owner email">{organization.ownerEmail}</KV>
+            <KV label="Usage intent">
+              {formatUsageIntentLabel(organization.demographicData)}
+            </KV>
+            <KV label="Owner role">
+              {formatOwnerJobTitle(organization.demographicData)}
+            </KV>
+
+            <hr />
+            <KV label="Verified domain">
+              {organization.verifiedDomain || "—"}
+            </KV>
+            <KV label="Auto approve members">
+              {organization.autoApproveMembers ? "Yes" : "No"}
+            </KV>
+            <KV
+              label={
+                <>
+                  SSO enabled
+                  {isCloud() && canWrite && (
+                    <>
+                      {" "}
+                      <button
+                        type="button"
+                        className="btn btn-link btn-sm p-0 align-baseline"
+                        onClick={onOpenEditSSO}
+                      >
+                        <PiPencil />
+                      </button>
+                    </>
+                  )}
+                </>
+              }
+            >
+              <span>
+                {ssoInfo
+                  ? `Yes (${ssoInfo.id}; ${ssoInfo.emailDomains?.join(", ") || "no domains"})`
+                  : "No"}
+              </span>
+            </KV>
+            <KV label="Restrict login method">
+              {organization.restrictLoginMethod || "—"}
+            </KV>
+
             <div className="mt-2">
-              {!canWrite ? (
-                <span className="text-muted small">
-                  {managedWarehouseId
-                    ? "Read-only — re-generate is disabled."
-                    : "Read-only — create is disabled."}
-                </span>
-              ) : managedWarehouseId ? (
-                <ConfirmButton
-                  isDestructive
-                  onClick={async () => {
-                    await apiCall(
-                      `/datasource/${managedWarehouseId}/recreate-managed-warehouse`,
-                      {
-                        method: "POST",
-                        headers: { "X-Organization": organization.id },
-                      },
-                    );
-                  }}
-                  confirmationText={
-                    <span>
-                      This may take several minutes and queries during the
-                      operation can fail.
-                    </span>
-                  }
-                  modalHeader="Re-generate managed warehouse"
-                >
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-danger"
-                  >
-                    Re-generate managed warehouse
-                  </button>
-                </ConfirmButton>
-              ) : (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary"
-                  onClick={onOpenCreateManagedWarehouse}
-                >
-                  Create managed warehouse
-                </button>
-              )}
+              <JsonCollapsible
+                label="Full organization JSON"
+                json={organization}
+              />
             </div>
           </OrgCard>
-        )}
+          <OrgCard title="Current state">
+            {orgUsageLoading && (
+              <div className="py-2">
+                <LoadingSpinner />
+              </div>
+            )}
+            {orgUsageError && !orgUsageLoading && (
+              <Callout status="error" size="sm">
+                Could not load usage for this organization.
+              </Callout>
+            )}
+            {orgUsage && !orgUsageLoading && (
+              <>
+                <KV label="Data source types">
+                  {orgUsage.current.dataSourceTypes.length
+                    ? orgUsage.current.dataSourceTypes.join(", ")
+                    : "—"}
+                </KV>
+                <KV label="Metrics total (legacy + fact)">
+                  {formatUsageInt(orgUsage.current.metricsTotal)}
+                </KV>
+                <KV label="Running experiments (not archived)">
+                  {formatUsageInt(orgUsage.current.runningExperiments)}
+                </KV>
+                <KV label="Draft experiments (not archived)">
+                  {formatUsageInt(orgUsage.current.draftExperiments)}
+                </KV>
+                <KV label="Active feature flags (not archived)">
+                  {formatUsageInt(orgUsage.current.activeFeatureFlags)}
+                </KV>
+              </>
+            )}
+            {isCloud() && (
+              <>
+                <hr />
+                <div className="font-weight-bold small text-uppercase text-muted mb-2">
+                  Managed warehouse
+                </div>
+                <KV label="Status">
+                  {managedWarehouseId ? (
+                    <span className="text-success">Enabled</span>
+                  ) : (
+                    <span className="text-muted">Disabled</span>
+                  )}
+                </KV>
+                <div className="mt-2 mb-3">
+                  {!canWrite ? (
+                    <span className="text-muted small">
+                      {managedWarehouseId
+                        ? "Read-only — re-generate is disabled."
+                        : "Read-only — create is disabled."}
+                    </span>
+                  ) : managedWarehouseId ? (
+                    <ConfirmButton
+                      isDestructive
+                      onClick={async () => {
+                        await apiCall(
+                          `/datasource/${managedWarehouseId}/recreate-managed-warehouse`,
+                          {
+                            method: "POST",
+                            headers: { "X-Organization": organization.id },
+                          },
+                        );
+                      }}
+                      confirmationText={
+                        <span>
+                          This may take several minutes and queries during the
+                          operation can fail.
+                        </span>
+                      }
+                      modalHeader="Re-generate managed warehouse"
+                    >
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-danger"
+                      >
+                        Re-generate managed warehouse
+                      </button>
+                    </ConfirmButton>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-primary"
+                      onClick={onOpenCreateManagedWarehouse}
+                    >
+                      Create managed warehouse
+                    </button>
+                  )}
+                </div>
+                <hr className="my-3" />
+              </>
+            )}
+          </OrgCard>
+          <OrgCard title="Messages / Alerts">
+            {(messages?.length ?? 0) === 0 ? (
+              <>
+                <div className="text-muted small mb-2">
+                  No messages configured.
+                </div>
+                {isCloud() && canWrite && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    onClick={() => setMessagesModalOpen(true)}
+                  >
+                    Add message
+                  </button>
+                )}
+                {isCloud() && !canWrite && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={() => setMessagesModalOpen(true)}
+                  >
+                    View messages
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <div
+                  className="d-flex flex-column mb-2"
+                  style={{ gap: "0.5rem", maxHeight: 320, overflow: "auto" }}
+                >
+                  {(messages || []).map((m: OrganizationMessage, i: number) => (
+                    <Callout
+                      key={`org-msg-${organization.id}-${i}-${m.level}`}
+                      status={orgMessageLevelToCalloutStatus(m.level)}
+                      size="sm"
+                      contentsAs="div"
+                    >
+                      <Markdown>{m.message}</Markdown>
+                    </Callout>
+                  ))}
+                </div>
+                {isCloud() && canWrite && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-primary"
+                    onClick={() => setMessagesModalOpen(true)}
+                  >
+                    Edit messages
+                  </button>
+                )}
+                {isCloud() && !canWrite && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={() => setMessagesModalOpen(true)}
+                  >
+                    View messages
+                  </button>
+                )}
+              </>
+            )}
+          </OrgCard>
+        </div>
 
-        <OrgCard title="License / subscription">
-          <KV label="License key">
-            {organization.licenseKey ? (
-              <code className="small">{organization.licenseKey}</code>
-            ) : (
-              "—"
-            )}
-          </KV>
-          <KV label="Plan">{license?.plan?.replace(/_/g, " ") ?? "—"}</KV>
-          <KV label="Seats">{license?.seats ?? "—"}</KV>
-          <KV label="Source">{billingSource || "—"}</KV>
-          {stripeSubscriptionId ? (
-            <KV label="Stripe subscription">
-              <a
-                href={stripeSubscriptionUrl(stripeSubscriptionId)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {stripeSubscriptionId}
-              </a>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+            gap: 12,
+            marginTop: 12,
+            width: "100%",
+          }}
+        >
+          <OrgCard title="License / subscription">
+            <KV label="License key">
+              {organization.licenseKey ? (
+                <code className="small">{organization.licenseKey}</code>
+              ) : (
+                "—"
+              )}
             </KV>
-          ) : null}
-          {orbSub?.id ? (
-            <KV label="Orb subscription">
-              <a
-                href={orbSubscriptionUrl(orbSub.id)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {orbSub.id}
-              </a>
-            </KV>
-          ) : null}
-          {!stripeSubscriptionId && !orbSub?.id ? (
-            <KV label="Subscription">—</KV>
-          ) : null}
-          <KV label="Stripe customer">
-            {stripeCustomerDisplayId ? (
-              <a
-                href={stripeCustomerUrl(stripeCustomerDisplayId)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {stripeCustomerDisplayId}
-              </a>
-            ) : (
-              "—"
-            )}
-          </KV>
-          {orbSub?.customerId && !stripeCustomerDisplayId ? (
-            <KV label="Orb customer">
-              <a
-                href={stripeCustomerUrl(orbSub.customerId)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {orbSub.customerId}
-              </a>
-            </KV>
-          ) : null}
-          {billingSource === "orb" && (
-            <div className="mt-2">
-              <div className="text-muted small mb-1">Orb invoice</div>
-              <Callout status="info">
-                Signed invoice portal URLs are created in Orb (or via API) and
-                are not included on this license object, so they cannot be
-                embedded here. See{" "}
+            <KV label="Plan">{license?.plan?.replace(/_/g, " ") ?? "—"}</KV>
+            <KV label="Seats">{license?.seats ?? "—"}</KV>
+            <KV label="Source">{billingSource || "—"}</KV>
+            {stripeSubscriptionId ? (
+              <KV label="Stripe subscription">
                 <a
-                  href="https://docs.withorb.com/invoicing/invoice-portal"
+                  href={stripeSubscriptionUrl(stripeSubscriptionId)}
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Orb invoice portal
+                  {stripeSubscriptionId}
                 </a>
-                .
-              </Callout>
-            </div>
-          )}
-          <KV label="Is trial">{isTrial ? "true" : "false"}</KV>
-          <KV label="Status">
-            {licenseLoading ? (
-              <FaSpinner />
-            ) : (
-              displaySubscriptionStatus(subscriptionForStatus)
+              </KV>
+            ) : null}
+            {orbSub?.id ? (
+              <KV label="Orb subscription">
+                <a
+                  href={orbSubscriptionUrl(orbSub.id)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {orbSub.id}
+                </a>
+              </KV>
+            ) : null}
+            {!stripeSubscriptionId && !orbSub?.id ? (
+              <KV label="Subscription">—</KV>
+            ) : null}
+            <KV label="Stripe customer">
+              {stripeCustomerDisplayId ? (
+                <a
+                  href={stripeCustomerUrl(stripeCustomerDisplayId)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {stripeCustomerDisplayId}
+                </a>
+              ) : (
+                "—"
+              )}
+            </KV>
+            {orbSub?.customerId && !stripeCustomerDisplayId ? (
+              <KV label="Orb customer">
+                <a
+                  href={stripeCustomerUrl(orbSub.customerId)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {orbSub.customerId}
+                </a>
+              </KV>
+            ) : null}
+            {billingSource === "orb" && (
+              <div className="mt-2">
+                <div className="text-muted small mb-1">Orb invoice</div>
+                <Callout status="info">
+                  Signed invoice portal URLs are created in Orb (or via API) and
+                  are not included on this license object, so they cannot be
+                  embedded here. See{" "}
+                  <a
+                    href="https://docs.withorb.com/invoicing/invoice-portal"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Orb invoice portal
+                  </a>
+                  .
+                </Callout>
+              </div>
             )}
-          </KV>
-          <KV label="Self-serve billing enabled">
-            {selfServeEnabled ? "true" : "false"}
-          </KV>
-          {licenseLoading && (
-            <div className="small text-muted mt-1">Loading license…</div>
-          )}
-          {!licenseLoading && license && (
-            <div className="mt-2">
-              <JsonCollapsible label="Full license JSON" json={license} />
-            </div>
-          )}
-          {!licenseLoading && !license && (
-            <div className="text-muted small mt-2">
-              No license payload returned for this organization (no license key,
-              or fetch failed).
-            </div>
-          )}
-        </OrgCard>
+            <KV label="Is trial">{isTrial ? "true" : "false"}</KV>
+            <KV label="Status">
+              {licenseLoading ? (
+                <FaSpinner />
+              ) : (
+                displaySubscriptionStatus(subscriptionForStatus)
+              )}
+            </KV>
+            <KV label="Self-serve billing enabled">
+              {selfServeEnabled ? "true" : "false"}
+            </KV>
+            {licenseLoading && (
+              <div className="small text-muted mt-1">Loading license…</div>
+            )}
+            {!licenseLoading && license && (
+              <div className="mt-2">
+                <JsonCollapsible label="Full license JSON" json={license} />
+              </div>
+            )}
+            {!licenseLoading && !license && (
+              <div className="text-muted small mt-2">
+                No license payload returned for this organization (no license
+                key, or fetch failed).
+              </div>
+            )}
+          </OrgCard>
+          <OrgCardFullWidth title="Usage">
+            {orgUsageLoading && (
+              <div className="py-3">
+                <LoadingSpinner />
+              </div>
+            )}
+            {orgUsageError && !orgUsageLoading && (
+              <Callout status="error" size="sm">
+                Could not load usage for this organization.
+              </Callout>
+            )}
+            {orgUsage && !orgUsageLoading && (
+              <>
+                <div className="font-weight-bold small text-uppercase text-muted mb-2">
+                  Seats
+                </div>
+                <div
+                  className="d-flex flex-wrap small mb-3"
+                  style={{ gap: "1rem" }}
+                >
+                  <span>
+                    <span className="text-muted">Full members:</span>{" "}
+                    <span className="font-weight-bold">
+                      {formatUsageInt(orgUsage.seats.fullMembers)}
+                    </span>
+                  </span>
+                  <span>
+                    <span className="text-muted">Read-only members:</span>{" "}
+                    <span className="font-weight-bold">
+                      {formatUsageInt(orgUsage.seats.readonlyMembers)}
+                    </span>
+                  </span>
+                  <span>
+                    <span className="text-muted">Invited:</span>{" "}
+                    <span className="font-weight-bold">
+                      {formatUsageInt(orgUsage.seats.invited)}
+                    </span>
+                  </span>
+                  <span>
+                    <span className="text-muted">
+                      Overall (members + invites):
+                    </span>{" "}
+                    <span className="font-weight-bold">
+                      {formatUsageInt(orgUsage.seats.overall)}
+                    </span>
+                  </span>
+                </div>
 
-        <OrgCard title="Settings & other">
-          <div className="mb-3">
-            <JsonCollapsible label="Settings JSON" json={settings ?? {}} />
-          </div>
-          <p className="small text-muted mb-2">
-            Remaining organization fields (excluding settings, members, and
-            messages).
-          </p>
-          <JsonCollapsible label="Other fields JSON" json={otherAttributes} />
-        </OrgCard>
-      </div>
-
-      <div className="w-100 mt-3">
-        <OrgCardFullWidth title="Members">
-          <div
-            className="d-flex flex-wrap small mb-2"
-            style={{ gap: "0.75rem" }}
-          >
-            <span>
-              <span className="font-weight-bold">Seats in use:</span>{" "}
-              {members.length}
-            </span>
-            <span>
-              <span className="font-weight-bold">Invited:</span>{" "}
-              {organization.invites.length}
-            </span>
-          </div>
-          <div
-            className="table-responsive"
-            style={{ maxHeight: 400, overflow: "auto" }}
-          >
-            {!orgMembers ? (
-              <LoadingSpinner />
-            ) : (
-              <table className="table table-sm table-bordered mb-0 w-100">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Role</th>
-                    <th>Id</th>
-                    <th>Joined</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {members.map((m) => {
-                    const info = orgMembers.get(m.id);
-                    return (
-                      <tr key={m.id}>
-                        <td className="small">{info?.name ?? "—"}</td>
-                        <td className="small text-break">
-                          {info?.email ?? "—"}
+                <div className="font-weight-bold small text-uppercase text-muted mb-2">
+                  Activity
+                </div>
+                <div className="table-responsive">
+                  <table className="table table-sm table-bordered mb-0 w-100">
+                    <thead>
+                      <tr>
+                        <th>Stat</th>
+                        <th className="text-right text-nowrap">
+                          Past month (30 d)
+                        </th>
+                        <th className="text-right text-nowrap">
+                          Past year (365 d)
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="small">Active members (last login)</td>
+                        <td className="small text-right">
+                          {formatUsageInt(
+                            orgUsage.activity.activeMembers.past30,
+                          )}
                         </td>
-                        <td className="small">{m.role}</td>
-                        <td className="small">
-                          <code>{m.id}</code>
-                        </td>
-                        <td className="small text-nowrap">
-                          {m.dateCreated ? date(m.dateCreated) : "—"}
+                        <td className="small text-right">
+                          {formatUsageInt(
+                            orgUsage.activity.activeMembers.past365,
+                          )}
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                      <tr>
+                        <td className="small">Experiments created</td>
+                        <td className="small text-right">
+                          {formatUsageInt(
+                            orgUsage.activity.experimentsCreated.past30,
+                          )}
+                        </td>
+                        <td className="small text-right">
+                          {formatUsageInt(
+                            orgUsage.activity.experimentsCreated.past365,
+                          )}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="small">Features created</td>
+                        <td className="small text-right">
+                          {formatUsageInt(
+                            orgUsage.activity.featuresCreated.past30,
+                          )}
+                        </td>
+                        <td className="small text-right">
+                          {formatUsageInt(
+                            orgUsage.activity.featuresCreated.past365,
+                          )}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="small">
+                          Metrics created (legacy + fact)
+                        </td>
+                        <td className="small text-right">
+                          {formatUsageInt(
+                            orgUsage.activity.metricsCreated.past30,
+                          )}
+                        </td>
+                        <td className="small text-right">
+                          {formatUsageInt(
+                            orgUsage.activity.metricsCreated.past365,
+                          )}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="small">
+                          Product Analytics dashboards created
+                        </td>
+                        <td className="small text-right">
+                          {formatUsageInt(
+                            orgUsage.activity.productAnalyticsDashboardsCreated
+                              .past30,
+                          )}
+                        </td>
+                        <td className="small text-right">
+                          {formatUsageInt(
+                            orgUsage.activity.productAnalyticsDashboardsCreated
+                              .past365,
+                          )}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="small">SDK connections created</td>
+                        <td className="small text-right">
+                          {formatUsageInt(
+                            orgUsage.activity.sdkConnectionsCreated.past30,
+                          )}
+                        </td>
+                        <td className="small text-right">
+                          {formatUsageInt(
+                            orgUsage.activity.sdkConnectionsCreated.past365,
+                          )}
+                        </td>
+                      </tr>
+                      {orgUsage.managedWarehouse &&
+                        orgUsage.managedWarehouseEvents && (
+                          <tr>
+                            <td className="small">
+                              Events (managed warehouse ingestion)
+                            </td>
+                            <td className="small text-right">
+                              {formatUsageInt(
+                                orgUsage.managedWarehouseEvents.past30,
+                              )}
+                            </td>
+                            <td className="small text-right">
+                              {formatUsageInt(
+                                orgUsage.managedWarehouseEvents.past365,
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
-          </div>
-        </OrgCardFullWidth>
+          </OrgCardFullWidth>
+        </div>
+
+        <div
+          style={{
+            marginTop: 12,
+            width: "100%",
+            minWidth: 0,
+            maxWidth: "100%",
+          }}
+        >
+          <OrgCardFullWidth title="Members">
+            <div
+              className="d-flex flex-wrap small mb-2"
+              style={{ gap: "0.75rem" }}
+            >
+              <span>
+                <span className="font-weight-bold">Seats in use:</span>{" "}
+                {members.length}
+              </span>
+              <span>
+                <span className="font-weight-bold">Invited:</span>{" "}
+                {organization.invites.length}
+              </span>
+            </div>
+            <div
+              className="table-responsive"
+              style={{ maxHeight: 400, overflow: "auto" }}
+            >
+              {!orgMembers ? (
+                <LoadingSpinner />
+              ) : (
+                <table className="table table-sm table-bordered mb-0 w-100">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Role</th>
+                      <th>Id</th>
+                      <th>Joined</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {members.map((m) => {
+                      const info = orgMembers.get(m.id);
+                      return (
+                        <tr key={m.id}>
+                          <td className="small">{info?.name ?? "—"}</td>
+                          <td className="small text-break">
+                            {info?.email ?? "—"}
+                          </td>
+                          <td className="small">{m.role}</td>
+                          <td className="small">
+                            <code>{m.id}</code>
+                          </td>
+                          <td className="small text-nowrap">
+                            {m.dateCreated ? date(m.dateCreated) : "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </OrgCardFullWidth>
+        </div>
       </div>
     </>
   );
