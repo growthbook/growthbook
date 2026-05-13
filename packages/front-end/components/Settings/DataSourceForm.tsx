@@ -217,6 +217,7 @@ const DataSourceForm: FC<{
         </div>
       )}
       <SelectField
+        size="legacy"
         label="Data Source Type"
         value={datasource.type || typeOptions[0].type}
         onChange={(value) => {
@@ -276,6 +277,7 @@ const DataSourceForm: FC<{
       {projects?.length > 0 && (
         <div className="form-group">
           <MultiSelectField
+            size="legacy"
             label={
               <>
                 Projects{" "}

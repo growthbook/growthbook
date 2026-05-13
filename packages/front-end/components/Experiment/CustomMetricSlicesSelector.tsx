@@ -475,6 +475,7 @@ function SliceSelector({
     sortedSlices.length > 0 ? (
       <div className="border rounded d-flex align-items-center bg-white">
         <SelectField
+          size="legacy"
           value=""
           onChange={(value) => {
             if (value) {
@@ -632,6 +633,7 @@ function EditingInterface({
                   {sliceColumn?.name || sliceLevel.column}:
                 </span>
                 <SelectField
+                  size="legacy"
                   value={sliceLevel.levels[0] || ""}
                   onChange={(value) =>
                     updateSliceLevel(levelIndex, "level", value)
@@ -666,6 +668,7 @@ function EditingInterface({
               </span>
               {availableLevels.length > 0 ? (
                 <SelectField
+                  size="legacy"
                   value={sliceLevel.levels[0] || ""}
                   onChange={(value) =>
                     updateSliceLevel(levelIndex, "level", value)
@@ -683,6 +686,7 @@ function EditingInterface({
                 />
               ) : (
                 <Field
+                  size="legacy"
                   value={sliceLevel.levels[0] || ""}
                   onChange={(e) =>
                     updateSliceLevel(levelIndex, "level", e.target.value)

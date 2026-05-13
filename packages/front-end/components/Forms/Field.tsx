@@ -62,7 +62,7 @@ const Field = forwardRef(
       maxRows,
       type = "text",
       customClassName: customClassNameProp,
-      size = "legacy",
+      size = "sm",
       ...otherProps
     }: FieldProps,
     // eslint-disable-next-line

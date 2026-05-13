@@ -193,6 +193,7 @@ export default function DatasourceSchema({
           </div>
           <Box mt="1">
             <Field
+              size="legacy"
               type="search"
               value={columnFilter}
               onChange={(e) => setColumnFilter(e.target.value)}

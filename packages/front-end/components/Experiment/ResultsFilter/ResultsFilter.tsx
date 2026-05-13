@@ -486,6 +486,7 @@ export default function ResultsFilter({
                     </Heading>
                   </Box>
                   <MultiSelectField
+                    size="legacy"
                     customClassName="multiselect-unfixed"
                     containerClassName="w-100"
                     placeholder="Type to search..."
@@ -522,6 +523,7 @@ export default function ResultsFilter({
                     Metrics
                   </Heading>
                   <MultiSelectField
+                    size="legacy"
                     customClassName="multiselect-unfixed"
                     containerClassName="w-100"
                     placeholder="Type to search..."

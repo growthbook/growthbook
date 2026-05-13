@@ -261,6 +261,7 @@ export default function ExecReport() {
               </Text>
             </label>
             <MultiSelectField
+              size="legacy"
               placeholder="All Projects"
               value={selectedProjects ?? []}
               onChange={(ps) => setSelectedProjects(ps)}
@@ -283,6 +284,7 @@ export default function ExecReport() {
                 Filter by date range
               </Text>
               <SelectField
+                size="legacy"
                 options={dateRanges}
                 sort={false}
                 onChange={(e) => {

@@ -728,6 +728,7 @@ export default function RampScheduleSection({
             <Box style={{ width: COL.coverage, flexShrink: 0 }}>
               <div className={`position-relative ${styles.percentInputWrap}`}>
                 <Field
+                  size="legacy"
                   style={{ width: COL.coverage }}
                   type="number"
                   min="0"
@@ -813,6 +814,7 @@ export default function RampScheduleSection({
               </Text>
             </Box>
             <SelectField
+              size="legacy"
               value={state.startDate ? "on-date" : "immediately"}
               options={START_OPTIONS}
               onChange={(v) => {
@@ -881,6 +883,7 @@ export default function RampScheduleSection({
                       className={`position-relative ${styles.percentInputWrap}`}
                     >
                       <Field
+                        size="legacy"
                         style={{ width: COL.coverage }}
                         type="number"
                         min="0"
@@ -921,6 +924,7 @@ export default function RampScheduleSection({
                 >
                   <Box style={{ width: COL.trigger, flexShrink: 0 }}>
                     <SelectField
+                      size="legacy"
                       value={step.triggerType}
                       options={[
                         {
@@ -968,6 +972,7 @@ export default function RampScheduleSection({
                   {step.triggerType === "interval" && (
                     <>
                       <Field
+                        size="legacy"
                         type="number"
                         min="1"
                         onFocus={(e) => e.target.select()}
@@ -989,6 +994,7 @@ export default function RampScheduleSection({
                       />
                       <Box style={{ flex: 1 }}>
                         <SelectField
+                          size="legacy"
                           value={step.intervalUnit}
                           options={[
                             { value: "minutes", label: "minutes" },
@@ -1032,6 +1038,7 @@ export default function RampScheduleSection({
                       ) : (
                         <Box style={{ flex: 1, minWidth: 0 }}>
                           <Field
+                            size="legacy"
                             label=""
                             placeholder="ex: Check error rates"
                             value={step.approvalNotes}
@@ -1344,6 +1351,7 @@ export default function RampScheduleSection({
           return (
             <Flex direction="column" gap="3">
               <Field
+                size="legacy"
                 label="Template name"
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}

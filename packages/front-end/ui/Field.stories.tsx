@@ -4,12 +4,8 @@ import Field from "@/components/Forms/Field";
 function SizesStory() {
   return (
     <Flex direction="column" gap="3" maxWidth="360px">
-      <Field
-        label="Size legacy (default)"
-        size="legacy"
-        placeholder="Text input"
-      />
-      <Field label="Size sm" size="sm" placeholder="Text input" />
+      <Field label="Size legacy" size="legacy" placeholder="Text input" />
+      <Field label="Size sm (default)" size="sm" placeholder="Text input" />
       <Field label="Size md" size="md" placeholder="Text input" />
       <Field label="Size lg" size="lg" placeholder="Text input" />
     </Flex>
@@ -20,13 +16,13 @@ function TextareaStory() {
   return (
     <Flex direction="column" gap="3" maxWidth="360px">
       <Field
-        label="Textarea — legacy (default)"
+        label="Textarea — legacy"
         size="legacy"
         textarea
         placeholder="Multi-line text…"
       />
       <Field
-        label="Textarea — sm"
+        label="Textarea — sm (default)"
         size="sm"
         textarea
         placeholder="Multi-line text…"

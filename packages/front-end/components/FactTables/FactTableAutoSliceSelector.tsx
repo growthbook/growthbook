@@ -106,6 +106,7 @@ export default function FactTableAutoSliceSelector({
       <div className="d-flex align-items-center" style={{ gap: "0.5rem" }}>
         <div className="flex-grow-1">
           <MultiSelectField
+            size="legacy"
             value={selectedSlices}
             onChange={setSelectedSlices}
             options={availableSlices}

@@ -368,6 +368,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
           <Box p="4" height="fit-content">
             <Flex direction="column" gap="4">
               <MultiSelectField
+                size="legacy"
                 label={
                   <Flex align="center" gap="1">
                     <Text as="label" size="3" weight="medium">
@@ -407,6 +408,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
               />
               {metric?.denominator?.factTableId ? (
                 <MultiSelectField
+                  size="legacy"
                   label={
                     <Flex align="center" gap="1">
                       <Text as="label" size="3" weight="medium">

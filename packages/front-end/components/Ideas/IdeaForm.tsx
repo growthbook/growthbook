@@ -53,12 +53,14 @@ const IdeaForm: FC<{
       closeCta="Cancel"
     >
       <Field
+        size="legacy"
         required
         {...form.register("text")}
         helpText="You'll be able to add more details later"
       />
       {edit && (
         <SelectField
+          size="legacy"
           label="Project"
           options={projects.map((p) => ({ label: p.name, value: p.id }))}
           isClearable

@@ -217,6 +217,7 @@ export function ExplorerFilterRow({
 
   const columnSelect = (
     <SelectField
+      size="legacy"
       value={
         filter.operator === "sql_expr"
           ? "$$sql_expr"
@@ -261,6 +262,7 @@ export function ExplorerFilterRow({
 
   const operatorSelect = operatorInputRequired && firstSelectCompleted && (
     <SelectField
+      size="legacy"
       value={displayOperator}
       onChange={(v: RowFilter["operator"]) => {
         let newValues = filter.values || [];
@@ -283,6 +285,7 @@ export function ExplorerFilterRow({
     <>
       {multiValueInput && useValueOptions ? (
         <MultiSelectField
+          size="legacy"
           value={filter.values || []}
           onChange={(v) => onUpdate({ values: v })}
           options={valueOptions}
@@ -295,6 +298,7 @@ export function ExplorerFilterRow({
         />
       ) : multiValueInput ? (
         <StringArrayField
+          size="legacy"
           value={filter.values || []}
           onChange={(v) => onUpdate({ values: v })}
           delimiters={["Enter", "Tab"]}
@@ -304,6 +308,7 @@ export function ExplorerFilterRow({
         />
       ) : useValueOptions ? (
         <SelectField
+          size="legacy"
           value={filter.values?.[0] || ""}
           onChange={(v) => onUpdate({ values: [v] })}
           options={valueOptions}
@@ -316,6 +321,7 @@ export function ExplorerFilterRow({
         />
       ) : (
         <Field
+          size="legacy"
           value={filter.values?.[0] || ""}
           onChange={(e) => {
             const v = e.target.value;

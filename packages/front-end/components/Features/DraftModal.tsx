@@ -567,6 +567,7 @@ export default function DraftModal({
             </Box>
             {hasPermission ? (
               <Field
+                size="legacy"
                 label="Notes (optional)"
                 textarea
                 placeholder="Summary of changes..."

@@ -54,6 +54,7 @@ export const AddMembersModal = ({
       })}
     >
       <MultiSelectField
+        size="legacy"
         label="Members to add"
         placeholder="Select members"
         value={form.watch("members")}

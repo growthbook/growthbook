@@ -714,6 +714,7 @@ const Admin: FC = () => {
                 }}
               >
                 <Field
+                  size="legacy"
                   label="Search:"
                   labelClassName="mr-2"
                   value={search}
@@ -823,6 +824,7 @@ const Admin: FC = () => {
                 }}
               >
                 <Field
+                  size="legacy"
                   label="Search:"
                   labelClassName="mr-2"
                   value={memberSearch}
@@ -1160,6 +1162,7 @@ function EditSSOModal({
       <h3>Organization: {organizationName}</h3>
 
       <SelectField
+        size="legacy"
         label="Identity Provider Type"
         value={currentValue.idpType || ""}
         onChange={(idpType) =>
@@ -1179,6 +1182,7 @@ function EditSSOModal({
       />
 
       <Field
+        size="legacy"
         label="SSO Id"
         {...form.register("id")}
         pattern="^[a-zA-Z0-9_]+$"
@@ -1187,9 +1191,15 @@ function EditSSOModal({
         helpText="A short id to identify this organization. Examples: 'acme', 'dunder_mifflin', 'initech'"
       />
 
-      <Field label="Client ID" {...form.register("clientId")} required />
+      <Field
+        size="legacy"
+        label="Client ID"
+        {...form.register("clientId")}
+        required
+      />
 
       <Field
+        size="legacy"
         label="Client Secret"
         type="text"
         {...form.register("clientSecret")}
@@ -1198,6 +1208,7 @@ function EditSSOModal({
       />
 
       <StringArrayField
+        size="legacy"
         label="Email Domains"
         value={form.watch("emailDomains") || []}
         onChange={(emailDomains) => form.setValue("emailDomains", emailDomains)}
@@ -1207,6 +1218,7 @@ function EditSSOModal({
       {currentValue.idpType === "okta" ||
       currentValue.idpType === "onelogin" ? (
         <Field
+          size="legacy"
           label="Base URL"
           {...form.register("baseURL")}
           type="url"
@@ -1214,10 +1226,15 @@ function EditSSOModal({
         />
       ) : null}
       {currentValue.idpType === "azure" || currentValue.idpType === "auth0" ? (
-        <Field label="Tenant ID" {...form.register("tenantId")} required />
+        <Field
+          size="legacy"
+          label="Tenant ID"
+          {...form.register("tenantId")}
+          required
+        />
       ) : null}
       {currentValue.idpType === "auth0" ? (
-        <Field label="Audience" {...form.register("audience")} />
+        <Field size="legacy" label="Audience" {...form.register("audience")} />
       ) : null}
 
       <Checkbox
@@ -1230,10 +1247,12 @@ function EditSSOModal({
       {currentValue.idpType === "oidc" ? (
         <>
           <Field
+            size="legacy"
             label="Additional Scope"
             {...form.register("additionalScope")}
           />
           <Field
+            size="legacy"
             label="Metadata (JSON)"
             textarea
             {...form.register("metadata")}

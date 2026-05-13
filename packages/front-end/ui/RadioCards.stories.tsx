@@ -15,6 +15,7 @@ export default function RadioCardsStories() {
     <Flex direction="column" gap="2">
       <Text weight="medium">Configuration</Text>
       <SelectField
+        size="legacy"
         label="Columns"
         value={radioCardColumns}
         options={[

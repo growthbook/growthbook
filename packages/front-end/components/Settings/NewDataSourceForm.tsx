@@ -609,6 +609,7 @@ const NewDataSourceForm: FC<{
         {projects?.length > 0 && (
           <div className="form-group">
             <MultiSelectField
+              size="legacy"
               label={
                 <>
                   Projects{" "}
@@ -667,6 +668,7 @@ const NewDataSourceForm: FC<{
           {selectedSchema?.options?.map(({ name, label, type, helpText }) => (
             <div key={name} className="form-group">
               <Field
+                size="legacy"
                 label={label}
                 name={name}
                 value={schemaOptionsForm.watch(name)}

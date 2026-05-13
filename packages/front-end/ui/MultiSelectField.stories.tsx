@@ -60,7 +60,7 @@ function SizeStory() {
   return (
     <Flex direction="column" gap="3">
       <MultiSelectField
-        label="Size small"
+        label="Size small (default)"
         size="small"
         legacyLabelFormatting={false}
         value={v1}
@@ -68,7 +68,7 @@ function SizeStory() {
         onChange={setV1}
       />
       <MultiSelectField
-        label="Size legacy (default)"
+        label="Size legacy"
         size="legacy"
         value={v2}
         options={FRUIT_OPTIONS}

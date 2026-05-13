@@ -137,6 +137,7 @@ export default function EditStatusModal({
         </Callout>
       )}
       <SelectField
+        size="legacy"
         label="Status"
         options={statusOptions}
         onChange={(v) => {
@@ -150,6 +151,7 @@ export default function EditStatusModal({
         experiment.status === "running" && (
           <>
             <Field
+              size="legacy"
               label="Reason for stopping the test"
               textarea
               {...form.register("reason")}

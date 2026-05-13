@@ -219,7 +219,9 @@ const multilineStyles = {
   }),
 };
 
-function CustomDropdownIndicator(props: DropdownIndicatorProps<SingleValue>) {
+function CustomDropdownIndicator(
+  props: DropdownIndicatorProps<SingleValue, false>,
+) {
   return (
     <components.DropdownIndicator {...props}>
       <PiCaretDown size={16} />
@@ -256,7 +258,7 @@ const SelectField: FC<SelectFieldProps> = ({
   legacyLabelFormatting = true,
   labelSize,
   labelWeight = "semibold",
-  size = "legacy" as "x-small" | "small" | "legacy" | "medium",
+  size = "small" as "x-small" | "small" | "legacy" | "medium",
   errorLevel = "error",
   ...otherProps
 }) => {

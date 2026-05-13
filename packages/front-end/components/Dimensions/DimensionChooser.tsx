@@ -318,6 +318,7 @@ export default function DimensionChooser({
     return (
       <Flex direction="row" gap="2" align="center">
         <SelectField
+          size="legacy"
           label="Unit Dimension"
           labelClassName={labelClassName}
           options={dimensionOptions}

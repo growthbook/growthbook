@@ -89,6 +89,7 @@ export default function FactTableTabContent() {
               Value type
             </Text>
             <SelectField
+              size="legacy"
               value={v.valueType}
               onChange={(val) =>
                 updateValueInDataset(idx, {
@@ -116,6 +117,7 @@ export default function FactTableTabContent() {
                   Value column
                 </Text>
                 <SelectField
+                  size="legacy"
                   value={v.valueColumn ?? ""}
                   onChange={(val) =>
                     updateValueInDataset(idx, {

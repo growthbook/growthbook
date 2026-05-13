@@ -80,6 +80,7 @@ export default function SaveQueryModal({
         {error && <div className="alert alert-danger mb-3">{error}</div>}
 
         <Field
+          size="legacy"
           label="Query Name"
           placeholder="Enter a name for your query"
           required
@@ -87,6 +88,7 @@ export default function SaveQueryModal({
         />
 
         <Field
+          size="legacy"
           label="Description"
           placeholder="Enter a description (optional)"
           textarea

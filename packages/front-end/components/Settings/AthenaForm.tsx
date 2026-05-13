@@ -15,6 +15,7 @@ const AthenaForm: FC<{
       {!isCloud() && (
         <div className="col-md-12">
           <SelectField
+            size="legacy"
             label="Authentication Method"
             options={[
               { value: "accessKey", label: "AWS access key" },
@@ -164,6 +165,7 @@ const AthenaForm: FC<{
       </div>
       <div className="form-group col-md-12">
         <Field
+          size="legacy"
           name="resultReuseMaxAgeInMinutes"
           type="number"
           label="Reuse query results within past X minutes (optional)"

@@ -342,6 +342,7 @@ export default function ConditionInput({
             />
           ) : (
             <Field
+              size="legacy"
               labelClassName={labelClassName}
               containerClassName="mb-0"
               placeholder=""
@@ -673,6 +674,7 @@ function ConditionAndGroupInput({
 
         const fieldSelector = (
           <SelectField
+            size="legacy"
             disabled={disabled}
             withRadixThemedPortal
             value={field}
@@ -821,6 +823,7 @@ function ConditionAndGroupInput({
               attributeSlot={fieldSelector}
               valueSlot={
                 <MultiSelectField
+                  size="legacy"
                   disabled={disabled}
                   value={ids}
                   options={groupOptions}
@@ -961,6 +964,7 @@ function ConditionAndGroupInput({
               <Flex gap="3" align="start">
                 <Box flexGrow="1">
                   <SelectField
+                    size="legacy"
                     disabled={disabled}
                     value={getDisplayOperator(operator)}
                     name="operator"
@@ -1021,6 +1025,7 @@ function ConditionAndGroupInput({
                   savedGroupOptions.length > 0 ? (
                     <Box style={{ flexBasis: "100%", minWidth: 0 }}>
                       <SelectField
+                        size="legacy"
                         disabled={disabled}
                         options={savedGroupOptions.map((o) => ({
                           label: o.label,
@@ -1057,6 +1062,7 @@ function ConditionAndGroupInput({
                       style={{ flexBasis: "100%", minWidth: 0 }}
                     >
                       <StringArrayField
+                        size="legacy"
                         disabled={disabled}
                         containerClassName="w-100"
                         value={value ? value.trim().split(",") : []}
@@ -1100,6 +1106,7 @@ function ConditionAndGroupInput({
                     <Box style={{ flexBasis: "100%", minWidth: 0 }}>
                       {listOperators.includes(operator) ? (
                         <MultiSelectField
+                          size="legacy"
                           disabled={disabled}
                           options={attribute.enum.map((v) => ({
                             label: v,
@@ -1116,6 +1123,7 @@ function ConditionAndGroupInput({
                         />
                       ) : (
                         <SelectField
+                          size="legacy"
                           disabled={disabled}
                           options={attribute.enum.map((v) => ({
                             label: v,
@@ -1134,6 +1142,7 @@ function ConditionAndGroupInput({
                   ) : displayType === "number" ? (
                     <Box style={{ flexBasis: "100%", minWidth: 0 }}>
                       <Field
+                        size="legacy"
                         disabled={disabled}
                         type="number"
                         step="any"
@@ -1165,6 +1174,7 @@ function ConditionAndGroupInput({
                         />
                       ) : (
                         <Field
+                          size="legacy"
                           disabled={disabled}
                           value={value}
                           onChange={handleFieldChange}

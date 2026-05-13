@@ -40,6 +40,7 @@ export default function PickSegmentModal({
       })}
     >
       <SelectField
+        size="legacy"
         label="Segment"
         options={segmentOptions}
         isClearable

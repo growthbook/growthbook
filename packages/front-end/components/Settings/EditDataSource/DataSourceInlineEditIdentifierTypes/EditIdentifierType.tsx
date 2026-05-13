@@ -106,6 +106,7 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
     >
       <>
         <Field
+          size="legacy"
           label="Identifier Type"
           {...form.register("idType")}
           pattern="^[a-z_]+$"
@@ -115,6 +116,7 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
           helpText="Only lowercase letters and underscores allowed. For example, 'user_id' or 'device_cookie'."
         />
         <Field
+          size="legacy"
           label="Description (optional)"
           {...form.register("description")}
           minRows={1}
@@ -123,6 +125,7 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
         />
         {hashAttributes && (
           <MultiSelectField
+            size="legacy"
             label="Hash Attributes"
             value={form.watch("attributes")}
             helpText="Select the hash attributes that map to this identifier type."

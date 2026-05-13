@@ -159,7 +159,7 @@ export default function StringArrayField({
   enableRawTextMode = false,
   removeDuplicates = true,
   showCopyButton = true,
-  size = "legacy",
+  size = "small",
   helpText,
   ...otherProps
 }: Props) {

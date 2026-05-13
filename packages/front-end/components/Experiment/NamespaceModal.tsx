@@ -131,7 +131,13 @@ function MultiRangeNamespaceModal({
         await onSuccess();
       })}
     >
-      <Field label="Name" maxLength={60} required {...form.register("label")} />
+      <Field
+        size="legacy"
+        label="Name"
+        maxLength={60}
+        required
+        {...form.register("label")}
+      />
       {existingNamespace && (
         <Text color="text-mid" size="small" as="p" mb="5" mt="-1">
           ID: <strong>{existingNamespace.name}</strong>
@@ -139,7 +145,12 @@ function MultiRangeNamespaceModal({
           Used as the namespace hash seed and cannot be changed.
         </Text>
       )}
-      <Field label="Description" textarea {...form.register("description")} />
+      <Field
+        size="legacy"
+        label="Description"
+        textarea
+        {...form.register("description")}
+      />
 
       {isNewNamespace && (
         <>
@@ -168,6 +179,7 @@ function MultiRangeNamespaceModal({
       {!useLegacyFormat && (
         <>
           <SelectField
+            size="legacy"
             label="Hash Attribute"
             required
             disabled={hasExperiments}
@@ -245,13 +257,24 @@ function LegacyNamespaceModal({
         This is a legacy namespace. To use the new multi-range features, create
         a new namespace.
       </Callout>
-      <Field label="Name" maxLength={60} required {...form.register("label")} />
+      <Field
+        size="legacy"
+        label="Name"
+        maxLength={60}
+        required
+        {...form.register("label")}
+      />
       <Text color="text-mid" size="small" as="p" mb="5" mt="-1">
         ID: <strong>{existingNamespace.name}</strong>
         <br />
         Used as the namespace hash seed and cannot be changed.
       </Text>
-      <Field label="Description" textarea {...form.register("description")} />
+      <Field
+        size="legacy"
+        label="Description"
+        textarea
+        {...form.register("description")}
+      />
     </ModalStandard>
   );
 }

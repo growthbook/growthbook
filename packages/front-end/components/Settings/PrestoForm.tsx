@@ -40,6 +40,7 @@ const PrestoForm: FC<{
       <div className="form-group col-md-12">
         <label>Engine</label>
         <SelectField
+          size="legacy"
           name="engine"
           required
           value={params.engine || ""}
@@ -117,6 +118,7 @@ const PrestoForm: FC<{
       )}
       <div className="col-md-12">
         <SelectField
+          size="legacy"
           label="Authentication Method"
           options={authMethodOptions}
           helpText="Basic Auth is the most common method. Custom Auth sets HTTP Authorization header with the provided string. Kerberos auth uses KRB5 authentication with client principal. 'None' only is used for custom authentication methods."

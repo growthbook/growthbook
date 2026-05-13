@@ -134,7 +134,12 @@ const ReportsPage = (): React.ReactElement => {
           </h3>
         </div>
         <div className="col-lg-3 col-md-4 col-6">
-          <Field placeholder="Search..." type="search" {...searchInputProps} />
+          <Field
+            size="legacy"
+            placeholder="Search..."
+            type="search"
+            {...searchInputProps}
+          />
         </div>
         <Switch
           id={"onlymine"}

@@ -382,6 +382,7 @@ export default function DataVizFilter({
             filter.filterMethod === "includes" &&
             rows && (
               <MultiSelectField
+                size="legacy"
                 label={
                   <Text as="label" weight="regular">
                     Select Values

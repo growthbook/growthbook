@@ -222,6 +222,7 @@ export default function Welcome({
           )}
           {state === "firsttime" && (
             <Field
+              size="legacy"
               label="Company name"
               required
               autoFocus
@@ -231,6 +232,7 @@ export default function Welcome({
           )}
           {(state === "register" || state === "firsttime") && (
             <Field
+              size="legacy"
               label="Name"
               required
               {...form.register("name")}
@@ -244,6 +246,7 @@ export default function Welcome({
             state === "forgot" ||
             state === "firsttime") && (
             <Field
+              size="legacy"
               label="Email Address"
               required
               type="email"
@@ -256,6 +259,7 @@ export default function Welcome({
             state === "register" ||
             state === "firsttime") && (
             <Field
+              size="legacy"
               label="Password"
               required
               type="password"

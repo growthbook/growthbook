@@ -196,6 +196,7 @@ const SegmentForm: FC<{
           </div>
         ) : null}
         <Field
+          size="legacy"
           label="Name"
           required
           {...form.register("name")}
@@ -207,12 +208,14 @@ const SegmentForm: FC<{
           onChange={(v) => form.setValue("owner", v)}
         />
         <Field
+          size="legacy"
           label="Description"
           {...form.register("description")}
           textarea
           disabled={isReadOnly}
         />
         <SelectField
+          size="legacy"
           label="Data Source"
           required
           value={form.watch("datasource")}
@@ -232,6 +235,7 @@ const SegmentForm: FC<{
         />
         {datasource?.properties?.userIds && (
           <SelectField
+            size="legacy"
             label="Identifier Type"
             required
             disabled={isReadOnly}
@@ -248,6 +252,7 @@ const SegmentForm: FC<{
         {projects?.length > 0 && (
           <div className="form-group">
             <MultiSelectField
+              size="legacy"
               label={
                 <>
                   Projects{" "}
@@ -288,6 +293,7 @@ const SegmentForm: FC<{
           </div>
         ) : (
           <Field
+            size="legacy"
             label="Event Condition"
             required
             {...form.register("sql")}

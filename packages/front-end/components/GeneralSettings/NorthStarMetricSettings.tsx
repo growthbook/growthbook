@@ -38,6 +38,7 @@ export default function NorthStarMetricSettings() {
                     />
                   </div>
                   <Field
+                    size="legacy"
                     label="Title"
                     value={watch("northStar.title")}
                     onChange={(e) => {

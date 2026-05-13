@@ -375,6 +375,7 @@ export const SelectStep = ({
         {metricValuesSource !== "manual" ? (
           <>
             <SelectField
+              size="legacy"
               label={
                 <>
                   <span className="mr-auto font-weight-bold">
@@ -394,6 +395,7 @@ export const SelectStep = ({
               forceUndefinedValueToNull={true}
             />
             <SelectField
+              size="legacy"
               label={
                 <>
                   <span className="mr-auto font-weight-bold">
@@ -439,6 +441,7 @@ export const SelectStep = ({
           Pick the key metrics for which you want to estimate power.
         </div>
         <MultiSelectField
+          size="legacy"
           sort={false}
           value={selectedMetrics}
           options={availableMetrics.map(({ name: label, id: value }) => ({

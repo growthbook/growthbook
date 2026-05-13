@@ -66,6 +66,7 @@ const BigQueryForm: FC<{
       {!isCloud() && (
         <div className="col-md-12">
           <SelectField
+            size="legacy"
             label="Authentication Method"
             options={[
               { value: "json", label: "JSON key file" },
@@ -178,6 +179,7 @@ const BigQueryForm: FC<{
       <div className="form-group col-md-12">
         <label>BigQuery Project ID</label>
         <Field
+          size="legacy"
           type="text"
           className="form-control"
           name="defaultProject"
@@ -192,6 +194,7 @@ const BigQueryForm: FC<{
           <Tooltip body="If set, GrowthBook will include this reservation on all BigQuery query jobs. Use the full reservation resource name (e.g. projects/my-project/locations/US/reservations/my-reservation)." />
         </label>
         <Field
+          size="legacy"
           type="text"
           className="form-control"
           name="reservation"
@@ -207,6 +210,7 @@ const BigQueryForm: FC<{
         {testConnectionResults &&
         testConnectionResults?.datasetOptions.length > 0 ? (
           <SelectField
+            size="legacy"
             placeholder="Choose a dataset or create a new one..."
             name="defaultDataset"
             autoComplete="off"
@@ -224,6 +228,7 @@ const BigQueryForm: FC<{
           />
         ) : (
           <Field
+            size="legacy"
             type="text"
             className="form-control"
             name="defaultDataset"

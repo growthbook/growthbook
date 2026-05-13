@@ -206,6 +206,7 @@ export default function RevertModal({
       </div>
 
       <Field
+        size="legacy"
         label="Add a Comment (optional)"
         textarea
         value={comment}

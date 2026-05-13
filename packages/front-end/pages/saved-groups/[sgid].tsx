@@ -1070,6 +1070,7 @@ export default function EditSavedGroupPage() {
                 )}
                 {editingNewDraftTitle ? (
                   <Field
+                    size="legacy"
                     autoFocus
                     value={newDraftTitle}
                     placeholder={`Revision ${(displayRevision?.version ?? allRevisions.length) + 1}`}
@@ -1464,6 +1465,7 @@ export default function EditSavedGroupPage() {
                           )}
                           {editingTitle ? (
                             <Field
+                              size="legacy"
                               autoFocus
                               value={titleDraft}
                               placeholder={`Revision ${revisionNumber}`}
@@ -1779,6 +1781,7 @@ export default function EditSavedGroupPage() {
             <Flex align="center" justify="between" mb="3" gap="4">
               <Box className="relative" width="40%">
                 <Field
+                  size="legacy"
                   placeholder="Search..."
                   type="search"
                   value={filter}

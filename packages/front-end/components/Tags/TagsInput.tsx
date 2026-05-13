@@ -119,6 +119,7 @@ const TagsInput: FC<{
 
   return (
     <MultiSelectField
+      size="legacy"
       options={
         tagOptions.map((t) => {
           // Converts Radix color to hex color to make it compatible with MultiSelectField

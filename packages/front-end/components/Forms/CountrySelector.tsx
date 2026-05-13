@@ -35,6 +35,7 @@ export default function CountrySelector(props: CountrySelectorProps) {
   if (props.selectAmount === "single") {
     return (
       <SelectField
+        size="legacy"
         options={options}
         formatOptionLabel={formatOptionLabel}
         {...props}
@@ -43,6 +44,7 @@ export default function CountrySelector(props: CountrySelectorProps) {
   } else {
     return (
       <MultiSelectField
+        size="legacy"
         options={options}
         formatOptionLabel={formatOptionLabel}
         {...props}

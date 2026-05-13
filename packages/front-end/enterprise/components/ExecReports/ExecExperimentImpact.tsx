@@ -589,6 +589,7 @@ export default function ExecExperimentImpact({
                     <th>
                       <Flex>
                         <SelectField
+                          size="legacy"
                           containerClassName={"select-dropdown-underline"}
                           options={[
                             {

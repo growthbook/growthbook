@@ -119,6 +119,7 @@ export default function ApprovalFlowSettings() {
                         <Flex direction="column" gap="3" mb="3">
                           {showProjectScope[i] ? (
                             <MultiSelectField
+                              size="legacy"
                               id={`projects-${i}`}
                               label="Projects"
                               labelClassName="font-weight-semibold"
@@ -149,6 +150,7 @@ export default function ApprovalFlowSettings() {
                           )}
                           {showEnvScope[i] ? (
                             <MultiSelectField
+                              size="legacy"
                               id={`environments-${i}`}
                               label="Specific environments"
                               labelClassName="font-weight-semibold"

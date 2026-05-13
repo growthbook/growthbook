@@ -201,6 +201,7 @@ export default function CustomFieldModal({
     >
       <Flex direction="column" gap="5">
         <Field
+          size="legacy"
           label="Name"
           {...form.register("name")}
           placeholder=""
@@ -220,6 +221,7 @@ export default function CustomFieldModal({
           containerClassName="mb-0"
         />
         <Field
+          size="legacy"
           label="Key"
           {...form.register("id")}
           pattern="^[a-z0-9_-]+$"
@@ -251,6 +253,7 @@ export default function CustomFieldModal({
           containerClassName="mb-0"
         />
         <Field
+          size="legacy"
           label="Description"
           textarea={true}
           minRows={1}
@@ -261,6 +264,7 @@ export default function CustomFieldModal({
         />
         <Box>
           <MultiSelectField
+            size="legacy"
             label="Applies to"
             value={form.watch("sections") ?? defaultSections}
             options={APPLIES_TO_OPTIONS}
@@ -278,6 +282,7 @@ export default function CustomFieldModal({
         {projects?.length > 0 && (
           <Box>
             <MultiSelectField
+              size="legacy"
               label="Projects"
               value={form.watch("projects") ?? []}
               placeholder="All projects"
@@ -298,6 +303,7 @@ export default function CustomFieldModal({
         )}
         <Box>
           <SelectField
+            size="legacy"
             label="Value type"
             value={form.watch("type") ?? "text"}
             options={fieldOptions.map((o) => ({ label: o, value: o }))}
@@ -317,6 +323,7 @@ export default function CustomFieldModal({
           form.watch("type") === "multiselect") && (
           <Box>
             <StringArrayField
+              size="legacy"
               label="Values"
               value={
                 form
@@ -355,6 +362,7 @@ export default function CustomFieldModal({
             ) : form.watch("type") === "enum" ||
               form.watch("type") === "multiselect" ? (
               <SelectField
+                size="legacy"
                 label="Default value"
                 value={(form.watch("defaultValue") as string) || ""}
                 onChange={(v) => form.setValue("defaultValue", v)}
@@ -384,6 +392,7 @@ export default function CustomFieldModal({
               </Box>
             ) : (
               <Field
+                size="legacy"
                 label="Default value"
                 type={form.watch("type") === "url" ? "url" : "text"}
                 {...form.register("defaultValue")}
@@ -396,6 +405,7 @@ export default function CustomFieldModal({
               form.watch("type") !== "date" &&
               form.watch("type") !== "datetime" && (
                 <Field
+                  size="legacy"
                   label="Placeholder"
                   {...form.register("placeholder")}
                   containerClassName="mb-0"
