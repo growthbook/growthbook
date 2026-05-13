@@ -51,19 +51,24 @@ function buildStepsForAllTargets(
       // Preserve savedGroups/prerequisites from existing actions — they are
       // edited via the per-rule surface, not from this shared editor.
       const existingAction = existingStep?.actions?.find(
-        (a) => a.targetId === t.id,
+        (a) => a.type === "patch-rule" && a.targetId === t.id,
       );
-      if (base.savedGroups === undefined && existingAction?.patch.savedGroups) {
+      if (
+        existingAction?.type === "patch-rule" &&
+        base.savedGroups === undefined &&
+        existingAction.patch.savedGroups
+      ) {
         base.savedGroups = existingAction.patch.savedGroups;
       }
       if (
+        existingAction?.type === "patch-rule" &&
         base.prerequisites === undefined &&
-        existingAction?.patch.prerequisites
+        existingAction.patch.prerequisites
       ) {
         base.prerequisites = existingAction.patch.prerequisites;
       }
       return {
-        targetType: "feature-rule" as const,
+        type: "patch-rule" as const,
         targetId: t.id,
         patch: base,
       };
@@ -83,6 +88,7 @@ function buildStepsForAllTargets(
       ...(s.triggerType === "approval" && s.approvalNotes
         ? { approvalNotes: s.approvalNotes }
         : {}),
+      ...(s.monitored ? { monitored: true } : {}),
     };
   });
 }
@@ -96,18 +102,22 @@ function buildEndActionsForAllTargets(
   return targets.map((t) => {
     const ruleId = t.ruleId ?? "";
     const base = buildPatch(endPatch, ruleId) as Record<string, unknown>;
-    const existingAction = existingEndActions?.find((a) => a.targetId === t.id);
-    if (base.savedGroups === undefined && existingAction?.patch.savedGroups) {
-      base.savedGroups = existingAction.patch.savedGroups;
-    }
-    if (
-      base.prerequisites === undefined &&
-      existingAction?.patch.prerequisites
-    ) {
-      base.prerequisites = existingAction.patch.prerequisites;
+    const existingAction = existingEndActions?.find(
+      (a) => a.type === "patch-rule" && a.targetId === t.id,
+    );
+    if (existingAction?.type === "patch-rule") {
+      if (base.savedGroups === undefined && existingAction.patch.savedGroups) {
+        base.savedGroups = existingAction.patch.savedGroups;
+      }
+      if (
+        base.prerequisites === undefined &&
+        existingAction.patch.prerequisites
+      ) {
+        base.prerequisites = existingAction.patch.prerequisites;
+      }
     }
     return {
-      targetType: "feature-rule" as const,
+      type: "patch-rule" as const,
       targetId: t.id,
       patch: base,
     };

@@ -7,7 +7,9 @@ import {
   completeRollout,
   computeNextProcessAt,
   onActivatingRevisionPublished,
+  rollbackSchedule,
 } from "back-end/src/services/rampSchedule";
+import { evaluateCurrentStep } from "back-end/src/services/rampScheduleEvaluator";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { findSchedulesDueForProcessing } from "back-end/src/models/RampScheduleModel";
 
@@ -113,6 +115,26 @@ export const advanceSingleRampSchedule = async (
         }),
       });
       await applyRampStartActions(context, current);
+    }
+
+    // Evaluate monitoring and hold conditions before advancing
+    if (current.status === "running") {
+      const decision = await evaluateCurrentStep(context, current, now);
+      if (decision.action === "rollback") {
+        logger.info(
+          { scheduleId: current.id, reason: decision.reason },
+          "Evaluator triggered rollback",
+        );
+        await rollbackSchedule(context, current, decision.reason);
+        return;
+      }
+      if (decision.action === "hold") {
+        logger.debug(
+          { scheduleId: current.id, reason: decision.reason },
+          "Evaluator holding step",
+        );
+        return;
+      }
     }
 
     await advanceUntilBlocked(context, current, now);

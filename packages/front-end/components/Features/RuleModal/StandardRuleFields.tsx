@@ -30,7 +30,7 @@ import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
 
-export type ScheduleType = "none" | "schedule" | "ramp";
+export type ScheduleType = "none" | "schedule" | "ramp" | "safe-rollout";
 
 function RampControlledField({ label }: { label: string }) {
   return (
@@ -107,6 +107,7 @@ export default function StandardRuleFields({
   const { hasCommercialFeature } = useUser();
   const canScheduleFeatureFlags = hasCommercialFeature("schedule-feature-flag");
   const canUseRampSchedules = hasCommercialFeature("ramp-schedules");
+  const canUseSafeRollouts = hasCommercialFeature("safe-rollout");
 
   const rampIsEditable =
     !ruleRampSchedule ||
@@ -115,7 +116,7 @@ export default function StandardRuleFields({
   // Ramp is configured but the activating revision hasn't been published yet (or no DB
   // record at all). Targeting is locked out but hash/seed remain editable.
   const preRampPublish =
-    scheduleType === "ramp" &&
+    (scheduleType === "ramp" || scheduleType === "safe-rollout") &&
     (!ruleRampSchedule || ruleRampSchedule.status === "pending");
 
   // Ramp-up (with steps) exists and is not yet in a terminal state. Locks
@@ -139,7 +140,7 @@ export default function StandardRuleFields({
     [rampSectionState],
   );
 
-  const inRamp = scheduleType === "ramp";
+  const inRamp = scheduleType === "ramp" || scheduleType === "safe-rollout";
 
   const isRampControlled = (field: StepField) =>
     inRamp && rampActiveFields.has(field);
@@ -147,10 +148,12 @@ export default function StandardRuleFields({
   function applyScheduleType(type: ScheduleType) {
     setSavedStates((prev) => ({ ...prev, [scheduleType]: rampSectionState }));
 
-    if (scheduleType === "ramp" && type !== "ramp") {
-      if (rampActiveFields.has("coverage")) {
-        form.setValue("coverage", 1);
-      }
+    const leavingRamp =
+      (scheduleType === "ramp" || scheduleType === "safe-rollout") &&
+      type !== "ramp" &&
+      type !== "safe-rollout";
+    if (leavingRamp && rampActiveFields.has("coverage")) {
+      form.setValue("coverage", 1);
     }
 
     setScheduleType(type);
@@ -163,7 +166,7 @@ export default function StandardRuleFields({
 
     const saved = savedStates[type];
 
-    if (type === "ramp") {
+    if (type === "ramp" || type === "safe-rollout") {
       setScheduleToggleEnabled(false);
       if (saved && saved.steps.length > 0) {
         setRampSectionState(saved);
@@ -273,6 +276,18 @@ export default function StandardRuleFields({
                 "Increase traffic over multiple steps, with optional targeting conditions and approvals",
               disabled: !canUseRampSchedules,
             },
+            {
+              value: "safe-rollout",
+              label: (
+                <Flex align="center" gap="2">
+                  Safe rollout
+                  <PaidFeatureBadge commercialFeature="safe-rollout" />
+                </Flex>
+              ),
+              description:
+                "Ramp traffic with automatic guardrail monitoring and rollback",
+              disabled: !canUseSafeRollouts,
+            },
           ]}
           value={scheduleType}
           setValue={(v) => applyScheduleType(v as ScheduleType)}
@@ -306,16 +321,17 @@ export default function StandardRuleFields({
           </Box>
         )}
 
-        {scheduleType === "ramp" && (
+        {(scheduleType === "ramp" || scheduleType === "safe-rollout") && (
           <>
             <Heading as="h3" size="small" mb="4">
-              Ramp-up
+              {scheduleType === "safe-rollout" ? "Safe rollout" : "Ramp-up"}
             </Heading>
             {environments.length > 1 && (
               <Callout status="warning" mb="4">
                 You are creating a rule in {environments.length} environment
-                {environments.length > 1 ? "s" : ""}. The ramp-up will apply to
-                all of them.
+                {environments.length > 1 ? "s" : ""}. The{" "}
+                {scheduleType === "safe-rollout" ? "safe rollout" : "ramp-up"}{" "}
+                will apply to all of them.
               </Callout>
             )}
             {ruleRampSchedule && !rampIsEditable ? (

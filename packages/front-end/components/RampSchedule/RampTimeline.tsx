@@ -105,6 +105,7 @@ function PopoverPatchDisplay({
   const additionalItems: ReactNode[] = [];
 
   actions.forEach((action, ai) => {
+    if (action.type !== "patch-rule") return;
     const p = action.patch;
     const k = (s: string) => `${ai}-${s}`;
 

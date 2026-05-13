@@ -17,6 +17,9 @@ import {
   rampStep,
   rampStepAction,
   rampEndTrigger,
+  gateConfigSchema,
+  monitoringConfigSchema,
+  lockdownConfigSchema,
 } from "./ramp-schedule";
 
 import { namedSchema } from "./openapi-helpers";
@@ -342,20 +345,12 @@ const revisionApiRampStep = z.object({
 // Stored type — requires targetType/targetId in actions.
 export const revisionRampCreateAction = z.object({
   mode: z.literal("create"),
-  /** Display name. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
   name: z.string().optional(),
-  /**
-   * @deprecated New ramp actions must omit this field and target exclusively
-   * by `ruleId`.  Retained as optional/nullable so pre-migration actions
-   * stored in the DB continue to deserialize and resolve correctly via
-   * `resolveRampTargets` in `flattenRules.ts`.
-   */
+  // @deprecated — target by ruleId only. Kept for pre-migration DB compat.
   environment: z.string().optional().nullable(),
-  /** Load steps and endActions from a saved template. Explicit steps/endActions take precedence. */
   templateId: z.string().optional(),
   steps: z.array(rampStep),
   endActions: z.array(rampStepAction).optional(),
-  /** ISO datetime string; absent/null means start immediately on publish. */
   startDate: z.string().optional().nullable(),
   endCondition: revisionRampEndConditionSchema.optional(),
   ruleId: z.string(),
@@ -367,23 +362,54 @@ export const apiRevisionRampCreateAction = revisionRampCreateAction.extend({
   endActions: z.array(revisionApiRampStepAction).optional(),
 });
 
+// Feature-level rollout creation — stored on revision, executed at publish time.
+export const revisionRampCreateFeatureRolloutAction = z.object({
+  mode: z.literal("create-feature-rollout"),
+  name: z.string().optional(),
+  templateId: z.string().optional(),
+  steps: z.array(rampStep),
+  endActions: z.array(rampStepAction).optional(),
+  startDate: z.string().optional().nullable(),
+  endCondition: revisionRampEndConditionSchema.optional(),
+  gateConfig: gateConfigSchema,
+  monitoringConfig: monitoringConfigSchema.optional(),
+  lockdownConfig: lockdownConfigSchema.optional(),
+});
+
+// API input variant for feature-level rollouts.
+// Uses the full rampStep/rampStepAction schemas (set-gate, set-environment-enabled, etc.)
+// rather than the rule-scoped revisionApiRampStep which only supports patch-rule.
+export const apiRevisionRampCreateFeatureRolloutAction = z.object({
+  name: z.string().optional(),
+  templateId: z.string().optional(),
+  steps: z.array(rampStep).optional(),
+  endActions: z.array(rampStepAction).optional(),
+  startDate: z.string().optional().nullable(),
+  endCondition: revisionRampEndConditionSchema.optional(),
+  gateConfig: gateConfigSchema,
+  monitoringConfig: monitoringConfigSchema.optional(),
+  lockdownConfig: lockdownConfigSchema.optional(),
+});
+
 export const revisionRampDetachAction = z.object({
   mode: z.literal("detach"),
   rampScheduleId: z.string(),
-  /** Rule ID being detached. Used at publish time to remove the right target. */
   ruleId: z.string(),
-  /** Delete the ramp schedule entirely if no targets remain after detach. */
   deleteScheduleWhenEmpty: z.boolean().optional(),
 });
 
 const revisionRampAction = z.discriminatedUnion("mode", [
   revisionRampCreateAction,
+  revisionRampCreateFeatureRolloutAction,
   revisionRampDetachAction,
 ]);
 
 export type RevisionRampCreateAction = z.infer<typeof revisionRampCreateAction>;
 export type ApiRevisionRampCreateAction = z.infer<
   typeof apiRevisionRampCreateAction
+>;
+export type RevisionRampCreateFeatureRolloutAction = z.infer<
+  typeof revisionRampCreateFeatureRolloutAction
 >;
 export type RevisionRampDetachAction = z.infer<typeof revisionRampDetachAction>;
 export type RevisionRampAction = z.infer<typeof revisionRampAction>;
@@ -475,6 +501,8 @@ export const featureInterface = z
         value: z.string(),
       })
       .optional(),
+    // Set when a feature-level rollout is active; cleared on completion.
+    activeRampScheduleId: z.string().optional(),
   })
   .strict();
 

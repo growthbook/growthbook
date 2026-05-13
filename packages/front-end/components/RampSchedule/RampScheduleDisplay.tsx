@@ -53,6 +53,7 @@ function PatchDisplay({
   const items: ReactNode[] = [];
 
   actions.forEach((action, ai) => {
+    if (action.type !== "patch-rule") return;
     const p = action.patch;
     const k = (s: string) => `${ai}-${s}`;
 
@@ -226,7 +227,9 @@ function filterActions(
   targetId?: string,
 ): RampStepAction[] {
   if (!targetId) return actions;
-  return actions.filter((a) => a.targetId === targetId);
+  return actions.filter(
+    (a) => a.type === "patch-rule" && a.targetId === targetId,
+  );
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────

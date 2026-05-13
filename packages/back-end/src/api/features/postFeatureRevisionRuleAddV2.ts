@@ -239,6 +239,7 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       const existing = revision.rampActions ?? [];
       const filtered = existing.filter(
         (a) =>
+          !("ruleId" in a) ||
           a.ruleId !== (resolvedRampAction as RevisionRampCreateAction).ruleId,
       );
       changes.rampActions = [...filtered, resolvedRampAction];

@@ -27,7 +27,10 @@ import {
   FeatureMetadata,
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
-import { HoldoutInterface } from "shared/validators";
+import {
+  HoldoutInterface,
+  RampScheduleInterface,
+} from "shared/validators";
 import {
   expandNestedSavedGroups,
   getJSONValue,
@@ -418,6 +421,10 @@ export function getHoldoutFeatureDefId(holdoutId: string) {
   return `$holdout:${holdoutId}`;
 }
 
+export function getRampGateFeatureDefId(scheduleId: string) {
+  return `$rampgate:${scheduleId}`;
+}
+
 /**
  * Helper function to apply namespace to a rule
  * Handles both multiRange format (with hashAttribute and multiple ranges) and legacy format
@@ -484,6 +491,7 @@ export function getFeatureDefinition({
   date,
   safeRolloutMap,
   holdoutsMap,
+  rampScheduleMap,
   capabilities,
   savedGroupReferencesEnabled,
   organization,
@@ -505,13 +513,13 @@ export function getFeatureDefinition({
     string,
     { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
-  capabilities?: SDKCapability[]; // undefined = all capabilities
+  rampScheduleMap?: Map<string, RampScheduleInterface>;
+  capabilities?: SDKCapability[];
   savedGroupReferencesEnabled?: boolean;
   organization?: OrganizationInterface;
   savedGroupsMap?: Record<string, SavedGroupInterface>;
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
-  /** Optional override: if provided, skips derivation from organization.settings.namespaces */
   namespaces?: Map<
     string,
     { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
@@ -615,6 +623,22 @@ export function getFeatureDefinition({
         ]
       : [];
 
+  // If the feature has an active feature-level rollout, inject a gate prereq rule.
+  // The gate is a synthetic feature emitted separately (see generateRampGatePayload).
+  const rampGateRule: FeatureDefinitionRule[] = (() => {
+    if (!hasPrerequisites || !feature.activeRampScheduleId) return [];
+    const schedule = rampScheduleMap?.get(feature.activeRampScheduleId);
+    if (!schedule?.gateConfig) return [];
+    if (!["running", "paused", "pending-approval"].includes(schedule.status))
+      return [];
+    const gateDefId = getRampGateFeatureDefId(schedule.id);
+    return [
+      {
+        parentConditions: [{ id: gateDefId, condition: { value: true }, gate: true }],
+      },
+    ];
+  })();
+
   // convert prerequisites to force rules (only when connection has prerequisites capability)
   const prerequisiteRules = hasPrerequisites
     ? (feature.prerequisites ?? [])
@@ -640,6 +664,7 @@ export function getFeatureDefinition({
 
   const defRules = [
     ...holdoutRule,
+    ...rampGateRule,
     ...prerequisiteRules,
     ...(rules
       ?.filter((r) => {

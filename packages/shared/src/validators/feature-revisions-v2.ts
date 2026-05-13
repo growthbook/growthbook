@@ -12,7 +12,11 @@ import {
   revisionVersionParam,
 } from "./feature-revisions";
 import { apiFeatureRevisionV2Validator } from "./features-v2";
-import { JSONSchemaDef, revisionStatusSchema } from "./features";
+import {
+  JSONSchemaDef,
+  revisionStatusSchema,
+  apiRevisionRampCreateFeatureRolloutAction,
+} from "./features";
 import { ownerInputField } from "./owner-field";
 
 // ---- Shared param schemas ----
@@ -611,6 +615,36 @@ export const deleteFeatureRevisionRuleRampScheduleV2Validator = {
       ...newDraftMetadataFields,
     })
     .strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+  version: "v2" as const,
+};
+
+export const putFeatureRevisionRolloutV2Validator = {
+  method: "put" as const,
+  path: "/features/:id/revisions/:version/rollout",
+  operationId: "putFeatureRevisionRolloutV2",
+  summary: "Set a feature-level rollout on a draft revision",
+  description:
+    "Stores a feature-level rollout plan on the draft. The ramp schedule is materialized to the DB and linked to the feature at publish time.",
+  tags: ["feature-revisions-v2"],
+  paramsSchema: revisionParams,
+  bodySchema: apiRevisionRampCreateFeatureRolloutAction
+    .extend(newDraftMetadataFields)
+    .strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+  version: "v2" as const,
+};
+
+export const deleteFeatureRevisionRolloutV2Validator = {
+  method: "delete" as const,
+  path: "/features/:id/revisions/:version/rollout",
+  operationId: "deleteFeatureRevisionRolloutV2",
+  summary: "Remove a pending feature-level rollout from a draft revision",
+  tags: ["feature-revisions-v2"],
+  paramsSchema: revisionParams,
+  bodySchema: z.object({ ...newDraftMetadataFields }).strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
   version: "v2" as const,

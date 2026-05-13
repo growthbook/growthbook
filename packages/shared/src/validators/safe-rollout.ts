@@ -53,11 +53,9 @@ const safeRolloutNotification = [
 export type SafeRolloutNotification = (typeof safeRolloutNotification)[number];
 
 const safeRollout = createSafeRolloutValidator.extend({
-  // Refs
   featureId: z.string(),
   environment: z.string(),
 
-  // Managed fields
   status: z.enum(safeRolloutStatusArray),
   autoSnapshots: z.boolean(),
   startedAt: z.date().optional(),
@@ -65,7 +63,10 @@ const safeRollout = createSafeRolloutValidator.extend({
   nextSnapshotAttempt: z.date().optional(),
   analysisSummary: experimentAnalysisSummary.optional(),
   pastNotifications: z.array(z.enum(safeRolloutNotification)).optional(),
+  // @deprecated — use RampSchedule step controls instead.
   rampUpSchedule: rampUpSchedule,
+  // Stable seed for the gate when used as a ramp monitor.
+  gateSeed: z.string().optional(),
 });
 export const safeRolloutValidator = baseSchema
   .extend(safeRollout.shape)

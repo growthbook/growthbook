@@ -1666,18 +1666,21 @@ async function createRampSchedulesForRevision(
 
     const targetId = uuidv4();
 
-    // Inject the generated targetId into every action. The caller's targetId
-    // is ignored — there is exactly one target per revision create action.
+    // Inject the generated targetId into every patch-rule action.
+    // Non-patch-rule actions pass through unchanged.
     const normalizeAction = (
       a: RevisionRampCreateAction["steps"][number]["actions"][number],
-    ): RampStepAction => ({
-      targetType: "feature-rule" as const,
-      targetId,
-      patch: {
-        ...a.patch,
-        ruleId: action.ruleId,
-      } as RampStepAction["patch"],
-    });
+    ): RampStepAction => {
+      if (a.type !== "patch-rule") return a;
+      return {
+        type: "patch-rule" as const,
+        targetId,
+        patch: {
+          ...a.patch,
+          ruleId: action.ruleId,
+        },
+      };
+    };
 
     // Template is used as a fallback; explicit steps/endActions win.
     let template: RampScheduleTemplateInterface | undefined;
@@ -1734,12 +1737,12 @@ async function createRampSchedulesForRevision(
         : template?.endPatch && Object.keys(template.endPatch).length > 0
           ? [
               {
-                targetType: "feature-rule" as const,
+                type: "patch-rule" as const,
                 targetId,
                 patch: {
                   ruleId: action.ruleId,
                   ...template.endPatch,
-                } as RampStepAction["patch"],
+                },
               },
             ]
           : [];
@@ -1773,6 +1776,74 @@ async function createRampSchedulesForRevision(
       currentStepIndex: -1,
       nextStepAt:
         !startDate && steps.length > 0 ? new Date() : (startDate ?? null),
+      startedAt: null,
+      phaseStartedAt: null,
+    });
+
+    createdIds.push(created.id);
+  }
+
+  return createdIds;
+}
+
+// Create ramp schedules for `mode === "create-feature-rollout"` actions.
+// Similar to createRampSchedulesForRevision but for feature-level rollouts.
+async function createFeatureRolloutsForRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: { version: number },
+  actions: RevisionRampAction[],
+): Promise<string[]> {
+  const createdIds: string[] = [];
+
+  for (const action of actions) {
+    if (action.mode !== "create-feature-rollout") continue;
+
+    if (!context.hasPremiumFeature("schedule-feature-flag")) {
+      context.throwPlanDoesNotAllowError(
+        "Ramp schedules require a Pro plan or above.",
+      );
+    }
+
+    const targetId = uuidv4();
+    const defaultName = `Feature rollout \u2013 ${new Date().toLocaleDateString(
+      "en-US",
+      { month: "short", year: "numeric" },
+    )}`;
+
+    const startDate = action.startDate ? new Date(action.startDate) : undefined;
+    const endCondition = action.endCondition?.trigger
+      ? { trigger: action.endCondition.trigger }
+      : undefined;
+
+    const created = await context.models.rampSchedules.create({
+      name: action.name ?? defaultName,
+      entityType: "feature",
+      entityId: feature.id,
+      targets: [
+        {
+          id: targetId,
+          entityType: "feature",
+          entityId: feature.id,
+          ruleId: null,
+          environment: null,
+          status: "active",
+          activatingRevisionVersion: revision.version,
+        },
+      ],
+      steps: action.steps ?? [],
+      endActions: action.endActions,
+      startDate,
+      endCondition,
+      gateConfig: action.gateConfig,
+      monitoringConfig: action.monitoringConfig,
+      lockdownConfig: action.lockdownConfig,
+      status: "pending",
+      currentStepIndex: -1,
+      nextStepAt:
+        !startDate && (action.steps?.length ?? 0) > 0
+          ? new Date()
+          : (startDate ?? null),
       startedAt: null,
       phaseStartedAt: null,
     });
@@ -1902,6 +1973,9 @@ export async function publishRevision(
   const createActions = (revision.rampActions ?? []).filter(
     (a) => a.mode === "create",
   );
+  const featureRolloutActions = (revision.rampActions ?? []).filter(
+    (a) => a.mode === "create-feature-rollout",
+  );
   const preCreatedScheduleIds: string[] = [];
   if (createActions.length) {
     const ids = await createRampSchedulesForRevision(
@@ -1909,6 +1983,15 @@ export async function publishRevision(
       feature,
       revision,
       createActions,
+    );
+    preCreatedScheduleIds.push(...ids);
+  }
+  if (featureRolloutActions.length) {
+    const ids = await createFeatureRolloutsForRevision(
+      context,
+      feature,
+      revision,
+      featureRolloutActions,
     );
     preCreatedScheduleIds.push(...ids);
   }

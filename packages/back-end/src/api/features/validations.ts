@@ -1,4 +1,4 @@
-import type { FeatureRule, FeaturePrerequisite } from "shared/validators";
+import type { FeatureRule, FeaturePrerequisite, FeatureRulePatch } from "shared/validators";
 import {
   apiRevisionRampCreateAction,
   RevisionRampCreateAction,
@@ -30,24 +30,19 @@ type InlineRampScheduleInput = z.infer<typeof inlineRampScheduleInput>;
 function normalizeRevisionRampCreateAction(
   input: z.infer<typeof apiRevisionRampCreateAction>,
 ): RevisionRampCreateAction {
+  const normalizeAction = (a: { targetId?: string; patch: Record<string, unknown> }) => ({
+    type: "patch-rule" as const,
+    targetId: a.targetId ?? "",
+    patch: a.patch as FeatureRulePatch,
+  });
   return {
     ...input,
     steps: (input.steps ?? []).map((s) => ({
       trigger: s.trigger,
-      actions: (s.actions ?? []).map((a) => ({
-        targetType: a.targetType ?? ("feature-rule" as const),
-        targetId: a.targetId ?? "",
-        patch:
-          a.patch as RevisionRampCreateAction["steps"][number]["actions"][number]["patch"],
-      })),
+      actions: (s.actions ?? []).map(normalizeAction),
       approvalNotes: s.approvalNotes ?? undefined,
     })),
-    endActions: input.endActions?.map((a) => ({
-      targetType: a.targetType ?? ("feature-rule" as const),
-      targetId: a.targetId ?? "",
-      patch:
-        a.patch as RevisionRampCreateAction["steps"][number]["actions"][number]["patch"],
-    })),
+    endActions: input.endActions?.map(normalizeAction),
   };
 }
 
@@ -153,7 +148,7 @@ export function buildScheduleRampAction(
           trigger: { type: "scheduled", at: new Date(startDate) },
           actions: [
             {
-              targetType: "feature-rule",
+              type: "patch-rule" as const,
               targetId: "",
               patch: { ruleId, enabled: true },
             },
@@ -175,7 +170,7 @@ export function buildScheduleRampAction(
     };
     action.endActions = [
       {
-        targetType: "feature-rule",
+        type: "patch-rule" as const,
         targetId: "",
         patch: { ruleId, enabled: false },
       },

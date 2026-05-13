@@ -12,6 +12,7 @@ import {
   PiInfo,
   PiCaretDownBold,
   PiBookmarkSimple,
+  PiShieldCheckBold,
 } from "react-icons/pi";
 import type {
   FeatureInterface,
@@ -100,6 +101,7 @@ export type UIStep = {
   approvalNotes: string;
   notesOpen: boolean; // UI-only: whether the notes field is expanded
   additionalEffectsOpen: boolean; // UI-only: whether the effects sub-rows are expanded
+  monitored: boolean;
 };
 
 export type RampMode = "off" | "create" | "edit" | "link";
@@ -183,11 +185,13 @@ const COL = {
 
 // ─── Build helpers ───────────────────────────────────────────────────────────
 
+type PatchRuleAction = Extract<RampStepAction, { type: "patch-rule" }>;
+
 export function buildPatch(
   patch: UIStepPatch,
   ruleId: string,
-): RampStepAction["patch"] {
-  const out: RampStepAction["patch"] = { ruleId };
+): PatchRuleAction["patch"] {
+  const out: PatchRuleAction["patch"] = { ruleId };
   if (patch.coverage !== undefined) out.coverage = patch.coverage / 100;
   if (patch.condition !== undefined) out.condition = patch.condition;
   if (patch.savedGroups !== undefined) out.savedGroups = patch.savedGroups;
@@ -213,7 +217,7 @@ export function buildEndActions(
   if (isEmpty) return [];
   return [
     {
-      targetType: "feature-rule",
+      type: "patch-rule" as const,
       targetId: "t1",
       patch,
     },
@@ -251,10 +255,11 @@ export function buildRampSteps(
               seconds: Math.max(1, s.intervalValue) * UNIT_MULT[s.intervalUnit],
             }
           : { type: "approval" as const },
-      actions: [{ targetType: "feature-rule" as const, targetId, patch }],
+      actions: [{ type: "patch-rule" as const, targetId, patch }],
       ...(s.triggerType === "approval" && s.approvalNotes
         ? { approvalNotes: s.approvalNotes }
         : {}),
+      ...(s.monitored ? { monitored: true } : {}),
     };
   });
 }
@@ -262,12 +267,7 @@ export function buildRampSteps(
 // ── Template structural comparison helpers ────────────────────────────────────
 
 function normalizeActionPatch(patch: Record<string, unknown>) {
-  return pick(patch, [
-    ...TEMPLATE_PATCH_FIELDS,
-    "ruleId",
-    "targetId",
-    "targetType",
-  ]);
+  return pick(patch, [...TEMPLATE_PATCH_FIELDS, "ruleId", "targetId", "type"]);
 }
 
 function normalizeActions(
@@ -503,6 +503,7 @@ export default function RampScheduleSection({
       approvalNotes: "",
       notesOpen: false,
       additionalEffectsOpen: false,
+      monitored: prev?.monitored ?? false,
     };
     const steps = [...state.steps];
     steps.splice(insertAt, 0, newStep);
@@ -530,6 +531,7 @@ export default function RampScheduleSection({
           approvalNotes: "",
           notesOpen: false,
           additionalEffectsOpen: false,
+          monitored: last?.monitored ?? false,
         },
       ],
     });
@@ -869,9 +871,19 @@ export default function RampScheduleSection({
                   }}
                   pl="1"
                 >
-                  <Text size="small" color="text-low">
-                    {i + 1}
-                  </Text>
+                  <Flex align="center" gap="1">
+                    <Text size="small" color="text-low">
+                      {i + 1}
+                    </Text>
+                    {step.monitored && (
+                      <Tooltip body="Monitored step — guardrail metrics are evaluated">
+                        <PiShieldCheckBold
+                          size={12}
+                          style={{ color: "var(--blue-9)" }}
+                        />
+                      </Tooltip>
+                    )}
+                  </Flex>
                 </Box>
 
                 {/* Coverage */}
@@ -1083,6 +1095,16 @@ export default function RampScheduleSection({
                     </DropdownMenuGroup>
                   ) : null}
                   <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setOpenMenuIndex(null);
+                        updateStep(i, { monitored: !step.monitored });
+                      }}
+                    >
+                      {step.monitored
+                        ? "Disable monitoring"
+                        : "Enable monitoring"}
+                    </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => {
                         setOpenMenuIndex(null);
@@ -1526,7 +1548,10 @@ export function reconstructUIPatch(
 
 // Converts a stored RampStep back to a UIStep.
 export function reconstructUIStep(step: RampStep): UIStep {
-  const patch = reconstructUIPatch(step.actions[0]?.patch);
+  const firstAction = step.actions[0];
+  const firstPatch =
+    firstAction?.type === "patch-rule" ? firstAction.patch : undefined;
+  const patch = reconstructUIPatch(firstPatch);
   // Open additional effects if the stored patch already has any effect fields set.
   const additionalEffectsOpen = VALID_STEP_FIELDS.some(
     (f) => patch[f] !== undefined,
@@ -1541,6 +1566,7 @@ export function reconstructUIStep(step: RampStep): UIStep {
       approvalNotes,
       notesOpen: approvalNotes.trim().length > 0,
       additionalEffectsOpen,
+      monitored: step.monitored ?? false,
     };
   }
   const seconds = step.trigger.seconds;
@@ -1563,6 +1589,7 @@ export function reconstructUIStep(step: RampStep): UIStep {
     approvalNotes: "",
     notesOpen: false,
     additionalEffectsOpen,
+    monitored: step.monitored ?? false,
   };
 }
 
@@ -1571,7 +1598,9 @@ export function reconstructUIEndPatch(
   endActions: RampScheduleInterface["endActions"],
 ): UIStepPatch {
   if (!endActions?.length) return { coverage: 100 };
-  return reconstructUIPatch(endActions[0]?.patch);
+  const first = endActions[0];
+  const patch = first?.type === "patch-rule" ? first.patch : undefined;
+  return reconstructUIPatch(patch);
 }
 
 // Builds a RampSectionState from an existing RampScheduleInterface for editing.
@@ -1615,6 +1644,7 @@ export function defaultRampSectionState(
         approvalNotes: "",
         notesOpen: false,
         additionalEffectsOpen: false,
+        monitored: false,
       },
     ],
     endScheduleAt: "",
@@ -1659,7 +1689,7 @@ export function templateToSectionState(
 ): RampSectionState {
   const rawEndPatch = template.endPatch;
   const endPatch: UIStepPatch = rawEndPatch
-    ? reconstructUIPatch(rawEndPatch as RampStepAction["patch"])
+    ? reconstructUIPatch(rawEndPatch as PatchRuleAction["patch"])
     : { coverage: 100 };
   return {
     mode,
@@ -1689,14 +1719,17 @@ export function buildTemplatePayload(
   const PLACEHOLDER_RULE = "template-rule";
 
   function stripIds(actions: RampStepAction[]): RampStepAction[] {
-    return actions.map((a) => ({
-      ...a,
-      targetId: PLACEHOLDER_TARGET,
-      patch: {
-        ...pick(a.patch, TEMPLATE_PATCH_FIELDS),
-        ruleId: PLACEHOLDER_RULE,
-      },
-    }));
+    return actions.map((a) => {
+      if (a.type !== "patch-rule") return a;
+      return {
+        ...a,
+        targetId: PLACEHOLDER_TARGET,
+        patch: {
+          ...pick(a.patch, TEMPLATE_PATCH_FIELDS),
+          ruleId: PLACEHOLDER_RULE,
+        },
+      };
+    });
   }
 
   const steps = buildRampSteps(

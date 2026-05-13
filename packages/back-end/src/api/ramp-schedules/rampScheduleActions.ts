@@ -4,6 +4,7 @@ import { PermissionError } from "shared/util";
 import { apiRampScheduleInterface } from "shared/validators";
 import {
   advanceUntilBlocked,
+  advanceStep,
   approveAndPublishStep,
   applyRampStartActions,
   completeRollout,
@@ -13,6 +14,7 @@ import {
   jumpAheadToStep,
   rollbackToStep,
 } from "back-end/src/services/rampSchedule";
+import { canApiAdvanceStep } from "back-end/src/services/rampScheduleEvaluator";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -550,4 +552,87 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
   );
 
   return { rampSchedule: rampScheduleToApiInterface(updated) };
+});
+
+// POST /ramp-schedules/:id/actions/advance
+// Externally triggered advancement (e.g. DataDog webhook, CI pipeline).
+// Only allowed when the current step has `apiAdvance: true`.
+export const apiAdvanceRampSchedule = createApiRequestHandler({
+  paramsSchema: actionParamsSchema,
+  bodySchema: z
+    .object({
+      reason: z.string().optional().describe("Reason for advancing"),
+    })
+    .optional(),
+  responseSchema: rampScheduleResponse,
+  method: "post" as const,
+  path: "/ramp-schedules/:id/actions/advance",
+  operationId: "apiAdvanceRampSchedule",
+  summary: "API-driven step advancement",
+  description:
+    "Advances the schedule to the next step. Only allowed when the current\nstep has `apiAdvance: true`. Use this for external system integrations\n(e.g. DataDog, CI pipelines).\n",
+  tags: ["ramp-schedules"],
+})(async (req) => {
+  const schedule = await req.context.models.rampSchedules.getById(
+    req.params.id,
+  );
+  if (!schedule) throw new Error("Ramp schedule not found");
+
+  const check = canApiAdvanceStep(schedule);
+  if (!check.allowed) {
+    throw new Error(check.reason ?? "API advance not allowed");
+  }
+
+  let current = await advanceStep(req.context, schedule);
+  current =
+    (await req.context.models.rampSchedules.getById(schedule.id)) ?? current;
+
+  return { rampSchedule: rampScheduleToApiInterface(current) };
+});
+
+// GET /ramp-schedules/:id/status
+// Derived status summary for monitoring dashboards and CI integrations.
+export const getRampScheduleStatus = createApiRequestHandler({
+  paramsSchema: actionParamsSchema,
+  bodySchema: z.never(),
+  responseSchema: z.object({
+    id: z.string(),
+    status: z.string(),
+    scope: z.string().optional(),
+    currentStepIndex: z.number(),
+    totalSteps: z.number(),
+    gateCoverage: z.number().optional(),
+    lockdownMode: z.string().optional(),
+    guardrailCount: z.number().optional(),
+    startedAt: z.string().nullable().optional(),
+    lastRollbackAt: z.string().nullable().optional(),
+    lastRollbackReason: z.string().nullable().optional(),
+  }),
+  method: "get" as const,
+  path: "/ramp-schedules/:id/status",
+  operationId: "getRampScheduleStatus",
+  summary: "Get ramp schedule status summary",
+  description:
+    "Returns a derived status summary of the ramp schedule, suitable\nfor monitoring dashboards and CI pipeline integrations.\n",
+  tags: ["ramp-schedules"],
+})(async (req) => {
+  const schedule = await req.context.models.rampSchedules.getById(
+    req.params.id,
+  );
+  if (!schedule) throw new Error("Ramp schedule not found");
+
+  return {
+    id: schedule.id,
+    status: schedule.status,
+    scope: schedule.scope,
+    currentStepIndex: schedule.currentStepIndex,
+    totalSteps: schedule.steps.length,
+    gateCoverage: schedule.gateConfig?.rules.find((r) => r.type === "rollout")
+      ?.coverage,
+    lockdownMode: schedule.lockdownConfig?.mode,
+    guardrailCount: schedule.monitoringConfig?.guardrailMetricIds.length,
+    startedAt: schedule.startedAt?.toISOString() ?? null,
+    lastRollbackAt: schedule.lastRollbackAt?.toISOString() ?? null,
+    lastRollbackReason: schedule.lastRollbackReason ?? null,
+  };
 });

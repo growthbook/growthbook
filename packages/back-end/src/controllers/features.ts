@@ -39,7 +39,9 @@ import {
   ACTIVE_DRAFT_STATUSES,
   RevisionMetadata,
   RevisionRampCreateAction,
+  RevisionRampCreateFeatureRolloutAction,
   RevisionRampDetachAction,
+  RampStepAction,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import {
@@ -3244,8 +3246,8 @@ export async function putFeatureRule(
       const primaryTargetId = existing.targets.find(
         (t) => t.status === "active",
       )?.id;
-      const remapT1 = <T extends { targetId: string }>(a: T): T =>
-        primaryTargetId && a.targetId === "t1"
+      const remapT1 = (a: RampStepAction): RampStepAction =>
+        a.type === "patch-rule" && primaryTargetId && a.targetId === "t1"
           ? { ...a, targetId: primaryTargetId }
           : a;
       if (rampSchedulePayload.name !== undefined)
@@ -5859,5 +5861,153 @@ export async function getFeatureWatchers(
   res.status(200).json({
     status: 200,
     userIds: watchers,
+  });
+}
+
+export async function putFeatureRollout(
+  req: AuthRequest<
+    {
+      gateConfig: RevisionRampCreateFeatureRolloutAction["gateConfig"];
+      monitoringConfig?: RevisionRampCreateFeatureRolloutAction["monitoringConfig"];
+      lockdownConfig?: RevisionRampCreateFeatureRolloutAction["lockdownConfig"];
+      steps: RevisionRampCreateFeatureRolloutAction["steps"];
+      endActions?: RevisionRampCreateFeatureRolloutAction["endActions"];
+      startDate?: string;
+      endCondition?: RevisionRampCreateFeatureRolloutAction["endCondition"];
+    },
+    { id: string; version: string }
+  >,
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
+) {
+  const context = getContextFromReq(req);
+  const { id, version: versionStr } = req.params;
+  const version = parseInt(versionStr);
+
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  if (feature.activeRampScheduleId) {
+    throw new Error(
+      "This feature already has an active rollout. Complete or roll back the existing one first.",
+    );
+  }
+
+  const revision = await getDraftRevision(context, feature, version);
+
+  const body = req.body;
+  if (!body.gateConfig) {
+    throw new Error("gateConfig is required");
+  }
+  if (!body.steps) {
+    throw new Error("steps is required");
+  }
+
+  const action: RevisionRampCreateFeatureRolloutAction = {
+    mode: "create-feature-rollout",
+    steps: body.steps,
+    endActions: body.endActions,
+    startDate: body.startDate,
+    endCondition: body.endCondition,
+    gateConfig: body.gateConfig,
+    monitoringConfig: body.monitoringConfig,
+    lockdownConfig: body.lockdownConfig,
+  };
+
+  // Upsert: replace any existing feature-level rollout action on this draft
+  const otherActions = (revision.rampActions ?? []).filter(
+    (a) => a.mode !== "create-feature-rollout",
+  );
+  const newRampActions = [...otherActions, action];
+
+  const allEnvironments = getEnvironments(context.org);
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+  const applicableEnvs = environments.map((e) => e.id);
+
+  await updateRevision(
+    context,
+    feature,
+    revision,
+    { rampActions: newRampActions },
+    {
+      user: context.auditUser,
+      action: "set feature rollout",
+      subject: feature.id,
+      value: JSON.stringify(action),
+    },
+    resetReviewOnChange({
+      feature,
+      changedEnvironments: applicableEnvs,
+      defaultValueChanged: false,
+      settings: context.org.settings,
+    }),
+  );
+
+  res.status(200).json({
+    status: 200,
+    version: revision.version,
+  });
+}
+
+export async function deleteFeatureRollout(
+  req: AuthRequest<Record<string, never>, { id: string; version: string }>,
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
+) {
+  const context = getContextFromReq(req);
+  const { id, version: versionStr } = req.params;
+  const version = parseInt(versionStr);
+
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const revision = await getDraftRevision(context, feature, version);
+
+  const newRampActions = (revision.rampActions ?? []).filter(
+    (a) => a.mode !== "create-feature-rollout",
+  );
+
+  const allEnvironments = getEnvironments(context.org);
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+  const applicableEnvs = environments.map((e) => e.id);
+
+  await updateRevision(
+    context,
+    feature,
+    revision,
+    { rampActions: newRampActions },
+    {
+      user: context.auditUser,
+      action: "remove feature rollout",
+      subject: feature.id,
+      value: "",
+    },
+    resetReviewOnChange({
+      feature,
+      changedEnvironments: applicableEnvs,
+      defaultValueChanged: false,
+      settings: context.org.settings,
+    }),
+  );
+
+  res.status(200).json({
+    status: 200,
+    version: revision.version,
   });
 }

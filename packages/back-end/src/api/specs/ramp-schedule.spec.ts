@@ -4,7 +4,6 @@ import {
   apiRampScheduleInterface,
   featureRulePatch,
   paginationQueryFields,
-  rampStepAction,
 } from "shared/validators";
 import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
 
@@ -23,8 +22,8 @@ const postBodyPatch = featureRulePatch
   );
 
 const postBodyAction = z.object({
-  targetType: z
-    .literal("feature-rule")
+  type: z
+    .literal("patch-rule")
     .optional()
     .describe("Omit when using featureId+ruleId+environment (auto-injected)"),
   targetId: z
@@ -123,12 +122,12 @@ const createBodySchema = z
 
 // --- Update body schemas ---
 
-const putBodyAction = rampStepAction
-  .omit({ targetId: true, targetType: true })
-  .extend({
-    targetType: z.literal("feature-rule").optional(),
-    targetId: z.string().optional(),
-  });
+// API update body action — relaxed version of patch-rule for partial updates
+const putBodyAction = z.object({
+  type: z.literal("patch-rule").optional(),
+  targetId: z.string().optional(),
+  patch: featureRulePatch.optional(),
+});
 
 const putBodyStep = z.object({
   trigger: apiRampTrigger,
