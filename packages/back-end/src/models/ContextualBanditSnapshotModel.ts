@@ -26,6 +26,7 @@ const BaseClass = MakeModelClass({
       fields: {
         organization: 1,
         experiment: 1,
+        phase: 1,
         status: 1,
         dateCreated: -1,
       },
@@ -40,9 +41,18 @@ export class ContextualBanditSnapshotModel extends BaseClass {
   // lifecycle wrapper around an experiment tick. A6 handlers will resolve
   // the experiment and call `getById` here through `dangerousGet*`
   // when the orchestrator runs as a system user.
+  // PLACEHOLDER: open by default. The A6 REST handlers
+  // (`packages/back-end/src/api/experiments/contextual-bandit/`) are
+  // responsible for resolving the parent experiment and checking the
+  // experiment's project-scoped permission before calling into this
+  // model. Tighten once the CBS surface stabilizes.
   protected canRead(): boolean {
     return true;
   }
+  // PLACEHOLDER: open by default. Create is system-only — customers don't
+  // POST CBS docs directly; they POST `/refresh` and the A6 orchestrator
+  // creates the CBS server-side after gating on the parent experiment's
+  // permission. Tighten once the CBS surface stabilizes.
   protected canCreate(): boolean {
     return true;
   }

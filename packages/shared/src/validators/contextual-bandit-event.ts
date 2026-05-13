@@ -42,7 +42,8 @@ export const contextualBanditVariationStats = z
     /**
      * Updated allocation weight for this variation within this context.
      * Sum across the variations of a single `contextResult` is ≈ 1.
-     * Persisted on the phase as `currentLeafWeights` for SDK emission.
+     * Persisted on the sibling `ContextualBandit.phases[N].currentLeafWeights`
+     * by the A6 orchestrator after each tick for SDK emission.
      */
     weight: z.number(),
   })
@@ -116,7 +117,8 @@ export const contextualBanditEventValidator = baseSchema.safeExtend({
   contextResults: z.array(contextualBanditContextResult),
   /**
    * Seed used for the tick — both for tree fit reproducibility and for
-   * deterministic SDK hash bucketing on `currentLeafWeights`.
+   * deterministic SDK hash bucketing on the sibling
+   * `ContextualBandit.phases[N].currentLeafWeights`.
    */
   seed: z.number().int(),
   /**
@@ -125,6 +127,37 @@ export const contextualBanditEventValidator = baseSchema.safeExtend({
    * doc Appendix C).
    */
   holdoutPercent: z.number(),
+  /**
+   * Whether the stats engine applied a Thompson update this tick. False
+   * for ticks fired purely to refresh tree structure / posterior moments
+   * without re-allocating arms.
+   */
+  reweight: z.boolean(),
+  /**
+   * Set when at least one variation weight changed vs the previous tick's
+   * `ContextualBandit.phases[N].currentLeafWeights`. Mirrored onto the
+   * CBS for fast UI filtering.
+   */
+  weightsWereUpdated: z.boolean(),
+  /**
+   * Decision metric the tick optimized for — e.g. `"met_checkout_revenue"`.
+   * Frozen from the experiment's goal metric at tick time.
+   */
+  decisionMetric: z.string(),
+  /**
+   * Human-readable summary emitted by the stats engine (A5). Surfaced in
+   * the snapshot-history UI and audit log.
+   */
+  updateMessage: z.string(),
+  /**
+   * Optional partial-error string from the stats engine. Present when the
+   * tick produced usable weights but some sub-step (e.g. a single leaf's
+   * Thompson sample) degraded. Hard failures abort before CBE write and
+   * land on the CBS instead.
+   */
+  error: z.string().optional(),
+  /** Total users exposed across all contexts for this tick. */
+  totalUsersThisTick: z.number().int().nonnegative(),
 });
 
 export type ContextualBanditEventInterface = z.infer<

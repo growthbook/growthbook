@@ -267,6 +267,9 @@ tags:
   - name: CodeRef_model
     x-displayName: CodeRef
     description: <SchemaDefinition schemaRef="#/components/schemas/CodeRef" />
+  - name: ContextualBandit_model
+    x-displayName: ContextualBandit
+    description: <SchemaDefinition schemaRef="#/components/schemas/ContextualBandit" />
   - name: ContextualBanditQuery_model
     x-displayName: ContextualBanditQuery
     description: >-
@@ -32278,6 +32281,10 @@ components:
           type: array
           items:
             type: string
+        userIdType:
+          type: string
+        query:
+          type: string
         attributes:
           type: array
           items:
@@ -32320,8 +32327,115 @@ components:
         - description
         - datasource
         - projects
+        - userIdType
+        - query
         - attributes
         - topValuesLookbackDays
+      additionalProperties: false
+    ContextualBandit:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+          pattern: >-
+            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        dateUpdated:
+          type: string
+          format: date-time
+          pattern: >-
+            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        experiment:
+          type: string
+        cbaqId:
+          type: string
+        contextualAttributes:
+          type: array
+          items:
+            type: string
+        maxContexts:
+          type: number
+        treeModel:
+          type: string
+          enum:
+            - regression_tree
+            - linear_thompson
+        minUsersPerLeaf:
+          type: number
+        maxLeaves:
+          type: number
+        holdoutPercent:
+          type: number
+          const: 0
+        stickyBucketing:
+          type: boolean
+          const: false
+        canonicalFormVersion:
+          type: string
+          const: v1
+        scheduleHours:
+          type: number
+        phases:
+          type: array
+          items:
+            type: object
+            properties:
+              phase:
+                type: number
+              seed:
+                type: number
+              currentLeafWeights:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    contextId:
+                      type: string
+                    condition:
+                      type: object
+                      propertyNames:
+                        type: string
+                      additionalProperties: {}
+                    weights:
+                      type: array
+                      items:
+                        type: number
+                    leafId:
+                      type: string
+                  required:
+                    - contextId
+                    - condition
+                    - weights
+                  additionalProperties: false
+              lastContextualBanditEventId:
+                type: string
+              dateStarted:
+                type: string
+                format: date-time
+                pattern: >-
+                  ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+            required:
+              - phase
+              - seed
+              - currentLeafWeights
+            additionalProperties: false
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - experiment
+        - cbaqId
+        - contextualAttributes
+        - maxContexts
+        - treeModel
+        - minUsersPerLeaf
+        - maxLeaves
+        - holdoutPercent
+        - stickyBucketing
+        - canonicalFormVersion
+        - phases
       additionalProperties: false
     VisualChange:
       type: object
@@ -32743,7 +32857,10 @@ components:
                         contextId:
                           type: string
                         condition:
-                          type: string
+                          type: object
+                          propertyNames:
+                            type: string
+                          additionalProperties: {}
                         weights:
                           type: array
                           items:
@@ -33309,6 +33426,7 @@ x-tagGroups:
       - Archetype_model
       - Attribute_model
       - CodeRef_model
+      - ContextualBandit_model
       - ContextualBanditQuery_model
       - CustomField_model
       - Dashboard_model

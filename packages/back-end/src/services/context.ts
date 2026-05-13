@@ -77,6 +77,7 @@ import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { ContextualBanditQueryModel } from "back-end/src/models/ContextualBanditQueryModel";
 import { ContextualBanditEventModel } from "back-end/src/models/ContextualBanditEventModel";
 import { ContextualBanditSnapshotModel } from "back-end/src/models/ContextualBanditSnapshotModel";
+import { ContextualBanditModel } from "back-end/src/models/ContextualBanditModel";
 import { getUserByEmail, getUsersByIds } from "back-end/src/models/UserModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
@@ -127,7 +128,8 @@ export type ModelName =
   | "aiConversations"
   | "contextualBanditQueries"
   | "contextualBanditEvents"
-  | "contextualBanditSnapshots";
+  | "contextualBanditSnapshots"
+  | "contextualBandits";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -170,6 +172,7 @@ export const modelClasses = {
   contextualBanditQueries: ContextualBanditQueryModel,
   contextualBanditEvents: ContextualBanditEventModel,
   contextualBanditSnapshots: ContextualBanditSnapshotModel,
+  contextualBandits: ContextualBanditModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -222,6 +225,7 @@ export class ReqContextClass {
       contextualBanditQueries: new ContextualBanditQueryModel(this),
       contextualBanditEvents: new ContextualBanditEventModel(this),
       contextualBanditSnapshots: new ContextualBanditSnapshotModel(this),
+      contextualBandits: new ContextualBanditModel(this),
     };
   }
 

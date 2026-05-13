@@ -62,6 +62,7 @@ export * from "./metrics";
 export * from "./contextual-bandit-query";
 export * from "./contextual-bandit-event";
 export * from "./contextual-bandit-snapshot";
+export * from "./contextual-bandit";
 export * from "./product-analytics";
 export * from "./ai-conversation";
 export * from "./organization";

@@ -100,19 +100,6 @@ export const experimentPhase = z
     variations: z.array(phaseVariation),
     banditEvents: z.array(banditEvent).optional(),
     lookbackStartDate: z.date().optional(),
-    /**
-     * Latest per-context allocation weights produced by the most recent
-     * `ContextualBanditEvent`. Map key is the canonical `contextId` (A1)
-     * and the value is a vector parallel to `variations`. Emitted on the
-     * SDK payload `contexts` entries by the orchestrator (A6).
-     */
-    currentLeafWeights: z.record(z.string(), z.array(z.number())).optional(),
-    /**
-     * Pointer to the CBE that produced `currentLeafWeights`. Lets the
-     * SDK payload builder freeze a known-good policy state and lets the
-     * orchestrator detect a stale weights snapshot before re-emitting.
-     */
-    lastContextualBanditEventId: z.string().optional(),
   })
   .strict();
 export type ExperimentPhase = z.infer<typeof experimentPhase>;
@@ -198,37 +185,6 @@ export type ExperimentType = (typeof experimentType)[number];
 export function isContextualBandit(exp: { type?: ExperimentType }): boolean {
   return exp.type === "contextual-bandit";
 }
-
-/**
- * Per-experiment Contextual Bandit configuration. Holdout/sticky bucketing
- * are pinned to `0`/`false` in MVP (source plan A guardrails). Carrying
- * them as fields means Phase B can lift the guardrail without a migration.
- */
-export const contextualBanditConfig = z
-  .object({
-    treeModel: z.enum(["regression_tree", "linear_thompson"]),
-    /**
-     * Cap on distinct contexts produced by the tree fit. Slice that
-     * exceeds the cap is collapsed into a single `"other"` leaf by the
-     * orchestrator (A6).
-     */
-    maxContexts: z.number().int().positive(),
-    /**
-     * CBAQ attribute keys requested for this experiment. Subset
-     * validation against `cbaqId.attributes` is deferred to A6 (orchestrator
-     * settings serializer); kept loose at the Zod layer.
-     */
-    attributes: z.array(z.string()),
-    holdoutPercent: z.literal(0),
-    stickyBucketing: z.literal(false),
-    /**
-     * Optional cadence override for `runContextualBanditSnapshot` (A6).
-     * Absent ⇒ caller decides.
-     */
-    scheduleHours: z.number().positive().optional(),
-  })
-  .strict();
-export type ContextualBanditConfig = z.infer<typeof contextualBanditConfig>;
 
 export const banditStageType = ["explore", "exploit", "paused"] as const;
 export type BanditStageType = (typeof banditStageType)[number];
@@ -459,10 +415,15 @@ export const experimentInterface = z
     holdoutId: z.string().optional(),
     defaultDashboardId: z.string().optional(),
     customMetricSlices: z.array(customMetricSlice).optional(),
-    /** ContextualBanditQuery this experiment runs against (CB only). */
-    cbaqId: z.string().optional(),
-    /** Per-experiment CB configuration (CB only). Required when `type === "contextual-bandit"`. */
-    contextualBanditConfig: contextualBanditConfig.optional(),
+    /**
+     * FK to `contextualbandits.id` (the sister-to-experiments doc that
+     * carries CB-specific config + per-phase state). Set IFF
+     * `type === "contextual-bandit"`. Soft constraint — orchestrator
+     * (A6.1) enforces "must exist by the time the experiment leaves
+     * draft"; the Zod layer keeps it optional so the experiment doc can
+     * be created before the CB doc on first save.
+     */
+    contextualBanditId: z.string().optional(),
   })
   .strict()
   .merge(experimentAnalysisSettings);

@@ -1,6 +1,7 @@
 import {
   apiCreateContextualBanditQueryBody,
   contextsEntryValidator,
+  contextualBanditValidator,
   ContextualBanditEventInterface,
   contextualBanditEventValidator,
   contextualBanditQueryValidator,
@@ -23,6 +24,8 @@ describe("ContextualBanditQuery validator (CBAQ)", () => {
     description: "",
     datasource: "ds_1",
     projects: [],
+    userIdType: "userId",
+    query: "SELECT user_id, variation_id, country FROM exposures",
     attributes: [
       {
         attribute: "country",
@@ -70,6 +73,8 @@ describe("ContextualBanditQuery validator (CBAQ)", () => {
       apiCreateContextualBanditQueryBody.parse({
         name: "x",
         datasource: "ds_1",
+        userIdType: "userId",
+        query: "SELECT user_id, variation_id, country FROM exposures",
         attributes: [{ attribute: "country", kind: "categorical" }],
       }),
     ).not.toThrow();
@@ -117,6 +122,11 @@ describe("ContextualBanditEvent validator (CBE)", () => {
       ],
       seed: 1234,
       holdoutPercent: 0,
+      reweight: true,
+      weightsWereUpdated: true,
+      decisionMetric: "met_revenue",
+      updateMessage: "tick succeeded",
+      totalUsersThisTick: 100,
       ...overrides,
     };
   }
@@ -200,37 +210,31 @@ describe("ContextualBanditSnapshot validator (CBS)", () => {
     endDate: new Date("2026-01-08"),
   };
 
+  const baseCBS = {
+    id: "cbs_1",
+    organization: "org_1",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    experiment: "exp_1",
+    phase: 0,
+    contextualBanditQueryId: "cbaq_1",
+    runStarted: new Date(),
+    status: "running" as const,
+    triggeredBy: "manual" as const,
+    queries: [],
+    settings: baseSettings,
+  };
+
   it("accepts a minimal running CBS", () => {
     expect(() =>
-      contextualBanditSnapshotValidator.parse({
-        id: "cbs_1",
-        organization: "org_1",
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
-        experiment: "exp_1",
-        contextualBanditQueryId: "cbaq_1",
-        runStarted: new Date(),
-        status: "running",
-        triggeredBy: "manual",
-        queries: [],
-        settings: baseSettings,
-      }),
+      contextualBanditSnapshotValidator.parse(baseCBS),
     ).not.toThrow();
   });
 
   it("rejects holdoutPercent ≠ 0 at the schema layer (MVP guardrail)", () => {
     expect(() =>
       contextualBanditSnapshotValidator.parse({
-        id: "cbs_1",
-        organization: "org_1",
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
-        experiment: "exp_1",
-        contextualBanditQueryId: "cbaq_1",
-        runStarted: new Date(),
-        status: "running",
-        triggeredBy: "manual",
-        queries: [],
+        ...baseCBS,
         settings: { ...baseSettings, holdoutPercent: 5 },
       }),
     ).toThrow();
@@ -239,19 +243,75 @@ describe("ContextualBanditSnapshot validator (CBS)", () => {
   it("rejects stickyBucketing=true at the schema layer (MVP guardrail)", () => {
     expect(() =>
       contextualBanditSnapshotValidator.parse({
-        id: "cbs_1",
-        organization: "org_1",
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
-        experiment: "exp_1",
-        contextualBanditQueryId: "cbaq_1",
-        runStarted: new Date(),
-        status: "running",
-        triggeredBy: "manual",
-        queries: [],
+        ...baseCBS,
         settings: { ...baseSettings, stickyBucketing: true },
       }),
     ).toThrow();
+  });
+});
+
+describe("ContextualBandit validator (CB)", () => {
+  const baseCB = {
+    id: "cb_abc12345",
+    organization: "org_1",
+    dateCreated: new Date("2026-01-01"),
+    dateUpdated: new Date("2026-01-01"),
+    experiment: "exp_1",
+    cbaqId: "cbaq_1",
+    contextualAttributes: ["country", "device"],
+    maxContexts: 300,
+    treeModel: "regression_tree" as const,
+    minUsersPerLeaf: 100,
+    maxLeaves: 12,
+    holdoutPercent: 0 as const,
+    stickyBucketing: false as const,
+    canonicalFormVersion: "v1" as const,
+    phases: [
+      {
+        phase: 0,
+        seed: 1234,
+        currentLeafWeights: [],
+      },
+    ],
+  };
+
+  it("accepts a minimal valid CB doc", () => {
+    expect(() => contextualBanditValidator.parse(baseCB)).not.toThrow();
+  });
+
+  it("rejects holdoutPercent ≠ 0 at the schema layer (MVP guardrail)", () => {
+    expect(() =>
+      contextualBanditValidator.parse({ ...baseCB, holdoutPercent: 5 }),
+    ).toThrow();
+  });
+
+  it("rejects stickyBucketing=true at the schema layer (MVP guardrail)", () => {
+    expect(() =>
+      contextualBanditValidator.parse({ ...baseCB, stickyBucketing: true }),
+    ).toThrow();
+  });
+
+  it("accepts a phase with rich leafWeight entries (contextId, condition, weights, leafId)", () => {
+    expect(() =>
+      contextualBanditValidator.parse({
+        ...baseCB,
+        phases: [
+          {
+            phase: 0,
+            seed: 7,
+            lastContextualBanditEventId: "cbe_1",
+            currentLeafWeights: [
+              {
+                contextId: "ctx_a",
+                condition: { country: "US" },
+                weights: [0.5, 0.5],
+                leafId: "leaf_0",
+              },
+            ],
+          },
+        ],
+      }),
+    ).not.toThrow();
   });
 });
 
@@ -260,7 +320,7 @@ describe("ContextsEntry validator (SDK payload entry)", () => {
     expect(() =>
       contextsEntryValidator.parse({
         contextId: "ctx_a",
-        condition: '{"country":"US"}',
+        condition: { country: "US" },
         weights: [0.5, 0.5],
       }),
     ).not.toThrow();
@@ -270,7 +330,7 @@ describe("ContextsEntry validator (SDK payload entry)", () => {
     expect(() =>
       contextsEntryValidator.parse({
         contextId: "ctx_a",
-        condition: "{}",
+        condition: {},
         weights: [1],
         unknownField: true,
       }),

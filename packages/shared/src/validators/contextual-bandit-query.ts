@@ -58,6 +58,19 @@ export const contextualBanditQueryValidator = baseSchema.safeExtend({
   datasource: z.string(),
   /** Optional projects this CBAQ is scoped to (inherits from datasource). */
   projects: z.array(z.string()),
+  /**
+   * User id type the CBAQ joins on (e.g. `"userId"`, `"anonymousId"`).
+   * Forwarded to the A3 SQL generator so the bucketing query joins
+   * assignments to metrics on the right column.
+   */
+  userIdType: z.string(),
+  /**
+   * Raw SQL the warehouse runs to produce per-user assignment rows. Output
+   * columns: the configured `userIdType`, `variation_id`, and one column
+   * per attribute in `attributes[]`. A3 wraps this query in the bucketing
+   * CTE chain — the contents of `query` are user-authored.
+   */
+  query: z.string(),
   attributes: z.array(contextualBanditQueryAttribute),
   /**
    * Lookback window (days) used by `refreshTopValuesForCBAQ` when sampling
@@ -95,6 +108,8 @@ export const apiContextualBanditQueryValidator = namedSchema(
     description: z.string(),
     datasource: z.string(),
     projects: z.array(z.string()),
+    userIdType: z.string(),
+    query: z.string(),
     attributes: z.array(apiContextualBanditQueryAttribute),
     topValuesLookbackDays: z.number(),
     topValuesLastRefreshed: z.iso.datetime().optional(),
@@ -106,6 +121,8 @@ export const apiCreateContextualBanditQueryBody = z.strictObject({
   description: z.string().optional(),
   datasource: z.string(),
   projects: z.array(z.string()).optional(),
+  userIdType: z.string(),
+  query: z.string(),
   attributes: z
     .array(
       z.strictObject({

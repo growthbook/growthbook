@@ -257,6 +257,7 @@ export const entityEvents = {
   contextualBanditQuery: ["create", "update", "delete", "refresh"],
   contextualBanditEvent: ["create", "update", "delete"],
   contextualBanditSnapshot: ["create", "update", "delete"],
+  contextualBandit: ["create", "update", "delete"],
 } as const;
 
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];

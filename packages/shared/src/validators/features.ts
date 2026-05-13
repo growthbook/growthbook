@@ -125,8 +125,14 @@ const banditStageType = ["explore", "exploit", "paused"] as const;
 export const contextsEntryValidator = z
   .object({
     contextId: z.string(),
-    /** Canonical-JSON GrowthBook condition (A1 output). */
-    condition: z.string(),
+    /**
+     * Parsed GrowthBook condition object the SDK passes directly to
+     * `evalCondition` (A4). The canonical-JSON form (A1 output) is the
+     * stable wire format and the input to `deriveContextId`; the A6
+     * payload builder calls `JSON.parse(canonical)` before populating
+     * this field so the SDK does not have to parse at eval time.
+     */
+    condition: z.record(z.string(), z.unknown()),
     /** Variation weights parallel to `experimentRule.values`. */
     weights: z.array(z.number()),
   })
@@ -147,7 +153,7 @@ const experimentRule = baseRule
     contexts: z.array(contextsEntryValidator).optional(),
     /**
      * Attribute keys the SDK must have populated to evaluate any context.
-     * Emitted from `contextualBanditConfig.attributes` so the SDK can
+     * Emitted from `ContextualBandit.contextualAttributes` so the SDK can
      * short-circuit to the catch-all when any attribute is missing.
      */
     attributesRequired: z.array(z.string()).optional(),

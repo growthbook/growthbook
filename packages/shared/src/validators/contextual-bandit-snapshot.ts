@@ -5,6 +5,12 @@ import { contextualBanditQueryAttribute } from "./contextual-bandit-query";
 import { contextualBanditTreeModel } from "./contextual-bandit-event";
 
 export const contextualBanditSnapshotStatus = [
+  /**
+   * Initial state before the orchestrator (A6) starts work — exists so the
+   * caller can mint a CBS id and return immediately while `runStarted` is
+   * still unset.
+   */
+  "pending",
   "running",
   "success",
   "error",
@@ -15,6 +21,11 @@ export type ContextualBanditSnapshotStatus =
 export const contextualBanditSnapshotTriggeredBy = [
   "manual",
   "schedule",
+  /**
+   * Fired automatically when the experiment transitions between bandit
+   * stages (explore ↔ exploit) per A6 orchestrator.
+   */
+  "phase_transition",
 ] as const;
 export type ContextualBanditSnapshotTriggeredBy =
   (typeof contextualBanditSnapshotTriggeredBy)[number];
@@ -60,19 +71,47 @@ export type ContextualBanditSnapshotSettings = z.infer<
 export const contextualBanditSnapshotValidator = baseSchema.safeExtend({
   experiment: z.string(),
   /**
+   * Phase index on the parent experiment that owned this tick. Duplicated
+   * from `settings.phase` to support index-only lookups (per-phase history
+   * + status filtering) without unpacking the frozen settings blob.
+   */
+  phase: z.number().int().nonnegative(),
+  /**
    * Stable foreign key to the originating CBAQ. Duplicated from `settings`
    * to support index-only lookups via `getByDatasourceId`-style helpers
    * without unpacking the frozen settings blob.
    */
   contextualBanditQueryId: z.string(),
-  runStarted: z.date(),
+  /**
+   * Optional: set when the orchestrator (A6) actually starts work. Absent
+   * while `status === "pending"`.
+   */
+  runStarted: z.date().optional(),
+  /** Set when the orchestrator terminates (success or error). */
+  runFinished: z.date().optional(),
   status: z.enum(contextualBanditSnapshotStatus),
   /** Required (non-empty) when `status === "error"` — enforced in `customValidation`. */
   error: z.string().optional(),
   triggeredBy: z.enum(contextualBanditSnapshotTriggeredBy),
+  /** Set when `triggeredBy === "manual"` — the user that fired the refresh. */
+  triggeredByUser: z.string().optional(),
   /** Warehouse queries this snapshot owns; status drives orchestrator polling. */
   queries: z.array(queryPointerValidator),
   settings: contextualBanditSnapshotSettings,
+  /** Total per-context rows the warehouse returned for the bucketing query. */
+  rowsReturned: z.number().int().nonnegative().optional(),
+  /**
+   * Count of low-volume contexts the orchestrator (A6) folded into the
+   * catch-all `"other"` leaf to satisfy the Mongo `Σ contexts × variations
+   * ≤ 3000` cap.
+   */
+  contextsTrimmedToOther: z.number().int().nonnegative().optional(),
+  /**
+   * Mirrored from the produced CBE for fast filtering — lets the UI show
+   * "weights changed" in the snapshot-history strip without re-fetching
+   * the full event doc.
+   */
+  weightsWereUpdated: z.boolean().optional(),
   /**
    * Set when `status === "success"` — points to the CBE this snapshot
    * produced. Enforced in `customValidation`.
