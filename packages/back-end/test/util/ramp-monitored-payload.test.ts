@@ -4,10 +4,6 @@ import { GrowthBook } from "@growthbook/growthbook";
 import { getFeatureDefinition } from "back-end/src/util/features";
 import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function makeRolloutFeature(
   overrides?: Partial<FeatureInterface>,
 ): FeatureInterface {
@@ -73,9 +69,6 @@ function monitoredMap(
   ]);
 }
 
-// ---------------------------------------------------------------------------
-// 1. Map generation & lookup
-// ---------------------------------------------------------------------------
 describe("ramp-monitored SDK payload", () => {
   describe("map lookup and conversion", () => {
     it("produces a standard rollout when no map is provided", () => {
@@ -263,9 +256,6 @@ describe("ramp-monitored SDK payload", () => {
     });
   });
 
-  // ---------------------------------------------------------------------------
-  // 2. Hash space continuity — end-to-end through SDK evaluation
-  // ---------------------------------------------------------------------------
   describe("hash space continuity across monitored/unmonitored transitions", () => {
     const SEED = "continuity-seed";
     const FEATURE_ID = "f_cont";
@@ -476,20 +466,16 @@ describe("ramp-monitored SDK payload", () => {
           result.value === CONTROL &&
           result.source === "defaultValue"
         ) {
-          // Control users fall through via passthrough to the default value
           controlPassthroughCount++;
         } else {
           unenrolledCount++;
         }
       }
 
-      // All users should resolve to either treatment (experiment) or control (defaultValue passthrough)
-      // since coverage=0.8 + filter means ~80% enrolled, rest unenrolled also get default
       const totalDefault = controlPassthroughCount + unenrolledCount;
       const total = treatmentCount + totalDefault;
       expect(total).toBe(userIds.length);
 
-      // Treatment should be roughly half of the enrolled portion (~40% of total for 80% coverage)
       expect(treatmentCount).toBeGreaterThan(0);
       const treatmentRate = treatmentCount / userIds.length;
       expect(treatmentRate).toBeGreaterThan(0.3);

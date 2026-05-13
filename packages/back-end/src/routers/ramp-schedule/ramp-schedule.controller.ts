@@ -43,7 +43,6 @@ type UpdateBody = Partial<Pick<RampScheduleInterface, "name" | "steps">> & {
 
 type ActionBody = {
   targetStepIndex?: number;
-  /** Short human-readable cause shown alongside "Manual" in the rollback reason. */
   reason?: string;
   enabled?: boolean;
   monitoringMode?: "auto" | "manual";
@@ -65,7 +64,6 @@ function withElapsedMs(schedule: RampScheduleInterface): RampScheduleInterface {
   return { ...schedule, elapsedMs: Date.now() - schedule.startedAt.getTime() };
 }
 
-// GET /ramp-schedule
 export const getRampSchedules = async (
   req: AuthRequest<null, null, { featureId?: string; status?: string }>,
   res: Response,
@@ -82,7 +80,6 @@ export const getRampSchedules = async (
     .json({ status: 200, rampSchedules: schedules.map(withElapsedMs) });
 };
 
-// GET /ramp-schedule/:id
 export const getRampSchedule = async (
   req: AuthRequest<null, { id: string }>,
   res: Response,
@@ -97,14 +94,12 @@ export const getRampSchedule = async (
   res.status(200).json({ status: 200, rampSchedule: withElapsedMs(schedule) });
 };
 
-// POST /ramp-schedule
 export const postRampSchedule = async (
   req: AuthRequest<CreateBody>,
   res: Response,
 ) => {
   const context = getContextFromReq(req);
 
-  // Pro gate — see postRampSchedule.ts for rationale.
   if (!context.hasPremiumFeature("schedule-feature-flag")) {
     context.throwPlanDoesNotAllowError(
       "Ramp schedules require a Pro plan or above.",
@@ -149,14 +144,12 @@ export const postRampSchedule = async (
   res.status(200).json({ status: 200, rampSchedule: schedule });
 };
 
-// PUT /ramp-schedule/:id
 export const putRampSchedule = async (
   req: AuthRequest<UpdateBody, { id: string }>,
   res: Response,
 ) => {
   const context = getContextFromReq(req);
 
-  // Pro gate — see postRampSchedule.ts for rationale.
   if (!context.hasPremiumFeature("schedule-feature-flag")) {
     context.throwPlanDoesNotAllowError(
       "Ramp schedules require a Pro plan or above.",
@@ -225,7 +218,6 @@ export const putRampSchedule = async (
   res.status(200).json({ status: 200, rampSchedule: updated });
 };
 
-// DELETE /ramp-schedule/:id
 export const deleteRampSchedule = async (
   req: AuthRequest<null, { id: string }>,
   res: Response,
@@ -256,7 +248,6 @@ export const deleteRampSchedule = async (
   res.status(200).json({ status: 200, deletedId: schedule.id });
 };
 
-// POST /ramp-schedule/:id/actions/:action
 export const postRampScheduleAction = async (
   req: AuthRequest<ActionBody, { id: string; action: string }>,
   res: Response,
@@ -310,12 +301,11 @@ export const postRampScheduleAction = async (
           message: `Cannot resume a schedule in status "${schedule.status}"`,
         });
       }
-      // Shift timing anchors forward by the pause duration so interval steps continue
-      // exactly where they left off. Null anchors (post-reset) anchor to now.
       const pauseDurationMs = schedule.pausedAt
         ? now.getTime() - schedule.pausedAt.getTime()
         : 0;
 
+      // Shift timing anchors forward so intervals continue where they left off.
       const newStartedAt = schedule.startedAt ? schedule.startedAt : now;
       const newPhaseStartedAt = schedule.phaseStartedAt
         ? new Date(
@@ -323,7 +313,6 @@ export const postRampScheduleAction = async (
           )
         : now;
 
-      // Resuming at an approval gate returns to "pending-approval" — not "running".
       const currentStep = schedule.steps[schedule.currentStepIndex];
       const pausedAtApproval = currentStep?.trigger?.type === "approval";
 
@@ -337,13 +326,10 @@ export const postRampScheduleAction = async (
 
       if (!pausedAtApproval) {
         if (schedule.nextStepAt) {
-          // Shift existing deadline forward by the pause duration.
           resumeUpdates.nextStepAt = new Date(
             schedule.nextStepAt.getTime() + pauseDurationMs,
           );
         } else {
-          // nextStepAt is null (after a reset/rollback).
-          // At start: fire step 0 immediately. Mid-schedule: restart current step's hold timer.
           const nextStepIndex = schedule.currentStepIndex + 1;
           if (schedule.currentStepIndex === -1) {
             resumeUpdates.nextStepAt = schedule.steps.length > 0 ? now : null;
@@ -396,9 +382,9 @@ export const postRampScheduleAction = async (
           message: `Cannot advance a schedule in status "${schedule.status}"`,
         });
       }
-      // Rebase phaseStartedAt when advancing from paused so nextStepAt stays in the future.
       let scheduleToAdvance = schedule;
       if (schedule.status === "paused") {
+        // Rebase from now so the next scheduled step remains in the future.
         const nextStepIndex = schedule.currentStepIndex + 1;
         let elapsed = 0;
         for (let i = 0; i < nextStepIndex; i++) {
@@ -430,19 +416,12 @@ export const postRampScheduleAction = async (
       break;
 
     case "rollback": {
-      // User-initiated terminal rollback. Mirrors the automated evaluator
-      // path so the schedule lands in "rolled-back" status with the rule
-      // effects rewound to the starting position. From this terminal state
-      // the user must explicitly invoke "restart" to make it startable again.
       if (["completed", "rolled-back"].includes(schedule.status)) {
         return res.status(400).json({
           status: 400,
           message: `Schedule is already in terminal status "${schedule.status}"`,
         });
       }
-      // Caller may include a short cause (e.g. "no traffic") so the persisted
-      // reason reads "Manual: no traffic" — distinguishing it from the bare
-      // automated cause messages produced by the evaluator path.
       const cause = req.body?.reason?.trim();
       const reason = cause ? `Manual: ${cause}` : "Manual";
       updated = await rollbackSchedule(context, schedule, reason);
@@ -450,20 +429,13 @@ export const postRampScheduleAction = async (
     }
 
     case "restart": {
-      // Bring a terminal schedule (rolled-back or completed) back to running
-      // in a single click. The preceding rollback already rewound rule
-      // effects; here we record a "restart" event, normalise to "ready" with
-      // all timing anchors cleared (so any prior start-on-date delays don't
-      // re-apply), then chain into startSchedule to immediately advance.
       if (!["rolled-back", "completed"].includes(schedule.status)) {
         return res.status(400).json({
           status: 400,
           message: `Cannot restart a schedule in status "${schedule.status}". Only terminal (rolled-back / completed) schedules can be restarted.`,
         });
       }
-      // Defensive: `completed` schedules may still hold a non-(-1)
-      // currentStepIndex and live rule patches, so rewind effects too.
-      // `rolled-back` schedules are already at -1 with effects reverted.
+      // Completed schedules may still have live step effects, so rewind first.
       if (schedule.currentStepIndex >= 0) {
         await rollbackToStep(context, schedule, -1, "Restart from terminal");
       }
@@ -508,8 +480,7 @@ export const postRampScheduleAction = async (
         });
       }
 
-      // Reset phaseStartedAt so the target step's hold timer runs from now.
-      // phaseStartedAt = now - sum(intervals[0..target-1]) ensures nextStepAt = now + steps[target].seconds
+      // Jumping resets the target step's hold timer from now.
       const freshPhaseStartedAt = (() => {
         if (jumpTarget <= 0) return now;
         let elapsed = 0;

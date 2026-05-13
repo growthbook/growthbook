@@ -242,7 +242,6 @@ export async function putSafeRollout(
 }
 // endregion PUT /safe-rollout/:id
 
-// region PUT /safe-rollout/:id/auto-snapshots
 export async function putAutoSnapshots(
   req: AuthRequest<{ enabled: boolean }, { id: string }>,
   res: Response<{ status: 200 }>,
@@ -281,7 +280,6 @@ export async function putAutoSnapshots(
 
   res.status(200).json({ status: 200 });
 }
-// endregion PUT /safe-rollout/:id/auto-snapshots
 
 // region GET /safe-rollout/:id/time-series
 /**
@@ -322,11 +320,6 @@ export const getSafeRolloutTimeSeries = async (
 };
 // endregion GET /safe-rollout/:id/time-series
 
-// region GET /safe-rollout/:id
-/**
- * GET /safe-rollout/:id
- * Get a single safe rollout rule by ID
- */
 export const getSafeRolloutById = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<
@@ -343,7 +336,6 @@ export const getSafeRolloutById = async (
   }
   res.status(200).json({ status: 200, safeRollout });
 };
-// endregion GET /safe-rollout/:id
 
 // region GET /safe-rollout
 /**

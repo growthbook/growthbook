@@ -111,10 +111,7 @@ export function getEffectiveRampAutoUpdateState(
   return { enabled: true, reason: null, monitoringMode };
 }
 
-/**
- * Append a RampEvent to a schedule's eventHistory, capped at MAX_EVENT_HISTORY.
- * Returns the updated array to include in `updateById` payloads.
- */
+// Keep event history bounded.
 export function appendRampEvent(
   schedule: RampScheduleInterface,
   type: RampEventType,
@@ -145,11 +142,6 @@ export function appendRampEvent(
   return history.slice(-MAX_EVENT_HISTORY);
 }
 
-/**
- * Throws if any ramp schedule on this feature has lockdown enabled and is
- * actively running. "Completed" schedules waiting for cutoffDate do NOT
- * count — lockdown only applies while steps are progressing.
- */
 export async function assertFeatureNotLockedByRamp(
   ctx: ReqContext | ApiReqContext,
   featureId: string,
@@ -167,7 +159,7 @@ export async function assertFeatureNotLockedByRamp(
   }
 }
 
-// Applies actions for one entity: computes a fresh patch against live state and publishes immediately.
+// One entity handler publishes one revision per entity.
 interface EntityHandler {
   applyActions(
     ctx: ReqContext | ApiReqContext,
@@ -176,8 +168,6 @@ interface EntityHandler {
     opts: {
       stepLabel: string;
       user: EventUser;
-      // If set, patches are scoped to this environment only.
-      // If absent, patches apply to all environments sharing the ruleId.
       environment?: string | null;
     },
   ): Promise<void>;
@@ -196,8 +186,7 @@ export function forceMatchesValueType(
   return false;
 }
 
-// Remap template actions to the real target/rule; drop `force` values whose
-// type doesn't match the feature. Non-patch-rule actions pass through as-is.
+// Drop template `force` values whose type does not match the feature.
 export function remapTemplateActions(
   actions: RampScheduleTemplateInterface["steps"][number]["actions"],
   targetId: string,
@@ -215,14 +204,12 @@ export function remapTemplateActions(
   });
 }
 
-// Accumulates patches from step 0 through stepIndex for each targetId.
-// Steps are sparse — fields absent from a step are inherited from prior steps.
-// stepIndex < 0 → empty map (pre-start state).
-// stepIndex >= steps.length → all steps accumulated + endActions merged on top.
+// Sparse step patches accumulate through the target step.
 export function computeEffectivePatch(
   schedule: Pick<RampScheduleInterface, "steps" | "endActions">,
   stepIndex: number,
 ): Map<string, FeatureRulePatch> {
+  // Sparse step patches inherit absent fields from earlier steps.
   const byTarget = new Map<string, FeatureRulePatch>();
 
   const merge = (act: RampStepAction) => {
@@ -243,7 +230,7 @@ export function computeEffectivePatch(
     for (const a of schedule.steps[i]?.actions ?? []) merge(a);
   }
 
-  // If we've gone past the last step, also apply the end actions on top.
+  // Past the final step, apply end actions on top.
   if (stepIndex >= schedule.steps.length) {
     for (const a of schedule.endActions ?? []) merge(a);
   }
@@ -286,13 +273,6 @@ export const featureEntityHandler: EntityHandler = {
     const feature = await getFeature(ctx, entityId);
     if (!feature) throw new Error(`Feature not found: ${entityId}`);
 
-    // v2: operate on the unified top-level FeatureRule[] array. Each patch
-    // resolves to exactly ONE rule via `(ruleId, environment)`. In v1, a
-    // multi-env rule was actually N per-env copies and the handler patched
-    // each copy; in v2 there is one rule and one patch — its scope is carried
-    // on the rule itself (`allEnvironments` or `environments: [...]`). The
-    // `environment` field on the target is a legacy disambiguator for
-    // pre-v2 data; in v2 it's typically null.
     const updatedRules: FeatureRule[] = (feature.rules ?? []).map((r) => ({
       ...r,
     }));
@@ -302,10 +282,7 @@ export const featureEntityHandler: EntityHandler = {
       const { patch } = action;
       const { ruleId, ...patchFields } = patch;
 
-      // Plural resolution — a legacy no-env ramp whose rule was split into
-      // env-scoped siblings post-migration fans out to every sibling. The
-      // patch applies identically to each since split siblings came from the
-      // same v1 rule and share field shapes. See `resolveRampTargets` JSDoc.
+      // A legacy no-env target can fan out to env-split sibling rules.
       const targets = resolveRampTargets(
         { ruleId, environment: environment ?? null },
         updatedRules,
@@ -364,13 +341,12 @@ function getEntityHandler(entityType: string): EntityHandler {
   return handler;
 }
 
-// nextStepAt = phaseStartedAt + cumulative interval seconds up to stepIndex.
-// Approval steps return now (gate is human); phaseStartedAt resets after approval gates.
 export function computeNextStepAt(
   schedule: RampScheduleInterface,
   stepIndex: number,
   now: Date,
 ): Date | null {
+  // Interval steps are cumulative from phaseStartedAt; approval gates are immediate.
   const step = schedule.steps[stepIndex];
   if (!step) return null;
 
@@ -387,14 +363,11 @@ export function computeNextStepAt(
   return new Date(phaseStart.getTime() + total * 1000);
 }
 
-// Computes when the job should next poll this schedule. null = no polling needed.
 export function computeNextProcessAt(schedule: {
   status: RampScheduleInterface["status"];
   nextStepAt?: Date | null;
   cutoffDate?: RampScheduleInterface["cutoffDate"];
   startDate?: RampScheduleInterface["startDate"];
-  // When the current step is monitored, the job needs to wake up for
-  // snapshot triggers even though nextStepAt is null.
   nextSnapshotAt?: Date | null;
 }): Date | null {
   const cutoff = schedule.cutoffDate ?? null;
@@ -417,12 +390,12 @@ export function computeNextProcessAt(schedule: {
   }
 }
 
-// After approval, rebase phaseStartedAt so the next interval fires at approval + its seconds.
 export function computePhaseStartAfterApproval(
   now: Date,
   schedule: RampScheduleInterface,
   nextStepIndex: number,
 ): Date {
+  // Rebase so the next interval is measured from approval time.
   let total = 0;
   for (let i = 0; i < nextStepIndex; i++) {
     const t = schedule.steps[i]?.trigger;
@@ -431,26 +404,21 @@ export function computePhaseStartAfterApproval(
   return new Date(now.getTime() - total * 1000);
 }
 
-// Returns the snapshot refresh interval in ms.
-// Resolution: SafeRollout per-instance override -> org updateSchedule
-// -> EXPERIMENT_REFRESH_FREQUENCY (6h default).
+// Snapshot cadence: SafeRollout override -> ramp override -> org setting -> env default.
 export function getRefreshIntervalMs(
   safeRollout: SafeRolloutInterface | null,
   org: OrganizationInterface,
   monitoringUpdateScheduleMinutes?: number | null,
 ): number {
-  // 1. Per-SafeRollout override (minute-level granularity)
   if (
     safeRollout?.updateScheduleMinutes &&
     safeRollout.updateScheduleMinutes > 0
   ) {
     return safeRollout.updateScheduleMinutes * 60 * 1000;
   }
-  // 2. RampSchedule monitoringConfig fallback (belt-and-suspenders)
   if (monitoringUpdateScheduleMinutes && monitoringUpdateScheduleMinutes > 0) {
     return monitoringUpdateScheduleMinutes * 60 * 1000;
   }
-  // 3. Org-level update schedule
   const orgSchedule = org.settings?.updateSchedule;
   if (orgSchedule) {
     if (orgSchedule.type === "never") return 24 * 60 * 60 * 1000;
@@ -458,11 +426,9 @@ export function getRefreshIntervalMs(
       return Math.max(orgSchedule.hours, 1) * 60 * 60 * 1000;
     }
   }
-  // 4. EXPERIMENT_REFRESH_FREQUENCY env var default (6 hours)
   return 6 * 60 * 60 * 1000;
 }
 
-// Computes when the next snapshot should be triggered for a monitored step.
 export function computeNextSnapshotAt(
   safeRollout: SafeRolloutInterface | null,
   org: OrganizationInterface,
@@ -475,7 +441,6 @@ export function computeNextSnapshotAt(
   );
 }
 
-// Group actions by entity and publish one revision per entity. Partial failure is not rolled back.
 async function executeStepActions(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -563,14 +528,6 @@ export async function applyRampStartActions(
   await executeStepActions(ctx, schedule, -1, enableActions);
 }
 
-/**
- * Creates a SafeRollout entity for a monitored ramp schedule and links it
- * back via `safeRolloutId`. Called once when the schedule transitions to
- * "running" and has at least one monitored step.
- *
- * Returns the updated schedule with safeRolloutId set, or the original
- * schedule if monitoring is not configured.
- */
 export async function ensureSafeRolloutForMonitoredRamp(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -620,12 +577,6 @@ export async function ensureSafeRolloutForMonitoredRamp(
   });
 }
 
-/**
- * Transition the linked SafeRollout's status when the ramp schedule reaches
- * a terminal or inactive state (completed, rolled-back, paused).
- * Prevents the legacy snapshot job from picking up a stale "running" SR,
- * and keeps the SR document consistent with the ramp state.
- */
 export async function transitionLinkedSafeRollout(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -648,7 +599,6 @@ export async function advanceStep(
   const step = schedule.steps[nextStepIndex];
 
   if (!step) {
-    // No more steps — apply end actions and complete.
     return completeRollout(ctx, schedule);
   }
 
@@ -656,8 +606,6 @@ export async function advanceStep(
   const isApprovalStep = step.trigger.type === "approval";
   const isMonitoredStep = step.monitored === true;
 
-  // Apply the accumulated effective state for this step (sparse patches accumulate from start).
-  // Approval steps go live right away; the user's approval is the signal to advance.
   const effective = computeEffectivePatch(schedule, nextStepIndex);
   const effectiveActions: RampStepAction[] = [...effective.entries()].map(
     ([targetId, patch]) => ({
@@ -668,16 +616,11 @@ export async function advanceStep(
   );
   await executeStepActions(ctx, schedule, nextStepIndex, effectiveActions);
 
-  // Monitored and approval steps don't use the interval timer for advancement.
-  // Monitored steps are advanced by the snapshot pipeline after healthy results;
-  // approval steps are advanced by human action. Both use null nextStepAt.
   const nextStepAt =
     isApprovalStep || isMonitoredStep
       ? null
       : (computeNextStepAt(schedule, nextStepIndex, now) ?? now);
 
-  // For monitored steps, look up the linked SafeRollout to resolve the
-  // correct query refresh interval (SR override -> org setting -> 6h default).
   let nextSnapshotAt: Date | null = null;
   if (isMonitoredStep) {
     const sr = schedule.safeRolloutId
@@ -691,8 +634,6 @@ export async function advanceStep(
     );
   }
 
-  // For monitored interval steps, also compute when the hold interval will
-  // elapse so the evaluator wakes up in time to check health/advance.
   let monitoredStepDueAt: Date | null = null;
   if (isMonitoredStep && step?.trigger.type === "interval") {
     monitoredStepDueAt = new Date(now.getTime() + step.trigger.seconds * 1000);
@@ -763,9 +704,6 @@ export async function rollbackToStep(
   targetStepIndex: number,
   reason?: string,
 ): Promise<RampScheduleInterface> {
-  // For a pre-start rollback (-1), use step 0's accumulated state so the live rule
-  // immediately reflects the ramp's starting position rather than staying at wherever
-  // it was. For any other index, use that step's accumulated state.
   const patchIndex =
     targetStepIndex === -1 && schedule.steps.length > 0 ? 0 : targetStepIndex;
   const effective = computeEffectivePatch(schedule, patchIndex);
@@ -782,13 +720,9 @@ export async function rollbackToStep(
     await executeStepActions(ctx, schedule, targetStepIndex, rollbackActions);
   }
 
-  // Partial rollbacks pause; full rollback to -1 uses "rolled-back" as terminal signal.
   const isFullRollback = targetStepIndex === -1;
   const newStatus = isFullRollback ? "rolled-back" : "paused";
 
-  // Full rollbacks always record lastRollbackAt/lastRollbackReason — every
-  // entry point (controller, public REST, automated evaluator) ends here, so
-  // the reason is captured uniformly. Default to "Manual" when none provided.
   const fullRollbackFields = isFullRollback
     ? {
         lastRollbackAt: now,
@@ -821,7 +755,6 @@ export async function rollbackToStep(
     }),
   });
 
-  // Full rollback → stop monitoring; partial rollback (pause) → stop auto snapshots
   if (targetStepIndex === -1) {
     await transitionLinkedSafeRollout(ctx, schedule, "rolled-back");
   } else {
@@ -842,10 +775,6 @@ export async function rollbackToStep(
   return updated;
 }
 
-// Full rollback wrapper — kept for callers that want a typed `reason: string`
-// signature (e.g. the automated evaluator). Persistence of lastRollbackAt /
-// lastRollbackReason is handled inside rollbackToStep so every entry point
-// captures it.
 export async function rollbackSchedule(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -854,14 +783,6 @@ export async function rollbackSchedule(
   return rollbackToStep(ctx, schedule, -1, reason);
 }
 
-/**
- * Transition a `ready` schedule to `running`, apply start actions, ensure a
- * linked SafeRollout exists for monitored ramps, and advance the schedule
- * through any immediately-eligible steps. Single source of truth shared by
- * the internal controller's `start` action, the public REST `actions/start`
- * handler, and the `restart` flow which chains start onto a freshly reset
- * terminal schedule.
- */
 export async function startSchedule(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -905,7 +826,6 @@ export async function startSchedule(
   return current;
 }
 
-// Jump to jumpTarget (forward or backward), applying the accumulated effective state.
 export async function jumpAheadToStep(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -954,9 +874,6 @@ export async function jumpAheadToStep(
   return updated;
 }
 
-// Fast-forwards to the terminal state, bypassing timing and approval gates.
-// Applies the fully-accumulated effective patch (all steps) so any skipped
-// intermediate steps are included. Used by REST "complete" and cutoffDate deadlines.
 export async function completeRollout(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -1012,8 +929,6 @@ export async function completeRollout(
   return updated;
 }
 
-// Transitions a ramp from "pending" once its activating revision is published.
-// No startDate (immediate) → auto-start; startDate set → transition to "ready".
 export async function onActivatingRevisionPublished(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -1153,10 +1068,6 @@ export function initRampScheduleHooks(): void {
   registerRevisionPublishedHook(onRevisionPublished);
 }
 
-// Advance through all steps that are currently due. Stops when:
-// - schedule leaves "running" (approval gate, completion, error)
-// - next step not yet due or no more steps remain
-// - safety cap of schedule.steps.length iterations
 export async function advanceUntilBlocked(
   ctx: ReqContext | ApiReqContext,
   initial: RampScheduleInterface,
@@ -1166,17 +1077,12 @@ export async function advanceUntilBlocked(
   const maxSteps = current.steps.length;
 
   for (let i = 0; i < maxSteps; i++) {
-    // Cutoff date: rule-level kill switch. Completes the ramp schedule, then
-    // disables the rule (enabled=false). Unlike rollback (which reverts to
-    // pre-ramp state), cutoff preserves the current step's effects and just
-    // turns off the rule — used for time-boxed rules (promos, holidays, etc.).
     if (
       current.cutoffDate &&
       current.cutoffDate <= now &&
       ["running", "paused", "pending-approval"].includes(current.status)
     ) {
       const completed = await completeRollout(ctx, current);
-      // Disable the rule itself by applying enabled=false to all targets.
       const disableActions: RampStepAction[] = (
         completed.endActions ??
         completed.steps[0]?.actions ??
@@ -1208,8 +1114,6 @@ type ApproveStepError =
   | { code: "permission_denied"; detail: string }
   | { code: "error"; detail: string };
 
-// Actions were already applied when the step was entered (apply-first in advanceStep).
-// This just runs permission checks and advances the schedule.
 export async function approveAndPublishStep(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -1261,11 +1165,9 @@ export async function approveAndPublishStep(
       )
     : null;
 
-  // Ramp schedules always complete when all steps finish — no holdForEndDate.
   const isCompleting = !nextStepAt;
 
   if (isCompleting) {
-    // Apply end actions and mark complete.
     await completeRollout(ctx, schedule);
     return null;
   }

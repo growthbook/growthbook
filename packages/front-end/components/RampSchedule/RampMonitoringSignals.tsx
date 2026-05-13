@@ -173,7 +173,6 @@ function computeSignals(
     return { signals, actions, details };
   }
 
-  // SRM
   if (srmPValue !== undefined && totalUsers > 0) {
     const srmHealth = getSRMHealthData({
       srm: srmPValue,
@@ -190,7 +189,6 @@ function computeSignals(
     }
   }
 
-  // Multiple exposures
   const meHealth = getMultipleExposureHealthData({
     multipleExposuresCount: snapshot.multipleExposures ?? 0,
     totalUsersCount: totalUsers,
@@ -205,7 +203,6 @@ function computeSignals(
       `${(meHealth.rawDecimal * 100).toFixed(1)}% of users saw multiple variations`;
   }
 
-  // Min sample size check — uses the current step's holdConditions
   const currentStep =
     rampSchedule.currentStepIndex >= 0
       ? rampSchedule.steps[rampSchedule.currentStepIndex]
@@ -329,11 +326,6 @@ function signalToBadge(
   }
 }
 
-/**
- * Hook that computes the current ramp monitoring signals + actions for a
- * schedule. Used by header/badge/CTA components so the signal logic stays in
- * one place.
- */
 export function useRampMonitoringSignals(
   rampSchedule: RampScheduleInterface,
   overrides?: {
@@ -402,16 +394,9 @@ export interface RampHealthOverview {
   severity: RampHealthSeverity;
   label: string;
   summary: string;
-  /** True when the situation warrants drawing the user's attention. */
   autoExpand: boolean;
 }
 
-/**
- * True when the schedule is actively running and the user's current step has
- * `monitored: true`. Safe-rollout monitoring (snapshots, signals, guardrails,
- * health checks) is only meaningful in this window — outside of it the UI
- * should suppress monitoring-specific status, badges, and CTAs.
- */
 export function isOnMonitoredStep(
   rampSchedule: RampScheduleInterface,
 ): boolean {
@@ -420,10 +405,6 @@ export function isOnMonitoredStep(
   return !!step?.monitored;
 }
 
-/**
- * Reduce a signal set to a single high-level health overview suitable for a
- * one-line header. Picks the most-severe signal as the dominant status.
- */
 export function getRampHealthOverview(
   rampSchedule: RampScheduleInterface,
   result: SignalResult,
@@ -492,10 +473,6 @@ export function getRampHealthOverview(
       autoExpand: false,
     };
   }
-  // Running, but the user's current step is not monitored — snapshots and
-  // signals don't apply, so present the same inactive shell as the other
-  // non-monitoring states rather than letting signal-derived overviews leak
-  // through.
   if (!isOnMonitoredStep(rampSchedule)) {
     const nextMonitoredStepIndex = rampSchedule.steps.findIndex(
       (s, idx) => idx > rampSchedule.currentStepIndex && !!s.monitored,
@@ -654,9 +631,6 @@ export function RampMonitoringBadges({
 }) {
   const result = useRampMonitoringSignals(rampSchedule);
 
-  // Signal badges describe the live monitoring state of the current step;
-  // outside of a monitored running step they're meaningless and would
-  // misrepresent stale or non-applicable data.
   if (!isOnMonitoredStep(rampSchedule)) return null;
 
   return (
@@ -668,8 +642,7 @@ export function RampMonitoringBadges({
   );
 }
 
-/** Human-readable cause string captured at click time and persisted as the
- * rollback reason. Lower-case so it reads naturally after "Manual: ". */
+// Lower-case strings read naturally after "Manual: ".
 const SIGNAL_REASON: Partial<Record<RampHealthSignal, string>> = {
   "guardrail-failing": "guardrail failing",
   "signal-regression": "signal regressing",
@@ -688,24 +661,15 @@ export function RampMonitoringCTAs({
   size = "xs",
 }: {
   rampSchedule: RampScheduleInterface;
-  /** Receives the dominant signal at click time so the caller can persist it. */
   onRollback: (reason?: string) => void;
-  /** Brings a terminal "rolled-back" schedule back to startable "ready". */
   onRestart?: () => void;
-  /** Resumes a paused schedule. */
   onResume?: () => void;
-  /** Approves a pending-approval monitored step. */
   onApproveStep?: () => void;
-  /** Forces advancement from an active hold state. */
   onAdvance?: () => void;
-  /** Button size for the rendered CTAs. Defaults to xs to fit row layouts. */
   size?: ButtonSize;
 }) {
   const result = useRampMonitoringSignals(rampSchedule);
 
-  // Terminal "rolled-back" surfaces a Restart CTA. Server-side this clears
-  // any prior start-on-date delays and runs the same logic as `start`, so
-  // one click takes the schedule from rolled-back → running.
   if (rampSchedule.status === "rolled-back" && onRestart) {
     return (
       <Button size={size} variant="solid" onClick={onRestart}>
@@ -738,9 +702,6 @@ export function RampMonitoringCTAs({
     );
   }
 
-  // Outside of a monitored running step, suppress all monitoring CTAs (no
-  // rollback prompts on non-monitored phases — the ramp evaluator isn't
-  // looking at signals there).
   if (!isOnMonitoredStep(rampSchedule)) return null;
 
   const { signals, actions } = result;
@@ -772,7 +733,6 @@ export function RampMonitoringCTAs({
     );
   }
 
-  // Only show "Roll Back" CTA for guardrail failures (always auto-rollback).
   if (signals.includes("guardrail-failing")) {
     return (
       <Button
@@ -786,9 +746,6 @@ export function RampMonitoringCTAs({
     );
   }
 
-  // For other signals, only show a CTA if the configured action is "rollback".
-  // "hold" signals are already being held by the evaluator — no user action needed.
-  // "warn" signals are informational only.
   if (conservativeAction === "rollback") {
     const rollbackPriority: RampHealthSignal[] = [
       "guardrail-failing",
@@ -816,8 +773,6 @@ export function RampMonitoringCTAs({
       </Button>
     );
   }
-
-  // Warn-only mixed statuses intentionally show no hard CTA.
 
   return null;
 }

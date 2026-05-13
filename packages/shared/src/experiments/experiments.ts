@@ -1638,11 +1638,6 @@ export function expandMetricGroups(
   return expandedMetricIds;
 }
 
-/**
- * Expands metric groups in both guardrail and signal lists, deduplicates,
- * and promotes any metric appearing in both tiers to guardrail (the more
- * decisive action). Returns two disjoint Sets.
- */
 export function resolveMetricTiers(
   guardrailIds: string[],
   signalIds: string[],
@@ -1653,7 +1648,6 @@ export function resolveMetricTiers(
   );
   const expandedSignal = new Set(expandMetricGroups(signalIds, metricGroups));
 
-  // Promote duplicates to guardrail
   for (const id of expandedSignal) {
     if (expandedGuardrail.has(id)) {
       expandedSignal.delete(id);

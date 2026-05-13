@@ -29,8 +29,6 @@ export type EvalDecision =
   | { action: "rollback"; reason: string }
   | { action: "pause"; reason: string };
 
-// Evaluates the current step of a running ramp schedule.
-// Returns a decision: advance, hold, rollback, or pause.
 export async function evaluateCurrentStep(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -80,8 +78,6 @@ async function evaluateMonitoredStep(
   const multipleExposureAction =
     monitoringConfig?.multipleExposureAction ?? "hold";
 
-  // Expand metric group IDs so guardrail/signal checks match individual
-  // metric IDs in the analysis summary (which stores expanded keys).
   const metricGroups = await ctx.models.metricGroups.getAll();
   const expandedGuardrailIds = expandMetricGroups(
     monitoringConfig?.guardrailMetricIds ?? [],
@@ -92,8 +88,6 @@ async function evaluateMonitoredStep(
     metricGroups,
   );
 
-  // 1. Check schedule-level guardrail signals (rollback for guardrail-tier metrics).
-  // Dedupe: if a metric appears in both tiers, treat it as guardrail only.
   const signalOnly = expandedSignalIds.filter(
     (id) => !expandedGuardrailIds.includes(id),
   );
@@ -103,7 +97,6 @@ async function evaluateMonitoredStep(
   );
   if (scheduleLevelDecision) return scheduleLevelDecision;
 
-  // 2. Check experiment health (SRM, multiple exposures) at schedule level.
   const experimentHealthDecision = checkExperimentHealth(
     ctx,
     safeRollout,
@@ -112,7 +105,6 @@ async function evaluateMonitoredStep(
   );
   if (experimentHealthDecision) return experimentHealthDecision;
 
-  // 3. Trigger a new snapshot if the query interval has elapsed.
   const snapshotTriggered = await maybeTriggerSnapshot(
     ctx,
     schedule,
@@ -120,7 +112,6 @@ async function evaluateMonitoredStep(
     now,
   );
 
-  // 4. Check if the step interval has elapsed.
   const stepEnteredAt = schedule.currentStepEnteredAt;
   if (stepEnteredAt && step?.trigger.type === "interval") {
     const stepElapsedMs = now.getTime() - stepEnteredAt.getTime();
@@ -134,15 +125,11 @@ async function evaluateMonitoredStep(
     }
   }
 
-  // 5. Step interval has elapsed. Check for a healthy snapshot that was
-  //    completed AFTER the step interval expired.
   const intervalEndAt =
     stepEnteredAt && step?.trigger.type === "interval"
       ? new Date(stepEnteredAt.getTime() + step.trigger.seconds * 1000)
       : null;
 
-  // Use the DB value if available, but if we just triggered a snapshot in this
-  // tick, treat `now` as the attempt time (avoids stale in-memory object).
   const latestSnapshot = snapshotTriggered
     ? now
     : safeRollout.lastSnapshotAttempt;
@@ -156,7 +143,6 @@ async function evaluateMonitoredStep(
     };
   }
 
-  // 6. Verify analysis results are present.
   const summary = safeRollout.analysisSummary;
   if (!summary?.health) {
     return { action: "hold", reason: "Waiting for analysis results" };
@@ -192,7 +178,6 @@ async function evaluateMonitoredStep(
         reason: "No traffic detected — holding step (noTrafficAction=hold)",
       };
     }
-    // noTrafficAction === "warn" → log and continue (don't block advancement)
     logger.warn(
       { safeRolloutId: safeRollout.id },
       "No traffic detected on monitored step (noTrafficAction=warn)",
@@ -204,7 +189,6 @@ async function evaluateMonitoredStep(
     return { action: "hold", reason: "No results status available yet" };
   }
 
-  // 7. Check minSampleSize before acting on metric results.
   const totalUsers = summary.health.totalUsers ?? 0;
   const minSampleSize = step?.holdConditions?.minSampleSize;
   if (minSampleSize && totalUsers < minSampleSize) {
@@ -214,11 +198,9 @@ async function evaluateMonitoredStep(
     };
   }
 
-  // 8. Step-level signal metric gating (hold for signal-tier metrics).
   const signalDecision = checkSignalMetricGating(safeRollout, signalOnly);
   if (signalDecision) return signalDecision;
 
-  // 9. Hold conditions (minDurationMs timing).
   if (step?.holdConditions) {
     const holdDecision = checkHoldConditions(
       schedule,
@@ -230,10 +212,6 @@ async function evaluateMonitoredStep(
 
   return { action: "advance" };
 }
-
-// ---------------------------------------------------------------------------
-// Schedule-level guardrail checks (rollback for guardrail-tier metrics)
-// ---------------------------------------------------------------------------
 
 function checkScheduleGuardrailSignals(
   safeRollout: SafeRolloutInterface,
@@ -262,10 +240,6 @@ function checkScheduleGuardrailSignals(
   return null;
 }
 
-// ---------------------------------------------------------------------------
-// Experiment health (SRM / multiple exposures) at schedule level
-// ---------------------------------------------------------------------------
-
 function checkExperimentHealth(
   ctx: ReqContext | ApiReqContext,
   safeRollout: SafeRolloutInterface,
@@ -278,7 +252,6 @@ function checkExperimentHealth(
   const healthSettings = getHealthSettings(ctx.org.settings);
   const totalUsers = summary.health.totalUsers ?? 0;
 
-  // SRM check
   const srmData = getSRMHealthData({
     srm: summary.health.srm,
     srmThreshold: healthSettings.srmThreshold,
@@ -306,7 +279,6 @@ function checkExperimentHealth(
     }
   }
 
-  // Multiple exposures check
   const meData = getMultipleExposureHealthData({
     multipleExposuresCount: summary.health.multipleExposures ?? 0,
     totalUsersCount: totalUsers,
@@ -336,10 +308,6 @@ function checkExperimentHealth(
   return null;
 }
 
-// ---------------------------------------------------------------------------
-// Step-level signal metric gating (hold for signal-tier metrics)
-// ---------------------------------------------------------------------------
-
 function checkSignalMetricGating(
   safeRollout: SafeRolloutInterface,
   expandedSignalIds: string[],
@@ -366,10 +334,6 @@ function checkSignalMetricGating(
 
   return null;
 }
-
-// ---------------------------------------------------------------------------
-// Snapshot triggering
-// ---------------------------------------------------------------------------
 
 async function maybeTriggerSnapshot(
   ctx: ReqContext | ApiReqContext,
@@ -410,9 +374,6 @@ async function maybeTriggerSnapshot(
       triggeredBy: "schedule",
     });
 
-    // _createSafeRolloutSnapshot already sets lastSnapshotAttempt on the SR;
-    // no need to write it again here.
-
     const nextSnapshotAt = computeNextSnapshotAt(
       safeRollout,
       ctx.org,
@@ -420,8 +381,6 @@ async function maybeTriggerSnapshot(
       schedule.monitoringConfig?.updateScheduleMinutes,
     );
 
-    // For monitored interval steps, ensure we wake up when the step
-    // interval elapses — not just when the next snapshot is due.
     const step = schedule.steps[schedule.currentStepIndex];
     let monitoredStepDueAt: Date | null = null;
     if (
@@ -455,10 +414,6 @@ async function maybeTriggerSnapshot(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Hold conditions (timing + minSampleSize)
-// ---------------------------------------------------------------------------
-
 function checkHoldConditions(
   schedule: RampScheduleInterface,
   hold: StepHoldConditions,
@@ -481,7 +436,6 @@ function checkHoldConditions(
   return null;
 }
 
-// Check if an API-driven advance is allowed for the current step
 export function canApiAdvanceStep(schedule: RampScheduleInterface): {
   allowed: boolean;
   reason?: string;

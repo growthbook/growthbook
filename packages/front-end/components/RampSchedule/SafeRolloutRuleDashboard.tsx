@@ -76,8 +76,6 @@ import {
   useRampMonitoringSignals,
 } from "@/components/RampSchedule/RampMonitoringSignals";
 
-// ─── Dummy data helpers ──────────────────────────────────────────────────────
-
 function seededRandom(seed: number) {
   let s = Math.floor(seed) % 2147483647;
   if (s <= 0) s += 2147483646;
@@ -425,8 +423,6 @@ function buildDummyIssueProfile(seed: number): DummyIssueProfile {
   const rand = seededRandom(seed ^ 0x9e3779b1);
   const scenario = Math.floor(rand() * 8);
 
-  // Intentionally choose from explicit combinations so dummy mode regularly
-  // exercises mixed-status states (e.g. SRM + multiple exposures).
   switch (scenario) {
     case 0: // healthy baseline
       return {
@@ -460,7 +456,7 @@ function buildDummyIssueProfile(seed: number): DummyIssueProfile {
         multipleExposureRate: 0.2 + rand() * 0.35,
         userMultiplier: 1,
       };
-    case 4: // low-traffic hold simulation
+    case 4: // low traffic
       return {
         forceNoTraffic: false,
         forceLowTraffic: true,
@@ -518,7 +514,7 @@ function buildDummyScenarios(
   return scenarios;
 }
 
-/** Proportion / binomial-style rates stay in (0,1); revenue-like metrics need currency-scale means or Value shows ¥0. */
+// Non-binomial dummy metrics need non-zero display scale.
 function dummyPerUnitMeanAndTotal(
   metricId: string,
   users: number,
@@ -564,7 +560,6 @@ function generateDummySnapshotMetrics(
       value: baseValue,
       cr: baseCr,
       users: baseUsers,
-      // Match one-sided frequentist style (safe rollouts use oneSidedIntervals)
       ci: [-Infinity, 0.05],
       expected: 0,
       pValue: 1,
@@ -590,8 +585,6 @@ function generateDummySnapshotMetrics(
     }
     const varCr = baseCr * (1 + effect);
     const varValue = varUsers * varCr;
-    // For failing: CI should not cross zero (significant), so ciHalf < |effect|
-    // For passing: CI can be wide (non-significant)
     const ciHalf =
       scenario === "failing"
         ? Math.abs(effect) * (0.3 + rand() * 0.5)
@@ -633,7 +626,6 @@ function generateDummyTimeSeries(
     const baseCr =
       snapshotMetrics?.[metricId]?.baseline?.cr ?? 0.02 + rand() * 0.15;
 
-    // Use snapshot's final effect so the time series endpoint matches the table
     const snapshotEffect =
       snapshotMetrics?.[metricId]?.variation?.expected ?? 0;
 
@@ -673,7 +665,6 @@ function generateDummyTimeSeries(
           ? 0.04 / Math.sqrt(0.5 + progress * 5)
           : 0.03 / Math.sqrt(0.5 + progress * 5);
 
-      // One-sided CI: [-Infinity, upperBound]
       const ciBound = effect + ciMargin;
 
       dataPoints.push({
@@ -806,8 +797,6 @@ function buildDummySafeRolloutForSignals(
   } as unknown as SafeRolloutInterface;
 }
 
-// ─── Metric drilldown modal (safe-rollout-specific) ──────────────────────────
-
 function SafeRolloutMetricDrilldownModal({
   row,
   resultGroup,
@@ -884,8 +873,6 @@ function SafeRolloutMetricDrilldownModal({
     </Modal>
   );
 }
-
-// ─── Metric section (table-based, matching experiment results UI) ─────────────
 
 function MetricSection({
   title,
@@ -1059,7 +1046,6 @@ function MetricSection({
                       hasData ? () => setDrilldownRowIndex(i) : undefined
                     }
                   >
-                    {/* Metric label */}
                     <td
                       className="variation with-variation-label"
                       style={{ width: 280 }}
@@ -1090,7 +1076,6 @@ function MetricSection({
                       </div>
                     </td>
 
-                    {/* Time series sparkline */}
                     <td style={{ padding: 0 }}>
                       <div style={{ height: ROW_HEIGHT, minWidth: 250 }}>
                         <SafeRolloutTimeSeriesGraph
@@ -1102,7 +1087,6 @@ function MetricSection({
                       </div>
                     </td>
 
-                    {/* Status */}
                     <td className="variation chance">
                       <div
                         className="d-flex align-items-center"
@@ -1123,7 +1107,6 @@ function MetricSection({
               );
             })}
 
-            {/* Shared event marker row */}
             {eventMarkers && eventMarkers.length > 0 && (
               <tfoot>
                 <tr style={{ height: 20 }}>
@@ -1159,8 +1142,6 @@ function MetricSection({
     </Box>
   );
 }
-
-// ─── Health checks ───────────────────────────────────────────────────────────
 
 const numberFmt = Intl.NumberFormat(undefined, {
   minimumFractionDigits: 0,
@@ -1247,7 +1228,6 @@ function HealthChecks({
 
   return (
     <Box mt="3">
-      {/* SRM Learn More dialog */}
       {srmModalOpen && (
         <AlertDialog.Root open={true}>
           <AlertDialog.Content maxWidth="720px">
@@ -1342,7 +1322,6 @@ function HealthChecks({
         </AlertDialog.Root>
       )}
 
-      {/* Accordion header */}
       <div
         role="button"
         tabIndex={0}
@@ -1403,12 +1382,10 @@ function HealthChecks({
                 fontSize: 13,
               }}
             >
-              {/* ── 1. Total Users ── */}
               <div>
                 Total Users: <strong>{numberFmt.format(totalUsers)}</strong>
               </div>
 
-              {/* ── 2. Experiment Balance (SRM) ── */}
               <div>
                 <div style={{ fontWeight: 600, marginBottom: 8 }}>
                   Experiment Balance
@@ -1503,7 +1480,6 @@ function HealthChecks({
                 </div>
               </div>
 
-              {/* ── 3. Multiple Exposures ── */}
               {meHealth.status !== "not-enough-traffic" && (
                 <div>
                   <div style={{ fontWeight: 600, marginBottom: 4 }}>
@@ -1539,13 +1515,6 @@ function HealthChecks({
   );
 }
 
-// ─── SafeRolloutStatusBar (status + summary + CTAs) ──────────────────────────
-
-/**
- * Maps health severity to a Radix color hue. Used for the dot, the soft
- * background tint, the border, and any inline badges. Healthy uses violet
- * to match the product's "all good / on plan" accent.
- */
 const SEVERITY_COLOR: Record<RampHealthSeverity, RadixColor> = {
   critical: "red",
   warning: "amber",
@@ -1554,7 +1523,6 @@ const SEVERITY_COLOR: Record<RampHealthSeverity, RadixColor> = {
   inactive: "gray",
 };
 
-/** Compact relative time (e.g. "8h", "12m", "2d"). */
 function formatRelative(date: Date): string {
   const diffMs = Date.now() - date.getTime();
   const mins = Math.round(diffMs / 60_000);
@@ -1632,14 +1600,10 @@ function SafeRolloutStatusBar({
     mutateAll();
   };
 
-  // Snapshot freshness — in normal operation, the snapshot that most recently
-  // ran is the one that advanced (or held) the schedule, so this doubles as
-  // the "as-of" time for the current state.
   const lastSnapshotAt = snapshot?.dateCreated
     ? getValidDate(snapshot.dateCreated)
     : undefined;
 
-  // Total monitored users — try analyses first, then traffic-health fallback.
   const totalUsers = useMemo(() => {
     if (!snapshot) return undefined;
     const analysis = getSafeRolloutSnapshotAnalysis(snapshot);
@@ -1658,7 +1622,6 @@ function SafeRolloutStatusBar({
 
   return (
     <Box mb="2" style={{ overflow: "hidden" }}>
-      {/* Top metadata row */}
       <Flex align="center" justify="between" gap="3" style={{ minHeight: 28 }}>
         <Flex align="center" gap="2" style={{ minWidth: 0 }}>
           <Flex align="center" gap="1">
@@ -1687,7 +1650,6 @@ function SafeRolloutStatusBar({
         </Flex>
       </Flex>
 
-      {/* Tinted status banner */}
       <Box
         px="3"
         py="3"
@@ -1755,8 +1717,6 @@ function MonitoringControls({
   const { getDatasourceById } = useDefinitions();
   const safeRollout = snapshotCtx.safeRollout;
 
-  // Fetch the SafeRollout directly when the provider doesn't have it
-  // (ramp-backed SRs may not be in the safeRolloutsMap that feeds the provider)
   const { data: srData, mutate: mutateSr } = useApi<{
     safeRollout: {
       id: string;
@@ -1901,7 +1861,6 @@ function MonitoringControls({
         </Flex>
 
         <Flex align="center" gap="3">
-          {/* Auto-update status + toggle */}
           <Flex align="center" gap="1">
             <Tooltip body={autoUpdateTooltipBody}>
               {monitoringMode === "auto" ? (
@@ -1955,7 +1914,6 @@ function MonitoringControls({
             )}
           </Flex>
 
-          {/* Update button — always available with permissions */}
           {canRunQueries && (
             <RunQueriesButton
               cta="Update"
@@ -1987,7 +1945,6 @@ function MonitoringControls({
             />
           )}
 
-          {/* Query errors — show inline warning with link to details */}
           {latestSnap &&
             (status === "failed" || status === "partially-succeeded") && (
               <Tooltip
@@ -2031,8 +1988,6 @@ function MonitoringControls({
   );
 }
 
-// ─── Main dashboard ──────────────────────────────────────────────────────────
-
 interface SafeRolloutRuleDashboardProps {
   rampSchedule: RampScheduleInterface;
   safeRolloutId?: string;
@@ -2062,8 +2017,6 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
 
   const { metricGroups, getExperimentMetricById } = useDefinitions();
 
-  // Expand metric groups and dedupe: if a metric appears in both tiers,
-  // promote it to guardrail and drop from signal.
   const guardrailMetricIds = useMemo(
     () =>
       expandMetricGroups(
@@ -2175,7 +2128,6 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
     [useDummyData, dummyTrafficUsers, dummyIssueProfile],
   );
 
-  // ── Real data: snapshot (prefer context from SafeRolloutSnapshotProvider) ──
   const snapshotCtx = useSafeRolloutSnapshot();
   const { data: snapshotDataDirect, mutate: mutateSnapshotDirect } = useApi<{
     snapshot: SafeRolloutSnapshotInterface;
@@ -2204,7 +2156,6 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
     ? getValidDate(snapshotData.snapshot.runStarted)
     : new Date();
 
-  // ── Real data: time series ──
   const urlMetricIds = allMetricIds
     .map((id) => encodeURIComponent(id))
     .join("&metricIds[]=");
@@ -2225,7 +2176,6 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
     mutateRule?.();
   }, [mutateSnapshotCtx, mutateSnapshotDirect, mutateTimeSeries, mutateRule]);
 
-  // ── Merge real + dummy ──
   const snapshotMetrics = useMemo(() => {
     if (useDummyData && dummyMetrics) return dummyMetrics;
     if (!snapshotAnalysis?.variations) return {};
@@ -2277,7 +2227,6 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
     const dataDates: Date[] = filteredTs.flatMap((t) =>
       t.dataPoints.map((d) => getValidDate(d.date)),
     );
-    // Exclude "started" from range — only include step-level events (S1+)
     const stepEventDates = eventMarkers
       .filter((m) => m.label !== "Start")
       .map((m) => m.date);
@@ -2293,10 +2242,6 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
     return [fallbackStart, new Date()];
   }, [filteredTs, eventMarkers, rampSchedule.startedAt]);
 
-  // ── Controlled accordion: auto-expand once if we detect issues that
-  //    require the user's attention (failed/partial query runs or unhealthy
-  //    monitoring signals). After the first auto-expand, we stop forcing
-  //    the open state so the user can collapse it if they want.
   const queryStatus = useMemo(() => {
     const snap = snapshotData?.latest ?? snapshotData?.snapshot;
     if (!snap) return null;
@@ -2330,11 +2275,6 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
 
   if (allMetricIds.length === 0) return null;
 
-  // When the schedule is actively running on a non-monitored step, suppress
-  // the metric tables, controls, and health checks — they describe live
-  // monitoring data that doesn't apply here. The status bar still renders;
-  // its `getRampHealthOverview` returns the inactive shell, which is the
-  // single signal we want to show in this case.
   const suppressMonitoringDetails =
     rampSchedule.status === "running" && !isOnMonitoredStep(rampSchedule);
 

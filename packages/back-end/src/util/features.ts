@@ -862,23 +862,7 @@ export function getFeatureDefinition({
           const monitorInfo = rampMonitoredRuleMap?.get(r.id);
 
           if (monitorInfo && r.hashAttribute && r.seed) {
-            // Monitored ramp step: emit an experiment with filters so that
-            // enrollment uses the same hash space as the rollout rule.
-            // This prevents variation hopping when transitioning between
-            // monitored (experiment) and unmonitored (rollout) steps.
-            //
-            // The same seed/hashAttribute/hashVersion are used for the filter,
-            // the experiment bucketing, and the rollout rule. This means hash
-            // value n is identical across all three, so:
-            //   - filter:  n ∈ [0, coverage)  → enrolled
-            //   - buckets: getBucketRanges(2, coverage, [0.5,0.5])
-            //              → variation 0: [0, coverage/2)      (treatment)
-            //              → variation 1: [coverage/2, coverage) (control)
-            //   - rollout: n ≤ coverage → treatment
-            //
-            // Variation 0 = treatment (the rollout value) so that users who
-            // were in the rollout at any prior coverage keep getting treatment
-            // without hopping when the step switches to monitored.
+            // Reuse rollout bucketing so monitored steps do not cause variation hopping.
             const clampedCoverage =
               r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
 

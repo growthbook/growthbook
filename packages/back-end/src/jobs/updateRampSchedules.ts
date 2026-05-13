@@ -85,7 +85,6 @@ export const advanceSingleRampSchedule = async (
   try {
     let current = schedule;
 
-    // Crash recovery: replay activation if revision was published before we processed it.
     if (current.status === "pending") {
       const activatingVersion = current.targets[0]?.activatingRevisionVersion;
       if (activatingVersion != null) {
@@ -129,10 +128,7 @@ export const advanceSingleRampSchedule = async (
       current = await ensureSafeRolloutForMonitoredRamp(context, current);
     }
 
-    // Evaluate monitoring and hold conditions before advancing
     if (current.status === "running") {
-      // Self-healing: create the SafeRollout if it doesn't exist yet
-      // (covers schedules that started before this code was deployed).
       current = await ensureSafeRolloutForMonitoredRamp(context, current);
 
       const decision = await evaluateCurrentStep(context, current, now);
@@ -173,9 +169,6 @@ export const advanceSingleRampSchedule = async (
         return;
       }
       if (decision.action === "hold") {
-        // Re-schedule so the poller picks us up again on the next cycle.
-        // Without this, nextProcessAt stays stale and the schedule is never
-        // re-evaluated.
         const step = current.steps[current.currentStepIndex];
         let wakeAt: Date | null = null;
         if (
@@ -195,7 +188,6 @@ export const advanceSingleRampSchedule = async (
           nextSnapshotAt: current.nextSnapshotAt,
           cutoffDate: current.cutoffDate,
         });
-        // Floor: re-check within 60s at most so we don't go dark.
         const maxWake = new Date(now.getTime() + 60_000);
         const effectiveNext =
           nextProcess && nextProcess < maxWake ? nextProcess : maxWake;

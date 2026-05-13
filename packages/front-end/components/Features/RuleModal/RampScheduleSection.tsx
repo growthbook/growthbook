@@ -82,8 +82,6 @@ import { formatRemainingDuration } from "@/components/Features/Rule";
 import { Popover } from "@/ui/Popover";
 import styles from "./RampScheduleSection.module.scss";
 
-// ─── Types ──────────────────────────────────────────────────────────────────
-
 export type IntervalUnit = "minutes" | "hours" | "days";
 
 export type StepField =
@@ -116,17 +114,15 @@ export type UIStep = {
   intervalValue: number;
   intervalUnit: IntervalUnit;
   approvalNotes: string;
-  notesOpen: boolean; // UI-only: whether the notes field is expanded
-  additionalEffectsOpen: boolean; // UI-only: whether the effects sub-rows are expanded
+  // UI-only expansion state.
+  notesOpen: boolean;
+  additionalEffectsOpen: boolean;
   monitored: boolean;
   holdConditions?: StepHoldConditions;
 };
 
 export type RampMode = "off" | "create" | "edit" | "link";
 
-// UI-only builder mode: controls which schedule editing UX is shown.
-// "simple" auto-generates steps from a duration; "advanced" shows the full
-// per-step editor (also used when a template is applied).
 export type RampBuilderMode = "simple" | "advanced";
 
 export interface RampMonitoringState {
@@ -134,7 +130,6 @@ export interface RampMonitoringState {
   exposureQueryId: string;
   guardrailMetricIds: string[];
   signalMetricIds: string[];
-  // Per-rollout query cadence override (minutes). null = use org default.
   updateScheduleMinutes: number | null;
   srmAction?: "warn" | "hold" | "rollback";
   noTrafficAction?: "warn" | "hold" | "rollback";
@@ -144,29 +139,21 @@ export interface RampMonitoringState {
 export interface RampSectionState {
   mode: RampMode;
   name: string;
-  // ISO datetime string — "" means start immediately; non-empty means delayed start.
+  // ISO datetime string. Empty means start immediately.
   startDate: string;
   steps: UIStep[];
-  endScheduleAt: string; // "" = no end date; non-empty = specific end time (standard schedules only)
+  // Empty means no end date.
+  endScheduleAt: string;
   endPatch: UIStepPatch;
   linkedRampId: string;
-  // Per-row "additional effects" expansion state (force / condition / savedGroups / prerequisites).
   endAdditionalEffectsOpen: boolean;
-  // Note: per-step open state lives on UIStep.additionalEffectsOpen
 
-  // Hard deadline: rolls back and disables the rule if the ramp hasn't completed by this date.
-  // "" = no cutoff; non-empty ISO string = active cutoff.
   cutoffDate: string;
 
-  // When true, the entire feature is locked from edits while the ramp is
-  // actively running (status running/pending-approval). Does NOT lock between
-  // ramp completion ("end") and cutoffDate ("disable").
   lockFeature: boolean;
 
-  // Builder mode & monitoring
   builderMode: RampBuilderMode;
   monitoring: RampMonitoringState;
-  // Simple mode: total duration, auto-generates steps
   simpleDurationDays: number;
   simpleDurationUnit?: IntervalUnit;
 }
@@ -208,8 +195,6 @@ export function generateSimpleSteps(
   }));
 }
 
-// Detects whether steps match the simple pattern:
-// all interval triggers, default coverages (10/25/50/75/100), uniform interval.
 export function stepsMatchSimplePattern(steps: UIStep[]): boolean {
   if (steps.length !== SIMPLE_COVERAGES.length) return false;
   if (!steps.every((s) => s.triggerType === "interval")) {
@@ -225,7 +210,6 @@ export function stepsMatchSimplePattern(steps: UIStep[]): boolean {
   for (let i = 0; i < steps.length; i++) {
     if ((steps[i].patch.coverage ?? 0) !== SIMPLE_COVERAGES[i]) return false;
   }
-  // Per-step hold-condition overrides break simple mode.
   const hcRef = JSON.stringify(steps[0].holdConditions ?? null);
   if (!steps.every((s) => JSON.stringify(s.holdConditions ?? null) === hcRef))
     return false;
@@ -239,8 +223,7 @@ export const VALID_STEP_FIELDS: StepField[] = [
   "force",
 ];
 
-// Empty sentinel values used when a user opts a field into a step for the first time.
-// These represent "explicitly clear this field at this step" — distinct from absent (inherit).
+// Sentinel values used when opting a field into a step for the first time.
 export const FIELD_DEFAULTS: Partial<UIStepPatch> = {
   condition: "{}",
   savedGroups: [],
@@ -260,10 +243,6 @@ export function scrubRampStateForRuleType(
   };
 }
 
-/**
- * Returns an error message if monitoring is enabled but the config is incomplete.
- * Returns null if monitoring is off or fully configured.
- */
 export function getMonitoringValidationError(
   state: RampSectionState,
 ): string | null {
@@ -303,16 +282,12 @@ export function formatRampStepSummary(
   return parts.join(", ");
 }
 
-// ─── Grid column widths ──────────────────────────────────────────────────────
-
 const COL = {
   num: 30, // "1" / "2" / "start" / "end"
   trigger: 130, // trigger type select
   duration: 200, // trigger details (interval inputs, datetime, "Awaiting approval")
   coverage: 80, // [number] %
 } as const;
-
-// ─── Build helpers ───────────────────────────────────────────────────────────
 
 export function buildPatch(
   patch: UIStepPatch,
@@ -338,7 +313,6 @@ export function buildPatch(
   return out;
 }
 
-// Builds the endActions array for a single inline target using the "t1" placeholder.
 export function buildEndActions(
   endPatch: UIStepPatch,
   ruleId: string,
@@ -355,9 +329,6 @@ export function buildEndActions(
   ];
 }
 
-// Immutably sets or removes a field from a patch.
-// value === undefined → delete key (step inherits from previous step).
-// any other value → set key (step explicitly controls this field).
 function setPatchField(
   patch: UIStepPatch,
   field: StepField,
@@ -437,8 +408,6 @@ export function buildRampSteps(
   });
 }
 
-// ── Template structural comparison helpers ────────────────────────────────────
-
 function normalizeActionPatch(patch: Record<string, unknown>) {
   return pick(patch, [
     ...TEMPLATE_PATCH_FIELDS,
@@ -458,10 +427,8 @@ function normalizeActions(
   return actions.map((a) => ({ ...a, patch: normalizeActionPatch(a.patch) }));
 }
 
-// Normalize structural fields so null/undefined/[] and legacy extra patch fields compare equally.
-// Start and end node configuration is intentionally excluded — templates only define intermediate
-// steps, and start/end timing or actions are always configured per-instance.
 function normalizeStructural(p: Record<string, unknown>) {
+  // Templates only compare intermediate steps, endPatch, and monitoring config.
   type StepShape = {
     actions: { patch: Record<string, unknown>; [k: string]: unknown }[];
   };
@@ -491,8 +458,6 @@ export function findMatchingTemplate(
   );
 }
 
-// ─── Small reusable sub-components ──────────────────────────────────────────
-
 function ColHeader({
   children,
   width,
@@ -511,12 +476,8 @@ function ColHeader({
   );
 }
 
-// ─── Active-field helpers (exported for use in parent forms) ─────────────────
-
-// Returns the set of fields actively controlled by this ramp schedule.
-// Coverage is always included. Other fields are inferred from whatever is set
-// across all patches — if any step defines condition, condition is "controlled".
 export function activeFieldsFromState(state: RampSectionState): Set<StepField> {
+  // Coverage is always controlled; other fields are inferred from patches.
   const fields = new Set<StepField>(["coverage"]);
   const scan = (p: UIStepPatch) => {
     for (const f of VALID_STEP_FIELDS) {
@@ -529,8 +490,6 @@ export function activeFieldsFromState(state: RampSectionState): Set<StepField> {
 }
 
 const POLL_INTERVAL_SECONDS = 60;
-
-// ─── Min sample size dialog ──────────────────────────────────────────────────
 
 function MinSampleDialog({
   initialValue,
@@ -599,26 +558,21 @@ function MinSampleDialog({
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
-
 interface Props {
   ruleRampSchedule: RampScheduleInterface | undefined;
   state: RampSectionState;
   setState: (s: RampSectionState) => void;
-  // When true the component renders embedded (no outer separator/heading/switch wrapper).
+  // Embedded mode omits the outer heading/switch wrapper.
   embedded?: boolean;
   feature: FeatureInterface;
   environments: string[];
-  // When true, wraps the step grid + more options in an appbox card.
   // Used by the standalone modal.
   boxStepGrid?: boolean;
-  // When true, hides the name field from the UI. Used in standalone modal to hide
-  // the naming concept from the editor. Name is still stored/managed but not editable.
+  // Name is still stored, but not editable in standalone modal contexts.
   hideNameField?: boolean;
-  // When true, hides the "Save as template" link. Use when already inside a template edit modal.
+  // Hide template creation while already editing a template.
   hideTemplateSave?: boolean;
-  // When true, a draft detach action is pending for this rule. Shows a "pending removal"
-  // badge in place of the normal status badge.
+  // Shows pending removal before the draft is saved.
   pendingDetach?: boolean;
 }
 
@@ -643,7 +597,6 @@ export default function RampScheduleSection({
     number | null
   >(null);
 
-  // Auto-switch to "create" mode when opening a ramp editor with no existing ramp
   useEffect(() => {
     if (!ruleRampSchedule && state.mode === "off") {
       patchState({ mode: "create" });
@@ -676,8 +629,7 @@ export default function RampScheduleSection({
   const [presetOpen, setPresetOpen] = useState(false);
   const hasAutoSelected = useRef(false);
 
-  // On first template load: match existing state to a template, or auto-apply
-  // the first template (official-first) for fresh creates with no existing ramp.
+  // On first template load, match the existing state or apply the first default.
   useEffect(() => {
     if (hasAutoSelected.current || templates.length === 0) return;
     hasAutoSelected.current = true;
@@ -692,7 +644,6 @@ export default function RampScheduleSection({
       )[0];
       if (first) applyTemplate(first);
     }
-    // Intentionally not including `state` or `applyTemplate` — run once on load.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templates]);
 
@@ -711,14 +662,11 @@ export default function RampScheduleSection({
     setState(newState);
   }
 
-  // Active fields: coverage always + any field set in any step/start/end patch.
   const activeFields = useMemo<Set<StepField>>(
     () => activeFieldsFromState(state),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [state.steps, state.endPatch],
   );
-
-  // ── Step mutations ──────────────────────────────────────────────────────────
 
   function updateStep(i: number, update: Partial<UIStep>) {
     const newSteps = state.steps.map((s, idx) =>
@@ -739,10 +687,10 @@ export default function RampScheduleSection({
     patchState({ steps: state.steps.filter((_, idx) => idx !== i) });
   }
 
-  // Walk backwards from `beforeIndex` to find the nearest interval step's hold duration.
   function nearestIntervalBefore(
     beforeIndex: number,
   ): Pick<UIStep, "intervalValue" | "intervalUnit"> {
+    // New steps inherit the nearest prior interval duration.
     for (let i = beforeIndex - 1; i >= 0; i--) {
       if (state.steps[i].triggerType === "interval") {
         return {
@@ -810,8 +758,6 @@ export default function RampScheduleSection({
     });
   }
 
-  // ── Toggle ────────────────────────────────────────────────────────────────
-
   function handleToggle(checked: boolean) {
     setOpen(checked);
     if (!checked) {
@@ -823,14 +769,9 @@ export default function RampScheduleSection({
     }
   }
 
-  // ── Step grid ─────────────────────────────────────────────────────────────
-
   function renderStepGrid() {
     const subRowIndent = COL.num + 16;
 
-    // Sub-row renderer for feature value + targeting fields.
-    // Force value is shown as the first sub-row (above targeting).
-    // A section header is shown when any effects are active.
     function renderPatchSubRows(
       patch: UIStepPatch,
       setPatchFn: (field: StepField, value: unknown) => void,
@@ -839,7 +780,6 @@ export default function RampScheduleSection({
     ) {
       if (!open) return null;
 
-      // Exclude "force" in template mode — it is feature-type-specific and not portable.
       const templateSafeFields = hideTemplateSave
         ? VALID_STEP_FIELDS.filter((f) => f !== "force")
         : VALID_STEP_FIELDS;
@@ -985,8 +925,6 @@ export default function RampScheduleSection({
       );
     }
 
-    // ── End anchor row — always visible ──────────────────────────────────────
-
     const endRow = (
       <Box
         my="2"
@@ -1092,7 +1030,6 @@ export default function RampScheduleSection({
 
     return (
       <Box>
-        {/* Header row — no label for details column (datetime / interval / text) */}
         <Flex
           align="center"
           gap="4"
@@ -1135,9 +1072,7 @@ export default function RampScheduleSection({
                 }}
               />
               <Flex direction="column" gap="2" pl="2">
-                {/* Main grid row */}
                 <Flex align="center" gap="4">
-                  {/* Step number */}
                   <Box
                     style={{
                       width: COL.num,
@@ -1150,7 +1085,6 @@ export default function RampScheduleSection({
                     </Text>
                   </Box>
 
-                  {/* Coverage */}
                   {activeFields.has("coverage") &&
                     (() => {
                       const maxCov = step.monitored ? 50 : 100;
@@ -1193,7 +1127,6 @@ export default function RampScheduleSection({
                         </Box>
                       );
                     })()}
-                  {/* Hold for — select + detail inline */}
                   <Flex
                     align="center"
                     gap="2"
@@ -1341,7 +1274,6 @@ export default function RampScheduleSection({
 
                   <Box flexGrow="1" />
 
-                  {/* Step config summary + monitor + menu */}
                   <Flex align="center" gap="2" pr="3" style={{ flexShrink: 0 }}>
                     {step.monitored &&
                       step.holdConditions?.minSampleSize != null && (
@@ -1517,8 +1449,6 @@ export default function RampScheduleSection({
     );
   }
 
-  // ── Create / Edit content ──────────────────────────────────────────────────
-
   const currentPayload = buildTemplatePayload(state);
   const currentStructural = normalizeStructural(
     pick(currentPayload, TEMPLATE_STRUCTURAL_KEYS),
@@ -1534,15 +1464,12 @@ export default function RampScheduleSection({
   const applyTemplate = (tmpl: (typeof templates)[number]) => {
     setPresetOpen(false);
     if (!open) setOpen(true);
-    // Switch to "create" mode when the section was collapsed (mode=off) with no live ramp.
     const resolvedMode =
       state.mode === "off" && !ruleRampSchedule ? "create" : state.mode;
     const newState = templateToSectionState(
       tmpl,
       resolvedMode === "edit" ? "edit" : "create",
     );
-    // Preserve force values — templates never carry force values, so applying
-    // one should not clear a rule's existing forced value.
     const mergeForce = (
       newPatch: UIStepPatch,
       oldPatch: UIStepPatch,
@@ -1660,7 +1587,6 @@ export default function RampScheduleSection({
                 autoFocus
                 onFocus={(e) => e.target.select()}
                 onKeyDown={(e) => {
-                  // Prevent Enter from bubbling up and submitting the outer modal.
                   if (e.key === "Enter") {
                     e.preventDefault();
                     e.stopPropagation();
@@ -2083,8 +2009,6 @@ export default function RampScheduleSection({
     state.steps.length > 0 && state.steps.every((s) => s.monitored);
   const noneMonitored = state.steps.every((s) => !s.monitored);
 
-  // Auto-select default datasource/EAT when monitoring becomes active
-  // (covers the checkbox toggle, "Show me" button, and any other path).
   useEffect(() => {
     if (noneMonitored || state.monitoring.datasourceId) return;
     const defaultDs =
@@ -2510,11 +2434,6 @@ export default function RampScheduleSection({
     </>
   );
 
-  // ── Full content (all modes) ───────────────────────────────────────────────
-
-  // "running" = blocked: Agenda is actively watching, edits would race with progression.
-  // "ready" is not yet running, so edits are safe (like paused).
-  // All other statuses (pending, ready, paused, completed, rolled-back) are safe to edit freely.
   const canEdit =
     !ruleRampSchedule ||
     !["running", "pending-approval", "conflict"].includes(
@@ -2523,7 +2442,6 @@ export default function RampScheduleSection({
 
   const content = (
     <>
-      {/* Linked ramp header row — shown whenever a ramp is attached */}
       {ruleRampSchedule && !hideNameField && (
         <Box mb="3">
           <Flex align="center" gap="2" mb="2" wrap="nowrap">
@@ -2604,9 +2522,6 @@ export default function RampScheduleSection({
   );
 }
 
-// ─── Ramp → UI state reconstruction ─────────────────────────────────────────
-
-// Converts a stored FeatureRulePatch (coverage 0–1) back to UIStepPatch (coverage 0–100).
 export function reconstructUIPatch(
   patch?: FeatureRulePatch | null,
   monitored?: boolean,
@@ -2631,10 +2546,8 @@ export function reconstructUIPatch(
   return p;
 }
 
-// Converts a stored RampStep back to a UIStep.
 export function reconstructUIStep(step: RampStep): UIStep {
   const patch = reconstructUIPatch(step.actions[0]?.patch, step.monitored);
-  // Open additional effects if the stored patch already has any effect fields set.
   const additionalEffectsOpen = VALID_STEP_FIELDS.some(
     (f) => patch[f] !== undefined,
   );
@@ -2677,7 +2590,6 @@ export function reconstructUIStep(step: RampStep): UIStep {
   };
 }
 
-// Reconstructs the endPatch UIStepPatch from stored endActions (first action of the list).
 export function reconstructUIEndPatch(
   endActions: RampScheduleInterface["endActions"],
 ): UIStepPatch {
@@ -2685,7 +2597,6 @@ export function reconstructUIEndPatch(
   return reconstructUIPatch(endActions[0]?.patch);
 }
 
-// Builds a RampSectionState from an existing RampScheduleInterface for editing.
 export function rampScheduleToSectionState(
   rs: RampScheduleInterface,
 ): RampSectionState {
@@ -2752,11 +2663,6 @@ export function defaultRampSectionState(
   };
 }
 
-/**
- * Converts a draft `RevisionRampCreateAction` (stored in draftRevision.rampActions)
- * into a RampSectionState so the rule modal can pre-populate when editing a rule that
- * has a pending-create ramp schedule (not yet in the DB).
- */
 export function createActionToSectionState(
   action: RevisionRampCreateAction,
 ): RampSectionState {
@@ -2804,9 +2710,6 @@ export function createActionToSectionState(
   };
 }
 
-/**
- * Converts a `RampScheduleTemplateInterface` into a `RampSectionState`.
- */
 export function templateToSectionState(
   template: RampScheduleTemplateInterface,
   mode: "create" | "edit" = "create",
@@ -2846,10 +2749,6 @@ export function templateToSectionState(
   };
 }
 
-/**
- * Converts the current RampSectionState into a payload suitable for creating/updating a template.
- * Uses placeholder IDs since templates have no real targets.
- */
 export function buildTemplatePayload(
   state: RampSectionState,
 ): Omit<
@@ -2879,7 +2778,6 @@ export function buildTemplatePayload(
     actions: stripIds(s.actions),
   }));
 
-  // Build end patch: convert UI scale (0-100) → stored scale (0-1), strip ruleId.
   const rawEndPatch = buildPatch(state.endPatch, PLACEHOLDER_RULE);
   const { ruleId: _ruleId, enabled: _enabled, ...endPatchFields } = rawEndPatch;
   const endPatch: TemplateEndPatch =

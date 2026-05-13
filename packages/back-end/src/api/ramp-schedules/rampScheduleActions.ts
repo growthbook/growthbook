@@ -41,7 +41,6 @@ const rampScheduleResponse = z.object({
   rampSchedule: apiRampScheduleInterface,
 });
 
-// POST /ramp-schedules/:id/actions/start
 export const startRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: z.never(),
@@ -68,7 +67,6 @@ export const startRampSchedule = createApiRequestHandler({
   return { rampSchedule: rampScheduleToApiInterface(current) };
 });
 
-// POST /ramp-schedules/:id/actions/pause
 export const pauseRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: z.never(),
@@ -119,7 +117,6 @@ export const pauseRampSchedule = createApiRequestHandler({
   return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
 
-// POST /ramp-schedules/:id/actions/resume
 export const resumeRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: z.never(),
@@ -146,6 +143,7 @@ export const resumeRampSchedule = createApiRequestHandler({
   const pauseDurationMs = schedule.pausedAt
     ? now.getTime() - schedule.pausedAt.getTime()
     : 0;
+  // Shift timing anchors forward so intervals continue where they left off.
   const newStartedAt = schedule.startedAt ?? now;
   const newPhaseStartedAt = schedule.phaseStartedAt
     ? new Date(schedule.phaseStartedAt.getTime() + Math.max(0, pauseDurationMs))
@@ -168,7 +166,6 @@ export const resumeRampSchedule = createApiRequestHandler({
         schedule.nextStepAt.getTime() + pauseDurationMs,
       );
     } else {
-      // nextStepAt is null after a rollback: rebase phase timing from now.
       const nextStepIndex = schedule.currentStepIndex + 1;
       if (schedule.currentStepIndex === -1) {
         resumeUpdates.nextStepAt = schedule.steps.length > 0 ? now : null;
@@ -231,7 +228,6 @@ export const resumeRampSchedule = createApiRequestHandler({
   return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
 
-// POST /ramp-schedules/:id/actions/jump
 export const jumpRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: attributionBodySchema.extend({
@@ -267,7 +263,7 @@ export const jumpRampSchedule = createApiRequestHandler({
 
   const now = new Date();
 
-  // phaseStartedAt = now - sum(intervals before target) so the next step fires at now + target.seconds
+  // Jumping resets the target step's hold timer from now.
   const freshPhaseStartedAt = (() => {
     if (targetStepIndex <= 0) return now;
     let elapsed = 0;
@@ -324,7 +320,6 @@ export const jumpRampSchedule = createApiRequestHandler({
   return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
 
-// POST /ramp-schedules/:id/actions/complete
 export const completeRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: z.never(),
@@ -389,11 +384,8 @@ export const approveStepRampSchedule = createApiRequestHandler({
   return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
 
-// POST /ramp-schedules/:id/actions/rollback — terminal rollback
 const rollbackBodySchema = z
   .object({
-    /** Short human-readable cause persisted as `lastRollbackReason`
-     * (rendered to users as `Manual: <reason>`). Optional. */
     reason: z.string().max(200).optional(),
   })
   .strict();
@@ -427,7 +419,6 @@ export const rollbackRampSchedule = createApiRequestHandler({
   return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
 
-// POST /ramp-schedules/:id/actions/restart — terminal -> running (single-shot)
 export const restartRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: z.never(),
@@ -450,9 +441,6 @@ export const restartRampSchedule = createApiRequestHandler({
     );
   }
 
-  // `completed` schedules may still hold live rule patches at a non-(-1)
-  // step, so rewind defensively. `rolled-back` schedules are already at -1
-  // with effects reverted, so this is a no-op.
   if (schedule.currentStepIndex >= 0) {
     await rollbackToStep(req.context, schedule, -1, "Restart from terminal");
   }
@@ -481,7 +469,6 @@ export const restartRampSchedule = createApiRequestHandler({
   return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
 
-// POST /ramp-schedules/:id/actions/add-target — enforces one schedule per rule
 export const addTargetRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: z.object({
@@ -541,14 +528,9 @@ export const addTargetRampSchedule = createApiRequestHandler({
     entityType: "feature" as const,
     entityId: featureId,
     ruleId,
-    // `environment` is deliberately omitted on new targets. Post-v2 `rule.id`
-    // is uniquely sufficient; env is a deprecated pre-v2 disambiguator. The
-    // resolver and DB-side lookup still honor stored `environment` for
-    // legacy targets. See `rampTarget` in shared/validators.
     status: "active" as const,
   };
 
-  // First target: set entityId for discoverability and transition pending → ready.
   const isFirstTarget = schedule.targets.length === 0;
   const entityUpdate = schedule.entityId === "" ? { entityId: featureId } : {};
   const statusUpdate =
@@ -568,7 +550,6 @@ export const addTargetRampSchedule = createApiRequestHandler({
   return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
 
-// POST /ramp-schedules/:id/actions/eject-target — deletes schedule if last target removed
 export const ejectTargetRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: z
@@ -612,9 +593,6 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
 
   const remaining = schedule.targets.filter((t) => {
     if (targetId) return t.id !== targetId;
-    // Rule-id addressing: match via stem+env equivalence so pre-migration
-    // targets (stored as bare id + env) and post-migration suffixed ids both
-    // resolve to the correct target.
     return !rampTargetsEquivalent(t, {
       ruleId,
       environment: environment ?? null,
@@ -638,8 +616,6 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
   return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
 
-// POST /ramp-schedules/:id/actions/advance
-// Externally triggered advancement (e.g. DataDog webhook, CI pipeline).
 export const apiAdvanceRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: z
@@ -673,8 +649,6 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
   return { rampSchedule: rampScheduleToApiInterface(current) };
 });
 
-// GET /ramp-schedules/:id/status
-// Derived status summary for monitoring dashboards and CI integrations.
 export const getRampScheduleStatus = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: z.never(),
@@ -763,7 +737,6 @@ async function setRampMonitoringMode({
   const nextMonitoringConfig = {
     ...monitoringConfig,
     monitoringMode,
-    // Keep legacy field in sync for backwards compatibility.
     autoUpdate: monitoringMode === "auto",
   };
   const effective = getEffectiveRampAutoUpdateState({
@@ -794,7 +767,6 @@ async function setRampMonitoringMode({
   return updated;
 }
 
-// POST /ramp-schedules/:id/actions/set-monitoring-mode
 export const setMonitoringModeRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: z.object({
@@ -825,7 +797,6 @@ export const setMonitoringModeRampSchedule = createApiRequestHandler({
   return rampScheduleToApiInterface(updated);
 });
 
-// POST /ramp-schedules/:id/actions/set-auto-update
 export const setAutoUpdateRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: z.object({

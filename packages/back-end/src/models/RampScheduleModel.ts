@@ -30,12 +30,6 @@ import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "rampschedules";
 
-/**
- * JIT migration: if a schedule has a legacy `endCondition` with a scheduled
- * trigger and no `cutoffDate`, move the date to `cutoffDate` and clear
- * `endCondition`. This is a readonly normalization — the DB document is not
- * written back; the caller sees the migrated shape.
- */
 export function migrateRampScheduleEndCondition<
   T extends {
     endCondition?: { trigger?: { type: string; at: unknown } | null } | null;
@@ -78,8 +72,6 @@ const BaseClass = MakeModelClass({
   },
 });
 
-// --- Date serialization helpers ---
-
 function dateToIso(d: Date | null | undefined): string | null | undefined {
   if (d === null) return null;
   if (d === undefined) return undefined;
@@ -99,7 +91,6 @@ function serializeTrigger(
   }
 }
 
-/** Convert a RampScheduleInterface (Date objects) to the API shape (ISO strings). */
 export function rampScheduleToApiInterface(
   doc: RampScheduleInterface,
 ): ApiRampScheduleInterface {
@@ -160,8 +151,6 @@ export function rampScheduleToApiInterface(
       : undefined,
   };
 }
-
-// --- Create handler helpers ---
 
 type ApiRampTrigger =
   | { type: "interval"; seconds: number }
@@ -236,8 +225,6 @@ function injectTarget(
   };
 }
 
-// --- Model ---
-
 export class RampScheduleModel extends BaseClass {
   private getProject(doc: RampScheduleInterface): string | undefined {
     const { feature } = this.getForeignRefs(doc, false);
@@ -289,7 +276,6 @@ export class RampScheduleModel extends BaseClass {
       }));
     }
 
-    // Migrate legacy per-metric guardrailSettings → schedule-level experimentHealthAction
     const legacyGs = (result as Record<string, unknown>).guardrailSettings as
       | { experimentHealthAction?: string }
       | undefined;
@@ -303,7 +289,6 @@ export class RampScheduleModel extends BaseClass {
       delete (result as Record<string, unknown>).guardrailSettings;
     }
 
-    // Migrate legacy autoRollback → experimentHealthAction
     if (
       result.monitoringConfig &&
       (result.monitoringConfig as Record<string, unknown>).autoRollback != null
@@ -318,7 +303,6 @@ export class RampScheduleModel extends BaseClass {
       delete (result.monitoringConfig as Record<string, unknown>).autoRollback;
     }
 
-    // Ensure signalMetricIds exists on monitoringConfig
     if (
       result.monitoringConfig &&
       result.monitoringConfig.signalMetricIds == null
@@ -329,7 +313,6 @@ export class RampScheduleModel extends BaseClass {
       };
     }
 
-    // Strip legacy step-level guardrailSettings
     if (
       result.steps?.some(
         (s) => (s as Record<string, unknown>).guardrailSettings != null,
@@ -346,15 +329,11 @@ export class RampScheduleModel extends BaseClass {
     return result;
   }
 
-  // --- API interface ---
-
   protected toApiInterface(
     doc: RampScheduleInterface,
   ): ApiRampScheduleInterface {
     return rampScheduleToApiInterface(doc);
   }
-
-  // --- CRUD handler overrides ---
 
   public override async handleApiList(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiList"]>[0],
@@ -379,9 +358,6 @@ export class RampScheduleModel extends BaseClass {
       req.query,
     );
 
-    // TODO: clean this up and better support pagination in BaseModel list routes
-    // When crudValidatorOverrides provides a responseSchema, the route handler
-    // returns this value directly (hasResponseOverride) instead of wrapping it.
     return {
       rampSchedules: filtered.map((s) => this.toApiInterface(s)),
       ...returnFields,
@@ -430,10 +406,6 @@ export class RampScheduleModel extends BaseClass {
             `The rule must be published before attaching a ramp schedule.`,
         );
       }
-      // Post-unification, a stem may have multiple sibling rules (one per env)
-      // if it was split via the non-mergeable migration path. Require an
-      // `environment` to disambiguate in that case so we never silently attach
-      // a ramp to an arbitrary sibling.
       if (matches.length > 1 && !body.environment) {
         const siblingEnvs = Array.from(
           new Set(
@@ -554,11 +526,6 @@ export class RampScheduleModel extends BaseClass {
               entityType: "feature",
               entityId: body.featureId!,
               ruleId: body.ruleId,
-              // `environment` is deliberately omitted on new targets. Post-v2
-              // `rule.id` is uniquely sufficient within a feature's unified
-              // rule list; env is a deprecated pre-v2 disambiguator. The
-              // resolver and DB-side lookup still honor stored `environment`
-              // for legacy targets. See `rampTarget` in shared/validators.
               status: "active",
             },
           ]
@@ -780,33 +747,12 @@ export class RampScheduleModel extends BaseClass {
     return this._find({ entityType: "feature", entityId: featureId });
   }
 
-  // Active (non-terminal) schedules controlling the given rule. Environment
-  // is optional: when omitted, any env matches; when provided, targets scoped
-  // to that env OR to a wildcard (null/empty env) both match, since a wildcard
-  // target applies to every environment.
-  //
-  // Stem-based matching: the caller may pass either the public rule id
-  // (`fr_abc`) or a migration-suffixed id (`fr_abc__production`). Both forms
-  // resolve to the same underlying rule via `stemRuleId`. On the DB side we
-  // use an anchored regex that matches any stored ruleId sharing that stem
-  // (bare stem OR stem followed by the env-suffix delimiter), then
-  // re-validate in memory as defense in depth. This parallels the
-  // symmetric stem matching done on the feature side by `resolveRampTarget`
-  // so a ramp authored pre-migration continues to resolve post-migration,
-  // and vice versa.
   public async findByTargetRule(
     ruleId: string,
     environment?: string | null,
   ): Promise<RampScheduleInterface[]> {
     const stem = stemRuleId(ruleId);
-    // Broad stem prefix match at the DB layer — cheap and correct, as ramp
-    // schedules are scoped per-feature in practice. All env-precision nuance
-    // (bare-vs-suffixed id, wildcard-env semantics, suffix-derived env) is
-    // applied uniformly in-memory via `rampTargetsEquivalent`.
-    //
-    // Rule ids are alphanumeric + `_` by construction, but escape regex
-    // metachars defensively so a pathological legacy id can't break the
-    // query or leak into the regex engine.
+    // Match both bare and migration-suffixed rule IDs, then re-check env scope in memory.
     const stemRegex = new RegExp(
       `^${escapeRegExp(stem)}(?:${RULE_ID_ENV_SUFFIX_DELIMITER}|$)`,
     );
@@ -843,14 +789,10 @@ export class RampScheduleModel extends BaseClass {
     });
   }
 
-  /**
-   * Build a map from ruleId → monitored-step info for all running ramp
-   * schedules whose current step is monitored. Used by the SDK payload builder
-   * to emit experiment+filters instead of a simple rollout rule.
-   */
   public async getPayloadRampMonitoredRuleMap(): Promise<
     Map<string, RampMonitoredRuleInfo>
   > {
+    // SDK payloads need monitored rollout rules rendered as experiments.
     const schedules = await this._find({
       status: { $in: ["running", "pending-approval"] },
     });
@@ -873,9 +815,6 @@ export class RampScheduleModel extends BaseClass {
     return map;
   }
 
-  // --- Agenda poller (org-scoped via BaseModel; no cross-org collection reads) ---
-
-  /** Schedules that should run the advance/evaluator path, or pending crash-recovery. */
   public async agendaFindDueScheduleIds(now: Date): Promise<string[]> {
     const docs = await this._find(
       {
@@ -893,12 +832,6 @@ export class RampScheduleModel extends BaseClass {
   }
 }
 
-/**
- * Lightweight info about a rule currently on a monitored ramp step.
- * Consumed by the SDK payload builder to render an experiment with filters
- * (instead of a simple rollout with coverage) so that hash-space alignment
- * is maintained across monitored ↔ unmonitored step transitions.
- */
 export type RampMonitoredRuleInfo = {
   featureId: string;
   rampScheduleId: string;
