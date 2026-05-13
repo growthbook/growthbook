@@ -24,13 +24,14 @@ import ErrorDisplay from "../ErrorDisplay";
 import Text from "../Text";
 import styles from "./Modal.module.scss";
 
-export type Size = "md" | "lg";
-
-function getRadixSize(size: Size): Responsive<"3" | "4"> {
+export type Size = "md" | "lg" | "max";
+function getRadixSize(size: Size): Responsive<"3" | "4" | "5"> {
   switch (size) {
     case "md":
       return "3";
     case "lg":
+      return "4";
+    case "max":
       return "4";
   }
 }
@@ -41,6 +42,8 @@ function getMaxWidth(size: Size) {
       return "500px";
     case "lg":
       return "800px";
+    case "max":
+      return "95vw";
   }
 }
 

@@ -1309,9 +1309,11 @@ main.main {
         width: 100%;
         border-bottom: 1px dashed var(--step-color);
         height: 1px;
+        margin: 0 8px;
       }
       &.completed:not(:last-of-type)::after {
         border-bottom: 1px solid var(--step-color);
+        margin: 0 8px;
       }
       &:last-of-type {
         width: auto !important;
