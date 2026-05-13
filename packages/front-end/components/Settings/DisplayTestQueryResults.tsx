@@ -13,11 +13,12 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { AreaWithHeader } from "@/components/SchemaBrowser/SqlExplorerModal";
 import { floatRound } from "@/services/utils";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
+import {
+  flattenHeaderStructureForCsv,
+  type HeaderStructure,
+} from "@/components/Settings/flattenHeaderStructureForCsv";
 
-export type HeaderStructure = {
-  row1: { label: string; colSpan?: number; rowSpan?: number }[];
-  row2Labels: string[];
-};
+export type { HeaderStructure };
 
 export type Props = {
   results: Record<string, unknown>[];
@@ -114,7 +115,27 @@ export default function DisplayTestQueryResults({
 
   function handleDownload(rows: Record<string, unknown>[]) {
     const keys = csvColumnKeys ?? orderedColumnKeys;
-    const labelsForCsv = csvColumnLabels ?? columnLabels;
+
+    const labelsForCsv = ((): string[] | undefined => {
+      if (!keys?.length) return undefined;
+      if (csvColumnLabels && csvColumnLabels.length === keys.length) {
+        return csvColumnLabels;
+      }
+      if (
+        headerStructure &&
+        orderedColumnKeys &&
+        orderedColumnKeys.length === keys.length
+      ) {
+        const flat = flattenHeaderStructureForCsv(headerStructure);
+        if (flat.length === keys.length) {
+          return flat;
+        }
+      }
+      if (columnLabels && columnLabels.length === keys.length) {
+        return columnLabels;
+      }
+      return undefined;
+    })();
 
     const rowsForCsv =
       keys?.length && labelsForCsv && keys.length === labelsForCsv.length
