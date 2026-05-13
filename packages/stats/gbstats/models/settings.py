@@ -65,18 +65,23 @@ ContextKey = Union[str, Tuple[str, ...]]
 
 @dataclass
 class ContextualBanditSettingsForStatsEngine(BanditSettingsForStatsEngine):
-    # default_factory so this subclass can add fields after BanditSettingsForStatsEngine's defaulted fields
     current_contextual_weights: Dict[ContextKey, List[float]] = field(
         default_factory=dict
     )
-    contexts: List[str] = field(default_factory=list)
+    attributes: List[str] = field(
+        default_factory=list
+    )  # columns that are used to create context keys; not column values
+
+    def __post_init__(self):
+        if not self.attributes:
+            raise ValueError("attributes must be non-empty")
 
 
 @dataclass
 class ContextualTreeBanditSettingsForStatsEngine(
     ContextualBanditSettingsForStatsEngine
 ):
-    max_leaf_nodes: int = 12
+    max_leaves: int = 12
 
 
 ExperimentMetricQueryResponseRows = List[Dict[str, Union[str, int, float]]]
