@@ -277,7 +277,6 @@ export default function ExplorerChart({
         isStacked,
         compareOverlayActive,
         comparisonPeriodLabels,
-        previousAlignedMap: alignedComparisonDataForCurrent,
         seriesColor,
         comparisonSeriesColor,
         animate,
