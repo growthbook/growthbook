@@ -1206,6 +1206,20 @@ export async function postExperiments(
     holdoutId: holdoutId || undefined,
     customMetricSlices: data.customMetricSlices,
   };
+
+  // When duplicating an experiment, always remove seed from phases so
+  // bucket assignment is independent from the source experiment.
+  // The NewExperimentForm should already have cleared the seed, but this
+  // ensures that the seed is always removed when duplicating an
+  // experiment.
+  if (req.query.originalId) {
+    obj.phases = obj.phases.map((phase) => {
+      return {
+        ...phase,
+        seed: undefined,
+      };
+    });
+  }
   const { settings } = getScopedSettings({
     organization: org,
   });
