@@ -171,6 +171,9 @@ export const baseExplorationConfigValidator = z.object({
   // regardless of this setting.
   // Optional for backward compatibility; read sites default to "total".
   showAs: showAsValidator.optional(),
+  // UI-only: show previous-period overlay in Explorer. Does not affect warehouse query
+  // for the primary run. Optional for backward compatibility; treat absent as false.
+  compare: z.boolean().optional(),
 });
 
 export const metricExplorationConfigValidator =

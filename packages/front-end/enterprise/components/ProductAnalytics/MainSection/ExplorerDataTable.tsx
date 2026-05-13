@@ -1,9 +1,14 @@
+import { useCallback } from "react";
+import { PiArrowDown, PiArrowUp } from "react-icons/pi";
+import { Flex } from "@radix-ui/themes";
 import type {
   ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
 import type { QueryInterface } from "shared/types/query";
+import { formatNumericLikeForDisplay } from "shared/util";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
+import Text from "@/ui/Text";
 import useExplorationTableData from "./useExplorationTableData";
 
 export default function ExplorerDataTable({
@@ -35,11 +40,45 @@ export default function ExplorerDataTable({
     explorationReturnedNoData,
     csvColumnKeys,
     csvColumnLabels,
-    renderCell,
+    tableCompareActive,
+    compareColumnMetaByKey,
   } = useExplorationTableData(exploration, submittedExploreState, {
     compareEnabled,
     comparisonExploration,
   });
+
+  const renderCell = useCallback(
+    (key: string, value: unknown, row: Record<string, unknown>) => {
+      if (!tableCompareActive) {
+        return formatNumericLikeForDisplay(value);
+      }
+      const colMeta = compareColumnMetaByKey?.[key];
+      if (
+        colMeta?.compareCell !== "current" ||
+        typeof row[colMeta.trendRowKey] !== "number" ||
+        Number.isNaN(row[colMeta.trendRowKey] as number)
+      ) {
+        return formatNumericLikeForDisplay(value);
+      }
+      const trendRaw = row[colMeta.trendRowKey] as number;
+      const valueString = formatNumericLikeForDisplay(value);
+      const up = trendRaw >= 0;
+      return (
+        <Flex align="center" gap="2">
+          <Text size="medium">{valueString}</Text>
+          <Text size="small">
+            {up ? (
+              <PiArrowUp style={{ verticalAlign: "middle" }} size={12} />
+            ) : (
+              <PiArrowDown style={{ verticalAlign: "middle" }} size={12} />
+            )}
+            {` ${Math.abs(trendRaw).toFixed(2)}%`}
+          </Text>
+        </Flex>
+      );
+    },
+    [tableCompareActive, compareColumnMetaByKey],
+  );
 
   return (
     <DisplayTestQueryResults

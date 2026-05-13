@@ -153,7 +153,6 @@ export function ExplorerProvider({
     };
   });
   const [isStale, setIsStale] = useState(false);
-  const [compareEnabled, setCompareEnabledState] = useState(false);
   const [comparisonExploration, setComparisonExploration] =
     useState<ProductAnalyticsExploration | null>(null);
   const [comparisonQuery, setComparisonQuery] = useState<QueryInterface | null>(
@@ -166,6 +165,8 @@ export function ExplorerProvider({
   const submitRequestIdRef = useRef(0);
 
   const draftExploreState: ExplorationConfig = explorerState.draftState;
+
+  const compareEnabled = draftExploreState.compare === true;
 
   const setDraftExploreState = useCallback(
     (newStateOrUpdater: SetDraftStateAction) => {
@@ -255,15 +256,18 @@ export function ExplorerProvider({
   const explorationRunKey =
     data?.runStarted != null ? String(data.runStarted) : "";
 
-  const setCompareEnabled = useCallback((value: boolean) => {
-    setCompareEnabledState(value);
-    if (!value) {
-      comparisonRequestIdRef.current += 1;
-      setComparisonExploration(null);
-      setComparisonQuery(null);
-      setComparisonError(null);
-    }
-  }, []);
+  const setCompareEnabled = useCallback(
+    (value: boolean) => {
+      setDraftExploreState((prev) => ({ ...prev, compare: value }));
+      if (!value) {
+        comparisonRequestIdRef.current += 1;
+        setComparisonExploration(null);
+        setComparisonQuery(null);
+        setComparisonError(null);
+      }
+    },
+    [setDraftExploreState],
+  );
 
   useEffect(() => {
     if (
@@ -622,7 +626,6 @@ export function ExplorerProvider({
   const clearAllDatasets = useCallback(
     (newDatasourceId?: string) => {
       comparisonRequestIdRef.current += 1;
-      setCompareEnabledState(false);
       setComparisonExploration(null);
       setComparisonQuery(null);
       setComparisonError(null);
@@ -653,6 +656,7 @@ export function ExplorerProvider({
           draftState: {
             ...initialConfig,
             datasource: datasourceId,
+            compare: false,
             dataset: {
               ...createEmptyDataset(type),
               values: [createDefaultValue(type)],
@@ -708,33 +712,33 @@ export function ExplorerProvider({
       setCompareEnabled,
     }),
     [
-      draftExploreState,
-      submittedExploreState,
-      data,
-      loading,
-      error,
-      commonColumns,
-      setDraftExploreState,
-      handleSubmit,
       addValueToDataset,
-      updateValueInDataset,
-      deleteValueFromDataset,
-      updateTimestampColumn,
       changeChartType,
+      clearAllDatasets,
+      commonColumns,
+      compareEnabled,
+      comparisonError,
+      comparisonExploration,
+      comparisonLoading,
+      comparisonQuery,
+      data,
+      deleteValueFromDataset,
+      draftExploreState,
+      error,
+      handleSubmit,
       isStale,
+      isSubmittable,
+      loading,
+      managedWarehouseAwaitingProvisioning,
       needsFetch,
       needsUpdate,
-      isSubmittable,
-      managedWarehouseAwaitingProvisioning,
-      clearAllDatasets,
       query,
-      trackingSource,
-      compareEnabled,
-      comparisonExploration,
-      comparisonQuery,
-      comparisonError,
-      comparisonLoading,
       setCompareEnabled,
+      setDraftExploreState,
+      submittedExploreState,
+      trackingSource,
+      updateTimestampColumn,
+      updateValueInDataset,
     ],
   );
 

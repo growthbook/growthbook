@@ -31,13 +31,11 @@ import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import {
-  alignComparisonOverlayToCategories,
+  buildAlignedComparisonOverlayForExplorer,
   buildComparisonOverlaySeriesMaps,
+  buildExplorerChartComparisonSeriesList,
   computeBigNumberComparisonTrend,
-  formatComparisonMetricLabel,
-  getComparisonAreaPreviousStackId,
   getComparisonPeriodLabels,
-  getComparisonStackId,
   supportsAlwaysOnComparisonOverlay,
 } from "@/enterprise/components/ProductAnalytics/compareUtil";
 import ComparisonTrendLabel from "@/enterprise/components/ProductAnalytics/ComparisonTrendLabel";
@@ -63,21 +61,6 @@ const COMPARISON_SERIES_COLORS = [
   "#9ca3af",
   "#78716c",
 ];
-
-/** Comparison period draws under current area / bars (translucent overlap). */
-const Z_PREVIOUS_COMPARE_UNDER_CURRENT = 1;
-/** Current-period series sit above comparison overlap (area / line / bar). */
-const Z_CURRENT_COMPARE_TIMESERIES = 2;
-/** Comparison line draws on top of solid current lines so both strokes stay readable. */
-const Z_PREVIOUS_LINE_OVER_LINE = 3;
-/** When compare is on, current area fill must stay translucent so the previous band shows through. */
-const COMPARE_AREA_FILL_OPACITY = 0.38;
-/** Previous-period area fill: visible under current without washing out. */
-const COMPARE_PREVIOUS_AREA_FILL_OPACITY = 0.42;
-/** Pull bar series onto the same slot as the paired period for compare overlap. */
-const COMPARE_BAR_OVERLAP_GAP = "-100%";
-/** Previous-period bars read as a ghost behind current. */
-const COMPARE_PREVIOUS_BAR_OPACITY = 0.55;
 
 // Simple number formatter
 function formatNumber(value: number): string {
@@ -243,196 +226,54 @@ export default function ExplorerChart({
       ? getComparisonPeriodLabels(submittedExploreState.dateRange)
       : null;
 
-    const buildSeriesConfigs = (
-      sourceDataMap: Record<string, Record<string, number>>,
-      sourceSeriesMeta: Record<string, { metricId: string; name: string }>,
-      sourceSeriesKeys: string[],
-      sourceSortedXValues: string[],
-      options?: { previous?: boolean },
-    ) => {
-      const isPrevious = options?.previous ?? false;
+    const alignedComparisonDataForCurrent =
+      compareOverlayActive && comparisonExploration?.result?.rows?.length
+        ? buildAlignedComparisonOverlayForExplorer({
+            sortedXValues,
+            comparisonRows: comparisonExploration.result.rows,
+            submittedExploreState,
+            renderOpts,
+            sortedSeriesKeys,
+            firstDimensionIsDate,
+          })
+        : null;
 
-      return sourceSeriesKeys
-        .map((seriesKey, idx) => {
-          const { name } = sourceSeriesMeta[seriesKey];
-          const seriesDataMap = sourceDataMap[seriesKey];
-          const displayName = comparisonPeriodLabels
-            ? formatComparisonMetricLabel(
-                name,
-                isPrevious
-                  ? comparisonPeriodLabels.previousLabel
-                  : comparisonPeriodLabels.currentLabel,
-              )
-            : name;
-          const color = isPrevious
-            ? comparisonSeriesColor(idx)
-            : seriesColor(idx);
+    let seriesConfigs = buildExplorerChartComparisonSeriesList({
+      chartType,
+      sourceDataMap: dataMap,
+      sourceSeriesMeta: seriesMeta,
+      sourceSeriesKeys: sortedSeriesKeys,
+      sourceSortedXValues: sortedXValues,
+      numMetrics,
+      numDimensions,
+      isStacked,
+      compareOverlayActive,
+      comparisonPeriodLabels,
+      previousAlignedMap: alignedComparisonDataForCurrent,
+      seriesColor,
+      comparisonSeriesColor,
+      animate,
+    });
 
-          if (isPrevious && chartType === "line") {
-            const data = sourceSortedXValues.map((x) => [
-              new Date(x).getTime(),
-              seriesDataMap[x] ?? 0,
-            ]);
-
-            return {
-              name: displayName,
-              data,
-              color,
-              type: "line" as const,
-              animation: animate,
-              animationDuration: animate ? 300 : 0,
-              animationEasing: "linear" as const,
-              showSymbol: false,
-              symbol: "circle" as const,
-              symbolSize: 4,
-              lineStyle: { type: "dashed" as const, width: 2, opacity: 0.75 },
-              z: Z_PREVIOUS_LINE_OVER_LINE,
-            };
-          }
-
-          if (
-            [
-              "bar",
-              "stackedBar",
-              "stackedHorizontalBar",
-              "horizontalBar",
-            ].includes(chartType)
-          ) {
-            if (
-              numMetrics === 1 &&
-              numDimensions === 1 &&
-              !isPrevious &&
-              !compareOverlayActive
-            ) {
-              const data = sourceSortedXValues.map((x, i) => ({
-                value: seriesDataMap[x] ?? 0,
-                itemStyle: { color: seriesColor(i) },
-              }));
-              return { name: displayName, data, type: "bar" as const };
-            }
-
-            const data = sourceSortedXValues.map((x) => seriesDataMap[x] ?? 0);
-            if (compareOverlayActive) {
-              return {
-                name: displayName,
-                data,
-                color,
-                type: "bar" as const,
-                stack: getComparisonStackId(isPrevious, isStacked),
-                barGap: COMPARE_BAR_OVERLAP_GAP,
-                z: isPrevious
-                  ? Z_PREVIOUS_COMPARE_UNDER_CURRENT
-                  : Z_CURRENT_COMPARE_TIMESERIES,
-                ...(isPrevious
-                  ? { itemStyle: { opacity: COMPARE_PREVIOUS_BAR_OPACITY } }
-                  : {}),
-              };
-            }
-            return {
-              name: displayName,
-              data,
-              color,
-              type: "bar" as const,
-              stack: getComparisonStackId(isPrevious, isStacked),
-            };
-          }
-
-          if (chartType === "line" || chartType === "area") {
-            const data = sourceSortedXValues.map((x) => [
-              new Date(x).getTime(),
-              seriesDataMap[x] ?? 0,
-            ]);
-
-            if (chartType === "area" && isPrevious && compareOverlayActive) {
-              return {
-                name: displayName,
-                data,
-                color,
-                type: "line" as const,
-                animation: animate,
-                animationDuration: animate ? 300 : 0,
-                animationEasing: "linear" as const,
-                showSymbol: false,
-                symbol: "circle" as const,
-                symbolSize: 4,
-                lineStyle: { width: 1, opacity: 0.65 },
-                areaStyle: {
-                  opacity: COMPARE_PREVIOUS_AREA_FILL_OPACITY,
-                  color,
-                },
-                stack: getComparisonAreaPreviousStackId(),
-                z: Z_PREVIOUS_COMPARE_UNDER_CURRENT,
-              };
-            }
-
-            const lineConfig = {
-              name: displayName,
-              data,
-              color,
-              type: "line" as const,
-              animation: animate,
-              animationDuration: animate ? 300 : 0,
-              animationEasing: "linear" as const,
-              symbol: "circle" as const,
-              symbolSize: 4,
-              ...(compareOverlayActive
-                ? { z: Z_CURRENT_COMPARE_TIMESERIES }
-                : {}),
-            };
-            if (chartType === "line") return lineConfig;
-            if (chartType === "area")
-              return {
-                ...lineConfig,
-                areaStyle: compareOverlayActive
-                  ? { opacity: COMPARE_AREA_FILL_OPACITY }
-                  : {},
-                stack: "stack",
-              };
-          }
-
-          return undefined;
-        })
-        .filter((series) => series !== undefined);
-    };
-
-    let seriesConfigs = buildSeriesConfigs(
-      dataMap,
-      seriesMeta,
-      sortedSeriesKeys,
-      sortedXValues,
-    );
-
-    if (
-      compareEnabled &&
-      comparisonExploration?.result?.rows?.length &&
-      supportsAlwaysOnComparisonOverlay(chartType)
-    ) {
-      const {
-        uniqueXValues: comparisonUniqueXValues,
-        dataMap: comparisonDataMap,
-      } = buildComparisonOverlaySeriesMaps(
-        comparisonExploration.result.rows,
-        submittedExploreState,
-        renderOpts,
-      );
-
-      const alignedComparisonDataMap = alignComparisonOverlayToCategories(
-        sortedXValues,
-        comparisonDataMap,
-        sortedSeriesKeys,
-        Array.from(comparisonUniqueXValues),
-        firstDimensionIsDate,
-      );
-
+    if (compareOverlayActive && alignedComparisonDataForCurrent) {
       seriesConfigs = [
         ...seriesConfigs,
-        ...buildSeriesConfigs(
-          alignedComparisonDataMap,
-          seriesMeta,
-          sortedSeriesKeys,
-          sortedXValues,
-          { previous: true },
-        ),
+        ...buildExplorerChartComparisonSeriesList({
+          chartType,
+          sourceDataMap: alignedComparisonDataForCurrent,
+          sourceSeriesMeta: seriesMeta,
+          sourceSeriesKeys: sortedSeriesKeys,
+          sourceSortedXValues: sortedXValues,
+          numMetrics,
+          numDimensions,
+          isStacked,
+          compareOverlayActive,
+          comparisonPeriodLabels,
+          previous: true,
+          seriesColor,
+          comparisonSeriesColor,
+          animate,
+        }),
       ];
     }
 

@@ -1,7 +1,5 @@
 import { useMemo } from "react";
-import type { ReactNode } from "react";
 import { format } from "date-fns";
-import { PiArrowDown, PiArrowUp } from "react-icons/pi";
 import type {
   ExplorationConfig,
   ProductAnalyticsExploration,
@@ -11,8 +9,6 @@ import {
   calculateProductAnalyticsDateRange,
   getDateGranularity,
 } from "shared/enterprise";
-import { formatNumericLikeForDisplay } from "shared/util";
-import { Flex } from "@radix-ui/themes";
 import type { HeaderStructure } from "@/components/Settings/DisplayTestQueryResults";
 import {
   sortExplorationRows,
@@ -26,7 +22,6 @@ import {
   type RenderOpts,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Text from "@/ui/Text";
 
 function formatExplorerDateRangeHeading(dr: {
   startDate: Date;
@@ -75,6 +70,19 @@ function formatCellForTable(
   return typeof raw === "number" ? raw.toFixed(2) : raw;
 }
 
+/**
+ * Metadata for each ordered table column when date-range comparison is active.
+ * Row keys still use `__prev` / `__curr` / `__trend` suffixes for stable CSV export;
+ * this object describes their role so callers need not parse key strings.
+ */
+export type ExplorationTableCompareColumnMeta =
+  | { compareCell: "previous" }
+  | {
+      compareCell: "current";
+      /** Row key for the synthetic `%` change paired with this column. */
+      trendRowKey: string;
+    };
+
 export interface ExplorationTableData {
   rowData: Record<string, unknown>[];
   /** Stable machine keys used to index into each row object. */
@@ -85,11 +93,13 @@ export interface ExplorationTableData {
   explorationReturnedNoData: boolean;
   csvColumnKeys?: string[];
   csvColumnLabels?: string[];
-  renderCell: (
-    key: string,
-    value: unknown,
-    row: Record<string, unknown>,
-  ) => ReactNode;
+  /** When true, rows include `__prev` / `__curr` / `__trend` keys per metric column. */
+  tableCompareActive: boolean;
+  /**
+   * When `tableCompareActive`, maps ordered column keys for compared metrics to
+   * `previous` / `current` (and trend key for current). Dimension keys are omitted.
+   */
+  compareColumnMetaByKey?: Record<string, ExplorationTableCompareColumnMeta>;
 }
 
 export default function useExplorationTableData(
@@ -148,6 +158,23 @@ export default function useExplorationTableData(
       return keys;
     }
     return columns.map((c) => c.key);
+  }, [tableCompareActive, columns]);
+
+  const compareColumnMetaByKey = useMemo(():
+    | Record<string, ExplorationTableCompareColumnMeta>
+    | undefined => {
+    if (!tableCompareActive) return undefined;
+    const meta: Record<string, ExplorationTableCompareColumnMeta> = {};
+    for (const col of columns) {
+      if (col.kind === "dimension") continue;
+      if (col.sub !== "single") continue;
+      const prevKey = `${col.key}__prev`;
+      const currKey = `${col.key}__curr`;
+      const trendKey = `${col.key}__trend`;
+      meta[prevKey] = { compareCell: "previous" };
+      meta[currKey] = { compareCell: "current", trendRowKey: trendKey };
+    }
+    return meta;
   }, [tableCompareActive, columns]);
 
   const columnLabels = useMemo(() => {
@@ -337,46 +364,6 @@ export default function useExplorationTableData(
     comparisonExploration?.result?.rows,
   ]);
 
-  const renderCell = useMemo(() => {
-    if (!tableCompareActive) {
-      return (
-        _key: string,
-        value: unknown,
-        _row: Record<string, unknown>,
-      ): ReactNode => formatNumericLikeForDisplay(value);
-    }
-    function compareTrendCell(
-      key: string,
-      value: unknown,
-      row: Record<string, unknown>,
-    ): ReactNode {
-      if (!key.endsWith("__curr")) {
-        return formatNumericLikeForDisplay(value);
-      }
-      const base = key.replace(/__curr$/, "");
-      const trendRaw = row[`${base}__trend`];
-      if (typeof trendRaw !== "number" || Number.isNaN(trendRaw)) {
-        return formatNumericLikeForDisplay(value);
-      }
-      const valueString = formatNumericLikeForDisplay(value);
-      const up = trendRaw >= 0;
-      return (
-        <Flex align="center" gap="2">
-          <Text size="medium">{valueString}</Text>
-          <Text size="small">
-            {up ? (
-              <PiArrowUp style={{ verticalAlign: "middle" }} size={12} />
-            ) : (
-              <PiArrowDown style={{ verticalAlign: "middle" }} size={12} />
-            )}
-            {` ${Math.abs(trendRaw).toFixed(2)}%`}
-          </Text>
-        </Flex>
-      );
-    }
-    return compareTrendCell;
-  }, [tableCompareActive]);
-
   const explorationReturnedNoData = useMemo(() => {
     if (!exploration?.result?.rows?.length) return true;
     return exploration.result.rows.every((r) => r.values.length === 0);
@@ -388,7 +375,9 @@ export default function useExplorationTableData(
     columnLabels,
     headerStructure,
     explorationReturnedNoData,
-    renderCell,
-    ...(tableCompareActive ? { csvColumnKeys, csvColumnLabels } : {}),
+    tableCompareActive,
+    ...(tableCompareActive
+      ? { csvColumnKeys, csvColumnLabels, compareColumnMetaByKey }
+      : {}),
   };
 }
