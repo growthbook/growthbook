@@ -8,6 +8,7 @@ import type {
 import { isManagedWarehousePendingQueryError } from "shared/util";
 import {
   calculateProductAnalyticsDateRange,
+  buildComparisonDateRange,
   getDateGranularity,
 } from "shared/enterprise";
 import {
@@ -45,6 +46,8 @@ const CHART_COLORS = [
   "#6b7280",
 ];
 
+const COMPARISON_OVERLAY_LINE = "rgba(245, 158, 11, 0.55)";
+
 // Simple number formatter
 function formatNumber(value: number): string {
   if (Math.abs(value) >= 1000000) {
@@ -68,12 +71,16 @@ export default function ExplorerChart({
   error,
   submittedExploreState,
   loading,
+  comparisonExploration = null,
+  compareEnabled = false,
   animate = true,
 }: {
   exploration: ProductAnalyticsExploration | null;
   error: string | null;
   submittedExploreState: ExplorationConfig;
   loading: boolean;
+  comparisonExploration?: ProductAnalyticsExploration | null;
+  compareEnabled?: boolean;
   /** When false, ECharts entry animations are disabled (e.g. for already-seen charts). */
   animate?: boolean;
 }) {
@@ -277,12 +284,83 @@ export default function ExplorerChart({
           animationEasing: "linear" as const,
           symbol: "circle" as const,
           symbolSize: 4,
+          z: 2,
         };
         if (chartType === "line") return lineConfig;
         if (chartType === "area")
           return { ...lineConfig, areaStyle: {}, stack: "stack" };
       }
+      return undefined;
     });
+
+    let orderedSeries = seriesConfigs.filter(
+      (s): s is NonNullable<(typeof seriesConfigs)[number]> => s != null,
+    );
+
+    if (
+      compareEnabled &&
+      comparisonExploration?.result?.rows?.length &&
+      (chartType === "line" || chartType === "area")
+    ) {
+      const cRows = comparisonExploration.result.rows;
+      const cmpDataMap: Record<string, Record<string, number>> = {};
+      cRows.forEach((row) => {
+        const xValue = row.dimensions[0] || "";
+        const groupParts = row.dimensions.slice(1);
+        const groupKey = groupParts.length > 0 ? groupParts.join(" - ") : "";
+        row.values.forEach((v, valueIndex) => {
+          const seriesKey = JSON.stringify({ i: valueIndex, g: groupKey });
+          if (!cmpDataMap[seriesKey]) {
+            cmpDataMap[seriesKey] = {};
+          }
+          cmpDataMap[seriesKey][xValue] = getEffectiveMetricValue(v, {
+            showAs: renderOpts.showAs,
+            isRatio: renderOpts.isRatioByIndex[valueIndex] ?? false,
+          });
+        });
+      });
+      const currentRange = calculateProductAnalyticsDateRange(
+        submittedExploreState.dateRange,
+      );
+      const comparisonRange = calculateProductAnalyticsDateRange(
+        buildComparisonDateRange(submittedExploreState.dateRange),
+      );
+      const timeAlignOffsetMs =
+        currentRange.startDate.getTime() - comparisonRange.startDate.getTime();
+
+      const overlaySeries: (typeof orderedSeries)[number][] = [];
+
+      for (const seriesKey of sortedSeriesKeys) {
+        const cmpSeriesData = cmpDataMap[seriesKey];
+        if (!cmpSeriesData) continue;
+        const { name } = seriesMeta[seriesKey];
+        const pts = Object.keys(cmpSeriesData)
+          .map((xStr) => {
+            const t0 = new Date(xStr).getTime();
+            if (Number.isNaN(t0)) return null;
+            return [t0 + timeAlignOffsetMs, cmpSeriesData[xStr] ?? 0] as [
+              number,
+              number,
+            ];
+          })
+          .filter((p): p is [number, number] => p != null)
+          .sort((a, b) => a[0] - b[0]);
+        if (!pts.length) continue;
+        overlaySeries.push({
+          name: `${name} (previous)`,
+          type: "line" as const,
+          data: pts,
+          color: COMPARISON_OVERLAY_LINE,
+          symbol: "circle" as const,
+          symbolSize: 3,
+          z: 1,
+          animation: animate,
+          animationDuration: animate ? 300 : 0,
+          animationEasing: "linear" as const,
+        });
+      }
+      orderedSeries = [...overlaySeries, ...orderedSeries];
+    }
 
     const axisPointerLabelFormatter = resolvedGranularity
       ? (params: { value: string | number }) => {
@@ -399,7 +477,7 @@ export default function ExplorerChart({
         formatter: tooltipFormatter,
       },
       legend: {
-        show: seriesConfigs.length > 1,
+        show: orderedSeries.length > 1,
         top: 8,
         padding: [8, 0, 8, 0],
         textStyle: { color: textColor },
@@ -407,7 +485,7 @@ export default function ExplorerChart({
       },
       xAxis,
       yAxis,
-      series: seriesConfigs,
+      series: orderedSeries,
     };
   }, [
     exploration?.result?.rows,
@@ -418,6 +496,8 @@ export default function ExplorerChart({
     tooltipBackgroundColor,
     animate,
     valueAxisName,
+    compareEnabled,
+    comparisonExploration?.result?.rows,
   ]);
 
   const hasEmptyData = useMemo(() => {

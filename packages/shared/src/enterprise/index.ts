@@ -6,6 +6,7 @@ export * from "./power";
 export * from "./decision-criteria";
 export * from "./dashboards";
 export * from "./product-analytics/sql";
+export * from "./product-analytics/compare-date-range";
 export * from "./product-analytics/utils";
 export * from "../validators/revisions";
 export * from "./validators/decision-criteria";

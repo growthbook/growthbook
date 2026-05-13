@@ -16,6 +16,7 @@ import {
   ProductAnalyticsExploration,
 } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
+import { buildComparisonDateRange } from "shared/enterprise";
 import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -55,6 +56,13 @@ export interface ExplorerContextValue {
   isSubmittable: boolean;
   managedWarehouseAwaitingProvisioning: boolean;
   trackingSource: string | undefined;
+
+  compareEnabled: boolean;
+  comparisonExploration: ProductAnalyticsExploration | null;
+  comparisonQuery: QueryInterface | null;
+  comparisonError: string | null;
+  comparisonLoading: boolean;
+  setCompareEnabled: (value: boolean) => void;
 
   // ─── Modifiers ─────────────────────────────────────────────────────────
   setDraftExploreState: (action: SetDraftStateAction) => void;
@@ -106,6 +114,8 @@ export function ExplorerProvider({
   trackingSource,
 }: ExplorerProviderProps) {
   const { loading, fetchData } = useExploreData();
+  const { loading: comparisonLoading, fetchData: fetchComparisonData } =
+    useExploreData();
   const {
     getFactTableById,
     getFactMetricById,
@@ -143,6 +153,14 @@ export function ExplorerProvider({
     };
   });
   const [isStale, setIsStale] = useState(false);
+  const [compareEnabled, setCompareEnabledState] = useState(false);
+  const [comparisonExploration, setComparisonExploration] =
+    useState<ProductAnalyticsExploration | null>(null);
+  const [comparisonQuery, setComparisonQuery] = useState<QueryInterface | null>(
+    null,
+  );
+  const [comparisonError, setComparisonError] = useState<string | null>(null);
+  const comparisonRequestIdRef = useRef(0);
   const hasEverFetchedRef = useRef(false);
   const skipNextAutoSubmitRef = useRef(false);
   const submitRequestIdRef = useRef(0);
@@ -233,6 +251,57 @@ export function ExplorerProvider({
   const error = explorerState.error;
   const submittedExploreState = explorerState.submittedState;
   const query = explorerState.query;
+
+  const explorationRunKey =
+    data?.runStarted != null ? String(data.runStarted) : "";
+
+  const setCompareEnabled = useCallback((value: boolean) => {
+    setCompareEnabledState(value);
+    if (!value) {
+      comparisonRequestIdRef.current += 1;
+      setComparisonExploration(null);
+      setComparisonQuery(null);
+      setComparisonError(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (
+      !compareEnabled ||
+      !submittedExploreState ||
+      managedWarehouseAwaitingProvisioning
+    ) {
+      return;
+    }
+    const comparisonDateRange = buildComparisonDateRange(
+      submittedExploreState.dateRange,
+    );
+    const config = cleanConfigForSubmission({
+      ...submittedExploreState,
+      dateRange: comparisonDateRange,
+    });
+    if (!isSubmittableConfig(config)) {
+      return;
+    }
+    const requestId = ++comparisonRequestIdRef.current;
+    void (async () => {
+      const {
+        data: cmpData,
+        query: cmpQuery,
+        error: cmpErr,
+      } = await fetchComparisonData(config, { cache: "preferred" });
+      if (requestId !== comparisonRequestIdRef.current) return;
+      setComparisonExploration(cmpData);
+      setComparisonQuery(cmpQuery ?? null);
+      setComparisonError(cmpErr || cmpData?.error || null);
+    })();
+  }, [
+    compareEnabled,
+    submittedExploreState,
+    managedWarehouseAwaitingProvisioning,
+    fetchComparisonData,
+    explorationRunKey,
+  ]);
 
   const commonColumns = useMemo(() => {
     return getCommonColumns(
@@ -552,6 +621,11 @@ export function ExplorerProvider({
 
   const clearAllDatasets = useCallback(
     (newDatasourceId?: string) => {
+      comparisonRequestIdRef.current += 1;
+      setCompareEnabledState(false);
+      setComparisonExploration(null);
+      setComparisonQuery(null);
+      setComparisonError(null);
       const datasourceId: string = newDatasourceId ?? datasources[0]?.id ?? "";
       setIsStale(false);
       if (datasourceId) {
@@ -626,6 +700,12 @@ export function ExplorerProvider({
       clearAllDatasets,
       query,
       trackingSource,
+      compareEnabled,
+      comparisonExploration,
+      comparisonQuery,
+      comparisonError,
+      comparisonLoading,
+      setCompareEnabled,
     }),
     [
       draftExploreState,
@@ -649,6 +729,12 @@ export function ExplorerProvider({
       clearAllDatasets,
       query,
       trackingSource,
+      compareEnabled,
+      comparisonExploration,
+      comparisonQuery,
+      comparisonError,
+      comparisonLoading,
+      setCompareEnabled,
     ],
   );
 
