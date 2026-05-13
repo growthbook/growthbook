@@ -398,6 +398,7 @@ export const experimentInterface = z
     banditBurnInUnit: z.enum(["hours", "days"]).optional(),
     banditConversionWindowValue: z.number().optional().nullable(),
     banditConversionWindowUnit: z.enum(["hours", "days"]).optional().nullable(),
+    banditIsContextual: z.boolean().optional(),
     customFields: z.record(z.string(), z.any()).optional(),
     templateId: z.string().optional(),
     shareLevel: z.enum(["public", "organization"]).optional(),
@@ -736,6 +737,7 @@ const apiExperimentShape = z.object({
   banditBurnInUnit: z.enum(["days", "hours"]).optional(),
   banditConversionWindowValue: z.coerce.number().optional(),
   banditConversionWindowUnit: z.enum(["days", "hours"]).optional(),
+  banditIsContextual: z.boolean().optional(),
   linkedFeatures: z.array(z.string()).optional(),
   hasVisualChangesets: z.boolean().optional(),
   hasURLRedirects: z.boolean().optional(),
@@ -1059,6 +1061,7 @@ const postExperimentBody = z
     banditBurnInUnit: z.enum(["days", "hours"]).optional(),
     banditConversionWindowValue: z.number().optional(),
     banditConversionWindowUnit: z.enum(["days", "hours"]).optional(),
+    banditIsContextual: z.boolean().optional(),
     postStratificationEnabled: z
       .union([
         z.boolean().describe("When null, the organization default is used."),
@@ -1243,6 +1246,7 @@ const updateExperimentBody = z
     banditBurnInUnit: z.enum(["days", "hours"]).optional(),
     banditConversionWindowValue: z.number().optional(),
     banditConversionWindowUnit: z.enum(["days", "hours"]).optional(),
+    banditIsContextual: z.boolean().optional(),
     postStratificationEnabled: z
       .union([
         z.boolean().describe("When null, the organization default is used."),

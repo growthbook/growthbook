@@ -9338,6 +9338,8 @@ paths:
                   enum:
                     - days
                     - hours
+                banditIsContextual:
+                  type: boolean
                 postStratificationEnabled:
                   description: When null, the organization default is used.
                   anyOf:
@@ -9868,6 +9870,8 @@ paths:
                   enum:
                     - days
                     - hours
+                banditIsContextual:
+                  type: boolean
                 postStratificationEnabled:
                   description: When null, the organization default is used.
                   anyOf:
@@ -25833,6 +25837,8 @@ components:
           enum:
             - days
             - hours
+        banditIsContextual:
+          type: boolean
         linkedFeatures:
           type: array
           items:
@@ -26367,6 +26373,8 @@ components:
               enum:
                 - days
                 - hours
+            banditIsContextual:
+              type: boolean
             linkedFeatures:
               type: array
               items:

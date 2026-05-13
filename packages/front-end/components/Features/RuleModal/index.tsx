@@ -215,6 +215,7 @@ export default function RuleModal({
     useState(false);
   const [disableBanditConversionWindow, setDisableBanditConversionWindow] =
     useState(false);
+  const [contextualBandit, setContextualBandit] = useState(false);
 
   const settings = useOrgSettings();
   const { settings: scopedSettings } = getScopedSettings({ organization });
@@ -742,6 +743,35 @@ export default function RuleModal({
           if (!values.datasource) {
             throw new Error("You must select a datasource");
           }
+          if (contextualBandit) {
+            const ds = datasources.find((d) => d.id === values.datasource);
+            const queries = ds?.settings?.queries?.exposure ?? [];
+            const withTargetingAttributes = queries.filter(
+              (q) => (q.targetingAttributeColumns?.length ?? 0) > 0,
+            );
+            if (queries.length > 0 && withTargetingAttributes.length === 0) {
+              setStep(3);
+              throw new Error(
+                "No Experiment Assignment Tables with targeting attributes exist for this data source. Add attributes to an experiment assignment table on the data source page, then try again.",
+              );
+            }
+            if (withTargetingAttributes.length > 0) {
+              const selected = queries.find(
+                (q) => q.id === values.exposureQueryId,
+              );
+              if (
+                !selected?.targetingAttributeColumns?.length ||
+                !withTargetingAttributes.some(
+                  (q) => q.id === values.exposureQueryId,
+                )
+              ) {
+                setStep(3);
+                throw new Error(
+                  "Select an Experiment Assignment Table that has targeting attribute columns configured.",
+                );
+              }
+            }
+          }
           if ((values.goalMetrics?.length ?? 0) !== 1) {
             throw new Error("You must select 1 decision metric");
           }
@@ -858,6 +888,7 @@ export default function RuleModal({
             banditScheduleUnit: values.banditScheduleUnit ?? "days",
             banditBurnInValue: values.banditBurnInValue ?? 1,
             banditBurnInUnit: values.banditBurnInUnit ?? "days",
+            banditIsContextual: contextualBandit,
             ...(shouldIncludeConversionWindow && {
               banditConversionWindowValue: values.banditConversionWindowValue,
               banditConversionWindowUnit: values.banditConversionWindowUnit,
@@ -1710,6 +1741,8 @@ export default function RuleModal({
                   setDisableBanditConversionWindow={
                     setDisableBanditConversionWindow
                   }
+                  contextualBandit={contextualBandit}
+                  setContextualBandit={setContextualBandit}
                   envScope={i === 0 ? envScopeProps : undefined}
                 />
               </Page>

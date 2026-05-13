@@ -2431,6 +2431,7 @@ export async function toExperimentApiInterface(
             experiment.banditConversionWindowValue ?? undefined,
           banditConversionWindowUnit:
             experiment.banditConversionWindowUnit ?? undefined,
+          banditIsContextual: experiment.banditIsContextual ?? false,
         }
       : null),
     linkedFeatures: experiment.linkedFeatures || [],
@@ -3639,6 +3640,7 @@ export function postExperimentApiPayloadToInterface(
       obj.banditConversionWindowValue = payload.banditConversionWindowValue;
       obj.banditConversionWindowUnit = payload.banditConversionWindowUnit;
     }
+    obj.banditIsContextual = payload.banditIsContextual ?? false;
   }
 
   return obj;
@@ -3847,6 +3849,7 @@ export function updateExperimentApiPayloadToInterface(
     decisionFrameworkSettings,
     postStratificationEnabled,
     defaultDashboardId,
+    banditIsContextual,
   } = payload;
 
   let changes: ExperimentInterface = {
@@ -3915,6 +3918,7 @@ export function updateExperimentApiPayloadToInterface(
     ...(payload.banditConversionWindowUnit !== undefined
       ? { banditConversionWindowUnit: payload.banditConversionWindowUnit }
       : {}),
+    ...(banditIsContextual !== undefined ? { banditIsContextual } : {}),
     ...(metricOverrides !== undefined ? { metricOverrides } : {}),
     ...(decisionFrameworkSettings !== undefined
       ? { decisionFrameworkSettings }
