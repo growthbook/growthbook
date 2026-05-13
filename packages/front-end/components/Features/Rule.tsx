@@ -622,7 +622,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       {rule.enabled ? "Disable" : "Enable"}
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
-                  {(onMoveUp || onMoveDown || onMoveToTop || onMoveToBottom) && (
+                  {(onMoveUp ||
+                    onMoveDown ||
+                    onMoveToTop ||
+                    onMoveToBottom) && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuGroup>
