@@ -11,11 +11,9 @@ import {
   FaPencilAlt,
   FaPlus,
   FaSearch,
-  FaSpinner,
 } from "react-icons/fa";
 import { date } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
-import Collapsible from "react-collapsible";
 import { LicenseInterface } from "shared/enterprise";
 import { DataSourceInterface } from "shared/types/datasource";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
@@ -25,10 +23,10 @@ import { canSuperAdminWrite, SuperAdmin } from "shared/validators";
 import Field from "@/components/Forms/Field";
 import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
-import Code from "@/components/SyntaxHighlighting/Code";
 import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
 import { isCloud, isMultiOrg } from "@/services/env";
 import EditOrganization from "@/components/Admin/EditOrganization";
+import { OrganizationSuperAdminExpanded } from "@/components/Admin/OrganizationSuperAdminExpanded";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import CreateOrganization from "@/components/Admin/CreateOrganization";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
@@ -36,12 +34,11 @@ import { useAuth } from "@/services/auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Modal from "@/components/Modal";
 import Switch from "@/ui/Switch";
-import LoadingSpinner from "@/components/LoadingSpinner";
-import ConfirmButton from "@/components/Modal/ConfirmButton";
 import SelectField from "@/components/Forms/SelectField";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
+import Code from "@/components/SyntaxHighlighting/Code";
 
 interface memberOrgProps {
   id: string;
@@ -51,10 +48,11 @@ interface memberOrgProps {
 }
 const numberFormatter = new Intl.NumberFormat();
 
-type PlanFilter = "free" | "pro" | "enterprise";
+type PlanFilter = "all" | "free" | "pro" | "enterprise";
 type MemberRangeFilter = "<5" | "5-20" | "20-50" | "50+";
 
 const PLAN_FILTER_OPTIONS: { value: PlanFilter; label: string }[] = [
+  { value: "all", label: "All" },
   { value: "free", label: "Free" },
   { value: "pro", label: "Pro" },
   { value: "enterprise", label: "Enterprise" },
@@ -82,11 +80,13 @@ function FilterCheckboxes<T extends string>({
   options,
   selected,
   onToggle,
+  multiselect = true,
 }: {
   label: string;
   options: { value: T; label: string }[];
   selected: Set<T>;
   onToggle: (value: T) => void;
+  multiselect?: boolean;
 }) {
   return (
     <div className="d-flex align-items-center" style={{ gap: 8 }}>
@@ -101,7 +101,14 @@ function FilterCheckboxes<T extends string>({
               "btn-primary": active,
               "btn-outline-secondary": !active,
             })}
-            onClick={() => onToggle(opt.value)}
+            onClick={() => {
+              if (!multiselect) {
+                if (active) return;
+                onToggle(opt.value);
+                return;
+              }
+              onToggle(opt.value);
+            }}
           >
             {opt.label}
           </button>
@@ -138,7 +145,6 @@ function OrganizationRow({
     string,
     ExpandedMember
   > | null>(null);
-  const { settings, members, ...otherAttributes } = organization;
   const [license, setLicense] = useState<LicenseInterface | null>(null);
   const [licenseLoading, setLicenseLoading] = useState(false);
   const { apiCall } = useAuth();
@@ -149,27 +155,38 @@ function OrganizationRow({
   const [editSSOOpen, setEditSSOOpen] = useState(false);
 
   useEffect(() => {
-    if (isCloud() && expanded && !license) {
-      const fetchLicense = async () => {
-        setLicenseLoading(true);
+    setManagedWarehouseId(
+      datasources.find((ds) => ds.type === "growthbook_clickhouse")?.id || null,
+    );
+  }, [datasources, organization.id]);
+
+  useEffect(() => {
+    if (!expanded || license) return;
+
+    const fetchLicense = async () => {
+      setLicenseLoading(true);
+      try {
         const res = await apiCall<{
           status: number;
-          licenseData: LicenseInterface;
+          licenseData?: LicenseInterface | null;
         }>(`/license`, {
           method: "GET",
           headers: { "X-Organization": organization.id },
         });
 
-        setLicenseLoading(false);
         if (res.status !== 200) {
           throw new Error("There was an error fetching the license");
         }
 
-        setLicense(res.licenseData);
-      };
+        setLicense(res.licenseData ?? null);
+      } catch {
+        setLicense(null);
+      } finally {
+        setLicenseLoading(false);
+      }
+    };
 
-      fetchLicense();
-    }
+    void fetchLicense();
   }, [expanded, apiCall, license, organization]);
 
   useEffect(() => {
@@ -243,7 +260,7 @@ function OrganizationRow({
       )}
       <tr
         className={clsx({
-          "table-warning": current,
+          highlight: current && !organization.disabled,
           "table-danger": organization.disabled,
         })}
       >
@@ -314,221 +331,19 @@ function OrganizationRow({
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={8} className="bg-light">
-            <h3>Summary</h3>
-            <div
-              className="mb-3 bg-white border p-3"
-              style={{ border: "1px solid var(--border-color-200)" }}
-            >
-              <div className="row">
-                <div className="col-2 text-right">Name:</div>
-                <div className="col-auto font-weight-bold">
-                  {organization.name}
-                </div>
-              </div>
-              <div className="row">
-                <div className="col-2 text-right">ID:</div>
-                <div className="col-auto font-weight-bold">
-                  {organization.id}
-                </div>
-              </div>
-              <div className="row">
-                <div className="col-2 text-right">Verified Domain:</div>
-                <div className="col-auto font-weight-bold">
-                  {organization.verifiedDomain}
-                </div>
-              </div>
-              <div className="row">
-                <div className="col-2 text-right">Auto Approve Members:</div>
-                <div className="col-auto font-weight-bold">
-                  {organization.autoApproveMembers ? "on" : "off"}
-                </div>
-              </div>
-              <div className="row">
-                <div className="col-2 text-right">SSO Enabled:</div>
-                <div className="col-auto font-weight-bold">
-                  {ssoInfo
-                    ? `yes (${
-                        ssoInfo.id
-                      } for domains: ${ssoInfo.emailDomains?.join(", ")})`
-                    : "no"}
-                </div>
-                {isCloud() && canWrite && (
-                  <div className="col-auto">
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setEditSSOOpen(true);
-                      }}
-                    >
-                      Edit
-                    </a>
-                  </div>
-                )}
-              </div>
-              <div className="row">
-                <div className="col-2 text-right">Restrict Login Method:</div>
-                <div className="col-auto font-weight-bold">
-                  {organization?.restrictLoginMethod || "no"}
-                </div>
-              </div>
-              <div className="row">
-                <div className="col-2 text-right">Num Members:</div>
-                <div className="col-auto font-weight-bold">
-                  {organization.members.length}
-                </div>
-              </div>
-              <div className="row">
-                <div className="col-2 text-right">Num Invited:</div>
-                <div className="col-auto font-weight-bold">
-                  {organization.invites.length}
-                </div>
-              </div>
-              {isCloud() && (
-                <>
-                  <div className="row">
-                    <div className="col-2 text-right">Enterprise (legacy):</div>
-                    <div className="col-auto font-weight-bold">
-                      {organization?.enterprise ? "yes" : "no"}
-                    </div>
-                  </div>
-                  <div className="row">
-                    <div className="col-2 text-right">License Key:</div>
-                    <div className="col-auto font-weight-bold">
-                      {organization?.licenseKey ? organization.licenseKey : "-"}
-                    </div>
-                  </div>
-                  {((license || licenseLoading) && (
-                    <div className="row">
-                      <div className="col-2 text-right">Seats</div>
-                      <div className="col-auto font-weight-bold">
-                        {licenseLoading && <LoadingSpinner />}
-                        {license && license.seats}
-                      </div>
-                    </div>
-                  )) || // Only show free seats if they are on a free plan, ie. there is no license, no subscription, nor are they on a legacy enterprise
-                    (!organization?.enterprise && (
-                      <div className="row">
-                        <div className="col-2 text-right">Free Seats:</div>
-                        <div className="col-auto font-weight-bold">
-                          {organization?.freeSeats ?? 3}
-                        </div>
-                      </div>
-                    ))}
-                  <div className="row">
-                    <div className="col-2 text-right">Managed Warehouse</div>
-                    <div className="col-auto">
-                      {!canWrite ? (
-                        <span className="text-muted">
-                          {managedWarehouseId
-                            ? "(read-only)"
-                            : "No database created"}
-                        </span>
-                      ) : managedWarehouseId ? (
-                        <ConfirmButton
-                          isDestructive
-                          onClick={async () => {
-                            await apiCall(
-                              `/datasource/${managedWarehouseId}/recreate-managed-warehouse`,
-                              {
-                                method: "POST",
-                                headers: { "X-Organization": organization.id },
-                              },
-                            );
-                          }}
-                          confirmationText={
-                            <span>
-                              Are you sure? This may take several minutes and
-                              all queries during this time will fail.
-                            </span>
-                          }
-                          modalHeader="Drop and Recreate Managed Warehouse"
-                        >
-                          <a href="#" className="text-danger">
-                            Drop and Recreate Database
-                          </a>
-                        </ConfirmButton>
-                      ) : (
-                        <a
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setClickhouseModalOpen(true);
-                          }}
-                        >
-                          Create Database
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-            <div className="mb-3">
-              <Collapsible
-                trigger={
-                  <h3>
-                    Other Attributes <FaAngleRight className="chevron" />
-                  </h3>
-                }
-                transitionTime={150}
-              >
-                <Code language="json" code={stringify(otherAttributes)} />
-              </Collapsible>
-            </div>
-            <div className="mb-3">
-              <Collapsible
-                trigger={
-                  <h3>
-                    Settings <FaAngleRight className="chevron" />
-                  </h3>
-                }
-                transitionTime={150}
-              >
-                <Code language="json" code={stringify(settings)} />
-              </Collapsible>
-            </div>
-            <Collapsible
-              trigger={
-                <h3>
-                  Members <FaAngleRight className="chevron" />
-                </h3>
-              }
-              transitionTime={150}
-            >
-              <Code
-                language="json"
-                code={stringify(
-                  members.map((m) => {
-                    const mInfo = orgMembers?.get(m.id) ?? null;
-                    return {
-                      name: mInfo?.name ?? "-",
-                      email: mInfo?.email ?? "-",
-                      ...m,
-                    };
-                  }),
-                )}
-              />
-            </Collapsible>
-            {isCloud() && (
-              <div className="mt-3">
-                <Collapsible
-                  trigger={
-                    <h3>
-                      License <FaAngleRight className="chevron" />
-                    </h3>
-                  }
-                  transitionTime={150}
-                >
-                  {licenseLoading && <FaSpinner />}
-                  {(license && (
-                    <Code language="json" code={stringify(license)} />
-                  )) ||
-                    "No license found for this organization."}
-                </Collapsible>
-              </div>
-            )}
+          <td colSpan={8} className="bg-light p-3">
+            <OrganizationSuperAdminExpanded
+              organization={organization}
+              ssoInfo={ssoInfo}
+              orgMembers={orgMembers}
+              license={license}
+              licenseLoading={licenseLoading}
+              managedWarehouseId={managedWarehouseId}
+              canWrite={canWrite}
+              onOrgListRefresh={onEdit}
+              onOpenEditSSO={() => setEditSSOOpen(true)}
+              onOpenCreateManagedWarehouse={() => setClickhouseModalOpen(true)}
+            />
           </td>
         </tr>
       )}
@@ -569,7 +384,7 @@ function MemberRow({
       )}
       <tr
         className={clsx({
-          "table-warning": current,
+          highlight: current,
         })}
       >
         <td>{member.name}</td>
@@ -658,7 +473,7 @@ function MemberRow({
 const Admin: FC = () => {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [planFilters, setPlanFilters] = useState<Set<PlanFilter>>(new Set());
+  const [planFilter, setPlanFilter] = useState<PlanFilter>("all");
   const [memberRangeFilters, setMemberRangeFilters] = useState<
     Set<MemberRangeFilter>
   >(new Set());
@@ -695,7 +510,7 @@ const Admin: FC = () => {
     async (
       page: number,
       search: string,
-      planValues: PlanFilter[],
+      plan: PlanFilter,
       memberRangeValues: MemberRangeFilter[],
     ) => {
       setLoading(true);
@@ -703,7 +518,9 @@ const Admin: FC = () => {
 
       params.append("page", page + "");
       params.append("search", search);
-      if (planValues.length) params.append("plans", planValues.join(","));
+      if (plan !== "all") {
+        params.append("plan", plan);
+      }
       if (memberRangeValues.length)
         params.append("memberRanges", memberRangeValues.join(","));
 
@@ -764,8 +581,8 @@ const Admin: FC = () => {
 
   const reloadOrgs = useCallback(
     (nextPage: number) =>
-      loadOrgs(nextPage, search, [...planFilters], [...memberRangeFilters]),
-    [loadOrgs, search, planFilters, memberRangeFilters],
+      loadOrgs(nextPage, search, planFilter, [...memberRangeFilters]),
+    [loadOrgs, search, planFilter, memberRangeFilters],
   );
 
   const reloadMembers = useCallback(
@@ -776,7 +593,7 @@ const Admin: FC = () => {
   useEffect(() => {
     if (!superAdmin) return;
 
-    loadOrgs(page, search, [...planFilters], [...memberRangeFilters]);
+    loadOrgs(page, search, planFilter, [...memberRangeFilters]);
     loadMembers(memberPage, memberSearch, superAdminFilter);
     // eslint-disable-next-line
   }, [superAdmin]);
@@ -846,19 +663,17 @@ const Admin: FC = () => {
               <FaPlus /> New Organization
             </button>
           )}
-          <div className="mb-2 row align-items-center">
-            <div className="col-auto">
+          <div className="mb-2">
+            <div
+              className="d-flex flex-wrap align-items-center"
+              style={{ gap: "0.75rem 1rem" }}
+            >
               <form
-                className="d-flex form form-inline"
+                className="d-flex form form-inline align-items-center mb-0"
                 onSubmit={(e) => {
                   e.preventDefault();
                   setPage(1);
-                  loadOrgs(
-                    1,
-                    search,
-                    [...planFilters],
-                    [...memberRangeFilters],
-                  );
+                  loadOrgs(1, search, planFilter, [...memberRangeFilters]);
                 }}
               >
                 <Field
@@ -874,54 +689,47 @@ const Admin: FC = () => {
                   </button>
                 </div>
               </form>
-            </div>
-            <div className="col-auto">
-              <span className="text-muted">
-                {numberFormatter.format(total)} matching organization
-                {total === 1 ? "" : "s"}
-              </span>
-            </div>
-          </div>
-          <div
-            className="mb-2 d-flex flex-wrap align-items-center"
-            style={{ gap: 16 }}
-          >
-            <FilterCheckboxes<PlanFilter>
-              label="Plan"
-              options={PLAN_FILTER_OPTIONS}
-              selected={planFilters}
-              onToggle={(value) => {
-                const next = toggleSetValue(planFilters, value);
-                setPlanFilters(next);
-                setPage(1);
-                loadOrgs(1, search, [...next], [...memberRangeFilters]);
-              }}
-            />
-            <FilterCheckboxes<MemberRangeFilter>
-              label="Members"
-              options={MEMBER_RANGE_OPTIONS}
-              selected={memberRangeFilters}
-              onToggle={(value) => {
-                const next = toggleSetValue(memberRangeFilters, value);
-                setMemberRangeFilters(next);
-                setPage(1);
-                loadOrgs(1, search, [...planFilters], [...next]);
-              }}
-            />
-            {(planFilters.size > 0 || memberRangeFilters.size > 0) && (
-              <button
-                type="button"
-                className="btn btn-sm btn-link"
-                onClick={() => {
-                  setPlanFilters(new Set());
-                  setMemberRangeFilters(new Set());
+              <FilterCheckboxes<PlanFilter>
+                multiselect={false}
+                label="Plan"
+                options={PLAN_FILTER_OPTIONS}
+                selected={new Set([planFilter])}
+                onToggle={(value) => {
+                  setPlanFilter(value);
                   setPage(1);
-                  loadOrgs(1, search, [], []);
+                  loadOrgs(1, search, value, [...memberRangeFilters]);
                 }}
-              >
-                Clear filters
-              </button>
-            )}
+              />
+              <FilterCheckboxes<MemberRangeFilter>
+                label="Members"
+                options={MEMBER_RANGE_OPTIONS}
+                selected={memberRangeFilters}
+                onToggle={(value) => {
+                  const next = toggleSetValue(memberRangeFilters, value);
+                  setMemberRangeFilters(next);
+                  setPage(1);
+                  loadOrgs(1, search, planFilter, [...next]);
+                }}
+              />
+              {(planFilter !== "all" || memberRangeFilters.size > 0) && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-link"
+                  onClick={() => {
+                    setPlanFilter("all");
+                    setMemberRangeFilters(new Set());
+                    setPage(1);
+                    loadOrgs(1, search, "all", []);
+                  }}
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+            <div className="text-muted small mt-1">
+              {numberFormatter.format(total)} matching organization
+              {total === 1 ? "" : "s"}
+            </div>
           </div>
           {error && <Callout status="error">{error}</Callout>}
           <div className="position-relative">
@@ -1002,10 +810,13 @@ const Admin: FC = () => {
         </TabsContent>
 
         <TabsContent value="members">
-          <div className="mb-2 row align-items-center">
-            <div className="col-auto">
+          <div className="mb-2">
+            <div
+              className="d-flex flex-wrap align-items-center"
+              style={{ gap: "0.75rem 1rem" }}
+            >
               <form
-                className="d-flex form form-inline"
+                className="d-flex form form-inline align-items-center mb-0"
                 onSubmit={(e) => {
                   e.preventDefault();
                   setMemberPage(1);
@@ -1026,40 +837,33 @@ const Admin: FC = () => {
                   </button>
                 </div>
               </form>
+              <FilterCheckboxes<"yes" | "no" | "all">
+                label="Super Admin"
+                options={[
+                  { value: "all", label: "All" },
+                  { value: "yes", label: "Yes" },
+                  { value: "no", label: "No" },
+                ]}
+                selected={new Set([superAdminFilter])}
+                onToggle={(value) => {
+                  const next = value;
+                  if (next === superAdminFilter) return;
+                  setSuperAdminFilter(next);
+                  setMemberPage(1);
+                  loadMembers(1, memberSearch, next);
+                }}
+              />
+              {memberSearch.startsWith("org_") && (
+                <span className="text-muted small">
+                  Searching members of organization {memberSearch}
+                </span>
+              )}
             </div>
-            <div className="col-auto">
-              <span className="text-muted">
-                {numberFormatter.format(totalMembers)}{" "}
-                {memberSearch ? "matching" : ""} member
-                {totalMembers === 1 ? "" : "s"}
-              </span>
+            <div className="text-muted small mt-1">
+              {numberFormatter.format(totalMembers)}{" "}
+              {memberSearch ? "matching" : ""} member
+              {totalMembers === 1 ? "" : "s"}
             </div>
-          </div>
-          <div
-            className="mb-2 d-flex flex-wrap align-items-center"
-            style={{ gap: 16 }}
-          >
-            <FilterCheckboxes<"yes" | "no" | "all">
-              label="Super Admin"
-              options={[
-                { value: "all", label: "All" },
-                { value: "yes", label: "Yes" },
-                { value: "no", label: "No" },
-              ]}
-              selected={new Set([superAdminFilter])}
-              onToggle={(value) => {
-                const next = value;
-                if (next === superAdminFilter) return;
-                setSuperAdminFilter(next);
-                setMemberPage(1);
-                loadMembers(1, memberSearch, next);
-              }}
-            />
-            {memberSearch.startsWith("org_") && (
-              <span className="text-muted small">
-                Searching members of organization {memberSearch}
-              </span>
-            )}
           </div>
           {memberError && <Callout status="error">{memberError}</Callout>}
           <div className="position-relative">

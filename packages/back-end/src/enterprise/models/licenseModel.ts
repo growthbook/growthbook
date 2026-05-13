@@ -70,3 +70,18 @@ export async function getLicenseByKey(
   const doc = await LicenseModel.findOne({ id: key });
   return doc ? toInterface(doc) : null;
 }
+
+/** Organization ids from non-archived cached licenses whose `plan` is in `plans`. */
+export async function getOrganizationIdsFromLicensesWithPlans(
+  plans: string[],
+): Promise<string[]> {
+  if (!plans.length) return [];
+  const ids = await LicenseModel.distinct("organizationId", {
+    archived: { $ne: true },
+    plan: { $in: plans },
+    organizationId: { $exists: true, $nin: [null, ""] },
+  });
+  return (ids as string[]).filter(
+    (id): id is string => typeof id === "string" && id.length > 0,
+  );
+}

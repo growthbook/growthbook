@@ -253,6 +253,28 @@ export type AdminOrgMemberRange = "<5" | "5-20" | "20-50" | "50+";
 
 export type AdminOrgPlanFilter = "free" | "pro" | "enterprise";
 
+export type AdminOrgPlanQueryParam = "all" | AdminOrgPlanFilter;
+
+/** Super-admin org list plan handling (see admin controller). */
+export type AdminOrganizationPlanMode =
+  | { mode: "none" }
+  | {
+      mode: "effective_free";
+      predicate: (org: OrganizationInterface) => boolean;
+    }
+  | { mode: "id_in"; ids: string[] };
+
+export async function getOrganizationIdsWithLegacyEnterpriseFlag(): Promise<
+  string[]
+> {
+  const docs = await OrganizationModel.find({ enterprise: true })
+    .select({ id: 1, _id: 0 })
+    .lean();
+  return docs
+    .map((d: { id?: string }) => d.id)
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
+}
+
 const memberRangeToBounds: Record<
   AdminOrgMemberRange,
   { min?: number; max?: number }
@@ -273,10 +295,10 @@ export async function findAllOrganizations(
   options: {
     limit?: number;
     memberRanges?: AdminOrgMemberRange[];
-    planFilter?: (org: OrganizationInterface) => boolean;
+    plan?: AdminOrganizationPlanMode;
   } = {},
 ) {
-  const { limit = 50, memberRanges, planFilter } = options;
+  const { limit = 50, memberRanges, plan = { mode: "none" } } = options;
   const regex = search ? new RegExp(escapeRegex(search), "i") : null;
 
   const query: Record<string, unknown> = {};
@@ -306,12 +328,23 @@ export async function findAllOrganizations(
     };
   }
 
-  // Plan filter is applied in JS after the Mongo query because the effective
-  // plan depends on the license, which is not stored on the org doc. When a
-  // plan filter is set we need to fetch all matching orgs and slice in JS.
-  if (planFilter) {
+  if (plan.mode === "id_in") {
+    if (!plan.ids.length) {
+      return { organizations: [], total: 0 };
+    }
+    query.id = { $in: plan.ids };
+    const total = await OrganizationModel.find(query).countDocuments();
+    const docs = await OrganizationModel.find(query)
+      .sort({ _id: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+    return { organizations: docs.map(toInterface), total };
+  }
+
+  // "Free" uses effective plan (license cache + org flags), not stored on the org doc.
+  if (plan.mode === "effective_free") {
     const docs = await OrganizationModel.find(query).sort({ _id: -1 });
-    const filtered = docs.map(toInterface).filter(planFilter);
+    const filtered = docs.map(toInterface).filter(plan.predicate);
     const start = (page - 1) * limit;
     return {
       organizations: filtered.slice(start, start + limit),

@@ -25,10 +25,14 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   AdminOrgMemberRange,
   AdminOrgPlanFilter,
+  AdminOrgPlanQueryParam,
+  AdminOrganizationPlanMode,
   findAllOrganizations,
   findOrganizationsByMemberIds,
+  getOrganizationIdsWithLegacyEnterpriseFlag,
   updateOrganization,
 } from "back-end/src/models/OrganizationModel";
+import { getOrganizationIdsFromLicensesWithPlans } from "back-end/src/enterprise/models/licenseModel";
 import {
   getContextFromReq,
   getOrganizationById,
@@ -58,6 +62,33 @@ function buildPlanFilter(plans: AdminOrgPlanFilter[] | undefined) {
     allowed.has(getEffectiveAccountPlan(org));
 }
 
+async function resolveOrganizationPlanMode(
+  plan: AdminOrgPlanQueryParam,
+): Promise<AdminOrganizationPlanMode> {
+  if (plan === "all") return { mode: "none" };
+  if (plan === "free") {
+    const predicate = buildPlanFilter(["free"]);
+    return predicate ? { mode: "effective_free", predicate } : { mode: "none" };
+  }
+  if (plan === "pro") {
+    const ids = await getOrganizationIdsFromLicensesWithPlans([
+      "pro",
+      "pro_sso",
+    ]);
+    return { mode: "id_in", ids };
+  }
+  if (plan === "enterprise") {
+    const fromLicenses =
+      await getOrganizationIdsFromLicensesWithPlans(["enterprise"]);
+    const legacy = await getOrganizationIdsWithLegacyEnterpriseFlag();
+    return {
+      mode: "id_in",
+      ids: [...new Set([...fromLicenses, ...legacy])],
+    };
+  }
+  return { mode: "none" };
+}
+
 function parseCsvParam<T extends string>(
   raw: string | undefined,
   allowed: ReadonlySet<string>,
@@ -76,12 +107,6 @@ const memberRangeSet: ReadonlySet<string> = new Set([
   "20-50",
   "50+",
 ]);
-const planFilterSet: ReadonlySet<string> = new Set([
-  "free",
-  "pro",
-  "enterprise",
-]);
-
 function requireSuperAdminWrite(
   req: AuthRequest<unknown, unknown, unknown>,
   res: Response,
@@ -112,7 +137,7 @@ export async function _dangerousAdminGetOrganizations(
       page?: string;
       search?: string;
       memberRanges?: string;
-      plans?: string;
+      plan?: string;
     }
   >,
   res: Response,
@@ -124,20 +149,27 @@ export async function _dangerousAdminGetOrganizations(
     });
   }
 
-  const { page, search, memberRanges, plans } = req.query;
+  const { page, search, memberRanges, plan: planQuery } = req.query;
 
   const parsedMemberRanges = parseCsvParam<AdminOrgMemberRange>(
     memberRanges,
     memberRangeSet,
   );
-  const parsedPlans = parseCsvParam<AdminOrgPlanFilter>(plans, planFilterSet);
+
+  const planParam: AdminOrgPlanQueryParam =
+    typeof planQuery === "string" &&
+    ["all", "free", "pro", "enterprise"].includes(planQuery)
+      ? (planQuery as AdminOrgPlanQueryParam)
+      : "all";
+
+  const planMode = await resolveOrganizationPlanMode(planParam);
 
   const { organizations, total } = await findAllOrganizations(
     parseIntWithDefault(page, 1),
     search || "",
     {
       memberRanges: parsedMemberRanges,
-      planFilter: buildPlanFilter(parsedPlans),
+      plan: planMode,
     },
   );
 
