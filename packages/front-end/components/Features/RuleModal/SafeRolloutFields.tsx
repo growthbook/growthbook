@@ -27,6 +27,10 @@ import {
   AttributeOptionWithTooltip,
   type AttributeOptionForTooltip,
 } from "@/components/Features/AttributeOptionTooltip";
+import RuleEnvironmentScopeField, {
+  type EnvScopeProps,
+} from "@/components/Features/RuleModal/EnvironmentScopeField";
+
 export default function SafeRolloutFields({
   feature,
   environment,
@@ -39,6 +43,7 @@ export default function SafeRolloutFields({
   defaultValues,
   setScheduleToggleEnabled,
   scheduleToggleEnabled,
+  envScope,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -51,6 +56,7 @@ export default function SafeRolloutFields({
   setScheduleToggleEnabled: (b: boolean) => void;
   mode: "create" | "edit" | "duplicate";
   isDraft: boolean;
+  envScope: EnvScopeProps;
 }) {
   const form = useFormContext();
   const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
@@ -453,6 +459,7 @@ export default function SafeRolloutFields({
         {...form.register("description")}
         placeholder="Short human-readable description of the safe rollout"
       />
+      <RuleEnvironmentScopeField {...envScope} mt="2" mb="7" />
       {renderVariationFieldSelector()}
       {renderDataAndMetrics()}
       <ScheduleInputs

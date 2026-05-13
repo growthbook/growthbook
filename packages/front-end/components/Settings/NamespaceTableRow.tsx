@@ -188,7 +188,7 @@ export default function NamespaceTableRow({
                             },
                             confirmationTitle: "Disable Namespace",
                             cta: "Disable",
-                            submitColor: "danger",
+                            ctaColor: "red",
                             getConfirmationContent: async () =>
                               `This namespace has ${uniqueExperimentCount} experiment${uniqueExperimentCount !== 1 ? "s" : ""} using it. Disabling hides it from the namespace picker but does not affect existing experiments or the SDK payload.`,
                           }

@@ -12,10 +12,14 @@ export default function RevisionLabel({
   version,
   title,
   numbered = true,
+  minWidth = "1.9em",
+  numberSize = "small",
 }: {
   version: number;
   title?: string | null;
   numbered?: boolean;
+  minWidth?: string | number;
+  numberSize?: "small" | "medium" | "large" | "x-large" | "inherit";
 }) {
   return (
     <>
@@ -23,12 +27,12 @@ export default function RevisionLabel({
         <span
           style={{
             display: "inline-block",
-            minWidth: "1.9em",
+            minWidth,
             paddingRight: ".4em",
             fontVariantNumeric: "tabular-nums",
           }}
         >
-          <Text as="span" color="text-mid" size="small">
+          <Text as="span" color="text-mid" size={numberSize}>
             {version}.
           </Text>
         </span>
