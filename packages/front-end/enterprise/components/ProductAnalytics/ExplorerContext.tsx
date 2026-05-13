@@ -580,18 +580,10 @@ export function ExplorerProvider({
       }
       setDraftExploreState((prev) => {
         let dimensions = prev.dimensions;
-        let dataset = prev.dataset;
 
-        // Big Number: normalize to single value and no dimensions so config matches what we display
+        // Big Number: no dimensions; keep full dataset values unchanged
         if (chartType === "bigNumber") {
           dimensions = [];
-          const values = prev.dataset?.values ?? [];
-          if (values.length > 1) {
-            dataset = {
-              ...prev.dataset,
-              values: values.slice(0, 1),
-            } as ExplorationConfig["dataset"];
-          }
         } else {
           // Time-series charts (line, area) need date dimensions
           const isTimeSeriesChart =
@@ -612,7 +604,7 @@ export function ExplorerProvider({
             ];
           }
         }
-        return { ...prev, chartType, dimensions, dataset } as ExplorationConfig;
+        return { ...prev, chartType, dimensions } as ExplorationConfig;
       });
     },
     [
