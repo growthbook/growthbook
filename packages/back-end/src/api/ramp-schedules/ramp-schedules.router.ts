@@ -7,10 +7,12 @@ import {
   completeRampSchedule,
   approveStepRampSchedule,
   rollbackRampSchedule,
+  restartRampSchedule,
   addTargetRampSchedule,
   ejectTargetRampSchedule,
   apiAdvanceRampSchedule,
   getRampScheduleStatus,
+  setMonitoringModeRampSchedule,
   setAutoUpdateRampSchedule,
 } from "./rampScheduleActions";
 import { listRampSchedules } from "./listRampSchedules";
@@ -25,6 +27,7 @@ export const rampSchedulesRoutes: OpenApiRoute[] = [
   pauseRampSchedule,
   resumeRampSchedule,
   rollbackRampSchedule,
+  restartRampSchedule,
   jumpRampSchedule,
   completeRampSchedule,
   approveStepRampSchedule,
@@ -32,5 +35,6 @@ export const rampSchedulesRoutes: OpenApiRoute[] = [
   ejectTargetRampSchedule,
   apiAdvanceRampSchedule,
   getRampScheduleStatus,
+  setMonitoringModeRampSchedule,
   setAutoUpdateRampSchedule,
 ];

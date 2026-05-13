@@ -58,6 +58,10 @@ export const experimentHealthActionArray = [
 export const experimentHealthAction = z.enum(experimentHealthActionArray);
 export type ExperimentHealthAction = z.infer<typeof experimentHealthAction>;
 
+export const rampMonitoringModeArray = ["auto", "manual"] as const;
+export const rampMonitoringMode = z.enum(rampMonitoringModeArray);
+export type RampMonitoringMode = z.infer<typeof rampMonitoringMode>;
+
 // ---------------------------------------------------------------------------
 // Monitoring config — schedule-level analysis settings for monitored steps
 // ---------------------------------------------------------------------------
@@ -68,6 +72,7 @@ export const rampMonitoringConfig = z.object({
   guardrailMetricIds: z.array(z.string()),
   signalMetricIds: z.array(z.string()).optional(),
   updateScheduleMinutes: z.number().positive().optional().nullable(),
+  monitoringMode: rampMonitoringMode.optional(),
   autoUpdate: z.boolean().optional(),
   srmAction: experimentHealthAction.optional(),
   noTrafficAction: experimentHealthAction.optional(),
@@ -185,6 +190,7 @@ export const rampEventTypeArray = [
   "approval-granted",
   "rollback",
   "reset",
+  "restart",
   "completed",
   "config-edited",
   "error-paused",
@@ -259,6 +265,10 @@ export const rampScheduleValidator = baseSchema
 
     // Runtime tracking fields
     currentStepEnteredAt: z.date().nullish(),
+    // Timestamp for when the monitored portion of the schedule most recently
+    // started (i.e. first monitored step entered). Used to suppress premature
+    // no-traffic warnings/rollbacks immediately after entering monitoring.
+    monitoringStartDate: z.date().nullish(),
     // Next time the ramp job should trigger a snapshot for the current
     // monitored step. Drives nextProcessAt when nextStepAt is null.
     nextSnapshotAt: z.date().nullish(),
@@ -453,15 +463,35 @@ export const apiRampScheduleInterface = namedSchema(
     monitoringConfig: rampMonitoringConfig.nullish(),
     experimentHealthAction: experimentHealthAction.optional(),
     currentStepEnteredAt: z.iso.datetime().nullish(),
+    monitoringStartDate: z.iso
+      .datetime()
+      .nullish()
+      .describe(
+        "When the monitored section most recently started (first monitored step entered). Used for no-traffic grace period gating.",
+      ),
     lastRollbackAt: z.iso.datetime().nullish(),
     lastRollbackReason: z.string().nullish(),
     monitoringStatus: z
       .object({
         safeRolloutId: z.string().nullish(),
+        monitoringMode: rampMonitoringMode.describe(
+          "User-selected monitoring mode. `auto` schedules snapshots automatically; `manual` requires clicking Update.",
+        ),
         autoUpdate: z
           .boolean()
           .describe(
-            "Whether automatic snapshot queries are enabled. Toggle via the set-auto-update action.",
+            "Legacy alias for auto-update behavior. Prefer `monitoringMode` (`auto` means true, `manual` means false).",
+          ),
+        effectiveAutoUpdate: z
+          .boolean()
+          .describe(
+            "Computed runtime flag. True only when monitoring mode is auto and schedule state allows automatic snapshot scheduling.",
+          ),
+        blockedReason: z
+          .string()
+          .nullish()
+          .describe(
+            "When `effectiveAutoUpdate` is false, this describes the computed reason auto-updates are currently blocked.",
           ),
         nextSnapshotAt: z.iso
           .datetime()

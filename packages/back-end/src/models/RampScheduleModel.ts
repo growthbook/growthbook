@@ -17,6 +17,9 @@ import {
   appendRampEvent,
   computeNextProcessAt,
   dispatchRampEvent,
+  getEffectiveRampAutoUpdateState,
+  getRampAutoUpdatePreference,
+  getRampMonitoringMode,
 } from "back-end/src/services/rampSchedule";
 import { applyPagination } from "back-end/src/util/handler";
 import {
@@ -135,17 +138,25 @@ export function rampScheduleToApiInterface(
       : doc.monitoringConfig,
     experimentHealthAction: doc.experimentHealthAction,
     currentStepEnteredAt: dateToIso(doc.currentStepEnteredAt),
+    monitoringStartDate: dateToIso(doc.monitoringStartDate),
     lastRollbackAt: dateToIso(doc.lastRollbackAt),
     lastRollbackReason: doc.lastRollbackReason,
     monitoringStatus: doc.monitoringConfig
-      ? {
-          safeRolloutId: doc.safeRolloutId ?? null,
-          autoUpdate: doc.monitoringConfig.autoUpdate !== false,
-          nextSnapshotAt: dateToIso(doc.nextSnapshotAt),
-          currentStepMonitored:
-            doc.currentStepIndex >= 0 &&
-            !!doc.steps[doc.currentStepIndex]?.monitored,
-        }
+      ? (() => {
+          const autoUpdateState = getEffectiveRampAutoUpdateState(doc);
+          const monitoringMode = getRampMonitoringMode(doc.monitoringConfig);
+          return {
+            safeRolloutId: doc.safeRolloutId ?? null,
+            monitoringMode,
+            autoUpdate: getRampAutoUpdatePreference(doc.monitoringConfig),
+            effectiveAutoUpdate: autoUpdateState.enabled,
+            blockedReason: autoUpdateState.reason,
+            nextSnapshotAt: dateToIso(doc.nextSnapshotAt),
+            currentStepMonitored:
+              doc.currentStepIndex >= 0 &&
+              !!doc.steps[doc.currentStepIndex]?.monitored,
+          };
+        })()
       : undefined,
   };
 }
@@ -672,7 +683,14 @@ export class RampScheduleModel extends BaseClass {
       updates.lockdownConfig = body.lockdownConfig;
     }
     if (body.monitoringConfig !== undefined) {
-      updates.monitoringConfig = body.monitoringConfig;
+      const monitoringConfig = body.monitoringConfig;
+      updates.monitoringConfig =
+        monitoringConfig && monitoringConfig.monitoringMode
+          ? {
+              ...monitoringConfig,
+              autoUpdate: monitoringConfig.monitoringMode === "auto",
+            }
+          : monitoringConfig;
     }
     if (body.experimentHealthAction !== undefined) {
       updates.experimentHealthAction = body.experimentHealthAction;
@@ -703,7 +721,8 @@ export class RampScheduleModel extends BaseClass {
     const updated = await this.updateById(schedule.id, updates);
 
     if (
-      body.monitoringConfig?.autoUpdate !== undefined &&
+      (body.monitoringConfig?.autoUpdate !== undefined ||
+        body.monitoringConfig?.monitoringMode !== undefined) &&
       schedule.safeRolloutId
     ) {
       const sr = await this.context.models.safeRollout.getById(
@@ -711,7 +730,7 @@ export class RampScheduleModel extends BaseClass {
       );
       if (sr) {
         await this.context.models.safeRollout.update(sr, {
-          autoSnapshots: body.monitoringConfig.autoUpdate !== false,
+          autoSnapshots: getRampAutoUpdatePreference(body.monitoringConfig),
         });
       }
     }

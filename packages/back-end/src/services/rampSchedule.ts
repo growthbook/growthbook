@@ -5,6 +5,7 @@ import {
   FeatureRulePatch,
   RampEvent,
   RampEventType,
+  RampMonitoringMode,
   RampScheduleInterface,
   RampScheduleTemplateInterface,
   RampStepAction,
@@ -32,6 +33,83 @@ import {
 const LOCKDOWN_ACTIVE_STATUSES = ["running", "pending-approval"] as const;
 
 const MAX_EVENT_HISTORY = 500;
+export const MONITORING_NO_TRAFFIC_GRACE_PERIOD_MS = 24 * 60 * 60 * 1000;
+
+export function getFirstMonitoredStepIndex(
+  schedule: Pick<RampScheduleInterface, "steps">,
+): number {
+  return schedule.steps.findIndex((s) => !!s.monitored);
+}
+
+export function shouldResetMonitoringStartDate(
+  schedule: Pick<RampScheduleInterface, "steps">,
+  stepIndex: number,
+): boolean {
+  const firstMonitoredStepIndex = getFirstMonitoredStepIndex(schedule);
+  return firstMonitoredStepIndex >= 0 && stepIndex === firstMonitoredStepIndex;
+}
+
+export function getRampMonitoringMode(
+  monitoringConfig:
+    | RampScheduleInterface["monitoringConfig"]
+    | null
+    | undefined,
+): RampMonitoringMode {
+  if (monitoringConfig?.monitoringMode) return monitoringConfig.monitoringMode;
+  return monitoringConfig?.autoUpdate === false ? "manual" : "auto";
+}
+
+export function getRampAutoUpdatePreference(
+  monitoringConfig:
+    | RampScheduleInterface["monitoringConfig"]
+    | null
+    | undefined,
+): boolean {
+  return getRampMonitoringMode(monitoringConfig) === "auto";
+}
+
+export function getEffectiveRampAutoUpdateState(
+  schedule: Pick<
+    RampScheduleInterface,
+    "status" | "monitoringConfig" | "currentStepIndex" | "steps"
+  >,
+): {
+  enabled: boolean;
+  reason: string | null;
+  monitoringMode: RampMonitoringMode;
+} {
+  const monitoringMode = getRampMonitoringMode(schedule.monitoringConfig);
+  if (!schedule.monitoringConfig) {
+    return {
+      enabled: false,
+      reason: "Monitoring is not configured",
+      monitoringMode,
+    };
+  }
+  if (monitoringMode === "manual") {
+    return {
+      enabled: false,
+      reason: "Manual mode enabled",
+      monitoringMode,
+    };
+  }
+  if (schedule.status !== "running") {
+    return {
+      enabled: false,
+      reason: `Ramp is ${schedule.status}`,
+      monitoringMode,
+    };
+  }
+  const step = schedule.steps[schedule.currentStepIndex];
+  if (!step?.monitored) {
+    return {
+      enabled: false,
+      reason: "Current step is not monitored",
+      monitoringMode,
+    };
+  }
+  return { enabled: true, reason: null, monitoringMode };
+}
 
 /**
  * Append a RampEvent to a schedule's eventHistory, capped at MAX_EVENT_HISTORY.
@@ -518,7 +596,7 @@ export async function ensureSafeRolloutForMonitoredRamp(
     guardrailMetricIds: allMetricIds,
     maxDuration: { amount: 90, unit: "days" },
     autoRollback: false,
-    autoSnapshots: mc.autoUpdate !== false,
+    autoSnapshots: getRampAutoUpdatePreference(mc),
     status: "running",
     startedAt: new Date(),
     rampScheduleId: schedule.id,
@@ -623,10 +701,15 @@ export async function advanceStep(
   const newStatus = isApprovalStep
     ? ("pending-approval" as const)
     : ("running" as const);
+  const shouldResetMonitoringStart = shouldResetMonitoringStartDate(
+    schedule,
+    nextStepIndex,
+  );
   const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
     status: newStatus,
     currentStepIndex: nextStepIndex,
     currentStepEnteredAt: now,
+    ...(shouldResetMonitoringStart ? { monitoringStartDate: now } : {}),
     nextStepAt,
     nextSnapshotAt,
     nextProcessAt: computeNextProcessAt({
@@ -700,7 +783,22 @@ export async function rollbackToStep(
   }
 
   // Partial rollbacks pause; full rollback to -1 uses "rolled-back" as terminal signal.
-  const newStatus = targetStepIndex === -1 ? "rolled-back" : "paused";
+  const isFullRollback = targetStepIndex === -1;
+  const newStatus = isFullRollback ? "rolled-back" : "paused";
+
+  // Full rollbacks always record lastRollbackAt/lastRollbackReason — every
+  // entry point (controller, public REST, automated evaluator) ends here, so
+  // the reason is captured uniformly. Default to "Manual" when none provided.
+  const fullRollbackFields = isFullRollback
+    ? {
+        lastRollbackAt: now,
+        lastRollbackReason: reason ?? "Manual",
+      }
+    : {};
+  const shouldResetMonitoringStart = shouldResetMonitoringStartDate(
+    schedule,
+    targetStepIndex,
+  );
 
   const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
     status: newStatus,
@@ -708,6 +806,12 @@ export async function rollbackToStep(
     nextStepAt: null,
     pausedAt: newStatus === "paused" ? now : null,
     nextProcessAt: null,
+    ...(isFullRollback
+      ? { monitoringStartDate: null }
+      : shouldResetMonitoringStart
+        ? { monitoringStartDate: now }
+        : {}),
+    ...fullRollbackFields,
     eventHistory: appendRampEvent(schedule, "rollback", {
       stepIndex: targetStepIndex,
       previousStepIndex: schedule.currentStepIndex,
@@ -738,18 +842,67 @@ export async function rollbackToStep(
   return updated;
 }
 
-// Full rollback with reason tracking (used by automated evaluator)
+// Full rollback wrapper — kept for callers that want a typed `reason: string`
+// signature (e.g. the automated evaluator). Persistence of lastRollbackAt /
+// lastRollbackReason is handled inside rollbackToStep so every entry point
+// captures it.
 export async function rollbackSchedule(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
   reason: string,
 ): Promise<RampScheduleInterface> {
-  const now = new Date();
-  await ctx.models.rampSchedules.updateById(schedule.id, {
-    lastRollbackAt: now,
-    lastRollbackReason: reason,
-  });
   return rollbackToStep(ctx, schedule, -1, reason);
+}
+
+/**
+ * Transition a `ready` schedule to `running`, apply start actions, ensure a
+ * linked SafeRollout exists for monitored ramps, and advance the schedule
+ * through any immediately-eligible steps. Single source of truth shared by
+ * the internal controller's `start` action, the public REST `actions/start`
+ * handler, and the `restart` flow which chains start onto a freshly reset
+ * terminal schedule.
+ */
+export async function startSchedule(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+): Promise<RampScheduleInterface> {
+  const now = new Date();
+  const initialNextStepAt = schedule.steps.length > 0 ? now : null;
+
+  let current = await ctx.models.rampSchedules.updateById(schedule.id, {
+    status: "running",
+    startedAt: now,
+    phaseStartedAt: now,
+    monitoringStartDate: null,
+    nextStepAt: initialNextStepAt,
+    nextProcessAt: computeNextProcessAt({
+      status: "running",
+      nextStepAt: initialNextStepAt,
+      cutoffDate: schedule.cutoffDate,
+    }),
+    eventHistory: appendRampEvent(schedule, "started", {
+      stepIndex: -1,
+      status: "running",
+      previousStatus: schedule.status,
+    }),
+  });
+
+  await applyRampStartActions(ctx, current);
+  current = await ensureSafeRolloutForMonitoredRamp(ctx, current);
+  await advanceUntilBlocked(ctx, current, now);
+  current = (await ctx.models.rampSchedules.getById(schedule.id)) ?? current;
+
+  await dispatchRampEvent(ctx, current, "rampSchedule.actions.started", {
+    object: {
+      rampScheduleId: current.id,
+      rampName: current.name,
+      orgId: ctx.org.id,
+      currentStepIndex: current.currentStepIndex,
+      status: current.status,
+    },
+  });
+
+  return current;
 }
 
 // Jump to jumpTarget (forward or backward), applying the accumulated effective state.
@@ -767,6 +920,10 @@ export async function jumpAheadToStep(
     }),
   );
   const now = new Date();
+  const shouldResetMonitoringStart = shouldResetMonitoringStartDate(
+    schedule,
+    jumpTarget,
+  );
 
   if (jumpActions.length > 0) {
     await executeStepActions(ctx, schedule, jumpTarget, jumpActions);
@@ -778,6 +935,7 @@ export async function jumpAheadToStep(
     nextStepAt: null,
     pausedAt: now,
     nextProcessAt: null,
+    ...(shouldResetMonitoringStart ? { monitoringStartDate: now } : {}),
     eventHistory: appendRampEvent(schedule, "step-jumped", {
       stepIndex: jumpTarget,
       previousStepIndex: schedule.currentStepIndex,
@@ -872,6 +1030,7 @@ export async function onActivatingRevisionPublished(
       status: "running",
       startedAt: now,
       phaseStartedAt: now,
+      monitoringStartDate: null,
       nextStepAt: initialNextStepAt,
       nextProcessAt: computeNextProcessAt({
         status: "running",

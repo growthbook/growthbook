@@ -105,10 +105,11 @@ export const postSafeRolloutSnapshot = async (
       safeRolloutId: id,
       snapshotId: snapshot.id,
       hasHealth: !!snapshot.health,
-      totalUsers: snapshot.health?.traffic?.overall?.variationUnits?.reduce(
-        (a: number, b: number) => a + b,
-        0,
-      ) ?? 0,
+      totalUsers:
+        snapshot.health?.traffic?.overall?.variationUnits?.reduce(
+          (a: number, b: number) => a + b,
+          0,
+        ) ?? 0,
     },
     "POST /safe-rollout/:id/snapshot — snapshot created",
   );
@@ -266,6 +267,7 @@ export async function putAutoSnapshots(
       await context.models.rampSchedules.updateById(schedule.id, {
         monitoringConfig: {
           ...schedule.monitoringConfig,
+          monitoringMode: enabled ? "auto" : "manual",
           autoUpdate: enabled,
         },
         eventHistory: appendRampEvent(schedule, "auto-update-toggled", {
@@ -327,12 +329,17 @@ export const getSafeRolloutTimeSeries = async (
  */
 export const getSafeRolloutById = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200; safeRollout: SafeRolloutInterface } | { status: 404; message: string }>,
+  res: Response<
+    | { status: 200; safeRollout: SafeRolloutInterface }
+    | { status: 404; message: string }
+  >,
 ) => {
   const context = getContextFromReq(req);
   const safeRollout = await context.models.safeRollout.getById(req.params.id);
   if (!safeRollout) {
-    return res.status(404).json({ status: 404, message: "Safe Rollout not found" });
+    return res
+      .status(404)
+      .json({ status: 404, message: "Safe Rollout not found" });
   }
   res.status(200).json({ status: 200, safeRollout });
 };

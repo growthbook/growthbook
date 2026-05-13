@@ -7,6 +7,7 @@ import {
   getRampBadgeColor,
   getRampStatusLabel,
 } from "@/components/RampSchedule/RampTimeline";
+import { formatRollbackReason } from "@/components/RampSchedule/rollbackReason";
 export default function RampScheduleBadge({
   rs,
   featureRuleContext = false,
@@ -162,10 +163,10 @@ export default function RampScheduleBadge({
     ) : rs.status === "rolled-back" ? (
       <div>
         {rolledBackAt && dateRow("Rolled back", rolledBackAt)}
-        {rs.lastRollbackReason && (
+        {formatRollbackReason(rs.lastRollbackReason) && (
           <div>
             <span className="text-muted">Reason: </span>
-            {rs.lastRollbackReason}
+            {formatRollbackReason(rs.lastRollbackReason)}
           </div>
         )}
       </div>

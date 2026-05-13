@@ -63,9 +63,11 @@ import SafeRolloutStatusBadge from "@/components/SafeRollout/SafeRolloutStatusBa
 import DecisionCTA from "@/components/SafeRollout/DecisionCTA";
 import DecisionHelpText from "@/components/SafeRollout/DecisionHelpText";
 import {
+  isOnMonitoredStep,
   RampMonitoringBadges,
   RampMonitoringCTAs,
 } from "@/components/RampSchedule/RampMonitoringSignals";
+import { formatRollbackReason } from "@/components/RampSchedule/rollbackReason";
 import TruncatedConditionDisplay from "@/components/SavedGroups/TruncatedConditionDisplay";
 import {
   DropdownMenu,
@@ -282,6 +284,14 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [rampApproveLoading, setRampApproveLoading] = useState(false);
     const [rampApproveError, setRampApproveError] = useState("");
+    const rollbackToStart = async (reason = "rolled back to start") => {
+      if (!rampSchedule) return;
+      await apiCall(`/ramp-schedule/${rampSchedule.id}/actions/rollback`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      });
+      await mutate();
+    };
 
     const toggleRuleEnabled = async () => {
       setDropdownOpen(false);
@@ -479,6 +489,34 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       }
     }
 
+    // Terminal "rolled-back" gets an inline Restart CTA so the user can bring
+    // the schedule back to a startable state without hunting through the
+    // dropdown menu. The "Start" CTA above will pick up once it's `ready`.
+    if (
+      rampSchedule &&
+      !locked &&
+      !hasPendingDetach &&
+      !isSimpleSchedule &&
+      !isSyntheticRamp &&
+      rampSchedule.status === "rolled-back"
+    ) {
+      ruleCtas.push(
+        <Button
+          key="ramp-restart"
+          size="xs"
+          variant="solid"
+          onClick={async () => {
+            await apiCall(`/ramp-schedule/${rampSchedule.id}/actions/restart`, {
+              method: "POST",
+            });
+            await mutate();
+          }}
+        >
+          Restart
+        </Button>,
+      );
+    }
+
     if (rule.type === "safe-rollout" && !locked && rule.enabled !== false) {
       ruleCtas.push(
         <DecisionCTA
@@ -553,24 +591,26 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               {ruleTags}
 
               {rampSchedule &&
-                rampSchedule.steps.some((s) => s.monitored) &&
-                safeRollout && (
+                safeRollout &&
+                isOnMonitoredStep(rampSchedule) && (
                   <RampMonitoringBadges rampSchedule={rampSchedule} />
                 )}
             </Flex>
 
             <Flex align="center" gap="3" flexShrink="0">
               {rampSchedule &&
-                rampSchedule.steps.some((s) => s.monitored) &&
                 safeRollout &&
                 !locked &&
-                rampSchedule.status === "running" && (
+                isOnMonitoredStep(rampSchedule) && (
                   <RampMonitoringCTAs
                     rampSchedule={rampSchedule}
-                    onRollback={async () => {
+                    onRollback={async (reason?: string) => {
                       await apiCall(
-                        `/ramp-schedule/${rampSchedule.id}/actions/reset`,
-                        { method: "POST" },
+                        `/ramp-schedule/${rampSchedule.id}/actions/rollback`,
+                        {
+                          method: "POST",
+                          body: JSON.stringify(reason ? { reason } : {}),
+                        },
                       );
                       await mutate();
                     }}
@@ -834,16 +874,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                       >
                                         <DropdownMenuItem
                                           onClick={async () => {
-                                            await apiCall(
-                                              `/ramp-schedule/${rampSchedule.id}/actions/jump`,
-                                              {
-                                                method: "POST",
-                                                body: JSON.stringify({
-                                                  targetStepIndex: -1,
-                                                }),
-                                              },
-                                            );
-                                            await mutate();
+                                            await rollbackToStart();
                                             setDropdownOpen(false);
                                           }}
                                         >
@@ -936,7 +967,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                 <DropdownMenuItem
                                   onClick={async () => {
                                     await apiCall(
-                                      `/ramp-schedule/${rampSchedule.id}/actions/reset`,
+                                      `/ramp-schedule/${rampSchedule.id}/actions/restart`,
                                       { method: "POST" },
                                     );
                                     await mutate();
@@ -1234,7 +1265,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     <Callout status="error" mb="2">
                       <Text>
                         <Text weight="semibold">Rolled back:</Text>{" "}
-                        {rampSchedule.lastRollbackReason}
+                        {formatRollbackReason(rampSchedule.lastRollbackReason)}
                       </Text>
                     </Callout>
                   )}
@@ -1242,6 +1273,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   rs={rampSchedule}
                   pendingDetach={!!hasPendingDetach}
                   onJump={async (targetStepIndex) => {
+                    if (targetStepIndex === -1) {
+                      await rollbackToStart();
+                      return;
+                    }
                     await apiCall(
                       `/ramp-schedule/${rampSchedule.id}/actions/jump`,
                       {

@@ -1382,10 +1382,7 @@ export default function RampScheduleSection({
                               if (cov === 0 || cov > 50) {
                                 update.patch = {
                                   ...step.patch,
-                                  coverage: Math.min(
-                                    50,
-                                    Math.max(1, cov),
-                                  ),
+                                  coverage: Math.min(50, Math.max(1, cov)),
                                 };
                               }
                             }
@@ -2015,9 +2012,7 @@ export default function RampScheduleSection({
                     Roll back
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() =>
-                      patchMonitoring({ noTrafficAction: "warn" })
-                    }
+                    onClick={() => patchMonitoring({ noTrafficAction: "warn" })}
                   >
                     Warn only
                   </DropdownMenuItem>

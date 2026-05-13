@@ -6,14 +6,18 @@ import {
   advanceStep,
   advanceUntilBlocked,
   appendRampEvent,
-  applyRampStartActions,
   approveAndPublishStep,
   completeRollout,
   computeNextProcessAt,
   computeNextStepAt,
   dispatchRampEvent,
+  getEffectiveRampAutoUpdateState,
+  getRampAutoUpdatePreference,
   jumpAheadToStep,
+  rollbackSchedule,
   rollbackToStep,
+  shouldResetMonitoringStartDate,
+  startSchedule,
 } from "back-end/src/services/rampSchedule";
 
 type CreateBody = Pick<
@@ -39,7 +43,22 @@ type UpdateBody = Partial<Pick<RampScheduleInterface, "name" | "steps">> & {
 
 type ActionBody = {
   targetStepIndex?: number;
+  /** Short human-readable cause shown alongside "Manual" in the rollback reason. */
+  reason?: string;
+  enabled?: boolean;
+  monitoringMode?: "auto" | "manual";
 };
+
+function normalizeMonitoringConfig(
+  monitoringConfig: RampScheduleInterface["monitoringConfig"] | undefined,
+) {
+  if (!monitoringConfig) return monitoringConfig;
+  if (!monitoringConfig.monitoringMode) return monitoringConfig;
+  return {
+    ...monitoringConfig,
+    autoUpdate: monitoringConfig.monitoringMode === "auto",
+  };
+}
 
 function withElapsedMs(schedule: RampScheduleInterface): RampScheduleInterface {
   if (!schedule.startedAt) return schedule;
@@ -106,7 +125,7 @@ export const postRampSchedule = async (
     startDate,
     cutoffDate: body.cutoffDate ? new Date(body.cutoffDate) : null,
     lockdownConfig: body.lockdownConfig,
-    monitoringConfig: body.monitoringConfig,
+    monitoringConfig: normalizeMonitoringConfig(body.monitoringConfig),
     experimentHealthAction: body.experimentHealthAction,
     status: "ready",
     currentStepIndex: -1,
@@ -172,7 +191,7 @@ export const putRampSchedule = async (
     updates.lockdownConfig = body.lockdownConfig;
   }
   if (body.monitoringConfig !== undefined) {
-    updates.monitoringConfig = body.monitoringConfig;
+    updates.monitoringConfig = normalizeMonitoringConfig(body.monitoringConfig);
   }
   if (body.experimentHealthAction !== undefined) {
     updates.experimentHealthAction = body.experimentHealthAction;
@@ -261,41 +280,7 @@ export const postRampScheduleAction = async (
           message: `Cannot start a schedule in status "${schedule.status}" — must be "ready"`,
         });
       }
-      const initialNextStepAt = schedule.steps.length > 0 ? now : null;
-      updated = await context.models.rampSchedules.updateById(schedule.id, {
-        status: "running",
-        startedAt: now,
-        phaseStartedAt: now,
-        nextStepAt: initialNextStepAt,
-        nextProcessAt: computeNextProcessAt({
-          status: "running",
-          nextStepAt: initialNextStepAt,
-          cutoffDate: schedule.cutoffDate,
-        }),
-        eventHistory: appendRampEvent(schedule, "started", {
-          stepIndex: -1,
-          status: "running",
-          previousStatus: schedule.status,
-        }),
-      });
-      await applyRampStartActions(context, updated);
-      await advanceUntilBlocked(context, updated, now);
-      updated =
-        (await context.models.rampSchedules.getById(schedule.id)) ?? updated;
-      await dispatchRampEvent(
-        context,
-        updated,
-        "rampSchedule.actions.started",
-        {
-          object: {
-            rampScheduleId: updated.id,
-            rampName: updated.name,
-            orgId: context.org.id,
-            currentStepIndex: updated.currentStepIndex,
-            status: updated.status,
-          },
-        },
-      );
+      updated = await startSchedule(context, schedule);
       break;
     }
 
@@ -444,29 +429,64 @@ export const postRampScheduleAction = async (
       updated = await completeRollout(context, schedule);
       break;
 
-    case "reset": {
-      const isTerminal = ["completed", "rolled-back"].includes(schedule.status);
-      // Roll back to start (-1), then land in "paused" so the user must explicitly resume.
-      // Terminal restarts also clear timing anchors so resume starts fresh.
-      const resetRolled =
-        schedule.currentStepIndex >= 0
-          ? await rollbackToStep(context, schedule, -1)
-          : schedule;
-      updated = await context.models.rampSchedules.updateById(resetRolled.id, {
-        status: "paused",
-        pausedAt: now,
-        nextProcessAt: null,
-        ...(isTerminal && {
+    case "rollback": {
+      // User-initiated terminal rollback. Mirrors the automated evaluator
+      // path so the schedule lands in "rolled-back" status with the rule
+      // effects rewound to the starting position. From this terminal state
+      // the user must explicitly invoke "restart" to make it startable again.
+      if (["completed", "rolled-back"].includes(schedule.status)) {
+        return res.status(400).json({
+          status: 400,
+          message: `Schedule is already in terminal status "${schedule.status}"`,
+        });
+      }
+      // Caller may include a short cause (e.g. "no traffic") so the persisted
+      // reason reads "Manual: no traffic" — distinguishing it from the bare
+      // automated cause messages produced by the evaluator path.
+      const cause = req.body?.reason?.trim();
+      const reason = cause ? `Manual: ${cause}` : "Manual";
+      updated = await rollbackSchedule(context, schedule, reason);
+      break;
+    }
+
+    case "restart": {
+      // Bring a terminal schedule (rolled-back or completed) back to running
+      // in a single click. The preceding rollback already rewound rule
+      // effects; here we record a "restart" event, normalise to "ready" with
+      // all timing anchors cleared (so any prior start-on-date delays don't
+      // re-apply), then chain into startSchedule to immediately advance.
+      if (!["rolled-back", "completed"].includes(schedule.status)) {
+        return res.status(400).json({
+          status: 400,
+          message: `Cannot restart a schedule in status "${schedule.status}". Only terminal (rolled-back / completed) schedules can be restarted.`,
+        });
+      }
+      // Defensive: `completed` schedules may still hold a non-(-1)
+      // currentStepIndex and live rule patches, so rewind effects too.
+      // `rolled-back` schedules are already at -1 with effects reverted.
+      if (schedule.currentStepIndex >= 0) {
+        await rollbackToStep(context, schedule, -1, "Restart from terminal");
+      }
+      const readied = await context.models.rampSchedules.updateById(
+        schedule.id,
+        {
+          status: "ready",
+          currentStepIndex: -1,
           startedAt: null,
           phaseStartedAt: null,
-        }),
-        eventHistory: appendRampEvent(resetRolled, "reset", {
-          stepIndex: -1,
-          previousStepIndex: schedule.currentStepIndex,
-          status: "paused",
-          previousStatus: schedule.status,
-        }),
-      });
+          pausedAt: null,
+          nextStepAt: null,
+          nextProcessAt: null,
+          monitoringStartDate: null,
+          eventHistory: appendRampEvent(schedule, "restart", {
+            stepIndex: -1,
+            previousStepIndex: schedule.currentStepIndex,
+            status: "ready",
+            previousStatus: schedule.status,
+          }),
+        },
+      );
+      updated = await startSchedule(context, readied);
       break;
     }
 
@@ -518,6 +538,9 @@ export const postRampScheduleAction = async (
           phaseStartedAt: freshPhaseStartedAt,
           nextStepAt: null,
           nextProcessAt: null,
+          ...(shouldResetMonitoringStartDate(schedule, jumpTarget)
+            ? { monitoringStartDate: now }
+            : {}),
           eventHistory: appendRampEvent(schedule, "step-jumped", {
             stepIndex: jumpTarget,
             previousStepIndex: schedule.currentStepIndex,
@@ -569,6 +592,64 @@ export const postRampScheduleAction = async (
         });
       }
       updated = afterApprove;
+      break;
+    }
+
+    case "set-monitoring-mode":
+    case "set-auto-update": {
+      if (!schedule.monitoringConfig) {
+        return res.status(400).json({
+          status: 400,
+          message:
+            "Cannot change monitoring mode on a schedule without monitoring configuration",
+        });
+      }
+      const requestedMode =
+        req.params.action === "set-auto-update"
+          ? req.body.enabled === false
+            ? "manual"
+            : "auto"
+          : req.body.monitoringMode;
+      if (requestedMode !== "auto" && requestedMode !== "manual") {
+        return res.status(400).json({
+          status: 400,
+          message: 'monitoringMode must be "auto" or "manual"',
+        });
+      }
+      const nextMonitoringConfig = {
+        ...schedule.monitoringConfig,
+        monitoringMode: requestedMode,
+        autoUpdate: requestedMode === "auto",
+      };
+      const effective = getEffectiveRampAutoUpdateState({
+        ...schedule,
+        monitoringConfig: nextMonitoringConfig,
+      });
+      updated = await context.models.rampSchedules.updateById(schedule.id, {
+        monitoringConfig: nextMonitoringConfig,
+        eventHistory: appendRampEvent(schedule, "auto-update-toggled", {
+          stepIndex: schedule.currentStepIndex,
+          status: schedule.status,
+          reason:
+            requestedMode === "auto"
+              ? "Monitoring mode set to auto"
+              : "Monitoring mode set to manual",
+        }),
+      });
+      if (schedule.safeRolloutId) {
+        const sr = await context.models.safeRollout.getById(
+          schedule.safeRolloutId,
+        );
+        if (sr) {
+          await context.models.safeRollout.update(sr, {
+            autoSnapshots:
+              requestedMode === "auto"
+                ? effective.enabled
+                : getRampAutoUpdatePreference(nextMonitoringConfig) &&
+                  effective.enabled,
+          });
+        }
+      }
       break;
     }
 

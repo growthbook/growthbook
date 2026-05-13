@@ -1,29 +1,4 @@
 {
-  "packages/back-end/src/api/ramp-schedules/postRampSchedule.ts": {
-    "prettier/prettier": {
-      "count": 1
-    }
-  },
-  "packages/back-end/src/jobs/updateRampSchedules.ts": {
-    "prettier/prettier": {
-      "count": 4
-    }
-  },
-  "packages/back-end/src/routers/safe-rollout/safe-rollout.controller.ts": {
-    "prettier/prettier": {
-      "count": 6
-    }
-  },
-  "packages/back-end/src/services/rampScheduleEvaluator.ts": {
-    "prettier/prettier": {
-      "count": 1
-    }
-  },
-  "packages/back-end/src/services/safeRolloutSnapshots.ts": {
-    "prettier/prettier": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/ActivityList.tsx": {
     "local/no-alert-classname": {
       "count": 1
@@ -267,11 +242,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/ExperimentMetricTimeSeriesGraphWrapper.tsx": {
-    "prettier/prettier": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/ExperimentMetricsSelector.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -285,9 +255,6 @@
   "packages/front-end/components/Experiment/ExperimentTimeSeriesGraph.tsx": {
     "no-restricted-imports": {
       "count": 1
-    },
-    "prettier/prettier": {
-      "count": 12
     }
   },
   "packages/front-end/components/Experiment/ImportExperimentList.tsx": {
@@ -343,11 +310,6 @@
   },
   "packages/front-end/components/Experiment/ResultsFilter/ResultsFilter.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/ResultsTable.tsx": {
-    "prettier/prettier": {
       "count": 1
     }
   },
@@ -430,11 +392,6 @@
   "packages/front-end/components/Experiment/TabbedPage/TrafficAndTargeting.tsx": {
     "local/no-alert-classname": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/TabbedPage/VariationUsersTable.tsx": {
-    "prettier/prettier": {
-      "count": 7
     }
   },
   "packages/front-end/components/Experiment/TabbedPage/index.tsx": {
@@ -681,11 +638,6 @@
   "packages/front-end/components/Features/RuleModal/BanditRefNewFields.tsx": {
     "local/no-alert-classname": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/Features/RuleModal/RampScheduleSection.tsx": {
-    "prettier/prettier": {
-      "count": 2
     }
   },
   "packages/front-end/components/Features/RuleModal/SafeRolloutFields.tsx": {
@@ -1162,25 +1114,9 @@
       "count": 1
     }
   },
-  "packages/front-end/components/RampSchedule/RampMonitoringSignals.tsx": {
-    "prettier/prettier": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/RampSchedule/RampTimeline.tsx": {
-    "prettier/prettier": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/RampSchedule/SafeRolloutRuleDashboard.tsx": {
-    "import/order": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
-    },
-    "prettier/prettier": {
-      "count": 2
     }
   },
   "packages/front-end/components/Report/ConfigureLegacyReport.tsx": {

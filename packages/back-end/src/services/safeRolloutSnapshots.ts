@@ -397,8 +397,7 @@ export async function _createSafeRolloutSnapshot({
     feature,
     safeRollout.id,
   );
-  const trackingKey =
-    safeRolloutRule?.trackingKey ?? safeRollout.trackingKey;
+  const trackingKey = safeRolloutRule?.trackingKey ?? safeRollout.trackingKey;
   if (!trackingKey) {
     throw new Error(
       "Could not determine tracking key for safe rollout snapshot " +

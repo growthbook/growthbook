@@ -1,4 +1,4 @@
-import { FC, useCallback, useMemo, useState } from "react";
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertDialog, Box, Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { extent } from "@visx/vendor/d3-array";
@@ -10,6 +10,7 @@ import {
   MetricTimeSeriesDataPoint,
   RampEvent,
   RampScheduleInterface,
+  SafeRolloutInterface,
 } from "shared/validators";
 import { getValidDate } from "shared/dates";
 import {
@@ -33,7 +34,13 @@ import {
   SAFE_ROLLOUT_VARIATIONS,
 } from "shared/constants";
 import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
-import { PiInfo, PiLightning, PiLightningSlash } from "react-icons/pi";
+import {
+  PiCaretRightFill,
+  PiInfo,
+  PiLightning,
+  PiLightningSlash,
+} from "react-icons/pi";
+import { ExperimentReportVariation } from "shared/types/report";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import useApi from "@/hooks/useApi";
@@ -57,14 +64,23 @@ import RunQueriesButton, {
 } from "@/components/Queries/RunQueriesButton";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import Metadata from "@/ui/Metadata";
-import { ExperimentReportVariation } from "shared/types/report";
 import Modal from "@/components/Modal";
 import MetricDrilldownOverview from "@/components/MetricDrilldown/MetricDrilldownOverview";
+import { RadixColor } from "@/ui/HelperText";
+import MonitoredIcon from "@/components/Features/RuleModal/MonitoredIcon";
+import {
+  getRampHealthOverview,
+  isOnMonitoredStep,
+  RampHealthSeverity,
+  RampMonitoringCTAs,
+  useRampMonitoringSignals,
+} from "@/components/RampSchedule/RampMonitoringSignals";
 
 // ─── Dummy data helpers ──────────────────────────────────────────────────────
 
 function seededRandom(seed: number) {
-  let s = seed;
+  let s = Math.floor(seed) % 2147483647;
+  if (s <= 0) s += 2147483646;
   return () => {
     s = (s * 16807 + 0) % 2147483647;
     return (s - 1) / 2147483646;
@@ -177,6 +193,8 @@ type MarkerWithPriority = Omit<TimeSeriesEventMarker, "tooltips"> & {
   _priority: number;
 };
 
+const MARKER_LABEL_CLUSTER_PX = 14;
+
 function buildEventMarkers(events: RampEvent[]): MarkerWithPriority[] {
   const raw: MarkerWithPriority[] = events
     .filter((e) => STEP_EVENT_TYPES.has(e.type))
@@ -234,22 +252,68 @@ function EventMarkerLabels({
           range: [0, width],
         });
 
-        const markerXs = markers.map((m) => xScale(m.date));
+        const clusteredMarkers = markers
+          .map((m) => ({ marker: m, x: xScale(m.date) }))
+          .sort((a, b) => a.x - b.x)
+          .reduce<
+            Array<{
+              x: number;
+              members: TimeSeriesEventMarker[];
+            }>
+          >((clusters, item) => {
+            const last = clusters[clusters.length - 1];
+            if (!last) {
+              clusters.push({ x: item.x, members: [item.marker] });
+              return clusters;
+            }
+            if (Math.abs(item.x - last.x) <= MARKER_LABEL_CLUSTER_PX) {
+              last.members.push(item.marker);
+              last.x =
+                (last.x * (last.members.length - 1) + item.x) /
+                last.members.length;
+            } else {
+              clusters.push({ x: item.x, members: [item.marker] });
+            }
+            return clusters;
+          }, [])
+          .map((cluster) => {
+            const mergedTooltips = cluster.members.flatMap(
+              (m) => m.tooltips ?? [],
+            );
+            const mostRecent =
+              cluster.members.reduce((latest, current) =>
+                current.date > latest.date ? current : latest,
+              ) ?? cluster.members[0];
+            return {
+              marker: {
+                ...mostRecent,
+                color: cluster.members.some((m) => m.color === "red")
+                  ? ("red" as const)
+                  : ("indigo" as const),
+                label: mostRecent?.label ?? "",
+                tooltips: mergedTooltips,
+              } as TimeSeriesEventMarker,
+              x: cluster.x,
+            };
+          });
 
         const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
           const point = localPoint(e);
           if (!point) return;
           let closest = 0;
           let closestDist = Infinity;
-          for (let i = 0; i < markerXs.length; i++) {
-            const d = Math.abs(markerXs[i] - point.x);
+          for (let i = 0; i < clusteredMarkers.length; i++) {
+            const d = Math.abs(clusteredMarkers[i].x - point.x);
             if (d < closestDist) {
               closestDist = d;
               closest = i;
             }
           }
           if (closestDist < 30) {
-            setHovered({ marker: markers[closest], x: markerXs[closest] });
+            setHovered({
+              marker: clusteredMarkers[closest].marker,
+              x: clusteredMarkers[closest].x,
+            });
           } else {
             setHovered(null);
           }
@@ -264,8 +328,7 @@ function EventMarkerLabels({
               onMouseMove={handleMouseMove}
               onMouseLeave={() => setHovered(null)}
             >
-              {markers.map((m, i) => {
-                const x = markerXs[i];
+              {clusteredMarkers.map(({ marker: m, x }, i) => {
                 if (x < 0 || x > width) return null;
                 const isRed = m.color === "red";
                 const lineStroke = isRed ? "var(--red-a5)" : "var(--indigo-a5)";
@@ -350,6 +413,110 @@ function hashString(str: string): number {
 }
 
 type DummyScenario = "passing" | "failing" | "nodata";
+type DummyIssueProfile = {
+  forceNoTraffic: boolean;
+  forceLowTraffic: boolean;
+  srmPValue: number;
+  multipleExposureRate: number;
+  userMultiplier: number;
+};
+
+function buildDummyIssueProfile(seed: number): DummyIssueProfile {
+  const rand = seededRandom(seed ^ 0x9e3779b1);
+  const scenario = Math.floor(rand() * 8);
+
+  // Intentionally choose from explicit combinations so dummy mode regularly
+  // exercises mixed-status states (e.g. SRM + multiple exposures).
+  switch (scenario) {
+    case 0: // healthy baseline
+      return {
+        forceNoTraffic: false,
+        forceLowTraffic: false,
+        srmPValue: 0.35 + rand() * 0.4,
+        multipleExposureRate: rand() * 0.01,
+        userMultiplier: 1,
+      };
+    case 1: // SRM only
+      return {
+        forceNoTraffic: false,
+        forceLowTraffic: false,
+        srmPValue: 0.0005 + rand() * 0.004,
+        multipleExposureRate: rand() * 0.01,
+        userMultiplier: 1,
+      };
+    case 2: // multiple exposures only
+      return {
+        forceNoTraffic: false,
+        forceLowTraffic: false,
+        srmPValue: 0.2 + rand() * 0.5,
+        multipleExposureRate: 0.2 + rand() * 0.35,
+        userMultiplier: 1,
+      };
+    case 3: // SRM + multiple exposures
+      return {
+        forceNoTraffic: false,
+        forceLowTraffic: false,
+        srmPValue: 0.0005 + rand() * 0.004,
+        multipleExposureRate: 0.2 + rand() * 0.35,
+        userMultiplier: 1,
+      };
+    case 4: // low-traffic hold simulation
+      return {
+        forceNoTraffic: false,
+        forceLowTraffic: true,
+        srmPValue: 0.2 + rand() * 0.5,
+        multipleExposureRate: 0.02 + rand() * 0.05,
+        userMultiplier: 0.04,
+      };
+    case 5: // low-traffic + SRM
+      return {
+        forceNoTraffic: false,
+        forceLowTraffic: true,
+        srmPValue: 0.0005 + rand() * 0.004,
+        multipleExposureRate: 0.02 + rand() * 0.05,
+        userMultiplier: 0.04,
+      };
+    case 6: // low-traffic + ME
+      return {
+        forceNoTraffic: false,
+        forceLowTraffic: true,
+        srmPValue: 0.2 + rand() * 0.5,
+        multipleExposureRate: 0.2 + rand() * 0.35,
+        userMultiplier: 0.04,
+      };
+    default: // no traffic
+      return {
+        forceNoTraffic: true,
+        forceLowTraffic: false,
+        srmPValue: 0.3 + rand() * 0.4,
+        multipleExposureRate: 0,
+        userMultiplier: 0,
+      };
+  }
+}
+
+function buildDummyScenarios(
+  metricIds: string[],
+  seed: number,
+  profile: DummyIssueProfile,
+): DummyScenario[] {
+  if (profile.forceNoTraffic) {
+    return metricIds.map(() => "nodata");
+  }
+
+  const rand = seededRandom(seed ^ 0x7f4a7c15);
+  const scenarios: DummyScenario[] = metricIds.map(() => {
+    const roll = rand();
+    if (roll < 0.3) return "failing";
+    if (roll < 0.45) return "nodata";
+    return "passing";
+  });
+
+  if (scenarios.length > 0 && !scenarios.includes("failing")) {
+    scenarios[0] = "failing";
+  }
+  return scenarios;
+}
 
 /** Proportion / binomial-style rates stay in (0,1); revenue-like metrics need currency-scale means or Value shows ¥0. */
 function dummyPerUnitMeanAndTotal(
@@ -370,6 +537,7 @@ function dummyPerUnitMeanAndTotal(
 function generateDummySnapshotMetrics(
   metricIds: string[],
   scenarios: DummyScenario[],
+  issueProfile?: DummyIssueProfile,
   isInverseMetric: (metricId: string) => boolean = () => false,
   getExperimentMetricById?: (id: string) => ExperimentMetricInterface | null,
 ): Record<string, { baseline: SnapshotMetric; variation: SnapshotMetric }> {
@@ -380,7 +548,11 @@ function generateDummySnapshotMetrics(
   metricIds.forEach((id, idx) => {
     const rand = seededRandom(hashString(id));
     const scenario = scenarios[idx % scenarios.length];
-    const baseUsers = 800 + Math.floor(rand() * 4000);
+    const userMultiplier = issueProfile?.userMultiplier ?? 1;
+    const baseUsers = Math.max(
+      8,
+      Math.round((800 + Math.floor(rand() * 4000)) * userMultiplier),
+    );
     const { mean: baseCr, total: baseValue } = dummyPerUnitMeanAndTotal(
       id,
       baseUsers,
@@ -459,8 +631,7 @@ function generateDummyTimeSeries(
     const rand = seededRandom(hashString(metricId) + 999);
     const scenario = scenarios[idx % scenarios.length];
     const baseCr =
-      snapshotMetrics?.[metricId]?.baseline?.cr ??
-      0.02 + rand() * 0.15;
+      snapshotMetrics?.[metricId]?.baseline?.cr ?? 0.02 + rand() * 0.15;
 
     // Use snapshot's final effect so the time series endpoint matches the table
     const snapshotEffect =
@@ -557,9 +728,21 @@ function generateDummyTimeSeries(
   });
 }
 
-function generateDummyTrafficSnapshot(): SafeRolloutSnapshotInterface {
-  const treatmentUsers = 4821;
-  const controlUsers = 5203;
+function generateDummyTrafficSnapshot(
+  variationUsers?: { treatmentUsers: number; controlUsers: number },
+  issueProfile?: DummyIssueProfile,
+): SafeRolloutSnapshotInterface {
+  const forceNoTraffic = !!issueProfile?.forceNoTraffic;
+  const treatmentUsers = forceNoTraffic
+    ? 0
+    : (variationUsers?.treatmentUsers ?? 4821);
+  const controlUsers = forceNoTraffic
+    ? 0
+    : (variationUsers?.controlUsers ?? 5203);
+  const totalUsers = treatmentUsers + controlUsers;
+  const multipleExposures = forceNoTraffic
+    ? 0
+    : Math.round(totalUsers * (issueProfile?.multipleExposureRate ?? 0.03));
   return {
     id: "srsnp_dummy",
     organization: "",
@@ -568,13 +751,13 @@ function generateDummyTrafficSnapshot(): SafeRolloutSnapshotInterface {
     runStarted: new Date(),
     status: "success",
     queries: [],
-    multipleExposures: 347,
+    multipleExposures,
     analyses: [],
     health: {
       traffic: {
         overall: {
           name: "All",
-          srm: 0.42,
+          srm: issueProfile?.srmPValue ?? 0.42,
           variationUnits: [treatmentUsers, controlUsers],
         },
         dimension: {},
@@ -589,25 +772,59 @@ function generateDummyTrafficSnapshot(): SafeRolloutSnapshotInterface {
   } as unknown as SafeRolloutSnapshotInterface;
 }
 
+function buildDummySafeRolloutForSignals(
+  guardrailMetricIds: string[],
+  signalMetricIds: string[],
+  snapshotMetrics: Record<
+    string,
+    { baseline: SnapshotMetric; variation: SnapshotMetric }
+  >,
+): SafeRolloutInterface {
+  const allMetricIds = new Set([...guardrailMetricIds, ...signalMetricIds]);
+  const guardrailMetrics: Record<string, { status: string }> = {};
+
+  for (const metricId of allMetricIds) {
+    const metric = snapshotMetrics[metricId]?.variation;
+    if (!metric) continue;
+    const expected = metric.expected ?? 0;
+    const pValue = metric.pValue ?? 1;
+    const isSignificantLoss = expected < 0 && pValue < 0.05;
+    guardrailMetrics[metricId] = {
+      status: isSignificantLoss ? "lost" : "won",
+    };
+  }
+
+  return {
+    analysisSummary: {
+      resultsStatus: {
+        variations: [
+          { variationId: "1", guardrailMetrics },
+          { variationId: "0", guardrailMetrics: {} },
+        ],
+      },
+    },
+  } as unknown as SafeRolloutInterface;
+}
+
 // ─── Metric drilldown modal (safe-rollout-specific) ──────────────────────────
 
 function SafeRolloutMetricDrilldownModal({
   row,
   resultGroup,
-  guardrailMetricIds,
   signalMetricIds,
   timeSeries,
   reportDate,
   startDate,
+  endDate,
   close,
 }: {
   row: ExperimentTableRow;
   resultGroup: "guardrail" | "secondary";
-  guardrailMetricIds: string[];
   signalMetricIds: string[];
   timeSeries?: MetricTimeSeries;
   reportDate: Date;
   startDate: Date;
+  endDate: Date;
   close: () => void;
 }) {
   const { metric } = row;
@@ -651,34 +868,24 @@ function SafeRolloutMetricDrilldownModal({
         isLatestPhase={true}
         phase={0}
         startDate={startDate.toISOString()}
-        endDate={new Date().toISOString()}
+        endDate={endDate.toISOString()}
         experimentStatus="running"
         variations={variations}
         localBaselineRow={0}
-        setLocalBaselineRow={() => {}}
         localVariationFilter={undefined}
-        setLocalVariationFilter={() => {}}
         goalMetrics={[]}
         secondaryMetrics={resultGroup === "secondary" ? signalMetricIds : []}
         statsEngine="frequentist"
         localDifferenceType="relative"
-        setLocalDifferenceType={() => {}}
         preloadedTimeSeries={timeSeries}
+        valueColumnWidth={170}
+        labelMaxWidth={120}
       />
     </Modal>
   );
 }
 
 // ─── Metric section (table-based, matching experiment results UI) ─────────────
-
-const SAFE_ROLLOUT_STATUS_LABELS = {
-  won: "Within bounds",
-  lost: "Failing",
-  draw: "Within bounds",
-  insignificant: "Within bounds",
-  notEnoughData: "Not enough data",
-  badgeColor: "var(--blue-a7)",
-};
 
 function MetricSection({
   title,
@@ -691,7 +898,6 @@ function MetricSection({
   reportDate,
   startDate,
   eventMarkers,
-  guardrailMetricIds,
   signalMetricIds,
 }: {
   title: string;
@@ -707,7 +913,6 @@ function MetricSection({
   reportDate: Date;
   startDate: Date;
   eventMarkers?: TimeSeriesEventMarker[];
-  guardrailMetricIds: string[];
   signalMetricIds: string[];
 }) {
   const { getExperimentMetricById } = useDefinitions();
@@ -774,6 +979,7 @@ function MetricSection({
   const [drilldownRowIndex, setDrilldownRowIndex] = useState<number | null>(
     null,
   );
+  const drilldownEndDate = dateExtent[1] ?? reportDate;
 
   if (rows.length === 0) return null;
 
@@ -850,9 +1056,7 @@ function MetricSection({
                   <tr
                     className={`results-variation-row results-metric-row${hasData ? " results-clickable-row" : ""}`}
                     onClick={
-                      hasData
-                        ? () => setDrilldownRowIndex(i)
-                        : undefined
+                      hasData ? () => setDrilldownRowIndex(i) : undefined
                     }
                   >
                     {/* Metric label */}
@@ -944,11 +1148,11 @@ function MetricSection({
         <SafeRolloutMetricDrilldownModal
           row={rows[drilldownRowIndex]}
           resultGroup={resultGroup}
-          guardrailMetricIds={guardrailMetricIds}
           signalMetricIds={signalMetricIds}
           timeSeries={timeSeries[rows[drilldownRowIndex].metric.id]}
           reportDate={reportDate}
           startDate={startDate}
+          endDate={drilldownEndDate}
           close={() => setDrilldownRowIndex(null)}
         />
       )}
@@ -1031,7 +1235,7 @@ function HealthChecks({
       ? "var(--amber-a3)"
       : "var(--blue-a3)";
   const overallLabel = !hasData
-    ? "Awaiting data"
+    ? "No data yet"
     : hasIssue
       ? "Issues detected"
       : "All clear";
@@ -1142,21 +1346,33 @@ function HealthChecks({
       <div
         role="button"
         tabIndex={0}
+        aria-expanded={expanded}
         onClick={() => setExpanded(!expanded)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") setExpanded(!expanded);
         }}
         style={{
-          display: "flex",
+          display: "inline-flex",
           alignItems: "center",
           gap: 8,
           cursor: "pointer",
           userSelect: "none",
         }}
       >
-        <Text size="medium" weight="medium">
-          {expanded ? "▾" : "▸"} Health Checks
-        </Text>
+        <span
+          className="link-purple font-weight-bold"
+          style={{ display: "inline-flex", alignItems: "center", gap: 3 }}
+        >
+          <PiCaretRightFill
+            style={{
+              transform: expanded ? "rotate(90deg)" : undefined,
+              transition: "transform 0.15s",
+            }}
+          />
+          <Text size="medium" weight="medium">
+            Health Checks
+          </Text>
+        </span>
         <span
           style={{
             fontSize: 11,
@@ -1175,8 +1391,8 @@ function HealthChecks({
         <Box mt="2">
           {!hasData ? (
             <Text as="div" size="small" color="text-low">
-              No traffic data available yet. Data will appear after the first
-              snapshot completes.
+              No traffic data yet. Monitoring recently started, check back soon
+              for updated status.
             </Text>
           ) : (
             <div
@@ -1323,24 +1539,200 @@ function HealthChecks({
   );
 }
 
-// ─── Monitoring controls ─────────────────────────────────────────────────────
+// ─── SafeRolloutStatusBar (status + summary + CTAs) ──────────────────────────
 
-function getMonitoringInactiveReason(
-  rampSchedule: RampScheduleInterface,
-): string | null {
-  const { status, currentStepIndex, steps } = rampSchedule;
-  if (status === "paused") return "Monitoring paused — ramp is paused";
-  if (status === "completed") return "Monitoring stopped — ramp is complete";
-  if (status === "rolled-back")
-    return "Monitoring stopped — ramp was rolled back";
-  if (status === "pending" || status === "ready")
-    return "Monitoring inactive — ramp has not started";
-  if (status === "pending-approval")
-    return "Monitoring paused — awaiting approval";
-  const step = steps[currentStepIndex];
-  if (step && !step.monitored)
-    return "Monitoring inactive — current step is not monitored";
-  return null;
+/**
+ * Maps health severity to a Radix color hue. Used for the dot, the soft
+ * background tint, the border, and any inline badges. Healthy uses violet
+ * to match the product's "all good / on plan" accent.
+ */
+const SEVERITY_COLOR: Record<RampHealthSeverity, RadixColor> = {
+  critical: "red",
+  warning: "amber",
+  info: "blue",
+  healthy: "violet",
+  inactive: "gray",
+};
+
+/** Compact relative time (e.g. "8h", "12m", "2d"). */
+function formatRelative(date: Date): string {
+  const diffMs = Date.now() - date.getTime();
+  const mins = Math.round(diffMs / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  return `${Math.round(hrs / 24)}d`;
+}
+
+function formatUpdatedTimestamp(date: Date): string {
+  const rel = formatRelative(date);
+  return rel === "just now" ? "Updated just now" : `Updated ${rel} ago`;
+}
+
+function SafeRolloutStatusBar({
+  rampSchedule,
+  snapshot,
+  safeRollout,
+  mutateAll,
+}: {
+  rampSchedule: RampScheduleInterface;
+  snapshot?: SafeRolloutSnapshotInterface;
+  safeRollout?: SafeRolloutInterface;
+  mutateAll: () => void;
+}) {
+  const { apiCall } = useAuth();
+  const signalResult = useRampMonitoringSignals(rampSchedule, {
+    snapshot,
+    safeRollout,
+  });
+  const overview = useMemo(
+    () => getRampHealthOverview(rampSchedule, signalResult),
+    [rampSchedule, signalResult],
+  );
+  const firstMonitoredStepIndex = useMemo(
+    () => rampSchedule.steps.findIndex((s) => !!s.monitored),
+    [rampSchedule.steps],
+  );
+  const monitoringHasStarted =
+    !!rampSchedule.monitoringStartDate ||
+    (firstMonitoredStepIndex >= 0 &&
+      rampSchedule.currentStepIndex >= firstMonitoredStepIndex);
+
+  const handleRollback = async (reason?: string) => {
+    await apiCall(`/ramp-schedule/${rampSchedule.id}/actions/rollback`, {
+      method: "POST",
+      body: JSON.stringify(reason ? { reason } : {}),
+    });
+    mutateAll();
+  };
+
+  const handleRestart = async () => {
+    await apiCall(`/ramp-schedule/${rampSchedule.id}/actions/restart`, {
+      method: "POST",
+    });
+    mutateAll();
+  };
+  const handleResume = async () => {
+    await apiCall(`/ramp-schedule/${rampSchedule.id}/actions/resume`, {
+      method: "POST",
+    });
+    mutateAll();
+  };
+  const handleApproveStep = async () => {
+    await apiCall(`/ramp-schedule/${rampSchedule.id}/actions/approve-step`, {
+      method: "POST",
+    });
+    mutateAll();
+  };
+  const handleAdvance = async () => {
+    await apiCall(`/ramp-schedule/${rampSchedule.id}/actions/advance`, {
+      method: "POST",
+    });
+    mutateAll();
+  };
+
+  // Snapshot freshness — in normal operation, the snapshot that most recently
+  // ran is the one that advanced (or held) the schedule, so this doubles as
+  // the "as-of" time for the current state.
+  const lastSnapshotAt = snapshot?.dateCreated
+    ? getValidDate(snapshot.dateCreated)
+    : undefined;
+
+  // Total monitored users — try analyses first, then traffic-health fallback.
+  const totalUsers = useMemo(() => {
+    if (!snapshot) return undefined;
+    const analysis = getSafeRolloutSnapshotAnalysis(snapshot);
+    const vars = analysis?.results?.[0]?.variations;
+    if (vars && vars.length > 0) {
+      return vars.reduce((sum, v) => sum + v.users, 0);
+    }
+    const trafficUnits = snapshot.health?.traffic?.overall?.variationUnits;
+    if (trafficUnits && trafficUnits.length > 0) {
+      return trafficUnits.reduce((sum, n) => sum + n, 0);
+    }
+    return undefined;
+  }, [snapshot]);
+
+  const color = SEVERITY_COLOR[overview.severity];
+
+  return (
+    <Box mb="2" style={{ overflow: "hidden" }}>
+      {/* Top metadata row */}
+      <Flex align="center" justify="between" gap="3" style={{ minHeight: 28 }}>
+        <Flex align="center" gap="2" style={{ minWidth: 0 }}>
+          <Flex align="center" gap="1">
+            <MonitoredIcon size={16} />
+            <Text size="medium" weight="semibold" color="text-high">
+              Monitoring
+            </Text>
+          </Flex>
+        </Flex>
+        <Flex align="center" gap="2" flexShrink="0">
+          {monitoringHasStarted && lastSnapshotAt && (
+            <Text size="small" color="text-mid" whiteSpace="nowrap">
+              {formatUpdatedTimestamp(lastSnapshotAt)}
+            </Text>
+          )}
+          {monitoringHasStarted && totalUsers !== undefined && (
+            <>
+              <Text size="small" color="text-low">
+                ·
+              </Text>
+              <Text size="small" color="text-mid" whiteSpace="nowrap">
+                {numberFmt.format(totalUsers)} users
+              </Text>
+            </>
+          )}
+        </Flex>
+      </Flex>
+
+      {/* Tinted status banner */}
+      <Box
+        px="3"
+        py="3"
+        style={{
+          backgroundColor: `var(--${color}-a2)`,
+          border: `1px solid var(--${color}-a5)`,
+          borderRadius: 8,
+        }}
+      >
+        <Flex align="center" justify="between" gap="3">
+          <Flex align="center" gap="3" style={{ minWidth: 0 }}>
+            <Box
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: "50%",
+                backgroundColor: `var(--${color}-9)`,
+                flexShrink: 0,
+              }}
+            />
+            <Flex direction="column" style={{ minWidth: 0 }}>
+              <Text size="medium" weight="semibold" color="text-high" truncate>
+                {overview.label}
+              </Text>
+              <Text size="small" color="text-mid" truncate>
+                {overview.summary}
+              </Text>
+            </Flex>
+          </Flex>
+
+          <Flex align="center" gap="2" flexShrink="0">
+            <RampMonitoringCTAs
+              rampSchedule={rampSchedule}
+              onRollback={handleRollback}
+              onRestart={handleRestart}
+              onResume={handleResume}
+              onApproveStep={handleApproveStep}
+              onAdvance={handleAdvance}
+              size="sm"
+            />
+          </Flex>
+        </Flex>
+      </Box>
+    </Box>
+  );
 }
 
 function MonitoringControls({
@@ -1380,14 +1772,31 @@ function MonitoringControls({
     return srData?.safeRollout as typeof safeRollout | undefined;
   }, [safeRollout, srData]);
 
-  const autoSnapshots = srFromApi?.autoSnapshots ?? true;
+  const monitoringMode =
+    rampSchedule.monitoringConfig?.monitoringMode ??
+    (rampSchedule.monitoringConfig?.autoUpdate === false ? "manual" : "auto");
+  const autoSnapshots = srFromApi?.autoSnapshots ?? monitoringMode === "auto";
   const datasourceId =
     srFromApi?.datasourceId ??
     snapshot?.settings?.datasourceId ??
     rampSchedule.monitoringConfig?.datasourceId;
 
-  const inactiveReason = getMonitoringInactiveReason(rampSchedule);
-  const isMonitoringActive = !inactiveReason;
+  const currentStepIsMonitored =
+    rampSchedule.currentStepIndex >= 0 &&
+    !!rampSchedule.steps[rampSchedule.currentStepIndex]?.monitored;
+  const effectiveAutoUpdate =
+    monitoringMode === "auto" &&
+    rampSchedule.status === "running" &&
+    currentStepIsMonitored &&
+    autoSnapshots;
+  const blockedReason =
+    monitoringMode === "manual"
+      ? "Manual mode enabled"
+      : rampSchedule.status !== "running"
+        ? `Ramp is ${rampSchedule.status}`
+        : currentStepIsMonitored
+          ? null
+          : "Current step is not monitored";
 
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
   const [refreshError, setRefreshError] = useState("");
@@ -1406,19 +1815,30 @@ function MonitoringControls({
     : !!datasourceId;
 
   const totalUsers = useMemo(() => {
-    const analysis = snapshot
-      ? getSafeRolloutSnapshotAnalysis(snapshot)
-      : undefined;
-    if (!analysis?.results?.[0]) return undefined;
-    const vars = analysis.results[0].variations;
-    return vars.reduce((sum, v) => sum + v.users, 0);
+    if (!snapshot) return undefined;
+    const analysis = getSafeRolloutSnapshotAnalysis(snapshot);
+    const vars = analysis?.results?.[0]?.variations;
+    if (vars && vars.length > 0) {
+      return vars.reduce((sum, v) => sum + v.users, 0);
+    }
+    // Fall back to traffic-health units when full analyses haven't run yet
+    // (early in a snapshot lifecycle, or when previewing with dummy data).
+    const trafficUnits = snapshot.health?.traffic?.overall?.variationUnits;
+    if (trafficUnits && trafficUnits.length > 0) {
+      return trafficUnits.reduce((sum, n) => sum + n, 0);
+    }
+    return undefined;
   }, [snapshot]);
 
-  const handleToggleAutoSnapshots = async () => {
-    await apiCall(`/safe-rollout/${safeRolloutId}/auto-snapshots`, {
-      method: "PUT",
-      body: JSON.stringify({ enabled: !autoSnapshots }),
-    });
+  const handleToggleMonitoringMode = async () => {
+    const nextMode = monitoringMode === "auto" ? "manual" : "auto";
+    await apiCall(
+      `/ramp-schedule/${rampSchedule.id}/actions/set-monitoring-mode`,
+      {
+        method: "POST",
+        body: JSON.stringify({ monitoringMode: nextMode }),
+      },
+    );
     mutateSnapshot();
     mutateSr();
   };
@@ -1428,16 +1848,34 @@ function MonitoringControls({
     : undefined;
 
   const autoUpdateTooltipBody = (() => {
-    if (!isMonitoringActive) return inactiveReason;
-    if (!autoSnapshots) return "Auto-updates are disabled. Click to enable.";
-    if (nextUpdate && nextUpdate > new Date()) {
-      const mins = Math.max(
-        1,
-        Math.round((nextUpdate.getTime() - Date.now()) / 60_000),
-      );
-      return `Auto-update enabled. Next update in ~${mins}m`;
+    let statusLine: string;
+    let actionLine: string;
+    if (monitoringMode === "manual") {
+      statusLine =
+        "Auto-updates are disabled. Currently, monitored steps can only be progressed by manual updates.";
+      actionLine = "Click to re-enable automatic updates.";
+    } else {
+      if (!effectiveAutoUpdate) {
+        statusLine = blockedReason
+          ? `Auto-updates enabled, currently blocked: ${blockedReason}.`
+          : "Auto-updates are enabled, but currently blocked.";
+      } else if (nextUpdate && nextUpdate > new Date()) {
+        const mins = Math.max(
+          1,
+          Math.round((nextUpdate.getTime() - Date.now()) / 60_000),
+        );
+        statusLine = `Auto-updates are enabled. Next update in ~${mins}m.`;
+      } else {
+        statusLine = "Auto-updates are enabled.";
+      }
+      actionLine = "Click to disable auto-updates.";
     }
-    return "Auto-update enabled. Click to disable.";
+    return (
+      <div style={{ maxWidth: 340 }}>
+        <div style={{ marginBottom: 8 }}>{statusLine}</div>
+        <div>{actionLine}</div>
+      </div>
+    );
   })();
 
   const lastUpdated = snapshot?.dateCreated
@@ -1466,12 +1904,17 @@ function MonitoringControls({
           {/* Auto-update status + toggle */}
           <Flex align="center" gap="1">
             <Tooltip body={autoUpdateTooltipBody}>
-              {isMonitoringActive && autoSnapshots ? (
+              {monitoringMode === "auto" ? (
                 <PiLightning
                   size={18}
-                  style={{ color: "var(--violet-11)", cursor: "pointer" }}
+                  style={{
+                    color: effectiveAutoUpdate
+                      ? "var(--violet-11)"
+                      : "var(--gray-8)",
+                    cursor: canRunQueries ? "pointer" : "default",
+                  }}
                   onClick={
-                    canRunQueries ? handleToggleAutoSnapshots : undefined
+                    canRunQueries ? handleToggleMonitoringMode : undefined
                   }
                 />
               ) : (
@@ -1482,9 +1925,7 @@ function MonitoringControls({
                     cursor: canRunQueries ? "pointer" : "default",
                   }}
                   onClick={
-                    canRunQueries && isMonitoringActive
-                      ? handleToggleAutoSnapshots
-                      : undefined
+                    canRunQueries ? handleToggleMonitoringMode : undefined
                   }
                 />
               )}
@@ -1531,6 +1972,7 @@ function MonitoringControls({
               icon="refresh"
               useRadixButton
               radixVariant="outline"
+              size="xs"
               onSubmit={async () => {
                 try {
                   await apiCall(`/safe-rollout/${safeRolloutId}/snapshot`, {
@@ -1604,6 +2046,19 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
 }) => {
   const router = useRouter();
   const useDummyData = router.query["dummy"] === "true";
+  const dummySeedQuery = router.query["dummySeed"];
+  const dummySeed = useMemo(() => {
+    if (!useDummyData) return 0;
+    const str = Array.isArray(dummySeedQuery)
+      ? dummySeedQuery[0]
+      : dummySeedQuery;
+    if (typeof str === "string" && str.trim()) {
+      const parsed = Number(str);
+      if (Number.isFinite(parsed)) return parsed;
+      return hashString(str);
+    }
+    return Date.now();
+  }, [useDummyData, dummySeedQuery]);
 
   const { metricGroups, getExperimentMetricById } = useDefinitions();
 
@@ -1633,12 +2088,17 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
     [guardrailMetricIds, signalMetricIds],
   );
 
-  // Assign dummy scenarios: first guardrail = failing, rest = passing/nodata mix
-  const dummyScenarios: DummyScenario[] = allMetricIds.map((_, i) => {
-    if (i === 0) return "failing";
-    if (i % 3 === 2) return "nodata";
-    return "passing";
-  });
+  const dummyIssueProfile = useMemo(
+    () => (useDummyData ? buildDummyIssueProfile(dummySeed) : undefined),
+    [useDummyData, dummySeed],
+  );
+  const dummyScenarios = useMemo(
+    () =>
+      useDummyData && dummyIssueProfile
+        ? buildDummyScenarios(allMetricIds, dummySeed, dummyIssueProfile)
+        : ([] as DummyScenario[]),
+    [useDummyData, dummyIssueProfile, allMetricIds, dummySeed],
+  );
 
   const dummyMetrics = useMemo(
     () =>
@@ -1646,11 +2106,18 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
         ? generateDummySnapshotMetrics(
             allMetricIds,
             dummyScenarios,
+            dummyIssueProfile,
             (metricId) => !!getExperimentMetricById(metricId)?.inverse,
             getExperimentMetricById,
           )
         : undefined,
-    [useDummyData, allMetricIds, dummyScenarios, getExperimentMetricById],
+    [
+      useDummyData,
+      allMetricIds,
+      dummyScenarios,
+      dummyIssueProfile,
+      getExperimentMetricById,
+    ],
   );
 
   const dummyStartMs = useMemo(() => {
@@ -1679,9 +2146,33 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
     [useDummyData, allMetricIds.join(","), dummyMetrics, dummyStartMs],
   );
 
+  const dummyTrafficUsers = useMemo(() => {
+    if (!useDummyData || !dummyMetrics) return undefined;
+    if (dummyIssueProfile?.forceNoTraffic) {
+      return { treatmentUsers: 0, controlUsers: 0 };
+    }
+    if (dummyIssueProfile?.forceLowTraffic) {
+      const r = seededRandom(dummySeed ^ 0x3ad8025f);
+      return {
+        treatmentUsers: 15 + Math.round(r() * 40),
+        controlUsers: 15 + Math.round(r() * 40),
+      };
+    }
+    const firstMetric = allMetricIds[0];
+    const firstMetricData = firstMetric ? dummyMetrics[firstMetric] : undefined;
+    if (!firstMetricData) return undefined;
+    return {
+      treatmentUsers: firstMetricData.variation.users ?? 0,
+      controlUsers: firstMetricData.baseline.users ?? 0,
+    };
+  }, [useDummyData, dummyMetrics, allMetricIds, dummyIssueProfile, dummySeed]);
+
   const dummyTrafficSnapshot = useMemo(
-    () => (useDummyData ? generateDummyTrafficSnapshot() : undefined),
-    [useDummyData],
+    () =>
+      useDummyData
+        ? generateDummyTrafficSnapshot(dummyTrafficUsers, dummyIssueProfile)
+        : undefined,
+    [useDummyData, dummyTrafficUsers, dummyIssueProfile],
   );
 
   // ── Real data: snapshot (prefer context from SafeRolloutSnapshotProvider) ──
@@ -1754,6 +2245,15 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [useDummyData, dummyMetrics, snapshotAnalysis, allMetricIds.join(",")]);
 
+  const dummySafeRolloutForSignals = useMemo(() => {
+    if (!useDummyData) return undefined;
+    return buildDummySafeRolloutForSignals(
+      guardrailMetricIds,
+      signalMetricIds,
+      snapshotMetrics,
+    );
+  }, [useDummyData, guardrailMetricIds, signalMetricIds, snapshotMetrics]);
+
   const filteredTs = useMemo(() => {
     if (useDummyData && dummyTs) return dummyTs;
     if (!tsData) return [];
@@ -1793,57 +2293,142 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
     return [fallbackStart, new Date()];
   }, [filteredTs, eventMarkers, rampSchedule.startedAt]);
 
+  // ── Controlled accordion: auto-expand once if we detect issues that
+  //    require the user's attention (failed/partial query runs or unhealthy
+  //    monitoring signals). After the first auto-expand, we stop forcing
+  //    the open state so the user can collapse it if they want.
+  const queryStatus = useMemo(() => {
+    const snap = snapshotData?.latest ?? snapshotData?.snapshot;
+    if (!snap) return null;
+    return getQueryStatus(snap.queries, snap.error);
+  }, [snapshotData]);
+  const hasQueryIssue =
+    queryStatus?.status === "failed" ||
+    queryStatus?.status === "partially-succeeded";
+
+  const monitoringSignals = useRampMonitoringSignals(rampSchedule);
+  const monitoringOverview = useMemo(
+    () => getRampHealthOverview(rampSchedule, monitoringSignals),
+    [rampSchedule, monitoringSignals],
+  );
+  const hasNonHealthyMonitoringSignal = monitoringSignals.signals.some(
+    (s) => s !== "healthy",
+  );
+  const shouldAutoExpand =
+    hasNonHealthyMonitoringSignal ||
+    monitoringOverview.autoExpand ||
+    hasQueryIssue;
+
+  const [controlsExpanded, setControlsExpanded] = useState(false);
+  const hasAutoExpanded = useRef(false);
+  useEffect(() => {
+    if (shouldAutoExpand && !hasAutoExpanded.current) {
+      hasAutoExpanded.current = true;
+      setControlsExpanded(true);
+    }
+  }, [shouldAutoExpand]);
+
   if (allMetricIds.length === 0) return null;
+
+  // When the schedule is actively running on a non-monitored step, suppress
+  // the metric tables, controls, and health checks — they describe live
+  // monitoring data that doesn't apply here. The status bar still renders;
+  // its `getRampHealthOverview` returns the inactive shell, which is the
+  // single signal we want to show in this case.
+  const suppressMonitoringDetails =
+    rampSchedule.status === "running" && !isOnMonitoredStep(rampSchedule);
 
   return (
     <Box mt="3" mb="2">
-      {!useDummyData && safeRolloutId && (
-        <MonitoringControls
+      {safeRolloutId && (
+        <SafeRolloutStatusBar
           rampSchedule={rampSchedule}
-          safeRolloutId={safeRolloutId}
-          snapshot={snapshotData?.snapshot}
-          latest={snapshotData?.latest}
-          mutateSnapshot={mutateAll}
+          snapshot={
+            useDummyData ? dummyTrafficSnapshot : snapshotData?.snapshot
+          }
+          safeRollout={
+            useDummyData ? dummySafeRolloutForSignals : snapshotCtx.safeRollout
+          }
+          mutateAll={mutateAll}
         />
       )}
 
-      {guardrailMetricIds.length > 0 && (
-        <MetricSection
-          title="Guardrail Metrics"
-          subtitle="Automatically roll back the ramp-up if any of these metrics show a statistically significant regression"
-          metricIds={guardrailMetricIds}
-          resultGroup="guardrail"
-          snapshotMetrics={snapshotMetrics}
-          timeSeries={timeSeriesMap}
-          dateExtent={dateExtent}
-          reportDate={snapshotDate}
-          startDate={startDate}
-          eventMarkers={eventMarkers}
-          guardrailMetricIds={guardrailMetricIds}
-          signalMetricIds={signalMetricIds}
-        />
-      )}
+      {!suppressMonitoringDetails && (
+        <Box mb="2">
+          <div
+            className="link-purple font-weight-bold"
+            role="button"
+            aria-expanded={controlsExpanded}
+            aria-controls={`monitoring-details-${safeRolloutId ?? "preview"}`}
+            onClick={() => setControlsExpanded((v) => !v)}
+            style={{ display: "inline-flex", alignItems: "center" }}
+          >
+            <PiCaretRightFill
+              className="mr-1"
+              style={{
+                transform: controlsExpanded ? "rotate(90deg)" : undefined,
+                transition: "transform 0.15s",
+              }}
+            />
+            Monitoring Insights
+          </div>
+          {controlsExpanded && (
+            <Box id={`monitoring-details-${safeRolloutId ?? "preview"}`} mt="2">
+              {safeRolloutId && (
+                <MonitoringControls
+                  rampSchedule={rampSchedule}
+                  safeRolloutId={safeRolloutId}
+                  snapshot={
+                    useDummyData ? dummyTrafficSnapshot : snapshotData?.snapshot
+                  }
+                  latest={
+                    useDummyData ? dummyTrafficSnapshot : snapshotData?.latest
+                  }
+                  mutateSnapshot={mutateAll}
+                />
+              )}
 
-      {signalMetricIds.length > 0 && (
-        <MetricSection
-          title="Signal Metrics"
-          subtitle="If any of these metrics show a regression, hold at the current step until healthy or manual advancement"
-          metricIds={signalMetricIds}
-          resultGroup="secondary"
-          snapshotMetrics={snapshotMetrics}
-          timeSeries={timeSeriesMap}
-          dateExtent={dateExtent}
-          reportDate={snapshotDate}
-          startDate={startDate}
-          eventMarkers={eventMarkers}
-          guardrailMetricIds={guardrailMetricIds}
-          signalMetricIds={signalMetricIds}
-        />
-      )}
+              {guardrailMetricIds.length > 0 && (
+                <MetricSection
+                  title="Guardrail Metrics"
+                  subtitle="Automatically roll back the ramp-up if any of these metrics show a statistically significant regression"
+                  metricIds={guardrailMetricIds}
+                  resultGroup="guardrail"
+                  snapshotMetrics={snapshotMetrics}
+                  timeSeries={timeSeriesMap}
+                  dateExtent={dateExtent}
+                  reportDate={snapshotDate}
+                  startDate={startDate}
+                  eventMarkers={eventMarkers}
+                  signalMetricIds={signalMetricIds}
+                />
+              )}
 
-      <HealthChecks
-        snapshot={useDummyData ? dummyTrafficSnapshot : snapshotData?.snapshot}
-      />
+              {signalMetricIds.length > 0 && (
+                <MetricSection
+                  title="Signal Metrics"
+                  subtitle="If any of these metrics show a regression, hold at the current step until healthy or manual advancement"
+                  metricIds={signalMetricIds}
+                  resultGroup="secondary"
+                  snapshotMetrics={snapshotMetrics}
+                  timeSeries={timeSeriesMap}
+                  dateExtent={dateExtent}
+                  reportDate={snapshotDate}
+                  startDate={startDate}
+                  eventMarkers={eventMarkers}
+                  signalMetricIds={signalMetricIds}
+                />
+              )}
+
+              <HealthChecks
+                snapshot={
+                  useDummyData ? dummyTrafficSnapshot : snapshotData?.snapshot
+                }
+              />
+            </Box>
+          )}
+        </Box>
+      )}
     </Box>
   );
 };

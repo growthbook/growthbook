@@ -3668,6 +3668,11 @@ paths:
                             - type: number
                               exclusiveMinimum: 0
                             - type: 'null'
+                        monitoringMode:
+                          type: string
+                          enum:
+                            - auto
+                            - manual
                         autoUpdate:
                           type: boolean
                         srmAction:
@@ -4151,6 +4156,11 @@ paths:
                             - type: number
                               exclusiveMinimum: 0
                             - type: 'null'
+                        monitoringMode:
+                          type: string
+                          enum:
+                            - auto
+                            - manual
                         autoUpdate:
                           type: boolean
                         srmAction:
@@ -4663,6 +4673,11 @@ paths:
                         - type: number
                           exclusiveMinimum: 0
                         - type: 'null'
+                    monitoringMode:
+                      type: string
+                      enum:
+                        - auto
+                        - manual
                     autoUpdate:
                       type: boolean
                     srmAction:
@@ -7815,6 +7830,11 @@ paths:
                             - type: number
                               exclusiveMinimum: 0
                             - type: 'null'
+                        monitoringMode:
+                          type: string
+                          enum:
+                            - auto
+                            - manual
                         autoUpdate:
                           type: boolean
                         srmAction:
@@ -8294,6 +8314,11 @@ paths:
                             - type: number
                               exclusiveMinimum: 0
                             - type: 'null'
+                        monitoringMode:
+                          type: string
+                          enum:
+                            - auto
+                            - manual
                         autoUpdate:
                           type: boolean
                         srmAction:
@@ -8774,6 +8799,11 @@ paths:
                         - type: number
                           exclusiveMinimum: 0
                         - type: 'null'
+                    monitoringMode:
+                      type: string
+                      enum:
+                        - auto
+                        - manual
                     autoUpdate:
                       type: boolean
                     srmAction:
@@ -17013,6 +17043,11 @@ paths:
                             - type: number
                               exclusiveMinimum: 0
                             - type: 'null'
+                        monitoringMode:
+                          type: string
+                          enum:
+                            - auto
+                            - manual
                         autoUpdate:
                           type: boolean
                         srmAction:
@@ -17181,9 +17216,84 @@ paths:
     post:
       operationId: rollbackRampSchedule
       summary: Roll back a ramp schedule
-      description: |
-        Rolls back to the starting position and lands in `paused` status so the
-        schedule can be restarted with `/actions/start` or `/actions/resume`.
+      description: >
+        Rewinds all ramp effects (rule coverage, targeting, etc.) to the
+        starting
+
+        position and lands in terminal `rolled-back` status. The reason is
+        persisted
+
+        as `lastRollbackReason` (prefixed with `Manual: `) and surfaced in the
+        UI.
+
+
+        From this terminal state the schedule can be brought back to `ready` via
+
+        `/actions/restart`, after which `/actions/start` will run it again.
+      tags:
+        - ramp-schedules
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  maxLength: 200
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+                required:
+                  - rampSchedule
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/rollback'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/ramp-schedules/{id}/actions/restart:
+    post:
+      operationId: restartRampSchedule
+      summary: Restart a terminal ramp schedule
+      description: >
+        Brings a `rolled-back` (or `completed`) schedule back into `running` in
+        a
+
+        single call. Any prior start-on-date delays are cleared (`startedAt`,
+
+        `phaseStartedAt`, etc. are reset), `currentStepIndex` is normalised to
+
+        `-1`, then the same logic as `/actions/start` runs to apply start
+        actions
+
+        and advance through immediately-eligible steps.
+
+
+        The rollback that preceded this already rewound rule effects to the
+
+        starting position; this endpoint does **not** re-execute that rewind for
+
+        `rolled-back` schedules. `completed` schedules are defensively rewound
+
+        first.
       tags:
         - ramp-schedules
       parameters:
@@ -17209,7 +17319,7 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/rollback'
+            'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/restart'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/ramp-schedules/{id}/actions/jump:
@@ -17578,18 +17688,350 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/status' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/ramp-schedules/{id}/actions/set-monitoring-mode:
+    post:
+      operationId: setMonitoringModeRampSchedule
+      summary: Set ramp monitoring mode
+      description: >
+        Sets the user preference for ramp monitoring updates. In `manual` mode,
+        automatic snapshot scheduling is disabled and operators must click
+        Update manually. In `auto` mode, snapshots run automatically when the
+        current step is monitored and the ramp is running.
+      tags:
+        - ramp-schedules
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                monitoringMode:
+                  description: >-
+                    `auto` schedules snapshots automatically while allowed by
+                    ramp state. `manual` disables agenda updates and relies on
+                    manual Update clicks.
+                  type: string
+                  enum:
+                    - auto
+                    - manual
+              required:
+                - monitoringMode
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                id: RampSchedule
+                type: object
+                properties:
+                  id:
+                    description: Unique identifier (rs_ prefix)
+                    type: string
+                  dateCreated:
+                    type: string
+                    format: date-time
+                    pattern: >-
+                      ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                  dateUpdated:
+                    type: string
+                    format: date-time
+                    pattern: >-
+                      ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                  name:
+                    type: string
+                  entityType:
+                    type: string
+                    enum:
+                      - feature
+                  entityId:
+                    type: string
+                  targets:
+                    description: Controlled entity references
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/targets'
+                  steps:
+                    description: Ordered ramp steps
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/steps'
+                  endActions:
+                    description: >-
+                      Actions applied on top of all step patches when the ramp
+                      completes. Represents the final desired rule state.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/endActions'
+                  startDate:
+                    description: >-
+                      When the ramp fires. Absent/null means immediately on
+                      publish; set to a future datetime to delay start and keep
+                      the rule disabled until that time.
+                    anyOf:
+                      - type: string
+                        format: date-time
+                        pattern: >-
+                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                      - type: 'null'
+                  cutoffDate:
+                    description: >-
+                      Rule-level kill date. When reached, the ramp is completed
+                      and the rule is disabled (enabled=false). Use for
+                      time-boxed rules that must stop serving on a fixed date
+                      regardless of ramp progress. Set to null to clear.
+                    anyOf:
+                      - type: string
+                        format: date-time
+                        pattern: >-
+                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                      - type: 'null'
+                  status:
+                    type: string
+                    enum:
+                      - pending
+                      - ready
+                      - running
+                      - paused
+                      - pending-approval
+                      - completed
+                      - rolled-back
+                  currentStepIndex:
+                    description: Index of current step; -1 = not yet started
+                    type: integer
+                    minimum: -1
+                  startedAt:
+                    anyOf:
+                      - type: string
+                        format: date-time
+                        pattern: >-
+                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                      - type: 'null'
+                  phaseStartedAt:
+                    description: >-
+                      Anchor for cumulative interval timing; resets after each
+                      approval gate
+                    anyOf:
+                      - type: string
+                        format: date-time
+                        pattern: >-
+                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                      - type: 'null'
+                  pausedAt:
+                    anyOf:
+                      - type: string
+                        format: date-time
+                        pattern: >-
+                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                      - type: 'null'
+                  nextStepAt:
+                    description: >-
+                      When the next step fires; null for approval steps and
+                      terminal states
+                    anyOf:
+                      - type: string
+                        format: date-time
+                        pattern: >-
+                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                      - type: 'null'
+                  nextProcessAt:
+                    anyOf:
+                      - type: string
+                        format: date-time
+                        pattern: >-
+                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                      - type: 'null'
+                  elapsedMs:
+                    description: >-
+                      Milliseconds since startedAt (computed at response time,
+                      not stored)
+                    anyOf:
+                      - type: integer
+                      - type: 'null'
+                  lockdownConfig:
+                    $ref: '#/components/schemas/lockdownConfig'
+                  monitoringConfig:
+                    anyOf:
+                      - type: object
+                        properties:
+                          datasourceId:
+                            type: string
+                          exposureQueryId:
+                            type: string
+                          guardrailMetricIds:
+                            type: array
+                            items:
+                              type: string
+                          signalMetricIds:
+                            type: array
+                            items:
+                              type: string
+                          updateScheduleMinutes:
+                            anyOf:
+                              - type: number
+                                exclusiveMinimum: 0
+                              - type: 'null'
+                          monitoringMode:
+                            type: string
+                            enum:
+                              - auto
+                              - manual
+                          autoUpdate:
+                            type: boolean
+                          srmAction:
+                            type: string
+                            enum:
+                              - rollback
+                              - hold
+                              - warn
+                          noTrafficAction:
+                            type: string
+                            enum:
+                              - rollback
+                              - hold
+                              - warn
+                          multipleExposureAction:
+                            type: string
+                            enum:
+                              - rollback
+                              - hold
+                              - warn
+                        required:
+                          - datasourceId
+                          - exposureQueryId
+                          - guardrailMetricIds
+                        additionalProperties: false
+                      - type: 'null'
+                  experimentHealthAction:
+                    type: string
+                    enum:
+                      - rollback
+                      - hold
+                      - warn
+                  currentStepEnteredAt:
+                    anyOf:
+                      - type: string
+                        format: date-time
+                        pattern: >-
+                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                      - type: 'null'
+                  monitoringStartDate:
+                    description: >-
+                      When the monitored section most recently started (first
+                      monitored step entered). Used for no-traffic grace period
+                      gating.
+                    anyOf:
+                      - type: string
+                        format: date-time
+                        pattern: >-
+                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                      - type: 'null'
+                  lastRollbackAt:
+                    anyOf:
+                      - type: string
+                        format: date-time
+                        pattern: >-
+                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                      - type: 'null'
+                  lastRollbackReason:
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                  monitoringStatus:
+                    description: >-
+                      Read-only monitoring status. Present when monitoringConfig
+                      is set.
+                    anyOf:
+                      - type: object
+                        properties:
+                          safeRolloutId:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          monitoringMode:
+                            description: >-
+                              User-selected monitoring mode. `auto` schedules
+                              snapshots automatically; `manual` requires
+                              clicking Update.
+                            type: string
+                            enum:
+                              - auto
+                              - manual
+                          autoUpdate:
+                            description: >-
+                              Legacy alias for auto-update behavior. Prefer
+                              `monitoringMode` (`auto` means true, `manual`
+                              means false).
+                            type: boolean
+                          effectiveAutoUpdate:
+                            description: >-
+                              Computed runtime flag. True only when monitoring
+                              mode is auto and schedule state allows automatic
+                              snapshot scheduling.
+                            type: boolean
+                          blockedReason:
+                            description: >-
+                              When `effectiveAutoUpdate` is false, this
+                              describes the computed reason auto-updates are
+                              currently blocked.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          nextSnapshotAt:
+                            description: When the next automatic snapshot query will run
+                            anyOf:
+                              - type: string
+                                format: date-time
+                                pattern: >-
+                                  ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                              - type: 'null'
+                          currentStepMonitored:
+                            description: >-
+                              Whether the step at currentStepIndex has
+                              monitoring enabled
+                            type: boolean
+                        required:
+                          - monitoringMode
+                          - autoUpdate
+                          - effectiveAutoUpdate
+                          - currentStepMonitored
+                        additionalProperties: false
+                      - type: 'null'
+                required:
+                  - id
+                  - dateCreated
+                  - dateUpdated
+                  - name
+                  - entityType
+                  - entityId
+                  - targets
+                  - steps
+                  - status
+                  - currentStepIndex
+                  - nextStepAt
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/set-monitoring-mode'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/ramp-schedules/{id}/actions/set-auto-update:
     post:
       operationId: setAutoUpdateRampSchedule
       summary: Toggle automatic monitoring updates
       description: >
-        Enables or disables automatic snapshot query scheduling for a ramp
-        schedule with monitoring enabled.
-
-
-        When disabled, no automatic queries will run, but manual updates can
-        still be triggered. This also syncs the `autoSnapshots` flag on the
-        linked SafeRollout.
+        Deprecated alias for setting monitoring mode. Prefer
+        `/actions/set-monitoring-mode`.
       tags:
         - ramp-schedules
       parameters:
@@ -17608,8 +18050,8 @@ paths:
               properties:
                 enabled:
                   description: >-
-                    Whether automatic snapshot queries should run for this ramp
-                    schedule.
+                    Legacy alias for monitoring mode (`true` => auto, `false` =>
+                    manual).
                   type: boolean
               required:
                 - enabled
@@ -17768,6 +18210,11 @@ paths:
                               - type: number
                                 exclusiveMinimum: 0
                               - type: 'null'
+                          monitoringMode:
+                            type: string
+                            enum:
+                              - auto
+                              - manual
                           autoUpdate:
                             type: boolean
                           srmAction:
@@ -17807,6 +18254,17 @@ paths:
                         pattern: >-
                           ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                       - type: 'null'
+                  monitoringStartDate:
+                    description: >-
+                      When the monitored section most recently started (first
+                      monitored step entered). Used for no-traffic grace period
+                      gating.
+                    anyOf:
+                      - type: string
+                        format: date-time
+                        pattern: >-
+                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                      - type: 'null'
                   lastRollbackAt:
                     anyOf:
                       - type: string
@@ -17829,11 +18287,35 @@ paths:
                             anyOf:
                               - type: string
                               - type: 'null'
+                          monitoringMode:
+                            description: >-
+                              User-selected monitoring mode. `auto` schedules
+                              snapshots automatically; `manual` requires
+                              clicking Update.
+                            type: string
+                            enum:
+                              - auto
+                              - manual
                           autoUpdate:
                             description: >-
-                              Whether automatic snapshot queries are enabled.
-                              Toggle via the set-auto-update action.
+                              Legacy alias for auto-update behavior. Prefer
+                              `monitoringMode` (`auto` means true, `manual`
+                              means false).
                             type: boolean
+                          effectiveAutoUpdate:
+                            description: >-
+                              Computed runtime flag. True only when monitoring
+                              mode is auto and schedule state allows automatic
+                              snapshot scheduling.
+                            type: boolean
+                          blockedReason:
+                            description: >-
+                              When `effectiveAutoUpdate` is false, this
+                              describes the computed reason auto-updates are
+                              currently blocked.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
                           nextSnapshotAt:
                             description: When the next automatic snapshot query will run
                             anyOf:
@@ -17848,7 +18330,9 @@ paths:
                               monitoring enabled
                             type: boolean
                         required:
+                          - monitoringMode
                           - autoUpdate
+                          - effectiveAutoUpdate
                           - currentStepMonitored
                         additionalProperties: false
                       - type: 'null'
@@ -24509,6 +24993,11 @@ paths:
                             - type: number
                               exclusiveMinimum: 0
                             - type: 'null'
+                        monitoringMode:
+                          type: string
+                          enum:
+                            - auto
+                            - manual
                         autoUpdate:
                           type: boolean
                         srmAction:
@@ -24801,6 +25290,11 @@ paths:
                             - type: number
                               exclusiveMinimum: 0
                             - type: 'null'
+                        monitoringMode:
+                          type: string
+                          enum:
+                            - auto
+                            - manual
                         autoUpdate:
                           type: boolean
                         srmAction:
@@ -25271,6 +25765,11 @@ paths:
                             - type: number
                               exclusiveMinimum: 0
                             - type: 'null'
+                        monitoringMode:
+                          type: string
+                          enum:
+                            - auto
+                            - manual
                         autoUpdate:
                           type: boolean
                         srmAction:
@@ -30408,6 +30907,11 @@ components:
                     - type: number
                       exclusiveMinimum: 0
                     - type: 'null'
+                monitoringMode:
+                  type: string
+                  enum:
+                    - auto
+                    - manual
                 autoUpdate:
                   type: boolean
                 srmAction:
@@ -30447,6 +30951,16 @@ components:
               pattern: >-
                 ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
             - type: 'null'
+        monitoringStartDate:
+          description: >-
+            When the monitored section most recently started (first monitored
+            step entered). Used for no-traffic grace period gating.
+          anyOf:
+            - type: string
+              format: date-time
+              pattern: >-
+                ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+            - type: 'null'
         lastRollbackAt:
           anyOf:
             - type: string
@@ -30467,11 +30981,32 @@ components:
                   anyOf:
                     - type: string
                     - type: 'null'
+                monitoringMode:
+                  description: >-
+                    User-selected monitoring mode. `auto` schedules snapshots
+                    automatically; `manual` requires clicking Update.
+                  type: string
+                  enum:
+                    - auto
+                    - manual
                 autoUpdate:
                   description: >-
-                    Whether automatic snapshot queries are enabled. Toggle via
-                    the set-auto-update action.
+                    Legacy alias for auto-update behavior. Prefer
+                    `monitoringMode` (`auto` means true, `manual` means false).
                   type: boolean
+                effectiveAutoUpdate:
+                  description: >-
+                    Computed runtime flag. True only when monitoring mode is
+                    auto and schedule state allows automatic snapshot
+                    scheduling.
+                  type: boolean
+                blockedReason:
+                  description: >-
+                    When `effectiveAutoUpdate` is false, this describes the
+                    computed reason auto-updates are currently blocked.
+                  anyOf:
+                    - type: string
+                    - type: 'null'
                 nextSnapshotAt:
                   description: When the next automatic snapshot query will run
                   anyOf:
@@ -30484,7 +31019,9 @@ components:
                   description: Whether the step at currentStepIndex has monitoring enabled
                   type: boolean
               required:
+                - monitoringMode
                 - autoUpdate
+                - effectiveAutoUpdate
                 - currentStepMonitored
               additionalProperties: false
             - type: 'null'
@@ -32689,6 +33226,11 @@ components:
                     - type: number
                       exclusiveMinimum: 0
                     - type: 'null'
+                monitoringMode:
+                  type: string
+                  enum:
+                    - auto
+                    - manual
                 autoUpdate:
                   type: boolean
                 srmAction:
@@ -34692,8 +35234,19 @@ components:
       properties:
         enabled:
           type: boolean
+        monitoringMode:
+          type: string
+          enum:
+            - auto
+            - manual
         autoUpdate:
           type: boolean
+        effectiveAutoUpdate:
+          type: boolean
+        blockedReason:
+          anyOf:
+            - type: string
+            - type: 'null'
         currentStepMonitored:
           type: boolean
         nextSnapshotAt:
@@ -34706,7 +35259,9 @@ components:
             - type: 'null'
       required:
         - enabled
+        - monitoringMode
         - autoUpdate
+        - effectiveAutoUpdate
         - currentStepMonitored
       additionalProperties: false
     targets:

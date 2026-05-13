@@ -22,13 +22,29 @@ export default function StatusColumn({
 
   const status = (() => {
     if (isFailing) {
-      return { text: "Failing", color: "var(--red-11)" } as const;
+      return {
+        text: "Failing",
+        color: "var(--red-11)",
+        emphasizeWhenConclusive: true,
+      } as const;
     } else if (!rowResults.enoughData) {
-      return { text: "Not enough data", color: "var(--gray-9)" } as const;
+      return {
+        text: "Not enough data",
+        color: "var(--gray-9)",
+        emphasizeWhenConclusive: true,
+      } as const;
     } else if (!baseline || !stats) {
-      return { text: "No data", color: "var(--gray-9)" } as const;
+      return {
+        text: "No data",
+        color: "var(--gray-9)",
+        emphasizeWhenConclusive: true,
+      } as const;
     } else {
-      return { text: "Within bounds", color: "var(--blue-11)" } as const;
+      return {
+        text: "Within bounds",
+        color: "var(--blue-11)",
+        emphasizeWhenConclusive: false,
+      } as const;
     }
   })();
 
@@ -40,7 +56,8 @@ export default function StatusColumn({
         <span
           style={{
             color: status.color,
-            fontWeight: conclusive ? 600 : undefined,
+            fontWeight:
+              conclusive && status.emphasizeWhenConclusive ? 600 : undefined,
           }}
         >
           {status.text}

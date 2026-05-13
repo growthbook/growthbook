@@ -15,9 +15,11 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import {
+  MONITORING_NO_TRAFFIC_GRACE_PERIOD_MS,
   appendRampEvent,
   computeNextProcessAt,
   computeNextSnapshotAt,
+  getEffectiveRampAutoUpdateState,
   getRefreshIntervalMs,
 } from "back-end/src/services/rampSchedule";
 
@@ -161,6 +163,23 @@ async function evaluateMonitoredStep(
   }
 
   if (!summary.health.totalUsers) {
+    const monitoringStartDate =
+      schedule.monitoringStartDate ??
+      schedule.currentStepEnteredAt ??
+      schedule.startedAt;
+    if (monitoringStartDate) {
+      const elapsedMs = now.getTime() - monitoringStartDate.getTime();
+      if (elapsedMs < MONITORING_NO_TRAFFIC_GRACE_PERIOD_MS) {
+        const remainingMin = Math.ceil(
+          (MONITORING_NO_TRAFFIC_GRACE_PERIOD_MS - elapsedMs) / 60_000,
+        );
+        return {
+          action: "hold",
+          reason: `No traffic yet — waiting for 24h monitoring grace period (~${remainingMin} min remaining)`,
+        };
+      }
+    }
+
     if (noTrafficAction === "rollback") {
       return {
         action: "rollback",
@@ -359,7 +378,8 @@ async function maybeTriggerSnapshot(
   now: Date,
 ): Promise<boolean> {
   if (!safeRollout.autoSnapshots) return false;
-  if (schedule.monitoringConfig?.autoUpdate === false) return false;
+  const autoUpdateState = getEffectiveRampAutoUpdateState(schedule);
+  if (!autoUpdateState.enabled) return false;
 
   const refreshMs = getRefreshIntervalMs(
     safeRollout,
@@ -404,7 +424,11 @@ async function maybeTriggerSnapshot(
     // interval elapses — not just when the next snapshot is due.
     const step = schedule.steps[schedule.currentStepIndex];
     let monitoredStepDueAt: Date | null = null;
-    if (step?.monitored && step.trigger.type === "interval" && schedule.currentStepEnteredAt) {
+    if (
+      step?.monitored &&
+      step.trigger.type === "interval" &&
+      schedule.currentStepEnteredAt
+    ) {
       monitoredStepDueAt = new Date(
         schedule.currentStepEnteredAt.getTime() + step.trigger.seconds * 1000,
       );

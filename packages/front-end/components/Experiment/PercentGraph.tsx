@@ -1,5 +1,5 @@
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import React, { DetailedHTMLProps, HTMLAttributes, useCallback } from "react";
+import React, { DetailedHTMLProps, HTMLAttributes } from "react";
 import {
   ExperimentMetricInterface,
   hasEnoughData,
@@ -117,11 +117,7 @@ export default function PercentGraph({
 
   const showPopover = showGraph && stats?.ci;
 
-  const {
-    handleMouseEnter: popoverMouseEnter,
-    handleMouseLeave: popoverMouseLeave,
-    renderPopover,
-  } = useResultPopover({
+  const { Trigger } = useResultPopover({
     enabled: !!showPopover,
     positioning: "element",
     data: {
@@ -144,23 +140,8 @@ export default function PercentGraph({
     },
   });
 
-  const handleMouseEnter = useCallback(
-    (e: React.MouseEvent<SVGPathElement>) => {
-      popoverMouseEnter(e);
-    },
-    [popoverMouseEnter],
-  );
-
-  const handleMouseLeave = useCallback(
-    (e: React.MouseEvent<SVGPathElement>) => {
-      popoverMouseLeave(e);
-      onMouseLeave?.(e);
-    },
-    [popoverMouseLeave, onMouseLeave],
-  );
-
   return (
-    <>
+    <Trigger style={{ display: "inline-flex" }}>
       <AlignedGraph
         ci={showGraph ? (stats?.ciAdjusted ?? stats.ci) : [0, 0]}
         id={id}
@@ -180,12 +161,10 @@ export default function PercentGraph({
         isHovered={isHovered}
         percent={percent}
         onMouseMove={onMouseMove}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        onMouseLeave={onMouseLeave}
         onClick={onClick}
         rowStatus={rowStatus}
       />
-      {renderPopover()}
-    </>
+    </Trigger>
   );
 }

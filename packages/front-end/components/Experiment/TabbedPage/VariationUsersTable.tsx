@@ -18,7 +18,12 @@ const percentFormatter = Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
-export default function VariationUsersTable({ variations, users, srm, hideVariationIndex }: Props) {
+export default function VariationUsersTable({
+  variations,
+  users,
+  srm,
+  hideVariationIndex,
+}: Props) {
   const totalUsers = users.reduce((sum, n) => sum + n, 0);
   const totalWeight = variations
     .map((v) => v.weight)
@@ -26,14 +31,42 @@ export default function VariationUsersTable({ variations, users, srm, hideVariat
 
   return (
     <>
-      <table className="table mx-2 mt-0 mb-2" style={{ tableLayout: "fixed", width: "100%" }}>
+      <table
+        className="table mx-2 mt-0 mb-2"
+        style={{ tableLayout: "fixed", width: "100%" }}
+      >
         <thead>
           <tr>
-            <th className="border-top-0" style={{ whiteSpace: "nowrap", width: "20%" }}>Variation</th>
-            <th className="border-top-0" style={{ whiteSpace: "nowrap", width: "20%" }}>Actual Units</th>
-            <th className="border-top-0" style={{ whiteSpace: "nowrap", width: "20%" }}>Expected Units</th>
-            <th className="border-top-0" style={{ whiteSpace: "nowrap", width: "20%" }}>Actual %</th>
-            <th className="border-top-0" style={{ whiteSpace: "nowrap", width: "20%" }}>Expected %</th>
+            <th
+              className="border-top-0"
+              style={{ whiteSpace: "nowrap", width: "20%" }}
+            >
+              Variation
+            </th>
+            <th
+              className="border-top-0"
+              style={{ whiteSpace: "nowrap", width: "20%" }}
+            >
+              Actual Units
+            </th>
+            <th
+              className="border-top-0"
+              style={{ whiteSpace: "nowrap", width: "20%" }}
+            >
+              Expected Units
+            </th>
+            <th
+              className="border-top-0"
+              style={{ whiteSpace: "nowrap", width: "20%" }}
+            >
+              Actual %
+            </th>
+            <th
+              className="border-top-0"
+              style={{ whiteSpace: "nowrap", width: "20%" }}
+            >
+              Expected %
+            </th>
           </tr>
         </thead>
         <tbody>

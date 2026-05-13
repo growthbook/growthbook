@@ -32,21 +32,23 @@ interface MetricDrilldownOverviewProps {
   endDate: string;
   experimentStatus?: ExperimentStatus;
   variations: ExperimentReportVariation[];
-  localBaselineRow: number;
-  setLocalBaselineRow: (baseline: number) => void;
+  localBaselineRow?: number;
+  setLocalBaselineRow?: (baseline: number) => void;
   localVariationFilter?: number[];
-  setLocalVariationFilter: (filter: number[] | undefined) => void;
+  setLocalVariationFilter?: (filter: number[] | undefined) => void;
   goalMetrics: string[];
   secondaryMetrics: string[];
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
-  localDifferenceType: DifferenceType;
-  setLocalDifferenceType: (type: DifferenceType) => void;
+  localDifferenceType?: DifferenceType;
+  setLocalDifferenceType?: (type: DifferenceType) => void;
   sequentialTestingEnabled?: boolean;
   lookbackOverride?: LookbackOverride;
   timeSeriesMessage?: string;
   preloadedTimeSeries?: MetricTimeSeries;
   dimensionInfo?: DrilldownDimensionInfo;
+  valueColumnWidth?: number;
+  labelMaxWidth?: number;
 }
 
 function MetricDrilldownOverview({
@@ -60,7 +62,6 @@ function MetricDrilldownOverview({
   endDate,
   experimentStatus,
   variations,
-  localBaselineRow,
   setLocalBaselineRow,
   localVariationFilter,
   setLocalVariationFilter,
@@ -68,13 +69,16 @@ function MetricDrilldownOverview({
   secondaryMetrics,
   statsEngine,
   pValueCorrection,
-  localDifferenceType,
+  localDifferenceType = "relative",
   setLocalDifferenceType,
   sequentialTestingEnabled,
   lookbackOverride,
   timeSeriesMessage,
   preloadedTimeSeries,
   dimensionInfo,
+  localBaselineRow = 0,
+  valueColumnWidth,
+  labelMaxWidth,
 }: MetricDrilldownOverviewProps) {
   const [statsExpanded, setStatsExpanded] = useState(false);
   const { isAuthenticated } = useAuth();
@@ -152,6 +156,8 @@ function MetricDrilldownOverview({
         preloadedTimeSeries={preloadedTimeSeries}
         dimensionId={dimensionInfo?.id}
         dimensionValue={dimensionInfo?.rawValue}
+        valueColumnWidth={valueColumnWidth}
+        labelMaxWidth={labelMaxWidth}
         snapshot={snapshot}
         analysis={analysis}
         setAnalysisSettings={setAnalysisSettings}

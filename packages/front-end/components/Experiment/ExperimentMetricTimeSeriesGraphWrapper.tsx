@@ -289,16 +289,18 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   const firstDate = min([firstDateToRender, firstDataPointDate]);
   const lastDataPointDate =
     timeSeries.dataPoints[timeSeries.dataPoints.length - 1].date;
-  const numOfDays = daysBetween(firstDate, lastDataPointDate);
-  if (numOfDays < 7) {
-    additionalGraphDataPoints.push({
-      d: addDays(new Date(lastDataPointDate), 7 - numOfDays),
-    });
-  } else {
-    // Always show one additional day at the end of the graph
-    additionalGraphDataPoints.push({
-      d: addDays(new Date(lastDataPointDate), 1),
-    });
+  if (!preloadedTimeSeries) {
+    const numOfDays = daysBetween(firstDate, lastDataPointDate);
+    if (numOfDays < 7) {
+      additionalGraphDataPoints.push({
+        d: addDays(new Date(lastDataPointDate), 7 - numOfDays),
+      });
+    } else {
+      // Always show one additional day at the end of the graph
+      additionalGraphDataPoints.push({
+        d: addDays(new Date(lastDataPointDate), 1),
+      });
+    }
   }
 
   const dataPoints = [

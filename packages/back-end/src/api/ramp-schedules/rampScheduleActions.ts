@@ -5,19 +5,24 @@ import {
   apiRampScheduleInterface,
   RampScheduleInterface,
 } from "shared/validators";
+import { ApiReqContext } from "back-end/types/api";
 import {
   advanceUntilBlocked,
   advanceStep,
   appendRampEvent,
   approveAndPublishStep,
-  applyRampStartActions,
   completeRollout,
   computeNextProcessAt,
   computeNextStepAt,
   dispatchRampEvent,
-  ensureSafeRolloutForMonitoredRamp,
+  getEffectiveRampAutoUpdateState,
+  getRampAutoUpdatePreference,
+  getRampMonitoringMode,
   jumpAheadToStep,
+  rollbackSchedule,
   rollbackToStep,
+  shouldResetMonitoringStartDate,
+  startSchedule,
 } from "back-end/src/services/rampSchedule";
 import { canApiAdvanceStep } from "back-end/src/services/rampScheduleEvaluator";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -59,46 +64,7 @@ export const startRampSchedule = createApiRequestHandler({
     );
   }
 
-  const now = new Date();
-  const initialNextStepAt = schedule.steps.length > 0 ? now : null;
-  let current = await req.context.models.rampSchedules.updateById(schedule.id, {
-    status: "running",
-    startedAt: now,
-    phaseStartedAt: now,
-    nextStepAt: initialNextStepAt,
-    nextProcessAt: computeNextProcessAt({
-      status: "running",
-      nextStepAt: initialNextStepAt,
-      cutoffDate: schedule.cutoffDate,
-    }),
-    eventHistory: appendRampEvent(schedule, "started", {
-      stepIndex: -1,
-      status: "running",
-      previousStatus: schedule.status,
-    }),
-  });
-
-  await applyRampStartActions(req.context, current);
-  current = await ensureSafeRolloutForMonitoredRamp(req.context, current);
-  await advanceUntilBlocked(req.context, current, now);
-  current =
-    (await req.context.models.rampSchedules.getById(schedule.id)) ?? current;
-
-  await dispatchRampEvent(
-    req.context,
-    current,
-    "rampSchedule.actions.started",
-    {
-      object: {
-        rampScheduleId: current.id,
-        rampName: current.name,
-        orgId: req.context.org.id,
-        currentStepIndex: current.currentStepIndex,
-        status: current.status,
-      },
-    },
-  );
-
+  const current = await startSchedule(req.context, schedule);
   return { rampSchedule: rampScheduleToApiInterface(current) };
 });
 
@@ -246,7 +212,7 @@ export const resumeRampSchedule = createApiRequestHandler({
       schedule.safeRolloutId,
     );
     if (sr) {
-      const autoUpdate = schedule.monitoringConfig?.autoUpdate !== false;
+      const autoUpdate = getRampAutoUpdatePreference(schedule.monitoringConfig);
       await req.context.models.safeRollout.update(sr, {
         autoSnapshots: autoUpdate,
         ...(sr.status === "stopped" || sr.status === "rolled-back"
@@ -331,6 +297,9 @@ export const jumpRampSchedule = createApiRequestHandler({
       phaseStartedAt: freshPhaseStartedAt,
       nextStepAt: null,
       nextProcessAt: null,
+      ...(shouldResetMonitoringStartDate(schedule, targetStepIndex)
+        ? { monitoringStartDate: now }
+        : {}),
       eventHistory: appendRampEvent(schedule, "step-jumped", {
         stepIndex: targetStepIndex,
         previousStepIndex: schedule.currentStepIndex,
@@ -420,39 +389,95 @@ export const approveStepRampSchedule = createApiRequestHandler({
   return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
 
-// POST /ramp-schedules/:id/actions/rollback — lands in "paused" so it can be restarted
+// POST /ramp-schedules/:id/actions/rollback — terminal rollback
+const rollbackBodySchema = z
+  .object({
+    /** Short human-readable cause persisted as `lastRollbackReason`
+     * (rendered to users as `Manual: <reason>`). Optional. */
+    reason: z.string().max(200).optional(),
+  })
+  .strict();
+
 export const rollbackRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
-  bodySchema: z.never(),
+  bodySchema: rollbackBodySchema,
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/rollback",
   operationId: "rollbackRampSchedule",
   summary: "Roll back a ramp schedule",
   description:
-    "Rolls back to the starting position and lands in `paused` status so the\nschedule can be restarted with `/actions/start` or `/actions/resume`.\n",
+    "Rewinds all ramp effects (rule coverage, targeting, etc.) to the starting\nposition and lands in terminal `rolled-back` status. The reason is persisted\nas `lastRollbackReason` (prefixed with `Manual: `) and surfaced in the UI.\n\nFrom this terminal state the schedule can be brought back to `ready` via\n`/actions/restart`, after which `/actions/start` will run it again.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
+  if (["completed", "rolled-back"].includes(schedule.status)) {
+    throw new Error(
+      `Schedule is already in terminal status "${schedule.status}"`,
+    );
+  }
 
-  const isTerminal = ["completed", "rolled-back"].includes(schedule.status);
-  const now = new Date();
+  const cause = req.body.reason?.trim();
+  const reason = cause ? `Manual: ${cause}` : "Manual";
+  const updated = await rollbackSchedule(req.context, schedule, reason);
 
-  const rolled =
-    schedule.currentStepIndex >= 0
-      ? await rollbackToStep(req.context, schedule, -1)
-      : schedule;
+  return { rampSchedule: rampScheduleToApiInterface(updated) };
+});
 
-  const updated = await req.context.models.rampSchedules.updateById(rolled.id, {
-    status: "paused",
-    pausedAt: now,
-    nextProcessAt: null,
-    ...(isTerminal && { startedAt: null, phaseStartedAt: null }),
-  });
+// POST /ramp-schedules/:id/actions/restart — terminal -> running (single-shot)
+export const restartRampSchedule = createApiRequestHandler({
+  paramsSchema: actionParamsSchema,
+  bodySchema: z.never(),
+  responseSchema: rampScheduleResponse,
+  method: "post" as const,
+  path: "/ramp-schedules/:id/actions/restart",
+  operationId: "restartRampSchedule",
+  summary: "Restart a terminal ramp schedule",
+  description:
+    "Brings a `rolled-back` (or `completed`) schedule back into `running` in a\nsingle call. Any prior start-on-date delays are cleared (`startedAt`,\n`phaseStartedAt`, etc. are reset), `currentStepIndex` is normalised to\n`-1`, then the same logic as `/actions/start` runs to apply start actions\nand advance through immediately-eligible steps.\n\nThe rollback that preceded this already rewound rule effects to the\nstarting position; this endpoint does **not** re-execute that rewind for\n`rolled-back` schedules. `completed` schedules are defensively rewound\nfirst.\n",
+  tags: ["ramp-schedules"],
+})(async (req) => {
+  const schedule = await req.context.models.rampSchedules.getById(
+    req.params.id,
+  );
+  if (!schedule) throw new Error("Ramp schedule not found");
+  if (!["rolled-back", "completed"].includes(schedule.status)) {
+    throw new Error(
+      `Cannot restart a schedule in status "${schedule.status}". Only terminal (rolled-back / completed) schedules can be restarted.`,
+    );
+  }
 
+  // `completed` schedules may still hold live rule patches at a non-(-1)
+  // step, so rewind defensively. `rolled-back` schedules are already at -1
+  // with effects reverted, so this is a no-op.
+  if (schedule.currentStepIndex >= 0) {
+    await rollbackToStep(req.context, schedule, -1, "Restart from terminal");
+  }
+
+  const readied = await req.context.models.rampSchedules.updateById(
+    schedule.id,
+    {
+      status: "ready",
+      currentStepIndex: -1,
+      startedAt: null,
+      phaseStartedAt: null,
+      pausedAt: null,
+      nextStepAt: null,
+      nextProcessAt: null,
+      monitoringStartDate: null,
+      eventHistory: appendRampEvent(schedule, "restart", {
+        stepIndex: -1,
+        previousStepIndex: schedule.currentStepIndex,
+        status: "ready",
+        previousStatus: schedule.status,
+      }),
+    },
+  );
+
+  const updated = await startSchedule(req.context, readied);
   return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
 
@@ -665,7 +690,10 @@ export const getRampScheduleStatus = createApiRequestHandler({
     monitoring: z
       .object({
         enabled: z.boolean(),
+        monitoringMode: z.enum(["auto", "manual"]),
         autoUpdate: z.boolean(),
+        effectiveAutoUpdate: z.boolean(),
+        blockedReason: z.string().nullable().optional(),
         currentStepMonitored: z.boolean(),
         nextSnapshotAt: z.string().nullable().optional(),
         safeRolloutId: z.string().nullable().optional(),
@@ -686,15 +714,22 @@ export const getRampScheduleStatus = createApiRequestHandler({
   if (!schedule) throw new Error("Ramp schedule not found");
 
   const monitoring = schedule.monitoringConfig
-    ? {
-        enabled: true,
-        autoUpdate: schedule.monitoringConfig.autoUpdate !== false,
-        currentStepMonitored:
-          schedule.currentStepIndex >= 0 &&
-          !!schedule.steps[schedule.currentStepIndex]?.monitored,
-        nextSnapshotAt: schedule.nextSnapshotAt?.toISOString() ?? null,
-        safeRolloutId: schedule.safeRolloutId ?? null,
-      }
+    ? (() => {
+        const autoUpdateState = getEffectiveRampAutoUpdateState(schedule);
+        const monitoringMode = getRampMonitoringMode(schedule.monitoringConfig);
+        return {
+          enabled: true,
+          monitoringMode,
+          autoUpdate: monitoringMode === "auto",
+          effectiveAutoUpdate: autoUpdateState.enabled,
+          blockedReason: autoUpdateState.reason,
+          currentStepMonitored:
+            schedule.currentStepIndex >= 0 &&
+            !!schedule.steps[schedule.currentStepIndex]?.monitored,
+          nextSnapshotAt: schedule.nextSnapshotAt?.toISOString() ?? null,
+          safeRolloutId: schedule.safeRolloutId ?? null,
+        };
+      })()
     : undefined;
 
   return {
@@ -710,6 +745,86 @@ export const getRampScheduleStatus = createApiRequestHandler({
   };
 });
 
+async function setRampMonitoringMode({
+  schedule,
+  monitoringMode,
+  context,
+}: {
+  schedule: RampScheduleInterface;
+  monitoringMode: "auto" | "manual";
+  context: ApiReqContext;
+}): Promise<RampScheduleInterface> {
+  const monitoringConfig = schedule.monitoringConfig;
+  if (!monitoringConfig) {
+    throw new Error(
+      "Cannot change monitoring mode on a schedule without monitoring configuration",
+    );
+  }
+  const nextMonitoringConfig = {
+    ...monitoringConfig,
+    monitoringMode,
+    // Keep legacy field in sync for backwards compatibility.
+    autoUpdate: monitoringMode === "auto",
+  };
+  const effective = getEffectiveRampAutoUpdateState({
+    ...schedule,
+    monitoringConfig: nextMonitoringConfig,
+  });
+  const updated = await context.models.rampSchedules.updateById(schedule.id, {
+    monitoringConfig: nextMonitoringConfig,
+    eventHistory: appendRampEvent(schedule, "auto-update-toggled", {
+      stepIndex: schedule.currentStepIndex,
+      status: schedule.status,
+      reason:
+        monitoringMode === "auto"
+          ? "Monitoring mode set to auto"
+          : "Monitoring mode set to manual",
+    }),
+  });
+
+  if (schedule.safeRolloutId) {
+    const sr = await context.models.safeRollout.getById(schedule.safeRolloutId);
+    if (sr) {
+      await context.models.safeRollout.update(sr, {
+        autoSnapshots: effective.enabled,
+      });
+    }
+  }
+
+  return updated;
+}
+
+// POST /ramp-schedules/:id/actions/set-monitoring-mode
+export const setMonitoringModeRampSchedule = createApiRequestHandler({
+  paramsSchema: actionParamsSchema,
+  bodySchema: z.object({
+    monitoringMode: z
+      .enum(["auto", "manual"])
+      .describe(
+        "`auto` schedules snapshots automatically while allowed by ramp state. `manual` disables agenda updates and relies on manual Update clicks.",
+      ),
+  }),
+  responseSchema: apiRampScheduleInterface,
+  method: "post" as const,
+  path: "/ramp-schedules/:id/actions/set-monitoring-mode",
+  operationId: "setMonitoringModeRampSchedule",
+  summary: "Set ramp monitoring mode",
+  description:
+    "Sets the user preference for ramp monitoring updates. In `manual` mode, automatic snapshot scheduling is disabled and operators must click Update manually. In `auto` mode, snapshots run automatically when the current step is monitored and the ramp is running.\n",
+  tags: ["ramp-schedules"],
+})(async (req) => {
+  const schedule = await req.context.models.rampSchedules.getById(
+    req.params.id,
+  );
+  if (!schedule) throw new Error("Ramp schedule not found");
+  const updated = await setRampMonitoringMode({
+    schedule,
+    monitoringMode: req.body.monitoringMode,
+    context: req.context,
+  });
+  return rampScheduleToApiInterface(updated);
+});
+
 // POST /ramp-schedules/:id/actions/set-auto-update
 export const setAutoUpdateRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
@@ -717,7 +832,7 @@ export const setAutoUpdateRampSchedule = createApiRequestHandler({
     enabled: z
       .boolean()
       .describe(
-        "Whether automatic snapshot queries should run for this ramp schedule.",
+        "Legacy alias for monitoring mode (`true` => auto, `false` => manual).",
       ),
   }),
   responseSchema: apiRampScheduleInterface,
@@ -726,46 +841,17 @@ export const setAutoUpdateRampSchedule = createApiRequestHandler({
   operationId: "setAutoUpdateRampSchedule",
   summary: "Toggle automatic monitoring updates",
   description:
-    "Enables or disables automatic snapshot query scheduling for a ramp schedule with monitoring enabled.\n\nWhen disabled, no automatic queries will run, but manual updates can still be triggered. This also syncs the `autoSnapshots` flag on the linked SafeRollout.\n",
+    "Deprecated alias for setting monitoring mode. Prefer `/actions/set-monitoring-mode`.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
-
-  if (!schedule.monitoringConfig) {
-    throw new Error(
-      "Cannot toggle auto-update on a schedule without monitoring configuration",
-    );
-  }
-
-  const { enabled } = req.body;
-  const updated = await req.context.models.rampSchedules.updateById(
-    schedule.id,
-    {
-      monitoringConfig: {
-        ...schedule.monitoringConfig,
-        autoUpdate: enabled,
-      },
-      eventHistory: appendRampEvent(schedule, "auto-update-toggled", {
-        stepIndex: schedule.currentStepIndex,
-        status: schedule.status,
-        reason: enabled ? "Auto-update enabled" : "Auto-update disabled",
-      }),
-    },
-  );
-
-  if (schedule.safeRolloutId) {
-    const sr = await req.context.models.safeRollout.getById(
-      schedule.safeRolloutId,
-    );
-    if (sr) {
-      await req.context.models.safeRollout.update(sr, {
-        autoSnapshots: enabled,
-      });
-    }
-  }
-
+  const updated = await setRampMonitoringMode({
+    schedule,
+    monitoringMode: req.body.enabled ? "auto" : "manual",
+    context: req.context,
+  });
   return rampScheduleToApiInterface(updated);
 });

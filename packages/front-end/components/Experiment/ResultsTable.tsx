@@ -135,6 +135,8 @@ export type ResultsTableProps = {
   preloadedTimeSeries?: MetricTimeSeries;
   dimensionId?: string;
   dimensionValue?: string;
+  valueColumnWidth?: number;
+  labelMaxWidth?: number;
 };
 
 const ROW_HEIGHT = 46;
@@ -207,6 +209,8 @@ export default function ResultsTable({
   preloadedTimeSeries,
   dimensionId,
   dimensionValue,
+  valueColumnWidth = 130,
+  labelMaxWidth = 75,
 }: ResultsTableProps) {
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
@@ -576,7 +580,7 @@ export default function ResultsTable({
                       <>
                         {columnsToDisplay.includes("Baseline Average") && (
                           <th
-                            style={{ width: 130 * tableCellScale }}
+                            style={{ width: valueColumnWidth * tableCellScale }}
                             className={clsx("axis-col label", {
                               noStickyHeader,
                             })}
@@ -593,12 +597,13 @@ export default function ResultsTable({
                                 !isHoldout && snapshot?.dimension !== "pre:date"
                               }
                               isHoldout={isHoldout}
+                              labelMaxWidth={labelMaxWidth}
                             />
                           </th>
                         )}
                         {columnsToDisplay.includes("Variation Averages") && (
                           <th
-                            style={{ width: 130 * tableCellScale }}
+                            style={{ width: valueColumnWidth * tableCellScale }}
                             className={clsx("axis-col label", {
                               noStickyHeader,
                             })}
@@ -612,6 +617,7 @@ export default function ResultsTable({
                                 !isHoldout && snapshot?.dimension !== "pre:date"
                               }
                               isHoldout={isHoldout}
+                              labelMaxWidth={labelMaxWidth}
                             />
                           </th>
                         )}

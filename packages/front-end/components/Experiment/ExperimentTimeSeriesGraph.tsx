@@ -90,8 +90,7 @@ function renderCiTooltipCell(
   if (loF && hiF) {
     return (
       <Text as="span" weight="bold">
-        [
-        {formatter(lo, formatterOptions)}, {formatter(hi, formatterOptions)}]
+        [{formatter(lo, formatterOptions)}, {formatter(hi, formatterOptions)}]
       </Text>
     );
   }
@@ -340,10 +339,7 @@ const getYVal = (variation?: DataPointVariation, yaxis?: AxisType) => {
 };
 
 /** Non-finite CI bounds must not expand the y-axis; use the point for domain math only. */
-function finiteCiForDomain(
-  bound: number | undefined,
-  point: number,
-): number {
+function finiteCiForDomain(bound: number | undefined, point: number): number {
   if (bound === undefined) return point;
   if (Number.isFinite(bound)) return bound;
   return point;
@@ -514,12 +510,11 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
       ? Math.min(
           ...lastDataPointWithData.variations
             .filter((_, i) => showVariations[i])
-            .map(
-              (variation) =>
-                finiteCiForDomain(
-                  variation?.ci?.[0],
-                  getYVal(variation ?? undefined, yaxis) ?? 0,
-                ),
+            .map((variation) =>
+              finiteCiForDomain(
+                variation?.ci?.[0],
+                getYVal(variation ?? undefined, yaxis) ?? 0,
+              ),
             ),
         )
       : 0;
@@ -528,12 +523,11 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
       ? Math.max(
           ...lastDataPointWithData.variations
             .filter((_, i) => showVariations[i])
-            .map(
-              (variation) =>
-                finiteCiForDomain(
-                  variation?.ci?.[1],
-                  getYVal(variation ?? undefined, yaxis) ?? 0,
-                ),
+            .map((variation) =>
+              finiteCiForDomain(
+                variation?.ci?.[1],
+                getYVal(variation ?? undefined, yaxis) ?? 0,
+              ),
             ),
         )
       : 0;

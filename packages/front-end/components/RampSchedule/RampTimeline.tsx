@@ -325,8 +325,7 @@ function NodePopoverContent({
         return { label: "Needs Approval", color: "var(--orange-9)" };
       if (status === "paused")
         return { label: "Paused", color: "var(--amber-11)" };
-      if (monitored)
-        return { label: "Monitoring", color: "var(--blue-9)" };
+      if (monitored) return { label: "Monitoring", color: "var(--blue-9)" };
       return { label: "Running", color: "var(--green-9)" };
     }
     return { label: "Upcoming", color: "var(--gray-12)" };
@@ -669,8 +668,11 @@ export default function RampTimeline({
       if (startDate && i === 0) return "active";
       return "future";
     }
-    if (i === doneCount && status !== "completed" && status !== "rolled-back")
-      return "active";
+    // Rolled-back schedules sit at the Start node (currentStepIndex = -1
+    // with effects rewound to the starting position). Mark Start active so
+    // the user can see exactly where a Restart will resume from.
+    if (status === "rolled-back") return i === 0 ? "active" : "future";
+    if (i === doneCount && status !== "completed") return "active";
     return "future";
   }
 

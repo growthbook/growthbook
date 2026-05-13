@@ -26,6 +26,20 @@ const postBodyAction = z.object({
 });
 type PostBodyAction = z.infer<typeof postBodyAction>;
 
+function normalizeMonitoringConfig(
+  monitoringConfig:
+    | RampScheduleInterface["monitoringConfig"]
+    | null
+    | undefined,
+) {
+  if (!monitoringConfig) return monitoringConfig ?? null;
+  if (!monitoringConfig.monitoringMode) return monitoringConfig;
+  return {
+    ...monitoringConfig,
+    autoUpdate: monitoringConfig.monitoringMode === "auto",
+  };
+}
+
 // Tight ISO datetime validation for all ramp date fields so bad strings
 // fail here rather than downstream in `new Date()`.
 const apiRampTrigger = z.union([
@@ -64,11 +78,16 @@ const postRampScheduleValidator = {
           datasourceId: z.string(),
           exposureQueryId: z.string(),
           guardrailMetricIds: z.array(z.string()).min(1),
+          signalMetricIds: z.array(z.string()).optional(),
+          monitoringMode: z.enum(["auto", "manual"]).optional(),
+          autoUpdate: z.boolean().optional(),
           autoRollback: z.boolean().optional(),
           updateScheduleMinutes: z.number().positive().optional().nullable(),
           srmAction: z.enum(["warn", "hold", "rollback"]).optional(),
           noTrafficAction: z.enum(["warn", "hold", "rollback"]).optional(),
-          multipleExposureAction: z.enum(["warn", "hold", "rollback"]).optional(),
+          multipleExposureAction: z
+            .enum(["warn", "hold", "rollback"])
+            .optional(),
         })
         .nullish(),
       lockdownConfig: z.object({ mode: z.enum(["none", "locked"]) }).optional(),
@@ -300,8 +319,9 @@ export const postRampSchedule = createApiRequestHandler(
     endActions: resolvedEndActions,
     startDate,
     cutoffDate: body.cutoffDate ? new Date(body.cutoffDate) : null,
-    monitoringConfig:
+    monitoringConfig: normalizeMonitoringConfig(
       body.monitoringConfig ?? template?.monitoringConfig ?? null,
+    ),
     lockdownConfig: body.lockdownConfig ?? template?.lockdownConfig,
     status: hasTarget ? "ready" : "pending",
     currentStepIndex: -1,

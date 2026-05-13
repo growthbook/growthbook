@@ -111,6 +111,7 @@ export const advanceSingleRampSchedule = async (
         status: "running",
         startedAt: now,
         phaseStartedAt: now,
+        monitoringStartDate: null,
         nextStepAt: initialNextStepAt,
         nextProcessAt: computeNextProcessAt({
           status: "running",
@@ -177,9 +178,14 @@ export const advanceSingleRampSchedule = async (
         // re-evaluated.
         const step = current.steps[current.currentStepIndex];
         let wakeAt: Date | null = null;
-        if (step?.monitored && step.trigger.type === "interval" && current.currentStepEnteredAt) {
+        if (
+          step?.monitored &&
+          step.trigger.type === "interval" &&
+          current.currentStepEnteredAt
+        ) {
           wakeAt = new Date(
-            current.currentStepEnteredAt.getTime() + step.trigger.seconds * 1000,
+            current.currentStepEnteredAt.getTime() +
+              step.trigger.seconds * 1000,
           );
           if (wakeAt <= now) wakeAt = null;
         }
@@ -191,9 +197,8 @@ export const advanceSingleRampSchedule = async (
         });
         // Floor: re-check within 60s at most so we don't go dark.
         const maxWake = new Date(now.getTime() + 60_000);
-        const effectiveNext = nextProcess && nextProcess < maxWake
-          ? nextProcess
-          : maxWake;
+        const effectiveNext =
+          nextProcess && nextProcess < maxWake ? nextProcess : maxWake;
         await context.models.rampSchedules.updateById(current.id, {
           nextProcessAt: effectiveNext,
         });
@@ -213,9 +218,8 @@ export const advanceSingleRampSchedule = async (
   } catch (e) {
     logger.error(e, `Error advancing ramp schedule ${rampScheduleId}`);
     try {
-      const errorSchedule = await context.models.rampSchedules.getById(
-        rampScheduleId,
-      );
+      const errorSchedule =
+        await context.models.rampSchedules.getById(rampScheduleId);
       await context.models.rampSchedules.updateById(rampScheduleId, {
         status: "paused",
         nextProcessAt: null,
