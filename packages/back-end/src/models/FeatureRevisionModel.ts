@@ -40,6 +40,7 @@ import {
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { logger } from "back-end/src/util/logger";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
+import { createWithVersionRetry } from "back-end/src/util/mongo.util";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
@@ -693,7 +694,11 @@ export async function createRevision({
   org: OrganizationInterface;
   canBypassApprovalChecks?: boolean;
 }) {
-  // Get max version number
+  // Read once to (a) seed the baseVersion default, (b) compute the initial
+  // version guess used for validation hooks, and (c) prime the first attempt
+  // of the retry loop below. The version is reassigned inside
+  // `createWithVersionRetry` on retry so concurrent creates can't collide
+  // on the (organization, featureId, version) unique index.
   const lastRevision = await getLastRevision(context, feature);
   const newVersion = lastRevision ? lastRevision.version + 1 : 1;
 
@@ -766,6 +771,9 @@ export async function createRevision({
     throw new Error("can not find a base revision");
   }
   const status = "draft";
+  // Version is initially set to the best-guess `newVersion` so validation
+  // hooks see a realistic value. On a duplicate-key collision the retry loop
+  // below reassigns it before the actual insert.
   const revision = {
     organization: feature.organization,
     featureId: feature.id,
@@ -803,6 +811,9 @@ export async function createRevision({
     revision.status = "pending-review";
   }
 
+  // Validation hooks (no-op on cloud; custom user code on self-hosted) MUST
+  // run exactly once — keep them outside the retry loop so a duplicate-key
+  // race never causes a hook to fire twice.
   await runValidateFeatureRevisionHooks({
     context,
     feature,
@@ -810,7 +821,20 @@ export async function createRevision({
     original: baseRevision,
   });
 
-  const doc = await FeatureRevisionModel.create(revision);
+  // Retry the insert on duplicate-key collisions from the
+  // (organization, featureId, version) unique index. The first attempt uses
+  // the already-assigned `newVersion`; on retry we re-read the max version
+  // to pick up the concurrent insert that won the previous race, then
+  // reassign `revision.version` before retrying.
+  let firstAttempt = true;
+  const doc = await createWithVersionRetry(async () => {
+    if (!firstAttempt) {
+      const latest = await getLastRevision(context, feature);
+      revision.version = latest ? latest.version + 1 : 1;
+    }
+    firstAttempt = false;
+    return FeatureRevisionModel.create(revision);
+  });
 
   // Fire and forget - no route that creates the revision expects the log to be there immediately
   context.models.featureRevisionLogs
