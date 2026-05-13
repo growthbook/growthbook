@@ -25,7 +25,7 @@ import Text from "../Text";
 import styles from "./Modal.module.scss";
 
 export type Size = "md" | "lg" | "max";
-function getRadixSize(size: Size): Responsive<"3" | "4" | "5"> {
+function getRadixSize(size: Size): Responsive<"3" | "4"> {
   switch (size) {
     case "md":
       return "3";
@@ -43,7 +43,7 @@ function getMaxWidth(size: Size) {
     case "lg":
       return "800px";
     case "max":
-      return "95vw";
+      return "90vw";
   }
 }
 
@@ -171,7 +171,7 @@ function Root({
         size={getRadixSize(size)}
         maxWidth={getMaxWidth(size)}
         aria-describedby={undefined}
-        maxHeight="85vh"
+        maxHeight={size === "max" ? "90vh" : "85vh"}
         style={
           {
             display: "flex",
