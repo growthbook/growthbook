@@ -259,13 +259,13 @@ export const COMPARE_OVERLAY_Z_CURRENT_OVER = 2;
 /** ECharts `z`: dashed comparison line on top of current line strokes. */
 export const COMPARE_OVERLAY_Z_PREVIOUS_LINE_ON_TOP = 3;
 
-export const COMPARE_OVERLAY_AREA_FILL_OPACITY = 0.38;
-export const COMPARE_OVERLAY_PREVIOUS_AREA_FILL_OPACITY = 0.42;
 export const COMPARE_OVERLAY_BAR_GAP = "-100%";
-export const COMPARE_OVERLAY_PREVIOUS_BAR_OPACITY = 0.55;
-export const COMPARE_OVERLAY_CURRENT_BAR_WHEN_ABOVE_PREVIOUS_OPACITY = 0.72;
-/** When any bucket in the series exceeds previous (no per-segment area opacity in ECharts). */
-export const COMPARE_OVERLAY_AREA_FILL_WHEN_SERIES_ABOVE_ANY_BUCKET = 0.28;
+/** Opacity applied on hover to the bar/area being hovered, so the overlapping
+ * period underneath shows through. Defaults stay solid; only hover dims. */
+export const COMPARE_OVERLAY_CURRENT_BAR_HOVER_OPACITY = 0.72;
+export const COMPARE_OVERLAY_PREVIOUS_BAR_HOVER_OPACITY = 0.55;
+export const COMPARE_OVERLAY_AREA_HOVER_OPACITY = 0.38;
+export const COMPARE_OVERLAY_PREVIOUS_AREA_HOVER_OPACITY = 0.42;
 
 const EXPLORER_BAR_CHART_TYPES: ExplorationConfig["chartType"][] = [
   "bar",
@@ -330,7 +330,6 @@ export function buildExplorerChartComparisonSeriesList(params: {
     currentLabel: string;
     previousLabel: string;
   } | null;
-  previousAlignedMap?: Record<string, Record<string, number>> | null;
   previous?: boolean;
   seriesColor: (index: number) => string;
   comparisonSeriesColor: (index: number) => string;
@@ -352,7 +351,6 @@ export function buildExplorerChartComparisonSeriesList(params: {
     animate,
   } = params;
   const isPrevious = params.previous ?? false;
-  const previousAlignedMap = params.previousAlignedMap ?? null;
 
   return sourceSeriesKeys
     .map((seriesKey, idx) => {
@@ -404,23 +402,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
           return { name: displayName, data, type: "bar" as const };
         }
 
-        const prevForSeries = previousAlignedMap?.[seriesKey];
-        const data =
-          compareOverlayActive && !isPrevious && prevForSeries
-            ? sourceSortedXValues.map((x) => {
-                const curr = seriesDataMap[x] ?? 0;
-                const prev = prevForSeries[x] ?? 0;
-                return curr > prev
-                  ? {
-                      value: curr,
-                      itemStyle: {
-                        opacity:
-                          COMPARE_OVERLAY_CURRENT_BAR_WHEN_ABOVE_PREVIOUS_OPACITY,
-                      },
-                    }
-                  : curr;
-              })
-            : sourceSortedXValues.map((x) => seriesDataMap[x] ?? 0);
+        const data = sourceSortedXValues.map((x) => seriesDataMap[x] ?? 0);
         if (compareOverlayActive) {
           return {
             name: displayName,
@@ -435,9 +417,6 @@ export function buildExplorerChartComparisonSeriesList(params: {
             z: isPrevious
               ? COMPARE_OVERLAY_Z_PREVIOUS_UNDER
               : COMPARE_OVERLAY_Z_CURRENT_OVER,
-            ...(isPrevious
-              ? { itemStyle: { opacity: COMPARE_OVERLAY_PREVIOUS_BAR_OPACITY } }
-              : {}),
           };
         }
         return {
@@ -454,15 +433,6 @@ export function buildExplorerChartComparisonSeriesList(params: {
           new Date(x).getTime(),
           seriesDataMap[x] ?? 0,
         ]);
-        let anyCurrentAbovePrev = false;
-        if (chartType === "area" && !isPrevious && compareOverlayActive) {
-          const prevMap = previousAlignedMap?.[seriesKey];
-          if (prevMap) {
-            anyCurrentAbovePrev = sourceSortedXValues.some(
-              (x) => (seriesDataMap[x] ?? 0) > (prevMap[x] ?? 0),
-            );
-          }
-        }
 
         if (chartType === "area" && isPrevious && compareOverlayActive) {
           return {
@@ -477,9 +447,11 @@ export function buildExplorerChartComparisonSeriesList(params: {
             symbol: "circle" as const,
             symbolSize: 4,
             lineStyle: { width: 1, opacity: 0.65 },
-            areaStyle: {
-              opacity: COMPARE_OVERLAY_PREVIOUS_AREA_FILL_OPACITY,
-              color,
+            areaStyle: { color },
+            emphasis: {
+              areaStyle: {
+                opacity: COMPARE_OVERLAY_PREVIOUS_AREA_HOVER_OPACITY,
+              },
             },
             stack: getComparisonAreaPreviousStackId(),
             z: COMPARE_OVERLAY_Z_PREVIOUS_UNDER,
@@ -504,13 +476,16 @@ export function buildExplorerChartComparisonSeriesList(params: {
         if (chartType === "area")
           return {
             ...lineConfig,
-            areaStyle: compareOverlayActive
+            areaStyle: {},
+            ...(compareOverlayActive
               ? {
-                  opacity: anyCurrentAbovePrev
-                    ? COMPARE_OVERLAY_AREA_FILL_WHEN_SERIES_ABOVE_ANY_BUCKET
-                    : COMPARE_OVERLAY_AREA_FILL_OPACITY,
+                  emphasis: {
+                    areaStyle: {
+                      opacity: COMPARE_OVERLAY_AREA_HOVER_OPACITY,
+                    },
+                  },
                 }
-              : {},
+              : {}),
             stack: "stack",
           };
       }
@@ -576,31 +551,14 @@ export function buildIndividualBarComparePivotSeriesAndCategories(args: {
 
   const categoryAxisData = slots.map((s) => `${s.x}\n${s.attributeName}`);
 
-  const currentData = slots.map((slot) => {
-    const curr = dataMap[slot.seriesKey]?.[slot.x] ?? 0;
-    const prev = previousAlignedMap[slot.seriesKey]?.[slot.x] ?? 0;
-    const color = seriesColor(slot.seriesKeyIndex);
-    if (curr > prev) {
-      return {
-        value: curr,
-        itemStyle: {
-          color,
-          opacity: COMPARE_OVERLAY_CURRENT_BAR_WHEN_ABOVE_PREVIOUS_OPACITY,
-        },
-      };
-    }
-    return {
-      value: curr,
-      itemStyle: { color },
-    };
-  });
+  const currentData = slots.map((slot) => ({
+    value: dataMap[slot.seriesKey]?.[slot.x] ?? 0,
+    itemStyle: { color: seriesColor(slot.seriesKeyIndex) },
+  }));
 
   const previousData = slots.map((slot) => ({
     value: previousAlignedMap[slot.seriesKey]?.[slot.x] ?? 0,
-    itemStyle: {
-      color: comparisonSeriesColor(slot.seriesKeyIndex),
-      opacity: COMPARE_OVERLAY_PREVIOUS_BAR_OPACITY,
-    },
+    itemStyle: { color: comparisonSeriesColor(slot.seriesKeyIndex) },
   }));
 
   const series = [
@@ -613,6 +571,9 @@ export function buildIndividualBarComparePivotSeriesAndCategories(args: {
       animation: animate,
       animationDuration: animate ? 300 : 0,
       animationEasing: "cubicOut" as const,
+      emphasis: {
+        itemStyle: { opacity: COMPARE_OVERLAY_CURRENT_BAR_HOVER_OPACITY },
+      },
     },
     {
       name: comparisonPeriodLabels.previousLabel,
@@ -623,6 +584,9 @@ export function buildIndividualBarComparePivotSeriesAndCategories(args: {
       animation: animate,
       animationDuration: animate ? 300 : 0,
       animationEasing: "cubicOut" as const,
+      emphasis: {
+        itemStyle: { opacity: COMPARE_OVERLAY_PREVIOUS_BAR_HOVER_OPACITY },
+      },
     },
   ];
 
