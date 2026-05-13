@@ -36,7 +36,17 @@ import {
   generateDashboardBlockIds,
   migrateBlock,
 } from "back-end/src/enterprise/models/DashboardModel";
-import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
+import {
+  getEligibleTemplates,
+  getTemplateById,
+  instantiateTemplate,
+  DashboardTemplateMetadata,
+} from "back-end/src/enterprise/services/dashboard-templates";
+import {
+  createDashboardBody,
+  createDashboardFromTemplateBody,
+  updateDashboardBody,
+} from "./dashboards.router";
 interface SingleDashboardResponse {
   status: number;
   dashboard: DashboardInterface;
@@ -84,6 +94,99 @@ export async function getDashboardsForExperiment(
   const dashboards =
     await context.models.dashboards.findByExperiment(experimentId);
   return res.status(200).json({ status: 200, dashboards });
+}
+
+export async function listDashboardTemplates(
+  req: AuthRequest<never, never, { datasourceId: string }>,
+  res: ResponseWithStatusAndError<{
+    templates: DashboardTemplateMetadata[];
+  }>,
+) {
+  const context = getContextFromReq(req);
+  const { datasourceId } = req.query;
+
+  const datasource = await getDataSourceById(context, datasourceId);
+  if (!datasource) {
+    return res
+      .status(404)
+      .json({ status: 404, message: "Datasource not found" });
+  }
+
+  // Gate the suggestion behind the same commercial feature general
+  // product-analytics dashboard creation uses. Without it, the user
+  // wouldn't be able to instantiate the template anyway.
+  if (!context.hasPremiumFeature("product-analytics-dashboards")) {
+    return res.status(200).json({ status: 200, templates: [] });
+  }
+
+  const templates = getEligibleTemplates({ datasource });
+  return res.status(200).json({ status: 200, templates });
+}
+
+export async function createDashboardFromTemplate(
+  req: AuthRequest<
+    z.infer<typeof createDashboardFromTemplateBody>,
+    never,
+    never
+  >,
+  res: ResponseWithStatusAndError<SingleDashboardResponse>,
+) {
+  const context = getContextFromReq(req);
+  const { templateId, datasourceId, title, projects } = req.body;
+
+  const template = getTemplateById(templateId);
+  if (!template) {
+    return res.status(404).json({ status: 404, message: "Template not found" });
+  }
+
+  const datasource = await getDataSourceById(context, datasourceId);
+  if (!datasource) {
+    return res
+      .status(404)
+      .json({ status: 404, message: "Datasource not found" });
+  }
+
+  if (!template.isEligible({ datasource })) {
+    return res.status(400).json({
+      status: 400,
+      message: "Template is not eligible for this datasource",
+    });
+  }
+
+  const { title: defaultTitle, blocks: intentBlocks } =
+    await instantiateTemplate(context, template, datasource);
+
+  if (intentBlocks.length === 0) {
+    return res.status(400).json({
+      status: 400,
+      message:
+        "Template produced no blocks for this datasource. Make sure you have fact tables created from your GA4 export.",
+    });
+  }
+
+  const createdBlocks = intentBlocks.map((blockData) =>
+    generateDashboardBlockIds(context.org.id, blockData),
+  );
+
+  // Reuse the existing dashboard create path so permissions, audit logs,
+  // id assignment, and saved-query linkage all flow through the same code.
+  // editLevel/shareLevel mirror the defaults from /product-analytics/dashboards/new
+  // so we only require the same Pro commercial feature; the user can
+  // elevate to "published" once the dashboard exists.
+  const dashboard = await context.models.dashboards.create({
+    isDefault: false,
+    isDeleted: false,
+    userId: context.userId,
+    editLevel: "private",
+    shareLevel: "private",
+    enableAutoUpdates: false,
+    experimentId: undefined,
+    title: title || defaultTitle,
+    projects: projects ?? datasource.projects ?? [],
+    blocks: createdBlocks,
+  });
+
+  return res.status(200).json({ status: 200, dashboard });
 }
 
 export async function createDashboard(

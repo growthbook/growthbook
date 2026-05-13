@@ -42,6 +42,7 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HistoryTable from "@/components/HistoryTable";
+import DashboardTemplateSuggestion from "@/enterprise/components/Dashboards/DashboardTemplateSuggestion";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -338,6 +339,13 @@ const DataSourcePage: FC = () => {
           <Text color="text-mid">{d.description}</Text>
         </Box>
       )}
+
+      {permissionsUtil.canCreateGeneralDashboards({
+        projects: d.projects ?? [],
+      }) &&
+        hasCommercialFeature("product-analytics-dashboards") && (
+          <DashboardTemplateSuggestion datasource={d} />
+        )}
 
       {!d.properties?.hasSettings && (
         <Box mt="3">

@@ -62,6 +62,29 @@ router.get(
 );
 
 router.get(
+  "/templates",
+  validateRequestMiddleware({
+    query: z.object({ datasourceId: z.string() }).strict(),
+  }),
+  dashboardsController.listDashboardTemplates,
+);
+
+export const createDashboardFromTemplateBody = z
+  .object({
+    templateId: z.string(),
+    datasourceId: z.string(),
+    title: z.string().optional(),
+    projects: z.array(z.string()).optional(),
+  })
+  .strict();
+
+router.post(
+  "/from-template",
+  validateRequestMiddleware({ body: createDashboardFromTemplateBody }),
+  dashboardsController.createDashboardFromTemplate,
+);
+
+router.get(
   "/by-experiment/:experimentId",
   validateRequestMiddleware({
     params: z.object({ experimentId: z.string() }).strict(),
