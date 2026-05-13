@@ -18,7 +18,6 @@ import {
   getEffectiveShowAs,
   getSharedUnit,
   showAsAppliesTo,
-  formatCompactNumber,
   formatDateByGranularity,
   type ResolvedGranularity,
   type RenderOpts,
@@ -399,7 +398,11 @@ export default function ExplorerChart({
         padding: [40, 0],
         color: textColor,
       },
-      axisLabel: { color: textColor, formatter: formatCompactNumber },
+      axisLabel: {
+        color: textColor,
+        formatter: (value: string | number) =>
+          (typeof value === "number" ? value : Number(value)).toLocaleString(),
+      },
       splitLine: { lineStyle: { color: gridLineColor, width: 1 } },
     };
 
@@ -433,7 +436,7 @@ export default function ExplorerChart({
                 : item.value;
               const formatted =
                 typeof numValue === "number"
-                  ? formatCompactNumber(numValue)
+                  ? numValue.toLocaleString()
                   : String(numValue);
               return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${item.marker}${item.seriesName}</span><span><b>${formatted}</b></span></div>`;
             })
@@ -550,7 +553,7 @@ export default function ExplorerChart({
         >
           <BigValueChart
             value={chartConfig.value}
-            formatter={formatCompactNumber}
+            formatter={(v) => v.toLocaleString()}
             label={submittedExploreState?.dataset?.values?.[0]?.name}
           />
         </Flex>

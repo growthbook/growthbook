@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiArrowDown, PiArrowUp } from "react-icons/pi";
 import type { ComparisonTrend } from "@/enterprise/components/ProductAnalytics/compareUtil";
-import { formatCompactNumber } from "@/enterprise/components/ProductAnalytics/util";
 import Text from "@/ui/Text";
 
 function PriorValueText({
@@ -43,7 +42,7 @@ export default function ComparisonTrendLabel({
   if (trend.direction === "none") {
     return (
       <PriorValueText priorValueScale={priorValueScale}>
-        {formatCompactNumber(trend.previous)}
+        {trend.previous.toLocaleString()}
       </PriorValueText>
     );
   }

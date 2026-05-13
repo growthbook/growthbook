@@ -56,6 +56,9 @@ function renderCellValue(value: unknown) {
   if (typeof value === "object") {
     return JSON.stringify(value);
   }
+  if (typeof value === "number") {
+    return value.toLocaleString();
+  }
   return String(value);
 }
 
