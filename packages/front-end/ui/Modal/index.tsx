@@ -167,6 +167,7 @@ function Root({
         ref={contentRef}
         size={getRadixSize(size)}
         maxWidth={getMaxWidth(size)}
+        aria-describedby={undefined}
         maxHeight="85vh"
         style={
           {
@@ -214,9 +215,11 @@ function Title({ children }: { children: ReactNode }) {
 function Description({ children }: { children: ReactNode }) {
   return (
     <Box flexShrink="0" pr="7" mt="1">
-      <Text as="div" color="text-mid" size="large">
-        {children}
-      </Text>
+      <Dialog.Description>
+        <Text color="text-mid" size="large">
+          {children}
+        </Text>
+      </Dialog.Description>
     </Box>
   );
 }
