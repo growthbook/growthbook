@@ -13056,6 +13056,8 @@ paths:
                       - action
                       - attribute
                     additionalProperties: false
+                id:
+                  type: string
               required:
                 - variation
               additionalProperties: false
@@ -13068,8 +13070,11 @@ paths:
                 properties:
                   nModified:
                     type: number
+                  visualChangeId:
+                    type: string
                 required:
                   - nModified
+                  - visualChangeId
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL

@@ -22,13 +22,15 @@ export const postVisualChange = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
+  const visualChangeId = req.body.id ?? uniqid("vc_");
+
   const res = await createVisualChange(req.params.id, req.organization.id, {
     ...req.body,
-    id: uniqid("vc_"),
+    id: visualChangeId,
     description: req.body.description ?? "",
     css: req.body.css ?? "",
     domMutations: req.body.domMutations ?? [],
   });
 
-  return res;
+  return { ...res, visualChangeId };
 });

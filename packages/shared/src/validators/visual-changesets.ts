@@ -257,13 +257,18 @@ const visualChangeBody = z
   })
   .strict();
 
+const postVisualChangeBody = visualChangeBody.extend({
+  id: z.string().optional(),
+});
+
 export const postVisualChangeValidator = {
-  bodySchema: visualChangeBody,
+  bodySchema: postVisualChangeBody,
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: z
     .object({
       nModified: z.coerce.number(),
+      visualChangeId: z.string(),
     })
     .strict(),
   summary: "Create a visual change for a visual changeset",
