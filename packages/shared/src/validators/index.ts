@@ -15,6 +15,7 @@ export * from "./members";
 export * from "./api-settings";
 export * from "./bulk-import";
 export * from "./code-refs";
+export * from "./clipboard";
 export * from "./information-schema-tables";
 export * from "./queries";
 export * from "./safe-rollout";

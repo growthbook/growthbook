@@ -46,6 +46,7 @@ import {
 } from "@/ui/DropdownMenu";
 import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
+import { buildFeatureConfigurationClipboardPayload } from "@/services/feature-configuration-clipboard";
 import FeatureArchiveModal from "./FeatureArchiveModal";
 import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
@@ -82,6 +83,9 @@ export default function FeaturesHeader({
   const [addToHoldoutModal, setAddToHoldoutModal] = useState(false);
   const [archiveModal, setArchiveModal] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
+  const [copyFeatureConfigMessage, setCopyFeatureConfigMessage] = useState<
+    "success" | "error" | null
+  >(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [staleStatusOpen, setStaleStatusOpen] = useState(false);
   const [showImplementation, setShowImplementation] = useState(firstFeature);
@@ -187,6 +191,28 @@ export default function FeaturesHeader({
     await staleHook.fetchSome([feature.id]);
   };
 
+  useEffect(() => {
+    if (!copyFeatureConfigMessage) return;
+
+    const timer = window.setTimeout(() => {
+      setCopyFeatureConfigMessage(null);
+    }, 3000);
+
+    return () => window.clearTimeout(timer);
+  }, [copyFeatureConfigMessage]);
+
+  const copyFeatureConfiguration = async () => {
+    setDropdownOpen(false);
+    try {
+      await navigator.clipboard.writeText(
+        buildFeatureConfigurationClipboardPayload(feature),
+      );
+      setCopyFeatureConfigMessage("success");
+    } catch {
+      setCopyFeatureConfigMessage("error");
+    }
+  };
+
   const project = getProjectById(projectId || "");
   const projectName = project?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
@@ -248,6 +274,9 @@ export default function FeaturesHeader({
             }}
           >
             Audit history
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={copyFeatureConfiguration}>
+            Copy feature configuration
           </DropdownMenuItem>
           <DropdownSubMenu
             trigger={
@@ -398,6 +427,16 @@ export default function FeaturesHeader({
                   />
                 </Flex>
               </Flex>
+            </Callout>
+          )}
+          {copyFeatureConfigMessage === "success" && (
+            <Callout status="success" mb="3">
+              Feature configuration copied to clipboard.
+            </Callout>
+          )}
+          {copyFeatureConfigMessage === "error" && (
+            <Callout status="error" mb="3">
+              Unable to copy feature configuration to clipboard.
             </Callout>
           )}
 

@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { cloneDeep, isEqual, omit } from "lodash";
 import { v4 as uuidv4 } from "uuid";
+import { z } from "zod";
 import {
   SDKConnectionInterface,
   SDKLanguage,
@@ -40,6 +41,7 @@ import {
   RevisionRampAction,
   RevisionRampCreateAction,
   RevisionRampDetachAction,
+  featureRule,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import {
@@ -3546,6 +3548,107 @@ export async function postFeatureCreateDraft(
         version: newDraft.version,
         baseVersion: newDraft.baseVersion,
         comment: newDraft.comment,
+      }),
+    })
+    .catch((e) =>
+      logger.error(e, "Failed to write audit log for revision.create"),
+    );
+
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    newDraft,
+    "revision.created",
+    {},
+  );
+
+  return res.status(200).json({
+    status: 200,
+    draftVersion: newDraft.version,
+  });
+}
+
+const featureImportDraftBodySchema = z
+  .object({
+    rules: z.array(featureRule),
+    environmentsEnabled: z.record(z.string(), z.boolean()),
+    title: z.string().optional(),
+    comment: z.string().optional(),
+  })
+  .strict();
+
+export async function postFeatureImportDraft(
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response<
+    { status: 200; draftVersion: number },
+    EventUserForResponseLocals
+  >,
+) {
+  const { id } = req.params;
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const result = featureImportDraftBodySchema.safeParse(req.body);
+
+  if (!result.success) {
+    throw new Error("Invalid feature import draft payload");
+  }
+
+  const { rules, environmentsEnabled, title, comment } = result.data;
+  const feature = await getFeature(context, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const allEnvironments = getEnvironments(org);
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+  const environmentIds = environments.map((e) => e.id);
+  const changedEnvironments = Object.keys(environmentsEnabled);
+
+  changedEnvironments.forEach((env) => {
+    if (!environmentIds.includes(env)) {
+      throw new Error(`Invalid environment: ${env}`);
+    }
+  });
+
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature) ||
+    !context.permissions.canPublishFeature(feature, changedEnvironments)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const importedRules = cloneDeep(rules);
+  addIdsToFlatRules(importedRules, feature.id);
+
+  const newDraft = await createRevision({
+    context,
+    feature,
+    user: context.auditUser,
+    baseVersion: feature.version,
+    comment: comment ?? "",
+    title,
+    environments: environmentIds,
+    publish: false,
+    changes: {
+      rules: importedRules,
+      environmentsEnabled,
+    },
+    org,
+    canBypassApprovalChecks: false,
+  });
+
+  void req
+    .audit({
+      event: "feature.revision.create",
+      entity: { object: "feature", id: feature.id },
+      details: auditDetailsCreate({
+        featureId: feature.id,
+        version: newDraft.version,
+        baseVersion: newDraft.baseVersion,
+        comment: newDraft.comment,
+        importedRules: importedRules.length,
       }),
     })
     .catch((e) =>

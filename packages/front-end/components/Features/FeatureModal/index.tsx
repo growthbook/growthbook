@@ -4,6 +4,7 @@ import {
   FeatureInterface,
   FeatureValueType,
 } from "shared/types/feature";
+import { GrowthBookFeatureClipboardFeature } from "shared/validators";
 import React, { ReactElement } from "react";
 import { validateFeatureValue } from "shared/util";
 import { PiInfo } from "react-icons/pi";
@@ -42,22 +43,28 @@ import ValueTypeField from "./ValueTypeField";
 
 export type Props = {
   close?: () => void;
-  onSuccess: (feature: FeatureInterface) => Promise<void>;
+  onSuccess: (
+    feature: FeatureInterface,
+    options?: { draftVersion?: number },
+  ) => Promise<void>;
   inline?: boolean;
   cta?: string;
   secondaryCTA?: ReactElement;
   featureToDuplicate?: FeatureInterface;
+  featureToImport?: GrowthBookFeatureClipboardFeature;
   features?: FeatureInterface[];
 };
 
 const genEnvironmentSettings = ({
   environments,
   featureToDuplicate,
+  featureToImport,
   permissions,
   project,
 }: {
   environments: ReturnType<typeof useEnvironments>;
   featureToDuplicate?: FeatureInterface;
+  featureToImport?: GrowthBookFeatureClipboardFeature;
   permissions: ReturnType<typeof usePermissionsUtil>;
   project: string;
 }): Record<string, FeatureEnvironment> => {
@@ -66,10 +73,12 @@ const genEnvironmentSettings = ({
   environments.forEach((e) => {
     const canPublish = permissions.canPublishFeature({ project }, [e.id]);
     const defaultEnabled = canPublish ? (e.defaultState ?? true) : false;
-    const enabled = canPublish
-      ? (featureToDuplicate?.environmentSettings?.[e.id]?.enabled ??
-        defaultEnabled)
-      : false;
+    const enabled = featureToImport
+      ? false
+      : canPublish
+        ? (featureToDuplicate?.environmentSettings?.[e.id]?.enabled ??
+          defaultEnabled)
+        : false;
 
     envSettings[e.id] = { enabled };
   });
@@ -81,12 +90,14 @@ const genFormDefaultValues = ({
   environments,
   permissions: permissionsUtil,
   featureToDuplicate,
+  featureToImport,
   project,
   customFields,
 }: {
   environments: ReturnType<typeof useEnvironments>;
   permissions: ReturnType<typeof usePermissionsUtil>;
   featureToDuplicate?: FeatureInterface;
+  featureToImport?: GrowthBookFeatureClipboardFeature;
   project: string;
   customFields?: ReturnType<typeof useCustomFields>;
 }): Pick<
@@ -106,6 +117,7 @@ const genFormDefaultValues = ({
   const environmentSettings = genEnvironmentSettings({
     environments,
     featureToDuplicate,
+    featureToImport,
     permissions: permissionsUtil,
     project,
   });
@@ -117,6 +129,23 @@ const genFormDefaultValues = ({
         ]),
       )
     : {};
+
+  const importedCustomFieldValues =
+    customFields && featureToImport?.customFields
+      ? {
+          ...customFieldValues,
+          ...Object.fromEntries(
+            customFields
+              .filter(
+                (field) => field.id in (featureToImport.customFields ?? {}),
+              )
+              .map((field) => [
+                field.id,
+                featureToImport.customFields?.[field.id],
+              ]),
+          ),
+        }
+      : customFieldValues;
 
   return featureToDuplicate
     ? {
@@ -134,18 +163,32 @@ const genFormDefaultValues = ({
           : undefined,
         jsonSchema: featureToDuplicate.jsonSchema,
       }
-    : {
-        valueType: "" as FeatureValueType,
-        defaultValue: getDefaultValue("boolean"),
-        description: "",
-        id: "",
-        project,
-        tags: [],
-        environmentSettings,
-        rules: [],
-        customFields: customFieldValues,
-        holdout: undefined,
-      };
+    : featureToImport
+      ? {
+          valueType: featureToImport.valueType,
+          defaultValue: featureToImport.defaultValue,
+          description: featureToImport.description,
+          id: featureToImport.id,
+          project,
+          tags: featureToImport.tags,
+          environmentSettings,
+          rules: featureToImport.rules ?? [],
+          customFields: importedCustomFieldValues,
+          holdout: undefined,
+          jsonSchema: featureToImport.jsonSchema,
+        }
+      : {
+          valueType: "" as FeatureValueType,
+          defaultValue: getDefaultValue("boolean"),
+          description: "",
+          id: "",
+          project,
+          tags: [],
+          environmentSettings,
+          rules: [],
+          customFields: customFieldValues,
+          holdout: undefined,
+        };
 };
 
 export default function FeatureModal({
@@ -155,6 +198,7 @@ export default function FeatureModal({
   cta = "Create",
   secondaryCTA,
   featureToDuplicate,
+  featureToImport,
 }: Props) {
   const { project, refreshTags } = useDefinitions();
   const environments = useEnvironments();
@@ -174,6 +218,7 @@ export default function FeatureModal({
     environments,
     permissions: permissionsUtil,
     featureToDuplicate,
+    featureToImport,
     project,
     customFields: hasCommercialFeature("custom-metadata")
       ? initialCustomFields
@@ -201,10 +246,14 @@ export default function FeatureModal({
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const environmentSettings = form.watch("environmentSettings");
+  const rules = form.watch("rules") ?? [];
+  const isImport = !!featureToImport;
 
-  const modalHeader = featureToDuplicate
-    ? `Duplicate Feature (${featureToDuplicate.id})`
-    : "Create Feature";
+  const modalHeader = isImport
+    ? "Import Feature Configuration"
+    : featureToDuplicate
+      ? `Duplicate Feature (${featureToDuplicate.id})`
+      : "Create Feature";
 
   let ctaEnabled = true;
   let disabledMessage: string | undefined;
@@ -267,8 +316,17 @@ export default function FeatureModal({
           );
         }
 
+        const createEnvironmentSettings = isImport
+          ? Object.fromEntries(
+              Object.entries(feature.environmentSettings).map(
+                ([env, settings]) => [env, { ...settings, enabled: false }],
+              ),
+            )
+          : feature.environmentSettings;
         const body = {
           ...feature,
+          rules: isImport ? [] : feature.rules,
+          environmentSettings: createEnvironmentSettings,
           defaultValue: parseDefaultValue(defaultValue, valueType),
           holdout: {
             id: holdout?.id ?? "",
@@ -281,18 +339,50 @@ export default function FeatureModal({
           body: JSON.stringify(body),
         });
 
+        let draftVersion: number | undefined;
+        if (isImport) {
+          const importDraftRes = await apiCall<{
+            status: 200;
+            draftVersion: number;
+          }>(`/feature/${res.feature.id}/import-draft`, {
+            method: "POST",
+            body: JSON.stringify({
+              rules,
+              environmentsEnabled: Object.fromEntries(
+                Object.keys(createEnvironmentSettings).map((env) => [
+                  env,
+                  true,
+                ]),
+              ),
+              title: "Imported feature configuration",
+              comment:
+                "Imported from a copied GrowthBook feature configuration.",
+            }),
+          });
+          draftVersion = importDraftRes.draftVersion;
+        }
+
         track("Feature Created", {
           valueType: values.valueType,
           hasDescription: !!values.description?.length,
-          initialRule: "none",
+          initialRule: isImport && rules.length ? "imported-draft" : "none",
         });
         values.tags && refreshTags(values.tags);
         refreshWatching();
 
-        await onSuccess(res.feature);
+        await onSuccess(res.feature, { draftVersion });
       })}
     >
       <FormProvider {...form}>
+        {isImport && (
+          <Callout status="info" mb="3">
+            This will create the live feature with all environments disabled,
+            then create a draft revision with {rules.length} imported{" "}
+            {rules.length === 1 ? "rule" : "rules"} and all environments
+            enabled. No rules will be published until you review and publish the
+            draft.
+          </Callout>
+        )}
         {currentProjectIsDemo && (
           <Callout status="warning" mb="3">
             You are creating a feature under the demo datasource project.
@@ -384,15 +474,22 @@ export default function FeatureModal({
           />
         )}
 
-        <EnvironmentSelect
-          environmentSettings={environmentSettings}
-          environments={environments}
-          project={selectedProject}
-          setValue={(env, on) => {
-            environmentSettings[env.id].enabled = on;
-            form.setValue("environmentSettings", environmentSettings);
-          }}
-        />
+        {isImport ? (
+          <Callout status="info" mb="4">
+            The draft created by this import will enable all environments. You
+            can review or change those environment toggles before publishing.
+          </Callout>
+        ) : (
+          <EnvironmentSelect
+            environmentSettings={environmentSettings}
+            environments={environments}
+            project={selectedProject}
+            setValue={(env, on) => {
+              environmentSettings[env.id].enabled = on;
+              form.setValue("environmentSettings", environmentSettings);
+            }}
+          />
+        )}
 
         <div className="mb-4">
           <label>Description</label>

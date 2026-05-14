@@ -41,6 +41,7 @@ import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
 import { HoverTooltipProvider } from "@/hooks/useHoverTooltip";
 import { FeatureStaleStatesProvider } from "@/hooks/useFeatureStaleStates";
 import { CommandPaletteLauncher } from "@/components/CommandPalette/CommandPalette";
+import FeatureConfigurationClipboardImporter from "@/components/Features/FeatureConfigurationClipboardImporter";
 import Callout from "@/ui/Callout";
 
 // Make useLayoutEffect isomorphic (for SSR)
@@ -199,6 +200,7 @@ function App({
                                 <FeatureStaleStatesProvider>
                                   {liteLayout ? <LayoutLite /> : <Layout />}
                                   <CommandPaletteLauncher />
+                                  <FeatureConfigurationClipboardImporter />
                                   <main className={`main ${parts[0]}`}>
                                     <GuidedGetStartedBar />
                                     <OrganizationMessagesContainer />
