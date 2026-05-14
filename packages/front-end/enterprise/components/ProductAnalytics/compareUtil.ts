@@ -406,6 +406,131 @@ export type ExplorerChartCompareSeriesMeta = {
   name: string;
 };
 
+/** Base opacity for previous-period bars under current (compare sparse-flat layout). */
+const COMPARE_OVERLAY_PREVIOUS_BAR_BASE_OPACITY = 0.48;
+
+/**
+ * Compare mode for non-stacked bar / horizontalBar with multiple metrics (or grouped
+ * series keys): flatten the category axis to one tick per (primary × seriesKey) and
+ * emit `2 * K` sparse bar series so only current + previous render at each tick — avoids
+ * global `barGap: '-100%'` collapsing every metric into one column while preserving
+ * one legend entry per period per metric.
+ */
+export function buildExplorerCompareSparseFlatBarSeries(args: {
+  sourceSortedXValues: string[];
+  sourceSeriesKeys: string[];
+  sourceSeriesMeta: Record<string, ExplorerChartCompareSeriesMeta>;
+  currentDataMap: Record<string, Record<string, number>>;
+  previousDataMap: Record<string, Record<string, number>>;
+  comparisonPeriodLabels: {
+    currentLabel: string;
+    previousLabel: string;
+  };
+  seriesColor: (index: number) => string;
+  comparisonSeriesColor: (index: number) => string;
+  animate: boolean;
+}): { flatCategoryData: string[]; series: unknown[] } {
+  const {
+    sourceSortedXValues,
+    sourceSeriesKeys,
+    sourceSeriesMeta,
+    currentDataMap,
+    previousDataMap,
+    comparisonPeriodLabels,
+    seriesColor,
+    comparisonSeriesColor,
+    animate,
+  } = args;
+
+  const K = sourceSeriesKeys.length;
+  const X = sourceSortedXValues.length;
+  if (K === 0) {
+    return { flatCategoryData: [], series: [] };
+  }
+  const flatLen = X * K;
+
+  const flatCategoryData: string[] = [];
+  for (const x of sourceSortedXValues) {
+    for (let ki = 0; ki < K; ki++) {
+      const sk = sourceSeriesKeys[ki]!;
+      const { name } = sourceSeriesMeta[sk] ?? { name: sk };
+      flatCategoryData.push(`${x} — ${name}`);
+    }
+  }
+
+  const barAnim = {
+    animation: animate,
+    animationDuration: animate ? 300 : 0,
+    animationEasing: "linear" as const,
+  };
+
+  const series: unknown[] = [];
+
+  for (let ki = 0; ki < K; ki++) {
+    const sk = sourceSeriesKeys[ki]!;
+    const { name } = sourceSeriesMeta[sk] ?? { name: sk };
+    const currName = formatComparisonMetricLabel(
+      name,
+      comparisonPeriodLabels.currentLabel,
+    );
+    const prevName = formatComparisonMetricLabel(
+      name,
+      comparisonPeriodLabels.previousLabel,
+    );
+
+    const currData: (number | null)[] = [];
+    const prevData: (number | null)[] = [];
+
+    for (let j = 0; j < flatLen; j++) {
+      const xi = Math.floor(j / K);
+      const slotKi = j % K;
+      const x = sourceSortedXValues[xi]!;
+      if (slotKi === ki) {
+        currData.push(currentDataMap[sk]?.[x] ?? 0);
+        prevData.push(previousDataMap[sk]?.[x] ?? 0);
+      } else {
+        currData.push(null);
+        prevData.push(null);
+      }
+    }
+
+    series.push({
+      name: currName,
+      type: "bar" as const,
+      data: currData,
+      color: seriesColor(ki),
+      barGap: COMPARE_OVERLAY_BAR_GAP,
+      z: COMPARE_OVERLAY_Z_CURRENT_OVER,
+      emphasis: {
+        itemStyle: {
+          opacity: COMPARE_OVERLAY_CURRENT_BAR_HOVER_OPACITY,
+        },
+      },
+      ...barAnim,
+    });
+
+    series.push({
+      name: prevName,
+      type: "bar" as const,
+      data: prevData,
+      color: comparisonSeriesColor(ki),
+      itemStyle: {
+        opacity: COMPARE_OVERLAY_PREVIOUS_BAR_BASE_OPACITY,
+      },
+      barGap: COMPARE_OVERLAY_BAR_GAP,
+      z: COMPARE_OVERLAY_Z_PREVIOUS_UNDER,
+      emphasis: {
+        itemStyle: {
+          opacity: COMPARE_OVERLAY_PREVIOUS_BAR_HOVER_OPACITY,
+        },
+      },
+      ...barAnim,
+    });
+  }
+
+  return { flatCategoryData, series };
+}
+
 /**
  * Builds ECharts `series` entries for the explorer chart (current and/or previous period),
  * including compare-overlap styling for bar and area charts.

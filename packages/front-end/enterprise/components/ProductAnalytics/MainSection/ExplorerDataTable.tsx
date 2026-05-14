@@ -68,18 +68,41 @@ export default function ExplorerDataTable({
       }
       const trendRaw = row[colMeta.trendRowKey] as number;
       const valueString = formatNumericLikeForDisplay(value);
-      const up = trendRaw >= 0;
+      const flat = trendRaw === 0;
+      const trendColor = flat
+        ? undefined
+        : trendRaw > 0
+          ? "var(--green-9)"
+          : "var(--red-9)";
       return (
         <Flex align="center" gap="2">
           <Text size="medium">{valueString}</Text>
-          <Text size="small">
-            {up ? (
-              <PiArrowUp style={{ verticalAlign: "middle" }} size={12} />
-            ) : (
-              <PiArrowDown style={{ verticalAlign: "middle" }} size={12} />
-            )}
-            {` ${Math.abs(trendRaw).toFixed(2)}%`}
-          </Text>
+          <span
+            style={{
+              color: trendColor ?? "var(--color-text-mid)",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 12,
+              lineHeight: 1,
+            }}
+          >
+            {!flat &&
+              (trendRaw > 0 ? (
+                <PiArrowUp
+                  style={{ verticalAlign: "middle", flexShrink: 0 }}
+                  size={12}
+                  color={trendColor}
+                />
+              ) : (
+                <PiArrowDown
+                  style={{ verticalAlign: "middle", flexShrink: 0 }}
+                  size={12}
+                  color={trendColor}
+                />
+              ))}
+            {`${Math.abs(trendRaw).toFixed(2)}%`}
+          </span>
         </Flex>
       );
     },

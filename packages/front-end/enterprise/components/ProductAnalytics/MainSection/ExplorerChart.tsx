@@ -35,6 +35,7 @@ import {
   buildAlignedComparisonOverlayForExplorer,
   buildComparisonOverlaySeriesMaps,
   buildExplorerChartComparisonSeriesList,
+  buildExplorerCompareSparseFlatBarSeries,
   computeBigNumberComparisonTrends,
   getComparisonPeriodLabels,
   sortProductAnalyticsTooltipAxisItems,
@@ -314,6 +315,13 @@ export default function ExplorerChart({
     const alignedComparisonDataForCurrent =
       alignedComparisonOverlay?.alignedMap ?? null;
 
+    const sparseFlatCompareBars =
+      compareOverlayActive &&
+      !isStacked &&
+      (chartType === "bar" || chartType === "horizontalBar") &&
+      Boolean(alignedComparisonDataForCurrent) &&
+      Boolean(comparisonPeriodLabels);
+
     const showLineAreaCompareTooltipDates =
       (chartType === "line" || chartType === "area") &&
       compareOverlayActive &&
@@ -321,67 +329,93 @@ export default function ExplorerChart({
       Boolean(alignedComparisonOverlay) &&
       firstDimensionIsDate;
 
-    let seriesConfigs: unknown[] = buildExplorerChartComparisonSeriesList({
-      chartType,
-      sourceDataMap: dataMap,
-      sourceSeriesMeta: seriesMeta,
-      sourceSeriesKeys: sortedSeriesKeys,
-      sourceSortedXValues: sortedXValues,
-      numMetrics,
-      numDimensions,
-      isStacked,
-      compareOverlayActive,
-      comparisonPeriodLabels,
-      seriesColor,
-      comparisonSeriesColor,
-      animate,
-    });
+    let categoryAxisValues: string[] = sortedXValues;
+    let seriesConfigs: unknown[];
 
-    if (compareOverlayActive && alignedComparisonDataForCurrent) {
-      seriesConfigs = [
-        ...seriesConfigs,
-        ...buildExplorerChartComparisonSeriesList({
-          chartType,
-          sourceDataMap: alignedComparisonDataForCurrent,
-          sourceSeriesMeta: seriesMeta,
-          sourceSeriesKeys: sortedSeriesKeys,
-          sourceSortedXValues: sortedXValues,
-          numMetrics,
-          numDimensions,
-          isStacked,
-          compareOverlayActive,
+    if (sparseFlatCompareBars && alignedComparisonDataForCurrent) {
+      const built = buildExplorerCompareSparseFlatBarSeries({
+        sourceSortedXValues: sortedXValues,
+        sourceSeriesKeys: sortedSeriesKeys,
+        sourceSeriesMeta: seriesMeta,
+        currentDataMap: dataMap,
+        previousDataMap: alignedComparisonDataForCurrent,
+        comparisonPeriodLabels: comparisonPeriodLabels!,
+        seriesColor,
+        comparisonSeriesColor,
+        animate,
+      });
+      seriesConfigs = built.series;
+      categoryAxisValues = built.flatCategoryData;
+      if (comparisonPeriodLabels && seriesConfigs.length > 1) {
+        seriesConfigs = sortSeriesConfigsForCompareLegendOrder(
+          seriesConfigs,
           comparisonPeriodLabels,
-          previous: true,
-          seriesColor,
-          comparisonSeriesColor,
-          animate,
-        }),
-      ];
-    }
-
-    if (comparisonPeriodLabels && seriesConfigs.length > 1) {
-      seriesConfigs = sortSeriesConfigsForCompareLegendOrder(
-        seriesConfigs,
+        );
+      }
+    } else {
+      seriesConfigs = buildExplorerChartComparisonSeriesList({
+        chartType,
+        sourceDataMap: dataMap,
+        sourceSeriesMeta: seriesMeta,
+        sourceSeriesKeys: sortedSeriesKeys,
+        sourceSortedXValues: sortedXValues,
+        numMetrics,
+        numDimensions,
+        isStacked,
+        compareOverlayActive,
         comparisonPeriodLabels,
-      );
+        seriesColor,
+        comparisonSeriesColor,
+        animate,
+      });
+
+      if (compareOverlayActive && alignedComparisonDataForCurrent) {
+        seriesConfigs = [
+          ...seriesConfigs,
+          ...buildExplorerChartComparisonSeriesList({
+            chartType,
+            sourceDataMap: alignedComparisonDataForCurrent,
+            sourceSeriesMeta: seriesMeta,
+            sourceSeriesKeys: sortedSeriesKeys,
+            sourceSortedXValues: sortedXValues,
+            numMetrics,
+            numDimensions,
+            isStacked,
+            compareOverlayActive,
+            comparisonPeriodLabels,
+            previous: true,
+            seriesColor,
+            comparisonSeriesColor,
+            animate,
+          }),
+        ];
+      }
+
+      if (comparisonPeriodLabels && seriesConfigs.length > 1) {
+        seriesConfigs = sortSeriesConfigsForCompareLegendOrder(
+          seriesConfigs,
+          comparisonPeriodLabels,
+        );
+      }
     }
 
     const legendShow = seriesConfigs.length > 0;
 
-    const axisPointerLabelFormatter = resolvedGranularity
-      ? (params: { value: string | number }) => {
-          const date =
-            typeof params.value === "number"
-              ? new Date(params.value)
-              : new Date(String(params.value));
-          return formatDateByGranularity(date, resolvedGranularity);
-        }
-      : undefined;
+    const axisPointerLabelFormatter =
+      resolvedGranularity && !sparseFlatCompareBars
+        ? (params: { value: string | number }) => {
+            const date =
+              typeof params.value === "number"
+                ? new Date(params.value)
+                : new Date(String(params.value));
+            return formatDateByGranularity(date, resolvedGranularity);
+          }
+        : undefined;
 
     // Define the category axis (shows the dimension labels)
     const categoryAxis = {
       type: chartType === "line" || chartType === "area" ? "time" : "category",
-      data: sortedXValues,
+      data: categoryAxisValues,
       nameLocation: "middle" as const,
       nameTextStyle: {
         fontSize: 14,
@@ -429,6 +463,7 @@ export default function ExplorerChart({
 
     const tooltipFormatter = buildExplorerChartTooltipFormatter({
       resolvedGranularity,
+      compositeCategoryAxisTooltip: sparseFlatCompareBars,
       firstDimensionIsDate,
       comparisonPeriodLabels,
       showLineAreaCompareTooltipDates,

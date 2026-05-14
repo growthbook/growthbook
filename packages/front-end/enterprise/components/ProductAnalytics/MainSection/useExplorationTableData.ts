@@ -160,7 +160,7 @@ export default function useExplorationTableData(
         if (col.kind === "dimension") {
           keys.push(col.key);
         } else if (col.sub === "single") {
-          keys.push(`${col.key}__prev`, `${col.key}__curr`);
+          keys.push(`${col.key}__curr`, `${col.key}__prev`);
         }
       }
       return keys;
@@ -206,8 +206,8 @@ export default function useExplorationTableData(
             submittedExploreState.dataset?.values?.[col.metricIndex]?.name ??
             col.label;
           labels.push(
-            `${metricName} — ${prevHeading}`,
             `${metricName} — ${currHeading}`,
+            `${metricName} — ${prevHeading}`,
           );
         }
       }
@@ -255,7 +255,7 @@ export default function useExplorationTableData(
             submittedExploreState.dataset?.values?.[col.metricIndex]?.name ??
             col.label;
           row1.push({ label: metricName, colSpan: 2 });
-          row2Labels.push(prevHeading, currHeading);
+          row2Labels.push(currHeading, prevHeading);
         }
       }
       return { row1, row2Labels };
@@ -370,8 +370,8 @@ export default function useExplorationTableData(
               trend = ((rawCurr - rawPrev) / rawPrev) * 100;
             }
             entries.push(
-              [prevKey, formatCellForTable(rawPrev, col, fmtCtx)] as const,
               [currKey, formatCellForTable(rawCurr, col, fmtCtx)] as const,
+              [prevKey, formatCellForTable(rawPrev, col, fmtCtx)] as const,
               [trendKey, trend] as const,
             );
           }

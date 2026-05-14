@@ -20,6 +20,17 @@ type TooltipAxisItem = {
   value: number | [number, number];
 };
 
+/** Axis tooltips include every series; sparse bars use nulls so ECharts may omit `value`. */
+function tooltipItemNumericValue(item: { value: unknown }): number | null {
+  const v = item.value;
+  if (v === undefined || v === null) return null;
+  if (Array.isArray(v)) {
+    const n = v[1];
+    return typeof n === "number" && !Number.isNaN(n) ? n : null;
+  }
+  return typeof v === "number" && !Number.isNaN(v) ? v : null;
+}
+
 function buildGroupedLineAreaCompareTooltipRows(
   formatNumber: (value: number) => string,
   items: Array<{
@@ -114,6 +125,8 @@ function buildGroupedLineAreaCompareTooltipRows(
 
 export type BuildExplorerChartTooltipFormatterArgs = {
   resolvedGranularity: ResolvedGranularity | null;
+  /** When true, category axis labels are not raw dates (e.g. compare sparse-flat bars). */
+  compositeCategoryAxisTooltip?: boolean;
   firstDimensionIsDate: boolean;
   comparisonPeriodLabels: {
     currentLabel: string;
@@ -128,6 +141,7 @@ export type BuildExplorerChartTooltipFormatterArgs = {
 
 export function buildExplorerChartTooltipFormatter({
   resolvedGranularity,
+  compositeCategoryAxisTooltip = false,
   firstDimensionIsDate,
   comparisonPeriodLabels,
   showLineAreaCompareTooltipDates,
@@ -138,17 +152,24 @@ export function buildExplorerChartTooltipFormatter({
 }: BuildExplorerChartTooltipFormatterArgs):
   | ((params: unknown) => string)
   | undefined {
-  if (resolvedGranularity) {
+  const useDateGranularityTooltip =
+    Boolean(resolvedGranularity) && !compositeCategoryAxisTooltip;
+
+  if (useDateGranularityTooltip) {
     return (params: unknown) => {
       const itemsRaw = (Array.isArray(params) ? params : [params]) as Omit<
         TooltipAxisItem,
         "dataIndex"
       >[];
       if (!itemsRaw.length) return "";
-      const items = sortProductAnalyticsTooltipAxisItems(
+      const itemsSorted = sortProductAnalyticsTooltipAxisItems(
         itemsRaw,
         comparisonPeriodLabels,
       );
+      const items = itemsSorted.filter(
+        (item) => tooltipItemNumericValue(item) !== null,
+      );
+      if (!items.length) return "";
 
       const rawAxisValue = items[0].axisValue;
       const date =
@@ -219,14 +240,10 @@ export function buildExplorerChartTooltipFormatter({
             )
           : items
               .map((item) => {
-                const numValue = Array.isArray(item.value)
-                  ? item.value[1]
-                  : item.value;
+                const numValue = tooltipItemNumericValue(item);
                 const formatted =
-                  typeof numValue === "number"
-                    ? formatNumber(numValue)
-                    : String(numValue);
-                return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${item.marker}${item.seriesName}</span><span><b>${formatted}</b></span></div>`;
+                  numValue !== null ? formatNumber(numValue) : "";
+                return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${item.marker ?? ""}${item.seriesName ?? ""}</span><span><b>${formatted}</b></span></div>`;
               })
               .join("");
 
@@ -241,10 +258,15 @@ export function buildExplorerChartTooltipFormatter({
         "dataIndex"
       >[];
       if (!itemsRaw.length) return "";
-      const items = sortProductAnalyticsTooltipAxisItems(
+      const itemsSorted = sortProductAnalyticsTooltipAxisItems(
         itemsRaw,
         comparisonPeriodLabels,
       );
+      const items = itemsSorted.filter(
+        (item) => tooltipItemNumericValue(item) !== null,
+      );
+      if (!items.length) return "";
+
       const rawAxisValue = items[0].axisValue;
       const header =
         typeof rawAxisValue === "number"
@@ -253,14 +275,9 @@ export function buildExplorerChartTooltipFormatter({
 
       const seriesRows = items
         .map((item) => {
-          const numValue = Array.isArray(item.value)
-            ? item.value[1]
-            : item.value;
-          const formatted =
-            typeof numValue === "number"
-              ? formatNumber(numValue)
-              : String(numValue);
-          return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${item.marker}${item.seriesName}</span><span><b>${formatted}</b></span></div>`;
+          const numValue = tooltipItemNumericValue(item);
+          const formatted = numValue !== null ? formatNumber(numValue) : "";
+          return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${item.marker ?? ""}${item.seriesName ?? ""}</span><span><b>${formatted}</b></span></div>`;
         })
         .join("");
 

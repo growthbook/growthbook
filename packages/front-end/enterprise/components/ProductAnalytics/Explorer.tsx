@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { Flex, Box, AlertDialog } from "@radix-ui/themes";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { PiDotsSix } from "react-icons/pi";
@@ -41,7 +42,7 @@ const explorationQueryParser = explorationConfigParser.withOptions({
 
 const previousTimeFrameParser = previousTimeFrameQueryParser.withOptions({
   shallow: true,
-  throttleMs: 300,
+  throttleMs: 0,
 });
 
 function deriveConfigError(
@@ -126,13 +127,10 @@ function ExplorerContent() {
 
 function ExplorerUrlSync({
   setUrlConfig,
-  setUrlPreviousTimeFrame,
 }: {
   setUrlConfig: (config: ExplorationConfig) => void;
-  setUrlPreviousTimeFrame: (value: ExplorationDateRange | null) => void;
 }) {
-  const { draftExploreState, compareEnabled, previousTimeFrame } =
-    useExplorerContext();
+  const { draftExploreState } = useExplorerContext();
   const hasUserModified = useRef(false);
 
   useEffect(() => {
@@ -141,18 +139,7 @@ function ExplorerUrlSync({
       return;
     }
     setUrlConfig(draftExploreState);
-    if (compareEnabled) {
-      setUrlPreviousTimeFrame(previousTimeFrame);
-    } else {
-      setUrlPreviousTimeFrame(null);
-    }
-  }, [
-    draftExploreState,
-    compareEnabled,
-    previousTimeFrame,
-    setUrlConfig,
-    setUrlPreviousTimeFrame,
-  ]);
+  }, [draftExploreState, setUrlConfig]);
 
   return null;
 }
@@ -176,6 +163,15 @@ function ExplorerInner({ type }: { type: DatasetType }) {
   const [urlPreviousTimeFrame, setUrlPreviousTimeFrame] = useQueryState(
     "previousTimeFrame",
     previousTimeFrameParser,
+  );
+
+  const setUrlPreviousTimeFrameSync = useCallback(
+    (value: ExplorationDateRange | null) => {
+      flushSync(() => {
+        void setUrlPreviousTimeFrame(value);
+      });
+    },
+    [setUrlPreviousTimeFrame],
   );
 
   const rawParam =
@@ -225,12 +221,9 @@ function ExplorerInner({ type }: { type: DatasetType }) {
         initialConfig={initialConfig}
         trackingSource="manual-explorer"
         previousTimeFrame={urlPreviousTimeFrame}
-        onPreviousTimeFrameChange={setUrlPreviousTimeFrame}
+        onPreviousTimeFrameChange={setUrlPreviousTimeFrameSync}
       >
-        <ExplorerUrlSync
-          setUrlConfig={setUrlConfig}
-          setUrlPreviousTimeFrame={setUrlPreviousTimeFrame}
-        />
+        <ExplorerUrlSync setUrlConfig={setUrlConfig} />
         <ExplorerContent />
       </ExplorerProvider>
     </>
