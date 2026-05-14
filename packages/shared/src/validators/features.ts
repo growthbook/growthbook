@@ -132,7 +132,7 @@ export const contextsEntryValidator = z
      * payload builder calls `JSON.parse(canonical)` before populating
      * this field so the SDK does not have to parse at eval time.
      */
-    condition: z.record(z.string(), z.unknown()),
+    condition: z.record(z.string(), z.any()),
     /** Variation weights parallel to `experimentRule.values`. */
     weights: z.array(z.number()),
   })

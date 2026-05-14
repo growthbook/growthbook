@@ -39,6 +39,7 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
+import { ContextualBanditResultsTab } from "@/components/Experiment/TabbedPage/ContextualBanditResultsTab";
 import Button from "@/ui/Button";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -410,6 +411,7 @@ export default function TabbedPage({
   }, []);
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isContextualBandit = experiment.type === "contextual-bandit";
   const trackSource = "tabbed-page";
 
   const safeToEdit =
@@ -672,11 +674,22 @@ export default function TabbedPage({
             />
           </div>
         ) : null}
+        {isContextualBandit && !showDashboardView ? (
+          <div
+            className={
+              tab === "results"
+                ? "container-fluid pagecontents d-block pt-0"
+                : "d-none d-print-block"
+            }
+          >
+            <ContextualBanditResultsTab experiment={experiment} />
+          </div>
+        ) : null}
       </div>
       <div
         className={
           // todo: standardize explore & results tabs across experiment types
-          ((!isBandit && tab === "results") ||
+          ((!isBandit && !isContextualBandit && tab === "results") ||
             (isBandit && tab === "explore")) &&
           !showDashboardView
             ? "container-fluid pagecontents d-block pt-0"

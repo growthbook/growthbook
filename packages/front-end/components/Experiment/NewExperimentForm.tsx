@@ -5,6 +5,10 @@ import {
   ExperimentStatus,
   Variation,
 } from "shared/types/experiment";
+import {
+  ContextualBanditQueryInterface,
+  ContextualBanditTreeModel,
+} from "shared/validators";
 import { useRouter } from "next/router";
 import { date, datetime, getValidDate } from "shared/dates";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
@@ -52,6 +56,7 @@ import {
 import { useUser } from "@/services/UserContext";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import useApi from "@/hooks/useApi";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "@/components/Experiment/HashVersionSelector";
@@ -75,6 +80,8 @@ import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFiel
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
+import { Select, SelectItem } from "@/ui/Select";
+import Switch from "@/ui/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import { useTemplates } from "@/hooks/useTemplates";
@@ -99,9 +106,24 @@ export type FormVariation = {
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
 
+type ContextualBanditFormConfig = {
+  cbaqId: string;
+  contextualAttributes: string[];
+  maxContexts?: number;
+  treeModel?: ContextualBanditTreeModel;
+  minUsersPerLeaf?: number;
+  maxLeaves?: number;
+  scheduleHours?: number;
+  seed?: number;
+};
+
+type NewExperimentFormValues = Partial<ExperimentInterfaceStringDates> & {
+  contextualBanditConfig?: ContextualBanditFormConfig;
+};
+
 export type NewExperimentFormProps = {
   initialStep?: number;
-  initialValue?: Partial<ExperimentInterfaceStringDates>;
+  initialValue?: NewExperimentFormValues;
   initialNumVariations?: number;
   isImport?: boolean;
   fromFeature?: boolean;
@@ -283,7 +305,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }));
   const toEqualWeights = (vars: Variation[]) => getEqualWeights(vars.length);
 
-  const form = useForm<Partial<ExperimentInterfaceStringDates>>({
+  const form = useForm<NewExperimentFormValues>({
     defaultValues: {
       project: initialValue?.project || project || "",
       trackingKey: initialValue?.trackingKey || "",
@@ -366,6 +388,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       templateId: initialValue?.templateId || "",
       holdoutId: initialValue?.holdoutId || undefined,
       customMetricSlices: initialValue?.customMetricSlices || [],
+      contextualBanditConfig: initialValue?.contextualBanditConfig ?? {
+        cbaqId: "",
+        contextualAttributes: [],
+        maxContexts: 300,
+        treeModel: "regression_tree",
+        minUsersPerLeaf: 100,
+        maxLeaves: 12,
+      },
     },
   });
 
@@ -537,6 +567,32 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           );
         }
       }
+      if (data.type === "contextual-bandit") {
+        data.statsEngine = "bayesian";
+        if (!data.datasource) {
+          throw new Error("You must select a datasource");
+        }
+        if ((data.goalMetrics?.length ?? 0) !== 1) {
+          throw new Error("You must select 1 decision metric");
+        }
+        if (!data.contextualBanditConfig?.cbaqId) {
+          throw new Error("You must select a contextual bandit query");
+        }
+        if (!data.contextualBanditConfig.contextualAttributes.length) {
+          throw new Error("Select at least 1 contextual attribute");
+        }
+        data.contextualBanditConfig = {
+          cbaqId: data.contextualBanditConfig.cbaqId,
+          contextualAttributes:
+            data.contextualBanditConfig.contextualAttributes,
+          maxContexts: data.contextualBanditConfig.maxContexts ?? 300,
+          treeModel: data.contextualBanditConfig.treeModel ?? "regression_tree",
+          minUsersPerLeaf: data.contextualBanditConfig.minUsersPerLeaf ?? 100,
+          maxLeaves: data.contextualBanditConfig.maxLeaves ?? 12,
+        };
+      } else {
+        delete data.contextualBanditConfig;
+      }
     }
 
     const body = JSON.stringify(data);
@@ -570,14 +626,22 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
 
     // TODO remove if data correlates
-    track(isBandit ? "Create Bandit" : "Create Experiment", {
-      source,
-      numTags: data.tags?.length || 0,
-      numMetrics:
-        (data.goalMetrics?.length || 0) + (data.secondaryMetrics?.length || 0),
-      numVariations: data.variations?.length || 0,
-      createdFromTemplate: !!data.templateId,
-    });
+    track(
+      isContextualBandit
+        ? "Create Contextual Bandit"
+        : isBandit
+          ? "Create Bandit"
+          : "Create Experiment",
+      {
+        source,
+        numTags: data.tags?.length || 0,
+        numMetrics:
+          (data.goalMetrics?.length || 0) +
+          (data.secondaryMetrics?.length || 0),
+        numVariations: data.variations?.length || 0,
+        createdFromTemplate: !!data.templateId,
+      },
+    );
     refreshWatching();
 
     data.tags && refreshTags(data.tags);
@@ -615,10 +679,39 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const status = form.watch("status");
   const type = form.watch("type");
   const isBandit = type === "multi-armed-bandit";
+  const isContextualBandit = type === "contextual-bandit";
+  const { data: contextualBanditQueryData } = useApi<{
+    cbaqs: ContextualBanditQueryInterface[];
+  }>(
+    `/contextual-bandit-queries${
+      form.watch("datasource") ? `?datasource=${form.watch("datasource")}` : ""
+    }`,
+    { shouldRun: () => isContextualBandit },
+  );
+  const contextualBanditQueries = contextualBanditQueryData?.cbaqs ?? [];
+  const contextualBanditConfig =
+    form.watch("contextualBanditConfig") ??
+    ({
+      cbaqId: "",
+      contextualAttributes: [],
+      maxContexts: 300,
+      treeModel: "regression_tree",
+      minUsersPerLeaf: 100,
+      maxLeaves: 12,
+    } as ContextualBanditFormConfig);
+  const selectedContextualBanditQuery = contextualBanditQueries.find(
+    (query) => query.id === contextualBanditConfig.cbaqId,
+  );
 
   // If a template id is provided as an initial value, load the template and convert it to an experiment
   useEffect(() => {
-    if (initialValue?.templateId && isNewExperiment && !isImport && !isBandit) {
+    if (
+      initialValue?.templateId &&
+      isNewExperiment &&
+      !isImport &&
+      !isBandit &&
+      !isContextualBandit
+    ) {
       const template = templatesMap.get(initialValue.templateId);
       if (!template) return;
       const templateAsExperiment = convertTemplateToExperiment(template);
@@ -655,6 +748,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const templateRequired =
     hasCommercialFeature("templates") &&
     !isBandit &&
+    !isContextualBandit &&
     !isImport &&
     settings.requireExperimentTemplates &&
     availableTemplates.length >= 1;
@@ -669,10 +763,22 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [linkNameWithTrackingKey, setLinkNameWithTrackingKey] = useState(true);
 
   let header = isNewExperiment
-    ? `Add New ${isBandit ? "Bandit" : "Experiment"}`
+    ? `Add New ${
+        isContextualBandit
+          ? "Contextual Bandit"
+          : isBandit
+            ? "Bandit"
+            : "Experiment"
+      }`
     : "Add New Experiment Analysis";
   if (duplicate) {
-    header = `Duplicate ${isBandit ? "Bandit" : "Experiment"}`;
+    header = `Duplicate ${
+      isContextualBandit
+        ? "Contextual Bandit"
+        : isBandit
+          ? "Bandit"
+          : "Experiment"
+    }`;
   }
   const trackingEventModalType = kebabCase(header);
 
@@ -824,6 +930,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             )}
             {availableTemplates.length >= 1 &&
               !isBandit &&
+              !isContextualBandit &&
               !isImport &&
               !duplicate && (
                 <div className="form-group">
@@ -890,20 +997,60 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               </div>
             )}
 
-            <>
-              <HoldoutSelect
-                selectedProject={selectedProject}
-                selectedHoldoutId={form.watch("holdoutId")}
-                setHoldout={(holdoutId) => {
-                  form.setValue("holdoutId", holdoutId);
+            {isNewExperiment && !duplicate && !isImport && !isBandit && (
+              <Select
+                label="Experiment Type"
+                value={type}
+                setValue={(value) => {
+                  form.setValue(
+                    "type",
+                    value as ExperimentInterfaceStringDates["type"],
+                  );
+                  if (value === "contextual-bandit") {
+                    form.setValue("contextualBanditConfig", {
+                      cbaqId: contextualBanditConfig.cbaqId || "",
+                      contextualAttributes:
+                        contextualBanditConfig.contextualAttributes || [],
+                      maxContexts: contextualBanditConfig.maxContexts ?? 300,
+                      treeModel:
+                        contextualBanditConfig.treeModel ?? "regression_tree",
+                      minUsersPerLeaf:
+                        contextualBanditConfig.minUsersPerLeaf ?? 100,
+                      maxLeaves: contextualBanditConfig.maxLeaves ?? 12,
+                    });
+                  }
                 }}
-                formType="experiment"
-              />
-              <Separator size="4" mt="5" mb="5" />
-            </>
+                mb="4"
+              >
+                <SelectItem value="standard">Standard experiment</SelectItem>
+                <SelectItem value="contextual-bandit">
+                  Contextual bandit
+                </SelectItem>
+              </Select>
+            )}
+
+            {!isContextualBandit && (
+              <>
+                <HoldoutSelect
+                  selectedProject={selectedProject}
+                  selectedHoldoutId={form.watch("holdoutId")}
+                  setHoldout={(holdoutId) => {
+                    form.setValue("holdoutId", holdoutId);
+                  }}
+                  formType="experiment"
+                />
+                <Separator size="4" mt="5" mb="5" />
+              </>
+            )}
 
             <Field
-              label={isBandit ? "Bandit Name" : "Experiment Name"}
+              label={
+                isContextualBandit
+                  ? "Contextual Bandit Name"
+                  : isBandit
+                    ? "Bandit Name"
+                    : "Experiment Name"
+              }
               required
               minLength={2}
               {...nameFieldHandlers}
@@ -933,7 +1080,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             <Field
               label="Tracking Key"
               helpText={`Unique identifier for this ${
-                isBandit ? "Bandit" : "Experiment"
+                isContextualBandit
+                  ? "Contextual Bandit"
+                  : isBandit
+                    ? "Bandit"
+                    : "Experiment"
               }, used to track impressions and analyze results`}
               {...trackingKeyFieldHandlers}
               onChange={(e) => {
@@ -941,7 +1092,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 setLinkNameWithTrackingKey(false);
               }}
             />
-            {!isBandit && (
+            {!isBandit && !isContextualBandit && (
               <Field
                 label="Hypothesis"
                 textarea
@@ -975,7 +1126,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   },
                 })}
                 placeholder={`Short human-readable description of the ${
-                  isBandit ? "Bandit" : "Experiment"
+                  isContextualBandit
+                    ? "Contextual Bandit"
+                    : isBandit
+                      ? "Bandit"
+                      : "Experiment"
                 }`}
               />
             )}
@@ -1195,12 +1350,197 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         </Page>
 
         {/* Standard Experiments */}
-        {!isBandit && (isNewExperiment || duplicate)
+        {!isBandit && !isContextualBandit && (isNewExperiment || duplicate)
           ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => {
               // skip, custom overview page above
               if (i === 0) return null;
               return (
                 <Page display={p} key={i}>
+                  <div className="px-2">
+                    <ExperimentRefNewFields
+                      step={i}
+                      source="experiment"
+                      project={project}
+                      environments={envs}
+                      noSchedule={true}
+                      prerequisiteValue={
+                        form.watch("phases.0.prerequisites") || []
+                      }
+                      setPrerequisiteValue={(prerequisites) =>
+                        form.setValue("phases.0.prerequisites", prerequisites)
+                      }
+                      setPrerequisiteTargetingSdkIssues={
+                        setPrerequisiteTargetingSdkIssues
+                      }
+                      savedGroupValue={form.watch("phases.0.savedGroups") || []}
+                      setSavedGroupValue={(savedGroups) =>
+                        form.setValue("phases.0.savedGroups", savedGroups)
+                      }
+                      defaultConditionValue={
+                        form.watch("phases.0.condition") || ""
+                      }
+                      setConditionValue={(value) =>
+                        form.setValue("phases.0.condition", value)
+                      }
+                      conditionKey={conditionKey}
+                      namespaceFormPrefix={"phases.0."}
+                      coverage={form.watch("phases.0.coverage")}
+                      setCoverage={(coverage) =>
+                        form.setValue("phases.0.coverage", coverage)
+                      }
+                      setWeight={setVariationWeight}
+                      variations={variationsForInput}
+                      setVariations={setCombinedVariations}
+                      variationValuesAsIds={true}
+                      hideVariationIds={!isImport}
+                      orgStickyBucketing={orgStickyBucketing}
+                      holdoutHashAttribute={holdoutHashAttribute}
+                    />
+                  </div>
+                </Page>
+              );
+            })
+          : null}
+
+        {/* Contextual Bandit Experiments */}
+        {isContextualBandit && (isNewExperiment || duplicate)
+          ? [
+              "Overview",
+              "Traffic",
+              "Targeting",
+              "Metrics",
+              "Contextual Bandit",
+            ].map((p, i) => {
+              if (i === 0) return null;
+              if (p === "Contextual Bandit") {
+                const selectedAttributes =
+                  contextualBanditConfig.contextualAttributes || [];
+                return (
+                  <Page display={p} key={p}>
+                    <div className="px-2">
+                      <Callout status="info" mb="4">
+                        Contextual bandits are enabled directly for this demo.
+                      </Callout>
+                      <Select
+                        label="Contextual Bandit Query"
+                        value={contextualBanditConfig.cbaqId || undefined}
+                        setValue={(value) => {
+                          const cbaq = contextualBanditQueries.find(
+                            (query) => query.id === value,
+                          );
+                          form.setValue("contextualBanditConfig.cbaqId", value);
+                          form.setValue(
+                            "contextualBanditConfig.contextualAttributes",
+                            cbaq?.attributes.map((a) => a.attribute) ?? [],
+                          );
+                        }}
+                        placeholder="Select a query"
+                        mb="4"
+                      >
+                        {contextualBanditQueries.length ? (
+                          contextualBanditQueries.map((query) => (
+                            <SelectItem value={query.id} key={query.id}>
+                              {query.name}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="none" disabled>
+                            No contextual bandit queries
+                          </SelectItem>
+                        )}
+                      </Select>
+
+                      <Box mb="4">
+                        <Text as="label" size="3" weight="medium">
+                          Contextual Attributes
+                        </Text>
+                        {selectedContextualBanditQuery ? (
+                          <Flex direction="column" gap="2" mt="2">
+                            {selectedContextualBanditQuery.attributes.map(
+                              (attribute) => {
+                                const checked = selectedAttributes.includes(
+                                  attribute.attribute,
+                                );
+                                return (
+                                  <Checkbox
+                                    key={attribute.attribute}
+                                    value={checked}
+                                    setValue={(next) => {
+                                      form.setValue(
+                                        "contextualBanditConfig.contextualAttributes",
+                                        next
+                                          ? [
+                                              ...selectedAttributes,
+                                              attribute.attribute,
+                                            ]
+                                          : selectedAttributes.filter(
+                                              (a) => a !== attribute.attribute,
+                                            ),
+                                      );
+                                    }}
+                                    label={`${attribute.attribute} (${attribute.kind})`}
+                                  />
+                                );
+                              },
+                            )}
+                          </Flex>
+                        ) : (
+                          <Text as="div" size="2" color="gray" mt="1">
+                            Select a query to choose contextual attributes.
+                          </Text>
+                        )}
+                      </Box>
+
+                      <Flex gap="4">
+                        <Field
+                          label="Max Contexts"
+                          type="number"
+                          min="1"
+                          value={contextualBanditConfig.maxContexts ?? 300}
+                          onChange={(e) =>
+                            form.setValue(
+                              "contextualBanditConfig.maxContexts",
+                              parseInt(e.target.value, 10) || 300,
+                            )
+                          }
+                        />
+                        <Field
+                          label="Min Users Per Leaf"
+                          type="number"
+                          min="1"
+                          value={contextualBanditConfig.minUsersPerLeaf ?? 100}
+                          onChange={(e) =>
+                            form.setValue(
+                              "contextualBanditConfig.minUsersPerLeaf",
+                              parseInt(e.target.value, 10) || 100,
+                            )
+                          }
+                        />
+                      </Flex>
+
+                      <Flex gap="4" align="center" mt="3">
+                        <Tooltip body="Holdouts for contextual bandits are planned for v1.5.">
+                          <Field
+                            label="Holdout %"
+                            value="0"
+                            disabled
+                            style={{ maxWidth: 120 }}
+                          />
+                        </Tooltip>
+                        <Switch
+                          label="Sticky Bucketing"
+                          value={false}
+                          onChange={() => undefined}
+                          disabled
+                          description="Disabled for the demo MVP."
+                        />
+                      </Flex>
+                    </div>
+                  </Page>
+                );
+              }
+              return (
+                <Page display={p} key={p}>
                   <div className="px-2">
                     <ExperimentRefNewFields
                       step={i}

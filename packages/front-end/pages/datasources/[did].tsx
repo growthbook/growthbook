@@ -38,6 +38,7 @@ import ClickhouseMaterializedColumns from "@/components/Settings/EditDataSource/
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import { FeatureEvaluationQueries } from "@/components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueries";
+import { ContextualBanditQueries } from "@/components/Settings/EditDataSource/ContextualBanditQueries/ContextualBanditQueries";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -477,6 +478,13 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   <FeatureEvaluationQueries
                     dataSource={d}
                     onSave={updateDataSourceSettings}
+                    canEdit={canUpdateDataSourceSettings}
+                  />
+                </Frame>
+
+                <Frame>
+                  <ContextualBanditQueries
+                    dataSource={d}
                     canEdit={canUpdateDataSourceSettings}
                   />
                 </Frame>

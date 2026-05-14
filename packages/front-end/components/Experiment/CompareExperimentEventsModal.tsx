@@ -243,6 +243,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   dismissedWarnings: false,
   holdoutId: false,
   defaultDashboardId: false,
+  contextualBanditId: false,
 };
 
 function sectionKeys(

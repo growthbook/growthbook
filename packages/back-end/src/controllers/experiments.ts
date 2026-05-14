@@ -8,6 +8,7 @@ import {
   getSnapshotAnalysis,
   isDefined,
   autoMerge,
+  CANONICAL_FORM_VERSION,
 } from "shared/util";
 import {
   expandAllSliceMetricsInMap,
@@ -150,6 +151,21 @@ import {
   validateExperimentFeatureUpdates,
   validateExperimentFeatureVariations,
 } from "back-end/src/services/experiment-feature";
+
+type ContextualBanditCreateConfig = {
+  cbaqId: string;
+  contextualAttributes: string[];
+  maxContexts?: number;
+  treeModel?: "regression_tree" | "linear_thompson";
+  minUsersPerLeaf?: number;
+  maxLeaves?: number;
+  scheduleHours?: number;
+  seed?: number;
+};
+
+type InternalCreateExperimentBody = Partial<ExperimentInterfaceStringDates> & {
+  contextualBanditConfig?: ContextualBanditCreateConfig;
+};
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -1055,7 +1071,7 @@ export async function getSnapshots(
  */
 export async function postExperiments(
   req: AuthRequest<
-    Partial<ExperimentInterfaceStringDates>,
+    InternalCreateExperimentBody,
     unknown,
     {
       allowDuplicateTrackingKey?: boolean;
@@ -1191,7 +1207,10 @@ export async function postExperiments(
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     regressionAdjustmentEnabled: data.regressionAdjustmentEnabled ?? undefined,
     statsEngine:
-      experimentType === "multi-armed-bandit" ? "bayesian" : data.statsEngine,
+      experimentType === "multi-armed-bandit" ||
+      experimentType === "contextual-bandit"
+        ? "bayesian"
+        : data.statsEngine,
     type: experimentType,
     banditScheduleValue: data.banditScheduleValue ?? 1,
     banditScheduleUnit: data.banditScheduleUnit ?? "days",
@@ -1261,10 +1280,59 @@ export async function postExperiments(
       );
     }
 
-    const experiment = await createExperiment({
+    if (experimentType === "contextual-bandit") {
+      if (!data.contextualBanditConfig) {
+        throw new Error(
+          "contextualBanditConfig is required for contextual-bandit experiments",
+        );
+      }
+      if ((data.goalMetrics?.length ?? 0) !== 1) {
+        throw new Error(
+          "Contextual bandit experiments require exactly 1 decision metric",
+        );
+      }
+    }
+
+    let experiment = await createExperiment({
       data: obj,
       context,
     });
+
+    if (experimentType === "contextual-bandit") {
+      const config = data.contextualBanditConfig;
+      if (!config) {
+        throw new Error(
+          "contextualBanditConfig is required for contextual-bandit experiments",
+        );
+      }
+      const cb =
+        await context.models.contextualBandits.dangerousCreateBypassPermission({
+          experiment: experiment.id,
+          cbaqId: config.cbaqId,
+          contextualAttributes: config.contextualAttributes,
+          maxContexts: config.maxContexts ?? 300,
+          treeModel: config.treeModel ?? "regression_tree",
+          minUsersPerLeaf: config.minUsersPerLeaf ?? 100,
+          maxLeaves: config.maxLeaves ?? 12,
+          holdoutPercent: 0,
+          stickyBucketing: false,
+          canonicalFormVersion: CANONICAL_FORM_VERSION,
+          scheduleHours: config.scheduleHours,
+          phases: [
+            {
+              phase: 0,
+              seed: config.seed ?? Math.floor(Math.random() * 1_000_000_000),
+              currentLeafWeights: [],
+              dateStarted: experiment.phases[0]?.dateStarted,
+            },
+          ],
+        });
+      experiment = await updateExperiment({
+        context,
+        experiment,
+        changes: { contextualBanditId: cb.id },
+      });
+    }
 
     if (holdoutId) {
       const holdoutObj = await context.models.holdout.getById(holdoutId);

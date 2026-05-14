@@ -54,6 +54,11 @@ const datasourcesController = wrapController(datasourcesControllerRaw);
 import * as experimentsControllerRaw from "./controllers/experiments";
 const experimentsController = wrapController(experimentsControllerRaw);
 
+import * as contextualBanditsControllerRaw from "./controllers/contextual-bandits";
+const contextualBanditsController = wrapController(
+  contextualBanditsControllerRaw,
+);
+
 import * as experimentLaunchChecklistControllerRaw from "./controllers/experimentLaunchChecklist";
 const experimentLaunchChecklistController = wrapController(
   experimentLaunchChecklistControllerRaw,
@@ -653,6 +658,18 @@ app.post(
   "/experiment/:id/banditSnapshot",
   experimentsController.postBanditSnapshot,
 );
+app.get(
+  "/experiment/:id/contextual-bandit/current",
+  contextualBanditsController.getContextualBanditCurrent,
+);
+app.get(
+  "/experiment/:id/contextual-bandit/snapshots",
+  contextualBanditsController.getContextualBanditSnapshots,
+);
+app.post(
+  "/experiment/:id/contextual-bandit/refresh",
+  contextualBanditsController.postContextualBanditRefresh,
+);
 
 app.get("/experiments/snapshots", experimentsController.getSnapshots);
 app.post(
@@ -767,6 +784,15 @@ app.delete(
 app.get(
   "/experiments/:id/time-series",
   experimentsController.getExperimentTimeSeries,
+);
+
+app.get(
+  "/contextual-bandit-queries",
+  contextualBanditsController.getContextualBanditQueries,
+);
+app.post(
+  "/contextual-bandit-queries",
+  contextualBanditsController.postContextualBanditQuery,
 );
 
 // Visual editor auth
