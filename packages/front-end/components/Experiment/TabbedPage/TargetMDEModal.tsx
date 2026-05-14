@@ -4,7 +4,7 @@ import {
   DecisionFrameworkMetricOverrides,
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { ExperimentMetricInterfaceWithComputedTargetMDE } from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import Field from "@/components/Forms/Field";
 import { useAuth } from "@/services/auth";
@@ -65,13 +65,13 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
   };
 
   return (
-    <Modal
+    <ModalStandard
       open={true}
       header="Edit Target MDEs"
-      submit={() => {
+      submit={async () => {
         const newOverrides: DecisionFrameworkMetricOverrides[] =
           Object.values(overrides);
-        apiCall(`/experiment/${experiment.id}`, {
+        await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify({
             decisionFrameworkSettings: {
@@ -79,9 +79,8 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
               decisionFrameworkMetricOverrides: newOverrides,
             },
           }),
-        }).then(() => {
-          onSubmit();
         });
+        onSubmit();
       }}
       close={onClose}
       size="md"
@@ -143,7 +142,7 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
           );
         })}
       </Flex>
-    </Modal>
+    </ModalStandard>
   );
 };
 

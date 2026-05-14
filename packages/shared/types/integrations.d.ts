@@ -168,6 +168,11 @@ export type FactMetricQuantileData = {
   valueCol: string;
   outputCol: string;
   metricQuantileSettings: MetricQuantileSettings;
+  // True when the metric's numerator uses 'kll merge' (pre-aggregated
+  // KLL sketch column). In that case n_events must be aggregated by
+  // SUM-ing the paired '<sketch>_n_events' column rather than COUNT-ing
+  // sketch rows.
+  isKllMerge: boolean;
 };
 
 export type FactMetricPercentileData = {
@@ -283,6 +288,7 @@ export type ColumnTopValuesParams = {
   columns: ColumnInterface[];
   limit?: number;
   lookbackDays?: number;
+  maxValueLength?: number;
 };
 export type ColumnTopValuesResponseRow = {
   column: string;

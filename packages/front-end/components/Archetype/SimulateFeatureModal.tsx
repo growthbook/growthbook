@@ -6,7 +6,7 @@ import React, { FC } from "react";
 import { useForm } from "react-hook-form";
 import SelectField from "@/components/Forms/SelectField";
 import AttributeForm from "@/components/Archetype/AttributeForm";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
@@ -46,12 +46,9 @@ const SimulateFeatureModal: FC<{
   }
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
-      close={() => {
-        close();
-      }}
-      includeCloseCta={false}
+      close={close}
       size="lg"
       header="Simulate features"
       open={true}
@@ -100,7 +97,7 @@ const SimulateFeatureModal: FC<{
           </div>
         </div>
       )}
-    </Modal>
+    </ModalStandard>
   );
 };
 export default SimulateFeatureModal;

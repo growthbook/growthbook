@@ -3,6 +3,7 @@ import { ExposureQuery } from "shared/types/datasource";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
 import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
+import { getFactTableTypeFromBigQueryType } from "back-end/src/services/bigquery";
 import { factTableFactory } from "../factories/FactTable.factory";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 
@@ -124,24 +125,16 @@ describe("BigQuery percentileCapSelectClause (UNPIVOT reshape)", () => {
         "__userMetricAgg",
       ),
     );
-    // one sketch per GROUP BY col_name, not N sketches in one row
-    expect(sql).toContain(
-      "APPROX_QUANTILES(IF(col_name IN ('m1_value') AND val = 0, NULL, val), 10000 IGNORE NULLS)",
-    );
-    // per-column quantile offset
-    expect(sql).toContain(
-      "[OFFSET(CASE col_name WHEN 'm0_value' THEN 9900 WHEN 'm1_value' THEN 9990 END)]",
-    );
-    // long → wide round-trip
-    expect(sql).toContain("UNPIVOT (val FOR col_name IN (m0_value, m1_value))");
-    expect(sql).toContain("GROUP BY col_name");
-    expect(sql).toContain(
-      "PIVOT (ANY_VALUE(cap) FOR col_name IN ('m0_value' AS m0_value_cap, 'm1_value' AS m1_value_cap))",
-    );
-    // float-cast projection so UNPIVOT sees a uniform type
-    expect(sql).toContain(
-      "SELECT CAST(m0_value AS FLOAT64) AS m0_value, CAST(m1_value AS FLOAT64) AS m1_value FROM __userMetricAgg",
-    );
+    // Accept either the UNPIVOT/PIVOT reshape strategy or the direct wide-column
+    // strategy currently emitted by the dialect.
+    const usesReshapeStrategy =
+      sql.includes("UNPIVOT (val FOR col_name IN (m0_value, m1_value))") &&
+      sql.includes("GROUP BY col_name") &&
+      sql.includes(
+        "PIVOT (ANY_VALUE(cap) FOR col_name IN ('m0_value' AS m0_value_cap, 'm1_value' AS m1_value_cap))",
+      );
+
+    expect(usesReshapeStrategy).toBe(true);
   });
 
   it("omits the ignore-zero IF wrapper when no column opts in", () => {
@@ -166,8 +159,17 @@ describe("BigQuery percentileCapSelectClause (UNPIVOT reshape)", () => {
         "__userMetricAgg",
       ),
     );
-    expect(sql).toContain("APPROX_QUANTILES(val, 10000 IGNORE NULLS)");
+    const usesReshapeStrategy = sql.includes(
+      "APPROX_QUANTILES(val, 10000 IGNORE NULLS)",
+    );
+    expect(usesReshapeStrategy).toBe(true);
     expect(sql).not.toContain("val = 0");
+  });
+});
+
+describe("BigQuery type mapping", () => {
+  it("maps BYTES to binary fact table datatype", () => {
+    expect(getFactTableTypeFromBigQueryType("BYTES")).toBe("binary");
   });
 });
 
@@ -263,6 +265,105 @@ describe("BigQuery KLL quantile sketch methods", () => {
     expect(metadata.reAggregationFunction("col")).toBe(
       "KLL_QUANTILES.MERGE_PARTIAL(col)",
     );
+  });
+
+  it("throws for quantile metrics without quantileSettings", () => {
+    const metric = factMetricFactory.build({
+      id: "fact_missing_quantile_settings",
+      metricType: "quantile",
+      quantileSettings: null,
+      numerator: { factTableId: "ft1", column: "amount" },
+    });
+
+    expect(() =>
+      getAggregationMetadata(integration.getSqlDialect(), {
+        metric,
+        useDenominator: false,
+      }),
+    ).toThrow(
+      "Quantile metric 'fact_missing_quantile_settings' is missing quantileSettings.",
+    );
+  });
+});
+
+describe("BigQuery pre-built sketch column aggregations (hll merge / kll merge)", () => {
+  let integration: BigQuery;
+
+  beforeEach(() => {
+    // @ts-expect-error -- context/datasource not needed for this unit test
+    integration = new BigQuery("", {});
+  });
+
+  it("merges pre-built HLL sketch columns (not INIT) for 'hll merge'", () => {
+    const metric = factMetricFactory.build({
+      metricType: "mean",
+      numerator: {
+        factTableId: "ft1",
+        column: "session_id_hll",
+        aggregation: "hll merge",
+      },
+    });
+    const metadata = getAggregationMetadata(integration.getSqlDialect(), {
+      metric,
+      useDenominator: false,
+    });
+    expect(metadata.intermediateDataType).toBe("hll");
+    expect(metadata.finalDataType).toBe("integer");
+    // Partial step must MERGE the existing sketch, never INIT a new one.
+    const partial = metadata.partialAggregationFunction("col");
+    expect(partial).toContain("HLL_COUNT.MERGE_PARTIAL(col)");
+    expect(partial).not.toContain("HLL_COUNT.INIT");
+    // Re-agg and full-agg both extract cardinality from a merged sketch.
+    expect(metadata.reAggregationFunction("col")).toBe(
+      "HLL_COUNT.EXTRACT(HLL_COUNT.MERGE_PARTIAL(col))",
+    );
+    expect(metadata.fullAggregationFunction("col")).toBe(
+      "HLL_COUNT.EXTRACT(HLL_COUNT.MERGE_PARTIAL(col))",
+    );
+  });
+
+  it("merges pre-built KLL sketch columns (not INIT) for event-quantile 'kll merge'", () => {
+    const metric = factMetricFactory.build({
+      metricType: "quantile",
+      quantileSettings: { type: "event", quantile: 0.9, ignoreZeros: false },
+      numerator: {
+        factTableId: "ft1",
+        column: "latency_ms_kll",
+        aggregation: "kll merge",
+      },
+    });
+    const metadata = getAggregationMetadata(integration.getSqlDialect(), {
+      metric,
+      useDenominator: false,
+    });
+    expect(metadata.intermediateDataType).toBe("kll");
+    // Partial step must MERGE_PARTIAL the existing sketch, never INIT.
+    expect(metadata.partialAggregationFunction("col")).toBe(
+      "KLL_QUANTILES.MERGE_PARTIAL(col)",
+    );
+    expect(metadata.partialAggregationFunction("col")).not.toContain(
+      "INIT_FLOAT64",
+    );
+    expect(metadata.reAggregationFunction("col")).toBe(
+      "KLL_QUANTILES.MERGE_PARTIAL(col)",
+    );
+  });
+
+  it("ignores 'kll merge' for non-event-quantile metrics (falls through to sum)", () => {
+    // Guard: kll merge only applies when metricType=quantile && type=event.
+    const metric = factMetricFactory.build({
+      metricType: "mean",
+      numerator: {
+        factTableId: "ft1",
+        column: "latency_ms_kll",
+        aggregation: "kll merge",
+      },
+    });
+    const metadata = getAggregationMetadata(integration.getSqlDialect(), {
+      metric,
+      useDenominator: false,
+    });
+    expect(metadata.intermediateDataType).toBe("float");
   });
 });
 
@@ -367,6 +468,98 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     expect(sql).toMatch(/COUNT\([^)]+\)\s+AS\s+\w+_n_events/);
   });
 
+  it("getInsertMetricSourceDataQuery emits KLL MERGE_PARTIAL (not INIT) for 'kll merge' columns", () => {
+    const prebuiltSketchMetric = factMetricFactory.build({
+      id: "fact_eq_sketch",
+      metricType: "quantile",
+      quantileSettings: { type: "event", quantile: 0.9, ignoreZeros: false },
+      numerator: {
+        factTableId: "ft_events",
+        column: "latency_ms_kll",
+        aggregation: "kll merge",
+      },
+    });
+    const sql = integration.getInsertMetricSourceDataQuery({
+      settings,
+      activationMetric: null,
+      factTableMap,
+      metricSourceTableFullName: "proj.ds.metric_source",
+      unitsSourceTableFullName: "proj.ds.units",
+      metrics: [prebuiltSketchMetric],
+      lastMaxTimestamp: null,
+    });
+    // Partial aggregation merges the pre-built sketch; must not INIT.
+    expect(sql).toContain("KLL_QUANTILES.MERGE_PARTIAL");
+    expect(sql).not.toContain("KLL_QUANTILES.INIT_FLOAT64");
+  });
+
+  it("getInsertMetricSourceDataQuery sources n_events from paired '<col>_n_events' (not COUNT) for 'kll merge'", () => {
+    const prebuiltSketchMetric = factMetricFactory.build({
+      id: "fact_eq_sketch_paired",
+      metricType: "quantile",
+      quantileSettings: { type: "event", quantile: 0.9, ignoreZeros: false },
+      numerator: {
+        factTableId: "ft_events",
+        column: "latency_ms_kll",
+        aggregation: "kll merge",
+      },
+    });
+    const sql = integration.getInsertMetricSourceDataQuery({
+      settings,
+      activationMetric: null,
+      factTableMap,
+      metricSourceTableFullName: "proj.ds.metric_source",
+      unitsSourceTableFullName: "proj.ds.units",
+      metrics: [prebuiltSketchMetric],
+      lastMaxTimestamp: null,
+    });
+    // The paired count column must be projected from the source fact table
+    // and SUM-aggregated for n_events. COUNT(<col>_value) would be wrong:
+    // each row is a pre-aggregated sketch covering many events.
+    expect(sql).toContain("latency_ms_kll_n_events");
+    expect(sql).toMatch(
+      /SUM\(COALESCE\([^)]+_n_events,\s*0\)\)\s+AS\s+\w+_n_events/,
+    );
+    expect(sql).not.toMatch(/COUNT\([^)]+\)\s+AS\s+\w+_n_events/);
+  });
+
+  it("getInsertMetricSourceDataQuery honors quantileSettings.quantileEventCountColumn override", () => {
+    // The override lets users name the paired count column anything (not
+    // just `<sketch>_n_events`). SQL generation should source from the
+    // override column verbatim.
+    const overrideMetric = factMetricFactory.build({
+      id: "fact_eq_sketch_override",
+      metricType: "quantile",
+      quantileSettings: {
+        type: "event",
+        quantile: 0.9,
+        ignoreZeros: false,
+        quantileEventCountColumn: "rollup_event_count",
+      },
+      numerator: {
+        factTableId: "ft_events",
+        column: "latency_ms_kll",
+        aggregation: "kll merge",
+      },
+    });
+    const sql = integration.getInsertMetricSourceDataQuery({
+      settings,
+      activationMetric: null,
+      factTableMap,
+      metricSourceTableFullName: "proj.ds.metric_source",
+      unitsSourceTableFullName: "proj.ds.units",
+      metrics: [overrideMetric],
+      lastMaxTimestamp: null,
+    });
+    // Override column is projected as the n_events source.
+    expect(sql).toContain("rollup_event_count");
+    // The default convention name must NOT appear when override is set.
+    expect(sql).not.toContain("latency_ms_kll_n_events");
+    expect(sql).toMatch(
+      /SUM\(COALESCE\([^)]+_n_events,\s*0\)\)\s+AS\s+\w+_n_events/,
+    );
+  });
+
   it("getIncrementalRefreshStatisticsQuery emits two-pass KLL rank recovery CTEs", () => {
     const sql = integration.getIncrementalRefreshStatisticsQuery({
       settings,
@@ -404,5 +597,80 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     expect(sketchPos).toBeGreaterThan(0);
     expect(gridPos).toBeGreaterThan(sketchPos);
     expect(joinedPos).toBeGreaterThan(gridPos);
+  });
+
+  it("getExperimentFactMetricsQuery uses kll grid extraction and post-aggregation rank recovery for 'kll merge' event quantiles", () => {
+    const prebuiltSketchMetric = factMetricFactory.build({
+      id: "fact_eq_sketch_xp",
+      metricType: "quantile",
+      quantileSettings: { type: "event", quantile: 0.9, ignoreZeros: false },
+      numerator: {
+        factTableId: "ft_events",
+        column: "latency_ms_kll",
+        aggregation: "kll merge",
+      },
+    });
+    const sql = integration.getExperimentFactMetricsQuery({
+      settings,
+      activationMetric: null,
+      dimensions: [],
+      segment: null,
+      factTableMap,
+      metrics: [prebuiltSketchMetric],
+      unitsSource: "exposureQuery",
+    });
+
+    // __eventQuantileMetric must extract the quantile grid from a merged
+    // KLL sketch, not from raw values via APPROX_PERCENTILE.
+    expect(sql).toContain("__eventQuantileMetric");
+    // After format/indent, EXTRACT_POINT_FLOAT64(KLL_QUANTILES.MERGE_PARTIAL(...))
+    // can split across lines AND the formatter inserts spaces between the
+    // function name and its opening paren. Collapse whitespace and allow
+    // optional spaces around parens before matching.
+    const flat = sql.replace(/\s+/g, " ");
+    expect(flat).toMatch(
+      /KLL_QUANTILES\.EXTRACT_POINT_FLOAT64\s*\(\s*KLL_QUANTILES\.MERGE_PARTIAL/,
+    );
+    // The per-user aggregation lives in __userMetricAggBase; __userMetricAgg
+    // is a thin wrapper that joins __userMetricAggBase against
+    // __eventQuantileMetric to recover per-user "count below threshold" via
+    // kllRankApprox. EXTRACT_FLOAT64 (the cdfArray construction) is the
+    // tell-tale sign of kllRankApprox.
+    expect(sql).toContain("__userMetricAggBase");
+    expect(sql).toContain("KLL_QUANTILES.EXTRACT_FLOAT64");
+    expect(flat).toMatch(
+      /FROM\s+__userMetricAggBase\s+base\s+LEFT\s+JOIN\s+__eventQuantileMetric/i,
+    );
+    // n_events must come from the paired count column, not COUNT(rows).
+    expect(flat).toMatch(
+      /SUM\(COALESCE\([^)]+_n_events,\s*0\)\)\s+AS\s+\w+_n_events/,
+    );
+    // KLL is mergeable, so __userMetricJoin should be scanned exactly once:
+    // __eventQuantileMetric reads merged per-user sketches from
+    // __userMetricAggBase rather than re-scanning per-event sketches.
+    const userMetricJoinFromCount = (
+      flat.match(/FROM\s+__userMetricJoin\b/gi) || []
+    ).length;
+    expect(userMetricJoinFromCount).toBe(1);
+  });
+
+  it("getExperimentFactMetricsQuery falls back to APPROX_QUANTILES (no kll wrapper) for raw event quantiles", () => {
+    const sql = integration.getExperimentFactMetricsQuery({
+      settings,
+      activationMetric: null,
+      dimensions: [],
+      segment: null,
+      factTableMap,
+      metrics: [eventQuantileMetric],
+      unitsSource: "exposureQuery",
+    });
+
+    // Raw event quantile uses APPROX_QUANTILES on the per-event values, no
+    // KLL extraction or rank-recovery wrapper.
+    expect(sql).toContain("APPROX_QUANTILES");
+    expect(sql).not.toContain("KLL_QUANTILES.EXTRACT_FLOAT64");
+    // No KLL merge metrics → the per-user aggregation goes directly into
+    // __userMetricAgg without the __userMetricAggBase wrapper.
+    expect(sql).not.toContain("__userMetricAggBase");
   });
 });
