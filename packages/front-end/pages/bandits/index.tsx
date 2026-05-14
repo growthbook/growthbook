@@ -4,7 +4,7 @@ import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
-import { PiShuffle } from "react-icons/pi";
+import { PiShuffle, PiCaretDownFill } from "react-icons/pi";
 import { ComputedExperimentInterface } from "shared/types/experiment";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import WatchButton from "@/components/WatchButton";
@@ -28,6 +28,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import Button from "@/ui/Button";
+import Badge from "@/ui/Badge";
+import SplitButton from "@/ui/SplitButton";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LinkButton from "@/ui/LinkButton";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
@@ -46,14 +49,16 @@ const ExperimentsPage = (): React.ReactElement => {
     error,
     loading,
     hasArchived,
-  } = useExperiments(project, tabs.includes("archived"), "multi-armed-bandit");
+  } = useExperiments(project, tabs.includes("archived"));
 
   const tagsFilter = useTagsFilter("experiments");
   const [showMineOnly, setShowMineOnly] = useLocalStorage(
     "showMyExperimentsOnly",
     false,
   );
-  const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
+  const [openNewExperimentModal, setOpenNewExperimentModal] = useState<
+    "multi-armed-bandit" | "contextual-bandit" | null
+  >(null);
 
   const { userId, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -64,6 +69,12 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const filterResults = useCallback(
     (items: ComputedExperimentInterface[]) => {
+      items = items.filter(
+        (item) =>
+          item.type === "multi-armed-bandit" ||
+          item.type === "contextual-bandit",
+      );
+
       if (showMineOnly) {
         items = items.filter(
           (item) =>
@@ -164,14 +175,43 @@ const ExperimentsPage = (): React.ReactElement => {
                   tipPosition="left"
                   commercialFeature="multi-armed-bandits"
                 >
-                  <Button
-                    onClick={() => {
-                      setOpenNewExperimentModal(true);
-                    }}
-                    disabled={!hasMultiArmedBanditFeature}
+                  <SplitButton
+                    menu={
+                      <DropdownMenu
+                        trigger={
+                          <Button disabled={!hasMultiArmedBanditFeature}>
+                            <PiCaretDownFill />
+                          </Button>
+                        }
+                        menuPlacement="end"
+                        disabled={!hasMultiArmedBanditFeature}
+                      >
+                        <DropdownMenuItem
+                          onClick={() =>
+                            setOpenNewExperimentModal("multi-armed-bandit")
+                          }
+                        >
+                          Bandit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            setOpenNewExperimentModal("contextual-bandit")
+                          }
+                        >
+                          Contextual Bandit
+                        </DropdownMenuItem>
+                      </DropdownMenu>
+                    }
                   >
-                    Add Bandit
-                  </Button>
+                    <Button
+                      onClick={() => {
+                        setOpenNewExperimentModal("multi-armed-bandit");
+                      }}
+                      disabled={!hasMultiArmedBanditFeature}
+                    >
+                      Add Bandit
+                    </Button>
+                  </SplitButton>
                 </PremiumTooltip>
               </div>
             )}
@@ -197,14 +237,43 @@ const ExperimentsPage = (): React.ReactElement => {
                     popperStyle={{ top: 15 }}
                     commercialFeature="multi-armed-bandits"
                   >
-                    <Button
-                      onClick={() => {
-                        setOpenNewExperimentModal(true);
-                      }}
-                      disabled={!hasMultiArmedBanditFeature}
+                    <SplitButton
+                      menu={
+                        <DropdownMenu
+                          trigger={
+                            <Button disabled={!hasMultiArmedBanditFeature}>
+                              <PiCaretDownFill />
+                            </Button>
+                          }
+                          menuPlacement="end"
+                          disabled={!hasMultiArmedBanditFeature}
+                        >
+                          <DropdownMenuItem
+                            onClick={() =>
+                              setOpenNewExperimentModal("multi-armed-bandit")
+                            }
+                          >
+                            Bandit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              setOpenNewExperimentModal("contextual-bandit")
+                            }
+                          >
+                            Contextual Bandit
+                          </DropdownMenuItem>
+                        </DropdownMenu>
+                      }
                     >
-                      Add Bandit
-                    </Button>
+                      <Button
+                        onClick={() => {
+                          setOpenNewExperimentModal("multi-armed-bandit");
+                        }}
+                        disabled={!hasMultiArmedBanditFeature}
+                      >
+                        Add Bandit
+                      </Button>
+                    </SplitButton>
                   </PremiumTooltip>
                 )}
               </div>
@@ -326,8 +395,17 @@ const ExperimentsPage = (): React.ReactElement => {
                             className="d-block p-2"
                           >
                             <div className="d-flex flex-column">
-                              <div className="d-flex">
+                              <div className="d-flex align-items-center">
                                 <span className="testname">{e.name}</span>
+                                {e.type === "contextual-bandit" && (
+                                  <Badge
+                                    label="Contextual"
+                                    color="blue"
+                                    variant="soft"
+                                    size="xs"
+                                    ml="2"
+                                  />
+                                )}
                                 {e.hasVisualChangesets ? (
                                   <Tooltip
                                     className="d-flex align-items-center ml-2"
@@ -432,11 +510,11 @@ const ExperimentsPage = (): React.ReactElement => {
       </div>
       {openNewExperimentModal && (
         <NewExperimentForm
-          onClose={() => setOpenNewExperimentModal(false)}
+          onClose={() => setOpenNewExperimentModal(null)}
           source="bandits-list"
           isNewExperiment={true}
           initialValue={{
-            type: "multi-armed-bandit",
+            type: openNewExperimentModal,
             statsEngine: "bayesian",
           }}
         />

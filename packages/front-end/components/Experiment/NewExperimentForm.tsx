@@ -997,37 +997,41 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               </div>
             )}
 
-            {isNewExperiment && !duplicate && !isImport && !isBandit && (
-              <Select
-                label="Experiment Type"
-                value={type}
-                setValue={(value) => {
-                  form.setValue(
-                    "type",
-                    value as ExperimentInterfaceStringDates["type"],
-                  );
-                  if (value === "contextual-bandit") {
-                    form.setValue("contextualBanditConfig", {
-                      cbaqId: contextualBanditConfig.cbaqId || "",
-                      contextualAttributes:
-                        contextualBanditConfig.contextualAttributes || [],
-                      maxContexts: contextualBanditConfig.maxContexts ?? 300,
-                      treeModel:
-                        contextualBanditConfig.treeModel ?? "regression_tree",
-                      minUsersPerLeaf:
-                        contextualBanditConfig.minUsersPerLeaf ?? 100,
-                      maxLeaves: contextualBanditConfig.maxLeaves ?? 12,
-                    });
-                  }
-                }}
-                mb="4"
-              >
-                <SelectItem value="standard">Standard experiment</SelectItem>
-                <SelectItem value="contextual-bandit">
-                  Contextual bandit
-                </SelectItem>
-              </Select>
-            )}
+            {isNewExperiment &&
+              !duplicate &&
+              !isImport &&
+              !isBandit &&
+              !isContextualBandit && (
+                <Select
+                  label="Experiment Type"
+                  value={type}
+                  setValue={(value) => {
+                    form.setValue(
+                      "type",
+                      value as ExperimentInterfaceStringDates["type"],
+                    );
+                    if (value === "contextual-bandit") {
+                      form.setValue("contextualBanditConfig", {
+                        cbaqId: contextualBanditConfig.cbaqId || "",
+                        contextualAttributes:
+                          contextualBanditConfig.contextualAttributes || [],
+                        maxContexts: contextualBanditConfig.maxContexts ?? 300,
+                        treeModel:
+                          contextualBanditConfig.treeModel ?? "regression_tree",
+                        minUsersPerLeaf:
+                          contextualBanditConfig.minUsersPerLeaf ?? 100,
+                        maxLeaves: contextualBanditConfig.maxLeaves ?? 12,
+                      });
+                    }
+                  }}
+                  mb="4"
+                >
+                  <SelectItem value="standard">Standard experiment</SelectItem>
+                  <SelectItem value="contextual-bandit">
+                    Contextual bandit
+                  </SelectItem>
+                </Select>
+              )}
 
             {!isContextualBandit && (
               <>
