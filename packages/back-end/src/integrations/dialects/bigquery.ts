@@ -8,6 +8,13 @@ import { baseDialect } from "./base";
 
 const APPROX_QUANTILES_MULTIPLIER = 10000;
 
+// Below this many capped columns, keep the wide single-pass form. The reshape
+// path duplicates input rows N× through UNPIVOT and forces a shuffle for
+// GROUP BY col_name, which is pure overhead at small N. The wide form fits
+// well under BigQuery's 100MB-per-row limit until the column count gets large
+// (APPROX_QUANTILES sketch state is bounded by the precision multiplier).
+const PERCENTILE_CAP_RESHAPE_THRESHOLD = 10;
+
 /**
  * BigQuery-specific __capValue body: UNPIVOT value columns to long form, compute
  * one APPROX_QUANTILES sketch per column via GROUP BY, then PIVOT the extracted
@@ -30,8 +37,11 @@ function bigQueryPercentileCapSelectClause(
   metricTable: string,
   where: string = "",
 ): string {
-  // Single column: no row-limit risk and no need for UNPIVOT/PIVOT machinery.
-  if (values.length <= 1) {
+  // Below the threshold: the wide single-pass form is faster on both wall and
+  // slot time (one scan of metricTable, no UNPIVOT row multiplication, no
+  // shuffle for GROUP BY). The reshape only pays off once the per-row sketch
+  // total approaches BigQuery's 100MB row limit.
+  if (values.length < PERCENTILE_CAP_RESHAPE_THRESHOLD) {
     return defaultPercentileCapSelectClause(
       bigQueryDialect,
       values,
