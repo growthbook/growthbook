@@ -21,6 +21,8 @@ export default function ExplorerDataTable({
   query = null,
   compareEnabled = false,
   comparisonExploration = null,
+  serverTableTrendsByRow = null,
+  submittedPreviousTimeFrame = null,
 }: {
   exploration: ProductAnalyticsExploration | null;
   error: string | null;
@@ -31,6 +33,8 @@ export default function ExplorerDataTable({
   query?: QueryInterface | null;
   compareEnabled?: boolean;
   comparisonExploration?: ProductAnalyticsExploration | null;
+  serverTableTrendsByRow?: Record<string, number | null>[] | null;
+  submittedPreviousTimeFrame?: ExplorationConfig["dateRange"] | null;
 }) {
   const {
     rowData,
@@ -45,6 +49,8 @@ export default function ExplorerDataTable({
   } = useExplorationTableData(exploration, submittedExploreState, {
     compareEnabled,
     comparisonExploration,
+    serverTableTrendsByRow,
+    submittedPreviousTimeFrame,
   });
 
   const renderCell = useCallback(

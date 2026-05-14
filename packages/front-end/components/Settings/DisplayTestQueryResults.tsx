@@ -317,6 +317,7 @@ export default function DisplayTestQueryResults({
                             key={idx}
                             rowSpan={cell.rowSpan}
                             colSpan={cell.colSpan ?? 1}
+                            style={{ minWidth: 150 }}
                           >
                             {cell.label}
                           </th>
@@ -324,14 +325,18 @@ export default function DisplayTestQueryResults({
                       </tr>
                       <tr>
                         {headerStructure.row2Labels.map((label, idx) => (
-                          <th key={idx}>{label}</th>
+                          <th key={idx} style={{ minWidth: 150 }}>
+                            {label}
+                          </th>
                         ))}
                       </tr>
                     </>
                   ) : (
                     <tr>
                       {cols.map((col, i) => (
-                        <th key={col}>{labels[i] ?? col}</th>
+                        <th key={col} style={{ minWidth: 150 }}>
+                          {labels[i] ?? col}
+                        </th>
                       ))}
                     </tr>
                   )}

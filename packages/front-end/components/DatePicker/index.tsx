@@ -26,6 +26,7 @@ type Props = {
   date2?: Date | string | undefined;
   setDate2?: (d: Date | undefined) => void;
   label?: ReactNode;
+  /** When using a range (`setDate2`), shown if `label` is omitted. */
   label2?: ReactNode;
   helpText?: ReactNode;
   inputWidth?: number;
@@ -49,6 +50,15 @@ const modifiersClassNames = {
   scheduleStartDate: "scheduleStartDate",
   scheduleEndDate: "scheduleEndDate",
 };
+
+/** Separator between start and end in the range text field (space-hyphen-space). */
+const RANGE_DISPLAY_SEP = " - ";
+
+function splitRangeFieldInput(value: string): [string, string] {
+  const i = value.indexOf(RANGE_DISPLAY_SEP);
+  if (i === -1) return [value, ""];
+  return [value.slice(0, i), value.slice(i + RANGE_DISPLAY_SEP.length)];
+}
 
 export default function DatePicker({
   id,
@@ -138,34 +148,75 @@ export default function DatePicker({
 
   const isRange = !!setDate2;
 
-  const debouncedSetDate = useMemo(() => {
-    return debounce((value: string, field: "date" | "date2" = "date") => {
-      const parsedDate = parseDateInput(value);
+  const rangeFieldValue = useMemo(() => {
+    const a = bufferedDate;
+    const b = bufferedDate2;
+    if (!a && !b) return "";
+    if (a && b) return `${a}${RANGE_DISPLAY_SEP}${b}`;
+    return a || b;
+  }, [bufferedDate, bufferedDate2]);
+
+  const clampParsedDate = useCallback(
+    (parsedDate: Date) => {
       let finalDate = parsedDate;
       if (disableBefore && parsedDate < parseDateInput(disableBefore)) {
         finalDate = parseDateInput(disableBefore);
       } else if (disableAfter && parsedDate > parseDateInput(disableAfter)) {
         finalDate = parseDateInput(disableAfter);
       }
-      if (field === "date") {
-        setDate(finalDate);
-        setBufferedDate(format(finalDate, dateFormat));
-      } else if (field === "date2") {
-        setDate2?.(finalDate);
-        setBufferedDate2(format(finalDate, dateFormat));
-      }
+      return finalDate;
+    },
+    [disableBefore, disableAfter, parseDateInput],
+  );
+
+  const debouncedSetDate = useMemo(() => {
+    return debounce((value: string) => {
+      const parsedDate = parseDateInput(value);
+      const finalDate = clampParsedDate(parsedDate);
+      setDate(finalDate);
+      setBufferedDate(format(finalDate, dateFormat));
       setCalendarMonth(new Date(finalDate.getFullYear(), finalDate.getMonth()));
     }, 500);
+  }, [clampParsedDate, setDate, setCalendarMonth, dateFormat, parseDateInput]);
+
+  const debouncedApplyRange = useMemo(() => {
+    return debounce((startStr: string, endStr: string) => {
+      const startTrim = startStr.trim();
+      const endTrim = endStr.trim();
+      let anchor = getValidDate(date ?? new Date());
+
+      if (startTrim) {
+        const parsedDate = parseDateInput(startTrim);
+        const finalDate = clampParsedDate(parsedDate);
+        setDate(finalDate);
+        setBufferedDate(format(finalDate, dateFormat));
+        anchor = finalDate;
+      } else {
+        setDate(undefined);
+        setBufferedDate("");
+      }
+
+      if (endTrim) {
+        const parsedDate2 = parseDateInput(endTrim);
+        const finalDate2 = clampParsedDate(parsedDate2);
+        setDate2?.(finalDate2);
+        setBufferedDate2(format(finalDate2, dateFormat));
+        anchor = finalDate2;
+      } else {
+        setDate2?.(undefined);
+        setBufferedDate2("");
+      }
+
+      setCalendarMonth(new Date(anchor.getFullYear(), anchor.getMonth()));
+    }, 500);
   }, [
-    disableBefore,
-    disableAfter,
-    setDate,
-    setBufferedDate,
-    setCalendarMonth,
-    setDate2,
-    setBufferedDate2,
+    clampParsedDate,
+    date,
     dateFormat,
     parseDateInput,
+    setCalendarMonth,
+    setDate,
+    setDate2,
   ]);
 
   return (
@@ -196,15 +247,15 @@ export default function DatePicker({
                 width:
                   inputWidth ||
                   (wrapRangeInputs && isRange ? undefined : "100%"),
-                minWidth: wrapRangeInputs && isRange ? 140 : undefined,
+                minWidth: isRange ? 220 : undefined,
                 height: compact ? inputHeight : undefined,
                 minHeight: inputHeight,
-                flex: wrapRangeInputs && isRange ? "1 1 140px" : undefined,
+                flex: wrapRangeInputs && isRange ? "1 1 220px" : undefined,
               }}
             >
-              {label ? (
+              {(isRange ? (label ?? label2) : label) ? (
                 <Text as="label" weight="semibold">
-                  {label}
+                  {isRange ? (label ?? label2) : label}
                 </Text>
               ) : null}
               <div
@@ -240,15 +291,39 @@ export default function DatePicker({
                       ...compactFieldStyle,
                     }}
                     className={clsx("date-picker-field", {
-                      "text-muted": !date,
+                      "text-muted": isRange ? !date || !date2 : !date,
                     })}
-                    type={precision === "datetime" ? "datetime-local" : "date"}
-                    value={bufferedDate}
+                    type={
+                      isRange
+                        ? "text"
+                        : precision === "datetime"
+                          ? "datetime-local"
+                          : "date"
+                    }
+                    placeholder={
+                      isRange
+                        ? precision === "datetime"
+                          ? `yyyy-MM-dd'T'HH:mm${RANGE_DISPLAY_SEP}yyyy-MM-dd'T'HH:mm`
+                          : `yyyy-MM-dd${RANGE_DISPLAY_SEP}yyyy-MM-dd`
+                        : undefined
+                    }
+                    value={isRange ? rangeFieldValue : bufferedDate}
                     onChange={(e) => {
-                      setBufferedDate(e.target.value);
-                      debouncedSetDate(e.target.value);
+                      if (isRange) {
+                        const v = e.target.value;
+                        const [startPart, endPart] = splitRangeFieldInput(v);
+                        setBufferedDate(startPart);
+                        setBufferedDate2(endPart);
+                        debouncedApplyRange(startPart, endPart);
+                      } else {
+                        setBufferedDate(e.target.value);
+                        debouncedSetDate(e.target.value);
+                      }
                     }}
-                    onBlur={() => debouncedSetDate.flush()}
+                    onBlur={() => {
+                      debouncedSetDate.flush();
+                      debouncedApplyRange.flush();
+                    }}
                     onClick={(e) => {
                       e.preventDefault();
                       if (disabled) return;
@@ -274,56 +349,6 @@ export default function DatePicker({
                 )}
               </div>
             </div>
-            {isRange && (
-              <div
-                style={{
-                  width: inputWidth || (wrapRangeInputs ? undefined : "100%"),
-                  minWidth: wrapRangeInputs ? 140 : undefined,
-                  height: compact ? inputHeight : undefined,
-                  minHeight: inputHeight,
-                  flex: wrapRangeInputs ? "1 1 140px" : undefined,
-                }}
-              >
-                {label2 ? <label>{label2}</label> : null}
-                <div
-                  className="form-control p-0"
-                  style={{
-                    width: inputWidth,
-                    height: compact ? inputHeight : undefined,
-                    minHeight: inputHeight,
-                    overflow: "clip",
-                  }}
-                >
-                  <Field
-                    disabled={disabled}
-                    style={{
-                      border: 0,
-                      marginRight: -20,
-                      width: "calc(100% + 30px)",
-                      minHeight: inputHeight,
-                      cursor: "pointer",
-                      ...compactFieldStyle,
-                    }}
-                    className={clsx("date-picker-field", {
-                      "text-muted": !date2,
-                    })}
-                    type={precision === "datetime" ? "datetime-local" : "date"}
-                    value={bufferedDate2}
-                    onChange={(e) => {
-                      setBufferedDate2(e.target.value);
-                      debouncedSetDate(e.target.value, "date2");
-                    }}
-                    onBlur={() => debouncedSetDate.flush()}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (disabled) return;
-                      fieldClickedTime.current = new Date();
-                      setOpen(true);
-                    }}
-                  />
-                </div>
-              </div>
-            )}
           </Flex>
         </Popover.Trigger>
 
@@ -340,14 +365,22 @@ export default function DatePicker({
                     from: getValidDate(date),
                     to: getValidDate(date2),
                   }}
-                  onSelect={(daterange: DateRange) => {
+                  onSelect={(daterange: DateRange | undefined) => {
                     if (!daterange) return;
-                    setDate(daterange?.from);
-                    setDate2?.(daterange?.to);
-                    if (daterange?.from)
-                      setBufferedDate(format(daterange.from, dateFormat));
-                    if (daterange?.to)
-                      setBufferedDate2(format(daterange.to, dateFormat));
+                    const from = daterange.from;
+                    const to = daterange.to;
+                    setDate(from);
+                    setDate2?.(to);
+                    if (from) {
+                      setBufferedDate(format(from, dateFormat));
+                    } else {
+                      setBufferedDate("");
+                    }
+                    if (to) {
+                      setBufferedDate2(format(to, dateFormat));
+                    } else {
+                      setBufferedDate2("");
+                    }
                   }}
                   disabled={disabledMatchers}
                   modifiers={markedDays}

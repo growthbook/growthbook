@@ -8,6 +8,7 @@ import {
   buildComparisonDateRange,
   calculateProductAnalyticsDateRange,
   getDateGranularity,
+  buildAlignedComparisonRowLookup,
 } from "shared/enterprise";
 import type { HeaderStructure } from "@/components/Settings/DisplayTestQueryResults";
 import {
@@ -108,11 +109,18 @@ export default function useExplorationTableData(
   options?: {
     compareEnabled?: boolean;
     comparisonExploration?: ProductAnalyticsExploration | null;
+    /** When set, `%` trend cells come from the server (aligned to sorted primary rows). */
+    serverTableTrendsByRow?: Record<string, number | null>[] | null;
+    /** Used for compare column headers instead of deriving the previous window. */
+    submittedPreviousTimeFrame?: ExplorationConfig["dateRange"] | null;
   },
 ): ExplorationTableData {
   const { getFactMetricById } = useDefinitions();
   const compareEnabled = options?.compareEnabled ?? false;
   const comparisonExploration = options?.comparisonExploration ?? null;
+  const serverTableTrendsByRow = options?.serverTableTrendsByRow ?? null;
+  const submittedPreviousTimeFrame =
+    options?.submittedPreviousTimeFrame ?? null;
 
   const renderOpts: RenderOpts = useMemo(
     () => ({
@@ -182,9 +190,11 @@ export default function useExplorationTableData(
       const currentDr = calculateProductAnalyticsDateRange(
         submittedExploreState.dateRange,
       );
-      const prevDr = calculateProductAnalyticsDateRange(
-        buildComparisonDateRange(submittedExploreState.dateRange),
-      );
+      const prevDr = submittedPreviousTimeFrame
+        ? calculateProductAnalyticsDateRange(submittedPreviousTimeFrame)
+        : calculateProductAnalyticsDateRange(
+            buildComparisonDateRange(submittedExploreState.dateRange),
+          );
       const prevHeading = formatExplorerDateRangeHeading(prevDr);
       const currHeading = formatExplorerDateRangeHeading(currentDr);
       const labels: string[] = [];
@@ -204,7 +214,12 @@ export default function useExplorationTableData(
       return labels;
     }
     return columns.map((c) => c.label);
-  }, [tableCompareActive, columns, submittedExploreState]);
+  }, [
+    tableCompareActive,
+    columns,
+    submittedExploreState,
+    submittedPreviousTimeFrame,
+  ]);
 
   const csvColumnKeys = useMemo(
     () => (tableCompareActive ? orderedColumnKeys : undefined),
@@ -221,9 +236,11 @@ export default function useExplorationTableData(
       const currentDr = calculateProductAnalyticsDateRange(
         submittedExploreState.dateRange,
       );
-      const prevDr = calculateProductAnalyticsDateRange(
-        buildComparisonDateRange(submittedExploreState.dateRange),
-      );
+      const prevDr = submittedPreviousTimeFrame
+        ? calculateProductAnalyticsDateRange(submittedPreviousTimeFrame)
+        : calculateProductAnalyticsDateRange(
+            buildComparisonDateRange(submittedExploreState.dateRange),
+          );
       const prevHeading = formatExplorerDateRangeHeading(prevDr);
       const currHeading = formatExplorerDateRangeHeading(currentDr);
       const row1: { label: string; colSpan?: number; rowSpan?: number }[] = [];
@@ -271,7 +288,13 @@ export default function useExplorationTableData(
       );
     }
     return { row1, row2Labels };
-  }, [tableCompareActive, hasAnyRatio, columns, submittedExploreState]);
+  }, [
+    tableCompareActive,
+    hasAnyRatio,
+    columns,
+    submittedExploreState,
+    submittedPreviousTimeFrame,
+  ]);
 
   const resolvedGranularity = useMemo((): ResolvedGranularity | null => {
     if (!submittedExploreState) return null;
@@ -308,8 +331,15 @@ export default function useExplorationTableData(
         isTimeseries,
         renderOpts,
       );
+      const getAlignedCmpRow = buildAlignedComparisonRowLookup(
+        sortedRows,
+        cmpSorted,
+        isTimeseries,
+      );
       return sortedRows.map((row, idx) => {
-        const cmpRow = cmpSorted[idx] ?? null;
+        const cmpRow = isTimeseries
+          ? getAlignedCmpRow(String(row.dimensions[0] ?? ""))
+          : (cmpSorted[idx] ?? null);
         const entries: [string, unknown][] = [];
         for (const col of columns) {
           if (col.kind === "dimension") {
@@ -329,7 +359,10 @@ export default function useExplorationTableData(
             const currKey = `${col.key}__curr`;
             const trendKey = `${col.key}__trend`;
             let trend: number | null = null;
-            if (
+            const serverRow = serverTableTrendsByRow?.[idx];
+            if (serverRow && trendKey in serverRow) {
+              trend = serverRow[trendKey] ?? null;
+            } else if (
               typeof rawPrev === "number" &&
               typeof rawCurr === "number" &&
               rawPrev !== 0
@@ -355,13 +388,14 @@ export default function useExplorationTableData(
       return Object.fromEntries(entries) as Record<string, unknown>;
     });
   }, [
-    exploration?.result?.rows,
     columns,
+    comparisonExploration?.result?.rows,
+    exploration?.result?.rows,
     renderOpts,
     resolvedGranularity,
+    serverTableTrendsByRow,
     submittedExploreState,
     tableCompareActive,
-    comparisonExploration?.result?.rows,
   ]);
 
   const explorationReturnedNoData = useMemo(() => {

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Flex } from "@radix-ui/themes";
 import { format } from "date-fns";
 import { dateRangePredefined, lookbackUnit } from "shared/validators";
@@ -18,13 +18,11 @@ const PREDEFINED_LABELS: Record<(typeof dateRangePredefined)[number], string> =
     customDateRange: "Custom Date Range",
   };
 
-interface DateRangePickerProps {
-  shouldWrap?: boolean;
-}
-
-export default function DateRangePicker({
+function DefaultDateRangePickerContent({
   shouldWrap = false,
-}: DateRangePickerProps = {}) {
+}: {
+  shouldWrap?: boolean;
+}) {
   const { draftExploreState, setDraftExploreState } = useExplorerContext();
   const { dateRange } = draftExploreState;
 
@@ -46,7 +44,6 @@ export default function DateRangePicker({
     const isValid = parsed !== null && parsed >= 1 && !isNaN(parsed);
 
     if (!isValid) {
-      // Revert to last valid value - don't update state, just clear local state
       setLocalLookbackValue(null);
       latestLookbackRef.current = "";
       return;
@@ -195,4 +192,144 @@ export default function DateRangePicker({
       )}
     </Flex>
   );
+}
+
+type PendingPair = {
+  setStart: boolean;
+  setEnd: boolean;
+  start: Date | undefined;
+  end: Date | undefined;
+};
+
+function ComparisonPreviousRangePicker({
+  shouldWrap = false,
+}: {
+  shouldWrap?: boolean;
+}) {
+  const {
+    draftExploreState,
+    previousTimeFrame,
+    setPreviousTimeFrame,
+    compareEnabled,
+  } = useExplorerContext();
+
+  const previousTimeFrameRef = useRef(previousTimeFrame);
+  previousTimeFrameRef.current = previousTimeFrame;
+
+  const dr = draftExploreState.dateRange;
+  const primaryStart = dr.startDate;
+  const primaryEnd = dr.endDate;
+
+  const pendingRef = useRef<PendingPair>({
+    setStart: false,
+    setEnd: false,
+    start: undefined,
+    end: undefined,
+  });
+  const flushScheduledRef = useRef(false);
+
+  const flushPending = useCallback(() => {
+    flushScheduledRef.current = false;
+    const p = pendingRef.current;
+    pendingRef.current = {
+      setStart: false,
+      setEnd: false,
+      start: undefined,
+      end: undefined,
+    };
+
+    const base = previousTimeFrameRef.current;
+    if (!base) return;
+
+    const next = {
+      ...base,
+      predefined: "customDateRange" as const,
+    };
+    if (p.setStart) {
+      next.startDate = p.start ? format(p.start, "yyyy-MM-dd") : null;
+    }
+    if (p.setEnd) {
+      next.endDate = p.end ? format(p.end, "yyyy-MM-dd") : null;
+    }
+    setPreviousTimeFrame(next);
+  }, [setPreviousTimeFrame]);
+
+  const queueSetStart = useCallback(
+    (d: Date | undefined) => {
+      pendingRef.current.setStart = true;
+      pendingRef.current.start = d;
+      if (!flushScheduledRef.current) {
+        flushScheduledRef.current = true;
+        queueMicrotask(flushPending);
+      }
+    },
+    [flushPending],
+  );
+
+  const queueSetEnd = useCallback(
+    (d: Date | undefined) => {
+      pendingRef.current.setEnd = true;
+      pendingRef.current.end = d;
+      if (!flushScheduledRef.current) {
+        flushScheduledRef.current = true;
+        queueMicrotask(flushPending);
+      }
+    },
+    [flushPending],
+  );
+
+  if (
+    !compareEnabled ||
+    dr.predefined !== "customDateRange" ||
+    !primaryStart ||
+    !primaryEnd ||
+    !previousTimeFrame
+  ) {
+    return null;
+  }
+
+  return (
+    <Flex
+      align="center"
+      gap="2"
+      wrap={shouldWrap ? "wrap" : undefined}
+      width={shouldWrap ? "100%" : undefined}
+      style={{ minWidth: 0 }}
+    >
+      <DatePicker
+        containerClassName="mb-0"
+        compact
+        wrapRangeInputs={shouldWrap}
+        date={
+          previousTimeFrame.startDate
+            ? getValidDateOffsetByUTC(previousTimeFrame.startDate)
+            : undefined
+        }
+        date2={
+          previousTimeFrame.endDate
+            ? getValidDateOffsetByUTC(previousTimeFrame.endDate)
+            : undefined
+        }
+        setDate={queueSetStart}
+        setDate2={queueSetEnd}
+        precision="date"
+      />
+    </Flex>
+  );
+}
+
+export interface DateRangePickerProps {
+  shouldWrap?: boolean;
+  /** Comparison window (no preset dropdown); dates are free-form. */
+  variant?: "default" | "comparison";
+}
+
+export default function DateRangePicker({
+  shouldWrap = false,
+  variant = "default",
+}: DateRangePickerProps = {}) {
+  if (variant === "comparison") {
+    return <ComparisonPreviousRangePicker shouldWrap={shouldWrap} />;
+  }
+  return <DefaultDateRangePickerContent shouldWrap={shouldWrap} />;
 }
