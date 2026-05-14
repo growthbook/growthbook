@@ -1,8 +1,17 @@
+import { z } from "zod";
 import {
   ContextualBanditQueryInterface,
+  apiContextualBanditQueryValidator,
   contextualBanditQueryValidator,
 } from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import {
+  contextualBanditQueryApiSpec,
+  refreshContextualBanditQueryTopValuesEndpoint,
+} from "back-end/src/api/specs/contextual-bandit-query.spec";
+import { refreshTopValuesForCBAQ } from "back-end/src/services/contextualBandits";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -26,9 +35,42 @@ const BaseClass = MakeModelClass({
     projects: [],
     topValuesLookbackDays: 30,
   },
+  apiConfig: {
+    modelKey: "contextualBanditQueries",
+    openApiSpec: contextualBanditQueryApiSpec,
+    customHandlers: [
+      defineCustomApiHandler({
+        ...refreshContextualBanditQueryTopValuesEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<{
+          contextualBanditQuery: z.infer<
+            typeof apiContextualBanditQueryValidator
+          >;
+        }> => {
+          const updated = await refreshTopValuesForCBAQ(
+            req.context,
+            req.params.id,
+          );
+          return {
+            contextualBanditQuery: await resolveOwnerEmail(
+              req.context.models.contextualBanditQueries.toApiInterfaceForResponse(
+                updated,
+              ),
+              req.context,
+            ),
+          };
+        },
+      }),
+    ],
+  },
 });
 
 export class ContextualBanditQueryModel extends BaseClass {
+  public toApiInterfaceForResponse(doc: ContextualBanditQueryInterface) {
+    return this.toApiInterface(doc);
+  }
+
   // Permission scope follows the datasource. We mirror the
   // metric-analysis / segment pattern: read = any user with read access
   // to any of the datasource's projects; write = createDatasources

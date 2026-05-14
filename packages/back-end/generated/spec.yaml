@@ -255,6 +255,11 @@ tags:
   - name: RampScheduleTemplates
     x-displayName: Ramp Schedule Templates
     description: Reusable step configurations for ramp schedules.
+  - name: ContextualBanditQueries
+    x-displayName: Contextual Bandit Queries
+    description: >-
+      Datasource-scoped queries that supply per-user contextual attributes for
+      contextual-bandit experiments.
   - name: AnalyticsExploration_model
     x-displayName: AnalyticsExploration
     description: <SchemaDefinition schemaRef="#/components/schemas/AnalyticsExploration" />
@@ -9035,6 +9040,7 @@ paths:
                   enum:
                     - standard
                     - multi-armed-bandit
+                    - contextual-bandit
                 project:
                   description: Project ID which the experiment belongs to
                   type: string
@@ -9465,6 +9471,45 @@ paths:
                     required:
                       - slices
                     additionalProperties: false
+                contextualBanditConfig:
+                  type: object
+                  properties:
+                    cbaqId:
+                      type: string
+                    contextualAttributes:
+                      minItems: 1
+                      type: array
+                      items:
+                        type: string
+                    maxContexts:
+                      type: integer
+                      exclusiveMinimum: 0
+                    treeModel:
+                      type: string
+                      enum:
+                        - regression_tree
+                        - linear_thompson
+                    minUsersPerLeaf:
+                      type: integer
+                      exclusiveMinimum: 0
+                    maxLeaves:
+                      type: integer
+                      exclusiveMinimum: 0
+                    holdoutPercent:
+                      type: number
+                      const: 0
+                    stickyBucketing:
+                      type: boolean
+                      const: false
+                    scheduleHours:
+                      type: number
+                      exclusiveMinimum: 0
+                    seed:
+                      type: integer
+                  required:
+                    - cbaqId
+                    - contextualAttributes
+                  additionalProperties: false
               required:
                 - trackingKey
                 - name
@@ -9512,6 +9557,30 @@ paths:
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/experiments/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteExperiment
+      summary: Delete a single experiment
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/experiments/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     post:
       operationId: updateExperiment
       summary: Update a single experiment
@@ -9550,6 +9619,7 @@ paths:
                   enum:
                     - standard
                     - multi-armed-bandit
+                    - contextual-bandit
                 project:
                   description: Project ID which the experiment belongs to
                   type: string
@@ -10406,6 +10476,228 @@ paths:
         - lang: cURL
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/experiment-names' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/contextual-bandit/current:
+    get:
+      operationId: getContextualBanditCurrent
+      summary: Get current contextual bandit weights
+      tags:
+        - experiments
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the requested experiment
+          schema:
+            description: The id of the requested experiment
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  currentLeafWeights:
+                    type: array
+                    items: {}
+                  latestEvent:
+                    anyOf:
+                      - {}
+                      - type: 'null'
+                required:
+                  - currentLeafWeights
+                  - latestEvent
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/experiments/{id}/contextual-bandit/current'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/contextual-bandit/events:
+    get:
+      operationId: listContextualBanditEvents
+      summary: List contextual bandit events
+      tags:
+        - experiments
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the requested experiment
+          schema:
+            description: The id of the requested experiment
+            type: string
+        - name: limit
+          in: query
+          description: ''
+          schema:
+            type: integer
+            exclusiveMinimum: 0
+            maximum: 100
+        - $ref: '#/components/parameters/cursor'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items: {}
+                required:
+                  - events
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/experiments/{id}/contextual-bandit/events'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/contextual-bandit/events/{eventId}:
+    get:
+      operationId: getContextualBanditEvent
+      summary: Get a contextual bandit event
+      tags:
+        - experiments
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the requested experiment
+          schema:
+            description: The id of the requested experiment
+            type: string
+        - $ref: '#/components/parameters/eventId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  event: {}
+                required:
+                  - event
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/experiments/{id}/contextual-bandit/events/{eventId}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/contextual-bandit/snapshots:
+    get:
+      operationId: listContextualBanditSnapshots
+      summary: List contextual bandit snapshots
+      tags:
+        - experiments
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the requested experiment
+          schema:
+            description: The id of the requested experiment
+            type: string
+        - name: limit
+          in: query
+          description: ''
+          schema:
+            type: integer
+            exclusiveMinimum: 0
+            maximum: 100
+        - $ref: '#/components/parameters/cursor'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  snapshots:
+                    type: array
+                    items: {}
+                required:
+                  - snapshots
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/experiments/{id}/contextual-bandit/snapshots'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/contextual-bandit/snapshots/{snapshotId}:
+    get:
+      operationId: getContextualBanditSnapshot
+      summary: Get a contextual bandit snapshot
+      tags:
+        - experiments
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the requested experiment
+          schema:
+            description: The id of the requested experiment
+            type: string
+        - $ref: '#/components/parameters/snapshotId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  snapshot: {}
+                required:
+                  - snapshot
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/experiments/{id}/contextual-bandit/snapshots/{snapshotId}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/contextual-bandit/refresh:
+    post:
+      operationId: postContextualBanditRefresh
+      summary: Refresh contextual bandit weights
+      tags:
+        - experiments
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the requested experiment
+          schema:
+            description: The id of the requested experiment
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  snapshotId:
+                    type: string
+                required:
+                  - snapshotId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/contextual-bandit/refresh'
+            \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/visual-changesets:
     get:
@@ -24019,6 +24311,287 @@ paths:
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/ramp-schedules/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/contextual-bandit-queries/{id}:
+    get:
+      operationId: getContextualBanditQuery
+      summary: Get a single contextualBanditQuery
+      tags:
+        - ContextualBanditQueries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBanditQuery:
+                    $ref: '#/components/schemas/ContextualBanditQuery'
+                required:
+                  - contextualBanditQuery
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/contextual-bandit-queries/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteContextualBanditQuery
+      summary: Delete a single contextualBanditQuery
+      tags:
+        - ContextualBanditQueries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/contextual-bandit-queries/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    put:
+      operationId: updateContextualBanditQuery
+      summary: Update a single contextualBanditQuery
+      tags:
+        - ContextualBanditQueries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                datasource:
+                  type: string
+                projects:
+                  type: array
+                  items:
+                    type: string
+                userIdType:
+                  type: string
+                query:
+                  type: string
+                attributes:
+                  minItems: 1
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      attribute:
+                        type: string
+                      kind:
+                        type: string
+                        enum:
+                          - categorical
+                          - quantitative
+                      maxLevels:
+                        type: integer
+                        exclusiveMinimum: 0
+                        maximum: 50
+                    required:
+                      - attribute
+                      - kind
+                    additionalProperties: false
+                topValuesLookbackDays:
+                  type: integer
+                  exclusiveMinimum: 0
+                  maximum: 365
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBanditQuery:
+                    $ref: '#/components/schemas/ContextualBanditQuery'
+                required:
+                  - contextualBanditQuery
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/contextual-bandit-queries/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/contextual-bandit-queries:
+    post:
+      operationId: createContextualBanditQuery
+      summary: Create a single contextualBanditQuery
+      tags:
+        - ContextualBanditQueries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                datasource:
+                  type: string
+                projects:
+                  type: array
+                  items:
+                    type: string
+                userIdType:
+                  type: string
+                query:
+                  type: string
+                attributes:
+                  minItems: 1
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      attribute:
+                        type: string
+                      kind:
+                        type: string
+                        enum:
+                          - categorical
+                          - quantitative
+                      maxLevels:
+                        type: integer
+                        exclusiveMinimum: 0
+                        maximum: 50
+                    required:
+                      - attribute
+                      - kind
+                    additionalProperties: false
+                topValuesLookbackDays:
+                  type: integer
+                  exclusiveMinimum: 0
+                  maximum: 365
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
+                  type: string
+              required:
+                - name
+                - datasource
+                - userIdType
+                - query
+                - attributes
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBanditQuery:
+                    $ref: '#/components/schemas/ContextualBanditQuery'
+                required:
+                  - contextualBanditQuery
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/contextual-bandit-queries' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    get:
+      operationId: listContextualBanditQueries
+      summary: Get all contextualBanditQueries
+      tags:
+        - ContextualBanditQueries
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBanditQueries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ContextualBanditQuery'
+                required:
+                  - contextualBanditQueries
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/contextual-bandit-queries' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/contextual-bandit-queries/{id}/refresh-top-values:
+    post:
+      operationId: refreshContextualBanditQueryTopValues
+      summary: Refresh contextual bandit query top values
+      tags:
+        - ContextualBanditQueries
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBanditQuery:
+                    $ref: '#/components/schemas/ContextualBanditQuery'
+                required:
+                  - contextualBanditQuery
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/contextual-bandit-queries/{id}/refresh-top-values'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
 components:
   parameters:
     limit:
@@ -24219,6 +24792,26 @@ components:
         type: string
     variationId:
       name: variationId
+      in: path
+      required: true
+      description: ''
+      schema:
+        type: string
+    cursor:
+      name: cursor
+      in: query
+      description: ''
+      schema:
+        type: string
+    eventId:
+      name: eventId
+      in: path
+      required: true
+      description: ''
+      schema:
+        type: string
+    snapshotId:
+      name: snapshotId
       in: path
       required: true
       description: ''
@@ -25630,6 +26223,7 @@ components:
           enum:
             - standard
             - multi-armed-bandit
+            - contextual-bandit
         project:
           type: string
         hypothesis:
@@ -25883,6 +26477,79 @@ components:
           type: string
         templateId:
           type: string
+        contextualBanditId:
+          type: string
+        contextualBanditConfig:
+          type: object
+          properties:
+            id:
+              type: string
+            cbaqId:
+              type: string
+            contextualAttributes:
+              type: array
+              items:
+                type: string
+            maxContexts:
+              type: number
+            treeModel:
+              type: string
+              enum:
+                - regression_tree
+                - linear_thompson
+            minUsersPerLeaf:
+              type: number
+            maxLeaves:
+              type: number
+            holdoutPercent:
+              type: number
+              const: 0
+            stickyBucketing:
+              type: boolean
+              const: false
+            canonicalFormVersion:
+              type: string
+              const: v1
+            scheduleHours:
+              type: number
+            currentLeafWeights:
+              type: array
+              items:
+                type: object
+                properties:
+                  contextId:
+                    type: string
+                  condition:
+                    type: object
+                    propertyNames:
+                      type: string
+                    additionalProperties: {}
+                  weights:
+                    type: array
+                    items:
+                      type: number
+                  leafId:
+                    type: string
+                required:
+                  - contextId
+                  - condition
+                  - weights
+                additionalProperties: false
+            lastContextualBanditEventId:
+              type: string
+          required:
+            - id
+            - cbaqId
+            - contextualAttributes
+            - maxContexts
+            - treeModel
+            - minUsersPerLeaf
+            - maxLeaves
+            - holdoutPercent
+            - stickyBucketing
+            - canonicalFormVersion
+            - currentLeafWeights
+          additionalProperties: false
       required:
         - id
         - trackingKey
@@ -26162,6 +26829,7 @@ components:
               enum:
                 - standard
                 - multi-armed-bandit
+                - contextual-bandit
             project:
               type: string
             hypothesis:
@@ -26419,6 +27087,79 @@ components:
               type: string
             templateId:
               type: string
+            contextualBanditId:
+              type: string
+            contextualBanditConfig:
+              type: object
+              properties:
+                id:
+                  type: string
+                cbaqId:
+                  type: string
+                contextualAttributes:
+                  type: array
+                  items:
+                    type: string
+                maxContexts:
+                  type: number
+                treeModel:
+                  type: string
+                  enum:
+                    - regression_tree
+                    - linear_thompson
+                minUsersPerLeaf:
+                  type: number
+                maxLeaves:
+                  type: number
+                holdoutPercent:
+                  type: number
+                  const: 0
+                stickyBucketing:
+                  type: boolean
+                  const: false
+                canonicalFormVersion:
+                  type: string
+                  const: v1
+                scheduleHours:
+                  type: number
+                currentLeafWeights:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      contextId:
+                        type: string
+                      condition:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties: {}
+                      weights:
+                        type: array
+                        items:
+                          type: number
+                      leafId:
+                        type: string
+                    required:
+                      - contextId
+                      - condition
+                      - weights
+                    additionalProperties: false
+                lastContextualBanditEventId:
+                  type: string
+              required:
+                - id
+                - cbaqId
+                - contextualAttributes
+                - maxContexts
+                - treeModel
+                - minUsersPerLeaf
+                - maxLeaves
+                - holdoutPercent
+                - stickyBucketing
+                - canonicalFormVersion
+                - currentLeafWeights
+              additionalProperties: false
           required:
             - id
             - trackingKey
@@ -31187,6 +31928,195 @@ components:
         - name
         - steps
       additionalProperties: false
+    ContextualBanditQuery:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+          pattern: >-
+            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        dateUpdated:
+          type: string
+          format: date-time
+          pattern: >-
+            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        datasource:
+          type: string
+        projects:
+          type: array
+          items:
+            type: string
+        userIdType:
+          type: string
+        query:
+          type: string
+        attributes:
+          type: array
+          items:
+            type: object
+            properties:
+              attribute:
+                type: string
+              kind:
+                type: string
+                enum:
+                  - categorical
+                  - quantitative
+              maxLevels:
+                type: number
+              topValues:
+                type: array
+                items:
+                  type: string
+              bucketEdges:
+                type: array
+                items:
+                  type: number
+            required:
+              - attribute
+              - kind
+            additionalProperties: false
+        topValuesLookbackDays:
+          type: number
+        topValuesLastRefreshed:
+          type: string
+          format: date-time
+          pattern: >-
+            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - owner
+        - name
+        - description
+        - datasource
+        - projects
+        - userIdType
+        - query
+        - attributes
+        - topValuesLookbackDays
+      additionalProperties: false
+    ContextualBandit:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+          pattern: >-
+            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        dateUpdated:
+          type: string
+          format: date-time
+          pattern: >-
+            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        experiment:
+          type: string
+        cbaqId:
+          type: string
+        contextualAttributes:
+          type: array
+          items:
+            type: string
+        maxContexts:
+          type: number
+        treeModel:
+          type: string
+          enum:
+            - regression_tree
+            - linear_thompson
+        minUsersPerLeaf:
+          type: number
+        maxLeaves:
+          type: number
+        holdoutPercent:
+          type: number
+          const: 0
+        stickyBucketing:
+          type: boolean
+          const: false
+        canonicalFormVersion:
+          type: string
+          const: v1
+        scheduleHours:
+          type: number
+        phases:
+          type: array
+          items:
+            type: object
+            properties:
+              phase:
+                type: number
+              seed:
+                type: number
+              currentLeafWeights:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    contextId:
+                      type: string
+                    condition:
+                      type: object
+                      propertyNames:
+                        type: string
+                      additionalProperties: {}
+                    weights:
+                      type: array
+                      items:
+                        type: number
+                    leafId:
+                      type: string
+                  required:
+                    - contextId
+                    - condition
+                    - weights
+                  additionalProperties: false
+              lastContextualBanditEventId:
+                type: string
+              dateStarted:
+                type: string
+                format: date-time
+                pattern: >-
+                  ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+            required:
+              - phase
+              - seed
+              - currentLeafWeights
+            additionalProperties: false
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - experiment
+        - cbaqId
+        - contextualAttributes
+        - maxContexts
+        - treeModel
+        - minUsersPerLeaf
+        - maxLeaves
+        - holdoutPercent
+        - stickyBucketing
+        - canonicalFormVersion
+        - phases
+      additionalProperties: false
     ExperimentSnapshot:
       type: object
       properties:
@@ -32248,195 +33178,6 @@ components:
         - result
         - config
       additionalProperties: false
-    ContextualBanditQuery:
-      type: object
-      properties:
-        id:
-          type: string
-        dateCreated:
-          type: string
-          format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
-        dateUpdated:
-          type: string
-          format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
-        owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
-          type: string
-        ownerEmail:
-          description: >-
-            The email address of the owner, when the owner can be resolved to a
-            known user.
-          type: string
-        name:
-          type: string
-        description:
-          type: string
-        datasource:
-          type: string
-        projects:
-          type: array
-          items:
-            type: string
-        userIdType:
-          type: string
-        query:
-          type: string
-        attributes:
-          type: array
-          items:
-            type: object
-            properties:
-              attribute:
-                type: string
-              kind:
-                type: string
-                enum:
-                  - categorical
-                  - quantitative
-              maxLevels:
-                type: number
-              topValues:
-                type: array
-                items:
-                  type: string
-              bucketEdges:
-                type: array
-                items:
-                  type: number
-            required:
-              - attribute
-              - kind
-            additionalProperties: false
-        topValuesLookbackDays:
-          type: number
-        topValuesLastRefreshed:
-          type: string
-          format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
-      required:
-        - id
-        - dateCreated
-        - dateUpdated
-        - owner
-        - name
-        - description
-        - datasource
-        - projects
-        - userIdType
-        - query
-        - attributes
-        - topValuesLookbackDays
-      additionalProperties: false
-    ContextualBandit:
-      type: object
-      properties:
-        id:
-          type: string
-        dateCreated:
-          type: string
-          format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
-        dateUpdated:
-          type: string
-          format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
-        experiment:
-          type: string
-        cbaqId:
-          type: string
-        contextualAttributes:
-          type: array
-          items:
-            type: string
-        maxContexts:
-          type: number
-        treeModel:
-          type: string
-          enum:
-            - regression_tree
-            - linear_thompson
-        minUsersPerLeaf:
-          type: number
-        maxLeaves:
-          type: number
-        holdoutPercent:
-          type: number
-          const: 0
-        stickyBucketing:
-          type: boolean
-          const: false
-        canonicalFormVersion:
-          type: string
-          const: v1
-        scheduleHours:
-          type: number
-        phases:
-          type: array
-          items:
-            type: object
-            properties:
-              phase:
-                type: number
-              seed:
-                type: number
-              currentLeafWeights:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    contextId:
-                      type: string
-                    condition:
-                      type: object
-                      propertyNames:
-                        type: string
-                      additionalProperties: {}
-                    weights:
-                      type: array
-                      items:
-                        type: number
-                    leafId:
-                      type: string
-                  required:
-                    - contextId
-                    - condition
-                    - weights
-                  additionalProperties: false
-              lastContextualBanditEventId:
-                type: string
-              dateStarted:
-                type: string
-                format: date-time
-                pattern: >-
-                  ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
-            required:
-              - phase
-              - seed
-              - currentLeafWeights
-            additionalProperties: false
-      required:
-        - id
-        - dateCreated
-        - dateUpdated
-        - experiment
-        - cbaqId
-        - contextualAttributes
-        - maxContexts
-        - treeModel
-        - minUsersPerLeaf
-        - maxLeaves
-        - holdoutPercent
-        - stickyBucketing
-        - canonicalFormVersion
-        - phases
-      additionalProperties: false
     VisualChange:
       type: object
       properties:
@@ -33420,6 +34161,7 @@ x-tagGroups:
       - ExperimentTemplates
       - AnalyticsExplorations
       - RampScheduleTemplates
+      - ContextualBanditQueries
   - name: Models
     tags:
       - AnalyticsExploration_model

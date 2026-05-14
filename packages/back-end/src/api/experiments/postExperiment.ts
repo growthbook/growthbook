@@ -1,4 +1,5 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import { CANONICAL_FORM_VERSION } from "shared/util";
 import {
   ExperimentInterfaceExcludingHoldouts,
   ExperimentTemplateInterface,
@@ -9,6 +10,7 @@ import { omit } from "lodash";
 import {
   createExperiment,
   getExperimentByTrackingKey,
+  updateExperiment as updateExperimentToDb,
 } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
@@ -244,6 +246,24 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     if (payload.variations) {
       validateVariationIds(payload.variations as Variation[]);
     }
+    if (payload.type === "contextual-bandit") {
+      if (!payload.contextualBanditConfig) {
+        throw new Error(
+          "contextualBanditConfig is required for contextual-bandit experiments",
+        );
+      }
+      if ((payload.metrics ?? []).length !== 1) {
+        throw new Error(
+          "Contextual bandit experiments require exactly 1 metric",
+        );
+      }
+      if (payload.contextualBanditConfig.holdoutPercent !== undefined) {
+        throw new Error("Contextual bandit holdoutPercent must be 0");
+      }
+      if (payload.contextualBanditConfig.stickyBucketing !== undefined) {
+        throw new Error("Contextual bandit stickyBucketing must be false");
+      }
+    }
 
     // Validate attributionModel + lookbackOverride consistency
     if (
@@ -276,10 +296,47 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       datasource,
     );
 
-    const experiment = await createExperiment({
+    let experiment = await createExperiment({
       data: newExperiment,
       context: req.context,
     });
+    if (payload.type === "contextual-bandit") {
+      const config = payload.contextualBanditConfig;
+      if (!config) {
+        throw new Error(
+          "contextualBanditConfig is required for contextual-bandit experiments",
+        );
+      }
+      const cb =
+        await req.context.models.contextualBandits.dangerousCreateBypassPermission(
+          {
+            experiment: experiment.id,
+            cbaqId: config.cbaqId,
+            contextualAttributes: config.contextualAttributes,
+            maxContexts: config.maxContexts ?? 300,
+            treeModel: config.treeModel ?? "regression_tree",
+            minUsersPerLeaf: config.minUsersPerLeaf ?? 100,
+            maxLeaves: config.maxLeaves ?? 12,
+            holdoutPercent: 0,
+            stickyBucketing: false,
+            canonicalFormVersion: CANONICAL_FORM_VERSION,
+            scheduleHours: config.scheduleHours,
+            phases: [
+              {
+                phase: 0,
+                seed: config.seed ?? Math.floor(Math.random() * 1_000_000_000),
+                currentLeafWeights: [],
+                dateStarted: experiment.phases[0]?.dateStarted,
+              },
+            ],
+          },
+        );
+      experiment = await updateExperimentToDb({
+        context: req.context,
+        experiment,
+        changes: { contextualBanditId: cb.id },
+      });
+    }
 
     if (ownerId) {
       // add owner as watcher

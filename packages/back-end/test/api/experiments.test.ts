@@ -77,12 +77,29 @@ describe("experiments API", () => {
             },
           }),
         },
+        contextualBandits: {
+          getByExperimentId: jest.fn().mockResolvedValue(null),
+          dangerousCreateBypassPermission: jest.fn(),
+          delete: jest.fn(),
+        },
+        contextualBanditEvents: {
+          getLatestForExperimentPhase: jest.fn().mockResolvedValue(null),
+          listForExperiment: jest.fn().mockResolvedValue([]),
+          getById: jest.fn().mockResolvedValue(null),
+        },
+        contextualBanditSnapshots: {
+          listForExperiment: jest.fn().mockResolvedValue([]),
+          getById: jest.fn().mockResolvedValue(null),
+        },
       },
       permissions: {
         canViewExperiment: () => true,
         canCreateExperiment: () => true,
         canUpdateExperiment: () => true,
         canAddComment: () => true,
+        canDeleteExperiment: () => true,
+        canRunExperiment: () => true,
+        canReadSingleProjectResource: () => true,
       },
       getUsersByIds: jest.fn().mockResolvedValue([]),
     });
@@ -529,6 +546,114 @@ describe("experiments API", () => {
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("experiment");
       expect(createExperiment).toHaveBeenCalled();
+    });
+
+    it("creates contextual bandit experiment and sibling CB doc", async () => {
+      const cbExperiment = {
+        ...experiment,
+        type: "contextual-bandit",
+        goalMetrics: ["met_1"],
+        datasource: "ds_123",
+        exposureQueryId: "user_id",
+        variations: [
+          { id: "0", key: "control", name: "Control", screenshots: [] },
+          { id: "1", key: "treatment", name: "Treatment", screenshots: [] },
+        ],
+        phases: [
+          {
+            dateStarted: new Date("2026-01-01"),
+            name: "Main",
+            reason: "",
+            coverage: 1,
+            condition: "{}",
+            savedGroups: [],
+            prerequisites: [],
+            variationWeights: [0.5, 0.5],
+            variations: [
+              { id: "0", status: "active" },
+              { id: "1", status: "active" },
+            ],
+          },
+        ],
+      };
+      const cb = {
+        id: "cb_1",
+        cbaqId: "cbaq_1",
+        contextualAttributes: ["country"],
+        maxContexts: 10,
+        treeModel: "regression_tree",
+        minUsersPerLeaf: 25,
+        maxLeaves: 4,
+        holdoutPercent: 0,
+        stickyBucketing: false,
+        canonicalFormVersion: "v1",
+        phases: [{ phase: 0, seed: 99, currentLeafWeights: [] }],
+      };
+      const createCb = jest.fn().mockResolvedValue(cb);
+      updateReqContext({
+        models: {
+          metricGroups: {
+            getAll: jest.fn().mockResolvedValue([]),
+            getById: jest
+              .fn()
+              .mockResolvedValue({ id: "met_1", datasource: "ds_123" }),
+          },
+          contextualBandits: {
+            getByExperimentId: jest.fn().mockResolvedValue(cb),
+            dangerousCreateBypassPermission: createCb,
+          },
+        },
+      });
+      (getDataSourceById as jest.Mock).mockResolvedValue({
+        id: "ds_123",
+        type: "postgres",
+        settings: {
+          queries: { exposure: [{ id: "user_id", name: "User ID" }] },
+        },
+      });
+      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
+      (createExperiment as jest.Mock).mockResolvedValue(cbExperiment);
+      (updateExperiment as jest.Mock).mockResolvedValue({
+        ...cbExperiment,
+        contextualBanditId: "cb_1",
+      });
+
+      const res = await request(app)
+        .post("/api/v1/experiments")
+        .send({
+          trackingKey: "exp_cb",
+          name: "Contextual Bandit",
+          type: "contextual-bandit",
+          datasourceId: "ds_123",
+          assignmentQueryId: "user_id",
+          metrics: ["met_1"],
+          variations: [
+            { key: "control", name: "Control" },
+            { key: "treatment", name: "Treatment" },
+          ],
+          contextualBanditConfig: {
+            cbaqId: "cbaq_1",
+            contextualAttributes: ["country"],
+            maxContexts: 10,
+            minUsersPerLeaf: 25,
+            maxLeaves: 4,
+            seed: 99,
+          },
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiment.contextualBanditConfig).toMatchObject({
+        cbaqId: "cbaq_1",
+        currentLeafWeights: [],
+      });
+      expect(createCb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cbaqId: "cbaq_1",
+          contextualAttributes: ["country"],
+          phases: [expect.objectContaining({ seed: 99 })],
+        }),
+      );
     });
 
     it("rejects create when required custom fields are missing", async () => {

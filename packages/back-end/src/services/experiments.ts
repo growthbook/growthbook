@@ -34,6 +34,9 @@ import {
   liveRevisionFromFeature,
   MatchingRule,
   validateCondition,
+  CANONICAL_FORM_VERSION,
+  deriveContextId,
+  deriveContextIdWithSliceLength,
 } from "shared/util";
 import { getSRMValue } from "shared/health";
 import {
@@ -66,6 +69,8 @@ import { SegmentInterface } from "shared/types/segment";
 import {
   ExperimentAnalysisSummaryVariationStatus,
   BanditResult,
+  ContextualBanditContextResult,
+  ContextualBanditSnapshotTriggeredBy,
   ExperimentAnalysisSummary,
   ExperimentAnalysisSummaryResultsStatus,
   GoalMetricResult,
@@ -82,8 +87,12 @@ import {
   ApiExperimentMetric,
   ApiExperimentResults,
   ApiMetric,
+  LeafWeight,
 } from "shared/validators";
-import { Dimension } from "shared/types/integrations";
+import {
+  ContextualBanditDimensionQueryResponseRow,
+  Dimension,
+} from "shared/types/integrations";
 import {
   ConversionWindowUnit,
   MetricPriorSettings,
@@ -129,7 +138,11 @@ import { ProjectInterface } from "shared/types/project";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ExperimentQueryMetadata } from "shared/types/query";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import {
+  getExperimentById,
+  getPayloadKeys,
+  updateExperiment,
+} from "back-end/src/models/ExperimentModel";
 import {
   findVisualChangesetsByExperiment,
   syncVisualChangesWithVariations,
@@ -169,7 +182,10 @@ import {
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { getFeatureRevisionsByFeatureIds } from "back-end/src/models/FeatureRevisionModel";
-import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
+import {
+  getLiveAndBaseRevisionsForFeature,
+  queueSDKPayloadRefresh,
+} from "back-end/src/services/features";
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
@@ -187,7 +203,10 @@ import {
 } from "./datasource";
 import {
   analyzeExperimentResults,
+  getContextualBanditSettingsForStatsEngine,
   getMetricsAndQueryDataForStatsEngine,
+  parseContextualBanditResultForEvent,
+  runContextualBanditStatsEngine,
   runSnapshotAnalyses,
   writeSnapshotAnalyses,
 } from "./stats";
@@ -198,6 +217,403 @@ import {
 } from "./organizations";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
+
+type ContextualBanditDimensionIntegration = SourceIntegrationInterface &
+  Required<
+    Pick<
+      SourceIntegrationInterface,
+      "getContextualBanditDimensionSql" | "runContextualBanditDimensionQuery"
+    >
+  >;
+
+function assertContextualBanditDimensionSupport(
+  integration: SourceIntegrationInterface,
+): asserts integration is ContextualBanditDimensionIntegration {
+  if (
+    !integration.getContextualBanditDimensionSql ||
+    !integration.runContextualBanditDimensionQuery
+  ) {
+    throw new Error("Datasource does not support contextual bandit snapshots");
+  }
+}
+
+function foldContextualBanditRowsToMaxContexts(
+  rows: ContextualBanditDimensionQueryResponseRow[],
+  maxContexts: number,
+): {
+  rows: ContextualBanditDimensionQueryResponseRow[];
+  contextsTrimmedToOther: number;
+} {
+  const totals = new Map<string, number>();
+  rows.forEach((row) => {
+    totals.set(row.context_id, (totals.get(row.context_id) ?? 0) + row.n);
+  });
+  if (totals.size <= maxContexts) {
+    return { rows, contextsTrimmedToOther: 0 };
+  }
+
+  const nonOtherContexts = [...totals.entries()]
+    .filter(([contextId]) => contextId !== "other")
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const keepCount = Math.max(0, maxContexts - 1);
+  const contextsToKeep = new Set(
+    nonOtherContexts.slice(0, keepCount).map(([contextId]) => contextId),
+  );
+  if (totals.has("other")) {
+    contextsToKeep.add("other");
+  }
+
+  const folded = new Map<string, ContextualBanditDimensionQueryResponseRow>();
+  for (const row of rows) {
+    const contextId = contextsToKeep.has(row.context_id)
+      ? row.context_id
+      : "other";
+    const key = `${contextId}\0${row.variation}`;
+    const existing = folded.get(key);
+    folded.set(key, {
+      variation: row.variation,
+      context_id: contextId,
+      main_sum: (existing?.main_sum ?? 0) + row.main_sum,
+      main_sum_squares:
+        (existing?.main_sum_squares ?? 0) + row.main_sum_squares,
+      n: (existing?.n ?? 0) + row.n,
+    });
+  }
+
+  return {
+    rows: [...folded.values()].sort(
+      (a, b) =>
+        a.variation.localeCompare(b.variation) ||
+        a.context_id.localeCompare(b.context_id),
+    ),
+    contextsTrimmedToOther: [...totals.keys()].filter(
+      (contextId) => contextId !== "other" && !contextsToKeep.has(contextId),
+    ).length,
+  };
+}
+
+function parseContextualBanditCondition(
+  condition: string,
+): Record<string, unknown> {
+  try {
+    const parsed: unknown = JSON.parse(condition);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch (e) {
+    // Invalid stats-engine conditions fail closed to the catch-all condition.
+  }
+  return {};
+}
+
+function getLeafWeightsFromContextualBanditEvent({
+  cbId,
+  contextResults,
+}: {
+  cbId: string;
+  contextResults: ContextualBanditContextResult[];
+}): LeafWeight[] {
+  const leafByCondition = new Map<string, LeafWeight>();
+  for (const result of contextResults) {
+    const condition = parseContextualBanditCondition(result.condition);
+    const key = JSON.stringify(condition);
+    if (leafByCondition.has(key)) continue;
+
+    const weights = result.variations.map((variation) => variation.weight);
+    leafByCondition.set(key, {
+      contextId:
+        result.isOther || result.contextId === "other"
+          ? "other"
+          : deriveContextId(
+              cbId,
+              condition as Parameters<typeof deriveContextId>[1],
+            ),
+      condition,
+      weights,
+    });
+  }
+
+  const leafWeights = [...leafByCondition.values()];
+  const seen = new Set<string>();
+  const hasDuplicate = leafWeights.some((leaf) => {
+    if (seen.has(leaf.contextId)) return true;
+    seen.add(leaf.contextId);
+    return false;
+  });
+  if (!hasDuplicate) return leafWeights;
+
+  logger.warn(
+    { cbId },
+    "Contextual bandit leaf contextId collision detected; widening hash slice",
+  );
+  return leafWeights.map((leaf) =>
+    leaf.contextId === "other"
+      ? leaf
+      : {
+          ...leaf,
+          contextId: deriveContextIdWithSliceLength(
+            cbId,
+            leaf.condition as Parameters<
+              typeof deriveContextIdWithSliceLength
+            >[1],
+            12,
+          ),
+        },
+  );
+}
+
+export async function runContextualBanditSnapshot(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+  options: {
+    phase?: number;
+    triggeredBy?: ContextualBanditSnapshotTriggeredBy;
+    triggeredByUser?: string;
+    startDate?: Date;
+    endDate?: Date;
+  } = {},
+): Promise<{ snapshotId: string; cbeId?: string }> {
+  const experiment = await getExperimentById(context, experimentId);
+  if (!experiment) {
+    throw new Error(`Experiment not found: ${experimentId}`);
+  }
+  if (experiment.type !== "contextual-bandit") {
+    throw new Error(`Experiment ${experimentId} is not a contextual bandit`);
+  }
+
+  const cb = await context.models.contextualBandits.getByExperimentId(
+    experiment.id,
+  );
+  if (!cb) {
+    throw new Error(
+      `No ContextualBandit doc found for experiment ${experiment.id}`,
+    );
+  }
+  const cbaq = await context.models.contextualBanditQueries.getByIdInOrg(
+    cb.cbaqId,
+  );
+  if (!cbaq) {
+    throw new Error(`Contextual Bandit Query not found: ${cb.cbaqId}`);
+  }
+
+  const phase = options.phase ?? experiment.phases.length - 1;
+  const experimentPhase = experiment.phases[phase];
+  if (!experimentPhase) {
+    throw new Error(`Experiment ${experiment.id} has no phase ${phase}`);
+  }
+  const phaseVariations = getLatestPhaseVariations(experiment);
+  const settings = {
+    experimentId: experiment.id,
+    phase,
+    datasource: experiment.datasource,
+    exposureQueryId: experiment.exposureQueryId,
+    contextualBanditQueryId: cbaq.id,
+    attributes: cbaq.attributes,
+    variations: phaseVariations.map((variation, i) => ({
+      id: variation.id,
+      weight: experimentPhase.variationWeights[i] ?? 0,
+    })),
+    treeModel: cb.treeModel,
+    maxContexts: cb.maxContexts,
+    holdoutPercent: cb.holdoutPercent,
+    stickyBucketing: cb.stickyBucketing,
+    queryFilter: experiment.queryFilter || undefined,
+    startDate: options.startDate ?? experimentPhase.dateStarted,
+    endDate: options.endDate ?? new Date(),
+  };
+
+  let snapshot =
+    await context.models.contextualBanditSnapshots.dangerousCreateBypassPermission(
+      {
+        experiment: experiment.id,
+        phase,
+        contextualBanditQueryId: cbaq.id,
+        status: "pending",
+        triggeredBy: options.triggeredBy ?? "manual",
+        triggeredByUser: options.triggeredByUser,
+        queries: [],
+        settings,
+      },
+    );
+
+  const failSnapshot = async (error: unknown) => {
+    const message = error instanceof Error ? error.message : `${error}`;
+    snapshot =
+      await context.models.contextualBanditSnapshots.dangerousUpdateBypassPermission(
+        snapshot,
+        {
+          status: "error",
+          error: message,
+          runFinished: new Date(),
+        },
+      );
+    logger.error(error, "Contextual bandit snapshot failed");
+    return { snapshotId: snapshot.id };
+  };
+
+  try {
+    snapshot =
+      await context.models.contextualBanditSnapshots.dangerousUpdateBypassPermission(
+        snapshot,
+        {
+          status: "running",
+          runStarted: new Date(),
+        },
+      );
+
+    const latestCBE =
+      await context.models.contextualBanditEvents.getLatestForExperimentPhase(
+        experiment.id,
+        phase,
+      );
+    const statsSettings = getContextualBanditSettingsForStatsEngine(
+      cb,
+      cbaq,
+      latestCBE,
+      phase,
+      {
+        variations: phaseVariations.map((variation, i) => ({
+          id: variation.id,
+          name: variation.name,
+          weight: experimentPhase.variationWeights[i] ?? 0,
+        })),
+        decisionMetric: experiment.goalMetrics[0] ?? "",
+      },
+    );
+
+    const integration = await getIntegrationFromDatasourceId(
+      context,
+      cbaq.datasource,
+      true,
+    );
+    assertContextualBanditDimensionSupport(integration);
+
+    const sql = integration.getContextualBanditDimensionSql({
+      query: cbaq.query,
+      userIdColumn: cbaq.userIdType,
+      attributes: cbaq.attributes.filter((attribute) =>
+        cb.contextualAttributes.includes(attribute.attribute),
+      ),
+      maxContexts: cb.maxContexts,
+    });
+    const queryId = uniqid("qry_");
+    snapshot =
+      await context.models.contextualBanditSnapshots.dangerousUpdateBypassPermission(
+        snapshot,
+        {
+          queries: [
+            ...snapshot.queries,
+            {
+              query: queryId,
+              status: "running",
+              name: "Contextual bandit dimension query",
+            },
+          ],
+        },
+      );
+
+    let rows: ContextualBanditDimensionQueryResponseRow[];
+    try {
+      const queryResult =
+        await integration.runContextualBanditDimensionQuery(sql);
+      rows = queryResult.rows;
+    } catch (e) {
+      snapshot =
+        await context.models.contextualBanditSnapshots.dangerousUpdateBypassPermission(
+          snapshot,
+          {
+            queries: snapshot.queries.map((query) =>
+              query.query === queryId ? { ...query, status: "failed" } : query,
+            ),
+          },
+        );
+      return failSnapshot(e);
+    }
+
+    const folded = foldContextualBanditRowsToMaxContexts(rows, cb.maxContexts);
+    rows = folded.rows;
+    snapshot =
+      await context.models.contextualBanditSnapshots.dangerousUpdateBypassPermission(
+        snapshot,
+        {
+          rowsReturned: rows.length,
+          contextsTrimmedToOther: folded.contextsTrimmedToOther,
+          queries: snapshot.queries.map((query) =>
+            query.query === queryId ? { ...query, status: "succeeded" } : query,
+          ),
+        },
+      );
+
+    let eventFields: ReturnType<typeof parseContextualBanditResultForEvent>;
+    try {
+      const statsResult = await runContextualBanditStatsEngine({
+        rows,
+        settings: statsSettings,
+      });
+      eventFields = parseContextualBanditResultForEvent(
+        statsResult,
+        rows,
+        statsSettings,
+      );
+    } catch (e) {
+      return failSnapshot(e);
+    }
+
+    const event =
+      await context.models.contextualBanditEvents.dangerousCreateBypassPermission(
+        {
+          experiment: experiment.id,
+          phase,
+          contextualBanditSnapshotId: snapshot.id,
+          contextualBanditQueryId: cbaq.id,
+          canonicalFormVersion: CANONICAL_FORM_VERSION,
+          treeModel: cb.treeModel,
+          holdoutPercent: cb.holdoutPercent,
+          ...eventFields,
+        },
+      );
+    const leafWeights = getLeafWeightsFromContextualBanditEvent({
+      cbId: cb.id,
+      contextResults: event.contextResults,
+    });
+
+    await context.models.contextualBandits.patchPhaseWeights(
+      experiment.id,
+      phase,
+      leafWeights,
+      event.id,
+      event.seed,
+    );
+
+    const linkedFeatures = experiment.linkedFeatures?.length
+      ? await getFeaturesByIds(context, experiment.linkedFeatures)
+      : [];
+    queueSDKPayloadRefresh({
+      context,
+      payloadKeys: getPayloadKeys(context, experiment, linkedFeatures),
+      auditContext: {
+        event: "updated",
+        model: "contextualBandit",
+        id: cb.id,
+      },
+    });
+
+    snapshot =
+      await context.models.contextualBanditSnapshots.dangerousUpdateBypassPermission(
+        snapshot,
+        {
+          status: "success",
+          runFinished: new Date(),
+          contextualBanditEventId: event.id,
+          weightsWereUpdated: event.weightsWereUpdated,
+        },
+      );
+
+    return { snapshotId: snapshot.id, cbeId: event.id };
+  } catch (e) {
+    return failSnapshot(e);
+  }
+}
 
 export async function createMetric(
   context: Context,
@@ -2283,6 +2699,13 @@ export async function toExperimentApiInterface(
     experiment,
   });
   const experimentType = experiment.type || "standard";
+  const contextualBandit =
+    experimentType === "contextual-bandit"
+      ? await context.models.contextualBandits.getByExperimentId(experiment.id)
+      : null;
+  const contextualBanditPhase = contextualBandit?.phases.find(
+    (phase) => phase.phase === experiment.phases.length - 1,
+  );
 
   const activationMetric = experiment.activationMetric;
   const apiExperiment: ApiExperiment = {
@@ -2440,6 +2863,27 @@ export async function toExperimentApiInterface(
     customMetricSlices: experiment.customMetricSlices ?? [],
     defaultDashboardId: experiment.defaultDashboardId,
     templateId: experiment.templateId || undefined,
+    contextualBanditId: experiment.contextualBanditId,
+    ...(contextualBandit
+      ? {
+          contextualBanditConfig: {
+            id: contextualBandit.id,
+            cbaqId: contextualBandit.cbaqId,
+            contextualAttributes: contextualBandit.contextualAttributes,
+            maxContexts: contextualBandit.maxContexts,
+            treeModel: contextualBandit.treeModel,
+            minUsersPerLeaf: contextualBandit.minUsersPerLeaf,
+            maxLeaves: contextualBandit.maxLeaves,
+            holdoutPercent: contextualBandit.holdoutPercent,
+            stickyBucketing: contextualBandit.stickyBucketing,
+            canonicalFormVersion: contextualBandit.canonicalFormVersion,
+            scheduleHours: contextualBandit.scheduleHours,
+            currentLeafWeights: contextualBanditPhase?.currentLeafWeights ?? [],
+            lastContextualBanditEventId:
+              contextualBanditPhase?.lastContextualBanditEventId,
+          },
+        }
+      : {}),
   };
   return apiExperiment;
 }

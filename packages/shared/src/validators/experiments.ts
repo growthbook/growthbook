@@ -9,6 +9,8 @@ import {
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
+import { leafWeightValidator } from "./contextual-bandit";
+import { contextualBanditTreeModel } from "./contextual-bandit-event";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -429,15 +431,13 @@ export const experimentInterface = z
   .merge(experimentAnalysisSettings);
 export type ExperimentInterface = z.infer<typeof experimentInterface>;
 
-// Excludes "holdout" and "contextual-bandit" from the type property for the
-// experiments API. Contextual bandits are not yet exposed on the public REST
-// surface (source plan defers external-API surface to A6 and gates it behind
-// the `contextual-bandits` license check).
+// Excludes "holdout" from the experiments API. Contextual bandits are exposed
+// via the public REST API with their sibling CB document inlined.
 export type ExperimentInterfaceExcludingHoldouts = Omit<
   ExperimentInterface,
   "type"
 > & {
-  type?: Exclude<ExperimentInterface["type"], "holdout" | "contextual-bandit">;
+  type?: Exclude<ExperimentInterface["type"], "holdout">;
 };
 
 // ---------------------------------------------------------------------------
@@ -729,7 +729,7 @@ const apiExperimentShape = z.object({
   dateCreated: z.string().meta({ format: "date-time" }),
   dateUpdated: z.string().meta({ format: "date-time" }),
   name: z.string(),
-  type: z.enum(["standard", "multi-armed-bandit"]),
+  type: z.enum(["standard", "multi-armed-bandit", "contextual-bandit"]),
   project: z.string(),
   hypothesis: z.string(),
   description: z.string(),
@@ -767,6 +767,25 @@ const apiExperimentShape = z.object({
     .describe("ID of the default dashboard for this experiment.")
     .optional(),
   templateId: z.string().optional(),
+  contextualBanditId: z.string().optional(),
+  contextualBanditConfig: z
+    .object({
+      id: z.string(),
+      cbaqId: z.string(),
+      contextualAttributes: z.array(z.string()),
+      maxContexts: z.number(),
+      treeModel: z.enum(contextualBanditTreeModel),
+      minUsersPerLeaf: z.number(),
+      maxLeaves: z.number(),
+      holdoutPercent: z.literal(0),
+      stickyBucketing: z.literal(false),
+      canonicalFormVersion: z.literal("v1"),
+      scheduleHours: z.number().optional(),
+      currentLeafWeights: z.array(leafWeightValidator),
+      lastContextualBanditEventId: z.string().optional(),
+    })
+    .strict()
+    .optional(),
 });
 export const apiExperimentValidator = namedSchema(
   "Experiment",
@@ -1007,7 +1026,9 @@ const postExperimentBody = z
       )
       .optional(),
     name: z.string().describe("Name of the experiment"),
-    type: z.enum(["standard", "multi-armed-bandit"]).optional(),
+    type: z
+      .enum(["standard", "multi-armed-bandit", "contextual-bandit"])
+      .optional(),
     project: z
       .string()
       .describe("Project ID which the experiment belongs to")
@@ -1100,6 +1121,21 @@ const postExperimentBody = z
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
     customMetricSlices: apiCustomMetricSlices.optional(),
+    contextualBanditConfig: z
+      .object({
+        cbaqId: z.string(),
+        contextualAttributes: z.array(z.string()).min(1),
+        maxContexts: z.number().int().positive().optional(),
+        treeModel: z.enum(contextualBanditTreeModel).optional(),
+        minUsersPerLeaf: z.number().int().positive().optional(),
+        maxLeaves: z.number().int().positive().optional(),
+        holdoutPercent: z.literal(0).optional(),
+        stickyBucketing: z.literal(false).optional(),
+        scheduleHours: z.number().positive().optional(),
+        seed: z.number().int().optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 
@@ -1121,7 +1157,9 @@ const updateExperimentBody = z
       )
       .optional(),
     name: z.string().describe("Name of the experiment").optional(),
-    type: z.enum(["standard", "multi-armed-bandit"]).optional(),
+    type: z
+      .enum(["standard", "multi-armed-bandit", "contextual-bandit"])
+      .optional(),
     project: z
       .string()
       .describe("Project ID which the experiment belongs to")

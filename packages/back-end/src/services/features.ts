@@ -52,6 +52,7 @@ import {
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
 import {
+  ContextualBanditInterface,
   HoldoutInterface,
   SdkConnectionCacheAuditContext,
   apiFeatureRevisionValidator,
@@ -146,6 +147,7 @@ export function generateFeaturesPayload({
   savedGroupsMap,
   includeRuleIds,
   includeExperimentNames,
+  contextualBanditMap,
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
@@ -168,6 +170,7 @@ export function generateFeaturesPayload({
   savedGroupsMap?: Record<string, SavedGroupInterface>;
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
+  contextualBanditMap?: Map<string, ContextualBanditInterface>;
 }): Record<string, FeatureDefinition> {
   const defs: Record<string, FeatureDefinition> = {};
   const newFeatures = reduceFeaturesWithPrerequisites(
@@ -197,6 +200,7 @@ export function generateFeaturesPayload({
         includeTagsInMetadata,
       },
       projectsMap,
+      contextualBanditMap,
     });
     if (def) {
       defs[feature.id] = def;
@@ -677,6 +681,7 @@ export async function refreshSDKPayloadCache({
   const savedGroups = await context.models.savedGroups.getAll();
   const groupMap = await getSavedGroupMap(context, savedGroups);
   const allFeatures = await getAllFeatures(context);
+  const contextualBandits = await context.models.contextualBandits.getAll();
 
   const [allVisualExperiments, allURLRedirectExperiments] = await Promise.all([
     getAllVisualExperiments(context, experimentMap),
@@ -689,6 +694,9 @@ export async function refreshSDKPayloadCache({
     groupMap,
     safeRolloutMap,
     savedGroups,
+    contextualBanditMap: new Map(
+      contextualBandits.map((cb) => [cb.experiment, cb]),
+    ),
     visualExperiments: allVisualExperiments,
     urlRedirectExperiments: allURLRedirectExperiments,
   };
@@ -994,6 +1002,7 @@ export type SDKPayloadRawData = {
   groupMap: GroupMap;
   safeRolloutMap: Map<string, SafeRolloutInterface>;
   savedGroups: SavedGroupInterface[];
+  contextualBanditMap?: Map<string, ContextualBanditInterface>;
   holdoutsMap: Map<
     string, // holdout id
     // holdoutExperiment was named `experiment` on main; renamed here to be explicit
@@ -1148,6 +1157,7 @@ export async function buildSDKPayloadForConnection(
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
     projectsMap,
+    contextualBanditMap: data.contextualBanditMap,
   });
 
   const holdoutFeatureDefinitions = generateHoldoutsPayload({
@@ -1248,6 +1258,7 @@ export async function getFeatureDefinitions(
     await context.models.safeRollout.getAllPayloadSafeRollouts();
   const holdoutsMap =
     await context.models.holdout.getAllPayloadHoldouts(environment);
+  const contextualBandits = await context.models.contextualBandits.getAll();
 
   return buildSDKPayloadForConnection({
     context,
@@ -1275,6 +1286,9 @@ export async function getFeatureDefinitions(
       groupMap,
       safeRolloutMap,
       savedGroups: allSavedGroups,
+      contextualBanditMap: new Map(
+        contextualBandits.map((cb) => [cb.experiment, cb]),
+      ),
       holdoutsMap,
     },
   });
