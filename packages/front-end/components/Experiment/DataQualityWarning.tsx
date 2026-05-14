@@ -2,7 +2,7 @@ import { FC } from "react";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
-} from "back-end/types/report";
+} from "shared/types/report";
 import SRMWarning from "./SRMWarning";
 import { ExperimentTab } from "./TabbedPage";
 

@@ -13,9 +13,9 @@ All major CDNs are supported including Cloudflare, Fastly, Akamai, CloudFront, A
 
 Using a CDN is a quick and easy solution to scaling. If you want more power and control, we recommend deploying our [GrowthBook Proxy Server](/self-host/proxy) instead.
 
-:::note
+:::note GrowthBook Cloud CDN
 
-GrowthBook Cloud provides its own CDN for free for low/medium traffic apps (less than 10 million requests per month). If you plan to go above that limit, this guide will work for you as well. Just use `https://cdn.growthbook.io` as your Origin instead of a self-hosted GrowthBook API server.
+GrowthBook Cloud provides its own CDN for free for low/medium traffic apps (less than 1 million requests per month). If you plan to go above that limit, this guide will work for you as well. Just use `https://cdn.growthbook.io` as your Origin instead of a self-hosted GrowthBook API server.
 
 :::
 
@@ -63,7 +63,7 @@ If you use Fastly as your CDN and are self-hosting GrowthBook, you can set the f
 
 ### HTTP PURGE Requests
 
-If your CDN supports invalidaing URLs with simple HTTP PURGE requests, you can add an [SDK Webhook](/app/webhooks/sdk-webhooks) in GrowthBook and set the method as PURGE with no payload.
+If your CDN supports invalidating URLs with simple HTTP PURGE requests, you can add an [SDK Webhook](/app/webhooks/sdk-webhooks) in GrowthBook and set the method as PURGE with no payload.
 
 ### Other
 

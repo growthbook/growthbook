@@ -1,15 +1,16 @@
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { FC, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { FaInfoCircle } from "react-icons/fa";
 import { isURLTargeted, UrlTarget } from "@growthbook/growthbook";
 import SelectField from "@/components/Forms/SelectField";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
 import { GBAddCircle } from "@/components/Icons";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import Callout from "@/ui/Callout";
 
 const defaultType = "simple";
 
@@ -80,7 +81,7 @@ const VisualChangesetModal: FC<{
         {
           method: "POST",
           body: JSON.stringify(payload),
-        }
+        },
       );
       mutate();
       res.visualChangeset && onCreate && onCreate(res.visualChangeset);
@@ -106,11 +107,11 @@ const VisualChangesetModal: FC<{
     !showAdvanced ||
     isURLTargeted(
       form.watch("editorUrl"),
-      form.watch("urlPatterns") as UrlTarget[]
+      form.watch("urlPatterns") as UrlTarget[],
     );
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="visual-changeset-modal"
       trackingEventModalSource={source}
       open
@@ -280,11 +281,11 @@ const VisualChangesetModal: FC<{
       </div>
 
       {!patternsMatchUrl && (
-        <div className="alert alert-warning mt-3">
-          <FaExclamationCircle /> Your URL patterns do not match the target URL
-        </div>
+        <Callout status="warning">
+          Your URL patterns do not match the target URL
+        </Callout>
       )}
-    </Modal>
+    </ModalStandard>
   );
 };
 

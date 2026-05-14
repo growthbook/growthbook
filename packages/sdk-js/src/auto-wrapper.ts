@@ -147,7 +147,7 @@ if (tracking !== "none") {
     plugins.push(
       growthbookTrackingPlugin({
         ingestorHost: dataContext.eventIngestorHost,
-      })
+      }),
     );
   }
 
@@ -156,13 +156,14 @@ if (tracking !== "none") {
       thirdPartyTrackingPlugin({
         additionalCallback: windowContext.additionalTrackingCallback,
         trackers: trackers as Trackers[],
-      })
+      }),
     );
   }
 }
 
 // Create GrowthBook instance
 const gb = new GrowthBook({
+  enableDevMode: true,
   ...dataContext,
   remoteEval: !!dataContext.remoteEval,
   ...windowContext,

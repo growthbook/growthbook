@@ -1,10 +1,10 @@
-import { ExperimentSnapshotTrafficDimension } from "back-end/types/experiment-snapshot";
-import { ExperimentReportVariation } from "back-end/types/report";
+import { ExperimentSnapshotTrafficDimension } from "shared/types/experiment-snapshot";
+import { ExperimentReportVariation } from "shared/types/report";
 import { useMemo, useState } from "react";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import { getSRMHealthData, SRMHealthStatus } from "shared/health";
 import {
   DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
@@ -32,7 +32,7 @@ interface Props {
   dataSource: DataSourceInterfaceWithParams | null;
   exposureQuery?: ExposureQuery;
   variations: ExperimentReportVariation[];
-  healthTabConfigParams: HealthTabConfigParams;
+  healthTabConfigParams?: HealthTabConfigParams;
   canConfigHealthTab: boolean;
   isBandit?: boolean;
 }
@@ -51,7 +51,7 @@ export function transformDimensionData(
   },
   variations: ExperimentReportVariation[],
   srmThreshold: number,
-  isBandit: boolean
+  isBandit: boolean,
 ): DimensionWithIssues[] {
   return Object.entries(dimensionData).flatMap(
     ([dimensionName, dimensionSlices]) => {
@@ -63,7 +63,7 @@ export function transformDimensionData(
       const dimensionSlicesWithIssues = dimensionSlices.filter((item) => {
         const totalDimUsers = item.variationUnits.reduce(
           (acc, a) => acc + a,
-          0
+          0,
         );
         return (
           getSRMHealthData({
@@ -86,7 +86,7 @@ export function transformDimensionData(
         label: dimensionName.replace(EXPERIMENT_DIMENSION_PREFIX, ""),
         issues: issueNames,
       };
-    }
+    },
   );
 }
 
@@ -109,11 +109,11 @@ export const DimensionIssues = ({
     dimensionData,
     variations,
     srmThreshold,
-    !!isBandit
+    !!isBandit,
   ).sort((a, b) => b.issues.length - a.issues.length);
 
   const [selectedDimension, setSelectedDimension] = useState(
-    availableDimensions[0]?.value
+    availableDimensions[0]?.value,
   );
 
   const [issues, dimensionSlicesWithHealth] = useMemo(() => {
@@ -148,7 +148,7 @@ export const DimensionIssues = ({
 
         return acc;
       },
-      [] as IssueValue[]
+      [] as IssueValue[],
     );
 
     return [dimensionSlicesWithIssues, dimensionSlicesWithHealth];
@@ -212,7 +212,7 @@ export const DimensionIssues = ({
                     id={d.name}
                     title={d.name}
                     helpText={`${numberFormatter.format(
-                      d.totalUsers
+                      d.totalUsers,
                     )} total units`}
                     status={d.health}
                     key={d.name}
@@ -327,7 +327,8 @@ export const DimensionIssues = ({
             {exposureQuery?.dimensions &&
             dataSource &&
             canConfigHealthTab &&
-            exposureQuery.dimensions.length > 0 ? (
+            exposureQuery.dimensions.length > 0 &&
+            healthTabConfigParams ? (
               <div className="pt-4 d-flex justify-content-center">
                 <div>
                   <a

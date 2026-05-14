@@ -1,12 +1,13 @@
-import { FaPencilAlt } from "react-icons/fa";
 import React, { useState } from "react";
-import { OrganizationInterface } from "back-end/types/organization";
-import { FaTriangleExclamation } from "react-icons/fa6";
+import { OrganizationInterface } from "shared/types/organization";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import { isCloud, isMultiOrg } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 
 export default function OrganizationAndLicenseSettings({
   org,
@@ -15,96 +16,86 @@ export default function OrganizationAndLicenseSettings({
   org: Partial<OrganizationInterface>;
   refreshOrg: () => Promise<void>;
 }) {
+  const { installationName, license } = useUser();
   const [editOpen, setEditOpen] = useState(false);
   const permissions = usePermissions();
   // this check isn't strictly necessary, as we check permissions accessing the settings page, but it's a good to be safe
   const canEdit = permissions.check("organizationSettings");
   const { users } = useUser();
   const ownerEmailExists = !!Array.from(users).find(
-    (e) => e[1].email === org.ownerEmail
+    (e) => e[1].email === org.ownerEmail,
   );
+  const showInstallationName =
+    license?.plan === "enterprise" && !isCloud() && isMultiOrg();
 
   return (
     <>
       {editOpen && (
         <EditOrganizationModal
           name={org.name || ""}
+          installationName={installationName || ""}
           ownerEmail={org.ownerEmail || ""}
           close={() => setEditOpen(false)}
           mutate={refreshOrg}
         />
       )}
-      <div className=" bg-white p-3 border">
-        <div className="row mb-0">
-          <div className="col-sm-3">
-            <h4>Organization</h4>
-          </div>
-          <div className="col-sm-9">
-            <div className="form-group row">
-              <div className="col-sm-12">
-                <strong>Name: </strong> {org.name}{" "}
-                {canEdit && (
-                  <a
-                    href="#"
-                    className="pl-1"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setEditOpen(true);
-                    }}
-                  >
-                    <FaPencilAlt />
-                  </a>
+      <Box className="appbox" p="5">
+        <Flex justify="start" gap="4">
+          <Box width="220px" flexShrink="0">
+            <Heading as="h4" size="4">
+              Organization Settings
+            </Heading>
+          </Box>
+          <Box flexGrow="1">
+            <Flex justify="between" mb="3">
+              <Flex gap="4" direction="column">
+                <Box>
+                  <Text weight="medium">Name: </Text> {org.name}
+                </Box>
+                <Box
+                  title={
+                    !ownerEmailExists
+                      ? "Owner email does not exist in the organization"
+                      : ""
+                  }
+                >
+                  <Text weight="medium">Owner:</Text> {org.ownerEmail}
+                  {!ownerEmailExists && (
+                    <a onClick={() => setEditOpen(true)}>
+                      <Callout status="error" mt="4">
+                        Owner email does not exist in the organization. Click to
+                        edit.
+                      </Callout>
+                    </a>
+                  )}
+                </Box>
+                <Box>
+                  <Text weight="medium">Organization Id: </Text> {org.id}
+                </Box>
+                {showInstallationName && (
+                  <Box>
+                    <Text weight="medium">Installation Name: </Text>{" "}
+                    {installationName}
+                  </Box>
                 )}
-              </div>
-            </div>
-            <div className="form-group row">
-              <div
-                className={`col-sm-12 ${
-                  !ownerEmailExists ? "text-danger" : ""
-                }`}
-                title={
-                  !ownerEmailExists
-                    ? "Owner email does not exist in the organization"
-                    : ""
-                }
-              >
-                <strong>Owner:</strong> {org.ownerEmail}{" "}
-                {!ownerEmailExists && (
-                  <span className="text-danger">
-                    <FaTriangleExclamation
-                      className=" ml-1"
-                      title="Owner email does not exist in the organization"
-                      style={{ marginTop: -3 }}
-                    />
-                  </span>
-                )}
-                {canEdit && (
-                  <a
-                    href="#"
-                    className="pl-1"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setEditOpen(true);
-                    }}
-                  >
-                    <FaPencilAlt />
-                  </a>
-                )}
-              </div>
-            </div>
-            {!isCloud() && !isMultiOrg() && (
-              <div className="form-group row">
-                <div className="col-sm-12">
-                  <strong>Organization Id:</strong> {org.id}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+              </Flex>
+              {canEdit && (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setEditOpen(true);
+                  }}
+                >
+                  Edit
+                </Button>
+              )}
+            </Flex>
+          </Box>
+        </Flex>
         {(isCloud() || !isMultiOrg()) && (
           <ShowLicenseInfo showInput={!isCloud()} />
         )}
-      </div>
+      </Box>
     </>
   );
 }

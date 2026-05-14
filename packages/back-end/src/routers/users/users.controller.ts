@@ -1,5 +1,6 @@
+import { createHmac } from "node:crypto";
 import { Response } from "express";
-import { OrganizationInterface } from "back-end/types/organization";
+import { OrganizationInterface } from "shared/types/organization";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { usingOpenId } from "back-end/src/services/auth";
@@ -15,12 +16,9 @@ import {
   getUserByEmail,
   updateUser,
 } from "back-end/src/models/UserModel";
-import {
-  deleteWatchedByEntity,
-  upsertWatch,
-} from "back-end/src/models/WatchModel";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { findRecentAuditByUserIdAndOrganization } from "back-end/src/models/AuditModel";
 
 function isValidWatchEntityType(type: string): boolean {
   if (type === "experiment" || type === "feature") {
@@ -28,6 +26,24 @@ function isValidWatchEntityType(type: string): boolean {
   } else {
     return false;
   }
+}
+export async function getHistoryByUser(req: AuthRequest<null>, res: Response) {
+  const { org, userId } = getContextFromReq(req);
+  const events = await findRecentAuditByUserIdAndOrganization(userId, org.id);
+  res.status(200).json({
+    status: 200,
+    events,
+  });
+}
+
+// Pylon doesn't do any identity verification, so this hashes a user's email with a secret
+// to prevent bad actors trying to impersonate our users or get access to their data.
+function createPylonHmacHash(email: string) {
+  const secretBytes = Buffer.from(
+    process.env.PYLON_VERIFICATION_SECRET || "",
+    "hex",
+  );
+  return createHmac("sha256", secretBytes).update(email).digest("hex");
 }
 
 export async function getUser(req: AuthRequest, res: Response) {
@@ -89,6 +105,7 @@ export async function getUser(req: AuthRequest, res: Response) {
     userId: userId,
     userName: req.name,
     email: req.email,
+    pylonHmacHash: createPylonHmacHash(req.email),
     superAdmin: !!req.superAdmin,
     organizations: validOrgs.map((org) => {
       return {
@@ -101,7 +118,7 @@ export async function getUser(req: AuthRequest, res: Response) {
 
 export async function putUserName(
   req: AuthRequest<{ name: string }>,
-  res: Response
+  res: Response,
 ) {
   const { name } = req.body;
   const { userId } = getContextFromReq(req);
@@ -121,7 +138,7 @@ export async function putUserName(
 
 export async function postWatchItem(
   req: AuthRequest<null, { type: string; id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
@@ -152,9 +169,8 @@ export async function postWatchItem(
     throw new Error(`Could not find ${item}`);
   }
 
-  await upsertWatch({
+  await context.models.watch.upsertWatch({
     userId,
-    organization: org.id,
     item: id,
     type: type === "experiment" ? "experiments" : "features", // Pluralizes entity type for the Watch model,
   });
@@ -166,9 +182,10 @@ export async function postWatchItem(
 
 export async function postUnwatchItem(
   req: AuthRequest<null, { type: string; id: string }>,
-  res: Response
+  res: Response,
 ) {
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { userId } = context;
   const { type, id } = req.params;
 
   if (!isValidWatchEntityType(type)) {
@@ -180,8 +197,7 @@ export async function postUnwatchItem(
   }
 
   try {
-    await deleteWatchedByEntity({
-      organization: org.id,
+    await context.models.watch.deleteWatchedByEntity({
       userId,
       type: type === "experiment" ? "experiments" : "features", // Pluralizes entity type for the Watch model
       item: id,
@@ -217,7 +233,7 @@ export async function getRecommendedOrgs(req: AuthRequest, res: Response) {
     return res.status(200).json({
       organizations: joinableOrgs.map((org: OrganizationInterface) => {
         const currentUserIsPending = !!org?.pendingMembers?.find(
-          (m) => m.id === user.id
+          (m) => m.id === user.id,
         );
         return {
           id: org.id,

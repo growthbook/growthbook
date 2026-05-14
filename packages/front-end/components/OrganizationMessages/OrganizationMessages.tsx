@@ -1,6 +1,6 @@
 import React, { FC, useMemo } from "react";
 import md5 from "md5";
-import { OrganizationMessage } from "back-end/types/organization";
+import { OrganizationMessage } from "shared/types/organization";
 import { useUser } from "@/services/UserContext";
 import Markdown from "@/components/Markdown/Markdown";
 
@@ -16,9 +16,9 @@ export const OrganizationMessages: FC<OrganizationMessagesProps> = ({
       messages.filter(
         (orgMessage) =>
           typeof orgMessage?.level === "string" &&
-          typeof orgMessage?.message === "string"
+          typeof orgMessage?.message === "string",
       ),
-    [messages]
+    [messages],
   );
 
   if (!renderedMessages.length) {

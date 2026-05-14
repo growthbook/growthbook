@@ -1,7 +1,7 @@
-import { CappingType } from "back-end/types/fact-table";
+import { CappingType } from "shared/types/fact-table";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import Toggle from "@/components/Forms/Toggle";
+import Checkbox from "@/ui/Checkbox";
 
 export function MetricCappingSettingsForm({
   form,
@@ -70,18 +70,14 @@ export function MetricCappingSettingsForm({
               }
             />
             {form.watch("cappingSettings.type") === "percentile" ? (
-              <div className="mt-3">
-                <label className="mr-1" htmlFor="toggle-ignoreZeros">
-                  Ignore zero values in percentile calculation?
-                </label>
-                <Toggle
-                  value={form.watch("cappingSettings.ignoreZeros")}
-                  setValue={(ignoreZeros) => {
-                    form.setValue("cappingSettings.ignoreZeros", ignoreZeros);
-                  }}
-                  id={"ignoreZeros"}
-                />
-              </div>
+              <Checkbox
+                label="Ignore zero values in percentile calculation"
+                value={form.watch("cappingSettings.ignoreZeros")}
+                setValue={(ignoreZeros) => {
+                  form.setValue("cappingSettings.ignoreZeros", ignoreZeros);
+                }}
+                id={"ignoreZeros"}
+              />
             ) : null}
           </>
         ) : null}

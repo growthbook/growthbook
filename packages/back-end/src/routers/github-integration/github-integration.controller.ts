@@ -42,7 +42,7 @@ export const getGithubIntegration = async (req: AuthRequest, res: Response) => {
 export const postGithubIntegration = async (
   req: AuthRequest<{ code: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   const context = getContextFromReq(req);
 
@@ -99,7 +99,7 @@ export const postGithubIntegration = async (
 
 export const postRepoWatch = async (
   req: AuthRequest<{ repoId: string }>,
-  res: Response
+  res: Response,
 ) => {
   const context = getContextFromReq(req);
 

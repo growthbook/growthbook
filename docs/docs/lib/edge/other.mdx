@@ -8,15 +8,18 @@ toc_max_heading_level: 5
 
 import ExternalLink from '@site/src/components/ExternalLink';
 import Pill from '@site/src/components/Pill';
+import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
 
-# GrowthBook Edge App for other providers <Pill>alpha</Pill>
+# GrowthBook Edge App for other providers <Pill title="beta" pillType="beta" />
+
+<SdkResources sdk="edgeUtils" />
 
 ## Overview
 
 GrowthBook currently supports two levels of integration with most edge workers:
 
 1. Our turnkey Edge App
-
    - Automatically run server-side or hybrid [Visual Experiments](/app/visual) without redraw flicker.
    - Automatically run server-side or hybrid [URL Redirect Experiments](/app/url-redirects) without flicker or delay.
    - Perform custom feature flagging and experimentation logic.
@@ -37,7 +40,11 @@ Our Edge App runs as a smart proxy layer between your application and your end u
 
 The Edge App defaults to running URL Redirect Experiments in the browser only. This is because edge redirects load a separate page's content without altering the URL. After the redirect, some sites may experience problems with loading assets or endpoints with relative paths.
 
-You can enable URL Redirects on edge by setting environment variable `RUN_URL_REDIRECT_EXPERIMENTS` ([see below](#environment-variables)).
+You can enable URL Redirects on edge by setting environment variable `RUN_URL_REDIRECT_EXPERIMENTS` to "edge" or "everywhere".
+
+Additionally if your redirect is cross-domain (e.g. redirection from "public.mysite.io" to "newsite.io"), you must also set `RUN_CROSS_ORIGIN_URL_REDIRECT_EXPERIMENTS`.
+
+See [environment variables](#environment-variables) for more information.
 
 :::
 
@@ -224,7 +231,7 @@ export async function handler(request, env) {
 
 The following targeting attributes are set automatically by the Edge App.
 
-- `id` - creates a long-lived `gbuuid` cookie if it doesn't exist already
+- `id` - a long-lived user identifier, stored in a `gbuuid` cookie (see [Cookie Policy and GDPR](#cookie-policy-and-gdpr) for how the cookie is written and when to use `PERSIST_UUID`)
 - `url`
 - `path`
 - `host`
@@ -271,7 +278,20 @@ When multiple routes are included in your `ROUTES` array, only the first match i
 
 ### Cookie Policy and GDPR
 
-By default, the Edge App will persist a random unique identifier in a first-party cookie named `gbuuid`. Its purpose is to provide a consistent user experience to your visitors by preventing them from being re-bucketed into different A/B test variations. It follows the same mechanism as discussed in our [HTML Script Tag docs](/lib/script-tag#cookie-policy-and-gdpr).
+The Edge App uses a random unique identifier, stored in a first-party cookie named `gbuuid`, to provide a consistent user experience to your visitors by preventing them from being re-bucketed into different A/B test variations. It follows the same mechanism as discussed in our [HTML Script Tag docs](/lib/script-tag#cookie-policy-and-gdpr).
+
+#### Persisting the `gbuuid` Cookie from the Edge
+
+By default, the Edge App generates a `gbuuid` for each visitor and exposes it as the `id` targeting attribute, but it does **not** write the cookie from the edge server itself. Instead, the cookie is persisted in the browser by the injected front-end SDK once the page loads.
+
+This works for most setups. However, the `gbuuid` cookie will **not** be written if any of the following are true:
+
+- You have disabled SDK injection (`DISABLE_INJECTIONS="true"`).
+- You need the `gbuuid` cookie to be available on the very first request — for example, before the browser has a chance to execute the injected SDK.
+
+In these cases, set the environment variable `PERSIST_UUID="true"`. The Edge App will then call your `helpers.setCookie` implementation to write a `gbuuid` cookie on the response, ensuring the cookie is stored on the first request. Make sure your `setCookie` helper is implemented for your edge provider (see [Define helper methods](#define-helper-methods)).
+
+If you are using `NO_AUTO_COOKIES` to wait for consent (see the [next section](#delay-storing-the-cookie-until-consent-is-granted)), no cookies — including `gbuuid` — will be written until the `growthbookpersist` event is dispatched, regardless of `PERSIST_UUID`.
 
 #### Delay Storing the Cookie Until Consent is Granted
 
@@ -285,7 +305,7 @@ You have the option to manually persist this cookie at any time, for example whe
 document.dispatchEvent(new CustomEvent("growthbookpersist"));
 ```
 
-:::note
+:::note Sticky Bucketing and consent
 
 If you are using Sticky Bucketing, a persistent sticky bucket assignments cookie will automatically be generated. If you require user permission before writing cookies, you should:
 
@@ -360,3 +380,7 @@ For key-val stored payloads (1), we eliminate network requests from edge to Grow
 6. Set the **Payload format** to "SDK Payload only".
 
 Now whenever feature and experiment values change, your edge worker will have immediate access to the latest values. You can also test the webhook by using the "Test Webhook" button on the SDK Connection page.
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="edgeUtils" />

@@ -1,20 +1,20 @@
-html[data-theme="light"] {
-  --markdown-toc-title-c: var(--c-indigo-60);
-  --markdown-toc-list-item-c: var(--c-indigo-70);
-  --markdown-text-intro-c: var(--c-carbon-80);
-  --markdown-bold-c: var(--c-carbon-100);
-  --custom-alert-link-decoration: #6c15be;
-  --custom-alert-link-color: #4f0dd3;
-}
+// html[data-theme="light"] {
+//   --markdown-toc-title-c: var(--c-indigo-60);
+//   --markdown-toc-list-item-c: var(--c-indigo-70);
+//   --markdown-text-intro-c: var(--c-carbon-80);
+//   --markdown-bold-c: var(--c-carbon-100);
+//   --custom-alert-link-decoration: #6c15be;
+//   --custom-alert-link-color: #4f0dd3;
+// }
 
-html[data-theme="dark"] {
-  --markdown-toc-title-c: #fff;
-  --markdown-toc-list-item-c: #fff;
-  --markdown-text-intro-c: var(--c-indigo-40);
-  --markdown-bold-c: #fff;
-  --custom-alert-link-decoration: #d9aafb;
-  --custom-alert-link-color: #e8e2f8;
-}
+// html[data-theme="dark"] {
+//   --markdown-toc-title-c: #fff;
+//   --markdown-toc-list-item-c: #fff;
+//   --markdown-text-intro-c: var(--c-indigo-40);
+//   --markdown-bold-c: #fff;
+//   --custom-alert-link-decoration: #d9aafb;
+//   --custom-alert-link-color: #e8e2f8;
+// }
 
 /**
  * prism.js Dark theme for JavaScript, CSS and HTML
@@ -167,12 +167,6 @@ pre[class*="language-"] {
   img {
     margin-block-end: var(--ifm-leading);
   }
-}
-
-.alert a {
-  text-decoration-color: var(--custom-alert-link-decoration);
-  color: var(--custom-alert-link-color);
-  //  color: #4f0dd3;
 }
 
 [class^="docItemContainer"] {

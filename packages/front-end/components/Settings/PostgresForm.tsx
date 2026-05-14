@@ -1,5 +1,5 @@
 import { FC, ChangeEventHandler } from "react";
-import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
+import { PostgresConnectionParams } from "shared/types/integrations/postgres";
 import HostWarning from "./HostWarning";
 import SSLConnectionFields from "./SSLConnectionFields";
 

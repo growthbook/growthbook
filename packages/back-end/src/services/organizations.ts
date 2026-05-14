@@ -3,18 +3,12 @@ import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
 import {
-  getLicense,
-  isActiveSubscriptionStatus,
-  isAirGappedLicenseKey,
-  licenseInit,
-  postSubscriptionUpdateToLicenseServer,
-} from "enterprise";
-import {
   areProjectRolesValid,
   isRoleValid,
   getDefaultRole,
 } from "shared/permissions";
 import {
+  DEFAULT_CONFIDENCE_LEVEL,
   DEFAULT_MAX_PERCENT_CHANGE,
   DEFAULT_METRIC_CAPPING,
   DEFAULT_METRIC_CAPPING_VALUE,
@@ -25,22 +19,15 @@ import {
   DEFAULT_MIN_SAMPLE_SIZE,
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_TARGET_MDE,
 } from "shared/constants";
+import { AIModel, EmbeddingModel } from "shared/ai";
+import { SSOConnectionInterface } from "shared/types/sso-connection";
 import {
   MetricCappingSettings,
   MetricPriorSettings,
   MetricWindowSettings,
-} from "back-end/types/fact-table";
-import {
-  createOrganization,
-  findAllOrganizations,
-  findOrganizationById,
-  findOrganizationByInviteKey,
-  findOrganizationsByDomain,
-  updateOrganization,
-} from "back-end/src/models/OrganizationModel";
-import { APP_ORIGIN, IS_CLOUD } from "back-end/src/util/secrets";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+} from "shared/types/fact-table";
 import {
   ExpandedMember,
   ExpandedMemberInfo,
@@ -52,8 +39,24 @@ import {
   OrganizationInterface,
   PendingMember,
   ProjectMemberRole,
-  ReqContext,
-} from "back-end/types/organization";
+} from "shared/types/organization";
+import { MetricInterface } from "shared/types/metric";
+import { DimensionInterface } from "shared/types/dimension";
+import { DataSourceInterface } from "shared/types/datasource";
+import { LegacyExperimentPhase } from "shared/types/experiment";
+import { PValueCorrection } from "shared/types/stats";
+import { getScopedSettings } from "shared/settings";
+import {
+  createOrganization,
+  findAllOrganizations,
+  findOrganizationById,
+  findOrganizationByInviteKey,
+  findOrganizationsByDomain,
+  updateOrganization,
+} from "back-end/src/models/OrganizationModel";
+import { APP_ORIGIN, IS_CLOUD, IS_MULTI_ORG } from "back-end/src/util/secrets";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext, ExperimentOverride } from "back-end/types/api";
 import { ConfigFile } from "back-end/src/init/config";
 import {
@@ -66,25 +69,21 @@ import {
   getMetricById,
   updateMetric,
 } from "back-end/src/models/MetricModel";
-import { MetricInterface } from "back-end/types/metric";
 import {
   createDimension,
   findDimensionById,
   updateDimension,
 } from "back-end/src/models/DimensionModel";
-import { DimensionInterface } from "back-end/types/dimension";
-import { DataSourceInterface } from "back-end/types/datasource";
-import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { logger } from "back-end/src/util/logger";
-import { SegmentInterface } from "back-end/types/segment";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
-import { LegacyExperimentPhase } from "back-end/types/experiment";
 import { addTags } from "back-end/src/models/TagModel";
 import { getUsersByIds } from "back-end/src/models/UserModel";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
+import { getLicense, licenseInit } from "back-end/src/enterprise";
+import { findVercelInstallationByInstallationId } from "back-end/src/models/VercelNativeIntegrationModel";
 import {
   encryptParams,
   getSourceIntegrationObject,
@@ -103,17 +102,43 @@ export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
 }
 
+export async function setLicenseKey(
+  org: OrganizationInterface,
+  licenseKey: string,
+) {
+  if (!IS_CLOUD && IS_MULTI_ORG) {
+    throw new Error(
+      "You must use the LICENSE_KEY environmental variable on multi org sites.",
+    );
+  }
+
+  org.licenseKey = licenseKey;
+  await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
+}
+
 export function validateLoginMethod(
   org: OrganizationInterface,
-  req: AuthRequest
+  req: AuthRequest,
 ) {
   if (
     org.restrictLoginMethod &&
-    req.loginMethod?.id !== org.restrictLoginMethod
+    req.loginMethod?.id !== org.restrictLoginMethod &&
+    !req.superAdmin
   ) {
     throw new Error(
-      "Your organization requires you to login with Enterprise SSO"
+      `Your organization requires you to login with ${
+        org.restrictLoginMethod.startsWith("vercel:")
+          ? "Vercel"
+          : "Enterprise SSO"
+      }`,
     );
+  }
+
+  if (req.loginMethod?.id?.startsWith("vercel:")) {
+    const installationId = req.loginMethod.id.split(":")[1];
+    if (installationId !== req.vercelInstallationId) {
+      throw new Error(`Vercel installation id mismatch`);
+    }
   }
 
   // If the org requires a specific subject in the IdToken
@@ -121,10 +146,11 @@ export function validateLoginMethod(
   // For that, we set `restrictAuthSubPrefix` to "google"
   if (
     org.restrictAuthSubPrefix &&
-    !req.authSubject?.startsWith(org.restrictAuthSubPrefix)
+    !req.authSubject?.startsWith(org.restrictAuthSubPrefix) &&
+    !req.superAdmin
   ) {
     throw new Error(
-      `Your organization requires you to login with ${org.restrictAuthSubPrefix}`
+      `Your organization requires you to login with ${org.restrictAuthSubPrefix}`,
     );
   }
 
@@ -158,13 +184,115 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
   });
 }
 
-export function getConfidenceLevelsForOrg(context: ReqContext) {
-  const ciUpper = context.org.settings?.confidenceLevel || 0.95;
+async function resolveScopedSettingsForProject(
+  context: ReqContext,
+  projectId: string | undefined,
+) {
+  const project =
+    projectId && projectId.length > 0
+      ? (await context.getProjects()).find((p) => p.id === projectId)
+      : undefined;
+  return getScopedSettings({
+    organization: context.org,
+    project,
+  });
+}
+
+function confidenceLevelsFromScopedSettings(
+  settings: ReturnType<typeof getScopedSettings>["settings"],
+) {
+  const ciUpper = settings.confidenceLevel.value || DEFAULT_CONFIDENCE_LEVEL;
   return {
     ciUpper,
     ciLower: 1 - ciUpper,
     ciUpperDisplay: Math.round(ciUpper * 100) + "%",
     ciLowerDisplay: Math.round((1 - ciUpper) * 100) + "%",
+  };
+}
+
+export async function getConfidenceLevelsForProject(
+  context: ReqContext,
+  projectId: string | undefined,
+) {
+  const { settings } = await resolveScopedSettingsForProject(
+    context,
+    projectId,
+  );
+  return confidenceLevelsFromScopedSettings(settings);
+}
+
+/**
+ * Resolves all significance-related settings (confidence levels, p-value
+ * threshold, p-value correction) with a single call.
+ */
+export async function getSignificanceSettingsForProject(
+  context: ReqContext,
+  projectId: string | undefined,
+): Promise<{
+  ciUpper: number;
+  ciLower: number;
+  ciUpperDisplay: string;
+  ciLowerDisplay: string;
+  pValueThreshold: number;
+  pValueCorrection: PValueCorrection;
+}> {
+  const { settings } = await resolveScopedSettingsForProject(
+    context,
+    projectId,
+  );
+  return {
+    ...confidenceLevelsFromScopedSettings(settings),
+    pValueThreshold:
+      settings.pValueThreshold.value ?? DEFAULT_P_VALUE_THRESHOLD,
+    pValueCorrection: settings.pValueCorrection.value ?? null,
+  };
+}
+
+export function getAISettingsForOrg(
+  context: ReqContext,
+  includeKey: boolean = false,
+): {
+  aiEnabled: boolean;
+  openAIAPIKey: string;
+  anthropicAPIKey: string;
+  xaiAPIKey: string;
+  mistralAPIKey: string;
+  googleAPIKey: string;
+  defaultAIModel: AIModel;
+  embeddingModel: EmbeddingModel;
+} {
+  const openAIKey = process.env.OPENAI_API_KEY || "";
+  const anthropicKey = process.env.ANTHROPIC_API_KEY || "";
+  const xaiKey = process.env.XAI_API_KEY || "";
+  const mistralKey = process.env.MISTRAL_API_KEY || "";
+  const googleKey = process.env.GOOGLE_AI_API_KEY || "";
+
+  const hasValidKey = !!(
+    openAIKey ||
+    anthropicKey ||
+    xaiKey ||
+    mistralKey ||
+    googleKey
+  );
+
+  const aiEnabled = IS_CLOUD
+    ? !!context.org.settings?.aiEnabled
+    : !!(context.org.settings?.aiEnabled && hasValidKey);
+
+  return {
+    aiEnabled,
+    openAIAPIKey: includeKey ? openAIKey : "",
+    anthropicAPIKey: includeKey ? anthropicKey : "",
+    xaiAPIKey: includeKey ? xaiKey : "",
+    mistralAPIKey: includeKey ? mistralKey : "",
+    googleAPIKey: includeKey ? googleKey : "",
+    defaultAIModel: IS_CLOUD
+      ? "claude-haiku-4-5-20251001"
+      : context.org.settings?.defaultAIModel ||
+        context.org.settings?.openAIDefaultModel ||
+        "gpt-5.4-mini",
+    embeddingModel:
+      context.org.settings?.embeddingModel || "text-embedding-ada-002",
   };
 }
 
@@ -191,6 +319,7 @@ export function getMetricDefaultsForOrg(context: ReqContext): MetricDefaults {
     minimumSampleSize: DEFAULT_MIN_SAMPLE_SIZE,
     maxPercentageChange: DEFAULT_MAX_PERCENT_CHANGE,
     minPercentageChange: DEFAULT_MIN_PERCENT_CHANGE,
+    targetMDE: DEFAULT_TARGET_MDE,
     windowSettings: defaultMetricWindowSettings,
     cappingSettings: defaultMetricCappingSettings,
     priorSettings: defaultMetricPriorSettings,
@@ -199,14 +328,34 @@ export function getMetricDefaultsForOrg(context: ReqContext): MetricDefaults {
   return context.org.settings?.metricDefaults || METRIC_DEFAULTS;
 }
 
-export function getPValueThresholdForOrg(context: ReqContext): number {
-  return context.org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD;
+export async function getPValueThresholdForProject(
+  context: ReqContext,
+  // undefined project means fall back to org setting
+  projectId: string | undefined,
+): Promise<number> {
+  const { settings } = await resolveScopedSettingsForProject(
+    context,
+    projectId,
+  );
+  return settings.pValueThreshold.value ?? DEFAULT_P_VALUE_THRESHOLD;
+}
+
+export async function getPValueCorrectionForProject(
+  context: ReqContext,
+  // undefined project means fall back to org setting
+  projectId: string | undefined,
+): Promise<PValueCorrection> {
+  const { settings } = await resolveScopedSettingsForProject(
+    context,
+    projectId,
+  );
+  return settings.pValueCorrection.value ?? null;
 }
 
 export function getRole(
   org: OrganizationInterface,
   userId: string,
-  project?: string
+  project?: string,
 ): MemberRoleInfo {
   const member = org.members.find((m) => m.id === userId);
 
@@ -214,7 +363,7 @@ export function getRole(
     // Project-specific role
     if (project && member.projectRoles) {
       const projectRole = member.projectRoles.find(
-        (r) => r.project === project
+        (r) => r.project === project,
       );
       if (projectRole) {
         return projectRole;
@@ -233,7 +382,7 @@ export function getRole(
 }
 
 export function getNumberOfUniqueMembersAndInvites(
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
 ) {
   // There was a bug that allowed duplicate members in the members array
   const numMembers = new Set(organization.members.map((m) => m.id)).size;
@@ -244,11 +393,11 @@ export function getNumberOfUniqueMembersAndInvites(
 
 export async function removeMember(
   organization: OrganizationInterface,
-  id: string
+  id: string,
 ) {
   const members = organization.members.filter((member) => member.id !== id);
   const pendingMembers = (organization?.pendingMembers || []).filter(
-    (member) => member.id !== id
+    (member) => member.id !== id,
   );
 
   if (!members.length) {
@@ -264,14 +413,19 @@ export async function removeMember(
   updatedOrganization.members = members;
   updatedOrganization.pendingMembers = pendingMembers;
 
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true,
+  );
 
   return updatedOrganization;
 }
 
 export async function revokeInvite(
   organization: OrganizationInterface,
-  key: string
+  key: string,
 ) {
   const invites = organization.invites.filter((invite) => invite.key !== key);
 
@@ -281,35 +435,18 @@ export async function revokeInvite(
 
   const updatedOrganization = cloneDeep(organization);
   updatedOrganization.invites = invites;
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true,
+  );
 
   return updatedOrganization;
 }
 
 export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
-}
-
-async function updateSubscriptionIfProLicense(
-  organization: OrganizationInterface
-) {
-  if (
-    organization.licenseKey &&
-    !isAirGappedLicenseKey(organization.licenseKey)
-  ) {
-    const license = await getLicense(organization.licenseKey);
-    if (
-      license?.plan === "pro" &&
-      isActiveSubscriptionStatus(license?.stripeSubscription?.status)
-    ) {
-      // Only pro plans have a Stripe subscription that needs to get updated
-      const seatsInUse = getNumberOfUniqueMembersAndInvites(organization);
-      await postSubscriptionUpdateToLicenseServer(
-        organization.licenseKey,
-        seatsInUse
-      );
-    }
-  }
 }
 
 export async function addMemberToOrg({
@@ -321,6 +458,7 @@ export async function addMemberToOrg({
   projectRoles,
   externalId,
   managedByIdp,
+  teams = [],
 }: {
   organization: OrganizationInterface;
   userId: string;
@@ -330,6 +468,7 @@ export async function addMemberToOrg({
   projectRoles?: ProjectMemberRole[];
   externalId?: string;
   managedByIdp?: boolean;
+  teams?: string[];
 }) {
   // If member is already in the org, skip
   if (organization.members.find((m) => m.id === userId)) {
@@ -358,6 +497,7 @@ export async function addMemberToOrg({
       dateCreated: new Date(),
       externalId,
       managedByIdp,
+      teams,
     },
   ];
 
@@ -370,7 +510,12 @@ export async function addMemberToOrg({
   updatedOrganization.members = members;
   updatedOrganization.pendingMembers = pendingMembers;
 
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true,
+  );
 }
 
 export async function addMembersToTeam({
@@ -393,6 +538,12 @@ export async function addMembersToTeam({
   await updateOrganization(organization.id, { members: updatedMembers });
 }
 
+export function getMembersOfTeam(org: OrganizationInterface, teamId: string) {
+  return org.members
+    .filter((member) => member.teams?.includes(teamId))
+    .map((m) => m.id);
+}
+
 export async function convertMemberToManagedByIdp({
   organization,
   userId,
@@ -408,7 +559,7 @@ export async function convertMemberToManagedByIdp({
 
   if (!memberToUpdate) {
     throw new Error(
-      "Tried to update a member that does not exist in the organization"
+      "Tried to update a member that does not exist in the organization",
     );
   }
 
@@ -436,6 +587,8 @@ export async function removeMembersFromTeam({
   });
 
   await updateOrganization(organization.id, { members: updatedMembers });
+  // Also update the organization reference in-memory so the team can be deleted if it's now empty
+  organization.members = updatedMembers;
 }
 
 export async function addPendingMemberToOrg({
@@ -500,7 +653,7 @@ export async function acceptInvite(key: string, userId: string) {
   // If member is already in the org, skip so they don't get added to organization.members a second time causing duplicates.
   if (organization.members.find((m) => m.id === userId)) {
     throw new Error(
-      "Whoops! You're already a user, you can't accept a new invitation."
+      "Whoops! You're already a user, you can't accept a new invitation.",
     );
   }
 
@@ -513,7 +666,7 @@ export async function acceptInvite(key: string, userId: string) {
   const invites = organization.invites.filter((invite) => invite.key !== key);
   // Remove from pending members
   const pendingMembers = (organization?.pendingMembers || []).filter(
-    (m) => m.id !== userId
+    (m) => m.id !== userId,
   );
 
   // Add to member list
@@ -536,7 +689,14 @@ export async function acceptInvite(key: string, userId: string) {
     pendingMembers,
   });
 
-  return organization;
+  // fetch a fresh instance of the org now that the members & invites lists have changed
+  const updatedOrg = await getOrganizationById(organization.id);
+
+  if (!updatedOrg) {
+    throw new Error("Unable to locate org");
+  }
+
+  return updatedOrg;
 }
 
 export async function inviteUser({
@@ -546,21 +706,25 @@ export async function inviteUser({
   limitAccessByEnvironment,
   environments,
   projectRoles,
+  invitedBy,
 }: {
   organization: OrganizationInterface;
   email: string;
+  invitedBy?: string;
 } & MemberRoleWithProjects) {
   organization.invites = organization.invites || [];
 
-  // User is already invited
-  if (
-    organization.invites.filter((invite) => invite.email === email).length > 0
-  ) {
+  email = email.toLowerCase();
+
+  // User is already invited (legacy invites may have been stored with
+  // mixed case, so compare case-insensitively).
+  const existingInvite = organization.invites.find(
+    (invite) => invite.email.toLowerCase() === email,
+  );
+  if (existingInvite) {
     return {
       emailSent: true,
-      inviteUrl: getInviteUrl(
-        organization.invites.filter((invite) => invite.email === email)[0].key
-      ),
+      inviteUrl: getInviteUrl(existingInvite.key),
     };
   }
 
@@ -594,6 +758,7 @@ export async function inviteUser({
       limitAccessByEnvironment,
       environments,
       projectRoles,
+      invitedBy,
     },
   ];
 
@@ -604,7 +769,12 @@ export async function inviteUser({
   const updatedOrganization = cloneDeep(organization);
   updatedOrganization.invites = invites;
 
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true,
+  );
 
   let emailSent = false;
   if (isEmailEnabled()) {
@@ -626,7 +796,7 @@ export async function inviteUser({
 function validateId(id: string) {
   if (!id.match(/^[a-zA-Z_][a-zA-Z0-9_-]*$/)) {
     throw new Error(
-      "Invalid id (must be only alphanumeric plus underscores and hyphens)"
+      "Invalid id (must be only alphanumeric plus underscores and hyphens)",
     );
   }
 }
@@ -689,7 +859,7 @@ function validateConfig(context: ReqContext, config: ConfigFile) {
         }
         if (!datasourceIds.includes(dimension.datasource)) {
           throw new Error(
-            "Unknown datasource id '" + dimension.datasource + "'"
+            "Unknown datasource id '" + dimension.datasource + "'",
           );
         }
         if (!dimension.sql) {
@@ -706,7 +876,7 @@ function validateConfig(context: ReqContext, config: ConfigFile) {
 
 export async function importConfig(
   context: ReqContext | ApiReqContext,
-  config: ConfigFile
+  config: ConfigFile,
 ) {
   const organization = context.org;
   const errors = validateConfig(context, config);
@@ -771,13 +941,13 @@ export async function importConfig(
               ds.params,
               ds.settings || {},
               k,
-              ds.description
+              ds.description,
             );
           }
         } catch (e) {
           throw new Error(`Datasource ${k}: ${e.message}`);
         }
-      })
+      }),
     );
   }
   if (config.metrics) {
@@ -801,7 +971,7 @@ export async function importConfig(
 
             await updateMetric(context, existing, updates);
           } else {
-            await createMetric({
+            await createMetric(context, {
               ...m,
               name: m.name || k,
               id: k,
@@ -814,7 +984,7 @@ export async function importConfig(
         } catch (e) {
           throw new Error(`Metric ${k}: ${e.message}`);
         }
-      })
+      }),
     );
   }
   if (config.dimensions) {
@@ -835,8 +1005,7 @@ export async function importConfig(
               ...d,
             };
             delete updates.organization;
-
-            await updateDimension(k, organization.id, updates);
+            await updateDimension(context, existing, updates);
           } else {
             await createDimension({
               ...d,
@@ -849,7 +1018,7 @@ export async function importConfig(
         } catch (e) {
           throw new Error(`Dimension ${k}: ${e.message}`);
         }
-      })
+      }),
     );
   }
 
@@ -867,12 +1036,7 @@ export async function importConfig(
         try {
           const existing = await context.models.segments.getById(k);
           if (existing) {
-            const updates: Partial<SegmentInterface> = {
-              ...s,
-            };
-            delete updates.organization;
-
-            await context.models.segments.update(existing, updates);
+            await context.models.segments.update(existing, s);
           } else {
             await context.models.segments.create({
               ...s,
@@ -882,14 +1046,14 @@ export async function importConfig(
         } catch (e) {
           throw new Error(`Segment ${k}: ${e.message}`);
         }
-      })
+      }),
     );
   }
 }
 
 export async function getExperimentOverrides(
   context: ReqContext | ApiReqContext,
-  project?: string
+  project?: string,
 ) {
   const experiments = await getAllExperiments(context, { project });
   const overrides: Record<string, ExperimentOverride> = {};
@@ -953,31 +1117,53 @@ export function isEnterpriseSSO(connection?: SSOConnectionInterface) {
   // On cloud, the default SSO (Auth0) does not have a connection id
   if (!connection.id) return false;
 
+  // Vercel SSO connections are not enterprise
+  if (connection.id.startsWith("vercel:")) return false;
+
   return true;
 }
 
 // Auto-add user to an organization if using Enterprise SSO
 export async function addMemberFromSSOConnection(
-  req: AuthRequest
+  req: AuthRequest,
 ): Promise<OrganizationInterface | null> {
   if (!req.userId) return null;
 
   const ssoConnection = req.loginMethod;
-  if (!ssoConnection || !ssoConnection?.emailDomains?.length) return null;
+  if (!ssoConnection) return null;
 
-  // Check if the user's email domain is allowed by the SSO connection
-  const emailDomain = req.email.split("@").pop()?.toLowerCase() || "";
-  if (!ssoConnection?.emailDomains?.includes(emailDomain)) {
-    return null;
+  // For non-vercel, require email domains to match
+  if (!ssoConnection.id?.startsWith("vercel:")) {
+    if (!ssoConnection?.emailDomains?.length) return null;
+
+    // Check if the user's email domain is allowed by the SSO connection
+    const emailDomain = req.email.split("@").pop()?.toLowerCase() || "";
+    if (!ssoConnection?.emailDomains?.includes(emailDomain)) {
+      return null;
+    }
   }
 
   let organization: null | OrganizationInterface = null;
   // On Cloud, we need to get the organization from the SSO connection
   if (IS_CLOUD) {
-    if (!ssoConnection.organization) {
-      return null;
+    // For Vercel, we need to look up the Vercel installation to find the org
+    if (ssoConnection.id?.startsWith("vercel:")) {
+      const installationId = ssoConnection.id.split(":")[1];
+      if (!installationId) return null;
+      if (installationId !== req.vercelInstallationId) return null;
+
+      const installation =
+        await findVercelInstallationByInstallationId(installationId);
+      if (!installation) {
+        return null;
+      }
+      organization = await findOrganizationById(installation.organization);
+    } else {
+      if (!ssoConnection.organization) {
+        return null;
+      }
+      organization = await getOrganizationById(ssoConnection.organization);
     }
-    organization = await getOrganizationById(ssoConnection.organization);
   }
   // When self-hosting, there should be only one organization in Mongo
   else {
@@ -985,7 +1171,7 @@ export async function addMemberFromSSOConnection(
     // Sanity check in case there are multiple orgs for whatever reason
     if (orgs.length > 1) {
       req.log.error(
-        "Expected a single organization for self-hosted GrowthBook"
+        "Expected a single organization for self-hosted GrowthBook",
       );
       return null;
     }
@@ -1013,7 +1199,7 @@ export async function addMemberFromSSOConnection(
       req.name || "",
       req.email || "",
       organization.name,
-      organization.ownerEmail
+      organization.ownerEmail,
     );
   } catch (e) {
     req.log.error(e, "Failed to send new member email");
@@ -1059,7 +1245,7 @@ const EXPANDED_MEMBER_CACHE_TTL = 1000 * 60 * 15; // 15 minutes
 // Add email/name to the organization members array
 export async function expandOrgMembers(
   members: Member[],
-  currentUserId?: string
+  currentUserId?: string,
 ): Promise<ExpandedMember[]> {
   const expandedMembers: ExpandedMember[] = [];
 
@@ -1112,7 +1298,7 @@ export async function expandOrgMembers(
 }
 
 export function getContextForAgendaJobByOrgObject(
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
 ): ApiReqContext {
   return new ReqContextClass({
     org: organization,
@@ -1123,7 +1309,7 @@ export function getContextForAgendaJobByOrgObject(
 }
 
 export async function getContextForAgendaJobByOrgId(
-  orgId: string
+  orgId: string,
 ): Promise<ApiReqContext> {
   const organization = await findOrganizationById(orgId);
 

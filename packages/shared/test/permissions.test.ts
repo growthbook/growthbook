@@ -1,6 +1,5 @@
-import { roleToPermissionMap } from "back-end/src/util/organization.util";
-import { OrganizationInterface } from "back-end/types/organization";
-import { Permissions } from "../permissions";
+import { OrganizationInterface } from "shared/types/organization";
+import { roleToPermissionMap, Permissions } from "../permissions";
 
 describe("Role permissions", () => {
   const testOrg: OrganizationInterface = {
@@ -84,6 +83,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteSegment(projectsResource)).toBe(false);
     expect(p.canDeleteTag()).toBe(false);
     expect(p.canManageBilling()).toBe(false);
+    expect(p.canViewUsage()).toBe(false);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
@@ -124,7 +124,6 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(false);
-    expect(p.canViewEditFactTableModal(projectsResource)).toBe(false);
     expect(p.canViewEventWebhook()).toBe(false);
     expect(p.canViewAuditLogs()).toBe(false);
     expect(p.canViewEvent(event)).toBe(false);
@@ -145,6 +144,11 @@ describe("Role permissions", () => {
     expect(p.canReadSingleProjectResource(project)).toBe(false);
     expect(p.canReadMultiProjectResource(projects)).toBe(false);
     expect(p.canManageLegacySDKWebhooks()).toBe(false);
+    expect(p.canCreateOfficialResources(projectsResource)).toBe(false);
+    expect(
+      p.canUpdateOfficialResources(projectsResource, projectsResource),
+    ).toBe(false);
+    expect(p.canDeleteOfficialResources(projectsResource)).toBe(false);
   });
 
   it("has correct permissions for readonly", () => {
@@ -193,6 +197,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteSegment(projectsResource)).toBe(false);
     expect(p.canDeleteTag()).toBe(false);
     expect(p.canManageBilling()).toBe(false);
+    expect(p.canViewUsage()).toBe(false);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
@@ -208,6 +213,7 @@ describe("Role permissions", () => {
     expect(p.canRunPastExperimentQueries(projectsResource)).toBe(false);
     expect(p.canRunSchemaQueries(projectsResource)).toBe(false);
     expect(p.canRunTestQueries(projectsResource)).toBe(false);
+    expect(p.canRunSqlExplorerQueries(projectsResource)).toBe(false);
     expect(p.canSuperDeleteReport()).toBe(false);
     expect(p.canUpdateArchetype(projectsResource, updates)).toBe(false);
     expect(p.canUpdateAttribute(projectsResource, updates)).toBe(false);
@@ -233,7 +239,6 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(false);
-    expect(p.canViewEditFactTableModal(projectsResource)).toBe(false);
     expect(p.canViewEventWebhook()).toBe(false);
     expect(p.canViewAuditLogs()).toBe(false);
     expect(p.canViewEvent(event)).toBe(true);
@@ -254,6 +259,11 @@ describe("Role permissions", () => {
     expect(p.canReadSingleProjectResource(project)).toBe(true);
     expect(p.canReadMultiProjectResource(projects)).toBe(true);
     expect(p.canManageLegacySDKWebhooks()).toBe(false);
+    expect(p.canCreateOfficialResources(projectsResource)).toBe(false);
+    expect(
+      p.canUpdateOfficialResources(projectsResource, projectsResource),
+    ).toBe(false);
+    expect(p.canDeleteOfficialResources(projectsResource)).toBe(false);
   });
 
   it("has correct permissions for visualEditor", () => {
@@ -302,6 +312,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteSegment(projectsResource)).toBe(false);
     expect(p.canDeleteTag()).toBe(false);
     expect(p.canManageBilling()).toBe(false);
+    expect(p.canViewUsage()).toBe(false);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
@@ -317,6 +328,7 @@ describe("Role permissions", () => {
     expect(p.canRunPastExperimentQueries(projectsResource)).toBe(false);
     expect(p.canRunSchemaQueries(projectsResource)).toBe(false);
     expect(p.canRunTestQueries(projectsResource)).toBe(false);
+    expect(p.canRunSqlExplorerQueries(projectsResource)).toBe(false);
     expect(p.canSuperDeleteReport()).toBe(false);
     expect(p.canUpdateArchetype(projectsResource, updates)).toBe(false);
     expect(p.canUpdateAttribute(projectsResource, updates)).toBe(false);
@@ -342,7 +354,6 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(false);
-    expect(p.canViewEditFactTableModal(projectsResource)).toBe(false);
     expect(p.canViewEventWebhook()).toBe(false);
     expect(p.canViewAuditLogs()).toBe(false);
     expect(p.canViewEvent(event)).toBe(true);
@@ -363,6 +374,11 @@ describe("Role permissions", () => {
     expect(p.canReadSingleProjectResource(project)).toBe(true);
     expect(p.canReadMultiProjectResource(projects)).toBe(true);
     expect(p.canManageLegacySDKWebhooks()).toBe(false);
+    expect(p.canCreateOfficialResources(projectsResource)).toBe(false);
+    expect(
+      p.canUpdateOfficialResources(projectsResource, projectsResource),
+    ).toBe(false);
+    expect(p.canDeleteOfficialResources(projectsResource)).toBe(false);
   });
 
   it("has correct permissions for collaborator", () => {
@@ -411,6 +427,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteSegment(projectsResource)).toBe(false);
     expect(p.canDeleteTag()).toBe(false);
     expect(p.canManageBilling()).toBe(false);
+    expect(p.canViewUsage()).toBe(false);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
@@ -426,6 +443,7 @@ describe("Role permissions", () => {
     expect(p.canRunPastExperimentQueries(projectsResource)).toBe(false);
     expect(p.canRunSchemaQueries(projectsResource)).toBe(false);
     expect(p.canRunTestQueries(projectsResource)).toBe(false);
+    expect(p.canRunSqlExplorerQueries(projectsResource)).toBe(false);
     expect(p.canSuperDeleteReport()).toBe(false);
     expect(p.canUpdateArchetype(projectsResource, updates)).toBe(false);
     expect(p.canUpdateAttribute(projectsResource, updates)).toBe(false);
@@ -451,7 +469,6 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(false);
-    expect(p.canViewEditFactTableModal(projectsResource)).toBe(false);
     expect(p.canViewEventWebhook()).toBe(false);
     expect(p.canViewAuditLogs()).toBe(false);
     expect(p.canViewEvent(event)).toBe(true);
@@ -472,6 +489,11 @@ describe("Role permissions", () => {
     expect(p.canReadSingleProjectResource(project)).toBe(true);
     expect(p.canReadMultiProjectResource(projects)).toBe(true);
     expect(p.canManageLegacySDKWebhooks()).toBe(false);
+    expect(p.canCreateOfficialResources(projectsResource)).toBe(false);
+    expect(
+      p.canUpdateOfficialResources(projectsResource, projectsResource),
+    ).toBe(false);
+    expect(p.canDeleteOfficialResources(projectsResource)).toBe(false);
   });
 
   it("has correct permissions for engineer", () => {
@@ -520,6 +542,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteSegment(projectsResource)).toBe(false);
     expect(p.canDeleteTag()).toBe(true);
     expect(p.canManageBilling()).toBe(false);
+    expect(p.canViewUsage()).toBe(false);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(true);
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
@@ -535,6 +558,7 @@ describe("Role permissions", () => {
     expect(p.canRunPastExperimentQueries(projectsResource)).toBe(false);
     expect(p.canRunSchemaQueries(projectsResource)).toBe(false);
     expect(p.canRunTestQueries(projectsResource)).toBe(false);
+    expect(p.canRunSqlExplorerQueries(projectsResource)).toBe(false);
     expect(p.canSuperDeleteReport()).toBe(false);
     expect(p.canUpdateArchetype(projectsResource, updates)).toBe(true);
     expect(p.canUpdateAttribute(projectsResource, updates)).toBe(true);
@@ -560,7 +584,6 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(true);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(false);
-    expect(p.canViewEditFactTableModal(projectsResource)).toBe(false);
     expect(p.canViewEventWebhook()).toBe(false);
     expect(p.canViewAuditLogs()).toBe(false);
     expect(p.canViewEvent(event)).toBe(true);
@@ -581,6 +604,11 @@ describe("Role permissions", () => {
     expect(p.canReadSingleProjectResource(project)).toBe(true);
     expect(p.canReadMultiProjectResource(projects)).toBe(true);
     expect(p.canManageLegacySDKWebhooks()).toBe(false);
+    expect(p.canCreateOfficialResources(projectsResource)).toBe(false);
+    expect(
+      p.canUpdateOfficialResources(projectsResource, projectsResource),
+    ).toBe(false);
+    expect(p.canDeleteOfficialResources(projectsResource)).toBe(false);
   });
 
   it("has correct permissions for analyst", () => {
@@ -629,6 +657,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteSegment(projectsResource)).toBe(true);
     expect(p.canDeleteTag()).toBe(true);
     expect(p.canManageBilling()).toBe(false);
+    expect(p.canViewUsage()).toBe(false);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
@@ -644,6 +673,7 @@ describe("Role permissions", () => {
     expect(p.canRunPastExperimentQueries(projectsResource)).toBe(true);
     expect(p.canRunSchemaQueries(projectsResource)).toBe(true);
     expect(p.canRunTestQueries(projectsResource)).toBe(true);
+    expect(p.canRunSqlExplorerQueries(projectsResource)).toBe(true);
     expect(p.canSuperDeleteReport()).toBe(false);
     expect(p.canUpdateArchetype(projectsResource, updates)).toBe(false);
     expect(p.canUpdateAttribute(projectsResource, updates)).toBe(false);
@@ -669,7 +699,6 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(true);
-    expect(p.canViewEditFactTableModal(projectsResource)).toBe(true);
     expect(p.canViewEventWebhook()).toBe(false);
     expect(p.canViewAuditLogs()).toBe(false);
     expect(p.canViewEvent(event)).toBe(true);
@@ -690,6 +719,11 @@ describe("Role permissions", () => {
     expect(p.canReadSingleProjectResource(project)).toBe(true);
     expect(p.canReadMultiProjectResource(projects)).toBe(true);
     expect(p.canManageLegacySDKWebhooks()).toBe(false);
+    expect(p.canCreateOfficialResources(projectsResource)).toBe(false);
+    expect(
+      p.canUpdateOfficialResources(projectsResource, projectsResource),
+    ).toBe(false);
+    expect(p.canDeleteOfficialResources(projectsResource)).toBe(false);
   });
 
   it("has correct permissions for experimenter", () => {
@@ -738,6 +772,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteSegment(projectsResource)).toBe(true);
     expect(p.canDeleteTag()).toBe(true);
     expect(p.canManageBilling()).toBe(false);
+    expect(p.canViewUsage()).toBe(false);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(true);
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
@@ -753,6 +788,7 @@ describe("Role permissions", () => {
     expect(p.canRunPastExperimentQueries(projectsResource)).toBe(true);
     expect(p.canRunSchemaQueries(projectsResource)).toBe(true);
     expect(p.canRunTestQueries(projectsResource)).toBe(true);
+    expect(p.canRunSqlExplorerQueries(projectsResource)).toBe(true);
     expect(p.canSuperDeleteReport()).toBe(false);
     expect(p.canUpdateArchetype(projectsResource, updates)).toBe(true);
     expect(p.canUpdateAttribute(projectsResource, updates)).toBe(true);
@@ -778,7 +814,6 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(true);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(true);
-    expect(p.canViewEditFactTableModal(projectsResource)).toBe(true);
     expect(p.canViewEventWebhook()).toBe(false);
     expect(p.canViewAuditLogs()).toBe(false);
     expect(p.canViewEvent(event)).toBe(true);
@@ -799,6 +834,11 @@ describe("Role permissions", () => {
     expect(p.canReadSingleProjectResource(project)).toBe(true);
     expect(p.canReadMultiProjectResource(projects)).toBe(true);
     expect(p.canManageLegacySDKWebhooks()).toBe(false);
+    expect(p.canCreateOfficialResources(projectsResource)).toBe(false);
+    expect(
+      p.canUpdateOfficialResources(projectsResource, projectsResource),
+    ).toBe(false);
+    expect(p.canDeleteOfficialResources(projectsResource)).toBe(false);
   });
 
   it("has correct permissions for admin", () => {
@@ -847,6 +887,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteSegment(projectsResource)).toBe(true);
     expect(p.canDeleteTag()).toBe(true);
     expect(p.canManageBilling()).toBe(true);
+    expect(p.canViewUsage()).toBe(true);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(true);
     expect(p.canManageIntegrations()).toBe(true);
     expect(p.canManageNorthStarMetric()).toBe(true);
@@ -862,6 +903,7 @@ describe("Role permissions", () => {
     expect(p.canRunPastExperimentQueries(projectsResource)).toBe(true);
     expect(p.canRunSchemaQueries(projectsResource)).toBe(true);
     expect(p.canRunTestQueries(projectsResource)).toBe(true);
+    expect(p.canRunSqlExplorerQueries(projectsResource)).toBe(true);
     expect(p.canSuperDeleteReport()).toBe(true);
     expect(p.canUpdateArchetype(projectsResource, updates)).toBe(true);
     expect(p.canUpdateAttribute(projectsResource, updates)).toBe(true);
@@ -887,7 +929,6 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(true);
     expect(p.canViewCreateDataSourceModal()).toBe(true);
     expect(p.canViewCreateFactTableModal()).toBe(true);
-    expect(p.canViewEditFactTableModal(projectsResource)).toBe(true);
     expect(p.canViewEventWebhook()).toBe(true);
     expect(p.canViewAuditLogs()).toBe(true);
     expect(p.canViewEvent(event)).toBe(true);
@@ -908,5 +949,10 @@ describe("Role permissions", () => {
     expect(p.canReadSingleProjectResource(project)).toBe(true);
     expect(p.canReadMultiProjectResource(projects)).toBe(true);
     expect(p.canManageLegacySDKWebhooks()).toBe(true);
+    expect(p.canCreateOfficialResources(projectsResource)).toBe(true);
+    expect(
+      p.canUpdateOfficialResources(projectsResource, projectsResource),
+    ).toBe(true);
+    expect(p.canDeleteOfficialResources(projectsResource)).toBe(true);
   });
 });

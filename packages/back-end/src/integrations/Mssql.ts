@@ -1,20 +1,24 @@
-import { MssqlConnectionParams } from "back-end/types/integrations/mssql";
+import { parseIntWithDefault } from "shared/util";
+import { SqlDialect } from "shared/types/sql";
+import { QueryResponse } from "shared/types/integrations";
+import { MssqlConnectionParams } from "shared/types/integrations/mssql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { FormatDialect } from "back-end/src/util/sql";
 import { findOrCreateConnection } from "back-end/src/util/mssqlPoolManager";
-import { QueryResponse } from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
+import { mssqlDialect } from "./dialects/mssql";
+
+/** Default TCP port for SQL Server; used when stored params are missing or not parseable as an integer. */
+const MSSQL_DEFAULT_TCP_PORT = 1433;
 
 export default class Mssql extends SqlIntegration {
   params!: MssqlConnectionParams;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<MssqlConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<MssqlConnectionParams>(encryptedParams);
   }
-  getFormatDialect(): FormatDialect {
-    return "tsql";
+  getSqlDialect(): SqlDialect {
+    return mssqlDialect;
   }
   getSensitiveParamKeys(): string[] {
     return ["password"];
@@ -22,7 +26,7 @@ export default class Mssql extends SqlIntegration {
   async runQuery(sqlStr: string): Promise<QueryResponse> {
     const conn = await findOrCreateConnection(this.datasource.id, {
       server: this.params.server,
-      port: parseInt(this.params.port + "", 10),
+      port: parseIntWithDefault(this.params.port, MSSQL_DEFAULT_TCP_PORT),
       user: this.params.user,
       password: this.params.password,
       database: this.params.database,
@@ -36,36 +40,8 @@ export default class Mssql extends SqlIntegration {
 
   // MS SQL Server doesn't support the LIMIT keyword, so we have to use the TOP or OFFSET and FETCH keywords instead.
   // (and OFFSET/FETCH only work when there is an ORDER BY clause)
-  selectStarLimit(table: string, limit: number): string {
-    return `SELECT TOP ${limit} * FROM ${table}`;
-  }
-
-  addTime(
-    col: string,
-    unit: "hour" | "minute",
-    sign: "+" | "-",
-    amount: number
-  ): string {
-    return `DATEADD(${unit}, ${sign === "-" ? "-" : ""}${amount}, ${col})`;
-  }
-  dateTrunc(col: string) {
-    //return `DATETRUNC(day, ${col})`; <- this is only supported in SQL Server 2022 preview.
-    return `cast(${col} as DATE)`;
-  }
-  ensureFloat(col: string): string {
-    return `CAST(${col} as FLOAT)`;
-  }
-  formatDate(col: string): string {
-    return `FORMAT(${col}, 'yyyy-MM-dd')`;
-  }
-  castToString(col: string): string {
-    return `cast(${col} as varchar(256))`;
-  }
-  formatDateTimeString(col: string): string {
-    return `CONVERT(VARCHAR(25), ${col}, 121)`;
-  }
-  approxQuantile(value: string, quantile: string | number): string {
-    return `APPROX_PERCENTILE_CONT(${quantile}) WITHIN GROUP (ORDER BY ${value})`;
+  ensureMaxLimit(sql: string, limit: number): string {
+    return `WITH __table AS (\n${sql}\n) SELECT TOP ${limit} * FROM __table`;
   }
   getDefaultDatabase() {
     return this.params.database;

@@ -11,6 +11,7 @@ import {
 import clsx from "clsx";
 import { IconButton } from "@radix-ui/themes";
 import useGlobalMenu from "@/services/useGlobalMenu";
+import { RadixTheme } from "@/services/RadixTheme";
 
 const MoreMenu: FC<{
   autoCloseOnClick?: boolean;
@@ -18,12 +19,14 @@ const MoreMenu: FC<{
   zIndex?: number;
   children: ReactNode;
   useRadix?: boolean;
+  size?: number;
 }> = ({
   children,
   autoCloseOnClick = true,
   className = "",
   zIndex = 1020,
   useRadix,
+  size = 18,
 }) => {
   const [open, setOpen] = useState(false);
   const [id] = useState(() => uniqId("more_menu_"));
@@ -67,7 +70,7 @@ const MoreMenu: FC<{
               setOpen(!open);
             }}
           >
-            <BsThreeDotsVertical size={18} />
+            <BsThreeDotsVertical size={size} />
           </IconButton>
         </div>
       ) : (
@@ -88,18 +91,20 @@ const MoreMenu: FC<{
         </a>
       )}
       <FloatingPortal>
-        <div
-          className={`dropdown-menu ${open ? "show" : ""}`}
-          onClick={() => {
-            if (autoCloseOnClick) {
-              setOpen(false);
-            }
-          }}
-          ref={refs.setFloating}
-          style={{ ...floatingStyles, zIndex, width: "max-content" }}
-        >
-          {children}
-        </div>
+        <RadixTheme>
+          <div
+            className={`dropdown-menu ${open ? "show" : ""}`}
+            onClick={() => {
+              if (autoCloseOnClick) {
+                setOpen(false);
+              }
+            }}
+            ref={refs.setFloating}
+            style={{ ...floatingStyles, zIndex, width: "max-content" }}
+          >
+            {children}
+          </div>
+        </RadixTheme>
       </FloatingPortal>
     </div>
   );

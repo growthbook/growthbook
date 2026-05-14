@@ -60,6 +60,24 @@ Similar to SDK webhooks, this webhook is a special use webhook for communicating
 - Self-hosted users should configure a single global proxy webhook using environment variables.
 - Cloud users may optionally configure a GrowthBook Proxy webhook for each SDK Connection.
 
+## Webhook Secrets
+
+GrowthBook includes a secure way to include a secret token in your webhook requests, either in the endpoint or in a header.
+
+On the **Settings -> Webhooks** page, you can define webhook secrets with a key and value. You can then reference this secret by key within your webhook URL or in the headers using a simple Handlebars syntax (`{{ MY_SECRET_KEY }}`).
+
+For example, if you define a secret with the key `SECRET_TOKEN`, you can use it in your webhook URL like this:
+
+```
+https://api.example.com/webhook?secret={{SECRET_TOKEN}}
+```
+
+The secret value will be swapped in right before sending the request and will never be visible within the GrowthBook UI or logs.
+
+### Restricted Origins
+
+For better security, you can restrict the origins where a webhook secret can be used. When enabled, the secret will only be available for webhooks where the destination URL matches one of the allowed origins.
+
 ## Notable Mentions
 
 Less common or soon-to-be-deprecated webhooks:

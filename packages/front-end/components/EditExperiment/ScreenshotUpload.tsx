@@ -2,10 +2,11 @@ import React, {
   DetailedHTMLProps,
   HTMLAttributes,
   ReactElement,
+  ReactNode,
   useState,
 } from "react";
 import { useDropzone } from "react-dropzone";
-import { Screenshot } from "back-end/types/experiment";
+import { Screenshot } from "shared/types/experiment";
 import clsx from "clsx";
 import { BiImageAdd } from "react-icons/bi";
 import { useAuth } from "@/services/auth";
@@ -17,15 +18,25 @@ type props = {
   experiment: string;
   variation: number;
   onSuccess: (variation: number, screenshot: Screenshot) => void;
+  children?: ReactNode;
 };
 
 const ScreenshotUpload = ({
   experiment,
   variation,
   onSuccess,
+  children,
 }: props): ReactElement => {
   const { apiCall } = useAuth();
   const [loading, setLoading] = useState(0);
+
+  if (!children && children !== 0)
+    children = (
+      <span className={styles.textlink}>
+        <BiImageAdd className="mr-1" style={{ fontSize: 20 }} />
+        Add Screenshot
+      </span>
+    );
 
   const onDrop = async (files: File[]) => {
     setLoading((previous) => previous + files.length);
@@ -43,7 +54,7 @@ const ScreenshotUpload = ({
               // TODO: allow customizing description
               description: "",
             }),
-          }
+          },
         );
 
         setLoading((previous) => previous - 1);
@@ -78,10 +89,7 @@ const ScreenshotUpload = ({
         {loading > 0 ? <LoadingOverlay /> : ""}
         <input {...getInputProps()} />
         <div className={styles.message}>Drop Image Here...</div>
-        <span className={styles.textlink}>
-          <BiImageAdd className="mr-1" style={{ fontSize: 20 }} />
-          Add Screenshot
-        </span>
+        {children}
       </div>
     </>
   );

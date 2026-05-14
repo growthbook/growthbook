@@ -2,7 +2,11 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
 import { isEqual, omit } from "lodash";
-import { ApiSdkConnection } from "back-end/types/openapi";
+import {
+  managedByValidator,
+  ManagedBy,
+  ApiSdkConnection,
+} from "shared/validators";
 import {
   CreateSDKConnectionParams,
   EditSDKConnectionParams,
@@ -10,7 +14,8 @@ import {
   ProxyTestResult,
   SDKConnectionInterface,
   SDKLanguage,
-} from "back-end/types/sdk-connection";
+} from "shared/types/sdk-connection";
+import { WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD } from "shared/constants";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import {
   IS_CLOUD,
@@ -19,10 +24,23 @@ import {
   PROXY_HOST_PUBLIC,
 } from "back-end/src/util/secrets";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
-import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import { ApiReqContext } from "back-end/types/api";
-import { ReqContext } from "back-end/types/organization";
-import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
+import { ReqContext } from "back-end/types/request";
+import { addCloudSDKMapping } from "back-end/src/services/licenseServerManagedClickhouse";
+import { logger } from "back-end/src/util/logger";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { createModelAuditLogger } from "back-end/src/services/audit";
+import {
+  generateEncryptionKey,
+  generateSigningKey,
+} from "back-end/src/util/api-key.util";
+
+const audit = createModelAuditLogger({
+  entity: "sdk-connection",
+  createEvent: "sdk-connection.create",
+  updateEvent: "sdk-connection.update",
+  deleteEvent: "sdk-connection.delete",
+});
 
 const sdkConnectionSchema = new mongoose.Schema({
   id: {
@@ -48,9 +66,16 @@ const sdkConnectionSchema = new mongoose.Schema({
   includeDraftExperiments: Boolean,
   includeExperimentNames: Boolean,
   includeRedirectExperiments: Boolean,
+  includeRuleIds: Boolean,
+  includeProjectIdInMetadata: Boolean,
+  includeCustomFieldsInMetadata: Boolean,
+  allowedCustomFieldsInMetadata: [String],
+  includeTagsInMetadata: Boolean,
   connected: Boolean,
   remoteEvalEnabled: Boolean,
   savedGroupReferencesEnabled: Boolean,
+  eventTracker: String,
+  managedBy: {},
   key: {
     type: String,
     unique: true,
@@ -64,6 +89,7 @@ const sdkConnectionSchema = new mongoose.Schema({
     version: String,
     error: String,
     lastError: Date,
+    consecutiveFailures: Number,
   },
 });
 
@@ -71,7 +97,7 @@ type SDKConnectionDocument = mongoose.Document & SDKConnectionInterface;
 
 const SDKConnectionModel = mongoose.model<SDKConnectionInterface>(
   "SdkConnection",
-  sdkConnectionSchema
+  sdkConnectionSchema,
 );
 
 function addEnvProxySettings(proxy: ProxyConnection): ProxyConnection {
@@ -105,7 +131,7 @@ function toInterface(doc: SDKConnectionDocument): SDKConnectionInterface {
 
 export async function findSDKConnectionById(
   context: ReqContext | ApiReqContext,
-  id: string
+  id: string,
 ) {
   const doc = await SDKConnectionModel.findOne({
     id,
@@ -120,7 +146,7 @@ export async function findSDKConnectionById(
 }
 
 export async function findSDKConnectionsByOrganization(
-  context: ReqContext | ApiReqContext
+  context: ReqContext | ApiReqContext,
 ) {
   const docs = await SDKConnectionModel.find({
     organization: context.org.id,
@@ -128,18 +154,8 @@ export async function findSDKConnectionsByOrganization(
 
   const connections = docs.map(toInterface);
   return connections.filter((conn) =>
-    context.permissions.canReadMultiProjectResource(conn.projects)
+    context.permissions.canReadMultiProjectResource(conn.projects),
   );
-}
-
-export async function _dangerousGetSdkConnectionsAcrossMultipleOrgs(
-  organizationIds: string[]
-) {
-  const docs = await SDKConnectionModel.find({
-    organization: { $in: organizationIds },
-  });
-
-  return docs.map(toInterface);
 }
 
 export async function findAllSDKConnectionsAcrossAllOrgs() {
@@ -147,9 +163,17 @@ export async function findAllSDKConnectionsAcrossAllOrgs() {
   return docs.map(toInterface);
 }
 
+export async function findSDKConnectionsById(context: ReqContext, id: string) {
+  const doc = await SDKConnectionModel.findOne({
+    organization: context.org.id,
+    id,
+  });
+  return doc ? toInterface(doc) : null;
+}
+
 export async function findSDKConnectionsByIds(
   context: ReqContext,
-  ids: string[]
+  ids: string[],
 ) {
   const docs = await SDKConnectionModel.find({
     organization: context.org.id,
@@ -177,10 +201,16 @@ export const createSDKConnectionValidator = z
     includeDraftExperiments: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
     includeRedirectExperiments: z.boolean().optional(),
+    includeRuleIds: z.boolean().optional(),
+    includeProjectIdInMetadata: z.boolean().optional(),
+    includeCustomFieldsInMetadata: z.boolean().optional(),
+    allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
+    includeTagsInMetadata: z.boolean().optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
+    managedBy: managedByValidator.optional(),
   })
   .strict();
 
@@ -190,17 +220,17 @@ function generateSDKConnectionKey() {
   return generateSigningKey("sdk-", 12);
 }
 
-export async function createSDKConnection(params: CreateSDKConnectionParams) {
-  const {
-    proxyEnabled,
-    proxyHost,
-    languages,
-    ...otherParams
-  } = createSDKConnectionValidator.parse(params);
+export async function createSDKConnection(
+  context: ReqContext | ApiReqContext,
+  params: CreateSDKConnectionParams,
+) {
+  const { proxyEnabled, proxyHost, languages, ...otherParams } =
+    createSDKConnectionValidator.parse(params);
 
   // TODO: if using a proxy, try to validate the connection
   const connection: SDKConnectionInterface = {
     ...otherParams,
+    organization: context.org.id,
     languages: languages as SDKLanguage[],
     id: uniqid("sdk_"),
     dateCreated: new Date(),
@@ -218,6 +248,7 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
       lastError: null,
       version: "",
       error: "",
+      consecutiveFailures: 0,
     }),
   };
 
@@ -235,7 +266,32 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
 
   const doc = await SDKConnectionModel.create(connection);
 
-  return toInterface(doc);
+  if (IS_CLOUD) {
+    const { key, organization } = connection;
+    try {
+      await addCloudSDKMapping(key, organization);
+    } catch (e) {
+      logger.error(
+        e,
+        `Error inserting sdk key mapping (${key} -> ${organization})`,
+      );
+    }
+  }
+
+  queueSDKPayloadRefresh({
+    context,
+    payloadKeys: [],
+    sdkConnections: [connection],
+    auditContext: {
+      event: "created",
+      model: "sdkconnection",
+      id: connection.id,
+    },
+  });
+
+  const created = toInterface(doc);
+  await audit.logCreate(context, created);
+  return created;
 }
 
 export const editSDKConnectionValidator = z
@@ -253,22 +309,24 @@ export const editSDKConnectionValidator = z
     includeDraftExperiments: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
     includeRedirectExperiments: z.boolean().optional(),
+    includeRuleIds: z.boolean().optional(),
+    includeProjectIdInMetadata: z.boolean().optional(),
+    includeCustomFieldsInMetadata: z.boolean().optional(),
+    allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
+    includeTagsInMetadata: z.boolean().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
+    eventTracker: z.string().optional(),
   })
   .strict();
 
 export async function editSDKConnection(
   context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,
-  updates: EditSDKConnectionParams
+  updates: EditSDKConnectionParams,
 ) {
-  const {
-    proxyEnabled,
-    proxyHost,
-    languages,
-    ...rest
-  } = editSDKConnectionValidator.parse(updates);
+  const { proxyEnabled, proxyHost, languages, ...rest } =
+    editSDKConnectionValidator.parse(updates);
 
   const otherChanges = {
     ...rest,
@@ -280,9 +338,13 @@ export async function editSDKConnection(
   };
   if (proxyEnabled !== undefined && proxyEnabled !== connection.proxy.enabled) {
     newProxy.enabled = proxyEnabled;
+    if (proxyEnabled) {
+      newProxy.consecutiveFailures = 0;
+    }
   }
   if (proxyHost !== undefined && proxyHost !== connection.proxy.host) {
     newProxy.host = proxyHost;
+    newProxy.consecutiveFailures = 0;
 
     if (addEnvProxySettings(newProxy).host) {
       const res = await testProxyConnection(
@@ -290,7 +352,7 @@ export async function editSDKConnection(
           ...connection,
           proxy: addEnvProxySettings(newProxy),
         },
-        false
+        false,
       );
       if (res) {
         newProxy.connected = !res.error;
@@ -316,6 +378,11 @@ export async function editSDKConnection(
     "includeDraftExperiments",
     "includeExperimentNames",
     "includeRedirectExperiments",
+    "includeRuleIds",
+    "includeProjectIdInMetadata",
+    "includeCustomFieldsInMetadata",
+    "allowedCustomFieldsInMetadata",
+    "includeTagsInMetadata",
     "savedGroupReferencesEnabled",
   ] as const;
   keysRequiringProxyUpdate.forEach((key) => {
@@ -338,32 +405,59 @@ export async function editSDKConnection(
     },
     {
       $set: fullChanges,
-    }
+    },
   );
 
   if (needsProxyUpdate) {
-    // Purge CDN if used
-    const isUsingProxy = !!(newProxy.enabled && newProxy.host);
-    await triggerSingleSDKWebhookJobs(
+    queueSDKPayloadRefresh({
       context,
-      connection,
-      otherChanges as Partial<SDKConnectionInterface>,
-      newProxy,
-      isUsingProxy
-    );
+      payloadKeys: [],
+      sdkConnections: [
+        {
+          ...connection,
+          ...fullChanges,
+        },
+      ],
+      auditContext: {
+        event: "updated",
+        model: "sdkconnection",
+        id: connection.id,
+      },
+    });
   }
 
-  return { ...connection, ...fullChanges };
+  const updated = { ...connection, ...fullChanges };
+  await audit.logUpdate(context, connection, updated);
+  return updated;
 }
 
-export async function deleteSDKConnectionById(
-  organization: string,
-  id: string
+export const updateSdkConnectionsRemoveManagedBy = async (
+  context: ReqContext,
+  managedBy: Partial<ManagedBy>,
+) => {
+  await SDKConnectionModel.updateMany(
+    {
+      organization: context.org.id,
+      managedBy,
+    },
+    {
+      $unset: {
+        managedBy: 1,
+      },
+    },
+  );
+};
+
+export async function deleteSDKConnectionModel(
+  context: ReqContext,
+  sdkConnection: SDKConnectionInterface,
 ) {
   await SDKConnectionModel.deleteOne({
-    organization,
-    id,
+    organization: context.org.id,
+    id: sdkConnection.id,
   });
+
+  await audit.logDelete(context, sdkConnection);
 }
 
 export async function markSDKConnectionUsed(key: string) {
@@ -373,14 +467,15 @@ export async function markSDKConnectionUsed(key: string) {
       $set: {
         connected: true,
       },
-    }
+    },
   );
 }
 
 export async function setProxyError(
   connection: SDKConnectionInterface,
-  error: string
+  error: string,
 ) {
+  const consecutiveFailures = (connection.proxy.consecutiveFailures || 0) + 1;
   await SDKConnectionModel.updateOne(
     {
       organization: connection.organization,
@@ -391,8 +486,12 @@ export async function setProxyError(
         "proxy.error": error,
         "proxy.connected": false,
         "proxy.lastError": new Date(),
+        "proxy.consecutiveFailures": consecutiveFailures,
+        ...(consecutiveFailures >= WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD
+          ? { "proxy.enabled": false }
+          : {}),
       },
-    }
+    },
   );
 }
 
@@ -406,17 +505,18 @@ export async function clearProxyError(connection: SDKConnectionInterface) {
       $set: {
         "proxy.error": "",
         "proxy.connected": true,
+        "proxy.consecutiveFailures": 0,
       },
-    }
+    },
   );
 }
 
 export async function testProxyConnection(
   connection: SDKConnectionInterface,
-  updateDB: boolean = true
+  updateDB: boolean = true,
 ): Promise<ProxyTestResult | undefined> {
   const proxy = connection.proxy;
-  if (!proxy || !proxy.enabled) {
+  if (!proxy) {
     return {
       status: 0,
       body: "",
@@ -442,7 +542,7 @@ export async function testProxyConnection(
       {
         maxTimeMs: 5000,
         maxContentSize: 500,
-      }
+      },
     );
     statusCode = responseWithoutBody.status;
     body = stringBody;
@@ -477,8 +577,11 @@ export async function testProxyConnection(
           $set: {
             "proxy.connected": true,
             "proxy.version": version,
+            "proxy.error": "",
+            "proxy.consecutiveFailures": 0,
+            "proxy.enabled": true,
           },
-        }
+        },
       );
     }
 
@@ -504,7 +607,7 @@ export async function testProxyConnection(
 }
 
 export function toApiSDKConnectionInterface(
-  connection: SDKConnectionInterface
+  connection: SDKConnectionInterface,
 ): ApiSdkConnection {
   return {
     id: connection.id,
@@ -524,10 +627,16 @@ export function toApiSDKConnectionInterface(
     includeDraftExperiments: connection.includeDraftExperiments,
     includeExperimentNames: connection.includeExperimentNames,
     includeRedirectExperiments: connection.includeRedirectExperiments,
+    includeRuleIds: connection.includeRuleIds,
+    includeProjectIdInMetadata: connection.includeProjectIdInMetadata,
+    includeCustomFieldsInMetadata: connection.includeCustomFieldsInMetadata,
+    allowedCustomFieldsInMetadata: connection.allowedCustomFieldsInMetadata,
+    includeTagsInMetadata: connection.includeTagsInMetadata,
     key: connection.key,
     proxyEnabled: connection.proxy.enabled,
     proxyHost: connection.proxy.host,
     proxySigningKey: connection.proxy.signingKey,
     remoteEvalEnabled: connection.remoteEvalEnabled,
+    savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
   };
 }

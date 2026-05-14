@@ -3,16 +3,17 @@ title: Understanding Bandit Results
 slug: /bandits/results
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 ## Leaderboard
 
 The leaderboard is the best tool for comparing variations with respect to the decision metric.
 In the example below, the decision metric is revenue.
 
-<img
-  src="/images/bandits/bandit_leaderboard_1.png"
-  alt="Bandit Leaderboard"
-  style={{ width: 800, margin: "0 auto" }}
-/>
+<MaxWidthImage border>
+  ![Bandit Leaderboard](/images/bandits/bandit_leaderboard_1.png)
+</MaxWidthImage>
+
 Each row of the leaderboard contains information about one of the five variations.
 
 - The **Users** column on the leaderboard indicates the number of users per variation in the experiment. Note that the number of users is vastly unequal across variations, indicating that the bandit has been favoring some variations over others.
@@ -25,11 +26,9 @@ The leaderboard helps visualize how user traffic allocations connect to the vari
 
 When a variation hits a 95% probability of being the best variation (in other words, when the bandit would want to allocate 95% or more of traffic to a variation), we mark it as a winner in the leaderboard as the image below demonstrates.
 
-<img
-  src="/images/bandits/leaderboard-winner.png"
-  alt="The leaderboard with a winner"
-  style={{ width: 600, margin: "0 auto" }}
-/>
+<MaxWidthImage border maxWidth={600}>
+  ![The leaderboard with a winner](/images/bandits/leaderboard-winner.png)
+</MaxWidthImage>
 
 ## Graphs of Performance Over Time
 
@@ -39,11 +38,10 @@ Below the leaderboard are 3 different time series graphs to help you understand 
 
 The first graph shows the cumulative means of the decision metric over time.
 
-<img
-  src="/images/bandits/cumulative_means.png"
-  alt="Cumulative means"
-  style={{ width: 600, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={600} border>
+  ![Cumulative means](/images/bandits/cumulative_means.png)
+</MaxWidthImage>
+
 On all graphs shown, the vertical lines correspond to times when the variation weights were updated.
 The overlap in the credible intervals in the leaderboard above causes mingling of the lines here.
 
@@ -51,12 +49,11 @@ The overlap in the credible intervals in the leaderboard above causes mingling o
 
 The second graph shows how the probability of each variation being the best changes over time.
 
-<img
-  src="/images/bandits/prob_of_winning.png"
-  alt="Probability of winning"
-  style={{ width: 800, margin: "0 auto" }}
-/>
-The volume of color on the graph corresponds to the probability that each variation is the best.    
+<MaxWidthImage maxWidth={600} border>
+  ![Probability of winning](/images/bandits/prob_of_winning.png)
+</MaxWidthImage>
+
+The volume of color on the graph corresponds to the probability that each variation is the best.  
 At the beginning of the experiment during the exploration phase, each variation had an equal chance of being the best.
 After the exploration phase, Variation 3 (in red) had the highest probability of being the best, and received the most traffic.  
 Control and Variation 2 also had high probabilities of being the best, but received less traffic.
@@ -66,12 +63,11 @@ Variations 1 and 4 had low probabilities of being the best and received the leas
 
 The third graph shows the variation weights over time.
 
-<img
-  src="/images/bandits/variation_weights.png"
-  alt="Variation weights"
-  style={{ width: 800, margin: "0 auto" }}
-/>
-As in the time series plot above displaying probability of being the best, variations with larger variation weights have a larger proportion of color on the graph. 
+<MaxWidthImage border>
+  ![Variation weights](/images/bandits/variation_weights.png)
+</MaxWidthImage>
+
+As in the time series plot above displaying probability of being the best, variations with larger variation weights have a larger proportion of color on the graph.
 The variation weight for a period is equal to the probability of being the best arm, unless an arm has less than a 1% chance of being the best, in which case it is set to 1% and all of the other weights are recalibrated.
 By mousing over the graph, the tool tip will display the variation weight and number of users for each variation at that time.  
 This tooltip also works for the probability of winning graph.

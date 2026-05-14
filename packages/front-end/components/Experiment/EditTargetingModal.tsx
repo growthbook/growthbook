@@ -1,14 +1,16 @@
-import { useForm, UseFormReturn } from "react-hook-form";
+import { useForm, UseFormReturn, useWatch } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
-import { getEqualWeights } from "shared/experiments";
+import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
+import { Flex, Box, Text, Separator } from "@radix-ui/themes";
+import { mergeContiguousRanges } from "@/components/Features/NamespaceSelectorUtils";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
@@ -18,9 +20,13 @@ import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
+import {
+  AttributeOptionWithTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
+import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import FeatureVariationsInput from "@/components//Features/FeatureVariationsInput";
 import ConditionInput from "@/components//Features/ConditionInput";
 import NamespaceSelector from "@/components//Features/NamespaceSelector";
@@ -28,11 +34,12 @@ import SelectField from "@/components//Forms/SelectField";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import track from "@/services/track";
-import RadioGroup, { RadioOptions } from "@/components/Radix/RadioGroup";
-import Checkbox from "@/components/Radix/Checkbox";
+import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
+import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";
@@ -77,21 +84,21 @@ export default function EditTargetingModal({
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
-    experiment.project
+    experiment.project,
   );
 
   const isBandit = experiment.type === "multi-armed-bandit";
 
-  const [
-    prerequisiteTargetingSdkIssues,
-    setPrerequisiteTargetingSdkIssues,
-  ] = useState(false);
+  const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
+    useState(false);
   const canSubmit = !prerequisiteTargetingSdkIssues;
 
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
 
   const lastStepNumber = changeType !== "phase" ? 2 : 1;
+
+  const lastPhaseVariations = getLatestPhaseVariations(experiment);
 
   const defaultValues = {
     condition: lastPhase?.condition ?? "",
@@ -104,16 +111,36 @@ export default function EditTargetingModal({
     disableStickyBucketing: experiment.disableStickyBucketing ?? false,
     bucketVersion: experiment.bucketVersion || 1,
     minBucketVersion: experiment.minBucketVersion || 0,
-    namespace: lastPhase?.namespace || {
-      enabled: false,
-      name: "",
-      range: [0, 1],
-    },
+    namespace: (() => {
+      const saved = lastPhase?.namespace;
+      if (!saved) {
+        // Canonical blank shape; matches what NamespaceSelector writes so
+        // `isEqual(watched, defaults)` can't misfire from shape drift.
+        return {
+          enabled: false,
+          name: "",
+          format: "legacy" as const,
+          ranges: [] as [number, number][],
+        };
+      }
+      // Fold legacy `range` → `ranges` so defaults line up with the shape
+      // NamespaceSelector produces immediately on mount.
+      if ("range" in saved && !("ranges" in saved)) {
+        return { ...omit(saved, "range"), ranges: [saved.range] };
+      }
+      return saved;
+    })(),
     seed: lastPhase?.seed ?? "",
     trackingKey: experiment.trackingKey || "",
     variationWeights:
       lastPhase?.variationWeights ??
-      getEqualWeights(experiment.variations.length, 4),
+      getEqualWeights(lastPhaseVariations.length, 4),
+    variations:
+      lastPhase?.variations ??
+      lastPhaseVariations.map((v) => ({
+        id: v.id,
+        status: "active" as const,
+      })),
     newPhase: false,
     reseed: true,
   };
@@ -122,19 +149,16 @@ export default function EditTargetingModal({
     defaultValues,
   });
 
-  const _formValues = omit(form.getValues(), [
-    "newPhase",
-    "reseed",
-    "bucketVersion",
-    "minBucketVersion",
-  ]);
-  const _defaultValues = omit(defaultValues, [
-    "newPhase",
-    "reseed",
-    "bucketVersion",
-    "minBucketVersion",
-  ]);
-  const hasChanges = !isEqual(_formValues, _defaultValues);
+  // useWatch so that form.setValue calls from NamespaceSelector (a child)
+  // trigger a re-render here. Control flags are excluded because they're
+  // mutated programmatically by the change-type step, not by the user.
+  const watchedValues = useWatch({ control: form.control });
+  const pickForCompare = <T extends Record<string, unknown>>(v: T) =>
+    omit(v, ["newPhase", "reseed", "bucketVersion", "minBucketVersion"]);
+  const hasChanges = !isEqual(
+    pickForCompare(watchedValues),
+    pickForCompare(defaultValues),
+  );
 
   useEffect(() => {
     if (changeType !== "advanced") {
@@ -171,24 +195,37 @@ export default function EditTargetingModal({
       throw new Error("Prerequisite targeting issues must be resolved");
     }
 
+    // Collapse contiguous / overlapping namespace ranges on save so the
+    // persisted phase carries a clean shape (e.g. [0.6, 0.9] + [0.9, 1] →
+    // [0.6, 1]). We do this here rather than while the user is editing so
+    // ranges don't flicker and collapse mid-edit.
+    const ns = value.namespace as
+      | { enabled?: boolean; ranges?: [number, number][] }
+      | undefined;
+    if (ns?.enabled && ns.ranges && ns.ranges.length > 0) {
+      ns.ranges = mergeContiguousRanges(ns.ranges);
+    }
+
     await apiCall(`/experiment/${experiment.id}/targeting`, {
       method: "POST",
       body: JSON.stringify(value),
     });
     mutate();
-    track("edit-experiment-targeting");
+    track("edit-experiment-targeting", {
+      type: changeType,
+      action: releasePlan,
+    });
   });
 
   if (safeToEdit) {
     return (
-      <Modal
+      <ModalStandard
         trackingEventModalType=""
         open={true}
         close={close}
-        header={`Edit Targeting`}
+        header="Edit Targeting"
         ctaEnabled={canSubmit}
         submit={onSubmit}
-        cta="Save"
         size="lg"
       >
         <TargetingForm
@@ -198,7 +235,7 @@ export default function EditTargetingModal({
           conditionKey={conditionKey}
           setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
         />
-      </Modal>
+      </ModalStandard>
     );
   }
 
@@ -244,35 +281,41 @@ export default function EditTargetingModal({
       }}
       secondaryCTA={
         step === lastStepNumber ? (
-          <div className="col ml-1 pl-0" style={{ minWidth: 520 }}>
-            <div className="d-flex m-0 px-2 py-1 alert alert-warning align-items-center">
-              <div>
-                <strong>Warning:</strong> Changes made will apply to linked
-                Feature Flags, Visual Changes, and URL Redirects immediately
-                upon publishing
-              </div>
-              <label
-                htmlFor="confirm-changes"
-                className="btn btn-sm btn-warning d-flex my-1 ml-1 px-1 d-flex align-items-center justify-content-md-center"
-                style={{ height: 35 }}
-              >
-                <strong className="mr-2 user-select-none text-dark">
-                  Confirm
-                </strong>
-                <input
-                  id="confirm-changes"
-                  type="checkbox"
-                  checked={changesConfirmed}
-                  onChange={(e) => setChangesConfirmed(e.target.checked)}
-                />
-              </label>
-            </div>
-          </div>
+          <Box style={{ minWidth: 520 }}>
+            <Callout status="warning" contentsAs="div">
+              <Flex align="center" justify="between" gap="3">
+                <Text>
+                  <Text weight="bold">Warning:</Text> Changes made will apply to
+                  linked Feature Flags, Visual Changes, and URL Redirects
+                  immediately upon publishing
+                </Text>
+                <Box>
+                  <label
+                    htmlFor="confirm-changes"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Text weight="bold">Confirm</Text>
+                    <input
+                      id="confirm-changes"
+                      type="checkbox"
+                      checked={changesConfirmed}
+                      onChange={(e) => setChangesConfirmed(e.target.checked)}
+                    />
+                  </label>
+                </Box>
+              </Flex>
+            </Callout>
+          </Box>
         ) : undefined
       }
     >
       <Page display="Type of Changes">
-        <div className="px-3 py-2">
+        <div className="py-2">
           <ChangeTypeSelector
             experiment={experiment}
             changeType={changeType}
@@ -297,7 +340,7 @@ export default function EditTargetingModal({
 
       {changeType !== "phase" && (
         <Page display="Make Changes">
-          <div className="px-2">
+          <div>
             <TargetingForm
               experiment={experiment}
               form={form}
@@ -313,7 +356,7 @@ export default function EditTargetingModal({
       )}
 
       <Page display="Review & Deploy">
-        <div className="px-3 mt-2">
+        <div className="mt-2">
           <ReleaseChangesForm
             experiment={experiment}
             form={form}
@@ -402,9 +445,16 @@ function TargetingForm({
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
-  const hashAttributeOptions = attributeSchema
+  const hashAttributeOptions: AttributeOptionForTooltip[] = attributeSchema
     .filter((s) => !hasHashAttributes || s.hashAttribute)
-    .map((s) => ({ label: s.property, value: s.property }));
+    .map((s) => ({
+      label: s.property,
+      value: s.property,
+      description: s.description,
+      tags: s.tags,
+      datatype: s.datatype,
+      hashAttribute: s.hashAttribute,
+    }));
 
   // If the current hashAttribute isn't in the list, add it for backwards compatibility
   // this could happen if the hashAttribute has been archived, or removed from the experiment's project after the experiment was creaetd
@@ -432,10 +482,8 @@ function TargetingForm({
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
 
-  const isBandit = experiment.type === "multi-armed-bandit";
-
   return (
-    <div className="px-2 pt-2">
+    <div className="pt-2">
       {safeToEdit && (
         <>
           <Field
@@ -459,6 +507,7 @@ function TargetingForm({
             }
           />
           <SelectField
+            withRadixThemedPortal
             containerClassName="flex-1"
             label="Assign variation based on attribute"
             labelClassName="font-weight-bold"
@@ -467,6 +516,16 @@ function TargetingForm({
             value={form.watch("hashAttribute")}
             onChange={(v) => {
               form.setValue("hashAttribute", v);
+            }}
+            formatOptionLabel={(o, meta) => {
+              return (
+                <AttributeOptionWithTooltip
+                  option={o as AttributeOptionForTooltip}
+                  context={meta.context}
+                >
+                  {o.label}
+                </AttributeOptionWithTooltip>
+              );
             }}
             helpText={"The globally unique tracking key for the experiment"}
           />
@@ -480,7 +539,7 @@ function TargetingForm({
             project={experiment.project}
           />
 
-          {orgStickyBucketing && !isBandit ? (
+          {orgStickyBucketing ? (
             <Checkbox
               mt="4"
               size="lg"
@@ -497,13 +556,11 @@ function TargetingForm({
 
       {(!hasLinkedChanges || safeToEdit) && <hr className="my-4" />}
       {!hasLinkedChanges && (
-        <>
-          <div className="alert alert-info">
-            Changes made below are only metadata changes and will have no impact
-            on actual experiment delivery unless you link a GrowthBook-managed
-            Linked Feature or Visual Change to this experiment.
-          </div>
-        </>
+        <Callout status="info" mb="4">
+          Changes made below are only metadata changes and will have no impact
+          on actual experiment delivery unless you link a GrowthBook-managed
+          Linked Feature or Visual Change to this experiment.
+        </Callout>
       )}
 
       {["targeting", "advanced"].includes(changeType) && (
@@ -513,15 +570,15 @@ function TargetingForm({
             setValue={(v) => form.setValue("savedGroups", v)}
             project={experiment.project || ""}
           />
-          <hr />
+          <Separator size="4" my="5" />
           <ConditionInput
             defaultValue={form.watch("condition")}
             onChange={(condition) => form.setValue("condition", condition)}
             key={conditionKey}
             project={experiment.project || ""}
           />
-          <hr />
-          <PrerequisiteTargetingField
+          <Separator size="4" my="5" />
+          <PrerequisiteInput
             value={form.watch("prerequisites") || []}
             setValue={(prerequisites) =>
               form.setValue("prerequisites", prerequisites)
@@ -542,6 +599,8 @@ function TargetingForm({
             form={form}
             featureId={experiment.trackingKey}
             trackingKey={experiment.trackingKey}
+            experimentHashAttribute={form.watch("hashAttribute")}
+            fallbackAttribute={form.watch("fallbackAttribute")}
           />
           {["advanced"].includes(changeType) && <hr />}
         </>
@@ -555,9 +614,8 @@ function TargetingForm({
           setWeight={(i, weight) =>
             form.setValue(`variationWeights.${i}`, weight)
           }
-          valueAsId={true}
           variations={
-            experiment.variations.map((v, i) => {
+            getLatestPhaseVariations(experiment).map((v, i) => {
               return {
                 value: v.key || i + "",
                 name: v.name,
@@ -574,8 +632,8 @@ function TargetingForm({
             changeType === "traffic" || type === "multi-armed-bandit"
               ? "Traffic Percentage"
               : changeType === "weights"
-              ? "Variation Weights"
-              : "Traffic Percentage & Variation Weights"
+                ? "Variation Weights"
+                : "Traffic Percentage & Variation Weights"
           }
           startEditingSplits={true}
         />

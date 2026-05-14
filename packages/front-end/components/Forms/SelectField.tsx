@@ -1,15 +1,39 @@
-import { FC, useMemo, useRef, ReactNode, useState } from "react";
+import {
+  FC,
+  useMemo,
+  useRef,
+  ReactNode,
+  useState,
+  ComponentProps,
+} from "react";
 import ReactSelect, {
   components,
+  ClearIndicatorProps,
   InputProps,
   FormatOptionLabelMeta,
+  StylesConfig,
 } from "react-select";
 import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
+import { PiXBold } from "react-icons/pi";
 import CreatableSelect from "react-select/creatable";
+import { RadixTheme } from "@/services/RadixTheme";
 import Field, { FieldProps } from "./Field";
 
-export type SingleValue = { label: string; value: string; tooltip?: string };
+export const RadixThemeMenuPortal = (
+  props: ComponentProps<typeof components.MenuPortal>,
+) => (
+  <RadixTheme>
+    <components.MenuPortal {...props} />
+  </RadixTheme>
+);
+
+export type SingleValue = {
+  label: string;
+  value: string;
+  tooltip?: string;
+  isDisabled?: boolean;
+};
 export type GroupedValue = { label: string; options: SingleValue[] };
 export type Option = SingleValue | GroupedValue;
 export function isSingleValue(option: Option): option is SingleValue {
@@ -17,7 +41,7 @@ export function isSingleValue(option: Option): option is SingleValue {
 }
 export type FormatOptionLabelType = (
   value: SingleValue,
-  meta: FormatOptionLabelMeta<SingleValue>
+  meta: FormatOptionLabelMeta<SingleValue>,
 ) => ReactNode;
 
 export type SelectFieldProps = Omit<
@@ -25,6 +49,7 @@ export type SelectFieldProps = Omit<
   "value" | "onChange" | "options" | "multi" | "initialOption" | "placeholder"
 > & {
   value: string;
+  markRequired?: boolean;
   placeholder?: string;
   options: (SingleValue | GroupedValue)[];
   initialOption?: string;
@@ -38,12 +63,16 @@ export type SelectFieldProps = Omit<
   isClearable?: boolean;
   onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   isOptionDisabled?: (_: Option) => boolean;
+  forceUndefinedValueToNull?: boolean;
+  useMultilineLabels?: boolean;
+  containerStyles?: StylesConfig<SingleValue, boolean>;
+  withRadixThemedPortal?: boolean;
 };
 
 export function useSelectOptions(
   options: (SingleValue | GroupedValue)[],
   initialOption?: string,
-  sort?: boolean
+  sort?: boolean,
 ) {
   return useMemo(() => {
     const m = new Map<string, SingleValue>();
@@ -74,7 +103,6 @@ export function useSelectOptions(
       clone.unshift(o);
       m.set("", o);
     }
-
     return [m, clone] as const;
   }, [options, initialOption]);
 }
@@ -84,6 +112,14 @@ const Input = (props: InputProps) => {
   const { onPaste } = props.selectProps;
   return <components.Input onPaste={onPaste} {...props} />;
 };
+
+function CustomClearIndicator(props: ClearIndicatorProps<SingleValue, false>) {
+  return (
+    <components.ClearIndicator {...props}>
+      <PiXBold />
+    </components.ClearIndicator>
+  );
+}
 
 export const ReactSelectProps = {
   // See react-select.scss and apply styles with CSS
@@ -122,16 +158,28 @@ export const ReactSelectProps = {
         backgroundColor: "var(--surface-background-color)",
       };
     },
-    option: (styles, { isFocused }) => {
+    option: (styles, { isFocused, isDisabled }) => {
       return {
         ...styles,
         color: isFocused ? "var(--text-hover-color)" : "var(--text-color-main)",
+        ...(isDisabled
+          ? {
+              opacity: 0.5,
+              color: "var(--text-color-muted)",
+              cursor: "not-allowed",
+            }
+          : {}),
       };
     },
-    input: (styles) => {
+    input: (styles, state) => {
+      // When focused, constrain the grid columns to prevent unbounded growth
+      const isFocused = !!state.selectProps.menuIsOpen;
       return {
         ...styles,
         color: "var(--text-color-main)",
+        ...(isFocused && {
+          gridTemplateColumns: "0 minmax(2px, 1fr)",
+        }),
       };
     },
     singleValue: (styles) => {
@@ -143,6 +191,18 @@ export const ReactSelectProps = {
   },
   menuPosition: "fixed" as const,
   isSearchable: true,
+};
+
+const multilineStyles = {
+  singleValue: (styles: Record<string, unknown>) => ({
+    ...styles,
+    color: "var(--text-color-main)",
+    whiteSpace: "normal",
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    lineHeight: "1.2",
+  }),
 };
 
 const SelectField: FC<SelectFieldProps> = ({
@@ -166,6 +226,11 @@ const SelectField: FC<SelectFieldProps> = ({
   isClearable = false,
   onPaste,
   isOptionDisabled,
+  // forces re-render when input is undefined
+  forceUndefinedValueToNull = false,
+  useMultilineLabels = false,
+  containerStyles = {},
+  withRadixThemedPortal = false,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -184,6 +249,39 @@ const SelectField: FC<SelectFieldProps> = ({
   const fieldProps = otherProps as any;
 
   const selectRef = useRef(null);
+
+  // chain merge React Select styles
+  const mergedStyles: StylesConfig<SingleValue, false> = useMemo(() => {
+    const baseStyles = {
+      ...ReactSelectProps.styles,
+      ...(useMultilineLabels ? multilineStyles : {}),
+    };
+
+    const merged: StylesConfig<SingleValue, false> = { ...baseStyles };
+
+    // For each key in containerStyles, merge it with the base style function
+    Object.keys(containerStyles).forEach((key) => {
+      const baseStyleFn = baseStyles[key];
+      const containerStyleFn = containerStyles[key];
+
+      if (
+        typeof containerStyleFn === "function" &&
+        typeof baseStyleFn === "function"
+      ) {
+        merged[key] = (base, state) => {
+          const baseResult = baseStyleFn(base, state);
+          const containerResult = containerStyleFn(baseResult, state);
+          return containerResult;
+        };
+      } else if (typeof containerStyleFn === "function") {
+        merged[key] = containerStyleFn;
+      } else {
+        merged[key] = containerStyleFn;
+      }
+    });
+
+    return merged;
+  }, [useMultilineLabels, containerStyles]);
 
   if (!options.length && createable) {
     return (
@@ -213,12 +311,13 @@ const SelectField: FC<SelectFieldProps> = ({
             className={clsx(
               "gb-select-wrapper position-relative",
               disabled ? "disabled" : "",
-              className
+              className,
             )}
           >
             {createable ? (
               <CreatableSelect
                 {...ReactSelectProps}
+                styles={mergedStyles}
                 id={id}
                 ref={ref}
                 classNamePrefix="gb-select"
@@ -229,7 +328,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 options={sorted}
                 formatCreateLabel={formatCreateLabel}
                 isValidNewOption={(value) => {
-                  if (!otherProps.pattern) return true;
+                  if (!otherProps.pattern) return !!value;
                   return new RegExp(otherProps.pattern).test(value);
                 }}
                 autoFocus={autoFocus}
@@ -269,16 +368,21 @@ const SelectField: FC<SelectFieldProps> = ({
                 formatOptionLabel={formatOptionLabel}
                 formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
-                // @ts-expect-error onPaste is passed to Input
                 onPaste={onPaste}
                 components={{
                   Input,
+                  IndicatorSeparator: () => null,
+                  ClearIndicator: CustomClearIndicator,
+                  ...(withRadixThemedPortal && {
+                    MenuPortal: RadixThemeMenuPortal,
+                  }),
                 }}
                 isOptionDisabled={isOptionDisabled}
               />
             ) : (
               <ReactSelect
                 {...ReactSelectProps}
+                styles={mergedStyles}
                 id={id}
                 ref={ref}
                 isClearable={isClearable}
@@ -290,15 +394,21 @@ const SelectField: FC<SelectFieldProps> = ({
                 }}
                 onBlur={onBlur}
                 autoFocus={autoFocus}
-                value={selected}
+                value={
+                  forceUndefinedValueToNull ? (selected ?? null) : selected
+                }
                 placeholder={initialOption ?? placeholder}
                 formatOptionLabel={formatOptionLabel}
                 formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
-                // @ts-expect-error onPaste is passed to Input
                 onPaste={onPaste}
                 components={{
                   Input,
+                  IndicatorSeparator: () => null,
+                  ClearIndicator: CustomClearIndicator,
+                  ...(withRadixThemedPortal && {
+                    MenuPortal: RadixThemeMenuPortal,
+                  }),
                 }}
                 isOptionDisabled={isOptionDisabled}
               />

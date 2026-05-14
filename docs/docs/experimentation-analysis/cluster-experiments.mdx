@@ -1,3 +1,5 @@
+import MaxWidthImage from "@site/src/components/MaxWidthImage"
+
 # Cluster Experiments
 
 Cluster experiments are crucial when you need to **randomize at a group level** but **analyze at an individual level**. For example:
@@ -9,7 +11,9 @@ Cluster experiments are crucial when you need to **randomize at a group level** 
 
 In these cases, a cluster of units nests another set of units.
 
+<MaxWidthImage>
 ![Diagram illustrating cluster-level assignment and user-level analysis in a cluster experiment. Organizations are grouped into treatment (purple) and control (teal) clusters. Each organization (e.g., Organization A, B, C, D) nests multiple users (e.g., User A1, A2, A3). Arrows show the hierarchical relationship between clusters (organizations) and individual users, with assignment occurring at the cluster level and analysis performed at the user level.](/images/cluster-experiments/cluster-diagram.png)
+</MaxWidthImage>
 
 To provide a concrete example, we will use Organizations that nest Users where your goal is to randomize at the Organization level but
 analyze User level behavior.
@@ -33,13 +37,15 @@ To do this, create a [Fact Table](/app/metrics#fact-tables) that has both `organ
 along with whatever other columns you need to create your metrics of interest. You can also use multiple fact tables with this
 configuration if you prefer.
 
-:::caution
+:::warning Avoid multiple organizations per user
 
 There must be a one-to-many relationship between `organization_id` and `user_id`. Avoid users belonging to multiple organizations, as this can introduce bias.
 
 :::
 
+<MaxWidthImage>
 ![Fact Table example with organization and user ids, along with timestamp, event, and value columns](/images/cluster-experiments/cluster-fact-table.png)
+</MaxWidthImage>
 
 The screenshot above shows:
 
@@ -47,8 +53,7 @@ The screenshot above shows:
 - An `event` column that represents the event you are interested in measuring.
 - A numeric `value` column that represents the value of the event.
 
-:::info
-
+:::info Ensure every user has at least one event
 Every `user_id` exposed to the experiment should have at least 1 event logged to ensure inclusion in the metric denominator.
 
 :::
@@ -64,23 +69,29 @@ In the following example, we have a User Revenue metric:
 
 Note that we are not filtering the denominator to just users who made a purchase—instead, our denominator includes all users that had any event in this period.
 
+<MaxWidthImage>
 ![An example ratio fact metric with the sum of purchase values in the numerator and the distinct count of user ids in the denominator.](/images/cluster-experiments/cluster-metric.png)
+</MaxWidthImage>
 
 You can also create proportion-style ratio metrics:
 
 - The numerator is a `COUNT DISTINCT` number of `user_id` that did some particular event.
 - The denominator is a `COUNT DISTINCT` of `user_id` that logged any event.
 
-These metrics are aggregated by each variation, and our statistics engine uses the [Delta Method](https://docs.growthbook.io/statistics/details#ratio-metrics) to appropriately account for the fact that you are randomizing at a different level than you are analyzing.
+These metrics are aggregated by each variation, and our statistics engine uses the [Delta Method](/statistics/details#ratio-metrics) to appropriately account for the fact that you are randomizing at a different level than you are analyzing.
 
 ### 3. Create your Experiment at the Organization level
 
 All that is left to do is create your experiment where you randomize at the `organization_id` level. The following screenshot shows an example of that.
 
+<MaxWidthImage border>
 ![Setting organization_id as the hash attribute.](/images/cluster-experiments/cluster-hash.png)
+</MaxWidthImage>
 
 Be sure you pick the Experiment Assignment Table that has your `organization_id` mapping. If you do not have one, you may need to set it up in your Data Source to ensure that GrowthBook knows the mapping between `organization_id` and experiment and variation assignments.
 
+<MaxWidthImage border>
 ![Configuring the Experiment Assignment Table](/images/cluster-experiments/cluster-query.png)
+</MaxWidthImage>
 
 Add the metrics you created and analyze as usual!

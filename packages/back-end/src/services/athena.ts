@@ -4,13 +4,11 @@ import {
   ResultSet,
   StartQueryExecutionCommandInput,
 } from "@aws-sdk/client-athena";
-import { AthenaConnectionParams } from "back-end/types/integrations/athena";
+import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
+import { AthenaConnectionParams } from "shared/types/integrations/athena";
+import { parseEnvInt, parseOptionalInt } from "shared/util";
 import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import {
-  ExternalIdCallback,
-  QueryResponse,
-} from "back-end/src/types/Integration";
 
 async function assumeRole(params: AthenaConnectionParams) {
   // build sts client
@@ -60,7 +58,7 @@ async function getAthenaInstance(params: AthenaConnectionParams) {
 
 export async function cancelAthenaQuery(
   conn: AthenaConnectionParams,
-  id: string
+  id: string,
 ) {
   const athena = await getAthenaInstance(conn);
   await athena.stopQueryExecution({
@@ -71,14 +69,26 @@ export async function cancelAthenaQuery(
 export async function runAthenaQuery(
   conn: AthenaConnectionParams,
   sql: string,
-  setExternalId: ExternalIdCallback
+  setExternalId: ExternalIdCallback,
 ): Promise<QueryResponse> {
+  // AWS Athena has a hard limit of 262,144 characters for the QueryString parameter
+  // Fail early to avoid CPU and memory issues on the server
+  const MAX_QUERY_LENGTH = 262144;
+  if (sql.length > MAX_QUERY_LENGTH) {
+    throw new Error(
+      `Query string length (${sql.length} characters) exceeds Athena's maximum allowed length of ${MAX_QUERY_LENGTH} characters. Please simplify your query.`,
+    );
+  }
+
   const athena = await getAthenaInstance(conn);
 
   const { database, bucketUri, workGroup, catalog } = conn;
 
   const retryWaitTime =
-    (parseInt(process.env.ATHENA_RETRY_WAIT_TIME || "60") || 60) * 1000;
+    parseEnvInt(process.env.ATHENA_RETRY_WAIT_TIME, 60, {
+      min: 1,
+      name: "ATHENA_RETRY_WAIT_TIME",
+    }) * 1000;
 
   const startQueryExecutionArgs: StartQueryExecutionCommandInput = {
     QueryString: sql,
@@ -95,9 +105,9 @@ export async function runAthenaQuery(
     WorkGroup: workGroup || "primary",
   };
 
-  const resultReuseMaxAgeInMinutes = conn.resultReuseMaxAgeInMinutes
-    ? parseInt(conn.resultReuseMaxAgeInMinutes)
-    : undefined;
+  const resultReuseMaxAgeInMinutes = parseOptionalInt(
+    conn.resultReuseMaxAgeInMinutes,
+  );
 
   // Skipped when parsed setting is 0, NaN, or not present
   if (resultReuseMaxAgeInMinutes) {
@@ -110,7 +120,7 @@ export async function runAthenaQuery(
   }
 
   const { QueryExecutionId } = await athena.startQueryExecution(
-    startQueryExecutionArgs
+    startQueryExecutionArgs,
   );
 
   if (!QueryExecutionId) {
@@ -137,7 +147,7 @@ export async function runAthenaQuery(
                 logger.debug(
                   `Athena query (${QueryExecutionId}) recovered from SlowDown error in ${
                     timeWaitingForFailure + delay
-                  }ms`
+                  }ms`,
                 );
               }
               timeWaitingForFailure = 0;
@@ -148,7 +158,7 @@ export async function runAthenaQuery(
               if (StateChangeReason?.includes("SlowDown")) {
                 if (timeWaitingForFailure === 0) {
                   logger.debug(
-                    `Athena query (${QueryExecutionId}) received SlowDown error, waiting up to ${retryWaitTime}ms for transition back to running`
+                    `Athena query (${QueryExecutionId}) received SlowDown error, waiting up to ${retryWaitTime}ms for transition back to running`,
                   );
                 }
 
@@ -156,7 +166,7 @@ export async function runAthenaQuery(
 
                 if (timeWaitingForFailure >= retryWaitTime) {
                   logger.debug(
-                    `Athena query (${QueryExecutionId}) received SlowDown error, has not recovered within ${timeWaitingForFailure}ms, failing query`
+                    `Athena query (${QueryExecutionId}) received SlowDown error, has not recovered within ${timeWaitingForFailure}ms, failing query`,
                   );
                   reject(new Error(StateChangeReason));
                 } else {

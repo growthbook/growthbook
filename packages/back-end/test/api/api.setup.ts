@@ -1,15 +1,19 @@
+import { randomUUID } from "crypto";
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
+import merge from "lodash/merge";
 import { getAuthConnection } from "back-end/src/services/auth";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
 import app from "back-end/src/app";
 import mongoInit from "back-end/src/init/mongo";
 import { queueInit } from "back-end/src/init/queue";
 import { getAgendaInstance } from "back-end/src/services/queueing";
+import { waitForIndexes } from "back-end/src/models/BaseModel";
+import { ReqContextClass } from "back-end/src/services/context";
 
 jest.mock("back-end/src/util/secrets", () => ({
   ...jest.requireActual("back-end/src/util/secrets"),
-  CRON_ENABLED: 1,
+  CRON_ENABLED: 0,
 }));
 
 jest.mock("back-end/src/services/auth", () => ({
@@ -21,7 +25,7 @@ jest.mock("back-end/src/services/auth", () => ({
 
 jest.mock("back-end/src/middleware/authenticateApiRequestMiddleware", () => ({
   ...jest.requireActual(
-    "back-end/src/middleware/authenticateApiRequestMiddleware"
+    "back-end/src/middleware/authenticateApiRequestMiddleware",
   ),
   __esModule: true,
   default: jest.fn(),
@@ -44,14 +48,45 @@ export const setupApp = () => {
       authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
         req.audit = auditMock;
         req.context = reqContext;
+        req.organization = reqContext?.org;
+        // The /api/v1 router rate-limits per req.apiKey (60 req/min). The real
+        // auth middleware sets this; under this mock we give each request a
+        // unique key so the limiter never crosses test boundaries.
+        req.apiKey = randomUUID();
         next();
       });
 
       await mongoInit();
       await queueInit();
-      // This seems to help:
-      setTimeout(resolve, 100);
-    });
+
+      // Initialize all models by creating a dummy context
+      // This triggers index creation for all collections
+      new ReqContextClass({
+        org: {
+          id: "org_dummy_for_setup",
+          name: "Dummy",
+          ownerEmail: "test@test.com",
+          url: "",
+          dateCreated: new Date(),
+          members: [],
+        },
+        auditUser: {
+          id: "dummy",
+          email: "test@test.com",
+          name: "Test",
+        },
+        teams: [],
+        user: {
+          id: "dummy",
+          email: "test@test.com",
+          name: "Test",
+          superAdmin: true,
+        },
+      });
+      // Wait for all model indexes to be created before running tests
+      await waitForIndexes();
+      resolve();
+    }, 60000); // Increase timeout to 60s for CI environment
 
     afterAll(async () => {
       await getAgendaInstance().stop();
@@ -76,6 +111,9 @@ export const setupApp = () => {
     isReady,
     setReqContext: (v) => {
       reqContext = v;
+    },
+    updateReqContext: (v) => {
+      reqContext = merge({}, reqContext, v);
     },
   };
 };

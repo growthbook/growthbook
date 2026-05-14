@@ -1,7 +1,34 @@
 import cloneDeep from "lodash/cloneDeep";
 import { evaluatePrerequisiteState } from "shared/util";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { generateFeaturesPayload } from "back-end/src/services/features";
+
+// Test-local normalizer: these fixtures were authored in the v1 shape
+// (rules under environmentSettings[env].rules). The production JIT
+// migration (`migrateRawFeatureToV2`) handles this on read, but these
+// tests feed fixtures directly into generateFeaturesPayload. This helper
+// flattens v1 fixtures into v2 (`feature.rules` with per-env scope) so
+// the existing fixtures don't need a line-by-line rewrite.
+function normalizeV1Fixture(feature: FeatureInterface): FeatureInterface {
+  const flatRules: FeatureRule[] = [];
+  const es = feature.environmentSettings as unknown as Record<
+    string,
+    { enabled: boolean; rules?: FeatureRule[] }
+  >;
+  for (const [env, settings] of Object.entries(es ?? {})) {
+    for (const r of settings.rules ?? []) {
+      flatRules.push({
+        ...r,
+        allEnvironments: false,
+        environments: [env],
+      } as FeatureRule);
+    }
+  }
+  return {
+    ...feature,
+    rules: flatRules,
+  };
+}
 
 describe("Prerequisite reduction in SDK Payload", () => {
   const childFeature: FeatureInterface = {
@@ -51,10 +78,11 @@ describe("Prerequisite reduction in SDK Payload", () => {
       cloneDeep(parentFeature),
     ];
     const payload = generateFeaturesPayload({
-      features: features,
+      features: features.map(normalizeV1Fixture),
       environment: "production",
       groupMap: new Map(),
       experimentMap: new Map(),
+      capabilities: [],
     });
     expect(payload).toHaveProperty("parent1");
     expect(payload).toHaveProperty("child1");
@@ -73,10 +101,11 @@ describe("Prerequisite reduction in SDK Payload", () => {
       },
     ];
     const payload = generateFeaturesPayload({
-      features: features,
+      features: features.map(normalizeV1Fixture),
       environment: "production",
       groupMap: new Map(),
       experimentMap: new Map(),
+      capabilities: [],
     });
     expect(payload).toHaveProperty("parent1");
     expect(payload).not.toHaveProperty("child1");
@@ -98,10 +127,11 @@ describe("Prerequisite reduction in SDK Payload", () => {
       },
     ];
     const payload = generateFeaturesPayload({
-      features: features,
+      features: features.map(normalizeV1Fixture),
       environment: "production",
       groupMap: new Map(),
       experimentMap: new Map(),
+      capabilities: [],
     });
     // both parent and child should be scrubbed
     expect(payload).not.toHaveProperty("parent1");
@@ -122,7 +152,6 @@ describe("Prerequisite reduction in SDK Payload", () => {
                 {
                   type: "force",
                   description: "",
-                  id: "1",
                   value: "true",
                   condition: `{"country": "US"}`,
                   enabled: true,
@@ -134,10 +163,11 @@ describe("Prerequisite reduction in SDK Payload", () => {
       },
     ];
     const payload = generateFeaturesPayload({
-      features: features,
+      features: features.map(normalizeV1Fixture),
       environment: "production",
       groupMap: new Map(),
       experimentMap: new Map(),
+      capabilities: ["prerequisites"],
     });
     expect(payload).toHaveProperty("parent1");
     expect(payload).toHaveProperty("child1");
@@ -177,10 +207,11 @@ describe("Prerequisite reduction in SDK Payload", () => {
       },
     ];
     const payload = generateFeaturesPayload({
-      features: features,
+      features: features.map(normalizeV1Fixture),
       environment: "production",
       groupMap: new Map(),
       experimentMap: new Map(),
+      capabilities: [],
     });
     expect(payload).not.toHaveProperty("parent2");
     expect(payload).not.toHaveProperty("parent1");
@@ -219,10 +250,11 @@ describe("Prerequisite reduction in SDK Payload", () => {
       },
     ];
     const payload = generateFeaturesPayload({
-      features: features,
+      features: features.map(normalizeV1Fixture),
       environment: "production",
       groupMap: new Map(),
       experimentMap: new Map(),
+      capabilities: [],
     });
     expect(payload).not.toHaveProperty("parent2");
     expect(payload).toHaveProperty("parent1");
@@ -242,7 +274,6 @@ describe("Prerequisite reduction in SDK Payload", () => {
                 {
                   type: "force",
                   description: "should keep, no prereqs",
-                  id: "1",
                   value: "true",
                   condition: `{"country": "US-1"}`,
                   enabled: true,
@@ -250,7 +281,6 @@ describe("Prerequisite reduction in SDK Payload", () => {
                 {
                   type: "force",
                   description: "should remove, true !== false",
-                  id: "2",
                   value: "true",
                   condition: `{"country": "US-2"}`,
                   prerequisites: [
@@ -264,7 +294,6 @@ describe("Prerequisite reduction in SDK Payload", () => {
                 {
                   type: "force",
                   description: "should keep, false === false",
-                  id: "3",
                   value: "true",
                   condition: `{"country": "US-3"}`,
                   prerequisites: [
@@ -278,7 +307,6 @@ describe("Prerequisite reduction in SDK Payload", () => {
                 {
                   type: "force",
                   description: "should keep, feature exists",
-                  id: "4",
                   value: "true",
                   condition: `{"country": "US-4"}`,
                   prerequisites: [
@@ -293,7 +321,6 @@ describe("Prerequisite reduction in SDK Payload", () => {
                   type: "force",
                   description:
                     "should remove, feature exists but checking not exists",
-                  id: "5",
                   value: "true",
                   condition: `{"country": "US-5"}`,
                   prerequisites: [
@@ -307,7 +334,6 @@ describe("Prerequisite reduction in SDK Payload", () => {
                 {
                   type: "force",
                   description: "should remove, a prereq (parent2) is missing",
-                  id: "6",
                   value: "true",
                   condition: `{"country": "US-6"}`,
                   prerequisites: [
@@ -325,7 +351,6 @@ describe("Prerequisite reduction in SDK Payload", () => {
                 {
                   type: "force",
                   description: "should keep - complex condition",
-                  id: "7",
                   value: "true",
                   condition: `{"country": "US-7"}`,
                   prerequisites: [
@@ -339,7 +364,6 @@ describe("Prerequisite reduction in SDK Payload", () => {
                 {
                   type: "force",
                   description: "should remove - complex condition",
-                  id: "8",
                   value: "true",
                   condition: `{"country": "US-8"}`,
                   prerequisites: [
@@ -363,10 +387,11 @@ describe("Prerequisite reduction in SDK Payload", () => {
       },
     ];
     const payload = generateFeaturesPayload({
-      features: features,
+      features: features.map(normalizeV1Fixture),
       environment: "production",
       groupMap: new Map(),
       experimentMap: new Map(),
+      capabilities: [],
     });
     expect(payload.child1.rules).toStrictEqual([
       {
@@ -401,7 +426,6 @@ describe("Prerequisite reduction in SDK Payload", () => {
                 {
                   type: "force",
                   description: "should keep, no prereqs",
-                  id: "1",
                   value: "true",
                   condition: `{"country": "US-1"}`,
                   enabled: true,
@@ -409,7 +433,6 @@ describe("Prerequisite reduction in SDK Payload", () => {
                 {
                   type: "force",
                   description: "should remove, true !== false",
-                  id: "2",
                   value: "true",
                   condition: `{"country": "US-2"}`,
                   prerequisites: [
@@ -423,7 +446,6 @@ describe("Prerequisite reduction in SDK Payload", () => {
                 {
                   type: "force",
                   description: "should keep, false === false",
-                  id: "3",
                   value: "true",
                   condition: `{"country": "US-3"}`,
                   prerequisites: [
@@ -437,7 +459,6 @@ describe("Prerequisite reduction in SDK Payload", () => {
                 {
                   type: "force",
                   description: "should keep, feature exists",
-                  id: "4",
                   value: "true",
                   condition: `{"country": "US-4"}`,
                   prerequisites: [
@@ -452,7 +473,6 @@ describe("Prerequisite reduction in SDK Payload", () => {
                   type: "force",
                   description:
                     "should remove, feature exists but checking not exists",
-                  id: "5",
                   value: "true",
                   condition: `{"country": "US-5"}`,
                   prerequisites: [
@@ -466,7 +486,6 @@ describe("Prerequisite reduction in SDK Payload", () => {
                 {
                   type: "force",
                   description: "should remove, a prereq (parent2) is missing",
-                  id: "6",
                   value: "true",
                   condition: `{"country": "US-6"}`,
                   prerequisites: [
@@ -484,7 +503,6 @@ describe("Prerequisite reduction in SDK Payload", () => {
                 {
                   type: "force",
                   description: "should keep - complex condition",
-                  id: "7",
                   value: "true",
                   condition: `{"country": "US-7"}`,
                   prerequisites: [
@@ -498,7 +516,6 @@ describe("Prerequisite reduction in SDK Payload", () => {
                 {
                   type: "force",
                   description: "should remove - complex condition",
-                  id: "8",
                   value: "true",
                   condition: `{"country": "US-8"}`,
                   prerequisites: [
@@ -537,7 +554,6 @@ describe("Prerequisite reduction in SDK Payload", () => {
                 {
                   type: "force",
                   description: "random rule to force conditional state",
-                  id: "1",
                   value: "true",
                   condition: `{"foo": "bar"}`,
                   enabled: true,
@@ -553,15 +569,16 @@ describe("Prerequisite reduction in SDK Payload", () => {
     const parent1State = evaluatePrerequisiteState(
       features[1],
       featuresMap,
-      "production"
+      "production",
     );
     expect(parent1State.state).toEqual("conditional");
 
     const payload = generateFeaturesPayload({
-      features: features,
+      features: features.map(normalizeV1Fixture),
       environment: "production",
       groupMap: new Map(),
       experimentMap: new Map(),
+      capabilities: ["prerequisites"],
     });
 
     expect(payload.child1.rules).toStrictEqual([

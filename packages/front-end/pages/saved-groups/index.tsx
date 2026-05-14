@@ -1,15 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { SavedGroupInterface } from "shared/src/types";
-import { FaExternalLinkAlt } from "react-icons/fa";
-import { FeatureInterface } from "back-end/types/feature";
-import {
-  ExperimentInterface,
-  ExperimentInterfaceStringDates,
-} from "back-end/types/experiment";
-import { isEmpty } from "lodash";
+import { useRouter } from "next/router";
+import { SavedGroupWithoutValues } from "shared/types/saved-group";
+import { PiArrowSquareOut } from "react-icons/pi";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import IdLists from "@/components/SavedGroups/IdLists";
 import ConditionGroups from "@/components/SavedGroups/ConditionGroups";
+import SavedGroupReviews from "@/components/SavedGroups/SavedGroupReviews";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
@@ -18,89 +14,67 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/Radix/Tabs";
-
-export const getSavedGroupMessage = (
-  featuresUsingSavedGroups?: FeatureInterface[],
-  experimentsUsingSavedGroups?: Array<
-    ExperimentInterface | ExperimentInterfaceStringDates
-  >
-) => {
-  return async () => {
-    if (
-      !isEmpty(featuresUsingSavedGroups) ||
-      !isEmpty(experimentsUsingSavedGroups)
-    ) {
-      return (
-        <div>
-          <p className="alert alert-danger">
-            <strong>Whoops!</strong> Before you can delete this saved group, you
-            will need to update the item
-            {(featuresUsingSavedGroups?.length || 0) +
-              (experimentsUsingSavedGroups?.length || 0) >
-              1 && "s"}{" "}
-            listed below by removing any targeting conditions that rely on this
-            saved group.
-          </p>
-          <ul
-            className="border rounded bg-light pt-3 pb-3 overflow-auto"
-            style={{ maxHeight: "200px" }}
-          >
-            {(featuresUsingSavedGroups || []).map((feature) => {
-              return (
-                <li key={feature.id}>
-                  <div className="d-flex">
-                    <Link
-                      href={`/features/${feature.id}`}
-                      className="btn btn-link pt-1 pb-1"
-                    >
-                      {feature.id}
-                    </Link>
-                  </div>
-                </li>
-              );
-            })}
-
-            {(experimentsUsingSavedGroups || []).map((experiment) => {
-              return (
-                <li key={experiment.id}>
-                  <div className="d-flex">
-                    <Link
-                      href={`/experiment/${experiment.id}`}
-                      className="btn btn-link pt-1 pb-1"
-                    >
-                      {experiment.name}
-                    </Link>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      );
-    }
-    return null;
-  };
-};
+import useApi from "@/hooks/useApi";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
+import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 
 export default function SavedGroupsPage() {
+  const router = useRouter();
   const { mutateDefinitions, savedGroups, error } = useDefinitions();
 
   const [auditModal, setAuditModal] = useState(false);
 
   const { refreshOrganization } = useUser();
 
+  // Initialize activeTab from URL hash, default to conditionGroups
+  const getInitialTab = () => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash.slice(1); // Remove the #
+      if (
+        hash === "idLists" ||
+        hash === "conditionGroups" ||
+        hash === "drafts"
+      ) {
+        return hash;
+      }
+    }
+    return "conditionGroups";
+  };
+
+  const [activeTab, setActiveTab] = useState(getInitialTab);
+
+  // Sync activeTab with URL hash changes (e.g., browser back/forward)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.slice(1);
+      if (
+        hash === "idLists" ||
+        hash === "conditionGroups" ||
+        hash === "drafts"
+      ) {
+        setActiveTab(hash);
+      }
+    };
+
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
+
+  // Drives the badge count next to the "Drafts" tab. Uses the lightweight
+  // count endpoint so we don't have to fetch full revision documents.
+  const { data: openReviewsCountData } = useApi<{ count: number }>(
+    "/revision/count?entityType=saved-group",
+  );
+  const openReviewsCount = openReviewsCountData?.count ?? 0;
+
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
   const attributeSchema = useAttributeSchema();
   const [idLists, conditionGroups] = useMemo(() => {
-    const idLists: SavedGroupInterface[] = [];
-    const conditionGroups: SavedGroupInterface[] = [];
+    const idLists: SavedGroupWithoutValues[] = [];
+    const conditionGroups: SavedGroupWithoutValues[] = [];
     savedGroups.forEach((savedGroup) => {
       if (savedGroup.type === "condition") {
         conditionGroups.push(savedGroup);
@@ -116,7 +90,7 @@ export default function SavedGroupsPage() {
     // Not using $groups attribute in a any saved groups
     if (
       !savedGroups?.some(
-        (g) => g.type === "condition" && g.condition?.includes("$groups")
+        (g) => g.type === "condition" && g.condition?.includes("$groups"),
       )
     ) {
       return;
@@ -152,12 +126,12 @@ export default function SavedGroupsPage() {
 
   return (
     <div className="p-3 container-fluid pagecontents">
-      <div className="row">
-        <div className="col">
-          <h1>Saved Groups</h1>
-        </div>
-        <div className="col-auto">
-          <a
+      <Flex align="center" justify="between" mb="3">
+        <Heading size="7" as="h1">
+          Saved Groups
+        </Heading>
+        <Box>
+          <Link
             href="#"
             onClick={(e) => {
               e.preventDefault();
@@ -165,31 +139,52 @@ export default function SavedGroupsPage() {
             }}
           >
             View Audit Logs
-          </a>
-        </div>
-      </div>
-      <p>
+          </Link>
+        </Box>
+      </Flex>
+      <Text as="p" mb="3" color="gray">
         Create reusable user groups as targets for feature flags or experiments.
-      </p>
-      <div className="alert alert-info mt-2">
-        Learn more about using Condition Groups and ID Lists.{" "}
-        <a
+      </Text>
+      <HelperText status="info" my="4">
+        Learn more about using Condition Groups and ID Lists.
+        <Link
           href="https://docs.growthbook.io/features/targeting#saved-groups"
           target="_blank"
           rel="noreferrer"
-          className="underline"
+          ml="1"
         >
-          View docs <FaExternalLinkAlt />
-        </a>
-      </div>
+          Docs <PiArrowSquareOut />
+        </Link>
+      </HelperText>
 
       {error ? (
-        <div className="alert alert-danger">
+        <Callout status="error" mb="3">
           There was an error loading the list of groups.
-        </div>
+        </Callout>
       ) : (
         <>
-          <Tabs defaultValue="conditionGroups">
+          <Tabs
+            value={activeTab}
+            onValueChange={(newTab) => {
+              setActiveTab(newTab);
+              // Clear search query and update hash when switching tabs
+              const searchParams = new URLSearchParams(
+                router.query as Record<string, string>,
+              );
+              if (searchParams.has("q")) {
+                searchParams.delete("q");
+              }
+              router.replace(
+                {
+                  pathname: router.pathname,
+                  query: Object.fromEntries(searchParams),
+                  hash: `#${newTab}`,
+                },
+                undefined,
+                { shallow: true },
+              );
+            }}
+          >
             <TabsList>
               <TabsTrigger value="conditionGroups">
                 Condition Groups
@@ -203,6 +198,12 @@ export default function SavedGroupsPage() {
                   {idLists.length}
                 </span>
               </TabsTrigger>
+              <TabsTrigger value="drafts">
+                Drafts
+                <span className="ml-2 round-text-background text-main">
+                  {openReviewsCount}
+                </span>
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="conditionGroups">
@@ -214,6 +215,10 @@ export default function SavedGroupsPage() {
 
             <TabsContent value="idLists">
               <IdLists groups={savedGroups} mutate={mutateDefinitions} />
+            </TabsContent>
+
+            <TabsContent value="drafts">
+              <SavedGroupReviews />
             </TabsContent>
           </Tabs>
         </>

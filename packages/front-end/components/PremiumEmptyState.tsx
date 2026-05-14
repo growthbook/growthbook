@@ -1,8 +1,8 @@
 import React, { FC, useState } from "react";
-import { CommercialFeature } from "enterprise";
+import { CommercialFeature } from "shared/enterprise";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
-import LinkButton from "@/components/Radix/LinkButton";
-import Button from "@/components/Radix/Button";
+import LinkButton from "@/ui/LinkButton";
+import Button from "@/ui/Button";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
 
@@ -12,7 +12,7 @@ interface Props {
   description: string;
   learnMoreLink?: string;
   commercialFeature: CommercialFeature;
-  reason: string;
+  image?: string;
 }
 
 const PremiumEmptyState: FC<Props> = ({
@@ -21,7 +21,7 @@ const PremiumEmptyState: FC<Props> = ({
   h1 = "",
   learnMoreLink,
   commercialFeature,
-  reason,
+  image,
 }) => {
   const [upgradeModal, setUpgradeModal] = useState(false);
   const { hasCommercialFeature, commercialFeatureLowestPlan } = useUser();
@@ -41,7 +41,7 @@ const PremiumEmptyState: FC<Props> = ({
       {h1 && (
         <div className="mb-4 mt-3 d-flex align-items-center">
           <h1 className="mb-0">{h1}</h1>{" "}
-          <PaidFeatureBadge commercialFeature={commercialFeature} />
+          <PaidFeatureBadge commercialFeature={commercialFeature} mx="2" />
         </div>
       )}
       <div className="mb-5">
@@ -49,7 +49,7 @@ const PremiumEmptyState: FC<Props> = ({
           <div className="appbox p-5 text-center">
             <div className="py-2">
               <h2>{title}</h2>
-              <p>{description}</p>
+              <p style={{ color: "var(--color-text-mid)" }}>{description}</p>
               <div className="mt-4">
                 {learnMoreLink && (
                   <div className="mr-4 d-inline-block">
@@ -71,17 +71,26 @@ const PremiumEmptyState: FC<Props> = ({
                   {lowestPlanLevel === "enterprise"
                     ? "Enterprise"
                     : lowestPlanLevel === "pro"
-                    ? "Pro"
-                    : "access"}
+                      ? "Pro"
+                      : "access"}
                 </Button>
               </div>
+              {image && (
+                <div className="mt-4">
+                  <img
+                    src={image}
+                    alt={title}
+                    style={{ width: "100%", maxWidth: "740px", height: "auto" }}
+                  />
+                </div>
+              )}
             </div>
           </div>
           {upgradeModal && (
             <UpgradeModal
               close={() => setUpgradeModal(false)}
-              reason={reason}
               source={commercialFeature}
+              commercialFeature={commercialFeature}
             />
           )}
         </div>

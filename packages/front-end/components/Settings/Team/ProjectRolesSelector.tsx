@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { ProjectMemberRole } from "back-end/types/organization";
-import cloneDeep from "lodash/cloneDeep";
+import { ProjectMemberRole } from "shared/types/organization";
 import { getDefaultRole } from "shared/permissions";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Text from "@/ui/Text";
 import SingleRoleSelector from "./SingleRoleSelector";
 
 export default function ProjectRolesSelector({
@@ -29,11 +29,11 @@ export default function ProjectRolesSelector({
 
   return (
     <>
-      <label className="mb-2">
+      <Text as="label" weight="semibold" mb="2">
         <PremiumTooltip commercialFeature="advanced-permissions">
           Project Roles (optional)
         </PremiumTooltip>
-      </label>
+      </Text>
       {projectRoles.map((projectRole, i) => (
         <div className="appbox px-3 pt-2 bg-light" key={i}>
           <div style={{ float: "right" }}>
@@ -72,6 +72,7 @@ export default function ProjectRolesSelector({
             }
             disabled={!hasFeature}
             includeAdminRole={false}
+            includeProjectAdminRole={true}
           />
         </div>
       ))}
@@ -98,12 +99,12 @@ export default function ProjectRolesSelector({
                 if (!newProject) return;
 
                 const newProjectRoles: ProjectMemberRole[] = [...projectRoles];
-                newProjectRoles.push(
-                  cloneDeep({
-                    project: newProject,
-                    ...defaultRole,
-                  }) as ProjectMemberRole
-                );
+                newProjectRoles.push({
+                  project: newProject,
+                  role: defaultRole.role,
+                  limitAccessByEnvironment: false,
+                  environments: [],
+                });
                 setProjectRoles(newProjectRoles);
                 setNewProject("");
               }}

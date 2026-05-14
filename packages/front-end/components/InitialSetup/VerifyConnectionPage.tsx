@@ -1,5 +1,5 @@
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import { useState } from "react";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { useCallback, useEffect, useState } from "react";
 import {
   FaAngleDown,
   FaAngleRight,
@@ -22,8 +22,10 @@ import CheckSDKConnectionModal from "@/components/GuidedGetStarted/CheckSDKConne
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { DocLink } from "@/components/DocLink";
 import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
-import Callout from "@/components/Radix/Callout";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
 
 interface Props {
   connection: string | null;
@@ -44,8 +46,9 @@ const VerifyConnectionPage = ({
   const [setupOpen, setSetupOpen] = useState(true);
   const [attributesOpen, setAttributesOpen] = useState(true);
   const [inviting, setInviting] = useState(false);
+  const [eventTracker, setEventTracker] = useState("");
 
-  const { refreshOrganization } = useUser();
+  const { refreshOrganization, organization } = useUser();
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
   const { data, error, mutate } = useSDKConnections();
@@ -53,13 +56,45 @@ const VerifyConnectionPage = ({
   const currentConnection: SDKConnectionInterface | null =
     data?.connections.find((c) => c.id === connection) || null;
 
+  useEffect(() => {
+    if (currentConnection) {
+      setEventTracker(currentConnection?.eventTracker || "");
+    }
+  }, [currentConnection]);
+  const permissionsUtil = usePermissionsUtil();
+  const canUpdate = currentConnection
+    ? permissionsUtil.canUpdateSDKConnection(currentConnection, {})
+    : false;
+  const { apiCall } = useAuth();
+  const updateEventTracker = useCallback(
+    async (value: string) => {
+      try {
+        track("Event Tracker Selected", {
+          eventTracker,
+          language: currentConnection?.languages || [],
+        });
+        if (canUpdate && currentConnection?.id) {
+          await apiCall(`/sdk-connections/${currentConnection.id}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              eventTracker: value,
+            }),
+          });
+        }
+        setEventTracker(value);
+      } catch (e) {
+        setEventTracker(value);
+      }
+    },
+    [apiCall, canUpdate, currentConnection, eventTracker],
+  );
   const apiHost = currentConnection ? getApiBaseUrl(currentConnection) : "";
   const language = currentConnection?.languages[0] || "javascript";
   const { docs } = languageMapping[language];
   const hashSecureAttributes = !!currentConnection?.hashSecureAttributes;
   const secureAttributes =
     attributeSchema?.filter((a) =>
-      ["secureString", "secureString[]"].includes(a.datatype)
+      ["secureString", "secureString[]"].includes(a.datatype),
     ) || [];
   const secureAttributeSalt = settings.secureAttributeSalt ?? "";
 
@@ -100,27 +135,24 @@ const VerifyConnectionPage = ({
               Environment
             </h3>
 
-            <div className="ml-auto">
-              <button
-                className="btn btn-link"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setInviting(true);
-                }}
-              >
-                <PiPaperPlaneTiltFill className="mr-1" />
-                Invite your developer
-              </button>
-            </div>
+            {organization.demographicData?.ownerJobTitle !== "engineer" && (
+              <div className="ml-auto">
+                <button
+                  className="btn btn-link"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setInviting(true);
+                  }}
+                >
+                  <PiPaperPlaneTiltFill className="mr-1" />
+                  Invite your developer
+                </button>
+              </div>
+            )}
           </div>
           <DocLink docSection={docs}>
             View documentation <PiArrowRight />
           </DocLink>
-          <Callout status="info" mt="3">
-            Each environment requires its own SDK connection. Add more
-            environments via <b>SDK Configuration {">"} Environments</b>. Then,
-            create the SDK connection for each environment.
-          </Callout>
           <div className="mt-4 mb-3">
             <h4
               className="cursor-pointer"
@@ -136,6 +168,8 @@ const VerifyConnectionPage = ({
               <div className="appbox bg-light p-3">
                 <InstallationCodeSnippet
                   language={currentConnection.languages[0]}
+                  eventTracker={eventTracker}
+                  setEventTracker={updateEventTracker}
                   apiHost={apiHost}
                   apiKey={currentConnection.key}
                   encryptionKey={
@@ -175,6 +209,8 @@ const VerifyConnectionPage = ({
                   remoteEvalEnabled={
                     currentConnection.remoteEvalEnabled || false
                   }
+                  eventTracker={eventTracker}
+                  setEventTracker={updateEventTracker}
                 />
               </div>
             )}

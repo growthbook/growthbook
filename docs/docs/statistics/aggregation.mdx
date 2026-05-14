@@ -14,7 +14,7 @@ GrowthBook never collects user-level events or PII. To power our statistics engi
 Specifically, GrowthBook mostly relies on queries that run on your data warehouse and return data aggregated across users. We aggregate data at the level of the experiment variation (or dimension-variation, if you have dimensions specified).
 We rely on sums, sums of squares, and sums of cross products to power our statistics engine. These simple quantities allow us to easily re-aggregate over different dimensions while still containing sufficient information to compute experiment statistics.
 
-Note that these are the aggregations at the experiment variation level---they are computed across users. These often follow an aggregation at the user level, which defaults to SUM for non-binomial metrics, or a 1 for binomial metrics. You may have overriden the user-level aggregation in your metric definition with some other function. However, when we then go to aggregate at the variation level, we sum across those user-level aggregations.
+Note that these are the aggregations at the experiment variation level---they are computed across users. These often follow an aggregation at the user level, which defaults to SUM for non-binomial metrics, or a 1 for binomial metrics. You may have overridden the user-level aggregation in your metric definition with some other function. However, when we then go to aggregate at the variation level, we sum across those user-level aggregations.
 
 ### Aggregate fields
 
@@ -26,7 +26,7 @@ The potential fields the queries will return are as follows, with all sums aggre
 
 - `variation` - the name of the experiment variation
 - `dimension` - the name of the dimension we aggregate to; defaults to "All" if there is no dimensional analysis specified
-- `users` - the number of users in the variation-dimension that are part of the denominator for that metric; normally this is all users in the variation-dimension, but for ratio metrics or activation metrics it will only include users that are in the ratio denomitor or in the set of activated users.
+- `users` - the number of users in the variation-dimension that are part of the denominator for that metric; normally this is all users in the variation-dimension, but for ratio metrics or activation metrics it will only include users that are in the ratio denominator or in the set of activated users.
 - `count` - deprecated; duplicate of users
 - `statistic_type` - one of "mean" or "ratio"; this indicates to the statistics engine how to process the data as the formulae for the variance is different across these statistic types
 - `main_metric_type` - the metric type of the main metric (e.g. the metric itself or the numerator for ratio metrics)

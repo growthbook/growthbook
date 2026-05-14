@@ -50,7 +50,7 @@ export const helpers: Helpers = {
   fetchFeaturesCall: ({ host, clientKey, headers }) => {
     return (polyfills.fetch as typeof globalThis.fetch)(
       `${host}/api/features/${clientKey}`,
-      { headers }
+      { headers },
     );
   },
   fetchRemoteEvalCall: ({ host, clientKey, payload, headers }) => {
@@ -61,7 +61,7 @@ export const helpers: Helpers = {
     };
     return (polyfills.fetch as typeof globalThis.fetch)(
       `${host}/api/eval/${clientKey}`,
-      options
+      options,
     );
   },
   eventSourceCall: ({ host, clientKey, headers }) => {
@@ -84,7 +84,7 @@ export const helpers: Helpers = {
       } else if (document.visibilityState === "hidden") {
         idleTimeout = window.setTimeout(
           onHidden,
-          cacheSettings.idleStreamInterval
+          cacheSettings.idleStreamInterval,
         );
       }
     };
@@ -195,7 +195,7 @@ async function updatePersistentCache() {
     if (!polyfills.localStorage) return;
     await polyfills.localStorage.setItem(
       cacheSettings.cacheKey,
-      JSON.stringify(Array.from(cache.entries()))
+      JSON.stringify(Array.from(cache.entries())),
     );
   } catch (e) {
     // Ignore localStorage errors
@@ -219,7 +219,7 @@ async function fetchFeaturesWithCache({
   const now = new Date();
 
   const minStaleAt = new Date(
-    now.getTime() - cacheSettings.maxAge + cacheSettings.staleTTL
+    now.getTime() - cacheSettings.maxAge + cacheSettings.staleTTL,
   );
 
   await initializeCache();
@@ -289,7 +289,7 @@ async function initializeCache(): Promise<void> {
   try {
     if (polyfills.localStorage) {
       const value = await polyfills.localStorage.getItem(
-        cacheSettings.cacheKey
+        cacheSettings.cacheKey,
       );
       if (!cacheSettings.disableCache && value) {
         const parsed: [string, CacheEntry][] = JSON.parse(value);
@@ -326,7 +326,7 @@ function cleanupCache() {
 
   const entriesToRemoveCount = Math.min(
     Math.max(0, cache.size - cacheSettings.maxEntries),
-    cache.size
+    cache.size,
   );
 
   for (let i = 0; i < entriesToRemoveCount; i++) {
@@ -338,7 +338,7 @@ function cleanupCache() {
 function onNewFeatureData(
   key: string,
   cacheKey: string,
-  data: FeatureApiResponse
+  data: FeatureApiResponse,
 ): void {
   // If contents haven't changed, ignore the update, extend the stale TTL
   const version = data.dateUpdated || "";
@@ -372,14 +372,14 @@ function onNewFeatureData(
 
 async function refreshInstance(
   instance: GrowthBook | GrowthBookClient,
-  data: FeatureApiResponse | null
+  data: FeatureApiResponse | null,
 ): Promise<void> {
   await instance.setPayload(data || instance.getPayload());
 }
 
 // Fetch the features payload from helper function or from in-mem injected payload
 async function fetchFeatures(
-  instance: GrowthBook | GrowthBookClient
+  instance: GrowthBook | GrowthBookClient,
 ): Promise<FetchResponse> {
   const { apiHost, apiRequestHeaders } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
@@ -448,7 +448,7 @@ async function fetchFeatures(
 // Start SSE streaming, listens to feature payload changes and triggers a refresh or re-fetch
 function startAutoRefresh(
   instance: GrowthBook | GrowthBookClient,
-  forceSSE: boolean = false
+  forceSSE: boolean = false,
 ): void {
   const key = getKey(instance);
   const cacheKey = getCacheKey(instance);
@@ -510,10 +510,13 @@ function onSSEError(channel: ScopedChannel) {
     const delay =
       Math.pow(3, channel.errors - 3) * (1000 + Math.random() * 1000);
     disableChannel(channel);
-    setTimeout(() => {
-      if (["idle", "active"].includes(channel.state)) return;
-      enableChannel(channel);
-    }, Math.min(delay, 300000)); // 5 minutes max
+    setTimeout(
+      () => {
+        if (["idle", "active"].includes(channel.state)) return;
+        enableChannel(channel);
+      },
+      Math.min(delay, 300000),
+    ); // 5 minutes max
   }
 }
 
@@ -548,7 +551,7 @@ function destroyChannel(channel: ScopedChannel, key: string) {
   streams.delete(key);
 }
 
-function clearAutoRefresh() {
+export function clearAutoRefresh() {
   // Clear list of which keys are auto-updated
   supportsSSE.clear();
 
@@ -564,7 +567,7 @@ function clearAutoRefresh() {
 
 export function startStreaming(
   instance: GrowthBook | GrowthBookClient,
-  options: InitOptions | InitSyncOptions
+  options: InitOptions | InitSyncOptions,
 ) {
   if (options.streaming) {
     if (!instance.getClientKey()) {

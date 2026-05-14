@@ -30,9 +30,7 @@ also use the open source version and host it yourself if you prefer.
 GrowthBook uses the concept of Feature Flagging to run A/B tests. Basically,
 you wrap the code you want to test in a conditional check
 
-<pre>if (feature.on) ...</pre>and then you run an A/B test within GrowthBook to turn the feature on for 50% of users and off for the other 50% (or whatever
-
-percentage you like).
+`if (feature.on) ...` and then you run an A/B test within GrowthBook to turn the feature on for 50% of users and off for the other 50% (or whatever percentage you like).
 :::
 
 To start, go to https://app.growthbook.io and register a new account. Then there are a couple steps required before you
@@ -95,7 +93,7 @@ Make sure to swap out the `FEATURES_ENDPOINT` constant above with your own dev A
 
 Lastly, you'll need to wrap the app in a GrowthBookProvider component which will let us run A/B tests from anywhere in the app.
 
-```html
+```tsx
 ReactDOM.render(
 <React.StrictMode>
   <GrowthBookProvider growthbook={growthbook}>
@@ -139,7 +137,7 @@ import { IfFeatureEnabled } from "@growthbook/growthbook-react";
 
 And wrap the img element in an IfFeatureEnabled component:
 
-```html
+```tsx
 <IfFeatureEnabled feature="show-logo">
   <img src={logo} className="App-logo" alt="logo" />
 </IfFeatureEnabled>
@@ -147,7 +145,7 @@ And wrap the img element in an IfFeatureEnabled component:
 
 Now, if you refresh your app, the A/B test should be running! If you're part of the lucky 50% that are in the B variation (no logo), it should be pretty obvious. If you happen to be in the A variations, you can verify you're in the test by looking in DevTools for our trackingCallback console.log.
 
-You can test out different variations by deleting the visitor_id from localStorage and refreshing your app. Repeat a few times and you should see each version of the page about half of the time. If you want an easier and faster way to QA the variations, you can download the GrowthBook Chrome DevTools Extension.
+You can test out different variations by deleting the visitor_id from localStorage and refreshing your app. Repeat a few times and you should see each version of the page about half of the time. If you want an easier and faster way to QA the variations, you can download the GrowthBook DevTools Browser Extension.
 
 ## 5. Analyze Results
 
@@ -166,5 +164,5 @@ There's so much more you can do with GrowthBook beyond a simple on/off A/B test.
 
 - Add complex targeting and rollout rules for your features
 - Read the full [React SDK Docs](/lib/react) for more details and ways to use feature flags
-- Install the [Chrome DevTools Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) to test different variations and scenarios
+- Install the [Chrome](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) or [Firefox](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/) DevTools Browser Extension to test different variations and scenarios
 - Read about the [powerful statistics engine](/statistics/overview) that is used to analyze experiment results.

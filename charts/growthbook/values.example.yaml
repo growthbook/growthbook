@@ -1,0 +1,37 @@
+global:
+  env:
+    - name: APP_ORIGIN
+      value: https://growthbook.local
+
+frontend:
+  env:
+    - name: API_HOST
+      value: https://api.growthbook.local
+
+backend:
+  env:
+    - name: JWT_SECRET
+      value: 5b74f8402e4e906d29bf47065ca00d99a665a6e1d3f03661df0d1a5e9de41c05
+    - name: ENCRYPTION_KEY
+      value: e9b0d6e3d69258f4393fdc18098d594f1da5f8ca721e7a594aa2a0b29847124f
+
+ingress:
+  enabled: true
+  annotations:
+    cert-manager.io/issuer: mkcert
+  hosts:
+    - host: growthbook.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+          service: frontend
+    - host: api.growthbook.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+          service: backend
+  tls:
+    - secretName: growthbook-tls
+      hosts:
+        - growthbook.local
+        - api.growthbook.local

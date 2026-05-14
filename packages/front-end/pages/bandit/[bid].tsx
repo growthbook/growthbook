@@ -1,12 +1,13 @@
 import { useRouter } from "next/router";
 import {
   ExperimentInterfaceStringDates,
+  LinkedChangeEnvStates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { URLRedirectInterface } from "back-end/types/url-redirect";
+} from "shared/types/experiment";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { URLRedirectInterface } from "shared/types/url-redirect";
 import React, { ReactElement, useEffect, useState } from "react";
-import { IdeaInterface } from "back-end/types/idea";
+import { IdeaInterface } from "shared/types/idea";
 import { includeExperimentInPayload } from "shared/util";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -46,6 +47,7 @@ const BanditExperimentPage = (): ReactElement => {
   const [checklistItemsRemaining, setChecklistItemsRemaining] = useState<
     number | null
   >(null);
+  const [checklistHardBlockerCount, setChecklistHardBlockerCount] = useState(0);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -54,6 +56,8 @@ const BanditExperimentPage = (): ReactElement => {
     linkedFeatures: LinkedFeatureInfo[];
     envs: string[];
     urlRedirects: URLRedirectInterface[];
+    visualChangesetEnvStates?: LinkedChangeEnvStates;
+    urlRedirectEnvStates?: LinkedChangeEnvStates;
   }>(`/experiment/${bid}`);
 
   useSwitchOrg(data?.experiment?.organization ?? null);
@@ -64,6 +68,11 @@ const BanditExperimentPage = (): ReactElement => {
     if (!data?.experiment) return;
     if (!data.experiment?.type || data.experiment.type === "standard") {
       router.replace(window.location.href.replace("bandit/", "experiment/"));
+    }
+    if (data?.experiment?.type === "holdout") {
+      let url = window.location.href.replace(/(.*)\/bandit\/.*/, "$1/holdout/");
+      url += data?.experiment?.holdoutId;
+      router.replace(url);
     }
   }, [data, router]);
 
@@ -79,6 +88,8 @@ const BanditExperimentPage = (): ReactElement => {
     visualChangesets = [],
     linkedFeatures = [],
     urlRedirects = [],
+    visualChangesetEnvStates,
+    urlRedirectEnvStates,
   } = data;
 
   const canEditExperiment =
@@ -116,7 +127,7 @@ const BanditExperimentPage = (): ReactElement => {
     experiment.status !== "running" ||
     !includeExperimentInPayload(
       experiment,
-      linkedFeatures.map((f) => f.feature)
+      linkedFeatures.map((f) => f.feature),
     );
 
   return (
@@ -141,6 +152,7 @@ const BanditExperimentPage = (): ReactElement => {
         <EditVariationsForm
           experiment={experiment}
           cancel={() => setVariationsModalOpen(false)}
+          onlySafeToEditVariationMetadata={false}
           mutate={mutate}
           source="bid"
         />
@@ -162,7 +174,7 @@ const BanditExperimentPage = (): ReactElement => {
                 dateStarted: new Date().toISOString(),
                 dateEnded: undefined,
                 variationWeights: p.variationWeights.map(
-                  () => 1 / (p.variationWeights.length || 2)
+                  () => 1 / (p.variationWeights.length || 2),
                 ),
                 banditEvents: undefined,
               };
@@ -284,7 +296,11 @@ const BanditExperimentPage = (): ReactElement => {
           envs={data.envs}
           editTargeting={editTargeting}
           checklistItemsRemaining={checklistItemsRemaining}
+          checklistHardBlockerCount={checklistHardBlockerCount}
           setChecklistItemsRemaining={setChecklistItemsRemaining}
+          setChecklistHardBlockerCount={setChecklistHardBlockerCount}
+          visualChangesetEnvStates={visualChangesetEnvStates}
+          urlRedirectEnvStates={urlRedirectEnvStates}
         />
       </SnapshotProvider>
     </>

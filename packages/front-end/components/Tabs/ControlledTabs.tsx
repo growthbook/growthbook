@@ -119,7 +119,7 @@ const ControlledTabs: FC<{
             ? buttonsClassName(id)
             : buttonsClassName
         }
-      />
+      />,
     );
 
     if (lazy && !isActive && !loaded[id]) {
@@ -134,7 +134,7 @@ const ControlledTabs: FC<{
           key={i}
         >
           {child}
-        </div>
+        </div>,
       );
     }
   });
@@ -186,7 +186,7 @@ const ControlledTabs: FC<{
       </nav>
       <div
         className={clsx(
-          "tab-content",
+          "appbox",
           typeof tabContentsClassName === "function"
             ? tabContentsClassName(activeChosen)
             : tabContentsClassName,
@@ -195,7 +195,7 @@ const ControlledTabs: FC<{
             "p-3": contentsPadding,
             "p-0": !contentsPadding,
             "border-top-0": !newStyle,
-          }
+          },
         )}
       >
         {contents}

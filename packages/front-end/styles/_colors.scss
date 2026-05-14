@@ -40,9 +40,9 @@ $gray4: #e0e2eb;
 $gray5: #f0f1f5;
 $gray6: #f6f7f9;
 
-$main-background: #f5f7fa;
-$main-background-dark: #121212;
-$surface-background-dark: $gray-900;
+$main-background: #faf8ff;
+$main-background-dark: #10172e;
+$surface-background-dark: #212529;
 $dark-purple: #391c6d;
 $light-grey: #fafafa;
 $light-green: #d2f2db;
@@ -64,12 +64,15 @@ $light: $gray-100;
 $dark: $gray-800;
 $app-border: $gray-300;
 
-$variant-null: #999;
-$variant-0: #4f69ff;
-$variant-1: #03d1ca;
-$variant-2: #e67112;
-$variant-3: #e83e8c;
-$variant-4: #fdc714;
-$variant-5: #bd41d9;
-$variant-6: #57d9a3;
-$variant-7: #f87a7a;
+$variant-null: var(--slate-10);
+$variant-0: var(--blue-8);
+$variant-1: var(--teal-10);
+$variant-2: var(--orange-10);
+$variant-3: var(--pink-10);
+$variant-4: var(--amber-10);
+$variant-5: var(--mint-10);
+$variant-6: var(--lime-11);
+$variant-7: var(--cyan-10);
+$variant-8: var(--red-10);
+
+$violet-9-30: rgba(123, 97, 219, 0.3);

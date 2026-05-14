@@ -1,14 +1,13 @@
 import mongoose from "mongoose";
-import z from "zod";
+import { z } from "zod";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
 import {
   InformationSchema,
   InformationSchemaInterface,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
-import { usingFileConfig } from "back-end/src/init/config";
 
 const informationSchema = new mongoose.Schema({
   id: String,
@@ -25,28 +24,25 @@ const informationSchema = new mongoose.Schema({
         const zodSchema = z.array(
           z.object({
             databaseName: z.string(),
-            path: z.string(),
             dateCreated: z.date(),
             dateUpdated: z.date(),
             schemas: z.array(
               z.object({
                 schemaName: z.string(),
-                path: z.string(),
                 dateCreated: z.date(),
                 dateUpdated: z.date(),
                 tables: z.array(
                   z.object({
                     tableName: z.string(),
-                    path: z.string(),
                     id: z.string(),
                     numOfColumns: z.number(),
                     dateCreated: z.date(),
                     dateUpdated: z.date(),
-                  })
+                  }),
                 ),
-              })
+              }),
             ),
-          })
+          }),
         );
 
         const result = zodSchema.safeParse(value);
@@ -58,7 +54,7 @@ const informationSchema = new mongoose.Schema({
               error: JSON.stringify(errorString, null, 2),
               result: JSON.stringify(result, null, 2),
             },
-            "Invalid database schema"
+            "Invalid database schema",
           );
         }
 
@@ -79,7 +75,7 @@ type InformationSchemaDocument = mongoose.Document & InformationSchemaInterface;
 
 const InformationSchemaModel = mongoose.model<InformationSchemaInterface>(
   "InformationSchema",
-  informationSchema
+  informationSchema,
 );
 
 /**
@@ -87,20 +83,15 @@ const InformationSchemaModel = mongoose.model<InformationSchemaInterface>(
  * @param doc
  */
 const toInterface = (
-  doc: InformationSchemaDocument
+  doc: InformationSchemaDocument,
 ): InformationSchemaInterface =>
   omit(doc.toJSON<InformationSchemaDocument>(), ["__v", "_id"]);
 
 export async function createInformationSchema(
   informationSchema: InformationSchema[],
   organization: string,
-  datasourceId: string
+  datasourceId: string,
 ): Promise<InformationSchemaInterface> {
-  //TODO: GB-82 - Remove this check and orgs usingFileConfig to create informationSchemas
-  if (usingFileConfig()) {
-    throw new Error("Cannot add. Data sources managed by config.yml");
-  }
-
   const result = await InformationSchemaModel.create({
     id: uniqid("inf_"),
     datasourceId,
@@ -117,13 +108,8 @@ export async function createInformationSchema(
 export async function updateInformationSchemaById(
   organization: string,
   id: string,
-  updates: Partial<InformationSchemaInterface>
+  updates: Partial<InformationSchemaInterface>,
 ): Promise<void> {
-  //TODO: GB-82 Remove this check and orgs usingFileConfig to create informationSchemas
-  if (usingFileConfig()) {
-    throw new Error("Cannot add. Data sources managed by config.yml");
-  }
-
   await InformationSchemaModel.updateOne(
     {
       id,
@@ -131,13 +117,13 @@ export async function updateInformationSchemaById(
     },
     {
       $set: updates,
-    }
+    },
   );
 }
 
 export async function getInformationSchemaByDatasourceId(
   datasourceId: string,
-  organization: string
+  organization: string,
 ): Promise<InformationSchemaInterface | null> {
   const result = await InformationSchemaModel.findOne({
     organization,
@@ -150,7 +136,7 @@ export async function getInformationSchemaByDatasourceId(
 }
 
 export async function getInformationSchemasByOrganization(
-  organization: string
+  organization: string,
 ): Promise<InformationSchemaInterface[] | null> {
   const results = await InformationSchemaModel.find({
     organization,
@@ -161,7 +147,7 @@ export async function getInformationSchemasByOrganization(
 
 export async function getInformationSchemaById(
   organization: string,
-  informationSchemaId: string
+  informationSchemaId: string,
 ): Promise<InformationSchemaInterface | null> {
   const result = await InformationSchemaModel.findOne({
     organization,
@@ -173,7 +159,7 @@ export async function getInformationSchemaById(
 
 export async function deleteInformationSchemaById(
   organization: string,
-  informationSchemaId: string
+  informationSchemaId: string,
 ): Promise<void> {
   await InformationSchemaModel.deleteOne({
     organization,

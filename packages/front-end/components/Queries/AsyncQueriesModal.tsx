@@ -1,23 +1,35 @@
 import { FC, Fragment, useMemo, useState } from "react";
-import { QueryInterface } from "back-end/types/query";
+import { QueryInterface } from "shared/types/query";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
+import { SavedQuery } from "shared/validators";
 import useApi from "@/hooks/useApi";
 import Modal from "@/components/Modal";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Code from "@/components/SyntaxHighlighting/Code";
+import ExpandableSavedQuery from "@/components/SavedQueries/ExpandableSavedQuery";
 import ExpandableQuery from "./ExpandableQuery";
 import QueryStatsRow from "./QueryStatsRow";
 
 const AsyncQueriesModal: FC<{
   queries: string[];
+  savedQueries: string[];
   close: () => void;
   error?: string;
   inline?: boolean;
-}> = ({ queries, close, error: _error, inline }) => {
+}> = ({ queries, savedQueries, close, error: _error, inline }) => {
   const { data, error: apiError } = useApi<{ queries: QueryInterface[] }>(
-    `/queries/${queries.join(",")}`
+    `/queries/${queries.join(",")}`,
+    {
+      shouldRun: () => queries.length > 0,
+    },
   );
+  const shouldFetchSavedQueries = () => savedQueries.length > 0;
+  const { data: savedQueryData, error: savedQueryError } = useApi<{
+    savedQueries: SavedQuery[];
+  }>(`/saved-queries/lookup-ids/${savedQueries.join(",")}`, {
+    shouldRun: shouldFetchSavedQueries,
+  });
 
   const [showStats, setShowStats] = useState(false);
   const hasStats = data?.queries?.some((q) => q.statistics !== undefined);
@@ -116,16 +128,50 @@ const AsyncQueriesModal: FC<{
             <ExpandableQuery
               query={query}
               i={i}
-              total={data.queries.length}
+              total={
+                data.queries.length +
+                (savedQueryData?.savedQueries ?? []).length
+              }
+              key={i}
+            />
+          ))
+          .concat(
+            (savedQueryData?.savedQueries ?? []).map((savedQuery, i) => (
+              <ExpandableSavedQuery
+                savedQuery={savedQuery}
+                i={data.queries.length + i}
+                total={
+                  data.queries.length +
+                  (savedQueryData?.savedQueries ?? []).length
+                }
+                key={data.queries.length + i}
+              />
+            )),
+          )}
+      {/* Product analytics dashboards might not contain any "data", but they may contain saved queries. */}
+      {!data && savedQueryData && savedQueryData.savedQueries.length > 0 && (
+        <div className="p-3">
+          {savedQueryData.savedQueries.map((savedQuery, i) => (
+            <ExpandableSavedQuery
+              savedQuery={savedQuery}
+              i={i}
+              total={savedQueryData.savedQueries.length}
               key={i}
             />
           ))}
+        </div>
+      )}
     </>
   );
 
   if (inline) {
     if (apiError) {
       return <div className="alert alert-danger">{apiError.message}</div>;
+    }
+    if (savedQueryError) {
+      return (
+        <div className="alert alert-danger">{savedQueryError.message}</div>
+      );
     }
     if (!data) {
       return <LoadingSpinner />;
@@ -143,8 +189,14 @@ const AsyncQueriesModal: FC<{
       size="max"
       closeCta="Close"
     >
-      {!data && !apiError && <LoadingOverlay />}
+      {((!data && !apiError && queries.length > 0) ||
+        (shouldFetchSavedQueries() && !savedQueryData && !savedQueryError)) && (
+        <LoadingOverlay />
+      )}
       {apiError && <div className="alert alert-danger">{apiError.message}</div>}
+      {savedQueryError && (
+        <div className="alert alert-danger">{savedQueryError.message}</div>
+      )}
       {contents}
     </Modal>
   );

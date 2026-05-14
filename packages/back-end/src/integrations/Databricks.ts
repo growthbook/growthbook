@@ -1,19 +1,22 @@
-import { databricksCreateTableOptions } from "enterprise";
-import { DatabricksConnectionParams } from "back-end/types/integrations/databricks";
+import { databricksCreateTableOptions } from "shared/enterprise";
+import { SqlDialect } from "shared/types/sql";
+import { QueryResponse } from "shared/types/integrations";
+import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { runDatabricksQuery } from "back-end/src/services/databricks";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { QueryResponse } from "back-end/src/types/Integration";
-import { FormatDialect } from "back-end/src/util/sql";
 import SqlIntegration from "./SqlIntegration";
+import { databricksDialect } from "./dialects/databricks";
 
 export default class Databricks extends SqlIntegration {
   params!: DatabricksConnectionParams;
   requiresDatabase = true;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<DatabricksConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<DatabricksConnectionParams>(encryptedParams);
+  }
+  getSqlDialect(): SqlDialect {
+    return databricksDialect;
   }
   isWritingTablesSupported(): boolean {
     return true;
@@ -22,13 +25,12 @@ export default class Databricks extends SqlIntegration {
     return true;
   }
   createUnitsTableOptions() {
+    if (!this.datasource.settings.pipelineSettings) {
+      throw new Error("Pipeline settings are required to create a units table");
+    }
     return databricksCreateTableOptions(
-      this.datasource.settings.pipelineSettings ?? {}
+      this.datasource.settings.pipelineSettings,
     );
-  }
-  getFormatDialect(): FormatDialect {
-    // sql-formatter doesn't support databricks explicitly yet, so using their generic formatter instead
-    return "sql";
   }
   getSensitiveParamKeys(): string[] {
     const sensitiveKeys: (keyof DatabricksConnectionParams)[] = ["token"];
@@ -37,45 +39,6 @@ export default class Databricks extends SqlIntegration {
   runQuery(sql: string): Promise<QueryResponse> {
     return runDatabricksQuery(this.params, sql);
   }
-  toTimestamp(date: Date) {
-    return `TIMESTAMP'${date.toISOString()}'`;
-  }
-  addTime(
-    col: string,
-    unit: "hour" | "minute",
-    sign: "+" | "-",
-    amount: number
-  ): string {
-    return `timestampadd(${unit},${sign === "-" ? "-" : ""}${amount},${col})`;
-  }
-  formatDate(col: string) {
-    return `date_format(${col}, 'y-MM-dd')`;
-  }
-  formatDateTimeString(col: string) {
-    return `date_format(${col}, 'y-MM-dd HH:mm:ss.SSS')`;
-  }
-  castToString(col: string): string {
-    return `cast(${col} as string)`;
-  }
-  ensureFloat(col: string): string {
-    return `cast(${col} as double)`;
-  }
-  escapeStringLiteral(value: string): string {
-    return value.replace(/(['\\])/g, "\\$1");
-  }
-  hasCountDistinctHLL(): boolean {
-    return true;
-  }
-  hllAggregate(col: string): string {
-    return `HLL_SKETCH_AGG(${this.castToString(col)})`;
-  }
-  hllReaggregate(col: string): string {
-    return `HLL_UNION_AGG(${col})`;
-  }
-  hllCardinality(col: string): string {
-    return `HLL_SKETCH_ESTIMATE(${col})`;
-  }
-
   getDefaultDatabase(): string {
     return this.params.catalog;
   }

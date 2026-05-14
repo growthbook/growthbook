@@ -1,6 +1,6 @@
 import React, { FC } from "react";
-import { ApiKeyInterface } from "back-end/types/apikey";
-import Link from "next/link";
+import { ApiKeyInterface } from "shared/types/apikey";
+import Link from "@/ui/Link";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import SecretApiKeys from "./SecretApiKeys";

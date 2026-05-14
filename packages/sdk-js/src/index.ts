@@ -14,6 +14,7 @@ export type {
   FeatureApiResponse,
   LoadFeaturesOptions,
   RefreshFeaturesOptions,
+  DestroyOptions,
   FeatureDefinitions,
   FeatureDefinition,
   FeatureRule,
@@ -55,6 +56,7 @@ export type {
   EventLogger,
   EventProperties,
   Plugin,
+  LogUnion,
 } from "./types/growthbook";
 
 export type {
@@ -81,6 +83,7 @@ export {
 
 export {
   StickyBucketService,
+  StickyBucketServiceSync,
   LocalStorageStickyBucketService,
   ExpressCookieStickyBucketService,
   BrowserCookieStickyBucketService,

@@ -6,7 +6,7 @@ import {
   ExperimentValue,
   FeatureInterface,
   FeatureValueType,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import clsx from "clsx";
 import {
   decimalToPercent,
@@ -20,6 +20,7 @@ import {
 } from "@/services/features";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Field from "@/components/Forms/Field";
+import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import FeatureValueField from "./FeatureValueField";
 import styles from "./VariationsInput.module.scss";
@@ -45,6 +46,7 @@ interface SortableProps {
   showDescription?: boolean;
   dragging?: boolean;
   className?: string;
+  onlySafeToEditVariationMetadata?: boolean;
 }
 
 type VariationProps = SortableProps &
@@ -64,16 +66,17 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       valueType,
       hideVariationIds,
       hideValueField,
+      onlySafeToEditVariationMetadata,
       customSplit,
       hideSplit,
       setWeight,
       feature,
       showDescription,
       dragging,
-      className = "bg-white",
+      className = "",
       ...props
     },
-    ref
+    ref,
   ) => {
     const weights = variations.map((v) => v.weight);
     const weight = weights[i];
@@ -89,7 +92,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
     const rebalanceAndUpdate = (
       i: number,
       newValue: number,
-      precision: number = 4
+      precision: number = 4,
     ) => {
       if (!setWeight) return;
       rebalance(weights, i, newValue, precision).forEach((w, j) => {
@@ -119,11 +122,14 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 backgroundColor: getVariationColor(i, true),
               }}
             />
-            {i}
+            <span style={{ position: "relative", top: 6 }}>{i}</span>
           </td>
         )}
         {!hideValueField && (
-          <td key={`${variation.id}__${i}__1`}>
+          <td
+            key={`${variation.id}__${i}__1`}
+            style={valueType === "json" ? { minWidth: 300 } : undefined}
+          >
             {setVariations ? (
               <FeatureValueField
                 id={`value_${i}`}
@@ -140,6 +146,9 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 valueType={valueType}
                 feature={feature}
                 renderJSONInline={false}
+                useCodeInput={true}
+                showFullscreenButton={true}
+                codeInputDefaultHeight={FIVE_LINES_HEIGHT}
               />
             ) : (
               <>{variation.value}</>
@@ -151,7 +160,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             <Field
               placeholder={`${getVariationDefaultName(
                 variation,
-                valueType ?? "string"
+                valueType ?? "string",
               )}`}
               value={variation.name || ""}
               onChange={(e) => {
@@ -164,7 +173,9 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
               }}
             />
           ) : (
-            <strong>{variation.name || ""}</strong>
+            <strong style={{ position: "relative", top: 6 }}>
+              {variation.name || ""}
+            </strong>
           )}
         </td>
         {showDescription && (
@@ -184,7 +195,9 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 minRows={1}
               />
             ) : (
-              <span>{variation.description || ""}</span>
+              <span style={{ position: "relative", top: 6 }}>
+                {variation.description || ""}
+              </span>
             )}
           </td>
         )}
@@ -223,18 +236,25 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                   </div>
                 ) : (
                   <div className="col d-flex flex-row">
-                    {decimalToPercent(weights[i])}%
+                    <span style={{ position: "relative", top: 6 }}>
+                      {decimalToPercent(weights[i])}%
+                    </span>
                   </div>
                 )}
               </>
             )}
-            {variations.length > 1 && setVariations && (
-              <div {...handle} title="Drag and drop to re-order rules">
-                <FaArrowsAlt />
-              </div>
-            )}
-            {setVariations && (
-              <div className="col-auto">
+            {variations.length > 1 &&
+              setVariations &&
+              !onlySafeToEditVariationMetadata && (
+                <div {...handle} title="Drag and drop to re-order rules">
+                  <FaArrowsAlt style={{ position: "relative", top: 4 }} />
+                </div>
+              )}
+            {setVariations && !onlySafeToEditVariationMetadata && (
+              <div
+                className="col-auto"
+                style={{ position: "relative", top: 4 }}
+              >
                 <MoreMenu zIndex={1000000}>
                   <Tooltip
                     body="Experiments must have at least two variations"
@@ -244,7 +264,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                       disabled={variations.length <= 2}
                       className={clsx(
                         "dropdown-item",
-                        variations.length > 2 && "text-danger"
+                        variations.length > 2 && "text-danger",
                       )}
                       onClick={(e) => {
                         e.preventDefault();
@@ -254,7 +274,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
 
                         const newWeights = distributeWeights(
                           newValues.map((v) => v.weight),
-                          customSplit
+                          customSplit,
                         );
 
                         newValues.forEach((v, j) => {
@@ -274,20 +294,14 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
         </td>
       </tr>
     );
-  }
+  },
 );
 
 VariationRow.displayName = "VariationRow";
 
 export function SortableFeatureVariationRow(props: SortableProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    active,
-  } = useSortable({ id: props.variation.id });
+  const { attributes, listeners, setNodeRef, transform, transition, active } =
+    useSortable({ id: props.variation.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),

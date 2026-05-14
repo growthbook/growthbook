@@ -5,13 +5,14 @@ sidebar_label: Elixir
 slug: elixir
 ---
 
+import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
+
 # Elixir
 
-View the full documentation on [GitHub](https://github.com/growthbook/growthbook-elixir).
+<SdkResources sdk="elixir" />
 
-[![Hex.pm badge for growthbook](https://img.shields.io/hexpm/v/growthbook?style=flat-square)](https://www.hex.pm/packages/growthbook)
-
-This SDK follows the guidelines set out in [GrowthBook's documentation](https://docs.growthbook.io/lib/build-your-own), and the API is tested on conformance with the test cases from the JS SDK.
+This SDK follows the guidelines set out in [GrowthBook's documentation](/lib/build-your-own), and the API is tested on conformance with the test cases from the JS SDK.
 
 To ensure an Elixir-friendly API, the implementation deviates from the official SDK in the following ways:
 
@@ -27,57 +28,904 @@ Add `growthbook` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:growthbook, "~> 0.2"}
+    {:growthbook, "~> 0.3"}
   ]
 end
 ```
 
-## Usage
+## Quick Start
+
+Get started with GrowthBook in just a few steps:
 
 ```elixir
-# Create a context, which can be reused for multiple users
-features_config = Jason.decode!("""
-{
-  "features": {
-    "send-reminder": {
-      "defaultValue": false,
-      "rules": [{ "condition": { "browser": "chrome" }, "force": true }]
-    },
-    "add-to-cart-btn-color": {
-      "rules": [{ "variations": [{ "color": "red" }, { "color": "green" }] }]
-    }
-  }
-}
-""")
+# 1. Initialize GrowthBook with your API key
+GrowthBook.init(
+  client_key: "sdk-abc123",
+  api_host: "https://cdn.growthbook.io"
+)
 
-features = GrowthBook.Config.features_from_config(features_config)
+# 2. Create a context with user attributes
+context = GrowthBook.build_context(%{
+  "id" => "user-123",
+  "country" => "US"
+})
 
-context = %GrowthBook.Context{
-  enabled?: true,
-  features: features,
-  attributes: %{
-    "id" => "12345",
-    "country_code" => "NL",
-    "browser" => "chrome"
-  }
-}
-
-# Use a feature toggle
-if GrowthBook.feature(context, "send-reminder").on? do
-  Logger.info("Sending reminder")
+# 3. Evaluate features
+if GrowthBook.feature(context, "new-dashboard").on? do
+  render_new_dashboard()
+else
+  render_old_dashboard()
 end
 
-# Use a feature's value
-color = GrowthBook.feature(context, "add-to-cart-btn-color").value["color"]
-Logger.info("Color: " <> color)
+# Get feature values
+button_color = GrowthBook.feature(context, "button-color").value
+max_retries = GrowthBook.feature(context, "max-retries").value || 3
+```
 
-# Run an inline experiment
-if GrowthBook.run(context, %GrowthBook.Experiment{
-  key: "checkout-v2",
-  active?: true,
-  coverage: 1,
-  variations: [1, 2]
-}).in_experiment? do
-  Logger.info("In experiment")
+That's it! GrowthBook will automatically fetch and refresh your features in the background.
+
+## Automatic Features Refresh
+
+The Elixir SDK provides a GenServer-based feature repository that automatically fetches and caches features from the GrowthBook API.
+
+### Initialization Options
+
+```elixir
+GrowthBook.init(
+  # Required
+  client_key: "sdk-abc123",
+
+  # Optional configuration
+  api_host: "https://cdn.growthbook.io",  # Default: "https://cdn.growthbook.io"
+  decryption_key: "key_abc123",  # For encrypted features
+  swr_ttl_seconds: 60,  # Cache TTL in seconds (default: 60)
+  refresh_strategy: :periodic,  # :periodic (default) or :manual
+
+  # Optional callback
+  on_refresh: fn features ->
+    # Called whenever features are successfully refreshed
+    Logger.info("Features updated: #{map_size(features)}")
+  end
+)
+```
+
+### Refresh Strategies
+
+The SDK supports two refresh strategies:
+
+#### Periodic Refresh (Default)
+
+Features are automatically refreshed in the background based on the TTL:
+
+```elixir
+GrowthBook.init(
+  client_key: "sdk-abc123",
+  refresh_strategy: :periodic,  # Auto-refresh enabled
+  swr_ttl_seconds: 60  # Refresh every 60 seconds
+)
+```
+
+#### Manual Refresh
+
+Features are only refreshed when explicitly requested:
+
+```elixir
+GrowthBook.init(
+  client_key: "sdk-abc123",
+  refresh_strategy: :manual  # No automatic refresh
+)
+
+# Later, manually trigger a refresh
+GrowthBook.FeatureRepository.refresh()
+```
+
+### Supervision Tree Integration
+
+For production applications, add the `FeatureRepository` to your application's supervision tree:
+
+```elixir
+# In your application.ex
+defmodule MyApp.Application do
+  use Application
+  require Logger
+
+  def start(_type, _args) do
+    children = [
+      # Your other supervised processes
+      MyApp.Repo,
+      MyAppWeb.Endpoint,
+
+      # Add GrowthBook FeatureRepository
+      {GrowthBook.FeatureRepository,
+        client_key: System.get_env("GROWTHBOOK_CLIENT_KEY"),
+        api_host: "https://cdn.growthbook.io",
+        decryption_key: System.get_env("GROWTHBOOK_DECRYPTION_KEY"),
+        swr_ttl_seconds: 60,
+        refresh_strategy: :periodic,
+        on_refresh: fn features ->
+          Logger.info("GrowthBook features refreshed: #{map_size(features)}")
+        end
+      }
+    ]
+
+    opts = [strategy: :one_for_one, name: MyApp.Supervisor]
+
+    case Supervisor.start_link(children, opts) do
+      {:ok, pid} ->
+        # Wait for features to load
+        case GrowthBook.FeatureRepository.await_initialization(
+          GrowthBook.FeatureRepository,
+          5000
+        ) do
+          :ok ->
+            Logger.info("GrowthBook features initialized successfully")
+          {:error, reason} ->
+            Logger.error("Failed to initialize GrowthBook features: #{inspect(reason)}")
+        end
+
+        {:ok, pid}
+      error ->
+        error
+    end
+  end
 end
 ```
+
+### Graceful Shutdown
+
+When your application shuts down, stop the FeatureRepository GenServer:
+
+```elixir
+# Stops the FeatureRepository and releases resources
+GenServer.stop(GrowthBook.FeatureRepository)
+```
+
+## Encryption & Security
+
+The Elixir SDK supports encrypted feature payloads and secure attribute hashing to protect sensitive data.
+
+### Encrypted Features
+
+Encrypted features ensure that sensitive feature configurations are never exposed in plain text:
+
+```elixir
+# Enable encryption by providing a decryption key
+GrowthBook.init(
+  client_key: "sdk-abc123",
+  api_host: "https://cdn.growthbook.io",
+  decryption_key: System.get_env("GROWTHBOOK_DECRYPTION_KEY")
+)
+```
+
+**Setup Steps:**
+
+1. Enable "Encrypt SDK Payload" in your SDK Connection settings
+2. Copy the encryption key from your SDK Connection
+3. Store it securely in environment variables
+4. Pass it to `GrowthBook.init/1`
+
+### Secure Attributes
+
+When secure attribute hashing is enabled, you can safely target users based on sensitive attributes like email or phone numbers without exposing the actual values.
+
+#### Setup
+
+Enable secure attribute hashing in your SDK Connection, then hash sensitive attributes before passing them to GrowthBook:
+
+```elixir
+defmodule MyApp.GrowthBook.SecureAttributes do
+  @salt System.get_env("GROWTHBOOK_SECURE_ATTRIBUTE_SALT")
+
+  def hash_attribute(value) when is_binary(value) do
+    :crypto.hash(:sha256, value <> @salt)
+    |> Base.encode16(case: :lower)
+  end
+
+  def build_secure_attributes(user) do
+    %{
+      "id" => user.id,
+      # Hash sensitive attributes
+      "email" => hash_attribute(user.email),
+      "phone" => hash_attribute(user.phone),
+      # Non-sensitive attributes remain plain
+      "country" => user.country,
+      "plan" => user.plan
+    }
+  end
+end
+```
+
+#### Usage
+
+```elixir
+# Build secure attributes for a user
+secure_attrs = MyApp.GrowthBook.SecureAttributes.build_secure_attributes(current_user)
+
+# Create context with hashed attributes
+context = GrowthBook.build_context(secure_attrs)
+
+# Features will use hashed attributes for targeting
+if GrowthBook.feature(context, "premium-feature").on? do
+  show_premium_feature()
+end
+```
+
+### Security Best Practices
+
+```elixir
+# Store keys in environment variables
+config :my_app, :growthbook,
+  client_key: System.get_env("GROWTHBOOK_CLIENT_KEY"),
+  decryption_key: System.get_env("GROWTHBOOK_DECRYPTION_KEY"),
+  secure_attribute_salt: System.get_env("GROWTHBOOK_SECURE_ATTRIBUTE_SALT")
+
+# Initialize with environment variables
+GrowthBook.init(
+  client_key: Application.get_env(:my_app, :growthbook)[:client_key],
+  decryption_key: Application.get_env(:my_app, :growthbook)[:decryption_key]
+)
+```
+
+**Recommendations:**
+
+- **Never commit** encryption keys or salts to version control
+- **Use different keys** for each environment (dev, staging, production)
+- **Rotate keys regularly** and coordinate updates across all systems
+- **Monitor decryption failures** which may indicate key rotation issues
+- **Use secrets management** tools like Vault, AWS Secrets Manager, or similar
+
+## Using Features
+
+Once GrowthBook is initialized, you can evaluate features and run experiments.
+
+### Feature Evaluation
+
+```elixir
+# Create context with user attributes
+context = GrowthBook.build_context(%{
+  "id" => "user-123",
+  "email" => "user@example.com",
+  "country" => "US",
+  "plan" => "premium"
+})
+
+# Boolean feature flag
+if GrowthBook.feature(context, "new-dashboard").on? do
+  render_new_dashboard()
+else
+  render_old_dashboard()
+end
+
+# Feature with value
+max_retries = GrowthBook.feature(context, "max-retries").value || 3
+
+# Complex feature values
+config = GrowthBook.feature(context, "checkout-config").value
+timeout = config["timeout"] || 5000
+enabled_methods = config["payment_methods"] || []
+```
+
+### Feature Result Properties
+
+The `GrowthBook.feature/2` function returns a result with these properties:
+
+```elixir
+result = GrowthBook.feature(context, "my-feature")
+
+# Check if feature is enabled
+result.on?  # true or false
+
+# Get the feature value
+result.value  # Can be any JSON type
+
+# Check the source of the value
+result.source  # :default_value, :force, :experiment, or :unknown_feature
+
+# Access experiment information (if feature is from an experiment)
+if result.source == :experiment do
+  experiment = result.experiment
+  experiment_result = result.experiment_result
+  Logger.info("User in experiment: #{experiment.key}")
+end
+```
+
+## Running Inline Experiments
+
+You can run experiments directly without defining them as features:
+
+```elixir
+# Define an experiment
+experiment = %GrowthBook.Experiment{
+  key: "button-color-test",
+  active?: true,
+  coverage: 1.0,
+  variations: ["red", "blue", "green"],
+  weights: [0.5, 0.3, 0.2]
+}
+
+# Run the experiment
+result = GrowthBook.run(context, experiment)
+
+# Check if user is in the experiment
+if result.in_experiment? do
+  color = result.value
+  Logger.info("Assigned color: #{color}")
+  set_button_color(color)
+else
+  Logger.info("User not in experiment, using default")
+  set_button_color("blue")
+end
+```
+
+### Experiment Configuration
+
+The `Experiment` struct supports these properties:
+
+```elixir
+%GrowthBook.Experiment{
+  # Required
+  key: "my-experiment",
+  variations: ["control", "treatment"],
+
+  # Optional
+  active?: true,  # Whether experiment is active
+  coverage: 1.0,  # Percentage of users to include (0.0 to 1.0)
+  weights: [0.5, 0.5],  # Traffic distribution
+
+  # Targeting
+  condition: %{"country" => "US"},  # Targeting conditions
+  hash_attribute: "id",  # Attribute to use for hashing (default: "id")
+
+  # Namespaces for experiment isolation
+  namespace: {"pricing", 0, 0.5}  # {name, start, end}
+}
+```
+
+### Experiment Result
+
+The experiment result contains detailed information:
+
+```elixir
+result = GrowthBook.run(context, experiment)
+
+result.in_experiment?  # Boolean: whether user is in experiment
+result.variation_id  # Integer: index of assigned variation
+result.value  # The actual variation value
+result.hash_attribute  # Attribute used for hashing
+result.hash_value  # Value of the hash attribute
+```
+
+## Tracking Experiments
+
+The SDK doesn't include built-in tracking callbacks, but you can implement tracking by checking experiment results:
+
+```elixir
+# Run experiment
+result = GrowthBook.run(context, experiment)
+
+# Track if user is in experiment
+if result.in_experiment? do
+  MyApp.Analytics.track_event("experiment_viewed", %{
+    experiment_id: experiment.key,
+    variation_id: result.variation_id,
+    user_id: context.attributes["id"]
+  })
+end
+
+# Use the variation
+case result.value do
+  "control" -> render_control_version()
+  "treatment" -> render_treatment_version()
+  _ -> render_default_version()
+end
+```
+
+## User Attributes
+
+Attributes are used for targeting and experiment assignment:
+
+```elixir
+# Standard attributes
+context = GrowthBook.build_context(%{
+  "id" => "user-123",
+  "email" => "user@example.com",
+  "country" => "US",
+  "browser" => "chrome"
+})
+
+# Custom business attributes
+context = GrowthBook.build_context(%{
+  "id" => "user-123",
+  "subscription_tier" => "premium",
+  "lifetime_value" => 1500.00,
+  "account_age_days" => 365,
+  "is_high_value_customer" => true,
+  "purchased_categories" => ["electronics", "books"],
+  "feature_flags" => ["beta_access", "early_adopter"]
+})
+```
+
+**Best Practices:**
+
+- Use consistent naming conventions (snake_case or camelCase)
+- Keep attribute values simple and serializable
+- Document custom attributes for your team
+- Consider attribute cardinality for targeting efficiency
+
+## Context Struct
+
+The `GrowthBook.Context` struct is the core data structure:
+
+```elixir
+%GrowthBook.Context{
+  enabled?: true,  # Whether GrowthBook is enabled
+  features: %{},  # Map of feature definitions
+  attributes: %{},  # User attributes
+  forced_variations: %{},  # Forced experiment variations for QA
+  qa_mode?: false,  # Disable randomization for testing
+  url: nil  # Optional URL for URL-based targeting
+}
+```
+
+You can create contexts manually or use the helper function:
+
+```elixir
+# Using helper (recommended)
+context = GrowthBook.build_context(%{"id" => "user-123"})
+
+# Manual creation (for advanced use cases)
+context = %GrowthBook.Context{
+  enabled?: true,
+  features: my_features,
+  attributes: %{"id" => "user-123"},
+  forced_variations: %{"experiment-1" => 1},  # Force variation for testing
+  qa_mode?: false
+}
+```
+
+## Error Handling
+
+The SDK is designed to fail gracefully:
+
+```elixir
+# If initialization fails, you can still use manual features
+case GrowthBook.init(client_key: "invalid-key") do
+  {:ok, :initialized} ->
+    Logger.info("GrowthBook initialized")
+  {:error, reason} ->
+    Logger.warn("GrowthBook init failed: #{inspect(reason)}, using manual features")
+    # Fall back to manual feature configuration
+    fallback_features = load_fallback_features()
+end
+
+# Feature evaluation always returns a result
+result = GrowthBook.feature(context, "nonexistent-feature")
+# result.source will be :unknown_feature
+# result.value will be nil
+# result.on? will be false
+```
+
+## Troubleshooting & Logging
+
+### Common Issues
+
+#### Features Not Loading
+
+If features aren't loading, check the following:
+
+```elixir
+# 1. Verify initialization succeeded
+case GrowthBook.init(client_key: "sdk-abc123") do
+  {:ok, :initialized} ->
+    Logger.info("GrowthBook initialized successfully")
+  {:error, reason} ->
+    Logger.error("Failed to initialize: #{inspect(reason)}")
+end
+
+# 2. Check if features are available
+case GrowthBook.FeatureRepository.await_initialization(
+  GrowthBook.FeatureRepository,
+  5000
+) do
+  :ok ->
+    Logger.info("Features loaded")
+  {:error, :timeout} ->
+    Logger.error("Features not loaded within timeout")
+end
+
+# 3. Manually check feature repository state
+state = :sys.get_state(GrowthBook.FeatureRepository)
+Logger.info("Feature count: #{map_size(state.features)}")
+```
+
+#### Decryption Failures
+
+If encrypted features fail to decrypt:
+
+```elixir
+# Ensure decryption key is set correctly
+decryption_key = System.get_env("GROWTHBOOK_DECRYPTION_KEY")
+
+if is_nil(decryption_key) or decryption_key == "" do
+  Logger.error("GROWTHBOOK_DECRYPTION_KEY not set")
+end
+
+# Test decryption manually
+GrowthBook.init(
+  client_key: "sdk-abc123",
+  decryption_key: decryption_key,
+  on_refresh: fn features ->
+    Logger.info("Successfully decrypted #{map_size(features)} features")
+  end
+)
+```
+
+#### Network Issues
+
+For network connectivity problems:
+
+```elixir
+# Test API connectivity
+api_host = "https://cdn.growthbook.io"
+client_key = System.get_env("GROWTHBOOK_CLIENT_KEY")
+
+case HTTPoison.get("#{api_host}/api/features/#{client_key}") do
+  {:ok, %{status_code: 200}} ->
+    Logger.info("API is reachable")
+  {:ok, %{status_code: code}} ->
+    Logger.error("API returned status code: #{code}")
+  {:error, %{reason: reason}} ->
+    Logger.error("Network error: #{inspect(reason)}")
+end
+```
+
+### Logging Configuration
+
+Enable detailed logging to debug issues:
+
+```elixir
+# config/config.exs
+config :logger, :console,
+  format: "$time $metadata[$level] $message\n",
+  metadata: [:request_id, :module, :function]
+
+# Set log level for GrowthBook
+config :logger,
+  level: :debug
+
+# In your application
+require Logger
+
+GrowthBook.init(
+  client_key: "sdk-abc123",
+  on_refresh: fn features ->
+    Logger.info("GrowthBook: Features refreshed",
+      feature_count: map_size(features),
+      timestamp: DateTime.utc_now()
+    )
+  end
+)
+```
+
+### Debug Helper Module
+
+Create a helper module for debugging GrowthBook:
+
+```elixir
+defmodule MyApp.GrowthBookDebug do
+  require Logger
+
+  def inspect_context(context) do
+    Logger.debug("""
+    GrowthBook Context:
+      Enabled: #{context.enabled?}
+      Features: #{map_size(context.features)}
+      Attributes: #{inspect(context.attributes)}
+      QA Mode: #{context.qa_mode?}
+    """)
+  end
+
+  def inspect_feature_result(key, result) do
+    Logger.debug("""
+    Feature: #{key}
+      Value: #{inspect(result.value)}
+      On: #{result.on?}
+      Source: #{result.source}
+      In Experiment: #{result.source == :experiment}
+    """)
+  end
+
+  def list_all_features do
+    state = :sys.get_state(GrowthBook.FeatureRepository)
+
+    state.features
+    |> Map.keys()
+    |> Enum.each(fn key ->
+      Logger.info("Feature: #{key}")
+    end)
+  end
+end
+
+# Usage
+context = GrowthBook.build_context(%{"id" => "user-123"})
+MyApp.GrowthBookDebug.inspect_context(context)
+
+result = GrowthBook.feature(context, "my-feature")
+MyApp.GrowthBookDebug.inspect_feature_result("my-feature", result)
+```
+
+### Health Checks
+
+Implement health checks for monitoring:
+
+```elixir
+defmodule MyApp.HealthCheck do
+  def growthbook_status do
+    try do
+      case Process.whereis(GrowthBook.FeatureRepository) do
+        nil ->
+          {:error, "FeatureRepository not running"}
+
+        pid when is_pid(pid) ->
+          state = :sys.get_state(pid)
+          feature_count = map_size(state.features)
+
+          cond do
+            feature_count == 0 ->
+              {:warning, "No features loaded"}
+            true ->
+              {:ok, "#{feature_count} features loaded"}
+          end
+      end
+    rescue
+      e -> {:error, "Health check failed: #{inspect(e)}"}
+    end
+  end
+end
+
+# Use in a Phoenix health endpoint
+defmodule MyAppWeb.HealthController do
+  use MyAppWeb, :controller
+
+  def show(conn, _params) do
+    growthbook_status = MyApp.HealthCheck.growthbook_status()
+
+    status = case growthbook_status do
+      {:ok, _} -> :ok
+      {:warning, _} -> :degraded
+      {:error, _} -> :error
+    end
+
+    json(conn, %{
+      status: status,
+      growthbook: growthbook_status
+    })
+  end
+end
+```
+
+## Integrations
+
+The Elixir SDK integrates seamlessly with popular Elixir frameworks and libraries.
+
+### Phoenix Web Application
+
+Integrate GrowthBook with Phoenix for feature flags in your web application:
+
+```elixir
+# lib/my_app_web/plugs/growthbook_plug.ex
+defmodule MyAppWeb.GrowthBookPlug do
+  import Plug.Conn
+
+  def init(opts), do: opts
+
+  def call(conn, _opts) do
+    # Build user attributes from session/assigns
+    user = conn.assigns[:current_user]
+
+    attributes = %{
+      "id" => user_id(user),
+      "email" => user && user.email,
+      "country" => get_country_from_ip(conn.remote_ip),
+      "user_agent" => get_req_header(conn, "user-agent") |> List.first(),
+      "url" => conn.request_path,
+      "plan" => user && user.subscription_plan
+    }
+
+    # Create GrowthBook context
+    context = GrowthBook.build_context(attributes)
+
+    # Store context in conn.assigns for use in controllers/views
+    assign(conn, :growthbook, context)
+  end
+
+  defp user_id(nil), do: nil
+  defp user_id(user), do: to_string(user.id)
+
+  defp get_country_from_ip(_ip) do
+    # Implement IP geolocation
+    "US"
+  end
+end
+
+# lib/my_app_web/router.ex
+defmodule MyAppWeb.Router do
+  use MyAppWeb, :router
+
+  pipeline :browser do
+    plug :accepts, ["html"]
+    plug :fetch_session
+    plug :fetch_live_flash
+    plug :put_root_layout, {MyAppWeb.LayoutView, :root}
+    plug :protect_from_forgery
+    plug :put_secure_browser_headers
+    plug :fetch_current_user
+    plug MyAppWeb.GrowthBookPlug  # Add GrowthBook plug
+  end
+
+  # Your routes...
+end
+
+# lib/my_app_web/controllers/dashboard_controller.ex
+defmodule MyAppWeb.DashboardController do
+  use MyAppWeb, :controller
+
+  def index(conn, _params) do
+    # Access GrowthBook context from conn.assigns
+    gb = conn.assigns.growthbook
+
+    # Use feature flags to control UI
+    show_new_dashboard = GrowthBook.feature(gb, "new-dashboard").on?
+    max_items = GrowthBook.feature(gb, "dashboard-max-items").value || 10
+
+    # Track experiment if user is in one
+    color_result = GrowthBook.feature(gb, "dashboard-theme-color")
+    if color_result.source == :experiment do
+      track_experiment(conn, color_result.experiment, color_result.experiment_result)
+    end
+
+    render(conn, "index.html",
+      new_dashboard: show_new_dashboard,
+      max_items: max_items,
+      theme_color: color_result.value
+    )
+  end
+
+  defp track_experiment(conn, experiment, result) do
+    # Track to your analytics service
+    MyApp.Analytics.track(conn.assigns.current_user, "experiment_viewed", %{
+      experiment_id: experiment.key,
+      variation_id: result.variation_id
+    })
+  end
+end
+```
+
+### Phoenix LiveView
+
+Use GrowthBook with Phoenix LiveView for real-time feature flag updates:
+
+```elixir
+# lib/my_app_web/live/dashboard_live.ex
+defmodule MyAppWeb.DashboardLive do
+  use MyAppWeb, :live_view
+  require Logger
+
+  @impl true
+  def mount(_params, session, socket) do
+    # Subscribe to feature updates if desired
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(MyApp.PubSub, "growthbook:features")
+    end
+
+    # Get user from session
+    user = get_user_from_session(session)
+
+    # Build GrowthBook context
+    gb_context = GrowthBook.build_context(%{
+      "id" => user.id,
+      "email" => user.email,
+      "plan" => user.subscription_plan,
+      "country" => user.country
+    })
+
+    socket =
+      socket
+      |> assign(:user, user)
+      |> assign(:growthbook, gb_context)
+      |> assign_features()
+
+    {:ok, socket}
+  end
+
+  @impl true
+  def handle_info({:features_updated, _features}, socket) do
+    # Rebuild context with updated features
+    gb_context = GrowthBook.build_context(socket.assigns.user.attributes)
+
+    socket =
+      socket
+      |> assign(:growthbook, gb_context)
+      |> assign_features()
+      |> put_flash(:info, "Features updated")
+
+    {:noreply, socket}
+  end
+
+  defp assign_features(socket) do
+    gb = socket.assigns.growthbook
+
+    socket
+    |> assign(:new_dashboard, GrowthBook.feature(gb, "new-dashboard").on?)
+    |> assign(:max_items, GrowthBook.feature(gb, "max-items").value || 20)
+    |> assign(:theme, GrowthBook.feature(gb, "dashboard-theme").value || "light")
+  end
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <div class={"dashboard-container theme-#{@theme}"}>
+      <%= if @new_dashboard do %>
+        <.new_dashboard_view items={@max_items} />
+      <% else %>
+        <.legacy_dashboard_view items={@max_items} />
+      <% end %>
+    </div>
+    """
+  end
+
+  defp get_user_from_session(session) do
+    # Get user from session
+    # Implementation depends on your auth system
+  end
+end
+
+# Set up PubSub notifications when features refresh
+# In your GrowthBook initialization (application.ex)
+GrowthBook.init(
+  client_key: System.get_env("GROWTHBOOK_CLIENT_KEY"),
+  on_refresh: fn features ->
+    Phoenix.PubSub.broadcast(
+      MyApp.PubSub,
+      "growthbook:features",
+      {:features_updated, features}
+    )
+  end
+)
+```
+
+### View Helpers
+
+Create view helpers for easy feature flag usage in templates:
+
+```elixir
+# lib/my_app_web/views/growthbook_helpers.ex
+defmodule MyAppWeb.GrowthBookHelpers do
+  def feature_on?(conn, feature_key) do
+    conn.assigns.growthbook
+    |> GrowthBook.feature(feature_key)
+    |> Map.get(:on?)
+  end
+
+  def feature_value(conn, feature_key, default \\ nil) do
+    conn.assigns.growthbook
+    |> GrowthBook.feature(feature_key)
+    |> Map.get(:value)
+    |> case do
+      nil -> default
+      value -> value
+    end
+  end
+end
+
+# In your templates
+<%= if feature_on?(@conn, "show-banner") do %>
+  <div class="banner">
+    <%= feature_value(@conn, "banner-text", "Default banner text") %>
+  </div>
+<% end %>
+```
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="elixir" />

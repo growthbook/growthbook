@@ -1,8 +1,9 @@
 import React from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Badge from "@/components/Radix/Badge";
-import { RadixColor } from "@/components/Radix/HelperText";
+import Badge from "@/ui/Badge";
+import { RadixColor } from "@/ui/HelperText";
 
 export const TAG_COLORS = [
   "blue",
@@ -14,29 +15,77 @@ export const TAG_COLORS = [
   "gold",
 ] as const;
 
-type Props = {
+export type TagProps = {
   tag: string;
   color?: RadixColor;
   description?: string;
   skipMargin?: boolean;
+  variant?: "badge" | "dot";
+  maxWidth?: number;
+  // Overrides the default text label; LinkedTag uses this to inject a link.
+  label?: React.ReactElement | string;
 } & MarginProps;
 
-export default function Tag({ tag, color, description, skipMargin }: Props) {
+export default function Tag({
+  tag,
+  color,
+  description,
+  skipMargin,
+  variant = "badge",
+  maxWidth = 200,
+  label,
+}: TagProps) {
   const { getTagById } = useDefinitions();
   const fullTag = getTagById(tag);
+  const desc = description ?? fullTag?.description ?? "";
+  // Suppressed when a label is provided so wrappers can own hover affordance.
+  const displayTitle = label ? undefined : tag + (desc ? `\n\n${desc}` : "");
+  const tagColor = (color ?? fullTag?.color ?? "blue") as RadixColor;
+  const content = label ?? tag;
 
-  const displayTitle = description ?? fullTag?.description ?? "";
-
-  const tagColor = color ?? fullTag?.color ?? "blue";
+  if (variant === "dot") {
+    return (
+      <Flex
+        gap="2"
+        align="center"
+        title={displayTitle}
+        mr={skipMargin ? undefined : "2"}
+        mb={skipMargin ? undefined : "1"}
+        style={{ maxWidth, overflow: "hidden" }}
+      >
+        <div
+          style={{
+            width: 10,
+            height: 10,
+            borderRadius: 10,
+            background: `var(--${tagColor}-10)`,
+            flexShrink: 0,
+          }}
+        />
+        <div
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            minWidth: 0,
+          }}
+        >
+          {content}
+        </div>
+      </Flex>
+    );
+  }
 
   return (
     <Badge
       title={displayTitle}
-      label={tag}
-      color={tagColor as RadixColor}
+      color={tagColor}
       variant="soft"
+      className="text-ellipsis d-inline-block"
+      style={{ maxWidth }}
       mr={skipMargin ? undefined : "2"}
       mb={skipMargin ? undefined : "1"}
+      label={content}
     />
   );
 }

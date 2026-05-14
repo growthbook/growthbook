@@ -4,30 +4,42 @@ import {
   JSONSchemaDef,
   SchemaField,
   SimpleSchema,
-} from "back-end/types/feature";
-import React, { useState } from "react";
+} from "shared/types/feature";
+import React, { useMemo, useState } from "react";
 import dJSON from "dirty-json";
 import stringify from "json-stringify-pretty-compact";
 import {
   getJSONValidator,
   inferSimpleSchemaFromValue,
   simpleToJSONSchema,
+  getReviewSetting,
 } from "shared/util";
 import { FaAngleDown, FaAngleRight, FaRegTrashAlt } from "react-icons/fa";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import { useAuth } from "@/services/auth";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
-import Modal from "@/components/Modal";
+import Switch from "@/ui/Switch";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { GBAddCircle } from "@/components/Icons";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import Checkbox from "@/ui/Checkbox";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 
 export interface Props {
   feature: FeatureInterface;
   close: () => void;
   mutate: () => void;
+  setVersion?: (version: number) => void;
+  revisionList?: MinimalFeatureRevisionInterface[];
+  defaultEnable?: boolean;
+  onEnable?: () => void;
 }
 
 // TODO: enable this when we have a GUI for entering feature values based on the schema
@@ -96,13 +108,13 @@ function EditSchemaField({
       />
       {inObject && (
         <div className="form-group">
-          <Toggle
+          <Checkbox
             id={`schema_required_${i}`}
             value={value.required}
             setValue={(v) => onChange({ ...value, required: v })}
-            type="toggle"
-          />{" "}
-          <label htmlFor={`schema_required_${i}`}>Required</label>
+            description="Check if this property is required"
+            label="Required"
+          />
         </div>
       )}
       {value.type !== "boolean" && (
@@ -419,7 +431,15 @@ function EditSimpleSchema({
   );
 }
 
-export default function EditSchemaModal({ feature, close, mutate }: Props) {
+export default function EditSchemaModal({
+  feature,
+  close,
+  mutate,
+  setVersion,
+  revisionList = [],
+  defaultEnable,
+  onEnable,
+}: Props) {
   const defaultSimpleSchema = feature.jsonSchema?.simple?.fields?.length
     ? feature.jsonSchema.simple
     : inferSimpleSchemaFromValue(feature.defaultValue);
@@ -437,46 +457,65 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
       schemaType: defaultSchemaType,
       simple: defaultSimpleSchema,
       schema: defaultJSONSchema,
-      enabled: feature.jsonSchema?.enabled ?? true,
+      enabled: defaultEnable ? true : (feature.jsonSchema?.enabled ?? true),
     },
   });
   const { apiCall } = useAuth();
+  const settings = useOrgSettings();
+
+  const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
+    const raw = settings?.requireReviews;
+    if (raw === true) return "all";
+    if (!Array.isArray(raw)) return "none";
+    const reviewSetting = getReviewSetting(raw, feature);
+    if (!reviewSetting?.requireReviewOn) return "none";
+    const envList = reviewSetting.environments ?? [];
+    return envList.length === 0 ? "all" : new Set(envList);
+  }, [settings?.requireReviews, feature]);
+
+  const canAutoPublish = gatedEnvSet === "none";
+
+  const defaultDraft = useDefaultDraft(revisionList);
+
+  const [mode, setMode] = useState<DraftMode>(
+    canAutoPublish ? "publish" : "new",
+  );
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(
+    defaultDraft,
+  );
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       header="Edit Feature Validation"
-      cta="Save"
+      cta={mode === "publish" ? "Publish" : "Save to Draft"}
       size="lg"
       submit={form.handleSubmit(async (value) => {
         if (value.enabled && value.schemaType === "schema") {
-          // make sure the json schema is valid json schema
           let schemaString = value.schema;
           let parsedSchema;
           try {
             if (schemaString !== "") {
-              // first see if it is valid json:
               try {
                 parsedSchema = JSON.parse(schemaString);
               } catch (e) {
-                // If the JSON is invalid, try to parse it with 'dirty-json' instead
+                // Fall back to dirty-json for lenient parsing
                 parsedSchema = dJSON.parse(schemaString);
                 schemaString = stringify(parsedSchema);
               }
-              // make sure it is valid json schema:
               const ajv = getJSONValidator();
               ajv.compile(parsedSchema);
             }
           } catch (e) {
             throw new Error(
-              `The JSON Schema is invalid. Please check it and try again. Validator error: "${e.message}"`
+              `The JSON Schema is invalid. Please check it and try again. Validator error: "${e.message}"`,
             );
           }
 
           if (schemaString !== value.schema) {
             form.setValue("schema", schemaString);
             throw new Error(
-              "We fixed some errors in the schema. If it looks correct, save again."
+              "We fixed some errors in the schema. If it looks correct, save again.",
             );
           }
         } else if (value.enabled && value.schemaType === "simple") {
@@ -488,39 +527,53 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
             ajv.compile(parsedSchema);
           } catch (e) {
             throw new Error(
-              `The Simple Schema is invalid. Please check it and try again. Validator error: "${e.message}"`
+              `The Simple Schema is invalid. Please check it and try again. Validator error: "${e.message}"`,
             );
           }
         }
 
-        await apiCall(`/feature/${feature.id}/schema`, {
-          method: "POST",
-          body: JSON.stringify(value),
-        });
+        const body: Record<string, unknown> = {
+          ...value,
+          ...(mode === "publish"
+            ? { autoPublish: true }
+            : mode === "existing"
+              ? { targetDraftVersion: selectedDraft }
+              : { forceNewDraft: true }),
+        };
+        const res = await apiCall<{ draftVersion?: number }>(
+          `/feature/${feature.id}/schema`,
+          {
+            method: "POST",
+            body: JSON.stringify(body),
+          },
+        );
         mutate();
+        const resolvedVersion =
+          res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
+        if (resolvedVersion != null && setVersion) setVersion(resolvedVersion);
+        onEnable && value.enabled && onEnable();
       })}
       close={close}
       open={true}
     >
-      <div className="form-group d-flex align-items-top mb-4">
-        <Toggle
-          id={"schemaEnabled"}
-          value={form.watch("enabled")}
-          setValue={(v) => form.setValue("enabled", v)}
-        />{" "}
-        <div className="ml-3">
-          <label
-            htmlFor="schemaEnabled"
-            className="mb-0 font-weight-bold text-dark"
-          >
-            Enable Validation
-          </label>
-          <div>
-            These validation rules will only apply going forward. Existing
-            feature values will not be affected.
-          </div>
-        </div>
-      </div>
+      <DraftSelectorForChanges
+        feature={feature}
+        revisionList={revisionList}
+        mode={mode}
+        setMode={setMode}
+        selectedDraft={selectedDraft}
+        setSelectedDraft={setSelectedDraft}
+        canAutoPublish={canAutoPublish}
+        gatedEnvSet={gatedEnvSet}
+      />
+      <Switch
+        id={"schemaEnabled"}
+        label="Enable Validation"
+        description="These validation rules will only apply going forward. Existing feature values will not be affected."
+        value={form.watch("enabled")}
+        onChange={(v) => form.setValue("enabled", v)}
+        mb="4"
+      />
       {form.watch("enabled") && (
         <>
           <div className="form-group">
@@ -550,11 +603,11 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
                     if (form.watch("schema") === "{}") {
                       try {
                         const schemaString = simpleToJSONSchema(
-                          form.watch("simple")
+                          form.watch("simple"),
                         );
                         form.setValue(
                           "schema",
-                          stringify(JSON.parse(schemaString))
+                          stringify(JSON.parse(schemaString)),
                         );
                       } catch (e) {
                         // Ignore errors, we just want to set the default value
@@ -584,6 +637,6 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
           )}
         </>
       )}
-    </Modal>
+    </ModalStandard>
   );
 }

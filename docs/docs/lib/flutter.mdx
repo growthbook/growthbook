@@ -5,6 +5,9 @@ sidebar_label: Flutter
 slug: flutter
 ---
 
+import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
+
 # Flutter
 
 This SDK supports the following versions:
@@ -14,36 +17,37 @@ This SDK supports the following versions:
 - **Apple TvOS version 13 & Above**
 - **Apple WatchOS version 7 & Above**
 
+<SdkResources sdk="flutter" />
+
 ## Installation
 
 Add this to your `pubspec.yaml` file
 
-```
-growthbook_sdk_flutter: ^1.0.0
+```yaml
+growthbook_sdk_flutter: ^4.0.0
 ```
 
 ## Quick Usage
 
-To create a GrowthBook SDK instance, use `GBSDKBuilderApp`. Then, you can evaluate feature flags or run experiments.
+Create a `GrowthBookSDK` instance with `GBSDKBuilderApp`, set attributes, then evaluate features or run experiments.
 
 ```dart
-// User attributes for targeting and assigning users to experiment variations
-val attrs = HashMap<String, Any>()
-attrs.put("id", "123")
-attrs.put("env", "dev")
-attrs.put("betaUser", true)
-
-final GrowthBookSDK sdkInstance = GBSDKBuilderApp(
-  apiKey: "<API_KEY>",
+final sdk = await GBSDKBuilderApp(
+  apiKey: "sdk-abc123", // Client key from GrowthBook
+  hostURL: "https://cdn.growthbook.io", // or your Proxy URL
   attributes: {
-    attrs
+    "id": "123",
+    "env": "dev",
+    "betaUser": true,
   },
-  growthBookTrackingCallBack: (gbExperiment, gbExperimentResult) {},
-  hostURL: '<GrowthBook_URL>',
+  growthBookTrackingCallBack: (exp, result) {
+    // Track exposures
+  },
 ).initialize();
 
-if (gb.feature("my-feature").on) {
-  // Feature is enabled!
+final feature = sdk.feature("my-feature");
+if (feature.on) {
+  // Feature is enabled
 }
 ```
 
@@ -74,7 +78,7 @@ if (feature.off) { }
 
 // Print the actual value of the feature
 // (depending on the feature, might be a string, number, boolean, etc.)
-Println(feature.value)
+print(feature.value)
 
 // Print the experiment id used to assign the feature value
 if (feature.source == "experiment") {
@@ -82,9 +86,80 @@ if (feature.source == "experiment") {
 }
 ```
 
-## Running Inline Experiments
+## Attributes
 
-Instead of just using features defined in the GrowthBook API, you can run an experiment directly. This is done with the `run` method, which takes a `GBExperiment` object as an argument and returns a `GBExperimentResult` object:
+Attributes define the current user and request "context" used for targeting rules and bucketing.
+
+### Common attributes
+
+- `id` (string): primary user identifier for consistent bucketing
+- `deviceId` (string): device/install-scoped fallback when user not logged in
+- `country`, `locale` (string)
+- `plan`, `company`, `role` (string)
+- `loggedIn` (bool)
+- `appVersion` (string, supports semver targeting)
+
+Use `setAttributes()` method to set the user context.
+
+```dart
+sdk.setAttributes({
+  "id": "123",
+  "country": "US",
+  "plan": "pro",
+  "appVersion": "1.3.0",
+});
+```
+
+### What is the user context?
+
+- Identity: stable identifiers for bucketing (e.g., `id`, and optionally a logged-out fallback like `deviceId`).
+- Demographics and traits: e.g., `country`, `company`, `plan`, `loggedIn`.
+- App/runtime context: e.g., `appVersion`, `platform`, `locale`.
+- Request context (if applicable): e.g., `url`, `path`, `device`.
+
+Data types supported include strings, numbers, booleans, and arrays/objects for JSON-based conditions.
+
+### Identity changes (login/logout)
+
+- On login, switch from `deviceId` to `id` (stable user id).
+- On logout, remove `id` and use `deviceId` until the next login.
+
+```dart
+// Logged-out (device-scoped)
+sdk.setAttributes({
+  "deviceId": "device-abc",
+  "loggedIn": false,
+});
+
+// After login (user-scoped)
+sdk.setAttributes({
+  "id": "user-123",
+  "loggedIn": true,
+});
+```
+
+If using Remote Evaluation, consider limiting network calls to meaningful identity changes with `cacheKeyAttributes` and refreshing when identity changes:
+
+```dart
+final sdk = await GBSDKBuilderApp(
+  apiKey: "sdk-abc123",
+  hostURL: "https://gb-proxy.example.com",
+  remoteEval: true,
+  cacheKeyAttributes: ["id", "email"],
+  attributes: {"deviceId": "device-abc"},
+).initialize();
+
+// Later, after login
+sdk.setAttributes({
+  "id": "user-123",
+  "email": "user@example.com",
+});
+await sdk.refreshForRemoteEval();
+```
+
+## Experimentation (A/B Testing)
+
+To run the experiements with `GrowthBook`, use `run` method, which takes a `GBExperiment` object as an argument and returns a `GBExperimentResult` object:
 
 ```dart
 var exp = GBExperiment()
@@ -94,7 +169,7 @@ exp.variations = List.of("control", "variation")
 var result = gb.run(exp)
 
 // Either "control" or "variation"
-Println(result.value)
+print(result.value)
 ```
 
 The `GBExperiment` class has two required properties - `key` and `variations`. There are also a number of optional properties:
@@ -117,6 +192,446 @@ The `GBExperimentResult` object returns the following properties:
 - **hashAttribute** (`String`) - The user attribute used to assign a variation
 - **hashValue** (`String`) - The value of the attribute used to assign a variation
 
-## More Documentation
+### Tracking & Subscriptions
 
-The GitHub repo for this SDK has more detailed class and method documentation - https://github.com/growthbook/growthbook-flutter
+Use `growthBookTrackingCallBack` to receive experiment exposure events whenever a user is assigned to a variation (via features or inline experiments).
+
+For feature usage events (non-experiment), wrap your `feature(...)` calls in a small utility to emit custom app analytics.
+
+```dart
+final sdk = await GBSDKBuilderApp(
+  apiKey: "sdk-abc123",
+  hostURL: "https://cdn.growthbook.io",
+  growthBookTrackingCallBack: (exp, result) {
+    // e.g., send to analytics
+  },
+).initialize();
+```
+
+To Subscribe :
+
+```dart
+final exposures = StreamController<Map<String, dynamic>>.broadcast();
+
+final sdk = await GBSDKBuilderApp(
+  apiKey: "sdk-abc123",
+  hostURL: "https://cdn.growthbook.io",
+  growthBookTrackingCallBack: (exp, result) {
+    exposures.add({
+      "experimentKey": exp.key,
+      "variationId": result.variationId,
+      "featureId": result.featureId,
+    });
+  },
+).initialize();
+
+final sub = exposures.stream.listen((e) {
+  // send to analytics
+});
+
+// Later, unsubscribe to avoid leaks
+await sub.cancel();
+```
+
+:::info When subscriptions fire vs. don't fire
+When subscriptions fire vs. don't fire
+
+- Fire: on first assignment per experiment key and after assignments change due to attribute updates or payload changes.
+- Don't fire: repeated reads of the same assignment that hasn't changed.
+
+:::
+
+#### Efficient subscription patterns
+
+- Keep callbacks lightweight; offload heavy work to background tasks.
+- Coalesce multiple exposure events before sending to analytics to reduce overhead.
+- Include `experiment.key`, `variationId`, and optional `featureId` for correlation.
+
+#### Unsubscribing and memory management
+
+- Remove any of your app-layer listeners in `dispose()`.
+- Dispose the SDK instance when not needed (e.g., app shutdown) to release resources and close streams.
+
+## Loading Features
+
+#### Built-in fetching and caching
+
+If you pass a `hostURL` and `apiKey` into the builder, the SDK handles network requests, caching, retry/backoff, and decryption (when configured in your SDK connection). You can enable streaming updates with `backgroundSync: true`.
+
+```dart
+final sdk = await GBSDKBuilderApp(
+  apiKey: "sdk-abc123",
+  hostURL: "https://cdn.growthbook.io",
+  backgroundSync: false,
+).initialize();
+
+// Manually refresh (e.g., on app start or navigation)
+await sdk.refreshCache();
+```
+
+#### Custom integration (local evaluation)
+
+If you prefer to control network and caching yourself, you can set a payload directly on the SDK. This enables fully local evaluation and offline-first behavior.
+
+```dart
+await sdk.setPayload({
+  "features": {
+    "feature-1": {"defaultValue": true},
+    "feature-2": {"defaultValue": "blue"}
+  }
+});
+```
+
+## Caching
+
+The SDK persists downloaded feature payloads and related metadata. Configure TTL to control how long cached features are considered fresh before a background refresh.
+
+- To use Stale-While-Revalidate strategy with TTL and streaming:
+
+```dart
+final sdk = await GBSDKBuilderApp(
+  apiKey: "sdk-abc123",
+  hostURL: "https://cdn.growthbook.io",
+  ttlSeconds: 300,
+  backgroundSync: true, // keep a live stream for fast updates
+).initialize();
+```
+
+- Manual refresh at lifecycle boundaries:
+
+```dart
+// App resume, significant navigation, pull-to-refresh, etc.
+await sdk.refreshCache();
+```
+
+- Identity or environment switch:
+
+```dart
+// Switch attributes to new identity, then refresh
+sdk.setAttributes({"id": "new-user"});
+await sdk.refreshCache();
+
+// If you store sticky assignments yourself, clear the old user's keys
+await myStickyStorage.clearForUser("old-user");
+```
+
+#### Web-specific caching considerations
+
+- For Flutter Web, ensure your CDN respects cache-control headers for GrowthBook endpoints.
+- Avoid overly aggressive service worker caching for evaluated payloads unless you manage invalidation carefully.
+
+## Real-time Updates (SSE)
+
+### Setup and lifecycle
+
+- Initialization
+  - Enable `backgroundSync: true` when building the SDK instance.
+  - Optionally pass `streamingRequestHeaders` (e.g., auth) and `Last-Event-Id` to resume after restarts.
+- Refresh handler
+  - Use `onFeaturesRefreshed` to update UI or invalidate caches after new data is applied.
+  - The callback fires for both streaming updates and manual refreshes.
+- Teardown
+  - Dispose your SDK instance when your app shuts down. The connection will be closed automatically.
+
+```dart
+final sdk = await GBSDKBuilderApp(
+  apiKey: "sdk-abc123",
+  hostURL: "https://cdn.growthbook.io",
+  backgroundSync: true,
+  onFeaturesRefreshed: (success) {
+    if (success) {
+      // e.g., notify listeners / rebuild widgets
+    } else {
+      // network failure or payload issue
+    }
+  },
+).initialize();
+```
+
+You can also add custom headers for secure requests:
+
+```dart
+final sdk = await GBSDKBuilderApp(
+  apiKey: "sdk-abc123",
+  hostURL: "https://cdn.growthbook.io",
+  requestHeaders: {"Authorization": "Bearer <token>"},
+  streamingRequestHeaders: {
+    "Authorization": "Bearer <token>",
+    // Optionally resume after disconnects
+    "Last-Event-Id": "<persisted-last-id>"
+  },
+  backgroundSync: true,
+).initialize();
+```
+
+### Network failures and reconnection
+
+- The SDK uses an exponential backoff strategy on streaming errors and attempts to auto-reconnect.
+- Provide stable connectivity hints to users only when necessary; otherwise allow background reconnection.
+- Persist and reuse the `Last-Event-Id` to avoid duplicate events on resume.
+
+```dart
+// Example: Persist last event id you receive from your stream handler
+await storage.write(key: 'gb_last_event_id', value: lastEventId);
+// Then pass it back during init via `streamingRequestHeaders` as shown above
+```
+
+#### Performance Considerations
+
+- Prefer streaming when you need near real-time flag updates (admin toggles, ops tooling).
+- Prefer polling/manual refresh when updates are infrequent or the app is latency- or battery-sensitive.
+- Background sync opens a single lightweight SSE connection; avoid running multiple SDK instances with streaming in the same app.
+
+## Remote Evaluation
+
+:::tip
+See the [Remote Evaluation overview](/self-host/remote-evaluation) for more information about what Remote Evaluation is, how it works, and deployment options.
+:::
+
+Run GrowthBook in Remote Evaluation mode to evaluate flags on a private server (e.g., GrowthBook Proxy). Sensitive rules never reach the client.
+
+:::note Sticky Bucketing with Remote Evaluation
+If you want Sticky Bucketing with Remote Evaluation, configure your remote backend (e.g., GrowthBook Proxy) with a persistent store (e.g., Redis). You do not need to provide a sticky service on the client.
+:::
+
+```dart
+final sdk = await GBSDKBuilderApp(
+  apiKey: "sdk-abc123",
+  hostURL: "https://gb-proxy.yourcompany.com",
+  remoteEval: true,
+  // Optional: only trigger a new evaluation when selected attributes change
+  cacheKeyAttributes: ["id", "email"],
+  attributes: {"id": "123", "email": "user@example.com"},
+).initialize();
+
+// Manually trigger a remote evaluation when attributes change
+sdk.setAttributes({"plan": "pro"});
+await sdk.refreshForRemoteEval();
+```
+
+### Remote vs local evaluation
+
+- Use remote evaluation when:
+  - You need to keep targeting rules and unused variations off-device for privacy/compliance.
+  - Payload size is large and you want device-optimized responses for the current user.
+- Use local evaluation when:
+  - You need offline-first behavior or minimal round trips.
+  - The full feature payload is small and regularly reused.
+
+#### Configuration
+
+- Endpoint: Set `hostURL` to your GrowthBook Proxy or secured backend base URL.
+- Auth: Send authentication via `requestHeaders` to both fetching and remote eval endpoints.
+- Cache keys: Use `cacheKeyAttributes` to limit remote calls to only when relevant identity fields change.
+
+```dart
+final sdk = await GBSDKBuilderApp(
+  apiKey: "sdk-abc123",
+  hostURL: "https://gb-proxy.example.com",
+  remoteEval: true,
+  cacheKeyAttributes: ["id", "email"],
+  requestHeaders: {"Authorization": "Bearer <token>"},
+  attributes: {"id": "u_123", "email": "u@example.com"},
+).initialize();
+```
+
+### Debugging Remote Evaluation
+
+- Verify required attributes are present before calling `refreshForRemoteEval()`.
+- Log the response status/source from your SDK callbacks to confirm whether updates came from network or cache.
+- Check your proxy/server logs for rejected requests, auth failures, or schema mismatches.
+
+#### Security considerations
+
+- Treat the `apiKey` as public. Protect sensitive data with server-side auth on your proxy.
+- Use short-lived tokens in `requestHeaders` when possible and rotate regularly.
+- Avoid putting PII directly in attributes unless hashed/secured per your policies.
+
+#### Fallback strategies
+
+- If remote eval fails, keep using the last known values from cache and retry later.
+- Consider a hybrid approach: bootstrap with a local payload and switch to remote eval when online.
+- Implement a user-visible retry or manual refresh action when business-critical.
+
+## Sticky Bucketing
+
+Sticky bucketing ensures users see the same experiment variant across sessions. Read more about [Sticky Bucketing Feature](https://docs.growthbook.io/app/sticky-bucketing)
+
+- Enable Sticky Bucketing on the experiment or feature rule in GrowthBook.
+- Provide a stable identity in attributes (e.g., `id`) after login; use a device-scoped fallback when logged out.
+- Use a globally unique `id` for logged-in users; avoid mutable identifiers.
+- For logged-out sessions, use a device/install identifier and switch to `id` on login.
+- When identity changes (login/logout), update attributes immediately to avoid cross-user assignment mixing.
+
+Implement a `GBStickyBucketService` to persist assignments. Attach your `GBStickyBucketService` when building the SDK to persist assignments across sessions.
+
+```dart
+class MyAppStickyBucketService extends GBStickyBucketService {
+  @override
+  Future<Map<String, String>?> getAllAssignments(
+    Map<String, dynamic> attributes,
+  ) async {
+    // Retrieve from local storage
+    // ...
+    return null;
+  }
+
+  @override
+  Future<void> saveAssignments(
+    Map<String, dynamic> attributes,
+    Map<String, String> assignments,
+  ) async {
+    // Save to local storage
+    // ...
+  }
+}
+
+final sdk = await GBSDKBuilderApp(
+  apiKey: "sdk-abc123",
+  stickyBucketService: MyAppStickyBucketService(),
+).initialize();
+```
+
+For Remote evaluations, if your Remote Eval backend (e.g., GrowthBook Proxy) is configured for sticky bucketing, persistence happens server-side and you do not need to provide a client service.
+
+```dart
+// Remote evaluation with server-side sticky (no client sticky service needed)
+final sdk = await GBSDKBuilderApp(
+  apiKey: "sdk-abc123",
+  hostURL: "https://gb-proxy.yourcompany.com",
+  remoteEval: true,
+  attributes: {"id": "user_123"},
+).initialize();
+```
+
+### Custom Sticky Bucketing Service configurations
+
+- Namespacing: use an environment-specific key prefix (e.g., `prod_`, `staging_`).
+- Storage backend: choose durable storage for your platform (`SharedPreferences`, secure storage, SQLite).
+- Migration: when changing storage layout, migrate existing assignment keys to preserve continuity.
+
+### Troubleshooting stale assignments
+
+- Logout or user-switch: clear assignments for the previous identity or use identity-specific keys.
+- Experiment retired/changed: allow non-sticky behavior to take effect; optionally prune retired experiment keys.
+- Unexpected variant: confirm which identity key is being used and verify read/write paths in your storage.
+
+See the Flutter repo for examples and updates: [growthbook-flutter](https://github.com/growthbook/growthbook-flutter).
+
+## Encrypted features
+
+Configure SDK Connection to deliver encrypted features, provide the decryption key during initialization.
+
+```dart
+final sdk = await GBSDKBuilderApp(
+  apiKey: "sdk-abc123",
+  hostURL: "https://cdn.growthbook.io",
+  decryptionKey: "<your-32-byte-key>",
+).initialize();
+```
+
+Or prefer using a Remote Evaluation backend (e.g., GrowthBook Proxy) that decrypts server-side. This keeps secrets off the device.
+
+```dart
+final sdk = await GBSDKBuilderApp(
+  apiKey: "sdk-abc123",
+  hostURL: "https://gb-proxy.yourcompany.com", // Proxy handles decryption
+  remoteEval: true,
+  attributes: {"id": "user_123"},
+).initialize();
+```
+
+### Performance optimizations
+
+- Track refresh times and payload sizes; reduce attribute surface area where possible.
+- Avoid multiple SDK instances with streaming enabled; prefer a single shared instance.
+- Use `onFeaturesRefreshed` to scope UI rebuilds and avoid unnecessary widget tree updates.
+
+#### Memory usage patterns
+
+- Keep attribute maps small and reuse them when doing partial updates.
+- Periodically prune stale sticky assignments if you implement a custom store.
+- Avoid holding multiple SDK instances; share a single instance across the app.
+
+## Error handling and debugging
+
+### Debug logging configuration
+
+```dart
+// Simple logger wrapper for development
+void gbLog(String message) {
+  assert(() { // only in debug mode
+    // ignore: avoid_print
+    print('[GrowthBook] ' + message);
+    return true;
+  }());
+}
+
+// Example usage
+gbLog('Initializing GrowthBook');
+```
+
+### Common error scenarios and solutions
+
+- Initialization returned from cache only
+  - Ensure network connectivity and correct `hostURL`/`apiKey`.
+  - Call `await sdk.refreshCache()` on resume or via pull-to-refresh.
+- Unauthorized (401/403)
+  - Verify `requestHeaders` (e.g., Bearer token) and that your proxy/CDN forwards headers.
+- Decryption errors
+  - Confirm `decryptionKey` matches the SDK Connection and is valid; prefer server-side decryption.
+
+#### Feature evaluation debugging techniques
+
+```dart
+final res = sdk.feature('checkout_v2');
+gbLog('feature=checkout_v2 value=${res.value} source=${res.source}');
+
+if (res.source == 'experiment') {
+  gbLog('exp=' + (res.experiment?.key ?? 'n/a') + ' varId=${res.experimentResult?.variationId}');
+}
+```
+
+Inspect attributes used during evaluation:
+
+```dart
+// Keep your own copy of the attributes you set
+final currentAttrs = {"id": "123", "country": "US"};
+sdk.setAttributes(currentAttrs);
+gbLog('attrs=' + currentAttrs.toString());
+```
+
+### Network connectivity troubleshooting
+
+```dart
+try {
+  await sdk.refreshCache();
+  gbLog('Refresh succeeded');
+} catch (e) {
+  gbLog('Refresh error: ' + e.toString());
+}
+```
+
+If streaming is enabled, rely on auto-reconnect with backoff. Allow a manual refresh UI if business-critical.
+
+## Platform-specific considerations
+
+### Web vs mobile behavior differences
+
+- SSE support and networking may differ in browsers; validate CORS and service worker behavior for Flutter Web.
+- Storage persistence differs (IndexedDB/localStorage on Web vs SharedPreferences/Secure Storage on mobile).
+- For Web, prefer IndexedDB for larger storage; be careful with quota and private browsing modes.
+- For Mobile: use `SharedPreferences` or secure storage for sticky assignments; consider SQLite for large datasets.
+
+### iOS/Android specific considerations
+
+- iOS backgrounding may pause network activity; prefer manual refresh on foreground via app lifecycle hooks.
+- Android Doze/App Standby can throttle background sync; design UX that tolerates delayed updates.
+
+Do not rely on continuous streaming while the app is fully backgrounded; on resume, call `refreshCache()` and rely on backoff reconnects.
+
+See Flutter SDK repo: `https://github.com/growthbook/growthbook-flutter`
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="flutter" />

@@ -1,16 +1,22 @@
 import { z } from "zod";
 import {
+  postExperimentValidator,
+  postMetricValidator,
+  putMetricValidator,
+  updateExperimentValidator,
+} from "shared/validators";
+import { DataSourceInterface } from "shared/types/datasource";
+import { ExperimentInterface } from "shared/types/experiment";
+import { OrganizationInterface } from "shared/types/organization";
+import {
+  applyVariationWeightsToLatestPhase,
+  postExperimentApiPayloadToInterface,
   postMetricApiPayloadIsValid,
   postMetricApiPayloadToMetricInterface,
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
+  updateExperimentApiPayloadToInterface,
 } from "back-end/src/services/experiments";
-import {
-  postMetricValidator,
-  putMetricValidator,
-} from "back-end/src/validators/openapi";
-import { DataSourceInterface } from "back-end/types/datasource";
-import { OrganizationInterface } from "back-end/types/organization";
 
 describe("experiments utils", () => {
   describe("postMetricApiPayloadIsValid", () => {
@@ -61,7 +67,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Can only specify one of: sql, sqlBuilder, mixpanel"
+        "Can only specify one of: sql, sqlBuilder, mixpanel",
       );
     });
 
@@ -87,7 +93,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Binomial metrics cannot have userAggregationSQL"
+        "Binomial metrics cannot have userAggregationSQL",
       );
     });
 
@@ -116,7 +122,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither"
+        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither",
       );
     });
 
@@ -146,7 +152,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "`behavior.conversionWindowEnd` must be greater than `behavior.conversionWindowStart`"
+        "`behavior.conversionWindowEnd` must be greater than `behavior.conversionWindowStart`",
       );
     });
 
@@ -175,7 +181,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither"
+        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither",
       );
     });
 
@@ -204,7 +210,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither"
+        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither",
       );
     });
 
@@ -233,7 +239,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither"
+        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither",
       );
     });
 
@@ -263,7 +269,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "`behavior.maxPercentChange` must be greater than `behavior.minPercentChange`"
+        "`behavior.maxPercentChange` must be greater than `behavior.minPercentChange`",
       );
     });
 
@@ -292,7 +298,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must provide both riskThresholdDanger and riskThresholdSuccess or neither."
+        "Must provide both riskThresholdDanger and riskThresholdSuccess or neither.",
       );
     });
 
@@ -322,7 +328,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "riskThresholdDanger must be higher than riskThresholdSuccess"
+        "riskThresholdDanger must be higher than riskThresholdSuccess",
       );
     });
 
@@ -374,7 +380,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toBe(
-        "Can only specify one of: sql, sqlBuilder, mixpanel"
+        "Can only specify one of: sql, sqlBuilder, mixpanel",
       );
     });
   });
@@ -418,7 +424,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Can only specify one of: sql, sqlBuilder, mixpanel"
+        "Can only specify one of: sql, sqlBuilder, mixpanel",
       );
     });
 
@@ -440,7 +446,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Binomial metrics cannot have userAggregationSQL"
+        "Binomial metrics cannot have userAggregationSQL",
       );
     });
 
@@ -465,7 +471,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither"
+        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither",
       );
     });
 
@@ -491,7 +497,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "`behavior.conversionWindowEnd` must be greater than `behavior.conversionWindowStart`"
+        "`behavior.conversionWindowEnd` must be greater than `behavior.conversionWindowStart`",
       );
     });
 
@@ -516,7 +522,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither"
+        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither",
       );
     });
 
@@ -541,7 +547,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither"
+        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither",
       );
     });
 
@@ -566,7 +572,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither"
+        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither",
       );
     });
 
@@ -592,7 +598,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "`behavior.maxPercentChange` must be greater than `behavior.minPercentChange`"
+        "`behavior.maxPercentChange` must be greater than `behavior.minPercentChange`",
       );
     });
 
@@ -617,7 +623,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must provide both riskThresholdDanger and riskThresholdSuccess or neither."
+        "Must provide both riskThresholdDanger and riskThresholdSuccess or neither.",
       );
     });
 
@@ -643,7 +649,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "riskThresholdDanger must be higher than riskThresholdSuccess"
+        "riskThresholdDanger must be higher than riskThresholdSuccess",
       );
     });
 
@@ -715,7 +721,7 @@ describe("experiments utils", () => {
         const result = postMetricApiPayloadToMetricInterface(
           input,
           organization,
-          datasource
+          datasource,
         );
 
         expect(result.aggregation).toEqual("sum(values)");
@@ -784,7 +790,7 @@ describe("experiments utils", () => {
         const result = postMetricApiPayloadToMetricInterface(
           input,
           organization,
-          datasource
+          datasource,
         );
 
         expect(result.aggregation).toEqual(undefined);
@@ -798,7 +804,7 @@ describe("experiments utils", () => {
         expect(result.datasource).toEqual("ds_abc123");
         expect(result.denominator).toBe(undefined);
         expect(result.description).toEqual(
-          "This is a metric with lots of fields"
+          "This is a metric with lots of fields",
         );
         expect(result.ignoreNulls).toEqual(false);
         expect(result.inverse).toEqual(true);
@@ -871,7 +877,7 @@ describe("experiments utils", () => {
         const result = postMetricApiPayloadToMetricInterface(
           input,
           organization,
-          datasource
+          datasource,
         );
 
         expect(result.cappingSettings.type).toEqual("absolute");
@@ -927,7 +933,7 @@ describe("experiments utils", () => {
         const result = postMetricApiPayloadToMetricInterface(
           input,
           organization,
-          datasource
+          datasource,
         );
 
         expect(result.windowSettings.delayValue).toEqual(5);
@@ -979,7 +985,7 @@ describe("experiments utils", () => {
         const result = postMetricApiPayloadToMetricInterface(
           input,
           organization,
-          datasource
+          datasource,
         );
 
         expect(result.windowSettings.delayValue).toEqual(10);
@@ -1018,7 +1024,7 @@ describe("experiments utils", () => {
       const result = postMetricApiPayloadToMetricInterface(
         input,
         organization,
-        datasource
+        datasource,
       );
 
       expect(result.aggregation).toEqual("sum(values)");
@@ -1130,7 +1136,7 @@ describe("putMetricApiPayloadToMetricInterface", () => {
       expect(result.datasource).toBe(undefined);
       expect(result.denominator).toBe(undefined);
       expect(result.description).toEqual(
-        "This is a metric with lots of fields"
+        "This is a metric with lots of fields",
       );
       expect(result.ignoreNulls).toBe(undefined);
       expect(result.inverse).toEqual(true);
@@ -1224,6 +1230,294 @@ describe("putMetricApiPayloadToMetricInterface", () => {
       expect(result.sql).toBe(undefined);
       expect(result.type).toEqual("count");
       expect(result.userIdTypes).toEqual(undefined);
+    });
+  });
+
+  describe("updateExperimentApiPayloadToInterface", () => {
+    const organization = {
+      id: "org_123",
+      settings: {},
+    } as unknown as OrganizationInterface;
+
+    function makeExperiment(): ExperimentInterface {
+      return {
+        id: "exp_123",
+        organization: "org_123",
+        trackingKey: "exp_123",
+        name: "Test Experiment",
+        type: "standard",
+        project: "proj_1",
+        hypothesis: "",
+        description: "",
+        tags: [],
+        owner: "",
+        dateCreated: new Date("2026-01-01T00:00:00.000Z"),
+        dateUpdated: new Date("2026-01-01T00:00:00.000Z"),
+        archived: false,
+        status: "running",
+        autoSnapshots: false,
+        hashAttribute: "id",
+        hashVersion: 2,
+        disableStickyBucketing: false,
+        variations: [
+          {
+            id: "v0",
+            key: "control",
+            name: "Control",
+            description: "",
+            screenshots: [],
+          },
+          {
+            id: "v1",
+            key: "treatment",
+            name: "Treatment",
+            description: "",
+            screenshots: [],
+          },
+        ],
+        phases: [
+          {
+            name: "Main",
+            dateStarted: new Date("2026-01-01T00:00:00.000Z"),
+            dateEnded: undefined,
+            reason: "",
+            seed: "seed_123",
+            coverage: 1,
+            variationWeights: [0.5, 0.5],
+            condition: "{}",
+            savedGroups: [],
+            prerequisites: [],
+            namespace: {
+              enabled: false,
+              name: "",
+              range: [0, 1],
+            },
+            variations: [
+              { id: "v1", status: "stopped" },
+              { id: "v0", status: "active" },
+            ],
+          },
+        ],
+        goalMetrics: [],
+        secondaryMetrics: [],
+        guardrailMetrics: [],
+        regressionAdjustmentEnabled: false,
+        sequentialTestingEnabled: false,
+        shareLevel: "organization",
+        linkedFeatures: [],
+        hasVisualChangesets: false,
+        hasURLRedirects: false,
+      } as unknown as ExperimentInterface;
+    }
+
+    it("does not overwrite phase variations on phases-only updates", () => {
+      const experiment = makeExperiment();
+      const changes = updateExperimentApiPayloadToInterface(
+        {
+          phases: [
+            {
+              name: "Main",
+              dateStarted: "2026-02-01T00:00:00.000Z",
+              variations: [{ id: "v0" }, { id: "v1" }],
+            },
+          ],
+        },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect(changes.variations).toBe(undefined);
+      expect(changes.phases?.[0].variations).toEqual([
+        { id: "v1", status: "stopped" },
+        { id: "v0", status: "active" },
+      ]);
+    });
+
+    it("synchronizes existing phases when only top-level variations are updated", () => {
+      const experiment = makeExperiment();
+      const changes = updateExperimentApiPayloadToInterface(
+        {
+          variations: [
+            { id: "v0", key: "control", name: "Control" },
+            { id: "v1", key: "treatment", name: "Treatment" },
+            { id: "v2", key: "new", name: "New" },
+          ],
+        },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect(changes.phases?.[0].variations).toEqual([
+        { id: "v0", status: "active" },
+        { id: "v1", status: "active" },
+        { id: "v2", status: "active" },
+      ]);
+    });
+
+    it("uses top-level variation order and preserves phase statuses by id in mixed updates", () => {
+      const experiment = makeExperiment();
+      const changes = updateExperimentApiPayloadToInterface(
+        {
+          variations: [
+            { id: "v1", key: "treatment", name: "Treatment" },
+            { id: "v0", key: "control", name: "Control" },
+          ],
+          phases: [
+            {
+              name: "Main",
+              dateStarted: "2026-02-01T00:00:00.000Z",
+              variations: [{ id: "v0" }, { id: "v1" }],
+            },
+          ],
+        },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect(changes.phases?.[0].variations).toEqual([
+        { id: "v1", status: "active" },
+        { id: "v0", status: "active" },
+      ]);
+    });
+
+    it("does not overwrite phase variations when top-level variations are not provided", () => {
+      const experiment = makeExperiment();
+      const changes = updateExperimentApiPayloadToInterface(
+        {
+          phases: [
+            {
+              name: "Main",
+              dateStarted: "2026-02-01T00:00:00.000Z",
+            },
+          ],
+        },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect(changes.phases?.[0].variations).toEqual([
+        { id: "v1", status: "stopped" },
+        { id: "v0", status: "active" },
+      ]);
+    });
+  });
+
+  describe("applyVariationWeightsToLatestPhase", () => {
+    it("sets variationWeights on the last phase and preserves other phase fields", () => {
+      const experiment = {
+        phases: [
+          {
+            name: "Main",
+            condition: "{}",
+            variationWeights: [0.5, 0.5],
+            coverage: 1,
+            dateStarted: new Date("2024-01-01"),
+          },
+        ],
+      } as ExperimentInterface;
+
+      const next = applyVariationWeightsToLatestPhase(experiment, [0.6, 0.4]);
+
+      expect(next).toHaveLength(1);
+      expect(next[0].variationWeights).toEqual([0.6, 0.4]);
+      expect(next[0].name).toEqual("Main");
+      expect(next[0].coverage).toBe(1);
+      expect(experiment.phases[0].variationWeights).toEqual([0.5, 0.5]);
+    });
+
+    it("only updates the last phase when multiple phases exist", () => {
+      const experiment = {
+        phases: [
+          {
+            name: "Ramp",
+            condition: "{}",
+            variationWeights: [0.5, 0.5],
+            coverage: 0.2,
+            dateStarted: new Date("2024-01-01"),
+          },
+          {
+            name: "Main",
+            condition: "{}",
+            variationWeights: [0.5, 0.5],
+            coverage: 1,
+            dateStarted: new Date("2024-02-01"),
+          },
+        ],
+      } as ExperimentInterface;
+
+      const next = applyVariationWeightsToLatestPhase(experiment, [0.7, 0.3]);
+
+      expect(next[0].variationWeights).toEqual([0.5, 0.5]);
+      expect(next[1].variationWeights).toEqual([0.7, 0.3]);
+    });
+  });
+
+  describe("experiment API payload mappers", () => {
+    const org = { id: "org_test" } as OrganizationInterface;
+    const datasource = {
+      id: "ds_test",
+      settings: { queries: { exposure: [{ id: "exp_query_1" }] } },
+    } as DataSourceInterface;
+
+    it("postExperimentApiPayloadToInterface maps metricOverrides and decisionFrameworkSettings", () => {
+      const payload: z.infer<typeof postExperimentValidator.bodySchema> = {
+        trackingKey: "track_b",
+        name: "Experiment B",
+        assignmentQueryId: "exp_query_1",
+        variations: [
+          { key: "0", name: "Control" },
+          { key: "1", name: "Treatment" },
+        ],
+        metricOverrides: [
+          {
+            id: "met_1",
+            delayHours: 12,
+            winRisk: 0.05,
+          },
+        ],
+        decisionFrameworkSettings: {
+          decisionCriteriaId: "crit_1",
+          decisionFrameworkMetricOverrides: [{ id: "met_1", targetMDE: 0.1 }],
+        },
+        postStratificationEnabled: false,
+      };
+
+      const out = postExperimentApiPayloadToInterface(payload, org, datasource);
+      expect(out.metricOverrides).toEqual([
+        { id: "met_1", delayHours: 12, winRisk: 0.05 },
+      ]);
+      expect(out.decisionFrameworkSettings).toEqual({
+        decisionCriteriaId: "crit_1",
+        decisionFrameworkMetricOverrides: [{ id: "met_1", targetMDE: 0.1 }],
+      });
+      expect(out.postStratificationEnabled).toBe(false);
+    });
+
+    it("updateExperimentApiPayloadToInterface sets exposureQueryId from assignmentQueryId", () => {
+      const experiment = {
+        status: "draft",
+        type: "standard",
+        exposureQueryId: "old_query",
+      } as unknown as ExperimentInterface;
+
+      const payload: z.infer<typeof updateExperimentValidator.bodySchema> = {
+        assignmentQueryId: "new_query",
+      };
+
+      const changes = updateExperimentApiPayloadToInterface(
+        payload,
+        experiment,
+        new Map(),
+        org,
+      );
+      expect(changes.exposureQueryId).toBe("new_query");
+      expect(
+        (changes as { assignmentQueryId?: string }).assignmentQueryId,
+      ).toBe(undefined);
     });
   });
 });

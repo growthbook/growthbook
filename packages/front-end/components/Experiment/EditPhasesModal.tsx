@@ -1,9 +1,18 @@
 import { useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { date, datetime } from "shared/dates";
+import { Box, Flex } from "@radix-ui/themes";
 import { phaseSummary } from "@/services/utils";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
+import Button from "@/ui/Button";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { GBAddCircle } from "@/components/Icons";
 import EditPhaseModal from "./EditPhaseModal";
@@ -29,9 +38,10 @@ export default function EditPhasesModal({
   const hasStoppedPhases = experiment.phases.some((p) => p.dateEnded);
   const hasLinkedChanges =
     !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
+  const isHoldout = experiment.type === "holdout";
 
   const [editPhase, setEditPhase] = useState<number | null>(
-    isDraft && !isMultiPhase ? 0 : null
+    isDraft && !isMultiPhase ? 0 : null,
   );
 
   const { apiCall } = useAuth();
@@ -73,97 +83,107 @@ export default function EditPhasesModal({
       />
     );
   }
-
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="edit-phases-modal"
       trackingEventModalSource={source}
       open={true}
-      header="Edit Phases"
+      header={!isHoldout ? "Edit Phases" : "Edit Holdout Period"}
       close={close}
       size="lg"
-      closeCta="Close"
     >
-      <table className="table gbtable mb-2">
-        <thead>
-          <tr>
-            <th></th>
-            <th>Name</th>
-            <th>Dates</th>
-            <th>Traffic</th>
-            {hasStoppedPhases ? <th>Reason for Stopping</th> : null}
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {experiment.phases.map((phase, i) => (
-            <tr className="border p-2 m-2" key={i}>
-              <td>{i + 1}</td>
-              <td>{phase.name}</td>
-              <td>
-                <strong title={datetime(phase.dateStarted ?? "")}>
-                  {date(phase.dateStarted ?? "")}
-                </strong>{" "}
-                to{" "}
-                <strong title={datetime(phase.dateEnded ?? "")}>
-                  {phase.dateEnded ? date(phase.dateEnded) : "now"}
-                </strong>
-              </td>
-              <td>
-                {phaseSummary(phase, experiment.type === "multi-armed-bandit")}
-              </td>
-              {hasStoppedPhases ? (
-                <td>
-                  {phase.dateEnded ? (
-                    phase.reason
-                  ) : (
-                    <em className="text-muted">not applicable</em>
-                  )}
-                </td>
+      <Box mb="2">
+        <Table className="table gbtable responsive-table" variant="ghost">
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader></TableColumnHeader>
+              <TableColumnHeader>Name</TableColumnHeader>
+              <TableColumnHeader>Dates</TableColumnHeader>
+              {!isHoldout ? (
+                <TableColumnHeader>Traffic</TableColumnHeader>
               ) : null}
-              <td className="text-right" style={{ width: 125 }}>
-                <button
-                  className="btn btn-outline-primary"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setEditPhase(i);
-                  }}
-                >
-                  Edit
-                </button>
-                {(experiment.status !== "running" || !hasLinkedChanges) && (
-                  <DeleteButton
-                    className="ml-2"
-                    displayName="phase"
-                    additionalMessage={
-                      experiment.phases.length === 1
-                        ? "This is the only phase. Deleting this will revert the experiment to a draft."
-                        : ""
-                    }
-                    onClick={async () => {
-                      await apiCall(`/experiment/${experiment.id}/phase/${i}`, {
-                        method: "DELETE",
-                      });
-                      mutateExperiment();
-                    }}
-                  />
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {(experiment.status !== "running" || !hasLinkedChanges) && (
-        <button
-          className="btn btn-primary"
-          onClick={(e) => {
-            e.preventDefault();
+              {hasStoppedPhases ? (
+                <TableColumnHeader>Reason for Stopping</TableColumnHeader>
+              ) : null}
+              <TableColumnHeader></TableColumnHeader>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {experiment.phases.map((phase, i) => (
+              <TableRow key={i}>
+                <TableCell>{i + 1}</TableCell>
+                <TableCell>{phase.name}</TableCell>
+                <TableCell>
+                  <strong title={datetime(phase.dateStarted ?? "", "UTC")}>
+                    {date(phase.dateStarted ?? "", "UTC")}
+                  </strong>{" "}
+                  to{" "}
+                  <strong title={datetime(phase.dateEnded ?? "", "UTC")}>
+                    {phase.dateEnded ? date(phase.dateEnded, "UTC") : "now"}
+                  </strong>
+                </TableCell>
+                {!isHoldout ? (
+                  <TableCell>
+                    {phaseSummary(
+                      phase,
+                      experiment.type === "multi-armed-bandit",
+                    )}
+                  </TableCell>
+                ) : null}
+                {hasStoppedPhases ? (
+                  <TableCell>
+                    {phase.dateEnded ? (
+                      phase.reason
+                    ) : (
+                      <em className="text-muted">not applicable</em>
+                    )}
+                  </TableCell>
+                ) : null}
+                <TableCell justify="end" style={{ width: 125 }}>
+                  <Flex gap="2" justify="end" align="center">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setEditPhase(i);
+                      }}
+                    >
+                      Edit
+                    </Button>
+                    {!isHoldout &&
+                      (experiment.status !== "running" || !hasLinkedChanges) &&
+                      experiment.phases.length > 1 && (
+                        <DeleteButton
+                          useRadix
+                          text="Delete"
+                          displayName="phase"
+                          onClick={async () => {
+                            await apiCall(
+                              `/experiment/${experiment.id}/phase/${i}`,
+                              {
+                                method: "DELETE",
+                              },
+                            );
+                            mutateExperiment();
+                          }}
+                        />
+                      )}
+                  </Flex>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Box>
+      {!isHoldout && (experiment.status !== "running" || !hasLinkedChanges) && (
+        <Button
+          icon={<GBAddCircle />}
+          onClick={() => {
             setEditPhase(-1);
           }}
         >
-          <GBAddCircle /> New Phase
-        </button>
+          New Phase
+        </Button>
       )}
-    </Modal>
+    </ModalStandard>
   );
 }

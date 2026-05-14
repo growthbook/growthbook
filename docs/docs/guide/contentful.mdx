@@ -76,12 +76,16 @@ To connect Contentful to GrowthBook, you need an API key with admin permissions.
 
 ## Install and configure the GrowthBook app
 
+:::tip
+Find the [official GrowthBook app](https://www.contentful.com/marketplace/growthbook-experiment/) in the Contentful marketplace.
+:::
+
 1. Go to **Apps** → **Marketplace**
 2. Search for GrowthBook
 3. Click **Install**
 4. Configure the plugin:
 
-- Enter your GrowthBook API host URL from step 1
+- Enter your GrowthBook API host URL from above
 - Enter your data source ID from step 2
 - Enter your Admin API key from step 3
 - Click **Save**
@@ -90,16 +94,25 @@ To connect Contentful to GrowthBook, you need an API key with admin permissions.
 
 With everything configured, you're ready to run your first experiment.
 
-1. Add or update your content model
-   Create a new content model or update an existing one to include the **GrowthBook Experiment** content type. This content type will allow you to create and manage experiments directly within Contentful.
-2. Add the **GrowthBook Experiment** to a page
-   Open the content entry where you want to add the experiment. In the relevant reference field, click **Add content** and choose **GrowthBook Experiment**.
-3. Add **Variations**
-   Name your experiment. Add your variations by linking existing Contentful entries or creating new ones.
-4. Launch experiment
-   Click **Create New Experiment** and then **Start Experiment**. This will sync your variations and experiment data to GrowthBook and start your A/B test.
-5. Publish changes
-   Publish changes to the **Experiment** content as well as to the page that contains the experiment. Your changes will now be live, serving different content to users!
+### 1. Add or update your content model
+
+Create a new content model or update an existing one to include the **GrowthBook Experiment** content type. This content type will allow you to create and manage experiments directly within Contentful.
+
+### 2. Add the **GrowthBook Experiment** to a page
+
+Open the content entry where you want to add the experiment. In the relevant reference field, click **Add content** and choose **GrowthBook Experiment**.
+
+### 3. Add **Variations**
+
+Name your experiment. Add your variations by linking existing Contentful entries or creating new ones.
+
+### 4. Launch experiment
+
+Click **Create New Experiment** and then **Start Experiment**. This will sync your variations and experiment data to GrowthBook and start your A/B test.
+
+### 5. Publish changes
+
+Publish changes to the **Experiment** content as well as to the page that contains the experiment. Your changes will now be live, serving different content to users!
 
 <video width="1280" height="720" controls style={{width: '100%', height: 'auto', aspectRatio: 16/9}}>
   <source src="/videos/guides/contentful-add-experiment.mp4" type="video/mp4"></source>
@@ -113,7 +126,7 @@ At a high level, a front-end integration requires the following parts:
 
 ### Connect the GrowthBook SDK
 
-[Adding the GrowthBook SDK to your codebase](https://docs.growthbook.io/lib/) enables the content variations returned by Contentful to be properly rendered: `User 123` sees `Product A`, while `User XYZ` sees `Product B`.
+[Adding the GrowthBook SDK to your codebase](/lib/) enables the content variations returned by Contentful to be properly rendered: `User 123` sees `Product A`, while `User XYZ` sees `Product B`.
 
 ### Content Model Structure
 

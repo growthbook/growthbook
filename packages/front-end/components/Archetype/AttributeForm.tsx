@@ -1,18 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { SDKAttribute, SDKAttributeSchema } from "back-end/types/organization";
-import { ArchetypeAttributeValues } from "back-end/types/archetype";
-import { datetime } from "shared/dates";
+import { SDKAttribute, SDKAttributeSchema } from "shared/types/organization";
+import { ArchetypeAttributeValues } from "shared/types/archetype";
 import isEqual from "lodash/isEqual";
+import format from "date-fns/format";
 import { useAttributeSchema } from "@/services/features";
 import Field from "@/components/Forms/Field";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
+import Switch from "@/ui/Switch";
 import SelectField from "@/components/Forms/SelectField";
-import Toggle from "@/components/Forms/Toggle";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
 import styles from "./AttributeForm.module.scss";
@@ -22,6 +17,7 @@ export interface Props {
   attributeValues: ArchetypeAttributeValues;
   archetypeId?: string;
   jsonCTA?: string;
+  hideTitle?: boolean;
   useJSONButton?: boolean;
 }
 
@@ -30,11 +26,12 @@ export default function AttributeForm({
   attributeValues = {},
   archetypeId,
   jsonCTA = "Test Attributes",
+  hideTitle = false,
   useJSONButton = true,
 }: Props) {
   const [formValues, setFormValues] = useState({});
   const [jsonAttributes, setJsonAttributes] = useState<string>(
-    JSON.stringify(formValues)
+    JSON.stringify(formValues),
   );
   const [jsonErrors, setJsonErrors] = useState<string | null>();
   const [activeTab, setActiveTab] = useState<"simple" | "adv">("simple");
@@ -46,7 +43,7 @@ export default function AttributeForm({
       ...attributeSchema.filter((o) => !o.archived),
       ...attributeSchema.filter((o) => o.archived),
     ],
-    [attributeSchema]
+    [attributeSchema],
   );
 
   const attributesMap = useMemo(() => {
@@ -55,10 +52,10 @@ export default function AttributeForm({
         const defaultValue = attributeValues[attr.property]
           ? attributeValues[attr.property]
           : attr.datatype === "boolean"
-          ? false
-          : attr.datatype === "string[]" || attr.datatype === "number[]"
-          ? []
-          : undefined;
+            ? false
+            : attr.datatype === "string[]" || attr.datatype === "number[]"
+              ? []
+              : undefined;
         return [
           attr.property,
           {
@@ -67,7 +64,7 @@ export default function AttributeForm({
             value: attributeValues[attr.property] ?? defaultValue,
           },
         ];
-      })
+      }),
     );
   }, [orderedAttributes, attributeValues]);
 
@@ -78,7 +75,7 @@ export default function AttributeForm({
         attributeValues[attr.property] ??
           attributesMap.get(attr.property)?.defaultValue ??
           "",
-      ])
+      ]),
     );
   }, [orderedAttributes, attributeValues, attributesMap]);
 
@@ -114,7 +111,7 @@ export default function AttributeForm({
         onChange(filteredValues);
       }
     },
-    [attributeFormValues, attributesMap, formValues, onChange]
+    [attributeFormValues, attributesMap, formValues, onChange],
   );
 
   useEffect(() => {
@@ -133,9 +130,13 @@ export default function AttributeForm({
     ) {
       // prep for use in MultiSelectField
       if (Array.isArray(value)) {
-        options = value.map((v: string) => ({ value: v, label: v }));
-      } else if (typeof value === "string") {
-        options = [{ value: value, label: value }];
+        options = value.map((v: string | number) => ({
+          value: String(v),
+          label: String(v),
+        }));
+      } else if (typeof value === "string" || typeof value === "number") {
+        const strValue = String(value);
+        options = [{ value: strValue, label: strValue }];
         value = [value];
       }
     } else if (attribute.datatype === "string") {
@@ -151,10 +152,11 @@ export default function AttributeForm({
           <div className="col-6">{attribute.property}</div>
           <div className="col-6">
             {attribute.datatype === "boolean" ? (
-              <Toggle
+              <Switch
+                my="1"
                 id={"form-toggle" + attribute.property}
                 value={!!attributeFormValues.get(attribute.property)}
-                setValue={(value) => {
+                onChange={(value) => {
                   attributeFormValues.set(attribute.property, value);
                   updateFormValues();
                 }}
@@ -186,16 +188,30 @@ export default function AttributeForm({
                 }}
                 creatable={true}
               />
+            ) : attribute.datatype === "number[]" ? (
+              <MultiSelectField
+                options={options}
+                value={Array.isArray(value) ? value.map(String) : []}
+                onChange={(value) => {
+                  const numArray = value.map((v) => {
+                    const num = Number(v);
+                    return isNaN(num) ? v : num;
+                  });
+                  attributeFormValues.set(attribute.property, numArray);
+                  updateFormValues();
+                }}
+                creatable={true}
+              />
             ) : attribute.datatype === "string" ? (
               <>
                 {attribute.format === "date" ? (
                   <DatePicker
-                    precision="date"
+                    precision="datetime"
                     date={dateValue ? new Date(dateValue) : undefined}
                     setDate={(v) => {
                       attributeFormValues.set(
                         attribute.property,
-                        v ? datetime(v) : ""
+                        v ? format(v, "yyyy-MM-dd'T'HH:mm") : "",
                       );
                       updateFormValues();
                     }}
@@ -207,19 +223,32 @@ export default function AttributeForm({
                     onChange={(e) => {
                       attributeFormValues.set(
                         attribute.property,
-                        e.target.value
+                        e.target.value,
                       );
                       updateFormValues();
                     }}
                   />
                 )}
               </>
+            ) : attribute.datatype === "number" ? (
+              <Field
+                className=""
+                type="number"
+                value={value as string}
+                onChange={(e) => {
+                  const numValue =
+                    e.target.value === "" ? "" : Number(e.target.value);
+                  attributeFormValues.set(attribute.property, numValue);
+                  updateFormValues();
+                }}
+              />
             ) : (
               <Field
                 className=""
                 value={value as string}
                 onChange={(e) => {
                   attributeFormValues.set(attribute.property, e.target.value);
+                  updateFormValues();
                 }}
               />
             )}
@@ -232,7 +261,7 @@ export default function AttributeForm({
   return (
     <>
       <div>
-        <h4>Attributes</h4>
+        {!hideTitle && <h4>Attributes</h4>}
         <Tabs
           value={activeTab}
           onValueChange={(v: "simple" | "adv") => {
@@ -255,7 +284,10 @@ export default function AttributeForm({
             <TabsTrigger value="adv">JSON</TabsTrigger>
           </TabsList>
 
-          <div className={`${styles.attributeBox} pb-2 bg-light round`}>
+          <div
+            className={`${styles.attributeBox} pb-2 round appbox`}
+            style={{ borderTopRightRadius: 0 }}
+          >
             <TabsContent value="simple">
               <div className=" form-group ">
                 <div
@@ -270,7 +302,7 @@ export default function AttributeForm({
                 </div>
                 {orderedAttributes.length ? (
                   orderedAttributes.map((attribute, i) =>
-                    attributeInput(attribute, i)
+                    attributeInput(attribute, i),
                   )
                 ) : (
                   <>No attributes defined yet</>

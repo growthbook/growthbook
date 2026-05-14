@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { useState } from "react";
-import { Variation, VariationWithIndex } from "back-end/types/experiment";
+import { Variation, VariationWithIndex } from "shared/types/experiment";
 import Dropdown from "@/components/Dropdown/Dropdown";
 
 export interface Props {
@@ -24,10 +24,10 @@ export default function VariationChooser({
     index: i,
   }));
   const validVariations = indexedVariations.filter(
-    (v) => v.index !== baselineRow
+    (v) => v.index !== baselineRow,
   );
   const filteredVariations = validVariations.filter(
-    (v) => !variationFilter.includes(v.index)
+    (v) => !variationFilter.includes(v.index),
   );
   const requiresDropdown = validVariations.length > 1 && dropdownEnabled;
 
@@ -93,7 +93,7 @@ export default function VariationChooser({
               "d-flex align-items-center px-3 py-1 cursor-pointer",
               {
                 "hover-highlight": variationFilter.length > 0,
-              }
+              },
             )}
           >
             <div
@@ -138,7 +138,7 @@ export default function VariationChooser({
             if (!canClick) return;
             if (variationFilter.includes(variation.index)) {
               setVariationFilter(
-                variationFilter.filter((v) => v !== variation.index)
+                variationFilter.filter((v) => v !== variation.index),
               );
             } else {
               setVariationFilter([...variationFilter, variation.index].sort());
@@ -149,7 +149,7 @@ export default function VariationChooser({
             setVariationFilter(
               validVariations
                 .filter((v) => v.index !== variation.index)
-                .map((v) => v.index)
+                .map((v) => v.index),
             );
           };
 

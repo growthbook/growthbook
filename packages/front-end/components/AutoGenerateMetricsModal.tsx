@@ -3,25 +3,27 @@ import {
   AutoMetricToCreate,
   AutoMetricTrackedEvent,
   InformationSchemaInterface,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
 import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import { cloneDeep } from "lodash";
+import { isManagedWarehouseNoEventsGuidanceMessage } from "shared/util";
 import { useForm } from "react-hook-form";
 import { FaRedo } from "react-icons/fa";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Button from "./Button";
 import { DocLink } from "./DocLink";
-import Modal from "./Modal";
 import Tooltip from "./Tooltip/Tooltip";
 import AutoMetricCard from "./Settings/AutoMetricCard";
 import SelectField from "./Forms/SelectField";
 import LoadingOverlay from "./LoadingOverlay";
 import LoadingSpinner from "./LoadingSpinner";
+import ManagedWarehouseNoEventsCallout from "./ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 
 type Props = {
   setShowAutoGenerateMetricsModal: (show: boolean) => void;
@@ -77,8 +79,8 @@ export default function AutoGenerateMetricsModal({
     selectedDatasource?.type === "bigquery"
       ? "Dataset"
       : selectedDatasource?.type === "athena"
-      ? "Catalog"
-      : "Schema";
+        ? "Catalog"
+        : "Schema";
 
   const submit = form.handleSubmit(async (data) => {
     const autoMetricsToCreate: AutoMetricToCreate[] = [];
@@ -95,7 +97,7 @@ export default function AutoGenerateMetricsModal({
         countMetrics: autoMetricsToCreate.filter((m) => m.type === "count")
           .length,
         binomialMetrics: autoMetricsToCreate.filter(
-          (m) => m.type === "binomial"
+          (m) => m.type === "binomial",
         ).length,
       },
       source,
@@ -133,7 +135,7 @@ export default function AutoGenerateMetricsModal({
         !datasourceObj.settings?.schemaOptions?.projectId
       ) {
         setAutoMetricError(
-          "Missing Amplitude Project Id - Click the 'Edit Connection Info' button at the top of this page to add your project id."
+          "Missing Amplitude Project Id - Click the 'Edit Connection Info' button at the top of this page to add your project id.",
         );
         return;
       }
@@ -179,7 +181,7 @@ export default function AutoGenerateMetricsModal({
         setAutoMetricError(e.message);
       }
     },
-    [apiCall, form, selectedSchema, source]
+    [apiCall, form, selectedSchema, source],
   );
 
   useEffect(() => {
@@ -224,7 +226,7 @@ export default function AutoGenerateMetricsModal({
       } else if (retryCount > 8) {
         setRefreshingSchema(false);
         setRefreshingSchemaError(
-          "This query is taking quite a while. We're building this in the background. Feel free to leave this page and check back in a few minutes."
+          "This query is taking quite a while. We're building this in the background. Feel free to leave this page and check back in a few minutes.",
         );
         setRetryCount(1);
       } else {
@@ -274,7 +276,7 @@ export default function AutoGenerateMetricsModal({
   }, [trackedEvents]);
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       size="lg"
       open={true}
@@ -380,9 +382,8 @@ export default function AutoGenerateMetricsModal({
               <Button
                 color="link"
                 onClick={async () => {
-                  const updates: AutoMetricTrackedEvent[] = cloneDeep(
-                    trackedEvents
-                  );
+                  const updates: AutoMetricTrackedEvent[] =
+                    cloneDeep(trackedEvents);
                   updates.forEach((event) => {
                     event.metricsToCreate.forEach((metric) => {
                       if (!metric.shouldCreate && !metric.alreadyExists) {
@@ -398,9 +399,8 @@ export default function AutoGenerateMetricsModal({
               <Button
                 color="link"
                 onClick={async () => {
-                  const updates: AutoMetricTrackedEvent[] = cloneDeep(
-                    trackedEvents
-                  );
+                  const updates: AutoMetricTrackedEvent[] =
+                    cloneDeep(trackedEvents);
                   updates.forEach((event) => {
                     event.metricsToCreate.forEach((metric) => {
                       if (metric.shouldCreate && !metric.alreadyExists) {
@@ -455,18 +455,21 @@ export default function AutoGenerateMetricsModal({
             </table>
           </div>
         ) : null}
-        {autoMetricError && (
-          <div className="alert alert-danger">
-            <p>
-              We were unable to identify any metrics to generate for you
-              automatically. The query we ran to identify metrics returned the
-              following error.
-            </p>
-            <div>
-              <strong>Error: {autoMetricError}</strong>
+        {autoMetricError &&
+          (isManagedWarehouseNoEventsGuidanceMessage(autoMetricError) ? (
+            <ManagedWarehouseNoEventsCallout />
+          ) : (
+            <div className="alert alert-danger">
+              <p>
+                We were unable to identify any metrics to generate for you
+                automatically. The query we ran to identify metrics returned the
+                following error.
+              </p>
+              <div>
+                <strong>Error: {autoMetricError}</strong>
+              </div>
             </div>
-          </div>
-        )}
+          ))}
         {refreshingSchema ? (
           <div className="alert alert-info">
             Refreshing list of {schemaName.toLocaleLowerCase()}s...
@@ -476,6 +479,6 @@ export default function AutoGenerateMetricsModal({
           <div className="alert alert-danger">{refreshingSchemaError}</div>
         ) : null}
       </>
-    </Modal>
+    </ModalStandard>
   );
 }

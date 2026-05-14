@@ -5,6 +5,8 @@ sidebar_label: Athena
 slug: athena
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 Setting up Athena as your datasource requires you set up the proper permissions within AWS for Growthbook to access and then provide the correct credentials to Growthbook make use of those permissions. There are also optional connection data that will help Growthbook create the correct default sql to analyze your data.
 
 ## Setting up Permissions in AWS
@@ -37,15 +39,13 @@ The managed [AWSQuicksightAthenaAccess](https://docs.aws.amazon.com/athena/lates
 }
 ```
 
-Ideally that bucket should only have event data that growthbook needs to calculated its metrics and no other data. You can futher restrict the resources as your security policy requires.
+Ideally that bucket should only have event data that growthbook needs to calculated its metrics and no other data. You can further restrict the resources as your security policy requires.
 
 Afterwards your IAM user's permission page might look like:
 
-<img
-  src="/images/guides/athena-permissions.png"
-  alt="Athena permissions"
-  style={{ margin: "0 auto" }}
-/>
+<MaxWidthImage border>
+![Athena permissions](/images/guides/athena-permissions.png)
+</MaxWidthImage>
 
 ### Self hosted
 
@@ -59,11 +59,9 @@ If you are using Growthbook Cloud you will need to create an IAM user that has t
 
 You must then create an access key by clicking on Security Credentials then "Create Access Key". You can then choose "Third-party service". It will warn you that this is not best practice, but unfortunately this is the only way to give Growthbook access at the moment. We are working on other ways to connect in the future. You can then confirm and click next. You can add a tag if you like and then press "Create access key". You should see then see following screen:
 
-<img
-  src="/images/guides/athena-keys1.png"
-  alt="Athena permissions"
-  style={{  margin: "0 auto" }}
-/>
+<MaxWidthImage>
+![Athena access keys](/images/guides/athena-keys1.png)
+</MaxWidthImage>
 
 In another browser tab open up Growthbook Data Sources tab and choose your event tracker. Select Athena as your data source type. You can then copy the Access Key and Secret Access Key from the AWS browser tab to their corresponding fields.
 
@@ -81,10 +79,8 @@ If you are self hosting then in addition to the method above you can also pass t
 
 `Default Database` - This is the database where the event data lives.
 
-<img
-  src="/images/guides/athena-extra-fields.png"
-  alt="Extra Fields in Growthbook for setting up Athena"
-  style={{  margin: "0 0 20px 0" }}
-/>
+<MaxWidthImage maxWidth={1000} border>
+![Extra Fields in Growthbook for setting up Athena](/images/guides/athena-extra-fields.png)
+</MaxWidthImage>
 
 `S3 Results URL` - This is the s3 URL where the results to Athena queries get saved. When setting up Athena for the S3 results url, we recommend naming your bucket with the prefix `aws-athena-query-results-` as the AWSQuicksightAthenaAccess gives permission to write to any bucket with this prefix. If Growthbook warns you that it can not write to an s3 location other than the one you select here it is most likely because you have set the [workgroup to override client side settings](https://docs.aws.amazon.com/athena/latest/ug/workgroups-settings-override.html). If that is the case you would either need to change that setting or add the permissions for growthbook to also write to the s3 results url saved there.

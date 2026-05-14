@@ -1,22 +1,20 @@
 import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { FaAngleRight, FaBars } from "react-icons/fa";
+import { FaBars } from "react-icons/fa";
 import {
   PiPlusBold,
   PiCaretDownFill,
   PiCircleHalf,
-  PiFiles,
-  PiKey,
+  PiHourglassHigh,
   PiListChecks,
   PiMoon,
   PiSunDim,
   PiBuildingFill,
 } from "react-icons/pi";
-import Link from "next/link";
 import Head from "next/head";
-import { Text } from "@radix-ui/themes";
+import { Flex, Text } from "@radix-ui/themes";
 import router from "next/router";
-import clsx from "clsx";
+import Breadcrumbs from "@/ui/Breadcrumbs";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -24,7 +22,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownSubMenu,
-} from "@/components/Radix/DropdownMenu";
+} from "@/ui/DropdownMenu";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import {
@@ -36,16 +34,15 @@ import {
 } from "@/services/env";
 import { useCelebrationLocalStorage } from "@/hooks/useCelebration";
 import Modal from "@/components/Modal";
-import Avatar from "@/components/Avatar/Avatar";
+import UserAvatar from "@/components/Avatar/UserAvatar";
 import ChangePasswordModal from "@/components/Auth/ChangePasswordModal";
 import Field from "@/components/Forms/Field";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import Toggle from "@/components/Forms/Toggle";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Checkbox from "@/ui/Checkbox";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
-import useGlobalMenu from "@/services/useGlobalMenu";
+import { useOpenRevisionCount } from "@/hooks/useRevisions";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
 
@@ -57,16 +54,22 @@ const TopNav: FC<{
 }> = ({ toggleLeftMenu, pageTitle, showNotices, showLogo = true }) => {
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-  const [
-    enableCelebrations,
-    setEnableCelebrations,
-  ] = useCelebrationLocalStorage();
+  const [enableCelebrations, setEnableCelebrations] =
+    useCelebrationLocalStorage();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const { breadcrumb } = usePageHead();
 
-  const { updateUser, name, email, organization } = useUser();
+  const { updateUser, name, email, organization, hasCommercialFeature } =
+    useUser();
 
   const { apiCall, logout, organizations, orgId, setOrgId } = useAuth();
+
+  const hasApprovalFlows = hasCommercialFeature("require-approvals");
+  // Lightweight count endpoint — avoids fetching every open revision document
+  // just to render a badge. Filtered server-side to non-merged/non-discarded.
+  const { count: openRevisionCount } = useOpenRevisionCount();
+  const pendingReviewCount = hasApprovalFlows ? openRevisionCount : 0;
 
   // The current org might not be in the organizations list if the user is a superAdmin
   // and selected the org from the /admin page. So we add it here.
@@ -81,7 +84,6 @@ const TopNav: FC<{
 
   const { setTheme, preferredTheme } = useAppearanceUITheme();
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
-  useGlobalMenu(".top-nav-org-menu", () => setOrgDropdownOpen(false));
 
   const form = useForm({
     defaultValues: { name: name || "", enableCelebrations },
@@ -154,10 +156,11 @@ const TopNav: FC<{
       <DropdownMenuItem
         key="edit-profile"
         onClick={() => {
+          setDropdownOpen(false);
           setEditUserOpen(true);
         }}
       >
-        Edit Profile
+        Edit profile
       </DropdownMenuItem>
     );
   };
@@ -182,30 +185,24 @@ const TopNav: FC<{
   const renderPersonalAccessTokensDropDown = () => {
     return (
       <DropdownMenuItem
-        className={styles.dropdownItemIconColor}
         onClick={() => {
+          setDropdownOpen(false);
           router.push("/account/personal-access-tokens");
         }}
       >
-        <div className="align-middle">
-          <PiKey size="16" className="mr-1" />
-          Personal Access Tokens
-        </div>
+        Personal Access Tokens
       </DropdownMenuItem>
     );
   };
   const renderMyReportsDropDown = () => {
     return (
       <DropdownMenuItem
-        className={styles.dropdownItemIconColor}
         onClick={() => {
+          setDropdownOpen(false);
           router.push("/reports");
         }}
       >
-        <div className="align-middle">
-          <PiFiles size="16" className="mr-1" />
-          My Reports
-        </div>
+        My Reports
       </DropdownMenuItem>
     );
   };
@@ -214,12 +211,50 @@ const TopNav: FC<{
       <DropdownMenuItem
         className={styles.dropdownItemIconColor}
         onClick={() => {
+          setDropdownOpen(false);
           router.push("/activity");
         }}
       >
         <div className="align-middle">
           <PiListChecks size="16" className="mr-1" />
           Activity Feed
+        </div>
+      </DropdownMenuItem>
+    );
+  };
+  const renderPendingReviewsDropDown = () => {
+    if (!hasApprovalFlows) return null;
+    return (
+      <DropdownMenuItem
+        className={styles.dropdownItemIconColor}
+        onClick={() => {
+          setDropdownOpen(false);
+          router.push("/approval-requests");
+        }}
+      >
+        <div className="align-middle d-flex align-items-center">
+          <PiHourglassHigh size="16" className="mr-1" />
+          Pending Reviews
+          {pendingReviewCount > 0 && (
+            <span
+              style={{
+                backgroundColor: "var(--red-9)",
+                color: "white",
+                borderRadius: "50%",
+                minWidth: 18,
+                height: 18,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 11,
+                fontWeight: 600,
+                marginLeft: 6,
+                padding: "0 4px",
+              }}
+            >
+              {pendingReviewCount}
+            </span>
+          )}
         </div>
       </DropdownMenuItem>
     );
@@ -235,6 +270,7 @@ const TopNav: FC<{
           className={styles.dropdownItemIconColor}
           key="system"
           onClick={() => {
+            setDropdownOpen(false);
             setTheme("system");
           }}
         >
@@ -247,6 +283,7 @@ const TopNav: FC<{
           className={styles.dropdownItemIconColor}
           key="light"
           onClick={() => {
+            setDropdownOpen(false);
             setTheme("light");
           }}
         >
@@ -259,6 +296,7 @@ const TopNav: FC<{
           className={styles.dropdownItemIconColor}
           key="dark"
           onClick={() => {
+            setDropdownOpen(false);
             setTheme("dark");
           }}
         >
@@ -273,115 +311,93 @@ const TopNav: FC<{
   const renderOrganizationDropDown = () => {
     if (organizations && organizations.length === 1) {
       return (
-        <div className="top-nav-org-menu mr-2">
-          <PiBuildingFill className="text-muted mr-1" />
+        <Flex direction="row" align="center" gap="1" mr="2">
+          <PiBuildingFill className="text-muted" />
           <span className="d-none d-lg-inline">{orgName}</span>
-        </div>
+        </Flex>
       );
     }
 
     if (organizations && organizations.length > 1) {
       return (
-        <div className="dropdown top-nav-org-menu">
-          <div
-            className={`nav-link dropdown-toggle`}
-            onClick={(e) => {
-              e.preventDefault();
-              setOrgDropdownOpen(!orgDropdownOpen);
-            }}
-            style={{ cursor: "pointer" }}
-          >
-            <PiBuildingFill className="text-muted mr-1" />
-            <span className="d-none d-lg-inline">
-              <OverflowText maxWidth={200}>{orgName}</OverflowText>
-            </span>
-          </div>
-          <div
-            className={clsx("dropdown-menu dropdown-menu-right", {
-              show: orgDropdownOpen,
-            })}
-          >
-            <div className="dropdown-header">Organization</div>
-            {organizations.map((o) => (
-              <a
-                className={clsx("dropdown-item", {
-                  active: o.id === orgId,
-                })}
-                key={o.id}
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (setOrgId) {
-                    setOrgId(o.id);
-                  }
+        <DropdownMenu
+          open={orgDropdownOpen}
+          onOpenChange={(open) => {
+            setOrgDropdownOpen(open);
+          }}
+          trigger={
+            <Flex direction="row" align="center" gap="1" mr="2">
+              <PiBuildingFill className="text-muted" />
+              <span className="d-none d-lg-inline">
+                <OverflowText maxWidth={200}>{orgName}</OverflowText>
+              </span>
+              <PiCaretDownFill />
+            </Flex>
+          }
+        >
+          <DropdownMenuLabel>Organization</DropdownMenuLabel>
+          {organizations.map((o) => (
+            <DropdownMenuItem
+              key={o.id}
+              onClick={() => {
+                if (setOrgId) {
+                  setOrgId(o.id);
 
                   try {
                     localStorage.setItem("gb-last-picked-org", `"${o.id}"`);
                   } catch (e) {
-                    console.warn("Cannot set gb-last-picked-org");
+                    console.warn("Unable to save last org in localStorage");
                   }
+                }
 
-                  setOrgDropdownOpen(false);
-                }}
-              >
-                <span className="status"></span>
-                {o.name}
-              </a>
-            ))}
-            {!isCloud() &&
-              isMultiOrg() &&
-              (showMultiOrgSelfSelector() || allowSelfOrgCreation()) && (
-                <div className={styles["add-organization"]}>
-                  <hr />
-                  <div>
-                    <Link
-                      href="/settings/organizations"
-                      className="dropdown-item px-1"
-                      onClick={() => {
-                        setOrgDropdownOpen(false);
-                      }}
-                    >
-                      <PiPlusBold />
-                      Add Organization
-                    </Link>
-                  </div>
-                </div>
-              )}
-          </div>
-        </div>
+                setOrgDropdownOpen(false);
+              }}
+            >
+              {o.name}
+            </DropdownMenuItem>
+          ))}
+          {!isCloud() &&
+            isMultiOrg() &&
+            (showMultiOrgSelfSelector() || allowSelfOrgCreation()) && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    setOrgDropdownOpen(false);
+                    router.push("/settings/organizations");
+                  }}
+                >
+                  <Flex align="center" gap="1">
+                    <PiPlusBold />
+                    Add Organization
+                  </Flex>
+                </DropdownMenuItem>
+              </>
+            )}
+        </DropdownMenu>
       );
     }
   };
 
-  const renderBreadCrumb = () => {
-    return breadcrumb?.map((b, i) => (
-      <span
-        key={i}
-        className={i < breadcrumb.length - 1 ? "d-none d-lg-inline" : ""}
-        title={b.display}
-      >
-        {i > 0 && <FaAngleRight className="mx-2 d-none d-lg-inline" />}
-        {b.href ? (
-          <Link className={styles.breadcrumblink} href={b.href}>
-            {b.display}
-          </Link>
-        ) : (
-          b.display
-        )}
-      </span>
-    ));
-  };
   const renderTitleOrBreadCrumb = () => {
-    let titleOrBreadCrumb: string | JSX.Element[] = pageTitle;
-    if (breadcrumb.length > 0) {
-      titleOrBreadCrumb = renderBreadCrumb();
-    }
-    return <div className={styles.pagetitle}>{titleOrBreadCrumb}</div>;
+    const breadcrumbItems =
+      breadcrumb.length > 0 ? breadcrumb : [{ display: pageTitle }];
+
+    return (
+      <div className={styles.pagetitle}>
+        <Breadcrumbs items={breadcrumbItems} />
+      </div>
+    );
   };
   const renderChangePassword = () => {
     if (!usingSSO()) {
       return (
-        <DropdownMenuItem onClick={() => setChangePasswordOpen(true)}>
+        <DropdownMenuItem
+          onClick={() => {
+            setDropdownOpen(false);
+            setChangePasswordOpen(true);
+          }}
+        >
           Change Password
         </DropdownMenuItem>
       );
@@ -391,7 +407,7 @@ const TopNav: FC<{
   return (
     <>
       <Head>
-        <title>GrowthBook &gt; {pageTitle}</title>
+        <title>{pageTitle ? `${pageTitle} | GrowthBook` : "GrowthBook"}</title>
       </Head>
       {editUserOpen && (
         <Modal
@@ -402,17 +418,10 @@ const TopNav: FC<{
           open={true}
         >
           <Field label="Name" {...form.register("name")} />
-          <label className="mr-3">
-            Allow Celebrations{" "}
-            <Tooltip
-              body={
-                "GrowthBook adds on-screen confetti celebrations randomly when you complete certain actions like launching an experiment. You can disable this if you find it distracting."
-              }
-            />
-          </label>
-          <Toggle
+          <Checkbox
             id="allowCelebration"
             label="Allow celebration"
+            description="Show confetti celebrations randomly when you complete certain actions like launching an experiment."
             value={form.watch("enableCelebrations")}
             setValue={(v) => form.setValue("enableCelebrations", v)}
           />
@@ -465,29 +474,37 @@ const TopNav: FC<{
           {renderOrganizationDropDown()}
           <DropdownMenu
             variant="solid"
+            open={dropdownOpen}
+            onOpenChange={(o) => {
+              setDropdownOpen(!!o);
+            }}
             trigger={
-              <div className="nav-link d-flex">
-                <Avatar
+              <div className="nav-link d-flex align-items-center">
+                <UserAvatar
                   email={email || ""}
-                  size={26}
                   name={name || ""}
-                  className="mr-2"
+                  size="md"
+                  variant="soft"
+                  mr="2"
                 />{" "}
                 <span className="d-none d-lg-inline">
                   <OverflowText maxWidth={200}>
                     <Text weight={"bold"} style={{ fontSize: 14 }}>
                       {email}
-                    </Text>{" "}
-                    <PiCaretDownFill />
-                  </OverflowText>
+                    </Text>
+                  </OverflowText>{" "}
+                  <PiCaretDownFill />
                 </span>
               </div>
             }
           >
             {renderNameAndEmailDropdownLabel()}
             {renderEditProfileDropDown()}
-            {renderThemeSubDropDown()}
+            <DropdownMenuSeparator />
+            {renderPendingReviewsDropDown()}
             {renderMyActivityFeedsDropDown()}
+            {renderThemeSubDropDown()}
+            <DropdownMenuSeparator />
             {renderMyReportsDropDown()}
             {renderPersonalAccessTokensDropDown()}
             <DropdownMenuSeparator />

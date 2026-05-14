@@ -1,7 +1,17 @@
 import { Response } from "express";
-import { OrganizationInterface } from "back-end/types/organization";
-import { UserInterface } from "back-end/types/user";
-import { getAllSSOConnections } from "back-end/src/models/SSOConnectionModel";
+import { parseIntWithDefault } from "shared/util";
+import {
+  OrganizationInterface,
+  OrganizationMessage,
+} from "shared/types/organization";
+import { UserInterface } from "shared/types/user";
+import { SSOConnectionInterface } from "shared/types/sso-connection";
+import {
+  _dangerousCreateSSOConnection,
+  _dangerousUpdateSSOConnection,
+  _dangerousGetAllSSOConnections,
+  _dangerousGetSSOConnectionById,
+} from "back-end/src/models/SSOConnectionModel";
 import {
   getAllUsersFiltered,
   getTotalNumUsers,
@@ -15,14 +25,20 @@ import {
   findOrganizationsByMemberIds,
   updateOrganization,
 } from "back-end/src/models/OrganizationModel";
-import { getOrganizationById } from "back-end/src/services/organizations";
-import { setLicenseKey } from "back-end/src/routers/organizations/organizations.controller";
-import { auditDetailsUpdate } from "back-end/src/services/audit";
+import {
+  getContextFromReq,
+  getOrganizationById,
+  setLicenseKey,
+} from "back-end/src/services/organizations";
+import {
+  auditDetailsCreate,
+  auditDetailsUpdate,
+} from "back-end/src/services/audit";
 import { _dangerourslyGetAllDatasourcesByOrganizations } from "back-end/src/models/DataSourceModel";
 
-export async function getOrganizations(
+export async function _dangerousAdminGetOrganizations(
   req: AuthRequest<never, never, { page?: string; search?: string }>,
-  res: Response
+  res: Response,
 ) {
   if (!req.superAdmin) {
     return res.status(403).json({
@@ -34,25 +50,23 @@ export async function getOrganizations(
   const { page, search } = req.query;
 
   const { organizations, total } = await findAllOrganizations(
-    parseInt(page || "") || 1,
-    search || ""
+    parseIntWithDefault(page, 1),
+    search || "",
   );
 
-  const rawSSOs = await getAllSSOConnections();
-  // we don't want to expose sensitive information, so strip out the clientSecret and some other fields
+  const rawSSOs = await _dangerousGetAllSSOConnections();
+  // we don't want to expose sensitive information, so strip out the clientSecret
   const ssoConnections = rawSSOs.map((sso) => {
     return {
-      id: sso.id,
-      emailDomains: sso.emailDomains,
-      organization: sso.organization,
+      ...sso,
+      clientSecret: "",
     };
   });
 
   const orgIds = organizations.map((o) => o.id);
 
-  const datasources = await _dangerourslyGetAllDatasourcesByOrganizations(
-    orgIds
-  );
+  const datasources =
+    await _dangerourslyGetAllDatasourcesByOrganizations(orgIds);
 
   return res.status(200).json({
     status: 200,
@@ -63,7 +77,7 @@ export async function getOrganizations(
   });
 }
 
-export async function putOrganization(
+export async function _dangerousAdminPutOrganization(
   req: AuthRequest<{
     orgId: string;
     name: string;
@@ -74,8 +88,10 @@ export async function putOrganization(
     autoApproveMembers?: boolean;
     enterprise?: boolean;
     freeSeats?: number;
+    disableSelfServeBilling?: boolean;
+    messages?: OrganizationMessage[];
   }>,
-  res: Response
+  res: Response,
 ) {
   if (!req.superAdmin) {
     return res.status(403).json({
@@ -94,6 +110,8 @@ export async function putOrganization(
     autoApproveMembers,
     enterprise,
     freeSeats,
+    disableSelfServeBilling,
+    messages,
   } = req.body;
   const updates: Partial<OrganizationInterface> = {};
   const orig: Partial<OrganizationInterface> = {};
@@ -114,7 +132,7 @@ export async function putOrganization(
     updates.externalId = externalId;
     orig.externalId = org.externalId;
   }
-  if (licenseKey && licenseKey.trim() !== org.licenseKey) {
+  if (licenseKey !== undefined && licenseKey.trim() !== org.licenseKey) {
     updates.licenseKey = licenseKey.trim();
     orig.licenseKey = org.licenseKey;
     await setLicenseKey(org, updates.licenseKey);
@@ -139,6 +157,35 @@ export async function putOrganization(
     updates.freeSeats = freeSeats;
     orig.freeSeats = org.freeSeats;
   }
+  if (
+    disableSelfServeBilling !== undefined &&
+    disableSelfServeBilling !== org.disableSelfServeBilling
+  ) {
+    updates.disableSelfServeBilling = disableSelfServeBilling;
+    orig.disableSelfServeBilling = org.disableSelfServeBilling;
+  }
+  if (messages !== undefined) {
+    const VALID_LEVELS = new Set(["info", "warning", "danger"]);
+    if (
+      !Array.isArray(messages) ||
+      messages.some(
+        (m) =>
+          typeof m.message !== "string" ||
+          m.message.trim() === "" ||
+          !VALID_LEVELS.has(m.level),
+      )
+    ) {
+      return res.status(400).json({
+        status: 400,
+        message:
+          "Invalid messages: each entry must have a non-empty string message and a level of 'info', 'warning', or 'danger'.",
+      });
+    }
+    if (JSON.stringify(messages) !== JSON.stringify(org.messages ?? [])) {
+      updates.messages = messages;
+      orig.messages = org.messages;
+    }
+  }
 
   await updateOrganization(org.id, updates);
 
@@ -157,9 +204,9 @@ export async function putOrganization(
 }
 
 // delete organization - For now, we're just marking the organization as deleted
-export async function disableOrganization(
+export async function _dangerousAdminDisableOrganization(
   req: AuthRequest<{ orgId: string }>,
-  res: Response
+  res: Response,
 ) {
   if (!req.superAdmin) {
     return res.status(403).json({
@@ -199,9 +246,9 @@ export async function disableOrganization(
   });
 }
 
-export async function enableOrganization(
+export async function _dangerousAdminEnableOrganization(
   req: AuthRequest<{ orgId: string }>,
-  res: Response
+  res: Response,
 ) {
   if (!req.superAdmin) {
     return res.status(403).json({
@@ -240,9 +287,9 @@ export async function enableOrganization(
     status: 200,
   });
 }
-export async function getMembers(
+export async function _dangerousAdminGetMembers(
   req: AuthRequest<never, never, { page?: string; search?: string }>,
-  res: Response
+  res: Response,
 ) {
   if (!req.superAdmin) {
     return res.status(403).json({
@@ -255,12 +302,12 @@ export async function getMembers(
 
   const organizationInfo: Record<string, object> = {};
   const filteredUsers = await getAllUsersFiltered(
-    parseInt(page ?? "1"),
-    search
+    parseIntWithDefault(page, 1),
+    search,
   );
   if (filteredUsers?.length > 0) {
     const memberOrgs = await findOrganizationsByMemberIds(
-      filteredUsers.map((u) => u.id)
+      filteredUsers.map((u) => u.id),
     );
     // create a map of all the orgs mapped to the member id to make the step below easier
     const orgMembers = new Map();
@@ -292,14 +339,14 @@ export async function getMembers(
   });
 }
 
-export async function getOrganizationMembers(
+export async function _dangerousAdminGetOrganizationMembers(
   req: AuthRequest<
     null,
     {
       orgId: string;
     }
   >,
-  res: Response
+  res: Response,
 ) {
   if (!req.superAdmin) {
     return res.status(403).json({
@@ -318,7 +365,7 @@ export async function getOrganizationMembers(
   }
 
   const members: UserInterface[] = await getUsersByIds(
-    org.members.map((m) => m.id)
+    org.members.map((m) => m.id),
   );
 
   return res.status(200).json({
@@ -327,14 +374,14 @@ export async function getOrganizationMembers(
   });
 }
 
-export async function putMember(
+export async function _dangerousAdminPutMember(
   req: AuthRequest<{
     userId: string;
     name: string;
     email: string;
     verified: boolean;
   }>,
-  res: Response
+  res: Response,
 ) {
   if (!req.superAdmin) {
     return res.status(403).json({
@@ -378,6 +425,119 @@ export async function putMember(
   });
 
   return res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function _dangerousAdminUpsertSSOConnection(
+  req: AuthRequest<
+    SSOConnectionInterface & {
+      enforceSSO: boolean;
+    }
+  >,
+  res: Response,
+) {
+  if (!req.superAdmin) {
+    return res.status(403).json({
+      status: 403,
+      message: "Only superAdmins can upsert SSO connections",
+    });
+  }
+
+  const context = getContextFromReq(req);
+
+  const {
+    clientId,
+    clientSecret,
+    id,
+    organization,
+    additionalScope,
+    audience,
+    metadata,
+    baseURL,
+    emailDomains,
+    extraQueryParams,
+    idpType,
+    tenantId,
+    enforceSSO,
+  } = req.body;
+
+  if (organization !== context.org.id) {
+    throw new Error("SSO connection organization must match selected org");
+  }
+
+  const all = await _dangerousGetAllSSOConnections();
+  const existing = all.find((sso) => sso.id === id);
+
+  if (existing) {
+    // Update existing SSO Connection
+    const updates: Partial<SSOConnectionInterface> = {
+      clientId,
+      clientSecret,
+      additionalScope,
+      audience,
+      metadata,
+      baseURL,
+      emailDomains,
+      extraQueryParams,
+      idpType,
+      tenantId,
+    };
+    await _dangerousUpdateSSOConnection(existing, updates);
+    await req.audit({
+      event: "ssoConnection.update",
+      entity: {
+        object: "ssoConnection",
+        id: id || "",
+      },
+      details: auditDetailsUpdate(existing, updates),
+    });
+  } else {
+    // Create new SSO Connection
+    const ssoConnection = await _dangerousCreateSSOConnection({
+      id,
+      organization,
+      clientId,
+      clientSecret,
+      additionalScope,
+      audience,
+      metadata,
+      baseURL,
+      emailDomains,
+      extraQueryParams,
+      idpType,
+      tenantId,
+    });
+    await req.audit({
+      event: "ssoConnection.create",
+      entity: {
+        object: "ssoConnection",
+        id: ssoConnection.id || "",
+      },
+      details: auditDetailsCreate(ssoConnection),
+    });
+  }
+
+  const currentEnforce = context.org.restrictLoginMethod === id;
+  if (enforceSSO !== currentEnforce) {
+    const newValue = enforceSSO ? id : "";
+    await updateOrganization(context.org.id, {
+      restrictLoginMethod: newValue,
+    });
+    await req.audit({
+      event: "organization.update",
+      entity: {
+        object: "organization",
+        id: context.org.id,
+      },
+      details: auditDetailsUpdate(
+        { restrictLoginMethod: context.org.restrictLoginMethod },
+        { restrictLoginMethod: newValue },
+      ),
+    });
+  }
+
+  res.status(200).json({
     status: 200,
   });
 }

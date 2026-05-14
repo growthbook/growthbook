@@ -45,12 +45,12 @@ export default function Welcome({
     state === "login"
       ? "Log in"
       : state === "register"
-      ? "Create Account"
-      : state === "forgot"
-      ? "Look up"
-      : state === "firsttime"
-      ? "Sign up"
-      : "Submit";
+        ? "Create Account"
+        : state === "forgot"
+          ? "Look up"
+          : state === "firsttime"
+            ? "Sign up"
+            : "Submit";
 
   const submit =
     state === "forgotSuccess"
@@ -72,7 +72,7 @@ export default function Welcome({
           } = await res.json();
           if (json.status > 200) {
             throw new Error(
-              json.message || "An error occurred. Please try again."
+              json.message || "An error occurred. Please try again.",
             );
           }
 

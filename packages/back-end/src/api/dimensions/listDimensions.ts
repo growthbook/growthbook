@@ -1,34 +1,35 @@
-import { ListDimensionsResponse } from "back-end/types/openapi";
+import { listDimensionsValidator } from "shared/validators";
 import {
   findDimensionsByOrganization,
   toDimensionApiInterface,
 } from "back-end/src/models/DimensionModel";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   applyFilter,
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
-import { listDimensionsValidator } from "back-end/src/validators/openapi";
 
 export const listDimensions = createApiRequestHandler(listDimensionsValidator)(
-  async (req): Promise<ListDimensionsResponse> => {
+  async (req) => {
     const dimensions = await findDimensionsByOrganization(req.organization.id);
 
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(
       dimensions
         .filter((dimension) =>
-          applyFilter(req.query.datasourceId, dimension.datasource)
+          applyFilter(req.query.datasourceId, dimension.datasource),
         )
         .sort((a, b) => a.id.localeCompare(b.id)),
-      req.query
+      req.query,
     );
 
     return {
-      dimensions: filtered.map((dimension) =>
-        toDimensionApiInterface(dimension)
+      dimensions: await resolveOwnerEmails(
+        filtered.map((dimension) => toDimensionApiInterface(dimension)),
+        req.context,
       ),
       ...returnFields,
     };
-  }
+  },
 );

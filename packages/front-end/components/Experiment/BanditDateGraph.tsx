@@ -14,10 +14,13 @@ import {
   useTooltipInPortal,
 } from "@visx/tooltip";
 import { date, datetime } from "shared/dates";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ScaleLinear, ScaleTime } from "d3-scale";
-import { ExperimentMetricInterface } from "shared/experiments";
-import { BanditEvent } from "back-end/src/validators/experiments";
+import {
+  ExperimentMetricInterface,
+  getLatestPhaseVariations,
+} from "shared/experiments";
+import { BanditEvent } from "shared/validators";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
@@ -26,8 +29,8 @@ import { getVariationColor } from "@/services/features";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
-import Callout from "@/components/Radix/Callout";
-import HelperText from "@/components/Radix/HelperText";
+import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import styles from "./ExperimentDateGraph.module.scss";
 
@@ -86,15 +89,17 @@ type TooltipData = {
 const height = 300;
 const margin = [15, 30, 50, 80];
 
+type GraphVariation = { name: string; index: number };
+
 const getTooltipContents = (
   data: TooltipData,
-  variationNames: string[],
+  variations: GraphVariation[],
   mode: "values" | "probabilities" | "weights",
   metric: ExperimentMetricInterface | null,
   getFactTableById: any,
   metricFormatterOptions: any,
   showVariations: boolean[],
-  isPublic?: boolean
+  isPublic?: boolean,
 ) => {
   const { d } = data;
   return (
@@ -108,31 +113,31 @@ const getTooltipContents = (
                 {mode === "values"
                   ? "Variation Mean"
                   : mode === "probabilities"
-                  ? "Probability of Winning"
-                  : "Variation Weight"}
+                    ? "Probability of Winning"
+                    : "Variation Weight"}
               </td>
               {mode === "values" && <td>CI</td>}
               <td>Users</td>
             </tr>
           </thead>
           <tbody>
-            {variationNames.map((v, i) => {
+            {variations.map((v, i) => {
               if (!showVariations[i]) return null;
               const val = d[i];
               const meta = d.meta;
               const crFormatted = metric
                 ? getExperimentMetricFormatter(metric, getFactTableById)(
                     val,
-                    metricFormatterOptions
+                    metricFormatterOptions,
                   )
                 : val;
               return (
-                <tr key={i}>
+                <tr key={v.index}>
                   <td
                     className="text-ellipsis"
-                    style={{ color: getVariationColor(i, true) }}
+                    style={{ color: getVariationColor(v.index, true) }}
                   >
-                    {v}
+                    {v.name}
                   </td>
                   <td>
                     {mode === "values" && crFormatted !== undefined
@@ -148,16 +153,16 @@ const getTooltipContents = (
                       {metric
                         ? getExperimentMetricFormatter(
                             metric,
-                            getFactTableById
+                            getFactTableById,
                           )(meta?.[i].rawCi?.[0] ?? 0, metricFormatterOptions)
-                        : meta?.[i].rawCi?.[0] ?? 0}
+                        : (meta?.[i].rawCi?.[0] ?? 0)}
                       ,{" "}
                       {metric
                         ? getExperimentMetricFormatter(
                             metric,
-                            getFactTableById
+                            getFactTableById,
                           )(meta?.[i].rawCi?.[1] ?? 0, metricFormatterOptions)
-                        : meta?.[i].rawCi?.[1] ?? 0}
+                        : (meta?.[i].rawCi?.[1] ?? 0)}
                       ]
                     </td>
                   )}
@@ -217,7 +222,7 @@ const getTooltipData = (
   stackedData: any[],
   yScale: ScaleLinear<number, number, never>,
   xScale,
-  mode: "values" | "probabilities" | "weights"
+  mode: "values" | "probabilities" | "weights",
 ): TooltipData => {
   const xCoords = stackedData.map((d) => xScale(d.date));
 
@@ -240,7 +245,7 @@ const getTooltipData = (
   const x = xCoords[closestIndex];
   const y = d?.variations
     ? d.variations.map(
-        (variation) => yScale(getYVal(variation, mode) ?? 0) ?? 0
+        (variation) => yScale(getYVal(variation, mode) ?? 0) ?? 0,
       )
     : undefined;
   const reweight = d?.reweight;
@@ -252,7 +257,7 @@ const getTooltipData = (
 
 const getYVal = (
   variation?: DataPointVariation,
-  mode?: "values" | "probabilities" | "weights"
+  mode?: "values" | "probabilities" | "weights",
 ) => {
   if (!variation) return undefined;
   switch (mode) {
@@ -286,7 +291,9 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
   const displayCurrency = ssrPolyfills?.useCurrency() || _displayCurrency;
   const metricFormatterOptions = { currency: displayCurrency };
 
-  const variationNames = experiment.variations.map((v) => v.name);
+  const variations: GraphVariation[] = getLatestPhaseVariations(experiment).map(
+    (v) => ({ name: v.name, index: v.index }),
+  );
   const { containerRef, containerBounds } = useTooltipInPortal({
     scroll: true,
     detectBounds: true,
@@ -299,7 +306,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
   });
   const filterVariations = form.watch("filterVariations");
   const [showVariations, setShowVariations] = useState<boolean[]>(
-    variationNames.map(() => true)
+    variations.map(() => true),
   );
 
   const {
@@ -317,26 +324,26 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
 
     const stackedData: any[] = [];
 
-    let lastVal = variationNames.map(() => 1 / (variationNames.length || 2));
+    let lastVal = variations.map(() => 1 / (variations.length || 2));
     events.forEach((event, eventNo) => {
       const bestArmProbabilities =
         event.banditResult?.bestArmProbabilities ?? [];
 
       const weights = event.banditResult.updatedWeights;
 
-      const users = variationNames.map(
-        (_, i) => event.banditResult?.singleVariationResults?.[i]?.users ?? 0
+      const users = variations.map(
+        (_, i) => event.banditResult?.singleVariationResults?.[i]?.users ?? 0,
       );
 
-      const crs = variationNames.map(
-        (_, i) => event.banditResult?.singleVariationResults?.[i]?.cr ?? 0
+      const crs = variations.map(
+        (_, i) => event.banditResult?.singleVariationResults?.[i]?.cr ?? 0,
       );
 
       const rawCis = event.banditResult?.singleVariationResults?.map(
-        (svr) => svr?.ci
+        (svr) => svr?.ci,
       );
       const cis = event.banditResult?.singleVariationResults?.map((svr, i) =>
-        svr?.ci?.map((cii) => ((users?.[i] ?? 0) > 0 ? cii : undefined))
+        svr?.ci?.map((cii) => ((users?.[i] ?? 0) > 0 ? cii : undefined)),
       );
 
       const dataPoint: any = {
@@ -354,7 +361,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       };
 
       let allEmpty = true;
-      variationNames.forEach((_, i) => {
+      variations.forEach((_, i) => {
         let val = 0;
         if (mode === "values") {
           val = crs[i];
@@ -377,12 +384,12 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
         };
       });
       if (allEmpty) {
-        variationNames.forEach((_, i) => {
+        variations.forEach((_, i) => {
           dataPoint[i] = lastVal[i];
         });
         dataPoint.empty = true;
       } else {
-        lastVal = variationNames.map((_, i) => dataPoint[i]);
+        lastVal = variations.map((_, i) => dataPoint[i]);
       }
 
       stackedData.push(dataPoint);
@@ -395,7 +402,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       now > stackedData[stackedData.length - 1].date
     ) {
       const dataPoint: BanditDateGraphDataPoint = { date: now, meta: {} };
-      variationNames.forEach((_, i) => {
+      variations.forEach((_, i) => {
         dataPoint[i] = stackedData[stackedData.length - 1][i];
       });
       dataPoint.initial = stackedData[stackedData.length - 1].initial;
@@ -406,7 +413,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
     }
 
     return stackedData;
-  }, [experiment, phase, mode, variationNames]);
+  }, [experiment, phase, mode, variations]);
 
   const filteredStackedData: BanditDateGraphDataPoint[] = useMemo(() => {
     const filtered = cloneDeep(stackedData);
@@ -423,7 +430,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
     () => {
       let sv = [...showVariations];
       if (filterVariations === "all") {
-        sv = variationNames.map(() => true);
+        sv = variations.map(() => true);
         setShowVariations(sv);
         return;
       }
@@ -431,9 +438,9 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       const probabilities = (() => {
         let probs: number[] = [];
         let totalUsers = 0;
-        for (let i = 0; i < variationNames.length; i++) {
+        for (let i = 0; i < variations.length; i++) {
           let prob =
-            latestMeta?.[i]?.probability ?? 1 / (variationNames.length || 2);
+            latestMeta?.[i]?.probability ?? 1 / (variations.length || 2);
           const users = latestMeta?.[i]?.users ?? 0;
           totalUsers += users;
           if (users < 100) {
@@ -442,8 +449,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
 
           probs.push(prob);
         }
-        if (totalUsers < 100 * variationNames.length) {
-          probs = probs.map(() => 1 / (variationNames.length || 2));
+        if (totalUsers < 100 * variations.length) {
+          probs = probs.map(() => 1 / (variations.length || 2));
         }
         return probs;
       })();
@@ -463,16 +470,16 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       const variationRanks = rankArray(probabilities);
 
       if (filterVariations === "5") {
-        sv = variationNames.map((_, i) => variationRanks[i] <= 5);
+        sv = variations.map((_, i) => variationRanks[i] <= 5);
       } else if (filterVariations === "3") {
-        sv = variationNames.map((_, i) => variationRanks[i] <= 3);
+        sv = variations.map((_, i) => variationRanks[i] <= 3);
       } else if (filterVariations === "1") {
-        sv = variationNames.map((_, i) => variationRanks[i] <= 1);
+        sv = variations.map((_, i) => variationRanks[i] <= 1);
       }
       setShowVariations(sv);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filterVariations]
+    [filterVariations],
   );
 
   const yMax = height - margin[0] - margin[2];
@@ -485,36 +492,36 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
               Math.min(
                 ...stackedData.map((d) =>
                   Math.min(
-                    ...variationNames
+                    ...variations
                       .map((_, i) => d?.meta?.[i]?.ci?.[0] ?? 0)
                       .filter(
                         (_, i) =>
                           !(
                             d?.meta?.[i]?.cr === 0 &&
                             (d?.meta?.[i]?.ci?.[0] ?? 0) < -190
-                          )
+                          ),
                       )
                       .filter(() => !d?.error && !d.initial)
-                      .filter((_, i) => showVariations[i])
-                  )
-                )
+                      .filter((_, i) => showVariations[i]),
+                  ),
+                ),
               ) * 0.97,
               Math.max(
                 ...stackedData.map((d) =>
                   Math.max(
-                    ...variationNames
+                    ...variations
                       .map((_, i) => d?.meta?.[i]?.ci?.[1] ?? 0)
                       .filter(
                         (_, i) =>
                           !(
                             d?.meta?.[i]?.cr === 0 &&
                             (d?.meta?.[i]?.ci?.[1] ?? 0) > 190
-                          )
+                          ),
                       )
                       .filter(() => !d?.error && !d.initial)
-                      .filter((_, i) => showVariations[i])
-                  )
-                )
+                      .filter((_, i) => showVariations[i]),
+                  ),
+                ),
               ) * 1.03,
             ],
             range: [yMax, 0],
@@ -524,7 +531,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
             domain: [0, 1],
             range: [yMax, 0],
           }),
-    [variationNames, mode, stackedData, yMax, showVariations]
+    [variations, mode, stackedData, yMax, showVariations],
   );
 
   // Get x-axis domain
@@ -537,10 +544,10 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       ? Math.max(...stackedData.map((d) => d.date.getTime()))
       : 0;
 
-  const gradients = variationNames.map((_, i) => (
+  const gradients = variations.map((v) => (
     <linearGradient
-      key={`gradient-${i}`}
-      id={`gradient-${i}`}
+      key={`gradient-${v.index}`}
+      id={`gradient-${v.index}`}
       x1="0%"
       y1="0%"
       x2="0%"
@@ -548,12 +555,12 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
     >
       <stop
         offset="0%"
-        stopColor={getVariationColor(i, true)}
+        stopColor={getVariationColor(v.index, true)}
         stopOpacity={0.75}
       />
       <stop
         offset="100%"
-        stopColor={getVariationColor(i, true)}
+        stopColor={getVariationColor(v.index, true)}
         stopOpacity={0.65}
       />
     </linearGradient>
@@ -581,7 +588,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
         const visibleTickIndexes = getVisibleTickIndexes(
           allXTicks,
           xScale,
-          width * 0.11
+          width * 0.11,
         );
 
         const handlePointer = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -594,7 +601,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
             stackedData,
             yScale,
             xScale,
-            mode
+            mode,
           );
           if (!data) {
             hideTooltip();
@@ -610,7 +617,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
         const startDate = stackedData[0].date;
         const exploitDate =
           stackedData.find(
-            (p) => p.meta?.type !== "today" && p?.reweight === true
+            (p) => p.meta?.type !== "today" && p?.reweight === true,
           )?.date ?? undefined;
         const lastDate = stackedData[stackedData.length - 1].date;
         const exploreMask =
@@ -663,13 +670,13 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
               >
                 {getTooltipContents(
                   tooltipData,
-                  variationNames,
+                  variations,
                   mode,
                   metric,
                   getFactTableById,
                   metricFormatterOptions,
                   showVariations,
-                  isPublic
+                  isPublic,
                 )}
               </TooltipWithBounds>
             )}
@@ -688,7 +695,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                       label: "All variations",
                       value: "all",
                     },
-                    ...(variationNames.length > 5
+                    ...(variations.length > 5
                       ? [
                           {
                             label: "Top 5",
@@ -696,7 +703,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                           },
                         ]
                       : []),
-                    ...(variationNames.length > 3
+                    ...(variations.length > 3
                       ? [
                           {
                             label: "Top 3",
@@ -729,20 +736,20 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                 className="d-flex flex-wrap px-3 mb-2"
                 style={{ gap: "0.25rem 1rem" }}
               >
-                {variationNames.map((v, i) => {
+                {variations.map((v, i) => {
                   return (
                     <div
-                      key={i}
+                      key={v.index}
                       className="nowrap text-ellipsis cursor-pointer hover-highlight py-1 pr-1 rounded user-select-none"
                       style={{
                         maxWidth: 200,
-                        color: getVariationColor(i, true),
+                        color: getVariationColor(v.index, true),
                       }}
                       onClick={() => {
                         let sv = [...showVariations];
                         sv[i] = !sv[i];
                         if (sv.every((v) => !v)) {
-                          sv = variationNames.map((_, j) => i !== j);
+                          sv = variations.map((_, j) => i !== j);
                         }
                         setShowVariations(sv);
                         if (sv.every((v) => v)) {
@@ -757,7 +764,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                       ) : (
                         <BiCheckbox size={24} />
                       )}
-                      {v}
+                      {v.name}
                     </div>
                   );
                 })}
@@ -778,8 +785,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
               {tooltipOpen && (
                 <>
                   {type === "line" &&
-                    variationNames.map((_, i) => {
-                      // Render a dot at the current x location for each variation
+                    variations.map((v, i) => {
                       if (!showVariations[i]) return null;
                       const y = tooltipData?.d?.[i];
                       if (y === undefined) return;
@@ -787,13 +793,13 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                       if (users === 0 && mode === "values") return;
                       return (
                         <div
-                          key={i}
+                          key={v.index}
                           className={styles.positionIndicator}
                           style={{
                             transform: `translate(${tooltipLeft}px, ${yScale(
-                              y
+                              y,
                             )}px)`,
-                            background: getVariationColor(i, true),
+                            background: getVariationColor(v.index, true),
                           }}
                         />
                       );
@@ -825,8 +831,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   <rect
                     x={0}
                     y={0}
-                    width={width - margin[1] - margin[3]}
-                    height={height - margin[0] - margin[2]}
+                    width={Math.max(0, width - margin[1] - margin[3])}
+                    height={Math.max(0, height - margin[0] - margin[2])}
                   />
                 </clipPath>
                 {gradients}
@@ -849,7 +855,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                 <Group clipPath="url(#bandit-date-graph-clip)">
                   {type === "area" && (
                     <AreaStack
-                      keys={variationNames.map((_, i) => i)}
+                      keys={variations.map((_, i) => i)}
                       data={filteredStackedData}
                       x={(d) => xScale(d.data.date)}
                       y0={(d) => yScale(d[0])}
@@ -859,8 +865,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                         mode === "values"
                           ? curveMonotoneX
                           : mode === "probabilities"
-                          ? curveLinear
-                          : curveStepAfter
+                            ? curveLinear
+                            : curveStepAfter
                       }
                       defined={(d) =>
                         d.data.meta.type === "today" ? mode === "weights" : true
@@ -869,12 +875,13 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                       {({ stacks, path }) =>
                         stacks.map((stack, i) => {
                           if (!showVariations[i]) return null;
+                          const vIndex = variations[i]?.index ?? i;
                           return (
                             <path
                               key={`stack-${stack.key}`}
                               d={path(stack) || ""}
-                              stroke={getVariationColor(i, true)}
-                              fill={`url(#gradient-${i})`}
+                              stroke={getVariationColor(vIndex, true)}
+                              fill={`url(#gradient-${vIndex})`}
                               mask="url(#stripe-mask)"
                             />
                           );
@@ -884,17 +891,17 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   )}
 
                   {mode === "values" &&
-                    variationNames.map((_, i) => {
+                    variations.map((v, i) => {
                       if (!showVariations[i]) return null;
                       return (
                         <AreaClosed
-                          key={`ci_${i}`}
+                          key={`ci_${v.index}`}
                           yScale={yScale}
                           data={stackedData}
                           x={(d) => xScale(d.date)}
                           y0={(d) => yScale(d?.meta?.[i]?.ci?.[0] ?? 0) ?? 0}
                           y1={(d) => yScale(d?.meta?.[i]?.ci?.[1] ?? 0) ?? 0}
-                          fill={getVariationColor(i, true)}
+                          fill={getVariationColor(v.index, true)}
                           opacity={0.12}
                           curve={curveMonotoneX}
                           defined={(d) =>
@@ -906,22 +913,22 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                     })}
 
                   {type === "line" &&
-                    variationNames.map((_, i) => {
+                    variations.map((v, i) => {
                       if (!showVariations[i]) return null;
                       return (
                         <LinePath
-                          key={`linepath-${i}`}
+                          key={`linepath-${v.index}`}
                           data={stackedData}
                           x={(d) => xScale(d.date)}
                           y={(d) => yScale(d[i])}
-                          stroke={getVariationColor(i, true)}
+                          stroke={getVariationColor(v.index, true)}
                           strokeWidth={2}
                           curve={
                             mode === "values"
                               ? curveMonotoneX
                               : mode === "probabilities"
-                              ? curveMonotoneX
-                              : curveStepAfter
+                                ? curveMonotoneX
+                                : curveStepAfter
                           }
                           defined={(d) =>
                             (mode !== "values" || d?.meta?.[i]?.users !== 0) &&
@@ -983,7 +990,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                       ? metric
                         ? getExperimentMetricFormatter(
                             metric,
-                            getFactTableById
+                            getFactTableById,
                           )(v as number, metricFormatterOptions)
                         : formatter(v as number)
                       : intPercentFormatter.format(v as number)
@@ -1011,7 +1018,7 @@ export default BanditDateGraph;
 export function getVisibleTickIndexes(
   ticks: number[],
   xScale: ScaleTime<number, number>,
-  minGap: number
+  minGap: number,
 ): number[] {
   const visibleIndexes: number[] = [];
   let lastXPosition = -Infinity;

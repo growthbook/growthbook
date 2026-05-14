@@ -1,5 +1,5 @@
 {
-  "specVersion": "0.7.0",
+  "specVersion": "0.7.1",
   "evalCondition": [
     [
       "$not - pass",
@@ -482,6 +482,18 @@
       false
     ],
     [
+      "$in - fail (case sensitive mismatch)",
+      {
+        "country": {
+          "$in": ["us", "uk"]
+        }
+      },
+      {
+        "country": "US"
+      },
+      false
+    ],
+    [
       "$nin - pass",
       {
         "num": {
@@ -576,6 +588,198 @@
         "tags": []
       },
       true
+    ],
+    [
+      "$nin - pass (case sensitive mismatch)",
+      {
+        "country": {
+          "$nin": ["us", "uk"]
+        }
+      },
+      {
+        "country": "US"
+      },
+      true
+    ],
+    [
+      "$ini - pass (case insensitive match)",
+      {
+        "country": {
+          "$ini": ["us", "uk"]
+        }
+      },
+      {
+        "country": "US"
+      },
+      true
+    ],
+    [
+      "$ini - pass (uppercase pattern, lowercase value)",
+      {
+        "country": {
+          "$ini": ["US", "UK"]
+        }
+      },
+      {
+        "country": "us"
+      },
+      true
+    ],
+    [
+      "$ini - pass (mixed case)",
+      {
+        "country": {
+          "$ini": ["Us", "Uk"]
+        }
+      },
+      {
+        "country": "US"
+      },
+      true
+    ],
+    [
+      "$ini - fail (no match)",
+      {
+        "country": {
+          "$ini": ["us", "uk"]
+        }
+      },
+      {
+        "country": "CA"
+      },
+      false
+    ],
+    [
+      "$ini - array pass 1",
+      {
+        "tags": {
+          "$ini": ["a", "b"]
+        }
+      },
+      {
+        "tags": ["d", "e", "A"]
+      },
+      true
+    ],
+    [
+      "$ini - array pass 2",
+      {
+        "tags": {
+          "$ini": ["A", "B"]
+        }
+      },
+      {
+        "tags": ["d", "b", "f"]
+      },
+      true
+    ],
+    [
+      "$ini - array fail",
+      {
+        "tags": {
+          "$ini": ["a", "b"]
+        }
+      },
+      {
+        "tags": ["d", "e", "f"]
+      },
+      false
+    ],
+    [
+      "$ini - not array",
+      {
+        "num": {
+          "$ini": 1
+        }
+      },
+      {
+        "num": 1
+      },
+      false
+    ],
+    [
+      "$nini - pass (case insensitive match)",
+      {
+        "country": {
+          "$nini": ["us", "uk"]
+        }
+      },
+      {
+        "country": "CA"
+      },
+      true
+    ],
+    [
+      "$nini - fail (case insensitive match)",
+      {
+        "country": {
+          "$nini": ["us", "uk"]
+        }
+      },
+      {
+        "country": "US"
+      },
+      false
+    ],
+    [
+      "$nini - fail (uppercase pattern, lowercase value)",
+      {
+        "country": {
+          "$nini": ["US", "UK"]
+        }
+      },
+      {
+        "country": "us"
+      },
+      false
+    ],
+    [
+      "$nini - array pass",
+      {
+        "tags": {
+          "$nini": ["a", "b"]
+        }
+      },
+      {
+        "tags": ["d", "e", "f"]
+      },
+      true
+    ],
+    [
+      "$nini - array fail 1",
+      {
+        "tags": {
+          "$nini": ["a", "b"]
+        }
+      },
+      {
+        "tags": ["d", "e", "A"]
+      },
+      false
+    ],
+    [
+      "$nini - array fail 2",
+      {
+        "tags": {
+          "$nini": ["A", "B"]
+        }
+      },
+      {
+        "tags": ["d", "b", "f"]
+      },
+      false
+    ],
+    [
+      "$nini - not array",
+      {
+        "num": {
+          "$nini": 1
+        }
+      },
+      {
+        "num": 1
+      },
+      false
     ],
     [
       "$elemMatch - pass - flat arrays",
@@ -750,6 +954,54 @@
       {
         "userAgent": {
           "$regex": "(Mobile|Tablet)"
+        }
+      },
+      {
+        "userAgent": "Chrome Desktop Browser"
+      },
+      false
+    ],
+    [
+      "$regex - fail (case sensitive mismatch)",
+      {
+        "userAgent": {
+          "$regex": "(mobile|tablet)"
+        }
+      },
+      {
+        "userAgent": "Android Mobile Browser"
+      },
+      false
+    ],
+    [
+      "$regexi - pass (case insensitive match)",
+      {
+        "userAgent": {
+          "$regexi": "(mobile|tablet)"
+        }
+      },
+      {
+        "userAgent": "Android Mobile Browser"
+      },
+      true
+    ],
+    [
+      "$regexi - pass (uppercase pattern, lowercase value)",
+      {
+        "userAgent": {
+          "$regexi": "(MOBILE|TABLET)"
+        }
+      },
+      {
+        "userAgent": "android mobile browser"
+      },
+      true
+    ],
+    [
+      "$regexi - fail",
+      {
+        "userAgent": {
+          "$regexi": "(mobile|tablet)"
         }
       },
       {
@@ -1443,6 +1695,78 @@
       false
     ],
     [
+      "$all - fail (case sensitive mismatch)",
+      {
+        "tags": {
+          "$all": ["one", "three"]
+        }
+      },
+      {
+        "tags": ["ONE", "two", "THREE"]
+      },
+      false
+    ],
+    [
+      "$alli - pass (case insensitive match)",
+      {
+        "tags": {
+          "$alli": ["one", "three"]
+        }
+      },
+      {
+        "tags": ["ONE", "two", "THREE"]
+      },
+      true
+    ],
+    [
+      "$alli - pass (uppercase pattern, lowercase value)",
+      {
+        "tags": {
+          "$alli": ["ONE", "THREE"]
+        }
+      },
+      {
+        "tags": ["one", "two", "three"]
+      },
+      true
+    ],
+    [
+      "$alli - pass (mixed case)",
+      {
+        "tags": {
+          "$alli": ["One", "Three"]
+        }
+      },
+      {
+        "tags": ["ONE", "two", "three"]
+      },
+      true
+    ],
+    [
+      "$alli - fail (case insensitive, missing value)",
+      {
+        "tags": {
+          "$alli": ["one", "three"]
+        }
+      },
+      {
+        "tags": ["ONE", "two", "four"]
+      },
+      false
+    ],
+    [
+      "$alli - fail not array",
+      {
+        "tags": {
+          "$alli": ["one", "three"]
+        }
+      },
+      {
+        "tags": "hello"
+      },
+      false
+    ],
+    [
       "$nor - pass",
       {
         "$nor": [
@@ -1671,6 +1995,32 @@
       {
         "userId": ""
       },
+      false
+    ],
+    [
+      "null condition - false attribute",
+      {
+        "userId": null
+      },
+      {
+        "userId": false
+      },
+      false
+    ],
+    [
+      "false condition - missing attribute",
+      {
+        "userId": false
+      },
+      {},
+      false
+    ],
+    [
+      "false strict condition - missing attribute",
+      {
+        "userId": { "$eq": false }
+      },
+      {},
       false
     ],
     [
@@ -3040,7 +3390,8 @@
         "value": null,
         "on": false,
         "off": true,
-        "source": "unknownFeature"
+        "source": "unknownFeature",
+        "ruleId": ""
       }
     ],
     [
@@ -3051,7 +3402,8 @@
         "value": null,
         "on": false,
         "off": true,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3062,7 +3414,8 @@
         "value": 1,
         "on": true,
         "off": false,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3073,7 +3426,8 @@
         "value": "yes",
         "on": true,
         "off": false,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3095,7 +3449,32 @@
         "value": 1,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
+      }
+    ],
+    [
+      "force rule with rule id",
+      {
+        "features": {
+          "feature": {
+            "defaultValue": 2,
+            "rules": [
+              {
+                "id": "a",
+                "force": 1
+              }
+            ]
+          }
+        }
+      },
+      "feature",
+      {
+        "value": 1,
+        "on": true,
+        "off": false,
+        "source": "force",
+        "ruleId": "a"
       }
     ],
     [
@@ -3117,7 +3496,8 @@
         "value": false,
         "on": false,
         "off": true,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3143,7 +3523,8 @@
         "value": 1,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3169,7 +3550,8 @@
         "value": 1,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3183,6 +3565,7 @@
             "defaultValue": 2,
             "rules": [
               {
+                "id": "a",
                 "force": 1,
                 "coverage": 0.5
               }
@@ -3195,7 +3578,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3219,7 +3603,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3246,7 +3631,8 @@
         "value": 0,
         "on": false,
         "off": true,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3276,7 +3662,8 @@
         "value": 1,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3306,7 +3693,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3333,7 +3721,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3350,7 +3739,8 @@
         "value": null,
         "on": false,
         "off": true,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3390,7 +3780,8 @@
           "key": "2",
           "stickyBucketUsed": false
         },
-        "source": "experiment"
+        "source": "experiment",
+        "ruleId": ""
       }
     ],
     [
@@ -3403,6 +3794,7 @@
           "feature": {
             "rules": [
               {
+                "id": "id",
                 "variations": ["a", "b", "c"]
               }
             ]
@@ -3430,7 +3822,8 @@
           "key": "0",
           "stickyBucketUsed": false
         },
-        "source": "experiment"
+        "source": "experiment",
+        "ruleId": "id"
       }
     ],
     [
@@ -3470,7 +3863,8 @@
           "key": "1",
           "stickyBucketUsed": false
         },
-        "source": "experiment"
+        "source": "experiment",
+        "ruleId": ""
       }
     ],
     [
@@ -3515,7 +3909,8 @@
                 "key": "hello",
                 "variations": [true, false],
                 "weights": [0.1, 0.9],
-                "condition": { "premium": true }
+                "condition": { "premium": true },
+                "foo": "bar"
               }
             ]
           }
@@ -3573,7 +3968,8 @@
           "key": "v1",
           "name": "variation 1",
           "stickyBucketUsed": false
-        }
+        },
+        "ruleId": ""
       }
     ],
     [
@@ -3607,7 +4003,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3622,13 +4019,16 @@
             "rules": [
               {
                 "force": 1,
+                "id": "1",
                 "condition": { "browser": "chrome" }
               },
               {
+                "id": "2",
                 "force": 2,
                 "condition": { "browser": "firefox" }
               },
               {
+                "id": "3",
                 "force": 3,
                 "condition": { "browser": "safari" }
               }
@@ -3641,7 +4041,8 @@
         "value": 3,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": "3"
       }
     ],
     [
@@ -3675,7 +4076,8 @@
         "value": 0,
         "on": false,
         "off": true,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3702,7 +4104,8 @@
         "value": 3,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3729,7 +4132,8 @@
         "value": 3,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3768,7 +4172,8 @@
           "key": "1",
           "bucket": 0.863,
           "stickyBucketUsed": false
-        }
+        },
+        "ruleId": ""
       }
     ],
     [
@@ -3795,7 +4200,8 @@
         "value": 3,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3839,7 +4245,8 @@
           "hashValue": "123",
           "key": "1",
           "stickyBucketUsed": false
-        }
+        },
+        "ruleId": ""
       }
     ],
     [
@@ -3866,7 +4273,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3893,7 +4301,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3919,7 +4328,8 @@
         "value": 0,
         "on": false,
         "off": true,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3950,7 +4360,8 @@
         "value": 0,
         "on": false,
         "off": true,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3978,7 +4389,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -4045,7 +4457,8 @@
           "variationId": 0,
           "bucket": 0.4413,
           "stickyBucketUsed": false
-        }
+        },
+        "ruleId": ""
       }
     ],
     [
@@ -4118,7 +4531,8 @@
           "variationId": 0,
           "bucket": 0.8043,
           "stickyBucketUsed": false
-        }
+        },
+        "ruleId": ""
       }
     ],
     [
@@ -4168,7 +4582,8 @@
         "value": null,
         "on": false,
         "off": true,
-        "source": "prerequisite"
+        "source": "prerequisite",
+        "ruleId": ""
       }
     ],
     [
@@ -4205,7 +4620,8 @@
         "value": null,
         "on": false,
         "off": true,
-        "source": "prerequisite"
+        "source": "prerequisite",
+        "ruleId": ""
       }
     ],
     [
@@ -4255,7 +4671,8 @@
         "value": "success",
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -4323,7 +4740,8 @@
         "value": "success",
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -4391,7 +4809,8 @@
         "value": "success",
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -4443,7 +4862,8 @@
         "value": "success",
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -4495,7 +4915,8 @@
         "value": null,
         "on": false,
         "off": true,
-        "source": "prerequisite"
+        "source": "prerequisite",
+        "ruleId": ""
       }
     ],
     [
@@ -4540,7 +4961,8 @@
         "value": null,
         "on": false,
         "off": true,
-        "source": "cyclicPrerequisite"
+        "source": "cyclicPrerequisite",
+        "ruleId": ""
       }
     ],
     [
@@ -4558,7 +4980,7 @@
                 "parentConditions": [
                   {
                     "id": "parentFlag",
-                    "condition": { "$ne": false },
+                    "condition": { "value": { "$ne": false } },
                     "gate": true
                   },
                   {
@@ -4604,7 +5026,8 @@
         "value": "T",
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -4629,7 +5052,13 @@
         }
       },
       "inGroup_force_rule",
-      { "value": true, "on": true, "off": false, "source": "force" }
+      {
+        "value": true,
+        "on": true,
+        "off": false,
+        "source": "force",
+        "ruleId": ""
+      }
     ],
     [
       "SavedGroups correctly pulled from context for experiment rule",
@@ -4685,7 +5114,8 @@
           "variationId": 0,
           "bucket": 0.1736,
           "stickyBucketUsed": false
-        }
+        },
+        "ruleId": ""
       }
     ]
   ],
@@ -6301,6 +6731,249 @@
           },
           "attributeName": "id",
           "attributeValue": "i123"
+        }
+      }
+    ],
+    [
+      "uses a sticky bucket when sticky bucket version == experiment.minBucketVersion === experiment.bucketVersion",
+      {
+        "attributes": {
+          "deviceId": "d123",
+          "anonymousId": "ses123",
+          "foo": "bar",
+          "country": "USA"
+        },
+        "features": {
+          "exp1": {
+            "defaultValue": "control",
+            "rules": [
+              {
+                "key": "feature-exp",
+                "seed": "feature-exp",
+                "hashAttribute": "id",
+                "fallbackAttribute": "deviceId",
+                "hashVersion": 2,
+                "bucketVersion": 3,
+                "minBucketVersion": 3,
+                "condition": { "country": "USA" },
+                "variations": ["control", "red", "blue"],
+                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "coverage": 1,
+                "weights": [0.3334, 0.3333, 0.3333],
+                "phase": "0"
+              }
+            ]
+          }
+        }
+      },
+      [
+        {
+          "attributeName": "deviceId",
+          "attributeValue": "d123",
+          "assignments": {
+            "feature-exp__3": "2"
+          }
+        }
+      ],
+      "exp1",
+      {
+        "bucket": 0.6468,
+        "featureId": "exp1",
+        "hashAttribute": "deviceId",
+        "hashUsed": true,
+        "hashValue": "d123",
+        "inExperiment": true,
+        "key": "2",
+        "stickyBucketUsed": true,
+        "value": "blue",
+        "variationId": 2
+      },
+      {
+        "deviceId||d123": {
+          "assignments": { "feature-exp__3": "2" },
+          "attributeName": "deviceId",
+          "attributeValue": "d123"
+        }
+      }
+    ],
+    [
+      "skips assignment when sticky bucket version < experiment.minBucketVersion",
+      {
+        "attributes": {
+          "deviceId": "d123",
+          "anonymousId": "ses123",
+          "foo": "bar",
+          "country": "USA"
+        },
+        "features": {
+          "exp1": {
+            "defaultValue": "control",
+            "rules": [
+              {
+                "key": "feature-exp",
+                "seed": "feature-exp",
+                "hashAttribute": "id",
+                "fallbackAttribute": "deviceId",
+                "hashVersion": 2,
+                "bucketVersion": 3,
+                "minBucketVersion": 3,
+                "condition": { "country": "USA" },
+                "variations": ["control", "red", "blue"],
+                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "coverage": 1,
+                "weights": [0.3334, 0.3333, 0.3333],
+                "phase": "0"
+              }
+            ]
+          }
+        }
+      },
+      [
+        {
+          "attributeName": "deviceId",
+          "attributeValue": "d123",
+          "assignments": {
+            "feature-exp__2": "2"
+          }
+        }
+      ],
+      "exp1",
+      null,
+      {
+        "deviceId||d123": {
+          "assignments": { "feature-exp__2": "2" },
+          "attributeName": "deviceId",
+          "attributeValue": "d123"
+        }
+      }
+    ],
+    [
+      "resets sticky bucketing when bucket version > experiment.bucketVersion (invalid version)",
+      {
+        "attributes": {
+          "deviceId": "d123",
+          "anonymousId": "ses123",
+          "foo": "bar",
+          "country": "USA"
+        },
+        "features": {
+          "exp1": {
+            "defaultValue": "control",
+            "rules": [
+              {
+                "key": "feature-exp",
+                "seed": "feature-exp",
+                "hashAttribute": "id",
+                "fallbackAttribute": "deviceId",
+                "hashVersion": 2,
+                "bucketVersion": 3,
+                "minBucketVersion": 3,
+                "condition": { "country": "USA" },
+                "variations": ["control", "red", "blue"],
+                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "coverage": 1,
+                "weights": [0.3334, 0.3333, 0.3333],
+                "phase": "0"
+              }
+            ]
+          }
+        }
+      },
+      [
+        {
+          "attributeName": "deviceId",
+          "attributeValue": "d123",
+          "assignments": {
+            "feature-exp__4": "2"
+          }
+        }
+      ],
+      "exp1",
+      {
+        "bucket": 0.6468,
+        "featureId": "exp1",
+        "hashAttribute": "deviceId",
+        "hashUsed": true,
+        "hashValue": "d123",
+        "inExperiment": true,
+        "key": "1",
+        "stickyBucketUsed": false,
+        "value": "red",
+        "variationId": 1
+      },
+      {
+        "deviceId||d123": {
+          "assignments": {
+            "feature-exp__3": "1",
+            "feature-exp__4": "2"
+          },
+          "attributeName": "deviceId",
+          "attributeValue": "d123"
+        }
+      }
+    ],
+    [
+      "resets sticky bucketing when bucket version < experiment.bucketVersion (invalid version)",
+      {
+        "attributes": {
+          "deviceId": "d123",
+          "anonymousId": "ses123",
+          "foo": "bar",
+          "country": "USA"
+        },
+        "features": {
+          "exp1": {
+            "defaultValue": "control",
+            "rules": [
+              {
+                "key": "feature-exp",
+                "seed": "feature-exp",
+                "hashAttribute": "id",
+                "fallbackAttribute": "deviceId",
+                "hashVersion": 2,
+                "bucketVersion": 4,
+                "minBucketVersion": 3,
+                "condition": { "country": "USA" },
+                "variations": ["control", "red", "blue"],
+                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "coverage": 1,
+                "weights": [0.3334, 0.3333, 0.3333],
+                "phase": "0"
+              }
+            ]
+          }
+        }
+      },
+      [
+        {
+          "attributeName": "deviceId",
+          "attributeValue": "d123",
+          "assignments": {
+            "feature-exp__3": "2"
+          }
+        }
+      ],
+      "exp1",
+      {
+        "bucket": 0.6468,
+        "featureId": "exp1",
+        "hashAttribute": "deviceId",
+        "hashUsed": true,
+        "hashValue": "d123",
+        "inExperiment": true,
+        "key": "1",
+        "stickyBucketUsed": false,
+        "value": "red",
+        "variationId": 1
+      },
+      {
+        "deviceId||d123": {
+          "assignments": {
+            "feature-exp__3": "2",
+            "feature-exp__4": "1"
+          },
+          "attributeName": "deviceId",
+          "attributeValue": "d123"
         }
       }
     ],

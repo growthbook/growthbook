@@ -1,9 +1,12 @@
 import { useRouter } from "next/router";
 import { useMemo } from "react";
-import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
-import { OrganizationSettings } from "back-end/types/organization";
+import { FeatureCodeRefsInterface } from "shared/types/code-refs";
+import { OrganizationSettings } from "shared/types/organization";
 import { FaGitAlt, FaExternalLinkAlt } from "react-icons/fa";
+import { Flex, Box } from "@radix-ui/themes";
 import Code from "@/components/SyntaxHighlighting/Code";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import { useUser } from "@/services/UserContext";
 import Button from "@/components/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -15,7 +18,7 @@ const generatePlatformUrl = (
   repo: string,
   branch: string,
   filePath: string,
-  lineNumber: number
+  lineNumber: number,
 ) => {
   return `${platformUrl}/${repo}/blob/${branch}/${filePath}#L${lineNumber}`;
 };
@@ -42,7 +45,7 @@ export default function FeaturesStats({
       return allCodeRefs;
     }
     return allCodeRefs.filter((codeRef) =>
-      codeRefsBranchesToFilter.includes(codeRef.branch)
+      codeRefsBranchesToFilter.includes(codeRef.branch),
     );
   }, [allCodeRefs, codeRefsBranchesToFilter]);
 
@@ -56,7 +59,6 @@ export default function FeaturesStats({
               codebase, with direct links from GrowthBook to the platform of
               your choice."
             commercialFeature="code-references"
-            reason="Code ref on features no access"
             learnMoreLink="https://docs.growthbook.io/features/code-references"
           />
         </div>
@@ -68,7 +70,7 @@ export default function FeaturesStats({
       <>
         <div className="contents container-fluid pagecontents">
           <div
-            className="appbox bg-white"
+            className="appbox"
             style={{
               height: "18rem",
               display: "flex",
@@ -105,10 +107,16 @@ export default function FeaturesStats({
 
   return (
     <div className="contents container-fluid pagecontents">
-      <h3>Code References</h3>
-      <div className="mb-1">
-        References to this feature flag found in your codebase.
-      </div>
+      <Flex align="start" justify="between" mt="4" mb="5" gap="4">
+        <Box flexShrink="1">
+          <Heading mb="1" size="medium" as="h3">
+            Code References
+          </Heading>
+          <Text mb="0">
+            References to this feature flag found in your codebase.
+          </Text>
+        </Box>
+      </Flex>
       {codeRefs.length > 0 ? (
         codeRefs.map((codeRef, i) => (
           <div key={i} className="appbox mb-4 p-3">
@@ -133,7 +141,7 @@ export default function FeaturesStats({
                           codeRef.branch,
                           ref.filePath,
                           ref.startingLineNumber +
-                            ((ref.lines.split("\n").length / 2) | 0)
+                            ((ref.lines.split("\n").length / 2) | 0),
                         )}
                       >
                         <FaExternalLinkAlt className="mr-2 cursor-pointer" />

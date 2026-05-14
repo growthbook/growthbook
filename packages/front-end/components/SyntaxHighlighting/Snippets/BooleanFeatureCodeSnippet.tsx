@@ -1,4 +1,4 @@
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import Code from "@/components/SyntaxHighlighting/Code";
 
 function rubySymbol(name: string): string {
@@ -75,6 +75,50 @@ app.get("/", (req, res) => {
       />
     );
   }
+  if (language === "nextjs") {
+    return (
+      <>
+        <div className="font-weight-bold text-muted mt-2">
+          Define your feature flag
+        </div>
+        <Code
+          filename="flags.ts"
+          language="typescript"
+          code={`
+import { growthbookAdapter } from '@flags-sdk/growthbook';
+import { flag } from 'flags/next';
+import { identify } from '@/lib/identify';
+
+export const myFeatureFlag = flag<boolean>({
+  key: ${JSON.stringify(featureId)},
+  adapter: growthbookAdapter.feature<boolean>(),
+  defaultValue: false,
+  identify,
+});
+`.trim()}
+        />
+
+        <div className="font-weight-bold text-muted mt-2">Use the flag</div>
+        <Code
+          filename="my-component.tsx"
+          language="tsx"
+          code={`
+import { myFeatureFlag } from '@/flags';
+
+function MyComponent() {
+  const enabled = await myFeatureFlag();
+
+  if (enabled) {
+    return <div>On!</div>
+  } else {
+    return <div>Off!</div>
+  }
+}
+  `.trim()}
+        />
+      </>
+    );
+  }
   if (language === "android") {
     return (
       <Code
@@ -104,10 +148,12 @@ if (gb.isOn(${JSON.stringify(featureId)})) {
       <Code
         language="go"
         code={`
-if gb.Feature(${JSON.stringify(featureId)}).On {
+
+result := client.EvalFeature(context.Background(), ${JSON.stringify(featureId)})
+if result.On {
   // Feature is enabled!
 }
-            `.trim()}
+        `.trim()}
       />
     );
   }

@@ -1,0 +1,17 @@
+{
+  "versions": [
+    {
+      "version": "1.3.1"
+    },
+    {
+      "version": "1.3.0",
+      "capabilities": [
+        "prerequisites",
+        "looseUnmarshalling",
+        "namespacesV2",
+        "semverTargeting",
+        "bucketingV2"
+      ]
+    }
+  ]
+}

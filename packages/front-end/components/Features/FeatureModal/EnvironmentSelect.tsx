@@ -1,18 +1,18 @@
 import { FC, useMemo } from "react";
-import { Environment } from "back-end/types/organization";
-import { FeatureEnvironment } from "back-end/types/feature";
+import { Environment } from "shared/types/organization";
+import { FeatureEnvironment } from "shared/types/feature";
 import { Box, Grid, Text } from "@radix-ui/themes";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 
 const EnvironmentSelect: FC<{
-  environmentSettings: Record<string, FeatureEnvironment>;
+  environmentSettings: Record<string, Pick<FeatureEnvironment, "enabled">>;
   environments: Environment[];
   setValue: (env: Environment, enabled: boolean) => void;
-}> = ({ environmentSettings, environments, setValue }) => {
+  label?: string;
+  project?: string;
+}> = ({ environmentSettings, environments, setValue, label, project = "" }) => {
   const permissionsUtil = usePermissionsUtil();
-  const { project } = useDefinitions();
   const environmentsUserCanAccess = useMemo(() => {
     return environments.filter((env) => {
       return permissionsUtil.canPublishFeature({ project }, [env.id]);
@@ -20,16 +20,20 @@ const EnvironmentSelect: FC<{
   }, [environments, permissionsUtil, project]);
 
   const selectAllChecked = environmentsUserCanAccess.every(
-    (env) => environmentSettings[env.id]?.enabled
+    (env) => environmentSettings[env.id]?.enabled,
   );
   const selectAllIndeterminate = environmentsUserCanAccess.some(
-    (env) => environmentSettings[env.id]?.enabled
+    (env) => environmentSettings[env.id]?.enabled,
   );
 
   return (
     <div className="form-group">
-      <Text as="label" weight="bold" mb="2">
-        Enabled Environments
+      <Text as="label" weight="bold" mb="1">
+        {label || "Enabled Environments"}
+      </Text>
+      <Text as="p" size="1" color="gray" mb="2">
+        Which environments are toggled <strong>ON</strong> by default in the new
+        feature. Disabled environments will be excluded from the SDK Payload.
       </Text>
       <Box
         className="box"
@@ -44,8 +48,8 @@ const EnvironmentSelect: FC<{
               selectAllChecked
                 ? true
                 : selectAllIndeterminate
-                ? "indeterminate"
-                : false
+                  ? "indeterminate"
+                  : false
             }
             setValue={(v) =>
               environmentsUserCanAccess.forEach((env) => {

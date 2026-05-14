@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import Link from "next/link";
-import { IdeaInterface } from "back-end/types/idea";
+import { IdeaInterface } from "shared/types/idea";
 import { FaPlus, FaRegCheckSquare, FaRegSquare } from "react-icons/fa";
 import clsx from "clsx";
 import { date } from "shared/dates";
+import Link from "@/ui/Link";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import IdeaForm from "@/components/Ideas/IdeaForm";
@@ -13,12 +13,13 @@ import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 
 const IdeasPage = (): React.ReactElement => {
   const [includeArchived, setIncludeArchived] = useState(false);
 
-  const { project } = useDefinitions();
+  const { project, projects } = useDefinitions();
 
   const { data, error, mutate } = useApi<{
     ideas: IdeaInterface[];
@@ -37,13 +38,13 @@ const IdeasPage = (): React.ReactElement => {
   });
 
   if (error) {
-    return <div className="alert alert-danger">An error occurred</div>;
+    return <Callout status="error">An error occurred</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;
   }
 
-  const canCreateIdeas = permissionsUtil.canViewIdeaModal(project);
+  const canCreateIdeas = permissionsUtil.canViewIdeaModal(project, projects);
 
   if (!data.ideas.length) {
     return (
@@ -63,14 +64,14 @@ const IdeasPage = (): React.ReactElement => {
           blown Experiment.
         </p>
         {canCreateIdeas ? (
-          <button
-            className="btn btn-success btn-lg"
+          <Button
+            mt="3"
             onClick={() => {
               setCurrent({});
             }}
           >
             <FaPlus /> Add your first Idea
-          </button>
+          </Button>
         ) : null}
         {current && (
           <IdeaForm

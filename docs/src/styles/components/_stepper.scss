@@ -1,0 +1,119 @@
+// Stepper component styles
+// Based on the design pattern from the reference image
+
+:root {
+  --stepper-number-size: 24px;
+  --stepper-line-left: 12px;
+}
+
+[data-theme="light"] {
+  --stepper-step-number-bg: var(--violet-3);
+  --stepper-step-number-color: var(--violet-11);
+  --stepper-step-number-border: var(--violet-a3);
+  --stepper-opacity: 1;
+}
+
+[data-theme="dark"] {
+  --stepper-step-number-bg: var(--violet-11);
+  --stepper-step-number-color: var(--violet-1);
+  --stepper-step-number-border: var(--violet-a11);
+  --stepper-opacity: 0.5;
+}
+
+.stepper {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+
+  counter-reset: stepper-step;
+  position: relative;
+
+  &::before {
+    content: "";
+    position: absolute;
+    left: calc(var(--stepper-line-left) - 1px);
+    top: var(--stepper-number-size); // Start right after the step number circle
+    width: 2px;
+    height: calc(
+      100% - var(--stepper-number-size)
+    ); // Extend to connect with next step
+    opacity: var(--stepper-opacity);
+    background: var(--stepper-step-number-border);
+    z-index: 1;
+  }
+
+  // &::after {
+  //   content: "";
+  //   position: absolute;
+  //   left: calc(
+  //     var(--stepper-line-left) - 1px
+  //   ); // Half of step number width (2.5rem / 2)
+  //   bottom: 0; // Start right after the step number circle
+  //   width: 2px;
+  //   height: 10%;
+
+  //   background: linear-gradient(
+  //     to bottom,
+  //     transparent,
+  //     var(--ifm-background-color)
+  //   );
+  //   z-index: 1;
+  // }
+
+  &__step {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+    counter-increment: stepper-step;
+    margin-bottom: 0; // Remove any default margin
+
+    // Add connecting line between steps (except last one)
+  }
+
+  &__step-number {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--stepper-step-number-bg);
+    border: 10px solid var(--ifm-background-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 2;
+    translate: -10px -10px;
+
+    &:not(:last-child) {
+      margin-top: 0.015rem;
+    }
+  }
+
+  // Auto-number the steps using CSS counter
+  &__step-number-text {
+    // Hide the original text content (the "1" we hardcoded)
+    font-size: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &::before {
+      content: counter(stepper-step);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--stepper-step-number-color);
+      line-height: 1;
+    }
+  }
+
+  &__step-content {
+    flex: 1;
+    min-width: 0; // Prevent flex item from overflowing
+  }
+}
+
+// Integration with Docusaurus markdown content
+.markdown .stepper {
+  // Ensure proper spacing within markdown content
+  margin: 2rem 0 2rem 1rem;
+}

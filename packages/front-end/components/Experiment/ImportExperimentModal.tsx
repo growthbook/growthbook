@@ -1,12 +1,12 @@
 import { FC, useEffect, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import ImportExperimentList from "./ImportExperimentList";
 import NewExperimentForm from "./NewExperimentForm";
 
@@ -25,12 +25,10 @@ const ImportExperimentModal: FC<{
 }) => {
   const settings = useOrgSettings();
   const { datasources, project } = useDefinitions();
-  const [
-    selected,
-    setSelected,
-  ] = useState<null | Partial<ExperimentInterfaceStringDates>>(
-    initialValue ?? null
-  );
+  const [selected, setSelected] =
+    useState<null | Partial<ExperimentInterfaceStringDates>>(
+      initialValue ?? null,
+    );
   const [error, setError] = useState<string | null>(null);
   const [importModal, setImportModal] = useState<boolean>(importMode);
   const [datasourceId, setDatasourceId] = useState(() => {
@@ -42,7 +40,7 @@ const ImportExperimentModal: FC<{
 
     if (settings?.defaultDataSource) {
       const ds = validDatasources.find(
-        (d) => d.id === settings.defaultDataSource
+        (d) => d.id === settings.defaultDataSource,
       );
       if (ds) {
         return ds.id;
@@ -70,7 +68,7 @@ const ImportExperimentModal: FC<{
         }
       } catch (e) {
         setError(
-          e.message ?? "An error occurred. Please refresh and try again."
+          e.message ?? "An error occurred. Please refresh and try again.",
         );
         console.error(e);
       }

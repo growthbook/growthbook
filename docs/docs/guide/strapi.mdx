@@ -6,7 +6,7 @@ slug: strapi
 
 # How to Feature Flag and A/B Test with GrowthBook and Strapi
 
-<iframe style={{aspectRatio: "16/9", width: "100%", height: "auto", marginBlockEnd: "1rem"}} width="560" height="315" src="https://www.youtube.com/embed/grYlfKNFHCk?si=iJZzVFYzdGuUE5er" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<iframe style={{aspectRatio: "16/9", width: "100%", height: "auto", marginBlockEnd: "1rem"}} width="560" height="315" src="https://www.youtube.com/embed/grYlfKNFHCk?si=iJZzVFYzdGuUE5er" title="YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
 Want to A/B test your content without changing code for every experiment? This tutorial shows you how to integrate [Strapi](https://strapi.io/) with [GrowthBook](https://growthbook.io), enabling you to feature flag and A/B test your content directly from your CMS.
 
@@ -28,7 +28,7 @@ Before starting, ensure you have:
 - A [GrowthBook](https://growthbook.io) account
 - A [Next.js](https://nextjs.org/) project with basic Strapi and GrowthBook integrations set up
   - See Strapi's guide and example for [integrating Strapi with Next.js](https://strapi.io/integrations/nextjs-cms).
-  - See our guide and example for [integrating GrowthBook with Next.js](https://docs.growthbook.io/guide/nextjs-app-router).
+  - See our guide and example for [integrating GrowthBook with Next.js](/guide/nextjs-app-router).
 
 ## Create Content in Strapi
 
@@ -96,7 +96,7 @@ Click **Save → Review and Publish** when you're done.
 
 The experiment is now live and ready to be integrated in your frontend.
 
-:::info
+:::info Zero-based index
 The value of the feature flag directly maps to the object's zero-based index in your Dynamic Zone. For example, if the feature flag value is `0`, then the first `productCard` is served. If the value is `1`, then the second variation is served and so on.
 :::
 
@@ -180,8 +180,8 @@ Now, the app renders a different product card based on the A/B test result. The 
 
 ![Control vs Variation product cards in Strapi, GrowthBook, and Next.js](/images/guides/strapi-control-vs-variation.webp)
 
-:::tip
-To measure the success of your experiments, make sure to track relevant metrics (like clicks or conversions) using your analytics platform. See our guide on [setting up analytics with GrowthBook](https://docs.growthbook.io/app/datasources).
+:::tip Tracking metrics
+To measure the success of your experiments, make sure to track relevant metrics (like clicks or conversions) using your analytics platform. See our guide on [setting up analytics with GrowthBook](/app/datasources).
 :::
 
 ## Summary
@@ -201,13 +201,13 @@ Now you can launch and iterate on content experiments directly from your CMS, wi
 
 Ready to take your experimentation system further? Here are some ways to build upon what you learned:
 
-- [Integrate with analytics platforms](https://docs.growthbook.io/app/datasources) like Google Analytics or Segment.
-- [Set up advanced targeting](https://docs.growthbook.io/features/targeting) for your experiments and feature flags.
+- [Integrate with analytics platforms](/app/datasources) like Google Analytics or Segment.
+- [Set up advanced targeting](/features/targeting) for your experiments and feature flags.
 
 ## Resources
 
 - [Strapi Documentation](https://docs.strapi.io/)
-- [GrowthBook Documentation](https://docs.growthbook.io/)
+- [GrowthBook Documentation](/)
 - [Next.js Documentation](https://nextjs.org/docs)
 - [GrowthBook Next.js Examples](https://github.com/growthbook/examples/tree/main/next-js)
 - [LaunchPad: Strapi Next.js Integration Example](https://github.com/strapi/LaunchPad)
@@ -215,13 +215,11 @@ Ready to take your experimentation system further? Here are some ways to build u
 ## Troubleshooting
 
 1. **Content not updating in frontend**
-
    - Check if content is published in Strapi
    - Verify the Dynamic Zone array indices match your feature flag values
    - Clear your browser cache and reload
 
 2. **Feature flag not working**
-
    - Ensure the feature flag key matches exactly (e.g., "shoes")
    - Check if the experiment is running in GrowthBook
    - Verify your GrowthBook SDK connection

@@ -15,12 +15,12 @@ function getBrowserDevice(ua: string): { browser: string; deviceType: string } {
   const browser = ua.match(/Edg/)
     ? "edge"
     : ua.match(/Chrome/)
-    ? "chrome"
-    : ua.match(/Firefox/)
-    ? "firefox"
-    : ua.match(/Safari/)
-    ? "safari"
-    : "unknown";
+      ? "chrome"
+      : ua.match(/Firefox/)
+        ? "firefox"
+        : ua.match(/Safari/)
+          ? "safari"
+          : "unknown";
 
   const deviceType = ua.match(/Mobi/) ? "mobile" : "desktop";
 
@@ -151,8 +151,8 @@ function genUUID(crypto?: Crypto) {
         ? crypto.getRandomValues(new Uint8Array(1))[0]
         : Math.floor(Math.random() * 256);
     return (
-      ((c as unknown) as number) ^
-      (n & (15 >> (((c as unknown) as number) / 4)))
+      (c as unknown as number) ^
+      (n & (15 >> ((c as unknown as number) / 4)))
     ).toString(16);
   });
 }

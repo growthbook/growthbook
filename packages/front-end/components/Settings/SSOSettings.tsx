@@ -1,4 +1,4 @@
-import { SSOConnectionInterface } from "back-end/types/sso-connection";
+import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { useState } from "react";
 import { isDefined } from "shared/util";
 import { isCloud } from "@/services/env";

@@ -1,10 +1,9 @@
+@use "../../styles/variables";
 @import "../../styles/colors.scss";
-$sidebarwidth: 240px;
-$expandedwidth: 240px;
 
 .sidebar {
   background-color: $dark-purple;
-  width: $sidebarwidth;
+  width: variables.$sidebarwidth;
   flex-direction: column;
   display: flex;
   height: 100%;
@@ -16,7 +15,7 @@ $expandedwidth: 240px;
 }
 .sidebarlogo {
   padding: 8px 20px 8px;
-  width: $sidebarwidth;
+  width: variables.$sidebarwidth;
   height: 60px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.5);
 }
@@ -31,7 +30,7 @@ $expandedwidth: 240px;
 
 @media (max-width: 1180px) {
   .sidebar {
-    width: $expandedwidth;
-    left: -$expandedwidth;
+    width: variables.$expandedwidth;
+    left: -(variables.$expandedwidth);
   }
 }
