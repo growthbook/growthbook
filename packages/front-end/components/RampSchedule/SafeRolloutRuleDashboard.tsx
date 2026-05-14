@@ -75,15 +75,15 @@ import {
   RampMonitoringCTAs,
   useRampMonitoringSignals,
 } from "@/components/RampSchedule/RampMonitoringSignals";
-
-function seededRandom(seed: number) {
-  let s = Math.floor(seed) % 2147483647;
-  if (s <= 0) s += 2147483646;
-  return () => {
-    s = (s * 16807 + 0) % 2147483647;
-    return (s - 1) / 2147483646;
-  };
-}
+import {
+  buildDummyIssueProfile,
+  buildDummyScenarios,
+  DummyIssueProfile,
+  DummyScenario,
+  getDummySeed,
+  hashString,
+  seededRandom,
+} from "@/components/RampSchedule/dummyMonitoringData";
 
 const STEP_EVENT_TYPES = new Set([
   "started",
@@ -399,118 +399,6 @@ function emptyTimeSeries(metricId: string): MetricTimeSeries {
     lastMetricSettingsHash: "",
     dataPoints: [],
   };
-}
-
-function hashString(str: string): number {
-  let hash = 5381;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash * 33) ^ str.charCodeAt(i);
-  }
-  return hash >>> 0;
-}
-
-type DummyScenario = "passing" | "failing" | "nodata";
-type DummyIssueProfile = {
-  forceNoTraffic: boolean;
-  forceLowTraffic: boolean;
-  srmPValue: number;
-  multipleExposureRate: number;
-  userMultiplier: number;
-};
-
-function buildDummyIssueProfile(seed: number): DummyIssueProfile {
-  const rand = seededRandom(seed ^ 0x9e3779b1);
-  const scenario = Math.floor(rand() * 8);
-
-  switch (scenario) {
-    case 0: // healthy baseline
-      return {
-        forceNoTraffic: false,
-        forceLowTraffic: false,
-        srmPValue: 0.35 + rand() * 0.4,
-        multipleExposureRate: rand() * 0.01,
-        userMultiplier: 1,
-      };
-    case 1: // SRM only
-      return {
-        forceNoTraffic: false,
-        forceLowTraffic: false,
-        srmPValue: 0.0005 + rand() * 0.004,
-        multipleExposureRate: rand() * 0.01,
-        userMultiplier: 1,
-      };
-    case 2: // multiple exposures only
-      return {
-        forceNoTraffic: false,
-        forceLowTraffic: false,
-        srmPValue: 0.2 + rand() * 0.5,
-        multipleExposureRate: 0.2 + rand() * 0.35,
-        userMultiplier: 1,
-      };
-    case 3: // SRM + multiple exposures
-      return {
-        forceNoTraffic: false,
-        forceLowTraffic: false,
-        srmPValue: 0.0005 + rand() * 0.004,
-        multipleExposureRate: 0.2 + rand() * 0.35,
-        userMultiplier: 1,
-      };
-    case 4: // low traffic
-      return {
-        forceNoTraffic: false,
-        forceLowTraffic: true,
-        srmPValue: 0.2 + rand() * 0.5,
-        multipleExposureRate: 0.02 + rand() * 0.05,
-        userMultiplier: 0.04,
-      };
-    case 5: // low-traffic + SRM
-      return {
-        forceNoTraffic: false,
-        forceLowTraffic: true,
-        srmPValue: 0.0005 + rand() * 0.004,
-        multipleExposureRate: 0.02 + rand() * 0.05,
-        userMultiplier: 0.04,
-      };
-    case 6: // low-traffic + ME
-      return {
-        forceNoTraffic: false,
-        forceLowTraffic: true,
-        srmPValue: 0.2 + rand() * 0.5,
-        multipleExposureRate: 0.2 + rand() * 0.35,
-        userMultiplier: 0.04,
-      };
-    default: // no traffic
-      return {
-        forceNoTraffic: true,
-        forceLowTraffic: false,
-        srmPValue: 0.3 + rand() * 0.4,
-        multipleExposureRate: 0,
-        userMultiplier: 0,
-      };
-  }
-}
-
-function buildDummyScenarios(
-  metricIds: string[],
-  seed: number,
-  profile: DummyIssueProfile,
-): DummyScenario[] {
-  if (profile.forceNoTraffic) {
-    return metricIds.map(() => "nodata");
-  }
-
-  const rand = seededRandom(seed ^ 0x7f4a7c15);
-  const scenarios: DummyScenario[] = metricIds.map(() => {
-    const roll = rand();
-    if (roll < 0.3) return "failing";
-    if (roll < 0.45) return "nodata";
-    return "passing";
-  });
-
-  if (scenarios.length > 0 && !scenarios.includes("failing")) {
-    scenarios[0] = "failing";
-  }
-  return scenarios;
 }
 
 // Non-binomial dummy metrics need non-zero display scale.
@@ -2012,15 +1900,7 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
   const dummySeedQuery = router.query["dummySeed"];
   const dummySeed = useMemo(() => {
     if (!useDummyData) return 0;
-    const str = Array.isArray(dummySeedQuery)
-      ? dummySeedQuery[0]
-      : dummySeedQuery;
-    if (typeof str === "string" && str.trim()) {
-      const parsed = Number(str);
-      if (Number.isFinite(parsed)) return parsed;
-      return hashString(str);
-    }
-    return hashString(rampSchedule.id);
+    return getDummySeed(dummySeedQuery, rampSchedule.id);
   }, [useDummyData, dummySeedQuery, rampSchedule.id]);
 
   const { metricGroups, getExperimentMetricById } = useDefinitions();
@@ -2092,7 +1972,6 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
     }
     return undefined;
   }, [useDummyData, rampSchedule.eventHistory, rampSchedule.startedAt]);
-  const allMetricIdsKey = allMetricIds.join(",");
 
   const dummyTs = useMemo(
     () =>
@@ -2105,10 +1984,10 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
             dummyStartMs,
           )
         : undefined,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       useDummyData,
-      allMetricIdsKey,
+      allMetricIds,
+      dummyScenarios,
       dummyMetrics,
       getExperimentMetricById,
       dummyStartMs,
@@ -2208,8 +2087,7 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
       }
     }
     return result;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [useDummyData, dummyMetrics, snapshotAnalysis, allMetricIds.join(",")]);
+  }, [useDummyData, dummyMetrics, snapshotAnalysis, allMetricIds]);
 
   const dummySafeRolloutForSignals = useMemo(() => {
     if (!useDummyData) return undefined;

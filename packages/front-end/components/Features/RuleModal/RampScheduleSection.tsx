@@ -172,7 +172,7 @@ const UNIT_MULT: Record<IntervalUnit, number> = {
   days: 86400,
 };
 
-const SIMPLE_COVERAGES = [5, 10, 25, 50];
+const SIMPLE_COVERAGES = [1, 5, 10, 25, 50];
 
 export function generateSimpleSteps(
   duration: number,

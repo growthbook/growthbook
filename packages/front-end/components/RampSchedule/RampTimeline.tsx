@@ -616,7 +616,7 @@ export function getRampStatusLabel(rs: RampScheduleInterface): string {
     paused: "Paused",
     "pending-approval": "Needs Approval",
     completed: "Complete",
-    "rolled-back": "Rolled Back",
+    "rolled-back": "Rolled back",
   };
   return labels[rs.status] ?? rs.status;
 }

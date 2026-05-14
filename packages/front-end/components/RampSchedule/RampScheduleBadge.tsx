@@ -61,7 +61,7 @@ export default function RampScheduleBadge({
       paused: "Schedule paused",
       "pending-approval": "Schedule needs approval",
       completed: "Schedule complete",
-      "rolled-back": "Rolled Back",
+      "rolled-back": "Rolled back",
     };
     const displayLabel =
       statusLabels[rs.status] ??
@@ -126,7 +126,7 @@ export default function RampScheduleBadge({
     paused: "Ramp paused",
     "pending-approval": "Ramp needs approval",
     completed: "Ramp complete",
-    "rolled-back": "Rolled Back",
+    "rolled-back": "Rolled back",
   };
   const displayLabel = featureRuleContext
     ? (featureContextLabels[rs.status] ?? `Ramp ${baseLabel.toLowerCase()}`)

@@ -491,15 +491,14 @@ export default function RuleModal({
   const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
     useState(false);
   const monitoringError =
-    scheduleType === "ramp" || scheduleType === "ramp-monitored"
+    scheduleType === "ramp"
       ? getMonitoringValidationError(rampSectionState)
       : null;
   const canSubmit = useMemo(() => {
     return !isCyclic && !prerequisiteTargetingSdkIssues && !monitoringError;
   }, [isCyclic, prerequisiteTargetingSdkIssues, monitoringError]);
 
-  const isRampType =
-    scheduleType === "ramp" || scheduleType === "ramp-monitored";
+  const isRampType = scheduleType === "ramp";
   const hasRampPage =
     isRampType && (ruleType === "force" || ruleType === "rollout");
   const rampIsEditable =
@@ -510,17 +509,6 @@ export default function RuleModal({
   useEffect(() => {
     if (!hasRampPage && step > 0) setStep(0);
   }, [hasRampPage, step]);
-
-  // Sync radio selection with monitoring state changes on page 2.
-  useEffect(() => {
-    if (!isRampType) return;
-    const hasMonitoring = rampSectionState.steps.some((s) => s.monitored);
-    if (hasMonitoring && scheduleType === "ramp") {
-      setScheduleType("ramp-monitored");
-    } else if (!hasMonitoring && scheduleType === "ramp-monitored") {
-      setScheduleType("ramp");
-    }
-  }, [isRampType, rampSectionState.steps, scheduleType, setScheduleType]);
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 

@@ -248,7 +248,6 @@ function checkScheduleGuardrailSignals(
 
   return null;
 }
-
 function checkExperimentHealth(
   ctx: ReqContext | ApiReqContext,
   safeRollout: SafeRolloutInterface,
@@ -316,7 +315,6 @@ function checkExperimentHealth(
 
   return null;
 }
-
 function checkSignalMetricGating(
   safeRollout: SafeRolloutInterface,
   expandedSignalIds: string[],
@@ -369,6 +367,7 @@ export async function applyRampEvaluationDecision(
     const nextProcessAt = computeNextProcessAt({
       status: schedule.status,
       nextStepAt: decision.nextProcessAt ?? null,
+      nextSnapshotAt: schedule.nextSnapshotAt,
       cutoffDate: schedule.cutoffDate,
     });
     const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
@@ -427,18 +426,4 @@ function checkHoldConditions(
   }
 
   return null;
-}
-
-export function canApiAdvanceStep(schedule: RampScheduleInterface): {
-  allowed: boolean;
-  reason?: string;
-} {
-  if (!["running", "pending-approval"].includes(schedule.status)) {
-    return { allowed: false, reason: "Schedule is not running" };
-  }
-
-  const step = schedule.steps[schedule.currentStepIndex];
-  if (!step) return { allowed: false, reason: "No current step" };
-
-  return { allowed: true };
 }

@@ -70,6 +70,7 @@ jest.mock("back-end/src/util/secrets", () => ({
 // Pull in mocked module references AFTER the mock declarations.
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
 import { createRevision } from "back-end/src/models/FeatureRevisionModel";
+import { createEvent } from "back-end/src/models/EventModel";
 
 const mockGetFeature = getFeature as jest.MockedFunction<typeof getFeature>;
 const mockPublishRevision = publishRevision as jest.MockedFunction<
@@ -78,6 +79,7 @@ const mockPublishRevision = publishRevision as jest.MockedFunction<
 const mockCreateRevision = createRevision as jest.MockedFunction<
   typeof createRevision
 >;
+const mockCreateEvent = createEvent as jest.MockedFunction<typeof createEvent>;
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -1187,6 +1189,34 @@ describe("rollbackToStep", () => {
     const [, updates] = updateById.mock.calls[0];
     expect(updates.status).toBe("paused");
     expect(updates.currentStepIndex).toBe(1);
+  });
+
+  it("can rewind to start for jumps without terminal rollback side effects", async () => {
+    const schedule = makeSchedule({
+      currentStepIndex: 1,
+      startActions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: { ruleId: RULE_ID, coverage: 0 },
+        },
+      ],
+    });
+    const { ctx, updateById } = makeContext({ currentStepIndex: 1 });
+
+    await rollbackToStep(ctx as never, schedule, -1, undefined, {
+      terminal: false,
+      emitEvent: false,
+      syncSafeRollout: false,
+    });
+
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.status).toBe("paused");
+    expect(updates.currentStepIndex).toBe(-1);
+    expect(updates).not.toHaveProperty("lastRollbackAt");
+    expect(updates).not.toHaveProperty("lastRollbackReason");
+    expect(updates).not.toHaveProperty("eventHistory");
+    expect(mockCreateEvent).not.toHaveBeenCalled();
   });
 });
 

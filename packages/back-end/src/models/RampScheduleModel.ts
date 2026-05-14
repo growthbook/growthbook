@@ -15,6 +15,7 @@ import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   appendRampEvent,
+  assertCanUpdateLinkedSafeRolloutMonitoringConfig,
   computeNextProcessAt,
   dispatchRampEvent,
   getEffectiveRampAutoUpdateState,
@@ -691,6 +692,11 @@ export class RampScheduleModel extends BaseClass {
               autoUpdate: monitoringConfig.monitoringMode === "auto",
             }
           : monitoringConfig;
+      await assertCanUpdateLinkedSafeRolloutMonitoringConfig(
+        this.context,
+        schedule,
+        updates.monitoringConfig as RampScheduleInterface["monitoringConfig"],
+      );
     }
     if (body.experimentHealthAction !== undefined) {
       updates.experimentHealthAction = body.experimentHealthAction;

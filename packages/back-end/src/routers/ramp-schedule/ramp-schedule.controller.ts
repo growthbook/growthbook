@@ -5,6 +5,7 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   advanceScheduleManually,
   appendRampEvent,
+  assertCanUpdateLinkedSafeRolloutMonitoringConfig,
   approveAndPublishStep,
   completeRollout,
   computeNextProcessAt,
@@ -186,7 +187,13 @@ export const putRampSchedule = async (
     updates.lockdownConfig = body.lockdownConfig;
   }
   if (body.monitoringConfig !== undefined) {
-    updates.monitoringConfig = normalizeMonitoringConfig(body.monitoringConfig);
+    const monitoringConfig = normalizeMonitoringConfig(body.monitoringConfig);
+    await assertCanUpdateLinkedSafeRolloutMonitoringConfig(
+      context,
+      schedule,
+      monitoringConfig,
+    );
+    updates.monitoringConfig = monitoringConfig;
   }
   if (body.experimentHealthAction !== undefined) {
     updates.experimentHealthAction = body.experimentHealthAction;

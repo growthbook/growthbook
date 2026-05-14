@@ -267,6 +267,9 @@ export async function putAutoSnapshots(
       safeRollout.rampScheduleId,
     );
     if (schedule?.monitoringConfig) {
+      const nextSnapshotAt = enabled
+        ? (safeRollout.nextSnapshotAttempt ?? new Date())
+        : null;
       const updated = await context.models.rampSchedules.updateById(
         schedule.id,
         {
@@ -275,9 +278,11 @@ export async function putAutoSnapshots(
             monitoringMode: enabled ? "auto" : "manual",
             autoUpdate: enabled,
           },
+          nextSnapshotAt,
           nextProcessAt: computeNextProcessAt({
             status: schedule.status,
             nextStepAt: schedule.nextStepAt,
+            nextSnapshotAt,
             cutoffDate: schedule.cutoffDate,
             startDate: schedule.startDate,
           }),

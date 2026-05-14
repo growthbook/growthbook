@@ -25,25 +25,25 @@ import {
 import HelperText from "@/ui/HelperText";
 import MonitoredIcon from "@/components/Features/RuleModal/MonitoredIcon";
 import RampScheduleBadge from "@/components/RampSchedule/RampScheduleBadge";
-import styles from "@/components/Features/VariationsInput.module.scss";
 import ScheduleInputs from "@/components/Features/RuleModal/ScheduleInputs";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
-export type ScheduleType = "none" | "schedule" | "ramp" | "ramp-monitored";
+export type ScheduleType = "none" | "schedule" | "ramp";
+type ScheduleSelectorType = ScheduleType | "ramp-monitored";
 
 /** Derive the schedule type from existing state on first render. */
 export function deriveScheduleType(
   rampSectionState: RampSectionState,
   scheduleToggleEnabled: boolean,
   hasLegacySchedule: boolean,
-  persisted: ScheduleType | undefined,
+  persisted: ScheduleSelectorType | undefined,
 ): ScheduleType {
-  if (persisted && persisted !== "none") return persisted;
+  if (persisted && persisted !== "none") {
+    return persisted === "ramp-monitored" ? "ramp" : persisted;
+  }
   if (rampSectionState.mode !== "off") {
     if (rampSectionState.steps.length === 0) return "schedule";
-    if (rampSectionState.steps.some((s) => s.monitored))
-      return "ramp-monitored";
     return "ramp";
   }
   if (scheduleToggleEnabled || hasLegacySchedule) return "schedule";
@@ -115,20 +115,26 @@ export default function StandardRuleFields({
   const releasePlanLocked =
     !!ruleRampSchedule &&
     scheduleLiveStatuses.includes(ruleRampSchedule.status);
+  const selectorScheduleType: ScheduleSelectorType =
+    scheduleType === "ramp" && rampSectionState.steps.some((s) => s.monitored)
+      ? "ramp-monitored"
+      : scheduleType;
 
-  const rampLocksTargeting = scheduleType === "ramp" && releasePlanLocked;
+  const rampLocksTargeting =
+    !isSimpleSchedule && scheduleType === "ramp" && releasePlanLocked;
 
-  function applyScheduleType(type: ScheduleType) {
+  function applyScheduleType(type: ScheduleSelectorType) {
     const currentCoverage = form.watch("coverage") ?? 1;
+    const canonicalType: ScheduleType =
+      type === "ramp-monitored" ? "ramp" : type;
     setSavedStates((prev) => ({
       ...prev,
       [scheduleType]: { ramp: rampSectionState, coverage: currentCoverage },
     }));
 
-    setScheduleType(type);
+    setScheduleType(canonicalType);
 
-    const leavingRamp =
-      scheduleType === "ramp" || scheduleType === "ramp-monitored";
+    const leavingRamp = scheduleType === "ramp";
 
     if (type === "none") {
       setScheduleToggleEnabled(false);
@@ -141,7 +147,7 @@ export default function StandardRuleFields({
       return;
     }
 
-    const saved = savedStates[type];
+    const saved = savedStates[canonicalType];
 
     if (type === "ramp" || type === "ramp-monitored") {
       setScheduleToggleEnabled(false);
@@ -313,8 +319,8 @@ export default function StandardRuleFields({
               disabled: !canUseRampSchedules,
             },
           ]}
-          value={scheduleType}
-          setValue={(v) => applyScheduleType(v as ScheduleType)}
+          value={selectorScheduleType}
+          setValue={(v) => applyScheduleType(v as ScheduleSelectorType)}
         />
 
         {scheduleType === "schedule" && (
@@ -345,54 +351,29 @@ export default function StandardRuleFields({
       {rampLocksTargeting ? (
         <HelperText status="info" mb="2" icon={<PiLockSimple />}>
           <Box>
-            <Text as="div">Managed by Ramp-up Schedule</Text>
+            <Text as="div">Controlled by ramp schedule</Text>
             <Text as="div" mt="1" size="small">
-              To make immediate changes, pause or end the Ramp-up
+              Coverage and targeting are controlled by the live ramp schedule.
+              Pause or end the ramp-up to make immediate changes.
             </Text>
           </Box>
         </HelperText>
       ) : (
         <Box my="4">
-          {rampLocksTargeting ? (
-            <Box mb="6">
-              <Text as="div" size="medium" weight="semibold" mb="2">
-                Rollout Percentage
-              </Text>
-              <HelperText status="info" mb="2" icon={<PiLockSimple />}>
-                Managed by Ramp-up Schedule
-              </HelperText>
-              <Box style={{ width: 80 }}>
-                <div className={`position-relative ${styles.percentInputWrap}`}>
-                  <Field
-                    style={{ width: 80 }}
-                    type="number"
-                    disabled
-                    value={String(
-                      Math.round((form.watch("coverage") ?? 1) * 100),
-                    )}
-                  />
-                  <span style={{ pointerEvents: "none" }}>%</span>
-                </div>
-              </Box>
-            </Box>
-          ) : (
-            <RolloutPercentInput
-              value={form.watch("coverage") ?? 1}
-              setValue={(coverage) => form.setValue("coverage", coverage)}
-              rampSchedule={ruleRampSchedule}
-              hashAttribute={form.watch("hashAttribute")}
-              setHashAttribute={(v: string) =>
-                form.setValue("hashAttribute", v)
-              }
-              attributeSchema={attributeSchema}
-              hasHashAttributes={hasHashAttributes}
-              seed={form.watch("seed")}
-              setSeed={(v: string) => form.setValue("seed", v)}
-              featureId={feature.id}
-              advancedOpen={advancedOptionsOpen}
-              setAdvancedOpen={setadvancedOptionsOpen}
-            />
-          )}
+          <RolloutPercentInput
+            value={form.watch("coverage") ?? 1}
+            setValue={(coverage) => form.setValue("coverage", coverage)}
+            rampSchedule={ruleRampSchedule}
+            hashAttribute={form.watch("hashAttribute")}
+            setHashAttribute={(v: string) => form.setValue("hashAttribute", v)}
+            attributeSchema={attributeSchema}
+            hasHashAttributes={hasHashAttributes}
+            seed={form.watch("seed")}
+            setSeed={(v: string) => form.setValue("seed", v)}
+            featureId={feature.id}
+            advancedOpen={advancedOptionsOpen}
+            setAdvancedOpen={setadvancedOptionsOpen}
+          />
           <Box mt="5">
             <SavedGroupTargetingField
               value={form.watch("savedGroups") || []}
