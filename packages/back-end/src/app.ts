@@ -113,6 +113,7 @@ import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.rou
 import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { ArchetypeRouter } from "./routers/archetype/archetype.router";
+import { insightsRouter } from "./routers/insights/insights.router";
 import { AttributeRouter } from "./routers/attributes/attributes.router";
 import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router";
 import { segmentRouter } from "./routers/segment/segment.router";
@@ -576,6 +577,8 @@ app.use("/tag", tagRouter);
 app.use("/saved-groups", savedGroupRouter);
 
 app.use("/archetype", ArchetypeRouter);
+
+app.use("/insights", insightsRouter);
 
 app.use("/attribute", AttributeRouter);
 
