@@ -10536,11 +10536,11 @@ paths:
                     required:
                       - type
                       - pattern
-                    additionalProperties: false
+                    additionalProperties: {}
               required:
                 - editorUrl
                 - urlPatterns
-              additionalProperties: false
+              additionalProperties: {}
       responses:
         '200':
           content:
@@ -12969,6 +12969,84 @@ paths:
         - visual-changesets
       parameters:
         - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                editorUrl:
+                  description: >-
+                    URL of the page opened in the visual editor when creating
+                    this changeset
+                  type: string
+                urlPatterns:
+                  description: >-
+                    URL patterns that determine which pages this visual
+                    changeset applies to
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      include:
+                        type: boolean
+                      type:
+                        type: string
+                        enum:
+                          - simple
+                          - regex
+                      pattern:
+                        type: string
+                    required:
+                      - type
+                      - pattern
+                    additionalProperties: {}
+                visualChanges:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      description:
+                        type: string
+                      css:
+                        type: string
+                      js:
+                        type: string
+                      variation:
+                        type: string
+                      domMutations:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            selector:
+                              type: string
+                            action:
+                              type: string
+                              enum:
+                                - append
+                                - set
+                                - remove
+                            attribute:
+                              type: string
+                            value:
+                              type: string
+                            parentSelector:
+                              type: string
+                            insertBeforeSelector:
+                              type: string
+                          required:
+                            - selector
+                            - action
+                            - attribute
+                          additionalProperties: {}
+                    required:
+                      - variation
+                    additionalProperties: {}
+              additionalProperties: {}
       responses:
         '200':
           content:
@@ -12989,7 +13067,9 @@ paths:
           source: >-
             curl -X PUT
             'https://api.growthbook.io/api/v1/visual-changesets/abc123' \
-              -H 'Authorization: Bearer YOUR_API_KEY'
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"editorUrl":"https://example.com/"}'
   /v1/visual-changesets/{id}/visual-change:
     post:
       operationId: postVisualChange
@@ -12998,6 +13078,52 @@ paths:
         - visual-changesets
       parameters:
         - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                description:
+                  type: string
+                css:
+                  type: string
+                js:
+                  type: string
+                variation:
+                  type: string
+                domMutations:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      selector:
+                        type: string
+                      action:
+                        type: string
+                        enum:
+                          - append
+                          - set
+                          - remove
+                      attribute:
+                        type: string
+                      value:
+                        type: string
+                      parentSelector:
+                        type: string
+                      insertBeforeSelector:
+                        type: string
+                    required:
+                      - selector
+                      - action
+                      - attribute
+                    additionalProperties: {}
+              required:
+                - variation
+              additionalProperties: {}
       responses:
         '200':
           content:
@@ -13007,16 +13133,21 @@ paths:
                 properties:
                   nModified:
                     type: number
+                  visualChangeId:
+                    type: string
                 required:
                   - nModified
+                  - visualChangeId
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/visual-changesets/{id}/visual-change'
+            'https://api.growthbook.io/api/v1/visual-changesets/abc123/visual-change'
             \
-              -H 'Authorization: Bearer YOUR_API_KEY'
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"variation":"var_abc123","domMutations":[]}'
   /v1/visual-changesets/{id}/visual-change/{visualChangeId}:
     put:
       operationId: putVisualChange
@@ -13026,6 +13157,50 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
         - $ref: '#/components/parameters/visualChangeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                description:
+                  type: string
+                css:
+                  type: string
+                js:
+                  type: string
+                variation:
+                  type: string
+                domMutations:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      selector:
+                        type: string
+                      action:
+                        type: string
+                        enum:
+                          - append
+                          - set
+                          - remove
+                      attribute:
+                        type: string
+                      value:
+                        type: string
+                      parentSelector:
+                        type: string
+                      insertBeforeSelector:
+                        type: string
+                    required:
+                      - selector
+                      - action
+                      - attribute
+                    additionalProperties: {}
+              additionalProperties: {}
       responses:
         '200':
           content:
@@ -13042,9 +13217,11 @@ paths:
         - lang: cURL
           source: >-
             curl -X PUT
-            'https://api.growthbook.io/api/v1/visual-changesets/{id}/visual-change/{visualChangeId}'
+            'https://api.growthbook.io/api/v1/visual-changesets/abc123/visual-change/vc_abc123'
             \
-              -H 'Authorization: Bearer YOUR_API_KEY'
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"css":"h1 { color: red; }"}'
   /v1/saved-groups:
     get:
       operationId: listSavedGroups
