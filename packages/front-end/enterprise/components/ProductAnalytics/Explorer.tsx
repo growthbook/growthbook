@@ -2,7 +2,11 @@ import React, { useEffect, useRef, useState } from "react";
 import { Flex, Box, AlertDialog } from "@radix-ui/themes";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { PiDotsSix } from "react-icons/pi";
-import { DatasetType, ExplorationConfig } from "shared/validators";
+import {
+  DatasetType,
+  ExplorationConfig,
+  ExplorationDateRange,
+} from "shared/validators";
 import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
 import { useQueryState } from "nuqs";
 import { NuqsAdapter } from "nuqs/adapters/next/pages";
@@ -21,6 +25,7 @@ import {
   createEmptyValue,
   decodeExplorationConfig,
   explorationConfigParser,
+  previousTimeFrameQueryParser,
 } from "./util";
 
 const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
@@ -30,6 +35,11 @@ const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
 };
 
 const explorationQueryParser = explorationConfigParser.withOptions({
+  shallow: true,
+  throttleMs: 300,
+});
+
+const previousTimeFrameParser = previousTimeFrameQueryParser.withOptions({
   shallow: true,
   throttleMs: 300,
 });
@@ -116,10 +126,13 @@ function ExplorerContent() {
 
 function ExplorerUrlSync({
   setUrlConfig,
+  setUrlPreviousTimeFrame,
 }: {
   setUrlConfig: (config: ExplorationConfig) => void;
+  setUrlPreviousTimeFrame: (value: ExplorationDateRange | null) => void;
 }) {
-  const { draftExploreState } = useExplorerContext();
+  const { draftExploreState, compareEnabled, previousTimeFrame } =
+    useExplorerContext();
   const hasUserModified = useRef(false);
 
   useEffect(() => {
@@ -128,7 +141,18 @@ function ExplorerUrlSync({
       return;
     }
     setUrlConfig(draftExploreState);
-  }, [draftExploreState, setUrlConfig]);
+    if (compareEnabled) {
+      setUrlPreviousTimeFrame(previousTimeFrame);
+    } else {
+      setUrlPreviousTimeFrame(null);
+    }
+  }, [
+    draftExploreState,
+    compareEnabled,
+    previousTimeFrame,
+    setUrlConfig,
+    setUrlPreviousTimeFrame,
+  ]);
 
   return null;
 }
@@ -147,6 +171,11 @@ function ExplorerInner({ type }: { type: DatasetType }) {
   const [urlConfig, setUrlConfig] = useQueryState(
     "config",
     explorationQueryParser,
+  );
+
+  const [urlPreviousTimeFrame, setUrlPreviousTimeFrame] = useQueryState(
+    "previousTimeFrame",
+    previousTimeFrameParser,
   );
 
   const rawParam =
@@ -195,8 +224,13 @@ function ExplorerInner({ type }: { type: DatasetType }) {
         key={type}
         initialConfig={initialConfig}
         trackingSource="manual-explorer"
+        previousTimeFrame={urlPreviousTimeFrame}
+        onPreviousTimeFrameChange={setUrlPreviousTimeFrame}
       >
-        <ExplorerUrlSync setUrlConfig={setUrlConfig} />
+        <ExplorerUrlSync
+          setUrlConfig={setUrlConfig}
+          setUrlPreviousTimeFrame={setUrlPreviousTimeFrame}
+        />
         <ExplorerContent />
       </ExplorerProvider>
     </>

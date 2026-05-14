@@ -4,6 +4,7 @@ import EChartsReact from "echarts-for-react";
 import type {
   ExplorationConfig,
   ProductAnalyticsExploration,
+  ProductAnalyticsRunComparisonPayload,
 } from "shared/validators";
 import { isManagedWarehousePendingQueryError } from "shared/util";
 import {
@@ -34,7 +35,6 @@ import {
   buildAlignedComparisonOverlayForExplorer,
   buildComparisonOverlaySeriesMaps,
   buildExplorerChartComparisonSeriesList,
-  buildIndividualBarComparePivotSeriesAndCategories,
   computeBigNumberComparisonTrends,
   getComparisonPeriodLabels,
   sortProductAnalyticsTooltipAxisItems,
@@ -113,6 +113,8 @@ export default function ExplorerChart({
   submittedExploreState,
   loading,
   animate = true,
+  submittedPreviousTimeFrame = null,
+  serverBigNumberTrends = null,
 }: {
   exploration: ProductAnalyticsExploration | null;
   comparisonExploration?: ProductAnalyticsExploration | null;
@@ -122,6 +124,10 @@ export default function ExplorerChart({
   loading: boolean;
   /** When false, ECharts entry animations are disabled (e.g. for already-seen charts). */
   animate?: boolean;
+  submittedPreviousTimeFrame?: ExplorationConfig["dateRange"] | null;
+  serverBigNumberTrends?:
+    | ProductAnalyticsRunComparisonPayload["bigNumberTrends"]
+    | null;
 }) {
   const { theme } = useAppearanceUITheme();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
@@ -154,6 +160,17 @@ export default function ExplorerChart({
 
   const bigNumberComparisonTrends = useMemo(() => {
     if (!compareEnabled) return null;
+    if (serverBigNumberTrends?.length) {
+      return serverBigNumberTrends.map((t) =>
+        t
+          ? {
+              currentValue: t.currentValue,
+              previousValue: t.previousValue,
+              pctChange: t.pctChangeFraction,
+            }
+          : null,
+      );
+    }
     return computeBigNumberComparisonTrends(
       exploration,
       comparisonExploration,
@@ -166,6 +183,7 @@ export default function ExplorerChart({
     comparisonExploration,
     submittedExploreState,
     getFactMetricById,
+    serverBigNumberTrends,
   ]);
 
   const bigNumberCards = useMemo(() => {
@@ -276,7 +294,10 @@ export default function ExplorerChart({
       Boolean(comparisonExploration?.result?.rows?.length) &&
       supportsAlwaysOnComparisonOverlay(chartType);
     const comparisonPeriodLabels = compareOverlayActive
-      ? getComparisonPeriodLabels(submittedExploreState.dateRange)
+      ? getComparisonPeriodLabels(
+          submittedExploreState.dateRange,
+          submittedPreviousTimeFrame ?? undefined,
+        )
       : null;
 
     const alignedComparisonOverlay =
@@ -300,77 +321,45 @@ export default function ExplorerChart({
       Boolean(alignedComparisonOverlay) &&
       firstDimensionIsDate;
 
-    const individualBarComparePivot =
-      compareOverlayActive &&
-      !isStacked &&
-      (chartType === "bar" || chartType === "horizontalBar") &&
-      alignedComparisonDataForCurrent &&
-      comparisonPeriodLabels
-        ? buildIndividualBarComparePivotSeriesAndCategories({
-            sortedXValues,
-            sortedSeriesKeys,
-            dataMap,
-            previousAlignedMap: alignedComparisonDataForCurrent,
-            sourceSeriesMeta: seriesMeta,
-            comparisonPeriodLabels,
-            seriesColor,
-            comparisonSeriesColor,
-            animate,
-          })
-        : null;
+    let seriesConfigs: unknown[] = buildExplorerChartComparisonSeriesList({
+      chartType,
+      sourceDataMap: dataMap,
+      sourceSeriesMeta: seriesMeta,
+      sourceSeriesKeys: sortedSeriesKeys,
+      sourceSortedXValues: sortedXValues,
+      numMetrics,
+      numDimensions,
+      isStacked,
+      compareOverlayActive,
+      comparisonPeriodLabels,
+      seriesColor,
+      comparisonSeriesColor,
+      animate,
+    });
 
-    let seriesConfigs: unknown[];
-    const categoryAxisData = individualBarComparePivot
-      ? individualBarComparePivot.categoryAxisData
-      : sortedXValues;
-
-    if (individualBarComparePivot) {
-      seriesConfigs = individualBarComparePivot.series;
-    } else {
-      seriesConfigs = buildExplorerChartComparisonSeriesList({
-        chartType,
-        sourceDataMap: dataMap,
-        sourceSeriesMeta: seriesMeta,
-        sourceSeriesKeys: sortedSeriesKeys,
-        sourceSortedXValues: sortedXValues,
-        numMetrics,
-        numDimensions,
-        isStacked,
-        compareOverlayActive,
-        comparisonPeriodLabels,
-        seriesColor,
-        comparisonSeriesColor,
-        animate,
-      });
-
-      if (compareOverlayActive && alignedComparisonDataForCurrent) {
-        seriesConfigs = [
-          ...seriesConfigs,
-          ...buildExplorerChartComparisonSeriesList({
-            chartType,
-            sourceDataMap: alignedComparisonDataForCurrent,
-            sourceSeriesMeta: seriesMeta,
-            sourceSeriesKeys: sortedSeriesKeys,
-            sourceSortedXValues: sortedXValues,
-            numMetrics,
-            numDimensions,
-            isStacked,
-            compareOverlayActive,
-            comparisonPeriodLabels,
-            previous: true,
-            seriesColor,
-            comparisonSeriesColor,
-            animate,
-          }),
-        ];
-      }
+    if (compareOverlayActive && alignedComparisonDataForCurrent) {
+      seriesConfigs = [
+        ...seriesConfigs,
+        ...buildExplorerChartComparisonSeriesList({
+          chartType,
+          sourceDataMap: alignedComparisonDataForCurrent,
+          sourceSeriesMeta: seriesMeta,
+          sourceSeriesKeys: sortedSeriesKeys,
+          sourceSortedXValues: sortedXValues,
+          numMetrics,
+          numDimensions,
+          isStacked,
+          compareOverlayActive,
+          comparisonPeriodLabels,
+          previous: true,
+          seriesColor,
+          comparisonSeriesColor,
+          animate,
+        }),
+      ];
     }
 
-    if (
-      !individualBarComparePivot &&
-      comparisonPeriodLabels &&
-      seriesConfigs.length > 1
-    ) {
+    if (comparisonPeriodLabels && seriesConfigs.length > 1) {
       seriesConfigs = sortSeriesConfigsForCompareLegendOrder(
         seriesConfigs,
         comparisonPeriodLabels,
@@ -379,29 +368,20 @@ export default function ExplorerChart({
 
     const legendShow = seriesConfigs.length > 0;
 
-    const axisPointerLabelFormatter =
-      individualBarComparePivot && resolvedGranularity && firstDimensionIsDate
-        ? (params: { value: string | number }) => {
-            const raw = String(params.value);
-            const firstLine = raw.split("\n")[0] ?? raw;
-            const date = new Date(firstLine);
-            if (Number.isNaN(date.getTime())) return raw;
-            return formatDateByGranularity(date, resolvedGranularity);
-          }
-        : resolvedGranularity
-          ? (params: { value: string | number }) => {
-              const date =
-                typeof params.value === "number"
-                  ? new Date(params.value)
-                  : new Date(String(params.value));
-              return formatDateByGranularity(date, resolvedGranularity);
-            }
-          : undefined;
+    const axisPointerLabelFormatter = resolvedGranularity
+      ? (params: { value: string | number }) => {
+          const date =
+            typeof params.value === "number"
+              ? new Date(params.value)
+              : new Date(String(params.value));
+          return formatDateByGranularity(date, resolvedGranularity);
+        }
+      : undefined;
 
     // Define the category axis (shows the dimension labels)
     const categoryAxis = {
       type: chartType === "line" || chartType === "area" ? "time" : "category",
-      data: categoryAxisData,
+      data: sortedXValues,
       nameLocation: "middle" as const,
       nameTextStyle: {
         fontSize: 14,
@@ -413,23 +393,6 @@ export default function ExplorerChart({
         color: textColor,
         rotate: isHorizontalBar ? 0 : -45,
         hideOverlap: true,
-        ...(individualBarComparePivot
-          ? {
-              formatter: (value: string) => {
-                const lines = String(value).split("\n");
-                if (lines.length < 2) return value;
-                const [dimVal, ...attrParts] = lines;
-                const attr = attrParts.join("\n");
-                if (firstDimensionIsDate && resolvedGranularity) {
-                  const d = new Date(dimVal);
-                  if (!Number.isNaN(d.getTime())) {
-                    return `${formatDateByGranularity(d, resolvedGranularity)}\n${attr}`;
-                  }
-                }
-                return `${dimVal}\n${attr}`;
-              },
-            }
-          : {}),
       },
       // Only attach the axisPointer key when we actually have a formatter to
       // apply. Setting `axisPointer: undefined` overwrites ECharts' default
@@ -465,7 +428,6 @@ export default function ExplorerChart({
     const yAxis = isHorizontalBar ? categoryAxis : valueAxis;
 
     const tooltipFormatter = buildExplorerChartTooltipFormatter({
-      individualBarComparePivot,
       resolvedGranularity,
       firstDimensionIsDate,
       comparisonPeriodLabels,
@@ -513,6 +475,7 @@ export default function ExplorerChart({
     comparisonExploration?.result?.rows,
     compareEnabled,
     submittedExploreState,
+    submittedPreviousTimeFrame,
     renderOpts,
     textColor,
     gridLineColor,

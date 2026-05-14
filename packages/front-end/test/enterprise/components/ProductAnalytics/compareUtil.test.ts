@@ -100,6 +100,35 @@ describe("alignComparisonOverlayToCategories", () => {
     expect(aligned.__single__["2025-01-02"]).toBe(0);
     expect(aligned.__single__["2025-01-03"]).toBe(0);
   });
+
+  it("uses calendar year-over-year when bucket counts differ (rank would mis-align)", () => {
+    const comparisonDataMap = {
+      __single__: {
+        "2025-05-13": 1,
+        "2025-05-14": 2,
+        "2025-05-15": 999,
+        "2025-05-16": 4,
+      },
+    };
+    const sortedXValues = ["2026-05-13", "2026-05-14", "2026-05-16"];
+    const comparisonXValues = [
+      "2025-05-16",
+      "2025-05-13",
+      "2025-05-15",
+      "2025-05-14",
+    ];
+    const aligned = alignComparisonOverlayToCategories(
+      sortedXValues,
+      comparisonDataMap,
+      seriesKeys,
+      comparisonXValues,
+      true,
+    );
+
+    expect(aligned.__single__["2026-05-13"]).toBe(1);
+    expect(aligned.__single__["2026-05-14"]).toBe(2);
+    expect(aligned.__single__["2026-05-16"]).toBe(4);
+  });
 });
 
 describe("sortProductAnalyticsTooltipAxisItems", () => {

@@ -25,6 +25,8 @@ export default function ExplorerMainSection() {
     isSubmittable,
     compareEnabled,
     comparisonExploration,
+    comparisonComputed,
+    submittedPreviousTimeFrame,
   } = useExplorerContext();
 
   const showChartSection = shouldChartSectionShow({
@@ -73,6 +75,10 @@ export default function ExplorerMainSection() {
                     loading={loading}
                     compareEnabled={compareEnabled}
                     comparisonExploration={comparisonExploration}
+                    submittedPreviousTimeFrame={submittedPreviousTimeFrame}
+                    serverBigNumberTrends={
+                      comparisonComputed?.bigNumberTrends ?? null
+                    }
                   />
                 </Panel>
                 <PanelResizeHandle
@@ -113,6 +119,10 @@ export default function ExplorerMainSection() {
                 query={query}
                 compareEnabled={compareEnabled}
                 comparisonExploration={comparisonExploration}
+                serverTableTrendsByRow={
+                  comparisonComputed?.tableTrendsByRow ?? null
+                }
+                submittedPreviousTimeFrame={submittedPreviousTimeFrame}
               />
             </Panel>
           </PanelGroup>

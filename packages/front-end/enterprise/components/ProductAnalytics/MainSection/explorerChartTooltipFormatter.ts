@@ -6,18 +6,11 @@ import {
   getAlignedComparisonDimensionKeyForTooltip,
   parseComparisonTooltipSeriesName,
   sortProductAnalyticsTooltipAxisItems,
-  type IndividualBarComparePivotSlot,
 } from "@/enterprise/components/ProductAnalytics/compareUtil";
 
 function escapeHtmlForProductAnalyticsTooltip(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
-
-type ExplorerIndividualBarComparePivot = {
-  categoryAxisData: string[];
-  slots: IndividualBarComparePivotSlot[];
-  series: unknown[];
-};
 
 type TooltipAxisItem = {
   axisValue: string | number;
@@ -120,7 +113,6 @@ function buildGroupedLineAreaCompareTooltipRows(
 }
 
 export type BuildExplorerChartTooltipFormatterArgs = {
-  individualBarComparePivot: ExplorerIndividualBarComparePivot | null;
   resolvedGranularity: ResolvedGranularity | null;
   firstDimensionIsDate: boolean;
   comparisonPeriodLabels: {
@@ -135,7 +127,6 @@ export type BuildExplorerChartTooltipFormatterArgs = {
 };
 
 export function buildExplorerChartTooltipFormatter({
-  individualBarComparePivot,
   resolvedGranularity,
   firstDimensionIsDate,
   comparisonPeriodLabels,
@@ -147,50 +138,6 @@ export function buildExplorerChartTooltipFormatter({
 }: BuildExplorerChartTooltipFormatterArgs):
   | ((params: unknown) => string)
   | undefined {
-  if (individualBarComparePivot) {
-    return (params: unknown) => {
-      const itemsRaw = (
-        Array.isArray(params) ? params : [params]
-      ) as TooltipAxisItem[];
-      if (!itemsRaw.length) return "";
-      const items = sortProductAnalyticsTooltipAxisItems(
-        itemsRaw,
-        comparisonPeriodLabels,
-      );
-      const idx =
-        typeof items[0].dataIndex === "number" ? items[0].dataIndex : 0;
-      const slot = individualBarComparePivot.slots[idx];
-      if (!slot) return "";
-
-      const dimHeader =
-        firstDimensionIsDate && resolvedGranularity
-          ? (() => {
-              const d = new Date(slot.x);
-              return Number.isNaN(d.getTime())
-                ? slot.x
-                : formatDateByGranularity(d, resolvedGranularity);
-            })()
-          : slot.x;
-
-      const header = `<div style="margin-bottom:4px"><div>${dimHeader}</div><div style="font-size:12px;opacity:0.9">${slot.attributeName}</div></div>`;
-
-      const seriesRows = items
-        .map((item) => {
-          const numValue = Array.isArray(item.value)
-            ? item.value[1]
-            : item.value;
-          const formatted =
-            typeof numValue === "number"
-              ? formatNumber(numValue)
-              : String(numValue);
-          return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${item.marker}${item.seriesName}</span><span><b>${formatted}</b></span></div>`;
-        })
-        .join("");
-
-      return `<div>${header}${seriesRows}</div>`;
-    };
-  }
-
   if (resolvedGranularity) {
     return (params: unknown) => {
       const itemsRaw = (Array.isArray(params) ? params : [params]) as Omit<

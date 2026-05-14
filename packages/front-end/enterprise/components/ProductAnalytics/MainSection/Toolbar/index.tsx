@@ -1,4 +1,4 @@
-import { Flex, Box } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Switch from "@/ui/Switch";
@@ -15,10 +15,14 @@ export default function Toolbar() {
     submittedExploreState,
     compareEnabled,
     setCompareEnabled,
-    comparisonLoading,
-    comparisonError,
     managedWarehouseAwaitingProvisioning,
   } = useExplorerContext();
+
+  const showComparisonDateControls =
+    compareEnabled &&
+    draftExploreState.dateRange.predefined === "customDateRange" &&
+    Boolean(draftExploreState.dateRange.startDate) &&
+    Boolean(draftExploreState.dateRange.endDate);
 
   return (
     <Flex direction="column" gap="3">
@@ -59,36 +63,23 @@ export default function Toolbar() {
                 !submittedExploreState || managedWarehouseAwaitingProvisioning
               }
             />
-            {compareEnabled && submittedExploreState ? (
-              <Flex align="center" gap="1" style={{ minWidth: 0 }}>
-                {comparisonLoading ? (
-                  <Box
-                    as="span"
-                    style={{
-                      fontSize: "12px",
-                      color: "var(--gray-11)",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    Loading previous period…
-                  </Box>
-                ) : null}
-                {comparisonError ? (
-                  <Box
-                    as="span"
-                    style={{
-                      fontSize: "12px",
-                      color: "var(--red-11)",
-                      maxWidth: 220,
-                    }}
-                  >
-                    {comparisonError}
-                  </Box>
-                ) : null}
-              </Flex>
-            ) : null}
           </Flex>
-          <DateRangePicker />
+          <Flex
+            align="center"
+            gap="3"
+            wrap="wrap"
+            justify="end"
+            style={{ minWidth: 0 }}
+          >
+            {showComparisonDateControls ? (
+              <>
+                <DateRangePicker />
+                <DateRangePicker variant="comparison" />
+              </>
+            ) : (
+              <DateRangePicker />
+            )}
+          </Flex>
           {["line", "area", "timeseries-table"].includes(
             draftExploreState.chartType,
           ) && <GranularitySelector />}

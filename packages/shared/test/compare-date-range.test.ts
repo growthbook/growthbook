@@ -55,6 +55,8 @@ describe("buildComparisonDateRange", () => {
     expect(out.predefined).toBe("customDateRange");
     expect(out.startDate).toBe("2023-12-18");
     expect(out.endDate).toBe("2024-03-17");
+    expect(out.lookbackValue).toBe(90);
+    expect(out.lookbackUnit).toBe("day");
   });
 
   it("maps today to previous UTC calendar day", () => {
@@ -74,7 +76,7 @@ describe("buildComparisonDateRange", () => {
     expect(out.endDate).toBe("2024-06-14");
   });
 
-  it("subtracts one year from customDateRange bounds", () => {
+  it("maps customDateRange to the contiguous prior window (equal inclusive UTC days)", () => {
     const dr: ExplorationConfig["dateRange"] = {
       predefined: "customDateRange",
       lookbackValue: null,
@@ -86,7 +88,40 @@ describe("buildComparisonDateRange", () => {
     const out = buildComparisonDateRange(dr);
 
     expect(out.predefined).toBe("customDateRange");
-    expect(out.startDate).toBe("2025-01-01");
-    expect(out.endDate).toBe("2025-02-01");
+    expect(out.startDate).toBe("2025-11-30");
+    expect(out.endDate).toBe("2025-12-31");
+  });
+
+  it("uses abutting prior range for customDateRange (Feb 1–5 → Jan 27–31)", () => {
+    const dr: ExplorationConfig["dateRange"] = {
+      predefined: "customDateRange",
+      lookbackValue: null,
+      lookbackUnit: null,
+      startDate: "2026-02-01",
+      endDate: "2026-02-05",
+    };
+
+    const out = buildComparisonDateRange(dr);
+
+    expect(out.startDate).toBe("2026-01-27");
+    expect(out.endDate).toBe("2026-01-31");
+  });
+
+  it("preserves lookback from customDateRange when using contiguous prior window", () => {
+    const dr: ExplorationConfig["dateRange"] = {
+      predefined: "customDateRange",
+      lookbackValue: 30,
+      lookbackUnit: "day",
+      startDate: "2026-05-13",
+      endDate: "2026-05-22",
+    };
+
+    const out = buildComparisonDateRange(dr);
+
+    expect(out.predefined).toBe("customDateRange");
+    expect(out.lookbackValue).toBe(30);
+    expect(out.lookbackUnit).toBe("day");
+    expect(out.startDate).toBe("2026-05-03");
+    expect(out.endDate).toBe("2026-05-12");
   });
 });

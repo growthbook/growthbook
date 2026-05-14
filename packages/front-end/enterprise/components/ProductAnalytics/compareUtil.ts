@@ -3,6 +3,7 @@ import type { FactMetricInterface } from "shared/types/fact-table";
 import {
   buildComparisonDateRange,
   calculateProductAnalyticsDateRange,
+  createComparisonAlignmentResolver,
 } from "shared/enterprise";
 import type {
   ExplorationConfig,
@@ -34,10 +35,11 @@ function formatExplorerDateRangeHeading(dr: {
 
 export function getComparisonPeriodLabels(
   dateRange: ExplorationConfig["dateRange"],
+  explicitPreviousDateRange?: ExplorationConfig["dateRange"],
 ): { currentLabel: string; previousLabel: string } {
   const currentDr = calculateProductAnalyticsDateRange(dateRange);
   const prevDr = calculateProductAnalyticsDateRange(
-    buildComparisonDateRange(dateRange),
+    explicitPreviousDateRange ?? buildComparisonDateRange(dateRange),
   );
   return {
     currentLabel: formatExplorerDateRangeHeading(currentDr),
@@ -166,33 +168,6 @@ export function supportsAlwaysOnComparisonOverlay(
   );
 }
 
-function compareDateStringsAsc(a: string, b: string): number {
-  return new Date(a).getTime() - new Date(b).getTime();
-}
-
-function createComparisonAlignmentResolver(
-  sortedXValues: string[],
-  comparisonXValues: readonly string[],
-  firstDimensionIsDate: boolean,
-): (currentKey: string) => string | undefined {
-  if (!firstDimensionIsDate) {
-    return (currentKey) => currentKey;
-  }
-  const chronoCurrent = [...new Set(sortedXValues)].sort(compareDateStringsAsc);
-  const chronoComp = [...new Set(comparisonXValues)].sort(
-    compareDateStringsAsc,
-  );
-  const rankByCurrentX = new Map<string, number>();
-  chronoCurrent.forEach((x, i) => {
-    rankByCurrentX.set(x, i);
-  });
-  return (currentKey: string) => {
-    const rank = rankByCurrentX.get(currentKey);
-    if (rank === undefined) return undefined;
-    return chronoComp[rank];
-  };
-}
-
 /**
  * Returns the comparison period’s primary-dimension key aligned to a current
  * bucket (same rules as {@link alignComparisonOverlayToCategories}).
@@ -214,9 +189,11 @@ export function getAlignedComparisonDimensionKeyForTooltip(
  * Maps comparison-period values onto the chart's x categories.
  *
  * - **Date first dimension:** comparison rows use a shifted calendar (different
- *   `dimensions[0]` strings). Align by **chronological rank** (same strategy as
- *   `useExplorationTableData` row pairing): i-th bucket in the current window
- *   pairs with the i-th bucket in the comparison window.
+ *   `dimensions[0]` strings). Prefer **calendar year-over-year** when the
+ *   comparison series has a bucket for `currentDate − 1 year` (handles sparse /
+ *   unequal bucket counts). Otherwise fall back to **chronological rank** (same
+ *   idea as {@link buildAlignedComparisonRowLookup} / table compare): i-th bucket
+ *   window pairs with the i-th bucket in the comparison window.
  * - **Non-date:** keys should match between periods (e.g. country); align by
  *   string equality on the category label.
  */
@@ -610,104 +587,6 @@ export function buildExplorerChartComparisonSeriesList(params: {
       return undefined;
     })
     .filter((series) => series !== undefined);
-}
-
-/** One category slot per (primary dimension value × series/attribute). */
-export type IndividualBarComparePivotSlot = {
-  x: string;
-  seriesKey: string;
-  attributeName: string;
-  seriesKeyIndex: number;
-};
-
-/**
- * For non-stacked bar charts with compare, builds one axis category per attribute
- * slot and exactly two bar series (current vs previous) so `barGap: -100%` overlays
- * periods without ECharts mis-pairing multiple series.
- */
-export function buildIndividualBarComparePivotSeriesAndCategories(args: {
-  sortedXValues: string[];
-  sortedSeriesKeys: string[];
-  dataMap: Record<string, Record<string, number>>;
-  previousAlignedMap: Record<string, Record<string, number>>;
-  sourceSeriesMeta: Record<string, ExplorerChartCompareSeriesMeta>;
-  comparisonPeriodLabels: { currentLabel: string; previousLabel: string };
-  seriesColor: (index: number) => string;
-  comparisonSeriesColor: (index: number) => string;
-  animate: boolean;
-}): {
-  categoryAxisData: string[];
-  slots: IndividualBarComparePivotSlot[];
-  series: unknown[];
-} | null {
-  const {
-    sortedXValues,
-    sortedSeriesKeys,
-    dataMap,
-    previousAlignedMap,
-    sourceSeriesMeta,
-    comparisonPeriodLabels,
-    seriesColor,
-    comparisonSeriesColor,
-    animate,
-  } = args;
-
-  if (!sortedSeriesKeys.length) return null;
-
-  const slots: IndividualBarComparePivotSlot[] = [];
-  for (const x of sortedXValues) {
-    sortedSeriesKeys.forEach((seriesKey, seriesKeyIndex) => {
-      slots.push({
-        x,
-        seriesKey,
-        attributeName: sourceSeriesMeta[seriesKey]?.name ?? seriesKey,
-        seriesKeyIndex,
-      });
-    });
-  }
-
-  const categoryAxisData = slots.map((s) => `${s.x}\n${s.attributeName}`);
-
-  const currentData = slots.map((slot) => ({
-    value: dataMap[slot.seriesKey]?.[slot.x] ?? 0,
-    itemStyle: { color: seriesColor(slot.seriesKeyIndex) },
-  }));
-
-  const previousData = slots.map((slot) => ({
-    value: previousAlignedMap[slot.seriesKey]?.[slot.x] ?? 0,
-    itemStyle: { color: comparisonSeriesColor(slot.seriesKeyIndex) },
-  }));
-
-  const series = [
-    {
-      name: comparisonPeriodLabels.currentLabel,
-      type: "bar" as const,
-      data: currentData,
-      barGap: COMPARE_OVERLAY_BAR_GAP,
-      z: COMPARE_OVERLAY_Z_CURRENT_OVER,
-      animation: animate,
-      animationDuration: animate ? 300 : 0,
-      animationEasing: "cubicOut" as const,
-      emphasis: {
-        itemStyle: { opacity: COMPARE_OVERLAY_CURRENT_BAR_HOVER_OPACITY },
-      },
-    },
-    {
-      name: comparisonPeriodLabels.previousLabel,
-      type: "bar" as const,
-      data: previousData,
-      barGap: COMPARE_OVERLAY_BAR_GAP,
-      z: COMPARE_OVERLAY_Z_PREVIOUS_UNDER,
-      animation: animate,
-      animationDuration: animate ? 300 : 0,
-      animationEasing: "cubicOut" as const,
-      emphasis: {
-        itemStyle: { opacity: COMPARE_OVERLAY_PREVIOUS_BAR_HOVER_OPACITY },
-      },
-    },
-  ];
-
-  return { categoryAxisData, slots, series };
 }
 
 /**
