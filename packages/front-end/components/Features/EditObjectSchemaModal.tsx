@@ -1,13 +1,16 @@
 import { useMemo, useState } from "react";
-import { FeatureInterface, ObjectSchemaDef } from "shared/types/feature";
+import { FeatureInterface, SimpleSchema } from "shared/types/feature";
 import { Box } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useAuth } from "@/services/auth";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
-import ObjectSchemaEditor from "./ObjectSchemaEditor";
+import EditSimpleSchema from "./EditSimpleSchema";
 
 const KEY_REGEX = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const VALID_FIELD_TYPES = new Set(["string", "integer", "float", "boolean"]);
+
+const EMPTY_SCHEMA: SimpleSchema = { type: "object", fields: [] };
 
 export default function EditObjectSchemaModal({
   feature,
@@ -19,8 +22,8 @@ export default function EditObjectSchemaModal({
   mutate: () => void;
 }) {
   const { apiCall } = useAuth();
-  const [schema, setSchema] = useState<ObjectSchemaDef>(
-    feature.objectSchema ?? { fields: [] },
+  const [schema, setSchema] = useState<SimpleSchema>(
+    feature.objectSchema ?? EMPTY_SCHEMA,
   );
 
   const existing = useMemo(
@@ -58,7 +61,7 @@ export default function EditObjectSchemaModal({
         }
         const seen = new Set<string>();
         for (const f of schema.fields) {
-          if (!KEY_REGEX.test(f.key)) {
+          if (!f.key || !KEY_REGEX.test(f.key)) {
             throw new Error(
               `Invalid key "${f.key}". Keys must start with a letter or _ and contain only letters, digits, and _.`,
             );
@@ -67,6 +70,9 @@ export default function EditObjectSchemaModal({
             throw new Error(`Duplicate key "${f.key}".`);
           }
           seen.add(f.key);
+          if (!VALID_FIELD_TYPES.has(f.type)) {
+            throw new Error(`Invalid field type "${f.type}".`);
+          }
         }
         await apiCall(`/feature/${feature.id}/schema`, {
           method: "PUT",
@@ -82,7 +88,11 @@ export default function EditObjectSchemaModal({
           repair them.
         </Text>
       </Box>
-      <ObjectSchemaEditor value={schema} setValue={setSchema} />
+      <EditSimpleSchema
+        schema={schema}
+        setSchema={setSchema}
+        lockType="object"
+      />
       {destructive && (
         <Box mt="3">
           <Callout status="warning">

@@ -15,8 +15,6 @@ import {
   FeaturePrerequisite,
   FeatureRule,
   ForceRule,
-  ObjectSchemaDef,
-  ObjectSchemaField,
   RolloutRule,
   SchemaField,
   SimpleSchema,
@@ -306,9 +304,10 @@ export function validateFeatureValue(
       return stringify(parsedValue);
     }
   } else if (type === "object") {
-    if (!feature.objectSchema) {
+    const schema = feature.objectSchema;
+    if (!schema || schema.type !== "object") {
       throw new Error(
-        prefix + "Object feature is missing a schema definition.",
+        prefix + "Object feature is missing a valid object schema.",
       );
     }
     let parsedValue: unknown;
@@ -331,21 +330,15 @@ export function validateFeatureValue(
       throw new Error(prefix + "Must be a JSON object.");
     }
     const obj = parsedValue as Record<string, unknown>;
-    const fieldByKey = new Map<string, ObjectSchemaField>();
-    for (const field of feature.objectSchema.fields) {
+    const fieldByKey = new Map<string, SchemaField>();
+    for (const field of schema.fields) {
       fieldByKey.set(field.key, field);
     }
     for (const [key, v] of Object.entries(obj)) {
       const field = fieldByKey.get(key);
       // Unknown keys are accepted on write — they're filtered at payload time.
       if (!field) continue;
-      if (v === null) {
-        if (!field.nullable) {
-          throw new Error(prefix + `Field "${key}" is not nullable.`);
-        }
-        continue;
-      }
-      if (typeof v !== field.type) {
+      if (!valueMatchesSchemaField(v, field)) {
         throw new Error(
           prefix + `Field "${key}" must be a ${field.type} (got ${typeof v}).`,
         );
@@ -353,8 +346,8 @@ export function validateFeatureValue(
     }
     if (!partial) {
       const missing: string[] = [];
-      for (const field of feature.objectSchema.fields) {
-        if (!(field.key in obj) && !field.nullable) {
+      for (const field of schema.fields) {
+        if (field.required && !(field.key in obj)) {
           missing.push(field.key);
         }
       }
@@ -368,9 +361,9 @@ export function validateFeatureValue(
       }
     }
     // Return canonical JSON: drop unknown keys, normalize ordering to the
-    // schema. Missing-but-allowed keys (partial=true or nullable) are omitted.
+    // schema. Missing-but-allowed keys (partial=true or !required) are omitted.
     const normalized: Record<string, unknown> = {};
-    for (const field of feature.objectSchema.fields) {
+    for (const field of schema.fields) {
       if (field.key in obj) {
         normalized[field.key] = obj[field.key];
       }
@@ -379,6 +372,21 @@ export function validateFeatureValue(
   }
 
   return value;
+}
+
+// Runtime type check matching a SchemaField's `type` against a parsed JSON
+// value. `integer` is a refinement of `float` (must be a finite whole number).
+function valueMatchesSchemaField(v: unknown, field: SchemaField): boolean {
+  switch (field.type) {
+    case "boolean":
+      return typeof v === "boolean";
+    case "string":
+      return typeof v === "string";
+    case "float":
+      return typeof v === "number" && Number.isFinite(v);
+    case "integer":
+      return typeof v === "number" && Number.isInteger(v);
+  }
 }
 
 // Returns the value at `key` from a sparse object value string. Returns
@@ -405,18 +413,14 @@ function safeParseObject(value: string): Record<string, unknown> | undefined {
 // rewrite stored values.
 export function filterToSchemaKeys(
   obj: Record<string, unknown> | undefined,
-  schema: ObjectSchemaDef | undefined,
+  schema: SimpleSchema | undefined,
 ): Record<string, unknown> {
-  if (!obj || !schema) return {};
+  if (!obj || !schema || schema.type !== "object") return {};
   const out: Record<string, unknown> = {};
   for (const field of schema.fields) {
     if (!(field.key in obj)) continue;
     const v = obj[field.key];
-    if (v === null) {
-      if (field.nullable) out[field.key] = null;
-      continue;
-    }
-    if (typeof v === field.type) {
+    if (valueMatchesSchemaField(v, field)) {
       out[field.key] = v;
     }
   }
@@ -428,26 +432,34 @@ export function filterToSchemaKeys(
 export function resolveObjectValue(
   ruleValueStr: string,
   defaultObjFiltered: Record<string, unknown>,
-  schema: ObjectSchemaDef | undefined,
+  schema: SimpleSchema | undefined,
 ): Record<string, unknown> {
   const sparse = filterToSchemaKeys(safeParseObject(ruleValueStr), schema);
   return { ...defaultObjFiltered, ...sparse };
 }
 
 // Builds a sensible default JSON-stringified object for a new object-type
-// feature based on its schema (used on flag creation).
-export function getDefaultObjectValue(schema: ObjectSchemaDef): string {
+// feature based on its schema (used on flag creation). Respects per-field
+// `default` and `required` (optional fields are omitted entirely).
+export function getDefaultObjectValue(schema: SimpleSchema): string {
+  if (schema.type !== "object") return "{}";
   const out: Record<string, unknown> = {};
   for (const field of schema.fields) {
-    if (field.nullable) {
-      out[field.key] = null;
-    } else if (field.type === "string") {
-      out[field.key] = "";
-    } else if (field.type === "number") {
-      out[field.key] = 0;
-    } else {
-      out[field.key] = false;
+    if (!field.required) continue;
+    if (field.default) {
+      try {
+        const parsed = JSON.parse(field.default);
+        if (valueMatchesSchemaField(parsed, field)) {
+          out[field.key] = parsed;
+          continue;
+        }
+      } catch {
+        // fall through
+      }
     }
+    if (field.type === "boolean") out[field.key] = false;
+    else if (field.type === "string") out[field.key] = "";
+    else out[field.key] = 0;
   }
   return JSON.stringify(out);
 }

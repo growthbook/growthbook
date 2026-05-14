@@ -3,13 +3,13 @@ import {
   FeatureEnvironment,
   FeatureInterface,
   FeatureValueType,
-  ObjectSchemaDef,
+  SimpleSchema,
 } from "shared/types/feature";
 import React, { ReactElement } from "react";
 import { getDefaultObjectValue, validateFeatureValue } from "shared/util";
 import { PiInfo } from "react-icons/pi";
 import { Box } from "@radix-ui/themes";
-import ObjectSchemaEditor from "@/components/Features/ObjectSchemaEditor";
+import SimpleObjectSchemaInput from "@/components/Features/SimpleObjectSchemaInput";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -205,9 +205,7 @@ export default function FeatureModal({
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const environmentSettings = form.watch("environmentSettings");
-  const objectSchema = form.watch("objectSchema") as
-    | ObjectSchemaDef
-    | undefined;
+  const objectSchema = form.watch("objectSchema") as SimpleSchema | undefined;
 
   const modalHeader = featureToDuplicate
     ? `Duplicate Feature (${featureToDuplicate.id})`
@@ -382,6 +380,24 @@ export default function FeatureModal({
               form.setValue("defaultValue", next);
               if (val !== "object") {
                 form.setValue("objectSchema", undefined);
+              } else if (!objectSchema) {
+                // Seed with a single empty field so the user doesn't have to
+                // click "Add field" before they can start typing.
+                form.setValue("objectSchema", {
+                  type: "object",
+                  fields: [
+                    {
+                      key: "",
+                      type: "string",
+                      required: true,
+                      default: "",
+                      description: "",
+                      enum: [],
+                      min: 0,
+                      max: 256,
+                    },
+                  ],
+                });
               }
             }}
           />
@@ -389,35 +405,32 @@ export default function FeatureModal({
 
         {!featureToDuplicate && valueType === "object" && (
           <div className="mb-3">
-            <label>Object schema</label>
-            <ObjectSchemaEditor
-              value={objectSchema}
-              setValue={(schema) => {
+            <SimpleObjectSchemaInput
+              schema={objectSchema ?? { type: "object", fields: [] }}
+              setSchema={(schema) => {
                 form.setValue("objectSchema", schema);
-                // Re-seed the default value so newly added keys get a sensible
-                // default. Existing values for kept keys are preserved.
+                // Re-seed the default value so newly added required keys get
+                // a sensible default. Existing values for kept keys are
+                // preserved.
                 try {
                   const prev = JSON.parse(form.getValues("defaultValue"));
                   const merged: Record<string, unknown> = {};
-                  for (const f of schema.fields) {
-                    if (
-                      prev &&
-                      typeof prev === "object" &&
-                      !Array.isArray(prev) &&
-                      f.key in prev
-                    ) {
-                      merged[f.key] = (prev as Record<string, unknown>)[f.key];
-                    } else if (f.nullable) {
-                      merged[f.key] = null;
-                    } else if (f.type === "string") {
-                      merged[f.key] = "";
-                    } else if (f.type === "number") {
-                      merged[f.key] = 0;
-                    } else {
-                      merged[f.key] = false;
+                  if (
+                    prev &&
+                    typeof prev === "object" &&
+                    !Array.isArray(prev)
+                  ) {
+                    const prevObj = prev as Record<string, unknown>;
+                    for (const f of schema.fields) {
+                      if (f.key in prevObj) merged[f.key] = prevObj[f.key];
                     }
                   }
-                  form.setValue("defaultValue", JSON.stringify(merged));
+                  // Fill in any required field missing from the merge.
+                  const seeded = JSON.parse(getDefaultObjectValue(schema));
+                  form.setValue(
+                    "defaultValue",
+                    JSON.stringify({ ...seeded, ...merged }),
+                  );
                 } catch {
                   form.setValue("defaultValue", getDefaultObjectValue(schema));
                 }
@@ -429,36 +442,42 @@ export default function FeatureModal({
         {/*
           We hide rule configuration when duplicating a feature since the
           decision of which rule to display (out of potentially many) in the
-          modal is not deterministic.
+          modal is not deterministic. For object features we also hide the
+          default-value editor until the schema has at least one usable key —
+          otherwise it would render as an empty box.
         */}
-        {!featureToDuplicate && valueType && (
-          <FeatureValueField
-            label={
-              <>
-                Default Value when Enabled{" "}
-                <Tooltip
-                  body={
-                    <>
-                      After creating your feature, you will be able to add
-                      targeted rules such as <strong>A/B Tests</strong> and{" "}
-                      <strong>Percentage Rollouts</strong> to control exactly
-                      how it gets released to users.
-                    </>
-                  }
-                >
-                  <PiInfo style={{ color: "var(--violet-11)" }} />
-                </Tooltip>
-              </>
-            }
-            id="defaultValue"
-            value={form.watch("defaultValue")}
-            setValue={(v) => form.setValue("defaultValue", v)}
-            valueType={valueType}
-            objectSchema={objectSchema}
-            useCodeInput={true}
-            showFullscreenButton={true}
-          />
-        )}
+        {!featureToDuplicate &&
+          valueType &&
+          (valueType !== "object" ||
+            (objectSchema?.fields?.some((f) => f.key.trim().length > 0) ??
+              false)) && (
+            <FeatureValueField
+              label={
+                <>
+                  Default Value when Enabled{" "}
+                  <Tooltip
+                    body={
+                      <>
+                        After creating your feature, you will be able to add
+                        targeted rules such as <strong>A/B Tests</strong> and{" "}
+                        <strong>Percentage Rollouts</strong> to control exactly
+                        how it gets released to users.
+                      </>
+                    }
+                  >
+                    <PiInfo style={{ color: "var(--violet-11)" }} />
+                  </Tooltip>
+                </>
+              }
+              id="defaultValue"
+              value={form.watch("defaultValue")}
+              setValue={(v) => form.setValue("defaultValue", v)}
+              valueType={valueType}
+              objectSchema={objectSchema}
+              useCodeInput={true}
+              showFullscreenButton={true}
+            />
+          )}
 
         <EnvironmentSelect
           environmentSettings={environmentSettings}

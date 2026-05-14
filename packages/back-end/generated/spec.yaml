@@ -1229,30 +1229,58 @@ paths:
                     primitive-typed keys. Required when `valueType` is `object`.
                   type: object
                   properties:
+                    type:
+                      type: string
+                      enum:
+                        - object
+                        - object[]
+                        - primitive
+                        - primitive[]
                     fields:
-                      minItems: 1
                       type: array
                       items:
                         type: object
                         properties:
                           key:
                             type: string
-                            minLength: 1
                             maxLength: 64
-                            pattern: ^[A-Za-z_][A-Za-z0-9_]*$
                           type:
                             type: string
                             enum:
+                              - integer
+                              - float
                               - string
-                              - number
                               - boolean
-                          nullable:
+                          required:
                             type: boolean
+                          default:
+                            type: string
+                            maxLength: 256
+                          description:
+                            type: string
+                            maxLength: 256
+                          enum:
+                            maxItems: 256
+                            type: array
+                            items:
+                              type: string
+                              maxLength: 256
+                          min:
+                            type: number
+                          max:
+                            type: number
                         required:
                           - key
                           - type
+                          - required
+                          - default
+                          - description
+                          - enum
+                          - min
+                          - max
                         additionalProperties: false
                   required:
+                    - type
                     - fields
                   additionalProperties: false
                 customFields:
@@ -2024,30 +2052,58 @@ paths:
                     primitive-typed keys.
                   type: object
                   properties:
+                    type:
+                      type: string
+                      enum:
+                        - object
+                        - object[]
+                        - primitive
+                        - primitive[]
                     fields:
-                      minItems: 1
                       type: array
                       items:
                         type: object
                         properties:
                           key:
                             type: string
-                            minLength: 1
                             maxLength: 64
-                            pattern: ^[A-Za-z_][A-Za-z0-9_]*$
                           type:
                             type: string
                             enum:
+                              - integer
+                              - float
                               - string
-                              - number
                               - boolean
-                          nullable:
+                          required:
                             type: boolean
+                          default:
+                            type: string
+                            maxLength: 256
+                          description:
+                            type: string
+                            maxLength: 256
+                          enum:
+                            maxItems: 256
+                            type: array
+                            items:
+                              type: string
+                              maxLength: 256
+                          min:
+                            type: number
+                          max:
+                            type: number
                         required:
                           - key
                           - type
+                          - required
+                          - default
+                          - description
+                          - enum
+                          - min
+                          - max
                         additionalProperties: false
                   required:
+                    - type
                     - fields
                   additionalProperties: false
                 customFields:
@@ -5487,30 +5543,58 @@ paths:
                     primitive-typed keys. Required when `valueType` is `object`.
                   type: object
                   properties:
+                    type:
+                      type: string
+                      enum:
+                        - object
+                        - object[]
+                        - primitive
+                        - primitive[]
                     fields:
-                      minItems: 1
                       type: array
                       items:
                         type: object
                         properties:
                           key:
                             type: string
-                            minLength: 1
                             maxLength: 64
-                            pattern: ^[A-Za-z_][A-Za-z0-9_]*$
                           type:
                             type: string
                             enum:
+                              - integer
+                              - float
                               - string
-                              - number
                               - boolean
-                          nullable:
+                          required:
                             type: boolean
+                          default:
+                            type: string
+                            maxLength: 256
+                          description:
+                            type: string
+                            maxLength: 256
+                          enum:
+                            maxItems: 256
+                            type: array
+                            items:
+                              type: string
+                              maxLength: 256
+                          min:
+                            type: number
+                          max:
+                            type: number
                         required:
                           - key
                           - type
+                          - required
+                          - default
+                          - description
+                          - enum
+                          - min
+                          - max
                         additionalProperties: false
                   required:
+                    - type
                     - fields
                   additionalProperties: false
                 customFields:
@@ -6021,30 +6105,58 @@ paths:
                     primitive-typed keys.
                   type: object
                   properties:
+                    type:
+                      type: string
+                      enum:
+                        - object
+                        - object[]
+                        - primitive
+                        - primitive[]
                     fields:
-                      minItems: 1
                       type: array
                       items:
                         type: object
                         properties:
                           key:
                             type: string
-                            minLength: 1
                             maxLength: 64
-                            pattern: ^[A-Za-z_][A-Za-z0-9_]*$
                           type:
                             type: string
                             enum:
+                              - integer
+                              - float
                               - string
-                              - number
                               - boolean
-                          nullable:
+                          required:
                             type: boolean
+                          default:
+                            type: string
+                            maxLength: 256
+                          description:
+                            type: string
+                            maxLength: 256
+                          enum:
+                            maxItems: 256
+                            type: array
+                            items:
+                              type: string
+                              maxLength: 256
+                          min:
+                            type: number
+                          max:
+                            type: number
                         required:
                           - key
                           - type
+                          - required
+                          - default
+                          - description
+                          - enum
+                          - min
+                          - max
                         additionalProperties: false
                   required:
+                    - type
                     - fields
                   additionalProperties: false
                 customFields:
@@ -24846,30 +24958,58 @@ components:
             primitive-typed keys. Required when `valueType` is `object`.
           type: object
           properties:
+            type:
+              type: string
+              enum:
+                - object
+                - object[]
+                - primitive
+                - primitive[]
             fields:
-              minItems: 1
               type: array
               items:
                 type: object
                 properties:
                   key:
                     type: string
-                    minLength: 1
                     maxLength: 64
-                    pattern: ^[A-Za-z_][A-Za-z0-9_]*$
                   type:
                     type: string
                     enum:
+                      - integer
+                      - float
                       - string
-                      - number
                       - boolean
-                  nullable:
+                  required:
                     type: boolean
+                  default:
+                    type: string
+                    maxLength: 256
+                  description:
+                    type: string
+                    maxLength: 256
+                  enum:
+                    maxItems: 256
+                    type: array
+                    items:
+                      type: string
+                      maxLength: 256
+                  min:
+                    type: number
+                  max:
+                    type: number
                 required:
                   - key
                   - type
+                  - required
+                  - default
+                  - description
+                  - enum
+                  - min
+                  - max
                 additionalProperties: false
           required:
+            - type
             - fields
           additionalProperties: false
         prerequisites:
@@ -25699,30 +25839,58 @@ components:
             objectSchema:
               type: object
               properties:
+                type:
+                  type: string
+                  enum:
+                    - object
+                    - object[]
+                    - primitive
+                    - primitive[]
                 fields:
-                  minItems: 1
                   type: array
                   items:
                     type: object
                     properties:
                       key:
                         type: string
-                        minLength: 1
                         maxLength: 64
-                        pattern: ^[A-Za-z_][A-Za-z0-9_]*$
                       type:
                         type: string
                         enum:
+                          - integer
+                          - float
                           - string
-                          - number
                           - boolean
-                      nullable:
+                      required:
                         type: boolean
+                      default:
+                        type: string
+                        maxLength: 256
+                      description:
+                        type: string
+                        maxLength: 256
+                      enum:
+                        maxItems: 256
+                        type: array
+                        items:
+                          type: string
+                          maxLength: 256
+                      min:
+                        type: number
+                      max:
+                        type: number
                     required:
                       - key
                       - type
+                      - required
+                      - default
+                      - description
+                      - enum
+                      - min
+                      - max
                     additionalProperties: false
               required:
+                - type
                 - fields
               additionalProperties: false
             customFields:
@@ -25784,30 +25952,58 @@ components:
             keys. Required when `valueType` is `object`.
           type: object
           properties:
+            type:
+              type: string
+              enum:
+                - object
+                - object[]
+                - primitive
+                - primitive[]
             fields:
-              minItems: 1
               type: array
               items:
                 type: object
                 properties:
                   key:
                     type: string
-                    minLength: 1
                     maxLength: 64
-                    pattern: ^[A-Za-z_][A-Za-z0-9_]*$
                   type:
                     type: string
                     enum:
+                      - integer
+                      - float
                       - string
-                      - number
                       - boolean
-                  nullable:
+                  required:
                     type: boolean
+                  default:
+                    type: string
+                    maxLength: 256
+                  description:
+                    type: string
+                    maxLength: 256
+                  enum:
+                    maxItems: 256
+                    type: array
+                    items:
+                      type: string
+                      maxLength: 256
+                  min:
+                    type: number
+                  max:
+                    type: number
                 required:
                   - key
                   - type
+                  - required
+                  - default
+                  - description
+                  - enum
+                  - min
+                  - max
                 additionalProperties: false
           required:
+            - type
             - fields
           additionalProperties: false
         rules:
@@ -26067,30 +26263,58 @@ components:
             objectSchema:
               type: object
               properties:
+                type:
+                  type: string
+                  enum:
+                    - object
+                    - object[]
+                    - primitive
+                    - primitive[]
                 fields:
-                  minItems: 1
                   type: array
                   items:
                     type: object
                     properties:
                       key:
                         type: string
-                        minLength: 1
                         maxLength: 64
-                        pattern: ^[A-Za-z_][A-Za-z0-9_]*$
                       type:
                         type: string
                         enum:
+                          - integer
+                          - float
                           - string
-                          - number
                           - boolean
-                      nullable:
+                      required:
                         type: boolean
+                      default:
+                        type: string
+                        maxLength: 256
+                      description:
+                        type: string
+                        maxLength: 256
+                      enum:
+                        maxItems: 256
+                        type: array
+                        items:
+                          type: string
+                          maxLength: 256
+                      min:
+                        type: number
+                      max:
+                        type: number
                     required:
                       - key
                       - type
+                      - required
+                      - default
+                      - description
+                      - enum
+                      - min
+                      - max
                     additionalProperties: false
               required:
+                - type
                 - fields
               additionalProperties: false
             customFields:

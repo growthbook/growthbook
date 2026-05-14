@@ -47,28 +47,6 @@ export const featureValueType = [
 
 export type FeatureValueType = (typeof featureValueType)[number];
 
-export const objectSchemaField = z
-  .object({
-    key: z
-      .string()
-      .min(1)
-      .max(64)
-      .regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
-    type: z.enum(["string", "number", "boolean"]),
-    nullable: z.boolean().optional(),
-  })
-  .strict();
-
-export type ObjectSchemaField = z.infer<typeof objectSchemaField>;
-
-export const objectSchemaDef = z
-  .object({
-    fields: z.array(objectSchemaField).min(1),
-  })
-  .strict();
-
-export type ObjectSchemaDef = z.infer<typeof objectSchemaDef>;
-
 const scheduleRule = z
   .object({
     timestamp: z.union([z.string(), z.null()]),
@@ -336,7 +314,7 @@ const revisionMetadataSchema = z.object({
   neverStale: z.boolean().optional(),
   customFields: z.record(z.string(), z.any()).optional(),
   jsonSchema: JSONSchemaDef.optional(),
-  objectSchema: objectSchemaDef.optional(),
+  objectSchema: simpleSchemaValidator.optional(),
   valueType: z.enum(featureValueType).optional(),
 });
 
@@ -485,7 +463,7 @@ export const featureInterface = z
     rules: z.array(featureRule),
     linkedExperiments: z.array(z.string()).optional(),
     jsonSchema: JSONSchemaDef.optional(),
-    objectSchema: objectSchemaDef.optional(),
+    objectSchema: simpleSchemaValidator.optional(),
     customFields: z.record(z.string(), z.any()).optional(),
 
     /** @deprecated */
@@ -850,7 +828,7 @@ export const apiRevisionMetadata = z
         enabled: z.boolean().optional(),
       })
       .optional(),
-    objectSchema: objectSchemaDef.optional(),
+    objectSchema: simpleSchemaValidator.optional(),
     customFields: z.record(z.string(), z.any()).optional(),
   })
   .describe(
@@ -925,7 +903,7 @@ export const apiFeatureValidator = namedSchema(
       defaultValue: z.string(),
       tags: z.array(z.string()),
       environments: z.record(z.string(), apiFeatureEnvironmentValidator),
-      objectSchema: objectSchemaDef
+      objectSchema: simpleSchemaValidator
         .describe(
           "Schema definition for `object`-type features: a fixed list of primitive-typed keys. Required when `valueType` is `object`.",
         )
@@ -1152,7 +1130,7 @@ const postFeatureBody = z
         "Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).",
       )
       .optional(),
-    objectSchema: objectSchemaDef
+    objectSchema: simpleSchemaValidator
       .describe(
         "Schema for `object`-type features: a fixed list of primitive-typed keys. Required when `valueType` is `object`.",
       )
@@ -1186,7 +1164,7 @@ const updateFeatureBody = z
         "Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).",
       )
       .optional(),
-    objectSchema: objectSchemaDef
+    objectSchema: simpleSchemaValidator
       .describe(
         "Schema for `object`-type features: a fixed list of primitive-typed keys.",
       )

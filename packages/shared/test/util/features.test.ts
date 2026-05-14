@@ -1380,10 +1380,38 @@ describe("validateFeatureValue", () => {
     const objFeature = {
       valueType: "object" as const,
       objectSchema: {
+        type: "object" as const,
         fields: [
-          { key: "title", type: "string" as const },
-          { key: "count", type: "number" as const },
-          { key: "active", type: "boolean" as const, nullable: true },
+          {
+            key: "title",
+            type: "string" as const,
+            required: true,
+            default: "",
+            description: "",
+            enum: [],
+            min: 0,
+            max: 256,
+          },
+          {
+            key: "count",
+            type: "integer" as const,
+            required: true,
+            default: "",
+            description: "",
+            enum: [],
+            min: 0,
+            max: 256,
+          },
+          {
+            key: "active",
+            type: "boolean" as const,
+            required: false,
+            default: "",
+            description: "",
+            enum: [],
+            min: 0,
+            max: 256,
+          },
         ],
       },
     };
@@ -1394,13 +1422,13 @@ describe("validateFeatureValue", () => {
     });
 
     it("normalizes key order and drops unknown keys silently", () => {
-      const value = '{"count":3,"extra":"x","title":"Hi","active":null}';
+      const value = '{"count":3,"extra":"x","title":"Hi"}';
       expect(validateFeatureValue(objFeature, value)).toEqual(
-        '{"title":"Hi","count":3,"active":null}',
+        '{"title":"Hi","count":3}',
       );
     });
 
-    it("throws when a non-nullable field is missing on default-value path", () => {
+    it("throws when a required field is missing on default-value path", () => {
       const value = '{"title":"Hi"}';
       expect(() => validateFeatureValue(objFeature, value)).toThrowError();
     });
@@ -1417,14 +1445,9 @@ describe("validateFeatureValue", () => {
       expect(() => validateFeatureValue(objFeature, value)).toThrowError();
     });
 
-    it("rejects null on a non-nullable field", () => {
-      const value = '{"title":null,"count":3,"active":true}';
+    it("rejects float for an integer field", () => {
+      const value = '{"title":"Hi","count":3.14,"active":true}';
       expect(() => validateFeatureValue(objFeature, value)).toThrowError();
-    });
-
-    it("accepts null on a nullable field", () => {
-      const value = '{"title":"Hi","count":3,"active":null}';
-      expect(validateFeatureValue(objFeature, value)).toEqual(value);
     });
 
     it("rejects non-object payloads", () => {
@@ -1436,10 +1459,38 @@ describe("validateFeatureValue", () => {
 
 describe("object value helpers", () => {
   const schema = {
+    type: "object" as const,
     fields: [
-      { key: "a", type: "string" as const },
-      { key: "b", type: "number" as const, nullable: true },
-      { key: "c", type: "boolean" as const },
+      {
+        key: "a",
+        type: "string" as const,
+        required: true,
+        default: "",
+        description: "",
+        enum: [],
+        min: 0,
+        max: 256,
+      },
+      {
+        key: "b",
+        type: "float" as const,
+        required: false,
+        default: "",
+        description: "",
+        enum: [],
+        min: 0,
+        max: 256,
+      },
+      {
+        key: "c",
+        type: "boolean" as const,
+        required: true,
+        default: "",
+        description: "",
+        enum: [],
+        min: 0,
+        max: 256,
+      },
     ],
   };
 
@@ -1457,9 +1508,9 @@ describe("object value helpers", () => {
       });
     });
 
-    it("keeps null only for nullable fields", () => {
+    it("drops null since SimpleSchema doesn't permit it", () => {
       expect(filterToSchemaKeys({ a: null, b: null, c: null }, schema)).toEqual(
-        { b: null },
+        {},
       );
     });
 
@@ -1500,10 +1551,10 @@ describe("object value helpers", () => {
   });
 
   describe("getDefaultObjectValue", () => {
-    it("seeds sensible per-type defaults", () => {
+    it("seeds sensible per-type defaults for required fields only", () => {
+      // b is not required so it's omitted entirely from the seeded default
       expect(JSON.parse(getDefaultObjectValue(schema))).toEqual({
         a: "",
-        b: null,
         c: false,
       });
     });

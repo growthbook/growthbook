@@ -58,7 +58,7 @@ export default function ObjectSchemaSection({
                   <Text weight="medium">{f.key}</Text>
                   <Text size="small" color="text-mid">
                     {f.type}
-                    {f.nullable ? " (nullable)" : ""}
+                    {!f.required ? " (optional)" : ""}
                   </Text>
                 </Flex>
               ))}

@@ -11,7 +11,7 @@ import {
   apiRevisionMetadata,
   apiFeatureHoldout,
   revisionStatusSchema,
-  objectSchemaDef,
+  simpleSchemaValidator,
 } from "./features";
 import { namedSchema } from "./openapi-helpers";
 
@@ -143,7 +143,7 @@ export const apiFeatureV2Validator = namedSchema(
       valueType: z.enum(["boolean", "string", "number", "json", "object"]),
       defaultValue: z.string(),
       tags: z.array(z.string()),
-      objectSchema: objectSchemaDef
+      objectSchema: simpleSchemaValidator
         .describe(
           "Schema for `object`-type features: a fixed list of primitive-typed keys. Required when `valueType` is `object`.",
         )
@@ -370,7 +370,7 @@ export const postFeatureBodyV2 = z
         "Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).",
       )
       .optional(),
-    objectSchema: objectSchemaDef
+    objectSchema: simpleSchemaValidator
       .describe(
         "Schema for `object`-type features: a fixed list of primitive-typed keys. Required when `valueType` is `object`.",
       )
@@ -415,7 +415,7 @@ export const updateFeatureBodyV2 = z
         "Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).",
       )
       .optional(),
-    objectSchema: objectSchemaDef
+    objectSchema: simpleSchemaValidator
       .describe(
         "Schema for `object`-type features: a fixed list of primitive-typed keys.",
       )

@@ -1,7 +1,6 @@
 import {
   FeatureInterface,
   FeatureValueType,
-  ObjectSchemaDef,
   SchemaField,
   SimpleSchema,
 } from "shared/types/feature";
@@ -24,8 +23,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioGroup from "@/ui/RadioGroup";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import PartialObjectValueField from "./PartialObjectValueField";
-import ObjectValueField from "./ObjectValueField";
 
 export interface Props {
   valueType?: FeatureValueType;
@@ -50,7 +47,7 @@ export interface Props {
   partial?: boolean;
   // Optional explicit objectSchema override (used during flag creation when
   // the schema isn't yet attached to a feature record).
-  objectSchema?: ObjectSchemaDef;
+  objectSchema?: SimpleSchema;
   // Optional explicit default value (used for `partial` rule editors to render
   // per-key "default: X" hints). Falls back to feature.defaultValue.
   featureDefaultValue?: string;
@@ -90,28 +87,39 @@ export default function FeatureValueField({
     defaultCodeEditorToggledOn,
   );
 
-  // Object valueType: per-key inputs. No raw JSON editor.
+  // Object valueType: reuse SimpleSchemaEditor (object branch). Rule editors
+  // pass partial=true so each key renders as optional (sparse JSON output);
+  // the default-value editor uses the schema's `required` flags as-is.
   const objectSchema = objectSchemaProp ?? feature?.objectSchema;
-  if (valueType === "object" && objectSchema) {
+  if (valueType === "object" && objectSchema?.type === "object") {
+    let parsedDefault: Record<string, unknown> | undefined;
+    if (partial) {
+      try {
+        const parsed = JSON.parse(
+          featureDefaultValue ?? feature?.defaultValue ?? "{}",
+        );
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          parsedDefault = parsed as Record<string, unknown>;
+        }
+      } catch {
+        // ignore
+      }
+    }
     return (
-      <div className="form-group">
-        {label && <label>{label}</label>}
-        {partial ? (
-          <PartialObjectValueField
-            schema={objectSchema}
-            value={value}
-            setValue={setValue}
-            defaultValue={featureDefaultValue ?? feature?.defaultValue ?? "{}"}
-          />
-        ) : (
-          <ObjectValueField
-            schema={objectSchema}
-            value={value}
-            setValue={setValue}
-          />
-        )}
-        {helpText && <small className="form-text text-muted">{helpText}</small>}
-      </div>
+      <>
+        <SimpleSchemaEditor
+          schema={objectSchema}
+          value={value}
+          setValue={setValue}
+          renderInline={true}
+          label={label}
+          placeholder={placeholder}
+          disabled={disabled}
+          partial={partial}
+          defaults={parsedDefault}
+        />
+        {helpText && <small className="text-muted">{helpText}</small>}
+      </>
     );
   }
 
@@ -335,7 +343,7 @@ export default function FeatureValueField({
   );
 }
 
-function SimpleSchemaPrimitiveEditor<T = unknown>({
+export function SimpleSchemaPrimitiveEditor<T = unknown>({
   field,
   value,
   setValue,
@@ -524,7 +532,7 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
   }
 }
 
-function SimpleSchemaEditor({
+export function SimpleSchemaEditor({
   schema,
   value,
   setValue,
@@ -532,6 +540,8 @@ function SimpleSchemaEditor({
   label,
   placeholder,
   disabled = false,
+  partial = false,
+  defaults,
 }: {
   schema: SimpleSchema;
   value: string;
@@ -540,6 +550,13 @@ function SimpleSchemaEditor({
   label?: string | ReactNode;
   placeholder?: string;
   disabled?: boolean;
+  // When true, every field renders as optional (with an include/exclude
+  // toggle) so the resulting JSON is sparse — used for object-type rule
+  // values that only override a subset of keys.
+  partial?: boolean;
+  // The current default object (parsed). When `partial`, each field is
+  // annotated with its default so the user can see what they'd be keeping.
+  defaults?: Record<string, unknown>;
 }) {
   const [open, setOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
@@ -693,6 +710,8 @@ function SimpleSchemaEditor({
       label={label}
       placeholder={placeholder}
       disabled={disabled}
+      partial={partial}
+      defaults={defaults}
     />
   );
 }
@@ -792,7 +811,7 @@ function JSONTextEditor({
   );
 }
 
-function SimpleSchemaObjectArrayEditor({
+export function SimpleSchemaObjectArrayEditor({
   type,
   value,
   fields,
@@ -800,6 +819,8 @@ function SimpleSchemaObjectArrayEditor({
   label,
   placeholder,
   disabled = false,
+  partial = false,
+  defaults,
 }: {
   type: "object" | "object[]";
   value: string;
@@ -808,6 +829,11 @@ function SimpleSchemaObjectArrayEditor({
   label?: string | ReactNode;
   placeholder?: string;
   disabled?: boolean;
+  // When true (object-typed rule values) every field renders as optional so
+  // the resulting JSON is sparse. Has no effect for `object[]`.
+  partial?: boolean;
+  // Default object shown alongside each field in partial mode.
+  defaults?: Record<string, unknown>;
 }) {
   let valueParsed: unknown;
   try {
@@ -868,14 +894,36 @@ function SimpleSchemaObjectArrayEditor({
         <div className="appbox bg-light px-3 pt-3">
           {fields.map((field) => {
             const value = obj[field.key];
+            // In partial mode every field renders as optional regardless of
+            // schema-level `required`. When a user toggles off, the value is
+            // omitted from the sparse JSON so the SDK payload falls back to
+            // the feature's default at evaluation time.
+            const renderField: SchemaField = partial
+              ? { ...field, required: false }
+              : field;
+            const defaultPreview =
+              partial && defaults && field.key in defaults
+                ? `Default: ${formatDefaultPreview(defaults[field.key])}`
+                : "";
+            const description = defaultPreview
+              ? field.description
+                ? `${defaultPreview}. ${field.description}`
+                : defaultPreview
+              : field.description;
             return (
               <SimpleSchemaPrimitiveEditor
                 label={field.key}
                 key={field.key}
-                field={field}
+                field={{ ...renderField, description }}
                 value={value}
                 disabled={disabled}
                 setValue={(v) => {
+                  if (v === undefined) {
+                    const next = { ...obj };
+                    delete next[field.key];
+                    setValue(JSON.stringify(next));
+                    return;
+                  }
                   setValue(
                     JSON.stringify({
                       ...obj,
@@ -1028,4 +1076,15 @@ function SimpleSchemaObjectArrayEditor({
   }
 
   return fallback;
+}
+
+function formatDefaultPreview(v: unknown): string {
+  if (v === null) return "null";
+  if (typeof v === "string") return `"${v}"`;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  try {
+    return JSON.stringify(v);
+  } catch {
+    return String(v);
+  }
 }

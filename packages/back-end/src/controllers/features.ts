@@ -50,6 +50,7 @@ import {
   FeatureTestResult,
   FeatureMetaInfo,
   JSONSchemaDef,
+  SimpleSchema,
   FeatureUsageData,
   FeatureUsageDataPoint,
 } from "shared/types/feature";
@@ -2831,10 +2832,7 @@ export async function postFeatureDefaultValue(
 }
 
 export async function putFeatureObjectSchema(
-  req: AuthRequest<
-    { objectSchema: import("shared/types/feature").ObjectSchemaDef },
-    { id: string }
-  >,
+  req: AuthRequest<{ objectSchema: SimpleSchema }, { id: string }>,
   res: Response<{ status: 200 }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
@@ -2853,27 +2851,44 @@ export async function putFeatureObjectSchema(
   ) {
     context.permissions.throwPermissionError();
   }
-  if (!objectSchema || !Array.isArray(objectSchema.fields)) {
-    throw new Error("Invalid objectSchema payload.");
+  validateObjectSchemaShape(objectSchema);
+  await updateFeature(context, feature, { objectSchema });
+  return res.status(200).json({ status: 200 });
+}
+
+const VALID_OBJECT_FIELD_TYPES = new Set([
+  "string",
+  "integer",
+  "float",
+  "boolean",
+]);
+
+// Shared validation for an object-feature `SimpleSchema`: object type only,
+// unique non-empty keys, primitive-only field types. Mirrors the runtime
+// checks in `validateFeatureValue` so writes are rejected before they reach
+// the model layer.
+function validateObjectSchemaShape(schema: SimpleSchema | undefined): void {
+  if (!schema || schema.type !== "object" || !Array.isArray(schema.fields)) {
+    throw new Error(
+      "objectSchema must be a SimpleSchema with type 'object' and a fields array.",
+    );
   }
-  if (objectSchema.fields.length < 1) {
+  if (schema.fields.length < 1) {
     throw new Error("Schema must have at least one field.");
   }
   const seen = new Set<string>();
-  for (const f of objectSchema.fields) {
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(f.key)) {
+  for (const f of schema.fields) {
+    if (!f.key || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(f.key)) {
       throw new Error(`Invalid field key "${f.key}".`);
     }
     if (seen.has(f.key)) {
       throw new Error(`Duplicate field key "${f.key}".`);
     }
     seen.add(f.key);
-    if (!["string", "number", "boolean"].includes(f.type)) {
+    if (!VALID_OBJECT_FIELD_TYPES.has(f.type)) {
       throw new Error(`Invalid field type "${f.type}".`);
     }
   }
-  await updateFeature(context, feature, { objectSchema });
-  return res.status(200).json({ status: 200 });
 }
 
 export async function postFeatureSchema(
