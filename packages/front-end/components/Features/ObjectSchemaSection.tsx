@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { FeatureInterface } from "shared/types/feature";
+import { simpleToJSONSchema } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
-import Text from "@/ui/Text";
+import Code from "@/components/SyntaxHighlighting/Code";
+import JSONSchemaDescription from "@/components/Features/JSONSchemaDescription";
 import EditObjectSchemaModal from "./EditObjectSchemaModal";
 
 export default function ObjectSchemaSection({
@@ -15,11 +17,23 @@ export default function ObjectSchemaSection({
   mutate: () => void;
 }) {
   const [edit, setEdit] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
+
+  // Convert the SimpleSchema to a JSON Schema once so we can drive both the
+  // inline summary (JSONSchemaDescription) and the expanded raw-code view
+  // through the same display path as the JSON Validation section.
+  const jsonSchema = useMemo(() => {
+    if (!feature.objectSchema) return null;
+    try {
+      return JSON.parse(simpleToJSONSchema(feature.objectSchema));
+    } catch {
+      return null;
+    }
+  }, [feature.objectSchema]);
 
   if (feature.valueType !== "object") return null;
 
-  const fields = feature.objectSchema?.fields ?? [];
+  const hasFields = !!feature.objectSchema?.fields?.length;
 
   return (
     <Box>
@@ -45,24 +59,24 @@ export default function ObjectSchemaSection({
           </Button>
         </div>
       </Flex>
+      {hasFields && jsonSchema && (
+        <Flex pt="2" align="center">
+          <JSONSchemaDescription jsonSchema={jsonSchema} />
+        </Flex>
+      )}
       {!collapsed && (
-        <Box pt="2">
-          {fields.length === 0 ? (
-            <Text color="text-mid" size="medium">
-              No schema defined. Click Edit to add fields.
-            </Text>
+        <Box pt="4">
+          {hasFields && jsonSchema ? (
+            <Code
+              language="json"
+              filename="Object Schema"
+              code={JSON.stringify(jsonSchema, null, 2)}
+              maxHeight="300px"
+            />
           ) : (
-            <Flex direction="column" gap="1">
-              {fields.map((f) => (
-                <Flex key={f.key} gap="2" align="baseline">
-                  <Text weight="medium">{f.key}</Text>
-                  <Text size="small" color="text-mid">
-                    {f.type}
-                    {!f.required ? " (optional)" : ""}
-                  </Text>
-                </Flex>
-              ))}
-            </Flex>
+            <em className="text-muted">
+              No schema defined. Click Edit to add fields.
+            </em>
           )}
         </Box>
       )}
