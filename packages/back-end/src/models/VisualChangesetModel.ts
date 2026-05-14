@@ -1,6 +1,7 @@
 import { keyBy } from "lodash";
 import omit from "lodash/omit";
 import pick from "lodash/pick";
+import pickBy from "lodash/pickBy";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { hasVisualChanges } from "shared/util";
@@ -222,11 +223,14 @@ export async function updateVisualChange({
     throw new Error("Visual Changeset not found");
   }
 
+  // Strip `id` from the payload so callers can't rename a visual change
+  // and orphan it from the URL-param id used to look it up.
+  const safePayload = omit(payload, ["id"]);
   const visualChanges = visualChangeset.visualChanges.map((visualChange) => {
     if (visualChange.id === visualChangeId) {
       return {
         ...visualChange,
-        ...payload,
+        ...safePayload,
       };
     }
     return visualChange;
@@ -333,7 +337,12 @@ export const updateVisualChangeset = async ({
   updates: VisualChangesetUpdates;
   bypassWebhooks?: boolean;
 }) => {
-  const safeUpdates = pick(updates, UPDATABLE_VISUAL_CHANGESET_FIELDS);
+  // pick() preserves explicit-undefined keys, which would flow into $set and
+  // could unset fields if Mongoose's casting behavior changes. Strip them.
+  const safeUpdates = pickBy(
+    pick(updates, UPDATABLE_VISUAL_CHANGESET_FIELDS),
+    (value) => value !== undefined,
+  ) as VisualChangesetUpdates;
   const isUpdatingVisualChanges = _isUpdatingVisualChanges(safeUpdates);
 
   // For partial updates, merge with the existing visual change by id so

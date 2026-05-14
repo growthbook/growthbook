@@ -2,6 +2,7 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { ReqContext } from "shared/types/organization";
 import {
   VisualChangesetModel,
+  updateVisualChange,
   updateVisualChangeset,
 } from "back-end/src/models/VisualChangesetModel";
 import { getCollection } from "back-end/src/util/mongo.util";
@@ -359,5 +360,116 @@ describe("updateVisualChangeset", () => {
         );
       });
     });
+    describe("and incoming updates have undefined-valued fields", () => {
+      const updateFn = jest
+        .spyOn(VisualChangesetModel, "updateOne")
+        .mockResolvedValue({
+          acknowledged: true,
+          matchedCount: 1,
+          modifiedCount: 1,
+          upsertedCount: 0,
+          upsertedId: null,
+        });
+
+      it("should not write undefined values into $set", async () => {
+        await updateVisualChangeset({
+          visualChangeset,
+          // @ts-expect-error TODO
+          experiment,
+          updates: {
+            editorUrl: "https://editor2.url",
+            urlPatterns: undefined,
+            visualChanges: undefined,
+          },
+          context,
+        });
+
+        expect(updateFn).toHaveBeenCalledWith(
+          {
+            id: visualChangeset.id,
+            organization: context.org.id,
+          },
+          {
+            $set: {
+              editorUrl: "https://editor2.url",
+              visualChanges: visualChangeset.visualChanges,
+            },
+          },
+        );
+      });
+    });
+  });
+});
+
+describe("updateVisualChange", () => {
+  const visualChangeset: VisualChangesetInterface = {
+    id: "vcs_123",
+    editorUrl: "https://editor.url",
+    experiment: "exp_123",
+    organization: "org_123",
+    urlPatterns: [],
+    visualChanges: [
+      {
+        id: "vch_123",
+        css: "body { color: red; }",
+        description: "original",
+        variation: "var_123",
+        domMutations: [],
+      },
+      {
+        id: "vch_456",
+        css: "",
+        description: "second",
+        variation: "var_456",
+        domMutations: [],
+      },
+    ],
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("ignores attempts to rename a visual change via the payload id", async () => {
+    jest.spyOn(VisualChangesetModel, "findOne").mockResolvedValue({
+      toJSON: () => visualChangeset,
+    } as never);
+    const updateFn = jest
+      .spyOn(VisualChangesetModel, "updateOne")
+      .mockResolvedValue({
+        acknowledged: true,
+        matchedCount: 1,
+        modifiedCount: 1,
+        upsertedCount: 0,
+        upsertedId: null,
+      });
+
+    await updateVisualChange({
+      changesetId: visualChangeset.id,
+      visualChangeId: "vch_123",
+      organization: "org_123",
+      payload: {
+        id: "vch_other",
+        css: "body { color: blue; }",
+      },
+    });
+
+    expect(updateFn).toHaveBeenCalledWith(
+      { id: visualChangeset.id, organization: "org_123" },
+      {
+        $set: {
+          visualChanges: [
+            {
+              id: "vch_123",
+              css: "body { color: blue; }",
+              description: "original",
+              variation: "var_123",
+              domMutations: [],
+            },
+            visualChangeset.visualChanges[1],
+          ],
+        },
+      },
+    );
   });
 });

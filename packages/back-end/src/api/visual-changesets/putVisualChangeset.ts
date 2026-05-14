@@ -1,3 +1,4 @@
+import omit from "lodash/omit";
 import { putVisualChangesetValidator } from "shared/validators";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
@@ -33,12 +34,16 @@ export const putVisualChangeset = createApiRequestHandler(
   }
 
   const updates: VisualChangesetUpdates = {
-    ...req.body,
-    urlPatterns: req.body.urlPatterns?.map((p) => ({
-      type: p.type,
-      pattern: p.pattern,
-      include: p.include ?? true,
-    })),
+    ...omit(req.body, ["urlPatterns"]),
+    ...(req.body.urlPatterns !== undefined
+      ? {
+          urlPatterns: req.body.urlPatterns.map((p) => ({
+            type: p.type,
+            pattern: p.pattern,
+            include: p.include ?? true,
+          })),
+        }
+      : {}),
   };
 
   const res = await updateVisualChangeset({
