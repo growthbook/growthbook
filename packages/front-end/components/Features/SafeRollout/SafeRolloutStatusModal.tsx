@@ -170,7 +170,6 @@ export default function SafeRolloutStatusModal({
       ) : null}
       <div className="mb-4">
         <SelectField
-          size="legacy"
           label="Update Safe Rollout status"
           value={form.watch("status")}
           required

@@ -23,7 +23,6 @@ export default function SavedGroupSettings() {
                 </Text>
                 <Box width="200px">
                   <Field
-                    size="legacy"
                     type="number"
                     min="1"
                     step="1"

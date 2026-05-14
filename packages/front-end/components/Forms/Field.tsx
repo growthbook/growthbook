@@ -5,7 +5,7 @@ import TextareaAutosize, {
 } from "react-textarea-autosize";
 import HelperText from "@/ui/HelperText";
 
-export type FieldSize = "sm" | "md" | "legacy" | "lg";
+export type FieldSize = "sm" | "md" | "lg";
 
 export type BaseFieldProps = {
   label?: ReactNode;
@@ -62,7 +62,7 @@ const Field = forwardRef(
       maxRows,
       type = "text",
       customClassName: customClassNameProp,
-      size = "sm",
+      size = "md",
       ...otherProps
     }: FieldProps,
     // eslint-disable-next-line

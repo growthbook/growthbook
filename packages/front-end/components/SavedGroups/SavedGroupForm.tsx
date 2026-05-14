@@ -523,7 +523,6 @@ const SavedGroupForm: FC<{
       {!editConditionOnly && (
         <>
           <Field
-            size="legacy"
             label={`${type === "list" ? "List" : "Group"} Name`}
             labelClassName="font-weight-bold"
             required
@@ -532,7 +531,6 @@ const SavedGroupForm: FC<{
           />
           {showDescription ? (
             <Field
-              size="legacy"
               label="Description"
               labelClassName="font-weight-bold"
               required={false}
@@ -558,7 +556,6 @@ const SavedGroupForm: FC<{
             </Link>
           )}
           <MultiSelectField
-            size="legacy"
             label="Projects"
             labelClassName="font-weight-bold"
             placeholder={
@@ -593,7 +590,6 @@ const SavedGroupForm: FC<{
         ) : (
           <>
             <SelectField
-              size="legacy"
               label="Attribute Key"
               labelClassName="font-weight-bold"
               required

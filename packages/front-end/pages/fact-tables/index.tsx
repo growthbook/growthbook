@@ -332,7 +332,6 @@ export default function FactTablesPage() {
               <>
                 <div className="col-lg-3 col-md-4 col-6">
                   <Field
-                    size="legacy"
                     placeholder="Search..."
                     type="search"
                     {...searchInputProps}

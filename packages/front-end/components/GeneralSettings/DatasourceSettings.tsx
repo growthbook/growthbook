@@ -32,7 +32,6 @@ export default function DatasourceSettings() {
             </Box>
             <Box width="400px">
               <SelectField
-                size="legacy"
                 value={form.watch("defaultDataSource") || ""}
                 options={datasources.map((d) => ({
                   label: d.name,
@@ -55,7 +54,6 @@ export default function DatasourceSettings() {
             </Box>
             <Box width="200px">
               <Field
-                size="legacy"
                 type="number"
                 min="1"
                 append="days"

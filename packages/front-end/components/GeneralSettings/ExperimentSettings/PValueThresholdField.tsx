@@ -90,7 +90,6 @@ export default function PValueThresholdField<
 
   return (
     <Field
-      size="legacy"
       label={label}
       type="number"
       step="0.001"

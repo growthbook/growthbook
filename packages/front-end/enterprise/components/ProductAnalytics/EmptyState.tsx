@@ -176,7 +176,6 @@ export default function EmptyState() {
                     content={chatDisabledReason ?? ""}
                   >
                     <Field
-                      size="legacy"
                       placeholder="Ask about metrics, experiments, or setup..."
                       containerStyle={{
                         maxWidth: "600px",

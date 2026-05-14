@@ -131,7 +131,6 @@ export default function ReleaseChangesForm({
   return (
     <div className="mt-4 mb-2">
       <SelectField
-        size="legacy"
         label="Release plan"
         value={releasePlan || ""}
         options={getReleasePlanOptions({

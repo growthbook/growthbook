@@ -65,12 +65,7 @@ export default function EditPhaseModal({
       })}
       size="lg"
     >
-      <Field
-        size="legacy"
-        label="Phase Name"
-        {...form.register("name")}
-        required
-      />
+      <Field label="Phase Name" {...form.register("name")} required />
       <DatePicker
         label="Start Time (UTC)"
         date={form.watch("dateStarted")}
@@ -107,7 +102,6 @@ export default function EditPhaseModal({
           </div>
           {form.watch("dateEnded") && (
             <Field
-              size="legacy"
               label="Reason for Stopping"
               textarea
               {...form.register("reason")}
@@ -140,7 +134,6 @@ export default function EditPhaseModal({
           {advancedOptionsOpen && (
             //edit seed
             <Field
-              size="legacy"
               label="Seed"
               type="input"
               {...form.register("seed")}

@@ -520,7 +520,6 @@ export default function PrerequisiteInput({
                           <Flex gap="3" align="start">
                             <Box flexGrow="1">
                               <SelectField
-                                size="legacy"
                                 disabled={locked}
                                 value={getDisplayOperator(
                                   conds?.[0]?.[0]?.operator || "",
@@ -617,7 +616,6 @@ export default function PrerequisiteInput({
                               conds?.[0]?.[0]?.operator,
                             ) ? (
                               <StringArrayField
-                                size="legacy"
                                 disabled={locked}
                                 containerClassName="w-100"
                                 value={
@@ -646,7 +644,6 @@ export default function PrerequisiteInput({
                               />
                             ) : parentFeatureMeta?.valueType === "number" ? (
                               <Field
-                                size="legacy"
                                 disabled={locked}
                                 type="number"
                                 step="any"
@@ -666,7 +663,6 @@ export default function PrerequisiteInput({
                               />
                             ) : (
                               <Field
-                                size="legacy"
                                 disabled={locked}
                                 value={conds[0][0].value}
                                 onChange={(e) => {

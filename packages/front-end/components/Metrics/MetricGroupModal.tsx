@@ -92,14 +92,8 @@ const MetricGroupModal: FC<{
       cta="Save"
       close={close}
     >
+      <Field label="Name" {...form.register("name")} required={true} />
       <Field
-        size="legacy"
-        label="Name"
-        {...form.register("name")}
-        required={true}
-      />
-      <Field
-        size="legacy"
         label="Description"
         type="textarea"
         {...form.register("description")}
@@ -107,7 +101,6 @@ const MetricGroupModal: FC<{
       {projects?.length > 0 && (
         <div className="form-group">
           <MultiSelectField
-            size="legacy"
             label={
               <>
                 Projects{" "}
@@ -126,7 +119,6 @@ const MetricGroupModal: FC<{
       )}
       <div className="form-group">
         <SelectField
-          size="legacy"
           required={true}
           label="Data Source"
           value={datasource?.id || ""}

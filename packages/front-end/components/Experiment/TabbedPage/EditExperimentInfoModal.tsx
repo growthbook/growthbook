@@ -61,14 +61,12 @@ export default function EditExperimentInfoModal({
       })}
     >
       <Field
-        size="legacy"
         autoFocus={focusSelector === "name"}
         label="Experiment Name"
         {...form.register("name")}
         required
       />
       <Field
-        size="legacy"
         disabled={experiment.status !== "draft"}
         label="Experiment Key"
         {...form.register("trackingKey")}
@@ -89,7 +87,6 @@ export default function EditExperimentInfoModal({
         />
       </div>
       <SelectField
-        size="legacy"
         label={
           <>
             <Text weight="semibold">Project</Text>

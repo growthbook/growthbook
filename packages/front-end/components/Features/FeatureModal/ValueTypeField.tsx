@@ -8,7 +8,6 @@ const ValueTypeField: FC<{
 }> = ({ onChange, value }) => {
   return (
     <SelectField
-      size="legacy"
       label="Value Type"
       value={value}
       onChange={onChange}

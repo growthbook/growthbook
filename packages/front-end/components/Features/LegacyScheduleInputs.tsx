@@ -70,7 +70,6 @@ export default function ScheduleInputs(props: Props) {
           </div>
           <div className="col-sm-12 col-md mb-2 pl-2 pr-2">
             <SelectField
-              size="legacy"
               style={{ width: 250 }}
               name="date-operator"
               value={rules[0].timestamp === null ? "" : "timestamp"}
@@ -122,7 +121,6 @@ export default function ScheduleInputs(props: Props) {
           </div>
           <div className="col-sm-12 col-md mb-2 pl-2 pr-2">
             <SelectField
-              size="legacy"
               style={{ width: 250 }}
               name="date-operator"
               value={rules[1].timestamp === null ? "" : "timestamp"}

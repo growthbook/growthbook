@@ -126,7 +126,6 @@ export default function EnvironmentModal({
     >
       {!existing.id && (
         <SelectField
-          size="legacy"
           value={form.watch("id") || ""}
           options={DEFAULT_ENVIRONMENT_IDS.map((id) => ({
             label: id,
@@ -164,7 +163,6 @@ export default function EnvironmentModal({
         />
       )}
       <Field
-        size="legacy"
         label="Description"
         {...form.register("description")}
         placeholder=""
@@ -173,7 +171,6 @@ export default function EnvironmentModal({
       {!existing.id && (
         <div className="mb-3">
           <SelectField
-            size="legacy"
             label="Parent"
             value={form.watch("parent") || ""}
             onChange={(value) => {
@@ -201,7 +198,6 @@ export default function EnvironmentModal({
       )}
       <div className="mb-4">
         <MultiSelectField
-          size="legacy"
           label="Projects"
           placeholder="All Projects"
           value={form.watch("projects") || []}

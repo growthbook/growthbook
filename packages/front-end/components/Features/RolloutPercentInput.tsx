@@ -96,7 +96,6 @@ export default function RolloutPercentInput({
           </Box>
           <Box position="relative" className={styles.percentInputWrap}>
             <Field
-              size="legacy"
               style={{ width: 95 }}
               disabled={locked}
               value={isNaN(value ?? 0) ? "" : decimalToPercent(value ?? 0)}
@@ -120,7 +119,6 @@ export default function RolloutPercentInput({
         <Box px="4" py="2" mt="2" className="bg-highlight rounded">
           {setHashAttribute && attributeSchema && (
             <SelectField
-              size="legacy"
               label="Sample using attribute"
               value={hashAttribute ?? ""}
               options={
@@ -149,7 +147,6 @@ export default function RolloutPercentInput({
             >
               <Box mt="1">
                 <Field
-                  size="legacy"
                   type="input"
                   value={seed}
                   onChange={(e) => setSeed(e.target.value)}

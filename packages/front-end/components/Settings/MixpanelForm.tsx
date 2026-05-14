@@ -60,7 +60,6 @@ const MixpanelForm: FC<{
         <div className="form-group col-md-12">
           <label>API Server</label>
           <SelectField
-            size="legacy"
             name="server"
             // todo: better inference
             value={params.server || "standard"}

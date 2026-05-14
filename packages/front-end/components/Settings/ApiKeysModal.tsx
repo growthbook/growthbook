@@ -73,7 +73,6 @@ const ApiKeysModal: FC<{
       cta="Create"
     >
       <Field
-        size="legacy"
         label="Description"
         required={true}
         {...form.register("description")}

@@ -263,7 +263,6 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
         Enter your billing information. You can add your payment method next.
       </Text>
       <Field
-        size="legacy"
         type="email"
         required={true}
         label="Billing email"
@@ -273,7 +272,6 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
       <Flex gap="4">
         <Box style={{ flex: 1 }}>
           <SelectField
-            size="legacy"
             label="Tax ID type"
             options={taxIdTypeOptions}
             value={form.watch("taxIdType") || ""}
@@ -284,7 +282,6 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
         </Box>
         <Box style={{ flex: 1 }}>
           <Field
-            size="legacy"
             type="text"
             {...form.register("taxIdValue")}
             placeholder="(optional)"

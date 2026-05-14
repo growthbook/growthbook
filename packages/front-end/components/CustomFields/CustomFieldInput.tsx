@@ -149,7 +149,6 @@ const CustomFieldInput: FC<{
                   />
                 ) : v.type === "enum" ? (
                   <SelectField
-                    size="legacy"
                     label={
                       <>
                         {v.name}
@@ -178,7 +177,6 @@ const CustomFieldInput: FC<{
                   />
                 ) : v.type === "multiselect" ? (
                   <MultiSelectField
-                    size="legacy"
                     label={
                       <>
                         {v.name}
@@ -209,7 +207,6 @@ const CustomFieldInput: FC<{
                   />
                 ) : v.type === "textarea" ? (
                   <Field
-                    size="legacy"
                     textarea
                     minRows={2}
                     maxRows={6}
@@ -272,7 +269,6 @@ const CustomFieldInput: FC<{
                   </Box>
                 ) : (
                   <Field
-                    size="legacy"
                     value={normalizedCustomFields?.[v.id] ?? ""}
                     label={
                       <>

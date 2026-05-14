@@ -150,7 +150,6 @@ export default function IdLists({ groups, mutate }: Props) {
           <>
             <Box className="relative" width="40%" mb="4">
               <Field
-                size="legacy"
                 placeholder="Search..."
                 type="search"
                 {...searchInputProps}

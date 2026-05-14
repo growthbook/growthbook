@@ -273,7 +273,7 @@ export type MultiSelectFieldProps = Omit<
   isOptionDisabled?: (_: Option) => boolean;
   noMenu?: boolean;
   showCopyButton?: boolean;
-  size?: "small" | "legacy" | "medium";
+  size?: "small" | "medium";
   labelSize?: TextSizes;
   labelWeight?: TextWeights;
   errorLevel?: "error" | "warning";
@@ -301,7 +301,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   required,
   pattern,
   showCopyButton = true,
-  size = "small" as "small" | "legacy" | "medium",
+  size = "small" as "small" | "medium",
   labelSize,
   labelWeight = "semibold",
   errorLevel = "error",
@@ -402,12 +402,10 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   const mergeStyles = useMemo(() => {
     const sizeMinHeight: Record<string, number> = {
       small: 32,
-      legacy: 36,
       medium: 40,
     };
     const sizeVPadding: Record<string, number> = {
       small: 0,
-      legacy: 2,
       medium: 4,
     };
     return {

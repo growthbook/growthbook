@@ -62,7 +62,6 @@ function EditSchemaField({
         {inObject && (
           <div className="col">
             <Field
-              size="legacy"
               label="Property Key"
               value={value.key}
               onChange={(e) => onChange({ ...value, key: e.target.value })}
@@ -73,7 +72,6 @@ function EditSchemaField({
         )}
         <div className="col">
           <SelectField
-            size="legacy"
             label="Type"
             value={value.type}
             onChange={(type) =>
@@ -103,7 +101,6 @@ function EditSchemaField({
         </div>
       </div>
       <Field
-        size="legacy"
         label="Description"
         value={value.description}
         onChange={(e) => onChange({ ...value, description: e.target.value })}
@@ -123,7 +120,6 @@ function EditSchemaField({
       {value.type !== "boolean" && (
         <>
           <MultiSelectField
-            size="legacy"
             label="Restrict to Specific Values"
             placeholder="(Optional)"
             value={value.enum}
@@ -140,7 +136,6 @@ function EditSchemaField({
             <div className="row">
               <div className="col">
                 <Field
-                  size="legacy"
                   label={value.type === "string" ? "Min Length" : "Minimum"}
                   value={value.min}
                   max={value.max || undefined}
@@ -154,7 +149,6 @@ function EditSchemaField({
               </div>
               <div className="col">
                 <Field
-                  size="legacy"
                   label={value.type === "string" ? "Max Length" : "Maximum"}
                   value={value.max}
                   type="number"
@@ -174,7 +168,6 @@ function EditSchemaField({
         <>
           {value.type === "boolean" ? (
             <SelectField
-              size="legacy"
               label="Default Value"
               sort={false}
               value={
@@ -196,7 +189,6 @@ function EditSchemaField({
             />
           ) : value.enum.length > 0 ? (
             <SelectField
-              size="legacy"
               label="Default Value"
               sort={false}
               value={value.default}
@@ -206,7 +198,6 @@ function EditSchemaField({
             />
           ) : (
             <Field
-              size="legacy"
               label="Default Value"
               value={value.default}
               onChange={(e) => onChange({ ...value, default: e.target.value })}
@@ -241,7 +232,6 @@ function EditSimpleSchema({
   return (
     <div>
       <SelectField
-        size="legacy"
         label="Type"
         labelClassName="font-weight-bold text-dark"
         value={schema.type}

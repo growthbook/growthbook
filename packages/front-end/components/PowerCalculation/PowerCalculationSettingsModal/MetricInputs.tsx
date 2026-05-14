@@ -123,7 +123,6 @@ export const InputField = ({
       )}
       {c.type === "number" && (
         <Field
-          size="legacy"
           {...commonOptions}
           {...form.register(`metrics.${metricId}.${entry}`, {
             valueAsNumber: true,

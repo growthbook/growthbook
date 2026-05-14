@@ -468,7 +468,6 @@ const MetricsSelector: FC<{
 
   const selector = !forceSingleMetric ? (
     <MultiSelectField
-      size="legacy"
       value={selected}
       onChange={onChange}
       options={multiSelectOptions}
@@ -533,7 +532,6 @@ const MetricsSelector: FC<{
                       </Tooltip>
                     </span>
                     <SelectField
-                      size="legacy"
                       value="choose"
                       placeholder="choose"
                       className="ml-3"
@@ -569,7 +567,6 @@ const MetricsSelector: FC<{
     />
   ) : (
     <SelectField
-      size="legacy"
       key={datasource ?? "__no_datasource__"} // forces selector UI to clear when changing datasource
       value={selected[0]}
       onChange={(m) => onChange([m])}

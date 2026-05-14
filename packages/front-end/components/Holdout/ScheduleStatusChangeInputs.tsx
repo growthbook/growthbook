@@ -72,7 +72,6 @@ export default function ScheduleStatusChangeInputs({
         <Box mb="4">
           <Tooltip content="The Holdout has already started—this date cannot be edited">
             <Field
-              size="legacy"
               value={
                 experiment.phases[0].dateStarted
                   ? format(
@@ -114,7 +113,6 @@ export default function ScheduleStatusChangeInputs({
         <Box mb="4">
           <Tooltip content="The Analysis Phase has already started—this date cannot be edited">
             <Field
-              size="legacy"
               value={
                 holdout.analysisStartDate
                   ? format(new Date(holdout.analysisStartDate), DATE_FORMAT)
@@ -152,7 +150,6 @@ export default function ScheduleStatusChangeInputs({
         <Box mb="4">
           <Tooltip content="The Analysis Phase has already ended—this date cannot be edited">
             <Field
-              size="legacy"
               value={
                 experiment.phases[1]?.dateEnded
                   ? format(

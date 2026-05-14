@@ -49,7 +49,6 @@ const EditDataSourceForm: FC<{
       cta="Save"
     >
       <SelectField
-        size="legacy"
         label="Data Source"
         value={form.watch("datasource")}
         onChange={(v) => form.setValue("datasource", v)}
@@ -66,7 +65,6 @@ const EditDataSourceForm: FC<{
       />
       {supportsExposureQueries && (
         <SelectField
-          size="legacy"
           label="Assignment Table"
           value={form.watch("exposureQueryId")}
           required
@@ -79,11 +77,7 @@ const EditDataSourceForm: FC<{
           })}
         />
       )}
-      <Field
-        size="legacy"
-        label="Experiment Id"
-        {...form.register("trackingKey")}
-      />
+      <Field label="Experiment Id" {...form.register("trackingKey")} />
     </ModalStandard>
   );
 };

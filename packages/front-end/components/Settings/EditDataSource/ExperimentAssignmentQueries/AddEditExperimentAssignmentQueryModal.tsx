@@ -244,21 +244,14 @@ export const AddEditExperimentAssignmentQueryModal: FC<
         <div className="my-2 ml-3 mr-3">
           <div className="row">
             <div className="col-12">
+              <Field label="Display Name" required {...form.register("name")} />
               <Field
-                size="legacy"
-                label="Display Name"
-                required
-                {...form.register("name")}
-              />
-              <Field
-                size="legacy"
                 label="Description (optional)"
                 textarea
                 minRows={1}
                 {...form.register("description")}
               />
               <SelectField
-                size="legacy"
                 label="Identifier Type"
                 options={identityTypes.map((i) => ({
                   value: i.userIdType,
@@ -328,7 +321,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                         <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
                       </Flex>
                       <StringArrayField
-                        size="legacy"
                         label="Dimension Columns"
                         value={userEnteredDimensions}
                         onChange={(dimensions) => {

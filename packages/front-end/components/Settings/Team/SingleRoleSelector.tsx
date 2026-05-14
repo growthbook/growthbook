@@ -122,7 +122,6 @@ export default function SingleRoleSelector({
   return (
     <div>
       <SelectField
-        size="legacy"
         label={label}
         value={value.role}
         onChange={(role) => {
@@ -173,7 +172,6 @@ export default function SingleRoleSelector({
             </div>
             {value.limitAccessByEnvironment && (
               <MultiSelectField
-                size="legacy"
                 label="Environments"
                 className="mb-4"
                 helpText="Select all environments you want the person to have permissions for"

@@ -125,7 +125,6 @@ const MetricSelector: FC<
 
   return (
     <SelectField
-      size="legacy"
       placeholder={placeholder ?? "Select metric..."}
       {...selectProps}
       options={filteredOptions.map((m) => {

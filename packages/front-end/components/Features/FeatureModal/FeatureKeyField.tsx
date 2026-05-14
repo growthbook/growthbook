@@ -7,7 +7,6 @@ const FeatureKeyField: FC<{
   keyField: UseFormRegisterReturn;
 }> = ({ keyField }) => (
   <Field
-    size="legacy"
     label="Feature Key"
     {...keyField}
     pattern="^[a-zA-Z0-9_.:|-]+$"

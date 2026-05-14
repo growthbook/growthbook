@@ -1,4 +1,4 @@
-import { FC, MouseEventHandler, ReactNode, useState } from "react";
+import { FC, MouseEventHandler, ReactNode, useMemo, useState } from "react";
 import ReactSelect, {
   components,
   GroupBase,
@@ -192,7 +192,13 @@ function CustomMultiValueRemove(
 
 export type MultiSelectFieldProps = Omit<
   FieldProps,
-  "value" | "onChange" | "options" | "multi" | "initialOption" | "placeholder"
+  | "value"
+  | "onChange"
+  | "options"
+  | "multi"
+  | "initialOption"
+  | "placeholder"
+  | "size"
 > & {
   value: string[];
   placeholder?: string;
@@ -213,6 +219,7 @@ export type MultiSelectFieldProps = Omit<
   isOptionDisabled?: (_: Option) => boolean;
   noMenu?: boolean;
   showCopyButton?: boolean;
+  size?: "x-small" | "small" | "medium";
 };
 
 const MultiSelectField: FC<MultiSelectFieldProps> = ({
@@ -236,6 +243,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   required,
   pattern,
   showCopyButton = true,
+  size = "small",
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -326,17 +334,42 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
       ),
     );
   };
-  const mergeStyles = customStyles
-    ? {
-        styles: {
-          ...ReactSelectProps.styles,
-          ...customStyles,
-        },
-      }
-    : {};
+  const mergeStyles = useMemo(() => {
+    const sizeMinHeight: Record<string, number> = {
+      "x-small": 24,
+      small: 32,
+      medium: 40,
+    };
+    const sizeVPadding: Record<string, number> = {
+      "x-small": 0,
+      small: 0,
+      medium: 4,
+    };
+    return {
+      styles: {
+        ...ReactSelectProps.styles,
+        ...(customStyles || {}),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        control: (base: any, state: any) => ({
+          ...(customStyles?.control
+            ? customStyles.control(
+                ReactSelectProps.styles.control(base, state),
+                state,
+              )
+            : ReactSelectProps.styles.control(base, state)),
+          minHeight: sizeMinHeight[size],
+        }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        valueContainer: (base: any) => ({
+          ...base,
+          paddingTop: sizeVPadding[size],
+          paddingBottom: sizeVPadding[size],
+        }),
+      },
+    };
+  }, [size, customStyles]);
   return (
     <Field
-      size="legacy"
       {...fieldProps}
       customClassName={clsx(customClassName, { "cursor-disabled": disabled })}
       render={(id, ref) => {

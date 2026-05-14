@@ -121,7 +121,6 @@ export default function ScheduleInputs({ state, setState }: Props) {
           </Text>
         </Box>
         <SelectField
-          size="legacy"
           value={state.startDate ? "specific-time" : "immediately"}
           options={START_OPTIONS}
           onChange={handleStartChange}
@@ -149,7 +148,6 @@ export default function ScheduleInputs({ state, setState }: Props) {
           </Text>
         </Box>
         <SelectField
-          size="legacy"
           value={endTriggerValue}
           options={END_OPTIONS}
           onChange={handleEndChange}

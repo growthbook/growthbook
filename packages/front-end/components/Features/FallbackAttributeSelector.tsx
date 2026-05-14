@@ -109,7 +109,6 @@ export default function FallbackAttributeSelector({
 
   return (
     <SelectField
-      size="legacy"
       withRadixThemedPortal
       containerClassName="flex-1"
       label="Fallback Attribute"

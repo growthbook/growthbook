@@ -212,7 +212,6 @@ export default function DashboardShareModal({
             <div>
               {isGeneralDashboard && (
                 <SelectField
-                  size="legacy"
                   label="View access"
                   disabled={
                     !hasCommercialFeature("share-product-analytics-dashboards")
@@ -249,7 +248,6 @@ export default function DashboardShareModal({
             </div>
             <div>
               <SelectField
-                size="legacy"
                 label="Edit access"
                 disabled={
                   shareLevel === "private" ||

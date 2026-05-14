@@ -401,7 +401,6 @@ const AnalysisForm: FC<{
         )}
 
         <SelectField
-          size="legacy"
           label="Data Source"
           value={datasource?.id || ""}
           disabled={isBandit && experiment.status !== "draft"}
@@ -473,7 +472,6 @@ const AnalysisForm: FC<{
         />
         {datasource?.properties?.exposureQueries && (
           <SelectField
-            size="legacy"
             label={
               <>
                 Experiment Assignment Table{" "}
@@ -513,7 +511,6 @@ const AnalysisForm: FC<{
         )}
         {datasource && !isHoldout && (
           <Field
-            size="legacy"
             label="Tracking Key"
             {...form.register("trackingKey")}
             helpText={
@@ -541,7 +538,6 @@ const AnalysisForm: FC<{
                   key={i}
                 >
                   <Field
-                    size="legacy"
                     label={v.name}
                     labelClassName="mb-0"
                     containerClassName="mb-1"
@@ -663,7 +659,6 @@ const AnalysisForm: FC<{
         {!isHoldout && (
           <>
             <SelectField
-              size="legacy"
               label={
                 <PremiumTooltip commercialFeature="regression-adjustment">
                   <GBCuped /> Use CUPED
@@ -691,7 +686,6 @@ const AnalysisForm: FC<{
             />
             {!orgSettings.disablePrecomputedDimensions ? (
               <SelectField
-                size="legacy"
                 label={
                   <PremiumTooltip commercialFeature="post-stratification">
                     Use Post-Stratification
@@ -761,7 +755,6 @@ const AnalysisForm: FC<{
             <div className="d-flex flex-row no-gutters align-items-top">
               <div className="col-5">
                 <SelectField
-                  size="legacy"
                   label={
                     <PremiumTooltip commercialFeature="sequential-testing">
                       <GBSequential /> Use Sequential Testing
@@ -795,7 +788,6 @@ const AnalysisForm: FC<{
                 }}
               >
                 <Field
-                  size="legacy"
                   label="Tuning parameter"
                   type="number"
                   containerClassName="mb-0"
@@ -915,7 +907,6 @@ const AnalysisForm: FC<{
                       filteredSegments.length > 0 && (
                         <div className="form-group mb-2">
                           <SelectField
-                            size="legacy"
                             label="Segment"
                             value={form.watch("segment")}
                             onChange={(value) =>
@@ -941,7 +932,6 @@ const AnalysisForm: FC<{
                           body="In-progress Conversions is not supported with Incremental Refresh while in beta"
                         >
                           <SelectField
-                            size="legacy"
                             label="Metric Conversion Windows"
                             value={form.watch("skipPartialData")}
                             onChange={(value) =>
@@ -996,7 +986,6 @@ const AnalysisForm: FC<{
                         <div className="row">
                           <div className="col">
                             <Field
-                              size="legacy"
                               label="Custom SQL Filter"
                               {...form.register("queryFilter")}
                               textarea

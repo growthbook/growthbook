@@ -270,7 +270,6 @@ const CreateOrJoinOrganization: FC<{
                     </p>
                   </div>
                   <Field
-                    size="legacy"
                     label={
                       <>
                         <div className="font-weight-bold">
@@ -292,7 +291,6 @@ const CreateOrJoinOrganization: FC<{
                     {...newOrgForm.register("company")}
                   />
                   <SelectField
-                    size="legacy"
                     label="Your role"
                     labelClassName="font-weight-bold"
                     markRequired

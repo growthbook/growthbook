@@ -38,7 +38,6 @@ export default function AdminSetPasswordModal({ member, close }: Props) {
         Change password for <strong>{member.name}</strong>:
       </p>
       <Field
-        size="legacy"
         placeholder="Enter a new password"
         type="password"
         required

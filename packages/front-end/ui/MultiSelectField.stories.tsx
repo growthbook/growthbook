@@ -45,7 +45,7 @@ function BasicStory() {
   const [value, setValue] = useState<string[]>(["apple", "banana"]);
   return (
     <MultiSelectField
-      label="Favourite fruits (legacy)"
+      label="Favourite fruits"
       value={value}
       options={FRUIT_OPTIONS}
       onChange={setValue}
@@ -55,7 +55,6 @@ function BasicStory() {
 
 function SizeStory() {
   const [v1, setV1] = useState<string[]>(["apple"]);
-  const [v2, setV2] = useState<string[]>(["banana"]);
   const [v3, setV3] = useState<string[]>(["mango"]);
   return (
     <Flex direction="column" gap="3">
@@ -66,13 +65,6 @@ function SizeStory() {
         value={v1}
         options={FRUIT_OPTIONS}
         onChange={setV1}
-      />
-      <MultiSelectField
-        label="Size legacy"
-        size="legacy"
-        value={v2}
-        options={FRUIT_OPTIONS}
-        onChange={setV2}
       />
       <MultiSelectField
         label="Size medium"

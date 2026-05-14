@@ -39,7 +39,6 @@ export default function EditRevisionCommentModal({
       }}
     >
       <Field
-        size="legacy"
         label="Revision Notes"
         value={comment}
         onChange={(e) => {

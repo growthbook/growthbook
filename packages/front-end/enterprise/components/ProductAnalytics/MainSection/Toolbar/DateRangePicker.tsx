@@ -92,7 +92,6 @@ export default function DateRangePicker({
       {dateRange.predefined === "customLookback" && (
         <>
           <Field
-            size="legacy"
             style={{
               width: "55px",
               paddingTop: "0px",

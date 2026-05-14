@@ -206,7 +206,6 @@ export default function SavedGroupTargetingField({
                   }
                   attributeSlot={
                     <SelectField
-                      size="legacy"
                       disabled={locked}
                       value={v.match}
                       onChange={(match) => {
@@ -225,7 +224,6 @@ export default function SavedGroupTargetingField({
                   }
                   valueSlot={
                     <MultiSelectField
-                      size="legacy"
                       disabled={locked}
                       value={v.ids}
                       onChange={(ids) => {

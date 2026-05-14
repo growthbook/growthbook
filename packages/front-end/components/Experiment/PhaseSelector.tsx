@@ -152,7 +152,6 @@ export default function PhaseSelector({
         ) : null}
         {selectOptions.length > 1 ? (
           <SelectField
-            size="legacy"
             options={selectOptions}
             value={(phase !== undefined ? phase : snapshotPhase) + ""}
             onChange={(value) => {
@@ -191,7 +190,6 @@ export default function PhaseSelector({
       </div>
       {selectOptions.length > 1 ? (
         <SelectField
-          size="legacy"
           options={selectOptions}
           value={(phase !== undefined ? phase : snapshotPhase) + ""}
           onChange={(value) => {

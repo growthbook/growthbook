@@ -271,7 +271,6 @@ const TemplateForm: FC<Props> = ({
             <h4 className="mb-3">Template Details</h4>
 
             <Field
-              size="legacy"
               label="Template Name"
               required
               minLength={2}
@@ -282,7 +281,6 @@ const TemplateForm: FC<Props> = ({
               <div className="form-group">
                 <label>Available in Project</label>
                 <SelectField
-                  size="legacy"
                   value={form.watch("project") ?? ""}
                   onChange={(p) => {
                     form.setValue("project", p);
@@ -295,7 +293,6 @@ const TemplateForm: FC<Props> = ({
             )}
 
             <Field
-              size="legacy"
               label="Template Description"
               textarea
               minRows={1}
@@ -308,7 +305,6 @@ const TemplateForm: FC<Props> = ({
             <h4 className="my-3">Experiment Details</h4>
 
             <Field
-              size="legacy"
               label="Experiment Hypothesis"
               textarea
               minRows={1}
@@ -317,7 +313,6 @@ const TemplateForm: FC<Props> = ({
             />
 
             <Field
-              size="legacy"
               label="Experiment Description"
               textarea
               minRows={1}

@@ -44,7 +44,6 @@ export default function FixVariationIds({
       <h3>Variation Ids</h3>
       {names.map((name, i) => (
         <SelectField
-          size="legacy"
           key={i}
           label={name}
           options={actual.map((v) => ({ label: v, value: v }))}

@@ -309,7 +309,6 @@ export default function FeatureModal({
               </Callout>
             )}
             <SelectField
-              size="legacy"
               label={
                 <>
                   Project{" "}
