@@ -6,8 +6,7 @@ import {
   OrganizationMessage,
 } from "shared/types/organization";
 import stringify from "json-stringify-pretty-compact";
-import Collapsible from "react-collapsible";
-import { FaAngleRight, FaSpinner } from "react-icons/fa";
+import { FaSpinner } from "react-icons/fa";
 import { LicenseInterface } from "shared/enterprise";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { OWNER_JOB_TITLES } from "shared/constants";
@@ -22,6 +21,7 @@ import Callout from "@/ui/Callout";
 import type { Status } from "@/ui/HelperText";
 import { useAuth } from "@/services/auth";
 import EditOrganizationMessages from "@/components/Admin/EditOrganizationMessages";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export type SuperAdminOrganizationUsage = {
   seats: {
@@ -131,7 +131,15 @@ function displaySubscriptionStatus(
   return sub.status;
 }
 
-function OrgCard({ title, children }: { title: string; children: ReactNode }) {
+function OrgCard({
+  title,
+  titleRight,
+  children,
+}: {
+  title: string;
+  titleRight?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <div
       className="bg-white border rounded p-3 h-100 d-flex flex-column"
@@ -143,8 +151,15 @@ function OrgCard({ title, children }: { title: string; children: ReactNode }) {
         color: "var(--text-color-main)",
       }}
     >
-      <div className="font-weight-bold mb-2 small text-uppercase text-muted">
-        {title}
+      <div className="d-flex justify-content-between align-items-center gap-2 mb-2">
+        <div className="font-weight-bold small text-uppercase text-muted">
+          {title}
+        </div>
+        {titleRight != null ? (
+          <div className="flex-shrink-0" style={{ textTransform: "none" }}>
+            {titleRight}
+          </div>
+        ) : null}
       </div>
       <div className="flex-grow-1" style={{ minHeight: 0 }}>
         {children}
@@ -191,26 +206,6 @@ function KV({ label, children }: { label: ReactNode; children: ReactNode }) {
   );
 }
 
-function JsonCollapsible({ label, json }: { label: string; json: unknown }) {
-  return (
-    <Collapsible
-      trigger={
-        <button
-          type="button"
-          className="btn btn-link btn-sm p-0 d-flex align-items-center"
-        >
-          {label} <FaAngleRight className="chevron ml-1" />
-        </button>
-      }
-      transitionTime={150}
-    >
-      <div className="mt-2" style={{ maxHeight: 360, overflow: "auto" }}>
-        <Code language="json" code={stringify(json)} />
-      </div>
-    </Collapsible>
-  );
-}
-
 function formatUsageInt(n: number | null | undefined): string {
   if (n === null || n === undefined) return "—";
   return n.toLocaleString();
@@ -230,6 +225,7 @@ export const OrganizationSuperAdminExpanded: FC<{
   onOrgListRefresh: () => void;
   onOpenEditSSO: () => void;
   onOpenCreateManagedWarehouse: () => void;
+  onSwitchToOrganization: () => void;
 }> = ({
   organization,
   ssoInfo,
@@ -244,10 +240,14 @@ export const OrganizationSuperAdminExpanded: FC<{
   onOrgListRefresh,
   onOpenEditSSO,
   onOpenCreateManagedWarehouse,
+  onSwitchToOrganization,
 }) => {
   const { members, messages } = organization;
   const { apiCall } = useAuth();
   const [messagesModalOpen, setMessagesModalOpen] = useState(false);
+  const [rawJsonModal, setRawJsonModal] = useState<
+    "organization" | "license" | null
+  >(null);
 
   const orbSub = license?.orbSubscription;
   const stripeFromLicense = license?.stripeSubscription;
@@ -285,21 +285,55 @@ export const OrganizationSuperAdminExpanded: FC<{
           close={() => setMessagesModalOpen(false)}
         />
       )}
+      {rawJsonModal === "organization" && (
+        <ModalStandard
+          trackingEventModalType=""
+          open={true}
+          header="Full organization JSON"
+          close={() => setRawJsonModal(null)}
+          size="lg"
+        >
+          <Code language="json" code={stringify(organization)} />
+        </ModalStandard>
+      )}
+      {rawJsonModal === "license" && license && (
+        <ModalStandard
+          trackingEventModalType=""
+          open={true}
+          header="Full license JSON"
+          close={() => setRawJsonModal(null)}
+          size="lg"
+        >
+          <Code language="json" code={stringify(license)} />
+        </ModalStandard>
+      )}
 
       <div className="w-100" style={{ minWidth: 0, maxWidth: "100%" }}>
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
             gap: 12,
             width: "100%",
           }}
         >
-          <OrgCard title="Info">
+          <OrgCard
+            title="Info"
+            titleRight={
+              <a
+                href="#"
+                className="btn btn-link btn-sm p-0 font-weight-normal"
+                onClick={(e) => {
+                  e.preventDefault();
+                  onSwitchToOrganization();
+                }}
+              >
+                Impersonate Org
+              </a>
+            }
+          >
             <KV label="Name">{organization.name}</KV>
-            <KV label="Id">
-              <code className="small">{organization.id}</code>
-            </KV>
+            <KV label="Id">{organization.id}</KV>
             <KV label="Owner email">{organization.ownerEmail}</KV>
             <KV label="Usage intent">
               {formatUsageIntentLabel(organization.demographicData)}
@@ -345,10 +379,13 @@ export const OrganizationSuperAdminExpanded: FC<{
             </KV>
 
             <div className="mt-2">
-              <JsonCollapsible
-                label="Full organization JSON"
-                json={organization}
-              />
+              <button
+                type="button"
+                className="btn btn-link btn-sm p-0"
+                onClick={() => setRawJsonModal("organization")}
+              >
+                Full organization JSON
+              </button>
             </div>
           </OrgCard>
           <OrgCard title="Current state">
@@ -444,80 +481,6 @@ export const OrganizationSuperAdminExpanded: FC<{
               </>
             )}
           </OrgCard>
-          <OrgCard title="Messages / Alerts">
-            {(messages?.length ?? 0) === 0 ? (
-              <>
-                <div className="text-muted small mb-2">
-                  No messages configured.
-                </div>
-                {isCloud() && canWrite && (
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-primary"
-                    onClick={() => setMessagesModalOpen(true)}
-                  >
-                    Add message
-                  </button>
-                )}
-                {isCloud() && !canWrite && (
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-secondary"
-                    onClick={() => setMessagesModalOpen(true)}
-                  >
-                    View messages
-                  </button>
-                )}
-              </>
-            ) : (
-              <>
-                <div
-                  className="d-flex flex-column mb-2"
-                  style={{ gap: "0.5rem", maxHeight: 320, overflow: "auto" }}
-                >
-                  {(messages || []).map((m: OrganizationMessage, i: number) => (
-                    <Callout
-                      key={`org-msg-${organization.id}-${i}-${m.level}`}
-                      status={orgMessageLevelToCalloutStatus(m.level)}
-                      size="sm"
-                      contentsAs="div"
-                    >
-                      <Markdown>{m.message}</Markdown>
-                    </Callout>
-                  ))}
-                </div>
-                {isCloud() && canWrite && (
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-primary"
-                    onClick={() => setMessagesModalOpen(true)}
-                  >
-                    Edit messages
-                  </button>
-                )}
-                {isCloud() && !canWrite && (
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-secondary"
-                    onClick={() => setMessagesModalOpen(true)}
-                  >
-                    View messages
-                  </button>
-                )}
-              </>
-            )}
-          </OrgCard>
-        </div>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-            gap: 12,
-            marginTop: 12,
-            width: "100%",
-          }}
-        >
           <OrgCard title="License / subscription">
             <KV label="License key">
               {organization.licenseKey ? (
@@ -612,7 +575,13 @@ export const OrganizationSuperAdminExpanded: FC<{
             )}
             {!licenseLoading && license && (
               <div className="mt-2">
-                <JsonCollapsible label="Full license JSON" json={license} />
+                <button
+                  type="button"
+                  className="btn btn-link btn-sm p-0"
+                  onClick={() => setRawJsonModal("license")}
+                >
+                  Full license JSON
+                </button>
               </div>
             )}
             {!licenseLoading && !license && (
@@ -622,6 +591,81 @@ export const OrganizationSuperAdminExpanded: FC<{
               </div>
             )}
           </OrgCard>
+
+          <OrgCard title="Messages / Alerts">
+            {(messages?.length ?? 0) === 0 ? (
+              <>
+                <div className="text-muted small mb-2">
+                  No messages configured.
+                </div>
+                {isCloud() && canWrite && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    onClick={() => setMessagesModalOpen(true)}
+                  >
+                    Add message
+                  </button>
+                )}
+                {isCloud() && !canWrite && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={() => setMessagesModalOpen(true)}
+                  >
+                    View messages
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <div
+                  className="d-flex flex-column mb-2"
+                  style={{ gap: "0.5rem", maxHeight: 320, overflow: "auto" }}
+                >
+                  {(messages || []).map((m: OrganizationMessage, i: number) => (
+                    <Callout
+                      key={`org-msg-${organization.id}-${i}-${m.level}`}
+                      status={orgMessageLevelToCalloutStatus(m.level)}
+                      size="sm"
+                      contentsAs="div"
+                    >
+                      <Markdown>{m.message}</Markdown>
+                    </Callout>
+                  ))}
+                </div>
+                {isCloud() && canWrite && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-primary"
+                    onClick={() => setMessagesModalOpen(true)}
+                  >
+                    Edit messages
+                  </button>
+                )}
+                {isCloud() && !canWrite && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={() => setMessagesModalOpen(true)}
+                  >
+                    View messages
+                  </button>
+                )}
+              </>
+            )}
+          </OrgCard>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 4fr) minmax(0, 6fr)",
+            gap: 12,
+            marginTop: 12,
+            width: "100%",
+          }}
+        >
           <OrgCardFullWidth title="Usage">
             {orgUsageLoading && (
               <div className="py-3">
@@ -635,55 +679,13 @@ export const OrganizationSuperAdminExpanded: FC<{
             )}
             {orgUsage && !orgUsageLoading && (
               <>
-                <div className="font-weight-bold small text-uppercase text-muted mb-2">
-                  Seats
-                </div>
-                <div
-                  className="d-flex flex-wrap small mb-3"
-                  style={{ gap: "1rem" }}
-                >
-                  <span>
-                    <span className="text-muted">Full members:</span>{" "}
-                    <span className="font-weight-bold">
-                      {formatUsageInt(orgUsage.seats.fullMembers)}
-                    </span>
-                  </span>
-                  <span>
-                    <span className="text-muted">Read-only members:</span>{" "}
-                    <span className="font-weight-bold">
-                      {formatUsageInt(orgUsage.seats.readonlyMembers)}
-                    </span>
-                  </span>
-                  <span>
-                    <span className="text-muted">Invited:</span>{" "}
-                    <span className="font-weight-bold">
-                      {formatUsageInt(orgUsage.seats.invited)}
-                    </span>
-                  </span>
-                  <span>
-                    <span className="text-muted">
-                      Overall (members + invites):
-                    </span>{" "}
-                    <span className="font-weight-bold">
-                      {formatUsageInt(orgUsage.seats.overall)}
-                    </span>
-                  </span>
-                </div>
-
-                <div className="font-weight-bold small text-uppercase text-muted mb-2">
-                  Activity
-                </div>
                 <div className="table-responsive">
                   <table className="table table-sm table-bordered mb-0 w-100">
                     <thead>
                       <tr>
                         <th>Stat</th>
-                        <th className="text-right text-nowrap">
-                          Past month (30 d)
-                        </th>
-                        <th className="text-right text-nowrap">
-                          Past year (365 d)
-                        </th>
+                        <th className="text-right text-nowrap">Past month</th>
+                        <th className="text-right text-nowrap">Past year</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -795,30 +797,38 @@ export const OrganizationSuperAdminExpanded: FC<{
               </>
             )}
           </OrgCardFullWidth>
-        </div>
-
-        <div
-          style={{
-            marginTop: 12,
-            width: "100%",
-            minWidth: 0,
-            maxWidth: "100%",
-          }}
-        >
           <OrgCardFullWidth title="Members">
-            <div
-              className="d-flex flex-wrap small mb-2"
-              style={{ gap: "0.75rem" }}
-            >
-              <span>
-                <span className="font-weight-bold">Seats in use:</span>{" "}
-                {members.length}
-              </span>
-              <span>
-                <span className="font-weight-bold">Invited:</span>{" "}
-                {organization.invites.length}
-              </span>
-            </div>
+            {orgUsage && (
+              <div
+                className="d-flex flex-wrap small mb-3"
+                style={{ gap: "1rem" }}
+              >
+                <span>
+                  <span className="text-muted">Total seats:</span>{" "}
+                  <span className="font-weight-bold">
+                    {formatUsageInt(orgUsage.seats.overall)}
+                  </span>
+                </span>
+                <span>
+                  <span className="text-muted">Full members:</span>{" "}
+                  <span className="font-weight-bold">
+                    {formatUsageInt(orgUsage.seats.fullMembers)}
+                  </span>
+                </span>
+                <span>
+                  <span className="text-muted">Read-only members:</span>{" "}
+                  <span className="font-weight-bold">
+                    {formatUsageInt(orgUsage.seats.readonlyMembers)}
+                  </span>
+                </span>
+                <span>
+                  <span className="text-muted">Invited:</span>{" "}
+                  <span className="font-weight-bold">
+                    {formatUsageInt(orgUsage.seats.invited)}
+                  </span>
+                </span>
+              </div>
+            )}
             <div
               className="table-responsive"
               style={{ maxHeight: 400, overflow: "auto" }}
@@ -832,8 +842,8 @@ export const OrganizationSuperAdminExpanded: FC<{
                       <th>Name</th>
                       <th>Email</th>
                       <th>Role</th>
-                      <th>Id</th>
                       <th>Joined</th>
+                      <th>Last login</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -846,11 +856,11 @@ export const OrganizationSuperAdminExpanded: FC<{
                             {info?.email ?? "—"}
                           </td>
                           <td className="small">{m.role}</td>
-                          <td className="small">
-                            <code>{m.id}</code>
-                          </td>
                           <td className="small text-nowrap">
                             {m.dateCreated ? date(m.dateCreated) : "—"}
+                          </td>
+                          <td className="small text-nowrap">
+                            {m.lastLoginDate ? date(m.lastLoginDate) : "—"}
                           </td>
                         </tr>
                       );

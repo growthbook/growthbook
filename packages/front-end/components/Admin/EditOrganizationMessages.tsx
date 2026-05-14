@@ -4,6 +4,8 @@ import {
   OrganizationMessage,
 } from "shared/types/organization";
 import { canSuperAdminWrite } from "shared/validators";
+import TextareaAutosize from "react-textarea-autosize";
+import { Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -12,17 +14,24 @@ import Callout from "@/ui/Callout";
 
 type MessageWithId = OrganizationMessage & { id: string };
 
+function emptyMessage(): MessageWithId {
+  return { id: crypto.randomUUID(), message: "", level: "info" };
+}
+
 const EditOrganizationMessages: FC<{
   organization: OrganizationInterface;
   onSaved: () => void;
   close: () => void;
 }> = ({ organization, onSaved, close }) => {
-  const [messages, setMessages] = useState<MessageWithId[]>(
-    (organization.messages || []).map((m) => ({
+  // When there are no saved messages yet, seed the form with one blank row so
+  // the user can start typing immediately.
+  const [messages, setMessages] = useState<MessageWithId[]>(() => {
+    const existing = (organization.messages || []).map((m) => ({
       ...m,
       id: crypto.randomUUID(),
-    })),
-  );
+    }));
+    return existing.length ? existing : [emptyMessage()];
+  });
 
   const { apiCall } = useAuth();
   const { superAdmin } = useUser();
@@ -43,10 +52,7 @@ const EditOrganizationMessages: FC<{
   };
 
   const addMessage = () => {
-    setMessages([
-      ...messages,
-      { id: crypto.randomUUID(), message: "", level: "info" },
-    ]);
+    setMessages([...messages, emptyMessage()]);
   };
 
   const updateMessage = (
@@ -98,14 +104,11 @@ const EditOrganizationMessages: FC<{
         Shown to all users in this organization. Markdown supported.
       </div>
       {messages.map((msg) => (
-        <div
-          key={msg.id}
-          className="d-flex gap-2 mb-2 align-items-center flex-wrap"
-        >
-          <input
-            type="text"
+        <Flex gap="2" align="start" key={msg.id}>
+          <TextareaAutosize
             className="form-control form-control-sm flex-grow-1"
-            style={{ minWidth: 160 }}
+            style={{ minWidth: 160, resize: "none" }}
+            minRows={1}
             placeholder="Message (Markdown supported)"
             value={msg.message}
             disabled={!canWrite}
@@ -138,7 +141,7 @@ const EditOrganizationMessages: FC<{
               &times;
             </button>
           )}
-        </div>
+        </Flex>
       ))}
     </ModalStandard>
   );

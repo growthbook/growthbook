@@ -306,16 +306,9 @@ function OrganizationRow({
         })}
       >
         <td>
-          <a
-            className={clsx("mb-1 h5")}
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              switchTo(organization);
-            }}
-          >
+          <span className={clsx("mb-1 h5 d-inline-block")}>
             {organization.name}
-          </a>
+          </span>
         </td>
         <td>{organization.ownerEmail}</td>
         <td>{date(organization.dateCreated)}</td>
@@ -391,6 +384,7 @@ function OrganizationRow({
               onOrgListRefresh={onEdit}
               onOpenEditSSO={() => setEditSSOOpen(true)}
               onOpenCreateManagedWarehouse={() => setClickhouseModalOpen(true)}
+              onSwitchToOrganization={() => switchTo(organization)}
             />
           </td>
         </tr>
