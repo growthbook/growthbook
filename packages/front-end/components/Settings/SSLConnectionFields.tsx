@@ -50,7 +50,6 @@ export default function SSLConnectionFields({
         <div className="col-md-12 mb-3">
           <div className="p-2 bg-light border">
             <Field
-              size="legacy"
               label="CA Cert (optional)"
               textarea
               placeholder={`-----BEGIN CERTIFICATE-----\nMIIE...`}
@@ -60,7 +59,6 @@ export default function SSLConnectionFields({
               onChange={onParamChange}
             />
             <Field
-              size="legacy"
               label="Client Cert"
               textarea
               placeholder={`-----BEGIN CERTIFICATE-----\nMIIE...`}
@@ -70,7 +68,6 @@ export default function SSLConnectionFields({
               onChange={onParamChange}
             />
             <Field
-              size="legacy"
               label="Client Key"
               textarea
               placeholder={`-----BEGIN CERTIFICATE-----\nMIIE...`}

@@ -321,13 +321,11 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         </div>
       )}
       <Field
-        size="legacy"
         label="Column"
         {...form.register("column")}
         disabled={!!existing}
       />
       <SelectField
-        size="legacy"
         label="Data Type"
         value={form.watch("datatype")}
         onChange={(f) => form.setValue("datatype", f as FactTableColumnType)}
@@ -367,7 +365,6 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       />
       {form.watch("datatype") === "number" && (
         <SelectField
-          size="legacy"
           label="Number Format"
           value={form.watch("numberFormat") || ""}
           helpText="Used to properly format numbers in the UI"
@@ -463,7 +460,6 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                           />
                           <div style={{ minWidth: 115 }}>
                             <SelectField
-                              size="legacy"
                               value={newJSONField.value}
                               onChange={(f) =>
                                 setNewJSONField({
@@ -541,7 +537,6 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       )}
 
       <Field
-        size="legacy"
         label="Display Name"
         {...form.register("name")}
         placeholder={form.watch("column")}
@@ -869,7 +864,6 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                         <Flex mt="2" gap="2" align="center">
                           <div style={{ flex: 1 }}>
                             <Field
-                              size="legacy"
                               style={{ height: 28 }}
                               value={newSliceValue}
                               onChange={(e) => setNewSliceValue(e.target.value)}
@@ -941,7 +935,6 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                         </div>
                       )}
                       <MultiSelectField
-                        size="legacy"
                         value={form.watch("autoSlices") || []}
                         onChange={(values) => {
                           if (values.length > maxMetricSliceLevels) {

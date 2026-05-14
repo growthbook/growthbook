@@ -50,7 +50,6 @@ export default function RuleEnvironmentScopeField({
       {!allEnvironments && (
         <Box pl="5">
           <MultiSelectField
-            size="legacy"
             value={selectedEnvironments}
             onChange={(vals) => setSelectedEnvironments(vals)}
             options={options}

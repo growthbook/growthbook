@@ -1077,7 +1077,6 @@ export default function FeaturesOverview({
                     )}
                     {editingTitle ? (
                       <Field
-                        size="legacy"
                         autoFocus
                         value={titleDraft}
                         placeholder={`Revision ${revision.version}`}
@@ -2075,7 +2074,6 @@ export default function FeaturesOverview({
                   )}
                   {editingNewDraftTitle ? (
                     <Field
-                      size="legacy"
                       autoFocus
                       value={newDraftTitle}
                       placeholder={`Revision ${Math.max(0, ...revisionList.map((r) => r.version)) + 1}`}
@@ -2132,7 +2130,6 @@ export default function FeaturesOverview({
               </Box>
               {showNewDraftNotes ? (
                 <Field
-                  size="legacy"
                   label="Notes"
                   labelClassName="font-weight-bold"
                   textarea

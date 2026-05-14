@@ -110,7 +110,6 @@ export default function FeaturesDraftTable() {
         <div className="row mb-2 align-items-center">
           <div className="col-auto">
             <Field
-              size="legacy"
               placeholder="Search..."
               type="search"
               {...searchInputProps}

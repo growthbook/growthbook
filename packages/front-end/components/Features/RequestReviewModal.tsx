@@ -600,7 +600,6 @@ export default function RequestReviewModal({
                 {(!canReview || approved) && (
                   <div className="mt-3" id="comment-section">
                     <Field
-                      size="legacy"
                       label="Add a Comment (optional)"
                       textarea
                       placeholder="Summary of changes..."
@@ -688,7 +687,6 @@ export default function RequestReviewModal({
           <div>
             <h4>Leave a Comment</h4>
             <Field
-              size="legacy"
               placeholder="Leave a comment"
               textarea
               className="mb-3 mt-3"

@@ -108,7 +108,6 @@ export default function RevisionVersionSelector({
       }}
     >
       <SelectField
-        size="legacy"
         value={selectedValue}
         options={options}
         sort={false}

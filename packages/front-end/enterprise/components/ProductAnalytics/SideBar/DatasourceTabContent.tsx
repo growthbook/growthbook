@@ -94,7 +94,6 @@ export default function DatasourceTabContent() {
                   Value type
                 </Text>
                 <SelectField
-                  size="legacy"
                   value={v.valueType}
                   onChange={(val) =>
                     updateValueInDataset(idx, {
@@ -122,7 +121,6 @@ export default function DatasourceTabContent() {
                       Value column
                     </Text>
                     <SelectField
-                      size="legacy"
                       value={v.valueColumn ?? ""}
                       onChange={(val) =>
                         updateValueInDataset(idx, {

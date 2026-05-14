@@ -688,7 +688,6 @@ export default function ExperimentHeader({
           </div>
 
           <SelectField
-            size="legacy"
             label="View access"
             value={shareLevel}
             onChange={(v: ShareLevel) => setShareLevel(v)}

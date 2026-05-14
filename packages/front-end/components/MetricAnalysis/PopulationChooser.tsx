@@ -69,7 +69,6 @@ export default function PopulationChooser({
         </div>
       )}
       <SelectField
-        size="legacy"
         label={
           newStyle ? (
             <Text as="label" size="3" weight="medium">

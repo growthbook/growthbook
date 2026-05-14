@@ -201,11 +201,10 @@ export default function FactTableModal({
           }
         })}
       >
-        <Field size="legacy" label="Name" {...form.register("name")} required />
+        <Field label="Name" {...form.register("name")} required />
 
         {
           <SelectField
-            size="legacy"
             label="Data Source"
             value={form.watch("datasource")}
             onChange={(v) => {
@@ -228,7 +227,6 @@ export default function FactTableModal({
 
         {selectedDataSource && usesEventName(form.watch("sql")) && (
           <Field
-            size="legacy"
             label="Event Name in Database"
             helpText="Available as a template variable in your SQL"
             placeholder={form.watch("name")}

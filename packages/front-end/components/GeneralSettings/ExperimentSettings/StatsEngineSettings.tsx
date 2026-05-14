@@ -142,7 +142,6 @@ export default function StatsEngineSettings() {
               </Box>
               <Box width="140px" mb="4">
                 <Field
-                  size="legacy"
                   type="number"
                   style={{
                     borderColor: regressionAdjustmentDaysHighlightColor,

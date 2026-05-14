@@ -285,7 +285,6 @@ export default function RestoreConfigYamlButton({
             </div>
 
             <Field
-              size="legacy"
               textarea
               label={
                 <>

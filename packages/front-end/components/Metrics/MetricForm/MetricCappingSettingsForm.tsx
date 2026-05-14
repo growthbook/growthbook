@@ -33,7 +33,6 @@ export function MetricCappingSettingsForm({
   return (
     <div className="form-group">
       <SelectField
-        size="legacy"
         label="Cap User Values?"
         value={form.watch("cappingSettings.type")}
         onChange={(v: CappingType) => {
@@ -53,7 +52,6 @@ export function MetricCappingSettingsForm({
         {form.watch("cappingSettings.type") ? (
           <>
             <Field
-              size="legacy"
               label="Capped Value"
               type="number"
               step="any"

@@ -140,7 +140,6 @@ export default function DashboardModal({
     helpText?: string;
   }) => (
     <SelectField
-      size="legacy"
       label="View access"
       disabled={disabled}
       helpText={helpText}
@@ -168,7 +167,6 @@ export default function DashboardModal({
     helpText?: string;
   }) => (
     <SelectField
-      size="legacy"
       label="Edit access"
       disabled={disabled || form.watch("shareLevel") === "private"}
       helpText={helpText}
@@ -211,7 +209,6 @@ export default function DashboardModal({
     >
       <Flex direction="column" gap="3">
         <Field
-          size="legacy"
           label="Name"
           placeholder="Dashboard name"
           {...form.register("title")}
@@ -226,7 +223,6 @@ export default function DashboardModal({
         {isGeneralDashboard ? (
           <>
             <MultiSelectField
-              size="legacy"
               label="Projects"
               placeholder="All projects"
               options={projectsOptions}

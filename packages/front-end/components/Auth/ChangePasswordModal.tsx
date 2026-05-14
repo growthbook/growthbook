@@ -32,7 +32,6 @@ const ChangePasswordModal: FC<{
       })}
     >
       <Field
-        size="legacy"
         label="Current Password"
         type="password"
         required
@@ -47,7 +46,6 @@ const ChangePasswordModal: FC<{
         }
       />
       <Field
-        size="legacy"
         label="New Password"
         type="password"
         required

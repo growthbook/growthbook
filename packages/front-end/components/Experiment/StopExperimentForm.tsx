@@ -236,7 +236,6 @@ const StopExperimentForm: FC<{
         <Flex direction={"column"} gap="0">
           <div className="row">
             <SelectField
-              size="legacy"
               label="Conclusion"
               containerClassName="col-lg"
               className={decisionDoesNotMatchRecommendedResult ? "warning" : ""}
@@ -276,7 +275,6 @@ const StopExperimentForm: FC<{
             />
             {form.watch("results") === "won" && variations.length > 2 && (
               <SelectField
-                size="legacy"
                 label="Winner"
                 containerClassName="col-lg"
                 className={
@@ -351,7 +349,6 @@ const StopExperimentForm: FC<{
               <>
                 <div className="row">
                   <SelectField
-                    size="legacy"
                     label="Variation to Release"
                     containerClassName="col"
                     value={form.watch("releasedVariationId")}

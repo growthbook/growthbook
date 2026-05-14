@@ -733,7 +733,6 @@ const ShareModal = ({
                           <div className="filters md-form row mb-3 align-items-center">
                             <div className="col">
                               <Field
-                                size="legacy"
                                 placeholder="Search..."
                                 type="search"
                                 {...searchInputProps}
@@ -939,7 +938,6 @@ const ShareModal = ({
                         </label>
                         <Box className="">
                           <SelectField
-                            size="legacy"
                             value={currentThemeValue}
                             onChange={handleThemeChange}
                             options={presThemes}
@@ -1065,7 +1063,6 @@ const ShareModal = ({
                             </label>
                             <Box>
                               <SelectField
-                                size="legacy"
                                 value={
                                   form.watch("customTheme.celebration") ??
                                   "none"
@@ -1102,7 +1099,6 @@ const ShareModal = ({
                             </label>
                             <Box>
                               <SelectField
-                                size="legacy"
                                 value={
                                   form.watch("customTheme.transition") ?? "fade"
                                 }
@@ -1124,7 +1120,6 @@ const ShareModal = ({
                             </label>
                             <Box>
                               <SelectField
-                                size="legacy"
                                 value={
                                   form.watch("customTheme.headingFont") ?? ""
                                 }
@@ -1137,7 +1132,6 @@ const ShareModal = ({
                             <label className="text-right mb-0">Body font</label>
                             <Box>
                               <SelectField
-                                size="legacy"
                                 value={form.watch("customTheme.bodyFont") ?? ""}
                                 onChange={(v) =>
                                   form.setValue("customTheme.bodyFont", v)

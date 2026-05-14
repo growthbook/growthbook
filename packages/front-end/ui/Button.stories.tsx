@@ -18,7 +18,6 @@ export default function ButtonStories() {
     <div>
       <div className="mb-2 w-200px">
         <SelectField
-          size="legacy"
           value={size}
           options={[
             { label: "extra sm", value: "xs" },

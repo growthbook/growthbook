@@ -47,7 +47,6 @@ export default function StatsEngineSelect({
 
   return (
     <SelectField
-      size="legacy"
       label={label}
       className={className}
       containerClassName="mb-3"

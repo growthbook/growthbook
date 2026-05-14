@@ -1116,7 +1116,6 @@ export default function ImportFromStatsig() {
             <div className="row">
               <div className="col">
                 <Field
-                  size="legacy"
                   label="API Token"
                   value={token}
                   type="password"
@@ -1126,7 +1125,6 @@ export default function ImportFromStatsig() {
               </div>
               <div className="col-auto">
                 <Field
-                  size="legacy"
                   label="Max requests per 10 secs"
                   type="number"
                   value={intervalCap}
@@ -1152,7 +1150,6 @@ export default function ImportFromStatsig() {
               )}
               <div className="col-auto" style={{ maxWidth: 350 }}>
                 <Field
-                  size="legacy"
                   label="GrowthBook Project"
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
@@ -1162,7 +1159,6 @@ export default function ImportFromStatsig() {
               </div>
               <div className="col-auto">
                 <SelectField
-                  size="legacy"
                   label="Data Source"
                   initialOption="Select..."
                   options={dataSourceOptions}
@@ -1338,7 +1334,6 @@ export default function ImportFromStatsig() {
                         Filter items by tags
                       </label>
                       <MultiSelectField
-                        size="legacy"
                         placeholder="All tags"
                         value={selectByTags}
                         options={getAllTags.map((tag) => ({

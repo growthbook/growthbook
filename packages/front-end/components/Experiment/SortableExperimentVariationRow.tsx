@@ -135,7 +135,6 @@ export const ExperimentVariationRow = forwardRef<
         <td key={`${variation.id}__${i}__2`}>
           {setVariations ? (
             <Field
-              size="legacy"
               label=""
               placeholder={`${getVariationDefaultName(variation, valueType)}`}
               value={variation.name || ""}
@@ -158,7 +157,6 @@ export const ExperimentVariationRow = forwardRef<
               <div className="col d-flex flex-row">
                 <div className={`position-relative ${styles.percentInputWrap}`}>
                   <Field
-                    size="legacy"
                     id={`${variation.id}__${i}__3__input`}
                     style={{ width: 95 }}
                     value={val}

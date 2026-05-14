@@ -36,7 +36,7 @@ export default function EditTitleDescription({
       close={cancel}
       header="Edit Report"
     >
-      <Field size="legacy" label="Title" {...form.register("title")} />
+      <Field label="Title" {...form.register("title")} />
       <div className="form-group">
         <label>Description</label>
         <MarkdownInput

@@ -124,12 +124,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
     >
       <div className="row">
         <div className="col">
-          <Field
-            size="legacy"
-            label="Name"
-            {...form.register("name")}
-            required
-          />
+          <Field label="Name" {...form.register("name")} required />
 
           {showDescription ? (
             <div className="form-group">
@@ -154,7 +149,6 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
           )}
 
           <Field
-            size="legacy"
             label="Filter SQL"
             required
             textarea

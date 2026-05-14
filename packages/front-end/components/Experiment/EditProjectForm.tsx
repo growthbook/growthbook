@@ -58,7 +58,6 @@ const EditProjectForm: FC<{
     >
       {additionalMessage}
       <SelectField
-        size="legacy"
         label={label}
         value={form.watch("project")}
         onChange={(v) => form.setValue("project", v)}

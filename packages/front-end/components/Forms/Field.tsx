@@ -5,7 +5,7 @@ import TextareaAutosize, {
 } from "react-textarea-autosize";
 import HelperText from "@/ui/HelperText";
 
-export type FieldSize = "sm" | "md" | "legacy" | "lg";
+export type FieldSize = "sm" | "md" | "lg";
 
 export type BaseFieldProps = {
   label?: ReactNode;

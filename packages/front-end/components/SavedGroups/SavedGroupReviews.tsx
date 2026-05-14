@@ -216,12 +216,7 @@ const SavedGroupReviews: FC = () => {
     <Box mt="4">
       <Flex gap="4" align="start" justify="between" mb="4" wrap="wrap">
         <Box style={{ flexBasis: 300, flexShrink: 0 }}>
-          <Field
-            size="legacy"
-            placeholder="Search..."
-            type="search"
-            {...searchInputProps}
-          />
+          <Field placeholder="Search..." type="search" {...searchInputProps} />
         </Box>
         <Flex gap="5" align="center">
           <FilterDropdown

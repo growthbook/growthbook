@@ -238,7 +238,6 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
       ) : (
         <>
           <StringArrayField
-            size="legacy"
             required
             label="Email Address"
             value={form.watch("email")}

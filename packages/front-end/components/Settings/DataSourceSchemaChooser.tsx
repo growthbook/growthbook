@@ -102,7 +102,6 @@ export default function DataSourceSchemaChooser({
                 ({ name, label, defaultValue, type, helpText }) => (
                   <div key={name} className="form-group">
                     <Field
-                      size="legacy"
                       label={label}
                       name={name}
                       defaultValue={defaultValue}

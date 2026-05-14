@@ -284,7 +284,6 @@ const ExperimentsPage = (): React.ReactElement => {
                   >
                     <Box flexBasis="300px" flexShrink="0">
                       <Field
-                        size="legacy"
                         placeholder="Search..."
                         type="search"
                         {...searchInputProps}

@@ -44,7 +44,6 @@ export default function MetricsSettings() {
             </Text>
             <Box width="200px">
               <Field
-                size="legacy"
                 type="number"
                 append="days"
                 containerClassName="mb-0"
@@ -76,7 +75,6 @@ export default function MetricsSettings() {
             <div>
               <div className="form-inline">
                 <Field
-                  size="legacy"
                   label="Minimum Metric Total"
                   type="number"
                   min={0}
@@ -102,7 +100,6 @@ export default function MetricsSettings() {
             <div>
               <div className="form-inline">
                 <Field
-                  size="legacy"
                   label="Maximum Percentage Change"
                   type="number"
                   min={0}
@@ -129,7 +126,6 @@ export default function MetricsSettings() {
             <div>
               <div className="form-inline">
                 <Field
-                  size="legacy"
                   label="Minimum Percentage Change"
                   type="number"
                   min={0}
@@ -156,7 +152,6 @@ export default function MetricsSettings() {
             <div>
               <div className="form-inline">
                 <Field
-                  size="legacy"
                   label="Target Minimum Detectable Effect"
                   type="number"
                   min={0}
@@ -186,7 +181,6 @@ export default function MetricsSettings() {
           {/* endregion Metrics Behavior Defaults */}
           <>
             <SelectField
-              size="legacy"
               label="Display Currency"
               value={form.watch("displayCurrency") || "USD"}
               options={currencyOptions}
@@ -256,7 +250,6 @@ export default function MetricsSettings() {
             </Box>
             <Box width="200px">
               <Field
-                size="legacy"
                 type="number"
                 min="0"
                 max="200"

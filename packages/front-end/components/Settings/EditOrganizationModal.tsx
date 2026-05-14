@@ -92,7 +92,6 @@ const EditOrganizationModal: FC<{
       cta="Save"
     >
       <Field
-        size="legacy"
         label="Organization Name"
         required
         {...form.register("name")}
@@ -100,7 +99,6 @@ const EditOrganizationModal: FC<{
       />
       {showInstallationName && (
         <Field
-          size="legacy"
           label="Installation Name"
           required
           {...form.register("installationName")}
@@ -110,7 +108,6 @@ const EditOrganizationModal: FC<{
 
       {existingEmails.length < 100 ? (
         <SelectField
-          size="legacy"
           label="Owner Email"
           value={form.watch("ownerEmail")}
           options={
@@ -127,7 +124,6 @@ const EditOrganizationModal: FC<{
         />
       ) : (
         <Field
-          size="legacy"
           label="Owner Email"
           type="email"
           {...form.register("ownerEmail")}

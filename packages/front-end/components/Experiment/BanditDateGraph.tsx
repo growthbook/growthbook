@@ -686,7 +686,6 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   Filter variations
                 </label>
                 <SelectField
-                  size="legacy"
                   style={{ width: 135 }}
                   containerClassName="select-dropdown-underline"
                   isSearchable={false}

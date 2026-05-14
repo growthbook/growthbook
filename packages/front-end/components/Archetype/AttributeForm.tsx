@@ -163,7 +163,6 @@ export default function AttributeForm({
               />
             ) : attribute.datatype === "enum" ? (
               <SelectField
-                size="legacy"
                 value={value as string}
                 onChange={(v) => {
                   // on change here does not trigger the form to change
@@ -181,7 +180,6 @@ export default function AttributeForm({
               />
             ) : attribute.datatype === "string[]" ? (
               <MultiSelectField
-                size="legacy"
                 options={options}
                 value={Array.isArray(value) ? value : []}
                 onChange={(value) => {
@@ -192,7 +190,6 @@ export default function AttributeForm({
               />
             ) : attribute.datatype === "number[]" ? (
               <MultiSelectField
-                size="legacy"
                 options={options}
                 value={Array.isArray(value) ? value.map(String) : []}
                 onChange={(value) => {
@@ -221,7 +218,6 @@ export default function AttributeForm({
                   />
                 ) : (
                   <Field
-                    size="legacy"
                     className=""
                     value={value as string}
                     onChange={(e) => {
@@ -236,7 +232,6 @@ export default function AttributeForm({
               </>
             ) : attribute.datatype === "number" ? (
               <Field
-                size="legacy"
                 className=""
                 type="number"
                 value={value as string}
@@ -249,7 +244,6 @@ export default function AttributeForm({
               />
             ) : (
               <Field
-                size="legacy"
                 className=""
                 value={value as string}
                 onChange={(e) => {
@@ -320,7 +314,6 @@ export default function AttributeForm({
               <div className="p-2">
                 <div className="form-group rounded">
                   <Field
-                    size="legacy"
                     label="JSON Values"
                     value={jsonAttributes}
                     onChange={(e) => {

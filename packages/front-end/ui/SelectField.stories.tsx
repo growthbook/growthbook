@@ -44,7 +44,6 @@ const GROUPED_OPTIONS = [
 function SizeStory() {
   const [v1, setV1] = useState("apple");
   const [v2, setV2] = useState("banana");
-  const [v3, setV3] = useState("mango");
   const [v4, setV4] = useState("cherry");
   return (
     <Flex direction="column" gap="3">
@@ -63,13 +62,6 @@ function SizeStory() {
         value={v2}
         options={FRUIT_OPTIONS}
         onChange={setV2}
-      />
-      <SelectField
-        label="Size legacy"
-        size="legacy"
-        value={v3}
-        options={FRUIT_OPTIONS}
-        onChange={setV3}
       />
       <SelectField
         label="Size medium"

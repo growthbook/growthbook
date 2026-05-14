@@ -79,7 +79,7 @@ export type SelectFieldProps = Omit<
   legacyLabelFormatting?: boolean;
   labelSize?: TextSizes;
   labelWeight?: TextWeights;
-  size?: "x-small" | "small" | "legacy" | "medium";
+  size?: "x-small" | "small" | "medium";
   errorLevel?: "error" | "warning";
 };
 
@@ -258,7 +258,7 @@ const SelectField: FC<SelectFieldProps> = ({
   legacyLabelFormatting = true,
   labelSize,
   labelWeight = "semibold",
-  size = "small" as "x-small" | "small" | "legacy" | "medium",
+  size = "small" as "x-small" | "small" | "medium",
   errorLevel = "error",
   ...otherProps
 }) => {
@@ -318,13 +318,11 @@ const SelectField: FC<SelectFieldProps> = ({
     const sizeMinHeight: Record<string, number> = {
       "x-small": 24,
       small: 32,
-      legacy: 36,
       medium: 40,
     };
     const sizeVPadding: Record<string, number> = {
       "x-small": 0,
       small: 0,
-      legacy: 2,
       medium: 4,
     };
     const prevControl = merged.control;

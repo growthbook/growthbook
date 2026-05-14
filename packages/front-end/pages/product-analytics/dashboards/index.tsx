@@ -312,7 +312,6 @@ export default function DashboardsPage() {
                 >
                   <Box flexBasis="300px" flexShrink="0">
                     <Field
-                      size="legacy"
                       placeholder="Search..."
                       type="search"
                       {...searchInputProps}

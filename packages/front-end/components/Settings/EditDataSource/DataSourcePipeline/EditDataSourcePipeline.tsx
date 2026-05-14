@@ -325,7 +325,6 @@ function IncrementalScopeSelector({
       {!form.watch("applyToAllExperiments") ? (
         <Box ml="23px">
           <MultiSelectField
-            size="legacy"
             value={form.watch("includedExperimentIds") ?? []}
             onChange={(v) => {
               form.setValue("includedExperimentIds", v);

@@ -51,7 +51,6 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
         value={[]}
         options={flatOptions}
         onChange={onChange}
@@ -72,7 +71,6 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
         value={[]}
         options={flatOptions}
         onChange={onChange}
@@ -93,7 +91,6 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
         value={[]}
         options={flatOptions}
         onChange={onChange}
@@ -114,7 +111,6 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
         value={[]}
         options={flatOptions}
         onChange={onChange}
@@ -135,7 +131,6 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
         value={[]}
         options={flatOptions}
         onChange={onChange}
@@ -156,7 +151,6 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
         value={[]}
         options={flatOptions}
         onChange={onChange}
@@ -177,7 +171,6 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
         value={[]}
         options={flatOptions}
         onChange={onChange}
@@ -198,7 +191,6 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
         value={[]}
         options={flatOptions}
         onChange={onChange}
@@ -219,7 +211,6 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
         value={[]}
         options={groupedOptions}
         onChange={onChange}
@@ -240,7 +231,6 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
         value={[]}
         options={groupedOptions}
         onChange={onChange}
@@ -261,7 +251,6 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
         value={["opt1"]}
         options={flatOptions}
         onChange={onChange}
@@ -282,7 +271,6 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
         value={[]}
         options={flatOptions}
         onChange={onChange}
@@ -304,7 +292,6 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
         value={[]}
         options={flatOptions}
         onChange={onChange}
@@ -328,12 +315,7 @@ describe("StringArrayField paste handling", () => {
   it("should parse comma-separated values", async () => {
     const onChange = vi.fn();
     renderWithProviders(
-      <StringArrayField
-        size="legacy"
-        value={[]}
-        onChange={onChange}
-        label="Test"
-      />,
+      <StringArrayField value={[]} onChange={onChange} label="Test" />,
     );
 
     const input = screen.getByRole("combobox");
@@ -348,12 +330,7 @@ describe("StringArrayField paste handling", () => {
   it("should parse tab-separated values", async () => {
     const onChange = vi.fn();
     renderWithProviders(
-      <StringArrayField
-        size="legacy"
-        value={[]}
-        onChange={onChange}
-        label="Test"
-      />,
+      <StringArrayField value={[]} onChange={onChange} label="Test" />,
     );
 
     const input = screen.getByRole("combobox");
@@ -368,12 +345,7 @@ describe("StringArrayField paste handling", () => {
   it("should parse newline-separated values", async () => {
     const onChange = vi.fn();
     renderWithProviders(
-      <StringArrayField
-        size="legacy"
-        value={[]}
-        onChange={onChange}
-        label="Test"
-      />,
+      <StringArrayField value={[]} onChange={onChange} label="Test" />,
     );
 
     const input = screen.getByRole("combobox");
@@ -388,12 +360,7 @@ describe("StringArrayField paste handling", () => {
   it("should parse mixed delimiters", async () => {
     const onChange = vi.fn();
     renderWithProviders(
-      <StringArrayField
-        size="legacy"
-        value={[]}
-        onChange={onChange}
-        label="Test"
-      />,
+      <StringArrayField value={[]} onChange={onChange} label="Test" />,
     );
 
     const input = screen.getByRole("combobox");
@@ -409,7 +376,6 @@ describe("StringArrayField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <StringArrayField
-        size="legacy"
         value={["foo"]}
         onChange={onChange}
         removeDuplicates={true}
@@ -430,7 +396,6 @@ describe("StringArrayField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <StringArrayField
-        size="legacy"
         value={[]}
         onChange={onChange}
         removeDuplicates={false}
@@ -451,7 +416,6 @@ describe("StringArrayField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <StringArrayField
-        size="legacy"
         value={[]}
         onChange={onChange}
         pattern="^[a-z]+$"
@@ -471,12 +435,7 @@ describe("StringArrayField paste handling", () => {
   it("should not trigger paste handler for single value without delimiters", () => {
     const onChange = vi.fn();
     renderWithProviders(
-      <StringArrayField
-        size="legacy"
-        value={[]}
-        onChange={onChange}
-        label="Test"
-      />,
+      <StringArrayField value={[]} onChange={onChange} label="Test" />,
     );
 
     const input = screen.getByRole("combobox");

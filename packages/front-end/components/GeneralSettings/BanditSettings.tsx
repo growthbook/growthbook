@@ -74,7 +74,6 @@ export default function BanditSettings({
               <Flex direction="row" align="center" gap="3">
                 <Box>
                   <Field
-                    size="legacy"
                     {...form.register("banditBurnInValue", {
                       valueAsNumber: true,
                     })}
@@ -88,7 +87,6 @@ export default function BanditSettings({
                 </Box>
                 <Box>
                   <SelectField
-                    size="legacy"
                     value={form.watch("banditBurnInUnit")}
                     onChange={(value) => {
                       form.setValue(
@@ -140,7 +138,6 @@ export default function BanditSettings({
               <Flex direction="row" align="center" gap="3">
                 <Box>
                   <Field
-                    size="legacy"
                     {...form.register("banditScheduleValue", {
                       valueAsNumber: true,
                     })}
@@ -154,7 +151,6 @@ export default function BanditSettings({
                 </Box>
                 <Box>
                   <SelectField
-                    size="legacy"
                     value={form.watch("banditScheduleUnit")}
                     onChange={(value) => {
                       form.setValue(

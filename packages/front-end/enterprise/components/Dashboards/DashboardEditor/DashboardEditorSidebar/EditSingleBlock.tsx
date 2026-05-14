@@ -878,7 +878,6 @@ export default function EditSingleBlock({
             )}
             {blockHasFieldOfType(block, "factMetricId", isString) && (
               <SelectField
-                size="legacy"
                 label="Metric"
                 labelClassName="font-weight-bold"
                 value={block.factMetricId}
@@ -928,7 +927,6 @@ export default function EditSingleBlock({
                 <>
                   <Box>
                     <MultiSelectField
-                      size="legacy"
                       label="Metrics"
                       labelClassName="font-weight-bold"
                       placeholder="All Metrics"
@@ -1179,7 +1177,6 @@ export default function EditSingleBlock({
                   ) &&
                     sliceOptions.length > 0 && (
                       <MultiSelectField
-                        size="legacy"
                         label="Slices"
                         labelClassName="font-weight-bold"
                         placeholder="Type to search..."
@@ -1220,7 +1217,6 @@ export default function EditSingleBlock({
                     shouldShowEditorField(block, "sortBy") &&
                     sortByOptions.length > 1 && (
                       <SelectField
-                        size="legacy"
                         label="Sort by"
                         labelClassName="font-weight-bold"
                         containerClassName="mb-0"
@@ -1254,7 +1250,6 @@ export default function EditSingleBlock({
                     (block.sortBy === "significance" ||
                       block.sortBy === "change") && (
                       <SelectField
-                        size="legacy"
                         label="Sort direction"
                         labelClassName="font-weight-bold"
                         containerClassName="mb-0"
@@ -1278,7 +1273,6 @@ export default function EditSingleBlock({
               )}
             {blockHasFieldOfType(block, "dimensionId", isString) && (
               <SelectField
-                size="legacy"
                 required
                 markRequired
                 label="Dimension"
@@ -1294,7 +1288,6 @@ export default function EditSingleBlock({
             {blockHasFieldOfType(block, "differenceType", isDifferenceType) &&
               shouldShowEditorField(block, "differenceType") && (
                 <SelectField
-                  size="legacy"
                   label="Difference Type"
                   labelClassName="font-weight-bold"
                   containerClassName="mb-0"
@@ -1318,7 +1311,6 @@ export default function EditSingleBlock({
             {blockHasFieldOfType(block, "baselineRow", isNumber) &&
               shouldShowEditorField(block, "baselineRow") && (
                 <SelectField
-                  size="legacy"
                   sort={false}
                   label="Baseline"
                   labelClassName="font-weight-bold"
@@ -1363,7 +1355,6 @@ export default function EditSingleBlock({
             {blockHasFieldOfType(block, "variationIds", isStringArray) &&
               shouldShowEditorField(block, "variationIds") && (
                 <MultiSelectField
-                  size="legacy"
                   sort={false}
                   label="Variations"
                   labelClassName="font-weight-bold"
@@ -1405,7 +1396,6 @@ export default function EditSingleBlock({
               )}
             {blockHasFieldOfType(block, "dimensionValues", isStringArray) && (
               <MultiSelectField
-                size="legacy"
                 label="Dimension Values"
                 labelClassName="font-weight-bold"
                 placeholder="Showing all values"
@@ -1530,7 +1520,6 @@ export default function EditSingleBlock({
                 ) : (
                   <>
                     <SelectField
-                      size="legacy"
                       required
                       labelClassName="font-weight-bold flex-grow-1"
                       containerClassName="mb-0"

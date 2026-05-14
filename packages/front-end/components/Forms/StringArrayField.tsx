@@ -11,7 +11,7 @@ import { Tooltip } from "@radix-ui/themes";
 import Field, { FieldProps } from "./Field";
 import { ReactSelectProps } from "./SelectField";
 
-export type StringArrayFieldSize = "small" | "legacy" | "medium";
+export type StringArrayFieldSize = "small" | "medium";
 
 export type Props = Omit<
   FieldProps,
@@ -214,12 +214,10 @@ export default function StringArrayField({
   const sizeStyles = useMemo(() => {
     const sizeMinHeight: Record<StringArrayFieldSize, number> = {
       small: 32,
-      legacy: 36,
       medium: 40,
     };
     const sizeVPadding: Record<StringArrayFieldSize, number> = {
       small: 0,
-      legacy: 2,
       medium: 4,
     };
     return {

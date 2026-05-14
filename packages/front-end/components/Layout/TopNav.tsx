@@ -417,7 +417,7 @@ const TopNav: FC<{
           header="Edit Profile"
           open={true}
         >
-          <Field size="legacy" label="Name" {...form.register("name")} />
+          <Field label="Name" {...form.register("name")} />
           <Checkbox
             id="allowCelebration"
             label="Allow celebration"

@@ -68,7 +68,6 @@ export default function EditHoldoutInfoModal({
       })}
     >
       <Field
-        size="legacy"
         autoFocus={focusSelector === "name"}
         label="Experiment Name"
         {...form.register("name")}
@@ -87,7 +86,6 @@ export default function EditHoldoutInfoModal({
         />
       </div>
       <MultiSelectField
-        size="legacy"
         label={
           <>
             Projects

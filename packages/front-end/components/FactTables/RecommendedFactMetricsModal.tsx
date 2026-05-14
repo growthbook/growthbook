@@ -248,7 +248,6 @@ export default function RecommendedFactMetricsModal({
         <div className="col-auto ml-auto">
           <div className="form-inline">
             <Field
-              size="legacy"
               label="Name Prefix"
               labelClassName="mr-2"
               value={namePrefix}

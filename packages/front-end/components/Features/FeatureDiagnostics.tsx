@@ -220,7 +220,6 @@ export default function FeatureDiagnostics({
 
       <Box width="400px">
         <SelectField
-          size="legacy"
           label="Select a Data Source"
           labelClassName="font-weight-bold"
           value={form.watch("datasourceId") ?? ""}
@@ -273,7 +272,6 @@ export default function FeatureDiagnostics({
             <Flex direction="row" justify="between" my="3">
               <Box flexBasis="40%" flexShrink="1" flexGrow="0">
                 <Field
-                  size="legacy"
                   placeholder="Search..."
                   type="search"
                   {...searchInputProps}

@@ -164,7 +164,6 @@ export default function FactSegmentForm({
           </div>
         ) : null}
         <Field
-          size="legacy"
           label="Name"
           required
           {...form.register("name")}
@@ -176,14 +175,12 @@ export default function FactSegmentForm({
           onChange={(v) => form.setValue("owner", v)}
         />
         <Field
-          size="legacy"
           label="Description"
           {...form.register("description")}
           textarea
           disabled={isReadOnly}
         />
         <SelectField
-          size="legacy"
           label="Data Source"
           required
           value={form.watch("datasource")}
@@ -205,7 +202,6 @@ export default function FactSegmentForm({
         {projects?.length > 0 && (
           <div className="form-group">
             <MultiSelectField
-              size="legacy"
               label={
                 <>
                   Projects{" "}
@@ -230,7 +226,6 @@ export default function FactSegmentForm({
           <div className="row align-items-center">
             <div className="col-auto">
               <SelectField
-                size="legacy"
                 label={"Fact Table"}
                 disabled={isReadOnly}
                 value={form.watch("factTableId")}
@@ -265,7 +260,6 @@ export default function FactSegmentForm({
             {factTable && factTable.filters.length > 0 ? (
               <div className="col-auto">
                 <MultiSelectField
-                  size="legacy"
                   label={
                     <>
                       Included Rows{" "}
@@ -304,7 +298,6 @@ export default function FactSegmentForm({
           </div>
         </div>
         <SelectField
-          size="legacy"
           label="Identifier"
           required
           disabled={isReadOnly}
