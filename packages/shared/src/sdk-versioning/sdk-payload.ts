@@ -311,7 +311,10 @@ export const replaceSavedGroups: (
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function getJSONValue(type: FeatureValueType, value: string): any {
-  if (type === "json") {
+  if (type === "json" || type === "object") {
+    // For `object`, callers in getFeatureDefinition route through
+    // resolveObjectValue (with schema filtering + sparse merge); this branch is
+    // only hit by direct callers without schema context. Best-effort parse.
     try {
       return JSON.parse(value);
     } catch (e) {

@@ -556,10 +556,12 @@ paths:
                     - string
                     - number
                     - json
+                    - object
                 defaultValue:
                   description: >-
                     Default value when feature is enabled. Type must match
-                    `valueType`.
+                    `valueType`. For `object` features, a JSON-stringified
+                    object whose keys match the `objectSchema`.
                   type: string
                 tags:
                   description: List of associated tags
@@ -1221,6 +1223,38 @@ paths:
                     Use JSON schema to validate the payload of a JSON-type
                     feature value (enterprise only).
                   type: string
+                objectSchema:
+                  description: >-
+                    Schema for `object`-type features: a fixed list of
+                    primitive-typed keys. Required when `valueType` is `object`.
+                  type: object
+                  properties:
+                    fields:
+                      minItems: 1
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          key:
+                            type: string
+                            minLength: 1
+                            maxLength: 64
+                            pattern: ^[A-Za-z_][A-Za-z0-9_]*$
+                          type:
+                            type: string
+                            enum:
+                              - string
+                              - number
+                              - boolean
+                          nullable:
+                            type: boolean
+                        required:
+                          - key
+                          - type
+                        additionalProperties: false
+                  required:
+                    - fields
+                  additionalProperties: false
                 customFields:
                   type: object
                   propertyNames:
@@ -1984,6 +2018,38 @@ paths:
                     Use JSON schema to validate the payload of a JSON-type
                     feature value (enterprise only).
                   type: string
+                objectSchema:
+                  description: >-
+                    Schema for `object`-type features: a fixed list of
+                    primitive-typed keys.
+                  type: object
+                  properties:
+                    fields:
+                      minItems: 1
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          key:
+                            type: string
+                            minLength: 1
+                            maxLength: 64
+                            pattern: ^[A-Za-z_][A-Za-z0-9_]*$
+                          type:
+                            type: string
+                            enum:
+                              - string
+                              - number
+                              - boolean
+                          nullable:
+                            type: boolean
+                        required:
+                          - key
+                          - type
+                        additionalProperties: false
+                  required:
+                    - fields
+                  additionalProperties: false
                 customFields:
                   type: object
                   propertyNames:
@@ -5012,10 +5078,12 @@ paths:
                     - string
                     - number
                     - json
+                    - object
                 defaultValue:
                   description: >-
                     Default value when feature is enabled. Type must match
-                    `valueType`.
+                    `valueType`. For `object` features, a JSON-stringified
+                    object whose keys match the `objectSchema`.
                   type: string
                 tags:
                   description: List of associated tags
@@ -5413,6 +5481,38 @@ paths:
                     Use JSON schema to validate the payload of a JSON-type
                     feature value (enterprise only).
                   type: string
+                objectSchema:
+                  description: >-
+                    Schema for `object`-type features: a fixed list of
+                    primitive-typed keys. Required when `valueType` is `object`.
+                  type: object
+                  properties:
+                    fields:
+                      minItems: 1
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          key:
+                            type: string
+                            minLength: 1
+                            maxLength: 64
+                            pattern: ^[A-Za-z_][A-Za-z0-9_]*$
+                          type:
+                            type: string
+                            enum:
+                              - string
+                              - number
+                              - boolean
+                          nullable:
+                            type: boolean
+                        required:
+                          - key
+                          - type
+                        additionalProperties: false
+                  required:
+                    - fields
+                  additionalProperties: false
                 customFields:
                   type: object
                   propertyNames:
@@ -5915,6 +6015,38 @@ paths:
                     Use JSON schema to validate the payload of a JSON-type
                     feature value (enterprise only).
                   type: string
+                objectSchema:
+                  description: >-
+                    Schema for `object`-type features: a fixed list of
+                    primitive-typed keys.
+                  type: object
+                  properties:
+                    fields:
+                      minItems: 1
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          key:
+                            type: string
+                            minLength: 1
+                            maxLength: 64
+                            pattern: ^[A-Za-z_][A-Za-z0-9_]*$
+                          type:
+                            type: string
+                            enum:
+                              - string
+                              - number
+                              - boolean
+                          nullable:
+                            type: boolean
+                        required:
+                          - key
+                          - type
+                        additionalProperties: false
+                  required:
+                    - fields
+                  additionalProperties: false
                 customFields:
                   type: object
                   propertyNames:
@@ -24695,6 +24827,7 @@ components:
             - string
             - number
             - json
+            - object
         defaultValue:
           type: string
         tags:
@@ -24707,6 +24840,38 @@ components:
             type: string
           additionalProperties:
             $ref: '#/components/schemas/FeatureEnvironment'
+        objectSchema:
+          description: >-
+            Schema definition for `object`-type features: a fixed list of
+            primitive-typed keys. Required when `valueType` is `object`.
+          type: object
+          properties:
+            fields:
+              minItems: 1
+              type: array
+              items:
+                type: object
+                properties:
+                  key:
+                    type: string
+                    minLength: 1
+                    maxLength: 64
+                    pattern: ^[A-Za-z_][A-Za-z0-9_]*$
+                  type:
+                    type: string
+                    enum:
+                      - string
+                      - number
+                      - boolean
+                  nullable:
+                    type: boolean
+                required:
+                  - key
+                  - type
+                additionalProperties: false
+          required:
+            - fields
+          additionalProperties: false
         prerequisites:
           description: Feature IDs. Each feature must evaluate to `true`
           type: array
@@ -25531,6 +25696,35 @@ components:
                 enabled:
                   type: boolean
               additionalProperties: false
+            objectSchema:
+              type: object
+              properties:
+                fields:
+                  minItems: 1
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      key:
+                        type: string
+                        minLength: 1
+                        maxLength: 64
+                        pattern: ^[A-Za-z_][A-Za-z0-9_]*$
+                      type:
+                        type: string
+                        enum:
+                          - string
+                          - number
+                          - boolean
+                      nullable:
+                        type: boolean
+                    required:
+                      - key
+                      - type
+                    additionalProperties: false
+              required:
+                - fields
+              additionalProperties: false
             customFields:
               type: object
               propertyNames:
@@ -25577,12 +25771,45 @@ components:
             - string
             - number
             - json
+            - object
         defaultValue:
           type: string
         tags:
           type: array
           items:
             type: string
+        objectSchema:
+          description: >-
+            Schema for `object`-type features: a fixed list of primitive-typed
+            keys. Required when `valueType` is `object`.
+          type: object
+          properties:
+            fields:
+              minItems: 1
+              type: array
+              items:
+                type: object
+                properties:
+                  key:
+                    type: string
+                    minLength: 1
+                    maxLength: 64
+                    pattern: ^[A-Za-z_][A-Za-z0-9_]*$
+                  type:
+                    type: string
+                    enum:
+                      - string
+                      - number
+                      - boolean
+                  nullable:
+                    type: boolean
+                required:
+                  - key
+                  - type
+                additionalProperties: false
+          required:
+            - fields
+          additionalProperties: false
         rules:
           description: >-
             Unified rules array. Each rule carries its own environment scope via
@@ -25836,6 +26063,35 @@ components:
                   type: string
                 enabled:
                   type: boolean
+              additionalProperties: false
+            objectSchema:
+              type: object
+              properties:
+                fields:
+                  minItems: 1
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      key:
+                        type: string
+                        minLength: 1
+                        maxLength: 64
+                        pattern: ^[A-Za-z_][A-Za-z0-9_]*$
+                      type:
+                        type: string
+                        enum:
+                          - string
+                          - number
+                          - boolean
+                      nullable:
+                        type: boolean
+                    required:
+                      - key
+                      - type
+                    additionalProperties: false
+              required:
+                - fields
               additionalProperties: false
             customFields:
               type: object

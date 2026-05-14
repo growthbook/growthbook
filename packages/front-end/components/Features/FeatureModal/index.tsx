@@ -3,11 +3,13 @@ import {
   FeatureEnvironment,
   FeatureInterface,
   FeatureValueType,
+  ObjectSchemaDef,
 } from "shared/types/feature";
 import React, { ReactElement } from "react";
-import { validateFeatureValue } from "shared/util";
+import { getDefaultObjectValue, validateFeatureValue } from "shared/util";
 import { PiInfo } from "react-icons/pi";
 import { Box } from "@radix-ui/themes";
+import ObjectSchemaEditor from "@/components/Features/ObjectSchemaEditor";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -102,6 +104,7 @@ const genFormDefaultValues = ({
   | "customFields"
   | "holdout"
   | "jsonSchema"
+  | "objectSchema"
 > => {
   const environmentSettings = genEnvironmentSettings({
     environments,
@@ -133,6 +136,7 @@ const genFormDefaultValues = ({
           ? featureToDuplicate.holdout
           : undefined,
         jsonSchema: featureToDuplicate.jsonSchema,
+        objectSchema: featureToDuplicate.objectSchema,
       }
     : {
         valueType: "" as FeatureValueType,
@@ -201,6 +205,9 @@ export default function FeatureModal({
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const environmentSettings = form.watch("environmentSettings");
+  const objectSchema = form.watch("objectSchema") as
+    | ObjectSchemaDef
+    | undefined;
 
   const modalHeader = featureToDuplicate
     ? `Duplicate Feature (${featureToDuplicate.id})`
@@ -245,10 +252,31 @@ export default function FeatureModal({
           throw new Error("Please select a value type");
         }
 
+        if (valueType === "object") {
+          const schema = feature.objectSchema;
+          if (!schema || !schema.fields?.length) {
+            throw new Error(
+              "Add at least one field to the object schema before saving.",
+            );
+          }
+          const keys = new Set<string>();
+          for (const f of schema.fields) {
+            if (!f.key || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(f.key)) {
+              throw new Error(
+                `Invalid field key "${f.key}". Keys must start with a letter or _ and contain only letters, digits, and _.`,
+              );
+            }
+            if (keys.has(f.key)) {
+              throw new Error(`Duplicate field key "${f.key}".`);
+            }
+            keys.add(f.key);
+          }
+        }
+
         // When duplicating, skip JSON schema validation since the value is
         // copied verbatim from an existing feature and the user cannot edit it.
         const featureForValidation = featureToDuplicate
-          ? { valueType: feature.valueType }
+          ? { valueType: feature.valueType, objectSchema: feature.objectSchema }
           : feature;
         const newDefaultValue = validateFeatureValue(
           featureForValidation,
@@ -344,11 +372,58 @@ export default function FeatureModal({
           <ValueTypeField
             value={valueType}
             onChange={(val) => {
-              const defaultValue = getDefaultValue(val);
+              const next =
+                val === "object"
+                  ? objectSchema
+                    ? getDefaultObjectValue(objectSchema)
+                    : "{}"
+                  : getDefaultValue(val);
               form.setValue("valueType", val);
-              form.setValue("defaultValue", defaultValue);
+              form.setValue("defaultValue", next);
+              if (val !== "object") {
+                form.setValue("objectSchema", undefined);
+              }
             }}
           />
+        )}
+
+        {!featureToDuplicate && valueType === "object" && (
+          <div className="mb-3">
+            <label>Object schema</label>
+            <ObjectSchemaEditor
+              value={objectSchema}
+              setValue={(schema) => {
+                form.setValue("objectSchema", schema);
+                // Re-seed the default value so newly added keys get a sensible
+                // default. Existing values for kept keys are preserved.
+                try {
+                  const prev = JSON.parse(form.getValues("defaultValue"));
+                  const merged: Record<string, unknown> = {};
+                  for (const f of schema.fields) {
+                    if (
+                      prev &&
+                      typeof prev === "object" &&
+                      !Array.isArray(prev) &&
+                      f.key in prev
+                    ) {
+                      merged[f.key] = (prev as Record<string, unknown>)[f.key];
+                    } else if (f.nullable) {
+                      merged[f.key] = null;
+                    } else if (f.type === "string") {
+                      merged[f.key] = "";
+                    } else if (f.type === "number") {
+                      merged[f.key] = 0;
+                    } else {
+                      merged[f.key] = false;
+                    }
+                  }
+                  form.setValue("defaultValue", JSON.stringify(merged));
+                } catch {
+                  form.setValue("defaultValue", getDefaultObjectValue(schema));
+                }
+              }}
+            />
+          </div>
         )}
 
         {/*
@@ -379,6 +454,7 @@ export default function FeatureModal({
             value={form.watch("defaultValue")}
             setValue={(v) => form.setValue("defaultValue", v)}
             valueType={valueType}
+            objectSchema={objectSchema}
             useCodeInput={true}
             showFullscreenButton={true}
           />

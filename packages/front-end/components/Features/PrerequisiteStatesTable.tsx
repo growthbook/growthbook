@@ -1,5 +1,6 @@
 import React from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { FeatureValueType } from "shared/types/feature";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { getFeatureDefaultValue } from "@/services/features";
 import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
@@ -13,7 +14,7 @@ const COL_W = 100;
 
 export interface MinimalFeatureInfo {
   id?: string;
-  valueType: "boolean" | "string" | "number" | "json";
+  valueType: FeatureValueType;
   project?: string;
   defaultValue?: string;
 }

@@ -1,6 +1,7 @@
 import {
   FeatureInterface,
   FeatureValueType,
+  ObjectSchemaDef,
   SchemaField,
   SimpleSchema,
 } from "shared/types/feature";
@@ -23,6 +24,8 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioGroup from "@/ui/RadioGroup";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import PartialObjectValueField from "./PartialObjectValueField";
+import ObjectValueField from "./ObjectValueField";
 
 export interface Props {
   valueType?: FeatureValueType;
@@ -41,6 +44,16 @@ export interface Props {
   showFullscreenButton?: boolean;
   codeInputDefaultHeight?: number;
   hideCopyButton?: boolean;
+  // When rendering a rule value editor, set partial=true to use per-key
+  // override toggles (sparse JSON output). Default false renders the full
+  // per-key default value editor.
+  partial?: boolean;
+  // Optional explicit objectSchema override (used during flag creation when
+  // the schema isn't yet attached to a feature record).
+  objectSchema?: ObjectSchemaDef;
+  // Optional explicit default value (used for `partial` rule editors to render
+  // per-key "default: X" hints). Falls back to feature.defaultValue.
+  featureDefaultValue?: string;
 }
 
 export default function FeatureValueField({
@@ -58,6 +71,9 @@ export default function FeatureValueField({
   showFullscreenButton = false,
   codeInputDefaultHeight,
   hideCopyButton = false,
+  partial = false,
+  objectSchema: objectSchemaProp,
+  featureDefaultValue,
 }: Props) {
   const { hasCommercialFeature } = useUser();
   const hasJsonValidator = hasCommercialFeature("json-validation");
@@ -73,6 +89,31 @@ export default function FeatureValueField({
   const [codeEditorToggledOn, setCodeEditorToggledOn] = useState(
     defaultCodeEditorToggledOn,
   );
+
+  // Object valueType: per-key inputs. No raw JSON editor.
+  const objectSchema = objectSchemaProp ?? feature?.objectSchema;
+  if (valueType === "object" && objectSchema) {
+    return (
+      <div className="form-group">
+        {label && <label>{label}</label>}
+        {partial ? (
+          <PartialObjectValueField
+            schema={objectSchema}
+            value={value}
+            setValue={setValue}
+            defaultValue={featureDefaultValue ?? feature?.defaultValue ?? "{}"}
+          />
+        ) : (
+          <ObjectValueField
+            schema={objectSchema}
+            value={value}
+            setValue={setValue}
+          />
+        )}
+        {helpText && <small className="form-text text-muted">{helpText}</small>}
+      </div>
+    );
+  }
 
   if (
     validationEnabled &&

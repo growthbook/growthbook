@@ -406,6 +406,7 @@ export default function SafeRolloutFields({
               setValue={(v) => form.setValue("controlValue", v)}
               valueType={feature.valueType}
               feature={feature}
+              partial={feature.valueType === "object"}
               renderJSONInline={true}
               disabled={disableFields || controlValueDisabled}
               useDropdown={true}
@@ -431,6 +432,7 @@ export default function SafeRolloutFields({
               setValue={(v) => form.setValue("variationValue", v)}
               valueType={feature.valueType}
               feature={feature}
+              partial={feature.valueType === "object"}
               renderJSONInline={true}
               disabled={disableFields}
               useDropdown={true}

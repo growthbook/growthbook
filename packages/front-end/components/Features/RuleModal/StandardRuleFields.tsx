@@ -231,6 +231,7 @@ export default function StandardRuleFields({
         setValue={(v) => form.setValue("value", v)}
         valueType={feature.valueType}
         feature={feature}
+        partial={feature.valueType === "object"}
         renderJSONInline={true}
         useCodeInput={true}
         showFullscreenButton={true}

@@ -148,6 +148,7 @@ export default function BanditRefFields({
               setValue={(v) => form.setValue(`variations.${i}.value`, v)}
               valueType={feature.valueType}
               feature={feature}
+              partial={feature.valueType === "object"}
               renderJSONInline={false}
               useCodeInput={true}
               showFullscreenButton={true}

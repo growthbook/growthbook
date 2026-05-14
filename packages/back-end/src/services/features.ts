@@ -1968,6 +1968,9 @@ export function getApiFeatureObjV2({
     project: feature.project || "",
     tags: feature.tags || [],
     valueType: feature.valueType,
+    ...(feature.objectSchema != null
+      ? { objectSchema: feature.objectSchema }
+      : {}),
     revision: {
       comment: revision?.comment || "",
       date: revision?.dateCreated.toISOString() || "",
@@ -2169,6 +2172,9 @@ export function getApiFeatureObj({
     project: feature.project || "",
     tags: feature.tags || [],
     valueType: feature.valueType,
+    ...(feature.objectSchema != null
+      ? { objectSchema: feature.objectSchema }
+      : {}),
     revision: {
       comment: revision?.comment || "",
       date: revision?.dateCreated.toISOString() || "",
@@ -2405,7 +2411,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           experimentId: r.experimentId,
           variations: r.variations.map((v) => ({
             variationId: v.variationId,
-            value: validateFeatureValue(feature, v.value),
+            value: validateFeatureValue(feature, v.value, undefined, true),
           })),
           ...(r.prerequisites && { prerequisites: r.prerequisites }),
           ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
@@ -2441,7 +2447,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           allEnvironments: false,
           type: r.type,
           description: r.description ?? "",
-          value: validateFeatureValue(feature, r.value),
+          value: validateFeatureValue(feature, r.value, undefined, true),
           condition: r.condition,
           savedGroups: (r.savedGroupTargeting || []).map((s) => ({
             ids: s.savedGroups,
@@ -2462,7 +2468,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           coverage: r.coverage,
           description: r.description ?? "",
           hashAttribute: r.hashAttribute,
-          value: validateFeatureValue(feature, r.value),
+          value: validateFeatureValue(feature, r.value, undefined, true),
           condition: r.condition,
           savedGroups: (r.savedGroupTargeting || []).map((s) => ({
             ids: s.savedGroups,

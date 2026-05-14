@@ -840,6 +840,7 @@ app.post(
 );
 app.post("/feature/:id/sync", featuresController.postFeatureSync);
 app.post("/feature/:id/schema", featuresController.postFeatureSchema);
+app.put("/feature/:id/schema", featuresController.putFeatureObjectSchema);
 app.post(
   "/feature/:id/:version/discard",
   featuresController.postFeatureDiscard,

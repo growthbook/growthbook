@@ -146,6 +146,11 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         ? parseApiJsonSchema(req.organization, req.body.jsonSchema)
         : null;
 
+    const objectSchema =
+      feature.valueType === "object" && req.body.objectSchema != null
+        ? req.body.objectSchema
+        : null;
+
     let updates: Partial<FeatureInterface> = {
       ...(ownerInput !== undefined ? { owner: owner ?? "" } : {}),
       ...(archived != null ? { archived } : {}),
@@ -156,6 +161,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       ...(environmentSettings != null ? { environmentSettings } : {}),
       ...(prerequisites != null ? { prerequisites } : {}),
       ...(jsonSchema != null ? { jsonSchema } : {}),
+      ...(objectSchema != null ? { objectSchema } : {}),
       ...(customFields != null ? { customFields } : {}),
     };
 

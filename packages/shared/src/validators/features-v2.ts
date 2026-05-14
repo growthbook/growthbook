@@ -11,6 +11,7 @@ import {
   apiRevisionMetadata,
   apiFeatureHoldout,
   revisionStatusSchema,
+  objectSchemaDef,
 } from "./features";
 import { namedSchema } from "./openapi-helpers";
 
@@ -139,9 +140,14 @@ export const apiFeatureV2Validator = namedSchema(
       description: z.string(),
       owner: ownerInputField,
       project: z.string(),
-      valueType: z.enum(["boolean", "string", "number", "json"]),
+      valueType: z.enum(["boolean", "string", "number", "json", "object"]),
       defaultValue: z.string(),
       tags: z.array(z.string()),
+      objectSchema: objectSchemaDef
+        .describe(
+          "Schema for `object`-type features: a fixed list of primitive-typed keys. Required when `valueType` is `object`.",
+        )
+        .optional(),
       rules: z
         .array(apiFeatureRuleV2Validator)
         .describe(
@@ -334,12 +340,12 @@ export const postFeatureBodyV2 = z
     owner: ownerInputField,
     project: z.string().describe("An associated project ID").optional(),
     valueType: z
-      .enum(["boolean", "string", "number", "json"])
+      .enum(["boolean", "string", "number", "json", "object"])
       .describe("The data type of the feature payload. Boolean by default."),
     defaultValue: z
       .string()
       .describe(
-        "Default value when feature is enabled. Type must match `valueType`.",
+        "Default value when feature is enabled. Type must match `valueType`. For `object` features, a JSON-stringified object whose keys match the `objectSchema`.",
       ),
     tags: z.array(z.string()).describe("List of associated tags").optional(),
     rules: z
@@ -362,6 +368,11 @@ export const postFeatureBodyV2 = z
       .string()
       .describe(
         "Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).",
+      )
+      .optional(),
+    objectSchema: objectSchemaDef
+      .describe(
+        "Schema for `object`-type features: a fixed list of primitive-typed keys. Required when `valueType` is `object`.",
       )
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
@@ -402,6 +413,11 @@ export const updateFeatureBodyV2 = z
       .string()
       .describe(
         "Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).",
+      )
+      .optional(),
+    objectSchema: objectSchemaDef
+      .describe(
+        "Schema for `object`-type features: a fixed list of primitive-typed keys.",
       )
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),

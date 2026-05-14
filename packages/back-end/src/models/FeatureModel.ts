@@ -143,6 +143,7 @@ const featureSchema = new mongoose.Schema({
   revision: {},
   linkedExperiments: [String],
   jsonSchema: {},
+  objectSchema: {},
   neverStale: Boolean,
   customFields: {},
   holdout: {

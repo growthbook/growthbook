@@ -20,6 +20,7 @@ const ValueTypeField: FC<{
         { label: "String", value: "string" },
         { label: "Number", value: "number" },
         { label: "JSON", value: "json" },
+        { label: "Object (typed keys)", value: "object" },
       ]}
       required
       sort={false}

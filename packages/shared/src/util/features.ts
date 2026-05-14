@@ -15,6 +15,8 @@ import {
   FeaturePrerequisite,
   FeatureRule,
   ForceRule,
+  ObjectSchemaDef,
+  ObjectSchemaField,
   RolloutRule,
   SchemaField,
   SimpleSchema,
@@ -263,9 +265,12 @@ export function validateJSONFeatureValue(
 }
 
 export function validateFeatureValue(
-  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema" | "objectSchema">,
   value: string,
   label?: string,
+  // When true, `object` validation allows missing keys (sparse rule overrides).
+  // When false (default), every non-nullable schema field must be present.
+  partial?: boolean,
 ): string {
   const type = feature.valueType;
   const prefix = label ? label + ": " : "";
@@ -300,9 +305,151 @@ export function validateFeatureValue(
     if (!validJSON) {
       return stringify(parsedValue);
     }
+  } else if (type === "object") {
+    if (!feature.objectSchema) {
+      throw new Error(
+        prefix + "Object feature is missing a schema definition.",
+      );
+    }
+    let parsedValue: unknown;
+    try {
+      parsedValue = JSON.parse(value);
+    } catch (e) {
+      try {
+        parsedValue = dJSON.parse(value);
+      } catch (e2) {
+        throw new Error(
+          prefix + (e2 instanceof Error ? e2.message : String(e2)),
+        );
+      }
+    }
+    if (
+      parsedValue === null ||
+      Array.isArray(parsedValue) ||
+      typeof parsedValue !== "object"
+    ) {
+      throw new Error(prefix + "Must be a JSON object.");
+    }
+    const obj = parsedValue as Record<string, unknown>;
+    const fieldByKey = new Map<string, ObjectSchemaField>();
+    for (const field of feature.objectSchema.fields) {
+      fieldByKey.set(field.key, field);
+    }
+    for (const [key, v] of Object.entries(obj)) {
+      const field = fieldByKey.get(key);
+      // Unknown keys are accepted on write — they're filtered at payload time.
+      if (!field) continue;
+      if (v === null) {
+        if (!field.nullable) {
+          throw new Error(prefix + `Field "${key}" is not nullable.`);
+        }
+        continue;
+      }
+      if (typeof v !== field.type) {
+        throw new Error(
+          prefix + `Field "${key}" must be a ${field.type} (got ${typeof v}).`,
+        );
+      }
+    }
+    if (!partial) {
+      const missing: string[] = [];
+      for (const field of feature.objectSchema.fields) {
+        if (!(field.key in obj) && !field.nullable) {
+          missing.push(field.key);
+        }
+      }
+      if (missing.length) {
+        throw new Error(
+          prefix +
+            `Missing required field${
+              missing.length > 1 ? "s" : ""
+            }: ${missing.join(", ")}.`,
+        );
+      }
+    }
+    // Return canonical JSON: drop unknown keys, normalize ordering to the
+    // schema. Missing-but-allowed keys (partial=true or nullable) are omitted.
+    const normalized: Record<string, unknown> = {};
+    for (const field of feature.objectSchema.fields) {
+      if (field.key in obj) {
+        normalized[field.key] = obj[field.key];
+      }
+    }
+    return JSON.stringify(normalized);
   }
 
   return value;
+}
+
+// Returns the value at `key` from a sparse object value string. Returns
+// `undefined` when the key is absent or the input is unparseable.
+function safeParseObject(value: string): Record<string, unknown> | undefined {
+  try {
+    const parsed = JSON.parse(value);
+    if (
+      parsed !== null &&
+      !Array.isArray(parsed) &&
+      typeof parsed === "object"
+    ) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // ignore
+  }
+  return undefined;
+}
+
+// Filters an object to keys present in `schema.fields` whose values pass the
+// schema's type check. Drops everything else. Used at payload-generation time
+// so deleted/retyped schema keys disappear from SDK output without needing to
+// rewrite stored values.
+export function filterToSchemaKeys(
+  obj: Record<string, unknown> | undefined,
+  schema: ObjectSchemaDef | undefined,
+): Record<string, unknown> {
+  if (!obj || !schema) return {};
+  const out: Record<string, unknown> = {};
+  for (const field of schema.fields) {
+    if (!(field.key in obj)) continue;
+    const v = obj[field.key];
+    if (v === null) {
+      if (field.nullable) out[field.key] = null;
+      continue;
+    }
+    if (typeof v === field.type) {
+      out[field.key] = v;
+    }
+  }
+  return out;
+}
+
+// Merges a sparse rule value onto a filtered default value. Used when emitting
+// object-type rule values into the SDK payload.
+export function resolveObjectValue(
+  ruleValueStr: string,
+  defaultObjFiltered: Record<string, unknown>,
+  schema: ObjectSchemaDef | undefined,
+): Record<string, unknown> {
+  const sparse = filterToSchemaKeys(safeParseObject(ruleValueStr), schema);
+  return { ...defaultObjFiltered, ...sparse };
+}
+
+// Builds a sensible default JSON-stringified object for a new object-type
+// feature based on its schema (used on flag creation).
+export function getDefaultObjectValue(schema: ObjectSchemaDef): string {
+  const out: Record<string, unknown> = {};
+  for (const field of schema.fields) {
+    if (field.nullable) {
+      out[field.key] = null;
+    } else if (field.type === "string") {
+      out[field.key] = "";
+    } else if (field.type === "number") {
+      out[field.key] = 0;
+    } else {
+      out[field.key] = false;
+    }
+  }
+  return JSON.stringify(out);
 }
 
 // Helper function to validate ISO timestamp format
@@ -1480,7 +1627,7 @@ export function validateAndFixCondition(
 }
 
 export function getDefaultPrerequisiteCondition(parentFeature?: {
-  valueType?: "boolean" | "string" | "number" | "json";
+  valueType?: import("shared/types/feature").FeatureValueType;
 }) {
   const valueType = parentFeature?.valueType || "boolean";
   if (valueType === "boolean") {

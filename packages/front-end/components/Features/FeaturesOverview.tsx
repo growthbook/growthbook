@@ -96,6 +96,7 @@ import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
 import JSONValidation from "@/components/Features/JSONValidation";
+import ObjectSchemaSection from "@/components/Features/ObjectSchemaSection";
 import {
   PrerequisiteStateResult,
   usePrerequisiteStates,
@@ -1739,6 +1740,12 @@ export default function FeaturesOverview({
               setVersion={setVersion}
               revisionList={revisionList || []}
             />
+          </Frame>
+        )}
+
+        {feature.valueType === "object" && (
+          <Frame mb="4" px="6" py="4">
+            <ObjectSchemaSection feature={feature} mutate={mutate} />
           </Frame>
         )}
 

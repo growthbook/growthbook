@@ -141,6 +141,13 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
 
   feature.jsonSchema = jsonSchema;
 
+  if (req.body.valueType === "object") {
+    if (!req.body.objectSchema) {
+      throw new Error("objectSchema is required when valueType is 'object'.");
+    }
+    feature.objectSchema = req.body.objectSchema;
+  }
+
   // ensure default value matches value type
   feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
 

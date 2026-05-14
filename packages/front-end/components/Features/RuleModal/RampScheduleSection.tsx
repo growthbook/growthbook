@@ -638,6 +638,7 @@ export default function RampScheduleSection({
                   value={String(patch.force ?? "")}
                   setValue={(v) => setPatchFn("force", v)}
                   feature={feature}
+                  partial={feature.valueType === "object"}
                   useDropdown={feature.valueType === "boolean"}
                   hideCopyButton
                 />

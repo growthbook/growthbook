@@ -128,6 +128,11 @@ export const updateFeatureV2 = createApiRequestHandler(
       ? parseApiJsonSchema(req.organization, req.body.jsonSchema)
       : null;
 
+  const objectSchema =
+    feature.valueType === "object" && req.body.objectSchema != null
+      ? req.body.objectSchema
+      : null;
+
   let inboundFlatRules: FeatureRule[] | null = null;
   if (req.body.rules != null) {
     inboundFlatRules = req.body.rules.map((rule) =>
@@ -157,6 +162,7 @@ export const updateFeatureV2 = createApiRequestHandler(
     ...(defaultValue != null ? { defaultValue } : {}),
     ...(prerequisites != null ? { prerequisites } : {}),
     ...(jsonSchema != null ? { jsonSchema } : {}),
+    ...(objectSchema != null ? { objectSchema } : {}),
     ...(customFields != null ? { customFields } : {}),
   };
 

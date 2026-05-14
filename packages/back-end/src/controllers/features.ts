@@ -2830,6 +2830,52 @@ export async function postFeatureDefaultValue(
   });
 }
 
+export async function putFeatureObjectSchema(
+  req: AuthRequest<
+    { objectSchema: import("shared/types/feature").ObjectSchemaDef },
+    { id: string }
+  >,
+  res: Response<{ status: 200 }, EventUserForResponseLocals>,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { objectSchema } = req.body;
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+  if (feature.valueType !== "object") {
+    throw new Error("Feature is not an object-type feature.");
+  }
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+  if (!objectSchema || !Array.isArray(objectSchema.fields)) {
+    throw new Error("Invalid objectSchema payload.");
+  }
+  if (objectSchema.fields.length < 1) {
+    throw new Error("Schema must have at least one field.");
+  }
+  const seen = new Set<string>();
+  for (const f of objectSchema.fields) {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(f.key)) {
+      throw new Error(`Invalid field key "${f.key}".`);
+    }
+    if (seen.has(f.key)) {
+      throw new Error(`Duplicate field key "${f.key}".`);
+    }
+    seen.add(f.key);
+    if (!["string", "number", "boolean"].includes(f.type)) {
+      throw new Error(`Invalid field type "${f.type}".`);
+    }
+  }
+  await updateFeature(context, feature, { objectSchema });
+  return res.status(200).json({ status: 200 });
+}
+
 export async function postFeatureSchema(
   req: AuthRequest<
     Omit<JSONSchemaDef, "date"> & {

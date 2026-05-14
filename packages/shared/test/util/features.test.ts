@@ -23,6 +23,9 @@ import {
   inferSchemaFields,
   inferSimpleSchemaFromValue,
   ruleAppliesToEnv,
+  filterToSchemaKeys,
+  resolveObjectValue,
+  getDefaultObjectValue,
   ruleFootprint,
   getRulesForEnvironment,
   toV2FeatureSnapshot,
@@ -1370,6 +1373,139 @@ describe("validateFeatureValue", () => {
       expect(() =>
         validateFeatureValue(feature, value, "testVal"),
       ).toThrowError();
+    });
+  });
+
+  describe("object values", () => {
+    const objFeature = {
+      valueType: "object" as const,
+      objectSchema: {
+        fields: [
+          { key: "title", type: "string" as const },
+          { key: "count", type: "number" as const },
+          { key: "active", type: "boolean" as const, nullable: true },
+        ],
+      },
+    };
+
+    it("accepts a complete object with matching types", () => {
+      const value = '{"title":"Hi","count":3,"active":true}';
+      expect(validateFeatureValue(objFeature, value)).toEqual(value);
+    });
+
+    it("normalizes key order and drops unknown keys silently", () => {
+      const value = '{"count":3,"extra":"x","title":"Hi","active":null}';
+      expect(validateFeatureValue(objFeature, value)).toEqual(
+        '{"title":"Hi","count":3,"active":null}',
+      );
+    });
+
+    it("throws when a non-nullable field is missing on default-value path", () => {
+      const value = '{"title":"Hi"}';
+      expect(() => validateFeatureValue(objFeature, value)).toThrowError();
+    });
+
+    it("accepts sparse value when partial=true", () => {
+      const value = '{"title":"Hi"}';
+      expect(validateFeatureValue(objFeature, value, undefined, true)).toEqual(
+        '{"title":"Hi"}',
+      );
+    });
+
+    it("rejects wrong type for a known key", () => {
+      const value = '{"title":"Hi","count":"oops","active":true}';
+      expect(() => validateFeatureValue(objFeature, value)).toThrowError();
+    });
+
+    it("rejects null on a non-nullable field", () => {
+      const value = '{"title":null,"count":3,"active":true}';
+      expect(() => validateFeatureValue(objFeature, value)).toThrowError();
+    });
+
+    it("accepts null on a nullable field", () => {
+      const value = '{"title":"Hi","count":3,"active":null}';
+      expect(validateFeatureValue(objFeature, value)).toEqual(value);
+    });
+
+    it("rejects non-object payloads", () => {
+      expect(() => validateFeatureValue(objFeature, "[1,2,3]")).toThrowError();
+      expect(() => validateFeatureValue(objFeature, "null")).toThrowError();
+    });
+  });
+});
+
+describe("object value helpers", () => {
+  const schema = {
+    fields: [
+      { key: "a", type: "string" as const },
+      { key: "b", type: "number" as const, nullable: true },
+      { key: "c", type: "boolean" as const },
+    ],
+  };
+
+  describe("filterToSchemaKeys", () => {
+    it("keeps only schema keys with matching types", () => {
+      expect(
+        filterToSchemaKeys({ a: "hi", b: 3, c: true, extra: "x" }, schema),
+      ).toEqual({ a: "hi", b: 3, c: true });
+    });
+
+    it("drops a value with wrong type", () => {
+      expect(filterToSchemaKeys({ a: 123, b: 3, c: true }, schema)).toEqual({
+        b: 3,
+        c: true,
+      });
+    });
+
+    it("keeps null only for nullable fields", () => {
+      expect(filterToSchemaKeys({ a: null, b: null, c: null }, schema)).toEqual(
+        { b: null },
+      );
+    });
+
+    it("returns empty when schema is missing", () => {
+      expect(filterToSchemaKeys({ a: "x" }, undefined)).toEqual({});
+    });
+  });
+
+  describe("resolveObjectValue", () => {
+    const defaultObj = { a: "default", b: 0, c: false };
+
+    it("merges sparse rule overrides on top of default", () => {
+      expect(resolveObjectValue('{"a":"over"}', defaultObj, schema)).toEqual({
+        a: "over",
+        b: 0,
+        c: false,
+      });
+    });
+
+    it("filters stale keys from rule value", () => {
+      // `deleted` was removed from the schema but still lives in stored rule
+      expect(
+        resolveObjectValue('{"a":"over","deleted":"x"}', defaultObj, schema),
+      ).toEqual({ a: "over", b: 0, c: false });
+    });
+
+    it("falls back to default when rule value is unparseable", () => {
+      expect(resolveObjectValue("not json", defaultObj, schema)).toEqual(
+        defaultObj,
+      );
+    });
+
+    it("ignores override with wrong type", () => {
+      expect(
+        resolveObjectValue('{"a":123,"c":true}', defaultObj, schema),
+      ).toEqual({ a: "default", b: 0, c: true });
+    });
+  });
+
+  describe("getDefaultObjectValue", () => {
+    it("seeds sensible per-type defaults", () => {
+      expect(JSON.parse(getDefaultObjectValue(schema))).toEqual({
+        a: "",
+        b: null,
+        c: false,
+      });
     });
   });
 });

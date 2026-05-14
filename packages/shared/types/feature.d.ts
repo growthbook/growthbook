@@ -25,6 +25,8 @@ export {
   RolloutRule,
   ExperimentRefVariation,
   ComputedFeatureInterface,
+  ObjectSchemaField,
+  ObjectSchemaDef,
   V1FeatureRule,
   V1FeatureEnvironment,
   v1FeatureRule,

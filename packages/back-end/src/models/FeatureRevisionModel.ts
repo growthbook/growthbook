@@ -637,6 +637,7 @@ export async function createInitialRevision(
       neverStale: feature.neverStale,
       customFields: feature.customFields,
       jsonSchema: feature.jsonSchema,
+      objectSchema: feature.objectSchema,
       valueType: feature.valueType,
     },
   });
@@ -738,6 +739,7 @@ export async function createRevision({
     neverStale: feature.neverStale,
     customFields: feature.customFields,
     jsonSchema: feature.jsonSchema,
+    objectSchema: feature.objectSchema,
     valueType: feature.valueType,
   };
   // Always store a complete snapshot. Partial changes (e.g. { neverStale: true })

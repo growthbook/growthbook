@@ -4,7 +4,7 @@ import {
   isFactMetricId,
   isMetricGroupId,
 } from "shared/experiments";
-import { FeatureInterface } from "shared/types/feature";
+import { FeatureInterface, FeatureValueType } from "shared/types/feature";
 import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
 import { SafeRolloutInterface, SafeRolloutRule } from "shared/validators";
 import ValidateValue from "@/components/Features/ValidateValue";
@@ -150,7 +150,7 @@ function ValueRow({
 }: {
   label: string;
   value: string;
-  valueType: "string" | "number" | "boolean" | "json";
+  valueType: FeatureValueType;
   coverage: number;
 }) {
   return (

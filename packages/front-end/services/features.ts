@@ -314,7 +314,7 @@ export function getRules(feature: FeatureInterface, environment: string) {
 }
 export function getFeatureDefaultValue(feature: {
   defaultValue?: string;
-  valueType?: "boolean" | "string" | "number" | "json";
+  valueType?: FeatureValueType;
 }) {
   return feature.defaultValue ?? "";
 }
@@ -596,6 +596,7 @@ export function validateFeatureRule(
       feature,
       rule.value,
       "Value to Force",
+      true,
     );
     if (newValue !== rule.value) {
       hasChanges = true;
@@ -615,6 +616,7 @@ export function validateFeatureRule(
         feature,
         val.value,
         "Variation #" + i,
+        true,
       );
       if (newValue !== val.value) {
         hasChanges = true;
@@ -635,6 +637,7 @@ export function validateFeatureRule(
         feature,
         v.value,
         "Variation #" + i,
+        true,
       );
       if (newValue !== v.value) {
         hasChanges = true;
@@ -646,6 +649,7 @@ export function validateFeatureRule(
       feature,
       rule.variationValue,
       "Value to Rollout",
+      true,
     );
     if (newVariationValue !== rule.variationValue) {
       hasChanges = true;
@@ -655,6 +659,7 @@ export function validateFeatureRule(
       feature,
       rule.controlValue,
       "Control Value",
+      true,
     );
     if (newControlValue !== rule.controlValue) {
       hasChanges = true;
@@ -665,6 +670,7 @@ export function validateFeatureRule(
       feature,
       rule.value,
       "Value to Rollout",
+      true,
     );
     if (newValue !== rule.value) {
       hasChanges = true;
@@ -710,6 +716,9 @@ export function getDefaultValue(valueType: FeatureValueType): string {
     return "OFF"; // Default Values should be the OFF State to match most platforms.
   }
   if (valueType === "json") {
+    return "{}";
+  }
+  if (valueType === "object") {
     return "{}";
   }
   return "";

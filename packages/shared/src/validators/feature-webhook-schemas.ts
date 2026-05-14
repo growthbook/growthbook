@@ -50,7 +50,7 @@ export const featureWebhookPayload = z
     description: z.string(),
     owner: ownerField,
     project: z.string(),
-    valueType: z.enum(["boolean", "string", "number", "json"]),
+    valueType: z.enum(["boolean", "string", "number", "json", "object"]),
     defaultValue: z.string(),
     tags: z.array(z.string()),
     // Environment objects contain typed rules in the API schema; loose here.

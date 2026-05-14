@@ -42,9 +42,32 @@ export const featureValueType = [
   "string",
   "number",
   "json",
+  "object",
 ] as const;
 
 export type FeatureValueType = (typeof featureValueType)[number];
+
+export const objectSchemaField = z
+  .object({
+    key: z
+      .string()
+      .min(1)
+      .max(64)
+      .regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
+    type: z.enum(["string", "number", "boolean"]),
+    nullable: z.boolean().optional(),
+  })
+  .strict();
+
+export type ObjectSchemaField = z.infer<typeof objectSchemaField>;
+
+export const objectSchemaDef = z
+  .object({
+    fields: z.array(objectSchemaField).min(1),
+  })
+  .strict();
+
+export type ObjectSchemaDef = z.infer<typeof objectSchemaDef>;
 
 const scheduleRule = z
   .object({
@@ -313,6 +336,7 @@ const revisionMetadataSchema = z.object({
   neverStale: z.boolean().optional(),
   customFields: z.record(z.string(), z.any()).optional(),
   jsonSchema: JSONSchemaDef.optional(),
+  objectSchema: objectSchemaDef.optional(),
   valueType: z.enum(featureValueType).optional(),
 });
 
@@ -461,6 +485,7 @@ export const featureInterface = z
     rules: z.array(featureRule),
     linkedExperiments: z.array(z.string()).optional(),
     jsonSchema: JSONSchemaDef.optional(),
+    objectSchema: objectSchemaDef.optional(),
     customFields: z.record(z.string(), z.any()).optional(),
 
     /** @deprecated */
@@ -825,6 +850,7 @@ export const apiRevisionMetadata = z
         enabled: z.boolean().optional(),
       })
       .optional(),
+    objectSchema: objectSchemaDef.optional(),
     customFields: z.record(z.string(), z.any()).optional(),
   })
   .describe(
@@ -895,10 +921,15 @@ export const apiFeatureValidator = namedSchema(
       owner: ownerField,
       ownerEmail: ownerEmailField,
       project: z.string(),
-      valueType: z.enum(["boolean", "string", "number", "json"]),
+      valueType: z.enum(["boolean", "string", "number", "json", "object"]),
       defaultValue: z.string(),
       tags: z.array(z.string()),
       environments: z.record(z.string(), apiFeatureEnvironmentValidator),
+      objectSchema: objectSchemaDef
+        .describe(
+          "Schema definition for `object`-type features: a fixed list of primitive-typed keys. Required when `valueType` is `object`.",
+        )
+        .optional(),
       prerequisites: z
         .array(z.string())
         .describe("Feature IDs. Each feature must evaluate to `true`")
@@ -1097,12 +1128,12 @@ const postFeatureBody = z
     owner: ownerInputField,
     project: z.string().describe("An associated project ID").optional(),
     valueType: z
-      .enum(["boolean", "string", "number", "json"])
+      .enum(["boolean", "string", "number", "json", "object"])
       .describe("The data type of the feature payload. Boolean by default."),
     defaultValue: z
       .string()
       .describe(
-        "Default value when feature is enabled. Type must match `valueType`.",
+        "Default value when feature is enabled. Type must match `valueType`. For `object` features, a JSON-stringified object whose keys match the `objectSchema`.",
       ),
     tags: z.array(z.string()).describe("List of associated tags").optional(),
     environments: z
@@ -1119,6 +1150,11 @@ const postFeatureBody = z
       .string()
       .describe(
         "Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).",
+      )
+      .optional(),
+    objectSchema: objectSchemaDef
+      .describe(
+        "Schema for `object`-type features: a fixed list of primitive-typed keys. Required when `valueType` is `object`.",
       )
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
@@ -1148,6 +1184,11 @@ const updateFeatureBody = z
       .string()
       .describe(
         "Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).",
+      )
+      .optional(),
+    objectSchema: objectSchemaDef
+      .describe(
+        "Schema for `object`-type features: a fixed list of primitive-typed keys.",
       )
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),

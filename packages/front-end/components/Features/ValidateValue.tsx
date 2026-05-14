@@ -24,6 +24,7 @@ export default function ValidateValue({
       type === "boolean" ||
       type === "number" ||
       type === "string" ||
+      type === "object" ||
       !hasJsonValidator
     )
       return { valid: true, enabled: false, errors: [] };

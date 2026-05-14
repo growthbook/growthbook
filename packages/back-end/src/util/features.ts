@@ -15,6 +15,8 @@ import {
   getNamespaceRanges,
   getNamespaceHashAttribute,
   NamespaceValue,
+  filterToSchemaKeys,
+  resolveObjectValue,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
@@ -530,6 +532,33 @@ export function getFeatureDefinition({
     ? (revision.defaultValue ?? feature.defaultValue)
     : feature.defaultValue;
 
+  // For `object`-type features, we pre-filter the default object once per call
+  // to the current schema so deleted/retyped keys disappear from the payload
+  // without needing to rewrite stored values. Rule values are merged onto this
+  // default at emit time via resolveObjectValue.
+  const objectSchema =
+    feature.valueType === "object" ? feature.objectSchema : undefined;
+  const defaultObjFiltered: Record<string, unknown> = (() => {
+    if (!objectSchema) return {};
+    try {
+      const parsed = JSON.parse(defaultValue);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return filterToSchemaKeys(
+          parsed as Record<string, unknown>,
+          objectSchema,
+        );
+      }
+    } catch {
+      // ignore parse errors; treat default as empty for object features
+    }
+    return {};
+  })();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const valueForSDK = (valueStr: string): any =>
+    objectSchema
+      ? resolveObjectValue(valueStr, defaultObjFiltered, objectSchema)
+      : getJSONValue(feature.valueType, valueStr);
+
   // Rule source: revision's unified array (draft/published) > feature's (live).
   // Legacy `settings.rules` is test-only — production reads flow through
   // `migrateRawFeatureToV2`.
@@ -610,7 +639,7 @@ export function getFeatureDefinition({
                 condition: { value: "holdoutcontrol" },
               },
             ],
-            force: getJSONValue(feature.valueType, feature.holdout.value),
+            force: valueForSDK(feature.holdout.value),
           },
         ]
       : [];
@@ -733,7 +762,7 @@ export function getFeatureDefinition({
             if (!variation) return null;
 
             // If a variation has been rolled out to 100%
-            rule.force = getJSONValue(feature.valueType, variation.value);
+            rule.force = valueForSDK(variation.value);
           }
           // Running experiment
           else {
@@ -741,9 +770,7 @@ export function getFeatureDefinition({
               const variation = r.variations?.find(
                 (ruleVariation) => v.id === ruleVariation.variationId,
               );
-              return variation
-                ? getJSONValue(feature.valueType, variation.value)
-                : null;
+              return variation ? valueForSDK(variation.value) : null;
             });
             rule.weights = phase.variationWeights;
             rule.key = exp.trackingKey;
@@ -817,11 +844,9 @@ export function getFeatureDefinition({
         }
 
         if (r.type === "force") {
-          rule.force = getJSONValue(feature.valueType, r.value);
+          rule.force = valueForSDK(r.value);
         } else if (r.type === "experiment") {
-          rule.variations = r.values.map((v) =>
-            getJSONValue(feature.valueType, v.value),
-          );
+          rule.variations = r.values.map((v) => valueForSDK(v.value));
 
           rule.coverage = r.coverage;
 
@@ -857,7 +882,7 @@ export function getFeatureDefinition({
             applyNamespaceToPayload(rule, r.namespace, namespacesMap);
           }
         } else if (r.type === "rollout") {
-          rule.force = getJSONValue(feature.valueType, r.value);
+          rule.force = valueForSDK(r.value);
           const clampedCoverage =
             r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
           // At 100% coverage, treat as a force rule so users without hashAttribute aren't excluded
@@ -878,13 +903,13 @@ export function getFeatureDefinition({
             if (isNil(variationValue)) return null;
 
             // If a variation has been rolled out to 100%
-            rule.force = getJSONValue(feature.valueType, variationValue);
+            rule.force = valueForSDK(variationValue);
           } else if (r.status === "rolled-back") {
             const controlValue = r.controlValue;
             if (isNil(controlValue)) return null;
 
             // Return control value if rolled back. Feature default value might not be the same as the control value.
-            rule.force = getJSONValue(feature.valueType, controlValue);
+            rule.force = valueForSDK(controlValue);
           } else {
             if (
               safeRollout?.rampUpSchedule.rampUpCompleted ||
@@ -905,8 +930,8 @@ export function getFeatureDefinition({
             rule.hashVersion = 2;
 
             rule.variations = [
-              getJSONValue(feature.valueType, r.controlValue),
-              getJSONValue(feature.valueType, r.variationValue),
+              valueForSDK(r.controlValue),
+              valueForSDK(r.variationValue),
             ];
             const varWeights = 0.5;
             rule.weights = [varWeights, varWeights];
@@ -950,7 +975,9 @@ export function getFeatureDefinition({
   ];
 
   let def: FeatureDefinition = {
-    defaultValue: getJSONValue(feature.valueType, defaultValue),
+    defaultValue: objectSchema
+      ? defaultObjFiltered
+      : getJSONValue(feature.valueType, defaultValue),
     rules: defRules,
   };
   if (def.rules && !def.rules.length) {
