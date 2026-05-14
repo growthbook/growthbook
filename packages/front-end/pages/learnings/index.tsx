@@ -138,9 +138,9 @@ const LearningsPage = (): React.ReactElement => {
               }
             />
           ) : (
-            <Tabs defaultValue="explore" persistInURL={true}>
+            <Tabs defaultValue="results" persistInURL={true}>
               <TabsList>
-                <TabsTrigger value="explore">Explore</TabsTrigger>
+                <TabsTrigger value="results">Experiment Results</TabsTrigger>
                 <TabsTrigger value="saved">
                   Saved Learnings
                   {insights.length > 0 ? ` (${insights.length})` : ""}
@@ -148,7 +148,7 @@ const LearningsPage = (): React.ReactElement => {
               </TabsList>
 
               <Box pt="4">
-                <TabsContent value="explore">
+                <TabsContent value="results">
                   <Box mb="4">
                     <Callout
                       status="info"

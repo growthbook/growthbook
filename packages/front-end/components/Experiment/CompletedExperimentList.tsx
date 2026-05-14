@@ -19,6 +19,7 @@ import Link from "@/ui/Link";
 import { experimentDate } from "@/services/experiments";
 import { VariationBox } from "@/components/Experiment/VariationsTable";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
+import CollapsibleDiscussion from "@/components/CollapsibleDiscussion";
 
 const maxImageHeight = 200;
 const maxImageWidth = 300;
@@ -185,6 +186,7 @@ const CompletedExperimentList = ({
             });
             const moreGoalMetrics = e.goalMetrics.length > 2;
 
+            const experimentProjects = e.project ? [e.project] : [];
             return (
               <Box key={e.trackingKey} className="appbox" mb="4" p="6" pt="5">
                 <Flex align="center" mb="4">
@@ -328,6 +330,17 @@ const CompletedExperimentList = ({
                     </Flex>
                   </Box>
                 </Flex>
+                <Box
+                  pt="3"
+                  mt="3"
+                  style={{ borderTop: "1px solid var(--gray-a4)" }}
+                >
+                  <CollapsibleDiscussion
+                    type="experiment"
+                    id={e.id}
+                    projects={experimentProjects}
+                  />
+                </Box>
               </Box>
             );
           })

@@ -1,15 +1,7 @@
 import { FC, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import {
-  PiCaretDown,
-  PiCaretRight,
-  PiChatCircle,
-  PiPencilSimple,
-  PiPlus,
-  PiTrash,
-} from "react-icons/pi";
+import { PiPencilSimple, PiTrash } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { DiscussionInterface } from "shared/types/discussion";
 import { date, getValidDate } from "shared/dates";
 import EmptyState from "@/components/EmptyState";
 import Markdown from "@/components/Markdown/Markdown";
@@ -20,7 +12,7 @@ import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import ConfirmModal from "@/components/ConfirmModal";
-import DiscussionThread from "@/components/DiscussionThread";
+import CollapsibleDiscussion from "@/components/CollapsibleDiscussion";
 import Field from "@/components/Forms/Field";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
@@ -29,48 +21,11 @@ import {
   SearchFiltersItem,
 } from "@/components/Search/SearchFilters";
 import { SyntaxFilter } from "@/services/search";
-import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import EditInsightModal from "./EditInsightModal";
-
-const InsightDiscussion: FC<{
-  insightId: string;
-  projects: string[];
-}> = ({ insightId, projects }) => {
-  const [expanded, setExpanded] = useState(false);
-  const { data } = useApi<{ discussion: DiscussionInterface | null }>(
-    `/discussion/insight/${insightId}`,
-  );
-  const count = data?.discussion?.comments?.length ?? 0;
-
-  return (
-    <Box>
-      <Box mb={expanded ? "3" : "0"}>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setExpanded((v) => !v)}
-        >
-          <Flex align="center" gap="2">
-            {expanded ? <PiCaretDown /> : <PiCaretRight />}
-            <PiChatCircle />
-            <span>
-              {count} {count === 1 ? "comment" : "comments"}
-            </span>
-          </Flex>
-        </Button>
-      </Box>
-      {expanded && (
-        <Box pl="3">
-          <DiscussionThread type="insight" id={insightId} projects={projects} />
-        </Box>
-      )}
-    </Box>
-  );
-};
 
 type FrontEndInsight = {
   id: string;
@@ -227,12 +182,10 @@ const SavedInsightsList: FC<{
       <>
         <EmptyState
           title="No saved insights yet"
-          description="Use the Explore tab to find common patterns across your experiments, save what you want to keep, or write one from scratch."
+          description="Use the Experiment Results tab to find common patterns across your experiments, save what you want to keep, or write one from scratch."
           rightButton={null}
           leftButton={
-            <Button onClick={() => setShowNew(true)}>
-              <PiPlus /> New saved learning
-            </Button>
+            <Button onClick={() => setShowNew(true)}>New saved learning</Button>
           }
         />
         {showNew && (
@@ -258,9 +211,7 @@ const SavedInsightsList: FC<{
         </Box>
       )}
       <Flex justify="end" mb="3">
-        <Button onClick={() => setShowNew(true)}>
-          <PiPlus /> New saved learning
-        </Button>
+        <Button onClick={() => setShowNew(true)}>New saved learning</Button>
       </Flex>
       <Box mb="4">
         <Flex align="center" gap="3" justify="between" mb="3" wrap="wrap">
@@ -530,8 +481,9 @@ const SavedInsightsList: FC<{
                   </Box>
                 )}
               <Box pt="3" style={{ borderTop: "1px solid var(--gray-a4)" }}>
-                <InsightDiscussion
-                  insightId={insight.id}
+                <CollapsibleDiscussion
+                  type="insight"
+                  id={insight.id}
                   projects={insight.projects || []}
                 />
               </Box>
