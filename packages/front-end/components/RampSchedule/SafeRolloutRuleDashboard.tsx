@@ -115,11 +115,10 @@ function eventLabel(e: RampEvent): string {
     case "started":
       return "Start";
     case "step-advanced":
-      return `S${stepLabel(e.stepIndex)}`;
     case "step-jumped":
-      return `S${stepLabel(e.stepIndex)}`;
+      return stepLabel(e.stepIndex);
     case "rollback":
-      return e.stepIndex === -1 ? "Rollback" : `S${stepLabel(e.stepIndex)}`;
+      return e.stepIndex === -1 ? "Rollback" : stepLabel(e.stepIndex);
     case "reset":
       return "Reset";
     case "completed":
@@ -346,7 +345,7 @@ function EventMarkerLabels({
                     <text
                       x={labelX}
                       y={17}
-                      fontSize={9}
+                      fontSize={11}
                       fill={labelFill}
                       textAnchor={anchor}
                     >
@@ -574,10 +573,12 @@ function generateDummySnapshotMetrics(
     }
 
     const varUsers = baseUsers + Math.floor((rand() - 0.5) * 200);
+    const inverse = isInverseMetric(id);
     let effect: number;
     let pValue: number;
     if (scenario === "failing") {
-      effect = -(0.04 + rand() * 0.08);
+      const magnitude = 0.04 + rand() * 0.08;
+      effect = inverse ? magnitude : -magnitude;
       pValue = 0.001 + rand() * 0.03;
     } else {
       effect = (rand() - 0.5) * 0.04;
@@ -590,7 +591,6 @@ function generateDummySnapshotMetrics(
         ? Math.abs(effect) * (0.3 + rand() * 0.5)
         : Math.abs(effect) * (1.5 + rand() * 2);
 
-    const inverse = isInverseMetric(id);
     const variation: SnapshotMetric = {
       value: varValue,
       cr: varCr,
@@ -614,6 +614,7 @@ function generateDummyTimeSeries(
     string,
     { baseline: SnapshotMetric; variation: SnapshotMetric }
   >,
+  isInverseMetric: (metricId: string) => boolean = () => false,
   startMs?: number,
 ): MetricTimeSeries[] {
   const now = Date.now();
@@ -628,6 +629,7 @@ function generateDummyTimeSeries(
 
     const snapshotEffect =
       snapshotMetrics?.[metricId]?.variation?.expected ?? 0;
+    const inverse = isInverseMetric(metricId);
 
     const dataPoints: MetricTimeSeriesDataPoint[] = [];
     if (scenario === "nodata") {
@@ -665,7 +667,9 @@ function generateDummyTimeSeries(
           ? 0.04 / Math.sqrt(0.5 + progress * 5)
           : 0.03 / Math.sqrt(0.5 + progress * 5);
 
-      const ciBound = effect + ciMargin;
+      const ci = inverse
+        ? ([effect - ciMargin, Infinity] as [number, number])
+        : ([-Infinity, effect + ciMargin] as [number, number]);
 
       dataPoints.push({
         date,
@@ -689,13 +693,13 @@ function generateDummyTimeSeries(
             },
             relative: {
               value: effect,
-              ci: [-Infinity, ciBound] as [number, number],
+              ci,
               pValue: pVal,
               expected: effect,
             },
             absolute: {
               value: effect,
-              ci: [-Infinity, ciBound] as [number, number],
+              ci,
               pValue: pVal,
               expected: effect,
             },
@@ -770,6 +774,7 @@ function buildDummySafeRolloutForSignals(
     string,
     { baseline: SnapshotMetric; variation: SnapshotMetric }
   >,
+  isInverseMetric: (metricId: string) => boolean = () => false,
 ): SafeRolloutInterface {
   const allMetricIds = new Set([...guardrailMetricIds, ...signalMetricIds]);
   const guardrailMetrics: Record<string, { status: string }> = {};
@@ -779,7 +784,9 @@ function buildDummySafeRolloutForSignals(
     if (!metric) continue;
     const expected = metric.expected ?? 0;
     const pValue = metric.pValue ?? 1;
-    const isSignificantLoss = expected < 0 && pValue < 0.05;
+    const isSignificantLoss =
+      pValue < 0.05 &&
+      (isInverseMetric(metricId) ? expected > 0 : expected < 0);
     guardrailMetrics[metricId] = {
       status: isSignificantLoss ? "lost" : "won",
     };
@@ -1689,6 +1696,7 @@ function SafeRolloutStatusBar({
               onApproveStep={handleApproveStep}
               onAdvance={handleAdvance}
               size="sm"
+              signalResult={signalResult}
             />
           </Flex>
         </Flex>
@@ -2012,8 +2020,8 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
       if (Number.isFinite(parsed)) return parsed;
       return hashString(str);
     }
-    return Date.now();
-  }, [useDummyData, dummySeedQuery]);
+    return hashString(rampSchedule.id);
+  }, [useDummyData, dummySeedQuery, rampSchedule.id]);
 
   const { metricGroups, getExperimentMetricById } = useDefinitions();
 
@@ -2084,6 +2092,7 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
     }
     return undefined;
   }, [useDummyData, rampSchedule.eventHistory, rampSchedule.startedAt]);
+  const allMetricIdsKey = allMetricIds.join(",");
 
   const dummyTs = useMemo(
     () =>
@@ -2092,11 +2101,18 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
             allMetricIds,
             dummyScenarios,
             dummyMetrics,
+            (metricId) => !!getExperimentMetricById(metricId)?.inverse,
             dummyStartMs,
           )
         : undefined,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [useDummyData, allMetricIds.join(","), dummyMetrics, dummyStartMs],
+    [
+      useDummyData,
+      allMetricIdsKey,
+      dummyMetrics,
+      getExperimentMetricById,
+      dummyStartMs,
+    ],
   );
 
   const dummyTrafficUsers = useMemo(() => {
@@ -2201,8 +2217,15 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
       guardrailMetricIds,
       signalMetricIds,
       snapshotMetrics,
+      (metricId) => !!getExperimentMetricById(metricId)?.inverse,
     );
-  }, [useDummyData, guardrailMetricIds, signalMetricIds, snapshotMetrics]);
+  }, [
+    useDummyData,
+    guardrailMetricIds,
+    signalMetricIds,
+    snapshotMetrics,
+    getExperimentMetricById,
+  ]);
 
   const filteredTs = useMemo(() => {
     if (useDummyData && dummyTs) return dummyTs;
@@ -2251,7 +2274,12 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
     queryStatus?.status === "failed" ||
     queryStatus?.status === "partially-succeeded";
 
-  const monitoringSignals = useRampMonitoringSignals(rampSchedule);
+  const monitoringSignals = useRampMonitoringSignals(rampSchedule, {
+    snapshot: useDummyData ? dummyTrafficSnapshot : snapshotData?.snapshot,
+    safeRollout: useDummyData
+      ? dummySafeRolloutForSignals
+      : snapshotCtx.safeRollout,
+  });
   const monitoringOverview = useMemo(
     () => getRampHealthOverview(rampSchedule, monitoringSignals),
     [rampSchedule, monitoringSignals],

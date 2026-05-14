@@ -3414,6 +3414,89 @@ paths:
                       type: string
                     templateId:
                       type: string
+                    startActions:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          targetType:
+                            type: string
+                            const: feature-rule
+                          targetId:
+                            type: string
+                          patch:
+                            type: object
+                            properties:
+                              ruleId:
+                                type: string
+                              coverage:
+                                description: >-
+                                  Traffic fraction (0–1). For monitored steps,
+                                  this is the total experiment enrollment (not
+                                  the fraction seeing variation 1). The
+                                  experiment splits enrolled traffic 50/50
+                                  between control and variation, so variation-1
+                                  exposure is coverage/2. For example,
+                                  coverage=0.8 means 40% of users see variation
+                                  1. The SDK uses hash-based filters (not
+                                  coverage) on the experiment rule to keep
+                                  bucketing consistent across monitored and
+                                  unmonitored transitions.
+                                anyOf:
+                                  - type: number
+                                    minimum: 0
+                                    maximum: 1
+                                  - type: 'null'
+                              condition:
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              savedGroups:
+                                anyOf:
+                                  - type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        match:
+                                          type: string
+                                          enum:
+                                            - all
+                                            - none
+                                            - any
+                                        ids:
+                                          type: array
+                                          items:
+                                            type: string
+                                      required:
+                                        - match
+                                        - ids
+                                      additionalProperties: false
+                                  - type: 'null'
+                              prerequisites:
+                                anyOf:
+                                  - type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        id:
+                                          type: string
+                                        condition:
+                                          type: string
+                                      required:
+                                        - id
+                                        - condition
+                                      additionalProperties: false
+                                  - type: 'null'
+                              force:
+                                description: Force value (any JSON type)
+                              enabled:
+                                anyOf:
+                                  - type: boolean
+                                  - type: 'null'
+                            additionalProperties: false
+                        required:
+                          - patch
+                        additionalProperties: false
                     steps:
                       type: array
                       items:
@@ -3902,6 +3985,89 @@ paths:
                       type: string
                     templateId:
                       type: string
+                    startActions:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          targetType:
+                            type: string
+                            const: feature-rule
+                          targetId:
+                            type: string
+                          patch:
+                            type: object
+                            properties:
+                              ruleId:
+                                type: string
+                              coverage:
+                                description: >-
+                                  Traffic fraction (0–1). For monitored steps,
+                                  this is the total experiment enrollment (not
+                                  the fraction seeing variation 1). The
+                                  experiment splits enrolled traffic 50/50
+                                  between control and variation, so variation-1
+                                  exposure is coverage/2. For example,
+                                  coverage=0.8 means 40% of users see variation
+                                  1. The SDK uses hash-based filters (not
+                                  coverage) on the experiment rule to keep
+                                  bucketing consistent across monitored and
+                                  unmonitored transitions.
+                                anyOf:
+                                  - type: number
+                                    minimum: 0
+                                    maximum: 1
+                                  - type: 'null'
+                              condition:
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              savedGroups:
+                                anyOf:
+                                  - type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        match:
+                                          type: string
+                                          enum:
+                                            - all
+                                            - none
+                                            - any
+                                        ids:
+                                          type: array
+                                          items:
+                                            type: string
+                                      required:
+                                        - match
+                                        - ids
+                                      additionalProperties: false
+                                  - type: 'null'
+                              prerequisites:
+                                anyOf:
+                                  - type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        id:
+                                          type: string
+                                        condition:
+                                          type: string
+                                      required:
+                                        - id
+                                        - condition
+                                      additionalProperties: false
+                                  - type: 'null'
+                              force:
+                                description: Force value (any JSON type)
+                              enabled:
+                                anyOf:
+                                  - type: boolean
+                                  - type: 'null'
+                            additionalProperties: false
+                        required:
+                          - patch
+                        additionalProperties: false
                     steps:
                       type: array
                       items:
@@ -4421,6 +4587,88 @@ paths:
                   type: string
                 templateId:
                   type: string
+                startActions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      targetType:
+                        type: string
+                        const: feature-rule
+                      targetId:
+                        type: string
+                      patch:
+                        type: object
+                        properties:
+                          ruleId:
+                            type: string
+                          coverage:
+                            description: >-
+                              Traffic fraction (0–1). For monitored steps, this
+                              is the total experiment enrollment (not the
+                              fraction seeing variation 1). The experiment
+                              splits enrolled traffic 50/50 between control and
+                              variation, so variation-1 exposure is coverage/2.
+                              For example, coverage=0.8 means 40% of users see
+                              variation 1. The SDK uses hash-based filters (not
+                              coverage) on the experiment rule to keep bucketing
+                              consistent across monitored and unmonitored
+                              transitions.
+                            anyOf:
+                              - type: number
+                                minimum: 0
+                                maximum: 1
+                              - type: 'null'
+                          condition:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          savedGroups:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    match:
+                                      type: string
+                                      enum:
+                                        - all
+                                        - none
+                                        - any
+                                    ids:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - match
+                                    - ids
+                                  additionalProperties: false
+                              - type: 'null'
+                          prerequisites:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    id:
+                                      type: string
+                                    condition:
+                                      type: string
+                                  required:
+                                    - id
+                                    - condition
+                                  additionalProperties: false
+                              - type: 'null'
+                          force:
+                            description: Force value (any JSON type)
+                          enabled:
+                            anyOf:
+                              - type: boolean
+                              - type: 'null'
+                        additionalProperties: false
+                    required:
+                      - patch
+                    additionalProperties: false
                 steps:
                   type: array
                   items:
@@ -7576,6 +7824,89 @@ paths:
                       type: string
                     templateId:
                       type: string
+                    startActions:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          targetType:
+                            type: string
+                            const: feature-rule
+                          targetId:
+                            type: string
+                          patch:
+                            type: object
+                            properties:
+                              ruleId:
+                                type: string
+                              coverage:
+                                description: >-
+                                  Traffic fraction (0–1). For monitored steps,
+                                  this is the total experiment enrollment (not
+                                  the fraction seeing variation 1). The
+                                  experiment splits enrolled traffic 50/50
+                                  between control and variation, so variation-1
+                                  exposure is coverage/2. For example,
+                                  coverage=0.8 means 40% of users see variation
+                                  1. The SDK uses hash-based filters (not
+                                  coverage) on the experiment rule to keep
+                                  bucketing consistent across monitored and
+                                  unmonitored transitions.
+                                anyOf:
+                                  - type: number
+                                    minimum: 0
+                                    maximum: 1
+                                  - type: 'null'
+                              condition:
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              savedGroups:
+                                anyOf:
+                                  - type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        match:
+                                          type: string
+                                          enum:
+                                            - all
+                                            - none
+                                            - any
+                                        ids:
+                                          type: array
+                                          items:
+                                            type: string
+                                      required:
+                                        - match
+                                        - ids
+                                      additionalProperties: false
+                                  - type: 'null'
+                              prerequisites:
+                                anyOf:
+                                  - type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        id:
+                                          type: string
+                                        condition:
+                                          type: string
+                                      required:
+                                        - id
+                                        - condition
+                                      additionalProperties: false
+                                  - type: 'null'
+                              force:
+                                description: Force value (any JSON type)
+                              enabled:
+                                anyOf:
+                                  - type: boolean
+                                  - type: 'null'
+                            additionalProperties: false
+                        required:
+                          - patch
+                        additionalProperties: false
                     steps:
                       type: array
                       items:
@@ -8060,6 +8391,89 @@ paths:
                       type: string
                     templateId:
                       type: string
+                    startActions:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          targetType:
+                            type: string
+                            const: feature-rule
+                          targetId:
+                            type: string
+                          patch:
+                            type: object
+                            properties:
+                              ruleId:
+                                type: string
+                              coverage:
+                                description: >-
+                                  Traffic fraction (0–1). For monitored steps,
+                                  this is the total experiment enrollment (not
+                                  the fraction seeing variation 1). The
+                                  experiment splits enrolled traffic 50/50
+                                  between control and variation, so variation-1
+                                  exposure is coverage/2. For example,
+                                  coverage=0.8 means 40% of users see variation
+                                  1. The SDK uses hash-based filters (not
+                                  coverage) on the experiment rule to keep
+                                  bucketing consistent across monitored and
+                                  unmonitored transitions.
+                                anyOf:
+                                  - type: number
+                                    minimum: 0
+                                    maximum: 1
+                                  - type: 'null'
+                              condition:
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              savedGroups:
+                                anyOf:
+                                  - type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        match:
+                                          type: string
+                                          enum:
+                                            - all
+                                            - none
+                                            - any
+                                        ids:
+                                          type: array
+                                          items:
+                                            type: string
+                                      required:
+                                        - match
+                                        - ids
+                                      additionalProperties: false
+                                  - type: 'null'
+                              prerequisites:
+                                anyOf:
+                                  - type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        id:
+                                          type: string
+                                        condition:
+                                          type: string
+                                      required:
+                                        - id
+                                        - condition
+                                      additionalProperties: false
+                                  - type: 'null'
+                              force:
+                                description: Force value (any JSON type)
+                              enabled:
+                                anyOf:
+                                  - type: boolean
+                                  - type: 'null'
+                            additionalProperties: false
+                        required:
+                          - patch
+                        additionalProperties: false
                     steps:
                       type: array
                       items:
@@ -8547,6 +8961,88 @@ paths:
                   type: string
                 templateId:
                   type: string
+                startActions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      targetType:
+                        type: string
+                        const: feature-rule
+                      targetId:
+                        type: string
+                      patch:
+                        type: object
+                        properties:
+                          ruleId:
+                            type: string
+                          coverage:
+                            description: >-
+                              Traffic fraction (0–1). For monitored steps, this
+                              is the total experiment enrollment (not the
+                              fraction seeing variation 1). The experiment
+                              splits enrolled traffic 50/50 between control and
+                              variation, so variation-1 exposure is coverage/2.
+                              For example, coverage=0.8 means 40% of users see
+                              variation 1. The SDK uses hash-based filters (not
+                              coverage) on the experiment rule to keep bucketing
+                              consistent across monitored and unmonitored
+                              transitions.
+                            anyOf:
+                              - type: number
+                                minimum: 0
+                                maximum: 1
+                              - type: 'null'
+                          condition:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          savedGroups:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    match:
+                                      type: string
+                                      enum:
+                                        - all
+                                        - none
+                                        - any
+                                    ids:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - match
+                                    - ids
+                                  additionalProperties: false
+                              - type: 'null'
+                          prerequisites:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    id:
+                                      type: string
+                                    condition:
+                                      type: string
+                                  required:
+                                    - id
+                                    - condition
+                                  additionalProperties: false
+                              - type: 'null'
+                          force:
+                            description: Force value (any JSON type)
+                          enabled:
+                            anyOf:
+                              - type: boolean
+                              - type: 'null'
+                        additionalProperties: false
+                    required:
+                      - patch
+                    additionalProperties: false
                 steps:
                   type: array
                   items:
@@ -16890,6 +17386,104 @@ paths:
                       - trigger
                       - monitored
                     additionalProperties: false
+                startActions:
+                  description: >-
+                    Actions that restore controlled rules to their pre-ramp
+                    state. When omitted for an attached rule, the server
+                    captures the current published rule state.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      targetType:
+                        description: >-
+                          Omit when using featureId+ruleId+environment
+                          (auto-injected)
+                        type: string
+                        const: feature-rule
+                      targetId:
+                        description: >-
+                          Auto-injected when featureId+ruleId+environment are
+                          provided
+                        type: string
+                      patch:
+                        description: >-
+                          Sparse patch — only fields present are applied; absent
+                          fields accumulate from previous steps
+                        type: object
+                        properties:
+                          ruleId:
+                            description: >-
+                              Auto-injected when ruleId is provided at the top
+                              level
+                            type: string
+                          coverage:
+                            description: >-
+                              Traffic fraction (0–1). For monitored steps, this
+                              is the total experiment enrollment (not the
+                              fraction seeing variation 1). The experiment
+                              splits enrolled traffic 50/50 between control and
+                              variation, so variation-1 exposure is coverage/2.
+                              For example, coverage=0.8 means 40% of users see
+                              variation 1. The SDK uses hash-based filters (not
+                              coverage) on the experiment rule to keep bucketing
+                              consistent across monitored and unmonitored
+                              transitions.
+                            anyOf:
+                              - type: number
+                                minimum: 0
+                                maximum: 1
+                              - type: 'null'
+                          condition:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          savedGroups:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    match:
+                                      type: string
+                                      enum:
+                                        - all
+                                        - none
+                                        - any
+                                    ids:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - match
+                                    - ids
+                                  additionalProperties: false
+                              - type: 'null'
+                          prerequisites:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    id:
+                                      type: string
+                                    condition:
+                                      type: string
+                                  required:
+                                    - id
+                                    - condition
+                                  additionalProperties: false
+                              - type: 'null'
+                          force:
+                            description: Force value (any JSON type)
+                          enabled:
+                            anyOf:
+                              - type: boolean
+                              - type: 'null'
+                        additionalProperties: false
+                    required:
+                      - patch
+                    additionalProperties: false
                 endActions:
                   description: >-
                     Actions applied when the ramp completes. `targetId` and
@@ -17759,6 +18353,13 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/targets'
+                  startActions:
+                    description: >-
+                      Actions that restore controlled rules to their pre-ramp
+                      state. Applied when rolling back or jumping to start.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/startActions'
                   steps:
                     description: Ordered ramp steps
                     type: array
@@ -17770,7 +18371,7 @@ paths:
                       completes. Represents the final desired rule state.
                     type: array
                     items:
-                      $ref: '#/components/schemas/endActions'
+                      $ref: '#/components/schemas/startActions'
                   startDate:
                     description: >-
                       When the ramp fires. Absent/null means immediately on
@@ -18090,6 +18691,13 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/targets'
+                  startActions:
+                    description: >-
+                      Actions that restore controlled rules to their pre-ramp
+                      state. Applied when rolling back or jumping to start.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/startActions'
                   steps:
                     description: Ordered ramp steps
                     type: array
@@ -18101,7 +18709,7 @@ paths:
                       completes. Represents the final desired rule state.
                     type: array
                     items:
-                      $ref: '#/components/schemas/endActions'
+                      $ref: '#/components/schemas/startActions'
                   startDate:
                     description: >-
                       When the ramp fires. Absent/null means immediately on
@@ -25648,6 +26256,88 @@ paths:
                       - trigger
                       - monitored
                     additionalProperties: false
+                startActions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      targetType:
+                        type: string
+                        const: feature-rule
+                      targetId:
+                        type: string
+                      patch:
+                        type: object
+                        properties:
+                          ruleId:
+                            type: string
+                          coverage:
+                            description: >-
+                              Traffic fraction (0–1). For monitored steps, this
+                              is the total experiment enrollment (not the
+                              fraction seeing variation 1). The experiment
+                              splits enrolled traffic 50/50 between control and
+                              variation, so variation-1 exposure is coverage/2.
+                              For example, coverage=0.8 means 40% of users see
+                              variation 1. The SDK uses hash-based filters (not
+                              coverage) on the experiment rule to keep bucketing
+                              consistent across monitored and unmonitored
+                              transitions.
+                            anyOf:
+                              - type: number
+                                minimum: 0
+                                maximum: 1
+                              - type: 'null'
+                          condition:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          savedGroups:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    match:
+                                      type: string
+                                      enum:
+                                        - all
+                                        - none
+                                        - any
+                                    ids:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - match
+                                    - ids
+                                  additionalProperties: false
+                              - type: 'null'
+                          prerequisites:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    id:
+                                      type: string
+                                    condition:
+                                      type: string
+                                  required:
+                                    - id
+                                    - condition
+                                  additionalProperties: false
+                              - type: 'null'
+                          force:
+                            description: Force value (any JSON type)
+                          enabled:
+                            anyOf:
+                              - type: boolean
+                              - type: 'null'
+                        required:
+                          - ruleId
+                        additionalProperties: false
+                    additionalProperties: false
                 endActions:
                   type: array
                   items:
@@ -30549,6 +31239,93 @@ components:
               - entityId
               - status
             additionalProperties: false
+        startActions:
+          description: >-
+            Actions that restore controlled rules to their pre-ramp state.
+            Applied when rolling back or jumping to start.
+          type: array
+          items:
+            type: object
+            properties:
+              targetType:
+                type: string
+                const: feature-rule
+              targetId:
+                type: string
+              patch:
+                type: object
+                properties:
+                  ruleId:
+                    type: string
+                  coverage:
+                    description: >-
+                      Traffic fraction (0–1). For monitored steps, this is the
+                      total experiment enrollment (not the fraction seeing
+                      variation 1). The experiment splits enrolled traffic 50/50
+                      between control and variation, so variation-1 exposure is
+                      coverage/2. For example, coverage=0.8 means 40% of users
+                      see variation 1. The SDK uses hash-based filters (not
+                      coverage) on the experiment rule to keep bucketing
+                      consistent across monitored and unmonitored transitions.
+                    anyOf:
+                      - type: number
+                        minimum: 0
+                        maximum: 1
+                      - type: 'null'
+                  condition:
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                  savedGroups:
+                    anyOf:
+                      - type: array
+                        items:
+                          type: object
+                          properties:
+                            match:
+                              type: string
+                              enum:
+                                - all
+                                - none
+                                - any
+                            ids:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - match
+                            - ids
+                          additionalProperties: false
+                      - type: 'null'
+                  prerequisites:
+                    anyOf:
+                      - type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            condition:
+                              type: string
+                          required:
+                            - id
+                            - condition
+                          additionalProperties: false
+                      - type: 'null'
+                  force:
+                    description: Force value (any JSON type)
+                  enabled:
+                    anyOf:
+                      - type: boolean
+                      - type: 'null'
+                required:
+                  - ruleId
+                additionalProperties: false
+            required:
+              - targetType
+              - targetId
+              - patch
+            additionalProperties: false
         steps:
           description: Ordered ramp steps
           type: array
@@ -35305,6 +36082,88 @@ components:
         - entityId
         - status
       additionalProperties: false
+    startActions:
+      type: object
+      properties:
+        targetType:
+          type: string
+          const: feature-rule
+        targetId:
+          type: string
+        patch:
+          type: object
+          properties:
+            ruleId:
+              type: string
+            coverage:
+              description: >-
+                Traffic fraction (0–1). For monitored steps, this is the total
+                experiment enrollment (not the fraction seeing variation 1). The
+                experiment splits enrolled traffic 50/50 between control and
+                variation, so variation-1 exposure is coverage/2. For example,
+                coverage=0.8 means 40% of users see variation 1. The SDK uses
+                hash-based filters (not coverage) on the experiment rule to keep
+                bucketing consistent across monitored and unmonitored
+                transitions.
+              anyOf:
+                - type: number
+                  minimum: 0
+                  maximum: 1
+                - type: 'null'
+            condition:
+              anyOf:
+                - type: string
+                - type: 'null'
+            savedGroups:
+              anyOf:
+                - type: array
+                  items:
+                    type: object
+                    properties:
+                      match:
+                        type: string
+                        enum:
+                          - all
+                          - none
+                          - any
+                      ids:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - match
+                      - ids
+                    additionalProperties: false
+                - type: 'null'
+            prerequisites:
+              anyOf:
+                - type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      condition:
+                        type: string
+                    required:
+                      - id
+                      - condition
+                    additionalProperties: false
+                - type: 'null'
+            force:
+              description: Force value (any JSON type)
+            enabled:
+              anyOf:
+                - type: boolean
+                - type: 'null'
+          required:
+            - ruleId
+          additionalProperties: false
+      required:
+        - targetType
+        - targetId
+        - patch
+      additionalProperties: false
     steps:
       type: object
       properties:
@@ -35456,88 +36315,6 @@ components:
       required:
         - trigger
         - actions
-      additionalProperties: false
-    endActions:
-      type: object
-      properties:
-        targetType:
-          type: string
-          const: feature-rule
-        targetId:
-          type: string
-        patch:
-          type: object
-          properties:
-            ruleId:
-              type: string
-            coverage:
-              description: >-
-                Traffic fraction (0–1). For monitored steps, this is the total
-                experiment enrollment (not the fraction seeing variation 1). The
-                experiment splits enrolled traffic 50/50 between control and
-                variation, so variation-1 exposure is coverage/2. For example,
-                coverage=0.8 means 40% of users see variation 1. The SDK uses
-                hash-based filters (not coverage) on the experiment rule to keep
-                bucketing consistent across monitored and unmonitored
-                transitions.
-              anyOf:
-                - type: number
-                  minimum: 0
-                  maximum: 1
-                - type: 'null'
-            condition:
-              anyOf:
-                - type: string
-                - type: 'null'
-            savedGroups:
-              anyOf:
-                - type: array
-                  items:
-                    type: object
-                    properties:
-                      match:
-                        type: string
-                        enum:
-                          - all
-                          - none
-                          - any
-                      ids:
-                        type: array
-                        items:
-                          type: string
-                    required:
-                      - match
-                      - ids
-                    additionalProperties: false
-                - type: 'null'
-            prerequisites:
-              anyOf:
-                - type: array
-                  items:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      condition:
-                        type: string
-                    required:
-                      - id
-                      - condition
-                    additionalProperties: false
-                - type: 'null'
-            force:
-              description: Force value (any JSON type)
-            enabled:
-              anyOf:
-                - type: boolean
-                - type: 'null'
-          required:
-            - ruleId
-          additionalProperties: false
-      required:
-        - targetType
-        - targetId
-        - patch
       additionalProperties: false
     lockdownConfig:
       type: object

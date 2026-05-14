@@ -9,9 +9,12 @@ import {
   computeNextProcessAt,
   ensureSafeRolloutForMonitoredRamp,
   onActivatingRevisionPublished,
-  rollbackSchedule,
+  syncLinkedSafeRolloutForRampState,
 } from "back-end/src/services/rampSchedule";
-import { evaluateCurrentStep } from "back-end/src/services/rampScheduleEvaluator";
+import {
+  applyRampEvaluationDecision,
+  evaluateCurrentStep,
+} from "back-end/src/services/rampScheduleEvaluator";
 import { getFeature } from "back-end/src/models/FeatureModel";
 
 type AdvanceSingleRampScheduleJob = Job<{
@@ -132,78 +135,15 @@ export const advanceSingleRampSchedule = async (
       current = await ensureSafeRolloutForMonitoredRamp(context, current);
 
       const decision = await evaluateCurrentStep(context, current, now);
-      if (decision.action === "rollback") {
-        logger.info(
-          { scheduleId: current.id, reason: decision.reason },
-          "Evaluator triggered rollback",
-        );
-        await rollbackSchedule(context, current, decision.reason);
+      const result = await applyRampEvaluationDecision(
+        context,
+        current,
+        decision,
+      );
+      if (result.handled) {
         return;
       }
-      if (decision.action === "pause") {
-        logger.info(
-          { scheduleId: current.id, reason: decision.reason },
-          "Evaluator triggered pause",
-        );
-        await context.models.rampSchedules.updateById(current.id, {
-          status: "paused",
-          pausedAt: now,
-          nextProcessAt: null,
-          eventHistory: appendRampEvent(current, "paused", {
-            stepIndex: current.currentStepIndex,
-            status: "paused",
-            previousStatus: current.status,
-            reason: decision.reason,
-          }),
-        });
-        if (current.safeRolloutId) {
-          const sr = await context.models.safeRollout.getById(
-            current.safeRolloutId,
-          );
-          if (sr) {
-            await context.models.safeRollout.update(sr, {
-              autoSnapshots: false,
-            });
-          }
-        }
-        return;
-      }
-      if (decision.action === "hold") {
-        const step = current.steps[current.currentStepIndex];
-        let wakeAt: Date | null = null;
-        if (
-          step?.monitored &&
-          step.trigger.type === "interval" &&
-          current.currentStepEnteredAt
-        ) {
-          wakeAt = new Date(
-            current.currentStepEnteredAt.getTime() +
-              step.trigger.seconds * 1000,
-          );
-          if (wakeAt <= now) wakeAt = null;
-        }
-        const nextProcess = computeNextProcessAt({
-          status: current.status,
-          nextStepAt: wakeAt ?? current.nextStepAt,
-          nextSnapshotAt: current.nextSnapshotAt,
-          cutoffDate: current.cutoffDate,
-        });
-        const maxWake = new Date(now.getTime() + 60_000);
-        const effectiveNext =
-          nextProcess && nextProcess < maxWake ? nextProcess : maxWake;
-        await context.models.rampSchedules.updateById(current.id, {
-          nextProcessAt: effectiveNext,
-        });
-        logger.info(
-          {
-            scheduleId: current.id,
-            reason: decision.reason,
-            nextProcessAt: effectiveNext.toISOString(),
-          },
-          "Evaluator holding step — rescheduled",
-        );
-        return;
-      }
+      current = result.schedule;
     }
 
     await advanceUntilBlocked(context, current, now);
@@ -212,20 +152,27 @@ export const advanceSingleRampSchedule = async (
     try {
       const errorSchedule =
         await context.models.rampSchedules.getById(rampScheduleId);
-      await context.models.rampSchedules.updateById(rampScheduleId, {
-        status: "paused",
-        nextProcessAt: null,
-        ...(errorSchedule
-          ? {
-              eventHistory: appendRampEvent(errorSchedule, "error-paused", {
-                stepIndex: errorSchedule.currentStepIndex,
-                status: "paused",
-                previousStatus: errorSchedule.status,
-                reason: e instanceof Error ? e.message : String(e),
-              }),
-            }
-          : {}),
-      });
+      const updated = await context.models.rampSchedules.updateById(
+        rampScheduleId,
+        {
+          status: "paused",
+          nextSnapshotAt: null,
+          nextProcessAt: null,
+          ...(errorSchedule
+            ? {
+                eventHistory: appendRampEvent(errorSchedule, "error-paused", {
+                  stepIndex: errorSchedule.currentStepIndex,
+                  status: "paused",
+                  previousStatus: errorSchedule.status,
+                  reason: e instanceof Error ? e.message : String(e),
+                }),
+              }
+            : {}),
+        },
+      );
+      if (errorSchedule) {
+        await syncLinkedSafeRolloutForRampState(context, updated);
+      }
     } catch (inner) {
       logger.error(inner, "Error updating ramp schedule status after failure");
     }

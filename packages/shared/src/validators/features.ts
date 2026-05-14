@@ -346,6 +346,7 @@ export const revisionRampCreateAction = z.object({
   // @deprecated — target by ruleId only. Kept for pre-migration DB compat.
   environment: z.string().optional().nullable(),
   templateId: z.string().optional(),
+  startActions: z.array(rampStepAction).optional(),
   steps: z.array(rampStep),
   endActions: z.array(rampStepAction).optional(),
   startDate: z.string().optional().nullable(),
@@ -358,6 +359,7 @@ export const revisionRampCreateAction = z.object({
 // API input variant — normalize to RevisionRampCreateAction before storing.
 export const apiRevisionRampCreateAction = revisionRampCreateAction.extend({
   steps: z.array(revisionApiRampStep).optional(),
+  startActions: z.array(revisionApiRampStepAction).optional(),
   endActions: z.array(revisionApiRampStepAction).optional(),
 });
 

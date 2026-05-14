@@ -580,6 +580,7 @@ export default function FeatureRules({
       {ruleModal !== null && (
         <RuleModal
           feature={feature}
+          baseFeature={baseFeature}
           close={() => setRuleModal(null)}
           i={ruleModal.i}
           ruleId={ruleModal.ruleId}

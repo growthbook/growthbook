@@ -51,6 +51,7 @@ function normalizeRevisionRampCreateAction(
       monitored: !!s.monitored,
       holdConditions: s.holdConditions ?? undefined,
     })),
+    startActions: input.startActions?.map(normalizeAction),
     endActions: input.endActions?.map(normalizeAction),
   };
 }

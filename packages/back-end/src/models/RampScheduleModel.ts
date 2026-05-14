@@ -20,6 +20,8 @@ import {
   getEffectiveRampAutoUpdateState,
   getRampAutoUpdatePreference,
   getRampMonitoringMode,
+  getStartActionsFromRules,
+  syncLinkedSafeRolloutForRampState,
 } from "back-end/src/services/rampSchedule";
 import { applyPagination } from "back-end/src/util/handler";
 import {
@@ -36,7 +38,9 @@ export function migrateRampScheduleEndCondition<
     cutoffDate?: Date | string | null;
   },
 >(doc: T): T {
-  if (doc.cutoffDate) return doc;
+  if (doc.cutoffDate) {
+    return doc.endCondition ? { ...doc, endCondition: null } : doc;
+  }
   const trigger = doc.endCondition?.trigger;
   if (trigger?.type === "scheduled" && trigger.at) {
     return {
@@ -102,6 +106,7 @@ export function rampScheduleToApiInterface(
     entityType: doc.entityType,
     entityId: doc.entityId,
     targets: doc.targets,
+    startActions: doc.startActions,
     steps: doc.steps.map((s) => ({
       trigger: serializeTrigger(s.trigger),
       actions: s.actions,
@@ -371,7 +376,9 @@ export class RampScheduleModel extends BaseClass {
   public override async handleApiCreate(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiCreate"]>[0],
   ) {
-    const body = req.body;
+    const body = req.body as typeof req.body & {
+      startActions?: PostBodyAction[];
+    };
 
     if (!this.context.hasPremiumFeature("ramp-schedules")) {
       this.context.throwPlanDoesNotAllowError(
@@ -515,6 +522,26 @@ export class RampScheduleModel extends BaseClass {
       return undefined;
     })();
 
+    const resolvedStartActions: RampStepAction[] | undefined = (() => {
+      if (body.startActions !== undefined) {
+        return body.startActions.map((a: PostBodyAction) =>
+          hasTarget
+            ? injectTarget(a, targetId!, body.ruleId!)
+            : normalizeAction(a),
+        );
+      }
+      if (hasTarget) {
+        const actions = getStartActionsFromRules({
+          rules: feature!.rules ?? [],
+          targetId: targetId!,
+          ruleId: body.ruleId!,
+          environment: body.environment,
+        });
+        return actions.length > 0 ? actions : undefined;
+      }
+      return undefined;
+    })();
+
     const schedule = await this.create({
       name: body.name,
       entityType: "feature",
@@ -530,6 +557,7 @@ export class RampScheduleModel extends BaseClass {
             },
           ]
         : [],
+      startActions: resolvedStartActions,
       steps: resolvedSteps,
       endActions: resolvedEndActions,
       startDate,
@@ -584,7 +612,9 @@ export class RampScheduleModel extends BaseClass {
     }
 
     const updates: Record<string, unknown> = {};
-    const body = req.body;
+    const body = req.body as typeof req.body & {
+      startActions?: PostBodyAction[];
+    };
 
     const resolveTargetId = (action: {
       targetType?: "feature-rule";
@@ -615,6 +645,9 @@ export class RampScheduleModel extends BaseClass {
     };
 
     if (body.name !== undefined) updates.name = body.name;
+    if (body.startActions !== undefined) {
+      updates.startActions = body.startActions.map(resolveTargetId);
+    }
     if (body.steps !== undefined) {
       updates.steps = body.steps.map(
         (step: {
@@ -692,14 +725,7 @@ export class RampScheduleModel extends BaseClass {
         body.monitoringConfig?.monitoringMode !== undefined) &&
       schedule.safeRolloutId
     ) {
-      const sr = await this.context.models.safeRollout.getById(
-        schedule.safeRolloutId,
-      );
-      if (sr) {
-        await this.context.models.safeRollout.update(sr, {
-          autoSnapshots: getRampAutoUpdatePreference(body.monitoringConfig),
-        });
-      }
+      await syncLinkedSafeRolloutForRampState(this.context, updated);
     }
 
     return this.toApiInterface(updated);

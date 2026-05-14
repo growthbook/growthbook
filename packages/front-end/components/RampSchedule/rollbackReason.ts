@@ -9,7 +9,10 @@ export function formatRollbackReason(reason?: string | null): string | null {
     if (/^manually\b/i.test(detail)) {
       return detail[0].toUpperCase() + detail.slice(1);
     }
-    return `Manually ${detail}`;
+    if (/^rolled back\b/i.test(detail)) {
+      return `Manually ${detail}`;
+    }
+    return `Manually rolled back: ${detail}`;
   }
 
   return trimmed;

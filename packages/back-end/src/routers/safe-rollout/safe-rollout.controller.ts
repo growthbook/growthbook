@@ -13,7 +13,11 @@ import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
-import { appendRampEvent } from "back-end/src/services/rampSchedule";
+import {
+  appendRampEvent,
+  computeNextProcessAt,
+  syncLinkedSafeRolloutForRampState,
+} from "back-end/src/services/rampSchedule";
 import { logger } from "back-end/src/util/logger";
 
 // region GET /safe-rollout/:id/snapshot
@@ -263,18 +267,28 @@ export async function putAutoSnapshots(
       safeRollout.rampScheduleId,
     );
     if (schedule?.monitoringConfig) {
-      await context.models.rampSchedules.updateById(schedule.id, {
-        monitoringConfig: {
-          ...schedule.monitoringConfig,
-          monitoringMode: enabled ? "auto" : "manual",
-          autoUpdate: enabled,
+      const updated = await context.models.rampSchedules.updateById(
+        schedule.id,
+        {
+          monitoringConfig: {
+            ...schedule.monitoringConfig,
+            monitoringMode: enabled ? "auto" : "manual",
+            autoUpdate: enabled,
+          },
+          nextProcessAt: computeNextProcessAt({
+            status: schedule.status,
+            nextStepAt: schedule.nextStepAt,
+            cutoffDate: schedule.cutoffDate,
+            startDate: schedule.startDate,
+          }),
+          eventHistory: appendRampEvent(schedule, "auto-update-toggled", {
+            stepIndex: schedule.currentStepIndex,
+            status: schedule.status,
+            reason: enabled ? "Auto-update enabled" : "Auto-update disabled",
+          }),
         },
-        eventHistory: appendRampEvent(schedule, "auto-update-toggled", {
-          stepIndex: schedule.currentStepIndex,
-          status: schedule.status,
-          reason: enabled ? "Auto-update enabled" : "Auto-update disabled",
-        }),
-      });
+      );
+      await syncLinkedSafeRolloutForRampState(context, updated);
     }
   }
 

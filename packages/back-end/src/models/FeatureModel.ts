@@ -50,6 +50,7 @@ import {
 } from "back-end/src/services/features";
 import {
   assertFeatureNotLockedByRamp,
+  getStartActionsFromRules,
   remapTemplateActions,
 } from "back-end/src/services/rampSchedule";
 import {
@@ -1653,6 +1654,7 @@ async function createRampSchedulesForRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: { version: number },
+  result: MergeResultChanges,
   actions: RevisionRampAction[],
 ): Promise<string[]> {
   const createdIds: string[] = [];
@@ -1748,6 +1750,16 @@ async function createRampSchedulesForRevision(
             ]
           : [];
 
+    const startActions: RampStepAction[] =
+      action.startActions !== undefined
+        ? action.startActions.map(normalizeAction)
+        : getStartActionsFromRules({
+            rules: result.rules ?? feature.rules ?? [],
+            targetId,
+            ruleId: action.ruleId,
+            environment: action.environment,
+          });
+
     const created = await context.models.rampSchedules.create({
       name: action.name ?? defaultName,
       entityType: "feature",
@@ -1767,6 +1779,7 @@ async function createRampSchedulesForRevision(
           activatingRevisionVersion: revision.version,
         },
       ],
+      startActions: startActions.length > 0 ? startActions : undefined,
       steps,
       endActions: endActions.length > 0 ? endActions : undefined,
       startDate,
@@ -1930,6 +1943,7 @@ export async function publishRevision({
       context,
       feature,
       revision,
+      result,
       createActions,
     );
     preCreatedScheduleIds.push(...ids);

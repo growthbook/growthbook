@@ -167,6 +167,8 @@ export const rampScheduleValidator = baseSchema
     entityType: z.enum(["feature"]), // TODO v2: add "experiment"
     entityId: z.string(),
     targets: z.array(rampTarget),
+    // Restores the controlled rules to their pre-ramp state when rolling back to start.
+    startActions: z.array(rampStepAction).optional(),
     steps: z.array(rampStep),
     // Applied on top of accumulated step patches when the ramp completes.
     endActions: z.array(rampStepAction).optional(),
@@ -329,6 +331,12 @@ export const apiRampScheduleInterface = namedSchema(
     entityType: z.enum(["feature"]),
     entityId: z.string(),
     targets: z.array(rampTarget).describe("Controlled entity references"),
+    startActions: z
+      .array(rampStepAction)
+      .optional()
+      .describe(
+        "Actions that restore controlled rules to their pre-ramp state. Applied when rolling back or jumping to start.",
+      ),
     steps: z.array(apiRampStep).describe("Ordered ramp steps"),
     endActions: z
       .array(rampStepAction)

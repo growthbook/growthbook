@@ -28,6 +28,7 @@ import {
   rollbackToStep,
   advanceUntilBlocked,
   completeRollout,
+  getStartPatchForRule,
 } from "back-end/src/services/rampSchedule";
 
 // ---------------------------------------------------------------------------
@@ -257,6 +258,49 @@ describe("applyPatchToRule", () => {
     const result = applyPatchToRule(base, { coverage: 0.9 });
     expect(result.condition).toBe(base.condition);
     expect(result.enabled).toBe(base.enabled);
+  });
+});
+
+describe("getStartPatchForRule", () => {
+  it("captures explicit null clears for absent rule fields", () => {
+    const patch = getStartPatchForRule({
+      id: "r1",
+      type: "rollout",
+      hashAttribute: "id",
+      enabled: true,
+    } as FeatureRule);
+
+    expect(patch).toMatchObject({
+      coverage: null,
+      condition: null,
+      savedGroups: null,
+      prerequisites: null,
+      enabled: true,
+    });
+  });
+
+  it("captures the full pre-ramp rule state", () => {
+    const savedGroups = [{ match: "any" as const, ids: ["group_1"] }];
+    const prerequisites = [{ id: "feat_1", condition: "{}" }];
+
+    const patch = getStartPatchForRule({
+      id: "r1",
+      type: "rollout",
+      coverage: 0.25,
+      hashAttribute: "id",
+      enabled: false,
+      condition: '{"country":"US"}',
+      savedGroups,
+      prerequisites,
+    } as FeatureRule);
+
+    expect(patch).toMatchObject({
+      coverage: 0.25,
+      condition: '{"country":"US"}',
+      savedGroups,
+      prerequisites,
+      enabled: false,
+    });
   });
 });
 
@@ -679,7 +723,7 @@ describe("featureEntityHandler.applyActions", () => {
     });
 
     expect(mockPublishRevision).toHaveBeenCalledTimes(1);
-    const [, , , forceResult] = mockPublishRevision.mock.calls[0];
+    const { result: forceResult } = mockPublishRevision.mock.calls[0][0];
     const rules: FeatureRule[] = forceResult.rules ?? [];
     const patchedRule = rules.find((r: FeatureRule) => r.id === RULE_ID);
     expect((patchedRule as { coverage?: number })?.coverage).toBe(0.5);
@@ -742,7 +786,7 @@ describe("featureEntityHandler.applyActions", () => {
       user: { type: "system" },
     });
 
-    const [, , , forceResult] = mockPublishRevision.mock.calls[0];
+    const { result: forceResult } = mockPublishRevision.mock.calls[0][0];
     const rules: FeatureRule[] = forceResult.rules ?? [];
     const patched = rules.find((r: FeatureRule) => r.id === RULE_ID);
     expect((patched as { coverage?: number })?.coverage).toBe(0.75);
@@ -787,7 +831,7 @@ describe("featureEntityHandler.applyActions", () => {
       environment: "production",
     });
 
-    const [, , , forceResult] = mockPublishRevision.mock.calls[0];
+    const { result: forceResult } = mockPublishRevision.mock.calls[0][0];
     const rules: FeatureRule[] = forceResult.rules ?? [];
 
     const patchedProd = rules.find(
@@ -930,7 +974,7 @@ describe("advanceStep — last step / completion", () => {
     await advanceStep(ctx as never, schedule);
 
     expect(mockPublishRevision).toHaveBeenCalledTimes(1);
-    const [, , , forceResult] = mockPublishRevision.mock.calls[0];
+    const { result: forceResult } = mockPublishRevision.mock.calls[0][0];
     const rules: FeatureRule[] = forceResult.rules ?? [];
     const patched = rules.find((r: FeatureRule) => r.id === RULE_ID);
     expect((patched as { coverage?: number })?.coverage).toBe(1);
@@ -957,7 +1001,7 @@ describe("jumpAheadToStep", () => {
     await jumpAheadToStep(ctx as never, schedule, 2);
 
     expect(mockPublishRevision).toHaveBeenCalledTimes(1);
-    const [, , , forceResult] = mockPublishRevision.mock.calls[0];
+    const { result: forceResult } = mockPublishRevision.mock.calls[0][0];
     const rules: FeatureRule[] = forceResult.rules ?? [];
     const patched = rules.find((r: FeatureRule) => r.id === RULE_ID);
     expect((patched as { coverage?: number })?.coverage).toBe(1.0);
@@ -1006,7 +1050,7 @@ describe("jumpAheadToStep", () => {
     await jumpAheadToStep(ctx as never, sparseSchedule, 2);
 
     expect(mockPublishRevision).toHaveBeenCalledTimes(1);
-    const [, , , forceResult] = mockPublishRevision.mock.calls[0];
+    const { result: forceResult } = mockPublishRevision.mock.calls[0][0];
     const rules: FeatureRule[] = forceResult.rules ?? [];
     const patched = rules.find((r: FeatureRule) => r.id === RULE_ID);
     expect((patched as { coverage?: number })?.coverage).toBe(1.0);
@@ -1087,7 +1131,7 @@ describe("rollbackToStep", () => {
     await rollbackToStep(ctx as never, schedule, 0);
 
     expect(mockPublishRevision).toHaveBeenCalledTimes(1);
-    const [, , , forceResult] = mockPublishRevision.mock.calls[0];
+    const { result: forceResult } = mockPublishRevision.mock.calls[0][0];
     const rules: FeatureRule[] = forceResult.rules ?? [];
     const patched = rules.find((r: FeatureRule) => r.id === RULE_ID);
     // Effective at step 0: start + step0 → coverage 0.3, condition from step 0
@@ -1095,19 +1139,35 @@ describe("rollbackToStep", () => {
     expect(patched?.condition).toBe('{"step":"0"}');
   });
 
-  it("rolling back to -1 publishes step-0 effective patch to restore the ramp's starting position", async () => {
+  it("rolling back to -1 publishes startActions to restore the pre-ramp state", async () => {
+    const schedule = makeSchedule({
+      currentStepIndex: 1,
+      startActions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: { ruleId: RULE_ID, coverage: 0 },
+        },
+      ],
+    });
+
+    const { ctx } = makeContext({ currentStepIndex: 1 });
+    await rollbackToStep(ctx as never, schedule, -1);
+
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+    const { result: forceResult } = mockPublishRevision.mock.calls[0][0];
+    const rules: FeatureRule[] = forceResult.rules ?? [];
+    const patched = rules.find((r: FeatureRule) => r.id === RULE_ID);
+    expect((patched as { coverage?: number })?.coverage).toBe(0);
+  });
+
+  it("rolling back to -1 does not treat step 0 as the baseline", async () => {
     const schedule = makeSchedule({ currentStepIndex: 1 });
 
     const { ctx } = makeContext({ currentStepIndex: 1 });
     await rollbackToStep(ctx as never, schedule, -1);
 
-    // Step 0 patch (coverage: 0.3) is applied so the live rule immediately
-    // reflects the start-of-ramp state rather than staying at the advanced value.
-    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
-    const [, , , forceResult] = mockPublishRevision.mock.calls[0];
-    const rules: FeatureRule[] = forceResult.rules ?? [];
-    const patched = rules.find((r: FeatureRule) => r.id === RULE_ID);
-    expect((patched as { coverage?: number })?.coverage).toBe(0.3);
+    expect(mockPublishRevision).not.toHaveBeenCalled();
   });
 
   it("sets status to rolled-back for full rollback (targetStepIndex=-1)", async () => {

@@ -3,20 +3,18 @@ import { RampScheduleInterface } from "shared/validators";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
-  advanceStep,
-  advanceUntilBlocked,
+  advanceScheduleManually,
   appendRampEvent,
   approveAndPublishStep,
   completeRollout,
   computeNextProcessAt,
-  computeNextStepAt,
   dispatchRampEvent,
-  getEffectiveRampAutoUpdateState,
-  getRampAutoUpdatePreference,
-  jumpAheadToStep,
+  jumpSchedule,
+  pauseSchedule,
   rollbackSchedule,
-  rollbackToStep,
-  shouldResetMonitoringStartDate,
+  restartSchedule,
+  resumeSchedule,
+  setRampMonitoringMode,
   startSchedule,
 } from "back-end/src/services/rampSchedule";
 
@@ -24,6 +22,7 @@ type CreateBody = Pick<
   RampScheduleInterface,
   "name" | "entityType" | "entityId" | "targets" | "steps"
 > & {
+  startActions?: RampScheduleInterface["startActions"];
   endActions?: RampScheduleInterface["endActions"];
   startDate?: string | null;
   cutoffDate?: string | null;
@@ -33,6 +32,7 @@ type CreateBody = Pick<
 };
 
 type UpdateBody = Partial<Pick<RampScheduleInterface, "name" | "steps">> & {
+  startActions?: RampScheduleInterface["startActions"];
   endActions?: RampScheduleInterface["endActions"];
   startDate?: string | null;
   cutoffDate?: string | null;
@@ -115,6 +115,7 @@ export const postRampSchedule = async (
     entityType: body.entityType,
     entityId: body.entityId,
     targets: body.targets,
+    startActions: body.startActions,
     steps: body.steps,
     endActions: body.endActions,
     startDate,
@@ -172,6 +173,7 @@ export const putRampSchedule = async (
   const body = req.body;
   const updates: Record<string, unknown> = {};
   if (body.name !== undefined) updates.name = body.name;
+  if (body.startActions !== undefined) updates.startActions = body.startActions;
   if (body.steps !== undefined) updates.steps = body.steps;
   if (body.endActions !== undefined) updates.endActions = body.endActions;
   if ("startDate" in body) {
@@ -260,7 +262,6 @@ export const postRampScheduleAction = async (
       .json({ status: 404, message: "Ramp schedule not found" });
   }
 
-  const now = new Date();
   let updated: RampScheduleInterface;
 
   switch (req.params.action) {
@@ -282,16 +283,7 @@ export const postRampScheduleAction = async (
           message: `Cannot pause a schedule in status "${schedule.status}"`,
         });
       }
-      updated = await context.models.rampSchedules.updateById(schedule.id, {
-        status: "paused",
-        pausedAt: now,
-        nextProcessAt: null,
-        eventHistory: appendRampEvent(schedule, "paused", {
-          stepIndex: schedule.currentStepIndex,
-          status: "paused",
-          previousStatus: schedule.status,
-        }),
-      });
+      updated = await pauseSchedule(context, schedule);
       break;
 
     case "resume": {
@@ -301,77 +293,7 @@ export const postRampScheduleAction = async (
           message: `Cannot resume a schedule in status "${schedule.status}"`,
         });
       }
-      const pauseDurationMs = schedule.pausedAt
-        ? now.getTime() - schedule.pausedAt.getTime()
-        : 0;
-
-      // Shift timing anchors forward so intervals continue where they left off.
-      const newStartedAt = schedule.startedAt ? schedule.startedAt : now;
-      const newPhaseStartedAt = schedule.phaseStartedAt
-        ? new Date(
-            schedule.phaseStartedAt.getTime() + Math.max(0, pauseDurationMs),
-          )
-        : now;
-
-      const currentStep = schedule.steps[schedule.currentStepIndex];
-      const pausedAtApproval = currentStep?.trigger?.type === "approval";
-
-      const resumeUpdates: Record<string, unknown> = {
-        status: pausedAtApproval ? "pending-approval" : "running",
-        pausedAt: null,
-        startedAt: newStartedAt,
-        phaseStartedAt: newPhaseStartedAt,
-        nextStepAt: pausedAtApproval ? null : schedule.nextStepAt,
-      };
-
-      if (!pausedAtApproval) {
-        if (schedule.nextStepAt) {
-          resumeUpdates.nextStepAt = new Date(
-            schedule.nextStepAt.getTime() + pauseDurationMs,
-          );
-        } else {
-          const nextStepIndex = schedule.currentStepIndex + 1;
-          if (schedule.currentStepIndex === -1) {
-            resumeUpdates.nextStepAt = schedule.steps.length > 0 ? now : null;
-          } else if (nextStepIndex < schedule.steps.length) {
-            const currentStepIndex = schedule.currentStepIndex;
-            let sumBefore = 0;
-            for (let i = 0; i < currentStepIndex; i++) {
-              const t = schedule.steps[i]?.trigger;
-              if (t?.type === "interval") sumBefore += t.seconds;
-            }
-            const freshPhaseStart = new Date(now.getTime() - sumBefore * 1000);
-            resumeUpdates.phaseStartedAt = freshPhaseStart;
-            resumeUpdates.nextStepAt = computeNextStepAt(
-              { ...schedule, phaseStartedAt: freshPhaseStart },
-              currentStepIndex,
-              now,
-            );
-          }
-        }
-      }
-
-      resumeUpdates.nextProcessAt = computeNextProcessAt({
-        status: resumeUpdates.status as RampScheduleInterface["status"],
-        nextStepAt: resumeUpdates.nextStepAt as Date | null | undefined,
-        cutoffDate: schedule.cutoffDate,
-        startDate: schedule.startDate,
-      });
-
-      resumeUpdates.eventHistory = appendRampEvent(schedule, "resumed", {
-        stepIndex: schedule.currentStepIndex,
-        status: resumeUpdates.status as RampScheduleInterface["status"],
-        previousStatus: schedule.status,
-      });
-      updated = await context.models.rampSchedules.updateById(
-        schedule.id,
-        resumeUpdates,
-      );
-      if (!pausedAtApproval) {
-        await advanceUntilBlocked(context, updated, now);
-      }
-      updated =
-        (await context.models.rampSchedules.getById(schedule.id)) ?? updated;
+      updated = await resumeSchedule(context, schedule);
       break;
     }
 
@@ -382,26 +304,7 @@ export const postRampScheduleAction = async (
           message: `Cannot advance a schedule in status "${schedule.status}"`,
         });
       }
-      let scheduleToAdvance = schedule;
-      if (schedule.status === "paused") {
-        // Rebase from now so the next scheduled step remains in the future.
-        const nextStepIndex = schedule.currentStepIndex + 1;
-        let elapsed = 0;
-        for (let i = 0; i < nextStepIndex; i++) {
-          const t = schedule.steps[i]?.trigger;
-          if (t?.type === "interval") elapsed += t.seconds;
-        }
-        const freshPhaseStart = new Date(now.getTime() - elapsed * 1000);
-        scheduleToAdvance = await context.models.rampSchedules.updateById(
-          schedule.id,
-          {
-            status: "running",
-            phaseStartedAt: freshPhaseStart,
-            pausedAt: null,
-          },
-        );
-      }
-      updated = await advanceStep(context, scheduleToAdvance);
+      updated = await advanceScheduleManually(context, schedule);
       break;
     }
 
@@ -435,30 +338,7 @@ export const postRampScheduleAction = async (
           message: `Cannot restart a schedule in status "${schedule.status}". Only terminal (rolled-back / completed) schedules can be restarted.`,
         });
       }
-      // Completed schedules may still have live step effects, so rewind first.
-      if (schedule.currentStepIndex >= 0) {
-        await rollbackToStep(context, schedule, -1, "Restart from terminal");
-      }
-      const readied = await context.models.rampSchedules.updateById(
-        schedule.id,
-        {
-          status: "ready",
-          currentStepIndex: -1,
-          startedAt: null,
-          phaseStartedAt: null,
-          pausedAt: null,
-          nextStepAt: null,
-          nextProcessAt: null,
-          monitoringStartDate: null,
-          eventHistory: appendRampEvent(schedule, "restart", {
-            stepIndex: -1,
-            previousStepIndex: schedule.currentStepIndex,
-            status: "ready",
-            previousStatus: schedule.status,
-          }),
-        },
-      );
-      updated = await startSchedule(context, readied);
+      updated = await restartSchedule(context, schedule);
       break;
     }
 
@@ -480,57 +360,7 @@ export const postRampScheduleAction = async (
         });
       }
 
-      // Jumping resets the target step's hold timer from now.
-      const freshPhaseStartedAt = (() => {
-        if (jumpTarget <= 0) return now;
-        let elapsed = 0;
-        for (let i = 0; i < jumpTarget; i++) {
-          const t = schedule.steps[i]?.trigger;
-          if (t?.type === "interval") elapsed += t.seconds;
-        }
-        return new Date(now.getTime() - elapsed * 1000);
-      })();
-
-      if (jumpTarget < schedule.currentStepIndex) {
-        const j = await rollbackToStep(context, schedule, jumpTarget);
-        updated = await context.models.rampSchedules.updateById(j.id, {
-          status: "paused",
-          pausedAt: now,
-          phaseStartedAt: freshPhaseStartedAt,
-          nextStepAt: null,
-          nextProcessAt: null,
-        });
-      } else if (jumpTarget > schedule.currentStepIndex) {
-        updated = await jumpAheadToStep(context, schedule, jumpTarget);
-      } else {
-        updated = await context.models.rampSchedules.updateById(schedule.id, {
-          status: "paused",
-          pausedAt: now,
-          phaseStartedAt: freshPhaseStartedAt,
-          nextStepAt: null,
-          nextProcessAt: null,
-          ...(shouldResetMonitoringStartDate(schedule, jumpTarget)
-            ? { monitoringStartDate: now }
-            : {}),
-          eventHistory: appendRampEvent(schedule, "step-jumped", {
-            stepIndex: jumpTarget,
-            previousStepIndex: schedule.currentStepIndex,
-            status: "paused",
-            previousStatus: schedule.status,
-            reason: "Re-entered current step",
-          }),
-        });
-      }
-      await dispatchRampEvent(context, updated, "rampSchedule.actions.jumped", {
-        object: {
-          rampScheduleId: updated.id,
-          rampName: updated.name,
-          orgId: context.org.id,
-          currentStepIndex: updated.currentStepIndex,
-          status: updated.status,
-          targetStepIndex: jumpTarget,
-        },
-      });
+      updated = await jumpSchedule(context, schedule, jumpTarget);
       break;
     }
 
@@ -587,40 +417,7 @@ export const postRampScheduleAction = async (
           message: 'monitoringMode must be "auto" or "manual"',
         });
       }
-      const nextMonitoringConfig = {
-        ...schedule.monitoringConfig,
-        monitoringMode: requestedMode,
-        autoUpdate: requestedMode === "auto",
-      };
-      const effective = getEffectiveRampAutoUpdateState({
-        ...schedule,
-        monitoringConfig: nextMonitoringConfig,
-      });
-      updated = await context.models.rampSchedules.updateById(schedule.id, {
-        monitoringConfig: nextMonitoringConfig,
-        eventHistory: appendRampEvent(schedule, "auto-update-toggled", {
-          stepIndex: schedule.currentStepIndex,
-          status: schedule.status,
-          reason:
-            requestedMode === "auto"
-              ? "Monitoring mode set to auto"
-              : "Monitoring mode set to manual",
-        }),
-      });
-      if (schedule.safeRolloutId) {
-        const sr = await context.models.safeRollout.getById(
-          schedule.safeRolloutId,
-        );
-        if (sr) {
-          await context.models.safeRollout.update(sr, {
-            autoSnapshots:
-              requestedMode === "auto"
-                ? effective.enabled
-                : getRampAutoUpdatePreference(nextMonitoringConfig) &&
-                  effective.enabled,
-          });
-        }
-      }
+      updated = await setRampMonitoringMode(context, schedule, requestedMode);
       break;
     }
 

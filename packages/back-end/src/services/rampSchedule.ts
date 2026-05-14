@@ -11,7 +11,6 @@ import {
   RampStepAction,
   SafeRolloutInterface,
 } from "shared/validators";
-import { OrganizationInterface } from "shared/types/organization";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { filterEnvironmentsByFeature, MergeResultChanges } from "shared/util";
 import { getEnvironments } from "back-end/src/services/organizations";
@@ -109,6 +108,56 @@ export function getEffectiveRampAutoUpdateState(
     };
   }
   return { enabled: true, reason: null, monitoringMode };
+}
+
+export async function syncLinkedSafeRolloutForRampState(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+  terminalStatus?: "stopped" | "released" | "rolled-back",
+): Promise<void> {
+  if (!schedule.safeRolloutId) return;
+  const sr = await ctx.models.safeRollout.getById(schedule.safeRolloutId);
+  if (!sr) return;
+
+  const effective = getEffectiveRampAutoUpdateState(schedule);
+  const currentStepMonitored =
+    schedule.currentStepIndex >= 0 &&
+    !!schedule.steps[schedule.currentStepIndex]?.monitored;
+
+  const status = (() => {
+    if (terminalStatus) return terminalStatus;
+    if (schedule.status === "completed") return "released";
+    if (schedule.status === "rolled-back") return "rolled-back";
+    if (schedule.status === "running" && currentStepMonitored) return "running";
+    return "stopped";
+  })();
+
+  const updates: {
+    status: SafeRolloutInterface["status"];
+    autoSnapshots: boolean;
+    startedAt?: Date;
+    nextSnapshotAttempt?: Date;
+  } = {
+    status,
+    autoSnapshots: effective.enabled,
+  };
+  if (status === "running" && sr.status !== "running" && !sr.startedAt) {
+    updates.startedAt = new Date();
+  }
+  if (effective.enabled && (!sr.autoSnapshots || !sr.nextSnapshotAttempt)) {
+    updates.nextSnapshotAttempt = new Date();
+  }
+
+  if (
+    sr.status === updates.status &&
+    sr.autoSnapshots === updates.autoSnapshots &&
+    !updates.startedAt &&
+    !updates.nextSnapshotAttempt
+  ) {
+    return;
+  }
+
+  await ctx.models.safeRollout.update(sr, updates);
 }
 
 // Keep event history bounded.
@@ -266,6 +315,53 @@ export function applyPatchToRule(
   return updated;
 }
 
+export function getStartPatchForRule(
+  rule: FeatureRule,
+): Omit<FeatureRulePatch, "ruleId"> {
+  const ruleState = rule as FeatureRule & {
+    coverage?: number;
+    value?: unknown;
+  };
+  const patch: Omit<FeatureRulePatch, "ruleId"> = {
+    coverage: ruleState.coverage ?? null,
+    condition: ruleState.condition ?? null,
+    savedGroups: ruleState.savedGroups ?? null,
+    prerequisites: ruleState.prerequisites ?? null,
+    enabled: ruleState.enabled ?? null,
+  };
+
+  if ("value" in ruleState) {
+    patch.force = ruleState.value;
+  }
+
+  return patch;
+}
+
+export function getStartActionsFromRules({
+  rules,
+  targetId,
+  ruleId,
+  environment,
+}: {
+  rules: FeatureRule[];
+  targetId: string;
+  ruleId: string;
+  environment?: string | null;
+}): RampStepAction[] {
+  const targets = resolveRampTargets(
+    { ruleId, environment: environment ?? null },
+    rules,
+  );
+  return targets.map((rule) => ({
+    targetType: "feature-rule" as const,
+    targetId,
+    patch: {
+      ruleId: rule.id ?? ruleId,
+      ...getStartPatchForRule(rule),
+    },
+  }));
+}
+
 export const featureEntityHandler: EntityHandler = {
   async applyActions(ctx, entityId, actions, opts) {
     const { stepLabel, user, environment } = opts;
@@ -404,43 +500,6 @@ export function computePhaseStartAfterApproval(
   return new Date(now.getTime() - total * 1000);
 }
 
-// Snapshot cadence: SafeRollout override -> ramp override -> org setting -> env default.
-export function getRefreshIntervalMs(
-  safeRollout: SafeRolloutInterface | null,
-  org: OrganizationInterface,
-  monitoringUpdateScheduleMinutes?: number | null,
-): number {
-  if (
-    safeRollout?.updateScheduleMinutes &&
-    safeRollout.updateScheduleMinutes > 0
-  ) {
-    return safeRollout.updateScheduleMinutes * 60 * 1000;
-  }
-  if (monitoringUpdateScheduleMinutes && monitoringUpdateScheduleMinutes > 0) {
-    return monitoringUpdateScheduleMinutes * 60 * 1000;
-  }
-  const orgSchedule = org.settings?.updateSchedule;
-  if (orgSchedule) {
-    if (orgSchedule.type === "never") return 24 * 60 * 60 * 1000;
-    if (orgSchedule.type === "stale" && orgSchedule.hours) {
-      return Math.max(orgSchedule.hours, 1) * 60 * 60 * 1000;
-    }
-  }
-  return 6 * 60 * 60 * 1000;
-}
-
-export function computeNextSnapshotAt(
-  safeRollout: SafeRolloutInterface | null,
-  org: OrganizationInterface,
-  now: Date,
-  monitoringUpdateScheduleMinutes?: number | null,
-): Date {
-  return new Date(
-    now.getTime() +
-      getRefreshIntervalMs(safeRollout, org, monitoringUpdateScheduleMinutes),
-  );
-}
-
 async function executeStepActions(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -532,8 +591,6 @@ export async function ensureSafeRolloutForMonitoredRamp(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
 ): Promise<RampScheduleInterface> {
-  if (schedule.safeRolloutId) return schedule;
-
   const hasMonitoredSteps = schedule.steps.some((s) => s.monitored);
   const mc = schedule.monitoringConfig;
   if (!hasMonitoredSteps || !mc) return schedule;
@@ -544,6 +601,11 @@ export async function ensureSafeRolloutForMonitoredRamp(
   ];
   if (allMetricIds.length === 0) return schedule;
 
+  if (schedule.safeRolloutId) {
+    await syncLinkedSafeRolloutForRampState(ctx, schedule);
+    return schedule;
+  }
+
   const trackingKey = `ramp_${schedule.id}`;
 
   const sr = await ctx.models.safeRollout.create({
@@ -553,7 +615,7 @@ export async function ensureSafeRolloutForMonitoredRamp(
     guardrailMetricIds: allMetricIds,
     maxDuration: { amount: 90, unit: "days" },
     autoRollback: false,
-    autoSnapshots: getRampAutoUpdatePreference(mc),
+    autoSnapshots: false,
     status: "running",
     startedAt: new Date(),
     rampScheduleId: schedule.id,
@@ -582,13 +644,7 @@ export async function transitionLinkedSafeRollout(
   schedule: RampScheduleInterface,
   targetStatus: "stopped" | "released" | "rolled-back",
 ): Promise<void> {
-  if (!schedule.safeRolloutId) return;
-  const sr = await ctx.models.safeRollout.getById(schedule.safeRolloutId);
-  if (!sr || sr.status !== "running") return;
-  await ctx.models.safeRollout.update(sr, {
-    status: targetStatus,
-    autoSnapshots: false,
-  });
+  await syncLinkedSafeRolloutForRampState(ctx, schedule, targetStatus);
 }
 
 export async function advanceStep(
@@ -626,12 +682,7 @@ export async function advanceStep(
     const sr = schedule.safeRolloutId
       ? await ctx.models.safeRollout.getById(schedule.safeRolloutId)
       : null;
-    nextSnapshotAt = computeNextSnapshotAt(
-      sr,
-      ctx.org,
-      now,
-      schedule.monitoringConfig?.updateScheduleMinutes,
-    );
+    nextSnapshotAt = sr?.nextSnapshotAttempt ?? null;
   }
 
   let monitoredStepDueAt: Date | null = null;
@@ -656,7 +707,6 @@ export async function advanceStep(
     nextProcessAt: computeNextProcessAt({
       status: newStatus,
       nextStepAt: monitoredStepDueAt ?? nextStepAt,
-      nextSnapshotAt,
       cutoffDate: schedule.cutoffDate,
     }),
     eventHistory: appendRampEvent(schedule, "step-advanced", {
@@ -666,6 +716,8 @@ export async function advanceStep(
       previousStatus: schedule.status,
     }),
   });
+
+  await syncLinkedSafeRolloutForRampState(ctx, updated);
 
   await dispatchRampEvent(ctx, updated, "rampSchedule.actions.step.advanced", {
     object: {
@@ -704,16 +756,16 @@ export async function rollbackToStep(
   targetStepIndex: number,
   reason?: string,
 ): Promise<RampScheduleInterface> {
-  const patchIndex =
-    targetStepIndex === -1 && schedule.steps.length > 0 ? 0 : targetStepIndex;
-  const effective = computeEffectivePatch(schedule, patchIndex);
-  const rollbackActions: RampStepAction[] = [...effective.entries()].map(
-    ([targetId, patch]) => ({
-      targetType: "feature-rule" as const,
-      targetId,
-      patch,
-    }),
-  );
+  const rollbackActions: RampStepAction[] =
+    targetStepIndex === -1
+      ? (schedule.startActions ?? [])
+      : [...computeEffectivePatch(schedule, targetStepIndex).entries()].map(
+          ([targetId, patch]) => ({
+            targetType: "feature-rule" as const,
+            targetId,
+            patch,
+          }),
+        );
 
   const now = new Date();
   if (rollbackActions.length > 0) {
@@ -738,6 +790,7 @@ export async function rollbackToStep(
     status: newStatus,
     currentStepIndex: targetStepIndex,
     nextStepAt: null,
+    nextSnapshotAt: null,
     pausedAt: newStatus === "paused" ? now : null,
     nextProcessAt: null,
     ...(isFullRollback
@@ -756,9 +809,9 @@ export async function rollbackToStep(
   });
 
   if (targetStepIndex === -1) {
-    await transitionLinkedSafeRollout(ctx, schedule, "rolled-back");
+    await transitionLinkedSafeRollout(ctx, updated, "rolled-back");
   } else {
-    await transitionLinkedSafeRollout(ctx, schedule, "stopped");
+    await transitionLinkedSafeRollout(ctx, updated, "stopped");
   }
 
   await dispatchRampEvent(ctx, updated, "rampSchedule.actions.rolledBack", {
@@ -781,6 +834,284 @@ export async function rollbackSchedule(
   reason: string,
 ): Promise<RampScheduleInterface> {
   return rollbackToStep(ctx, schedule, -1, reason);
+}
+
+export async function pauseSchedule(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+  reason?: string,
+): Promise<RampScheduleInterface> {
+  const now = new Date();
+  const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
+    status: "paused",
+    pausedAt: now,
+    nextSnapshotAt: null,
+    nextProcessAt: null,
+    eventHistory: appendRampEvent(schedule, "paused", {
+      stepIndex: schedule.currentStepIndex,
+      status: "paused",
+      previousStatus: schedule.status,
+      reason,
+    }),
+  });
+
+  await syncLinkedSafeRolloutForRampState(ctx, updated);
+
+  return updated;
+}
+
+export async function resumeSchedule(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+): Promise<RampScheduleInterface> {
+  const now = new Date();
+  const pauseDurationMs = schedule.pausedAt
+    ? now.getTime() - schedule.pausedAt.getTime()
+    : 0;
+  const newStartedAt = schedule.startedAt ?? now;
+  const newPhaseStartedAt = schedule.phaseStartedAt
+    ? new Date(schedule.phaseStartedAt.getTime() + Math.max(0, pauseDurationMs))
+    : now;
+
+  const currentStep = schedule.steps[schedule.currentStepIndex];
+  const pausedAtApproval = currentStep?.trigger?.type === "approval";
+
+  const resumeUpdates: Record<string, unknown> = {
+    status: pausedAtApproval ? "pending-approval" : "running",
+    pausedAt: null,
+    startedAt: newStartedAt,
+    phaseStartedAt: newPhaseStartedAt,
+    nextStepAt: pausedAtApproval ? null : schedule.nextStepAt,
+  };
+
+  if (!pausedAtApproval) {
+    if (schedule.nextStepAt) {
+      resumeUpdates.nextStepAt = new Date(
+        schedule.nextStepAt.getTime() + pauseDurationMs,
+      );
+    } else {
+      const nextStepIndex = schedule.currentStepIndex + 1;
+      if (schedule.currentStepIndex === -1) {
+        resumeUpdates.nextStepAt = schedule.steps.length > 0 ? now : null;
+      } else if (nextStepIndex < schedule.steps.length) {
+        const currentStepIndex = schedule.currentStepIndex;
+        let sumBefore = 0;
+        for (let i = 0; i < currentStepIndex; i++) {
+          const t = schedule.steps[i]?.trigger;
+          if (t?.type === "interval") sumBefore += t.seconds;
+        }
+        const freshPhaseStart = new Date(now.getTime() - sumBefore * 1000);
+        resumeUpdates.phaseStartedAt = freshPhaseStart;
+        resumeUpdates.nextStepAt = computeNextStepAt(
+          { ...schedule, phaseStartedAt: freshPhaseStart },
+          currentStepIndex,
+          now,
+        );
+      }
+    }
+  }
+
+  const resumedForMonitoring = {
+    ...schedule,
+    status: resumeUpdates.status as RampScheduleInterface["status"],
+  };
+  const nextSnapshotAt = getEffectiveRampAutoUpdateState(resumedForMonitoring)
+    .enabled
+    ? schedule.nextSnapshotAt
+    : null;
+  resumeUpdates.nextSnapshotAt = nextSnapshotAt;
+  resumeUpdates.nextProcessAt = computeNextProcessAt({
+    status: resumeUpdates.status as RampScheduleInterface["status"],
+    nextStepAt: resumeUpdates.nextStepAt as Date | null | undefined,
+    cutoffDate: schedule.cutoffDate,
+    startDate: schedule.startDate,
+  });
+
+  resumeUpdates.eventHistory = appendRampEvent(schedule, "resumed", {
+    stepIndex: schedule.currentStepIndex,
+    status: resumeUpdates.status as RampScheduleInterface["status"],
+    previousStatus: schedule.status,
+  });
+
+  let updated = await ctx.models.rampSchedules.updateById(
+    schedule.id,
+    resumeUpdates,
+  );
+
+  if (!pausedAtApproval) {
+    await advanceUntilBlocked(ctx, updated, now);
+    updated = (await ctx.models.rampSchedules.getById(schedule.id)) ?? updated;
+  }
+
+  await syncLinkedSafeRolloutForRampState(ctx, updated);
+
+  return updated;
+}
+
+export async function restartSchedule(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+): Promise<RampScheduleInterface> {
+  if (schedule.currentStepIndex >= 0) {
+    await rollbackToStep(ctx, schedule, -1, "Restart from terminal");
+  }
+
+  const readied = await ctx.models.rampSchedules.updateById(schedule.id, {
+    status: "ready",
+    currentStepIndex: -1,
+    startedAt: null,
+    phaseStartedAt: null,
+    pausedAt: null,
+    nextStepAt: null,
+    nextSnapshotAt: null,
+    nextProcessAt: null,
+    monitoringStartDate: null,
+    eventHistory: appendRampEvent(schedule, "restart", {
+      stepIndex: -1,
+      previousStepIndex: schedule.currentStepIndex,
+      status: "ready",
+      previousStatus: schedule.status,
+    }),
+  });
+
+  return startSchedule(ctx, readied);
+}
+
+export async function jumpSchedule(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+  targetStepIndex: number,
+): Promise<RampScheduleInterface> {
+  const now = new Date();
+  const freshPhaseStartedAt = (() => {
+    if (targetStepIndex <= 0) return now;
+    let elapsed = 0;
+    for (let i = 0; i < targetStepIndex; i++) {
+      const t = schedule.steps[i]?.trigger;
+      if (t?.type === "interval") elapsed += t.seconds;
+    }
+    return new Date(now.getTime() - elapsed * 1000);
+  })();
+
+  let updated: RampScheduleInterface;
+  if (targetStepIndex < schedule.currentStepIndex) {
+    const rolled = await rollbackToStep(ctx, schedule, targetStepIndex);
+    updated = await ctx.models.rampSchedules.updateById(rolled.id, {
+      status: "paused",
+      pausedAt: now,
+      phaseStartedAt: freshPhaseStartedAt,
+      nextStepAt: null,
+      nextSnapshotAt: null,
+      nextProcessAt: null,
+    });
+  } else if (targetStepIndex > schedule.currentStepIndex) {
+    updated = await jumpAheadToStep(ctx, schedule, targetStepIndex);
+  } else {
+    updated = await ctx.models.rampSchedules.updateById(schedule.id, {
+      status: "paused",
+      pausedAt: now,
+      phaseStartedAt: freshPhaseStartedAt,
+      nextStepAt: null,
+      nextSnapshotAt: null,
+      nextProcessAt: null,
+      ...(shouldResetMonitoringStartDate(schedule, targetStepIndex)
+        ? { monitoringStartDate: now }
+        : {}),
+      eventHistory: appendRampEvent(schedule, "step-jumped", {
+        stepIndex: targetStepIndex,
+        previousStepIndex: schedule.currentStepIndex,
+        status: "paused",
+        previousStatus: schedule.status,
+        reason: "Re-entered current step",
+      }),
+    });
+  }
+
+  await syncLinkedSafeRolloutForRampState(ctx, updated, "stopped");
+
+  await dispatchRampEvent(ctx, updated, "rampSchedule.actions.jumped", {
+    object: {
+      rampScheduleId: updated.id,
+      rampName: updated.name,
+      orgId: ctx.org.id,
+      currentStepIndex: updated.currentStepIndex,
+      status: updated.status,
+      targetStepIndex,
+    },
+  });
+
+  return updated;
+}
+
+export async function setRampMonitoringMode(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+  monitoringMode: RampMonitoringMode,
+): Promise<RampScheduleInterface> {
+  const monitoringConfig = schedule.monitoringConfig;
+  if (!monitoringConfig) {
+    throw new Error(
+      "Cannot change monitoring mode on a schedule without monitoring configuration",
+    );
+  }
+
+  const nextMonitoringConfig = {
+    ...monitoringConfig,
+    monitoringMode,
+    autoUpdate: monitoringMode === "auto",
+  };
+  const effective = getEffectiveRampAutoUpdateState({
+    ...schedule,
+    monitoringConfig: nextMonitoringConfig,
+  });
+  const nextSnapshotAt = effective.enabled ? schedule.nextSnapshotAt : null;
+  const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
+    monitoringConfig: nextMonitoringConfig,
+    nextSnapshotAt,
+    nextProcessAt: computeNextProcessAt({
+      status: schedule.status,
+      nextStepAt: schedule.nextStepAt,
+      cutoffDate: schedule.cutoffDate,
+      startDate: schedule.startDate,
+    }),
+    eventHistory: appendRampEvent(schedule, "auto-update-toggled", {
+      stepIndex: schedule.currentStepIndex,
+      status: schedule.status,
+      reason:
+        monitoringMode === "auto"
+          ? "Monitoring mode set to auto"
+          : "Monitoring mode set to manual",
+    }),
+  });
+
+  await syncLinkedSafeRolloutForRampState(ctx, updated);
+
+  return updated;
+}
+
+export async function advanceScheduleManually(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+): Promise<RampScheduleInterface> {
+  let scheduleToAdvance = schedule;
+  if (schedule.status === "paused") {
+    const now = new Date();
+    const nextStepIndex = schedule.currentStepIndex + 1;
+    let elapsed = 0;
+    for (let i = 0; i < nextStepIndex; i++) {
+      const t = schedule.steps[i]?.trigger;
+      if (t?.type === "interval") elapsed += t.seconds;
+    }
+    const freshPhaseStart = new Date(now.getTime() - elapsed * 1000);
+    scheduleToAdvance = await ctx.models.rampSchedules.updateById(schedule.id, {
+      status: "running",
+      phaseStartedAt: freshPhaseStart,
+      pausedAt: null,
+    });
+    await syncLinkedSafeRolloutForRampState(ctx, scheduleToAdvance);
+  }
+
+  return advanceStep(ctx, scheduleToAdvance);
 }
 
 export async function startSchedule(
@@ -812,6 +1143,7 @@ export async function startSchedule(
   current = await ensureSafeRolloutForMonitoredRamp(ctx, current);
   await advanceUntilBlocked(ctx, current, now);
   current = (await ctx.models.rampSchedules.getById(schedule.id)) ?? current;
+  await syncLinkedSafeRolloutForRampState(ctx, current);
 
   await dispatchRampEvent(ctx, current, "rampSchedule.actions.started", {
     object: {
@@ -853,6 +1185,7 @@ export async function jumpAheadToStep(
     status: "paused",
     currentStepIndex: jumpTarget,
     nextStepAt: null,
+    nextSnapshotAt: null,
     pausedAt: now,
     nextProcessAt: null,
     ...(shouldResetMonitoringStart ? { monitoringStartDate: now } : {}),
@@ -864,12 +1197,7 @@ export async function jumpAheadToStep(
     }),
   });
 
-  if (schedule.safeRolloutId) {
-    const sr = await ctx.models.safeRollout.getById(schedule.safeRolloutId);
-    if (sr && sr.autoSnapshots) {
-      await ctx.models.safeRollout.update(sr, { autoSnapshots: false });
-    }
-  }
+  await syncLinkedSafeRolloutForRampState(ctx, updated, "stopped");
 
   return updated;
 }
@@ -914,7 +1242,7 @@ export async function completeRollout(
     }),
   });
 
-  await transitionLinkedSafeRollout(ctx, schedule, "released");
+  await transitionLinkedSafeRollout(ctx, updated, "released");
 
   await dispatchRampEvent(ctx, updated, "rampSchedule.actions.completed", {
     object: {
@@ -966,6 +1294,7 @@ export async function onActivatingRevisionPublished(
       await advanceUntilBlocked(ctx, current, now);
       current = (await ctx.models.rampSchedules.getById(current.id)) ?? current;
     }
+    await syncLinkedSafeRolloutForRampState(ctx, current);
 
     await dispatchRampEvent(ctx, current, "rampSchedule.actions.started", {
       object: {
@@ -1083,14 +1412,16 @@ export async function advanceUntilBlocked(
       ["running", "paused", "pending-approval"].includes(current.status)
     ) {
       const completed = await completeRollout(ctx, current);
-      const disableActions: RampStepAction[] = (
-        completed.endActions ??
-        completed.steps[0]?.actions ??
-        []
-      ).map((a) => ({
-        ...a,
-        patch: { ...a.patch, enabled: false },
-      }));
+      const disableActions: RampStepAction[] = completed.targets
+        .filter((target) => target.status === "active" && !!target.ruleId)
+        .map((target) => ({
+          targetType: "feature-rule" as const,
+          targetId: target.id,
+          patch: {
+            ruleId: target.ruleId ?? "",
+            enabled: false,
+          },
+        }));
       if (disableActions.length > 0) {
         await executeStepActions(
           ctx,
@@ -1172,9 +1503,18 @@ export async function approveAndPublishStep(
     return null;
   }
 
-  await ctx.models.rampSchedules.updateById(schedule.id, {
+  const approvalDraft = {
+    ...schedule,
+    status: "running" as const,
+  };
+  const nextSnapshotAt = getEffectiveRampAutoUpdateState(approvalDraft).enabled
+    ? schedule.nextSnapshotAt
+    : null;
+
+  const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
     status: "running",
     nextStepAt,
+    nextSnapshotAt,
     ...(wasApprovalGate ? { phaseStartedAt: newPhaseStart } : {}),
     nextProcessAt: computeNextProcessAt({
       status: "running",
@@ -1187,6 +1527,8 @@ export async function approveAndPublishStep(
       previousStatus: schedule.status,
     }),
   });
+
+  await syncLinkedSafeRolloutForRampState(ctx, updated);
 
   return null;
 }

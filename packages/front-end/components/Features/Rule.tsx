@@ -32,7 +32,6 @@ import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
 import RampScheduleBadge from "@/components/RampSchedule/RampScheduleBadge";
 import SafeRolloutRuleDashboard from "@/components/RampSchedule/SafeRolloutRuleDashboard";
-import MonitoredIcon from "@/components/Features/RuleModal/MonitoredIcon";
 import RampTimeline, {
   getRampStepsCompleted,
 } from "@/components/RampSchedule/RampTimeline";
@@ -391,6 +390,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rampSchedule !== undefined &&
       ["completed", "rolled-back"].includes(rampSchedule.status);
     const isSimpleSchedule = !!rampSchedule && rampSchedule.steps.length === 0;
+    const hasMonitoringStatusRow =
+      !!rampSchedule?.safeRolloutId && rampSchedule.steps.some((s) => s.monitored);
     // Synthetic schedules (synthesized client-side from a pending draft create
     // action) carry a placeholder id and have no server-side counterpart, so
     // ramp action CTAs (Start/Resume/Approve) must be suppressed.
@@ -611,6 +612,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           method: "POST",
                           body: JSON.stringify(reason ? { reason } : {}),
                         },
+                      );
+                      await mutate();
+                    }}
+                    onAdvance={async () => {
+                      await apiCall(
+                        `/ramp-schedule/${rampSchedule.id}/actions/advance`,
+                        { method: "POST" },
                       );
                       await mutate();
                     }}
@@ -1184,18 +1192,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   <Flex gapX="3" gapY="1" align="center" mb="4" wrap="wrap">
                     <span style={{ display: "inline-block" }}>
                       <Text weight="medium">RAMP-UP SCHEDULE</Text>
-                      {rampSchedule.steps.some((s) => s.monitored) && (
-                        <Tooltip
-                          body="This schedule includes monitored steps"
-                          style={{
-                            position: "relative",
-                            top: 2,
-                            marginLeft: 4,
-                          }}
-                        >
-                          <MonitoredIcon size={18} />
-                        </Tooltip>
-                      )}
                     </span>
                     {!["pending", "ready", "completed", "rolled-back"].includes(
                       rampSchedule.status,
@@ -1261,6 +1257,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   </Callout>
                 )}
                 {rampSchedule.status === "rolled-back" &&
+                  !hasMonitoringStatusRow &&
                   rampSchedule.lastRollbackReason && (
                     <Callout status="error" mb="2">
                       <Text>

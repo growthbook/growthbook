@@ -83,6 +83,12 @@ const createBodySchema = z
       .describe(
         "Ordered ramp steps. When `featureId`+`ruleId` are provided,\n`targetId` and `patch.ruleId` in actions are auto-injected — only\nsupply the patch fields you want to change.\n",
       ),
+    startActions: z
+      .array(postBodyAction)
+      .optional()
+      .describe(
+        "Actions that restore controlled rules to their pre-ramp state. When omitted for an attached rule, the server captures the current published rule state.",
+      ),
     endActions: z
       .array(postBodyAction)
       .optional()
@@ -165,6 +171,7 @@ const putBodyStep = z.object({
 const updateBodySchema = z.object({
   name: z.string().optional(),
   steps: z.array(putBodyStep).optional(),
+  startActions: z.array(putBodyAction).optional(),
   endActions: z.array(putBodyAction).optional(),
   startDate: z.string().datetime().optional().nullable(),
   cutoffDate: z.string().datetime().optional().nullable(),

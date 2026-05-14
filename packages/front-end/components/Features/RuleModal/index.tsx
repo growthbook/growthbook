@@ -96,6 +96,7 @@ import {
 export interface Props {
   close: () => void;
   feature: FeatureInterface;
+  baseFeature?: FeatureInterface;
   setVersion: (version: number) => void;
   mutate: () => void;
   // Global flat index in `feature.rules`. Positions new rules; ignored for edit/duplicate.
@@ -134,6 +135,7 @@ export type SafeRolloutRuleCreateFields = SafeRolloutRule & {
 export default function RuleModal({
   close,
   feature,
+  baseFeature,
   i,
   mutate,
   environment,
@@ -156,6 +158,9 @@ export default function RuleModal({
   const rule: FeatureRule | undefined = ruleId
     ? flatRules.find((r) => r.id === ruleId)
     : undefined;
+  const ruleHasBeenPublished =
+    !!rule?.id &&
+    (baseFeature?.rules ?? feature.rules ?? []).some((r) => r.id === rule.id);
   const safeRollout =
     rule?.type === "safe-rollout"
       ? safeRolloutsMap?.get(rule?.safeRolloutId)
@@ -546,6 +551,9 @@ export default function RuleModal({
     // If there's a ramp with coverage, must be rollout
     if (hasRampWithCoverage) {
       targetType = "rollout";
+      if (!ruleHasBeenPublished) {
+        targetCoverage = 0;
+      }
     }
     // If coverage < 100%, must be rollout
     else if (currentCoverage !== undefined && currentCoverage < 1) {
@@ -583,6 +591,7 @@ export default function RuleModal({
     rampSectionState,
     scheduleType,
     isRampType,
+    ruleHasBeenPublished,
     form,
     attributeSchema,
   ]);

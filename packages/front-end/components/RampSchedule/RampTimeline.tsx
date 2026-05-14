@@ -623,10 +623,10 @@ export function getRampStatusLabel(rs: RampScheduleInterface): string {
 
 export function getRampBadgeColor(
   status: RampScheduleStatus,
-): "amber" | "green" | "orange" | "gray" {
+): "amber" | "green" | "orange" | "gray" | "red" {
   const colors: Record<
     RampScheduleStatus,
-    "amber" | "green" | "orange" | "gray"
+    "amber" | "green" | "orange" | "gray" | "red"
   > = {
     pending: "amber",
     ready: "amber",
@@ -634,7 +634,7 @@ export function getRampBadgeColor(
     paused: "amber",
     "pending-approval": "orange",
     completed: "gray",
-    "rolled-back": "gray",
+    "rolled-back": "red",
   };
   return colors[status] ?? "gray";
 }

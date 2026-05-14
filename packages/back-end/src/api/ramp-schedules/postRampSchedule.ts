@@ -14,6 +14,7 @@ import { getFeature } from "back-end/src/models/FeatureModel";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import {
   dispatchRampEvent,
+  getStartActionsFromRules,
   remapTemplateActions,
 } from "back-end/src/services/rampSchedule";
 import { resolveRampTarget } from "back-end/src/util/flattenRules";
@@ -70,6 +71,7 @@ const postRampScheduleValidator = {
       ruleId: z.string().optional(),
       environment: z.string().optional(),
       steps: z.array(postBodyStep).optional(),
+      startActions: z.array(postBodyAction).optional(),
       endActions: z.array(postBodyAction).optional(),
       startDate: z.string().datetime().optional().nullable(),
       cutoffDate: z.string().datetime().optional().nullable(),
@@ -290,6 +292,26 @@ export const postRampSchedule = createApiRequestHandler(
     return undefined;
   })();
 
+  const resolvedStartActions: RampStepAction[] | undefined = (() => {
+    if (body.startActions !== undefined) {
+      return body.startActions.map((a) =>
+        hasTarget
+          ? injectTarget(a, targetId!, body.ruleId!)
+          : normalizeAction(a),
+      );
+    }
+    if (hasTarget) {
+      const actions = getStartActionsFromRules({
+        rules: feature!.rules ?? [],
+        targetId: targetId!,
+        ruleId: body.ruleId!,
+        environment: body.environment,
+      });
+      return actions.length > 0 ? actions : undefined;
+    }
+    return undefined;
+  })();
+
   const defaultName = `Ramp schedule \u2013 ${new Date().toLocaleDateString(
     "en-US",
     { month: "short", year: "numeric" },
@@ -315,6 +337,7 @@ export const postRampSchedule = createApiRequestHandler(
           },
         ]
       : [],
+    startActions: resolvedStartActions,
     steps: resolvedSteps,
     endActions: resolvedEndActions,
     startDate,

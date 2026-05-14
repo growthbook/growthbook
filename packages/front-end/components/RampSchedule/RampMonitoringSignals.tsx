@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useRouter } from "next/router";
 import { RampScheduleInterface, SafeRolloutInterface } from "shared/validators";
 import { SafeRolloutSnapshotInterface } from "shared/types/safe-rollout";
 import { getValidDate } from "shared/dates";
@@ -30,13 +31,224 @@ export type RampHealthSignal =
 type SignalAction = "warn" | "hold" | "rollback";
 type SignalDetails = Partial<Record<RampHealthSignal, string>>;
 
-type SignalResult = {
+export type SignalResult = {
   signals: RampHealthSignal[];
   actions: Partial<Record<RampHealthSignal, SignalAction>>;
   details: SignalDetails;
 };
 
 const NO_TRAFFIC_GRACE_PERIOD_MS = 24 * 60 * 60 * 1000;
+
+function seededRandom(seed: number) {
+  let s = Math.floor(seed) % 2147483647;
+  if (s <= 0) s += 2147483646;
+  return () => {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+function hashString(str: string): number {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 33) ^ str.charCodeAt(i);
+  }
+  return hash >>> 0;
+}
+
+function getDummySeed(
+  dummySeedQuery: string | string[] | undefined,
+  fallbackKey: string,
+): number {
+  const str = Array.isArray(dummySeedQuery) ? dummySeedQuery[0] : dummySeedQuery;
+  if (typeof str === "string" && str.trim()) {
+    const parsed = Number(str);
+    if (Number.isFinite(parsed)) return parsed;
+    return hashString(str);
+  }
+  return hashString(fallbackKey);
+}
+
+type DummyIssueProfile = {
+  forceNoTraffic: boolean;
+  forceLowTraffic: boolean;
+  srmPValue: number;
+  multipleExposureRate: number;
+  userMultiplier: number;
+};
+
+type DummyScenario = "passing" | "failing" | "nodata";
+
+function buildDummyIssueProfile(seed: number): DummyIssueProfile {
+  const rand = seededRandom(seed ^ 0x9e3779b1);
+  const scenario = Math.floor(rand() * 8);
+
+  switch (scenario) {
+    case 0:
+      return {
+        forceNoTraffic: false,
+        forceLowTraffic: false,
+        srmPValue: 0.35 + rand() * 0.4,
+        multipleExposureRate: rand() * 0.01,
+        userMultiplier: 1,
+      };
+    case 1:
+      return {
+        forceNoTraffic: false,
+        forceLowTraffic: false,
+        srmPValue: 0.0005 + rand() * 0.004,
+        multipleExposureRate: rand() * 0.01,
+        userMultiplier: 1,
+      };
+    case 2:
+      return {
+        forceNoTraffic: false,
+        forceLowTraffic: false,
+        srmPValue: 0.2 + rand() * 0.5,
+        multipleExposureRate: 0.2 + rand() * 0.35,
+        userMultiplier: 1,
+      };
+    case 3:
+      return {
+        forceNoTraffic: false,
+        forceLowTraffic: false,
+        srmPValue: 0.0005 + rand() * 0.004,
+        multipleExposureRate: 0.2 + rand() * 0.35,
+        userMultiplier: 1,
+      };
+    case 4:
+      return {
+        forceNoTraffic: false,
+        forceLowTraffic: true,
+        srmPValue: 0.2 + rand() * 0.5,
+        multipleExposureRate: 0.02 + rand() * 0.05,
+        userMultiplier: 0.04,
+      };
+    case 5:
+      return {
+        forceNoTraffic: false,
+        forceLowTraffic: true,
+        srmPValue: 0.0005 + rand() * 0.004,
+        multipleExposureRate: 0.02 + rand() * 0.05,
+        userMultiplier: 0.04,
+      };
+    case 6:
+      return {
+        forceNoTraffic: false,
+        forceLowTraffic: true,
+        srmPValue: 0.2 + rand() * 0.5,
+        multipleExposureRate: 0.2 + rand() * 0.35,
+        userMultiplier: 0.04,
+      };
+    default:
+      return {
+        forceNoTraffic: true,
+        forceLowTraffic: false,
+        srmPValue: 0.3 + rand() * 0.4,
+        multipleExposureRate: 0,
+        userMultiplier: 0,
+      };
+  }
+}
+
+function buildDummyScenarios(
+  metricIds: string[],
+  seed: number,
+  profile: DummyIssueProfile,
+): DummyScenario[] {
+  if (profile.forceNoTraffic) {
+    return metricIds.map(() => "nodata");
+  }
+
+  const rand = seededRandom(seed ^ 0x7f4a7c15);
+  const scenarios: DummyScenario[] = metricIds.map(() => {
+    const roll = rand();
+    if (roll < 0.3) return "failing";
+    if (roll < 0.45) return "nodata";
+    return "passing";
+  });
+
+  if (scenarios.length > 0 && !scenarios.includes("failing")) {
+    scenarios[0] = "failing";
+  }
+  return scenarios;
+}
+
+function buildDummySignalData({
+  seed,
+  guardrailMetricIds,
+  signalMetricIds,
+}: {
+  seed: number;
+  guardrailMetricIds: string[];
+  signalMetricIds: string[];
+}): {
+  snapshot: SafeRolloutSnapshotInterface;
+  safeRollout: SafeRolloutInterface;
+} {
+  const profile = buildDummyIssueProfile(seed);
+  const allMetricIds = [...guardrailMetricIds, ...signalMetricIds];
+  const scenarios = buildDummyScenarios(allMetricIds, seed, profile);
+  const lowTrafficRand = seededRandom(seed ^ 0x3ad8025f);
+  const firstMetricRand = seededRandom(hashString(allMetricIds[0] ?? "dummy"));
+  const treatmentUsers = profile.forceNoTraffic
+    ? 0
+    : profile.forceLowTraffic
+      ? 15 + Math.round(lowTrafficRand() * 40)
+      : 800 + Math.round(firstMetricRand() * 4000);
+  const controlUsers = profile.forceNoTraffic
+    ? 0
+    : profile.forceLowTraffic
+      ? 15 + Math.round(lowTrafficRand() * 40)
+      : 800 + Math.round(firstMetricRand() * 4000);
+  const totalUsers = treatmentUsers + controlUsers;
+  const guardrailMetrics: Record<string, { status: string }> = {};
+  allMetricIds.forEach((metricId, idx) => {
+    guardrailMetrics[metricId] = {
+      status: scenarios[idx] === "failing" ? "lost" : "won",
+    };
+  });
+
+  return {
+    snapshot: {
+      id: "srsnp_dummy",
+      organization: "",
+      safeRolloutId: "",
+      dateCreated: new Date(),
+      runStarted: new Date(),
+      status: "success",
+      queries: [],
+      multipleExposures: Math.round(totalUsers * profile.multipleExposureRate),
+      analyses: [],
+      health: {
+        traffic: {
+          overall: {
+            name: "All",
+            srm: profile.srmPValue,
+            variationUnits: [treatmentUsers, controlUsers],
+          },
+          dimension: {},
+        },
+      },
+      settings: {
+        datasourceId: "",
+        exposureQueryId: "",
+        startDate: new Date(),
+        metricSettings: [],
+      },
+    } as unknown as SafeRolloutSnapshotInterface,
+    safeRollout: {
+      analysisSummary: {
+        resultsStatus: {
+          variations: [
+            { variationId: "1", guardrailMetrics },
+            { variationId: "0", guardrailMetrics: {} },
+          ],
+        },
+      },
+    } as unknown as SafeRolloutInterface,
+  };
+}
 
 function formatPValue(value: number): string {
   return value < 0.001 ? "<0.001" : value.toFixed(3);
@@ -62,7 +274,7 @@ function isHoldingNow(rampSchedule: RampScheduleInterface): boolean {
     const stepDueAt = stepEnteredAt.getTime() + step.trigger.seconds * 1000;
     return Date.now() >= stepDueAt;
   }
-  return true;
+  return false;
 }
 
 function conservativeActionForSignals(
@@ -235,7 +447,10 @@ function computeSignals(
       }
     }
   }
-  if (hasGuardrailFailing) signals.push("guardrail-failing");
+  if (hasGuardrailFailing) {
+    signals.push("guardrail-failing");
+    actions["guardrail-failing"] = "rollback";
+  }
   if (hasSignalRegression) signals.push("signal-regression");
 
   if (signals.length === 0) {
@@ -262,6 +477,52 @@ function actionColor(
   return defaultColor;
 }
 
+function signalSeverity(
+  signal: RampHealthSignal,
+  action?: SignalAction,
+): RampHealthSeverity {
+  if (signal === "guardrail-failing" || action === "rollback") {
+    return "critical";
+  }
+  if (
+    signal === "signal-regression" ||
+    signal === "srm" ||
+    signal === "multiple-exposures" ||
+    signal === "no-traffic" ||
+    action === "hold" ||
+    action === "warn"
+  ) {
+    return "warning";
+  }
+  if (signal === "below-min-sample") return "info";
+  return "healthy";
+}
+
+function maxSignalSeverity(
+  signals: RampHealthSignal[],
+  actions: Partial<Record<RampHealthSignal, SignalAction>>,
+): RampHealthSeverity {
+  const severityRank: Record<RampHealthSeverity, number> = {
+    critical: 4,
+    warning: 3,
+    info: 2,
+    healthy: 1,
+    inactive: 0,
+  };
+  return signals.reduce<RampHealthSeverity>((max, signal) => {
+    const severity = signalSeverity(signal, actions[signal]);
+    return severityRank[severity] > severityRank[max] ? severity : max;
+  }, "healthy");
+}
+
+function severityBadgeColor(
+  severity: RampHealthSeverity,
+): "red" | "amber" | "blue" {
+  if (severity === "critical") return "red";
+  if (severity === "warning") return "amber";
+  return "blue";
+}
+
 function signalToBadge(
   signal: RampHealthSignal,
   action?: SignalAction,
@@ -272,7 +533,7 @@ function signalToBadge(
         <Badge
           color="red"
           variant="soft"
-          label="Guardrail Failing"
+          label="Guardrail failing"
           radius="full"
         />
       );
@@ -281,7 +542,7 @@ function signalToBadge(
         <Badge
           color="orange"
           variant="soft"
-          label="Signal Regressing"
+          label="Signal regressing"
           radius="full"
         />
       );
@@ -299,7 +560,7 @@ function signalToBadge(
         <Badge
           color={actionColor("amber", action)}
           variant="soft"
-          label={`Multi-exposure${actionSuffix(action)}`}
+          label={`Multiple exposures${actionSuffix(action)}`}
           radius="full"
         />
       );
@@ -334,6 +595,7 @@ export function useRampMonitoringSignals(
   },
 ): SignalResult {
   const { snapshot, safeRollout } = useSafeRolloutSnapshot();
+  const router = useRouter();
   const { settings } = useUser();
   const { metricGroups } = useDefinitions();
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
@@ -357,8 +619,25 @@ export function useRampMonitoringSignals(
     [rampSchedule.monitoringConfig?.signalMetricIds, metricGroups],
   );
 
-  const snapshotData = overrides?.snapshot ?? snapshot;
-  const safeRolloutData = overrides?.safeRollout ?? safeRollout;
+  const dummySignalData = useMemo(() => {
+    if (overrides?.snapshot || router.query["dummy"] !== "true") return null;
+    return buildDummySignalData({
+      seed: getDummySeed(router.query["dummySeed"], rampSchedule.id),
+      guardrailMetricIds: expandedGuardrailIds,
+      signalMetricIds: expandedSignalIds,
+    });
+  }, [
+    overrides?.snapshot,
+    router.query,
+    rampSchedule.id,
+    expandedGuardrailIds,
+    expandedSignalIds,
+  ]);
+
+  const snapshotData =
+    overrides?.snapshot ?? dummySignalData?.snapshot ?? snapshot;
+  const safeRolloutData =
+    overrides?.safeRollout ?? dummySignalData?.safeRollout ?? safeRollout;
 
   return useMemo(
     () =>
@@ -422,7 +701,7 @@ export function getRampHealthOverview(
   if (rampSchedule.status === "rolled-back") {
     const reason = formatRollbackReason(rampSchedule.lastRollbackReason);
     return {
-      severity: "inactive",
+      severity: "critical",
       label: "Rolled back",
       summary: reason ?? "Ramp was rolled back",
       autoExpand: false,
@@ -633,11 +912,29 @@ export function RampMonitoringBadges({
 
   if (!isOnMonitoredStep(rampSchedule)) return null;
 
+  const badgeSignals = result.signals.filter((s) =>
+    signalToBadge(s, result.actions[s]),
+  );
+
+  if (badgeSignals.length > 1) {
+    return (
+      <Badge
+        color={severityBadgeColor(
+          maxSignalSeverity(badgeSignals, result.actions),
+        )}
+        variant="soft"
+        label="Multiple issues detected"
+        radius="full"
+      />
+    );
+  }
+
   return (
     <>
-      {result.signals.map((s, i) => (
-        <span key={`${s}-${i}`}>{signalToBadge(s, result.actions[s])}</span>
-      ))}
+      {badgeSignals.map((s, i) => {
+        const badge = signalToBadge(s, result.actions[s]);
+        return badge ? <span key={`${s}-${i}`}>{badge}</span> : null;
+      })}
     </>
   );
 }
@@ -659,6 +956,7 @@ export function RampMonitoringCTAs({
   onApproveStep,
   onAdvance,
   size = "xs",
+  signalResult,
 }: {
   rampSchedule: RampScheduleInterface;
   onRollback: (reason?: string) => void;
@@ -667,8 +965,10 @@ export function RampMonitoringCTAs({
   onApproveStep?: () => void;
   onAdvance?: () => void;
   size?: ButtonSize;
+  signalResult?: SignalResult;
 }) {
-  const result = useRampMonitoringSignals(rampSchedule);
+  const computedResult = useRampMonitoringSignals(rampSchedule);
+  const result = signalResult ?? computedResult;
 
   if (rampSchedule.status === "rolled-back" && onRestart) {
     return (
@@ -706,6 +1006,29 @@ export function RampMonitoringCTAs({
 
   const { signals, actions } = result;
   const conservativeAction = conservativeActionForSignals(signals, actions);
+  const rollbackPriority: RampHealthSignal[] = [
+    "guardrail-failing",
+    "signal-regression",
+    "multiple-exposures",
+    "srm",
+    "no-traffic",
+  ];
+  const dominantRollbackSignal = rollbackPriority.find((s) =>
+    signals.includes(s),
+  );
+  const rollbackReason = dominantRollbackSignal
+    ? SIGNAL_REASON[dominantRollbackSignal]
+    : undefined;
+  const rollbackButton = (variant: "solid" | "outline") => (
+    <Button
+      size={size}
+      variant={variant}
+      color="red"
+      onClick={() => onRollback(rollbackReason)}
+    >
+      Rollback
+    </Button>
+  );
   const hasHoldSignal =
     signals.includes("signal-regression") ||
     signals.includes("below-min-sample") ||
@@ -721,57 +1044,24 @@ export function RampMonitoringCTAs({
         <Button size={size} variant="solid" onClick={onAdvance}>
           Continue
         </Button>
-        <Button
-          size={size}
-          variant="outline"
-          color="red"
-          onClick={() => onRollback("rolled back while holding")}
-        >
-          Roll Back
-        </Button>
+        {rollbackButton("outline")}
       </div>
     );
   }
 
   if (signals.includes("guardrail-failing")) {
-    return (
-      <Button
-        size={size}
-        variant="solid"
-        color="red"
-        onClick={() => onRollback(SIGNAL_REASON["guardrail-failing"])}
-      >
-        Roll Back
-      </Button>
-    );
+    return rollbackButton("solid");
+  }
+
+  if (
+    signals.includes("signal-regression") ||
+    signals.includes("multiple-exposures")
+  ) {
+    return rollbackButton("outline");
   }
 
   if (conservativeAction === "rollback") {
-    const rollbackPriority: RampHealthSignal[] = [
-      "guardrail-failing",
-      "srm",
-      "multiple-exposures",
-      "no-traffic",
-    ];
-    const dominantRollbackSignal = rollbackPriority.find((s) =>
-      signals.includes(s),
-    );
-    return (
-      <Button
-        size={size}
-        variant="solid"
-        color="red"
-        onClick={() =>
-          onRollback(
-            dominantRollbackSignal
-              ? SIGNAL_REASON[dominantRollbackSignal]
-              : undefined,
-          )
-        }
-      >
-        Roll Back
-      </Button>
-    );
+    return rollbackButton("outline");
   }
 
   return null;

@@ -16,16 +16,15 @@ import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import {
   MONITORING_NO_TRAFFIC_GRACE_PERIOD_MS,
-  appendRampEvent,
+  advanceStep,
   computeNextProcessAt,
-  computeNextSnapshotAt,
-  getEffectiveRampAutoUpdateState,
-  getRefreshIntervalMs,
+  pauseSchedule,
+  rollbackSchedule,
 } from "back-end/src/services/rampSchedule";
 
 export type EvalDecision =
   | { action: "advance" }
-  | { action: "hold"; reason: string }
+  | { action: "hold"; reason: string; nextProcessAt?: Date | null }
   | { action: "rollback"; reason: string }
   | { action: "pause"; reason: string };
 
@@ -59,7 +58,7 @@ async function evaluateMonitoredStep(
   schedule: RampScheduleInterface,
   now: Date,
 ): Promise<EvalDecision> {
-  const safeRollout = schedule.safeRolloutId
+  let safeRollout = schedule.safeRolloutId
     ? await ctx.models.safeRollout.getById(schedule.safeRolloutId)
     : null;
 
@@ -91,6 +90,55 @@ async function evaluateMonitoredStep(
   const signalOnly = expandedSignalIds.filter(
     (id) => !expandedGuardrailIds.includes(id),
   );
+
+  const stepEnteredAt = schedule.currentStepEnteredAt;
+  if (stepEnteredAt && step?.trigger.type === "interval") {
+    const stepElapsedMs = now.getTime() - stepEnteredAt.getTime();
+    const stepDurationMs = step.trigger.seconds * 1000;
+    if (stepElapsedMs < stepDurationMs) {
+      const remainingMin = Math.ceil((stepDurationMs - stepElapsedMs) / 60_000);
+      return {
+        action: "hold",
+        reason: `Monitored step: ~${remainingMin} min remaining in hold interval`,
+        nextProcessAt: new Date(stepEnteredAt.getTime() + stepDurationMs),
+      };
+    }
+  }
+
+  const intervalEndAt =
+    stepEnteredAt && step?.trigger.type === "interval"
+      ? new Date(stepEnteredAt.getTime() + step.trigger.seconds * 1000)
+      : null;
+  const requiredSnapshotAt =
+    intervalEndAt ?? stepEnteredAt ?? schedule.startedAt;
+
+  safeRollout =
+    (await ctx.models.safeRollout.getById(safeRollout.id)) ?? safeRollout;
+
+  const summarySnapshot = safeRollout.analysisSummary?.snapshotId
+    ? await ctx.models.safeRolloutSnapshots.getById(
+        safeRollout.analysisSummary.snapshotId,
+      )
+    : null;
+  const hasCurrentAnalysis =
+    !!requiredSnapshotAt &&
+    summarySnapshot?.status === "success" &&
+    summarySnapshot.dateCreated >= requiredSnapshotAt;
+
+  if (!hasCurrentAnalysis) {
+    return {
+      action: "hold",
+      reason: requiredSnapshotAt
+        ? "Waiting for analysis results that cover the current monitored step"
+        : "Waiting for monitoring step start time",
+    };
+  }
+
+  const summary = safeRollout.analysisSummary;
+  if (!summary?.health) {
+    return { action: "hold", reason: "Waiting for analysis results" };
+  }
+
   const scheduleLevelDecision = checkScheduleGuardrailSignals(
     safeRollout,
     expandedGuardrailIds,
@@ -104,49 +152,6 @@ async function evaluateMonitoredStep(
     multipleExposureAction,
   );
   if (experimentHealthDecision) return experimentHealthDecision;
-
-  const snapshotTriggered = await maybeTriggerSnapshot(
-    ctx,
-    schedule,
-    safeRollout,
-    now,
-  );
-
-  const stepEnteredAt = schedule.currentStepEnteredAt;
-  if (stepEnteredAt && step?.trigger.type === "interval") {
-    const stepElapsedMs = now.getTime() - stepEnteredAt.getTime();
-    const stepDurationMs = step.trigger.seconds * 1000;
-    if (stepElapsedMs < stepDurationMs) {
-      const remainingMin = Math.ceil((stepDurationMs - stepElapsedMs) / 60_000);
-      return {
-        action: "hold",
-        reason: `Monitored step: ~${remainingMin} min remaining in hold interval`,
-      };
-    }
-  }
-
-  const intervalEndAt =
-    stepEnteredAt && step?.trigger.type === "interval"
-      ? new Date(stepEnteredAt.getTime() + step.trigger.seconds * 1000)
-      : null;
-
-  const latestSnapshot = snapshotTriggered
-    ? now
-    : safeRollout.lastSnapshotAttempt;
-  const hasPostIntervalSnapshot =
-    intervalEndAt && latestSnapshot && latestSnapshot >= intervalEndAt;
-
-  if (!hasPostIntervalSnapshot) {
-    return {
-      action: "hold",
-      reason: "Waiting for a snapshot that covers the full step duration",
-    };
-  }
-
-  const summary = safeRollout.analysisSummary;
-  if (!summary?.health) {
-    return { action: "hold", reason: "Waiting for analysis results" };
-  }
 
   if (!summary.health.totalUsers) {
     const monitoringStartDate =
@@ -162,6 +167,10 @@ async function evaluateMonitoredStep(
         return {
           action: "hold",
           reason: `No traffic yet — waiting for 24h monitoring grace period (~${remainingMin} min remaining)`,
+          nextProcessAt: new Date(
+            monitoringStartDate.getTime() +
+              MONITORING_NO_TRAFFIC_GRACE_PERIOD_MS,
+          ),
         };
       }
     }
@@ -335,83 +344,66 @@ function checkSignalMetricGating(
   return null;
 }
 
-async function maybeTriggerSnapshot(
+export async function applyRampEvaluationDecision(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
-  safeRollout: SafeRolloutInterface,
-  now: Date,
-): Promise<boolean> {
-  if (!safeRollout.autoSnapshots) return false;
-  const autoUpdateState = getEffectiveRampAutoUpdateState(schedule);
-  if (!autoUpdateState.enabled) return false;
-
-  const refreshMs = getRefreshIntervalMs(
-    safeRollout,
-    ctx.org,
-    schedule.monitoringConfig?.updateScheduleMinutes,
-  );
-  const lastAttempt = safeRollout.lastSnapshotAttempt;
-
-  const isDue =
-    !lastAttempt || now.getTime() - lastAttempt.getTime() >= refreshMs;
-
-  if (!isDue) return false;
-
-  try {
-    const { createSafeRolloutSnapshot } = await import(
-      "back-end/src/services/safeRolloutSnapshots"
+  decision: EvalDecision,
+): Promise<{ handled: boolean; schedule: RampScheduleInterface }> {
+  if (decision.action === "rollback") {
+    logger.info(
+      { scheduleId: schedule.id, reason: decision.reason },
+      "Evaluator triggered rollback",
     );
-    const { getFeature } = await import("back-end/src/models/FeatureModel");
-
-    const feature = schedule.entityId
-      ? await getFeature(ctx, schedule.entityId)
-      : null;
-
-    await createSafeRolloutSnapshot({
-      context: ctx as ReqContext,
-      safeRollout,
-      customFields: feature?.customFields,
-      triggeredBy: "schedule",
-    });
-
-    const nextSnapshotAt = computeNextSnapshotAt(
-      safeRollout,
-      ctx.org,
-      now,
-      schedule.monitoringConfig?.updateScheduleMinutes,
-    );
-
-    const step = schedule.steps[schedule.currentStepIndex];
-    let monitoredStepDueAt: Date | null = null;
-    if (
-      step?.monitored &&
-      step.trigger.type === "interval" &&
-      schedule.currentStepEnteredAt
-    ) {
-      monitoredStepDueAt = new Date(
-        schedule.currentStepEnteredAt.getTime() + step.trigger.seconds * 1000,
-      );
-    }
-
-    await ctx.models.rampSchedules.updateById(schedule.id, {
-      nextSnapshotAt,
-      nextProcessAt: computeNextProcessAt({
-        status: schedule.status,
-        nextStepAt: monitoredStepDueAt ?? schedule.nextStepAt,
-        nextSnapshotAt,
-        cutoffDate: schedule.cutoffDate,
-      }),
-      eventHistory: appendRampEvent(schedule, "snapshot-triggered", {
-        stepIndex: schedule.currentStepIndex,
-        status: schedule.status,
-      }),
-    });
-
-    return true;
-  } catch (e) {
-    logger.error(e, `Failed to trigger snapshot for schedule ${schedule.id}`);
-    return false;
+    const updated = await rollbackSchedule(ctx, schedule, decision.reason);
+    return { handled: true, schedule: updated };
   }
+  if (decision.action === "pause") {
+    logger.info(
+      { scheduleId: schedule.id, reason: decision.reason },
+      "Evaluator triggered pause",
+    );
+    const updated = await pauseSchedule(ctx, schedule, decision.reason);
+    return { handled: true, schedule: updated };
+  }
+  if (decision.action === "hold") {
+    const nextProcessAt = computeNextProcessAt({
+      status: schedule.status,
+      nextStepAt: decision.nextProcessAt ?? null,
+      cutoffDate: schedule.cutoffDate,
+    });
+    const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
+      nextProcessAt,
+    });
+    logger.info(
+      {
+        scheduleId: schedule.id,
+        reason: decision.reason,
+        nextProcessAt: nextProcessAt?.toISOString() ?? null,
+      },
+      "Evaluator holding step",
+    );
+    return { handled: true, schedule: updated };
+  }
+
+  const updated = await advanceStep(ctx, schedule);
+  return { handled: false, schedule: updated };
+}
+
+export async function evaluateRampScheduleAfterSafeRolloutSnapshot(
+  ctx: ReqContext,
+  safeRollout: SafeRolloutInterface,
+  now: Date = new Date(),
+): Promise<void> {
+  if (!safeRollout.rampScheduleId) return;
+  const schedule = await ctx.models.rampSchedules.getById(
+    safeRollout.rampScheduleId,
+  );
+  if (!schedule || schedule.status !== "running") return;
+  const step = schedule.steps[schedule.currentStepIndex];
+  if (!step?.monitored) return;
+
+  const decision = await evaluateCurrentStep(ctx, schedule, now);
+  await applyRampEvaluationDecision(ctx, schedule, decision);
 }
 
 function checkHoldConditions(
@@ -429,6 +421,7 @@ function checkHoldConditions(
       return {
         action: "hold",
         reason: `Holding for min duration: ~${remainingMin} minutes remaining`,
+        nextProcessAt: new Date(stepEnteredAt.getTime() + hold.minDurationMs),
       };
     }
   }

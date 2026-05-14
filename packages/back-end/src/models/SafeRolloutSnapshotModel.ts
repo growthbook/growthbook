@@ -13,6 +13,7 @@ import {
   checkAndRollbackSafeRollout,
   updateRampUpSchedule,
 } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
+import { evaluateRampScheduleAfterSafeRolloutSnapshot } from "back-end/src/services/rampScheduleEvaluator";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -143,9 +144,11 @@ export class SafeRolloutSnapshotModel extends BaseClass {
         );
       }
 
-      // Ramp-schedule-backed safe rollouts are evaluated by the
-      // rampScheduleEvaluator, not the legacy safe-rollout rule path.
       if (safeRollout.rampScheduleId) {
+        await evaluateRampScheduleAfterSafeRolloutSnapshot(
+          this.context,
+          updatedSafeRollout,
+        );
         return;
       }
 
