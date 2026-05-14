@@ -293,8 +293,10 @@ export default function RuleList(props: RuleListProps) {
         )}
         <SortableContext items={items} strategy={verticalListSortingStrategy}>
           {items.map((rule, i) => {
+            const firstId = items[0].id;
             const prevId = i > 0 ? items[i - 1].id : null;
             const nextId = i < items.length - 1 ? items[i + 1].id : null;
+            const lastId = items[items.length - 1].id;
             return (
               <SortableRule
                 key={rule.id || i}
@@ -316,6 +318,11 @@ export default function RuleList(props: RuleListProps) {
                 rampSchedule={rampSchedulesMap.get(rule.id ?? "")}
                 draftRevision={draftRevision}
                 isAllEnvsView={allEnvsView}
+                onMoveToTop={
+                  canEdit && i > 0
+                    ? () => reorderByRuleId(rule.id, firstId)
+                    : undefined
+                }
                 onMoveUp={
                   canEdit && prevId
                     ? () => reorderByRuleId(rule.id, prevId)
@@ -324,6 +331,11 @@ export default function RuleList(props: RuleListProps) {
                 onMoveDown={
                   canEdit && nextId
                     ? () => reorderByRuleId(rule.id, nextId)
+                    : undefined
+                }
+                onMoveToBottom={
+                  canEdit && i < items.length - 1
+                    ? () => reorderByRuleId(rule.id, lastId)
                     : undefined
                 }
               />

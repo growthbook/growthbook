@@ -19,6 +19,8 @@ import {
   PiTrash,
   PiCaretUp,
   PiCaretDown,
+  PiCaretDoubleUp,
+  PiCaretDoubleDown,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { format as formatTimeZone } from "date-fns-tz";
@@ -188,11 +190,13 @@ interface SortableProps {
   // in the env-scope badges.
   isAllEnvsView?: boolean;
   // Provided by RuleList to support keyboard/menu reordering. Each callback
-  // moves the rule by one position in the current visible projection and
-  // posts the equivalent flat-index reorder to the API. Undefined when the
-  // rule cannot move in that direction.
+  // moves the rule in the current visible projection and posts the equivalent
+  // flat-index reorder to the API. Undefined when the rule cannot move in
+  // that direction.
+  onMoveToTop?: () => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  onMoveToBottom?: () => void;
 }
 
 type RuleProps = SortableProps &
@@ -254,8 +258,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rampSchedule,
       draftRevision,
       isAllEnvsView,
+      onMoveToTop,
       onMoveUp,
       onMoveDown,
+      onMoveToBottom,
       ...props
     },
     ref,
@@ -616,10 +622,24 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       {rule.enabled ? "Disable" : "Enable"}
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
-                  {(onMoveUp || onMoveDown) && (
+                  {(onMoveToTop ||
+                    onMoveUp ||
+                    onMoveDown ||
+                    onMoveToBottom) && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuGroup>
+                        <DropdownMenuItem
+                          disabled={!onMoveToTop}
+                          onClick={() => {
+                            if (onMoveToTop) {
+                              onMoveToTop();
+                              setDropdownOpen(false);
+                            }
+                          }}
+                        >
+                          <PiCaretDoubleUp /> Move to top
+                        </DropdownMenuItem>
                         <DropdownMenuItem
                           disabled={!onMoveUp}
                           onClick={() => {
@@ -641,6 +661,17 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           }}
                         >
                           <PiCaretDown /> Move down
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={!onMoveToBottom}
+                          onClick={() => {
+                            if (onMoveToBottom) {
+                              onMoveToBottom();
+                              setDropdownOpen(false);
+                            }
+                          }}
+                        >
+                          <PiCaretDoubleDown /> Move to bottom
                         </DropdownMenuItem>
                       </DropdownMenuGroup>
                     </>
