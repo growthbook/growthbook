@@ -319,7 +319,7 @@ export function FeatureUsageContainer({
           <TabsTrigger value="rule">By Environment &amp; Rule</TabsTrigger>
         </TabsList>
         <Select
-          size="x-small"
+          size="small"
           value={lookback}
           setValue={(v) => setLookback(v as FeatureUsageLookback)}
           align="end"
