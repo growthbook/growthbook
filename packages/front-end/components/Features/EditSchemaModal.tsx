@@ -220,7 +220,7 @@ function EditSchemaField({
   );
 }
 
-function EditSimpleSchema({
+export function EditSimpleSchema({
   schema,
   setSchema,
 }: {
