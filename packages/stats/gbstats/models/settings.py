@@ -54,6 +54,21 @@ class BanditSettingsForStatsEngine:
     top_two: bool = False
 
 
+@dataclass
+class ContextualBanditSettingsForStatsEngine:
+    var_names: List[str]
+    var_ids: List[str]
+    reweight: bool
+    decision_metric: str
+    bandit_weights_seed: int
+    contextual_attributes: List[str]
+    current_weights_by_context: Dict[str, List[float]]
+    max_leaves: int = 12
+    min_users_per_leaf: int = 100
+    tree_model: Literal["regression_tree", "linear_thompson"] = "regression_tree"
+    top_two: bool = True
+
+
 ExperimentMetricQueryResponseRows = List[Dict[str, Union[str, int, float]]]
 VarIdMap = Dict[str, int]
 

@@ -705,6 +705,59 @@ export type MaxTimestampQueryResponse = QueryResponse<
 export type ColumnTopValuesResponse = QueryResponse<
   ColumnTopValuesResponseRow[]
 >;
+
+export type ContextualBanditDimensionSqlAttribute = {
+  attribute: string;
+  kind: "categorical" | "quantitative";
+  topValues?: string[];
+  bucketEdges?: number[];
+};
+
+export type ContextualBanditDimensionSqlParams = {
+  query: string;
+  userIdColumn: string;
+  variationIdColumn?: string;
+  metricValueColumn?: string;
+  attributes: ContextualBanditDimensionSqlAttribute[];
+  maxContexts: number;
+};
+
+export type ContextualBanditDimensionQueryResponseRow = {
+  variation: string;
+  context_id: string;
+  main_sum: number;
+  main_sum_squares: number;
+  n: number;
+};
+
+export type ContextualBanditDimensionQueryResponse = QueryResponse<
+  ContextualBanditDimensionQueryResponseRow[]
+>;
+
+export type ContextualBanditTopValuesSqlParams = {
+  query: string;
+  attribute: string;
+  limit: number;
+};
+
+export type ContextualBanditTopValuesResponseRow = {
+  value: string;
+  count: number;
+};
+
+export type ContextualBanditTopValuesResponse = QueryResponse<
+  ContextualBanditTopValuesResponseRow[]
+>;
+
+export type ContextualBanditQuantileBucketEdgesSqlParams = {
+  query: string;
+  attribute: string;
+  buckets: number;
+};
+
+export type ContextualBanditQuantileBucketEdgesResponse = QueryResponse<
+  number[][]
+>;
 export type UserExperimentExposuresQueryResponse =
   QueryResponse<UserExperimentExposuresQueryResponseRows> & {
     truncated?: boolean;

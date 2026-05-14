@@ -1,12 +1,13 @@
 from abc import abstractmethod, ABC
 from dataclasses import field
-from typing import List, Optional
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import random
 from pydantic.dataclasses import dataclass
 
 from gbstats.models.results import ResponseCI, BanditResult, SingleVariationResult
+from gbstats.models.settings import ContextualBanditSettingsForStatsEngine
 from gbstats.models.statistics import (
     SampleMeanStatistic,
     RatioStatistic,
@@ -17,6 +18,8 @@ from gbstats.utils import (
     gaussian_credible_interval,
 )
 from gbstats.bayesian.tests import BayesianConfig, GaussianPrior
+
+ContextualBanditRow = Dict[str, Union[str, int, float]]
 
 
 @dataclass
@@ -58,6 +61,155 @@ def get_error_bandit_result(
         reweight=reweight,
         weightsWereUpdated=False,
     )
+
+
+@dataclass
+class ContextualBanditLeaf:
+    leaf_id: str
+    rule: str
+    condition: Dict[str, object]
+    context_ids: List[str]
+    n: int
+    weights: List[float]
+    best_arm_probabilities: Optional[List[float]]
+
+
+@dataclass
+class ContextualBanditTreeSummary:
+    leaves: List[ContextualBanditLeaf]
+    split_features: List[str]
+
+
+@dataclass
+class ContextualBanditResponse:
+    result: List[BanditResult]
+    tree_summary: ContextualBanditTreeSummary
+    update_message: str
+    error: Optional[str]
+
+
+class LinearThompsonReducer:
+    def fit(self):
+        raise NotImplementedError(
+            "linear_thompson contextual bandits are not implemented"
+        )
+
+
+class ContextualBandits:
+    def __init__(
+        self,
+        rows: List[ContextualBanditRow],
+        settings: ContextualBanditSettingsForStatsEngine,
+    ):
+        self.rows = rows
+        self.settings = settings
+
+    def compute_result(self) -> ContextualBanditResponse:
+        if self.settings.tree_model == "linear_thompson":
+            LinearThompsonReducer().fit()
+        raise NotImplementedError(
+            "regression_tree contextual bandits are not implemented"
+        )
+
+
+class MockContextualBandits(ContextualBandits):
+    def compute_result(self) -> ContextualBanditResponse:
+        context_ids = sorted({str(row["context_id"]) for row in self.rows})
+        if not context_ids:
+            context_ids = ["other"]
+
+        current_weights = self._current_weights(context_ids[0])
+        bandit = BanditsSimple(
+            self._stats_by_variation(),
+            current_weights,
+            BanditConfig(
+                prior_distribution=GaussianPrior(
+                    mean=0, variance=float(1e4), proper=True
+                ),
+                bandit_weights_seed=self.settings.bandit_weights_seed,
+                top_two=self.settings.top_two,
+            ),
+        )
+        bandit_response = bandit.compute_result()
+        updated_weights = (
+            bandit_response.bandit_weights
+            if self.settings.reweight and bandit_response.bandit_weights
+            else current_weights
+        )
+        weights_were_updated = (
+            self.settings.reweight and updated_weights != current_weights
+        )
+        single_variation_results = [
+            SingleVariationResult(n, mn, ci)
+            for n, mn, ci in zip(
+                bandit.variation_counts.tolist(),
+                bandit.posterior_mean.tolist(),
+                bandit_response.ci or [],
+            )
+        ]
+
+        results = [
+            BanditResult(
+                singleVariationResults=single_variation_results,
+                currentWeights=current_weights,
+                updatedWeights=updated_weights,
+                bestArmProbabilities=bandit_response.best_arm_probabilities,
+                seed=bandit_response.seed,
+                updateMessage=bandit_response.bandit_update_message,
+                error=(
+                    "" if bandit_response.ci else bandit_response.bandit_update_message
+                ),
+                reweight=self.settings.reweight,
+                weightsWereUpdated=weights_were_updated,
+                contextID=context_id,
+            )
+            for context_id in context_ids
+        ]
+        total_n = int(sum(float(row.get("n", 0)) for row in self.rows))
+
+        return ContextualBanditResponse(
+            result=results,
+            tree_summary=ContextualBanditTreeSummary(
+                leaves=[
+                    ContextualBanditLeaf(
+                        leaf_id="mock-leaf-0",
+                        rule="all contexts",
+                        condition={},
+                        context_ids=context_ids,
+                        n=total_n,
+                        weights=updated_weights,
+                        best_arm_probabilities=bandit_response.best_arm_probabilities,
+                    )
+                ],
+                split_features=[],
+            ),
+            update_message=bandit_response.bandit_update_message,
+            error=None,
+        )
+
+    def _current_weights(self, context_id: str) -> List[float]:
+        configured = self.settings.current_weights_by_context.get(context_id)
+        if configured:
+            return configured
+        return [1 / len(self.settings.var_ids)] * len(self.settings.var_ids)
+
+    def _stats_by_variation(self) -> List[SampleMeanStatistic]:
+        stats: List[SampleMeanStatistic] = []
+        for variation in self.settings.var_ids:
+            variation_rows = [
+                row for row in self.rows if str(row["variation"]) == variation
+            ]
+            n = int(sum(float(row.get("n", 0)) for row in variation_rows))
+            main_sum = float(
+                sum(float(row.get("main_sum", 0)) for row in variation_rows)
+            )
+            main_sum_squares = float(
+                sum(float(row.get("main_sum_squares", 0)) for row in variation_rows)
+            )
+            stats.append(
+                SampleMeanStatistic(n=n, sum=main_sum, sum_squares=main_sum_squares)
+            )
+        return stats
 
 
 class Bandits(ABC):

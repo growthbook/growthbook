@@ -1,0 +1,190 @@
+{
+  "settings": {
+    "var_names": ["Control", "Treatment"],
+    "var_ids": ["0", "1"],
+    "reweight": true,
+    "decision_metric": "met_revenue",
+    "bandit_weights_seed": 123,
+    "contextual_attributes": ["country", "device"],
+    "current_weights_by_context": {
+      "leaf0_ctx0": [0.5, 0.5],
+      "leaf1_ctx0": [0.5, 0.5],
+      "leaf2_ctx0": [0.5, 0.5],
+      "leaf3_ctx0": [0.5, 0.5]
+    },
+    "max_leaves": 4,
+    "min_users_per_leaf": 25,
+    "tree_model": "regression_tree",
+    "top_two": true
+  },
+  "rows": [
+    {
+      "variation": "0",
+      "context_id": "leaf0_ctx0",
+      "main_sum": 140,
+      "main_sum_squares": 260,
+      "n": 120
+    },
+    {
+      "variation": "1",
+      "context_id": "leaf0_ctx0",
+      "main_sum": 172,
+      "main_sum_squares": 330,
+      "n": 120
+    },
+    {
+      "variation": "0",
+      "context_id": "leaf0_ctx1",
+      "main_sum": 132,
+      "main_sum_squares": 248,
+      "n": 110
+    },
+    {
+      "variation": "1",
+      "context_id": "leaf0_ctx1",
+      "main_sum": 160,
+      "main_sum_squares": 306,
+      "n": 110
+    },
+    {
+      "variation": "0",
+      "context_id": "leaf0_ctx2",
+      "main_sum": 118,
+      "main_sum_squares": 230,
+      "n": 100
+    },
+    {
+      "variation": "1",
+      "context_id": "leaf0_ctx2",
+      "main_sum": 151,
+      "main_sum_squares": 292,
+      "n": 100
+    },
+    {
+      "variation": "0",
+      "context_id": "leaf1_ctx0",
+      "main_sum": 180,
+      "main_sum_squares": 390,
+      "n": 140
+    },
+    {
+      "variation": "1",
+      "context_id": "leaf1_ctx0",
+      "main_sum": 176,
+      "main_sum_squares": 372,
+      "n": 140
+    },
+    {
+      "variation": "0",
+      "context_id": "leaf1_ctx1",
+      "main_sum": 160,
+      "main_sum_squares": 340,
+      "n": 130
+    },
+    {
+      "variation": "1",
+      "context_id": "leaf1_ctx1",
+      "main_sum": 168,
+      "main_sum_squares": 356,
+      "n": 130
+    },
+    {
+      "variation": "0",
+      "context_id": "leaf1_ctx2",
+      "main_sum": 150,
+      "main_sum_squares": 318,
+      "n": 120
+    },
+    {
+      "variation": "1",
+      "context_id": "leaf1_ctx2",
+      "main_sum": 156,
+      "main_sum_squares": 332,
+      "n": 120
+    },
+    {
+      "variation": "0",
+      "context_id": "leaf2_ctx0",
+      "main_sum": 100,
+      "main_sum_squares": 180,
+      "n": 90
+    },
+    {
+      "variation": "1",
+      "context_id": "leaf2_ctx0",
+      "main_sum": 144,
+      "main_sum_squares": 260,
+      "n": 90
+    },
+    {
+      "variation": "0",
+      "context_id": "leaf2_ctx1",
+      "main_sum": 112,
+      "main_sum_squares": 204,
+      "n": 100
+    },
+    {
+      "variation": "1",
+      "context_id": "leaf2_ctx1",
+      "main_sum": 152,
+      "main_sum_squares": 278,
+      "n": 100
+    },
+    {
+      "variation": "0",
+      "context_id": "leaf2_ctx2",
+      "main_sum": 126,
+      "main_sum_squares": 236,
+      "n": 110
+    },
+    {
+      "variation": "1",
+      "context_id": "leaf2_ctx2",
+      "main_sum": 162,
+      "main_sum_squares": 304,
+      "n": 110
+    },
+    {
+      "variation": "0",
+      "context_id": "leaf3_ctx0",
+      "main_sum": 210,
+      "main_sum_squares": 460,
+      "n": 150
+    },
+    {
+      "variation": "1",
+      "context_id": "leaf3_ctx0",
+      "main_sum": 205,
+      "main_sum_squares": 448,
+      "n": 150
+    },
+    {
+      "variation": "0",
+      "context_id": "leaf3_ctx1",
+      "main_sum": 196,
+      "main_sum_squares": 430,
+      "n": 140
+    },
+    {
+      "variation": "1",
+      "context_id": "leaf3_ctx1",
+      "main_sum": 190,
+      "main_sum_squares": 416,
+      "n": 140
+    },
+    {
+      "variation": "0",
+      "context_id": "leaf3_ctx2",
+      "main_sum": 182,
+      "main_sum_squares": 400,
+      "n": 130
+    },
+    {
+      "variation": "1",
+      "context_id": "leaf3_ctx2",
+      "main_sum": 178,
+      "main_sum_squares": 390,
+      "n": 130
+    }
+  ]
+}

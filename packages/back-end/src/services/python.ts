@@ -10,7 +10,11 @@ import { createPool } from "generic-pool";
 import { parseEnvInt, stringToBoolean } from "shared/util";
 import JSON5 from "json5";
 import { MultipleExperimentMetricAnalysis } from "shared/types/stats";
-import type { ExperimentDataForStatsEngine } from "shared/types/stats";
+import type {
+  ContextualBanditStatsEngineInput,
+  ContextualBanditStatsEngineResult,
+  ExperimentDataForStatsEngine,
+} from "shared/types/stats";
 import { logger } from "back-end/src/util/logger";
 import { ENVIRONMENT, IS_CLOUD } from "back-end/src/util/secrets";
 import { metrics } from "back-end/src/util/metrics";
@@ -238,8 +242,8 @@ export const statsServerPool = createPool(
   {
     create: async () => {
       return new PythonStatsServer<
-        ExperimentDataForStatsEngine[],
-        MultipleExperimentMetricAnalysis[]
+        ExperimentDataForStatsEngine[] | ContextualBanditStatsEngineInput,
+        MultipleExperimentMetricAnalysis[] | ContextualBanditStatsEngineResult
       >(path.join(__dirname, "..", "..", "scripts", "stats_server.py"));
     },
     destroy: async (server) => server.destroy(),

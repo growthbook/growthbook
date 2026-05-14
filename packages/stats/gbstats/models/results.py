@@ -78,6 +78,7 @@ class BanditResult:
     error: Optional[str]
     reweight: bool
     weightsWereUpdated: bool
+    contextID: str = ""
 
 
 @dataclass

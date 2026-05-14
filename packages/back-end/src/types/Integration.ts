@@ -5,6 +5,12 @@ import {
   AutoMetricTrackedEvent,
   ColumnTopValuesParams,
   ColumnTopValuesResponse,
+  ContextualBanditDimensionQueryResponse,
+  ContextualBanditDimensionSqlParams,
+  ContextualBanditQuantileBucketEdgesResponse,
+  ContextualBanditQuantileBucketEdgesSqlParams,
+  ContextualBanditTopValuesResponse,
+  ContextualBanditTopValuesSqlParams,
   CreateExperimentIncrementalUnitsQueryParams,
   CreateMetricSourceCovariateTableQueryParams,
   CreateMetricSourceTableQueryParams,
@@ -258,6 +264,27 @@ export interface SourceIntegrationInterface {
   ): Promise<PastExperimentQueryResponse>;
   runColumnsTopValuesQuery?(sql: string): Promise<ColumnTopValuesResponse>;
   getColumnsTopValuesQuery?: (params: ColumnTopValuesParams) => string;
+  getContextualBanditCaseWhen?(
+    attribute: ContextualBanditDimensionSqlParams["attributes"][number],
+  ): string;
+  getContextualBanditDimensionSql?(
+    params: ContextualBanditDimensionSqlParams,
+  ): string;
+  runContextualBanditDimensionQuery?(
+    sql: string,
+  ): Promise<ContextualBanditDimensionQueryResponse>;
+  getContextualBanditTopValuesQuery?(
+    params: ContextualBanditTopValuesSqlParams,
+  ): string;
+  runContextualBanditTopValuesQuery?(
+    sql: string,
+  ): Promise<ContextualBanditTopValuesResponse>;
+  getContextualBanditQuantileBucketEdgesQuery?(
+    params: ContextualBanditQuantileBucketEdgesSqlParams,
+  ): string;
+  runContextualBanditQuantileBucketEdgesQuery?(
+    sql: string,
+  ): Promise<ContextualBanditQuantileBucketEdgesResponse>;
   getEventsTrackedByDatasource?: (
     schemaFormat: AutoFactTableSchemas,
     schema?: string,

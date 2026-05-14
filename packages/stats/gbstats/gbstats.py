@@ -1,5 +1,6 @@
 from dataclasses import asdict, dataclass
 import dataclasses
+import os
 import re
 import traceback
 import copy
@@ -18,7 +19,9 @@ from gbstats.bayesian.bandits import (
     BanditsSimple,
     BanditsRatio,
     BanditsCuped,
+    ContextualBandits,
     BanditConfig,
+    MockContextualBandits,
     get_error_bandit_result,
 )
 
@@ -63,6 +66,7 @@ from gbstats.models.results import (
 from gbstats.models.settings import (
     AnalysisSettingsForStatsEngine,
     BanditSettingsForStatsEngine,
+    ContextualBanditSettingsForStatsEngine,
     DataForStatsEngine,
     ExperimentDataForStatsEngine,
     ExperimentMetricQueryResponseRows,
@@ -1338,6 +1342,23 @@ def get_bandit_result(
         reweight=bandit_settings.reweight,
         current_weights=bandit_settings.current_weights,
     )
+
+
+def process_contextual_bandit_results(
+    rows: ExperimentMetricQueryResponseRows,
+    settings: Union[ContextualBanditSettingsForStatsEngine, Dict[str, Any]],
+) -> Dict[str, Any]:
+    contextual_bandit_settings = (
+        settings
+        if isinstance(settings, ContextualBanditSettingsForStatsEngine)
+        else ContextualBanditSettingsForStatsEngine(**settings)
+    )
+    fitter_cls = (
+        MockContextualBandits
+        if os.environ.get("GROWTHBOOK_CB_MOCK_STATS") == "1"
+        else ContextualBandits
+    )
+    return asdict(fitter_cls(rows, contextual_bandit_settings).compute_result())
 
 
 # Get just the columns for a single metric

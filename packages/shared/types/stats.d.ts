@@ -1,6 +1,10 @@
 export { StatsEngine } from "shared/validators";
 
-import { BanditResult } from "shared/validators";
+import {
+  BanditResult,
+  ContextualBanditTreeModel,
+  ContextualBanditTreeSummary,
+} from "shared/validators";
 import {
   ExperimentFactMetricsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
@@ -218,6 +222,44 @@ export interface BanditSettingsForStatsEngine {
   reweight: boolean;
   decision_metric: string;
   bandit_weights_seed: number;
+}
+
+export interface ContextualBanditSettingsForStatsEngine {
+  var_names: string[];
+  var_ids: string[];
+  reweight: boolean;
+  decision_metric: string;
+  bandit_weights_seed: number;
+  contextual_attributes: string[];
+  current_weights_by_context: Record<string, number[]>;
+  max_leaves: number;
+  min_users_per_leaf: number;
+  tree_model: ContextualBanditTreeModel;
+  top_two: boolean;
+}
+
+export interface ContextualBanditStatsEngineRow {
+  variation: string;
+  context_id: string;
+  main_sum: number;
+  main_sum_squares: number;
+  n: number;
+}
+
+export interface ContextualBanditStatsEngineInput {
+  rows: ContextualBanditStatsEngineRow[];
+  settings: ContextualBanditSettingsForStatsEngine;
+}
+
+export interface ContextualBanditResult extends BanditResult {
+  contextID: string;
+}
+
+export interface ContextualBanditStatsEngineResult {
+  result: ContextualBanditResult[];
+  tree_summary: ContextualBanditTreeSummary | Record<string, unknown>;
+  update_message: string;
+  error?: string | null;
 }
 
 export type BusinessMetricTypeForStatsEngine =

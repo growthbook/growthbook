@@ -20,6 +20,12 @@ export type VariationMeta = {
   name?: string;
 };
 
+export type ContextsEntry = {
+  contextId: string;
+  condition: Record<string, unknown>;
+  weights: number[];
+};
+
 export type FeatureRule<T = any> = {
   id?: string;
   condition?: ConditionInterface;
@@ -44,6 +50,9 @@ export type FeatureRule<T = any> = {
   seed?: string;
   name?: string;
   phase?: string;
+  contexts?: ContextsEntry[];
+  isContextualBandit?: boolean;
+  attributesRequired?: string[];
   tracks?: Array<{
     experiment: Experiment<T>;
     result: Result<T>;
@@ -156,9 +165,16 @@ export interface Result<T> {
 
 export type Attributes = Record<string, any>;
 
+export type TrackingCallbackMeta = {
+  isBandit?: boolean;
+  contextId?: string;
+};
+
 export interface TrackingData {
   experiment: Experiment<any>;
   result: Result<any>;
+  attributes?: Attributes;
+  meta?: TrackingCallbackMeta;
 }
 
 export interface TrackingDataWithUser {
@@ -170,12 +186,15 @@ export interface TrackingDataWithUser {
 export type TrackingCallback = (
   experiment: Experiment<any>,
   result: Result<any>,
+  attributes?: Attributes,
+  meta?: TrackingCallbackMeta,
 ) => Promise<void> | void;
 
 export type TrackingCallbackWithUser = (
   experiment: Experiment<any>,
   result: Result<any>,
   user: UserContext,
+  meta?: TrackingCallbackMeta,
 ) => Promise<void> | void;
 
 export type FeatureUsageCallback = (

@@ -29,6 +29,9 @@ import {
   AnalysisSettingsForStatsEngine,
   BanditSettingsForStatsEngine,
   BusinessMetricTypeForStatsEngine,
+  ContextualBanditSettingsForStatsEngine,
+  ContextualBanditStatsEngineInput,
+  ContextualBanditStatsEngineResult,
   DataForStatsEngine,
   ExperimentDataForStatsEngine,
   ExperimentMetricAnalysis,
@@ -52,6 +55,12 @@ import {
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
 import { BanditResult } from "shared/types/experiment";
+import {
+  ContextualBanditEventInterface,
+  ContextualBanditInterface,
+  ContextualBanditQueryInterface,
+  ContextualBanditTreeSummary,
+} from "shared/validators";
 import { checkSrm, chi2pvalue } from "back-end/src/util/stats";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { logger } from "back-end/src/util/logger";
@@ -137,6 +146,245 @@ export function getBanditSettingsForStatsEngine(
   };
 }
 
+export function getContextualBanditSettingsForStatsEngine(
+  cb: ContextualBanditInterface,
+  cbaq: ContextualBanditQueryInterface,
+  latestCBE: ContextualBanditEventInterface | null,
+  phase: number,
+  options: {
+    variations?: (SnapshotSettingsVariation & { name?: string })[];
+    decisionMetric?: string;
+    reweight?: boolean;
+  } = {},
+): ContextualBanditSettingsForStatsEngine {
+  const cbPhase = cb.phases.find((p) => p.phase === phase);
+  if (!cbPhase) {
+    throw new Error(`ContextualBandit ${cb.id} has no phase ${phase}`);
+  }
+
+  const attributesByName = new Map(
+    cbaq.attributes.map((attribute) => [attribute.attribute, attribute]),
+  );
+  for (const attribute of cb.contextualAttributes) {
+    if (!attributesByName.has(attribute)) {
+      throw new Error(
+        `ContextualBandit ${cb.id} references unknown CBAQ attribute ${attribute}`,
+      );
+    }
+  }
+
+  const latestVariationStats = latestCBE?.contextResults[0]?.variations ?? [];
+  const varIds =
+    options.variations?.map((variation) => variation.id) ??
+    latestVariationStats.map((variation) => variation.variation);
+  const varNames =
+    options.variations?.map((variation) => variation.name ?? variation.id) ??
+    latestVariationStats.map((variation) => variation.variation);
+
+  return {
+    var_names: varNames,
+    var_ids: varIds,
+    reweight: options.reweight ?? true,
+    decision_metric: options.decisionMetric ?? latestCBE?.decisionMetric ?? "",
+    bandit_weights_seed: cbPhase.seed,
+    contextual_attributes: cb.contextualAttributes,
+    current_weights_by_context: Object.fromEntries(
+      cbPhase.currentLeafWeights.map((leaf) => [leaf.contextId, leaf.weights]),
+    ),
+    max_leaves: cb.maxLeaves,
+    min_users_per_leaf: cb.minUsersPerLeaf,
+    tree_model: cb.treeModel,
+    top_two: true,
+  };
+}
+
+export async function runContextualBanditStatsEngine(
+  input: ContextualBanditStatsEngineInput,
+): Promise<ContextualBanditStatsEngineResult> {
+  if (process.env.EXTERNAL_PYTHON_SERVER_URL) {
+    const retVal = await fetch(
+      `${process.env.EXTERNAL_PYTHON_SERVER_URL}/contextual-bandit`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(input),
+      },
+    );
+    if (!retVal.ok) {
+      let { error } = await retVal.json();
+      if (!error) {
+        error = `Stats server errored with: ${retVal.status} - ${retVal.statusText}`;
+      }
+      logger.error(`Error fetching contextual bandit stats engine: ${error}`);
+      throw new Error(error);
+    }
+    return retVal.json();
+  }
+
+  const acquireStart = Date.now();
+  const server = await statsServerPool.acquire();
+  metrics
+    .getHistogram("python.stats_pool_acquire_ms")
+    .record(Date.now() - acquireStart);
+  try {
+    return (await server.call(input)) as ContextualBanditStatsEngineResult;
+  } finally {
+    statsServerPool.release(server);
+  }
+}
+
+type ContextualBanditEventStatsEngineFields = Pick<
+  ContextualBanditEventInterface,
+  | "treeSummary"
+  | "contextResults"
+  | "seed"
+  | "reweight"
+  | "weightsWereUpdated"
+  | "decisionMetric"
+  | "updateMessage"
+  | "error"
+  | "totalUsersThisTick"
+>;
+
+function normalizeContextualBanditTreeSummary(
+  treeSummary: ContextualBanditStatsEngineResult["tree_summary"],
+  settings: ContextualBanditSettingsForStatsEngine,
+): ContextualBanditTreeSummary {
+  if ("model" in treeSummary) {
+    return treeSummary as ContextualBanditTreeSummary;
+  }
+
+  const summary = treeSummary as {
+    leaves?: {
+      leaf_id?: string;
+      rule?: string;
+      condition?: Record<string, unknown>;
+      context_ids?: string[];
+      n?: number;
+      weights?: number[];
+      best_arm_probabilities?: number[];
+    }[];
+    split_features?: string[];
+  };
+
+  return {
+    model: settings.tree_model,
+    nodes: (summary.leaves ?? []).map((leaf) => ({
+      leaf_id: leaf.leaf_id,
+      rule: leaf.rule,
+      condition: leaf.condition ?? {},
+      context_ids: leaf.context_ids ?? [],
+      n: leaf.n ?? 0,
+      weights: leaf.weights ?? [],
+      best_arm_probabilities: leaf.best_arm_probabilities ?? [],
+    })),
+    metadata: {
+      split_features: summary.split_features ?? [],
+    },
+  };
+}
+
+export function parseContextualBanditResultForEvent(
+  statsResult: ContextualBanditStatsEngineResult,
+  rows: ContextualBanditStatsEngineInput["rows"],
+  settings: ContextualBanditSettingsForStatsEngine,
+): ContextualBanditEventStatsEngineFields {
+  const resultByContext = new Map(
+    statsResult.result.map((result) => [result.contextID, result]),
+  );
+  const rowsByContext = new Map<
+    string,
+    Map<string, ContextualBanditStatsEngineInput["rows"][number]>
+  >();
+
+  for (const row of rows) {
+    const contextRows = rowsByContext.get(row.context_id) ?? new Map();
+    const existing = contextRows.get(row.variation);
+    contextRows.set(row.variation, {
+      variation: row.variation,
+      context_id: row.context_id,
+      main_sum: (existing?.main_sum ?? 0) + row.main_sum,
+      main_sum_squares:
+        (existing?.main_sum_squares ?? 0) + row.main_sum_squares,
+      n: (existing?.n ?? 0) + row.n,
+    });
+    rowsByContext.set(row.context_id, contextRows);
+  }
+
+  const treeSummary = normalizeContextualBanditTreeSummary(
+    statsResult.tree_summary,
+    settings,
+  );
+  const leaves = (treeSummary.nodes ?? []) as {
+    leaf_id?: string;
+    condition?: Record<string, unknown>;
+    context_ids?: string[];
+  }[];
+  const leafByContext = new Map<string, (typeof leaves)[number]>();
+  for (const leaf of leaves) {
+    for (const contextId of leaf.context_ids ?? []) {
+      leafByContext.set(contextId, leaf);
+    }
+  }
+
+  let weightsWereUpdated = false;
+  let nextSeed = settings.bandit_weights_seed;
+  const contextResults = Array.from(rowsByContext.entries()).map(
+    ([contextId, contextRows]) => {
+      const result = resultByContext.get(contextId);
+      const currentWeights =
+        settings.current_weights_by_context[contextId] ??
+        new Array(settings.var_ids.length).fill(1 / settings.var_ids.length);
+      const updatedWeights = result?.updatedWeights ?? currentWeights;
+      if (result?.weightsWereUpdated) {
+        weightsWereUpdated = true;
+      }
+      if (typeof result?.seed === "number") {
+        nextSeed = result.seed;
+      }
+      const leaf = leafByContext.get(contextId);
+
+      return {
+        contextId,
+        condition: JSON.stringify(leaf?.condition ?? {}),
+        variations: settings.var_ids.map((variation, i) => {
+          const row = contextRows.get(variation);
+          return {
+            variation,
+            n: row?.n ?? 0,
+            mainSum: row?.main_sum ?? 0,
+            mainSumSquares: row?.main_sum_squares ?? 0,
+            posteriorMean: result?.singleVariationResults?.[i]?.cr,
+            weight: updatedWeights[i] ?? currentWeights[i] ?? 0,
+          };
+        }),
+        totalUsers: Array.from(contextRows.values()).reduce(
+          (sum, row) => sum + row.n,
+          0,
+        ),
+        isOther: contextId === "other" ? true : undefined,
+      };
+    },
+  );
+
+  return {
+    treeSummary,
+    contextResults,
+    seed: nextSeed,
+    reweight: settings.reweight,
+    weightsWereUpdated,
+    decisionMetric: settings.decision_metric,
+    updateMessage: statsResult.update_message,
+    error: statsResult.error ?? undefined,
+    totalUsersThisTick: contextResults.reduce(
+      (sum, result) => sum + result.totalUsers,
+      0,
+    ),
+  };
+}
+
 export async function runStatsEngine(
   statsData: ExperimentDataForStatsEngine[],
 ): Promise<MultipleExperimentMetricAnalysis[]> {
@@ -168,7 +416,9 @@ export async function runStatsEngine(
       .getHistogram("python.stats_pool_acquire_ms")
       .record(Date.now() - acquireStart);
     try {
-      return await server.call(statsData);
+      return (await server.call(
+        statsData,
+      )) as MultipleExperimentMetricAnalysis[];
     } finally {
       statsServerPool.release(server);
     }

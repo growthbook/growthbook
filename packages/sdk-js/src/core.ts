@@ -1,6 +1,7 @@
 import {
   EvalContext,
   FeatureDefinition,
+  FeatureRule,
   FeatureResult,
   Experiment,
   FeatureResultSource,
@@ -15,6 +16,7 @@ import {
   FeatureApiResponse,
   Options,
   ClientOptions,
+  TrackingCallbackMeta,
 } from "./types/growthbook";
 import { evalCondition } from "./mongrule";
 import { ConditionInterface } from "./types/mongrule";
@@ -73,10 +75,11 @@ function onExperimentViewed(
   ctx: EvalContext,
   experiment: Experiment<unknown>,
   result: Result<unknown>,
+  meta?: TrackingCallbackMeta,
 ): Promise<void>[] {
   // Make sure a tracking callback is only fired once per unique experiment
   if (ctx.user.trackedExperiments) {
-    const k = getExperimentDedupeKey(experiment, result);
+    const k = getExperimentDedupeKey(experiment, result, meta);
     if (ctx.user.trackedExperiments.has(k)) {
       return [];
     }
@@ -96,11 +99,23 @@ function onExperimentViewed(
 
   if (ctx.global.trackingCallback) {
     const cb = ctx.global.trackingCallback;
-    calls.push(safeCall(() => cb(experiment, result, ctx.user)));
+    calls.push(
+      safeCall(() =>
+        meta
+          ? cb(experiment, result, ctx.user, meta)
+          : cb(experiment, result, ctx.user),
+      ),
+    );
   }
   if (ctx.user.trackingCallback) {
     const cb = ctx.user.trackingCallback;
-    calls.push(safeCall(() => cb(experiment, result)));
+    calls.push(
+      safeCall(() =>
+        meta
+          ? cb(experiment, result, getAttributes(ctx), meta)
+          : cb(experiment, result),
+      ),
+    );
   }
   if (ctx.global.eventLogger) {
     const cb = ctx.global.eventLogger;
@@ -350,6 +365,35 @@ export function evalFeature<V = unknown>(
       if (rule.filters) exp.filters = rule.filters;
       if (rule.condition) exp.condition = rule.condition;
 
+      if (rule.isContextualBandit) {
+        const banditEval = evalContextualBanditRule(rule, exp, id, ctx);
+        if (banditEval.skipped) {
+          process.env.NODE_ENV !== "production" &&
+            ctx.global.log("Skip contextual bandit rule", {
+              id,
+              rule,
+              reason: banditEval.reason,
+              missing: banditEval.missing,
+            });
+          continue;
+        }
+
+        ctx.global.onExperimentEval &&
+          ctx.global.onExperimentEval(banditEval.experiment, banditEval.result);
+        if (banditEval.result.inExperiment && !banditEval.result.passthrough) {
+          return getFeatureResult(
+            ctx,
+            id,
+            banditEval.result.value,
+            "experiment",
+            rule.id,
+            banditEval.experiment,
+            banditEval.result,
+          );
+        }
+        continue;
+      }
+
       // Only return a value if the user is part of the experiment
       const { result } = runExperiment(exp, id, ctx);
       ctx.global.onExperimentEval && ctx.global.onExperimentEval(exp, result);
@@ -382,10 +426,80 @@ export function evalFeature<V = unknown>(
   );
 }
 
+type ContextualBanditRuleEval<T> =
+  | {
+      skipped: true;
+      reason: "missing_attributes";
+      missing: string[];
+    }
+  | {
+      skipped: true;
+      reason: "no_context";
+      missing?: undefined;
+    }
+  | {
+      skipped: false;
+      experiment: Experiment<T>;
+      result: Result<T>;
+    };
+
+export function evalContextualBanditRule<T>(
+  rule: FeatureRule<T>,
+  experiment: Experiment<T>,
+  featureId: string,
+  ctx: EvalContext,
+): ContextualBanditRuleEval<T> {
+  const attributes = getAttributes(ctx);
+  const missing = (rule.attributesRequired || []).filter(
+    (attribute) =>
+      !Object.prototype.hasOwnProperty.call(attributes, attribute) ||
+      attributes[attribute] === undefined,
+  );
+  if (missing.length) {
+    return {
+      skipped: true,
+      reason: "missing_attributes",
+      missing,
+    };
+  }
+
+  const matchedContext = (rule.contexts || []).find((context) =>
+    evalCondition(
+      attributes,
+      context.condition as ConditionInterface,
+      ctx.global.savedGroups || {},
+    ),
+  );
+  if (!matchedContext) {
+    return {
+      skipped: true,
+      reason: "no_context",
+    };
+  }
+
+  const contextualExperiment: Experiment<T> = {
+    ...experiment,
+    weights: matchedContext.weights,
+    ranges: undefined,
+    seed: `${experiment.seed || experiment.key}:${matchedContext.contextId}`,
+  };
+  const { result } = runExperiment(contextualExperiment, featureId, ctx, {
+    isBandit: true,
+    contextId: matchedContext.contextId,
+  });
+
+  return {
+    skipped: false,
+    experiment: contextualExperiment,
+    result,
+  };
+}
+
 export function runExperiment<T>(
   experiment: Experiment<T>,
   featureId: string | null,
   ctx: EvalContext,
+  trackingMeta?: TrackingCallbackMeta,
 ): {
   result: Result<T>;
   trackingCall?: Promise<void>;
@@ -756,11 +870,18 @@ export function runExperiment<T>(
 
   // 14. Fire the tracking callback(s)
   // Store the promise in case we're awaiting it (ex: browser url redirects)
-  const trackingCalls = onExperimentViewed(ctx, experiment, result);
+  const trackingCalls = onExperimentViewed(
+    ctx,
+    experiment,
+    result,
+    trackingMeta,
+  );
   if (trackingCalls.length === 0 && ctx.global.saveDeferredTrack) {
     ctx.global.saveDeferredTrack({
       experiment,
       result,
+      attributes: trackingMeta ? getAttributes(ctx) : undefined,
+      meta: trackingMeta,
     });
   }
   const trackingCall = !trackingCalls.length
@@ -1226,11 +1347,13 @@ export function getApiHosts(options: Options | ClientOptions): {
 export function getExperimentDedupeKey(
   experiment: Experiment<unknown>,
   result: Result<unknown>,
+  meta?: TrackingCallbackMeta,
 ) {
   return (
     result.hashAttribute +
     result.hashValue +
     experiment.key +
-    result.variationId
+    result.variationId +
+    (meta && meta.contextId ? meta.contextId : "")
   );
 }

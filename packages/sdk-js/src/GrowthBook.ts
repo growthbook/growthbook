@@ -923,7 +923,7 @@ export class GrowthBook<
       calls
         .filter((c) => c && c.experiment && c.result)
         .map((c) => {
-          return [getExperimentDedupeKey(c.experiment, c.result), c];
+          return [getExperimentDedupeKey(c.experiment, c.result, c.meta), c];
         }),
     );
   }
@@ -936,11 +936,11 @@ export class GrowthBook<
       if (!call || !call.experiment || !call.result) {
         console.error("Invalid deferred tracking call", { call: call });
       } else {
+        const callback = this._options.trackingCallback as TrackingCallback;
         promises.push(
-          (this._options.trackingCallback as TrackingCallback)(
-            call.experiment,
-            call.result,
-          ),
+          call.attributes || call.meta
+            ? callback(call.experiment, call.result, call.attributes, call.meta)
+            : callback(call.experiment, call.result),
         );
       }
     });
@@ -994,7 +994,7 @@ export class GrowthBook<
 
   private _saveDeferredTrack(data: TrackingData) {
     this._deferredTrackingCalls.set(
-      getExperimentDedupeKey(data.experiment, data.result),
+      getExperimentDedupeKey(data.experiment, data.result, data.meta),
       data,
     );
   }

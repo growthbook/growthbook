@@ -1,0 +1,117 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`contextual bandit SQL matches the generated Postgres SQL snapshot 1`] = `
+"WITH
+  raw AS (
+    SELECT
+      cast(__cbaq.user_id as varchar) AS user_id,
+      cast(__cbaq.variation_id as varchar) AS variation_id,
+      __cbaq.main_metric::float AS main_metric,
+      CASE
+        WHEN __cbaq.country IS NULL THEN '__null__'
+        WHEN cast(__cbaq.country as varchar) IN ('US', 'CA', 'GB') THEN cast(__cbaq.country as varchar)
+        ELSE 'other'
+      END AS ctx_0,
+      CASE
+        WHEN __cbaq.device IS NULL THEN '__null__'
+        WHEN cast(__cbaq.device as varchar) IN ('desktop', 'mobile') THEN cast(__cbaq.device as varchar)
+        ELSE 'other'
+      END AS ctx_1,
+      CASE
+        WHEN __cbaq.age IS NULL THEN '__null__'
+        WHEN __cbaq.age::float < 25 THEN '[18,25)'
+        WHEN __cbaq.age::float < 40 THEN '[25,40)'
+        WHEN __cbaq.age::float <= 65 THEN '[40,65]'
+        ELSE 'other'
+      END AS ctx_2
+    FROM
+      (
+        SELECT
+          user_id,
+          variation_id,
+          main_metric,
+          country,
+          device,
+          age
+        FROM
+          cb_assignments
+      ) __cbaq
+    WHERE
+      __cbaq.user_id IS NOT NULL
+      AND __cbaq.variation_id IS NOT NULL
+  ),
+  ctx_counts AS (
+    SELECT
+      ctx_0,
+      ctx_1,
+      ctx_2,
+      COUNT(*) AS n
+    FROM
+      raw
+    GROUP BY
+      ctx_0,
+      ctx_1,
+      ctx_2
+  ),
+  top_ctx AS (
+    SELECT
+      ctx_0,
+      ctx_1,
+      ctx_2,
+      CONCAT(
+        'country=',
+        COALESCE(ranked.ctx_0, '__null__'),
+        '|',
+        'device=',
+        COALESCE(ranked.ctx_1, '__null__'),
+        '|',
+        'age=',
+        COALESCE(ranked.ctx_2, '__null__'),
+        ''
+      ) AS context_id
+    FROM
+      (
+        SELECT
+          ctx_0,
+          ctx_1,
+          ctx_2,
+          n,
+          ROW_NUMBER() OVER (
+            ORDER BY
+              n DESC,
+              ctx_0,
+              ctx_1,
+              ctx_2
+          ) AS row_num
+        FROM
+          ctx_counts
+      ) ranked
+    WHERE
+      row_num <= 4
+  ),
+  labeled AS (
+    SELECT
+      raw.variation_id,
+      COALESCE(top_ctx.context_id, 'other') AS context_id,
+      raw.main_metric
+    FROM
+      raw
+      LEFT JOIN top_ctx ON raw.ctx_0 = top_ctx.ctx_0
+      AND raw.ctx_1 = top_ctx.ctx_1
+      AND raw.ctx_2 = top_ctx.ctx_2
+  )
+SELECT
+  variation_id AS variation,
+  context_id,
+  SUM(main_metric) AS main_sum,
+  SUM(main_metric * main_metric) AS main_sum_squares,
+  COUNT(*) AS n
+FROM
+  labeled
+GROUP BY
+  variation_id,
+  context_id
+ORDER BY
+  variation,
+  context_id"
+`;

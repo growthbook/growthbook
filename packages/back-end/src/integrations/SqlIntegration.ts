@@ -61,6 +61,12 @@ import {
   TestQueryParams,
   ColumnTopValuesParams,
   ColumnTopValuesResponse,
+  ContextualBanditDimensionQueryResponse,
+  ContextualBanditDimensionSqlParams,
+  ContextualBanditQuantileBucketEdgesResponse,
+  ContextualBanditQuantileBucketEdgesSqlParams,
+  ContextualBanditTopValuesResponse,
+  ContextualBanditTopValuesSqlParams,
   PopulationMetricQueryParams,
   PopulationFactMetricsQueryParams,
   VariationPeriodWeight,
@@ -145,6 +151,12 @@ import { getExperimentResultsQuery } from "back-end/src/integrations/sql/queries
 import { getExperimentUnitsQuery as buildExperimentUnitsQuerySql } from "back-end/src/integrations/sql/queries/experiment-units-query";
 import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
+import {
+  getContextualBanditCaseWhen as getContextualBanditCaseWhenFromSql,
+  getContextualBanditDimensionSql as getContextualBanditDimensionSqlFromSql,
+  getContextualBanditQuantileBucketEdgesQuery,
+  getContextualBanditTopValuesQuery,
+} from "back-end/src/integrations/sql/queries/contextual-bandit-dimension-query";
 import { getFeatureEvalDiagnosticsQuery as getFeatureEvalDiagnosticsQueryFromSql } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
 import { getFilterColumnsClause } from "back-end/src/integrations/sql/clauses/filter-columns-clause";
 import { getFreeFormQuery } from "back-end/src/integrations/sql/queries/free-form-query";
@@ -1483,6 +1495,81 @@ export default abstract class SqlIntegration
         value: r.value + "",
         count: parseFloat(r.count),
       })),
+    };
+  }
+
+  public getContextualBanditCaseWhen(
+    attribute: ContextualBanditDimensionSqlParams["attributes"][number],
+  ) {
+    return getContextualBanditCaseWhenFromSql(this.getSqlDialect(), attribute);
+  }
+
+  public getContextualBanditDimensionSql(
+    params: ContextualBanditDimensionSqlParams,
+  ) {
+    return getContextualBanditDimensionSqlFromSql(this.getSqlDialect(), params);
+  }
+
+  public async runContextualBanditDimensionQuery(
+    sql: string,
+  ): Promise<ContextualBanditDimensionQueryResponse> {
+    const { rows, statistics } = await this.runQuery(sql);
+
+    return {
+      statistics,
+      rows: rows.map((r) => ({
+        variation: r.variation + "",
+        context_id: r.context_id + "",
+        main_sum: parseFloat(r.main_sum),
+        main_sum_squares: parseFloat(r.main_sum_squares),
+        n: parseFloat(r.n),
+      })),
+    };
+  }
+
+  public getContextualBanditTopValuesQuery(
+    params: ContextualBanditTopValuesSqlParams,
+  ) {
+    return getContextualBanditTopValuesQuery(this.getSqlDialect(), params);
+  }
+
+  public async runContextualBanditTopValuesQuery(
+    sql: string,
+  ): Promise<ContextualBanditTopValuesResponse> {
+    const { rows, statistics } = await this.runQuery(sql);
+
+    return {
+      statistics,
+      rows: rows.map((r) => ({
+        value: r.value + "",
+        count: parseFloat(r.count),
+      })),
+    };
+  }
+
+  public getContextualBanditQuantileBucketEdgesQuery(
+    params: ContextualBanditQuantileBucketEdgesSqlParams,
+  ) {
+    return getContextualBanditQuantileBucketEdgesQuery(
+      this.getSqlDialect(),
+      params,
+    );
+  }
+
+  public async runContextualBanditQuantileBucketEdgesQuery(
+    sql: string,
+  ): Promise<ContextualBanditQuantileBucketEdgesResponse> {
+    const { rows, statistics } = await this.runQuery(sql);
+    const firstRow = rows[0] ?? {};
+
+    return {
+      statistics,
+      rows: [
+        Object.keys(firstRow)
+          .sort((a, b) => parseInt(a.slice(1), 10) - parseInt(b.slice(1), 10))
+          .map((key) => parseFloat(firstRow[key]))
+          .filter((value) => Number.isFinite(value)),
+      ],
     };
   }
 
