@@ -50,12 +50,19 @@ function bigQueryPercentileCapSelectClause(
     );
   }
 
-  const offsetCase = `CAST(CASE col_name ${values
+  const colsByOffset = new Map<number, string[]>();
+  for (const { valueCol, percentile } of values) {
+    const offset = Math.trunc(APPROX_QUANTILES_MULTIPLIER * percentile);
+    const list = colsByOffset.get(offset) ?? [];
+    list.push(valueCol);
+    colsByOffset.set(offset, list);
+  }
+  const offsetCase = `CAST(CASE ${[...colsByOffset.entries()]
     .map(
-      ({ valueCol, percentile }) =>
-        `WHEN '${bigQueryDialect.escapeStringLiteral(valueCol)}' THEN ${Math.trunc(
-          APPROX_QUANTILES_MULTIPLIER * percentile,
-        )}`,
+      ([offset, cols]) =>
+        `WHEN col_name IN (${cols
+          .map((c) => `'${bigQueryDialect.escapeStringLiteral(c)}'`)
+          .join(", ")}) THEN ${offset}`,
     )
     .join(" ")} END AS INT64)`;
 
