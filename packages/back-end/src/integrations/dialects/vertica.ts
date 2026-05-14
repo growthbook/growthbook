@@ -1,5 +1,6 @@
 import type { SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
+import { indicesTableUnpivot } from "back-end/src/integrations/sql/clauses/indices-table-unpivot";
 import { baseDialect } from "./base";
 
 export const verticaDialect: SqlDialect = {
@@ -25,21 +26,7 @@ export const verticaDialect: SqlDialect = {
       where,
     ),
 
-  // Vertica's FROM clause only accepts relations and subqueries, not a bare
-  // VALUES list, so we emit a UNION ALL chain inside the LATERAL subquery.
-  unpivotLabeledPairs: (pairs) => {
-    const first = `SELECT '${pairs[0].keyLiteral}' AS column_name, ${pairs[0].valueSql} AS value`;
-    const rest = pairs
-      .slice(1)
-      .map((p) => `UNION ALL SELECT '${p.keyLiteral}', ${p.valueSql}`)
-      .join(" ");
-    return {
-      fromContinuation: `CROSS JOIN LATERAL (
-        ${first}
-        ${pairs.length > 1 ? `\n${rest}` : ""}
-      ) AS __col`,
-      keyExpr: "__col.column_name",
-      valueExpr: "__col.value",
-    };
-  },
+  // Vertica's FROM clause rejects bare VALUES, and LATERAL derived tables are
+  // restricted to a single SELECT (no UNION).
+  unpivotLabeledPairs: indicesTableUnpivot,
 };

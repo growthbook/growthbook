@@ -1,6 +1,7 @@
 import type { DataType } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
+import { indicesTableUnpivot } from "back-end/src/integrations/sql/clauses/indices-table-unpivot";
 import { baseDialect } from "./base";
 
 export const snowflakeDialect: SqlDialect = {
@@ -53,23 +54,12 @@ export const snowflakeDialect: SqlDialect = {
       where,
     ),
 
-  // LATERAL FLATTEN(input => ARRAY_CONSTRUCT(OBJECT_CONSTRUCT(...))) doesn't
-  // reliably correlate the column references back to the outer table in
-  // Snowflake, producing "invalid identifier" errors at runtime. Use a plain
-  // LATERAL inline view with a UNION ALL chain instead.
-  unpivotLabeledPairs: (pairs) => {
-    const first = `SELECT '${pairs[0].keyLiteral}' AS column_name, ${pairs[0].valueSql} AS value`;
-    const rest = pairs
-      .slice(1)
-      .map((p) => `UNION ALL SELECT '${p.keyLiteral}', ${p.valueSql}`)
-      .join(" ");
-    return {
-      fromContinuation: `, LATERAL (
-        ${first}
-        ${pairs.length > 1 ? `\n${rest}` : ""}
-      ) __col`,
-      keyExpr: "__col.column_name",
-      valueExpr: "__col.value",
-    };
-  },
+  // Two LATERAL patterns have failed on Snowflake:
+  //   - LATERAL FLATTEN(input => ARRAY_CONSTRUCT(OBJECT_CONSTRUCT(...))) does
+  //     not reliably correlate column refs inside the constructed array
+  //     ("invalid identifier" at runtime).
+  //   - LATERAL (SELECT ... UNION ALL ...) is rejected as an "Unsupported
+  //     subquery type" because Snowflake's correlated subqueries can't contain
+  //     set operations.
+  unpivotLabeledPairs: indicesTableUnpivot,
 };
