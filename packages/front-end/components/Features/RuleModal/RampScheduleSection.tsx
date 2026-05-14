@@ -948,7 +948,7 @@ export default function RampScheduleSection({
         />
         <Flex direction="column" gap="2" pl="2">
           <Flex align="center" gap="4">
-            <Box style={{ width: COL.num, flexShrink: 0 }}>
+            <Box style={{ width: COL.num, flexShrink: 0, textAlign: "center" }}>
               <Text size="small" weight="medium" color="text-low">
                 end
               </Text>

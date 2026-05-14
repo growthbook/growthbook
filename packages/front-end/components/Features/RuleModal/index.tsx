@@ -25,6 +25,7 @@ import {
   SafeRolloutInterface,
   SafeRolloutRule,
   RampScheduleInterface,
+  RampStepAction,
 } from "shared/validators";
 import {
   PostFeatureRuleBody,
@@ -93,6 +94,39 @@ import {
   getMonitoringValidationError,
   scrubRampStateForRuleType,
 } from "@/components/Features/RuleModal/RampScheduleSection";
+
+function buildRampStartActionsFromRule(
+  values: FeatureRule,
+  targetId: string,
+  ruleId: string,
+): RampStepAction[] {
+  if (values.type !== "force" && values.type !== "rollout") return [];
+
+  const ruleState = values as FeatureRule & {
+    coverage?: number;
+    value?: unknown;
+  };
+  const patch: RampStepAction["patch"] = {
+    ruleId,
+    coverage: ruleState.coverage ?? null,
+    condition: ruleState.condition ?? null,
+    savedGroups: ruleState.savedGroups ?? null,
+    prerequisites: ruleState.prerequisites ?? null,
+    enabled: ruleState.enabled ?? true,
+  };
+
+  if ("value" in ruleState) {
+    patch.force = ruleState.value;
+  }
+
+  return [
+    {
+      targetType: "feature-rule",
+      targetId,
+      patch,
+    },
+  ];
+}
 export interface Props {
   close: () => void;
   feature: FeatureInterface;
@@ -1106,6 +1140,9 @@ export default function RuleModal({
                 isScheduleMode &&
                 !rampState.startDate &&
                 !rampState.endScheduleAt;
+              const activeTargetId =
+                ruleRampSchedule?.targets.find((t) => t.status === "active")
+                  ?.id ?? "t1";
 
               if (
                 rampState.mode === "create" &&
@@ -1118,6 +1155,15 @@ export default function RuleModal({
                     ? scheduleAutoName(rampState)
                     : rampState.name.trim(),
                   environment,
+                  ...(!isScheduleMode
+                    ? {
+                        startActions: buildRampStartActionsFromRule(
+                          values as FeatureRule,
+                          "t1",
+                          ruleId,
+                        ),
+                      }
+                    : {}),
                   steps: buildRampSteps(rampState.steps, "t1", ruleId),
                   endActions: !isScheduleMode
                     ? buildEndActions(rampState.endPatch, ruleId)
@@ -1146,7 +1192,7 @@ export default function RuleModal({
                 !isNoOpSchedule &&
                 rampState.mode === "edit" &&
                 ruleRampSchedule?.id &&
-                !["running", "ready", "pending-approval"].includes(
+                !["running", "pending-approval"].includes(
                   ruleRampSchedule.status,
                 )
               ) {
@@ -1156,10 +1202,18 @@ export default function RuleModal({
                   name: isScheduleMode
                     ? scheduleAutoName(rampState)
                     : rampState.name.trim() || undefined,
+                  ...(!isScheduleMode
+                    ? {
+                        startActions: buildRampStartActionsFromRule(
+                          values as FeatureRule,
+                          activeTargetId,
+                          ruleId,
+                        ),
+                      }
+                    : {}),
                   steps: buildRampSteps(
                     rampState.steps,
-                    ruleRampSchedule.targets.find((t) => t.status === "active")
-                      ?.id ?? "t1",
+                    activeTargetId,
                     ruleId,
                   ),
                   endActions: !isScheduleMode
@@ -1168,10 +1222,7 @@ export default function RuleModal({
                       ? [
                           {
                             targetType: "feature-rule" as const,
-                            targetId:
-                              ruleRampSchedule.targets.find(
-                                (t) => t.status === "active",
-                              )?.id ?? "t1",
+                            targetId: activeTargetId,
                             patch: { ruleId, enabled: false },
                           },
                         ]
@@ -1205,6 +1256,23 @@ export default function RuleModal({
                 rampScheduleInline = { mode: "clear" };
               }
             }
+          }
+
+          // For real ramps that have not started yet, targeting widgets edit the
+          // ramp's start conditions instead of the immediately served rule.
+          if (
+            rampScheduleInline &&
+            "steps" in rampScheduleInline &&
+            rampScheduleInline.steps &&
+            rampScheduleInline.steps.length > 0 &&
+            (values.type === "rollout" || values.type === "force")
+          ) {
+            values = {
+              ...values,
+              condition: "",
+              savedGroups: [],
+              prerequisites: [],
+            };
           }
 
           // Future-dated schedule → publish the rule as disabled so it
@@ -1259,6 +1327,15 @@ export default function RuleModal({
                 selectedEnvironments.length === 1
                   ? selectedEnvironments[0]
                   : undefined,
+              ...(!isScheduleMode
+                ? {
+                    startActions: buildRampStartActionsFromRule(
+                      values as FeatureRule,
+                      "t1",
+                      effectiveRuleId,
+                    ),
+                  }
+                : {}),
               steps: buildRampSteps(rampState.steps, "t1", effectiveRuleId),
               endActions: !isScheduleMode
                 ? buildEndActions(rampState.endPatch, effectiveRuleId)

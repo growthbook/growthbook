@@ -2173,6 +2173,9 @@ export async function postFeatureRule(
             holdConditions: s.holdConditions ?? undefined,
           }),
         ),
+        startActions: rampSchedulePayload.startActions?.map((a: unknown) =>
+          normalizeAction(a as { patch: Record<string, unknown> }),
+        ),
         endActions: rampSchedulePayload.endActions?.map((a: unknown) =>
           normalizeAction(a as { patch: Record<string, unknown> }),
         ),
@@ -3197,6 +3200,9 @@ export async function putFeatureRule(
             holdConditions: s.holdConditions ?? undefined,
           }),
         ),
+        startActions: rampSchedulePayload.startActions?.map((a: unknown) =>
+          normalizeAction(a as { patch: Record<string, unknown> }),
+        ),
         endActions: rampSchedulePayload.endActions?.map((a: unknown) =>
           normalizeAction(a as { patch: Record<string, unknown> }),
         ),
@@ -3313,6 +3319,9 @@ export async function putFeatureRule(
           monitored: !!step.monitored,
           holdConditions: step.holdConditions ?? undefined,
         }));
+      }
+      if (rampSchedulePayload.startActions !== undefined) {
+        updates.startActions = rampSchedulePayload.startActions.map(remapT1);
       }
       if ("startDate" in rampSchedulePayload) {
         updates.startDate = rampSchedulePayload.startDate

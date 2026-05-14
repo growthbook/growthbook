@@ -695,7 +695,7 @@ export default function RampTimeline({
           triggerLabel={
             startDateDisplay ? formatScheduledDate(startDateDisplay) : null
           }
-          actions={[]}
+          actions={rs.startActions ?? []}
           stepIndex="start"
           isActive={getState(0) === "active"}
           rs={rs}

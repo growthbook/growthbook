@@ -1,6 +1,6 @@
 import { Slider, Flex, Box } from "@radix-ui/themes";
 import { ReactNode } from "react";
-import { PiCaretRightFill } from "react-icons/pi";
+import { PiCaretRightFill, PiLockSimple } from "react-icons/pi";
 import { SDKAttributeSchema } from "shared/types/organization";
 import { RampScheduleInterface } from "shared/validators";
 import Collapsible from "react-collapsible";
@@ -80,9 +80,20 @@ export default function RolloutPercentInput({
         </Flex>
       )}
       {lockedByRamp ? (
-        <Text as="div" fontStyle="italic" color="text-mid" mb="3">
-          Controlled by ramp-up schedule
-        </Text>
+        <Flex align="center" gap="3" mb="3">
+          <Box position="relative" className={styles.percentInputWrap}>
+            <Field
+              style={{ width: 95 }}
+              readOnly
+              value={isNaN(value ?? 0) ? "" : decimalToPercent(value ?? 0)}
+              type="number"
+            />
+            <span>%</span>
+          </Box>
+          <HelperText status="info" icon={<PiLockSimple />}>
+            Locked by ramp schedule
+          </HelperText>
+        </Flex>
       ) : (
         <Flex align="center" gap="3" mb="1">
           <Box flexGrow="1">

@@ -391,7 +391,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       ["completed", "rolled-back"].includes(rampSchedule.status);
     const isSimpleSchedule = !!rampSchedule && rampSchedule.steps.length === 0;
     const hasMonitoringStatusRow =
-      !!rampSchedule?.safeRolloutId && rampSchedule.steps.some((s) => s.monitored);
+      !!rampSchedule?.safeRolloutId &&
+      rampSchedule.steps.some((s) => s.monitored);
     // Synthetic schedules (synthesized client-side from a pending draft create
     // action) carry a placeholder id and have no server-side counterpart, so
     // ramp action CTAs (Start/Resume/Approve) must be suppressed.
@@ -638,7 +639,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       radius="full"
                       size="2"
                       highContrast
-                      style={{ marginRight: "calc(var(--space-2) * -1)" }}
+                      style={{ margin: 0 }}
                     >
                       <BsThreeDotsVertical size={16} />
                     </IconButton>

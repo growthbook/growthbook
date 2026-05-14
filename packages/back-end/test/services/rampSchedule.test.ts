@@ -29,6 +29,7 @@ import {
   advanceUntilBlocked,
   completeRollout,
   getStartPatchForRule,
+  applyRampStartActions,
 } from "back-end/src/services/rampSchedule";
 
 // ---------------------------------------------------------------------------
@@ -1217,6 +1218,49 @@ describe("rollbackToStep", () => {
     expect(updates).not.toHaveProperty("lastRollbackReason");
     expect(updates).not.toHaveProperty("eventHistory");
     expect(mockCreateEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe("applyRampStartActions", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetFeature.mockResolvedValue(makeFeature() as never);
+    mockCreateRevision.mockResolvedValue(makeRevision() as never);
+    mockPublishRevision.mockResolvedValue(makeFeature() as never);
+  });
+
+  it("publishes stored startActions before the ramp's first step fires", async () => {
+    const schedule = makeSchedule({
+      startActions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: {
+            ruleId: RULE_ID,
+            coverage: 0,
+            condition: '{"country":"US"}',
+            savedGroups: [{ match: "all", ids: ["sg_1"] }],
+            prerequisites: [{ id: "feature-a", condition: "{}" }],
+          },
+        },
+      ],
+    });
+    const { ctx } = makeContext();
+
+    await applyRampStartActions(ctx as never, schedule);
+
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+    const { result: startResult } = mockPublishRevision.mock.calls[0][0];
+    const rules: FeatureRule[] = startResult.rules ?? [];
+    const patched = rules.find((r: FeatureRule) => r.id === RULE_ID);
+
+    expect((patched as { coverage?: number })?.coverage).toBe(0);
+    expect(patched?.condition).toBe('{"country":"US"}');
+    expect(patched?.savedGroups).toEqual([{ match: "all", ids: ["sg_1"] }]);
+    expect(patched?.prerequisites).toEqual([
+      { id: "feature-a", condition: "{}" },
+    ]);
+    expect(patched?.enabled).toBe(true);
   });
 });
 

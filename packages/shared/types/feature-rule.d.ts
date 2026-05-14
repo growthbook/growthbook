@@ -16,6 +16,8 @@ export type InlineRampScheduleCreate = {
   // If absent/null, patches apply to all environments that share the ruleId.
   environment?: string | null;
   steps: RampStep[];
+  // Actions applied when the ramp starts, before the first step fires.
+  startActions?: RampStepAction[];
   // Actions applied when the ramp completes (merged on top of accumulated step patches).
   endActions?: RampStepAction[];
   // ISO datetime string; if set, rule stays disabled until this date, then Step 1 fires.
@@ -48,6 +50,8 @@ export type InlineRampScheduleUpdate = {
   rampScheduleId: string;
   name?: string;
   steps: RampStep[];
+  // Actions applied when the ramp starts, before the first step fires.
+  startActions?: RampStepAction[];
   // Actions applied when the ramp completes (merged on top of accumulated step patches).
   endActions?: RampStepAction[];
   // ISO datetime string; null clears startDate (immediate start).

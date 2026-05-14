@@ -628,7 +628,7 @@ async function executeStepActions(
   }
 }
 
-// Injects enabled:true for each active target so the rule becomes visible when the ramp fires.
+// Applies initial rule state and injects enabled:true so targets become visible when the ramp fires.
 export async function applyRampStartActions(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -643,8 +643,9 @@ export async function applyRampStartActions(
         enabled: true as const,
       },
     }));
-  if (!enableActions.length) return;
-  await executeStepActions(ctx, schedule, -1, enableActions);
+  const actions = [...(schedule.startActions ?? []), ...enableActions];
+  if (!actions.length) return;
+  await executeStepActions(ctx, schedule, -1, actions);
 }
 
 export async function ensureSafeRolloutForMonitoredRamp(

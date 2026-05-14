@@ -1,6 +1,7 @@
 import {
   RampScheduleInterface,
   RampScheduleForDisplay,
+  ACTIVE_DRAFT_STATUSES,
 } from "shared/validators";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 
@@ -43,7 +44,11 @@ export function buildRuleRampScheduleMap({
 
   // Synthetic "pending" schedules from queued draft create actions so the rule
   // card can display a "pending publish" badge before the schedule is persisted.
-  if (draftRevision?.rampActions) {
+  const hasActiveDraft =
+    !!draftRevision &&
+    (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(draftRevision.status);
+
+  if (hasActiveDraft && draftRevision.rampActions) {
     for (const action of draftRevision.rampActions) {
       if (action.mode !== "create") continue;
       if (
@@ -68,6 +73,8 @@ export function buildRuleRampScheduleMap({
             status: "active",
           },
         ],
+        startActions:
+          action.startActions as RampScheduleForDisplay["startActions"],
         steps: action.steps as RampScheduleForDisplay["steps"],
         endActions: action.endActions as RampScheduleForDisplay["endActions"],
         startDate: action.startDate ? new Date(action.startDate) : undefined,

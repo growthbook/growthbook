@@ -111,10 +111,12 @@ export default function StandardRuleFields({
     Partial<Record<ScheduleType, { ramp: RampSectionState; coverage: number }>>
   >({});
 
-  const scheduleLiveStatuses = ["running", "pending-approval", "ready"];
-  const releasePlanLocked =
+  const activeRampStatuses = ["running", "pending-approval"];
+  const rampScheduleEditLocked =
     !!ruleRampSchedule &&
-    scheduleLiveStatuses.includes(ruleRampSchedule.status);
+    (activeRampStatuses.includes(ruleRampSchedule.status) ||
+      ruleRampSchedule.status === "pending");
+  const releasePlanLocked = rampScheduleEditLocked;
   const selectorScheduleType: ScheduleSelectorType =
     scheduleType === "ramp" && rampSectionState.steps.some((s) => s.monitored)
       ? "ramp-monitored"
@@ -122,6 +124,15 @@ export default function StandardRuleFields({
 
   const rampLocksTargeting =
     !isSimpleSchedule && scheduleType === "ramp" && releasePlanLocked;
+  const inModalPendingRamp =
+    !ruleRampSchedule &&
+    scheduleType === "ramp" &&
+    rampSectionState.mode === "create" &&
+    rampSectionState.steps.length > 0;
+  const rampControlsCoverage =
+    !isSimpleSchedule &&
+    scheduleType === "ramp" &&
+    (rampScheduleEditLocked || inModalPendingRamp);
 
   function applyScheduleType(type: ScheduleSelectorType) {
     const currentCoverage = form.watch("coverage") ?? 1;
@@ -363,6 +374,7 @@ export default function StandardRuleFields({
           <RolloutPercentInput
             value={form.watch("coverage") ?? 1}
             setValue={(coverage) => form.setValue("coverage", coverage)}
+            lockedByRamp={rampControlsCoverage}
             rampSchedule={ruleRampSchedule}
             hashAttribute={form.watch("hashAttribute")}
             setHashAttribute={(v: string) => form.setValue("hashAttribute", v)}
@@ -374,7 +386,7 @@ export default function StandardRuleFields({
             advancedOpen={advancedOptionsOpen}
             setAdvancedOpen={setadvancedOptionsOpen}
           />
-          <Box mt="5">
+          <Box mt="7">
             <SavedGroupTargetingField
               value={form.watch("savedGroups") || []}
               setValue={(savedGroups) =>
