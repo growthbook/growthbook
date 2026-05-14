@@ -40,18 +40,18 @@ function bigQueryPercentileCapSelectClause(
     );
   }
 
-  const offsetCase = `CASE col_name ${values
+  const offsetCase = `CAST(CASE col_name ${values
     .map(
       ({ valueCol, percentile }) =>
-        `WHEN '${valueCol}' THEN ${Math.trunc(
+        `WHEN '${bigQueryDialect.escapeStringLiteral(valueCol)}' THEN ${Math.trunc(
           APPROX_QUANTILES_MULTIPLIER * percentile,
         )}`,
     )
-    .join(" ")} END`;
+    .join(" ")} END AS INT64)`;
 
   const ignoreZeroCols = values
     .filter((v) => v.ignoreZeros)
-    .map((v) => `'${v.valueCol}'`);
+    .map((v) => `'${bigQueryDialect.escapeStringLiteral(v.valueCol)}'`);
   const valExpr =
     ignoreZeroCols.length > 0
       ? `IF(col_name IN (${ignoreZeroCols.join(", ")}) AND val = 0, NULL, val)`
@@ -65,7 +65,10 @@ function bigQueryPercentileCapSelectClause(
 
   const unpivotCols = values.map((v) => v.valueCol).join(", ");
   const pivotCols = values
-    .map((v) => `'${v.valueCol}' AS ${v.outputCol}`)
+    .map(
+      (v) =>
+        `'${bigQueryDialect.escapeStringLiteral(v.valueCol)}' AS ${v.outputCol}`,
+    )
     .join(", ");
 
   return `
