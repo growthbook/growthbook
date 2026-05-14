@@ -9,7 +9,12 @@ import { useRouter } from "next/router";
 import { date, datetime, getValidDate } from "shared/dates";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { OrganizationSettings } from "shared/types/organization";
-import { getProviderFromEmbeddingModel } from "shared/ai";
+import {
+  getProviderFromEmbeddingModel,
+  AISuggestionType,
+  computeAIUsageData,
+  formatAIRateLimitRetryMessage,
+} from "shared/ai";
 import {
   isProjectListValidForProject,
   validateAndFixCondition,
@@ -23,7 +28,10 @@ import {
   FaExclamationCircle,
   FaExternalLinkAlt,
 } from "react-icons/fa";
-import { PiCaretDownFill } from "react-icons/pi";
+import { PiArrowClockwise, PiCaretDownFill } from "react-icons/pi";
+import { BsStars } from "react-icons/bs";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "@/types/app-features";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
@@ -73,6 +81,7 @@ import SavedGroupTargetingField, {
 import { useExperiments } from "@/hooks/useExperiments";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
+import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -206,7 +215,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const { datasources, getDatasourceById, refreshTags, project, projects } =
     useDefinitions();
-  const { aiEnabled } = useAISettings();
+  const { aiEnabled, aiAgreedTo, autoHypothesisCheckEnabled } = useAISettings();
+  const gb = useGrowthBook<AppFeatures>();
+  const hasAISuggestions = hasCommercialFeature("ai-suggestions");
   const [similarExperiments, setSimilarExperiments] = useState<
     { experiment: ExperimentInterfaceStringDates; similarity: number }[]
   >([]);
@@ -217,6 +228,22 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     envVar: string;
   } | null>(null);
   const [expandSimilarResults, setExpandSimilarResults] = useState(false);
+  type HypothesisCheckResult = {
+    isCompliant: boolean;
+    feedback: string;
+    suggestion: string;
+  };
+  const [hypothesisCheckResult, setHypothesisCheckResult] =
+    useState<HypothesisCheckResult | null>(null);
+  const [hypothesisCheckLoading, setHypothesisCheckLoading] = useState(false);
+  const [hypothesisCheckError, setHypothesisCheckError] = useState<
+    string | null
+  >(null);
+  const [hypothesisSuggestionRevealed, setHypothesisSuggestionRevealed] =
+    useState(false);
+  const [lastCheckedHypothesis, setLastCheckedHypothesis] = useState<
+    string | null
+  >(null);
   const environments = useEnvironments();
   const { experiments } = useExperiments();
 
@@ -798,6 +825,79 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     };
   }, [queueCheckForSimilar]);
 
+  const canAutoCheckHypothesis =
+    aiEnabled &&
+    aiAgreedTo &&
+    hasAISuggestions &&
+    autoHypothesisCheckEnabled &&
+    !isBandit;
+
+  const checkHypothesis = useCallback(
+    async (
+      type: AISuggestionType = "suggest",
+      { force }: { force?: boolean } = {},
+    ) => {
+      const hypothesisText = (form.getValues("hypothesis") || "").trim();
+      if (!hypothesisText) {
+        setHypothesisCheckResult(null);
+        setHypothesisSuggestionRevealed(false);
+        setLastCheckedHypothesis(null);
+        return;
+      }
+      if (!aiEnabled || !aiAgreedTo || !hasAISuggestions) return;
+      if (!force && hypothesisText === lastCheckedHypothesis) return;
+
+      setHypothesisCheckError(null);
+      setHypothesisCheckLoading(true);
+      setHypothesisSuggestionRevealed(false);
+      const aiTemperature =
+        gb?.getFeatureValue("ai-suggestions-temperature", 0.1) || 0.1;
+      track("ai-suggestion", { source: "new-experiment-form", type });
+      try {
+        const res = await apiCall<{
+          data: { check: HypothesisCheckResult };
+        }>(
+          `/ai/reformat`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              type: "experiment-hypothesis",
+              text: hypothesisText,
+              action: "check",
+              temperature: aiTemperature,
+            }),
+          },
+          (responseData) => {
+            if (responseData.status === 429) {
+              setHypothesisCheckError(
+                formatAIRateLimitRetryMessage(responseData.retryAfter),
+              );
+            } else if (responseData.message) {
+              setHypothesisCheckError(responseData.message);
+            } else {
+              setHypothesisCheckError("Error checking hypothesis");
+            }
+          },
+        );
+        setHypothesisCheckResult(res.data.check);
+        setLastCheckedHypothesis(hypothesisText);
+      } catch {
+        // Error handling is done by the apiCall errorHandler
+      } finally {
+        setHypothesisCheckLoading(false);
+      }
+    },
+    [
+      aiEnabled,
+      aiAgreedTo,
+      hasAISuggestions,
+      lastCheckedHypothesis,
+      apiCall,
+      form,
+      gb,
+    ],
+  );
+
   return (
     <FormProvider {...form}>
       <PagedModal
@@ -969,22 +1069,143 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               </Box>
             )}
             {!isBandit && (
-              <Field
-                label="Hypothesis"
-                textarea
-                minRows={2}
-                placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
-                {...form.register("hypothesis", {
-                  onChange: () => {
-                    queueCheckForSimilar(); // Debounced call
-                  },
-                  onBlur: () => {
-                    // cancel any pending debounced calls
-                    queueCheckForSimilar.cancel();
-                    checkForSimilar(); // Immediate call on blur
-                  },
-                })}
-              />
+              <>
+                <Field
+                  label="Hypothesis"
+                  textarea
+                  minRows={2}
+                  placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
+                  {...form.register("hypothesis", {
+                    onChange: () => {
+                      queueCheckForSimilar(); // Debounced call
+                    },
+                    onBlur: () => {
+                      // cancel any pending debounced calls
+                      queueCheckForSimilar.cancel();
+                      checkForSimilar(); // Immediate call on blur
+                      if (canAutoCheckHypothesis) {
+                        checkHypothesis("suggest");
+                      }
+                    },
+                  })}
+                />
+                {canAutoCheckHypothesis && (
+                  <Box mb="4">
+                    {hypothesisCheckLoading && (
+                      <Flex gap="2" className="text-muted" align="center">
+                        <LoadingSpinner />
+                        <Text size="2">Checking hypothesis...</Text>
+                      </Flex>
+                    )}
+                    {!hypothesisCheckLoading && hypothesisCheckError && (
+                      <Callout status="warning" mt="2">
+                        {hypothesisCheckError}
+                      </Callout>
+                    )}
+                    {!hypothesisCheckLoading &&
+                      !hypothesisCheckError &&
+                      hypothesisCheckResult &&
+                      hypothesisCheckResult.isCompliant && (
+                        <Flex gap="2" align="center" mt="1">
+                          <FaCheckCircle color="var(--green-11)" />
+                          <Text size="2" color="green">
+                            Hypothesis looks good.
+                          </Text>
+                        </Flex>
+                      )}
+                    {!hypothesisCheckLoading &&
+                      !hypothesisCheckError &&
+                      hypothesisCheckResult &&
+                      !hypothesisCheckResult.isCompliant &&
+                      !hypothesisSuggestionRevealed && (
+                        <Box mt="2">
+                          <Callout status="warning">
+                            {hypothesisCheckResult.feedback ||
+                              "This hypothesis could be improved to better match your organization's formatting standards."}
+                          </Callout>
+                          {hypothesisCheckResult.suggestion && (
+                            <Flex gap="2" mt="2">
+                              <Button
+                                variant="soft"
+                                onClick={() => {
+                                  setHypothesisSuggestionRevealed(true);
+                                  track("ai-suggestion-generate-compliant", {
+                                    source: "new-experiment-form",
+                                  });
+                                }}
+                              >
+                                <BsStars /> Generate compliant version
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                onClick={() =>
+                                  checkHypothesis("try-again", { force: true })
+                                }
+                              >
+                                <PiArrowClockwise /> Try Again
+                              </Button>
+                            </Flex>
+                          )}
+                        </Box>
+                      )}
+                    {!hypothesisCheckLoading &&
+                      hypothesisSuggestionRevealed &&
+                      hypothesisCheckResult?.suggestion && (
+                        <Box mt="2" className="appbox" p="3">
+                          <Flex align="center" justify="between" mb="2" gap="2">
+                            <Text size="2" weight="medium">
+                              Suggested Hypothesis:
+                            </Text>
+                            <Flex gap="2">
+                              <Button
+                                variant="ghost"
+                                onClick={() =>
+                                  checkHypothesis("try-again", { force: true })
+                                }
+                              >
+                                <PiArrowClockwise /> Try Again
+                              </Button>
+                              <Button
+                                variant="soft"
+                                onClick={() => {
+                                  const previous =
+                                    form.getValues("hypothesis") || "";
+                                  const next = hypothesisCheckResult.suggestion;
+                                  form.setValue("hypothesis", next);
+                                  setHypothesisCheckResult({
+                                    isCompliant: true,
+                                    feedback: "",
+                                    suggestion: "",
+                                  });
+                                  setHypothesisSuggestionRevealed(false);
+                                  setLastCheckedHypothesis(next);
+                                  track(
+                                    "experiment-hypothesis-saved-after-ai-suggestion",
+                                    {
+                                      aiUsageData: computeAIUsageData({
+                                        value: previous,
+                                        aiSuggestionText: next,
+                                      }),
+                                    },
+                                  );
+                                  track("use-ai-suggestion", {
+                                    source: "new-experiment-form",
+                                  });
+                                  queueCheckForSimilar();
+                                }}
+                              >
+                                Use Suggested
+                              </Button>
+                            </Flex>
+                          </Flex>
+                          <Markdown>
+                            {hypothesisCheckResult.suggestion}
+                          </Markdown>
+                        </Box>
+                      )}
+                  </Box>
+                )}
+              </>
             )}
             {includeDescription && (
               <Field
