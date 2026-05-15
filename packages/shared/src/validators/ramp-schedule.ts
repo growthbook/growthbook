@@ -18,6 +18,8 @@ export const featureRulePatch = z.object({
   condition: z.string().nullish(),
   savedGroups: z.array(savedGroupTargeting).nullish(),
   prerequisites: z.array(featurePrerequisite).nullish(),
+  allEnvironments: z.boolean().nullish(),
+  environments: z.array(z.string()).nullish(),
   force: z.any().optional().describe("Force value (any JSON type)"),
   enabled: z.boolean().nullish(),
 });
@@ -243,6 +245,8 @@ export const TEMPLATE_PATCH_FIELDS = [
   "condition",
   "savedGroups",
   "prerequisites",
+  "allEnvironments",
+  "environments",
 ] as const;
 export const TEMPLATE_STRUCTURAL_KEYS = [
   "steps",
@@ -263,6 +267,8 @@ export const templateEndPatchValidator = z.object({
   condition: z.string().optional(),
   savedGroups: z.array(savedGroupTargeting).optional(),
   prerequisites: z.array(featurePrerequisite).optional(),
+  allEnvironments: z.boolean().optional(),
+  environments: z.array(z.string()).optional(),
 });
 export type TemplateEndPatch = z.infer<typeof templateEndPatchValidator>;
 

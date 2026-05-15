@@ -184,6 +184,23 @@ function PopoverPatchDisplay({
         </PopoverEffectRow>,
       );
     }
+    if ("allEnvironments" in p || "environments" in p) {
+      const allEnvironments = p.allEnvironments === true;
+      const selectedEnvironments = p.environments ?? [];
+      additionalItems.push(
+        <PopoverEffectRow key={k("env-scope")} label="Environments">
+          {allEnvironments ? (
+            <Text size="small">All environments</Text>
+          ) : selectedEnvironments.length > 0 ? (
+            <Text size="small">{selectedEnvironments.join(", ")}</Text>
+          ) : (
+            <Text size="small" fontStyle="italic">
+              None
+            </Text>
+          )}
+        </PopoverEffectRow>,
+      );
+    }
     if (p.enabled === false && syntheticEnabled === undefined) {
       additionalItems.push(
         <PopoverEffectRow key={k("enabled")} label="Rule">

@@ -306,6 +306,16 @@ export function applyPatchToRule(
   if ("prerequisites" in patch) {
     updated.prerequisites = patch.prerequisites ?? undefined;
   }
+  if ("allEnvironments" in patch) {
+    updated.allEnvironments = patch.allEnvironments ?? false;
+    if (patch.allEnvironments) {
+      updated.environments = undefined;
+    }
+  }
+  if ("environments" in patch) {
+    updated.allEnvironments = false;
+    updated.environments = patch.environments ?? undefined;
+  }
   if ("force" in patch) {
     (updated as { value?: unknown }).value = patch.force; // null is a valid JSON value
   }
@@ -327,6 +337,8 @@ export function getStartPatchForRule(
     condition: ruleState.condition ?? null,
     savedGroups: ruleState.savedGroups ?? null,
     prerequisites: ruleState.prerequisites ?? null,
+    allEnvironments: ruleState.allEnvironments ?? null,
+    environments: ruleState.environments ?? null,
     enabled: ruleState.enabled ?? null,
   };
 

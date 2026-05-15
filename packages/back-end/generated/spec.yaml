@@ -3487,6 +3487,16 @@ paths:
                                         - condition
                                       additionalProperties: false
                                   - type: 'null'
+                              allEnvironments:
+                                anyOf:
+                                  - type: boolean
+                                  - type: 'null'
+                              environments:
+                                anyOf:
+                                  - type: array
+                                    items:
+                                      type: string
+                                  - type: 'null'
                               force:
                                 description: Force value (any JSON type)
                               enabled:
@@ -3608,6 +3618,16 @@ paths:
                                               - condition
                                             additionalProperties: false
                                         - type: 'null'
+                                    allEnvironments:
+                                      anyOf:
+                                        - type: boolean
+                                        - type: 'null'
+                                    environments:
+                                      anyOf:
+                                        - type: array
+                                          items:
+                                            type: string
+                                        - type: 'null'
                                     force:
                                       description: Force value (any JSON type)
                                     enabled:
@@ -3712,6 +3732,16 @@ paths:
                                         - id
                                         - condition
                                       additionalProperties: false
+                                  - type: 'null'
+                              allEnvironments:
+                                anyOf:
+                                  - type: boolean
+                                  - type: 'null'
+                              environments:
+                                anyOf:
+                                  - type: array
+                                    items:
+                                      type: string
                                   - type: 'null'
                               force:
                                 description: Force value (any JSON type)
@@ -4058,6 +4088,16 @@ paths:
                                         - condition
                                       additionalProperties: false
                                   - type: 'null'
+                              allEnvironments:
+                                anyOf:
+                                  - type: boolean
+                                  - type: 'null'
+                              environments:
+                                anyOf:
+                                  - type: array
+                                    items:
+                                      type: string
+                                  - type: 'null'
                               force:
                                 description: Force value (any JSON type)
                               enabled:
@@ -4179,6 +4219,16 @@ paths:
                                               - condition
                                             additionalProperties: false
                                         - type: 'null'
+                                    allEnvironments:
+                                      anyOf:
+                                        - type: boolean
+                                        - type: 'null'
+                                    environments:
+                                      anyOf:
+                                        - type: array
+                                          items:
+                                            type: string
+                                        - type: 'null'
                                     force:
                                       description: Force value (any JSON type)
                                     enabled:
@@ -4283,6 +4333,16 @@ paths:
                                         - id
                                         - condition
                                       additionalProperties: false
+                                  - type: 'null'
+                              allEnvironments:
+                                anyOf:
+                                  - type: boolean
+                                  - type: 'null'
+                              environments:
+                                anyOf:
+                                  - type: array
+                                    items:
+                                      type: string
                                   - type: 'null'
                               force:
                                 description: Force value (any JSON type)
@@ -4659,6 +4719,16 @@ paths:
                                     - condition
                                   additionalProperties: false
                               - type: 'null'
+                          allEnvironments:
+                            anyOf:
+                              - type: boolean
+                              - type: 'null'
+                          environments:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: string
+                              - type: 'null'
                           force:
                             description: Force value (any JSON type)
                           enabled:
@@ -4779,6 +4849,16 @@ paths:
                                           - condition
                                         additionalProperties: false
                                     - type: 'null'
+                                allEnvironments:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                                environments:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: string
+                                    - type: 'null'
                                 force:
                                   description: Force value (any JSON type)
                                 enabled:
@@ -4882,6 +4962,16 @@ paths:
                                     - id
                                     - condition
                                   additionalProperties: false
+                              - type: 'null'
+                          allEnvironments:
+                            anyOf:
+                              - type: boolean
+                              - type: 'null'
+                          environments:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: string
                               - type: 'null'
                           force:
                             description: Force value (any JSON type)
@@ -7897,6 +7987,16 @@ paths:
                                         - condition
                                       additionalProperties: false
                                   - type: 'null'
+                              allEnvironments:
+                                anyOf:
+                                  - type: boolean
+                                  - type: 'null'
+                              environments:
+                                anyOf:
+                                  - type: array
+                                    items:
+                                      type: string
+                                  - type: 'null'
                               force:
                                 description: Force value (any JSON type)
                               enabled:
@@ -8018,6 +8118,16 @@ paths:
                                               - condition
                                             additionalProperties: false
                                         - type: 'null'
+                                    allEnvironments:
+                                      anyOf:
+                                        - type: boolean
+                                        - type: 'null'
+                                    environments:
+                                      anyOf:
+                                        - type: array
+                                          items:
+                                            type: string
+                                        - type: 'null'
                                     force:
                                       description: Force value (any JSON type)
                                     enabled:
@@ -8122,6 +8232,16 @@ paths:
                                         - id
                                         - condition
                                       additionalProperties: false
+                                  - type: 'null'
+                              allEnvironments:
+                                anyOf:
+                                  - type: boolean
+                                  - type: 'null'
+                              environments:
+                                anyOf:
+                                  - type: array
+                                    items:
+                                      type: string
                                   - type: 'null'
                               force:
                                 description: Force value (any JSON type)
@@ -8464,6 +8584,16 @@ paths:
                                         - condition
                                       additionalProperties: false
                                   - type: 'null'
+                              allEnvironments:
+                                anyOf:
+                                  - type: boolean
+                                  - type: 'null'
+                              environments:
+                                anyOf:
+                                  - type: array
+                                    items:
+                                      type: string
+                                  - type: 'null'
                               force:
                                 description: Force value (any JSON type)
                               enabled:
@@ -8585,6 +8715,16 @@ paths:
                                               - condition
                                             additionalProperties: false
                                         - type: 'null'
+                                    allEnvironments:
+                                      anyOf:
+                                        - type: boolean
+                                        - type: 'null'
+                                    environments:
+                                      anyOf:
+                                        - type: array
+                                          items:
+                                            type: string
+                                        - type: 'null'
                                     force:
                                       description: Force value (any JSON type)
                                     enabled:
@@ -8689,6 +8829,16 @@ paths:
                                         - id
                                         - condition
                                       additionalProperties: false
+                                  - type: 'null'
+                              allEnvironments:
+                                anyOf:
+                                  - type: boolean
+                                  - type: 'null'
+                              environments:
+                                anyOf:
+                                  - type: array
+                                    items:
+                                      type: string
                                   - type: 'null'
                               force:
                                 description: Force value (any JSON type)
@@ -9033,6 +9183,16 @@ paths:
                                     - condition
                                   additionalProperties: false
                               - type: 'null'
+                          allEnvironments:
+                            anyOf:
+                              - type: boolean
+                              - type: 'null'
+                          environments:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: string
+                              - type: 'null'
                           force:
                             description: Force value (any JSON type)
                           enabled:
@@ -9153,6 +9313,16 @@ paths:
                                           - condition
                                         additionalProperties: false
                                     - type: 'null'
+                                allEnvironments:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                                environments:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: string
+                                    - type: 'null'
                                 force:
                                   description: Force value (any JSON type)
                                 enabled:
@@ -9256,6 +9426,16 @@ paths:
                                     - id
                                     - condition
                                   additionalProperties: false
+                              - type: 'null'
+                          allEnvironments:
+                            anyOf:
+                              - type: boolean
+                              - type: 'null'
+                          environments:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: string
                               - type: 'null'
                           force:
                             description: Force value (any JSON type)
@@ -17634,6 +17814,16 @@ paths:
                                           - condition
                                         additionalProperties: false
                                     - type: 'null'
+                                allEnvironments:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                                environments:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: string
+                                    - type: 'null'
                                 force:
                                   description: Force value (any JSON type)
                                 enabled:
@@ -17766,6 +17956,16 @@ paths:
                                     - condition
                                   additionalProperties: false
                               - type: 'null'
+                          allEnvironments:
+                            anyOf:
+                              - type: boolean
+                              - type: 'null'
+                          environments:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: string
+                              - type: 'null'
                           force:
                             description: Force value (any JSON type)
                           enabled:
@@ -17863,6 +18063,16 @@ paths:
                                     - id
                                     - condition
                                   additionalProperties: false
+                              - type: 'null'
+                          allEnvironments:
+                            anyOf:
+                              - type: boolean
+                              - type: 'null'
+                          environments:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: string
                               - type: 'null'
                           force:
                             description: Force value (any JSON type)
@@ -25786,6 +25996,16 @@ paths:
                                           - condition
                                         additionalProperties: false
                                     - type: 'null'
+                                allEnvironments:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                                environments:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: string
+                                    - type: 'null'
                                 enabled:
                                   anyOf:
                                     - type: boolean
@@ -25869,6 +26089,12 @@ paths:
                           - id
                           - condition
                         additionalProperties: false
+                    allEnvironments:
+                      type: boolean
+                    environments:
+                      type: array
+                      items:
+                        type: string
                   additionalProperties: false
                 official:
                   type: boolean
@@ -26083,6 +26309,16 @@ paths:
                                           - condition
                                         additionalProperties: false
                                     - type: 'null'
+                                allEnvironments:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                                environments:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: string
+                                    - type: 'null'
                                 enabled:
                                   anyOf:
                                     - type: boolean
@@ -26166,6 +26402,12 @@ paths:
                           - id
                           - condition
                         additionalProperties: false
+                    allEnvironments:
+                      type: boolean
+                    environments:
+                      type: array
+                      items:
+                        type: string
                   additionalProperties: false
                 official:
                   type: boolean
@@ -26504,6 +26746,16 @@ paths:
                                           - condition
                                         additionalProperties: false
                                     - type: 'null'
+                                allEnvironments:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                                environments:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: string
+                                    - type: 'null'
                                 force:
                                   description: Force value (any JSON type)
                                 enabled:
@@ -26620,6 +26872,16 @@ paths:
                                     - condition
                                   additionalProperties: false
                               - type: 'null'
+                          allEnvironments:
+                            anyOf:
+                              - type: boolean
+                              - type: 'null'
+                          environments:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: string
+                              - type: 'null'
                           force:
                             description: Force value (any JSON type)
                           enabled:
@@ -26701,6 +26963,16 @@ paths:
                                     - id
                                     - condition
                                   additionalProperties: false
+                              - type: 'null'
+                          allEnvironments:
+                            anyOf:
+                              - type: boolean
+                              - type: 'null'
+                          environments:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: string
                               - type: 'null'
                           force:
                             description: Force value (any JSON type)
@@ -31606,6 +31878,16 @@ components:
                             - condition
                           additionalProperties: false
                       - type: 'null'
+                  allEnvironments:
+                    anyOf:
+                      - type: boolean
+                      - type: 'null'
+                  environments:
+                    anyOf:
+                      - type: array
+                        items:
+                          type: string
+                      - type: 'null'
                   force:
                     description: Force value (any JSON type)
                   enabled:
@@ -31733,6 +32015,16 @@ components:
                                   - condition
                                 additionalProperties: false
                             - type: 'null'
+                        allEnvironments:
+                          anyOf:
+                            - type: boolean
+                            - type: 'null'
+                        environments:
+                          anyOf:
+                            - type: array
+                              items:
+                                type: string
+                            - type: 'null'
                         force:
                           description: Force value (any JSON type)
                         enabled:
@@ -31848,6 +32140,16 @@ components:
                             - id
                             - condition
                           additionalProperties: false
+                      - type: 'null'
+                  allEnvironments:
+                    anyOf:
+                      - type: boolean
+                      - type: 'null'
+                  environments:
+                    anyOf:
+                      - type: array
+                        items:
+                          type: string
                       - type: 'null'
                   force:
                     description: Force value (any JSON type)
@@ -34191,6 +34493,16 @@ components:
                                   - condition
                                 additionalProperties: false
                             - type: 'null'
+                        allEnvironments:
+                          anyOf:
+                            - type: boolean
+                            - type: 'null'
+                        environments:
+                          anyOf:
+                            - type: array
+                              items:
+                                type: string
+                            - type: 'null'
                         enabled:
                           anyOf:
                             - type: boolean
@@ -34273,6 +34585,12 @@ components:
                   - id
                   - condition
                 additionalProperties: false
+            allEnvironments:
+              type: boolean
+            environments:
+              type: array
+              items:
+                type: string
           additionalProperties: false
         official:
           type: boolean
@@ -36444,6 +36762,16 @@ components:
                       - condition
                     additionalProperties: false
                 - type: 'null'
+            allEnvironments:
+              anyOf:
+                - type: boolean
+                - type: 'null'
+            environments:
+              anyOf:
+                - type: array
+                  items:
+                    type: string
+                - type: 'null'
             force:
               description: Force value (any JSON type)
             enabled:
@@ -36566,6 +36894,16 @@ components:
                             - id
                             - condition
                           additionalProperties: false
+                      - type: 'null'
+                  allEnvironments:
+                    anyOf:
+                      - type: boolean
+                      - type: 'null'
+                  environments:
+                    anyOf:
+                      - type: array
+                        items:
+                          type: string
                       - type: 'null'
                   force:
                     description: Force value (any JSON type)

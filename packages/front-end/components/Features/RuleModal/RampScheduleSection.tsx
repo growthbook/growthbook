@@ -5,6 +5,7 @@ import React, {
   useState,
   type ReactNode,
 } from "react";
+import isEqual from "lodash/isEqual";
 import pick from "lodash/pick";
 import {
   AlertDialog,
@@ -22,6 +23,7 @@ import {
   PiBookmarkSimple,
   PiCalendarBlank,
   PiArrowCounterClockwise,
+  PiTrash,
 } from "react-icons/pi";
 import type {
   FeatureInterface,
@@ -59,6 +61,7 @@ import Link from "@/ui/Link";
 import ConditionInput from "@/components/Features/ConditionInput";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
+import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MonitoredIcon from "@/components/Features/RuleModal/MonitoredIcon";
@@ -89,6 +92,8 @@ export type StepField =
   | "condition"
   | "savedGroups"
   | "prerequisites"
+  | "allEnvironments"
+  | "environments"
   | "force";
 
 export const STEP_FIELD_LABELS: Record<StepField, string> = {
@@ -96,15 +101,22 @@ export const STEP_FIELD_LABELS: Record<StepField, string> = {
   condition: "Attribute targeting",
   savedGroups: "Saved groups",
   prerequisites: "Prerequisites",
+  allEnvironments: "Environments",
+  environments: "Environment list",
   force: "Feature value",
 };
 
 // coverage is 0–100 in the UI, converted to 0–1 in payloads.
 export type UIStepPatch = {
   coverage?: number;
-  condition?: string;
-  savedGroups?: SavedGroupTargeting[];
-  prerequisites?: FeaturePrerequisite[];
+  // `null` is a UI sentinel meaning "explicitly clear this targeting".
+  condition?: string | null;
+  // `null` is a UI sentinel meaning "explicitly clear this targeting".
+  savedGroups?: SavedGroupTargeting[] | null;
+  // `null` is a UI sentinel meaning "explicitly clear this targeting".
+  prerequisites?: FeaturePrerequisite[] | null;
+  allEnvironments?: boolean;
+  environments?: string[];
   force?: string;
 };
 
@@ -195,24 +207,55 @@ export function generateSimpleSteps(
   }));
 }
 
-export function stepsMatchSimplePattern(steps: UIStep[]): boolean {
-  if (steps.length !== SIMPLE_COVERAGES.length) return false;
-  if (!steps.every((s) => s.triggerType === "interval")) {
-    return false;
-  }
-  const unit = steps[0].intervalUnit;
-  const interval = steps[0].intervalValue;
+export function stepsMatchSimplePattern(
+  steps: UIStep[],
+  endPatch?: UIStepPatch,
+): boolean {
+  // Any non-coverage rule patch means this is advanced mode.
+  const hasStepRuleEffects = steps.some((s) =>
+    VALID_STEP_FIELDS.some((f) => s.patch[f] !== undefined),
+  );
+  if (hasStepRuleEffects) return false;
+  // End actions beyond default coverage also imply advanced mode.
   if (
-    !steps.every((s) => s.intervalUnit === unit && s.intervalValue === interval)
+    endPatch &&
+    (VALID_STEP_FIELDS.some((f) => endPatch[f] !== undefined) ||
+      (endPatch.coverage !== undefined && endPatch.coverage !== 100))
   ) {
     return false;
   }
-  for (let i = 0; i < steps.length; i++) {
-    if ((steps[i].patch.coverage ?? 0) !== SIMPLE_COVERAGES[i]) return false;
-  }
-  const hcRef = JSON.stringify(steps[0].holdConditions ?? null);
-  if (!steps.every((s) => JSON.stringify(s.holdConditions ?? null) === hcRef))
+  if (steps.length !== SIMPLE_COVERAGES.length) return false;
+  const firstStep = steps[0];
+  if (!firstStep) return false;
+  const expectedSimpleSteps = generateSimpleSteps(
+    firstStep.intervalValue * SIMPLE_COVERAGES.length,
+    firstStep.intervalUnit,
+  ).map((s) => ({
+    ...s,
+    monitored: firstStep.monitored,
+    holdConditions: firstStep.holdConditions,
+  }));
+  const normalizeSimpleStep = (s: UIStep) => ({
+    triggerType: s.triggerType,
+    intervalValue: s.intervalValue,
+    intervalUnit: s.intervalUnit,
+    coverage: s.patch.coverage ?? 0,
+    monitored: !!s.monitored,
+    holdConditions: s.holdConditions ?? undefined,
+  });
+  if (
+    !isEqual(
+      steps.map(normalizeSimpleStep),
+      expectedSimpleSteps.map(normalizeSimpleStep),
+    )
+  ) {
     return false;
+  }
+  // Ensure hold-conditions are consistent if present.
+  const hcRef = JSON.stringify(firstStep.holdConditions ?? null);
+  if (!steps.every((s) => JSON.stringify(s.holdConditions ?? null) === hcRef)) {
+    return false;
+  }
   return true;
 }
 
@@ -220,6 +263,8 @@ export const VALID_STEP_FIELDS: StepField[] = [
   "savedGroups",
   "condition",
   "prerequisites",
+  "allEnvironments",
+  "environments",
   "force",
 ];
 
@@ -228,6 +273,8 @@ export const FIELD_DEFAULTS: Partial<UIStepPatch> = {
   condition: "{}",
   savedGroups: [],
   prerequisites: [],
+  allEnvironments: true,
+  environments: [],
   force: "",
 };
 
@@ -289,20 +336,52 @@ const COL = {
   coverage: 80, // [number] %
 } as const;
 
+function isEmptyConditionValue(value: string | null | undefined): boolean {
+  if (value == null) return true;
+  const trimmed = value.trim();
+  return trimmed === "" || trimmed === "{}";
+}
+
 export function buildPatch(
   patch: UIStepPatch,
   ruleId: string,
   monitored?: boolean,
 ): RampStepAction["patch"] {
   const out: RampStepAction["patch"] = { ruleId };
+
   if (patch.coverage !== undefined)
     out.coverage = monitored
       ? (patch.coverage * 2) / 100
       : patch.coverage / 100;
-  if (patch.condition !== undefined) out.condition = patch.condition;
-  if (patch.savedGroups !== undefined) out.savedGroups = patch.savedGroups;
-  if (patch.prerequisites !== undefined)
-    out.prerequisites = patch.prerequisites;
+  if (patch.condition !== undefined) {
+    // `null` sentinel means "clear targeting" explicitly.
+    if (patch.condition === null) {
+      out.condition = "{}";
+    } else if (!isEmptyConditionValue(patch.condition)) {
+      out.condition = patch.condition;
+    }
+  }
+  if (patch.savedGroups !== undefined) {
+    // `null` sentinel means "clear targeting" explicitly.
+    if (patch.savedGroups === null) {
+      out.savedGroups = [];
+    } else if (patch.savedGroups.length > 0) {
+      out.savedGroups = patch.savedGroups;
+    }
+  }
+  if (patch.prerequisites !== undefined) {
+    // `null` sentinel means "clear targeting" explicitly.
+    if (patch.prerequisites === null) {
+      out.prerequisites = [];
+    } else if (patch.prerequisites.length > 0) {
+      out.prerequisites = patch.prerequisites;
+    }
+  }
+  if (patch.allEnvironments !== undefined || patch.environments !== undefined) {
+    const allEnvironments = patch.allEnvironments ?? false;
+    out.allEnvironments = allEnvironments;
+    out.environments = allEnvironments ? undefined : (patch.environments ?? []);
+  }
   if (patch.force !== undefined) {
     try {
       out.force = JSON.parse(patch.force);
@@ -596,6 +675,7 @@ export default function RampScheduleSection({
   const [minSamplePopoverIndex, setMinSamplePopoverIndex] = useState<
     number | null
   >(null);
+  const skipNextEnvSelectionUpdateRef = useRef(false);
 
   useEffect(() => {
     if (!ruleRampSchedule && state.mode === "off") {
@@ -771,155 +851,230 @@ export default function RampScheduleSection({
 
   function renderStepGrid() {
     const subRowIndent = COL.num + 16;
+    const ruleEffectItems: { field: StepField; label: string }[] = [
+      { field: "savedGroups", label: "Saved group targeting" },
+      { field: "condition", label: "Attribute targeting" },
+      { field: "prerequisites", label: "Prerequisite targeting" },
+      { field: "force", label: "Default value" },
+      { field: "allEnvironments", label: "Environments" },
+    ];
+    const hasRuleEffectField = (patch: UIStepPatch, field: StepField) => {
+      if (field === "allEnvironments" || field === "environments") {
+        return "allEnvironments" in patch || "environments" in patch;
+      }
+      return field in patch;
+    };
+    const getAvailableRuleEffects = (patch: UIStepPatch) =>
+      ruleEffectItems
+        .filter((item) => !(hideTemplateSave && item.field === "force"))
+        .filter((item) => !hasRuleEffectField(patch, item.field));
+    const hasSelectedRuleEffects = (patch: UIStepPatch) =>
+      ruleEffectItems
+        .filter((item) => !(hideTemplateSave && item.field === "force"))
+        .some((item) => hasRuleEffectField(patch, item.field));
+
+    const renderRuleEffectsMenuGroup = (
+      patch: UIStepPatch,
+      onSelectField: (field: StepField) => void,
+    ) => {
+      const availableRuleEffects = getAvailableRuleEffects(patch);
+      if (!availableRuleEffects.length) return null;
+      return (
+        <DropdownMenuGroup label="Change rule">
+          {availableRuleEffects.map((item) => (
+            <DropdownMenuItem
+              key={item.field}
+              onClick={() => onSelectField(item.field)}
+            >
+              {item.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
+      );
+    };
 
     function renderPatchSubRows(
       patch: UIStepPatch,
       setPatchFn: (field: StepField, value: unknown) => void,
+      removePatchFieldFn: (field: StepField) => void,
+      setPatchObjectFn: (patch: UIStepPatch) => void,
       currentStepIndex: number | "start" | "end",
       open: boolean,
     ) {
       if (!open) return null;
 
-      const templateSafeFields = hideTemplateSave
-        ? VALID_STEP_FIELDS.filter((f) => f !== "force")
-        : VALID_STEP_FIELDS;
-      const fieldsNotInPatch = templateSafeFields.filter((f) => !(f in patch));
+      const removeEffectButton = (onClick: () => void) => (
+        <Tooltip body="Remove effect">
+          <IconButton
+            variant="ghost"
+            color="red"
+            size="2"
+            radius="full"
+            onClick={onClick}
+            mr="1"
+          >
+            <PiTrash />
+          </IconButton>
+        </Tooltip>
+      );
+
+      const effectRows: ReactNode[] = [];
+
+      if ("savedGroups" in patch) {
+        effectRows.push(
+          <Box>
+            <SavedGroupTargetingField
+              value={patch.savedGroups ?? []}
+              setValue={(v) => setPatchFn("savedGroups", v)}
+              project={feature.project ?? ""}
+              slimMode
+              addRemoveMode
+              addRemoveValue={patch.savedGroups === null ? "remove" : "set"}
+              onAddRemoveValueChange={(mode) =>
+                setPatchFn("savedGroups", mode === "remove" ? null : [])
+              }
+              onRemoveEffect={() => removePatchFieldFn("savedGroups")}
+              setModeLabel="Set saved group targeting"
+              removeModeLabel="Remove saved group targeting"
+              labelActions={removeEffectButton(() =>
+                removePatchFieldFn("savedGroups"),
+              )}
+            />
+          </Box>,
+        );
+      }
+
+      if ("condition" in patch) {
+        effectRows.push(
+          <Box>
+            <ConditionInput
+              key={`${currentStepIndex}-condition`}
+              defaultValue={patch.condition ?? "{}"}
+              onChange={(v) => setPatchFn("condition", v)}
+              project={feature.project ?? ""}
+              slimMode
+              emptyText=""
+              addRemoveMode
+              addRemoveValue={patch.condition === null ? "remove" : "set"}
+              onAddRemoveValueChange={(mode) =>
+                setPatchFn("condition", mode === "remove" ? null : "{}")
+              }
+              onRemoveEffect={() => removePatchFieldFn("condition")}
+              setModeLabel="Set attribute targeting"
+              removeModeLabel="Remove attribute targeting"
+              labelActions={removeEffectButton(() =>
+                removePatchFieldFn("condition"),
+              )}
+            />
+          </Box>,
+        );
+      }
+
+      if ("prerequisites" in patch) {
+        effectRows.push(
+          <Box>
+            <PrerequisiteInput
+              value={patch.prerequisites ?? []}
+              setValue={(v) => setPatchFn("prerequisites", v)}
+              feature={feature}
+              environments={environments}
+              setPrerequisiteTargetingSdkIssues={() => {}}
+              slimMode
+              addRemoveMode
+              addRemoveValue={patch.prerequisites === null ? "remove" : "set"}
+              onAddRemoveValueChange={(mode) =>
+                setPatchFn("prerequisites", mode === "remove" ? null : [])
+              }
+              onRemoveEffect={() => removePatchFieldFn("prerequisites")}
+              setModeLabel="Set prerequisite targeting"
+              removeModeLabel="Remove prerequisite targeting"
+              labelActions={removeEffectButton(() =>
+                removePatchFieldFn("prerequisites"),
+              )}
+            />
+          </Box>,
+        );
+      }
+
+      if ("force" in patch && !hideTemplateSave) {
+        effectRows.push(
+          <Box>
+            <Flex align="center" justify="between" mb="1">
+              <Text as="div" weight="semibold">
+                Default value
+              </Text>
+              {removeEffectButton(() => removePatchFieldFn("force"))}
+            </Flex>
+            <FeatureValueField
+              id={`${currentStepIndex}-force`}
+              valueType={feature.valueType}
+              value={String(patch.force ?? "")}
+              setValue={(v) => setPatchFn("force", v)}
+              feature={feature}
+              useDropdown={feature.valueType === "boolean"}
+              hideCopyButton
+            />
+          </Box>,
+        );
+      }
+
+      if ("allEnvironments" in patch || "environments" in patch) {
+        effectRows.push(
+          <Box>
+            <Flex align="center" justify="between" mb="1">
+              <Text as="div" weight="semibold">
+                Rule environments
+              </Text>
+              {removeEffectButton(() => {
+                const nextPatch = { ...patch };
+                delete nextPatch.allEnvironments;
+                delete nextPatch.environments;
+                setPatchObjectFn(nextPatch);
+              })}
+            </Flex>
+            <RuleEnvironmentScopeField
+              environments={environments.map((id) => ({ id, description: "" }))}
+              allEnvironments={patch.allEnvironments ?? false}
+              setAllEnvironments={(v) => {
+                if (v) skipNextEnvSelectionUpdateRef.current = true;
+                setPatchObjectFn({
+                  ...patch,
+                  allEnvironments: v,
+                  environments: v ? [] : (patch.environments ?? []),
+                });
+              }}
+              selectedEnvironments={patch.environments ?? []}
+              setSelectedEnvironments={(v) => {
+                if (skipNextEnvSelectionUpdateRef.current) {
+                  skipNextEnvSelectionUpdateRef.current = false;
+                  return;
+                }
+                setPatchFn("environments", v);
+              }}
+              label=""
+            />
+          </Box>,
+        );
+      }
+
+      if (!effectRows.length) return null;
 
       return (
-        <Box pb="3" style={{ paddingLeft: subRowIndent }}>
-          <Flex
-            direction="column"
-            gap="5"
-            pt="2"
-            pb="3"
-            px="2"
-            className="bg-highlight rounded"
-          >
-            <Flex wrap="wrap" gap="3" align="start" justify="between">
-              <Flex as="div" align="center" gap="1">
-                <Text weight="medium" color="text-mid">
-                  Additional effects
-                </Text>
-                <Tooltip
-                  tipPosition="top"
-                  body="Effects are applied incrementally. Each change made in this step remains in effect until overridden in a future step."
-                >
-                  <PiInfo style={{ color: "var(--accent-11)" }} />
-                </Tooltip>
-              </Flex>
-
-              <Flex wrap="wrap" gap="5" align="start">
-                {fieldsNotInPatch.map((f) => (
-                  <Link
-                    key={f}
-                    size="1"
-                    onClick={() => setPatchFn(f, FIELD_DEFAULTS[f])}
-                  >
-                    <PiPlusBold
-                      style={{ marginRight: 3, verticalAlign: "middle" }}
-                    />
-                    {STEP_FIELD_LABELS[f]}
-                  </Link>
-                ))}
-              </Flex>
-            </Flex>
-
-            {"force" in patch && !hideTemplateSave && (
-              <Box>
-                <Flex align="center" justify="between" mb="1">
-                  <Text
-                    as="div"
-                    size="small"
-                    weight="semibold"
-                    color="text-mid"
-                  >
-                    Feature value
-                  </Text>
-                  <Link
-                    size="1"
-                    color="red"
-                    onClick={() => setPatchFn("force", undefined)}
-                  >
-                    Remove effect
-                  </Link>
-                </Flex>
-                <FeatureValueField
-                  id={`${currentStepIndex}-force`}
-                  valueType={feature.valueType}
-                  value={String(patch.force ?? "")}
-                  setValue={(v) => setPatchFn("force", v)}
-                  feature={feature}
-                  useDropdown={feature.valueType === "boolean"}
-                  hideCopyButton
-                />
+        <Box mt="2" pr="2" style={{ paddingLeft: subRowIndent }}>
+          <Flex direction="column" gap="2">
+            {effectRows.map((row, index) => (
+              <Box
+                key={`effect-row-${index}`}
+                px="2"
+                py="2"
+                style={{
+                  border: "1px solid var(--gray-a5)",
+                  borderRadius: "var(--radius-2)",
+                }}
+              >
+                {row}
               </Box>
-            )}
-
-            {"condition" in patch && (
-              <Box>
-                <ConditionInput
-                  key={`${currentStepIndex}-condition`}
-                  defaultValue={patch.condition ?? "{}"}
-                  onChange={(v) => setPatchFn("condition", v)}
-                  project={feature.project ?? ""}
-                  slimMode
-                  emptyText="No targeting applied. Clears any existing targeting."
-                  labelActions={
-                    <Link
-                      size="1"
-                      color="red"
-                      onClick={() => setPatchFn("condition", undefined)}
-                    >
-                      Remove effect
-                    </Link>
-                  }
-                />
-              </Box>
-            )}
-
-            {"savedGroups" in patch && (
-              <Box>
-                <SavedGroupTargetingField
-                  value={patch.savedGroups ?? []}
-                  setValue={(v) => setPatchFn("savedGroups", v)}
-                  project={feature.project ?? ""}
-                  slimMode
-                  emptyText="No targeting applied. Clears any existing targeting."
-                  labelActions={
-                    <Link
-                      size="1"
-                      color="red"
-                      onClick={() => setPatchFn("savedGroups", undefined)}
-                    >
-                      Remove effect
-                    </Link>
-                  }
-                />
-              </Box>
-            )}
-
-            {"prerequisites" in patch && (
-              <Box>
-                <PrerequisiteInput
-                  value={patch.prerequisites ?? []}
-                  setValue={(v) => setPatchFn("prerequisites", v)}
-                  feature={feature}
-                  environments={environments}
-                  setPrerequisiteTargetingSdkIssues={() => {}}
-                  slimMode
-                  emptyText="No targeting applied. Clears any existing targeting."
-                  labelActions={
-                    <Link
-                      size="1"
-                      color="red"
-                      onClick={() => setPatchFn("prerequisites", undefined)}
-                    >
-                      Remove effect
-                    </Link>
-                  }
-                />
-              </Box>
-            )}
+            ))}
           </Flex>
         </Box>
       );
@@ -983,7 +1138,6 @@ export default function RampScheduleSection({
             <DropdownMenu
               open={openMenuIndex === "end"}
               onOpenChange={(o) => setOpenMenuIndex(o ? "end" : null)}
-              disabled={state.endAdditionalEffectsOpen}
               trigger={
                 <IconButton
                   type="button"
@@ -993,7 +1147,6 @@ export default function RampScheduleSection({
                   size="2"
                   highContrast
                   style={{ marginLeft: 0, marginRight: 0 }}
-                  disabled={state.endAdditionalEffectsOpen}
                 >
                   <BsThreeDotsVertical size={18} />
                 </IconButton>
@@ -1001,18 +1154,24 @@ export default function RampScheduleSection({
               variant="soft"
               menuPlacement="end"
             >
-              {!state.endAdditionalEffectsOpen ? (
-                <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setOpenMenuIndex(null);
-                      patchState({ endAdditionalEffectsOpen: true });
-                    }}
-                  >
-                    Add additional effects
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-              ) : null}
+              {renderRuleEffectsMenuGroup(state.endPatch, (field) => {
+                setOpenMenuIndex(null);
+                const patchWithField =
+                  field === "allEnvironments"
+                    ? {
+                        ...setPatchField(
+                          state.endPatch,
+                          "allEnvironments",
+                          FIELD_DEFAULTS.allEnvironments,
+                        ),
+                        environments: [],
+                      }
+                    : setPatchField(state.endPatch, field, FIELD_DEFAULTS[field]);
+                patchState({
+                  endAdditionalEffectsOpen: true,
+                  endPatch: patchWithField,
+                });
+              })}
             </DropdownMenu>
           </Flex>
           {renderPatchSubRows(
@@ -1020,6 +1179,18 @@ export default function RampScheduleSection({
             (field, value) =>
               patchState({
                 endPatch: setPatchField(state.endPatch, field, value),
+              }),
+            (field) => {
+              const nextPatch = setPatchField(state.endPatch, field, undefined);
+              patchState({
+                endPatch: nextPatch,
+                endAdditionalEffectsOpen: hasSelectedRuleEffects(nextPatch),
+              });
+            },
+            (nextPatch) =>
+              patchState({
+                endPatch: nextPatch,
+                endAdditionalEffectsOpen: hasSelectedRuleEffects(nextPatch),
               }),
             "end",
             state.endAdditionalEffectsOpen,
@@ -1071,7 +1242,7 @@ export default function RampScheduleSection({
                     : "var(--gray-a5)",
                 }}
               />
-              <Flex direction="column" gap="2" pl="2">
+              <Flex direction="column" pl="2">
                 <Flex align="center" gap="4">
                   <Box
                     style={{
@@ -1348,6 +1519,11 @@ export default function RampScheduleSection({
                       variant="soft"
                       menuPlacement="end"
                     >
+                      {(() => {
+                        const hasRuleEffects =
+                          getAvailableRuleEffects(step.patch).length > 0;
+                        return (
+                          <>
                       {step.monitored && (
                         <>
                           <DropdownMenuGroup label="Monitoring settings">
@@ -1363,18 +1539,29 @@ export default function RampScheduleSection({
                           <DropdownMenuSeparator />
                         </>
                       )}
-                      {!step.additionalEffectsOpen ? (
-                        <DropdownMenuGroup>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setOpenMenuIndex(null);
-                              updateStep(i, { additionalEffectsOpen: true });
-                            }}
-                          >
-                            Add additional effects
-                          </DropdownMenuItem>
-                        </DropdownMenuGroup>
-                      ) : null}
+                      {renderRuleEffectsMenuGroup(step.patch, (field) => {
+                        setOpenMenuIndex(null);
+                        const patchWithField =
+                          field === "allEnvironments"
+                            ? {
+                                ...setPatchField(
+                                  step.patch,
+                                  "allEnvironments",
+                                  FIELD_DEFAULTS.allEnvironments,
+                                ),
+                                environments: [],
+                              }
+                            : setPatchField(
+                                step.patch,
+                                field,
+                                FIELD_DEFAULTS[field],
+                              );
+                        updateStep(i, {
+                          additionalEffectsOpen: true,
+                          patch: patchWithField,
+                        });
+                      })}
+                      {hasRuleEffects ? <DropdownMenuSeparator /> : null}
                       <DropdownMenuGroup>
                         <DropdownMenuItem
                           onClick={() => {
@@ -1386,21 +1573,21 @@ export default function RampScheduleSection({
                         </DropdownMenuItem>
                       </DropdownMenuGroup>
                       {state.steps.length > 1 ? (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuGroup>
-                            <DropdownMenuItem
-                              color="red"
-                              onClick={() => {
-                                setOpenMenuIndex(null);
-                                removeStep(i);
-                              }}
-                            >
-                              Remove step
-                            </DropdownMenuItem>
-                          </DropdownMenuGroup>
-                        </>
+                        <DropdownMenuGroup>
+                          <DropdownMenuItem
+                            color="red"
+                            onClick={() => {
+                              setOpenMenuIndex(null);
+                              removeStep(i);
+                            }}
+                          >
+                            Remove step
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
                       ) : null}
+                          </>
+                        );
+                      })()}
                     </DropdownMenu>
                   </Flex>
                 </Flex>
@@ -1408,6 +1595,18 @@ export default function RampScheduleSection({
                 {renderPatchSubRows(
                   step.patch,
                   (field, value) => updateStepPatch(i, field, value),
+                  (field) => {
+                    const nextPatch = setPatchField(step.patch, field, undefined);
+                    updateStep(i, {
+                      patch: nextPatch,
+                      additionalEffectsOpen: hasSelectedRuleEffects(nextPatch),
+                    });
+                  },
+                  (nextPatch) =>
+                    updateStep(i, {
+                      patch: nextPatch,
+                      additionalEffectsOpen: hasSelectedRuleEffects(nextPatch),
+                    }),
                   i,
                   step.additionalEffectsOpen,
                 )}
@@ -2532,11 +2731,21 @@ export function reconstructUIPatch(
     p.coverage = Math.round(
       monitored ? (patch.coverage * 100) / 2 : patch.coverage * 100,
     );
-  if (patch.condition != null) p.condition = patch.condition;
-  if (patch.savedGroups != null)
-    p.savedGroups = patch.savedGroups as SavedGroupTargeting[];
-  if (patch.prerequisites != null)
-    p.prerequisites = patch.prerequisites as FeaturePrerequisite[];
+  if (patch.condition != null) {
+    p.condition = isEmptyConditionValue(patch.condition) ? null : patch.condition;
+  }
+  if (patch.savedGroups != null) {
+    const savedGroups = patch.savedGroups as SavedGroupTargeting[];
+    p.savedGroups = savedGroups.length > 0 ? savedGroups : null;
+  }
+  if (patch.prerequisites != null) {
+    const prerequisites = patch.prerequisites as FeaturePrerequisite[];
+    p.prerequisites = prerequisites.length > 0 ? prerequisites : null;
+  }
+  if (patch.allEnvironments != null)
+    p.allEnvironments = patch.allEnvironments;
+  if (patch.environments != null)
+    p.environments = patch.environments as string[];
   if (patch.force !== undefined) {
     p.force =
       typeof patch.force === "string"
@@ -2602,7 +2811,7 @@ export function rampScheduleToSectionState(
 ): RampSectionState {
   const endPatch = reconstructUIEndPatch(rs.endActions);
   const uiSteps = rs.steps.map(reconstructUIStep);
-  const isSimple = stepsMatchSimplePattern(uiSteps);
+  const isSimple = stepsMatchSimplePattern(uiSteps, endPatch);
   const firstStep = uiSteps[0];
   return {
     mode: "edit",
@@ -2668,7 +2877,7 @@ export function createActionToSectionState(
 ): RampSectionState {
   const endPatch = reconstructUIEndPatch(action.endActions);
   const uiSteps = action.steps.map(reconstructUIStep);
-  const isSimple = stepsMatchSimplePattern(uiSteps);
+  const isSimple = stepsMatchSimplePattern(uiSteps, endPatch);
   const firstStep = uiSteps[0];
   return {
     mode: "create",
@@ -2779,7 +2988,11 @@ export function buildTemplatePayload(
   }));
 
   const rawEndPatch = buildPatch(state.endPatch, PLACEHOLDER_RULE);
-  const { ruleId: _ruleId, enabled: _enabled, ...endPatchFields } = rawEndPatch;
+  const {
+    ruleId: _ruleId,
+    enabled: _enabled,
+    ...endPatchFields
+  } = rawEndPatch;
   const endPatch: TemplateEndPatch =
     Object.keys(endPatchFields).length > 0
       ? (endPatchFields as TemplateEndPatch)

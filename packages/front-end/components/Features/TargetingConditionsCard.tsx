@@ -272,7 +272,7 @@ export function OrSeparator({ slimMode }: { slimMode?: boolean }) {
 export function AddConditionButton({
   onClick,
   children,
-  slimMode,
+  slimMode: _slimMode,
   disabled,
 }: {
   onClick: () => void;
@@ -292,10 +292,7 @@ export function AddConditionButton({
         cursor: disabled ? "not-allowed" : "pointer",
       }}
     >
-      <Text
-        weight={slimMode ? "regular" : "semibold"}
-        size={slimMode ? "small" : "medium"}
-      >
+      <Text weight="semibold" size="medium">
         <PiPlusBold className="mr-1" />
         {children ?? "Add condition"}
       </Text>
@@ -325,10 +322,7 @@ export function AddOrGroupButton({
           cursor: disabled ? "not-allowed" : "pointer",
         }}
       >
-        <Text
-          weight={slimMode ? "regular" : "semibold"}
-          size={slimMode ? "small" : "medium"}
-        >
+        <Text weight="semibold" size="medium">
           <PiPlusBold className="mr-1" />
           Add OR group
         </Text>

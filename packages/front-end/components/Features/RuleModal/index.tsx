@@ -112,7 +112,8 @@ function buildRampStartActionsFromRule(
     condition: ruleState.condition ?? null,
     savedGroups: ruleState.savedGroups ?? null,
     prerequisites: ruleState.prerequisites ?? null,
-    enabled: ruleState.enabled ?? true,
+    allEnvironments: ruleState.allEnvironments ?? null,
+    environments: ruleState.environments ?? null,
   };
 
   if ("value" in ruleState) {
@@ -1719,7 +1720,7 @@ export default function RuleModal({
                 embedded
                 hideNameField={true}
                 feature={feature}
-                environments={effectiveEnvList}
+                environments={environments.map((e) => e.id)}
               />
             )}
           </Page>

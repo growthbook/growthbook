@@ -129,6 +129,28 @@ describe("buildTemplatePayload", () => {
     const payload = buildTemplatePayload(state);
     expect(payload.steps).toHaveLength(state.steps.length);
   });
+
+  it("persists environment scope fields for step actions and endPatch", () => {
+    const state = freshState();
+    state.steps[0].patch = {
+      ...state.steps[0].patch,
+      allEnvironments: false,
+      environments: ["dev", "staging"],
+    };
+    state.endPatch = {
+      ...state.endPatch,
+      allEnvironments: false,
+      environments: ["production"],
+    };
+
+    const payload = buildTemplatePayload(state);
+    const firstPatch = payload.steps[0]?.actions[0]?.patch;
+
+    expect(firstPatch?.allEnvironments).toBe(false);
+    expect(firstPatch?.environments).toEqual(["dev", "staging"]);
+    expect(payload.endPatch?.allEnvironments).toBe(false);
+    expect(payload.endPatch?.environments).toEqual(["production"]);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -256,6 +278,47 @@ describe("templateToSectionState", () => {
   it("always defaults endPatch to coverage:100", () => {
     const state = templateToSectionState(makeStoredTemplate());
     expect(state.endPatch).toEqual({ coverage: 100 });
+  });
+
+  it("reconstructs environment scope from template step patches", () => {
+    const state = templateToSectionState(
+      makeStoredTemplate({
+        steps: [
+          {
+            trigger: { type: "interval", seconds: 3600 },
+            actions: [
+              {
+                targetType: "feature-rule",
+                targetId: PLACEHOLDER_TARGET,
+                patch: {
+                  ruleId: PLACEHOLDER_RULE,
+                  coverage: 0.5,
+                  allEnvironments: false,
+                  environments: ["dev", "production"],
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    expect(state.steps[0]?.patch.allEnvironments).toBe(false);
+    expect(state.steps[0]?.patch.environments).toEqual(["dev", "production"]);
+  });
+
+  it("reconstructs endPatch environment scope from template", () => {
+    const state = templateToSectionState(
+      makeStoredTemplate({
+        endPatch: {
+          allEnvironments: false,
+          environments: ["staging"],
+        },
+      }),
+    );
+
+    expect(state.endPatch.allEnvironments).toBe(false);
+    expect(state.endPatch.environments).toEqual(["staging"]);
   });
 
   it("correctly maps step count from template", () => {
