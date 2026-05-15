@@ -1,5 +1,6 @@
 import { createPrivateKey } from "crypto";
 import { Connection, createConnection } from "snowflake-sdk";
+import { version as SNOWFLAKE_SDK_VERSION } from "snowflake-sdk/package.json";
 import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { QueryMetadata } from "shared/types/query";
@@ -135,50 +136,105 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
   const connectionTimeout = sql === TEST_QUERY_SQL ? 30000 : 600000;
   await connectSnowflake(connection, connectionTimeout);
 
-  const res = await new Promise<{
-    rows: T[];
-    columns: { name: string }[];
-  }>((resolve, reject) => {
-    connection.execute({
-      sqlText: sql,
-      complete: async (err, stmt, rows) => {
-        if (setExternalId) {
-          const queryId = await stmt.getQueryId();
-          if (queryId) {
-            setExternalId(queryId);
+  // The connection holds an HTTP keep-alive session and an SDK heartbeat
+  // timer; both leak if we don't explicitly destroy the connection on every
+  // exit path. Wrap everything from here on in try/finally.
+  try {
+    // Submit with asyncExec: true so Snowflake responds immediately with the
+    // queryId before the query finishes executing to manage this query (e.g.
+    // cancel it in flight)
+    const queryId = await new Promise<string>((resolve, reject) => {
+      connection.execute({
+        sqlText: sql,
+        asyncExec: true,
+        complete: (err, stmt) => {
+          if (err) {
+            reject(err);
+          } else {
+            const id = stmt.getQueryId();
+            if (!id) {
+              // We submitted with `asyncExec: true`, in which case the SDK is
+              // contractually required to populate a queryId on the statement
+              // before invoking `complete`. Hitting this branch points at an
+              // SDK regression or a Snowflake control-plane response shape
+              // change — not anything the user did to their SQL.
+              reject(
+                new Error(
+                  `Snowflake did not return a query ID for an asynchronous ` +
+                    `execution. This is almost certainly a bug in ` +
+                    `snowflake-sdk@${SNOWFLAKE_SDK_VERSION} or a Snowflake ` +
+                    `REST API change rather than a problem with your query; ` +
+                    `please report it with the SDK version and any driver ` +
+                    `logs.`,
+                ),
+              );
+            } else {
+              resolve(id);
+            }
           }
-        }
-        if (err) {
-          reject(err);
-        } else {
-          // Extract column metadata from the statement
-          const stmtColumns = stmt.getColumns();
-          const columns = stmtColumns
-            ? stmtColumns.map((col) => ({
-                name: col.getName().toLowerCase(),
-              }))
-            : [];
-          resolve({ rows: rows || [], columns });
-        }
-      },
+        },
+      });
     });
-  });
 
-  // Annoyingly, Snowflake turns all column names into all caps
-  // Need to lowercase them here so they match other data sources
-  const lowercase = res.rows.map((row) => {
-    return Object.fromEntries(
-      Object.entries(row).map(([k, v]) => [k.toLowerCase(), v]),
-    ) as T;
-  });
+    // Persist the query ID immediately — this is what lets cancelQuery work
+    // while the query is still running.
+    if (setExternalId) {
+      try {
+        await setExternalId(queryId);
+      } catch (e) {
+        logger.debug(
+          `Snowflake: failed to persist external id ${queryId}: ${
+            e instanceof Error ? e.message : String(e)
+          }`,
+        );
+      }
+    }
 
-  return { rows: lowercase, columns: res.columns };
+    // Wait for the query to finish and fetch the results.
+    const res = await new Promise<{
+      rows: T[];
+      columns: { name: string }[];
+    }>((resolve, reject) => {
+      connection
+        .getResultsFromQueryId({
+          queryId,
+          complete: (err, stmt, rows) => {
+            if (err) {
+              reject(err);
+            } else {
+              // Extract column metadata from the statement
+              const stmtColumns = stmt.getColumns();
+              const columns = stmtColumns
+                ? stmtColumns.map((col) => ({
+                    name: col.getName().toLowerCase(),
+                  }))
+                : [];
+              resolve({ rows: (rows as T[]) || [], columns });
+            }
+          },
+        })
+        .catch(reject);
+    });
+
+    // Annoyingly, Snowflake turns all column names into all caps
+    // Need to lowercase them here so they match other data sources
+    const lowercase = res.rows.map((row) => {
+      return Object.fromEntries(
+        Object.entries(row).map(([k, v]) => [k.toLowerCase(), v]),
+      ) as T;
+    });
+
+    return { rows: lowercase, columns: res.columns };
+  } finally {
+    await destroySnowflakeConnection(connection);
+  }
 }
 
-// Cancels a running Snowflake query by opening a fresh connection and calling
-// SYSTEM$CANCEL_QUERY. The snowflake-sdk Connection has no `cancelQuery(id)`
-// helper and we don't track the in-flight Statement object, so this is the
-// most reliable cross-process way to actually stop the work on the warehouse.
+// Cancels a running Snowflake query by issuing a direct abort against the
+// REST API. We construct a Statement bound to the existing query id via
+// `connection.fetchResult` and call `.cancel()` on it — that posts to
+// `/queries/<queryId>/abort-request`, which is the same control-plane
+// endpoint Snowflake's Web UI uses for "Cancel Query".
 export async function cancelSnowflakeQuery(
   conn: SnowflakeConnectionParams,
   queryId: string,
@@ -192,15 +248,23 @@ export async function cancelSnowflakeQuery(
     await connectSnowflake(connection, 30000);
 
     await new Promise<void>((resolve, reject) => {
-      connection.execute({
-        sqlText: `SELECT SYSTEM$CANCEL_QUERY('${queryId}')`,
-        complete: (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
-        },
+      // `fetchResult` requires `sqlText` per the TS types, but the SDK
+      // doesn't actually use it on the post-exec/cancel path — only the
+      // queryId on the statement context matters for the abort URL.
+      const statement = connection.fetchResult({
+        queryId,
+        sqlText: "",
+        // Side effect of fetchResult is a result-fetch request, which we
+        // don't care about. Swallow whatever it returns.
+        complete: () => {},
+      });
+
+      statement.cancel((err) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
       });
     });
 

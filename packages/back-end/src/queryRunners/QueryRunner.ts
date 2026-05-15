@@ -197,6 +197,20 @@ export abstract class QueryRunner<
       );
       this.timer = setTimeout(async () => {
         this.timer = null;
+        // The runner may have been finalized while this timer was pending —
+        // most commonly when the user cancelled and the calling controller
+        // (e.g. cancelSnapshot) deleted the underlying model immediately
+        // after. Re-reading the model would just throw "Could not load
+        // model" with nothing useful to do, so bail out.
+        // Read into a local so the narrowing doesn't leak past the awaits
+        // below, where `this.status` can change if a concurrent cancel fires.
+        const statusAtStart = this.status;
+        if (statusAtStart === "finished") {
+          logger.debug(
+            "Skipping refresh for finished runner of " + this.model.id,
+          );
+          return;
+        }
         try {
           logger.debug("Getting latest model for " + this.model.id);
           this.model = await this.getLatestModel();
@@ -520,7 +534,37 @@ export abstract class QueryRunner<
           false,
         );
 
-        const externalIds = queryDocs.map((q) => q.externalId).filter(Boolean);
+        // Some "running" docs are pointers to a previously-started in-flight
+        // query (see `createNewQueryFromCached`). Those copies share the
+        // upstream datasource job with the original via `cachedQueryUsed`
+        // and never have their own `externalId` set — only the original
+        // doc does, populated by the integration's `runQuery`/poller.
+        // Chase one hop to find the real id so we can actually cancel the
+        // upstream job. `cachedQueryUsed` always points at the original
+        // (not a copy of a copy), so a single lookup is sufficient.
+        const cachedSourceIds = Array.from(
+          new Set(
+            queryDocs
+              .map((q) => q.cachedQueryUsed)
+              .filter((id): id is string => Boolean(id)),
+          ),
+        );
+        const cachedSourceDocs = cachedSourceIds.length
+          ? await getQueriesByIds(this.context, cachedSourceIds, false)
+          : [];
+        const cachedSourceById = new Map(
+          cachedSourceDocs.map((q) => [q.id, q]),
+        );
+
+        const externalIds = queryDocs
+          .map((q) => {
+            if (q.externalId) return q.externalId;
+            if (q.cachedQueryUsed) {
+              return cachedSourceById.get(q.cachedQueryUsed)?.externalId;
+            }
+            return undefined;
+          })
+          .filter((id): id is string => Boolean(id));
 
         if (externalIds.length) {
           await promiseAllChunks(
