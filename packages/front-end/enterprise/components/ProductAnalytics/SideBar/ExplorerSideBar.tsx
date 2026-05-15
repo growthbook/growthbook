@@ -91,32 +91,9 @@ export default function ExplorerSideBar({
     activeType === "fact_table" && dataset?.type === "fact_table"
       ? dataset
       : null;
-  const funnelDataset =
-    activeType === "funnel" && dataset?.type === "funnel" ? dataset : null;
-  // Available units for a funnel: intersection of userIdTypes across every
-  // step's selected fact table. Drives the funnel "Unit" select below.
-  const funnelUnitOptions = (() => {
-    if (!funnelDataset) return [];
-    const factTablesForSteps = funnelDataset.steps
-      .map((s) =>
-        s.factTable ? factTables.find((ft) => ft.id === s.factTable) : null,
-      )
-      .filter((ft): ft is NonNullable<typeof ft> => !!ft);
-    if (
-      !factTablesForSteps.length ||
-      factTablesForSteps.length < funnelDataset.steps.length
-    ) {
-      return [];
-    }
-    return (
-      factTablesForSteps.reduce<string[] | null>((acc, ft) => {
-        const ids = ft.userIdTypes ?? [];
-        if (acc === null) return [...ids];
-        return acc.filter((id) => ids.includes(id));
-      }, null) ?? []
-    );
-  })();
-  const hasFunnelInputs = !!funnelDataset?.steps?.some((s) => !!s.factTable);
+  const hasFunnelInputs =
+    dataset?.type === "funnel" &&
+    !!dataset.steps?.some((s) => !!s.factTable);
   const hasInputs =
     dataset?.type === "funnel"
       ? hasFunnelInputs
@@ -349,46 +326,6 @@ export default function ExplorerSideBar({
           }}
         >
           <DatasourceConfigurator dataset={dataset} />
-        </Flex>
-      )}
-
-      {activeType === "funnel" && funnelDataset && (
-        <Flex
-          width="100%"
-          direction="column"
-          p="3"
-          gap="2"
-          style={{
-            border: "1px solid var(--gray-a3)",
-            borderRadius: "var(--radius-4)",
-            backgroundColor: "var(--color-panel-translucent)",
-          }}
-        >
-          <Text weight="medium" mt="2">
-            Unit
-          </Text>
-          <SelectField
-            value={funnelDataset.unit ?? ""}
-            disabled={!hasFunnelInputs || funnelUnitOptions.length === 0}
-            onChange={(unit) => {
-              setDraftExploreState((prev) => {
-                if (prev.dataset.type !== "funnel") return prev;
-                return {
-                  ...prev,
-                  dataset: { ...prev.dataset, unit: unit || null },
-                } as ExplorationConfig;
-              });
-            }}
-            options={funnelUnitOptions.map((u) => ({ label: u, value: u }))}
-            placeholder={
-              !hasFunnelInputs
-                ? "Pick a fact table first"
-                : funnelUnitOptions.length === 0
-                  ? "No shared user identifier across steps"
-                  : "Select unit..."
-            }
-            forceUndefinedValueToNull
-          />
         </Flex>
       )}
 

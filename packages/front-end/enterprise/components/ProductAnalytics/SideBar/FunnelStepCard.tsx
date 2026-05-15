@@ -6,6 +6,7 @@ import {
   PiCaretUp,
   PiPencilSimple,
   PiPlus,
+  PiUserFill,
   PiX,
 } from "react-icons/pi";
 import Collapsible from "react-collapsible";
@@ -21,6 +22,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Field from "@/components/Forms/Field";
@@ -72,6 +74,11 @@ interface Props {
   /** Delete handler lives in the parent so it can keep the per-step
    *  collapse state aligned with the underlying steps array. */
   onDelete: (index: number) => void;
+  /** Intersection of user id types across all steps; step 1 shows the unit
+   *  picker beside Add Filter when non-empty. */
+  funnelUnitOptions: string[];
+  /** `react-collapsible` duration (ms). Use `0` for programmatic batch collapses. */
+  collapsibleTransitionMs?: number;
 }
 
 export default function FunnelStepCard({
@@ -82,11 +89,14 @@ export default function FunnelStepCard({
   isCollapsed,
   onToggleCollapsed,
   onDelete,
+  funnelUnitOptions,
+  collapsibleTransitionMs = 100,
 }: Props) {
   const { setDraftExploreState, draftExploreState } = useExplorerContext();
   const { factTables, getFactTableById } = useDefinitions();
 
   const [isEditingName, setIsEditingName] = useState(false);
+  const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
   const [nameDraft, setNameDraft] = useState(step.name);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   // For follow-on steps: when the step inherits, we hide the picker until the
@@ -168,6 +178,13 @@ export default function FunnelStepCard({
       }),
     [step, factTable, isInherited, index, steps],
   );
+
+  const funnelUnit =
+    draftExploreState.dataset.type === "funnel"
+      ? draftExploreState.dataset.unit
+      : null;
+
+  const showFunnelUnitOnFilterRow = index === 0 && funnelUnitOptions.length > 0;
 
   const handleConversionWindowChange = (
     update: Partial<ConversionWindow> | null,
@@ -285,7 +302,7 @@ export default function FunnelStepCard({
         open={!isCollapsed}
         trigger=""
         triggerDisabled
-        transitionTime={100}
+        transitionTime={collapsibleTransitionMs}
       >
         <Box mt="2">
           {/* Fact-table picker / inheritance row */}
@@ -350,7 +367,11 @@ export default function FunnelStepCard({
                 value={step.rowFilters}
                 setValue={handleFiltersChange}
               />
-              <Flex justify="start" align="center" mt="2">
+              <Flex
+                justify={showFunnelUnitOnFilterRow ? "between" : "start"}
+                align="center"
+                mt="2"
+              >
                 <Button
                   size="xs"
                   variant="ghost"
@@ -366,6 +387,38 @@ export default function FunnelStepCard({
                     Add Filter
                   </Flex>
                 </Button>
+                {showFunnelUnitOnFilterRow && (
+                  <DropdownMenu
+                    open={unitDropdownOpen}
+                    onOpenChange={setUnitDropdownOpen}
+                    trigger={
+                      <Button size="xs" variant="ghost">
+                        <Flex align="center" gap="2">
+                          <PiUserFill size={14} />
+                          {funnelUnit ?? funnelUnitOptions[0]}
+                        </Flex>
+                      </Button>
+                    }
+                  >
+                    {funnelUnitOptions.map((u) => (
+                      <DropdownMenuItem
+                        key={u}
+                        onClick={() => {
+                          setDraftExploreState((prev) => {
+                            if (prev.dataset.type !== "funnel") return prev;
+                            return {
+                              ...prev,
+                              dataset: { ...prev.dataset, unit: u },
+                            } as ExplorationConfig;
+                          });
+                          setUnitDropdownOpen(false);
+                        }}
+                      >
+                        <Text>{u}</Text>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenu>
+                )}
               </Flex>
             </Box>
           )}

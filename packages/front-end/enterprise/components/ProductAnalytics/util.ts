@@ -15,6 +15,7 @@ import type {
   ProductAnalyticsResultRow,
   ShowAs,
   FunnelStep,
+  FunnelDataset,
 } from "shared/validators";
 import { isEqual } from "lodash";
 import { createParser } from "nuqs";
@@ -343,6 +344,34 @@ export function createEmptyFunnelStep({
     rowFilters: [],
     optional: false,
   };
+}
+
+/** Intersection of `userIdTypes` across every step's resolved fact table.
+ *  Empty if any step is missing a fact table or a table id cannot be resolved. */
+export function getFunnelUnitOptions(
+  dataset: FunnelDataset,
+  factTables: FactTableInterface[],
+): string[] {
+  const factTablesForSteps = dataset.steps
+    .map((s) =>
+      s.factTable
+        ? (factTables.find((ft) => ft.id === s.factTable) ?? null)
+        : null,
+    )
+    .filter((ft): ft is FactTableInterface => !!ft);
+  if (
+    !factTablesForSteps.length ||
+    factTablesForSteps.length < dataset.steps.length
+  ) {
+    return [];
+  }
+  return (
+    factTablesForSteps.reduce<string[] | null>((acc, ft) => {
+      const ids = ft.userIdTypes ?? [];
+      if (acc === null) return [...ids];
+      return acc.filter((id) => ids.includes(id));
+    }, null) ?? []
+  );
 }
 
 export function generateUniqueValueName(
@@ -711,14 +740,18 @@ function toFetchKey(config: ExplorationConfig): unknown {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { showAs, ...rest } = config;
   if (config.dataset.type === "funnel") {
+    // yAxisScale only affects how counts are rendered (percent vs raw);
+    // same rows as chart-type-only changes — omit from the fetch identity.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { yAxisScale, ...funnelDatasetSansYAxis } = config.dataset;
     return {
       ...rest,
       chartType: getChartCategory(config.chartType),
       dataset: {
-        ...config.dataset,
-        // Renaming a step shouldn't trigger a refetch — only its data inputs do.
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        steps: config.dataset.steps.map(({ name, ...stepRest }) => stepRest),
+        ...funnelDatasetSansYAxis,
+        steps: config.dataset.steps.map(
+          ({ name: _name, ...stepRest }) => stepRest,
+        ),
       },
     };
   }

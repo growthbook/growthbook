@@ -26,6 +26,7 @@ export default function ExplorerMainSection() {
     draftExploreState,
     handleSubmit,
     isSubmittable,
+    collapseFunnelStepsForAnalyze,
   } = useExplorerContext();
 
   const showChartSection = shouldChartSectionShow({
@@ -33,6 +34,14 @@ export default function ExplorerMainSection() {
     error,
     submittedExploreState,
   });
+
+  const funnelMainEmpty =
+    draftExploreState.type === "funnel" &&
+    draftExploreState.dataset?.type === "funnel" &&
+    !hasSubmittablePayload(submittedExploreState);
+
+  const suppressStaleFloatingCallout =
+    funnelMainEmpty && isStale && !loading;
 
   return (
     <Flex
@@ -126,14 +135,42 @@ export default function ExplorerMainSection() {
               borderRadius: "var(--radius-4)",
             }}
           >
-            <BsGraphUpArrow size={48} className="text-muted" />
-            <Text size="large" weight="medium">
-              Configure your explorer to visualize data
+            {funnelMainEmpty ? (
+              <>
+              <Text size="large" weight="medium">
+              Done configuring steps?
             </Text>
+              <Button
+                size="lg"
+                variant="solid"
+                disabled={
+                  loading ||
+                  !hasSubmittablePayload(draftExploreState) ||
+                  !isSubmittable
+                }
+                onClick={async () => {
+                  collapseFunnelStepsForAnalyze();
+                  await handleSubmit({ force: true });
+                }}
+              >
+                <Flex align="center" gap="2">
+                  <PiArrowsClockwise />
+                  Analyze Funnel
+                </Flex>
+              </Button>
+              </>
+            ) : (
+<>
+            <BsGraphUpArrow size={48} className="text-muted" />
+
+              <Text size="large" weight="medium">
+              Configure your explorer to visualize data
+            </Text></>
+            )}
           </Flex>
         )}
 
-        {(isStale || loading) && (
+        {(isStale || loading) && !suppressStaleFloatingCallout && (
           <Box
             style={{
               position: "absolute",

@@ -71,6 +71,9 @@ export interface ExplorerContextValue {
   updateTimestampColumn: (column: string) => void;
   changeChartType: (chartType: ExplorationConfig["chartType"]) => void;
   clearAllDatasets: (newDatasourceId?: string) => void;
+  /** Funnel sidebar registers a handler; main empty-state CTA invokes before analyze. */
+  registerFunnelAnalyzeCollapseHandler: (fn: (() => void) | null) => void;
+  collapseFunnelStepsForAnalyze: () => void;
 }
 const ExplorerContext = createContext<ExplorerContextValue | null>(null);
 
@@ -148,6 +151,7 @@ export function ExplorerProvider({
   const hasEverFetchedRef = useRef(false);
   const skipNextAutoSubmitRef = useRef(false);
   const submitRequestIdRef = useRef(0);
+  const funnelAnalyzeCollapseRef = useRef<(() => void) | null>(null);
 
   const draftExploreState: ExplorationConfig = explorerState.draftState;
 
@@ -368,6 +372,17 @@ export function ExplorerProvider({
     ],
   );
 
+  const registerFunnelAnalyzeCollapseHandler = useCallback(
+    (fn: (() => void) | null) => {
+      funnelAnalyzeCollapseRef.current = fn;
+    },
+    [],
+  );
+
+  const collapseFunnelStepsForAnalyze = useCallback(() => {
+    funnelAnalyzeCollapseRef.current?.();
+  }, []);
+
   const handleSubmit = useCallback(
     async (submitOptions?: {
       force?: boolean;
@@ -396,8 +411,19 @@ export function ExplorerProvider({
       skipNextAutoSubmitRef.current = false;
       return;
     }
+    const draftIsFunnel = cleanedDraftExploreState.dataset.type === "funnel";
+    // Funnels on customer warehouses auto-run as soon as the config becomes
+    // fetchable (e.g. second step added), which fires an expensive query.
+    // Managed Warehouse stays auto-run — queries are cheap there.
+    const deferFunnelFetchUntilManualRefresh =
+      draftIsFunnel && !isManagedWarehouse && needsFetch;
+
     if (needsFetch) {
-      doSubmit();
+      if (deferFunnelFetchUntilManualRefresh) {
+        setIsStale(true);
+      } else {
+        doSubmit();
+      }
     } else if (needsUpdate && !needsFetch) {
       setSubmittedExploreState(cleanedDraftExploreState);
     }
@@ -409,6 +435,7 @@ export function ExplorerProvider({
     setSubmittedExploreState,
     isSubmittable,
     managedWarehouseAwaitingProvisioning,
+    isManagedWarehouse,
   ]);
 
   /** Clear staleness when draft matches submitted (known state) */
@@ -671,6 +698,8 @@ export function ExplorerProvider({
       clearAllDatasets,
       query,
       trackingSource,
+      registerFunnelAnalyzeCollapseHandler,
+      collapseFunnelStepsForAnalyze,
     }),
     [
       draftExploreState,
@@ -694,6 +723,8 @@ export function ExplorerProvider({
       clearAllDatasets,
       query,
       trackingSource,
+      registerFunnelAnalyzeCollapseHandler,
+      collapseFunnelStepsForAnalyze,
     ],
   );
 

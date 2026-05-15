@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import { ExplorationConfig, FunnelDataset } from "shared/validators";
@@ -8,6 +8,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import {
   createEmptyFunnelStep,
+  getFunnelUnitOptions,
   getInitialInlineFilters,
 } from "@/enterprise/components/ProductAnalytics/util";
 import FunnelStepCard from "./FunnelStepCard";
@@ -19,13 +20,20 @@ import FunnelStepCard from "./FunnelStepCard";
 type StepUiState = { collapsed: boolean; userExpanded: boolean };
 
 export default function FunnelTabContent() {
-  const { draftExploreState, setDraftExploreState } = useExplorerContext();
-  const { getFactTableById } = useDefinitions();
+  const {
+    draftExploreState,
+    setDraftExploreState,
+    registerFunnelAnalyzeCollapseHandler,
+  } = useExplorerContext();
+  const { getFactTableById, factTables } = useDefinitions();
 
   const isFunnel = draftExploreState.dataset?.type === "funnel";
   const stepsLength = isFunnel
     ? (draftExploreState.dataset as FunnelDataset).steps.length
     : 0;
+
+  const [instantCollapseTransition, setInstantCollapseTransition] =
+    useState(false);
 
   const [uiState, setUiState] = useState<StepUiState[]>(() => {
     // When the page initializes from a URL/saved config, steps already
@@ -61,9 +69,64 @@ export default function FunnelTabContent() {
     });
   }, [stepsLength]);
 
+  useEffect(() => {
+    if (!instantCollapseTransition) return;
+    setInstantCollapseTransition(false);
+  }, [instantCollapseTransition]);
+
+  const funnelDataset =
+    draftExploreState.dataset?.type === "funnel"
+      ? draftExploreState.dataset
+      : null;
+
+  const funnelUnitOptions = useMemo(
+    () =>
+      funnelDataset ? getFunnelUnitOptions(funnelDataset, factTables) : [],
+    [funnelDataset, factTables],
+  );
+
+  const funnelStepFactTablesKey = useMemo(
+    () => funnelDataset?.steps.map((s) => s.factTable ?? "").join("|") ?? "",
+    [funnelDataset],
+  );
+
+  useEffect(() => {
+    setDraftExploreState((prev) => {
+      if (prev.dataset.type !== "funnel") return prev;
+      const opts = getFunnelUnitOptions(prev.dataset, factTables);
+      const current = prev.dataset.unit;
+      if (opts.length === 0) {
+        if (current == null) return prev;
+        return {
+          ...prev,
+          dataset: { ...prev.dataset, unit: null },
+        } as ExplorationConfig;
+      }
+      if (!current || !opts.includes(current)) {
+        return {
+          ...prev,
+          dataset: { ...prev.dataset, unit: opts[0] },
+        } as ExplorationConfig;
+      }
+      return prev;
+    });
+  }, [factTables, funnelStepFactTablesKey, setDraftExploreState]);
+
+  useEffect(() => {
+    registerFunnelAnalyzeCollapseHandler(() => {
+      setInstantCollapseTransition(true);
+      setUiState((prev) =>
+        prev.map((s) => (s.userExpanded ? s : { ...s, collapsed: true })),
+      );
+    });
+    return () => registerFunnelAnalyzeCollapseHandler(null);
+  }, [registerFunnelAnalyzeCollapseHandler]);
+
   if (!isFunnel) return null;
   const dataset = draftExploreState.dataset as FunnelDataset;
   const steps = dataset.steps;
+
+  const allStepsHaveFactTable = steps.every((s) => !!s.factTable);
 
   const handleToggleCollapsed = (index: number) => {
     setUiState((prev) =>
@@ -121,6 +184,7 @@ export default function FunnelTabContent() {
     // user; the new step appends in its default (expanded, not-user-opened)
     // state. Steps the user explicitly expanded stay open until they
     // collapse them, matching the "locked open" intent.
+    setInstantCollapseTransition(true);
     setUiState((prev) => {
       const collapsed = prev.map((s) =>
         s.userExpanded ? s : { ...s, collapsed: true },
@@ -131,22 +195,6 @@ export default function FunnelTabContent() {
 
   return (
     <Flex direction="column" gap="4">
-      {steps.length < 2 && (
-        <Flex
-          justify="center"
-          align="center"
-          style={{
-            border: "1px solid var(--gray-a3)",
-            borderRadius: "var(--radius-3)",
-            padding: "var(--space-3)",
-            backgroundColor: "var(--color-panel-translucent)",
-          }}
-        >
-          <Text size="small" color="text-low">
-            Funnels need at least two steps to run.
-          </Text>
-        </Flex>
-      )}
       {steps.map((step, index) => (
         <FunnelStepCard
           key={index}
@@ -159,8 +207,15 @@ export default function FunnelTabContent() {
           isCollapsed={uiState[index]?.collapsed ?? false}
           onToggleCollapsed={() => handleToggleCollapsed(index)}
           onDelete={handleDelete}
+          funnelUnitOptions={funnelUnitOptions}
+          collapsibleTransitionMs={instantCollapseTransition ? 0 : 100}
         />
       ))}
+      {allStepsHaveFactTable && funnelUnitOptions.length === 0 && (
+        <Text size="small" color="text-low">
+          No shared user identifier across steps.
+        </Text>
+      )}
       <Button size="sm" variant="outline" onClick={handleAddStep}>
         <Flex align="center" gap="2">
           <PiPlus size={14} />
