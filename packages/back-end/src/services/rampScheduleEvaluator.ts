@@ -13,7 +13,6 @@ import {
 } from "shared/constants";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { logger } from "back-end/src/util/logger";
 import {
   MONITORING_NO_TRAFFIC_GRACE_PERIOD_MS,
   advanceStep,
@@ -146,20 +145,11 @@ async function evaluateMonitoredStep(
     return { action: "hold", reason: "Waiting for analysis results" };
   }
 
-  const scheduleLevelDecision = checkScheduleGuardrailSignals(
-    safeRollout,
-    expandedGuardrailIds,
-  );
-  if (scheduleLevelDecision) return scheduleLevelDecision;
-
-  const experimentHealthDecision = checkExperimentHealth(
-    ctx,
-    safeRollout,
-    srmAction,
-    multipleExposureAction,
-  );
-  if (experimentHealthDecision) return experimentHealthDecision;
-
+  // No-traffic gate runs before guardrail/health/results checks: with zero
+  // users those downstream analyses are unreliable, so we resolve the
+  // no-traffic state explicitly first (grace period → terminal action).
+  // "warn" falls through; downstream data-based checks will be vacuous and
+  // non-data gates (minDuration, step interval) still apply.
   if (!summary.health.totalUsers) {
     const monitoringStartDate =
       schedule.monitoringStartDate ??
@@ -194,11 +184,22 @@ async function evaluateMonitoredStep(
         reason: "No traffic detected — holding step (noTrafficAction=hold)",
       };
     }
-    logger.warn(
-      { safeRolloutId: safeRollout.id },
-      "No traffic detected on monitored step (noTrafficAction=warn)",
-    );
+    // "warn": surfaced via the UI monitoring badges; not a backend gate.
   }
+
+  const scheduleLevelDecision = checkScheduleGuardrailSignals(
+    safeRollout,
+    expandedGuardrailIds,
+  );
+  if (scheduleLevelDecision) return scheduleLevelDecision;
+
+  const experimentHealthDecision = checkExperimentHealth(
+    ctx,
+    safeRollout,
+    srmAction,
+    multipleExposureAction,
+  );
+  if (experimentHealthDecision) return experimentHealthDecision;
 
   const resultsStatus = summary.resultsStatus;
   if (!resultsStatus) {
@@ -276,22 +277,19 @@ function checkExperimentHealth(
   });
 
   if (srmData === "unhealthy") {
-    if (srmAction === "warn") {
-      logger.warn(
-        { safeRolloutId: safeRollout.id },
-        "Experiment health (SRM) is unhealthy (warn-only)",
-      );
-    } else if (srmAction === "rollback") {
+    if (srmAction === "rollback") {
       return {
         action: "rollback",
         reason: `Experiment health: SRM check failed (p=${summary.health.srm.toFixed(4)})`,
       };
-    } else {
+    }
+    if (srmAction === "hold") {
       return {
         action: "hold",
         reason: `Experiment health: SRM check failed — holding step (p=${summary.health.srm.toFixed(4)})`,
       };
     }
+    // "warn": surfaced via the UI monitoring badges; not a backend gate.
   }
 
   const meData = getMultipleExposureHealthData({
@@ -302,22 +300,19 @@ function checkExperimentHealth(
   });
 
   if (meData.status === "unhealthy") {
-    if (meAction === "warn") {
-      logger.warn(
-        { safeRolloutId: safeRollout.id },
-        "Experiment health (multiple exposures) is unhealthy (warn-only)",
-      );
-    } else if (meAction === "rollback") {
+    if (meAction === "rollback") {
       return {
         action: "rollback",
         reason: `Experiment health: multiple exposures detected (${(meData.rawDecimal * 100).toFixed(1)}% of users)`,
       };
-    } else {
+    }
+    if (meAction === "hold") {
       return {
         action: "hold",
         reason: `Experiment health: multiple exposures detected — holding step (${(meData.rawDecimal * 100).toFixed(1)}% of users)`,
       };
     }
+    // "warn": surfaced via the UI monitoring badges; not a backend gate.
   }
 
   return null;
@@ -355,18 +350,10 @@ export async function applyRampEvaluationDecision(
   decision: EvalDecision,
 ): Promise<{ handled: boolean; schedule: RampScheduleInterface }> {
   if (decision.action === "rollback") {
-    logger.info(
-      { scheduleId: schedule.id, reason: decision.reason },
-      "Evaluator triggered rollback",
-    );
     const updated = await rollbackSchedule(ctx, schedule, decision.reason);
     return { handled: true, schedule: updated };
   }
   if (decision.action === "pause") {
-    logger.info(
-      { scheduleId: schedule.id, reason: decision.reason },
-      "Evaluator triggered pause",
-    );
     const updated = await pauseSchedule(ctx, schedule, decision.reason);
     return { handled: true, schedule: updated };
   }
@@ -380,14 +367,6 @@ export async function applyRampEvaluationDecision(
     const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
       nextProcessAt,
     });
-    logger.info(
-      {
-        scheduleId: schedule.id,
-        reason: decision.reason,
-        nextProcessAt: nextProcessAt?.toISOString() ?? null,
-      },
-      "Evaluator holding step",
-    );
     return { handled: true, schedule: updated };
   }
 

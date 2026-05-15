@@ -1,7 +1,6 @@
 import Agenda, { Job } from "agenda";
 import { listAllOrganizationIds } from "back-end/src/models/OrganizationModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
-import { logger } from "back-end/src/util/logger";
 import {
   advanceUntilBlocked,
   appendRampEvent,
@@ -56,11 +55,8 @@ export default async function addRampScheduleJob(agenda: Agenda) {
         for (const id of dueIds) {
           await queueRampScheduleAdvance(agenda, { id, organization });
         }
-      } catch (e) {
-        logger.warn(
-          e,
-          `queueRampScheduleAdvances: skipped organization ${organization}`,
-        );
+      } catch {
+        // Skip this org so a single bad org can't block the rest of the tick.
       }
     }
   });
@@ -128,7 +124,8 @@ export const advanceSingleRampSchedule = async (
         }),
       });
       await applyRampStartActions(context, current);
-      current = await ensureSafeRolloutForMonitoredRamp(context, current);
+      // SR creation/sync happens in the "running" block below in the same
+      // tick, so we don't need to wait a scheduler tick to pick it up.
     }
 
     if (current.status === "running") {
@@ -148,33 +145,31 @@ export const advanceSingleRampSchedule = async (
 
     await advanceUntilBlocked(context, current, now);
   } catch (e) {
-    logger.error(e, `Error advancing ramp schedule ${rampScheduleId}`);
-    try {
-      const errorSchedule =
-        await context.models.rampSchedules.getById(rampScheduleId);
-      const updated = await context.models.rampSchedules.updateById(
-        rampScheduleId,
-        {
-          status: "paused",
-          nextSnapshotAt: null,
-          nextProcessAt: null,
-          ...(errorSchedule
-            ? {
-                eventHistory: appendRampEvent(errorSchedule, "error-paused", {
-                  stepIndex: errorSchedule.currentStepIndex,
-                  status: "paused",
-                  previousStatus: errorSchedule.status,
-                  reason: e instanceof Error ? e.message : String(e),
-                }),
-              }
-            : {}),
-        },
-      );
-      if (errorSchedule) {
-        await syncLinkedSafeRolloutForRampState(context, updated);
-      }
-    } catch (inner) {
-      logger.error(inner, "Error updating ramp schedule status after failure");
+    // Persist the failure as a schedule-level event so the UI/history shows
+    // why we paused; agenda's own error path handles the throw if any
+    // recovery step itself fails.
+    const errorSchedule =
+      await context.models.rampSchedules.getById(rampScheduleId);
+    const updated = await context.models.rampSchedules.updateById(
+      rampScheduleId,
+      {
+        status: "paused",
+        nextSnapshotAt: null,
+        nextProcessAt: null,
+        ...(errorSchedule
+          ? {
+              eventHistory: appendRampEvent(errorSchedule, "error-paused", {
+                stepIndex: errorSchedule.currentStepIndex,
+                status: "paused",
+                previousStatus: errorSchedule.status,
+                reason: e instanceof Error ? e.message : String(e),
+              }),
+            }
+          : {}),
+      },
+    );
+    if (errorSchedule) {
+      await syncLinkedSafeRolloutForRampState(context, updated);
     }
   }
 };

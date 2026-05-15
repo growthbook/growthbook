@@ -1525,6 +1525,67 @@ describe("completeRollout", () => {
     expect(mockCreateRevision).not.toHaveBeenCalled();
   });
 
+  it("folds disable into the endActions publish when disableActiveTargets is set", async () => {
+    const schedule = makeSchedule({
+      currentStepIndex: 0,
+      status: "running",
+      steps: [
+        {
+          trigger: { type: "interval", seconds: 300 },
+          actions: [
+            {
+              targetType: "feature-rule" as const,
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 0.5 },
+            },
+          ],
+        },
+      ],
+      endActions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: { ruleId: RULE_ID, coverage: 1.0 },
+        },
+      ],
+    });
+
+    const { ctx } = makeContext();
+    await completeRollout(ctx as never, schedule, {
+      disableActiveTargets: true,
+    });
+
+    // One revision publish — disable is merged in, not a separate publish.
+    expect(mockCreateRevision).toHaveBeenCalledTimes(1);
+    const [createCall] = mockCreateRevision.mock.calls;
+    const patchedRules: FeatureRule[] = createCall[0].changes.rules;
+    const rule = patchedRules.find((r) => r.id === RULE_ID);
+    expect((rule as { coverage?: number }).coverage).toBe(1.0);
+    expect(rule?.enabled).toBe(false);
+  });
+
+  it("disables active targets with no endActions in a single publish", async () => {
+    // Target has no end patch — only the disable; verify a synthetic
+    // { enabled: false } action is generated so the publish still happens.
+    const schedule = makeSchedule({
+      currentStepIndex: 0,
+      status: "running",
+      steps: [],
+      endActions: [],
+    });
+
+    const { ctx } = makeContext();
+    await completeRollout(ctx as never, schedule, {
+      disableActiveTargets: true,
+    });
+
+    expect(mockCreateRevision).toHaveBeenCalledTimes(1);
+    const [createCall] = mockCreateRevision.mock.calls;
+    const patchedRules: FeatureRule[] = createCall[0].changes.rules;
+    const rule = patchedRules.find((r) => r.id === RULE_ID);
+    expect(rule?.enabled).toBe(false);
+  });
+
   it("merges endActions on top of accumulated step patches at completion", async () => {
     // Step 0 sets condition + partial coverage; endActions sets final coverage=1.0.
     const schedule = makeSchedule({

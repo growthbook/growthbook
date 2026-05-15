@@ -22,7 +22,6 @@ import {
   registerRevisionPublishedHook,
 } from "back-end/src/models/FeatureRevisionModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
-import { logger } from "back-end/src/util/logger";
 import {
   resolveRampTargets,
   ruleFootprint,
@@ -629,10 +628,6 @@ async function executeStepActions(
       });
     } catch (e) {
       if ((e as Error).message?.startsWith("Feature not found:")) {
-        logger.warn(
-          { entityId: group.entityId },
-          "Ramp step: entity not found, skipping",
-        );
         continue;
       }
       throw e;
@@ -1330,14 +1325,34 @@ export async function jumpAheadToStep(
 export async function completeRollout(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
+  // `disableActiveTargets` folds `enabled: false` into the same publish as
+  // `endActions` so callers (e.g. cutoffDate-driven completion) don't have
+  // to fire a second revision publish for the disable.
+  opts: { disableActiveTargets?: boolean } = {},
 ): Promise<RampScheduleInterface> {
   const effective = computeEffectivePatch(schedule, schedule.steps.length);
+
+  if (opts.disableActiveTargets) {
+    for (const target of schedule.targets) {
+      if (target.status !== "active" || !target.ruleId) continue;
+      if (effective.has(target.id)) continue;
+      effective.set(target.id, { ruleId: target.ruleId });
+    }
+  }
+
   const actionsToApply: RampStepAction[] = [...effective.entries()].map(
-    ([targetId, patch]) => ({
-      targetType: "feature-rule" as const,
-      targetId,
-      patch,
-    }),
+    ([targetId, patch]) => {
+      if (!opts.disableActiveTargets) {
+        return { targetType: "feature-rule" as const, targetId, patch };
+      }
+      const target = schedule.targets.find((t) => t.id === targetId);
+      const disable = target?.status === "active" && !!target.ruleId;
+      return {
+        targetType: "feature-rule" as const,
+        targetId,
+        patch: disable ? { ...patch, enabled: false } : patch,
+      };
+    },
   );
 
   if (actionsToApply.length > 0) {
@@ -1514,8 +1529,8 @@ export async function dispatchRampEvent<T extends RampFeatureEvent>(
       environments,
       containsSecrets: false,
     });
-  } catch (e) {
-    logger.error(e, `Error dispatching ramp schedule event ${event}`);
+  } catch {
+    // Dispatch failures are non-fatal for the calling lifecycle action.
   }
 }
 
@@ -1537,25 +1552,7 @@ export async function advanceUntilBlocked(
       current.cutoffDate <= now &&
       ["running", "paused", "pending-approval"].includes(current.status)
     ) {
-      const completed = await completeRollout(ctx, current);
-      const disableActions: RampStepAction[] = completed.targets
-        .filter((target) => target.status === "active" && !!target.ruleId)
-        .map((target) => ({
-          targetType: "feature-rule" as const,
-          targetId: target.id,
-          patch: {
-            ruleId: target.ruleId ?? "",
-            enabled: false,
-          },
-        }));
-      if (disableActions.length > 0) {
-        await executeStepActions(
-          ctx,
-          completed,
-          completed.steps.length,
-          disableActions,
-        );
-      }
+      await completeRollout(ctx, current, { disableActiveTargets: true });
       return;
     }
 
