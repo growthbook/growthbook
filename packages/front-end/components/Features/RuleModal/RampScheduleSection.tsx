@@ -957,14 +957,13 @@ export default function RampScheduleSection({
       if (!open) return null;
 
       const removeEffectButton = (onClick: () => void) => (
-        <Tooltip body="Remove effect">
+        <Tooltip body="Remove effect" tipMinWidth="50px">
           <IconButton
             variant="ghost"
             color="red"
             size="2"
             radius="full"
             onClick={onClick}
-            mr="1"
           >
             <PiTrash />
           </IconButton>
@@ -2026,7 +2025,7 @@ export default function RampScheduleSection({
           <Text as="label" weight="medium" mb="1">
             Guardrail Metrics
           </Text>
-          <Text as="div" size="small" color="text-mid" mb="2">
+          <Text as="div" size="small" mb="2">
             Automatically roll back the entire schedule if any of these metrics
             show a significant regression
           </Text>
@@ -2047,8 +2046,8 @@ export default function RampScheduleSection({
           <Text as="label" weight="medium" mb="1">
             Signal Metrics
           </Text>
-          <Text as="div" size="small" color="text-mid" mb="2">
-            If any of these metrics show a meaningful decline, hold at the
+          <Text as="div" size="small" mb="2">
+            If any of these metrics show a significant regression, hold at the
             current step until they recover or until manually advanced
           </Text>
           <MetricsSelector

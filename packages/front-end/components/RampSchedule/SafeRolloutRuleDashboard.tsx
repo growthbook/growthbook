@@ -1,5 +1,5 @@
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertDialog, Box, Flex } from "@radix-ui/themes";
+import { AlertDialog, Box, Flex, Separator } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { extent } from "@visx/vendor/d3-array";
 import { scaleTime } from "@visx/scale";
@@ -12,7 +12,7 @@ import {
   RampScheduleInterface,
   SafeRolloutInterface,
 } from "shared/validators";
-import { getValidDate } from "shared/dates";
+import { formatShortAgo, getValidDate } from "shared/dates";
 import {
   filterInvalidMetricTimeSeries,
   getSafeRolloutSnapshotAnalysis,
@@ -35,7 +35,7 @@ import {
 } from "shared/constants";
 import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import {
-  PiCaretRightFill,
+  PiCaretDownBold,
   PiInfo,
   PiLightning,
   PiLightningSlash,
@@ -66,13 +66,10 @@ import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import Metadata from "@/ui/Metadata";
 import Modal from "@/components/Modal";
 import MetricDrilldownOverview from "@/components/MetricDrilldown/MetricDrilldownOverview";
-import { RadixColor } from "@/ui/HelperText";
 import MonitoredIcon from "@/components/Features/RuleModal/MonitoredIcon";
 import {
   getRampHealthOverview,
   isOnMonitoredStep,
-  RampHealthSeverity,
-  RampMonitoringCTAs,
   useRampMonitoringSignals,
 } from "@/components/RampSchedule/RampMonitoringSignals";
 import {
@@ -1237,9 +1234,9 @@ function HealthChecks({
           className="link-purple font-weight-bold"
           style={{ display: "inline-flex", alignItems: "center", gap: 3 }}
         >
-          <PiCaretRightFill
+          <PiCaretDownBold
             style={{
-              transform: expanded ? "rotate(90deg)" : undefined,
+              transform: expanded ? undefined : "rotate(-90deg)",
               transition: "transform 0.15s",
             }}
           />
@@ -1410,41 +1407,21 @@ function HealthChecks({
   );
 }
 
-const SEVERITY_COLOR: Record<RampHealthSeverity, RadixColor> = {
-  critical: "red",
-  warning: "amber",
-  info: "blue",
-  healthy: "violet",
-  inactive: "gray",
-};
-
-function formatRelative(date: Date): string {
-  const diffMs = Date.now() - date.getTime();
-  const mins = Math.round(diffMs / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m`;
-  const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `${hrs}h`;
-  return `${Math.round(hrs / 24)}d`;
-}
-
-function formatUpdatedTimestamp(date: Date): string {
-  const rel = formatRelative(date);
-  return rel === "just now" ? "Updated just now" : `Updated ${rel} ago`;
-}
-
 function SafeRolloutStatusBar({
   rampSchedule,
   snapshot,
   safeRollout,
-  mutateAll,
+  detailsId,
+  controlsExpanded,
+  onToggleExpanded,
 }: {
   rampSchedule: RampScheduleInterface;
   snapshot?: SafeRolloutSnapshotInterface;
   safeRollout?: SafeRolloutInterface;
-  mutateAll: () => void;
+  detailsId: string;
+  controlsExpanded: boolean;
+  onToggleExpanded: () => void;
 }) {
-  const { apiCall } = useAuth();
   const signalResult = useRampMonitoringSignals(rampSchedule, {
     snapshot,
     safeRollout,
@@ -1461,39 +1438,6 @@ function SafeRolloutStatusBar({
     !!rampSchedule.monitoringStartDate ||
     (firstMonitoredStepIndex >= 0 &&
       rampSchedule.currentStepIndex >= firstMonitoredStepIndex);
-
-  const handleRollback = async (reason?: string) => {
-    await apiCall(`/ramp-schedule/${rampSchedule.id}/actions/rollback`, {
-      method: "POST",
-      body: JSON.stringify(reason ? { reason } : {}),
-    });
-    mutateAll();
-  };
-
-  const handleRestart = async () => {
-    await apiCall(`/ramp-schedule/${rampSchedule.id}/actions/restart`, {
-      method: "POST",
-    });
-    mutateAll();
-  };
-  const handleResume = async () => {
-    await apiCall(`/ramp-schedule/${rampSchedule.id}/actions/resume`, {
-      method: "POST",
-    });
-    mutateAll();
-  };
-  const handleApproveStep = async () => {
-    await apiCall(`/ramp-schedule/${rampSchedule.id}/actions/approve-step`, {
-      method: "POST",
-    });
-    mutateAll();
-  };
-  const handleAdvance = async () => {
-    await apiCall(`/ramp-schedule/${rampSchedule.id}/actions/advance`, {
-      method: "POST",
-    });
-    mutateAll();
-  };
 
   const lastSnapshotAt = snapshot?.dateCreated
     ? getValidDate(snapshot.dateCreated)
@@ -1512,83 +1456,82 @@ function SafeRolloutStatusBar({
     }
     return undefined;
   }, [snapshot]);
-
-  const color = SEVERITY_COLOR[overview.severity];
+  const iconColorBySeverity: Record<
+    ReturnType<typeof getRampHealthOverview>["severity"],
+    string
+  > = {
+    critical: "var(--red-9)",
+    warning: "var(--amber-10)",
+    info: "var(--blue-9)",
+    healthy: "var(--violet-9)",
+    inactive: "var(--gray-9)",
+  };
+  const statusIconColor = iconColorBySeverity[overview.severity];
 
   return (
-    <Box mb="2" style={{ overflow: "hidden" }}>
-      <Flex align="center" justify="between" gap="3" style={{ minHeight: 28 }}>
-        <Flex align="center" gap="2" style={{ minWidth: 0 }}>
-          <Flex align="center" gap="1">
-            <MonitoredIcon size={16} />
-            <Text size="medium" weight="semibold" color="text-high">
-              Monitoring
-            </Text>
-          </Flex>
-        </Flex>
-        <Flex align="center" gap="2" flexShrink="0">
-          {monitoringHasStarted && lastSnapshotAt && (
-            <Text size="small" color="text-mid" whiteSpace="nowrap">
-              {formatUpdatedTimestamp(lastSnapshotAt)}
-            </Text>
-          )}
-          {monitoringHasStarted && totalUsers !== undefined && (
-            <>
-              <Text size="small" color="text-low">
-                ·
-              </Text>
-              <Text size="small" color="text-mid" whiteSpace="nowrap">
-                {numberFmt.format(totalUsers)} users
-              </Text>
-            </>
-          )}
-        </Flex>
-      </Flex>
-
-      <Box
-        px="3"
-        py="3"
-        style={{
-          backgroundColor: `var(--${color}-a2)`,
-          border: `1px solid var(--${color}-a5)`,
-          borderRadius: 8,
-        }}
+    <Box>
+      <div
+        role="button"
+        aria-expanded={controlsExpanded}
+        aria-controls={detailsId}
+        onClick={onToggleExpanded}
+        style={{ cursor: "pointer" }}
       >
-        <Flex align="center" justify="between" gap="3">
-          <Flex align="center" gap="3" style={{ minWidth: 0 }}>
+        <Flex
+          align="center"
+          justify="between"
+          gap="3"
+          style={{ minHeight: 30 }}
+        >
+          <Flex align="start" gap="2" style={{ minWidth: 0 }}>
             <Box
               style={{
-                width: 10,
-                height: 10,
-                borderRadius: "50%",
-                backgroundColor: `var(--${color}-9)`,
+                width: 18,
                 flexShrink: 0,
+                display: "flex",
+                justifyContent: "center",
+                paddingTop: 1,
               }}
-            />
+            >
+              <MonitoredIcon size={18} style={{ color: statusIconColor }} />
+            </Box>
             <Flex direction="column" style={{ minWidth: 0 }}>
-              <Text size="medium" weight="semibold" color="text-high" truncate>
+              <Text size="large" weight="semibold" color="text-high" truncate>
                 {overview.label}
               </Text>
-              <Text size="small" color="text-mid" truncate>
+              <Text size="medium" color="text-mid">
                 {overview.summary}
               </Text>
             </Flex>
           </Flex>
 
           <Flex align="center" gap="2" flexShrink="0">
-            <RampMonitoringCTAs
-              rampSchedule={rampSchedule}
-              onRollback={handleRollback}
-              onRestart={handleRestart}
-              onResume={handleResume}
-              onApproveStep={handleApproveStep}
-              onAdvance={handleAdvance}
-              size="sm"
-              signalResult={signalResult}
+            {monitoringHasStarted && lastSnapshotAt && (
+              <Text size="medium" color="text-mid" whiteSpace="nowrap">
+                {formatShortAgo(lastSnapshotAt)}
+              </Text>
+            )}
+            {monitoringHasStarted && totalUsers !== undefined && (
+              <>
+                <Text size="medium" color="text-low">
+                  ·
+                </Text>
+                <Text size="medium" color="text-mid" whiteSpace="nowrap">
+                  {numberFmt.format(totalUsers)} users
+                </Text>
+              </>
+            )}
+            <PiCaretDownBold
+              style={{
+                transform: controlsExpanded ? undefined : "rotate(-90deg)",
+                transition: "transform 0.15s",
+                color: "var(--color-text-mid)",
+              }}
+              size={15}
             />
           </Flex>
         </Flex>
-      </Box>
+      </div>
     </Box>
   );
 }
@@ -1659,12 +1602,6 @@ function MonitoringControls({
 
   const latestSnap = latest ?? snapshot;
 
-  const queryStatusData = useMemo(() => {
-    if (!latestSnap) return null;
-    return getQueryStatus(latestSnap.queries, latestSnap.error);
-  }, [latestSnap]);
-
-  const status = queryStatusData?.status ?? "succeeded";
   const ds = datasourceId ? getDatasourceById(datasourceId) : null;
   const canRunQueries = ds
     ? permissionsUtil.canRunExperimentQueries(ds)
@@ -1740,6 +1677,7 @@ function MonitoringControls({
 
   return (
     <>
+      <Separator size="4" mb="3" />
       <Flex
         align="center"
         justify="between"
@@ -1789,18 +1727,9 @@ function MonitoringControls({
               <Tooltip
                 body={`Last update: ${getValidDate(lastUpdated).toLocaleString()}`}
               >
-                <span style={{ color: "var(--color-text-mid)" }}>
-                  Updated{" "}
-                  {(() => {
-                    const diffMs = Date.now() - lastUpdated.getTime();
-                    const mins = Math.round(diffMs / 60_000);
-                    if (mins < 1) return "just now";
-                    if (mins < 60) return `${mins}m ago`;
-                    const hrs = Math.round(mins / 60);
-                    if (hrs < 24) return `${hrs}h ago`;
-                    return `${Math.round(hrs / 24)}d ago`;
-                  })()}
-                </span>
+                <Text size="medium" color="text-mid" whiteSpace="nowrap">
+                  Updated: {formatShortAgo(lastUpdated)}
+                </Text>
               </Tooltip>
             )}
             {!lastUpdated && (
@@ -1809,60 +1738,38 @@ function MonitoringControls({
               </span>
             )}
           </Flex>
-
-          {canRunQueries && (
-            <RunQueriesButton
-              cta="Update"
-              cancelEndpoint={
-                latestSnap
-                  ? `/safe-rollout/snapshot/${latestSnap.id}/cancel`
-                  : ""
-              }
-              mutate={mutateSnapshot}
-              model={{
-                queries: latestSnap?.queries || [],
-                runStarted: latestSnap?.runStarted ?? null,
-              }}
-              icon="refresh"
-              useRadixButton
-              radixVariant="outline"
-              size="xs"
-              onSubmit={async () => {
-                try {
-                  await apiCall(`/safe-rollout/${safeRolloutId}/snapshot`, {
-                    method: "POST",
-                  });
-                  setRefreshError("");
-                } catch (e) {
-                  setRefreshError(e instanceof Error ? e.message : String(e));
+          <Flex align="center" gap="3">
+            {canRunQueries && (
+              <RunQueriesButton
+                cta="Update"
+                cancelEndpoint={
+                  latestSnap
+                    ? `/safe-rollout/snapshot/${latestSnap.id}/cancel`
+                    : ""
                 }
-                mutateSnapshot();
-              }}
-            />
-          )}
-
-          {latestSnap &&
-            (status === "failed" || status === "partially-succeeded") && (
-              <Tooltip
-                body={
-                  status === "failed"
-                    ? "Snapshot update failed. Click to view queries."
-                    : "Some queries had errors. Click to view."
-                }
-              >
-                <span
-                  style={{
-                    color: "var(--red-9)",
-                    cursor: "pointer",
-                    fontSize: 12,
-                    fontWeight: 500,
-                  }}
-                  onClick={() => setQueriesModalOpen(true)}
-                >
-                  {status === "failed" ? "Failed" : "Partial errors"} — view
-                </span>
-              </Tooltip>
+                mutate={mutateSnapshot}
+                model={{
+                  queries: latestSnap?.queries || [],
+                  runStarted: latestSnap?.runStarted ?? null,
+                }}
+                icon="refresh"
+                useRadixButton
+                radixVariant="outline"
+                size="xs"
+                onSubmit={async () => {
+                  try {
+                    await apiCall(`/safe-rollout/${safeRolloutId}/snapshot`, {
+                      method: "POST",
+                    });
+                    setRefreshError("");
+                  } catch (e) {
+                    setRefreshError(e instanceof Error ? e.message : String(e));
+                  }
+                  mutateSnapshot();
+                }}
+              />
             )}
+          </Flex>
         </Flex>
       </Flex>
 
@@ -2183,98 +2090,92 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
 
   const suppressMonitoringDetails =
     rampSchedule.status === "running" && !isOnMonitoredStep(rampSchedule);
+  const detailsId = `monitoring-details-${safeRolloutId ?? "preview"}`;
 
   return (
-    <Box mt="3" mb="2">
-      {safeRolloutId && (
-        <SafeRolloutStatusBar
-          rampSchedule={rampSchedule}
-          snapshot={
-            useDummyData ? dummyTrafficSnapshot : snapshotData?.snapshot
-          }
-          safeRollout={
-            useDummyData ? dummySafeRolloutForSignals : snapshotCtx.safeRollout
-          }
-          mutateAll={mutateAll}
-        />
-      )}
+    <Box mt="3">
+      <Box
+        px="4"
+        pt="3"
+        pb="2"
+        style={{
+          border: "1px solid var(--gray-a5)",
+          borderRadius: "var(--radius-3)",
+        }}
+      >
+        {safeRolloutId && (
+          <SafeRolloutStatusBar
+            rampSchedule={rampSchedule}
+            snapshot={
+              useDummyData ? dummyTrafficSnapshot : snapshotData?.snapshot
+            }
+            safeRollout={
+              useDummyData
+                ? dummySafeRolloutForSignals
+                : snapshotCtx.safeRollout
+            }
+            detailsId={detailsId}
+            controlsExpanded={controlsExpanded}
+            onToggleExpanded={() => setControlsExpanded((v) => !v)}
+          />
+        )}
 
-      {!suppressMonitoringDetails && (
-        <Box mb="2">
-          <div
-            className="link-purple font-weight-bold"
-            role="button"
-            aria-expanded={controlsExpanded}
-            aria-controls={`monitoring-details-${safeRolloutId ?? "preview"}`}
-            onClick={() => setControlsExpanded((v) => !v)}
-            style={{ display: "inline-flex", alignItems: "center" }}
-          >
-            <PiCaretRightFill
-              className="mr-1"
-              style={{
-                transform: controlsExpanded ? "rotate(90deg)" : undefined,
-                transition: "transform 0.15s",
-              }}
-            />
-            Monitoring Insights
-          </div>
-          {controlsExpanded && (
-            <Box id={`monitoring-details-${safeRolloutId ?? "preview"}`} mt="2">
-              {safeRolloutId && (
-                <MonitoringControls
-                  rampSchedule={rampSchedule}
-                  safeRolloutId={safeRolloutId}
-                  snapshot={
-                    useDummyData ? dummyTrafficSnapshot : snapshotData?.snapshot
-                  }
-                  latest={
-                    useDummyData ? dummyTrafficSnapshot : snapshotData?.latest
-                  }
-                  mutateSnapshot={mutateAll}
-                />
-              )}
-
-              {guardrailMetricIds.length > 0 && (
-                <MetricSection
-                  title="Guardrail Metrics"
-                  subtitle="Automatically roll back the ramp-up if any of these metrics show a statistically significant regression"
-                  metricIds={guardrailMetricIds}
-                  resultGroup="guardrail"
-                  snapshotMetrics={snapshotMetrics}
-                  timeSeries={timeSeriesMap}
-                  dateExtent={dateExtent}
-                  reportDate={snapshotDate}
-                  startDate={startDate}
-                  eventMarkers={eventMarkers}
-                  signalMetricIds={signalMetricIds}
-                />
-              )}
-
-              {signalMetricIds.length > 0 && (
-                <MetricSection
-                  title="Signal Metrics"
-                  subtitle="If any of these metrics show a regression, hold at the current step until healthy or manual advancement"
-                  metricIds={signalMetricIds}
-                  resultGroup="secondary"
-                  snapshotMetrics={snapshotMetrics}
-                  timeSeries={timeSeriesMap}
-                  dateExtent={dateExtent}
-                  reportDate={snapshotDate}
-                  startDate={startDate}
-                  eventMarkers={eventMarkers}
-                  signalMetricIds={signalMetricIds}
-                />
-              )}
-
-              <HealthChecks
+        {!suppressMonitoringDetails && controlsExpanded && (
+          <Box id={detailsId} mt="2" mb="1">
+            {safeRolloutId && (
+              <MonitoringControls
+                rampSchedule={rampSchedule}
+                safeRolloutId={safeRolloutId}
                 snapshot={
                   useDummyData ? dummyTrafficSnapshot : snapshotData?.snapshot
                 }
+                latest={
+                  useDummyData ? dummyTrafficSnapshot : snapshotData?.latest
+                }
+                mutateSnapshot={mutateAll}
               />
-            </Box>
-          )}
-        </Box>
-      )}
+            )}
+
+            {guardrailMetricIds.length > 0 && (
+              <MetricSection
+                title="Guardrail Metrics"
+                subtitle="Automatically roll back the ramp-up if any of these metrics show a statistically significant regression"
+                metricIds={guardrailMetricIds}
+                resultGroup="guardrail"
+                snapshotMetrics={snapshotMetrics}
+                timeSeries={timeSeriesMap}
+                dateExtent={dateExtent}
+                reportDate={snapshotDate}
+                startDate={startDate}
+                eventMarkers={eventMarkers}
+                signalMetricIds={signalMetricIds}
+              />
+            )}
+
+            {signalMetricIds.length > 0 && (
+              <MetricSection
+                title="Signal Metrics"
+                subtitle="If any of these metrics show a regression, hold at the current step until healthy or manual advancement"
+                metricIds={signalMetricIds}
+                resultGroup="secondary"
+                snapshotMetrics={snapshotMetrics}
+                timeSeries={timeSeriesMap}
+                dateExtent={dateExtent}
+                reportDate={snapshotDate}
+                startDate={startDate}
+                eventMarkers={eventMarkers}
+                signalMetricIds={signalMetricIds}
+              />
+            )}
+
+            <HealthChecks
+              snapshot={
+                useDummyData ? dummyTrafficSnapshot : snapshotData?.snapshot
+              }
+            />
+          </Box>
+        )}
+      </Box>
     </Box>
   );
 };
