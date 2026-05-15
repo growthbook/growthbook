@@ -1,10 +1,11 @@
 import { DateRange, DayPicker, Matcher } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import * as Popover from "@radix-ui/react-popover";
-import { format } from "date-fns";
+import { endOfDay, format, startOfDay } from "date-fns";
 import React, {
   ReactNode,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -41,6 +42,12 @@ type Props = {
   wrapRangeInputs?: boolean;
   compact?: boolean;
   disabled?: boolean;
+  fixedSpanMode?: {
+    phase: "committed" | "choosing";
+    anchorDate?: Date;
+    candidateRanges?: Array<{ from: Date; to: Date }>;
+    onDayPick: (day: Date) => void;
+  };
 };
 
 const modifiersClassNames = {
@@ -49,7 +56,15 @@ const modifiersClassNames = {
   activeDates: "activeDate",
   scheduleStartDate: "scheduleStartDate",
   scheduleEndDate: "scheduleEndDate",
+  candidateBefore: "candidateBefore",
+  candidateAfter: "candidateAfter",
+  comparisonAnchor: "comparisonAnchor",
 };
+
+function isDayWithinInclusiveRange(day: Date, from: Date, to: Date): boolean {
+  const t = day.getTime();
+  return t >= startOfDay(from).getTime() && t <= endOfDay(to).getTime();
+}
 
 /** Separator between start and end in the range text field (space-hyphen-space). */
 const RANGE_DISPLAY_SEP = " - ";
@@ -101,6 +116,7 @@ export default function DatePicker({
   wrapRangeInputs = false,
   compact = false,
   disabled,
+  fixedSpanMode,
 }: Props) {
   const inputHeight = compact ? 32 : 38;
   const compactFieldStyle: React.CSSProperties = compact
@@ -142,12 +158,37 @@ export default function DatePicker({
   const [rangeFieldFocused, setRangeFieldFocused] = useState(false);
   const fieldClickedTime = useRef(new Date());
 
+  useEffect(() => {
+    if (date) {
+      setBufferedDate(format(parseDateInput(date), dateFormat));
+    } else {
+      setBufferedDate("");
+    }
+    if (date2) {
+      setBufferedDate2(format(parseDateInput(date2), dateFormat));
+    } else {
+      setBufferedDate2("");
+    }
+  }, [date, date2, dateFormat, parseDateInput]);
+
   const disabledMatchers: Matcher[] = [];
   if (disableBefore) {
     disabledMatchers.push({ before: parseDateInput(disableBefore) });
   }
   if (disableAfter) {
     disabledMatchers.push({ after: parseDateInput(disableAfter) });
+  }
+
+  if (
+    fixedSpanMode?.phase === "choosing" &&
+    fixedSpanMode.candidateRanges?.length
+  ) {
+    const candidates = fixedSpanMode.candidateRanges;
+    disabledMatchers.push((day) => {
+      return !candidates.some((range) =>
+        isDayWithinInclusiveRange(day, range.from, range.to),
+      );
+    });
   }
 
   const markedDays: Record<string, Matcher | Matcher[] | undefined> = {};
@@ -167,7 +208,26 @@ export default function DatePicker({
     markedDays.scheduleEndDate = getValidDate(scheduleEndDate);
   }
 
-  const isRange = !!setDate2;
+  if (fixedSpanMode?.phase === "choosing" && fixedSpanMode.candidateRanges) {
+    const [beforeRange, afterRange] = fixedSpanMode.candidateRanges;
+    if (beforeRange) {
+      markedDays.candidateBefore = {
+        from: beforeRange.from,
+        to: beforeRange.to,
+      };
+    }
+    if (afterRange) {
+      markedDays.candidateAfter = {
+        from: afterRange.from,
+        to: afterRange.to,
+      };
+    }
+    if (fixedSpanMode.anchorDate) {
+      markedDays.comparisonAnchor = fixedSpanMode.anchorDate;
+    }
+  }
+
+  const isRange = !!setDate2 || !!fixedSpanMode;
 
   const rangeFieldValue = useMemo(() => {
     if (
@@ -324,6 +384,7 @@ export default function DatePicker({
                   <Field
                     id={id ?? ""}
                     disabled={disabled}
+                    readOnly={!!fixedSpanMode}
                     style={{
                       border: 0,
                       marginRight: -20,
@@ -351,6 +412,7 @@ export default function DatePicker({
                     }
                     value={isRange ? rangeFieldValue : bufferedDate}
                     onChange={(e) => {
+                      if (fixedSpanMode) return;
                       if (isRange) {
                         const v = e.target.value;
                         const [startPart, endPart] = splitRangeFieldInput(v);
@@ -415,7 +477,29 @@ export default function DatePicker({
               className={styles.Content}
               onOpenAutoFocus={(e) => e.preventDefault()}
             >
-              {isRange ? (
+              {fixedSpanMode ? (
+                <DayPicker
+                  mode="range"
+                  selected={
+                    fixedSpanMode.phase === "committed" && date && date2
+                      ? {
+                          from: parseDateInput(date),
+                          to: parseDateInput(date2),
+                        }
+                      : undefined
+                  }
+                  onDayClick={(day) => {
+                    fixedSpanMode.onDayPick(day);
+                  }}
+                  disabled={disabledMatchers}
+                  modifiers={markedDays}
+                  modifiersClassNames={modifiersClassNames}
+                  fixedWeeks
+                  showOutsideDays
+                  month={calendarMonth}
+                  onMonthChange={(m) => setCalendarMonth(m)}
+                />
+              ) : isRange ? (
                 <DayPicker
                   mode="range"
                   selected={{
