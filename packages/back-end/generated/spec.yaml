@@ -26072,6 +26072,42 @@ paths:
                                     required:
                                       - predefined
                                     additionalProperties: false
+                                  previousTimeFrame:
+                                    type: object
+                                    properties:
+                                      predefined:
+                                        type: string
+                                        enum:
+                                          - today
+                                          - last7Days
+                                          - last30Days
+                                          - last90Days
+                                          - customLookback
+                                          - customDateRange
+                                      lookbackValue:
+                                        anyOf:
+                                          - type: number
+                                          - type: 'null'
+                                      lookbackUnit:
+                                        anyOf:
+                                          - type: string
+                                            enum:
+                                              - hour
+                                              - day
+                                              - week
+                                              - month
+                                          - type: 'null'
+                                      startDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                      endDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                    required:
+                                      - predefined
+                                    additionalProperties: false
                                   showAs:
                                     type: string
                                     enum:
@@ -26348,6 +26384,42 @@ paths:
                                       - stackedHorizontalBar
                                       - bigNumber
                                   dateRange:
+                                    type: object
+                                    properties:
+                                      predefined:
+                                        type: string
+                                        enum:
+                                          - today
+                                          - last7Days
+                                          - last30Days
+                                          - last90Days
+                                          - customLookback
+                                          - customDateRange
+                                      lookbackValue:
+                                        anyOf:
+                                          - type: number
+                                          - type: 'null'
+                                      lookbackUnit:
+                                        anyOf:
+                                          - type: string
+                                            enum:
+                                              - hour
+                                              - day
+                                              - week
+                                              - month
+                                          - type: 'null'
+                                      startDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                      endDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                    required:
+                                      - predefined
+                                    additionalProperties: false
+                                  previousTimeFrame:
                                     type: object
                                     properties:
                                       predefined:
@@ -26668,6 +26740,42 @@ paths:
                                       - stackedHorizontalBar
                                       - bigNumber
                                   dateRange:
+                                    type: object
+                                    properties:
+                                      predefined:
+                                        type: string
+                                        enum:
+                                          - today
+                                          - last7Days
+                                          - last30Days
+                                          - last90Days
+                                          - customLookback
+                                          - customDateRange
+                                      lookbackValue:
+                                        anyOf:
+                                          - type: number
+                                          - type: 'null'
+                                      lookbackUnit:
+                                        anyOf:
+                                          - type: string
+                                            enum:
+                                              - hour
+                                              - day
+                                              - week
+                                              - month
+                                          - type: 'null'
+                                      startDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                      endDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                    required:
+                                      - predefined
+                                    additionalProperties: false
+                                  previousTimeFrame:
                                     type: object
                                     properties:
                                       predefined:
@@ -29277,6 +29385,42 @@ paths:
                   required:
                     - predefined
                   additionalProperties: false
+                previousTimeFrame:
+                  type: object
+                  properties:
+                    predefined:
+                      type: string
+                      enum:
+                        - today
+                        - last7Days
+                        - last30Days
+                        - last90Days
+                        - customLookback
+                        - customDateRange
+                    lookbackValue:
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                    lookbackUnit:
+                      anyOf:
+                        - type: string
+                          enum:
+                            - hour
+                            - day
+                            - week
+                            - month
+                        - type: 'null'
+                    startDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    endDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                  required:
+                    - predefined
+                  additionalProperties: false
                 showAs:
                   type: string
                   enum:
@@ -29610,6 +29754,42 @@ paths:
                                 required:
                                   - predefined
                                 additionalProperties: false
+                              previousTimeFrame:
+                                type: object
+                                properties:
+                                  predefined:
+                                    type: string
+                                    enum:
+                                      - today
+                                      - last7Days
+                                      - last30Days
+                                      - last90Days
+                                      - customLookback
+                                      - customDateRange
+                                  lookbackValue:
+                                    anyOf:
+                                      - type: number
+                                      - type: 'null'
+                                  lookbackUnit:
+                                    anyOf:
+                                      - type: string
+                                        enum:
+                                          - hour
+                                          - day
+                                          - week
+                                          - month
+                                      - type: 'null'
+                                  startDate:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                  endDate:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                required:
+                                  - predefined
+                                additionalProperties: false
                               showAs:
                                 type: string
                                 enum:
@@ -29881,6 +30061,42 @@ paths:
                     - stackedHorizontalBar
                     - bigNumber
                 dateRange:
+                  type: object
+                  properties:
+                    predefined:
+                      type: string
+                      enum:
+                        - today
+                        - last7Days
+                        - last30Days
+                        - last90Days
+                        - customLookback
+                        - customDateRange
+                    lookbackValue:
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                    lookbackUnit:
+                      anyOf:
+                        - type: string
+                          enum:
+                            - hour
+                            - day
+                            - week
+                            - month
+                        - type: 'null'
+                    startDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    endDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                  required:
+                    - predefined
+                  additionalProperties: false
+                previousTimeFrame:
                   type: object
                   properties:
                     predefined:
@@ -30258,6 +30474,42 @@ paths:
                                 required:
                                   - predefined
                                 additionalProperties: false
+                              previousTimeFrame:
+                                type: object
+                                properties:
+                                  predefined:
+                                    type: string
+                                    enum:
+                                      - today
+                                      - last7Days
+                                      - last30Days
+                                      - last90Days
+                                      - customLookback
+                                      - customDateRange
+                                  lookbackValue:
+                                    anyOf:
+                                      - type: number
+                                      - type: 'null'
+                                  lookbackUnit:
+                                    anyOf:
+                                      - type: string
+                                        enum:
+                                          - hour
+                                          - day
+                                          - week
+                                          - month
+                                      - type: 'null'
+                                  startDate:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                  endDate:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                required:
+                                  - predefined
+                                additionalProperties: false
                               showAs:
                                 type: string
                                 enum:
@@ -30538,6 +30790,42 @@ paths:
                     - stackedHorizontalBar
                     - bigNumber
                 dateRange:
+                  type: object
+                  properties:
+                    predefined:
+                      type: string
+                      enum:
+                        - today
+                        - last7Days
+                        - last30Days
+                        - last90Days
+                        - customLookback
+                        - customDateRange
+                    lookbackValue:
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                    lookbackUnit:
+                      anyOf:
+                        - type: string
+                          enum:
+                            - hour
+                            - day
+                            - week
+                            - month
+                        - type: 'null'
+                    startDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    endDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                  required:
+                    - predefined
+                  additionalProperties: false
+                previousTimeFrame:
                   type: object
                   properties:
                     predefined:
@@ -30897,6 +31185,42 @@ paths:
                                   - stackedHorizontalBar
                                   - bigNumber
                               dateRange:
+                                type: object
+                                properties:
+                                  predefined:
+                                    type: string
+                                    enum:
+                                      - today
+                                      - last7Days
+                                      - last30Days
+                                      - last90Days
+                                      - customLookback
+                                      - customDateRange
+                                  lookbackValue:
+                                    anyOf:
+                                      - type: number
+                                      - type: 'null'
+                                  lookbackUnit:
+                                    anyOf:
+                                      - type: string
+                                        enum:
+                                          - hour
+                                          - day
+                                          - week
+                                          - month
+                                      - type: 'null'
+                                  startDate:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                  endDate:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                required:
+                                  - predefined
+                                additionalProperties: false
+                              previousTimeFrame:
                                 type: object
                                 properties:
                                   predefined:
@@ -41961,6 +42285,42 @@ components:
                         required:
                           - predefined
                         additionalProperties: false
+                      previousTimeFrame:
+                        type: object
+                        properties:
+                          predefined:
+                            type: string
+                            enum:
+                              - today
+                              - last7Days
+                              - last30Days
+                              - last90Days
+                              - customLookback
+                              - customDateRange
+                          lookbackValue:
+                            anyOf:
+                              - type: number
+                              - type: 'null'
+                          lookbackUnit:
+                            anyOf:
+                              - type: string
+                                enum:
+                                  - hour
+                                  - day
+                                  - week
+                                  - month
+                              - type: 'null'
+                          startDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          endDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                        required:
+                          - predefined
+                        additionalProperties: false
                       showAs:
                         type: string
                         enum:
@@ -42237,6 +42597,42 @@ components:
                           - stackedHorizontalBar
                           - bigNumber
                       dateRange:
+                        type: object
+                        properties:
+                          predefined:
+                            type: string
+                            enum:
+                              - today
+                              - last7Days
+                              - last30Days
+                              - last90Days
+                              - customLookback
+                              - customDateRange
+                          lookbackValue:
+                            anyOf:
+                              - type: number
+                              - type: 'null'
+                          lookbackUnit:
+                            anyOf:
+                              - type: string
+                                enum:
+                                  - hour
+                                  - day
+                                  - week
+                                  - month
+                              - type: 'null'
+                          startDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          endDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                        required:
+                          - predefined
+                        additionalProperties: false
+                      previousTimeFrame:
                         type: object
                         properties:
                           predefined:
@@ -42557,6 +42953,42 @@ components:
                           - stackedHorizontalBar
                           - bigNumber
                       dateRange:
+                        type: object
+                        properties:
+                          predefined:
+                            type: string
+                            enum:
+                              - today
+                              - last7Days
+                              - last30Days
+                              - last90Days
+                              - customLookback
+                              - customDateRange
+                          lookbackValue:
+                            anyOf:
+                              - type: number
+                              - type: 'null'
+                          lookbackUnit:
+                            anyOf:
+                              - type: string
+                                enum:
+                                  - hour
+                                  - day
+                                  - week
+                                  - month
+                              - type: 'null'
+                          startDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          endDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                        required:
+                          - predefined
+                        additionalProperties: false
+                      previousTimeFrame:
                         type: object
                         properties:
                           predefined:
@@ -43826,6 +44258,42 @@ components:
                   required:
                     - predefined
                   additionalProperties: false
+                previousTimeFrame:
+                  type: object
+                  properties:
+                    predefined:
+                      type: string
+                      enum:
+                        - today
+                        - last7Days
+                        - last30Days
+                        - last90Days
+                        - customLookback
+                        - customDateRange
+                    lookbackValue:
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                    lookbackUnit:
+                      anyOf:
+                        - type: string
+                          enum:
+                            - hour
+                            - day
+                            - week
+                            - month
+                        - type: 'null'
+                    startDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    endDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                  required:
+                    - predefined
+                  additionalProperties: false
                 showAs:
                   type: string
                   enum:
@@ -44047,6 +44515,42 @@ components:
                     - stackedHorizontalBar
                     - bigNumber
                 dateRange:
+                  type: object
+                  properties:
+                    predefined:
+                      type: string
+                      enum:
+                        - today
+                        - last7Days
+                        - last30Days
+                        - last90Days
+                        - customLookback
+                        - customDateRange
+                    lookbackValue:
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                    lookbackUnit:
+                      anyOf:
+                        - type: string
+                          enum:
+                            - hour
+                            - day
+                            - week
+                            - month
+                        - type: 'null'
+                    startDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    endDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                  required:
+                    - predefined
+                  additionalProperties: false
+                previousTimeFrame:
                   type: object
                   properties:
                     predefined:
@@ -44312,6 +44816,42 @@ components:
                     - stackedHorizontalBar
                     - bigNumber
                 dateRange:
+                  type: object
+                  properties:
+                    predefined:
+                      type: string
+                      enum:
+                        - today
+                        - last7Days
+                        - last30Days
+                        - last90Days
+                        - customLookback
+                        - customDateRange
+                    lookbackValue:
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                    lookbackUnit:
+                      anyOf:
+                        - type: string
+                          enum:
+                            - hour
+                            - day
+                            - week
+                            - month
+                        - type: 'null'
+                    startDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    endDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                  required:
+                    - predefined
+                  additionalProperties: false
+                previousTimeFrame:
                   type: object
                   properties:
                     predefined:

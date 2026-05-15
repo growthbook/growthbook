@@ -1,5 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { flushSync } from "react-dom";
+import React, { useEffect, useRef, useState } from "react";
 import { Flex, Box, AlertDialog } from "@radix-ui/themes";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { PiDotsSix } from "react-icons/pi";
@@ -144,6 +143,25 @@ function ExplorerUrlSync({
   return null;
 }
 
+function ExplorerPreviousTimeFrameUrlSync({
+  setUrlPreviousTimeFrame,
+}: {
+  setUrlPreviousTimeFrame: (value: ExplorationDateRange | null) => void;
+}) {
+  const { draftExploreState } = useExplorerContext();
+  const hasUserModified = useRef(false);
+
+  useEffect(() => {
+    if (!hasUserModified.current) {
+      hasUserModified.current = true;
+      return;
+    }
+    void setUrlPreviousTimeFrame(draftExploreState.previousTimeFrame ?? null);
+  }, [draftExploreState.previousTimeFrame, setUrlPreviousTimeFrame]);
+
+  return null;
+}
+
 export default function Explorer({ type }: { type: DatasetType }) {
   return (
     <NuqsAdapter>
@@ -165,15 +183,6 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     previousTimeFrameParser,
   );
 
-  const setUrlPreviousTimeFrameSync = useCallback(
-    (value: ExplorationDateRange | null) => {
-      flushSync(() => {
-        void setUrlPreviousTimeFrame(value);
-      });
-    },
-    [setUrlPreviousTimeFrame],
-  );
-
   const rawParam =
     typeof window !== "undefined"
       ? (new URLSearchParams(window.location.search).get("config") ?? undefined)
@@ -193,8 +202,13 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     dataset: { ...defaultDataset, values: [createEmptyValue(type)] },
   } as ExplorationConfig;
 
-  const initialConfig =
-    urlConfig && !configError ? urlConfig : defaultDraftState;
+  const baseConfig = urlConfig && !configError ? urlConfig : defaultDraftState;
+  const initialConfig: ExplorationConfig = {
+    ...baseConfig,
+    ...(urlPreviousTimeFrame
+      ? { previousTimeFrame: urlPreviousTimeFrame }
+      : {}),
+  };
 
   return (
     <>
@@ -220,10 +234,11 @@ function ExplorerInner({ type }: { type: DatasetType }) {
         key={type}
         initialConfig={initialConfig}
         trackingSource="manual-explorer"
-        previousTimeFrame={urlPreviousTimeFrame}
-        onPreviousTimeFrameChange={setUrlPreviousTimeFrameSync}
       >
         <ExplorerUrlSync setUrlConfig={setUrlConfig} />
+        <ExplorerPreviousTimeFrameUrlSync
+          setUrlPreviousTimeFrame={setUrlPreviousTimeFrame}
+        />
         <ExplorerContent />
       </ExplorerProvider>
     </>

@@ -206,12 +206,10 @@ function ComparisonPreviousRangePicker({
 }: {
   shouldWrap?: boolean;
 }) {
-  const {
-    draftExploreState,
-    previousTimeFrame,
-    setPreviousTimeFrame,
-    compareEnabled,
-  } = useExplorerContext();
+  const { draftExploreState, setDraftExploreState, compareEnabled } =
+    useExplorerContext();
+
+  const previousTimeFrame = draftExploreState.previousTimeFrame;
 
   const previousTimeFrameRef = useRef(previousTimeFrame);
   previousTimeFrameRef.current = previousTimeFrame;
@@ -251,8 +249,11 @@ function ComparisonPreviousRangePicker({
     if (p.setEnd) {
       next.endDate = p.end ? format(p.end, "yyyy-MM-dd") : null;
     }
-    setPreviousTimeFrame(next);
-  }, [setPreviousTimeFrame]);
+    setDraftExploreState((prev) => ({
+      ...prev,
+      previousTimeFrame: next,
+    }));
+  }, [setDraftExploreState]);
 
   const queueSetStart = useCallback(
     (d: Date | undefined) => {
