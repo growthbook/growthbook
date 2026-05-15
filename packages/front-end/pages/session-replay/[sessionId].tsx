@@ -18,10 +18,41 @@ type SessionReplayRow = {
   urlFirst: string;
 };
 
-type SessionResponse = {
-  events: eventWithTime[];
+type SessionChunk = {
+  index: number;
+  signedUrl: string;
+  expiresAt: string;
+};
+
+type SessionChunksResponse = {
+  chunks: SessionChunk[];
   metadata: SessionReplayRow;
 };
+
+/**
+ * Fetch a single gzip-JSON chunk directly from S3 via its signed URL and
+ * decompress it in the browser. Uses the WHATWG `DecompressionStream` API
+ * (supported in current Chromium, Firefox, and Safari 16.4+).
+ *
+ * No `credentials` — the signed URL is the capability token. Sending cookies
+ * would also trigger a CORS preflight that the bucket isn't configured for.
+ */
+async function fetchAndDecompressChunk(
+  signedUrl: string,
+): Promise<eventWithTime[]> {
+  const resp = await fetch(signedUrl, { credentials: "omit" });
+  if (!resp.ok) {
+    throw new Error(
+      `Chunk fetch failed: HTTP ${resp.status} ${resp.statusText}`,
+    );
+  }
+  if (!resp.body) {
+    throw new Error("Chunk fetch returned an empty body");
+  }
+  const decompressed = resp.body.pipeThrough(new DecompressionStream("gzip"));
+  const text = await new Response(decompressed).text();
+  return JSON.parse(text) as eventWithTime[];
+}
 
 function canReplay(events: eventWithTime[]): boolean {
   if (events.length < 2) return false;
@@ -75,21 +106,70 @@ export default function SessionReplayDetailPage() {
 
   useEffect(() => {
     if (!sessionId) return;
+    let cancelled = false;
     setLoading(true);
     setError(null);
-    void apiCall<SessionResponse>(`/api/session-replay/${sessionId}`, {
-      method: "GET",
-    })
-      .then((data) => {
-        setEvents(data.events);
-        setMetadata(data.metadata);
-      })
-      .catch(() => {
-        setError("Failed to load session");
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+
+    const load = async () => {
+      try {
+        // Step 1: ask the back-end for the metadata + a list of signed S3
+        // URLs (one per chunk). The back-end does auth + chunk enumeration;
+        // we never see the raw S3 keys or bucket name.
+        //
+        // Note: `apiCall` only throws on responses where the JSON body has a
+        // `status >= 400` field. Controllers that send `res.status(...).json(
+        // {error: ...})` without a body-level `status` field will resolve
+        // silently — so we also defensively check the shape here and surface
+        // any malformed response as an error.
+        const response = await apiCall<
+          SessionChunksResponse | { status?: number; message?: string }
+        >(`/session-replay/${sessionId}/chunks`, { method: "GET" });
+
+        if (cancelled) return;
+
+        if (
+          !response ||
+          !("chunks" in response) ||
+          !Array.isArray(response.chunks)
+        ) {
+          const msg =
+            response && "message" in response && response.message
+              ? response.message
+              : "unexpected response shape";
+          throw new Error(`/session-replay/.../chunks failed: ${msg}`);
+        }
+
+        const { chunks, metadata: meta } = response;
+        setMetadata(meta);
+
+        // Step 2: fetch each chunk directly from S3 in parallel and
+        // decompress in the browser. Avoids piping replay payloads through
+        // the back-end.
+        const chunkEvents = await Promise.all(
+          chunks.map((c) => fetchAndDecompressChunk(c.signedUrl)),
+        );
+
+        if (cancelled) return;
+        setEvents(chunkEvents.flat());
+      } catch (e) {
+        if (cancelled) return;
+
+        console.error("Failed to load session replay", e);
+        setError(
+          e instanceof Error && e.message
+            ? e.message
+            : "Failed to load session",
+        );
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
   }, [apiCall, sessionId]);
 
   useEffect(() => {
@@ -163,14 +243,14 @@ export default function SessionReplayDetailPage() {
 
       {metadata && (
         <Box className="box p-4" mb="4">
-          <Text weight="semibold">Session {metadata.sessionId}</Text>
+          <Text weight="semibold">Session {metadata.sessionId} </Text>
           <Text color="text-mid">
-            User: {metadata.userId || "anonymous"} | Started:{" "}
+            | User: {metadata.userId || "anonymous"} | Started:{" "}
             {new Date(metadata.startedAt).toLocaleString()} | Duration:{" "}
             {formatDuration(metadata.durationMs)} | Events:{" "}
             {metadata.eventCount}
           </Text>
-          <Text color="text-mid">URL: {metadata.urlFirst || "-"}</Text>
+          <Text color="text-mid"> | URL: {metadata.urlFirst || "-"}</Text>
         </Box>
       )}
 

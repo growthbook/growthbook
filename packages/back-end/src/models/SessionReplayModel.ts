@@ -45,7 +45,7 @@ export class SessionReplayModel {
 
   protected canCreate(): boolean {
     // Ingestion bypasses this model entirely — sessions are created by the
-    // public /api/v1/session-replay/ingest endpoint authenticated by SDK
+    // public /ingest/session-replay endpoint authenticated by SDK
     // client key, not by an authenticated UI user.
     return false;
   }
@@ -153,9 +153,9 @@ export class SessionReplayModel {
       eventCount: row.event_count,
       urlFirst: row.url_first,
       urlsVisited: row.urls_visited,
-      attributes: row.attributes,
-      experiments: row.experiments,
-      flags: row.flags,
+      attributes: JSON.parse(row.attributes || "{}"),
+      experiments: JSON.parse(row.experiments || "[]"),
+      flags: JSON.parse(row.flags || "{}"),
       userAgent: row.user_agent,
       state: row.state,
     };

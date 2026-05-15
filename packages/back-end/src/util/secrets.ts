@@ -100,6 +100,17 @@ if ((prod || !IS_LOCALHOST) && !IS_CLOUD && JWT_SECRET === "dev") {
 
 export const AWS_ASSUME_ROLE = process.env.AWS_ASSUME_ROLE || "";
 
+// Optional override for the session-replay S3 bucket — replay payload chunks
+// are stored in their own bucket so that the back-end's read role can be
+// scoped separately from the general uploads bucket (`S3_BUCKET`). Leave
+// empty to disable signed-URL session-replay reads.
+export const S3_SESSION_REPLAY_BUCKET =
+  process.env.S3_SESSION_REPLAY_BUCKET || "";
+// Optional override for the role used to read the session-replay bucket. Falls
+// back to AWS_ASSUME_ROLE when unset, so single-role setups need no extra env.
+export const S3_SESSION_REPLAY_ASSUME_ROLE =
+  process.env.S3_SESSION_REPLAY_ASSUME_ROLE || AWS_ASSUME_ROLE;
+
 export const EMAIL_ENABLED = stringToBoolean(process.env.EMAIL_ENABLED);
 export const EMAIL_HOST = process.env.EMAIL_HOST;
 export const EMAIL_PORT = parseEnvInt(process.env.EMAIL_PORT, 587, {
@@ -330,6 +341,13 @@ export const CLICKHOUSE_OVERAGE_TABLE =
   process.env.CLICKHOUSE_OVERAGE_TABLE || "overage_events";
 
 export const CLOUD_SECRET = process.env.CLOUD_SECRET ?? "";
+
+// When true, managed ClickHouse provisioning (create/delete/recreate/etc.) is
+// delegated to central-license-server's /managed-clickhouse/* routes instead
+// of running the SQL commands directly from this process.
+export const MANAGED_CLICKHOUSE_USE_LICENSE_SERVER = stringToBoolean(
+  process.env.MANAGED_CLICKHOUSE_USE_LICENSE_SERVER,
+);
 
 // Note: the Visual Editor relies on the information in this path, so disabling it will prevent some features from working correctly.
 export const DISABLE_API_ROOT_PATH = stringToBoolean(

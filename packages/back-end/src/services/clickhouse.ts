@@ -15,6 +15,7 @@ import {
   ENVIRONMENT,
   IS_CLOUD,
   CLICKHOUSE_OVERAGE_TABLE,
+  MANAGED_CLICKHOUSE_USE_LICENSE_SERVER,
 } from "back-end/src/util/secrets";
 import type { ReqContext } from "back-end/types/request";
 import {
@@ -29,12 +30,11 @@ import {
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import {
-  addCloudSDKMappingViaLicenseServer,
-  createClickhouseUserViaLicenseServer,
-  dangerousRecreateClickhouseTablesViaLicenseServer,
-  deleteClickhouseUserViaLicenseServer,
-  migrateOverageEventsForOrgIdViaLicenseServer,
-  updateMaterializedColumnsInClickhouseViaLicenseServer,
+  addCloudSDKMapping as addCloudSDKMappingViaLicenseServer,
+  createClickhouseUser as createClickhouseUserViaLicenseServer,
+  dangerousRecreateClickhouseTables as dangerousRecreateClickhouseTablesViaLicenseServer,
+  deleteClickhouseUser as deleteClickhouseUserViaLicenseServer,
+  migrateOverageEventsForOrgId as migrateOverageEventsForOrgIdViaLicenseServer,
 } from "back-end/src/services/licenseServerManagedClickhouse";
 
 type ClickHouseDataType =
@@ -271,9 +271,9 @@ function getSessionReplaySQL(orgId: string): {
   error_count      UInt16,
   url_first        String,
   urls_visited     Array(String),
-  attributes       Map(String, String),
-  experiments      Array(Tuple(String, String)),
-  flags            Map(String, String),
+  attributes       String,
+  experiments      String,
+  flags            String,
   user_agent       String,
   country          LowCardinality(String),
   device           LowCardinality(String),
@@ -458,6 +458,26 @@ export async function _dangerousRecreateClickhouseTables(
   } finally {
     await unlockDataSource(context, datasource);
   }
+}
+
+/**
+ * Creates the session-replay materialized view for a single org if it does not
+ * already exist. Safe to call on orgs provisioned before
+ * CLICKHOUSE_SESSION_REPLAY_TABLE was set (i.e. the session_replays table
+ * exists but the MV is missing). Does not backfill historical rows.
+ */
+export async function createSessionReplayMVIfMissing(
+  orgId: string,
+): Promise<void> {
+  if (!CLICKHOUSE_SESSION_REPLAY_TABLE) return;
+  const { createView, viewName } = getSessionReplaySQL(orgId);
+  const client = createAdminClickhouseClient();
+  const idempotentSQL = createView.replace(
+    "CREATE MATERIALIZED VIEW ",
+    "CREATE MATERIALIZED VIEW IF NOT EXISTS ",
+  );
+  logger.info(`Creating session-replay MV ${viewName} if missing`);
+  await runCommand(client, idempotentSQL);
 }
 
 export async function deleteClickhouseUser(organization: string) {
@@ -778,9 +798,9 @@ export type SessionReplayRow = {
   error_count: number;
   url_first: string;
   urls_visited: string[];
-  attributes: Record<string, string>;
-  experiments: [string, string][];
-  flags: Record<string, string>;
+  attributes: string; // JSON
+  experiments: string; // JSON
+  flags: string; // JSON
   country: string;
   user_agent: string;
   device: string;
@@ -831,11 +851,22 @@ export async function listSessionReplays(
   const where =
     conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
+  // Note: the per-org session-replay table is literally named
+  // `session-replay-metadata` (hyphens — typo in central-license-server's
+  // managedClickhouseProvisioning.ts `baseTableName`), so we backtick it.
+  // It uses `ingested_at` (no `created_at` column), so we alias for the
+  // existing `SessionReplayRow` shape.
+  // Note: no FINAL — the license-server provisioning creates this as a plain
+  // MergeTree (ClickHouse Cloud auto-promotes to SharedMergeTree, which
+  // doesn't accept FINAL). The OLD per-org `session_replays` table was a
+  // ReplacingMergeTree(chunk_index) where FINAL was needed to dedupe Kafka
+  // redeliveries; the new MergeTree table doesn't dedupe at all (see deeper
+  // note below).
   const { rows } = await integration.runQuery(`
-    SELECT *
-    FROM session_replays FINAL
+    SELECT *, ingested_at AS created_at
+    FROM \`session-replay-metadata\`
     ${where}
-    ORDER BY created_at DESC
+    ORDER BY ingested_at DESC
     LIMIT ${limit}
     OFFSET ${offset}
   `);
@@ -865,8 +896,8 @@ export async function getSessionReplayBySessionId(
   const sanitizedSessionId = sessionId.replace(/[^a-zA-Z0-9_-]/g, "");
 
   const { rows } = await integration.runQuery(`
-    SELECT *
-    FROM session_replays FINAL
+    SELECT *, ingested_at AS created_at
+    FROM \`session-replay-metadata\`
     WHERE session_id = '${sanitizedSessionId}'
     LIMIT 1
   `);

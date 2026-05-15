@@ -54,6 +54,52 @@ type PluginOptions = {
    * transform hooks. Defaults to deny-by-default (every input masked).
    */
   privacy?: SessionReplayPrivacyConfig;
+  /**
+   * Periodic flush cadence (ms). Flushes also fire when the buffer
+   * reaches `flushEventCount` or `flushByteSize`, whichever happens
+   * first — this is the upper bound on how stale buffered events can
+   * be before being shipped. Stretching this longer reduces request
+   * volume and improves gzip ratios at the cost of more potential
+   * data loss on a crash/close.
+   * Default: 60_000 (60s).
+   */
+  flushIntervalMs?: number;
+  /**
+   * Trigger an early flush once the buffer reaches this many events.
+   * Acts as a count-based escape hatch so highly active sessions don't
+   * sit on a large unsent buffer for the full flush interval. Must be
+   * less than `maxBufferedEvents`.
+   * Default: 150.
+   */
+  flushEventCount?: number;
+  /**
+   * Trigger an early flush once the approximate serialized size of the
+   * buffer exceeds this many bytes. Computed as the running sum of
+   * `JSON.stringify(event).length` since the last flush; not exact
+   * (JS strings are UTF-16) but a close enough upper-bound estimate to
+   * keep payloads comfortably under the ingest endpoint's 10MB limit.
+   * Default: 262_144 (256KB).
+   */
+  flushByteSize?: number;
+  /**
+   * Hard cap on the in-memory event buffer. New events are dropped
+   * once the cap is hit so the buffer can't grow without bound if
+   * every flush is failing (e.g. user offline). Should be > `flushEventCount`
+   * — under normal conditions a flush will fire well before this cap
+   * is reached.
+   * Default: 500.
+   */
+  maxBufferedEvents?: number;
+  /**
+   * Gzip the request body via the browser's native `CompressionStream`
+   * before POSTing. When `CompressionStream` is unavailable
+   * (older Safari, etc.) or compression throws, falls back to sending
+   * uncompressed JSON. The ingest endpoint sees `Content-Encoding: gzip`
+   * and `express.json` inflates transparently — no server change
+   * required.
+   * Default: true.
+   */
+  compress?: boolean;
 };
 
 /**
@@ -84,7 +130,10 @@ function userOptedOutOfTracking(): boolean {
 declare global {
   interface Window {
     _gbReplayEvents: eventWithTime[];
-    _gbGetReplayEvents: () => eventWithTime[];
+    _gbGetReplayEvents: (options?: {
+      minTimestamp?: number;
+      maxTimestamp?: number;
+    }) => eventWithTime[];
   }
 }
 
@@ -101,6 +150,11 @@ export function sessionReplayPlugin({
   idleTimeoutMs = 15 * 60 * 1000,
   maxDurationMs = 30 * 60 * 1000,
   privacy,
+  flushIntervalMs = 60_000,
+  flushEventCount = 150,
+  flushByteSize = 256 * 1024,
+  maxBufferedEvents = 500,
+  compress = true,
 }: PluginOptions = {}) {
   if (typeof window === "undefined" || typeof document === "undefined") {
     throw new Error("sessionReplayPlugin only works in the browser");
@@ -117,8 +171,65 @@ export function sessionReplayPlugin({
   let hasUserInteraction = false;
   let sessionStartedAt = 0;
   let lastInteractionAt = 0;
+  let logCursor = 0;
   let flushInterval: ReturnType<typeof setInterval> | null = null;
   let idleCheckInterval: ReturnType<typeof setInterval> | null = null;
+  // Running estimate of the buffer's serialized size in bytes, used by the
+  // size-based flush trigger. Reset whenever the buffer is cleared. This is
+  // an upper-bound approximation — JSON string lengths count UTF-16 code
+  // units, not actual encoded bytes — but it's cheap to maintain (one
+  // JSON.stringify per emitted event) and good enough to keep payloads
+  // under the ingest endpoint's body-size limit.
+  let bufferedBytes = 0;
+
+  /**
+   * Gzip a string body via the browser's native CompressionStream API and
+   * return the compressed blob, or null if compression isn't available or
+   * fails. Caller is responsible for falling back to the raw payload and
+   * setting `Content-Encoding: gzip` only when this returns non-null.
+   */
+  const gzipString = async (body: string): Promise<Blob | null> => {
+    if (typeof CompressionStream === "undefined") return null;
+    try {
+      const inputStream = new Response(body).body;
+      if (!inputStream) return null;
+      const compressed = inputStream.pipeThrough(
+        new CompressionStream("gzip"),
+      );
+      return await new Response(compressed).blob();
+    } catch {
+      return null;
+    }
+  };
+
+  /**
+   * Fire-and-forget upload of one already-serialized chunk. Runs the gzip
+   * step asynchronously, but the caller (flushBuffer) has already cleared
+   * the buffer synchronously so new events can't be lost to a race between
+   * snapshot and clear.
+   */
+  const sendChunk = async (payload: string): Promise<void> => {
+    let body: BodyInit = payload;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (compress) {
+      const gz = await gzipString(payload);
+      if (gz) {
+        body = gz;
+        headers["Content-Encoding"] = "gzip";
+      }
+    }
+    // Use a regular fetch — even compressed, payloads can exceed
+    // sendBeacon/keepalive limits.
+    fetch(`${host}/ingest/session-replay`, {
+      method: "POST",
+      headers,
+      body,
+    }).catch(() => {
+      // best-effort
+    });
+  };
 
   const flushBuffer = () => {
     if (!gbRef || window._gbReplayEvents?.length === 0) return;
@@ -132,7 +243,11 @@ export function sessionReplayPlugin({
       gbRef.getAllResults().entries(),
     ).reduce(
       (acc, [key, { result }]) => {
-        acc[key] = result.value.variationId;
+        // `result` is a Result<T>; variationId lives at the top level, not on
+        // `result.value` (which is the variation's payload of type T). Reading
+        // `result.value.variationId` returned undefined for every entry, which
+        // JSON.stringify drops — leaving experiments as `"{}"` in the payload.
+        acc[key] = result.variationId;
         return acc;
       },
       {} as Record<string, number>,
@@ -146,12 +261,31 @@ export function sessionReplayPlugin({
     });
 
     const context = {
-      attributes: gbRef.getAttributes(),
-      experiments: evaluatedExperiments,
-      flags,
+      attributes: JSON.stringify(gbRef.getAttributes()),
+      experiments: JSON.stringify(evaluatedExperiments),
+      flags: JSON.stringify(flags),
     };
 
-    const events = window._gbGetReplayEvents();
+    const replayEvents = [...window._gbReplayEvents];
+    const minTimestamp = replayEvents.reduce(
+      (min, event) => Math.min(min, event.timestamp),
+      Number.POSITIVE_INFINITY,
+    );
+    const maxTimestamp = replayEvents.reduce(
+      (max, event) => Math.max(max, event.timestamp),
+      Number.NEGATIVE_INFINITY,
+    );
+
+    const events = window
+      ._gbGetReplayEvents({
+        minTimestamp:
+          minTimestamp === Number.POSITIVE_INFINITY
+            ? sessionStartedAt
+            : minTimestamp,
+        maxTimestamp:
+          maxTimestamp === Number.NEGATIVE_INFINITY ? Date.now() : maxTimestamp,
+      })
+      .sort((a, b) => a.timestamp - b.timestamp);
 
     // Pre-transmission regex scrubbing — last line of defense. Replaces
     // credit-card / SSN / email-shaped strings (and any customer-supplied
@@ -173,17 +307,15 @@ export function sessionReplayPlugin({
       context,
     });
 
-    // Use a regular fetch — payload is too large for sendBeacon/keepalive limits.
-    fetch(`${host}/ingest/session-replay`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: payload,
-    }).catch(() => {
-      // best-effort
-    });
-
+    // Clear the buffer SYNCHRONOUSLY before any await, so emits arriving
+    // while gzip is in flight land in a fresh buffer instead of being lost
+    // to a "clear-after-await" race. The previous chunkIndex is already
+    // baked into `payload`, so it's safe to increment here.
     chunkIndex++;
     window._gbReplayEvents.length = 0;
+    bufferedBytes = 0;
+
+    void sendChunk(payload);
   };
 
   const startRecording = () => {
@@ -204,7 +336,9 @@ export function sessionReplayPlugin({
     hasUserInteraction = false;
     sessionStartedAt = Date.now();
     lastInteractionAt = Date.now();
+    logCursor = gbRef?.logs?.length ?? 0;
     window._gbReplayEvents = [];
+    bufferedBytes = 0;
 
     const rrwebStop = record({
       emit(event: eventWithTime) {
@@ -215,9 +349,6 @@ export function sessionReplayPlugin({
         // events rrweb emits today; see scrubEventUrls for the contract.
         const scrubbedEvent = scrubEventUrls(event, privacy?.url);
 
-        if (window._gbReplayEvents.length < 200) {
-          window._gbReplayEvents.push(scrubbedEvent);
-        }
         // Only deliberate user actions count as interaction. Anything else
         // — DOM mutations, mouse drift, scroll, viewport resize from Chrome
         // collapsing its address bar — leaves us with sessions that look
@@ -228,12 +359,45 @@ export function sessionReplayPlugin({
         //   6  = TouchMove (touch input)
         //   12 = Drag
         // See rrweb-snapshot's IncrementalSource enum for the full list.
+        //
+        // Check this BEFORE the cap-and-push step so an interaction that
+        // arrives while we're at the hard buffer cap (e.g. all flushes are
+        // failing) still flips hasUserInteraction. Otherwise a dropped
+        // interaction event could leave the session stuck in pre-interaction
+        // limbo and never flush.
         if (event.type === 3) {
           const source = (event.data as { source?: number })?.source;
           if (source === 2 || source === 5 || source === 6 || source === 12) {
             hasUserInteraction = true;
             lastInteractionAt = Date.now();
           }
+        }
+
+        // Hard cap is a backstop for the pathological case where all flushes
+        // are failing (offline, ingest down) — without it the buffer would
+        // grow unboundedly. Under normal conditions the count/byte triggers
+        // below will fire well before this cap is hit. We drop NEW events
+        // rather than evict old ones so the type-2 snapshot at the head of
+        // the buffer (required for the player to initialize) is preserved.
+        if (window._gbReplayEvents.length >= maxBufferedEvents) return;
+
+        window._gbReplayEvents.push(scrubbedEvent);
+        // JSON.stringify length is a UTF-16 character count, not exact
+        // encoded bytes, but it's monotonically tied to the eventual
+        // serialized size — close enough for a "should we flush yet"
+        // threshold check.
+        bufferedBytes += JSON.stringify(scrubbedEvent).length;
+
+        // Pre-interaction flushes always no-op inside flushBuffer, so skip
+        // the trigger entirely to avoid wasted calls during the warm-up
+        // phase (which can pile up a lot of mutation events before the
+        // first click).
+        if (!hasUserInteraction) return;
+        if (
+          window._gbReplayEvents.length >= flushEventCount ||
+          bufferedBytes >= flushByteSize
+        ) {
+          flushBuffer();
         }
       },
       recordCanvas: false,
@@ -257,7 +421,7 @@ export function sessionReplayPlugin({
     stopFn = rrwebStop;
     isRecording = true;
 
-    flushInterval = setInterval(flushBuffer, 30_000);
+    flushInterval = setInterval(flushBuffer, flushIntervalMs);
     idleCheckInterval = setInterval(checkAndRotate, 60_000);
     // setInterval is throttled (or frozen entirely) on backgrounded tabs in
     // most browsers, so a tab left idle in the background can blow past
@@ -318,13 +482,30 @@ export function sessionReplayPlugin({
     clientKey = key;
 
     window._gbReplayEvents = window._gbReplayEvents || [];
-    window._gbGetReplayEvents = () => {
+    window._gbGetReplayEvents = (options) => {
       const customEvents: eventWithTime[] = [];
-      gb.logs?.forEach?.((log) => {
+      const logs = gb.logs || [];
+      const nextLogs = logs.slice(logCursor);
+      logCursor = logs.length;
+      nextLogs.forEach((log) => {
+        const timestamp = parseInt(log.timestamp);
+        if (!Number.isFinite(timestamp)) return;
+        if (
+          options?.minTimestamp !== undefined &&
+          timestamp < options.minTimestamp
+        ) {
+          return;
+        }
+        if (
+          options?.maxTimestamp !== undefined &&
+          timestamp > options.maxTimestamp
+        ) {
+          return;
+        }
         if (log.logType === "feature") {
           customEvents.push({
             type: 5,
-            timestamp: parseInt(log.timestamp),
+            timestamp,
             data: {
               tag: "feature-flag",
               payload: {
@@ -336,7 +517,7 @@ export function sessionReplayPlugin({
         } else if (log.logType === "experiment") {
           customEvents.push({
             type: 5,
-            timestamp: parseInt(log.timestamp),
+            timestamp,
             data: {
               tag: "experiment",
               payload: {

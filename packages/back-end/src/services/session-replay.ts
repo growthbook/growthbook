@@ -21,7 +21,9 @@ export async function getSessionReplayEventsByStoragePrefix(
   return eventsByChunk.flat();
 }
 
-function sortReplayChunkKeysByChunkIndex(chunkKeys: string[]): string[] {
+export function sortReplayChunkKeysByChunkIndex(
+  chunkKeys: string[],
+): string[] {
   return [...chunkKeys].sort((a, b) => {
     const chunkIndexA = parseChunkIndexFromKey(a);
     const chunkIndexB = parseChunkIndexFromKey(b);
@@ -29,7 +31,7 @@ function sortReplayChunkKeysByChunkIndex(chunkKeys: string[]): string[] {
   });
 }
 
-function parseChunkIndexFromKey(storageKey: string): number {
+export function parseChunkIndexFromKey(storageKey: string): number {
   const fileName = storageKey.split("/").pop() ?? "";
   const numericText = fileName.replace(".json.gz", "");
   const parsedNumber = parseInt(numericText, 10);

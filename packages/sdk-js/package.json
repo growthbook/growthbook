@@ -21,11 +21,11 @@
     "./plugins": {
       "import": {
         "types": "./dist/plugins/index.d.ts",
-        "default": "./dist/esm/plugins/index.mjs"
+        "default": "./dist/bundles/plugins.mjs"
       },
       "require": {
         "types": "./dist/plugins/index.d.ts",
-        "default": "./dist/cjs/plugins/index.js"
+        "default": "./dist/bundles/plugins.cjs"
       }
     }
   },

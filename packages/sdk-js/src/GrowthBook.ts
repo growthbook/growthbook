@@ -108,6 +108,8 @@ export class GrowthBook<
 
   private _autoExperimentsAllowed: boolean;
   private _destroyed?: boolean;
+  private _sessionReplayStart: (() => void) | undefined;
+  private _sessionReplayStop: (() => void) | undefined;
 
   constructor(options?: Options) {
     options = options || {};
@@ -536,6 +538,20 @@ export class GrowthBook<
 
   public onDestroy(cb: () => void) {
     this._destroyCallbacks.push(cb);
+  }
+
+  /** @internal — called by sessionReplayPlugin to register its handlers */
+  public _registerSessionReplay(start: () => void, stop: () => void) {
+    this._sessionReplayStart = start;
+    this._sessionReplayStop = stop;
+  }
+
+  public startSessionReplay() {
+    this._sessionReplayStart?.();
+  }
+
+  public stopSessionReplay() {
+    this._sessionReplayStop?.();
   }
 
   public isDestroyed() {

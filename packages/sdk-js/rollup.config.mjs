@@ -25,6 +25,34 @@ const terserSettings = terser({
 
 export default [
   {
+    // Plugins bundle — rrweb is inlined so consumers don't need it as a dep
+    input: "src/plugins/index.ts",
+    external: () => false,
+    output: [
+      {
+        file: "dist/bundles/plugins.mjs",
+        format: "esm",
+        sourcemap: true,
+      },
+      {
+        file: "dist/bundles/plugins.cjs",
+        format: "cjs",
+        sourcemap: true,
+      },
+    ],
+    plugins: [
+      resolve({ extensions, jsnext: true }),
+      replace({
+        "process.env.NODE_ENV": JSON.stringify("production"),
+        preventAssignment: true,
+      }),
+      babel({
+        babelHelpers: "bundled",
+        extensions,
+      }),
+    ],
+  },
+  {
     input: "src/index.ts",
     external: () => false,
     output: [

@@ -3,7 +3,10 @@
  * (see managed-clickhouse/* routes there).
  */
 import type { AIPromptType } from "shared/ai";
-import type { MaterializedColumn } from "shared/types/datasource";
+import type {
+  DataSourceParams,
+  MaterializedColumn,
+} from "shared/types/datasource";
 import type { DailyUsage } from "shared/types/organization";
 import { dailyUsageForOrgResponseValidator } from "shared/validators";
 import type { RequestInit, Response } from "node-fetch";
@@ -37,6 +40,17 @@ function errorDetailForLog(text: string, status: number): string {
   return trimmed;
 }
 
+/**
+ * Allow overriding the license-server base URL for managed-clickhouse calls
+ * only. Useful in dev where you want license validation / admin-page license
+ * fetches to continue hitting the production license server (which has your
+ * real license doc), but you need managed-clickhouse provisioning to flow
+ * through a local license-server instance that has the dev ClickHouse Cloud
+ * credentials. Falls back to LICENSE_SERVER_URL when unset.
+ */
+const MANAGED_CLICKHOUSE_LICENSE_SERVER_URL =
+  process.env.MANAGED_CLICKHOUSE_LICENSE_SERVER_URL || LICENSE_SERVER_URL;
+
 async function postManagedClickhouse(
   path: string,
   body: unknown,
@@ -46,9 +60,9 @@ async function postManagedClickhouse(
       "CLOUD_SECRET must be set to use license server managed ClickHouse",
     );
   }
-  const base = LICENSE_SERVER_URL.endsWith("/")
-    ? LICENSE_SERVER_URL
-    : `${LICENSE_SERVER_URL}/`;
+  const base = MANAGED_CLICKHOUSE_LICENSE_SERVER_URL.endsWith("/")
+    ? MANAGED_CLICKHOUSE_LICENSE_SERVER_URL
+    : `${MANAGED_CLICKHOUSE_LICENSE_SERVER_URL}/`;
   const url = `${base}managed-clickhouse/${path}`;
 
   const abortController = new AbortController();
@@ -138,8 +152,30 @@ async function postManagedClickhouseJson<T>(
   }
 }
 
+/**
+ * Provision a managed ClickHouse user/database/tables for the org via the
+ * license server. The second arg is accepted for parity with the in-process
+ * implementation in `clickhouse.ts`, but is intentionally not sent over the
+ * wire: the license server reads `materializedColumns` from the org's
+ * datasource record itself.
+ */
+export async function createClickhouseUser(
+  orgId: string,
+  _materializedColumns: MaterializedColumn[] = [],
+): Promise<DataSourceParams> {
+  const res = await postManagedClickhouse("provision", { orgId });
+  return (await res.json()) as DataSourceParams;
+}
+
+/**
+ * Drop & recreate the org's managed ClickHouse database/tables via the license
+ * server. `materializedColumns` is accepted for parity with the in-process
+ * implementation but is not sent: the license server reads it from the
+ * datasource record itself.
+ */
 export async function dangerousRecreateClickhouseTables(
   orgId: string,
+  _materializedColumns: MaterializedColumn[] = [],
 ): Promise<void> {
   await postManagedClickhouse("recreate-tables", { orgId });
 }
