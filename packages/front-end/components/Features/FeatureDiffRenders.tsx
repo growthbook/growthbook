@@ -2,7 +2,8 @@ import { ReactNode, ReactElement } from "react";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import isEqual from "lodash/isEqual";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowSquareOut } from "react-icons/pi";
+import { PiArrowSquareOut, PiWarningCircle } from "react-icons/pi";
+import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
 import {
   FeatureRule,
   FeaturePrerequisite,
@@ -164,63 +165,101 @@ function formatValue(val: string | unknown): string {
   return JSON.stringify(val, null, 2);
 }
 
-// Badge summary of a rule's env scope. Tri-state:
+// Icon + text summary of a rule's env scope. Tri-state:
 //   allEnvironments:true     → "All Environments"
-//   environments: [a, b, …]  → one badge per env
+//   environments: [a, b, …]  → one chip per env (green check)
 //   environments: []         → "No environments (pending)"
 //   environments: undefined  → null (legacy audit fallback)
-// Envs missing from the org list render in amber (deleted env tooltip).
-function RuleEnvScope({
-  rule,
-  size = "xs",
-}: {
-  rule: FeatureRule;
-  size?: "xs" | "sm" | "md" | "lg";
-}) {
+// Envs missing from the org list render in amber (orphaned).
+// Mirrors RuleEnvScopeBadges so diff views match the rule card visual language.
+function envScopeChip(envId: string) {
+  return (
+    <Flex key={envId} align="center" gap="1">
+      <span
+        style={{
+          color: "var(--green-11)",
+          fontSize: "var(--font-size-2)",
+          fontWeight: 500,
+        }}
+      >
+        {envId}
+      </span>
+      <FaRegCircleCheck size={14} style={{ color: "var(--green-11)" }} />
+    </Flex>
+  );
+}
+
+function envScopeOrphanedChip(envId: string) {
+  return (
+    <Tooltip
+      key={`orphaned-${envId}`}
+      body="Environment no longer exists"
+      tipPosition="top"
+      style={{ display: "inline-flex", alignItems: "center" }}
+    >
+      <Flex align="center" gap="1">
+        <span
+          style={{
+            color: "var(--amber-11)",
+            fontSize: "var(--font-size-2)",
+            textDecoration: "line-through",
+          }}
+        >
+          {envId}
+        </span>
+        <PiWarningCircle size={16} style={{ color: "var(--amber-11)" }} />
+      </Flex>
+    </Tooltip>
+  );
+}
+
+function RuleEnvScope({ rule }: { rule: FeatureRule }) {
   const environments = useEnvironments();
   const liveEnvIds = new Set(environments.map((e) => e.id));
   if (rule.allEnvironments) {
     return (
-      <Badge label="All Environments" color="gray" variant="soft" size={size} />
+      <Flex align="center" gap="1">
+        <span
+          style={{
+            color: "var(--green-11)",
+            fontSize: "var(--font-size-2)",
+            fontWeight: 500,
+          }}
+        >
+          All environments
+        </span>
+        <FaRegCircleCheck size={14} style={{ color: "var(--green-11)" }} />
+      </Flex>
     );
   }
   if (rule.environments === undefined) return null;
   if (rule.environments.length === 0) {
     return (
-      <Badge
-        label="No environments (pending)"
-        color="amber"
-        variant="soft"
-        size={size}
-      />
+      <Tooltip
+        body="Rule is not scoped to any environment and will not apply anywhere"
+        tipPosition="top"
+        innerClassName="p-2"
+        style={{ display: "inline-flex", alignItems: "center" }}
+      >
+        <Flex align="center" gap="1">
+          <span
+            style={{
+              color: "var(--amber-11)",
+              fontSize: "var(--font-size-2)",
+            }}
+          >
+            No environments (pending)
+          </span>
+          <PiWarningCircle size={16} style={{ color: "var(--amber-11)" }} />
+        </Flex>
+      </Tooltip>
     );
   }
   return (
-    <Flex gap="1" wrap="wrap" align="center">
-      {rule.environments.map((env) => {
-        const deleted = !liveEnvIds.has(env);
-        const badge = (
-          <Badge
-            key={env}
-            label={env}
-            color={deleted ? "amber" : "gray"}
-            variant="soft"
-            size={size}
-          />
-        );
-        return deleted ? (
-          <Tooltip
-            key={env}
-            body="Environment no longer exists"
-            tipPosition="top"
-            style={{ display: "inline-flex", alignItems: "center" }}
-          >
-            {badge}
-          </Tooltip>
-        ) : (
-          badge
-        );
-      })}
+    <Flex gap="4" wrap="wrap" align="center">
+      {rule.environments.map((env) =>
+        liveEnvIds.has(env) ? envScopeChip(env) : envScopeOrphanedChip(env),
+      )}
     </Flex>
   );
 }
@@ -440,7 +479,7 @@ function RuleFieldDiffs({
   if (envScopeChanged) {
     const renderScope = (r: FeatureRule): ReactNode =>
       r.allEnvironments || Array.isArray(r.environments) ? (
-        <RuleEnvScope rule={r} size="sm" />
+        <RuleEnvScope rule={r} />
       ) : (
         <em>unset</em>
       );
@@ -729,7 +768,7 @@ function NewRuleDetails({
         label="Environments"
         changed
         oldNode={<em>unset</em>}
-        newNode={<RuleEnvScope rule={rule} size="sm" />}
+        newNode={<RuleEnvScope rule={rule} />}
       />,
     );
   }
@@ -1678,14 +1717,61 @@ export function renderPrerequisites(
   return renderPrerequisiteList(current, draft);
 }
 
+// Icon + text "On"/"Off" indicator for an environment toggle. Matches the
+// visual language used by RuleEnvScopeBadges so diff views feel consistent
+// with the rule card.
+function EnvEnabledIndicator({ enabled }: { enabled: boolean }) {
+  const color = enabled ? "var(--green-11)" : "var(--gray-8)";
+  return (
+    <Flex align="center" gap="1" display="inline-flex">
+      <span
+        style={{
+          color,
+          fontSize: "var(--font-size-2)",
+          fontWeight: enabled ? 500 : 300,
+        }}
+      >
+        {enabled ? "On" : "Off"}
+      </span>
+      {enabled ? (
+        <FaRegCircleCheck size={14} style={{ color }} />
+      ) : (
+        <FaRegCircleXmark size={14} style={{ color }} />
+      )}
+    </Flex>
+  );
+}
+
 export function renderEnvironmentsEnabled(
-  envId: string,
   current: boolean | undefined,
   draft: boolean | undefined,
 ): ReactNode {
-  const toLabel = (v: boolean | undefined) =>
-    v === undefined ? null : v ? "enabled" : "disabled";
-  return <ValueChangedField pre={toLabel(current)} post={toLabel(draft)} />;
+  if (current === undefined && draft === undefined) return null;
+  if (current === draft) return null;
+  return (
+    <div className="d-flex align-items-center mb-2">
+      <div className="text-danger d-flex align-items-center">
+        <div className="text-center mr-2" style={{ width: 16 }}>
+          Δ
+        </div>
+        {current === undefined ? (
+          <em>unset</em>
+        ) : (
+          <EnvEnabledIndicator enabled={current} />
+        )}
+      </div>
+      <div className="d-flex align-items-center ml-4">
+        <div className="text-center mx-2" style={{ width: 16 }}>
+          →
+        </div>
+        {draft === undefined ? (
+          <em>unset</em>
+        ) : (
+          <EnvEnabledIndicator enabled={draft} />
+        )}
+      </div>
+    </div>
+  );
 }
 
 // Resolves a holdout ID to its display name and links to the holdout page.

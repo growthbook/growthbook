@@ -228,7 +228,7 @@ export function useFeatureRevisionDiff({
           title: `Environment Toggle - ${envId}`,
           a: String(currentVal),
           b: String(draftVal),
-          customRender: renderEnvironmentsEnabled(envId, currentVal, draftVal),
+          customRender: renderEnvironmentsEnabled(currentVal, draftVal),
           badges: [
             {
               label: `Toggled ${envId} ${direction}`,
