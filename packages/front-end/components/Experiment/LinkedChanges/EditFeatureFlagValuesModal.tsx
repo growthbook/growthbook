@@ -1,16 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useFieldArray, useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { ExperimentRefVariation } from "shared/validators";
+import { ExperimentRefVariation, Screenshot } from "shared/validators";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { validateFeatureValue, getReviewSetting } from "shared/util";
+import {
+  validateFeatureValue,
+  getReviewSetting,
+  generateVariationId,
+} from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
+import { PiPlusCircleFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -23,8 +28,12 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Text from "@/ui/Text";
-import { decimalToPercent } from "@/services/utils";
+import Field from "@/components/Forms/Field";
+import Callout from "@/ui/Callout";
+import { decimalToPercent, percentToDecimal } from "@/services/utils";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import Link from "@/ui/Link";
+import { getDefaultVariationValue } from "@/services/features";
 
 export interface Props {
   feature: FeatureInterface;
@@ -38,9 +47,17 @@ type FeatureRevisionResponse = {
   revisionList: MinimalFeatureRevisionInterface[];
 };
 
-type FormValues = {
-  variationValues: { variationId: string; value: string }[];
+type VariationRow = {
+  id: string;
+  name: string;
+  description?: string;
+  key: string;
+  screenshots: Screenshot[];
+  weight: number;
+  value: string;
 };
+
+type FormValues = { variations: VariationRow[] };
 
 export default function EditFeatureFlagValuesModal({
   feature,
@@ -58,26 +75,39 @@ export default function EditFeatureFlagValuesModal({
   );
   const revisionList = data?.revisionList ?? [];
 
-  const variations = useMemo(
+  const latestPhase = experiment.phases?.[experiment.phases.length - 1];
+
+  const phaseVariations = useMemo(
     () => getLatestPhaseVariations(experiment),
     [experiment],
   );
 
-  const initialValues = useMemo<
-    { variationId: string; value: string }[]
-  >(() => {
-    return variations.map((v) => {
-      const existing = info.values.find((x) => x.variationId === v.id);
-      return {
-        variationId: v.id,
-        value: existing?.value ?? "",
-      };
-    });
-  }, [variations, info.values]);
+  const initialVariations = useMemo<VariationRow[]>(
+    () =>
+      phaseVariations.map((v, i) => ({
+        id: v.id,
+        name: v.name,
+        description: v.description ?? "",
+        key: v.key,
+        screenshots: v.screenshots ?? [],
+        weight: latestPhase?.variationWeights?.[i] ?? 0,
+        value: info.values.find((x) => x.variationId === v.id)?.value ?? "",
+      })),
+    [phaseVariations, latestPhase?.variationWeights, info.values],
+  );
 
   const form = useForm<FormValues>({
-    defaultValues: { variationValues: initialValues },
+    defaultValues: { variations: initialVariations },
   });
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "variations",
+  });
+
+  const existingVariationIds = useMemo(
+    () => new Set(experiment.variations.map((v) => v.id)),
+    [experiment.variations],
+  );
 
   const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
     const raw = settings?.requireReviews;
@@ -100,6 +130,7 @@ export default function EditFeatureFlagValuesModal({
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
+  const [isEditingVariations, setIsEditingVariations] = useState(false);
 
   useEffect(() => {
     if (!canAutoPublish && mode === "publish") {
@@ -107,10 +138,27 @@ export default function EditFeatureFlagValuesModal({
     }
   }, [canAutoPublish, mode]);
 
-  const latestPhase = experiment.phases?.[experiment.phases.length - 1];
-  const variationWeights = latestPhase?.variationWeights ?? [];
+  const watchedVariations = form.watch("variations");
 
-  const variationValues = form.watch("variationValues");
+  const weightSum = (watchedVariations ?? []).reduce(
+    (acc, v) => acc + (Number(v?.weight) || 0),
+    0,
+  );
+  const weightSumPct = decimalToPercent(weightSum);
+  const weightsOutOfBalance = Math.abs(weightSum - 1) > 1e-4;
+
+  const handleAddVariation = () => {
+    append({
+      id: generateVariationId(),
+      name: `Variation ${fields.length}`,
+      description: "",
+      key: String(fields.length),
+      screenshots: [],
+      weight: 0,
+      value: getDefaultVariationValue(feature.defaultValue ?? ""),
+    });
+    setIsEditingVariations(true);
+  };
 
   return (
     <ModalStandard
@@ -130,21 +178,43 @@ export default function EditFeatureFlagValuesModal({
         />
       }
       submit={form.handleSubmit(async (values) => {
-        const updatedVariationValues: ExperimentRefVariation[] =
-          values.variationValues.map((v) => {
-            const fixed = validateFeatureValue(feature, v.value ?? "", "");
-            return { variationId: v.variationId, value: fixed };
-          });
+        const rows = values.variations;
 
-        const needsRefix = updatedVariationValues.some(
-          (v, i) => v.value !== values.variationValues[i].value,
+        const updatedRefVariations: ExperimentRefVariation[] = rows.map(
+          (r) => ({
+            variationId: r.id,
+            value: validateFeatureValue(feature, r.value ?? "", ""),
+          }),
+        );
+
+        const needsRefix = updatedRefVariations.some(
+          (v, i) => v.value !== (rows[i].value ?? ""),
         );
         if (needsRefix) {
-          form.setValue("variationValues", updatedVariationValues);
+          updatedRefVariations.forEach((v, i) => {
+            form.setValue(`variations.${i}.value`, v.value);
+          });
           throw new Error(
             "We fixed some errors in the values. If they look correct, submit again.",
           );
         }
+
+        const updatedVariationWeights = rows.map((r) => Number(r.weight) || 0);
+        const weightSumCheck = updatedVariationWeights.reduce(
+          (a, w) => a + w,
+          0,
+        );
+        if (Math.abs(weightSumCheck - 1) > 1e-4) {
+          throw new Error("Variation splits must sum to 100%.");
+        }
+
+        const updatedVariations = rows.map((r) => ({
+          id: r.id,
+          name: r.name,
+          description: r.description,
+          key: r.key,
+          screenshots: r.screenshots,
+        }));
 
         const revisionOptions =
           mode === "publish"
@@ -158,11 +228,11 @@ export default function EditFeatureFlagValuesModal({
           {
             method: "POST",
             body: JSON.stringify({
-              variations: experiment.variations,
-              variationWeights,
+              variations: updatedVariations,
+              variationWeights: updatedVariationWeights,
               features: {
                 [feature.id]: {
-                  variations: updatedVariationValues,
+                  variations: updatedRefVariations,
                   revisionOptions,
                 },
               },
@@ -186,68 +256,201 @@ export default function EditFeatureFlagValuesModal({
           <LoadingOverlay />
         </Box>
       ) : (
-        <Flex direction="column" gap="3" pt="2">
-          {variations.map((v, i) => (
-            <Box key={v.id}>
-              <Flex justify="between" width="100%" mb="3">
-                <Flex align="center" direction="row" gap="2">
-                  <Flex align="center">
-                    <Box
-                      className={`variation with-variation-label variation${i}`}
+        <>
+          {isEditingVariations && weightsOutOfBalance && (
+            <Callout status="warning" my="2">
+              Variation splits must sum to 100% — currently {weightSumPct}%.
+            </Callout>
+          )}
+          <Flex direction="column" gap="3" pt="2">
+            {fields.map((field, i) => {
+              const row = watchedVariations?.[i] ?? field;
+              const rowWeight = Number(row?.weight) || 0;
+
+              if (isEditingVariations) {
+                const isNewVariation = !existingVariationIds.has(row.id);
+                const weightPct = decimalToPercent(rowWeight);
+                return (
+                  <Box key={field.id}>
+                    <Flex direction="row" gap="3" align="start">
+                      <Box style={{ paddingTop: 28 }}>
+                        <Box
+                          className={`variation with-variation-label variation${i}`}
+                        >
+                          <span className="label">{i}</span>
+                        </Box>
+                      </Box>
+                      <Flex
+                        direction="column"
+                        gap="3"
+                        style={{ flex: 1, minWidth: 0 }}
+                      >
+                        <Flex direction="row" gap="3" align="end">
+                          <Box style={{ flex: 1 }}>
+                            <Field
+                              label="Name"
+                              containerClassName="mb-0"
+                              {...form.register(`variations.${i}.name`)}
+                            />
+                          </Box>
+                          <Box style={{ width: 140 }}>
+                            <Field
+                              label="Split %"
+                              type="number"
+                              min={0}
+                              max={100}
+                              step="1"
+                              containerClassName="mb-0"
+                              append="%"
+                              value={isNaN(weightPct) ? "" : weightPct}
+                              onChange={(e) => {
+                                const raw = e.target.value;
+                                if (raw === "") {
+                                  form.setValue(`variations.${i}.weight`, 0);
+                                  return;
+                                }
+                                let decimal = percentToDecimal(raw);
+                                if (isNaN(decimal)) decimal = 0;
+                                if (decimal < 0) decimal = 0;
+                                if (decimal > 1) decimal = 1;
+                                form.setValue(
+                                  `variations.${i}.weight`,
+                                  decimal,
+                                );
+                              }}
+                            />
+                          </Box>
+                        </Flex>
+                        <Field
+                          label="Description"
+                          containerClassName="mb-0"
+                          {...form.register(`variations.${i}.description`)}
+                        />
+                        <Box>
+                          <Text as="label" weight="semibold">
+                            Value
+                          </Text>
+                          <FeatureValueField
+                            id={`variation-${row.id}`}
+                            value={row.value ?? ""}
+                            setValue={(val) =>
+                              form.setValue(`variations.${i}.value`, val)
+                            }
+                            valueType={feature.valueType}
+                            feature={feature}
+                            renderJSONInline={true}
+                            useCodeInput={true}
+                            showFullscreenButton={true}
+                          />
+                        </Box>
+                      </Flex>
+                      <Box style={{ paddingTop: 24 }}>
+                        <DropdownMenu
+                          trigger={
+                            <IconButton
+                              variant="ghost"
+                              color="gray"
+                              radius="full"
+                              size="2"
+                              highContrast
+                              style={{ margin: 0 }}
+                            >
+                              <BsThreeDotsVertical size={18} />
+                            </IconButton>
+                          }
+                          menuPlacement="end"
+                          variant="soft"
+                        >
+                          <DropdownMenuItem
+                            color="red"
+                            disabled={!isNewVariation}
+                            onClick={() => {
+                              if (!isNewVariation) return;
+                              remove(i);
+                            }}
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenu>
+                      </Box>
+                    </Flex>
+                    {i < fields.length - 1 && <Separator size="4" my="4" />}
+                  </Box>
+                );
+              }
+
+              return (
+                <Box key={field.id}>
+                  <Flex justify="between" width="100%" mb="3">
+                    <Flex align="center" direction="row" gap="2">
+                      <Flex align="center">
+                        <Box
+                          className={`variation with-variation-label variation${i}`}
+                        >
+                          <span className="label">{i}</span>
+                        </Box>
+                        <Text weight="semibold" size="large">
+                          {row.name}
+                        </Text>
+                      </Flex>
+                      <Box as="span">&middot;</Box>
+                      <Text color="text-mid">
+                        {decimalToPercent(rowWeight)}% Split
+                      </Text>
+                    </Flex>
+                    <DropdownMenu
+                      trigger={
+                        <IconButton
+                          variant="ghost"
+                          color="gray"
+                          radius="full"
+                          size="2"
+                          highContrast
+                          style={{ margin: 0 }}
+                        >
+                          <BsThreeDotsVertical size={18} />
+                        </IconButton>
+                      }
+                      menuPlacement="end"
+                      variant="soft"
                     >
-                      <span className="label">{i}</span>
-                    </Box>
-                    <Text weight="semibold" size="large">
-                      {v.name}
-                    </Text>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setIsEditingVariations(true);
+                        }}
+                      >
+                        Edit
+                      </DropdownMenuItem>
+                    </DropdownMenu>
                   </Flex>
-                  <Box as="span">&middot;</Box>
-                  <Text color="text-mid">
-                    {decimalToPercent(latestPhase?.variationWeights?.[i] ?? 0)}%
-                    Split
-                  </Text>
-                </Flex>
-                <DropdownMenu
-                  trigger={
-                    <IconButton
-                      variant="ghost"
-                      color="gray"
-                      radius="full"
-                      size="2"
-                      highContrast
-                      style={{ margin: 0 }}
-                    >
-                      <BsThreeDotsVertical size={18} />
-                    </IconButton>
-                  }
-                  menuPlacement="end"
-                  variant="soft"
-                >
-                  <DropdownMenuItem
-                    onClick={() => {
-                      // setModalOpen(p);
-                    }}
-                  >
-                    Edit
-                  </DropdownMenuItem>
-                </DropdownMenu>
-              </Flex>
-              <FeatureValueField
-                id={`variation-${v.id}`}
-                value={variationValues?.[i]?.value ?? ""}
-                setValue={(val) =>
-                  form.setValue(`variationValues.${i}.value`, val)
-                }
-                valueType={feature.valueType}
-                feature={feature}
-                renderJSONInline={true}
-                useCodeInput={true}
-                showFullscreenButton={true}
-              />
-              {i < variations.length - 1 && <Separator size="4" my="4" />}
-            </Box>
-          ))}
-        </Flex>
+                  <FeatureValueField
+                    id={`variation-${row.id}`}
+                    value={row.value ?? ""}
+                    setValue={(val) =>
+                      form.setValue(`variations.${i}.value`, val)
+                    }
+                    valueType={feature.valueType}
+                    feature={feature}
+                    renderJSONInline={true}
+                    useCodeInput={true}
+                    showFullscreenButton={true}
+                  />
+                  {i < fields.length - 1 && <Separator size="4" my="4" />}
+                </Box>
+              );
+            })}
+          </Flex>
+          <Separator size="4" mt="4" mb="6" />
+          <Link
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              handleAddVariation();
+            }}
+          >
+            <PiPlusCircleFill /> Add Variation
+          </Link>
+        </>
       )}
     </ModalStandard>
   );

@@ -111,7 +111,10 @@ export default function LinkedFeatureFlag({
   );
 
   const showEditButton =
-    canEdit && info.state !== "discarded" && info.state !== "locked";
+    canEdit &&
+    experiment.status === "draft" &&
+    info.state !== "discarded" &&
+    info.state !== "locked";
 
   return (
     <>
@@ -218,7 +221,59 @@ export default function LinkedFeatureFlag({
           )}
         {info.state === "draft" &&
           !info.hasMergeConflict &&
-          !info.hasUnrelatedDraftChanges && (
+          !info.hasUnrelatedDraftChanges &&
+          info.draftModifiesLiveRule && (
+            <Callout
+              status="info"
+              my="4"
+              icon={<PiGitMerge style={{ fontSize: "1.2em" }} />}
+            >
+              {info.pendingApproval ? (
+                <>
+                  A <strong>draft</strong> revision is updating this
+                  feature&apos;s variation values for the experiment,{" "}
+                  {info.draftRevisionStatus === "approved" ? (
+                    <>
+                      and has been <strong>approved</strong>. Publishing it will
+                      update the live experiment values.
+                    </>
+                  ) : (
+                    <>
+                      pending approval. Once approved and published, the values
+                      shown above will take effect.
+                    </>
+                  )}
+                  <Box mt="1">
+                    <Link
+                      href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""}`}
+                      target="_blank"
+                    >
+                      Review and approve draft
+                      <PiArrowSquareOut className="ml-1" />
+                    </Link>
+                  </Box>
+                </>
+              ) : (
+                <>
+                  A <strong>draft</strong> revision is updating this
+                  feature&apos;s variation values for the experiment. The values
+                  shown above are from the draft and will take effect once
+                  it&apos;s published.{" "}
+                  <Link
+                    href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""}`}
+                    target="_blank"
+                  >
+                    Review draft
+                    <PiArrowSquareOut className="ml-1" />
+                  </Link>
+                </>
+              )}
+            </Callout>
+          )}
+        {info.state === "draft" &&
+          !info.hasMergeConflict &&
+          !info.hasUnrelatedDraftChanges &&
+          !info.draftModifiesLiveRule && (
             <Callout
               status="info"
               my="4"

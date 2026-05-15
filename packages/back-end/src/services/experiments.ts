@@ -33,6 +33,7 @@ import {
   isDefined,
   liveRevisionFromFeature,
   MatchingRule,
+  naiveFlattenV1Rules,
   validateCondition,
 } from "shared/util";
 import { getSRMValue } from "shared/health";
@@ -4067,25 +4068,62 @@ export async function getLinkedFeatureInfo(
   const filter = (rule: FeatureRule) =>
     rule.type === "experiment-ref" && rule.experimentId === experiment.id;
 
+  // Slice the experiment-ref rules matching this experiment from a rules
+  // array (works for both feature.rules and revision.rules). Used to detect
+  // whether a draft is actually changing this experiment's rule vs. just
+  // inheriting it unchanged from live.
+  const refRulesForExperiment = (rules: unknown): FeatureRule[] =>
+    naiveFlattenV1Rules(rules).filter(
+      (r) =>
+        r.type === "experiment-ref" &&
+        (r as ExperimentRefRule).experimentId === experiment.id,
+    );
+
   const linkedFeatureInfo = await Promise.all(
     features.map(async (feature) => {
       const revisions = revisionsByFeatureId[feature.id] || [];
 
       const liveMatches = getMatchingRules(feature, filter, environments);
+      const liveRefRules = refRulesForExperiment(feature.rules);
+
+      // Walk draft revisions newest-first and pick:
+      //   1. (preferred) a draft whose experiment-ref rule slice DIFFERS from
+      //      live — i.e. the draft is making changes to this experiment's
+      //      rule. Used to flip state to "draft" even when live already has
+      //      a matching rule (running-experiment edit case).
+      //   2. (fallback) the first draft with any experiment-ref match for
+      //      this experiment, even if unchanged from live. Preserves the
+      //      legacy path where a draft is introducing the rule for the first
+      //      time (experiment not yet started).
+      const activeDrafts = revisions
+        .filter(
+          (r) =>
+            DRAFT_REVISION_STATUSES.includes(r.status) &&
+            r.version > feature.version,
+        )
+        .sort((a, b) => b.version - a.version);
 
       let matchedDraftRevision: (typeof revisions)[0] | undefined;
-      const draftMatches = (() => {
-        for (const r of revisions.filter((r) =>
-          DRAFT_REVISION_STATUSES.includes(r.status),
-        )) {
-          const m = getMatchingRules(feature, filter, environments, r);
-          if (m.length > 0) {
-            matchedDraftRevision = r;
-            return m;
-          }
+      let draftMatches: MatchingRule[] = [];
+      let draftModifiesLiveRule = false;
+
+      for (const r of activeDrafts) {
+        const m = getMatchingRules(feature, filter, environments, r);
+        if (m.length === 0) continue;
+        const draftRefRules = refRulesForExperiment(r.rules);
+        if (!isEqual(draftRefRules, liveRefRules)) {
+          matchedDraftRevision = r;
+          draftMatches = m;
+          draftModifiesLiveRule = true;
+          break;
         }
-        return [];
-      })();
+        // Remember the first draft with matches as a fallback if no draft
+        // actually modifies the rule.
+        if (!matchedDraftRevision) {
+          matchedDraftRevision = r;
+          draftMatches = m;
+        }
+      }
 
       const lockedMatches =
         revisions
@@ -4100,6 +4138,12 @@ export async function getLinkedFeatureInfo(
       let matches: MatchingRule[] = [];
       if (feature.archived) {
         state = "archived";
+      } else if (draftModifiesLiveRule) {
+        // A draft is changing this experiment's rule — surface the pending
+        // change even if the rule is already live. Render uses draft values
+        // so the user sees what publishing will produce.
+        state = "draft";
+        matches = draftMatches;
       } else if (liveMatches.length > 0) {
         state = "live";
         matches = liveMatches;
@@ -4211,6 +4255,7 @@ export async function getLinkedFeatureInfo(
         ...(hasUnrelatedDraftChanges !== undefined && {
           hasUnrelatedDraftChanges,
         }),
+        ...(draftModifiesLiveRule && { draftModifiesLiveRule }),
       };
 
       return info;
