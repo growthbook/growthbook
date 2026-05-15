@@ -140,9 +140,12 @@ export const FilterDropdown: FC<{
       return;
     }
 
-    if (showSearchFilter) {
+    if (!showSearchFilter) return;
+
+    const focusTimer = setTimeout(() => {
       inputRef.current?.focus();
-    }
+    }, 0);
+    return () => clearTimeout(focusTimer);
   }, [filter, open, showSearchFilter]);
 
   return (
