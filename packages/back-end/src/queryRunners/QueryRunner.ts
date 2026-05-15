@@ -188,6 +188,11 @@ export abstract class QueryRunner<
     return this.pendingTimers[id] !== undefined;
   }
 
+  // Called from the per-query heartbeat interval (~every 30s while any query
+  // is executing). Subclasses that hold an external lock can override this to
+  // refresh it; the default is a no-op.
+  protected onHeartbeat(): void {}
+
   async onQueryFinish() {
     if (!this.timer) {
       logger.debug(
@@ -623,6 +628,7 @@ export abstract class QueryRunner<
       updateQuery(this.context, doc, { heartbeat: new Date() }).catch((e) => {
         logger.error(e);
       });
+      this.onHeartbeat();
     }, 30000);
 
     // Run the query in the background

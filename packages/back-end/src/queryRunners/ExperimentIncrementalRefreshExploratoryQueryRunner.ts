@@ -213,6 +213,17 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
     );
   }
 
+  protected override onHeartbeat(): void {
+    this.context.models.incrementalRefresh
+      .touchLockHeartbeat(this.model.experiment, this.model.id)
+      .catch((e) =>
+        this.context.logger.warn(
+          e,
+          "Failed to refresh incremental refresh lock heartbeat",
+        ),
+      );
+  }
+
   async startQueries(
     params: ExperimentIncrementalRefreshExploratoryQueryParams,
   ): Promise<Queries> {

@@ -881,6 +881,17 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     );
   }
 
+  protected override onHeartbeat(): void {
+    this.context.models.incrementalRefresh
+      .touchLockHeartbeat(this.model.experiment, this.model.id)
+      .catch((e) =>
+        this.context.logger.warn(
+          e,
+          "Failed to refresh incremental refresh lock heartbeat",
+        ),
+      );
+  }
+
   async startQueries(
     params: ExperimentIncrementalRefreshQueryParams,
   ): Promise<Queries> {
