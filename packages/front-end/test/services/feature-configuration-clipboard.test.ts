@@ -195,9 +195,37 @@ describe("feature reference extraction and mapping", () => {
     expect(parsedCondition.$or[0].id.$inGroup).toBe("grp_A2");
     expect(parsedCondition.$or[1].id.$notInGroup).toBe("grp_B2");
 
+    // environmentSettings keys are NOT remapped — the importer regenerates
+    // env settings from the destination org, so any mapping here would be
+    // dropped downstream. Leaving them untouched keeps the source manifest
+    // free of phantom env references that would force the mapping modal.
     expect(Object.keys(mapped.environmentSettings ?? {}).sort()).toEqual([
-      "development",
-      "production",
+      "dev",
+      "staging",
     ]);
+  });
+
+  it("does not collect environmentSettings keys as references", () => {
+    // A feature with only allEnvironments-true rules has no cross-org env
+    // refs — its envSettings keys must not pollute the reference manifest.
+    const ids = extractFeatureReferenceIds({
+      id: "f",
+      valueType: "boolean",
+      defaultValue: "false",
+      rules: [
+        {
+          id: "fr_force",
+          type: "force",
+          description: "",
+          allEnvironments: true,
+          value: "true",
+        },
+      ],
+      environmentSettings: {
+        dev: { enabled: true },
+        production: { enabled: false },
+      },
+    });
+    expect(Array.from(ids.environments)).toEqual([]);
   });
 });

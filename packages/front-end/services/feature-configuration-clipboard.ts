@@ -117,15 +117,14 @@ export function extractFeatureReferenceIds(
       }
     }
     // Rule env scope — only meaningful when allEnvironments is false; with
-    // the wildcard set, environments[] is ignored at evaluation.
+    // the wildcard set, environments[] is ignored at evaluation. The keys of
+    // `feature.environmentSettings` are deliberately NOT collected: the
+    // importer rebuilds env settings from the destination org wholesale, so
+    // those keys aren't transferred and shouldn't trigger the mapping modal.
     if (!rule.allEnvironments && rule.environments?.length) {
       rule.environments.forEach((env) => ids.environments.add(env));
     }
   });
-
-  Object.keys(feature.environmentSettings ?? {}).forEach((env) =>
-    ids.environments.add(env),
-  );
 
   return ids;
 }
@@ -303,19 +302,12 @@ export function applyFeatureReferenceMappings(
   feature: GrowthBookFeatureClipboardFeature,
   mappings: FeatureReferenceMappings,
 ): GrowthBookFeatureClipboardFeature {
-  const envMap = mappings.environments;
-  const remappedEnvSettings = feature.environmentSettings
-    ? Object.fromEntries(
-        Object.entries(feature.environmentSettings).map(([env, settings]) => [
-          envMap[env] ?? env,
-          settings,
-        ]),
-      )
-    : feature.environmentSettings;
-
+  // `environmentSettings` is deliberately not remapped: the importer
+  // regenerates env settings from the destination org (see FeatureModal's
+  // `genEnvironmentSettings`), so any mapping applied here would be silently
+  // discarded downstream. Env mappings only matter for rule-level scoping.
   return {
     ...feature,
-    environmentSettings: remappedEnvSettings,
     rules: feature.rules.map((rule) => applyMappingsToRule(rule, mappings)),
   };
 }

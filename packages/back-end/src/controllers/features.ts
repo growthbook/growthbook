@@ -3603,17 +3603,27 @@ export async function postFeatureImportDraft(
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
+  const orgEnvironmentIds = new Set(allEnvironments.map((e) => e.id));
 
+  // Drop env keys that aren't applicable to this feature's project — the
+  // client sends every org env, but project env-scoping may shrink the valid
+  // set. Anything outside the org entirely is a real error from a stale or
+  // hostile client.
   Object.keys(environmentsEnabled).forEach((env) => {
-    if (!environmentIds.includes(env)) {
+    if (!orgEnvironmentIds.has(env)) {
       throw new Error(`Invalid environment: ${env}`);
     }
   });
+  const filteredEnvironmentsEnabled = Object.fromEntries(
+    Object.entries(environmentsEnabled).filter(([env]) =>
+      environmentIds.includes(env),
+    ),
+  );
 
   // Publish permission is only required for environments whose enabled state
   // differs from the live feature — those are the ones a future publish of
   // this draft would actually flip.
-  const envsRequiringPublish = Object.entries(environmentsEnabled)
+  const envsRequiringPublish = Object.entries(filteredEnvironmentsEnabled)
     .filter(
       ([env, enabled]) =>
         (feature.environmentSettings?.[env]?.enabled ?? false) !== enabled,
@@ -3643,7 +3653,7 @@ export async function postFeatureImportDraft(
     publish: false,
     changes: {
       rules: importedRules,
-      environmentsEnabled,
+      environmentsEnabled: filteredEnvironmentsEnabled,
     },
     org,
     canBypassApprovalChecks: false,
