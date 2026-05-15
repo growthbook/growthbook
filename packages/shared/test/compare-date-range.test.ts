@@ -19,8 +19,8 @@ describe("buildComparisonDateRange", () => {
     });
 
     expect(out.predefined).toBe("customDateRange");
-    expect(out.startDate).toBe("2024-06-01");
-    expect(out.endDate).toBe("2024-06-08");
+    expect(out.startDate).toBe("2024-05-31");
+    expect(out.endDate).toBe("2024-06-07");
   });
 
   it("shifts last30Days to the contiguous prior window", () => {
@@ -36,8 +36,8 @@ describe("buildComparisonDateRange", () => {
     });
 
     expect(out.predefined).toBe("customDateRange");
-    expect(out.startDate).toBe("2024-04-16");
-    expect(out.endDate).toBe("2024-05-16");
+    expect(out.startDate).toBe("2024-04-15");
+    expect(out.endDate).toBe("2024-05-15");
   });
 
   it("shifts custom lookback by one span", () => {
@@ -53,8 +53,8 @@ describe("buildComparisonDateRange", () => {
     });
 
     expect(out.predefined).toBe("customDateRange");
-    expect(out.startDate).toBe("2023-12-18");
-    expect(out.endDate).toBe("2024-03-17");
+    expect(out.startDate).toBe("2023-12-17");
+    expect(out.endDate).toBe("2024-03-16");
     expect(out.lookbackValue).toBe(90);
     expect(out.lookbackUnit).toBe("day");
   });

@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { format } from "date-fns";
 import type {
   ExplorationConfig,
   ProductAnalyticsExploration,
@@ -22,16 +21,8 @@ import {
   type ExplorationColumn,
   type RenderOpts,
 } from "@/enterprise/components/ProductAnalytics/util";
+import { formatExplorerDateRangeHeading } from "@/enterprise/components/ProductAnalytics/compareUtil";
 import { useDefinitions } from "@/services/DefinitionsContext";
-
-function formatExplorerDateRangeHeading(dr: {
-  startDate: Date;
-  endDate: Date;
-}): string {
-  const s = format(dr.startDate, "MMM d, yyyy");
-  const e = format(dr.endDate, "MMM d, yyyy");
-  return s === e ? s : `${s} – ${e}`;
-}
 
 /**
  * Format a raw cell value (from the shared column schema) for display in the

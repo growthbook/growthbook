@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import {
   buildComparisonDateRange,
@@ -24,12 +24,13 @@ export type BigNumberComparisonTrend = {
   pctChange: number;
 };
 
-function formatExplorerDateRangeHeading(dr: {
+export function formatExplorerDateRangeHeading(dr: {
   startDate: Date;
   endDate: Date;
 }): string {
-  const s = format(dr.startDate, "MMM d, yyyy");
-  const e = format(dr.endDate, "MMM d, yyyy");
+  const pattern = "MMM d, yyyy";
+  const s = formatInTimeZone(dr.startDate, "UTC", pattern);
+  const e = formatInTimeZone(dr.endDate, "UTC", pattern);
   return s === e ? s : `${s} – ${e}`;
 }
 
