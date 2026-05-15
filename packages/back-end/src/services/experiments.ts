@@ -4124,7 +4124,7 @@ export async function getLinkedFeatureInfo(
         const m = getMatchingRules(feature, filter, environments, r);
         if (m.length === 0) continue;
         const draftRefRules = refRulesForExperiment(r.rules);
-        if (!isEqual(draftRefRules, liveRefRules)) {
+        if (liveRefRules.length > 0 && !isEqual(draftRefRules, liveRefRules)) {
           matchedDraftRevision = r;
           draftMatches = m;
           draftModifiesLiveRule = true;
