@@ -59,6 +59,39 @@ describe("feature configuration clipboard payloads", () => {
     });
   });
 
+  it("roundtrips experiment rule bandit start dates as Date instances", () => {
+    const banditDate = new Date("2026-02-15T10:30:00.000Z");
+    const banditFeature: FeatureInterface = {
+      ...feature,
+      rules: [
+        {
+          id: "fr_bandit",
+          type: "experiment",
+          description: "",
+          allEnvironments: true,
+          trackingKey: "tk",
+          hashAttribute: "id",
+          values: [{ value: "a", weight: 0.5 }],
+          banditStage: "explore",
+          banditStageDateStarted: banditDate,
+        },
+      ],
+    };
+
+    const payload = parseFeatureConfigurationClipboardPayload(
+      buildFeatureConfigurationClipboardPayload(banditFeature),
+    );
+
+    expect(payload).not.toBeNull();
+    const rule = payload?.feature.rules[0];
+    expect(rule?.type).toBe("experiment");
+    if (rule?.type !== "experiment") return;
+    expect(rule.banditStageDateStarted).toBeInstanceOf(Date);
+    expect(rule.banditStageDateStarted?.toISOString()).toBe(
+      banditDate.toISOString(),
+    );
+  });
+
   it("ignores non-JSON clipboard text", () => {
     expect(parseFeatureConfigurationClipboardPayload("not json")).toBeNull();
   });

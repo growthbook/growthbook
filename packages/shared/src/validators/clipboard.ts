@@ -13,6 +13,25 @@ const clipboardJSONSchemaDef = JSONSchemaDef.extend({
   ),
 });
 
+// JSON.stringify turns Date fields on `featureRule` (currently
+// `banditStageDateStarted`) into ISO strings, which `z.date()` rejects on
+// safeParse. Coerce any known date fields back to Date instances before the
+// rule union validator runs.
+const RULE_DATE_FIELDS = ["banditStageDateStarted"] as const;
+export const clipboardFeatureRule = z.preprocess((value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const obj = value as Record<string, unknown>;
+  let next: Record<string, unknown> | null = null;
+  for (const field of RULE_DATE_FIELDS) {
+    const current = obj[field];
+    if (typeof current === "string") {
+      next = next ?? { ...obj };
+      next[field] = new Date(current);
+    }
+  }
+  return next ?? value;
+}, featureRule);
+
 export const growthbookClipboardMetadata = z
   .object({
     source: z.literal("growthbook"),
@@ -63,7 +82,7 @@ export const growthbookFeatureClipboardFeature = z
     defaultValue: z.string(),
     tags: z.array(z.string()).optional(),
     environmentSettings: z.record(z.string(), featureEnvironment).optional(),
-    rules: z.array(featureRule),
+    rules: z.array(clipboardFeatureRule),
     customFields: z.record(z.string(), z.any()).optional(),
     jsonSchema: clipboardJSONSchemaDef.optional(),
     neverStale: z.boolean().optional(),

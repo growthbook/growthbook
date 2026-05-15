@@ -41,7 +41,7 @@ import {
   RevisionRampAction,
   RevisionRampCreateAction,
   RevisionRampDetachAction,
-  featureRule,
+  clipboardFeatureRule,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import {
@@ -3570,7 +3570,7 @@ export async function postFeatureCreateDraft(
 
 const featureImportDraftBodySchema = z
   .object({
-    rules: z.array(featureRule),
+    rules: z.array(clipboardFeatureRule),
     environmentsEnabled: z.record(z.string(), z.boolean()),
     title: z.string().optional(),
     comment: z.string().optional(),

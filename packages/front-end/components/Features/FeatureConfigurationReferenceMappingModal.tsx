@@ -321,6 +321,7 @@ export function payloadHasReferences(
     r.experiments.length > 0 ||
     r.savedGroups.length > 0 ||
     r.safeRollouts.length > 0 ||
-    r.features.length > 0
+    r.features.length > 0 ||
+    r.environments.length > 0
   );
 }
