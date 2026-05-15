@@ -124,8 +124,10 @@ export const advanceSingleRampSchedule = async (
         }),
       });
       await applyRampStartActions(context, current);
-      // SR creation/sync happens in the "running" block below in the same
-      // tick, so we don't need to wait a scheduler tick to pick it up.
+      // For ready->running, SR creation/sync happens in the "running" block
+      // below in the same tick, so we don't need to wait another scheduler
+      // tick to pick it up. Pending->running may already have done this inline
+      // via onActivatingRevisionPublished.
     }
 
     if (current.status === "running") {

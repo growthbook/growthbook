@@ -215,7 +215,7 @@ describe("ramp-monitored SDK payload", () => {
       expect(rule.variations).toBeUndefined();
     });
 
-    it("falls back to standard rollout when rule has no seed", () => {
+    it("uses feature id as payload seed when monitored rollout has no seed", () => {
       const feature = makeRolloutFeature({
         rules: [
           {
@@ -233,8 +233,9 @@ describe("ramp-monitored SDK payload", () => {
 
       const def = getDefinition(feature, monitoredMap("rule_1"));
       const rule = def!.rules![0];
-      expect(rule.force).toBe(true);
-      expect(rule.variations).toBeUndefined();
+      expect(rule.variations).toEqual([true, false]);
+      expect(rule.seed).toBe(feature.id);
+      expect(rule.filters?.[0]?.seed).toBe(feature.id);
     });
 
     it("includes experiment name when includeExperimentNames is set", () => {

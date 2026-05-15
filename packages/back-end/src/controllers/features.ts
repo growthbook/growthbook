@@ -197,6 +197,18 @@ import {
 } from "back-end/src/util/custom-fields";
 import { getInitialFeatureJsonSchema } from "back-end/src/util/feature-json-schema";
 
+function normalizeRampStepAction(a: {
+  targetType?: string;
+  targetId?: string;
+  patch: Record<string, unknown>;
+}): RampStepAction {
+  return {
+    targetType: "feature-rule",
+    targetId: a.targetId ?? "",
+    patch: a.patch as RampStepAction["patch"],
+  };
+}
+
 /**
  * Routes an envelope change through the revision system.
  * Bundles into the specified draft (by version) if provided; otherwise falls
@@ -2143,15 +2155,6 @@ export async function postFeatureRule(
     rule.id
   ) {
     if (rampSchedulePayload.mode === "create") {
-      const normalizeAction = (a: {
-        targetType?: string;
-        targetId?: string;
-        patch: Record<string, unknown>;
-      }): RampStepAction => ({
-        targetType: "feature-rule" as const,
-        targetId: a.targetId ?? "",
-        patch: a.patch as RampStepAction["patch"],
-      });
       const createAction: RevisionRampCreateAction = {
         mode: "create",
         name: rampSchedulePayload.name,
@@ -2166,7 +2169,7 @@ export async function postFeatureRule(
             trigger:
               s.trigger as RevisionRampCreateAction["steps"][number]["trigger"],
             actions: (s.actions ?? []).map((a: unknown) =>
-              normalizeAction(a as { patch: Record<string, unknown> }),
+              normalizeRampStepAction(a as { patch: Record<string, unknown> }),
             ),
             approvalNotes: s.approvalNotes ?? undefined,
             monitored: !!s.monitored,
@@ -2174,10 +2177,10 @@ export async function postFeatureRule(
           }),
         ),
         startActions: rampSchedulePayload.startActions?.map((a: unknown) =>
-          normalizeAction(a as { patch: Record<string, unknown> }),
+          normalizeRampStepAction(a as { patch: Record<string, unknown> }),
         ),
         endActions: rampSchedulePayload.endActions?.map((a: unknown) =>
-          normalizeAction(a as { patch: Record<string, unknown> }),
+          normalizeRampStepAction(a as { patch: Record<string, unknown> }),
         ),
         startDate:
           rampSchedulePayload.startDate as RevisionRampCreateAction["startDate"],
@@ -3170,15 +3173,6 @@ export async function putFeatureRule(
     | undefined;
   if (rampSchedulePayload) {
     if (rampSchedulePayload.mode === "create") {
-      const normalizeAction = (a: {
-        targetType?: string;
-        targetId?: string;
-        patch: Record<string, unknown>;
-      }): RampStepAction => ({
-        targetType: "feature-rule" as const,
-        targetId: a.targetId ?? "",
-        patch: a.patch as RampStepAction["patch"],
-      });
       const createAction: RevisionRampCreateAction = {
         mode: "create",
         name: rampSchedulePayload.name,
@@ -3193,7 +3187,7 @@ export async function putFeatureRule(
             trigger:
               s.trigger as RevisionRampCreateAction["steps"][number]["trigger"],
             actions: (s.actions ?? []).map((a: unknown) =>
-              normalizeAction(a as { patch: Record<string, unknown> }),
+              normalizeRampStepAction(a as { patch: Record<string, unknown> }),
             ),
             approvalNotes: s.approvalNotes ?? undefined,
             monitored: !!s.monitored,
@@ -3201,10 +3195,10 @@ export async function putFeatureRule(
           }),
         ),
         startActions: rampSchedulePayload.startActions?.map((a: unknown) =>
-          normalizeAction(a as { patch: Record<string, unknown> }),
+          normalizeRampStepAction(a as { patch: Record<string, unknown> }),
         ),
         endActions: rampSchedulePayload.endActions?.map((a: unknown) =>
-          normalizeAction(a as { patch: Record<string, unknown> }),
+          normalizeRampStepAction(a as { patch: Record<string, unknown> }),
         ),
         startDate:
           rampSchedulePayload.startDate as RevisionRampCreateAction["startDate"],

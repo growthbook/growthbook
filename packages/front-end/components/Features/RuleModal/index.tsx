@@ -594,8 +594,7 @@ export default function RuleModal({
       currentType !== targetType
     ) {
       form.setValue("type", targetType);
-      // When auto-promoting to rollout, ensure hashAttribute + seed have sensible values
-      // so the SDK payload emits experiment-mode (required for monitored ramps).
+      // When auto-promoting to rollout, ensure hashAttribute has a sensible value
       if (targetType === "rollout") {
         if (!form.getValues("hashAttribute")) {
           const defaultHash =
@@ -603,11 +602,6 @@ export default function RuleModal({
             attributeSchema?.[0]?.property ||
             "id";
           form.setValue("hashAttribute", defaultHash);
-        }
-        if (!form.getValues("seed")) {
-          // Default to feature id so rollout rules on the same feature share
-          // a hash space (treatment users stay in treatment as coverage grows).
-          form.setValue("seed", feature.id);
         }
       }
     }
@@ -625,7 +619,6 @@ export default function RuleModal({
     ruleHasBeenPublished,
     form,
     attributeSchema,
-    feature.id,
   ]);
 
   function changeRuleType(v: string) {
@@ -1043,13 +1036,6 @@ export default function RuleModal({
         delete (values as any).hashAttribute;
         // eslint-disable-next-line
         delete (values as any).seed;
-      } else if (values.type === "rollout") {
-        // Rollout rules need a seed for stable bucketing. Default to feature id
-        // so rollout rules on the same feature share a hash space (treatment
-        // users stay in treatment as coverage grows).
-        if (!(values as Record<string, unknown>).seed) {
-          (values as Record<string, unknown>).seed = feature.id;
-        }
       }
       if (
         values.scheduleRules &&

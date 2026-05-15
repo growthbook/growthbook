@@ -1082,28 +1082,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 </Flex>
               </Callout>
             )}
-          {rule.type === "rollout" &&
-            rampSchedule?.steps.some((s) => s.monitored) &&
-            (!rule.hashAttribute || !rule.seed) && (
-              <Callout status="warning" mt="3">
-                <Flex direction="column" gap="2">
-                  <Text>
-                    This rule is attached to a monitored ramp schedule but is
-                    missing{" "}
-                    <strong>
-                      {!rule.hashAttribute && !rule.seed
-                        ? "a hash attribute and seed"
-                        : !rule.hashAttribute
-                          ? "a hash attribute"
-                          : "a seed"}
-                    </strong>
-                    . Without them, the SDK serves a static rollout (no
-                    experiment tracking, no stable bucketing). Edit the rule to
-                    fix this — saving will auto-populate the missing values.
-                  </Text>
-                </Flex>
-              </Callout>
-            )}
           <RuleEnvScopeBadges
             activeEnvironmentIds={
               rule.allEnvironments === true || rule.environments === undefined

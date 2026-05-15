@@ -151,11 +151,7 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
         allEnvironments?: boolean;
         environments?: string[];
       };
-    const rule = buildRuleFromInput(
-      baseRuleInput as RuleCreateInput,
-      uuidv4(),
-      feature.id,
-    );
+    const rule = buildRuleFromInput(baseRuleInput as RuleCreateInput, uuidv4());
 
     validateRuleConditions(rule);
     await validateRuleReferences(rule, req.context);

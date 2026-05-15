@@ -15,7 +15,10 @@
  *   arriving at step N from any direction yields the same rule state.
  */
 
-import type { RampScheduleInterface } from "shared/validators";
+import type {
+  RampScheduleInterface,
+  SafeRolloutInterface,
+} from "shared/validators";
 import type { FeatureRule } from "shared/types/feature";
 import {
   computeNextStepAt,
@@ -27,6 +30,7 @@ import {
   jumpAheadToStep,
   rollbackToStep,
   advanceUntilBlocked,
+  advanceScheduleManually,
   completeRollout,
   getStartPatchForRule,
   applyRampStartActions,
@@ -981,6 +985,135 @@ describe("advanceStep — last step / completion", () => {
     const rules: FeatureRule[] = forceResult.rules ?? [];
     const patched = rules.find((r: FeatureRule) => r.id === RULE_ID);
     expect((patched as { coverage?: number })?.coverage).toBe(1);
+  });
+});
+
+describe("advanceScheduleManually", () => {
+  function makeManualAdvanceCtx(
+    schedule: RampScheduleInterface,
+    safeRollout?: Partial<SafeRolloutInterface>,
+  ) {
+    let current = schedule;
+    const rampUpdateById = jest
+      .fn()
+      .mockImplementation(
+        async (_id: string, updates: Partial<RampScheduleInterface>) => {
+          current = {
+            ...current,
+            ...updates,
+          } as RampScheduleInterface;
+          return current;
+        },
+      );
+
+    const createdSafeRollout = {
+      id: "sr_manual_1",
+      status: "running",
+      autoSnapshots: false,
+      nextSnapshotAttempt: null,
+      ...safeRollout,
+    } as SafeRolloutInterface;
+
+    const safeRolloutGetById = jest
+      .fn()
+      .mockImplementation(async (id: string) =>
+        id === createdSafeRollout.id ? createdSafeRollout : null,
+      );
+    const safeRolloutCreate = jest
+      .fn()
+      .mockResolvedValue(createdSafeRollout as SafeRolloutInterface);
+    const safeRolloutUpdate = jest.fn().mockResolvedValue(createdSafeRollout);
+
+    const ctx = {
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "system" },
+      environments: [],
+      permissions: {
+        canUpdateFeature: jest.fn().mockReturnValue(true),
+        canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
+        canPublishFeature: jest.fn().mockReturnValue(true),
+      },
+      models: {
+        rampSchedules: {
+          updateById: rampUpdateById,
+          getById: jest.fn().mockImplementation(async () => current),
+        },
+        safeRollout: {
+          getById: safeRolloutGetById,
+          create: safeRolloutCreate,
+          update: safeRolloutUpdate,
+        },
+      },
+    };
+
+    return {
+      ctx,
+      safeRolloutCreate,
+    };
+  }
+
+  it("creates/links a SafeRollout before manually advancing from paused into monitored steps", async () => {
+    const schedule = makeSchedule({
+      status: "paused",
+      currentStepIndex: -1,
+      safeRolloutId: undefined,
+      targets: [],
+      steps: [
+        {
+          trigger: { type: "interval", seconds: 300 },
+          monitored: true,
+          actions: [],
+        },
+      ],
+      monitoringConfig: {
+        datasourceId: "ds_1",
+        exposureQueryId: "exposure_1",
+        guardrailMetricIds: ["m_guardrail"],
+        signalMetricIds: [],
+        monitoringMode: "auto",
+        autoUpdate: true,
+      },
+    });
+
+    const { ctx, safeRolloutCreate } = makeManualAdvanceCtx(schedule);
+
+    const updated = await advanceScheduleManually(ctx as never, schedule);
+
+    expect(safeRolloutCreate).toHaveBeenCalledTimes(1);
+    expect(updated.safeRolloutId).toBe("sr_manual_1");
+    expect(updated.currentStepIndex).toBe(0);
+  });
+
+  it("also ensures SafeRollout when manually advancing while already running", async () => {
+    const schedule = makeSchedule({
+      status: "running",
+      currentStepIndex: -1,
+      safeRolloutId: undefined,
+      targets: [],
+      steps: [
+        {
+          trigger: { type: "interval", seconds: 300 },
+          monitored: true,
+          actions: [],
+        },
+      ],
+      monitoringConfig: {
+        datasourceId: "ds_1",
+        exposureQueryId: "exposure_1",
+        guardrailMetricIds: ["m_guardrail"],
+        signalMetricIds: [],
+        monitoringMode: "auto",
+        autoUpdate: true,
+      },
+    });
+
+    const { ctx, safeRolloutCreate } = makeManualAdvanceCtx(schedule);
+
+    const updated = await advanceScheduleManually(ctx as never, schedule);
+
+    expect(safeRolloutCreate).toHaveBeenCalledTimes(1);
+    expect(updated.safeRolloutId).toBe("sr_manual_1");
+    expect(updated.currentStepIndex).toBe(0);
   });
 });
 

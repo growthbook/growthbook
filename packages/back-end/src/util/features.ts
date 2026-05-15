@@ -861,12 +861,11 @@ export function getFeatureDefinition({
         } else if (r.type === "rollout") {
           const monitorInfo = rampMonitoredRuleMap?.get(r.id);
 
-          // Monitored rollout rules need a hashAttribute + seed to emit experiment-mode
-          // payload (tracking key, stable bucketing). Rules created via the modal or API
-          // should always have these populated, but we fall through to a plain force
-          // rollout if a legacy/manually-crafted rule is missing them so the SDK doesn't
-          // break. The UI surfaces a warning on the rule card so operators can fix it.
-          if (monitorInfo && r.hashAttribute && r.seed) {
+          // Monitored rollout rules need hashAttribute + seed to emit experiment-mode
+          // payload (tracking key, stable bucketing). If seed is missing, fall back
+          // to feature.id at payload build time (do not persist a model backfill).
+          if (monitorInfo && r.hashAttribute) {
+            const monitoredSeed = r.seed || feature.id;
             // Reuse rollout bucketing so monitored steps do not cause variation hopping.
             const clampedCoverage =
               r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
@@ -885,7 +884,7 @@ export function getFeatureDefinition({
             if (clampedCoverage < 1) {
               rule.filters = [
                 {
-                  seed: r.seed,
+                  seed: monitoredSeed,
                   attribute: r.hashAttribute,
                   hashVersion: 1,
                   ranges: [[0, clampedCoverage] as [number, number]],
@@ -894,7 +893,7 @@ export function getFeatureDefinition({
             }
 
             rule.hashAttribute = r.hashAttribute;
-            rule.seed = r.seed;
+            rule.seed = monitoredSeed;
             rule.key = `ramp_${monitorInfo.rampScheduleId}`;
             rule.meta = includeExperimentNames
               ? [

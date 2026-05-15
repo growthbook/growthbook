@@ -5,6 +5,7 @@ import React, {
   useState,
   type ReactNode,
 } from "react";
+import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
 import pick from "lodash/pick";
 import {
@@ -748,6 +749,58 @@ export default function RampScheduleSection({
     [state.steps, state.endPatch],
   );
 
+  const startPatchBaseline = useMemo(() => {
+    const startAction = ruleRampSchedule?.startActions?.find(
+      (a) => a.targetType === "feature-rule",
+    );
+    return reconstructUIPatch(
+      startAction?.patch as FeatureRulePatch | undefined,
+    );
+  }, [ruleRampSchedule?.startActions]);
+
+  const getDefaultFieldValueForNewEffect = (
+    field: StepField,
+    currentStepIndex: number | "end",
+  ): unknown => {
+    const lookupEnvPatch = (patch?: UIStepPatch): UIStepPatch | null => {
+      if (!patch) return null;
+      if (
+        patch.allEnvironments === undefined &&
+        patch.environments === undefined
+      )
+        return null;
+      return {
+        allEnvironments: patch.allEnvironments ?? false,
+        environments: patch.environments ?? [],
+      };
+    };
+
+    const lookupField = (patch?: UIStepPatch): unknown => {
+      if (field === "allEnvironments" || field === "environments") {
+        return lookupEnvPatch(patch);
+      }
+      return patch?.[field];
+    };
+
+    const startIndex =
+      currentStepIndex === "end"
+        ? state.steps.length - 1
+        : currentStepIndex - 1;
+    for (let i = startIndex; i >= 0; i--) {
+      const found = lookupField(state.steps[i]?.patch);
+      if (found !== undefined && found !== null) {
+        return cloneDeep(found);
+      }
+    }
+
+    const baseline = lookupField(startPatchBaseline);
+    if (baseline !== undefined && baseline !== null) {
+      return cloneDeep(baseline);
+    }
+
+    return cloneDeep(FIELD_DEFAULTS[field]);
+  };
+
   function updateStep(i: number, update: Partial<UIStep>) {
     const newSteps = state.steps.map((s, idx) =>
       idx === i ? { ...s, ...update } : s,
@@ -880,7 +933,7 @@ export default function RampScheduleSection({
       const availableRuleEffects = getAvailableRuleEffects(patch);
       if (!availableRuleEffects.length) return null;
       return (
-        <DropdownMenuGroup label="Change rule">
+        <DropdownMenuGroup label="Rule modifications">
           {availableRuleEffects.map((item) => (
             <DropdownMenuItem
               key={item.field}
@@ -1135,48 +1188,61 @@ export default function RampScheduleSection({
               </Box>
             )}
             <Box flexGrow="1" />
-            <DropdownMenu
-              open={openMenuIndex === "end"}
-              onOpenChange={(o) => setOpenMenuIndex(o ? "end" : null)}
-              trigger={
-                <IconButton
-                  type="button"
-                  variant="ghost"
-                  color="gray"
-                  radius="full"
-                  size="2"
-                  highContrast
-                  style={{ marginLeft: 0, marginRight: 0 }}
-                >
-                  <BsThreeDotsVertical size={18} />
-                </IconButton>
-              }
-              variant="soft"
-              menuPlacement="end"
-            >
-              {renderRuleEffectsMenuGroup(state.endPatch, (field) => {
-                setOpenMenuIndex(null);
-                const patchWithField =
-                  field === "allEnvironments"
-                    ? {
-                        ...setPatchField(
+            <Flex align="center" gap="2" pr="3" style={{ flexShrink: 0 }}>
+              <DropdownMenu
+                open={openMenuIndex === "end"}
+                onOpenChange={(o) => setOpenMenuIndex(o ? "end" : null)}
+                trigger={
+                  <IconButton
+                    type="button"
+                    variant="ghost"
+                    color="gray"
+                    radius="full"
+                    size="2"
+                    highContrast
+                  >
+                    <BsThreeDotsVertical size={18} />
+                  </IconButton>
+                }
+                variant="soft"
+                menuPlacement="end"
+              >
+                {renderRuleEffectsMenuGroup(state.endPatch, (field) => {
+                  setOpenMenuIndex(null);
+                  const patchWithField =
+                    field === "allEnvironments"
+                      ? {
+                          ...setPatchField(
+                            state.endPatch,
+                            "allEnvironments",
+                            (
+                              getDefaultFieldValueForNewEffect(
+                                "allEnvironments",
+                                "end",
+                              ) as UIStepPatch
+                            )?.allEnvironments ??
+                              FIELD_DEFAULTS.allEnvironments,
+                          ),
+                          environments:
+                            (
+                              getDefaultFieldValueForNewEffect(
+                                "allEnvironments",
+                                "end",
+                              ) as UIStepPatch
+                            )?.environments ?? [],
+                        }
+                      : setPatchField(
                           state.endPatch,
-                          "allEnvironments",
-                          FIELD_DEFAULTS.allEnvironments,
-                        ),
-                        environments: [],
-                      }
-                    : setPatchField(
-                        state.endPatch,
-                        field,
-                        FIELD_DEFAULTS[field],
-                      );
-                patchState({
-                  endAdditionalEffectsOpen: true,
-                  endPatch: patchWithField,
-                });
-              })}
-            </DropdownMenu>
+                          field,
+                          getDefaultFieldValueForNewEffect(field, "end"),
+                        );
+                  patchState({
+                    endAdditionalEffectsOpen: true,
+                    endPatch: patchWithField,
+                  });
+                })}
+              </DropdownMenu>
+            </Flex>
           </Flex>
           {renderPatchSubRows(
             state.endPatch,
@@ -1551,14 +1617,29 @@ export default function RampScheduleSection({
                                       ...setPatchField(
                                         step.patch,
                                         "allEnvironments",
-                                        FIELD_DEFAULTS.allEnvironments,
+                                        (
+                                          getDefaultFieldValueForNewEffect(
+                                            "allEnvironments",
+                                            i,
+                                          ) as UIStepPatch
+                                        )?.allEnvironments ??
+                                          FIELD_DEFAULTS.allEnvironments,
                                       ),
-                                      environments: [],
+                                      environments:
+                                        (
+                                          getDefaultFieldValueForNewEffect(
+                                            "allEnvironments",
+                                            i,
+                                          ) as UIStepPatch
+                                        )?.environments ?? [],
                                     }
                                   : setPatchField(
                                       step.patch,
                                       field,
-                                      FIELD_DEFAULTS[field],
+                                      getDefaultFieldValueForNewEffect(
+                                        field,
+                                        i,
+                                      ),
                                     );
                               updateStep(i, {
                                 additionalEffectsOpen: true,

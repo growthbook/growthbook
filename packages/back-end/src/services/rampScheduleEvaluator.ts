@@ -147,9 +147,7 @@ async function evaluateMonitoredStep(
 
   // No-traffic gate runs before guardrail/health/results checks: with zero
   // users those downstream analyses are unreliable, so we resolve the
-  // no-traffic state explicitly first (grace period → terminal action).
-  // "warn" falls through; downstream data-based checks will be vacuous and
-  // non-data gates (minDuration, step interval) still apply.
+  // no-traffic state explicitly first (grace period -> terminal action).
   if (!summary.health.totalUsers) {
     const monitoringStartDate =
       schedule.monitoringStartDate ??
@@ -184,7 +182,8 @@ async function evaluateMonitoredStep(
         reason: "No traffic detected — holding step (noTrafficAction=hold)",
       };
     }
-    // "warn": surfaced via the UI monitoring badges; not a backend gate.
+    // "warn": surfaced via UI monitoring badges only; don't gate progression.
+    return { action: "advance" };
   }
 
   const scheduleLevelDecision = checkScheduleGuardrailSignals(

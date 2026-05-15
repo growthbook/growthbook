@@ -27,6 +27,7 @@ import {
   ruleFootprint,
   getApplicableEnvIds,
 } from "back-end/src/util/flattenRules";
+import { logger } from "back-end/src/util/logger";
 
 const LOCKDOWN_ACTIVE_STATUSES = ["running", "pending-approval"] as const;
 
@@ -201,7 +202,7 @@ export async function assertFeatureNotLockedByRamp(
       (LOCKDOWN_ACTIVE_STATUSES as readonly string[]).includes(s.status)
     ) {
       throw new Error(
-        `Feature is locked by an active ramp schedule ("${s.name}"). Pause the schedule to make changes.`,
+        `Feature is locked by an active ramp schedule ("${s.name}"). Pause the schedule to make immediate changes.`,
       );
     }
   }
@@ -1237,6 +1238,11 @@ export async function advanceScheduleManually(
     await syncLinkedSafeRolloutForRampState(ctx, scheduleToAdvance);
   }
 
+  scheduleToAdvance = await ensureSafeRolloutForMonitoredRamp(
+    ctx,
+    scheduleToAdvance,
+  );
+
   return advanceStep(ctx, scheduleToAdvance);
 }
 
@@ -1535,7 +1541,11 @@ export async function dispatchRampEvent<T extends RampFeatureEvent>(
       environments,
       containsSecrets: false,
     });
-  } catch {
+  } catch (e) {
+    logger.warn(
+      e,
+      `Non-fatal ramp event dispatch failure (event=${event}, schedule=${schedule.id})`,
+    );
     // Dispatch failures are non-fatal for the calling lifecycle action.
   }
 }
