@@ -334,6 +334,21 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
         snapshot: this.model.id,
       });
     }
+
+    // Release the incremental refresh lock on any terminal status. This runner
+    // acquires the lock (see createSnapshotFromPlan) so that it does not read
+    // the shared pipeline tables while an incremental refresh is mutating them.
+    if (updates.status !== "running") {
+      await this.context.models.incrementalRefresh
+        .releaseLock(this.model.experiment, this.model.id)
+        .catch((e) =>
+          this.context.logger.warn(
+            e,
+            "Failed to release incremental refresh lock on terminal status",
+          ),
+        );
+    }
+
     return {
       ...this.model,
       ...updates,

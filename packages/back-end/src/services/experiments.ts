@@ -1450,8 +1450,19 @@ export async function createSnapshotFromPlan({
   }
   const integration = getSourceIntegrationObject(context, datasource, true);
 
+  // Both incremental runner kinds need exclusive access to the per-experiment
+  // pipeline tables: "incremental" mutates them (DROP/CREATE/RENAME on the
+  // units + metric-source tables), and "incremental-exploratory" reads them.
+  // Locking both prevents concurrent triggers (e.g. scheduled auto-refresh +
+  // manual Update) from racing on those tables and producing empty or
+  // malformed results. The "results" runner writes only to per-snapshot
+  // ephemeral tables, so it does not need this lock.
+  const needsIncrementalRefreshLock =
+    plan.runnerKind === "incremental" ||
+    plan.runnerKind === "incremental-exploratory";
+
   let hasIncrementalRefreshLock = false;
-  if (plan.runnerKind === "incremental") {
+  if (needsIncrementalRefreshLock) {
     hasIncrementalRefreshLock =
       await context.models.incrementalRefresh.acquireLock(
         experiment.id,
