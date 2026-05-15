@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowRight } from "react-icons/pi";
 import {
@@ -100,17 +100,30 @@ export default function FeatureConfigurationReferenceMappingModal({
     rowsByCategory.features.length +
     rowsByCategory.environments.length;
 
-  const { experiments } = useExperiments(undefined, /* includeArchived */ true);
+  const { experiments, loading: experimentsLoading } = useExperiments(
+    undefined,
+    /* includeArchived */ true,
+  );
   const { savedGroups } = useDefinitions();
-  const { data: safeRolloutsData } = useApi<{
+  const { data: safeRolloutsData, error: safeRolloutsError } = useApi<{
     status: 200;
     safeRollouts: SafeRolloutInterface[];
   }>("/safe-rollout");
-  const { features } = useFeaturesList({
+  const { features, loading: featuresLoading } = useFeaturesList({
     useCurrentProject: false,
     includeArchived: true,
   });
   const destinationEnvironments = useEnvironments();
+
+  // We need to wait for every async source before we can pre-populate
+  // identity mappings or trust `allMapped`. Otherwise during the loading
+  // window options.length === 0 for not-yet-loaded categories, which would
+  // (a) make Continue look ready and (b) cause it to flip to disabled once
+  // data arrives — and the user's auto-populated rows would be missing.
+  const loading =
+    experimentsLoading ||
+    featuresLoading ||
+    (!safeRolloutsData && !safeRolloutsError);
 
   const optionsByCategory: Record<FeatureReferenceCategory, Option[]> = useMemo(
     () => ({
@@ -156,47 +169,69 @@ export default function FeatureConfigurationReferenceMappingModal({
     ],
   );
 
-  // Pre-populate any reference whose source id exists in the destination org.
-  // For those rows we leave the SelectField at that value so the user can
-  // confirm or override; everything else starts blank and must be chosen.
-  const [mappings, setMappings] = useState<FeatureReferenceMappings>(() => {
-    const next: FeatureReferenceMappings = {
-      experiments: { ...EMPTY_FEATURE_REFERENCE_MAPPINGS.experiments },
-      savedGroups: { ...EMPTY_FEATURE_REFERENCE_MAPPINGS.savedGroups },
-      safeRollouts: { ...EMPTY_FEATURE_REFERENCE_MAPPINGS.safeRollouts },
-      features: { ...EMPTY_FEATURE_REFERENCE_MAPPINGS.features },
-      environments: { ...EMPTY_FEATURE_REFERENCE_MAPPINGS.environments },
-    };
-    (Object.keys(rowsByCategory) as FeatureReferenceCategory[]).forEach(
+  // Mappings start empty and get pre-populated once the async option sources
+  // settle (see useEffect below). Pre-population identifies any reference id
+  // that exists verbatim in the destination org and seeds it as a default
+  // selection the user can confirm or override.
+  const [mappings, setMappings] = useState<FeatureReferenceMappings>(() => ({
+    experiments: { ...EMPTY_FEATURE_REFERENCE_MAPPINGS.experiments },
+    savedGroups: { ...EMPTY_FEATURE_REFERENCE_MAPPINGS.savedGroups },
+    safeRollouts: { ...EMPTY_FEATURE_REFERENCE_MAPPINGS.safeRollouts },
+    features: { ...EMPTY_FEATURE_REFERENCE_MAPPINGS.features },
+    environments: { ...EMPTY_FEATURE_REFERENCE_MAPPINGS.environments },
+  }));
+
+  const prepopulatedRef = useRef(false);
+  useEffect(() => {
+    if (loading || prepopulatedRef.current) return;
+    prepopulatedRef.current = true;
+    setMappings((prev) => {
+      const next: FeatureReferenceMappings = {
+        experiments: { ...prev.experiments },
+        savedGroups: { ...prev.savedGroups },
+        safeRollouts: { ...prev.safeRollouts },
+        features: { ...prev.features },
+        environments: { ...prev.environments },
+      };
+      (Object.keys(rowsByCategory) as FeatureReferenceCategory[]).forEach(
+        (category) => {
+          const validIds = new Set(
+            optionsByCategory[category].map((o) => o.value),
+          );
+          rowsByCategory[category].forEach((row) => {
+            // Don't clobber a value the user already touched.
+            if (next[category][row.id]) return;
+            if (validIds.has(row.id)) next[category][row.id] = row.id;
+          });
+        },
+      );
+      return next;
+    });
+  }, [loading, rowsByCategory, optionsByCategory]);
+
+  // Defensive: parent should have skipped opening this modal when there are
+  // no references. Auto-confirm in an effect so we don't set state on the
+  // parent during this component's render.
+  useEffect(() => {
+    if (totalRefs === 0) onConfirm(payload);
+  }, [totalRefs, onConfirm, payload]);
+
+  // The form is complete once every row in every category with available
+  // options has a mapping. We require !loading so a category whose options
+  // haven't arrived yet doesn't masquerade as "no options, skip".
+  const allMapped =
+    !loading &&
+    (Object.keys(rowsByCategory) as FeatureReferenceCategory[]).every(
       (category) => {
-        const validIds = new Set(
-          optionsByCategory[category].map((o) => o.value),
+        const options = optionsByCategory[category];
+        if (!options.length) return true;
+        return rowsByCategory[category].every(
+          (row) => !!mappings[category][row.id],
         );
-        rowsByCategory[category].forEach((row) => {
-          if (validIds.has(row.id)) next[category][row.id] = row.id;
-        });
       },
     );
-    return next;
-  });
 
-  // We treat the form as complete once every row either has an explicit
-  // mapping or is skipped because no options exist in the destination org.
-  const allMapped = (
-    Object.keys(rowsByCategory) as FeatureReferenceCategory[]
-  ).every((category) => {
-    const options = optionsByCategory[category];
-    if (!options.length) return true;
-    return rowsByCategory[category].every(
-      (row) => !!mappings[category][row.id],
-    );
-  });
-
-  if (totalRefs === 0) {
-    // Defensive: parent should have skipped opening this modal. Auto-confirm.
-    onConfirm(payload);
-    return null;
-  }
+  if (totalRefs === 0) return null;
 
   return (
     <Modal.Root
@@ -231,6 +266,12 @@ export default function FeatureConfigurationReferenceMappingModal({
             organization for each reference below.
           </Callout>
 
+          {loading && (
+            <Callout status="info" mb="3">
+              Loading destination options…
+            </Callout>
+          )}
+
           {CATEGORIES.map((cat) => {
             const rows = rowsByCategory[cat.category];
             if (!rows.length) return null;
@@ -240,7 +281,7 @@ export default function FeatureConfigurationReferenceMappingModal({
                 <Text size="large" weight="semibold">
                   {cat.title}
                 </Text>
-                {options.length === 0 ? (
+                {loading ? null : options.length === 0 ? (
                   <Callout status="warning" mt="2">
                     {cat.emptyMessage}
                   </Callout>
