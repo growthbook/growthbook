@@ -2,8 +2,7 @@ import { ReactNode, ReactElement } from "react";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import isEqual from "lodash/isEqual";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowSquareOut, PiWarningCircle } from "react-icons/pi";
-import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
+import { PiArrowSquareOut } from "react-icons/pi";
 import {
   FeatureRule,
   FeaturePrerequisite,
@@ -165,27 +164,23 @@ function formatValue(val: string | unknown): string {
   return JSON.stringify(val, null, 2);
 }
 
-// Icon + text summary of a rule's env scope. Tri-state:
-//   allEnvironments:true     → "All Environments"
-//   environments: [a, b, …]  → one chip per env (green check)
+// Text-only summary of a rule's env scope. Tri-state:
+//   allEnvironments:true     → "All environments"
+//   environments: [a, b, …]  → one chip per env
 //   environments: []         → "No environments (pending)"
 //   environments: undefined  → null (legacy audit fallback)
-// Envs missing from the org list render in amber (orphaned).
-// Mirrors RuleEnvScopeBadges so diff views match the rule card visual language.
+// Envs missing from the org list render in amber with strikethrough (orphaned).
 function envScopeChip(envId: string) {
   return (
-    <Flex key={envId} align="center" gap="1">
-      <span
-        style={{
-          color: "var(--green-11)",
-          fontSize: "var(--font-size-2)",
-          fontWeight: 500,
-        }}
-      >
-        {envId}
-      </span>
-      <FaRegCircleCheck size={14} style={{ color: "var(--green-11)" }} />
-    </Flex>
+    <span
+      key={envId}
+      style={{
+        fontSize: "var(--font-size-2)",
+        fontWeight: 500,
+      }}
+    >
+      {envId}
+    </span>
   );
 }
 
@@ -197,18 +192,15 @@ function envScopeOrphanedChip(envId: string) {
       tipPosition="top"
       style={{ display: "inline-flex", alignItems: "center" }}
     >
-      <Flex align="center" gap="1">
-        <span
-          style={{
-            color: "var(--amber-11)",
-            fontSize: "var(--font-size-2)",
-            textDecoration: "line-through",
-          }}
-        >
-          {envId}
-        </span>
-        <PiWarningCircle size={16} style={{ color: "var(--amber-11)" }} />
-      </Flex>
+      <span
+        style={{
+          color: "var(--amber-11)",
+          fontSize: "var(--font-size-2)",
+          textDecoration: "line-through",
+        }}
+      >
+        {envId}
+      </span>
     </Tooltip>
   );
 }
@@ -218,18 +210,14 @@ function RuleEnvScope({ rule }: { rule: FeatureRule }) {
   const liveEnvIds = new Set(environments.map((e) => e.id));
   if (rule.allEnvironments) {
     return (
-      <Flex align="center" gap="1">
-        <span
-          style={{
-            color: "var(--green-11)",
-            fontSize: "var(--font-size-2)",
-            fontWeight: 500,
-          }}
-        >
-          All environments
-        </span>
-        <FaRegCircleCheck size={14} style={{ color: "var(--green-11)" }} />
-      </Flex>
+      <span
+        style={{
+          fontSize: "var(--font-size-2)",
+          fontWeight: 500,
+        }}
+      >
+        All environments
+      </span>
     );
   }
   if (rule.environments === undefined) return null;
@@ -241,22 +229,19 @@ function RuleEnvScope({ rule }: { rule: FeatureRule }) {
         innerClassName="p-2"
         style={{ display: "inline-flex", alignItems: "center" }}
       >
-        <Flex align="center" gap="1">
-          <span
-            style={{
-              color: "var(--amber-11)",
-              fontSize: "var(--font-size-2)",
-            }}
-          >
-            No environments (pending)
-          </span>
-          <PiWarningCircle size={16} style={{ color: "var(--amber-11)" }} />
-        </Flex>
+        <span
+          style={{
+            color: "var(--amber-11)",
+            fontSize: "var(--font-size-2)",
+          }}
+        >
+          No environments (pending)
+        </span>
       </Tooltip>
     );
   }
   return (
-    <Flex gap="4" wrap="wrap" align="center">
+    <Flex gap="3" wrap="wrap" align="center">
       {rule.environments.map((env) =>
         liveEnvIds.has(env) ? envScopeChip(env) : envScopeOrphanedChip(env),
       )}
@@ -1717,28 +1702,17 @@ export function renderPrerequisites(
   return renderPrerequisiteList(current, draft);
 }
 
-// Icon + text "On"/"Off" indicator for an environment toggle. Matches the
-// visual language used by RuleEnvScopeBadges so diff views feel consistent
-// with the rule card.
+// Text "On"/"Off" indicator for an environment toggle.
 function EnvEnabledIndicator({ enabled }: { enabled: boolean }) {
-  const color = enabled ? "var(--green-11)" : "var(--gray-8)";
   return (
-    <Flex align="center" gap="1" display="inline-flex">
-      <span
-        style={{
-          color,
-          fontSize: "var(--font-size-2)",
-          fontWeight: enabled ? 500 : 300,
-        }}
-      >
-        {enabled ? "On" : "Off"}
-      </span>
-      {enabled ? (
-        <FaRegCircleCheck size={14} style={{ color }} />
-      ) : (
-        <FaRegCircleXmark size={14} style={{ color }} />
-      )}
-    </Flex>
+    <span
+      style={{
+        fontSize: "var(--font-size-2)",
+        fontWeight: 500,
+      }}
+    >
+      {enabled ? "On" : "Off"}
+    </span>
   );
 }
 
@@ -1760,7 +1734,7 @@ export function renderEnvironmentsEnabled(
           <EnvEnabledIndicator enabled={current} />
         )}
       </div>
-      <div className="d-flex align-items-center ml-4">
+      <div className="text-success d-flex align-items-center ml-4">
         <div className="text-center mx-2" style={{ width: 16 }}>
           →
         </div>
