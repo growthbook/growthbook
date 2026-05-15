@@ -44,10 +44,7 @@ export const postExperimentStartChecklistManualComplete =
 
       return {
         checklistItems: checklist.checklistItems,
-        incompleteRequiredItems: checklist.incompleteRequiredItems,
-        requiredItemsRemaining: checklist.requiredItemsRemaining,
-        allRequiredComplete: checklist.allRequiredComplete,
-        manualLaunchChecklist: updated.manualLaunchChecklist || [],
+        status: checklist.status,
       };
     },
   );

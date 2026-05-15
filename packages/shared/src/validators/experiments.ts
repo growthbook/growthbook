@@ -1470,22 +1470,33 @@ export const getExperimentValidator = {
   exampleRequest: { params: { id: "abc123" } },
 };
 
+const checklistStatusValidator = z.enum(["complete", "incomplete"]);
+export type ChecklistStatus = z.infer<typeof checklistStatusValidator>;
+
 const startChecklistItemStatusValidator = z
   .object({
     key: z.string(),
     required: z.boolean(),
-    status: z.enum(["complete", "incomplete"]),
+    status: checklistStatusValidator,
+    manual: z.boolean(),
     reason: z.string(),
   })
   .strict();
 
+export type StartChecklistItemStatus = z.infer<
+  typeof startChecklistItemStatusValidator
+>;
+
+const experimentStartChecklistStatusValidator = z.enum(["ready", "notReady"]);
+
+export type ExperimentStartChecklistStatus = z.infer<
+  typeof experimentStartChecklistStatusValidator
+>;
+
 const experimentStartChecklistResponseValidator = z
   .object({
     checklistItems: z.array(startChecklistItemStatusValidator),
-    incompleteRequiredItems: z.array(startChecklistItemStatusValidator),
-    requiredItemsRemaining: z.number(),
-    allRequiredComplete: z.boolean(),
-    manualLaunchChecklist: manualLaunchChecklistValidator,
+    status: experimentStartChecklistStatusValidator,
   })
   .strict();
 

@@ -18,21 +18,13 @@ export const getExperimentStartChecklist = createApiRequestHandler(
     throw new Error("Holdouts are not supported via this API");
   }
 
-  const {
-    checklistItems,
-    incompleteRequiredItems,
-    requiredItemsRemaining,
-    allRequiredComplete,
-  } = await getExperimentStartChecklistStatus({
+  const { checklistItems, status } = await getExperimentStartChecklistStatus({
     context: req.context as ReqContext,
     experiment,
   });
 
   return {
     checklistItems,
-    incompleteRequiredItems,
-    requiredItemsRemaining,
-    allRequiredComplete,
-    manualLaunchChecklist: experiment.manualLaunchChecklist || [],
+    status,
   };
 });

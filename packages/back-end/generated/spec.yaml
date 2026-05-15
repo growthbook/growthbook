@@ -10024,24 +10024,14 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/checklistItems'
-                  incompleteRequiredItems:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/checklistItems'
-                  requiredItemsRemaining:
-                    type: number
-                  allRequiredComplete:
-                    type: boolean
-                  manualLaunchChecklist:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/manualLaunchChecklist'
+                  status:
+                    type: string
+                    enum:
+                      - ready
+                      - notReady
                 required:
                   - checklistItems
-                  - incompleteRequiredItems
-                  - requiredItemsRemaining
-                  - allRequiredComplete
-                  - manualLaunchChecklist
+                  - status
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -10154,24 +10144,14 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/checklistItems'
-                  incompleteRequiredItems:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/checklistItems'
-                  requiredItemsRemaining:
-                    type: number
-                  allRequiredComplete:
-                    type: boolean
-                  manualLaunchChecklist:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/manualLaunchChecklist'
+                  status:
+                    type: string
+                    enum:
+                      - ready
+                      - notReady
                 required:
                   - checklistItems
-                  - incompleteRequiredItems
-                  - requiredItemsRemaining
-                  - allRequiredComplete
-                  - manualLaunchChecklist
+                  - status
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -33175,27 +33155,16 @@ components:
           enum:
             - complete
             - incomplete
+        manual:
+          type: boolean
         reason:
           type: string
       required:
         - key
         - required
         - status
+        - manual
         - reason
-      additionalProperties: false
-    manualLaunchChecklist:
-      type: object
-      properties:
-        key:
-          type: string
-        status:
-          type: string
-          enum:
-            - complete
-            - incomplete
-      required:
-        - key
-        - status
       additionalProperties: false
     snapshot:
       type: object
