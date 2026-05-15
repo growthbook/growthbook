@@ -362,6 +362,7 @@ export const experimentInterface = z
     lastSnapshotAttempt: z.date().optional(),
     nextSnapshotAttempt: z.date().optional(),
     autoSnapshots: z.boolean(),
+    disableAutoSnapshots: z.boolean().optional(),
     ideaSource: z.string().optional(),
     hasVisualChangesets: z.boolean().optional(),
     hasURLRedirects: z.boolean().optional(),
