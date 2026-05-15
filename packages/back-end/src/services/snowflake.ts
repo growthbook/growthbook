@@ -31,11 +31,6 @@ function getProxySettings(): ProxyOptions {
 
 const SNOWFLAKE_QUERY_TAG_MAX_LENGTH = 2000;
 
-// Snowflake query IDs are UUIDs. Validate strictly before interpolating into
-// SQL since the SDK's bind support varies across system functions.
-const SNOWFLAKE_QUERY_ID_REGEX =
-  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
-
 function buildSnowflakeConnection(
   conn: SnowflakeConnectionParams,
   queryMetadata?: QueryMetadata,
@@ -239,8 +234,11 @@ export async function cancelSnowflakeQuery(
   conn: SnowflakeConnectionParams,
   queryId: string,
 ): Promise<void> {
-  if (!SNOWFLAKE_QUERY_ID_REGEX.test(queryId)) {
-    throw new Error(`Invalid Snowflake query ID: ${queryId}`);
+  if (!queryId) {
+    logger.debug(
+      `Failed to cancel Snowflake query ${queryId}: No query ID provided`,
+    );
+    return;
   }
 
   const connection = buildSnowflakeConnection(conn);
@@ -275,7 +273,6 @@ export async function cancelSnowflakeQuery(
         e instanceof Error ? e.message : String(e)
       }`,
     );
-    throw e;
   } finally {
     await destroySnowflakeConnection(connection);
   }
