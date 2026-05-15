@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 from pydantic import ConfigDict
 from pydantic.dataclasses import dataclass
 from dataclasses import field
@@ -12,6 +12,10 @@ RegressionAdjustedStatisticType = Literal["ratio_ra", "mean_ra"]
 StatisticType = Union[UnadjustedStatisticType, RegressionAdjustedStatisticType]
 MetricType = Literal["binomial", "count", "quantile"]
 BusinessMetricType = Literal["goal", "guardrail", "secondary"]
+
+
+CONTEXTUAL_BANDIT_DIMENSION_COLUMN = "dimension"
+CONTEXTUAL_BANDIT_DIMENSION_VALUE = "All"
 
 
 @dataclass
@@ -59,29 +63,16 @@ class BanditSettingsForStatsEngine:
     top_two: bool = False
 
 
-# Context key: single context (str) or multi-dimension context (tuple of dimension values)
-ContextKey = Union[str, Tuple[str, ...]]
-
-
 @dataclass
 class ContextualBanditSettingsForStatsEngine(BanditSettingsForStatsEngine):
-    current_contextual_weights: Dict[ContextKey, List[float]] = field(
-        default_factory=dict
-    )
     attributes: List[str] = field(
         default_factory=list
     )  # columns that are used to create context keys; not column values
+    max_leaves: int = 12
 
     def __post_init__(self):
         if not self.attributes:
             raise ValueError("attributes must be non-empty")
-
-
-@dataclass
-class ContextualTreeBanditSettingsForStatsEngine(
-    ContextualBanditSettingsForStatsEngine
-):
-    max_leaves: int = 12
 
 
 ExperimentMetricQueryResponseRows = List[Dict[str, Union[str, int, float]]]
@@ -119,9 +110,8 @@ class DataForStatsEngine:
     metrics: Dict[str, MetricSettingsForStatsEngine]
     analyses: List[AnalysisSettingsForStatsEngine]
     query_results: List[QueryResultsForStatsEngine]
-    bandit_settings: Optional[
-        Union[BanditSettingsForStatsEngine, ContextualBanditSettingsForStatsEngine]
-    ]
+    bandit_settings: Optional[BanditSettingsForStatsEngine]
+    contextual_bandit_settings: Optional[ContextualBanditSettingsForStatsEngine]
 
 
 @dataclass

@@ -29,6 +29,7 @@ import {
   AnalysisSettingsForStatsEngine,
   BanditSettingsForStatsEngine,
   BusinessMetricTypeForStatsEngine,
+  ContextualBanditSettingsForStatsEngine,
   DataForStatsEngine,
   ExperimentDataForStatsEngine,
   ExperimentMetricAnalysis,
@@ -143,9 +144,38 @@ export function getBanditSettingsForStatsEngine(
       weights: hw.weights,
       total_users: hw.totalUsers,
     })),
+    is_contextual: !!banditSettings.banditIsContextual,
     ...(contextualContextColumns?.length
       ? { contexts: contextualContextColumns }
       : {}),
+  };
+}
+
+export function getContextualBanditSettingsForStatsEngine(
+  banditSettings: SnapshotBanditSettings,
+  settings: ExperimentSnapshotAnalysisSettings,
+  variations: ExperimentReportVariation[],
+): ContextualBanditSettingsForStatsEngine {
+  const base = getBanditSettingsForStatsEngine(
+    banditSettings,
+    settings,
+    variations,
+  );
+  const fromTargeting = getSafeTargetingSqlIdentifiers(
+    banditSettings.targetingAttributeColumns ?? [],
+  ).map((col) => `gb_ctx_${col}`);
+  const attributes = base.contexts?.length ? [...base.contexts] : fromTargeting;
+  if (!attributes.length) {
+    throw new Error(
+      "getContextualBanditSettingsForStatsEngine requires targeting attribute columns (or contexts on bandit settings)",
+    );
+  }
+  return {
+    ...base,
+    is_contextual: true,
+    contexts: attributes,
+    current_contextual_weights: {},
+    attributes,
   };
 }
 
@@ -213,9 +243,22 @@ function createStatsEngineData(
         phaseLengthDays,
       ),
     ),
-    bandit_settings: banditSettings
-      ? getBanditSettingsForStatsEngine(banditSettings, analyses[0], variations)
-      : undefined,
+    bandit_settings:
+      banditSettings && !banditSettings.banditIsContextual
+        ? getBanditSettingsForStatsEngine(
+            banditSettings,
+            analyses[0],
+            variations,
+          )
+        : undefined,
+    contextual_bandit_settings:
+      banditSettings && banditSettings.banditIsContextual
+        ? getContextualBanditSettingsForStatsEngine(
+            banditSettings,
+            analyses[0],
+            variations,
+          )
+        : undefined,
   };
 }
 

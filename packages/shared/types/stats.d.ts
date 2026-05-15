@@ -219,7 +219,14 @@ export interface BanditSettingsForStatsEngine {
   decision_metric: string;
   bandit_weights_seed: number;
   /** SQL row column names (e.g. `gb_ctx_country`) for contextual bandit; gbstats only. */
+  is_contextual: boolean;
   contexts?: string[];
+}
+
+export interface ContextualBanditSettingsForStatsEngine
+  extends BanditSettingsForStatsEngine {
+  current_contextual_weights: Record<string, number[]>;
+  attributes: string[];
 }
 
 export type BusinessMetricTypeForStatsEngine =
@@ -264,6 +271,7 @@ export interface DataForStatsEngine {
   metrics: Record<string, MetricSettingsForStatsEngine>;
   query_results: QueryResultsForStatsEngine[];
   bandit_settings?: BanditSettingsForStatsEngine;
+  contextual_bandit_settings?: ContextualBanditSettingsForStatsEngine;
 }
 
 export interface ExperimentDataForStatsEngine {
