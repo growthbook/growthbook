@@ -60,6 +60,26 @@ function splitRangeFieldInput(value: string): [string, string] {
   return [value.slice(0, i), value.slice(i + RANGE_DISPLAY_SEP.length)];
 }
 
+export function formatCompactDateRange(startDate: Date, endDate: Date): string {
+  const sy = startDate.getFullYear();
+  const sm = startDate.getMonth();
+  const sd = startDate.getDate();
+  const ey = endDate.getFullYear();
+  const em = endDate.getMonth();
+  const ed = endDate.getDate();
+
+  if (sy === ey && sm === em && sd === ed) {
+    return format(startDate, "MMMM d, yyyy");
+  }
+  if (sy === ey && sm === em) {
+    return `${format(startDate, "MMMM d")}-${format(endDate, "d")}, ${ey}`;
+  }
+  if (sy === ey) {
+    return `${format(startDate, "MMMM d")} - ${format(endDate, "MMMM d")}, ${ey}`;
+  }
+  return `${format(startDate, "MMMM d, yyyy")} - ${format(endDate, "MMMM d, yyyy")}`;
+}
+
 export default function DatePicker({
   id,
   date,
@@ -119,6 +139,7 @@ export default function DatePicker({
     ),
   );
   const [open, setOpen] = useState(false);
+  const [rangeFieldFocused, setRangeFieldFocused] = useState(false);
   const fieldClickedTime = useRef(new Date());
 
   const disabledMatchers: Matcher[] = [];
@@ -149,12 +170,33 @@ export default function DatePicker({
   const isRange = !!setDate2;
 
   const rangeFieldValue = useMemo(() => {
+    if (
+      isRange &&
+      precision === "date" &&
+      !rangeFieldFocused &&
+      date &&
+      date2
+    ) {
+      return formatCompactDateRange(
+        parseDateInput(date),
+        parseDateInput(date2),
+      );
+    }
     const a = bufferedDate;
     const b = bufferedDate2;
     if (!a && !b) return "";
     if (a && b) return `${a}${RANGE_DISPLAY_SEP}${b}`;
     return a || b;
-  }, [bufferedDate, bufferedDate2]);
+  }, [
+    bufferedDate,
+    bufferedDate2,
+    date,
+    date2,
+    isRange,
+    parseDateInput,
+    precision,
+    rangeFieldFocused,
+  ]);
 
   const clampParsedDate = useCallback(
     (parsedDate: Date) => {
@@ -320,9 +362,24 @@ export default function DatePicker({
                         debouncedSetDate(e.target.value);
                       }
                     }}
+                    onFocus={() => {
+                      if (!isRange) return;
+                      setRangeFieldFocused(true);
+                      if (date && date2) {
+                        setBufferedDate(
+                          format(parseDateInput(date), dateFormat),
+                        );
+                        setBufferedDate2(
+                          format(parseDateInput(date2), dateFormat),
+                        );
+                      }
+                    }}
                     onBlur={() => {
                       debouncedSetDate.flush();
                       debouncedApplyRange.flush();
+                      if (isRange) {
+                        setRangeFieldFocused(false);
+                      }
                     }}
                     onClick={(e) => {
                       e.preventDefault();
