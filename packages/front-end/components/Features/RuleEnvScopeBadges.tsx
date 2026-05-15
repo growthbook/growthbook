@@ -24,7 +24,7 @@ type Props = {
 
 function envBadge(envId: string, active: boolean) {
   const iconColor = active ? "var(--green-11)" : "var(--gray-8)";
-  const textColor = active ? "var(--green-11)" : "var(--gray-8)";
+  const textColor = active ? undefined : "var(--gray-8)";
   return (
     <Flex key={envId} align="center" gap="1">
       <span

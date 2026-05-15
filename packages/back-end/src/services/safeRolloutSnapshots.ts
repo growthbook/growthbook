@@ -349,7 +349,9 @@ function getSafeRolloutSnapshotSettings({
     customFields,
     datasourceId: safeRollout.datasourceId || "",
     dimensions: settings.dimensions.map((id) => ({ id })),
-    startDate: safeRollout.startedAt || new Date(), // TODO: What do we want to do if startedAt is not set?
+    // Honor the rolling floor so post-restart snapshots skip prior-run exposures.
+    startDate:
+      safeRollout.analysisStartedAt || safeRollout.startedAt || new Date(),
     endDate: new Date(),
     guardrailMetrics,
     regressionAdjustmentEnabled: !!settings.regressionAdjusted,

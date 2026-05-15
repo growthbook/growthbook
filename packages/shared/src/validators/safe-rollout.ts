@@ -59,6 +59,9 @@ const safeRollout = createSafeRolloutValidator.extend({
   status: z.enum(safeRolloutStatusArray),
   autoSnapshots: z.boolean(),
   startedAt: z.date().optional(),
+  // Rolling floor for the active analysis run. Bumped on ramp restart so
+  // prior-run snapshots don't gate the new run. Falls back to `startedAt`.
+  analysisStartedAt: z.date().optional(),
   lastSnapshotAttempt: z.date().optional(),
   nextSnapshotAttempt: z.date().optional(),
   analysisSummary: experimentAnalysisSummary.optional(),

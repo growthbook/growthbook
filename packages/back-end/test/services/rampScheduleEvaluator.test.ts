@@ -199,6 +199,52 @@ describe("rampScheduleEvaluator monitored SafeRollout integration", () => {
     expect(mockCreateSafeRolloutSnapshot).not.toHaveBeenCalled();
   });
 
+  it("holds when SafeRollout analysis is older than the rolling analysis floor", async () => {
+    const schedule = makeSchedule();
+    // Floor bumped (e.g. ramp restart) after the snapshot was taken.
+    const safeRollout = {
+      ...makeSafeRollout("srsnp_pre_restart"),
+      analysisStartedAt: new Date("2026-01-01T01:30:00Z"),
+    } as SafeRolloutInterface;
+    const context = makeContext({
+      safeRollout,
+      // Snapshot covers the step interval but predates the rolling floor.
+      snapshotDate: new Date("2026-01-01T01:10:00Z"),
+    });
+
+    const decision = await evaluateCurrentStep(
+      context as Parameters<typeof evaluateCurrentStep>[0],
+      schedule,
+      new Date("2026-01-01T02:00:00Z"),
+    );
+
+    expect(decision).toEqual({
+      action: "hold",
+      reason:
+        "Waiting for analysis results that cover the current monitored step",
+    });
+  });
+
+  it("advances when SafeRollout analysis is newer than the rolling analysis floor", async () => {
+    const schedule = makeSchedule();
+    const safeRollout = {
+      ...makeSafeRollout("srsnp_post_restart"),
+      analysisStartedAt: new Date("2026-01-01T00:30:00Z"),
+    } as SafeRolloutInterface;
+    const context = makeContext({
+      safeRollout,
+      snapshotDate: new Date("2026-01-01T01:05:00Z"),
+    });
+
+    const decision = await evaluateCurrentStep(
+      context as Parameters<typeof evaluateCurrentStep>[0],
+      schedule,
+      new Date("2026-01-01T02:00:00Z"),
+    );
+
+    expect(decision).toEqual({ action: "advance" });
+  });
+
   it("re-evaluates the linked ramp when SafeRollout snapshot completion fires", async () => {
     const schedule = makeSchedule();
     const safeRollout = makeSafeRollout("srsnp_stale");

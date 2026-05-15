@@ -1069,6 +1069,21 @@ export async function restartSchedule(
     }),
   });
 
+  // Roll the linked SR's analysis floor forward so the new run isn't gated
+  // by prior-run snapshots; reset notification dedupe so the new run can
+  // re-notify on the same kinds of issues.
+  if (readied.safeRolloutId) {
+    const sr = await ctx.models.safeRollout.getById(readied.safeRolloutId);
+    if (sr) {
+      const now = new Date();
+      await ctx.models.safeRollout.update(sr, {
+        analysisStartedAt: now,
+        nextSnapshotAttempt: now,
+        pastNotifications: [],
+      });
+    }
+  }
+
   return startSchedule(ctx, readied);
 }
 

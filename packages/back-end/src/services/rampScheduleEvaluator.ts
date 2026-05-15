@@ -58,11 +58,7 @@ async function evaluateMonitoredStep(
   schedule: RampScheduleInterface,
   now: Date,
 ): Promise<EvalDecision> {
-  let safeRollout = schedule.safeRolloutId
-    ? await ctx.models.safeRollout.getById(schedule.safeRolloutId)
-    : null;
-
-  if (!safeRollout) {
+  if (!schedule.safeRolloutId) {
     return {
       action: "hold",
       reason: "No linked SafeRollout — waiting for monitoring to be attached",
@@ -76,20 +72,6 @@ async function evaluateMonitoredStep(
   const noTrafficAction = monitoringConfig?.noTrafficAction ?? "hold";
   const multipleExposureAction =
     monitoringConfig?.multipleExposureAction ?? "hold";
-
-  const metricGroups = await ctx.models.metricGroups.getAll();
-  const expandedGuardrailIds = expandMetricGroups(
-    monitoringConfig?.guardrailMetricIds ?? [],
-    metricGroups,
-  );
-  const expandedSignalIds = expandMetricGroups(
-    monitoringConfig?.signalMetricIds ?? [],
-    metricGroups,
-  );
-
-  const signalOnly = expandedSignalIds.filter(
-    (id) => !expandedGuardrailIds.includes(id),
-  );
 
   const stepEnteredAt = schedule.currentStepEnteredAt;
   if (stepEnteredAt && step?.trigger.type === "interval") {
@@ -112,18 +94,43 @@ async function evaluateMonitoredStep(
   const requiredSnapshotAt =
     intervalEndAt ?? stepEnteredAt ?? schedule.startedAt;
 
-  safeRollout =
-    (await ctx.models.safeRollout.getById(safeRollout.id)) ?? safeRollout;
+  const safeRollout = await ctx.models.safeRollout.getById(
+    schedule.safeRolloutId,
+  );
+  if (!safeRollout) {
+    return {
+      action: "hold",
+      reason: "No linked SafeRollout — waiting for monitoring to be attached",
+    };
+  }
+
+  const metricGroups = await ctx.models.metricGroups.getAll();
+  const expandedGuardrailIds = expandMetricGroups(
+    monitoringConfig?.guardrailMetricIds ?? [],
+    metricGroups,
+  );
+  const expandedSignalIds = expandMetricGroups(
+    monitoringConfig?.signalMetricIds ?? [],
+    metricGroups,
+  );
+
+  const signalOnly = expandedSignalIds.filter(
+    (id) => !expandedGuardrailIds.includes(id),
+  );
 
   const summarySnapshot = safeRollout.analysisSummary?.snapshotId
     ? await ctx.models.safeRolloutSnapshots.getById(
         safeRollout.analysisSummary.snapshotId,
       )
     : null;
+  // Bumped on ramp restart so prior-run snapshots can't gate the new run.
+  const analysisFloor =
+    safeRollout.analysisStartedAt ?? safeRollout.startedAt ?? null;
   const hasCurrentAnalysis =
     !!requiredSnapshotAt &&
     summarySnapshot?.status === "success" &&
-    summarySnapshot.dateCreated >= requiredSnapshotAt;
+    summarySnapshot.dateCreated >= requiredSnapshotAt &&
+    (!analysisFloor || summarySnapshot.dateCreated >= analysisFloor);
 
   if (!hasCurrentAnalysis) {
     return {

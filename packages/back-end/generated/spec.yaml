@@ -3650,9 +3650,6 @@ paths:
                               minDurationMs:
                                 type: integer
                                 exclusiveMinimum: 0
-                              maxDurationMs:
-                                type: integer
-                                exclusiveMinimum: 0
                               minSampleSize:
                                 type: integer
                                 exclusiveMinimum: 0
@@ -4249,9 +4246,6 @@ paths:
                             type: object
                             properties:
                               minDurationMs:
-                                type: integer
-                                exclusiveMinimum: 0
-                              maxDurationMs:
                                 type: integer
                                 exclusiveMinimum: 0
                               minSampleSize:
@@ -4879,9 +4873,6 @@ paths:
                         type: object
                         properties:
                           minDurationMs:
-                            type: integer
-                            exclusiveMinimum: 0
-                          maxDurationMs:
                             type: integer
                             exclusiveMinimum: 0
                           minSampleSize:
@@ -8150,9 +8141,6 @@ paths:
                               minDurationMs:
                                 type: integer
                                 exclusiveMinimum: 0
-                              maxDurationMs:
-                                type: integer
-                                exclusiveMinimum: 0
                               minSampleSize:
                                 type: integer
                                 exclusiveMinimum: 0
@@ -8745,9 +8733,6 @@ paths:
                             type: object
                             properties:
                               minDurationMs:
-                                type: integer
-                                exclusiveMinimum: 0
-                              maxDurationMs:
                                 type: integer
                                 exclusiveMinimum: 0
                               minSampleSize:
@@ -9343,9 +9328,6 @@ paths:
                         type: object
                         properties:
                           minDurationMs:
-                            type: integer
-                            exclusiveMinimum: 0
-                          maxDurationMs:
                             type: integer
                             exclusiveMinimum: 0
                           minSampleSize:
@@ -17857,9 +17839,6 @@ paths:
                           minDurationMs:
                             type: integer
                             exclusiveMinimum: 0
-                          maxDurationMs:
-                            type: integer
-                            exclusiveMinimum: 0
                           minSampleSize:
                             type: integer
                             exclusiveMinimum: 0
@@ -26037,9 +26016,6 @@ paths:
                           minDurationMs:
                             type: integer
                             exclusiveMinimum: 0
-                          maxDurationMs:
-                            type: integer
-                            exclusiveMinimum: 0
                           minSampleSize:
                             type: integer
                             exclusiveMinimum: 0
@@ -26348,9 +26324,6 @@ paths:
                         type: object
                         properties:
                           minDurationMs:
-                            type: integer
-                            exclusiveMinimum: 0
-                          maxDurationMs:
                             type: integer
                             exclusiveMinimum: 0
                           minSampleSize:
@@ -26787,9 +26760,6 @@ paths:
                         type: object
                         properties:
                           minDurationMs:
-                            type: integer
-                            exclusiveMinimum: 0
-                          maxDurationMs:
                             type: integer
                             exclusiveMinimum: 0
                           minSampleSize:
@@ -32057,9 +32027,6 @@ components:
                   minDurationMs:
                     type: integer
                     exclusiveMinimum: 0
-                  maxDurationMs:
-                    type: integer
-                    exclusiveMinimum: 0
                   minSampleSize:
                     type: integer
                     exclusiveMinimum: 0
@@ -34533,9 +34500,6 @@ components:
                   minDurationMs:
                     type: integer
                     exclusiveMinimum: 0
-                  maxDurationMs:
-                    type: integer
-                    exclusiveMinimum: 0
                   minSampleSize:
                     type: integer
                     exclusiveMinimum: 0
@@ -36935,9 +36899,6 @@ components:
           type: object
           properties:
             minDurationMs:
-              type: integer
-              exclusiveMinimum: 0
-            maxDurationMs:
               type: integer
               exclusiveMinimum: 0
             minSampleSize:
