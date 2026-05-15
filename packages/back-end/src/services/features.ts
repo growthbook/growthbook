@@ -1836,6 +1836,9 @@ export function revisionToApiInterface(
           : undefined,
       },
     }),
+    ...(rev.rampActions !== undefined && {
+      rampActions: rev.rampActions,
+    }),
   };
 }
 
@@ -1893,6 +1896,9 @@ export function revisionToApiInterfaceV2(
             }
           : undefined,
       },
+    }),
+    ...(rev.rampActions !== undefined && {
+      rampActions: rev.rampActions,
     }),
   };
 }

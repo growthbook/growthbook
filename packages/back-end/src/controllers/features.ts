@@ -40,6 +40,7 @@ import {
   RevisionMetadata,
   RevisionRampCreateAction,
   RevisionRampDetachAction,
+  RevisionRampUpdateAction,
   RampStepAction,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
@@ -68,7 +69,6 @@ import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
 } from "shared/types/feature-rule";
-import { appendRampEvent } from "back-end/src/services/rampSchedule";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getContextForAgendaJobByOrgId,
@@ -3169,6 +3169,7 @@ export async function putFeatureRule(
 
   let rampActionsUpdate:
     | RevisionRampCreateAction
+    | RevisionRampUpdateAction
     | RevisionRampDetachAction
     | undefined;
   if (rampSchedulePayload) {
@@ -3221,6 +3222,43 @@ export async function putFeatureRule(
         };
         rampActionsUpdate = detachAction;
       }
+    } else if (rampSchedulePayload.mode === "update") {
+      const updateAction: RevisionRampUpdateAction = {
+        mode: "update",
+        rampScheduleId: rampSchedulePayload.rampScheduleId,
+        name: rampSchedulePayload.name,
+        steps: (rampSchedulePayload.steps ?? []).map(
+          (s: {
+            trigger: unknown;
+            actions?: unknown[];
+            approvalNotes?: string | null;
+            monitored?: boolean;
+            holdConditions?: Record<string, unknown>;
+          }) => ({
+            trigger:
+              s.trigger as RevisionRampCreateAction["steps"][number]["trigger"],
+            actions: (s.actions ?? []).map((a: unknown) =>
+              normalizeRampStepAction(a as { patch: Record<string, unknown> }),
+            ),
+            approvalNotes: s.approvalNotes ?? undefined,
+            monitored: !!s.monitored,
+            holdConditions: s.holdConditions ?? undefined,
+          }),
+        ),
+        startActions: rampSchedulePayload.startActions?.map((a: unknown) =>
+          normalizeRampStepAction(a as { patch: Record<string, unknown> }),
+        ),
+        endActions: rampSchedulePayload.endActions?.map((a: unknown) =>
+          normalizeRampStepAction(a as { patch: Record<string, unknown> }),
+        ),
+        startDate:
+          rampSchedulePayload.startDate as RevisionRampCreateAction["startDate"],
+        cutoffDate: rampSchedulePayload.cutoffDate,
+        monitoringConfig: rampSchedulePayload.monitoringConfig,
+        lockdownConfig: rampSchedulePayload.lockdownConfig,
+        ruleId,
+      };
+      rampActionsUpdate = updateAction;
     }
     // "clear" removes any pending ramp action for this rule without adding a new one
   }
@@ -3242,12 +3280,13 @@ export async function putFeatureRule(
 
   const combinedChanges: Record<string, unknown> = { rules: nextRules };
   if (rampSchedulePayload?.mode === "clear") {
-    // Strip any pending create/detach action for this rule.
+    // Strip any pending ramp action for this rule.
     const existingActions = revision.rampActions ?? [];
     combinedChanges.rampActions = existingActions.filter(
       (a) =>
         !(
           (a.mode === "create" && a.ruleId === ruleId) ||
+          (a.mode === "update" && a.ruleId === ruleId) ||
           (a.mode === "detach" && a.ruleId === ruleId)
         ),
     );
@@ -3257,6 +3296,7 @@ export async function putFeatureRule(
       (a) =>
         !(
           (a.mode === "create" && a.ruleId === rampActionsUpdate!.ruleId) ||
+          (a.mode === "update" && a.ruleId === rampActionsUpdate!.ruleId) ||
           (a.mode === "detach" && a.ruleId === rampActionsUpdate!.ruleId)
         ),
     );
@@ -3283,70 +3323,6 @@ export async function putFeatureRule(
     "rule.update",
     { environments: ruleChangedEnvs },
   );
-
-  // Handle real-time "update" mode separately (operates on live schedule, not revision-bound)
-  // Gracefully skip if the schedule no longer exists (e.g., was deleted or reverted away).
-  if (rampSchedulePayload && rampSchedulePayload.mode === "update") {
-    const existing = await context.models.rampSchedules.getById(
-      rampSchedulePayload.rampScheduleId,
-    );
-    if (existing && ["pending", "ready", "paused"].includes(existing.status)) {
-      const updates: Record<string, unknown> = {};
-      // Remap "t1" placeholder targetId references to the real target UUID.
-      // The frontend always uses "t1" when building step/condition actions; the
-      // actual UUID was assigned at schedule creation and must be preserved.
-      const primaryTargetId = existing.targets.find(
-        (t) => t.status === "active",
-      )?.id;
-      const remapT1 = (a: RampStepAction): RampStepAction =>
-        a.targetType === "feature-rule" &&
-        primaryTargetId &&
-        a.targetId === "t1"
-          ? { ...a, targetId: primaryTargetId }
-          : a;
-      if (rampSchedulePayload.name !== undefined)
-        updates.name = rampSchedulePayload.name;
-      if (rampSchedulePayload.steps !== undefined) {
-        updates.steps = rampSchedulePayload.steps.map((step) => ({
-          ...step,
-          actions: (step.actions ?? []).map(remapT1),
-          monitored: !!step.monitored,
-          holdConditions: step.holdConditions ?? undefined,
-        }));
-      }
-      if (rampSchedulePayload.startActions !== undefined) {
-        updates.startActions = rampSchedulePayload.startActions.map(remapT1);
-      }
-      if ("startDate" in rampSchedulePayload) {
-        updates.startDate = rampSchedulePayload.startDate
-          ? new Date(rampSchedulePayload.startDate)
-          : null;
-      }
-      if (rampSchedulePayload.endActions !== undefined) {
-        updates.endActions = rampSchedulePayload.endActions.map(remapT1);
-      }
-      if ("cutoffDate" in rampSchedulePayload) {
-        updates.cutoffDate = rampSchedulePayload.cutoffDate
-          ? new Date(rampSchedulePayload.cutoffDate)
-          : null;
-      }
-      if (rampSchedulePayload.monitoringConfig !== undefined) {
-        updates.monitoringConfig = rampSchedulePayload.monitoringConfig;
-      }
-      if (rampSchedulePayload.lockdownConfig !== undefined) {
-        updates.lockdownConfig = rampSchedulePayload.lockdownConfig;
-      }
-      const editedFields = Object.keys(updates);
-      if (editedFields.length > 0) {
-        updates.eventHistory = appendRampEvent(existing, "config-edited", {
-          stepIndex: existing.currentStepIndex,
-          status: existing.status,
-          reason: `Edited: ${editedFields.join(", ")}`,
-        });
-      }
-      await context.models.rampSchedules.updateById(existing.id, updates);
-    }
-  }
 
   // If editing an experiment-ref rule, keep pendingFeatureDrafts in sync.
   const editedRule = (updatedRevisionAfterRuleEdit ?? revision).rules?.find(

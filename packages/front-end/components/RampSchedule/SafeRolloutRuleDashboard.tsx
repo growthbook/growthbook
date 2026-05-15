@@ -1477,12 +1477,7 @@ function SafeRolloutStatusBar({
         onClick={onToggleExpanded}
         style={{ cursor: "pointer" }}
       >
-        <Flex
-          align="center"
-          justify="between"
-          gap="3"
-          style={{ minHeight: 30 }}
-        >
+        <Flex align="center" justify="between" gap="3" pb="1">
           <Flex align="start" gap="2" style={{ minWidth: 0 }}>
             <Box
               style={{

@@ -37,6 +37,8 @@ import {
   logBadgeColor,
   CreatedRampScheduleBody,
   createdRampScheduleTitle,
+  updatedRampScheduleTitle,
+  updatedRampScheduleBadgeLabel,
   PendingPublishBadge,
 } from "@/components/Features/FeatureDiffRenders";
 import Callout from "@/ui/Callout";
@@ -248,7 +250,7 @@ export default function DraftModal({
         badges: [{ label: `Start ramp: ${ramp.name}`, action: "start ramp" }],
       } as FeatureRevisionDiff;
     }),
-    // Pending ramp actions: create/detach actions queued in the draft
+    // Pending ramp actions: create/update/detach actions queued in the draft
     ...(revision?.rampActions ?? [])
       .map((action) => {
         if (action.mode === "create") {
@@ -278,6 +280,36 @@ export default function DraftModal({
                   ? `Create ramp: ${action.name}`
                   : "Create ramp schedule",
                 action: "create ramp",
+              },
+            ],
+          } as FeatureRevisionDiff;
+        } else if (action.mode === "update") {
+          const targetIdx = draftRuleIndexById.get(action.ruleId);
+          const ruleLabel = targetIdx ? `Rule #${targetIdx}` : "this rule";
+          const rampConfig = {
+            rampScheduleId: action.rampScheduleId,
+            name: action.name,
+            ruleId: action.ruleId,
+            startDate: action.startDate,
+            steps: action.steps,
+            cutoffDate: action.cutoffDate,
+          };
+          return {
+            title: targetIdx
+              ? `${updatedRampScheduleTitle(action)} - Rule #${targetIdx}`
+              : updatedRampScheduleTitle(action),
+            a: "",
+            b: JSON.stringify(rampConfig, null, 2),
+            customRender: (
+              <p className="mb-0">
+                Updates the schedule configuration for{" "}
+                <strong>{ruleLabel}</strong>.
+              </p>
+            ),
+            badges: [
+              {
+                label: updatedRampScheduleBadgeLabel(action),
+                action: "update ramp",
               },
             ],
           } as FeatureRevisionDiff;

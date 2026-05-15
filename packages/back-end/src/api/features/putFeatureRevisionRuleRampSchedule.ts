@@ -1,5 +1,8 @@
 import type { OrganizationInterface } from "shared/types/organization";
-import { putFeatureRevisionRuleRampScheduleValidator } from "shared/validators";
+import {
+  RevisionRampUpdateAction,
+  putFeatureRevisionRuleRampScheduleValidator,
+} from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
@@ -36,7 +39,6 @@ export async function setRuleRampSchedule(
     // All remaining fields are forwarded as the inline schedule definition.
     [k: string]: unknown;
   },
-  docLinkVersion: "v1" | "v2",
 ) {
   const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
@@ -92,22 +94,19 @@ export async function setRuleRampSchedule(
     // (DELETE by the GET-returned id) breaks for stem↔suffix ambiguity.
     const canonicalRuleId = match.id;
 
-    // Block if an active live schedule already controls this rule.
+    // If an active live schedule controls this rule, queue a deferred
+    // revision-time `update` action instead of requiring an instant write via
+    // PUT /ramp-schedule/:id. This keeps config edits revision-controlled.
     const liveSchedules = await context.models.rampSchedules.findByTargetRule(
       canonicalRuleId,
       environment ?? undefined,
     );
-    if (liveSchedules.length > 0) {
-      throw new BadRequestError(
-        `Rule "${canonicalRuleId}" already has a live ramp schedule.` +
-          ` Update it via PUT /api/${docLinkVersion}/ramp-schedules/${liveSchedules[0].id}.`,
-      );
-    }
 
     const action = normalizeInlineRampSchedule(
       scheduleInput as Parameters<typeof normalizeInlineRampSchedule>[0],
       canonicalRuleId,
     );
+    const existingLiveSchedule = liveSchedules[0];
 
     // Replace any existing pending ramp action for this rule. Filter tolerant
     // to both the canonical id AND the caller-provided id, so stale entries
@@ -118,7 +117,14 @@ export async function setRuleRampSchedule(
         !("ruleId" in a) ||
         (a.ruleId !== canonicalRuleId && a.ruleId !== ruleId),
     );
-    const newRampActions = [...filtered, action];
+    const revisionAction = existingLiveSchedule
+      ? ({
+          ...action,
+          mode: "update",
+          rampScheduleId: existingLiveSchedule.id,
+        } as RevisionRampUpdateAction)
+      : action;
+    const newRampActions = [...filtered, revisionAction];
 
     // `changedEnvironments` drives per-env review reset and audit env fanout.
     // When the caller didn't specify an env, use the resolved rule's full env
@@ -138,7 +144,7 @@ export async function setRuleRampSchedule(
         user: context.auditUser,
         action: "set ramp schedule",
         subject: canonicalRuleId,
-        value: JSON.stringify(action),
+        value: JSON.stringify(revisionAction),
       },
       resetReviewOnChange({
         feature,
@@ -183,7 +189,6 @@ export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
     req.organization,
     req.params,
     req.body,
-    "v1",
   );
   return { revision: toApiRevision(revision, req.context, feature) };
 });

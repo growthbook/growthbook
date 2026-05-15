@@ -81,7 +81,6 @@ import { useBatchPrerequisiteStates } from "@/hooks/usePrerequisiteStates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
 import SelectField from "@/components/Forms/SelectField";
 import RampScheduleSection from "@/components/Features/RuleModal/RampScheduleSection";
-import RampScheduleDisplay from "@/components/RampSchedule/RampScheduleDisplay";
 import {
   type RampSectionState,
   defaultRampSectionState,
@@ -1194,10 +1193,7 @@ export default function RuleModal({
               } else if (
                 !isNoOpSchedule &&
                 rampState.mode === "edit" &&
-                ruleRampSchedule?.id &&
-                !["running", "pending-approval"].includes(
-                  ruleRampSchedule.status,
-                )
+                ruleRampSchedule?.id
               ) {
                 rampScheduleInline = {
                   mode: "update",
@@ -1711,20 +1707,17 @@ export default function RuleModal({
                 </Box>
               ) : null;
             })()}
-            {ruleRampSchedule && !rampIsEditable ? (
-              <RampScheduleDisplay rs={ruleRampSchedule} />
-            ) : (
-              <RampScheduleSection
-                ruleRampSchedule={ruleRampSchedule}
-                state={rampSectionState}
-                setState={setRampSectionState}
-                pendingDetach={hasPendingDetach}
-                embedded
-                hideNameField={true}
-                feature={feature}
-                environments={environments.map((e) => e.id)}
-              />
-            )}
+            <RampScheduleSection
+              ruleRampSchedule={ruleRampSchedule}
+              state={rampSectionState}
+              setState={setRampSectionState}
+              pendingDetach={hasPendingDetach}
+              embedded
+              readOnly={!!ruleRampSchedule && !rampIsEditable}
+              hideNameField={true}
+              feature={feature}
+              environments={environments.map((e) => e.id)}
+            />
           </Page>
         )}
 

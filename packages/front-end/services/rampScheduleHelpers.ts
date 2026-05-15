@@ -50,6 +50,53 @@ export function buildRuleRampScheduleMap({
 
   if (hasActiveDraft && draftRevision.rampActions) {
     for (const action of draftRevision.rampActions) {
+      if (action.mode === "update") {
+        const current = map.get(action.ruleId);
+        const base =
+          current ??
+          (rampSchedules ?? []).find((rs) => rs.id === action.rampScheduleId);
+        if (!base) continue;
+
+        const updated: RampScheduleInterface = {
+          ...base,
+          ...(action.name !== undefined ? { name: action.name } : {}),
+          ...(action.startActions !== undefined
+            ? {
+                startActions:
+                  action.startActions as RampScheduleInterface["startActions"],
+              }
+            : {}),
+          ...(action.steps !== undefined
+            ? { steps: action.steps as RampScheduleInterface["steps"] }
+            : {}),
+          ...(action.endActions !== undefined
+            ? {
+                endActions:
+                  action.endActions as RampScheduleInterface["endActions"],
+              }
+            : {}),
+          ...(action.startDate !== undefined
+            ? {
+                startDate: action.startDate ? new Date(action.startDate) : null,
+              }
+            : {}),
+          ...(action.cutoffDate !== undefined
+            ? {
+                cutoffDate: action.cutoffDate
+                  ? new Date(action.cutoffDate)
+                  : null,
+              }
+            : {}),
+          ...(action.monitoringConfig !== undefined
+            ? { monitoringConfig: action.monitoringConfig }
+            : {}),
+          ...(action.lockdownConfig !== undefined
+            ? { lockdownConfig: action.lockdownConfig }
+            : {}),
+        };
+        map.set(action.ruleId, updated);
+        continue;
+      }
       if (action.mode !== "create") continue;
       if (
         environment &&

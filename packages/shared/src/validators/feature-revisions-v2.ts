@@ -591,6 +591,8 @@ export const putFeatureRevisionRuleRampScheduleV2Validator = {
   path: "/features/:id/revisions/:version/rules/:ruleId/ramp-schedule",
   operationId: "putFeatureRevisionRuleRampScheduleV2",
   summary: "Set ramp schedule for a rule",
+  description:
+    "Queues a revision-controlled ramp action for this rule. If the rule already has a live ramp schedule, this stores an `update` action applied on publish; otherwise it stores a `create` action. No live schedule config changes are applied immediately by this endpoint.",
   tags: ["feature-revisions-v2"],
   paramsSchema: ruleParams,
   bodySchema: standaloneRampScheduleInput.extend(newDraftMetadataFields),

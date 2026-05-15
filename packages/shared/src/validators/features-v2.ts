@@ -11,6 +11,7 @@ import {
   apiRevisionMetadata,
   apiFeatureHoldout,
   revisionStatusSchema,
+  apiRevisionRampAction,
 } from "./features";
 import { namedSchema } from "./openapi-helpers";
 
@@ -118,6 +119,12 @@ export const apiFeatureRevisionV2Validator = namedSchema(
         )
         .optional(),
       metadata: apiRevisionMetadata.optional(),
+      rampActions: z
+        .array(apiRevisionRampAction)
+        .describe(
+          "Pending ramp schedule actions that will be applied when this draft is published",
+        )
+        .optional(),
     })
     .strict(),
 );

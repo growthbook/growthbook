@@ -21,6 +21,7 @@ import {
   RampScheduleTemplateInterface,
   RevisionRampAction,
   RevisionRampCreateAction,
+  RevisionRampUpdateAction,
   RampStepAction,
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
@@ -50,6 +51,7 @@ import {
 } from "back-end/src/services/features";
 import {
   assertFeatureNotLockedByRamp,
+  computeNextProcessAt,
   getStartActionsFromRules,
   remapTemplateActions,
 } from "back-end/src/services/rampSchedule";
@@ -1647,9 +1649,11 @@ export async function applyHoldoutSideEffects(
   }
 }
 
-// Create ramp schedules for `mode === "create"` actions. Called BEFORE the
-// feature write so a schedule failure aborts publish. Returns the created IDs
-// for rollback on a subsequent failure.
+// Apply deferred ramp create/update actions stored on a revision.
+// - `create` actions are called BEFORE feature write so schedule creation
+//   failures abort publish.
+// - `update` actions are called AFTER publish succeeds (best-effort).
+// Returns only newly created schedule IDs (for rollback on failure).
 async function createRampSchedulesForRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1660,7 +1664,7 @@ async function createRampSchedulesForRevision(
   const createdIds: string[] = [];
 
   for (const action of actions) {
-    if (action.mode !== "create") continue;
+    if (action.mode !== "create" && action.mode !== "update") continue;
 
     // Pro gate — see postRampSchedule.ts for rationale.
     if (!context.hasPremiumFeature("schedule-feature-flag")) {
@@ -1669,7 +1673,36 @@ async function createRampSchedulesForRevision(
       );
     }
 
-    const targetId = uuidv4();
+    const existingSchedule =
+      action.mode === "update"
+        ? await context.models.rampSchedules.getById(action.rampScheduleId)
+        : null;
+    if (action.mode === "update" && !existingSchedule) {
+      logger.warn(
+        { rampScheduleId: action.rampScheduleId, ruleId: action.ruleId },
+        "Ramp schedule not found at revision publish time — skipping deferred update action",
+      );
+      continue;
+    }
+
+    const existingTarget =
+      action.mode === "update"
+        ? existingSchedule?.targets.find(
+            (t) => stemRuleId(t.ruleId ?? "") === stemRuleId(action.ruleId),
+          )
+        : null;
+    if (action.mode === "update" && !existingTarget) {
+      logger.warn(
+        {
+          rampScheduleId: action.rampScheduleId,
+          ruleId: action.ruleId,
+        },
+        "Ramp schedule target no longer matches rule at revision publish time — skipping deferred update action",
+      );
+      continue;
+    }
+
+    const targetId = existingTarget?.id ?? uuidv4();
 
     // Inject the generated targetId into every action and ensure targetType
     // is always set. Handles both correctly-typed actions and legacy drafts
@@ -1706,13 +1739,21 @@ async function createRampSchedulesForRevision(
       { month: "short", year: "numeric" },
     )}`;
 
-    const startDate = action.startDate ? new Date(action.startDate) : undefined;
+    const startDate =
+      action.startDate === null
+        ? null
+        : action.startDate
+          ? new Date(action.startDate)
+          : undefined;
 
+    const explicitSteps = Array.isArray(action.steps) ? action.steps : [];
     const steps: RampScheduleInterface["steps"] =
-      action.steps.length > 0
-        ? action.steps.map((step) => ({
+      explicitSteps.length > 0
+        ? explicitSteps.map((step) => ({
             ...step,
-            actions: step.actions.map(normalizeAction),
+            actions: Array.isArray(step.actions)
+              ? step.actions.map(normalizeAction)
+              : [],
             monitored: !!step.monitored,
             holdConditions: step.holdConditions ?? undefined,
           }))
@@ -1752,7 +1793,9 @@ async function createRampSchedulesForRevision(
 
     const startActions: RampStepAction[] =
       action.startActions !== undefined
-        ? action.startActions.map(normalizeAction)
+        ? Array.isArray(action.startActions)
+          ? action.startActions.map(normalizeAction)
+          : []
         : getStartActionsFromRules({
             rules: result.rules ?? feature.rules ?? [],
             targetId,
@@ -1760,47 +1803,98 @@ async function createRampSchedulesForRevision(
             environment: action.environment,
           });
 
-    const created = await context.models.rampSchedules.create({
-      name: action.name ?? defaultName,
-      entityType: "feature",
-      entityId: feature.id,
-      targets: [
-        {
-          id: targetId,
-          entityType: "feature",
-          entityId: feature.id,
-          ruleId: action.ruleId,
-          // null = patches apply to all environments sharing this ruleId.
-          // A specific environment = patches are scoped to that env only.
-          environment: action.environment ?? null,
-          status: "active",
-          // Link this target to the activating revision so onRevisionPublished
-          // (and the Agenda recovery path) can transition "pending" → "running".
-          activatingRevisionVersion: revision.version,
-        },
-      ],
-      startActions: startActions.length > 0 ? startActions : undefined,
-      steps,
-      endActions: endActions.length > 0 ? endActions : undefined,
-      startDate,
-      cutoffDate: action.cutoffDate
-        ? new Date(action.cutoffDate)
-        : action.cutoffDate === null
-          ? null
-          : undefined,
-      monitoringConfig: action.monitoringConfig ?? template?.monitoringConfig,
-      lockdownConfig: action.lockdownConfig ?? template?.lockdownConfig,
-      // Start as "pending" — onActivatingRevisionPublished handles the
-      // immediate → "running" transition inline when the revision publishes.
-      status: "pending",
-      currentStepIndex: -1,
-      nextStepAt:
-        !startDate && steps.length > 0 ? new Date() : (startDate ?? null),
-      startedAt: null,
-      phaseStartedAt: null,
-    });
+    if (action.mode === "create") {
+      const created = await context.models.rampSchedules.create({
+        name: action.name ?? defaultName,
+        entityType: "feature",
+        entityId: feature.id,
+        targets: [
+          {
+            id: targetId,
+            entityType: "feature",
+            entityId: feature.id,
+            ruleId: action.ruleId,
+            // null = patches apply to all environments sharing this ruleId.
+            // A specific environment = patches are scoped to that env only.
+            environment: action.environment ?? null,
+            status: "active",
+            // Link this target to the activating revision so onRevisionPublished
+            // (and the Agenda recovery path) can transition "pending" → "running".
+            activatingRevisionVersion: revision.version,
+          },
+        ],
+        startActions: startActions.length > 0 ? startActions : undefined,
+        steps,
+        endActions: endActions.length > 0 ? endActions : undefined,
+        startDate: startDate ?? undefined,
+        cutoffDate: action.cutoffDate
+          ? new Date(action.cutoffDate)
+          : action.cutoffDate === null
+            ? null
+            : undefined,
+        monitoringConfig: action.monitoringConfig ?? template?.monitoringConfig,
+        lockdownConfig: action.lockdownConfig ?? template?.lockdownConfig,
+        // Start as "pending" — onActivatingRevisionPublished handles the
+        // immediate → "running" transition inline when the revision publishes.
+        status: "pending",
+        currentStepIndex: -1,
+        nextStepAt:
+          !startDate && steps.length > 0 ? new Date() : (startDate ?? null),
+        startedAt: null,
+        phaseStartedAt: null,
+      });
 
-    createdIds.push(created.id);
+      createdIds.push(created.id);
+      continue;
+    }
+
+    const updateAction = action as RevisionRampUpdateAction;
+    const nextStartDate =
+      startDate !== undefined
+        ? startDate
+        : (existingSchedule?.startDate ?? null);
+    const nextCutoffDate =
+      updateAction.cutoffDate !== undefined
+        ? updateAction.cutoffDate
+          ? new Date(updateAction.cutoffDate)
+          : null
+        : (existingSchedule?.cutoffDate ?? null);
+    const nextMonitoringConfig =
+      updateAction.monitoringConfig !== undefined
+        ? updateAction.monitoringConfig
+        : existingSchedule?.monitoringConfig;
+    const nextSnapshotAt =
+      existingSchedule?.nextSnapshotAt ?? existingSchedule?.nextStepAt ?? null;
+
+    await context.models.rampSchedules.updateById(updateAction.rampScheduleId, {
+      ...(updateAction.name !== undefined ? { name: updateAction.name } : {}),
+      ...(updateAction.startActions !== undefined
+        ? { startActions: startActions.length > 0 ? startActions : undefined }
+        : {}),
+      steps,
+      ...(updateAction.endActions !== undefined
+        ? { endActions: endActions.length > 0 ? endActions : undefined }
+        : {}),
+      ...(updateAction.startDate !== undefined
+        ? { startDate: nextStartDate }
+        : {}),
+      ...(updateAction.cutoffDate !== undefined
+        ? { cutoffDate: nextCutoffDate }
+        : {}),
+      ...(updateAction.monitoringConfig !== undefined
+        ? { monitoringConfig: nextMonitoringConfig }
+        : {}),
+      ...(updateAction.lockdownConfig !== undefined
+        ? { lockdownConfig: updateAction.lockdownConfig }
+        : {}),
+      nextProcessAt: computeNextProcessAt({
+        status: existingSchedule?.status ?? "paused",
+        nextStepAt: existingSchedule?.nextStepAt ?? null,
+        cutoffDate: nextCutoffDate,
+        startDate: nextStartDate,
+        nextSnapshotAt: nextSnapshotAt,
+      }),
+    });
   }
 
   return createdIds;
@@ -1937,6 +2031,9 @@ export async function publishRevision({
   const createActions = (revision.rampActions ?? []).filter(
     (a) => a.mode === "create",
   );
+  const updateActions = (revision.rampActions ?? []).filter(
+    (a) => a.mode === "update",
+  );
   const preCreatedScheduleIds: string[] = [];
   if (createActions.length) {
     const ids = await createRampSchedulesForRevision(
@@ -1989,6 +2086,18 @@ export async function publishRevision({
       }
     }
     throw err;
+  }
+
+  // Apply deferred update actions after publish succeeds.
+  // Best-effort: logged but do not fail publish.
+  if (updateActions.length) {
+    await createRampSchedulesForRevision(
+      context,
+      updatedFeature,
+      revision,
+      result,
+      updateActions,
+    );
   }
 
   // Apply detach actions (best-effort: logged but do not fail publish).

@@ -50,8 +50,8 @@ import {
   getRampBadgeColor,
   getRampStatusLabel,
   getRampStepsCompleted,
+  formatScheduledDate,
 } from "@/components/RampSchedule/RampTimeline";
-import RampScheduleDisplay from "@/components/RampSchedule/RampScheduleDisplay";
 import Badge from "@/ui/Badge";
 import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
@@ -60,7 +60,9 @@ import Switch from "@/ui/Switch";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import ConditionInput from "@/components/Features/ConditionInput";
+import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
+import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
 import Text from "@/ui/Text";
@@ -69,6 +71,7 @@ import MonitoredIcon from "@/components/Features/RuleModal/MonitoredIcon";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -84,6 +87,7 @@ import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { formatRemainingDuration } from "@/components/Features/Rule";
 import { Popover } from "@/ui/Popover";
+import { getExposureQuery } from "@/services/datasources";
 import styles from "./RampScheduleSection.module.scss";
 
 export type IntervalUnit = "minutes" | "hours" | "days";
@@ -571,6 +575,96 @@ export function activeFieldsFromState(state: RampSectionState): Set<StepField> {
 
 const POLL_INTERVAL_SECONDS = 60;
 
+function formatReadonlyAction(step: UIStep): string {
+  if (step.triggerType === "approval") return "Approval";
+  const value = Math.max(1, step.intervalValue);
+  const unit =
+    value === 1 ? step.intervalUnit.replace(/s$/, "") : step.intervalUnit;
+  return `Hold ${value} ${unit}`;
+}
+
+function formatReadonlyCoverage(step: UIStep): string {
+  if (step.patch.coverage === undefined) return "—";
+  return `${step.patch.coverage}%`;
+}
+
+function ReadOnlyEffectRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  const isPlainText =
+    typeof children === "string" || typeof children === "number";
+  return (
+    <Flex direction="column" gap="1">
+      <Text as="div" size="small" weight="medium" color="text-mid">
+        {label}
+      </Text>
+      <Box style={{ minWidth: 0 }}>
+        {isPlainText ? <Text size="small">{children}</Text> : children}
+      </Box>
+    </Flex>
+  );
+}
+
+function ReadOnlySettingRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  const isPlainText =
+    typeof children === "string" || typeof children === "number";
+  return (
+    <Flex align="start" gap="3" py="1">
+      <Box style={{ width: 120, flexShrink: 0 }}>
+        <Text size="small" weight="medium" color="text-mid">
+          {label}
+        </Text>
+      </Box>
+      <Box style={{ minWidth: 0, flex: 1 }}>
+        {isPlainText ? <Text size="small">{children}</Text> : children}
+      </Box>
+    </Flex>
+  );
+}
+
+function formatReadonlyDurationFromSchedule(rs: RampScheduleInterface): string {
+  let totalSeconds = 0;
+  let approvals = 0;
+  let hasMonitored = false;
+  for (const step of rs.steps) {
+    if (step.trigger.type === "interval") {
+      totalSeconds += step.trigger.seconds;
+    } else {
+      approvals++;
+    }
+    if (step.monitored) hasMonitored = true;
+  }
+  const parts: string[] = [];
+  if (totalSeconds > 0) parts.push(formatRemainingDuration(totalSeconds));
+  if (approvals > 0) {
+    parts.push(`${approvals} approval step${approvals > 1 ? "s" : ""}`);
+  }
+  if (hasMonitored) parts.push("monitored steps");
+  return parts.join(" + ") || "0";
+}
+
+function formatUserUnitLabel(userIdType?: string): string | null {
+  if (!userIdType) return null;
+  if (userIdType === "anonymous_id") return "Anonymous users";
+  if (userIdType === "user_id") return "Logged-in users";
+  const words = userIdType
+    .split("_")
+    .filter(Boolean)
+    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .join(" ");
+  return `${words} users`;
+}
+
 function MinSampleDialog({
   initialValue,
   onSave,
@@ -644,6 +738,8 @@ interface Props {
   setState: (s: RampSectionState) => void;
   // Embedded mode omits the outer heading/switch wrapper.
   embedded?: boolean;
+  // Renders the schedule grid in view-only mode.
+  readOnly?: boolean;
   feature: FeatureInterface;
   environments: string[];
   // Used by the standalone modal.
@@ -661,6 +757,7 @@ export default function RampScheduleSection({
   state,
   setState,
   embedded = false,
+  readOnly = false,
   feature,
   environments,
   boxStepGrid = false,
@@ -689,12 +786,13 @@ export default function RampScheduleSection({
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
   const hasRampSchedulesFeature = hasCommercialFeature("ramp-schedules");
-  const { datasources } = useDefinitions();
+  const { datasources, getDatasourceById, getExperimentMetricById } =
+    useDefinitions();
   const settings = useOrgSettings();
 
   const selectedDatasource = useMemo(
-    () => datasources.find((d) => d.id === state.monitoring.datasourceId),
-    [datasources, state.monitoring.datasourceId],
+    () => getDatasourceById(state.monitoring.datasourceId) ?? undefined,
+    [getDatasourceById, state.monitoring.datasourceId],
   );
 
   const exposureQueries = useMemo(
@@ -902,8 +1000,63 @@ export default function RampScheduleSection({
     }
   }
 
+  const canEdit =
+    !ruleRampSchedule ||
+    !["running", "pending-approval", "conflict"].includes(
+      ruleRampSchedule.status,
+    );
+  const isReadOnlyView = readOnly || (state.mode !== "create" && !canEdit);
+
   function renderStepGrid() {
     const subRowIndent = COL.num + 16;
+    const readOnlySteps = isReadOnlyView
+      ? (ruleRampSchedule?.steps ?? []).map(reconstructUIStep)
+      : [];
+    const stepsForDisplay = isReadOnlyView ? readOnlySteps : state.steps;
+    const currentReadOnlyStepIndex = isReadOnlyView
+      ? (ruleRampSchedule?.currentStepIndex ?? -1)
+      : -1;
+
+    const getReadOnlyStepMarker = (stepIndex: number) => {
+      if (!isReadOnlyView || !ruleRampSchedule) return null;
+      if (stepIndex !== currentReadOnlyStepIndex) return null;
+
+      switch (ruleRampSchedule.status) {
+        case "running":
+          return {
+            borderColor: "var(--green-9)",
+            textColor: "var(--green-11)",
+            tooltip: "Live step: ramp is currently running at this step.",
+          };
+        case "paused":
+          return {
+            borderColor: "var(--amber-9)",
+            textColor: "var(--amber-11)",
+            tooltip: "Paused step: ramp is paused on this step.",
+          };
+        case "pending-approval":
+          return {
+            borderColor: "var(--yellow-9)",
+            textColor: "var(--yellow-11)",
+            tooltip:
+              "Pending approval: ramp is waiting for manual approval on this step.",
+          };
+        case "ready":
+        case "pending":
+          return {
+            borderColor: "var(--blue-9)",
+            textColor: "var(--blue-11)",
+            tooltip:
+              "Pending start: this is the next step once the ramp starts.",
+          };
+        default:
+          return {
+            borderColor: "var(--gray-8)",
+            textColor: "var(--gray-11)",
+            tooltip: `Current step pointer (${ruleRampSchedule.status}).`,
+          };
+      }
+    };
     const ruleEffectItems: { field: StepField; label: string }[] = [
       { field: "savedGroups", label: "Saved group targeting" },
       { field: "condition", label: "Attribute targeting" },
@@ -1132,6 +1285,113 @@ export default function RampScheduleSection({
       );
     }
 
+    function renderReadonlyPatchSubRows(
+      patch: UIStepPatch,
+      step?: UIStep,
+    ): ReactNode {
+      const rows: ReactNode[] = [];
+
+      if ("savedGroups" in patch) {
+        rows.push(
+          <ReadOnlyEffectRow label="Saved groups">
+            {patch.savedGroups === null ? (
+              "None"
+            ) : patch.savedGroups && patch.savedGroups.length > 0 ? (
+              <SavedGroupTargetingDisplay savedGroups={patch.savedGroups} />
+            ) : (
+              "None"
+            )}
+          </ReadOnlyEffectRow>,
+        );
+      }
+
+      if ("condition" in patch) {
+        rows.push(
+          <ReadOnlyEffectRow label="Attribute targeting">
+            {isEmptyConditionValue(patch.condition) ? (
+              "None"
+            ) : (
+              <ConditionDisplay condition={patch.condition ?? "{}"} />
+            )}
+          </ReadOnlyEffectRow>,
+        );
+      }
+
+      if ("prerequisites" in patch) {
+        rows.push(
+          <ReadOnlyEffectRow label="Prerequisites">
+            {patch.prerequisites === null ? (
+              "None"
+            ) : patch.prerequisites && patch.prerequisites.length > 0 ? (
+              <ConditionDisplay prerequisites={patch.prerequisites} />
+            ) : (
+              "None"
+            )}
+          </ReadOnlyEffectRow>,
+        );
+      }
+
+      if ("force" in patch && !hideTemplateSave) {
+        rows.push(
+          <ReadOnlyEffectRow label="Default value">
+            <span style={{ fontFamily: "monospace" }}>
+              {patch.force ?? "null"}
+            </span>
+          </ReadOnlyEffectRow>,
+        );
+      }
+
+      if ("allEnvironments" in patch || "environments" in patch) {
+        const envLabel = patch.allEnvironments
+          ? "All environments"
+          : patch.environments && patch.environments.length > 0
+            ? patch.environments.join(", ")
+            : "No environments";
+        rows.push(
+          <ReadOnlyEffectRow label="Rule environments">
+            {envLabel}
+          </ReadOnlyEffectRow>,
+        );
+      }
+
+      if (step?.holdConditions?.minSampleSize != null) {
+        rows.push(
+          <ReadOnlyEffectRow label="Minimum sample size">
+            {step.holdConditions.minSampleSize.toLocaleString()}
+          </ReadOnlyEffectRow>,
+        );
+      }
+      if (step?.approvalNotes?.trim()) {
+        rows.push(
+          <ReadOnlyEffectRow label="Approval notes">
+            {step.approvalNotes.trim()}
+          </ReadOnlyEffectRow>,
+        );
+      }
+
+      if (!rows.length) return null;
+
+      return (
+        <Box mt="2" pr="2" style={{ paddingLeft: subRowIndent }}>
+          <Flex direction="column" gap="2">
+            {rows.map((row, index) => (
+              <Box
+                key={`readonly-effect-row-${index}`}
+                px="2"
+                py="2"
+                style={{
+                  border: "1px solid var(--gray-a5)",
+                  borderRadius: "var(--radius-2)",
+                }}
+              >
+                {row}
+              </Box>
+            ))}
+          </Flex>
+        </Box>
+      );
+    }
+
     const endRow = (
       <Box
         my="2"
@@ -1162,108 +1422,124 @@ export default function RampScheduleSection({
             </Box>
             {activeFields.has("coverage") && (
               <Box style={{ width: COL.coverage, flexShrink: 0 }}>
-                <div className={`position-relative ${styles.percentInputWrap}`}>
-                  <Field
-                    style={{ width: COL.coverage, minHeight: 38 }}
-                    type="number"
-                    min="0"
-                    max="100"
-                    onFocus={(e) => e.target.select()}
-                    value={String(state.endPatch.coverage ?? 100)}
-                    onChange={(e) =>
-                      patchState({
-                        endPatch: {
-                          ...state.endPatch,
-                          coverage: Math.min(
-                            100,
-                            Math.max(0, parseInt(e.target.value) || 0),
-                          ),
-                        },
-                      })
-                    }
-                  />
-                  <span>%</span>
-                </div>
+                {isReadOnlyView ? (
+                  <Text size="small" color="text-low">
+                    {state.endPatch.coverage ?? 100}%
+                  </Text>
+                ) : (
+                  <div
+                    className={`position-relative ${styles.percentInputWrap}`}
+                  >
+                    <Field
+                      style={{ width: COL.coverage, minHeight: 38 }}
+                      type="number"
+                      min="0"
+                      max="100"
+                      onFocus={(e) => e.target.select()}
+                      value={String(state.endPatch.coverage ?? 100)}
+                      onChange={(e) =>
+                        patchState({
+                          endPatch: {
+                            ...state.endPatch,
+                            coverage: Math.min(
+                              100,
+                              Math.max(0, parseInt(e.target.value) || 0),
+                            ),
+                          },
+                        })
+                      }
+                    />
+                    <span>%</span>
+                  </div>
+                )}
               </Box>
             )}
             <Box flexGrow="1" />
-            <Flex align="center" gap="2" pr="3" style={{ flexShrink: 0 }}>
-              <DropdownMenu
-                open={openMenuIndex === "end"}
-                onOpenChange={(o) => setOpenMenuIndex(o ? "end" : null)}
-                trigger={
-                  <IconButton
-                    type="button"
-                    variant="ghost"
-                    color="gray"
-                    radius="full"
-                    size="2"
-                    highContrast
-                  >
-                    <BsThreeDotsVertical size={18} />
-                  </IconButton>
-                }
-                variant="soft"
-                menuPlacement="end"
-              >
-                {renderRuleEffectsMenuGroup(state.endPatch, (field) => {
-                  setOpenMenuIndex(null);
-                  const patchWithField =
-                    field === "allEnvironments"
-                      ? {
-                          ...setPatchField(
+            {!isReadOnlyView && (
+              <Flex align="center" gap="2" pr="3" style={{ flexShrink: 0 }}>
+                <DropdownMenu
+                  open={openMenuIndex === "end"}
+                  onOpenChange={(o) => setOpenMenuIndex(o ? "end" : null)}
+                  trigger={
+                    <IconButton
+                      type="button"
+                      variant="ghost"
+                      color="gray"
+                      radius="full"
+                      size="2"
+                      highContrast
+                    >
+                      <BsThreeDotsVertical size={18} />
+                    </IconButton>
+                  }
+                  variant="soft"
+                  menuPlacement="end"
+                >
+                  {renderRuleEffectsMenuGroup(state.endPatch, (field) => {
+                    setOpenMenuIndex(null);
+                    const patchWithField =
+                      field === "allEnvironments"
+                        ? {
+                            ...setPatchField(
+                              state.endPatch,
+                              "allEnvironments",
+                              (
+                                getDefaultFieldValueForNewEffect(
+                                  "allEnvironments",
+                                  "end",
+                                ) as UIStepPatch
+                              )?.allEnvironments ??
+                                FIELD_DEFAULTS.allEnvironments,
+                            ),
+                            environments:
+                              (
+                                getDefaultFieldValueForNewEffect(
+                                  "allEnvironments",
+                                  "end",
+                                ) as UIStepPatch
+                              )?.environments ?? [],
+                          }
+                        : setPatchField(
                             state.endPatch,
-                            "allEnvironments",
-                            (
-                              getDefaultFieldValueForNewEffect(
-                                "allEnvironments",
-                                "end",
-                              ) as UIStepPatch
-                            )?.allEnvironments ??
-                              FIELD_DEFAULTS.allEnvironments,
-                          ),
-                          environments:
-                            (
-                              getDefaultFieldValueForNewEffect(
-                                "allEnvironments",
-                                "end",
-                              ) as UIStepPatch
-                            )?.environments ?? [],
-                        }
-                      : setPatchField(
-                          state.endPatch,
-                          field,
-                          getDefaultFieldValueForNewEffect(field, "end"),
-                        );
-                  patchState({
-                    endAdditionalEffectsOpen: true,
-                    endPatch: patchWithField,
-                  });
-                })}
-              </DropdownMenu>
-            </Flex>
+                            field,
+                            getDefaultFieldValueForNewEffect(field, "end"),
+                          );
+                    patchState({
+                      endAdditionalEffectsOpen: true,
+                      endPatch: patchWithField,
+                    });
+                  })}
+                </DropdownMenu>
+              </Flex>
+            )}
           </Flex>
-          {renderPatchSubRows(
-            state.endPatch,
-            (field, value) =>
-              patchState({
-                endPatch: setPatchField(state.endPatch, field, value),
-              }),
-            (field) => {
-              const nextPatch = setPatchField(state.endPatch, field, undefined);
-              patchState({
-                endPatch: nextPatch,
-                endAdditionalEffectsOpen: hasSelectedRuleEffects(nextPatch),
-              });
-            },
-            (nextPatch) =>
-              patchState({
-                endPatch: nextPatch,
-                endAdditionalEffectsOpen: hasSelectedRuleEffects(nextPatch),
-              }),
-            "end",
-            state.endAdditionalEffectsOpen,
-          )}
+          {isReadOnlyView
+            ? renderReadonlyPatchSubRows(state.endPatch)
+            : renderPatchSubRows(
+                state.endPatch,
+                (field, value) =>
+                  patchState({
+                    endPatch: setPatchField(state.endPatch, field, value),
+                  }),
+                (field) => {
+                  const nextPatch = setPatchField(
+                    state.endPatch,
+                    field,
+                    undefined,
+                  );
+                  patchState({
+                    endPatch: nextPatch,
+                    endAdditionalEffectsOpen: hasSelectedRuleEffects(nextPatch),
+                  });
+                },
+                (nextPatch) =>
+                  patchState({
+                    endPatch: nextPatch,
+                    endAdditionalEffectsOpen: hasSelectedRuleEffects(nextPatch),
+                  }),
+                "end",
+                state.endAdditionalEffectsOpen,
+              )}
         </Flex>
       </Box>
     );
@@ -1283,10 +1559,11 @@ export default function RampScheduleSection({
           )}
           <ColHeader width={COL.trigger}>Action</ColHeader>
           <Box flexGrow="1" />
-          {saveTemplateButton}
+          {!isReadOnlyView && saveTemplateButton}
         </Flex>
 
-        {state.steps.map((step, i) => {
+        {stepsForDisplay.map((step, i) => {
+          const stepMarker = getReadOnlyStepMarker(i);
           return (
             <Box
               key={i}
@@ -1317,12 +1594,41 @@ export default function RampScheduleSection({
                     style={{
                       width: COL.num,
                       flexShrink: 0,
+                      ...(isReadOnlyView
+                        ? {
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }
+                        : {}),
                     }}
-                    pl="3"
+                    pl={isReadOnlyView ? "0" : "3"}
                   >
-                    <Text size="small" color="text-low">
-                      {i + 1}
-                    </Text>
+                    {stepMarker ? (
+                      <Tooltip body={stepMarker.tooltip}>
+                        <Box
+                          style={{
+                            width: 22,
+                            height: 22,
+                            borderRadius: "999px",
+                            border: `2px solid ${stepMarker.borderColor}`,
+                            color: stepMarker.textColor,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "var(--font-size-1)",
+                            fontWeight: 600,
+                            lineHeight: 1,
+                          }}
+                        >
+                          {i + 1}
+                        </Box>
+                      </Tooltip>
+                    ) : (
+                      <Text size="small" color="text-low">
+                        {i + 1}
+                      </Text>
+                    )}
                   </Box>
 
                   {activeFields.has("coverage") &&
@@ -1331,39 +1637,49 @@ export default function RampScheduleSection({
                       const minCov = step.monitored ? 1 : 0;
                       return (
                         <Box style={{ width: COL.coverage, flexShrink: 0 }}>
-                          <div
-                            className={`position-relative ${styles.percentInputWrap}`}
-                          >
-                            <Field
-                              style={{ width: COL.coverage, minHeight: 38 }}
-                              type="number"
-                              min={minCov}
-                              max={maxCov}
-                              onFocus={(e) => e.target.select()}
-                              value={String(step.patch.coverage ?? 0)}
-                              onChange={(e) =>
-                                updateStepPatch(
-                                  i,
-                                  "coverage",
-                                  parseInt(e.target.value) || 0,
-                                )
-                              }
-                              onBlur={(e) =>
-                                updateStepPatch(
-                                  i,
-                                  "coverage",
-                                  Math.min(
-                                    maxCov,
-                                    Math.max(
-                                      minCov,
-                                      parseInt(e.target.value) || 0,
+                          {isReadOnlyView ? (
+                            <Text
+                              size="small"
+                              color="text-low"
+                              style={{ height: 38 }}
+                            >
+                              {formatReadonlyCoverage(step)}
+                            </Text>
+                          ) : (
+                            <div
+                              className={`position-relative ${styles.percentInputWrap}`}
+                            >
+                              <Field
+                                style={{ width: COL.coverage, minHeight: 38 }}
+                                type="number"
+                                min={minCov}
+                                max={maxCov}
+                                onFocus={(e) => e.target.select()}
+                                value={String(step.patch.coverage ?? 0)}
+                                onChange={(e) =>
+                                  updateStepPatch(
+                                    i,
+                                    "coverage",
+                                    parseInt(e.target.value) || 0,
+                                  )
+                                }
+                                onBlur={(e) =>
+                                  updateStepPatch(
+                                    i,
+                                    "coverage",
+                                    Math.min(
+                                      maxCov,
+                                      Math.max(
+                                        minCov,
+                                        parseInt(e.target.value) || 0,
+                                      ),
                                     ),
-                                  ),
-                                )
-                              }
-                            />
-                            <span>%</span>
-                          </div>
+                                  )
+                                }
+                              />
+                              <span>%</span>
+                            </div>
+                          )}
                         </Box>
                       );
                     })()}
@@ -1376,341 +1692,391 @@ export default function RampScheduleSection({
                         : { width: COL.trigger + COL.duration, flexShrink: 0 }
                     }
                   >
-                    <Box style={{ width: COL.trigger, flexShrink: 0 }}>
-                      <SelectField
-                        value={step.triggerType}
-                        options={[
-                          {
-                            value: "interval",
-                            label: "Hold",
-                            tooltip:
-                              "Apply this step's effects, then hold for the interval before advancing",
-                          },
-                          {
-                            value: "approval",
-                            label: "Approval",
-                            tooltip:
-                              "Apply this step's effects, then hold for manual approval before advancing",
-                          },
-                        ]}
-                        onChange={(v) =>
-                          updateStep(i, {
-                            triggerType: v as "interval" | "approval",
-                          })
-                        }
-                        className="select-unfixed"
-                        containerClassName="mb-0"
-                        containerStyle={{ minHeight: 38 }}
-                        useMultilineLabels
-                        formatOptionLabel={(option, meta) => {
-                          if (meta.context === "value")
-                            return <>{option.label}</>;
-                          return (
-                            <div>
-                              <div>{option.label}</div>
-                              {option.tooltip && (
-                                <div
-                                  style={{
-                                    fontSize: 11,
-                                    color: "var(--color-text-low)",
-                                    marginTop: 1,
-                                  }}
-                                >
-                                  {option.tooltip}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        }}
-                      />
-                    </Box>
-                    {step.triggerType === "interval" && (
+                    {isReadOnlyView ? (
+                      <Text size="small" color="text-low">
+                        {formatReadonlyAction(step)}
+                      </Text>
+                    ) : (
                       <>
-                        <Field
-                          style={{ minHeight: 38 }}
-                          type="number"
-                          min="1"
-                          onFocus={(e) => e.target.select()}
-                          value={String(step.intervalValue)}
-                          onChange={(e) =>
-                            updateStep(i, {
-                              intervalValue: parseInt(e.target.value) || 0,
-                            })
-                          }
-                          onBlur={(e) =>
-                            updateStep(i, {
-                              intervalValue: Math.max(
-                                1,
-                                parseInt(e.target.value) || 1,
-                              ),
-                            })
-                          }
-                          containerStyle={{ width: 75, flexShrink: 0 }}
-                        />
-                        <Box style={{ flex: 1 }}>
+                        <Box style={{ width: COL.trigger, flexShrink: 0 }}>
                           <SelectField
-                            value={step.intervalUnit}
+                            value={step.triggerType}
                             options={[
-                              { value: "minutes", label: "minutes" },
-                              { value: "hours", label: "hours" },
-                              { value: "days", label: "days" },
+                              {
+                                value: "interval",
+                                label: "Hold",
+                                tooltip:
+                                  "Apply this step's effects, then hold for the interval before advancing",
+                              },
+                              {
+                                value: "approval",
+                                label: "Approval",
+                                tooltip:
+                                  "Apply this step's effects, then hold for manual approval before advancing",
+                              },
                             ]}
                             onChange={(v) =>
                               updateStep(i, {
-                                intervalUnit: v as IntervalUnit,
+                                triggerType: v as "interval" | "approval",
                               })
                             }
                             className="select-unfixed"
                             containerClassName="mb-0"
                             containerStyle={{ minHeight: 38 }}
+                            useMultilineLabels
+                            formatOptionLabel={(option, meta) => {
+                              if (meta.context === "value")
+                                return <>{option.label}</>;
+                              return (
+                                <div>
+                                  <div>{option.label}</div>
+                                  {option.tooltip && (
+                                    <div
+                                      style={{
+                                        fontSize: 11,
+                                        color: "var(--color-text-low)",
+                                        marginTop: 1,
+                                      }}
+                                    >
+                                      {option.tooltip}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }}
                           />
                         </Box>
-                      </>
-                    )}
-                    {step.triggerType === "approval" && (
-                      <Flex
-                        align="center"
-                        gap="2"
-                        style={{ flex: 1, minWidth: 0 }}
-                      >
-                        {!step.notesOpen ? (
-                          <Link
-                            size="1"
-                            ml="1"
-                            color="gray"
-                            style={{ flexShrink: 0 }}
-                            onClick={() =>
-                              updateStep(i, {
-                                notesOpen: true,
-                                approvalNotes: "",
-                              })
-                            }
-                          >
-                            <PiPlusBold
-                              style={{
-                                marginRight: 3,
-                                verticalAlign: "middle",
-                              }}
-                            />
-                            Add approval notes
-                          </Link>
-                        ) : (
-                          <Box style={{ flex: 1, minWidth: 192 }}>
+                        {step.triggerType === "interval" && (
+                          <>
                             <Field
-                              label=""
-                              placeholder="ex: Check error rates"
-                              value={step.approvalNotes}
-                              onChange={(e) =>
-                                updateStep(i, { approvalNotes: e.target.value })
-                              }
-                              containerClassName="mb-0"
                               style={{ minHeight: 38 }}
+                              type="number"
+                              min="1"
+                              onFocus={(e) => e.target.select()}
+                              value={String(step.intervalValue)}
+                              onChange={(e) =>
+                                updateStep(i, {
+                                  intervalValue: parseInt(e.target.value) || 0,
+                                })
+                              }
+                              onBlur={(e) =>
+                                updateStep(i, {
+                                  intervalValue: Math.max(
+                                    1,
+                                    parseInt(e.target.value) || 1,
+                                  ),
+                                })
+                              }
+                              containerStyle={{ width: 75, flexShrink: 0 }}
                             />
-                          </Box>
+                            <Box style={{ flex: 1 }}>
+                              <SelectField
+                                value={step.intervalUnit}
+                                options={[
+                                  { value: "minutes", label: "minutes" },
+                                  { value: "hours", label: "hours" },
+                                  { value: "days", label: "days" },
+                                ]}
+                                onChange={(v) =>
+                                  updateStep(i, {
+                                    intervalUnit: v as IntervalUnit,
+                                  })
+                                }
+                                className="select-unfixed"
+                                containerClassName="mb-0"
+                                containerStyle={{ minHeight: 38 }}
+                              />
+                            </Box>
+                          </>
                         )}
-                      </Flex>
+                        {step.triggerType === "approval" && (
+                          <Flex
+                            align="center"
+                            gap="2"
+                            style={{ flex: 1, minWidth: 0 }}
+                          >
+                            {!step.notesOpen ? (
+                              <Link
+                                size="1"
+                                ml="1"
+                                color="gray"
+                                style={{ flexShrink: 0 }}
+                                onClick={() =>
+                                  updateStep(i, {
+                                    notesOpen: true,
+                                    approvalNotes: "",
+                                  })
+                                }
+                              >
+                                <PiPlusBold
+                                  style={{
+                                    marginRight: 3,
+                                    verticalAlign: "middle",
+                                  }}
+                                />
+                                Add approval notes
+                              </Link>
+                            ) : (
+                              <Box style={{ flex: 1, minWidth: 192 }}>
+                                <Field
+                                  label=""
+                                  placeholder="ex: Check error rates"
+                                  value={step.approvalNotes}
+                                  onChange={(e) =>
+                                    updateStep(i, {
+                                      approvalNotes: e.target.value,
+                                    })
+                                  }
+                                  containerClassName="mb-0"
+                                  style={{ minHeight: 38 }}
+                                />
+                              </Box>
+                            )}
+                          </Flex>
+                        )}
+                      </>
                     )}
                   </Flex>
 
                   <Box flexGrow="1" />
 
                   <Flex align="center" gap="2" pr="3" style={{ flexShrink: 0 }}>
-                    {step.monitored &&
-                      step.holdConditions?.minSampleSize != null && (
-                        <Text size="small" color="text-low">
-                          Min. sample:{" "}
-                          {step.holdConditions.minSampleSize.toLocaleString()}
-                        </Text>
-                      )}
-                    <Tooltip
-                      body={
-                        step.monitored
-                          ? "This step is monitored"
-                          : "Monitor this step"
-                      }
-                    >
-                      <Box
-                        style={{
-                          width: 28,
-                          height: 28,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
+                    {step.holdConditions?.minSampleSize != null && (
+                      <Text size="small" color="text-low">
+                        Min. sample:{" "}
+                        {step.holdConditions.minSampleSize.toLocaleString()}
+                      </Text>
+                    )}
+                    {isReadOnlyView && (
+                      <Tooltip
+                        body={
+                          step.monitored
+                            ? "This step is monitored"
+                            : "This step is not monitored"
+                        }
                       >
-                        <IconButton
-                          type="button"
-                          variant={step.monitored ? "soft" : "ghost"}
-                          color={step.monitored ? "indigo" : "gray"}
-                          size="2"
-                          radius="medium"
-                          onClick={() => {
-                            const nowMonitored = !step.monitored;
-                            const update: Partial<UIStep> = {
-                              monitored: nowMonitored,
-                            };
-                            if (nowMonitored) {
-                              const cov = step.patch.coverage ?? 0;
-                              if (cov === 0 || cov > 50) {
-                                update.patch = {
-                                  ...step.patch,
-                                  coverage: Math.min(50, Math.max(1, cov)),
-                                };
-                              }
-                            }
-                            updateStep(i, update);
-                          }}
+                        <Box
                           style={{
                             width: 28,
                             height: 28,
-                            padding: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: step.monitored
+                              ? "var(--indigo-11)"
+                              : "var(--gray-8)",
+                            opacity: step.monitored ? 1 : 0.6,
                           }}
                         >
                           <MonitoredIcon size={16} />
-                        </IconButton>
-                      </Box>
-                    </Tooltip>
-                    <DropdownMenu
-                      open={openMenuIndex === i}
-                      onOpenChange={(o) => setOpenMenuIndex(o ? i : null)}
-                      trigger={
-                        <IconButton
-                          type="button"
-                          variant="ghost"
-                          color="gray"
-                          radius="full"
-                          size="2"
-                          highContrast
+                        </Box>
+                      </Tooltip>
+                    )}
+                    {!isReadOnlyView && (
+                      <>
+                        <Tooltip
+                          body={
+                            step.monitored
+                              ? "This step is monitored"
+                              : "Monitor this step"
+                          }
                         >
-                          <BsThreeDotsVertical size={18} />
-                        </IconButton>
-                      }
-                      variant="soft"
-                      menuPlacement="end"
-                    >
-                      {(() => {
-                        const hasRuleEffects =
-                          getAvailableRuleEffects(step.patch).length > 0;
-                        return (
-                          <>
-                            {step.monitored && (
+                          <Box
+                            style={{
+                              width: 28,
+                              height: 28,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <IconButton
+                              type="button"
+                              variant={step.monitored ? "soft" : "ghost"}
+                              color={step.monitored ? "indigo" : "gray"}
+                              size="2"
+                              radius="medium"
+                              onClick={() => {
+                                const nowMonitored = !step.monitored;
+                                const update: Partial<UIStep> = {
+                                  monitored: nowMonitored,
+                                };
+                                if (nowMonitored) {
+                                  const cov = step.patch.coverage ?? 0;
+                                  if (cov === 0 || cov > 50) {
+                                    update.patch = {
+                                      ...step.patch,
+                                      coverage: Math.min(50, Math.max(1, cov)),
+                                    };
+                                  }
+                                }
+                                updateStep(i, update);
+                              }}
+                              style={{
+                                width: 28,
+                                height: 28,
+                                padding: 0,
+                              }}
+                            >
+                              <MonitoredIcon size={16} />
+                            </IconButton>
+                          </Box>
+                        </Tooltip>
+                        <DropdownMenu
+                          open={openMenuIndex === i}
+                          onOpenChange={(o) => setOpenMenuIndex(o ? i : null)}
+                          trigger={
+                            <IconButton
+                              type="button"
+                              variant="ghost"
+                              color="gray"
+                              radius="full"
+                              size="2"
+                              highContrast
+                            >
+                              <BsThreeDotsVertical size={18} />
+                            </IconButton>
+                          }
+                          variant="soft"
+                          menuPlacement="end"
+                        >
+                          {(() => {
+                            const hasRuleEffects =
+                              getAvailableRuleEffects(step.patch).length > 0;
+                            return (
                               <>
-                                <DropdownMenuGroup label="Monitoring settings">
+                                {step.monitored && (
+                                  <>
+                                    <DropdownMenuGroup label="Monitoring settings">
+                                      <DropdownMenuItem
+                                        onClick={() => {
+                                          setOpenMenuIndex(null);
+                                          setMinSamplePopoverIndex(i);
+                                        }}
+                                      >
+                                        Minimum sample size
+                                      </DropdownMenuItem>
+                                    </DropdownMenuGroup>
+                                    <DropdownMenuSeparator />
+                                  </>
+                                )}
+                                {renderRuleEffectsMenuGroup(
+                                  step.patch,
+                                  (field) => {
+                                    setOpenMenuIndex(null);
+                                    const patchWithField =
+                                      field === "allEnvironments"
+                                        ? {
+                                            ...setPatchField(
+                                              step.patch,
+                                              "allEnvironments",
+                                              (
+                                                getDefaultFieldValueForNewEffect(
+                                                  "allEnvironments",
+                                                  i,
+                                                ) as UIStepPatch
+                                              )?.allEnvironments ??
+                                                FIELD_DEFAULTS.allEnvironments,
+                                            ),
+                                            environments:
+                                              (
+                                                getDefaultFieldValueForNewEffect(
+                                                  "allEnvironments",
+                                                  i,
+                                                ) as UIStepPatch
+                                              )?.environments ?? [],
+                                          }
+                                        : setPatchField(
+                                            step.patch,
+                                            field,
+                                            getDefaultFieldValueForNewEffect(
+                                              field,
+                                              i,
+                                            ),
+                                          );
+                                    updateStep(i, {
+                                      additionalEffectsOpen: true,
+                                      patch: patchWithField,
+                                    });
+                                  },
+                                )}
+                                {hasRuleEffects ? (
+                                  <DropdownMenuSeparator />
+                                ) : null}
+                                <DropdownMenuGroup>
                                   <DropdownMenuItem
                                     onClick={() => {
                                       setOpenMenuIndex(null);
-                                      setMinSamplePopoverIndex(i);
+                                      addStepAfter(i);
                                     }}
                                   >
-                                    Minimum sample size
+                                    Add step after
                                   </DropdownMenuItem>
                                 </DropdownMenuGroup>
-                                <DropdownMenuSeparator />
+                                {state.steps.length > 1 ? (
+                                  <DropdownMenuGroup>
+                                    <DropdownMenuItem
+                                      color="red"
+                                      onClick={() => {
+                                        setOpenMenuIndex(null);
+                                        removeStep(i);
+                                      }}
+                                    >
+                                      Remove step
+                                    </DropdownMenuItem>
+                                  </DropdownMenuGroup>
+                                ) : null}
                               </>
-                            )}
-                            {renderRuleEffectsMenuGroup(step.patch, (field) => {
-                              setOpenMenuIndex(null);
-                              const patchWithField =
-                                field === "allEnvironments"
-                                  ? {
-                                      ...setPatchField(
-                                        step.patch,
-                                        "allEnvironments",
-                                        (
-                                          getDefaultFieldValueForNewEffect(
-                                            "allEnvironments",
-                                            i,
-                                          ) as UIStepPatch
-                                        )?.allEnvironments ??
-                                          FIELD_DEFAULTS.allEnvironments,
-                                      ),
-                                      environments:
-                                        (
-                                          getDefaultFieldValueForNewEffect(
-                                            "allEnvironments",
-                                            i,
-                                          ) as UIStepPatch
-                                        )?.environments ?? [],
-                                    }
-                                  : setPatchField(
-                                      step.patch,
-                                      field,
-                                      getDefaultFieldValueForNewEffect(
-                                        field,
-                                        i,
-                                      ),
-                                    );
-                              updateStep(i, {
-                                additionalEffectsOpen: true,
-                                patch: patchWithField,
-                              });
-                            })}
-                            {hasRuleEffects ? <DropdownMenuSeparator /> : null}
-                            <DropdownMenuGroup>
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setOpenMenuIndex(null);
-                                  addStepAfter(i);
-                                }}
-                              >
-                                Add step after
-                              </DropdownMenuItem>
-                            </DropdownMenuGroup>
-                            {state.steps.length > 1 ? (
-                              <DropdownMenuGroup>
-                                <DropdownMenuItem
-                                  color="red"
-                                  onClick={() => {
-                                    setOpenMenuIndex(null);
-                                    removeStep(i);
-                                  }}
-                                >
-                                  Remove step
-                                </DropdownMenuItem>
-                              </DropdownMenuGroup>
-                            ) : null}
-                          </>
-                        );
-                      })()}
-                    </DropdownMenu>
+                            );
+                          })()}
+                        </DropdownMenu>
+                      </>
+                    )}
                   </Flex>
                 </Flex>
 
-                {renderPatchSubRows(
-                  step.patch,
-                  (field, value) => updateStepPatch(i, field, value),
-                  (field) => {
-                    const nextPatch = setPatchField(
+                {isReadOnlyView
+                  ? renderReadonlyPatchSubRows(step.patch, step)
+                  : renderPatchSubRows(
                       step.patch,
-                      field,
-                      undefined,
-                    );
-                    updateStep(i, {
-                      patch: nextPatch,
-                      additionalEffectsOpen: hasSelectedRuleEffects(nextPatch),
-                    });
-                  },
-                  (nextPatch) =>
-                    updateStep(i, {
-                      patch: nextPatch,
-                      additionalEffectsOpen: hasSelectedRuleEffects(nextPatch),
-                    }),
-                  i,
-                  step.additionalEffectsOpen,
-                )}
+                      (field, value) => updateStepPatch(i, field, value),
+                      (field) => {
+                        const nextPatch = setPatchField(
+                          step.patch,
+                          field,
+                          undefined,
+                        );
+                        updateStep(i, {
+                          patch: nextPatch,
+                          additionalEffectsOpen:
+                            hasSelectedRuleEffects(nextPatch),
+                        });
+                      },
+                      (nextPatch) =>
+                        updateStep(i, {
+                          patch: nextPatch,
+                          additionalEffectsOpen:
+                            hasSelectedRuleEffects(nextPatch),
+                        }),
+                      i,
+                      step.additionalEffectsOpen,
+                    )}
               </Flex>
             </Box>
           );
         })}
 
-        <Box py="1">
-          <Link size="2" onClick={addStep}>
-            <PiPlusBold style={{ marginRight: 3, verticalAlign: "middle" }} />
-            Add step
-          </Link>
-        </Box>
+        {!isReadOnlyView && (
+          <Box py="1">
+            <Link size="2" onClick={addStep}>
+              <PiPlusBold style={{ marginRight: 3, verticalAlign: "middle" }} />
+              Add step
+            </Link>
+          </Box>
+        )}
 
-        {minSamplePopoverIndex != null &&
+        {!isReadOnlyView &&
+          minSamplePopoverIndex != null &&
           state.steps[minSamplePopoverIndex] && (
             <MinSampleDialog
               initialValue={
@@ -2654,6 +3020,133 @@ export default function RampScheduleSection({
       </Box>
     ) : null;
 
+  const readOnlySettings =
+    isReadOnlyView && ruleRampSchedule ? (
+      <Box mb="3">
+        {(() => {
+          const monitoringConfig = ruleRampSchedule.monitoringConfig;
+          const monitoringDatasource = monitoringConfig?.datasourceId
+            ? getDatasourceById(monitoringConfig.datasourceId)
+            : null;
+          const monitoringExposureQuery = monitoringConfig
+            ? getExposureQuery(
+                monitoringDatasource?.settings,
+                monitoringConfig.exposureQueryId,
+              )
+            : null;
+          const userUnitLabel = formatUserUnitLabel(
+            monitoringExposureQuery?.userIdType,
+          );
+          const formatMetricNames = (metricIds: string[] = []) => {
+            if (!metricIds.length) return "None";
+            return metricIds
+              .map((id) => getExperimentMetricById(id)?.name || id)
+              .join(", ");
+          };
+
+          return (
+            <>
+              <Text size="small" weight="medium" mb="1">
+                Ramp settings
+              </Text>
+              <Box
+                px="2"
+                py="2"
+                mb="3"
+                style={{
+                  border: "1px solid var(--gray-a5)",
+                  borderRadius: "var(--radius-2)",
+                }}
+              >
+                {!hideTemplateSave && (
+                  <ReadOnlySettingRow label="Start">
+                    {ruleRampSchedule.startDate
+                      ? formatScheduledDate(ruleRampSchedule.startDate)
+                      : "Immediately"}
+                  </ReadOnlySettingRow>
+                )}
+                <ReadOnlySettingRow label="Duration">
+                  {formatReadonlyDurationFromSchedule(ruleRampSchedule)}
+                </ReadOnlySettingRow>
+                {!hideTemplateSave && (
+                  <ReadOnlySettingRow label="Disable">
+                    {ruleRampSchedule.cutoffDate
+                      ? formatScheduledDate(ruleRampSchedule.cutoffDate)
+                      : "Never"}
+                  </ReadOnlySettingRow>
+                )}
+                <ReadOnlySettingRow label="Lock feature">
+                  {ruleRampSchedule.lockdownConfig?.mode === "locked"
+                    ? "Yes"
+                    : "No"}
+                </ReadOnlySettingRow>
+              </Box>
+
+              <Text size="small" weight="medium" mb="1">
+                Monitoring settings
+              </Text>
+              <Box
+                px="2"
+                py="2"
+                style={{
+                  border: "1px solid var(--gray-a5)",
+                  borderRadius: "var(--radius-2)",
+                }}
+              >
+                {monitoringConfig ? (
+                  <>
+                    <ReadOnlySettingRow label="Mode">
+                      {(monitoringConfig.monitoringMode ??
+                        (monitoringConfig.autoUpdate === false
+                          ? "manual"
+                          : "auto")) === "manual"
+                        ? "Manual updates"
+                        : "Automatic updates"}
+                    </ReadOnlySettingRow>
+                    <ReadOnlySettingRow label="Datasource">
+                      {monitoringDatasource?.name ||
+                        monitoringConfig.datasourceId}
+                    </ReadOnlySettingRow>
+                    <ReadOnlySettingRow label="Assignment table">
+                      {monitoringExposureQuery?.name ||
+                        monitoringConfig.exposureQueryId}
+                    </ReadOnlySettingRow>
+                    <ReadOnlySettingRow label="Unit">
+                      {userUnitLabel || "Users"}
+                    </ReadOnlySettingRow>
+                    <ReadOnlySettingRow label="Guardrail metrics">
+                      {formatMetricNames(monitoringConfig.guardrailMetricIds)}
+                    </ReadOnlySettingRow>
+                    <ReadOnlySettingRow label="Signal metrics">
+                      {formatMetricNames(
+                        monitoringConfig.signalMetricIds ?? [],
+                      )}
+                    </ReadOnlySettingRow>
+                    <ReadOnlySettingRow label="Update cadence">
+                      {monitoringConfig.updateScheduleMinutes
+                        ? `Every ${monitoringConfig.updateScheduleMinutes} min`
+                        : "Default"}
+                    </ReadOnlySettingRow>
+                  </>
+                ) : (
+                  <ReadOnlySettingRow label="Status">
+                    Not configured
+                  </ReadOnlySettingRow>
+                )}
+              </Box>
+            </>
+          );
+        })()}
+      </Box>
+    ) : null;
+
+  const readOnlyHelperText =
+    isReadOnlyView && ruleRampSchedule ? (
+      <HelperText status="info" size="sm" mb="5">
+        This schedule is read-only. Pause the schedule to make changes.
+      </HelperText>
+    ) : null;
+
   const createContent = (
     <>
       {templateDropdown}
@@ -2721,12 +3214,6 @@ export default function RampScheduleSection({
     </>
   );
 
-  const canEdit =
-    !ruleRampSchedule ||
-    !["running", "pending-approval", "conflict"].includes(
-      ruleRampSchedule.status,
-    );
-
   const content = (
     <>
       {ruleRampSchedule && !hideNameField && (
@@ -2758,16 +3245,21 @@ export default function RampScheduleSection({
             )}
             <Box flexGrow="1" />
           </Flex>
-          {state.mode !== "create" && !canEdit && (
-            <RampScheduleDisplay
-              rs={ruleRampSchedule}
-              targetId={
-                ruleRampSchedule.targets.find((t) => t.status === "active")?.id
-              }
-            />
-          )}
+          {readOnlyHelperText}
+          {isReadOnlyView && readOnlySettings}
+          {state.mode !== "create" && isReadOnlyView && renderStepGrid()}
         </Box>
       )}
+      {ruleRampSchedule &&
+        hideNameField &&
+        state.mode !== "create" &&
+        isReadOnlyView && (
+          <>
+            {readOnlyHelperText}
+            {readOnlySettings}
+            {renderStepGrid()}
+          </>
+        )}
 
       {!ruleRampSchedule && state.mode === "create" && !hideNameField && (
         <Flex align="center" gap="1" mb="3">
@@ -2782,6 +3274,7 @@ export default function RampScheduleSection({
       {(state.mode === "create" ||
         state.mode === "link" ||
         (state.mode === "edit" && canEdit)) &&
+        !isReadOnlyView &&
         createContent}
     </>
   );
@@ -2819,18 +3312,19 @@ export function reconstructUIPatch(
     p.coverage = Math.round(
       monitored ? (patch.coverage * 100) / 2 : patch.coverage * 100,
     );
-  if (patch.condition != null) {
-    p.condition = isEmptyConditionValue(patch.condition)
-      ? null
-      : patch.condition;
+  if ("condition" in patch) {
+    const condition = patch.condition;
+    p.condition =
+      condition == null || isEmptyConditionValue(condition) ? null : condition;
   }
-  if (patch.savedGroups != null) {
-    const savedGroups = patch.savedGroups as SavedGroupTargeting[];
-    p.savedGroups = savedGroups.length > 0 ? savedGroups : null;
+  if ("savedGroups" in patch) {
+    const savedGroups = patch.savedGroups as SavedGroupTargeting[] | null;
+    p.savedGroups = savedGroups && savedGroups.length > 0 ? savedGroups : null;
   }
-  if (patch.prerequisites != null) {
-    const prerequisites = patch.prerequisites as FeaturePrerequisite[];
-    p.prerequisites = prerequisites.length > 0 ? prerequisites : null;
+  if ("prerequisites" in patch) {
+    const prerequisites = patch.prerequisites as FeaturePrerequisite[] | null;
+    p.prerequisites =
+      prerequisites && prerequisites.length > 0 ? prerequisites : null;
   }
   if (patch.allEnvironments != null) p.allEnvironments = patch.allEnvironments;
   if (patch.environments != null)

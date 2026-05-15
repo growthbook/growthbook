@@ -42,7 +42,11 @@ import {
 } from "@/hooks/useFeatureRevisionDiff";
 import Badge from "@/ui/Badge";
 import HelperText from "@/ui/HelperText";
-import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
+import {
+  logBadgeColor,
+  updatedRampScheduleTitle,
+  updatedRampScheduleBadgeLabel,
+} from "@/components/Features/FeatureDiffRenders";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import { PreLaunchChecklistForDraft } from "@/components/Experiment/PreLaunchChecklist";
@@ -249,6 +253,12 @@ export default function RequestReviewModal({
       ),
   );
 
+  const draftRules = Array.isArray(revision?.rules) ? revision.rules : [];
+  const draftRuleNumberOffset = revision?.holdout ? 2 : 1;
+  const draftRuleIndexById = new Map(
+    draftRules.map((r, i) => [r.id, i + draftRuleNumberOffset]),
+  );
+
   const rampDiffs: FeatureRevisionDiff[] = [
     ...activatingRamps.map((ramp) => {
       const rampConfig = {
@@ -275,10 +285,12 @@ export default function RequestReviewModal({
         badges: [{ label: `Start ramp: ${ramp.name}`, action: "start ramp" }],
       } as FeatureRevisionDiff;
     }),
-    // Pending ramp actions: create/detach actions queued in the draft
+    // Pending ramp actions: create/update/detach actions queued in the draft
     ...(revision?.rampActions ?? [])
       .map((action) => {
         if (action.mode === "create") {
+          const targetIdx = draftRuleIndexById.get(action.ruleId);
+          const ruleLabel = targetIdx ? `Rule #${targetIdx}` : "this rule";
           const rampConfig = {
             name: action.name,
             environment: action.environment,
@@ -293,8 +305,8 @@ export default function RequestReviewModal({
             b: JSON.stringify(rampConfig, null, 2),
             customRender: (
               <p className="mb-0">
-                Creates ramp schedule <strong>{action.name}</strong> for rule{" "}
-                <code>{action.ruleId}</code> — {action.steps.length} step
+                Creates ramp schedule <strong>{action.name}</strong> for{" "}
+                <strong>{ruleLabel}</strong> — {action.steps.length} step
                 {action.steps.length !== 1 ? "s" : ""}.
               </p>
             ),
@@ -302,6 +314,36 @@ export default function RequestReviewModal({
               {
                 label: `Create ramp: ${action.name}`,
                 action: "create ramp",
+              },
+            ],
+          } as FeatureRevisionDiff;
+        } else if (action.mode === "update") {
+          const targetIdx = draftRuleIndexById.get(action.ruleId);
+          const ruleLabel = targetIdx ? `Rule #${targetIdx}` : "this rule";
+          const rampConfig = {
+            rampScheduleId: action.rampScheduleId,
+            name: action.name,
+            ruleId: action.ruleId,
+            startDate: action.startDate,
+            steps: action.steps,
+            cutoffDate: action.cutoffDate,
+          };
+          return {
+            title: targetIdx
+              ? `${updatedRampScheduleTitle(action)} - Rule #${targetIdx}`
+              : updatedRampScheduleTitle(action),
+            a: "",
+            b: JSON.stringify(rampConfig, null, 2),
+            customRender: (
+              <p className="mb-0">
+                Updates the schedule configuration for{" "}
+                <strong>{ruleLabel}</strong>.
+              </p>
+            ),
+            badges: [
+              {
+                label: updatedRampScheduleBadgeLabel(action),
+                action: "update ramp",
               },
             ],
           } as FeatureRevisionDiff;

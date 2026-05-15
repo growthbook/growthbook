@@ -64,6 +64,8 @@ import {
   logBadgeColor,
   CreatedRampScheduleBody,
   createdRampScheduleTitle,
+  updatedRampScheduleTitle,
+  updatedRampScheduleBadgeLabel,
   PendingPublishBadge,
 } from "@/components/Features/FeatureDiffRenders";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
@@ -567,7 +569,7 @@ function rampDiffsForRevision(
     newerRules.map((r, i) => [r.id, i + ruleNumberOffset]),
   );
 
-  // Pending ramp actions: display "create" and "detach" actions queued in the draft
+  // Pending ramp actions: display create/update/detach actions queued in the draft
   if (newerRevision.rampActions) {
     for (const action of newerRevision.rampActions) {
       if (action.mode === "create") {
@@ -600,6 +602,39 @@ function rampDiffsForRevision(
                 ? `Create ramp: ${action.name}`
                 : "Create ramp schedule",
               action: "create ramp",
+            },
+          ],
+        });
+      } else if (action.mode === "update") {
+        const targetIdx = ruleIndexById.get(action.ruleId);
+        const ruleLabel = targetIdx ? `Rule #${targetIdx}` : "this rule";
+        diffs.push({
+          title: targetIdx
+            ? `${updatedRampScheduleTitle(action)} - Rule #${targetIdx}`
+            : updatedRampScheduleTitle(action),
+          a: "",
+          b: JSON.stringify(
+            {
+              rampScheduleId: action.rampScheduleId,
+              name: action.name,
+              ruleId: action.ruleId,
+              startDate: action.startDate,
+              steps: action.steps,
+              cutoffDate: action.cutoffDate,
+            },
+            null,
+            2,
+          ),
+          customRender: (
+            <p className="mb-0">
+              Updates the schedule configuration for{" "}
+              <strong>{ruleLabel}</strong>.
+            </p>
+          ),
+          badges: [
+            {
+              label: updatedRampScheduleBadgeLabel(action),
+              action: "update ramp",
             },
           ],
         });

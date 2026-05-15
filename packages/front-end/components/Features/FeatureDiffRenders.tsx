@@ -17,6 +17,7 @@ import { datetime } from "shared/dates";
 import type {
   RevisionRampAction,
   RevisionRampCreateAction,
+  RevisionRampUpdateAction,
 } from "shared/validators";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
@@ -377,6 +378,28 @@ export function createdRampScheduleTitle(
   return isSimpleRampAction(action)
     ? "Create Schedule"
     : "Create Ramp Schedule";
+}
+
+export function isSimpleRampUpdateAction(
+  action: RevisionRampUpdateAction,
+): boolean {
+  return action.steps.length === 0;
+}
+
+export function updatedRampScheduleTitle(
+  action: RevisionRampUpdateAction,
+): string {
+  return isSimpleRampUpdateAction(action)
+    ? "Schedule Update (pending)"
+    : "Ramp Schedule Update (pending)";
+}
+
+export function updatedRampScheduleBadgeLabel(
+  action: RevisionRampUpdateAction,
+): string {
+  return isSimpleRampUpdateAction(action)
+    ? "Update schedule"
+    : "Update ramp schedule";
 }
 
 export function findPendingRampForRule(

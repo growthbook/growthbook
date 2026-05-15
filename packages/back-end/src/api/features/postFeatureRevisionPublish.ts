@@ -2,6 +2,7 @@ import { postFeatureRevisionPublishValidator } from "shared/validators";
 import {
   autoMerge,
   checkIfRevisionNeedsReview,
+  draftDiffersFromLive,
   fillRevisionFromFeature,
   filterEnvironmentsByFeature,
   liveRevisionFromFeature,
@@ -62,6 +63,22 @@ export async function publishFeatureRevision(
     feature,
     revision,
   });
+
+  const hasLinkedPendingRamp =
+    (
+      await req.context.models.rampSchedules.findByActivatingRevision(
+        feature.id,
+        revision.version,
+      )
+    ).length > 0;
+  const hasChanges =
+    draftDiffersFromLive(revision, live, feature, environmentIds) ||
+    hasLinkedPendingRamp;
+  if (!hasChanges) {
+    throw new BadRequestError(
+      "Cannot publish: no changes detected in this revision",
+    );
+  }
 
   // Review requirements are evaluated against the post-merge state.
   const mergeResult = autoMerge(

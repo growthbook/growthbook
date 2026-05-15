@@ -370,14 +370,38 @@ export const revisionRampDetachAction = z.object({
   deleteScheduleWhenEmpty: z.boolean().optional(),
 });
 
+export const revisionRampUpdateAction = revisionRampCreateAction
+  .omit({ mode: true })
+  .extend({
+    mode: z.literal("update"),
+    rampScheduleId: z.string(),
+  });
+
+export const apiRevisionRampUpdateAction = apiRevisionRampCreateAction
+  .omit({ mode: true })
+  .extend({
+    mode: z.literal("update"),
+    rampScheduleId: z.string(),
+  });
+
 const revisionRampAction = z.discriminatedUnion("mode", [
   revisionRampCreateAction,
+  revisionRampUpdateAction,
+  revisionRampDetachAction,
+]);
+export const apiRevisionRampAction = z.discriminatedUnion("mode", [
+  apiRevisionRampCreateAction,
+  apiRevisionRampUpdateAction,
   revisionRampDetachAction,
 ]);
 
 export type RevisionRampCreateAction = z.infer<typeof revisionRampCreateAction>;
 export type ApiRevisionRampCreateAction = z.infer<
   typeof apiRevisionRampCreateAction
+>;
+export type RevisionRampUpdateAction = z.infer<typeof revisionRampUpdateAction>;
+export type ApiRevisionRampUpdateAction = z.infer<
+  typeof apiRevisionRampUpdateAction
 >;
 export type RevisionRampDetachAction = z.infer<typeof revisionRampDetachAction>;
 export type RevisionRampAction = z.infer<typeof revisionRampAction>;
@@ -872,6 +896,12 @@ export const apiFeatureRevisionValidator = namedSchema(
         )
         .optional(),
       metadata: apiRevisionMetadata.optional(),
+      rampActions: z
+        .array(apiRevisionRampAction)
+        .describe(
+          "Pending ramp schedule actions that will be applied when this draft is published",
+        )
+        .optional(),
     })
     .strict(),
 );
