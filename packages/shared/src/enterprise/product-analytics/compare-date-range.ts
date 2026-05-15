@@ -41,6 +41,69 @@ export function addUtcCalendarDays(
   return dateToYyyyMmDdUtc(d);
 }
 
+export type FixedSpanDateBounds = {
+  startDate: string;
+  endDate: string;
+};
+
+/** Whether `dayStr` falls within an inclusive UTC `yyyy-MM-dd` range. */
+export function isUtcYyyyMmDdWithinInclusiveRange(
+  dayStr: string,
+  startStr: string,
+  endStr: string,
+): boolean {
+  return dayStr >= startStr && dayStr <= endStr;
+}
+
+/**
+ * Fixed-span range of `spanInclusiveDays` UTC calendar days ending the day
+ * before `anchorYyyyMmDd`.
+ */
+export function buildFixedSpanRangeEndingBeforeAnchor(
+  anchorYyyyMmDd: string,
+  spanInclusiveDays: number,
+): FixedSpanDateBounds {
+  const end = addUtcCalendarDays(anchorYyyyMmDd, -1);
+  const start =
+    spanInclusiveDays > 0
+      ? addUtcCalendarDays(end, -(spanInclusiveDays - 1))
+      : end;
+  return { startDate: start, endDate: end };
+}
+
+/**
+ * Fixed-span range of `spanInclusiveDays` UTC calendar days starting at
+ * `anchorYyyyMmDd`.
+ */
+export function buildFixedSpanRangeStartingAtAnchor(
+  anchorYyyyMmDd: string,
+  spanInclusiveDays: number,
+): FixedSpanDateBounds {
+  const start = anchorYyyyMmDd;
+  const end =
+    spanInclusiveDays > 0
+      ? addUtcCalendarDays(anchorYyyyMmDd, spanInclusiveDays - 1)
+      : start;
+  return { startDate: start, endDate: end };
+}
+
+/** Two equal-length comparison windows anchored on a calendar day. */
+export function buildFixedSpanComparisonOptions(
+  anchorYyyyMmDd: string,
+  spanInclusiveDays: number,
+): { before: FixedSpanDateBounds; after: FixedSpanDateBounds } {
+  return {
+    before: buildFixedSpanRangeEndingBeforeAnchor(
+      anchorYyyyMmDd,
+      spanInclusiveDays,
+    ),
+    after: buildFixedSpanRangeStartingAtAnchor(
+      anchorYyyyMmDd,
+      spanInclusiveDays,
+    ),
+  };
+}
+
 /**
  * Default comparison window for a primary `customDateRange`: the same number
  * of inclusive UTC calendar days, ending the UTC day before primary start.

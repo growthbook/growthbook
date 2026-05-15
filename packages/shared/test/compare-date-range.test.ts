@@ -1,4 +1,11 @@
-import { buildComparisonDateRange } from "shared/enterprise";
+import {
+  buildComparisonDateRange,
+  buildFixedSpanComparisonOptions,
+  buildFixedSpanRangeEndingBeforeAnchor,
+  buildFixedSpanRangeStartingAtAnchor,
+  getInclusiveUtcCalendarDayCount,
+  isUtcYyyyMmDdWithinInclusiveRange,
+} from "shared/enterprise";
 import type { ExplorationConfig } from "shared/validators";
 
 describe("buildComparisonDateRange", () => {
@@ -123,5 +130,48 @@ describe("buildComparisonDateRange", () => {
     expect(out.lookbackUnit).toBe("day");
     expect(out.startDate).toBe("2026-05-03");
     expect(out.endDate).toBe("2026-05-12");
+  });
+});
+
+describe("fixed-span comparison options", () => {
+  it("builds before/after options for anchor Apr 1 with 9-day primary span", () => {
+    const n = getInclusiveUtcCalendarDayCount("2026-03-01", "2026-03-09");
+    expect(n).toBe(9);
+
+    const { before, after } = buildFixedSpanComparisonOptions("2026-04-01", n);
+
+    expect(before).toEqual({ startDate: "2026-03-23", endDate: "2026-03-31" });
+    expect(after).toEqual({ startDate: "2026-04-01", endDate: "2026-04-09" });
+  });
+
+  it("buildFixedSpanRangeEndingBeforeAnchor matches contiguous-prior shape", () => {
+    expect(buildFixedSpanRangeEndingBeforeAnchor("2026-04-01", 9)).toEqual({
+      startDate: "2026-03-23",
+      endDate: "2026-03-31",
+    });
+  });
+
+  it("buildFixedSpanRangeStartingAtAnchor spans forward from anchor", () => {
+    expect(buildFixedSpanRangeStartingAtAnchor("2026-04-01", 9)).toEqual({
+      startDate: "2026-04-01",
+      endDate: "2026-04-09",
+    });
+  });
+
+  it("isUtcYyyyMmDdWithinInclusiveRange uses inclusive UTC bounds", () => {
+    expect(
+      isUtcYyyyMmDdWithinInclusiveRange(
+        "2026-04-05",
+        "2026-04-01",
+        "2026-04-09",
+      ),
+    ).toBe(true);
+    expect(
+      isUtcYyyyMmDdWithinInclusiveRange(
+        "2026-03-31",
+        "2026-04-01",
+        "2026-04-09",
+      ),
+    ).toBe(false);
   });
 });

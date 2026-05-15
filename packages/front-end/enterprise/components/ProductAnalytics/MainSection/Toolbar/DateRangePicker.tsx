@@ -1,7 +1,19 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
 import { Flex } from "@radix-ui/themes";
 import { format } from "date-fns";
 import { dateRangePredefined, lookbackUnit } from "shared/validators";
+import {
+  buildFixedSpanComparisonOptions,
+  getInclusiveUtcCalendarDayCount,
+  isUtcYyyyMmDdWithinInclusiveRange,
+  type FixedSpanDateBounds,
+} from "shared/enterprise";
 import { getValidDateOffsetByUTC } from "shared/dates";
 import { Select, SelectItem } from "@/ui/Select";
 import Field from "@/components/Forms/Field";
@@ -17,6 +29,17 @@ const PREDEFINED_LABELS: Record<(typeof dateRangePredefined)[number], string> =
     customLookback: "Custom Lookback",
     customDateRange: "Custom Date Range",
   };
+
+function boundsToDates(bounds: FixedSpanDateBounds): { from: Date; to: Date } {
+  return {
+    from: getValidDateOffsetByUTC(bounds.startDate),
+    to: getValidDateOffsetByUTC(bounds.endDate),
+  };
+}
+
+function calendarDayToYyyyMmDd(day: Date): string {
+  return format(day, "yyyy-MM-dd");
+}
 
 function DefaultDateRangePickerContent({
   shouldWrap = false,
@@ -194,11 +217,10 @@ function DefaultDateRangePickerContent({
   );
 }
 
-type PendingPair = {
-  setStart: boolean;
-  setEnd: boolean;
-  start: Date | undefined;
-  end: Date | undefined;
+type ChoosingState = {
+  anchorYyyyMmDd: string;
+  before: FixedSpanDateBounds;
+  after: FixedSpanDateBounds;
 };
 
 function ComparisonPreviousRangePicker({
@@ -211,80 +233,137 @@ function ComparisonPreviousRangePicker({
 
   const previousTimeFrame = draftExploreState.previousTimeFrame;
 
-  const previousTimeFrameRef = useRef(previousTimeFrame);
-  previousTimeFrameRef.current = previousTimeFrame;
-
   const dr = draftExploreState.dateRange;
   const primaryStart = dr.startDate;
   const primaryEnd = dr.endDate;
 
-  const pendingRef = useRef<PendingPair>({
-    setStart: false,
-    setEnd: false,
-    start: undefined,
-    end: undefined,
-  });
-  const flushScheduledRef = useRef(false);
+  const primaryBoundsKey =
+    primaryStart && primaryEnd ? `${primaryStart}|${primaryEnd}` : null;
 
-  const flushPending = useCallback(() => {
-    flushScheduledRef.current = false;
-    const p = pendingRef.current;
-    pendingRef.current = {
-      setStart: false,
-      setEnd: false,
-      start: undefined,
-      end: undefined,
-    };
+  const [choosing, setChoosing] = useState<ChoosingState | null>(null);
 
-    const base = previousTimeFrameRef.current;
-    if (!base) return;
+  useEffect(() => {
+    setChoosing(null);
+  }, [primaryBoundsKey]);
 
-    const next = {
-      ...base,
-      predefined: "customDateRange" as const,
-    };
-    if (p.setStart) {
-      next.startDate = p.start ? format(p.start, "yyyy-MM-dd") : null;
-    }
-    if (p.setEnd) {
-      next.endDate = p.end ? format(p.end, "yyyy-MM-dd") : null;
-    }
-    setDraftExploreState((prev) => ({
-      ...prev,
-      previousTimeFrame: next,
-    }));
-  }, [setDraftExploreState]);
+  const spanDays = useMemo(() => {
+    if (!primaryStart || !primaryEnd) return 0;
+    return getInclusiveUtcCalendarDayCount(primaryStart, primaryEnd);
+  }, [primaryStart, primaryEnd]);
 
-  const queueSetStart = useCallback(
-    (d: Date | undefined) => {
-      pendingRef.current.setStart = true;
-      pendingRef.current.start = d;
-      if (!flushScheduledRef.current) {
-        flushScheduledRef.current = true;
-        queueMicrotask(flushPending);
-      }
+  const commitBounds = useCallback(
+    (bounds: FixedSpanDateBounds) => {
+      if (!previousTimeFrame) return;
+      setDraftExploreState((prev) => ({
+        ...prev,
+        previousTimeFrame: {
+          ...previousTimeFrame,
+          predefined: "customDateRange" as const,
+          startDate: bounds.startDate,
+          endDate: bounds.endDate,
+        },
+      }));
+      setChoosing(null);
     },
-    [flushPending],
+    [previousTimeFrame, setDraftExploreState],
   );
 
-  const queueSetEnd = useCallback(
-    (d: Date | undefined) => {
-      pendingRef.current.setEnd = true;
-      pendingRef.current.end = d;
-      if (!flushScheduledRef.current) {
-        flushScheduledRef.current = true;
-        queueMicrotask(flushPending);
+  const handleDayPick = useCallback(
+    (day: Date) => {
+      if (!primaryStart || !primaryEnd || spanDays < 1 || !previousTimeFrame) {
+        return;
+      }
+
+      const dayStr = calendarDayToYyyyMmDd(day);
+      const currentStart = previousTimeFrame.startDate;
+      const currentEnd = previousTimeFrame.endDate;
+
+      if (!choosing) {
+        if (
+          currentStart &&
+          currentEnd &&
+          isUtcYyyyMmDdWithinInclusiveRange(dayStr, currentStart, currentEnd)
+        ) {
+          return;
+        }
+        const options = buildFixedSpanComparisonOptions(dayStr, spanDays);
+        setChoosing({
+          anchorYyyyMmDd: dayStr,
+          before: options.before,
+          after: options.after,
+        });
+        return;
+      }
+
+      const { before, after } = choosing;
+      const inBefore = isUtcYyyyMmDdWithinInclusiveRange(
+        dayStr,
+        before.startDate,
+        before.endDate,
+      );
+      const inAfter = isUtcYyyyMmDdWithinInclusiveRange(
+        dayStr,
+        after.startDate,
+        after.endDate,
+      );
+
+      if (inBefore && inAfter) {
+        commitBounds(after);
+      } else if (inBefore) {
+        commitBounds(before);
+      } else if (inAfter) {
+        commitBounds(after);
+      } else {
+        const options = buildFixedSpanComparisonOptions(dayStr, spanDays);
+        setChoosing({
+          anchorYyyyMmDd: dayStr,
+          before: options.before,
+          after: options.after,
+        });
       }
     },
-    [flushPending],
+    [
+      choosing,
+      commitBounds,
+      previousTimeFrame,
+      primaryEnd,
+      primaryStart,
+      spanDays,
+    ],
   );
+
+  const fixedSpanMode = useMemo(() => {
+    if (!previousTimeFrame?.startDate || !previousTimeFrame.endDate) {
+      return undefined;
+    }
+
+    if (choosing) {
+      return {
+        phase: "choosing" as const,
+        anchorDate: getValidDateOffsetByUTC(choosing.anchorYyyyMmDd),
+        candidateRanges: [
+          boundsToDates(choosing.before),
+          boundsToDates(choosing.after),
+        ],
+        onDayPick: handleDayPick,
+      };
+    }
+
+    return {
+      phase: "committed" as const,
+      onDayPick: handleDayPick,
+    };
+  }, [choosing, handleDayPick, previousTimeFrame]);
 
   if (
     !compareEnabled ||
     dr.predefined !== "customDateRange" ||
     !primaryStart ||
     !primaryEnd ||
-    !previousTimeFrame
+    !previousTimeFrame ||
+    !previousTimeFrame.startDate ||
+    !previousTimeFrame.endDate ||
+    spanDays < 1
   ) {
     return null;
   }
@@ -301,18 +380,11 @@ function ComparisonPreviousRangePicker({
         containerClassName="mb-0"
         compact
         wrapRangeInputs={shouldWrap}
-        date={
-          previousTimeFrame.startDate
-            ? getValidDateOffsetByUTC(previousTimeFrame.startDate)
-            : undefined
-        }
-        date2={
-          previousTimeFrame.endDate
-            ? getValidDateOffsetByUTC(previousTimeFrame.endDate)
-            : undefined
-        }
-        setDate={queueSetStart}
-        setDate2={queueSetEnd}
+        date={getValidDateOffsetByUTC(previousTimeFrame.startDate)}
+        date2={getValidDateOffsetByUTC(previousTimeFrame.endDate)}
+        setDate={() => {}}
+        setDate2={() => {}}
+        fixedSpanMode={fixedSpanMode}
         precision="date"
       />
     </Flex>
