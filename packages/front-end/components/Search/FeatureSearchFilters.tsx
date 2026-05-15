@@ -110,7 +110,9 @@ const FeatureSearchFilters: FC<
     features.forEach((f) => {
       if (f.owner) set.add(getOwnerDisplay(f.owner));
     });
-    return Array.from(set);
+    return Array.from(set).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" }),
+    );
   }, [features, getOwnerDisplay]);
 
   const availableFeatureTypes = useMemo(() => {

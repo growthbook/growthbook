@@ -19,7 +19,7 @@ import { SearchTermFilterOperator, SyntaxFilter } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 
-const USE_SEARCH_BOX = false;
+const USE_SEARCH_BOX = true;
 
 // Common interfaces
 export interface SearchFiltersItem {
