@@ -38,6 +38,7 @@ export interface Props {
   urlRedirects: URLRedirectInterface[];
   mutate: () => void;
   editTargeting?: (() => void) | null;
+  editTraffic?: (() => void) | null;
   editVariations?: (() => void) | null;
   setFeatureModal: (open: boolean) => void;
   setVisualEditorModal: (open: boolean) => void;
@@ -57,6 +58,7 @@ export default function Implementation({
   urlRedirects,
   mutate,
   editTargeting,
+  editTraffic,
   editVariations,
   setFeatureModal,
   setVisualEditorModal,
@@ -280,6 +282,7 @@ export default function Implementation({
         <TrafficAndTargeting
           experiment={experiment}
           editTargeting={editTargeting}
+          editTraffic={editTraffic}
           phaseIndex={phases.length - 1}
         />
         <AnalysisSettings

@@ -208,7 +208,6 @@ export default function MakeChangesFlow({
             <TargetingForm
               experiment={experiment}
               form={form}
-              safeToEdit={false}
               changeType={changeType}
               conditionKey={conditionKey}
               setPrerequisiteTargetingSdkIssues={

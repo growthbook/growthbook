@@ -23,6 +23,7 @@ import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
+import EditTrafficModal from "@/components/Experiment/EditTrafficModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -43,6 +44,7 @@ const ExperimentPage = (): ReactElement => {
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
+  const [trafficModalOpen, setTrafficModalOpen] = useState(false);
   const [checklistItemsRemaining, setChecklistItemsRemaining] = useState<
     number | null
   >(null);
@@ -135,6 +137,7 @@ const ExperimentPage = (): ReactElement => {
   const editTargeting = canRunExperiment
     ? () => setTargetingModalOpen(true)
     : null;
+  const editTraffic = canRunExperiment ? () => setTrafficModalOpen(true) : null;
 
   const safeToEdit =
     experiment.status !== "running" ||
@@ -234,6 +237,14 @@ const ExperimentPage = (): ReactElement => {
           // source="eid"
         />
       )}
+      {trafficModalOpen && (
+        <EditTrafficModal
+          close={() => setTrafficModalOpen(false)}
+          mutate={mutate}
+          experiment={experiment}
+          safeToEdit={safeToEdit}
+        />
+      )}
 
       <PageHead
         breadcrumb={[
@@ -262,6 +273,7 @@ const ExperimentPage = (): ReactElement => {
           editPhase={editPhase}
           envs={envs}
           editTargeting={editTargeting}
+          editTraffic={editTraffic}
           checklistItemsRemaining={checklistItemsRemaining}
           checklistHardBlockerCount={checklistHardBlockerCount}
           setChecklistItemsRemaining={setChecklistItemsRemaining}

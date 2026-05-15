@@ -318,7 +318,7 @@ const VariationsTable: FC<Props> = ({
   // set some variables for the display of the component - could make options
   const cols = variations.length > 4 ? 4 : variations.length;
   const gap = "4";
-  const maxImageHeight = hasAnyImages ? 200 : 110; // shrink the image height if there are no images
+  const maxImageHeight = hasAnyImages ? 200 : 72; // shrink the image height if there are no images
 
   return (
     <Box mx={noMargin ? "0" : "4"}>

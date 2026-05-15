@@ -15,6 +15,7 @@ export interface Props {
   phaseIndex?: number | null;
   experiment: ExperimentInterfaceStringDates;
   editTargeting?: (() => void) | null;
+  editTraffic?: (() => void) | null;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -26,6 +27,7 @@ export default function TrafficAndTargeting({
   phaseIndex = null,
   experiment,
   editTargeting,
+  editTraffic,
 }: Props) {
   const { namespaces } = useOrgSettings();
 
@@ -59,9 +61,8 @@ export default function TrafficAndTargeting({
             <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
               <h4 className="m-0">Traffic Allocation</h4>
               <div className="flex-1" />
-              {editTargeting &&
-              !(isBandit && experiment.status === "running") ? (
-                <button className="btn p-0 link-purple" onClick={editTargeting}>
+              {editTraffic && !(isBandit && experiment.status === "running") ? (
+                <button className="btn p-0 link-purple" onClick={editTraffic}>
                   Edit
                 </button>
               ) : null}

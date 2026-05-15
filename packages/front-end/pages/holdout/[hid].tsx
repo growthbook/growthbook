@@ -259,6 +259,7 @@ const HoldoutPage = (): ReactElement => {
           editPhase={editPhase}
           envs={envs}
           editTargeting={editTargeting}
+          editTraffic={editTargeting}
           checklistItemsRemaining={checklistItemsRemaining}
           checklistHardBlockerCount={checklistHardBlockerCount}
           setChecklistItemsRemaining={setChecklistItemsRemaining}
