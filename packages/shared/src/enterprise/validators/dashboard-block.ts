@@ -5,10 +5,11 @@ import {
   metricAnalysisSettingsValidator,
 } from "../../validators/metric-analysis";
 import {
-  differenceTypes,
-  metricSelectors,
-  pinSources,
-} from "../dashboards/utils";
+  metricExplorationConfigValidator,
+  factTableExplorationConfigValidator,
+  dataSourceExplorationConfigValidator,
+} from "../../validators/product-analytics";
+import { differenceTypes, pinSources } from "../dashboards/utils";
 
 const baseBlockInterface = z
   .object({
@@ -21,11 +22,6 @@ const baseBlockInterface = z
     snapshotId: z.string().optional(),
   })
   .strict();
-
-const metricSliceSettingsInterface = z.object({
-  pinSource: z.enum(pinSources),
-  pinnedMetricSlices: z.array(z.string()),
-});
 
 const markdownBlockInterface = baseBlockInterface
   .extend({
@@ -102,8 +98,7 @@ const experimentMetricBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("experiment-metric"),
     experimentId: z.string(),
-    metricSelector: z.enum(metricSelectors),
-    metricIds: z.array(z.string()).optional(),
+    metricIds: z.array(z.string()),
     variationIds: z.array(z.string()),
     baselineRow: z.number(),
     differenceType: z.enum(differenceTypes),
@@ -118,19 +113,33 @@ const experimentMetricBlockInterface = baseBlockInterface
       ]),
     ),
     snapshotId: z.string(),
+    sliceTagsFilter: z.array(z.string()),
+    metricTagFilter: z.array(z.string()),
+    sortBy: z
+      .enum(["metrics", "metricTags", "significance", "change"])
+      .nullable(),
+    sortDirection: z.enum(["asc", "desc"]).nullable(),
   })
-  .merge(metricSliceSettingsInterface)
   .strict();
 
 export type ExperimentMetricBlockInterface = z.infer<
   typeof experimentMetricBlockInterface
 >;
 const legacyExperimentMetricBlockInterface = experimentMetricBlockInterface
-  .omit({ metricSelector: true, pinSource: true, pinnedMetricSlices: true })
+  .omit({ sliceTagsFilter: true })
   .extend({
-    metricSelector: z.enum(metricSelectors).optional(),
-  })
-  .merge(metricSliceSettingsInterface.partial());
+    metricSelector: z
+      .enum([
+        "experiment-goal",
+        "experiment-secondary",
+        "experiment-guardrail",
+        "custom",
+      ] as [string, ...string[]])
+      .optional(),
+    pinSource: z.enum(pinSources).optional(),
+    pinnedMetricSlices: z.array(z.string()).optional(),
+    sliceTagsFilter: z.array(z.string()).nullable().optional(),
+  });
 
 const experimentDimensionBlockInterface = baseBlockInterface
   .extend({
@@ -138,8 +147,7 @@ const experimentDimensionBlockInterface = baseBlockInterface
     experimentId: z.string(),
     dimensionId: z.string(),
     dimensionValues: z.array(z.string()),
-    metricSelector: z.enum(metricSelectors),
-    metricIds: z.array(z.string()).optional(),
+    metricIds: z.array(z.string()),
     variationIds: z.array(z.string()),
     baselineRow: z.number(),
     differenceType: z.enum(differenceTypes),
@@ -154,6 +162,11 @@ const experimentDimensionBlockInterface = baseBlockInterface
       ]),
     ),
     snapshotId: z.string(),
+    metricTagFilter: z.array(z.string()),
+    sortBy: z
+      .enum(["metrics", "metricTags", "significance", "change"])
+      .nullable(),
+    sortDirection: z.enum(["asc", "desc"]).nullable(),
   })
   .strict();
 
@@ -161,8 +174,15 @@ export type ExperimentDimensionBlockInterface = z.infer<
   typeof experimentDimensionBlockInterface
 >;
 const legacyExperimentDimensionBlockInterface =
-  experimentDimensionBlockInterface.omit({ metricSelector: true }).extend({
-    metricSelector: z.enum(metricSelectors).optional(),
+  experimentDimensionBlockInterface.extend({
+    metricSelector: z
+      .enum([
+        "experiment-goal",
+        "experiment-secondary",
+        "experiment-guardrail",
+        "custom",
+      ] as [string, ...string[]])
+      .optional(),
   });
 
 const experimentTimeSeriesBlockInterface = baseBlockInterface
@@ -170,24 +190,36 @@ const experimentTimeSeriesBlockInterface = baseBlockInterface
     type: z.literal("experiment-time-series"),
     experimentId: z.string(),
     metricId: z.string().optional(), // Deprecated
-    metricSelector: z.enum(metricSelectors),
-    metricIds: z.array(z.string()).optional(),
+    metricIds: z.array(z.string()),
     variationIds: z.array(z.string()),
+    differenceType: z.enum(differenceTypes),
     snapshotId: z.string(),
+    sliceTagsFilter: z.array(z.string()),
+    metricTagFilter: z.array(z.string()),
+    sortBy: z
+      .enum(["metrics", "metricTags", "significance", "change"])
+      .nullable(),
+    sortDirection: z.enum(["asc", "desc"]).nullable(),
   })
-  .merge(metricSliceSettingsInterface)
   .strict();
 
 export type ExperimentTimeSeriesBlockInterface = z.infer<
   typeof experimentTimeSeriesBlockInterface
 >;
 const legacyExperimentTimeSeriesBlockInterface =
-  experimentTimeSeriesBlockInterface
-    .omit({ metricSelector: true, pinSource: true, pinnedMetricSlices: true })
-    .extend({
-      metricSelector: z.enum(metricSelectors).optional(),
-    })
-    .merge(metricSliceSettingsInterface.partial());
+  experimentTimeSeriesBlockInterface.omit({ sliceTagsFilter: true }).extend({
+    metricSelector: z
+      .enum([
+        "experiment-goal",
+        "experiment-secondary",
+        "experiment-guardrail",
+        "custom",
+      ] as [string, ...string[]])
+      .optional(),
+    pinSource: z.enum(pinSources).optional(),
+    pinnedMetricSlices: z.array(z.string()).optional(),
+    sliceTagsFilter: z.array(z.string()).nullable().optional(),
+  });
 
 const sqlExplorerBlockInterface = baseBlockInterface
   .extend({
@@ -222,11 +254,43 @@ const metricExplorerBlockInterface = baseBlockInterface
   })
   .strict();
 
+const apiMetricExplorerBlockInterface = metricExplorerBlockInterface
+  .omit({ analysisSettings: true })
+  .safeExtend({ analysisSettings: metricAnalysisSettingsStringDatesValidator });
+
 export type MetricExplorerBlockInterface = z.infer<
   typeof metricExplorerBlockInterface
 >;
 
-export const dashboardBlockInterface = z.discriminatedUnion("type", [
+const metricExplorationBlockInterface = baseBlockInterface.extend({
+  type: z.literal("metric-exploration"),
+  explorerAnalysisId: z.string(),
+  config: metricExplorationConfigValidator,
+});
+
+const factTableExplorationBlockInterface = baseBlockInterface.extend({
+  type: z.literal("fact-table-exploration"),
+  explorerAnalysisId: z.string(),
+  config: factTableExplorationConfigValidator,
+});
+
+const dataSourceExplorationBlockInterface = baseBlockInterface.extend({
+  type: z.literal("data-source-exploration"),
+  explorerAnalysisId: z.string(),
+  config: dataSourceExplorationConfigValidator,
+});
+
+export type MetricExplorationBlockInterface = z.infer<
+  typeof metricExplorationBlockInterface
+>;
+export type FactTableExplorationBlockInterface = z.infer<
+  typeof factTableExplorationBlockInterface
+>;
+export type DataSourceExplorationBlockInterface = z.infer<
+  typeof dataSourceExplorationBlockInterface
+>;
+// Blocks that are the same for both the standard interface and the api interface
+const standardAndApiCommonBlocks = [
   markdownBlockInterface,
   experimentMetadataBlockInterface,
   experimentMetricBlockInterface,
@@ -234,7 +298,18 @@ export const dashboardBlockInterface = z.discriminatedUnion("type", [
   experimentTimeSeriesBlockInterface,
   experimentTrafficBlockInterface,
   sqlExplorerBlockInterface,
+  metricExplorationBlockInterface,
+  factTableExplorationBlockInterface,
+  dataSourceExplorationBlockInterface,
+];
+
+export const dashboardBlockInterface = z.discriminatedUnion("type", [
   metricExplorerBlockInterface,
+  ...standardAndApiCommonBlocks,
+]);
+export const apiDashboardBlockInterface = z.discriminatedUnion("type", [
+  apiMetricExplorerBlockInterface,
+  ...standardAndApiCommonBlocks,
 ]);
 export const legacyDashboardBlockInterface = z.discriminatedUnion("type", [
   legacyExperimentDescriptionBlockInterface,
@@ -249,6 +324,9 @@ export const legacyDashboardBlockInterface = z.discriminatedUnion("type", [
 ]);
 
 export type DashboardBlockInterface = z.infer<typeof dashboardBlockInterface>;
+export type ApiDashboardBlockInterface = z.infer<
+  typeof apiDashboardBlockInterface
+>;
 export type DashboardBlockType = DashboardBlockInterface["type"];
 
 export type LegacyDashboardBlockInterface = z.infer<
@@ -270,9 +348,25 @@ export const createDashboardBlockInterface = z.discriminatedUnion("type", [
   experimentTrafficBlockInterface.omit(createOmits),
   sqlExplorerBlockInterface.omit(createOmits),
   metricExplorerBlockInterface.omit(createOmits),
+  metricExplorationBlockInterface.omit(createOmits),
+  factTableExplorationBlockInterface.omit(createOmits),
+  dataSourceExplorationBlockInterface.omit(createOmits),
+]);
+export const apiCreateDashboardBlockInterface = z.discriminatedUnion("type", [
+  markdownBlockInterface.omit(createOmits),
+  experimentMetadataBlockInterface.omit(createOmits),
+  experimentMetricBlockInterface.omit(createOmits),
+  experimentDimensionBlockInterface.omit(createOmits),
+  experimentTimeSeriesBlockInterface.omit(createOmits),
+  experimentTrafficBlockInterface.omit(createOmits),
+  sqlExplorerBlockInterface.omit(createOmits),
+  apiMetricExplorerBlockInterface.omit(createOmits),
 ]);
 export type CreateDashboardBlockInterface = z.infer<
   typeof createDashboardBlockInterface
+>;
+export type ApiCreateDashboardBlockInterface = z.infer<
+  typeof apiCreateDashboardBlockInterface
 >;
 
 // Allow templates to specify a partial of the individual block fields
@@ -303,6 +397,18 @@ export const dashboardBlockPartial = z.discriminatedUnion("type", [
     .partial()
     .required({ type: true }),
   metricExplorerBlockInterface
+    .omit(createOmits)
+    .partial()
+    .required({ type: true }),
+  metricExplorationBlockInterface
+    .omit(createOmits)
+    .partial()
+    .required({ type: true }),
+  factTableExplorationBlockInterface
+    .omit(createOmits)
+    .partial()
+    .required({ type: true }),
+  dataSourceExplorationBlockInterface
     .omit(createOmits)
     .partial()
     .required({ type: true }),

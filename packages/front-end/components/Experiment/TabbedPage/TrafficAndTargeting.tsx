@@ -1,8 +1,10 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { calculateNamespaceCoverage } from "shared/util";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
+import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import { formatTrafficSplit } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { HashVersionTooltip } from "@/components/Experiment/HashVersionSelector";
@@ -29,9 +31,13 @@ export default function TrafficAndTargeting({
 
   const phase = experiment.phases?.[phaseIndex ?? experiment.phases.length - 1];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
-  const namespaceRange = hasNamespace
-    ? phase.namespace!.range[1] - phase.namespace!.range[0]
-    : 1;
+
+  // Calculate total namespace allocation
+  const namespaceRange =
+    hasNamespace && phase.namespace
+      ? calculateNamespaceCoverage(phase.namespace)
+      : 1;
+
   const namespaceName = hasNamespace
     ? namespaces?.find((n) => n.name === phase.namespace!.name)?.label ||
       phase.namespace!.name
@@ -105,13 +111,18 @@ export default function TrafficAndTargeting({
                     <GBInfo />
                   </Tooltip>
                 </div>
-                <div>
-                  {experiment.hashAttribute || "id"}
+                <div className="d-flex flex-wrap align-items-center gap-1">
+                  <AttributeBadge
+                    attributeId={experiment.hashAttribute || "id"}
+                  />
                   {experiment.fallbackAttribute ? (
-                    <>, {experiment.fallbackAttribute} </>
-                  ) : (
-                    " "
-                  )}
+                    <>
+                      ,{" "}
+                      <AttributeBadge
+                        attributeId={experiment.fallbackAttribute}
+                      />
+                    </>
+                  ) : null}
                   {!isHoldout ? (
                     <HashVersionTooltip>
                       <small className="text-muted ml-1">
@@ -133,7 +144,7 @@ export default function TrafficAndTargeting({
                     Namespace{" "}
                     <Tooltip
                       popperStyle={{ lineHeight: 1.5 }}
-                      body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration → Namespaces"
+                      body="Use namespaces to run mutually exclusive experiments. Manage namespaces under Experimentation → Namespaces"
                     >
                       <GBInfo />
                     </Tooltip>

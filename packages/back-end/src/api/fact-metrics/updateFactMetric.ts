@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { UpdateFactMetricResponse } from "shared/types/openapi";
 import { updateFactMetricValidator } from "shared/validators";
 import {
   FactMetricInterface,
@@ -8,8 +7,8 @@ import {
   UpdateFactMetricProps,
 } from "shared/types/fact-table";
 import { getFactTable } from "back-end/src/models/FactTableModel";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { validateAggregationSpecification } from "back-end/src/api/fact-metrics/postFactMetric";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 
 function expectsDenominator(metricType: FactMetricType) {
@@ -59,11 +58,6 @@ export async function getUpdateFactMetricPropsFromBody(
     if (!factTable) {
       throw new Error("Could not find numerator fact table");
     }
-    validateAggregationSpecification({
-      errorPrefix: "Numerator misspecified. ",
-      column: updates.numerator,
-      factTable: factTable,
-    });
   }
   // remove denominator for non-ratio metrics where existing
   // metric is a ratio metric
@@ -83,11 +77,6 @@ export async function getUpdateFactMetricPropsFromBody(
     if (!factTable) {
       throw new Error("Could not find denominator fact table");
     }
-    validateAggregationSpecification({
-      errorPrefix: "Denominator misspecified. ",
-      column: updates.denominator,
-      factTable: factTable,
-    });
   }
   if (cappingSettings) {
     updates.cappingSettings = {
@@ -132,7 +121,7 @@ export async function getUpdateFactMetricPropsFromBody(
 
 export const updateFactMetric = createApiRequestHandler(
   updateFactMetricValidator,
-)(async (req): Promise<UpdateFactMetricResponse> => {
+)(async (req) => {
   const factMetric = await req.context.models.factMetrics.getById(
     req.params.id,
   );
@@ -161,6 +150,9 @@ export const updateFactMetric = createApiRequestHandler(
   );
 
   return {
-    factMetric: req.context.models.factMetrics.toApiInterface(newFactMetric),
+    factMetric: await resolveOwnerEmail(
+      req.context.models.factMetrics.toApiInterface(newFactMetric),
+      req.context,
+    ),
   };
 });

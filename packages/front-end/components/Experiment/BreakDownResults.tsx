@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, Fragment } from "react";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -17,12 +17,20 @@ import {
 import {
   DifferenceType,
   PValueCorrection,
+  SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  ExperimentSortBy,
+  SetExperimentSortBy,
+  formatDimensionValueForDisplay,
+} from "shared/experiments";
+import { NULL_DIMENSION_VALUE } from "shared/constants";
 import { FaCaretRight } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { ExperimentTableRow } from "@/services/experiments";
 import ResultsTable, {
   RESULTS_TABLE_COLUMNS,
 } from "@/components/Experiment/ResultsTable";
@@ -31,6 +39,7 @@ import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useExperimentDimensionRows } from "@/hooks/useExperimentDimensionRows";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
 import Link from "@/ui/Link";
 import UsersTable from "./UsersTable";
 
@@ -47,6 +56,7 @@ export const includeVariation = (
 
 const BreakDownResults: FC<{
   experimentId: string;
+  significanceThresholds: SignificanceThresholds;
   results: ExperimentReportResultDimension[];
   queryStatusData?: QueryStatusData;
   variations: ExperimentReportVariation[];
@@ -78,13 +88,12 @@ const BreakDownResults: FC<{
   metricsFilter?: string[];
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
-  hideDetails?: boolean;
   renderMetricName?: (
     metric: ExperimentMetricInterface,
   ) => React.ReactElement | string;
   noStickyHeader?: boolean;
-  sortBy?: "significance" | "change" | "custom" | null;
-  setSortBy?: (s: "significance" | "change" | "custom" | null) => void;
+  sortBy?: ExperimentSortBy;
+  setSortBy?: SetExperimentSortBy;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
   customMetricOrder?: string[];
@@ -97,10 +106,11 @@ const BreakDownResults: FC<{
   setAnalysisSettings?: (
     settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
-  mutate?: () => void;
+  mutate?: () => Promise<unknown>;
   setDifferenceType?: (differenceType: DifferenceType) => void;
 }> = ({
   experimentId,
+  significanceThresholds,
   dimensionId,
   dimensionValuesFilter,
   results,
@@ -132,7 +142,6 @@ const BreakDownResults: FC<{
   metricsFilter,
   experimentType,
   ssrPolyfills,
-  hideDetails,
   renderMetricName,
   noStickyHeader,
   sortBy,
@@ -152,6 +161,9 @@ const BreakDownResults: FC<{
 
   const _settings = useOrgSettings();
   const settings = ssrPolyfills?.useOrgSettings?.() || _settings;
+
+  // Detect drilldown context for automatic row click handling
+  const drilldownContext = useMetricDrilldownContext();
 
   const dimension =
     ssrPolyfills?.getDimensionById?.(dimensionId)?.name ||
@@ -177,6 +189,7 @@ const BreakDownResults: FC<{
     settingsForSnapshotMetrics,
     dimensionValuesFilter,
     showErrorsOnQuantileMetrics,
+    pValueThreshold: significanceThresholds.pValueThreshold,
   });
 
   const activationMetricObj = activationMetric
@@ -186,6 +199,17 @@ const BreakDownResults: FC<{
 
   const isBandit = experimentType === "multi-armed-bandit";
   const isHoldout = experimentType === "holdout";
+
+  // Wrap drilldown to include dimension info
+  const handleRowClick = drilldownContext
+    ? (row: ExperimentTableRow) => {
+        const rawValue = typeof row.label === "string" ? row.label : "";
+        const value = formatDimensionValueForDisplay(rawValue);
+        drilldownContext.openDrilldown(row, {
+          dimensionInfo: { id: dimensionId, name: dimension, value, rawValue },
+        });
+      }
+    : undefined;
 
   return (
     <div className="mb-3">
@@ -223,7 +247,7 @@ const BreakDownResults: FC<{
 
       {tables.map((table, i) => {
         return (
-          <>
+          <Fragment key={table.metric.id + "_" + i}>
             <h4
               className="mt-2 mb-1 d-flex position-relative ml-2"
               style={{ gap: 4 }}
@@ -239,6 +263,7 @@ const BreakDownResults: FC<{
             <ResultsTable
               key={i}
               experimentId={experimentId}
+              significanceThresholds={significanceThresholds}
               dateCreated={reportDate}
               isLatestPhase={isLatestPhase}
               phase={phase}
@@ -252,6 +277,7 @@ const BreakDownResults: FC<{
               baselineRow={baselineRow}
               columnsFilter={columnsFilter}
               rows={table.rows}
+              onRowClick={handleRowClick}
               dimension={dimension}
               id={(idPrefix ? `${idPrefix}_` : "") + table.metric.id}
               tableRowAxis="dimension" // todo: dynamic grouping?
@@ -260,12 +286,7 @@ const BreakDownResults: FC<{
                   renderMetricName(table.metric)
                 ) : (
                   <div style={{ marginBottom: 2 }}>
-                    {getRenderLabelColumn({
-                      statsEngine,
-                      hideDetails,
-                      experimentType,
-                      className: "",
-                    })({
+                    {getRenderLabelColumn({})({
                       label: table.metric.name,
                       metric: table.metric,
                       row: table.rows[0],
@@ -291,8 +312,8 @@ const BreakDownResults: FC<{
                   }}
                 >
                   {label ? (
-                    label === "__NULL_DIMENSION" ? (
-                      <em>NULL (unset)</em>
+                    label === NULL_DIMENSION_VALUE ? (
+                      <em>{formatDimensionValueForDisplay(label)}</em>
                     ) : (
                       label
                     )
@@ -317,7 +338,7 @@ const BreakDownResults: FC<{
               mutate={mutate}
             />
             <div className="mb-5" />
-          </>
+          </Fragment>
         );
       })}
     </div>

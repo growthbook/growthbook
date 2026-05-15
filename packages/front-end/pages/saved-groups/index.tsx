@@ -1,19 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import {
-  SavedGroupInterface,
-  SavedGroupWithoutValues,
-} from "shared/types/groups";
+import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { FeatureInterface } from "shared/types/feature";
-import {
-  ExperimentInterface,
-  ExperimentInterfaceStringDates,
-} from "shared/types/experiment";
-import { isEmpty } from "lodash";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import IdLists from "@/components/SavedGroups/IdLists";
 import ConditionGroups from "@/components/SavedGroups/ConditionGroups";
+import SavedGroupReviews from "@/components/SavedGroups/SavedGroupReviews";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
@@ -22,52 +14,11 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useApi from "@/hooks/useApi";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
-import SavedGroupReferencesList from "@/components/SavedGroups/SavedGroupReferencesList";
-
-export const getSavedGroupMessage = (
-  featuresUsingSavedGroups?: FeatureInterface[],
-  experimentsUsingSavedGroups?: Array<
-    ExperimentInterface | ExperimentInterfaceStringDates
-  >,
-  savedGroupsUsingSavedGroups?: SavedGroupInterface[],
-) => {
-  return async () => {
-    if (
-      isEmpty(featuresUsingSavedGroups) &&
-      isEmpty(experimentsUsingSavedGroups) &&
-      isEmpty(savedGroupsUsingSavedGroups)
-    ) {
-      return null;
-    }
-
-    return (
-      <>
-        <Callout status="error" mb="4">
-          <Text as="p" weight="bold" mb="2">
-            Cannot delete saved group
-          </Text>
-          <Text as="p" mb="0">
-            Before you can delete this group, you will need to remove any
-            references to it. Check the following item
-            {(featuresUsingSavedGroups?.length || 0) +
-              (experimentsUsingSavedGroups?.length || 0) +
-              (savedGroupsUsingSavedGroups?.length || 0) >
-              1 && "s"}{" "}
-            below:
-          </Text>
-        </Callout>
-        <SavedGroupReferencesList
-          features={featuresUsingSavedGroups}
-          experiments={experimentsUsingSavedGroups}
-          savedGroups={savedGroupsUsingSavedGroups}
-        />
-      </>
-    );
-  };
-};
+import HelperText from "@/ui/HelperText";
 
 export default function SavedGroupsPage() {
   const router = useRouter();
@@ -75,11 +26,17 @@ export default function SavedGroupsPage() {
 
   const [auditModal, setAuditModal] = useState(false);
 
+  const { refreshOrganization } = useUser();
+
   // Initialize activeTab from URL hash, default to conditionGroups
   const getInitialTab = () => {
     if (typeof window !== "undefined") {
       const hash = window.location.hash.slice(1); // Remove the #
-      if (hash === "idLists" || hash === "conditionGroups") {
+      if (
+        hash === "idLists" ||
+        hash === "conditionGroups" ||
+        hash === "drafts"
+      ) {
         return hash;
       }
     }
@@ -92,7 +49,11 @@ export default function SavedGroupsPage() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1);
-      if (hash === "idLists" || hash === "conditionGroups") {
+      if (
+        hash === "idLists" ||
+        hash === "conditionGroups" ||
+        hash === "drafts"
+      ) {
         setActiveTab(hash);
       }
     };
@@ -101,7 +62,12 @@ export default function SavedGroupsPage() {
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
 
-  const { refreshOrganization } = useUser();
+  // Drives the badge count next to the "Drafts" tab. Uses the lightweight
+  // count endpoint so we don't have to fetch full revision documents.
+  const { data: openReviewsCountData } = useApi<{ count: number }>(
+    "/revision/count?entityType=saved-group",
+  );
+  const openReviewsCount = openReviewsCountData?.count ?? 0;
 
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
@@ -179,17 +145,17 @@ export default function SavedGroupsPage() {
       <Text as="p" mb="3" color="gray">
         Create reusable user groups as targets for feature flags or experiments.
       </Text>
-      <Callout status="info" my="3">
+      <HelperText status="info" my="4">
         Learn more about using Condition Groups and ID Lists.
         <Link
           href="https://docs.growthbook.io/features/targeting#saved-groups"
           target="_blank"
           rel="noreferrer"
-          ml="2"
+          ml="1"
         >
           Docs <PiArrowSquareOut />
         </Link>
-      </Callout>
+      </HelperText>
 
       {error ? (
         <Callout status="error" mb="3">
@@ -232,6 +198,12 @@ export default function SavedGroupsPage() {
                   {idLists.length}
                 </span>
               </TabsTrigger>
+              <TabsTrigger value="drafts">
+                Drafts
+                <span className="ml-2 round-text-background text-main">
+                  {openReviewsCount}
+                </span>
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="conditionGroups">
@@ -243,6 +215,10 @@ export default function SavedGroupsPage() {
 
             <TabsContent value="idLists">
               <IdLists groups={savedGroups} mutate={mutateDefinitions} />
+            </TabsContent>
+
+            <TabsContent value="drafts">
+              <SavedGroupReviews />
             </TabsContent>
           </Tabs>
         </>

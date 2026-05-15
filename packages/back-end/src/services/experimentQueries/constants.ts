@@ -1,6 +1,8 @@
 // Always max to 200 metrics per query
 export const MAX_METRICS_PER_QUERY = 200;
 
+export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
+
 export const N_STAR_VALUES = [
   100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 51200, 102400, 204800,
   409600, 819200, 1638400, 3276800, 6553600, 13107200, 26214400, 52428800,
@@ -31,6 +33,20 @@ export const RATIO_METRIC_CUPED_FLOAT_COLS = [
   "denominator_post_denominator_pre_sum_product",
 ];
 
+export const BASE_METRIC_FLOAT_COLS_UNCAPPED = BASE_METRIC_FLOAT_COLS.map(
+  (col) => col + "_uncapped",
+);
+
+export const RATIO_METRIC_FLOAT_COLS_UNCAPPED = RATIO_METRIC_FLOAT_COLS.map(
+  (col) => col + "_uncapped",
+);
+
+export const BASE_METRIC_CUPED_FLOAT_COLS_UNCAPPED =
+  BASE_METRIC_CUPED_FLOAT_COLS.map((col) => col + "_uncapped");
+
+export const RATIO_METRIC_CUPED_FLOAT_COLS_UNCAPPED =
+  RATIO_METRIC_CUPED_FLOAT_COLS.map((col) => col + "_uncapped");
+
 export const BANDIT_CUPED_FLOAT_COLS = ["theta"];
 
 // Percentile capping columns
@@ -48,4 +64,8 @@ export const ALL_NON_QUANTILE_METRIC_FLOAT_COLS = [
   ...BANDIT_CUPED_FLOAT_COLS,
   ...BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
   ...RATIO_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
+  ...BASE_METRIC_FLOAT_COLS_UNCAPPED,
+  ...RATIO_METRIC_FLOAT_COLS_UNCAPPED,
+  ...BASE_METRIC_CUPED_FLOAT_COLS_UNCAPPED,
+  ...RATIO_METRIC_CUPED_FLOAT_COLS_UNCAPPED,
 ];

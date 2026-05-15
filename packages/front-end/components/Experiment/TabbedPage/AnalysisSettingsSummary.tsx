@@ -1,6 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FactTableColumnType } from "shared/types/fact-table";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { OrganizationSettings } from "shared/types/organization";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
@@ -13,6 +13,7 @@ import {
   isMetricJoinable,
   expandAllSliceMetricsInMap,
   ExperimentMetricInterface,
+  getLatestPhaseVariations,
 } from "shared/experiments";
 import { getSnapshotAnalysis } from "shared/util";
 import { MetricGroupInterface } from "shared/types/metric-groups";
@@ -30,6 +31,7 @@ import { trackSnapshot } from "@/services/track";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useUser } from "@/services/UserContext";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import RefreshResultsButton from "@/components/Experiment/RefreshResultsButton";
@@ -40,20 +42,20 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import Metadata from "@/ui/Metadata";
-import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
+import ResultsFilter from "@/components/Experiment/ResultsFilter/ResultsFilter";
 import { filterMetricsByTags } from "@/hooks/useExperimentTableRows";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import Link from "@/ui/Link";
+import MigrateResultsToDashboardModal from "@/components/Experiment/ResultsFilter/MigrateResultsToDashboardModal";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   statsEngine: StatsEngine;
   editMetrics?: () => void;
-  setVariationFilter?: (variationFilter: number[]) => void;
+  variationFilter?: number[];
   baselineRow?: number;
-  setBaselineRow?: (baselineRow: number) => void;
-  setDifferenceType: (differenceType: DifferenceType) => void;
+  differenceType?: DifferenceType;
   dimension?: string;
   setDimension?: (dimension: string, resetOtherSettings?: boolean) => void;
   metricTagFilter?: string[];
@@ -72,6 +74,9 @@ export interface Props {
   }>;
   sliceTagsFilter?: string[];
   setSliceTagsFilter?: (tags: string[]) => void;
+  sortBy?: "significance" | "change" | "custom" | null;
+  sortDirection?: "asc" | "desc" | null;
+  onSnapshotSuccessfulUpdate?: () => void;
 }
 
 const numberFormatter = Intl.NumberFormat();
@@ -81,10 +86,9 @@ export default function AnalysisSettingsSummary({
   mutate,
   statsEngine,
   editMetrics,
+  variationFilter,
   baselineRow,
-  setVariationFilter,
-  setBaselineRow,
-  setDifferenceType,
+  differenceType,
   dimension,
   setDimension,
   metricTagFilter,
@@ -96,6 +100,9 @@ export default function AnalysisSettingsSummary({
   availableSliceTags = [],
   sliceTagsFilter,
   setSliceTagsFilter,
+  sortBy,
+  sortDirection,
+  onSnapshotSuccessfulUpdate,
 }: Props) {
   const {
     getDatasourceById,
@@ -115,6 +122,7 @@ export default function AnalysisSettingsSummary({
   )?.userIdType;
 
   const orgSettings = useOrgSettings();
+  const pValueThreshold = usePValueThreshold(experiment.project);
   const permissionsUtil = usePermissionsUtil();
 
   const { hasCommercialFeature } = useUser();
@@ -140,6 +148,20 @@ export default function AnalysisSettingsSummary({
     phase,
   } = useSnapshot();
 
+  // Track previous latest status to detect transition from "running" to "success"
+  const previousLatestStatusRef = useRef<string | undefined>(latest?.status);
+
+  // Call reset when latest status transitions from "running" to "success"
+  useEffect(() => {
+    if (
+      previousLatestStatusRef.current === "running" &&
+      latest?.status === "success"
+    ) {
+      onSnapshotSuccessfulUpdate?.();
+    }
+    previousLatestStatusRef.current = latest?.status;
+  }, [latest?.status, onSnapshotSuccessfulUpdate]);
+
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasValidStatsEngine =
     !analysis?.settings ||
@@ -147,14 +169,17 @@ export default function AnalysisSettingsSummary({
 
   const [refreshError, setRefreshError] = useState("");
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
+  const [migrateToDashboardModalOpen, setMigrateToDashboardModalOpen] =
+    useState(false);
 
   const datasource = experiment
     ? getDatasourceById(experiment.datasource)
     : null;
   const phaseObj = experiment.phases?.[phase];
-  const variations = experiment.variations.map((v, i) => {
+  const variations = getLatestPhaseVariations(experiment).map((v, i) => {
     return {
-      id: v.key || i + "",
+      id: v.key || v.index + "",
+      index: v.index,
       name: v.name,
       weight: phaseObj?.variationWeights?.[i] || 0,
     };
@@ -263,6 +288,7 @@ export default function AnalysisSettingsSummary({
     snapshot,
     metricGroups,
     orgSettings,
+    pValueThreshold,
     statsEngine,
     hasRegressionAdjustmentFeature,
     hasPostStratificationFeature,
@@ -410,6 +436,7 @@ export default function AnalysisSettingsSummary({
     snapshot: snap,
     metricGroups: mg = [],
     orgSettings: org,
+    pValueThreshold: projectScopedPValueThreshold,
     statsEngine: engine,
     hasRegressionAdjustmentFeature,
     hasPostStratificationFeature,
@@ -422,6 +449,7 @@ export default function AnalysisSettingsSummary({
     snapshot?: ExperimentSnapshotInterface;
     metricGroups?: MetricGroupInterface[];
     orgSettings: OrganizationSettings;
+    pValueThreshold: number;
     statsEngine: StatsEngine;
     hasRegressionAdjustmentFeature: boolean;
     hasPostStratificationFeature: boolean;
@@ -494,7 +522,7 @@ export default function AnalysisSettingsSummary({
 
     if (
       isDifferentStringArray(
-        exp.variations.map((v) => v.key),
+        getLatestPhaseVariations(exp).map((v) => v.key),
         snapshotSettings.variations.map((v) => v.id),
       )
     ) {
@@ -515,7 +543,7 @@ export default function AnalysisSettingsSummary({
     if (
       isDifferent(
         analysisSettings.pValueThreshold || DEFAULT_P_VALUE_THRESHOLD,
-        org.pValueThreshold || DEFAULT_P_VALUE_THRESHOLD,
+        projectScopedPValueThreshold || DEFAULT_P_VALUE_THRESHOLD,
       )
     ) {
       reasons.push("P-value threshold changed");
@@ -628,6 +656,11 @@ export default function AnalysisSettingsSummary({
                 nextUpdate={experiment.nextSnapshotAttempt}
                 autoUpdateEnabled={experiment.autoSnapshots}
                 showAutoUpdateWidget={true}
+                failedString={
+                  latest && !latest.queries.length && latest.error
+                    ? `Snapshot update failed: ${latest.error}`
+                    : undefined
+                }
                 queries={
                   latest &&
                   (status === "failed" || status === "partially-succeeded")
@@ -667,23 +700,15 @@ export default function AnalysisSettingsSummary({
                     datasource?.type || null,
                     snapshot,
                   );
-                  setAnalysisSettings(null);
-                }}
-                mutate={mutateSnapshot}
-                mutateAdditional={mutate}
-                setRefreshError={setRefreshError}
-                resetFilters={async () => {
-                  if (baselineRow !== 0) {
-                    setBaselineRow?.(0);
-                    setVariationFilter?.([]);
-                  }
-                  setDifferenceType("relative");
                   if (experiment.type === "multi-armed-bandit") {
                     setSnapshotType?.("exploratory");
                   } else {
                     setSnapshotType?.(undefined);
                   }
                 }}
+                mutate={mutateSnapshot}
+                mutateAdditional={mutate}
+                setRefreshError={setRefreshError}
                 experiment={experiment}
                 phase={phase}
                 dimension={dimension}
@@ -707,12 +732,6 @@ export default function AnalysisSettingsSummary({
                         }),
                       })
                         .then((res) => {
-                          setAnalysisSettings(null);
-                          if (baselineRow !== 0) {
-                            setBaselineRow?.(0);
-                            setVariationFilter?.([]);
-                          }
-                          setDifferenceType("relative");
                           trackSnapshot(
                             "create",
                             "ForceRerunQueriesButton",
@@ -765,6 +784,7 @@ export default function AnalysisSettingsSummary({
               trackingKey={experiment.trackingKey}
               dimension={dimension}
               project={experiment.project}
+              onAddToDashboard={() => setMigrateToDashboardModalOpen(true)}
             />
           </Flex>
         </Box>
@@ -792,7 +812,7 @@ export default function AnalysisSettingsSummary({
                 {setDimension && (
                   <Separator orientation="vertical" ml="5" mr="2" />
                 )}
-                <ResultsMetricFilter
+                <ResultsFilter
                   availableMetricTags={availableMetricTags}
                   metricTagFilter={metricTagFilter}
                   setMetricTagFilter={setMetricTagFilter}
@@ -849,6 +869,20 @@ export default function AnalysisSettingsSummary({
             error={latest.error}
           />
         )}
+      <MigrateResultsToDashboardModal
+        open={migrateToDashboardModalOpen}
+        close={() => setMigrateToDashboardModalOpen(false)}
+        experiment={experiment}
+        dimension={dimension}
+        metricTagFilter={metricTagFilter}
+        metricsFilter={metricsFilter}
+        sliceTagsFilter={sliceTagsFilter}
+        baselineRow={baselineRow}
+        variationFilter={variationFilter}
+        sortBy={sortBy ?? null}
+        sortDirection={sortDirection ?? null}
+        differenceType={differenceType}
+      />
     </Box>
   );
 }

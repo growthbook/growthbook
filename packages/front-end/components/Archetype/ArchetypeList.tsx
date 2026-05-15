@@ -1,6 +1,6 @@
 import React, { FC, useState } from "react";
 import { ArchetypeInterface } from "shared/types/archetype";
-import Link from "next/link";
+import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -23,7 +23,7 @@ export const ArchetypeList: FC<{
     useState<Partial<ArchetypeInterface> | null>(null);
   const permissionsUtil = usePermissionsUtil();
   const { project, getProjectById } = useDefinitions();
-  const { getUserDisplay, hasCommercialFeature } = useUser();
+  const { getOwnerDisplay, hasCommercialFeature } = useUser();
 
   const hasArchetypeFeature = hasCommercialFeature("archetypes");
   const canCreateGlobal = permissionsUtil.canCreateArchetype({
@@ -162,7 +162,7 @@ export const ArchetypeList: FC<{
                         <></>
                       )}
                     </td>
-                    <td>{getUserDisplay(archetype.owner)}</td>
+                    <td>{getOwnerDisplay(archetype.owner)}</td>
                     <td>
                       {archetype.isPublic ? (
                         <span className="text-muted">Yes</span>

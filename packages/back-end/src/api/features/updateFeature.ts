@@ -1,22 +1,25 @@
-import {
-  featureRequiresReview,
-  validateFeatureValue,
-  validateScheduleRules,
-} from "shared/util";
+import { validateFeatureValue, getRulesForEnvironment } from "shared/util";
 import { isEqual } from "lodash";
-import { UpdateFeatureResponse } from "shared/types/openapi";
-import { updateFeatureValidator, RevisionRules } from "shared/validators";
-import { FeatureInterface } from "shared/types/feature";
+import { updateFeatureValidator } from "shared/validators";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
+  resolveOwnerToUserId,
+  resolveOwnerEmail,
+} from "back-end/src/services/owner";
+import {
   getFeature,
   updateFeature as updateFeatureToDb,
+  createAndPublishRevision,
 } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
+  addIdsToFlatRules,
   addIdsToRules,
+  fromApiEnvSettingsRulesToFeatureEnvSettingsRules,
   getApiFeatureObj,
+  getNextScheduledUpdate,
   getSavedGroupMap,
   updateInterfaceEnvSettingsFromApiEnvSettings,
 } from "back-end/src/services/features";
@@ -24,22 +27,40 @@ import { getEnabledEnvironments } from "back-end/src/util/features";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
-  createRevision,
   getRevision,
+  normalizeRulesInputToV2,
 } from "back-end/src/models/FeatureRevisionModel";
-import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
-import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
-import { validateCustomFields } from "./validation";
+import {
+  getEnvironments,
+  getEnvironmentIdsFromOrg,
+} from "back-end/src/services/organizations";
+import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
+import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
+import { validateEnvKeys } from "./postFeature";
+import { validateCustomFields } from "./validations";
+import {
+  assertValidHoldout,
+  assertValidProjectId,
+  extractRevisionMetadata,
+  validateEnvRulesScheduleRules,
+} from "./v2Shared";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
-  async (req): Promise<UpdateFeatureResponse> => {
+  async (req) => {
     const feature = await getFeature(req.context, req.params.id);
     if (!feature) {
       throw new Error(`Feature id '${req.params.id}' not found.`);
     }
 
-    const { owner, archived, description, project, tags, customFields } =
-      req.body;
+    const {
+      owner: ownerInput,
+      archived,
+      description,
+      project,
+      tags,
+      customFields,
+    } = req.body;
+    const owner = await resolveOwnerToUserId(ownerInput, req.context);
 
     const effectiveProject =
       typeof project === "undefined" ? feature.project : project;
@@ -72,19 +93,21 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       }
     }
 
-    // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
-    if (project) {
-      const projects = await req.context.getProjects();
-      if (!projects.some((p) => p.id === req.body.project)) {
-        throw new Error(
-          `Project id ${req.body.project} is not a valid project.`,
-        );
-      }
-    }
+    await assertValidProjectId(project, req.context);
 
     // check if the custom fields are valid
-    if (customFields) {
-      await validateCustomFields(customFields, req.context, req.body.project);
+    const projectChanged = project !== undefined && project !== feature.project;
+    const customFieldsChanged = shouldValidateCustomFieldsOnUpdate({
+      existingCustomFieldValues: feature.customFields,
+      updatedCustomFieldValues: customFields,
+    });
+
+    if (projectChanged || customFieldsChanged) {
+      await validateCustomFields(
+        customFields ?? feature.customFields,
+        req.context,
+        effectiveProject,
+      );
     }
 
     // ensure environment keys are valid
@@ -92,34 +115,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       validateEnvKeys(orgEnvs, Object.keys(req.body.environments ?? {}));
     }
 
-    // Validate scheduleRules before processing environment settings
-    if (req.body.environments) {
-      Object.entries(req.body.environments).forEach(
-        ([envName, envSettings]) => {
-          if (envSettings.rules) {
-            envSettings.rules.forEach((rule, ruleIndex) => {
-              if (rule.scheduleRules) {
-                // Validate that the org has access to schedule rules
-                if (!req.context.hasPremiumFeature("schedule-feature-flag")) {
-                  throw new Error(
-                    "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise.",
-                  );
-                }
-                try {
-                  validateScheduleRules(rule.scheduleRules);
-                } catch (error) {
-                  throw new Error(
-                    `Invalid scheduleRules in environment "${envName}", rule ${
-                      ruleIndex + 1
-                    }: ${error.message}`,
-                  );
-                }
-              }
-            });
-          }
-        },
-      );
-    }
+    validateEnvRulesScheduleRules(req.body.environments, req.context);
 
     // ensure default value matches value type
     let defaultValue;
@@ -143,13 +139,15 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           }))
         : null;
 
+    await assertValidHoldout(req.body.holdout, req.context);
+
     const jsonSchema =
       feature.valueType === "json" && req.body.jsonSchema != null
-        ? parseJsonSchemaForEnterprise(req.organization, req.body.jsonSchema)
+        ? parseApiJsonSchema(req.organization, req.body.jsonSchema)
         : null;
 
-    const updates: Partial<FeatureInterface> = {
-      ...(owner != null ? { owner } : {}),
+    let updates: Partial<FeatureInterface> = {
+      ...(ownerInput !== undefined ? { owner: owner ?? "" } : {}),
       ...(archived != null ? { archived } : {}),
       ...(description != null ? { description } : {}),
       ...(project != null ? { project } : {}),
@@ -186,76 +184,191 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       addIdsToRules(updates.environmentSettings, feature.id);
     }
 
-    // Create a revision for the changes and publish them immediately
-    let defaultValueChanged = false;
-    const changedEnvironments: string[] = [];
-    if ("defaultValue" in updates || "environmentSettings" in updates) {
-      const revisionChanges: Partial<FeatureRevisionInterface> = {};
-      const revisedRules: RevisionRules = {};
+    // Recompute next-scheduled-update whenever top-level `rules` OR
+    // `environmentSettings` change (the latter for REST callers still posting
+    // v1-shape env rules, which adapters normalize upstream).
+    if (updates.rules !== undefined || updates.environmentSettings) {
+      updates.nextScheduledUpdate = getNextScheduledUpdate(
+        updates.rules ?? feature.rules,
+      );
+    }
 
-      // Copy over current envSettings to revision as this endpoint support partial updates
-      Object.entries(feature.environmentSettings).forEach(([env, settings]) => {
-        revisedRules[env] = settings.rules;
-      });
+    // Callers can skip the review gate either because the org has opted in
+    // to unrestricted REST API writes, or because their token/role grants
+    // the bypassApprovalChecks permission for this feature's project.
+    const canBypass =
+      !!req.context.org.settings?.restApiBypassesReviews ||
+      req.context.permissions.canBypassApprovalChecks(feature);
 
-      let hasChanges = false;
-      if (
-        "defaultValue" in updates &&
-        updates.defaultValue !== feature.defaultValue
-      ) {
-        revisionChanges.defaultValue = updates.defaultValue;
-        hasChanges = true;
-        defaultValueChanged = true;
-      }
-      if (updates.environmentSettings) {
-        Object.entries(updates.environmentSettings).forEach(
-          ([env, settings]) => {
-            if (
-              !isEqual(
-                settings.rules,
-                feature.environmentSettings?.[env]?.rules || [],
-              )
-            ) {
-              hasChanges = true;
-              changedEnvironments.push(env);
-              // if the rule is different from the current feature value, update revisionChanges
-              revisedRules[env] = settings.rules;
-            }
-          },
-        );
-      }
+    // Tags go into the revision metadata; capture them before stripping from updates.
+    const newTagsForDiff = updates.tags;
 
-      revisionChanges.rules = revisedRules;
+    // Build a single combined revision for all change types.
 
-      if (hasChanges) {
-        const reviewRequired = featureRequiresReview(
-          feature,
-          changedEnvironments,
-          defaultValueChanged,
-          req.organization.settings,
-        );
-        if (reviewRequired) {
-          if (!req.context.permissions.canBypassApprovalChecks(feature)) {
-            throw new Error(
-              "This feature requires a review and the API key being used does not have permission to bypass reviews.",
-            );
-          }
+    // 1. environmentsEnabled (kill switches)
+    const changedEnvEnabled: Record<string, boolean> = {};
+    if (updates.environmentSettings) {
+      for (const [env, settings] of Object.entries(
+        updates.environmentSettings,
+      )) {
+        if (
+          typeof settings.enabled === "boolean" &&
+          settings.enabled !== feature.environmentSettings?.[env]?.enabled
+        ) {
+          changedEnvEnabled[env] = settings.enabled;
+          // Exclude enabled from the direct-write path to avoid applying it twice.
+          updates.environmentSettings[env] = {
+            ...updates.environmentSettings[env],
+            enabled: feature.environmentSettings?.[env]?.enabled ?? false,
+          };
         }
+      }
+    }
 
-        const revision = await createRevision({
+    // 2. rules / defaultValue
+    // v2: rules live on feature.rules (flat). Normalize inbound per-env rules
+    // through `normalizeRulesInputToV2` so content-identical rules across envs
+    // collapse to a single v2 rule with `environments: [...envs]` (or
+    // `allEnvironments: true` when applicable) — matches the read-path JIT
+    // and preserves v1 round-trip semantics for clients that send the same
+    // rule id across envs. Then union with existing rules for envs the caller
+    // didn't touch so we don't lose them on partial updates.
+    const incomingEnvs = req.body.environments ?? {};
+    const touchedEnvs = new Set(Object.keys(incomingEnvs));
+    const inboundRulesByEnv: Record<string, FeatureRule[]> = {};
+    for (const [env, envSettings] of Object.entries(incomingEnvs)) {
+      if (!envSettings.rules) continue;
+      const converted = fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
+        feature,
+        envSettings.rules,
+      );
+      // Stamp ids before flattening — `flattenV1ToV2Rules` groups by id and
+      // drops id-less rules. Without this, v1 clients that omit ids would
+      // lose those rules on PUT.
+      addIdsToFlatRules(converted, feature.id);
+      inboundRulesByEnv[env] = converted;
+    }
+    const inboundFlatRules: FeatureRule[] =
+      Object.keys(inboundRulesByEnv).length > 0
+        ? normalizeRulesInputToV2(inboundRulesByEnv, {
+            orgEnvs: getEnvironments(req.context.org),
+            featureProject: effectiveProject,
+          })
+        : [];
+    // Carry through untouched-env rules from the existing feature.
+    const preservedRules: FeatureRule[] = (feature.rules ?? []).filter((r) => {
+      if (r.allEnvironments) {
+        // An all-env rule can only be left alone if the caller didn't touch
+        // any env — otherwise it would be ambiguous which envs they meant to
+        // affect. This matches legacy v1 semantics (untouched envs preserved).
+        return true;
+      }
+      const envs = r.environments ?? [];
+      // Keep if none of the rule's envs were touched.
+      return envs.every((e) => !touchedEnvs.has(e));
+    });
+    const revisedRulesFlat: FeatureRule[] = [
+      ...preservedRules,
+      ...inboundFlatRules,
+    ];
+
+    const changedRuleEnvironments: string[] = [];
+    let defaultValueChanged = false;
+
+    if (
+      updates.defaultValue !== undefined &&
+      updates.defaultValue !== feature.defaultValue
+    ) {
+      defaultValueChanged = true;
+    }
+    if (updates.environmentSettings) {
+      Object.keys(updates.environmentSettings).forEach((env) => {
+        const inboundEnv = getRulesForEnvironment(inboundFlatRules, env);
+        const currentEnv = getRulesForEnvironment(feature.rules ?? [], env);
+        if (!isEqual(inboundEnv, currentEnv)) {
+          changedRuleEnvironments.push(env);
+        }
+      });
+    }
+
+    // 3. metadata
+    const { metadata: metadataChanges, remaining: updatesAfterMetadata } =
+      extractRevisionMetadata(updates);
+    updates = updatesAfterMetadata;
+
+    // 4. prerequisites
+    const newPrerequisites = updates.prerequisites ?? null;
+    if (newPrerequisites !== null) {
+      delete updates.prerequisites;
+    }
+
+    // 5. archived
+    const newArchived =
+      updates.archived !== undefined && updates.archived !== feature.archived
+        ? updates.archived
+        : null;
+    if (newArchived !== null) {
+      delete updates.archived;
+    }
+
+    // 6. holdout — absent: no change; null: remove; { id, value }: add/change
+    const holdoutFieldProvided = "holdout" in req.body;
+    const newHoldout = holdoutFieldProvided
+      ? (req.body.holdout ?? null)
+      : undefined;
+    const hasHoldoutChange =
+      holdoutFieldProvided &&
+      !isEqual(newHoldout ?? null, feature.holdout ?? null);
+
+    // Determine whether any revision-tracked change exists
+    const hasEnvEnabledChanges = Object.keys(changedEnvEnabled).length > 0;
+    const hasRuleChanges =
+      defaultValueChanged || changedRuleEnvironments.length > 0;
+    const hasMetadataChanges = Object.keys(metadataChanges).length > 0;
+    const hasPrereqChanges = newPrerequisites !== null;
+    const hasArchivedChange = newArchived !== null;
+
+    const hasRevisionChanges =
+      hasEnvEnabledChanges ||
+      hasRuleChanges ||
+      hasMetadataChanges ||
+      hasPrereqChanges ||
+      hasArchivedChange ||
+      hasHoldoutChange;
+
+    if (hasRevisionChanges) {
+      const revisionChanges: Partial<FeatureRevisionInterface> = {
+        ...(hasEnvEnabledChanges
+          ? { environmentsEnabled: changedEnvEnabled }
+          : {}),
+        ...(hasRuleChanges || hasEnvEnabledChanges
+          ? {
+              rules: revisedRulesFlat,
+              ...(updates.defaultValue !== undefined
+                ? { defaultValue: updates.defaultValue }
+                : {}),
+            }
+          : {}),
+        ...(hasMetadataChanges ? { metadata: metadataChanges } : {}),
+        ...(hasPrereqChanges ? { prerequisites: newPrerequisites } : {}),
+        ...(hasArchivedChange ? { archived: newArchived } : {}),
+        ...(hasHoldoutChange ? { holdout: newHoldout ?? null } : {}),
+      };
+
+      // Throws if the revision requires approval and the caller cannot bypass.
+      const { revision, updatedFeature: updatedFeatureFromRevision } =
+        await createAndPublishRevision({
           context: req.context,
           feature,
           user: req.eventAudit,
-          baseVersion: feature.version,
-          comment: "Created via REST API",
-          environments: orgEnvs,
-          publish: true,
-          changes: revisionChanges,
           org: req.organization,
-          canBypassApprovalChecks: true,
+          changes: revisionChanges,
+          comment: "Created via REST API",
+          canBypassApprovalChecks: canBypass,
         });
-        updates.version = revision.version;
-      }
+
+      Object.assign(feature, updatedFeatureFromRevision);
+      updates.version = revision.version;
     }
 
     const updatedFeature = await updateFeatureToDb(
@@ -267,7 +380,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     await addTagsDiff(
       req.context.org.id,
       feature.tags || [],
-      updates.tags || [],
+      newTagsForDiff || [],
     );
 
     await req.audit({
@@ -279,7 +392,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       details: auditDetailsUpdate(feature, updatedFeature),
     });
 
-    const groupMap = await getSavedGroupMap(req.organization);
+    const groupMap = await getSavedGroupMap(req.context);
 
     const experimentMap = await getExperimentMapForFeature(
       req.context,
@@ -289,19 +402,23 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       context: req.context,
       organization: updatedFeature.organization,
       featureId: updatedFeature.id,
+      feature: updatedFeature,
       version: updatedFeature.version,
     });
     const safeRolloutMap =
       await req.context.models.safeRollout.getAllPayloadSafeRollouts();
     return {
-      feature: getApiFeatureObj({
-        feature: updatedFeature,
-        organization: req.organization,
-        groupMap,
-        experimentMap,
-        revision,
-        safeRolloutMap,
-      }),
+      feature: await resolveOwnerEmail(
+        getApiFeatureObj({
+          feature: updatedFeature,
+          organization: req.organization,
+          groupMap,
+          experimentMap,
+          revision,
+          safeRolloutMap,
+        }),
+        req.context,
+      ),
     };
   },
 );

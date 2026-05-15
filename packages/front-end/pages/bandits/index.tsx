@@ -12,6 +12,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
+import { tagFilterOnClick, tagLinkProps } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
 import { useExperiments } from "@/hooks/useExperiments";
@@ -27,16 +28,16 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import Button from "@/ui/Button";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LinkButton from "@/ui/LinkButton";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import { useExperimentSearch } from "@/services/experiments";
+import Callout from "@/ui/Callout";
 
 const NUM_PER_PAGE = 20;
 
 const ExperimentsPage = (): React.ReactElement => {
-  const { ready, project } = useDefinitions();
+  const { ready, project, projects } = useDefinitions();
 
   const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
 
@@ -56,7 +57,6 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const { userId, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
-  const settings = useOrgSettings();
 
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -78,10 +78,11 @@ const ExperimentsPage = (): React.ReactElement => {
     [showMineOnly, userId, tagsFilter.tags, watchedExperiments],
   );
 
-  const { items, searchInputProps, isFiltered, SortableTH } =
+  const { items, searchInputProps, isFiltered, SortableTH, setSearchValue } =
     useExperimentSearch({
       allExperiments,
       filterResults,
+      localStorageKey: "bandits-page",
     });
 
   const tabCounts = useMemo(() => {
@@ -102,8 +103,6 @@ const ExperimentsPage = (): React.ReactElement => {
   // If "All Projects" is selected is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && items.some((e) => e.project);
 
-  const orgStickyBucketing = !!settings.useStickyBucketing;
-  const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
   const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits",
   );
@@ -114,11 +113,7 @@ const ExperimentsPage = (): React.ReactElement => {
   }, [filtered.length]);
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
   if (loading || !ready) {
     return <LoadingOverlay />;
@@ -126,7 +121,7 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const hasExperiments = allExperiments.length > 0;
 
-  const canAdd = permissionsUtil.canViewExperimentModal(project);
+  const canAdd = permissionsUtil.canViewExperimentModal(project, projects);
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
@@ -167,22 +162,13 @@ const ExperimentsPage = (): React.ReactElement => {
               <div className="col-auto">
                 <PremiumTooltip
                   tipPosition="left"
-                  body={
-                    hasStickyBucketFeature && !orgStickyBucketing
-                      ? "Enable Sticky Bucketing in your organization settings to run a Bandit"
-                      : undefined
-                  }
                   commercialFeature="multi-armed-bandits"
                 >
                   <Button
                     onClick={() => {
                       setOpenNewExperimentModal(true);
                     }}
-                    disabled={
-                      !hasMultiArmedBanditFeature ||
-                      !hasStickyBucketFeature ||
-                      !orgStickyBucketing
-                    }
+                    disabled={!hasMultiArmedBanditFeature}
                   >
                     Add Bandit
                   </Button>
@@ -209,22 +195,13 @@ const ExperimentsPage = (): React.ReactElement => {
                   <PremiumTooltip
                     tipPosition="left"
                     popperStyle={{ top: 15 }}
-                    body={
-                      hasStickyBucketFeature && !orgStickyBucketing
-                        ? "Enable Sticky Bucketing in your organization settings to run a Bandit"
-                        : undefined
-                    }
                     commercialFeature="multi-armed-bandits"
                   >
                     <Button
                       onClick={() => {
                         setOpenNewExperimentModal(true);
                       }}
-                      disabled={
-                        !hasMultiArmedBanditFeature ||
-                        !hasStickyBucketFeature ||
-                        !orgStickyBucketing
-                      }
+                      disabled={!hasMultiArmedBanditFeature}
                     >
                       Add Bandit
                     </Button>
@@ -411,6 +388,11 @@ const ExperimentsPage = (): React.ReactElement => {
                           <SortedTags
                             tags={Object.values(e.tags)}
                             useFlex={true}
+                            {...tagLinkProps("bandits")}
+                            onTagClick={tagFilterOnClick(
+                              searchInputProps.value,
+                              setSearchValue,
+                            )}
                           />
                         </td>
                         <td className="nowrap" data-title="Owner:">

@@ -21,12 +21,15 @@ class Uplift:
     stddev: float
 
 
+ResponseCI = Tuple[Optional[float], Optional[float]]
+
+
 @dataclass
 class TestResult:
     expected: float
-    ci: List[float]
+    ci: ResponseCI
     uplift: Uplift
-    error_message: Optional[str]
+    errorMessage: Optional[str]
 
 
 RiskType = Literal["absolute", "relative"]
@@ -34,21 +37,15 @@ RiskType = Literal["absolute", "relative"]
 
 @dataclass
 class BayesianTestResult(TestResult):
-    chance_to_win: float
+    chanceToWin: float
     risk: List[float]
-    risk_type: RiskType
+    riskType: RiskType
 
 
 PValueErrorMessage = Literal[
     "NUMERICAL_PVALUE_NOT_CONVERGED",
     "ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST",
 ]
-
-
-@dataclass
-class FrequentistTestResult(TestResult):
-    p_value: Optional[float] = None
-    p_value_error_message: Optional[PValueErrorMessage] = None
 
 
 @dataclass
@@ -67,7 +64,7 @@ class RealizedSettings:
 class SingleVariationResult:
     users: Optional[float]
     cr: Optional[float]
-    ci: Optional[List[float]]
+    ci: Optional[ResponseCI]
 
 
 @dataclass
@@ -114,35 +111,73 @@ class PowerResponse:
     scalingFactor: Optional[float]
 
 
-ResponseCI = Tuple[Optional[float], Optional[float]]
-
-
 @dataclass
-class BaseVariationResponse(BaselineResponse):
-    expected: float
-    uplift: Uplift
-    ci: ResponseCI
-    errorMessage: Optional[str]
-    power: Optional[PowerResponse]
-    realizedSettings: RealizedSettings
-
-
-@dataclass
-class BayesianVariationResponse(BaseVariationResponse):
-    chanceToWin: float
-    risk: Tuple[float, float]
-    riskType: RiskType
-
-
-@dataclass
-class FrequentistVariationResponse(BaseVariationResponse):
+class FrequentistTestResult(TestResult):
     pValue: Optional[float]
     pValueErrorMessage: Optional[PValueErrorMessage]
 
 
-VariationResponse = Union[
-    BayesianVariationResponse, FrequentistVariationResponse, BaselineResponse
+@dataclass
+class BayesianVariationResponseIndividual(BayesianTestResult, BaselineResponse):
+    realizedSettings: RealizedSettings
+    power: Optional[PowerResponse]
+
+
+@dataclass
+class FrequentistVariationResponseIndividual(FrequentistTestResult, BaselineResponse):
+    realizedSettings: RealizedSettings
+    power: Optional[PowerResponse] = None
+
+
+VariationResponseIndividual = Union[
+    BayesianVariationResponseIndividual,
+    FrequentistVariationResponseIndividual,
+    BaselineResponse,
 ]
+
+
+@dataclass
+class SupplementalResults:
+    cupedUnadjusted: Optional[VariationResponseIndividual] = None
+    uncapped: Optional[VariationResponseIndividual] = None
+    flatPrior: Optional[VariationResponseIndividual] = None
+    unstratified: Optional[VariationResponseIndividual] = None
+    noVarianceReduction: Optional[VariationResponseIndividual] = None
+
+
+@dataclass
+class BayesianVariationResponse(BayesianVariationResponseIndividual):
+    supplementalResults: Optional[SupplementalResults] = None
+
+
+@dataclass
+class FrequentistVariationResponse(FrequentistVariationResponseIndividual):
+    supplementalResults: Optional[SupplementalResults] = None
+
+
+@dataclass
+class BaselineResponseWithSupplementalResults(BaselineResponse):
+    supplementalResults: Optional[SupplementalResults] = None
+
+
+VariationResponse = Union[
+    BayesianVariationResponse,
+    FrequentistVariationResponse,
+    BaselineResponseWithSupplementalResults,
+]
+
+
+@dataclass
+class DimensionResponseIndividual:
+    dimension: str
+    srm: float
+    variations: List[VariationResponseIndividual]
+
+    def to_df(self) -> pd.DataFrame:
+        df = pd.DataFrame(self.variations)
+        df["dimension"] = self.dimension
+        df["srm"] = self.srm
+        return df
 
 
 @dataclass

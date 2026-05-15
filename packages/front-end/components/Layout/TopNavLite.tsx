@@ -1,5 +1,4 @@
 import Head from "next/head";
-import { FaAngleRight } from "react-icons/fa";
 import Link from "next/link";
 import { Text } from "@radix-ui/themes";
 import {
@@ -9,9 +8,10 @@ import {
   PiSunDim,
 } from "react-icons/pi";
 import { useMemo } from "react";
+import Breadcrumbs from "@/ui/Breadcrumbs";
 import { safeLogout } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import Avatar from "@/components/Avatar/Avatar";
+import UserAvatar from "@/components/Avatar/UserAvatar";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { usePageHead } from "@/components/Layout/PageHead";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
@@ -150,30 +150,19 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
     );
   };
 
-  const renderBreadCrumb = () => {
-    return breadcrumb?.map((b, i) => (
-      <span
-        key={i}
-        className={i < breadcrumb.length - 1 ? "d-none d-lg-inline" : ""}
-        title={b.display}
-      >
-        {i > 0 && <FaAngleRight className="mx-2 d-none d-lg-inline" />}
-        {b.href ? (
-          <Link className={styles.breadcrumblink} href={b.href}>
-            {b.display}
-          </Link>
-        ) : (
-          b.display
-        )}
-      </span>
-    ));
-  };
   const renderTitleOrBreadCrumb = () => {
-    let titleOrBreadCrumb: string | JSX.Element[] = pageTitle || "";
-    if (breadcrumb.length > 0) {
-      titleOrBreadCrumb = renderBreadCrumb();
-    }
-    return <div className={styles.pagetitle}>{titleOrBreadCrumb}</div>;
+    const breadcrumbItems =
+      breadcrumb.length > 0
+        ? breadcrumb
+        : pageTitle
+          ? [{ display: pageTitle }]
+          : [];
+
+    return (
+      <div className={styles.pagetitle}>
+        <Breadcrumbs items={breadcrumbItems} />
+      </div>
+    );
   };
 
   return (
@@ -208,12 +197,13 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
           <DropdownMenu
             variant="solid"
             trigger={
-              <div className="nav-link d-flex">
-                <Avatar
+              <div className="nav-link d-flex align-items-center">
+                <UserAvatar
                   email={email || ""}
-                  size={26}
                   name={name || ""}
-                  className="mr-2"
+                  size="md"
+                  variant="soft"
+                  mr="2"
                 />{" "}
                 <span className="d-none d-lg-inline">
                   <OverflowText maxWidth={200}>

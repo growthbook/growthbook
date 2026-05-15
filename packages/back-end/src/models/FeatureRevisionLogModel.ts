@@ -17,7 +17,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "featureRevisionLog.update",
     deleteEvent: "featureRevisionLog.delete",
   },
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
   additionalIndexes: [
     {
       fields: {

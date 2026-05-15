@@ -95,6 +95,11 @@ export interface SchemaInterface {
   experimentDimensions: string[];
   userIdTypes: string[];
   getMetricSQL(type: MetricType, tablePrefix: string): string;
+  getFactTableSQL(
+    tablePrefix: string,
+    userIdTypes: string[],
+    options?: GetExperimentSqlOptions,
+  ): string;
 }
 
 export interface SchemaFormatConfig {
@@ -113,7 +118,7 @@ export interface SchemaFormatConfig {
     eventName: string;
     schema?: string;
   }) => string;
-  getEventFilterWhereClause: (metricName?: string) => string;
+  getEventFilterWhereClause: (metricName: string) => string;
   getDateLimitClause: (dates?: { start: Date; end: Date }) => string;
   displayNameColumn?: string;
 }
@@ -137,7 +142,9 @@ export interface DataSourceProperties {
   dropUnitsTable?: boolean;
   hasQuantileTesting?: boolean;
   hasEfficientPercentiles?: boolean;
+  canGroupPercentileCappedMetrics?: boolean;
   hasCountDistinctHLL?: boolean;
+  hasQuantileKLL?: boolean;
   hasIncrementalRefresh?: boolean;
   maxColumns: number;
 }
@@ -180,6 +187,7 @@ export interface FeatureUsageQuery {
 export interface UserIdType {
   userIdType: string;
   description?: string;
+  attributes?: string[];
 }
 
 export type DataSourceEvents = {
@@ -282,9 +290,12 @@ export type DataSourceSettings = {
   };
   pipelineSettings?: DataSourcePipelineSettings;
   maxConcurrentQueries?: string;
+  queryCacheTTLMins?: string;
 };
 
 export interface GrowthbookClickhouseSettings extends DataSourceSettings {
+  /** When false, the warehouse exists in GrowthBook but ClickHouse was not provisioned yet. */
+  hasBeenProvisioned?: boolean;
   materializedColumns?: MaterializedColumn[];
 }
 
@@ -298,7 +309,6 @@ interface DataSourceBase {
   params: string;
   projects?: string[];
   settings: DataSourceSettings;
-  lockUntil?: Date | null;
   type: DataSourceType;
 }
 

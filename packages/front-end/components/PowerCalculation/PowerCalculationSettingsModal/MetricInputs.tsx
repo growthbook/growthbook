@@ -157,7 +157,7 @@ export const MetricParamsInput = ({
   disableValue: boolean;
 }) => {
   const metrics = form.watch("metrics");
-  // eslint-disable-next-line
+
   const { name, ...params } = sortParams(ensureAndReturn(metrics[metricId]));
 
   const isBayesianParamDisabled = (entity) => {

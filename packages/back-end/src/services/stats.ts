@@ -10,6 +10,7 @@ import {
 import { putBaselineVariationFirst } from "shared/util";
 import {
   ExperimentMetricInterface,
+  eligibleForUncappedMetric,
   isBinomialMetric,
   isFactMetric,
   isRatioMetric,
@@ -56,7 +57,11 @@ import { promiseAllChunks } from "back-end/src/util/promise";
 import { logger } from "back-end/src/util/logger";
 import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { updateSnapshotAnalysis } from "back-end/src/models/ExperimentSnapshotModel";
-import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/integrations/SqlIntegration";
+import { Context } from "back-end/src/models/BaseModel";
+import {
+  MAX_METRICS_PER_QUERY,
+  MAX_ROWS_UNIT_AGGREGATE_QUERY,
+} from "back-end/src/services/experimentQueries/constants";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { statsServerPool } from "back-end/src/services/python";
 import { metrics } from "back-end/src/util/metrics";
@@ -99,7 +104,9 @@ export function getAnalysisSettingsForStatsEngine(
         : MAX_DIMENSIONS,
     traffic_percentage: coverage,
     num_goal_metrics: settings.numGoalMetrics,
+    num_guardrail_metrics: settings.numGuardrailMetrics ?? 0,
     one_sided_intervals: !!settings.oneSidedIntervals,
+    use_covariate_as_response: !!settings.useCovariateAsResponse,
     post_stratification_enabled: !!settings.postStratificationEnabled,
   };
 
@@ -270,6 +277,7 @@ export function getMetricSettingsForStatsEngine(
     metric.denominator && !isFactMetric(metric)
       ? metricMap.get(metric.denominator)
       : undefined;
+
   let denominator: undefined | ExperimentMetricInterface = undefined;
   if (denominatorDoc) {
     denominator = cloneDeep<ExperimentMetricInterface>(denominatorDoc);
@@ -330,6 +338,7 @@ export function getMetricSettingsForStatsEngine(
       metric.id,
       settings,
     ),
+    compute_uncapped_metric: eligibleForUncappedMetric(metric),
   };
 }
 
@@ -394,7 +403,7 @@ export function getMetricsAndQueryDataForStatsEngine(
         const rows = query.result as ExperimentFactMetricsQueryResponseRows;
         if (!rows?.length) return;
         const metricIds: (string | null)[] = [];
-        for (let i = 0; i < 100; i++) {
+        for (let i = 0; i < MAX_METRICS_PER_QUERY; i++) {
           const prefix = `m${i}_`;
           if (!rows[0]?.[prefix + "id"]) break;
 
@@ -445,6 +454,13 @@ export function getMetricsAndQueryDataForStatsEngine(
   };
 }
 
+const getFormattedCI = (
+  ci?: [number | null, number | null],
+): [number, number] | undefined => {
+  if (!ci) return undefined;
+  return [ci[0] ?? -Infinity, ci[1] ?? Infinity];
+};
+
 function parseStatsEngineResult({
   analysisSettings,
   snapshotSettings,
@@ -463,6 +479,7 @@ function parseStatsEngineResult({
   const experimentReportResults: ExperimentReportResults[] = [];
   // TODO fix for dimension slices and move to health query
   const multipleExposures = Math.max(
+    0,
     ...queryResults.map(
       (q) =>
         q.rows.filter((r) => r.variation === "__multiple__")?.[0]?.users || 0,
@@ -498,15 +515,44 @@ function parseStatsEngineResult({
           data.users = Math.max(data.users, v.users);
 
           // translate null in CI to infinity
-          const ci: [number, number] | undefined = v.ci
-            ? [v.ci[0] ?? -Infinity, v.ci[1] ?? Infinity]
-            : undefined;
-          const parsedVariation = {
-            ...v,
-            ci,
-          };
+          if ("ci" in v) {
+            v.ci = getFormattedCI(v.ci);
+          }
+          if (
+            v.supplementalResults?.cupedUnadjusted &&
+            "ci" in v.supplementalResults.cupedUnadjusted
+          ) {
+            v.supplementalResults.cupedUnadjusted.ci = getFormattedCI(
+              v.supplementalResults.cupedUnadjusted.ci,
+            );
+          }
+          if (
+            v.supplementalResults?.uncapped &&
+            "ci" in v.supplementalResults.uncapped
+          ) {
+            v.supplementalResults.uncapped.ci = getFormattedCI(
+              v.supplementalResults.uncapped.ci,
+            );
+          }
+          if (
+            v.supplementalResults?.unstratified &&
+            "ci" in v.supplementalResults.unstratified
+          ) {
+            v.supplementalResults.unstratified.ci = getFormattedCI(
+              v.supplementalResults.unstratified.ci,
+            );
+          }
+          if (
+            v.supplementalResults?.noVarianceReduction &&
+            "ci" in v.supplementalResults.noVarianceReduction
+          ) {
+            v.supplementalResults.noVarianceReduction.ci = getFormattedCI(
+              v.supplementalResults.noVarianceReduction.ci,
+            );
+          }
+
           data.metrics[metric] = {
-            ...parsedVariation,
+            ...v,
             buckets: [],
           };
           dim.variations[i] = data;
@@ -542,6 +588,7 @@ function parseStatsEngineResult({
 }
 
 export async function writeSnapshotAnalyses(
+  context: Context,
   results: MultipleExperimentMetricAnalysis[],
   paramsMap: Map<string, ExperimentAnalysisParamsContextData>,
 ) {
@@ -550,7 +597,7 @@ export async function writeSnapshotAnalyses(
     const params = paramsMap.get(result.id);
     if (!params) return;
 
-    const { organization, snapshot, snapshotSettings } = params.context;
+    const { snapshot, snapshotSettings } = params.context;
     const { analyses, queryResults } = params.params;
     const { analysisObj, unknownVariations } = params.data;
 
@@ -575,7 +622,7 @@ export async function writeSnapshotAnalyses(
 
     promises.push(async () =>
       updateSnapshotAnalysis({
-        organization,
+        context,
         id: snapshot,
         analysis: analysisObj,
       }),
@@ -619,6 +666,7 @@ export async function analyzeExperimentResults({
     ),
     variations: snapshotSettings.variations.map((v, i) => ({
       ...v,
+      index: i,
       name: variationNames[i] || v.id,
     })),
     analyses: analysisSettings,

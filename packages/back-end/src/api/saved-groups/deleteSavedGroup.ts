@@ -1,17 +1,11 @@
-import { DeleteSavedGroupResponse } from "shared/types/openapi";
 import { deleteSavedGroupValidator } from "shared/validators";
-import {
-  deleteSavedGroupById,
-  getSavedGroupById,
-} from "back-end/src/models/SavedGroupModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const deleteSavedGroup = createApiRequestHandler(
   deleteSavedGroupValidator,
-)(async (req): Promise<DeleteSavedGroupResponse> => {
-  const savedGroup = await getSavedGroupById(
+)(async (req) => {
+  const savedGroup = await req.context.models.savedGroups.getById(
     req.params.id,
-    req.organization.id,
   );
 
   if (!savedGroup) {
@@ -22,7 +16,14 @@ export const deleteSavedGroup = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  await deleteSavedGroupById(req.params.id, req.organization.id);
+  // Match the internal controller: archive-then-delete. Archive is reversible
+  // and flows through the approval system; delete bypasses approval but is
+  // gated on the archive having already been published.
+  if (!savedGroup.archived) {
+    throw new Error("Saved group must be archived before it can be deleted");
+  }
+
+  await req.context.models.savedGroups.deleteById(req.params.id);
 
   return {
     deletedId: req.params.id,

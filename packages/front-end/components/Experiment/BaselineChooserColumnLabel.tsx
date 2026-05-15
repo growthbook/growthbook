@@ -8,6 +8,7 @@ import {
 } from "shared/types/experiment-snapshot";
 import { Flex, Text } from "@radix-ui/themes";
 import { PiCaretDownFill } from "react-icons/pi";
+import { getSnapshotAnalysis } from "shared/util";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -19,7 +20,7 @@ import {
 } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import { analysisUpdate } from "./DifferenceTypeChooser";
+import { analysisUpdate } from "@/services/snapshots";
 
 export interface BaselineChooserColumnLabelProps {
   variations: Variation[] | ExperimentReportVariation[];
@@ -30,7 +31,7 @@ export interface BaselineChooserColumnLabelProps {
   setAnalysisSettings?: (
     settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
-  mutate?: () => void;
+  mutate?: () => Promise<unknown>;
   dropdownEnabled?: boolean;
   isHoldout?: boolean;
 }
@@ -71,7 +72,7 @@ export default function BaselineChooserColumnLabel({
   }, [baselineRow]);
 
   const handleBaselineChange = useCallback(
-    (variationIndex: number) => {
+    async (variationIndex: number) => {
       if (!setBaselineRow) return;
 
       setDesiredBaselineRow(variationIndex);
@@ -81,30 +82,34 @@ export default function BaselineChooserColumnLabel({
       }
       if (!analysis || !setAnalysisSettings || !mutate) return;
 
-      const newSettings: ExperimentSnapshotAnalysisSettings = {
-        ...analysis.settings,
-        baselineVariationIndex: variationIndex,
-      };
-      triggerAnalysisUpdate(
-        newSettings,
-        analysis,
-        snapshot,
-        apiCall,
-        setPostLoading,
-      ).then((status) => {
+      try {
+        const newSettings: ExperimentSnapshotAnalysisSettings = {
+          ...analysis.settings,
+          baselineVariationIndex: variationIndex,
+        };
+        const analysisExists = getSnapshotAnalysis(snapshot, newSettings);
+        const status = await triggerAnalysisUpdate(
+          newSettings,
+          analysis,
+          snapshot,
+          apiCall,
+          setPostLoading,
+        );
         if (status === "success") {
-          setBaselineRow(variationIndex);
-          setAnalysisSettings(newSettings);
           track("Experiment Analysis: switch baseline", {
             baseline: variationIndex,
           });
-          mutate();
+          // NB: await to ensure new analysis is available before we attempt to get it
+          if (!analysisExists) await mutate();
+          setAnalysisSettings(newSettings);
+          setBaselineRow(variationIndex);
         } else if (status === "fail") {
           setDesiredBaselineRow(baselineRow);
           mutate();
         }
+      } finally {
         setPostLoading(false);
-      });
+      }
     },
     [
       snapshot,

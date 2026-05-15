@@ -1,4 +1,3 @@
-import { PutEnvironmentResponse } from "shared/types/openapi";
 import { putEnvironmentValidator } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
 import { isEqual } from "lodash";
@@ -10,7 +9,7 @@ import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { validatePayload } from "./validations";
 
 export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
-  async (req): Promise<PutEnvironmentResponse> => {
+  async (req) => {
     const id = req.params.id;
     const org = req.context.org;
     const environments = org.settings?.environments || [];
@@ -67,6 +66,11 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
           context: req.context,
           payloadKeys: [],
           sdkConnections: affectedConnections,
+          auditContext: {
+            event: "projects changed",
+            model: "environment",
+            id: id,
+          },
         });
       }
     }

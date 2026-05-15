@@ -8,7 +8,8 @@ import React from "react";
 import { FaExclamationCircle, FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
 import { PiArrowSquareOut, PiFolderDuotone } from "react-icons/pi";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { getPercentileLabel } from "@/services/metrics";
@@ -40,6 +41,7 @@ export function OfficialBadge({
   showOfficialLabel,
   color,
   leftGap,
+  ...marginProps
 }: {
   type: string;
   managedBy?: "" | "config" | "api" | "admin";
@@ -47,15 +49,22 @@ export function OfficialBadge({
   showOfficialLabel?: boolean;
   color?: string;
   leftGap?: boolean;
-}) {
+} & MarginProps) {
   if (!managedBy) {
     if (leftGap)
-      return <div className="d-inline-block ml-1" style={{ width: 17 }} />;
+      return (
+        <Box
+          display="inline-block"
+          ml="1"
+          style={{ width: 17 }}
+          {...marginProps}
+        />
+      );
     return null;
   }
 
   return (
-    <span className="text-purple mr-1">
+    <Box display="inline" className="text-purple mr-1" {...marginProps}>
       <Tooltip
         body={
           disableTooltip ? (
@@ -110,7 +119,7 @@ export function OfficialBadge({
           <span className="ml-1 badge badge-purple">Official</span>
         ) : null}
       </Tooltip>
-    </span>
+    </Box>
   );
 }
 
@@ -122,10 +131,12 @@ export default function MetricName({
   showDescription,
   filterConversionWindowMetrics,
   isGroup,
+  showGroupIcon = true,
   metrics,
   showLink,
   badgeColor,
   officialBadgePosition = "right",
+  officialBadgeLeftGap = true,
 }: {
   id?: string;
   metric?: ExperimentMetricInterface;
@@ -134,10 +145,12 @@ export default function MetricName({
   showDescription?: boolean;
   filterConversionWindowMetrics?: boolean;
   isGroup?: boolean;
+  showGroupIcon?: boolean;
   metrics?: { metric: ExperimentMetricInterface | null; joinable: boolean }[];
   showLink?: boolean;
   badgeColor?: string;
   officialBadgePosition?: "left" | "right";
+  officialBadgeLeftGap?: boolean;
 }) {
   const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
   const metric = _metric ?? getExperimentMetricById(id ?? "");
@@ -155,10 +168,12 @@ export default function MetricName({
 
     return (
       <Flex align="center">
-        <PiFolderDuotone
-          className="mr-1"
-          style={{ fontSize: "1.2em", lineHeight: "1em", marginTop: "-2px" }}
-        />
+        {showGroupIcon ? (
+          <PiFolderDuotone
+            className="mr-1"
+            style={{ fontSize: "1.2em", lineHeight: "1em", marginTop: "-2px" }}
+          />
+        ) : null}
         {metricGroup.name}
         <Tooltip
           className={clsx("px-1", {
@@ -263,7 +278,7 @@ export default function MetricName({
             disableTooltip={disableTooltip}
             showOfficialLabel={showOfficialLabel}
             color={badgeColor}
-            leftGap={true}
+            leftGap={officialBadgeLeftGap}
           />
         ) : null}
       </span>

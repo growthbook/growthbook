@@ -1,5 +1,5 @@
 import { FactTableInterface } from "shared/types/fact-table";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   PiUserBold,
   PiClockBold,
@@ -15,6 +15,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import Avatar from "@/ui/Avatar";
 import ColumnModal from "./ColumnModal";
 
@@ -23,10 +24,32 @@ export interface Props {
   canEdit?: boolean;
 }
 
+const POLL_INTERVAL_MS = 3000; // Poll every 3 seconds
+const POLL_TIMEOUT_MS = 60000; // Give up after 1 minute
+
 export default function ColumnList({ factTable, canEdit = false }: Props) {
   const [editOpen, setEditOpen] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   const { mutateDefinitions } = useDefinitions();
   const { apiCall } = useAuth();
+
+  // Silently poll for updates when columns are being refreshed in background
+  useEffect(() => {
+    if (!factTable.columnRefreshPending) return;
+
+    const startTime = Date.now();
+
+    const interval = setInterval(async () => {
+      // Give up after timeout
+      if (Date.now() - startTime > POLL_TIMEOUT_MS) {
+        clearInterval(interval);
+        return;
+      }
+      await mutateDefinitions();
+    }, POLL_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [factTable.columnRefreshPending, mutateDefinitions]);
 
   const availableColumns = useMemo(() => {
     return (factTable.columns || []).filter((col) => !col.deleted);
@@ -67,12 +90,14 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
       ) : null}
 
       {factTable.columnsError && (
-        <div className="alert alert-danger">
-          <strong>
-            Error {columns.length > 0 ? "Refreshing" : "Detecting"} Columns
-          </strong>
-          : {factTable.columnsError}
-        </div>
+        <Callout status="error">
+          <span>
+            <strong>
+              Error {columns.length > 0 ? "Refreshing" : "Detecting"} Columns
+            </strong>
+            : {factTable.columnsError}
+          </span>
+        </Callout>
       )}
 
       <div className="row align-items-center">
@@ -90,15 +115,21 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
             <Button
               size="xs"
               variant="outline"
+              loading={refreshing || !!factTable.columnRefreshPending}
               onClick={async () => {
-                await apiCall(
-                  `/fact-tables/${factTable.id}?forceColumnRefresh=1`,
-                  {
-                    method: "PUT",
-                    body: JSON.stringify({}),
-                  },
-                );
-                mutateDefinitions();
+                setRefreshing(true);
+                try {
+                  await apiCall(
+                    `/fact-tables/${factTable.id}?forceColumnRefresh=1`,
+                    {
+                      method: "PUT",
+                      body: JSON.stringify({}),
+                    },
+                  );
+                  await mutateDefinitions();
+                } finally {
+                  setRefreshing(false);
+                }
               }}
             >
               Refresh
@@ -107,11 +138,13 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
         )}
       </div>
       {columns.some((col) => !col.deleted && col.datatype === "") && (
-        <div className="alert alert-warning mt-2">
-          Could not detect the data type for some columns. You can manually
-          specify data types below. Only numeric columns can be used to create
-          Metrics.
-        </div>
+        <Callout status="warning" mt="2">
+          <span>
+            Could not detect the data type for some columns. You can manually
+            specify data types below. Only numeric columns can be used to create
+            Metrics.
+          </span>
+        </Callout>
       )}
       {columns.length > 0 ? (
         <>
@@ -267,10 +300,12 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
           {pagination}
         </>
       ) : (
-        <div className="alert alert-warning mt-3">
-          <strong>Unable to Auto-Detect Columns</strong>. Double check your SQL
-          above to make sure it&apos;s correct and returning rows.
-        </div>
+        <Callout status="warning" mt="3">
+          <span>
+            <strong>Unable to Auto-Detect Columns</strong>. Double check your
+            SQL above to make sure it&apos;s correct and returning rows.
+          </span>
+        </Callout>
       )}
     </>
   );

@@ -1,8 +1,9 @@
 import { PiArrowRight, PiCheckCircleFill } from "react-icons/pi";
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import NextLink from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box, Separator } from "@radix-ui/themes";
+import Link from "@/ui/Link";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
@@ -11,6 +12,7 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useGetStarted } from "@/services/GetStartedProvider";
+import Callout from "@/ui/Callout";
 
 const ImportedExperimentGuide = (): React.ReactElement => {
   const { organization } = useUser();
@@ -40,7 +42,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
   }
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
 
   // Ignore the demo datasource
@@ -108,7 +110,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                 )}
               </div>
               <div className="col">
-                <Link
+                <NextLink
                   href="/datasources"
                   style={{
                     fontSize: "17px",
@@ -124,7 +126,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                   }
                 >
                   Connect to Your Data Warehouse
-                </Link>
+                </NextLink>
                 <Box mt="2">
                   Allow GrowthBook to query your warehouse to compute traffic
                   totals and metric results.
@@ -160,7 +162,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                 )}
               </div>
               <div className="col">
-                <Link
+                <NextLink
                   href="/fact-tables"
                   style={{
                     fontSize: "17px",
@@ -176,7 +178,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                   }
                 >
                   Define Fact Tables and Metrics
-                </Link>
+                </NextLink>
                 <Box mt="2">
                   Define fact tables for the main events in your data warehouse
                   and build metrics based on those events.
@@ -211,7 +213,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                 )}
               </div>
               <div className="col">
-                <Link
+                <NextLink
                   href="/experiments?analyzeExisting=true"
                   style={{
                     fontSize: "17px",
@@ -231,7 +233,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                 >
                   Import Your First Experiment{project && " in this Project"} &
                   View Results
-                </Link>
+                </NextLink>
                 <Box mt="2">
                   Navigate to Experiments {">"} Add Experiment. In the popup,
                   select “Analyze an Existing Experiment”

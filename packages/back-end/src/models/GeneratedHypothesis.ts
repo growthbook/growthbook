@@ -5,7 +5,6 @@ import { GeneratedHypothesisInterface } from "shared/types/generated-hypothesis"
 import { ExperimentInterface } from "shared/types/experiment";
 import { ReqContext } from "back-end/types/request";
 import { createExperiment } from "./ExperimentModel";
-import { upsertWatch } from "./WatchModel";
 import { createVisualChangeset } from "./VisualChangesetModel";
 import { createFeature } from "./FeatureModel";
 
@@ -83,51 +82,58 @@ export const findOrCreateGeneratedHypothesis = async (
     | "trackingKey"
     | "variations"
     | "phases"
-  > = {
-    name: slug,
-    owner: userId,
-    description: oneLineSummary,
-    hypothesis,
-    hashAttribute: "id",
-    status: "draft",
-    trackingKey: slug,
-    variations: [
-      {
-        name: "Control",
-        description: control,
-        key: "0",
-        screenshots: [],
-        id: uniqid("var_"),
-      },
-      {
-        name: `Variation 1`,
-        description: variant,
-        key: "1",
-        screenshots: [],
-        id: uniqid("var_"),
-      },
-    ],
-    phases: [
-      {
-        coverage: 1,
-        dateStarted: new Date(),
-        name: "Main",
-        reason: "",
-        variationWeights: [0.5, 0.5],
-        condition: "",
-        namespace: { enabled: false, name: "", range: [0, 1] },
-      },
-    ],
-  };
+  > = (() => {
+    const controlId = uniqid("var_");
+    const treatmentId = uniqid("var_");
+    return {
+      name: slug,
+      owner: userId,
+      description: oneLineSummary,
+      hypothesis,
+      hashAttribute: "id",
+      status: "draft" as const,
+      trackingKey: slug,
+      variations: [
+        {
+          name: "Control",
+          description: control,
+          key: "0",
+          screenshots: [] as { path: string }[],
+          id: controlId,
+        },
+        {
+          name: `Variation 1`,
+          description: variant,
+          key: "1",
+          screenshots: [] as { path: string }[],
+          id: treatmentId,
+        },
+      ],
+      phases: [
+        {
+          coverage: 1,
+          dateStarted: new Date(),
+          name: "Main",
+          reason: "",
+          variationWeights: [0.5, 0.5],
+          variations: [
+            { id: controlId, status: "active" as const },
+            { id: treatmentId, status: "active" as const },
+          ],
+          condition: "",
+          namespace: { enabled: false, name: "", range: [0, 1] },
+        },
+      ],
+    };
+  })();
 
   const createdExperiment = await createExperiment({
     data: experimentToCreate,
     context,
   });
 
-  await upsertWatch({
+  await context.models.watch.upsertWatch({
     userId,
-    organization: org.id,
     item: createdExperiment.id,
     type: "experiments",
   });
@@ -178,37 +184,37 @@ export const findOrCreateGeneratedHypothesis = async (
       valueType: "boolean",
       defaultValue: "false",
       version: 1,
-      hasDrafts: false,
       tags: [],
       environmentSettings: {
         production: {
           enabled: true,
-          rules: [
-            {
-              id: uniqid("fr_"),
-              experimentId: createdExperiment.id,
-              enabled: true,
-              description: "",
-              variations: [
-                {
-                  variationId: createdExperiment.variations[0].id,
-                  value: "false",
-                },
-                {
-                  variationId: createdExperiment.variations[1].id,
-                  value: "true",
-                },
-              ],
-              type: "experiment-ref",
-            },
-          ],
         },
       },
+      rules: [
+        {
+          id: uniqid("fr_"),
+          allEnvironments: false,
+          environments: ["production"],
+          experimentId: createdExperiment.id,
+          enabled: true,
+          description: "",
+          variations: [
+            {
+              variationId: createdExperiment.variations[0].id,
+              value: "false",
+            },
+            {
+              variationId: createdExperiment.variations[1].id,
+              value: "true",
+            },
+          ],
+          type: "experiment-ref",
+        },
+      ],
       linkedExperiments: [createdExperiment.id],
     });
-    await upsertWatch({
+    await context.models.watch.upsertWatch({
       userId,
-      organization: org.id,
       item: featureId,
       type: "features",
     });

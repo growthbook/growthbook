@@ -28,10 +28,12 @@ export type BaseFieldProps = {
   markRequired?: boolean;
   error?: ReactNode;
   helpText?: ReactNode;
+  helpTextClassName?: string;
   containerClassName?: string;
   containerStyle?: React.CSSProperties;
   inputGroupClassName?: string;
   labelClassName?: string;
+  customClassName?: string;
   // eslint-disable-next-line
   render?: (id: string, ref: any) => ReactElement;
   options?: SelectOptions;
@@ -96,6 +98,7 @@ const Field = forwardRef(
       className,
       error,
       helpText,
+      helpTextClassName,
       containerClassName,
       containerStyle,
       inputGroupClassName,
@@ -113,6 +116,7 @@ const Field = forwardRef(
       type = "text",
       initialOption,
       comboBox,
+      customClassName: customClassNameProp,
       ...otherProps
     }: FieldProps,
     // eslint-disable-next-line
@@ -209,7 +213,7 @@ const Field = forwardRef(
       );
     }
 
-    const customClassName = otherProps?.["customClassName"] || "";
+    const customClassName = customClassNameProp || "";
     return (
       <div
         className={clsx(
@@ -235,7 +239,11 @@ const Field = forwardRef(
         </div>
         {component}
         {error && <div className="form-text text-danger">{error}</div>}
-        {helpText && <small className="form-text text-muted">{helpText}</small>}
+        {helpText && (
+          <small className={clsx("form-text text-muted", helpTextClassName)}>
+            {helpText}
+          </small>
+        )}
       </div>
     );
   },

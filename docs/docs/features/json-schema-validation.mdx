@@ -1,0 +1,90 @@
+---
+title: JSON Schema Validation
+description: Enforce the structure of JSON feature flag values with JSON Schema to prevent typos and costly mistakes.
+sidebar_label: JSON Schema Validation
+slug: /features/json-schema-validation
+---
+
+import CommercialFeature from "@site/src/components/CommercialFeature";
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
+# JSON Schema Validation
+
+<CommercialFeature feature="json-validation" />
+
+JSON feature flags are powerful, especially for remote configuration, letting you ship structured data like pricing rules, layout settings, or experiment parameters without a code deploy. That flexibility comes with a risk: a single typo or missing field in a JSON blob can break production. GrowthBook Enterprise lets you attach a JSON Schema to a JSON flag so every value is validated against the structure you define.
+
+<MaxWidthImage border>
+  ![JSON Schema Validation](/images/features/json-schema/validation-banner.png)
+</MaxWidthImage>
+
+## Why Validate?
+
+When you're using GrowthBook for remote evaluation, your JSON feature flag values are consumed directly by your application. There's no compiler or type checker between the flag editor and your users. A missing key, a misspelled property, or the wrong type can cause broken UIs, crashed clients, or silent misbehavior.
+
+Adding a schema means:
+
+- Invalid values can't be saved and mistakes are caught before publishing.
+- Editors see the exact shape of the data they need to provide.
+- Consumers of the flag can trust the structure.
+
+## Enabling Validation
+
+Open a JSON feature flag and find the **JSON Validation** section on the feature details page. Click **Enable** to open the schema editor. You can switch validation on or off at any time, and edit the schema later from the same section.
+
+<MaxWidthImage border>
+  ![JSON Schema Editor](/images/features/json-schema/validation-form.png)
+</MaxWidthImage>
+
+## Two Ways to Define a Schema
+
+GrowthBook supports two modes for defining your schema.
+
+### Simple Schema Builder
+
+For most configuration flags, a full JSON Schema is more than you need. The Simple Schema Builder is a UI-driven editor for common object shapes, so you don't have to write any schema by hand.
+
+Choose a root type:
+
+- **Object** - a fixed set of named properties
+- **Array of Objects** - a list of objects, all matching the same shape
+- **Primitive Value** - a single string, number, or boolean
+- **Array of Primitive Values** - a list of primitives
+
+For each property you add, you can configure:
+
+- **Property Key** and **Description**
+- **Type** - Text String, Integer, Float, or Boolean
+- **Required** (for object properties)
+- **Restrict to Specific Values** - limit the property to an enum of allowed values
+- **Min / Max** - bound the length of a string or the range of a number
+
+### Raw JSON Schema
+
+When you need more expressiveness than the Simple Builder offers - nested objects, conditional schemas, regex patterns, references, and so on - switch to raw JSON Schema mode and paste in a full [JSON Schema](https://json-schema.org/) document. Anything a standard JSON Schema validator accepts will work here.
+
+## The Editing Experience
+
+When validation is enabled with a Simple Schema, GrowthBook replaces the raw JSON textarea with a generated form. Instead of editing a JSON blob, editors get a dedicated input for each property:
+
+- **Objects** render as a form with one field per property.
+- **Arrays of objects** render as a table - add and remove rows with buttons.
+- **Primitives** render as the appropriate input type (text, number, checkbox).
+- **Enums** render as a dropdown or multi-select with the allowed values.
+
+<MaxWidthImage border>
+  ![Simplified editing UI for simple schemas](/images/features/json-schema/value-editor.png)
+</MaxWidthImage>
+
+This form-based editor appears everywhere you set a JSON value for the flag: the default value, forced-value rules, rollout rules, and experiment variations. If you ever want to bypass the form, click **Edit as JSON** to switch back to the raw editor.
+
+For raw JSON Schemas that are too complex for the form view, editors continue to use the JSON editor, but values are still validated against the schema on save.
+
+## Validation Errors
+
+When you try to save a value that doesn't match the schema, GrowthBook shows an inline error with the specific reasons it failed - which property is missing, which value is out of range, which field has the wrong type. Fix the issues and save again. Invalid values can't be published.
+
+## Related
+
+- [Feature Flag Basics](/features/basics) — overview of the JSON flag type
+- [Publishing & Approval Flows](/features/publishing-and-approval-flows) — combine schema validation with required approvals for an extra layer of safety

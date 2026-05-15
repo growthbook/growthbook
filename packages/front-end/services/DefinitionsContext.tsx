@@ -19,7 +19,7 @@ import {
   FactTableInterface,
 } from "shared/types/fact-table";
 import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
-import { SavedGroupWithoutValues } from "shared/types/groups";
+import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { CustomField } from "shared/types/custom-fields";
 import { DecisionCriteriaInterface } from "shared/types/experiment";
@@ -38,6 +38,7 @@ type Definitions = {
   segments: SegmentInterface[];
   projects: ProjectInterface[];
   savedGroups: SavedGroupWithoutValues[];
+  _savedGroupsIncludingArchived: SavedGroupWithoutValues[];
   metricGroups: MetricGroupInterface[];
   customFields: CustomField[];
   tags: TagInterface[];
@@ -89,6 +90,7 @@ const defaultValue: DefinitionContextValue = {
   segments: [],
   tags: [],
   savedGroups: [],
+  _savedGroupsIncludingArchived: [],
   metricGroups: [],
   customFields: [],
   projects: [],
@@ -123,7 +125,6 @@ function useGetById<T extends IndexableItem>(
 ): (id: string) => T | null {
   return useMemo(() => {
     if (!items) {
-      // eslint-disable-next-line
       return () => null;
     }
 
@@ -254,6 +255,22 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     return data.factTables;
   }, [data?.factTables]);
 
+  const activeSavedGroups = useMemo(() => {
+    if (!data || !data.savedGroups) {
+      return [];
+    }
+
+    return data.savedGroups.filter((sg) => !sg.archived);
+  }, [data?.savedGroups]);
+
+  const allSavedGroups = useMemo(() => {
+    if (!data || !data.savedGroups) {
+      return [];
+    }
+
+    return data.savedGroups;
+  }, [data?.savedGroups]);
+
   const allTags = useMemo(() => {
     if (!data || !data.tags) {
       return [];
@@ -273,7 +290,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getDimensionById = useGetById(data?.dimensions);
   const getSegmentById = useGetById(data?.segments);
   const getProjectById = useGetById(data?.projects);
-  const getSavedGroupById = useGetById(data?.savedGroups);
+  const getSavedGroupById = useGetById(allSavedGroups);
   const getTagById = useGetById(allTags);
   const getFactTableById = useGetById(data?.factTables);
   const getFactMetricById = useGetById(data?.factMetrics);
@@ -309,7 +326,8 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       dimensions: data.dimensions,
       segments: data.segments,
       tags: allTags,
-      savedGroups: data.savedGroups,
+      savedGroups: activeSavedGroups,
+      _savedGroupsIncludingArchived: allSavedGroups,
       metricGroups: metricGroups,
       customFields: data.customFields,
       projects: data.projects,

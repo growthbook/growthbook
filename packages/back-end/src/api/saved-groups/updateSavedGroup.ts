@@ -1,27 +1,19 @@
 import { isEqual } from "lodash";
 import { validateCondition } from "shared/util";
-import { UpdateSavedGroupResponse } from "shared/types/openapi";
 import { updateSavedGroupValidator } from "shared/validators";
 import { UpdateSavedGroupProps } from "shared/types/saved-group";
-import { logger } from "back-end/src/util/logger";
-import {
-  getAllSavedGroups,
-  getSavedGroupById,
-  toSavedGroupApiInterface,
-  updateSavedGroupById,
-} from "back-end/src/models/SavedGroupModel";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { savedGroupUpdated } from "back-end/src/services/savedGroups";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
 
 export const updateSavedGroup = createApiRequestHandler(
   updateSavedGroupValidator,
-)(async (req): Promise<UpdateSavedGroupResponse> => {
+)(async (req) => {
   const { name, values, condition, owner, projects } = req.body;
 
   const { id } = req.params;
 
-  const savedGroup = await getSavedGroupById(id, req.organization.id);
+  const savedGroup = await req.context.models.savedGroups.getById(id);
 
   if (!savedGroup) {
     throw new Error(`Unable to locate the saved-group: ${id}`);
@@ -46,7 +38,7 @@ export const updateSavedGroup = createApiRequestHandler(
   if (typeof name !== "undefined" && name !== savedGroup.groupName) {
     fieldsToUpdate.groupName = name;
   }
-  if (typeof owner !== "undefined" && owner !== savedGroup.owner) {
+  if (typeof owner !== "undefined") {
     fieldsToUpdate.owner = owner;
   }
   if (
@@ -66,7 +58,7 @@ export const updateSavedGroup = createApiRequestHandler(
     condition &&
     condition !== savedGroup.condition
   ) {
-    const allSavedGroups = await getAllSavedGroups(req.organization.id);
+    const allSavedGroups = await req.context.models.savedGroups.getAll();
     const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
     // Include the updated condition in the groupMap for validation
     groupMap.set(savedGroup.id, {
@@ -94,31 +86,23 @@ export const updateSavedGroup = createApiRequestHandler(
   // If there are no changes, return early
   if (Object.keys(fieldsToUpdate).length === 0) {
     return {
-      savedGroup: toSavedGroupApiInterface(savedGroup),
+      savedGroup: await resolveOwnerEmail(
+        req.context.models.savedGroups.toApiInterface(savedGroup),
+        req.context,
+      ),
     };
   }
 
-  const updatedSavedGroup = await updateSavedGroupById(
-    id,
-    req.organization.id,
+  const updatedSavedGroup = await req.context.models.savedGroups.update(
+    savedGroup,
     fieldsToUpdate,
   );
 
-  // If the values, condition, or projects change, we need to invalidate cached feature rules
-  if (
-    fieldsToUpdate.values ||
-    fieldsToUpdate.condition ||
-    fieldsToUpdate.projects
-  ) {
-    savedGroupUpdated(req.context).catch((e) => {
-      logger.error(e, "Error refreshing SDK Payload on saved group update");
-    });
-  }
-
+  const merged = { ...savedGroup, ...updatedSavedGroup };
   return {
-    savedGroup: toSavedGroupApiInterface({
-      ...savedGroup,
-      ...updatedSavedGroup,
-    }),
+    savedGroup: await resolveOwnerEmail(
+      req.context.models.savedGroups.toApiInterface(merged),
+      req.context,
+    ),
   };
 });

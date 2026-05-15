@@ -1,5 +1,6 @@
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { ExperimentSnapshotReportInterface } from "shared/types/report";
+import { getEffectiveLookbackOverride } from "shared/experiments";
 import { getSnapshotAnalysis } from "shared/util";
 import { ago, date, datetime, getValidDate } from "shared/dates";
 import React, { RefObject, useEffect, useMemo, useState } from "react";
@@ -66,23 +67,22 @@ export default function ReportAnalysisSettingsBar({
     ? getDatasourceById(report.experimentAnalysisSettings.datasource)?.settings
     : undefined;
 
+  const lookbackOverride = getEffectiveLookbackOverride(
+    report.experimentAnalysisSettings.attributionModel,
+    report.experimentAnalysisSettings.lookbackOverride,
+  );
+
   const userIdType = datasourceSettings?.queries?.exposure?.find(
     (e) => e.id === report.experimentAnalysisSettings.exposureQueryId,
   )?.userIdType;
 
   const totalUnits = useMemo(() => {
-    const healthVariationUnits =
-      snapshot?.health?.traffic?.overall?.variationUnits;
-    if (healthVariationUnits && healthVariationUnits.length > 0) {
-      return healthVariationUnits.reduce((acc, a) => acc + a, 0);
-    }
-    // Fallback to using results for total units if health units not available
     let totalUsers = 0;
     analysis?.results?.forEach((result) => {
       result?.variations?.forEach((v) => (totalUsers += v?.users || 0));
     });
     return totalUsers;
-  }, [analysis?.results, snapshot?.health?.traffic?.overall?.variationUnits]);
+  }, [analysis?.results]);
 
   // Convert userIdType to display name (e.g. "user_id" -> "User Ids")
   const unitDisplayName = userIdType
@@ -184,6 +184,20 @@ export default function ReportAnalysisSettingsBar({
               </div>
             </div>
           </div>
+          {lookbackOverride ? (
+            <div className="col-auto d-flex align-items-end">
+              <div>
+                <div className="uppercase-title text-muted">
+                  Lookback Enforced
+                </div>
+                <div className="relative">
+                  {lookbackOverride.type === "date"
+                    ? `${date(lookbackOverride.value, "UTC")} - ${snapshot.settings.endDate ? date(snapshot.settings.endDate, "UTC") : "now"}`
+                    : `${lookbackOverride.value} ${lookbackOverride.valueUnit}`}
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
         <div className="row flex-grow-1 flex-shrink-0 pt-1 px-2 justify-content-end align-items-center">
           <div className="col-auto mr-2" style={{ fontSize: "12px" }}>

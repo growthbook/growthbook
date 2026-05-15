@@ -15,9 +15,6 @@ from gbstats.models.settings import (
 from gbstats.devtools.simulation import CreateStatistic, CreateRow
 from gbstats.gbstats import process_single_metric
 
-DECIMALS = 5
-round_ = partial(np.round, decimals=DECIMALS)
-
 
 class TestCreateRows(TestCase):
     def setUp(self):
@@ -154,12 +151,12 @@ class TestCreateRows(TestCase):
 
     def test_count_metric(self):
         self.assertEqual(
-            list(self.results_gbstats[0].analyses[0].dimensions[0].variations[1].ci),
+            self.results_gbstats[0].analyses[0].dimensions[0].variations[1].ci,
             self.res_1.ci,
         )
 
     def test_ratio_adjusted_regression_metric(self):
         self.assertEqual(
-            list(self.results_gbstats[1].analyses[0].dimensions[0].variations[1].ci),
+            self.results_gbstats[1].analyses[0].dimensions[0].variations[1].ci,
             self.res_3.ci,
         )

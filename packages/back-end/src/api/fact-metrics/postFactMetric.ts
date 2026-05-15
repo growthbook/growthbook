@@ -8,43 +8,16 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
-import { getSelectedColumnDatatype } from "shared/experiments";
-import { PostFactMetricResponse } from "shared/types/openapi";
 import { postFactMetricValidator } from "shared/validators";
 import {
-  ColumnRef,
   CreateFactMetricProps,
   FactTableInterface,
 } from "shared/types/fact-table";
 import { OrganizationInterface } from "shared/types/organization";
 import { getFactTable } from "back-end/src/models/FactTableModel";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
-
-export function validateAggregationSpecification({
-  column,
-  factTable,
-  errorPrefix,
-}: {
-  column: ColumnRef;
-  factTable: FactTableInterface;
-  errorPrefix?: string;
-}) {
-  const datatype = getSelectedColumnDatatype({
-    factTable,
-    column: column.column,
-  });
-  if (column.aggregation === "count distinct" && datatype !== "string") {
-    throw new Error(
-      `${errorPrefix}Cannot use 'count distinct' aggregation with the special or numeric column '${column.column}'.`,
-    );
-  }
-  if (datatype === "string" && column.aggregation !== "count distinct") {
-    throw new Error(
-      `${errorPrefix}Must use 'count distinct' aggregation with string column '${column.column}'.`,
-    );
-  }
-}
 
 export async function getCreateMetricPropsFromBody(
   body: z.infer<typeof postFactMetricValidator.bodySchema>,
@@ -65,6 +38,7 @@ export async function getCreateMetricPropsFromBody(
     cappingSettings,
     windowSettings,
     regressionAdjustmentSettings,
+    priorSettings,
     numerator,
     denominator,
     riskThresholdSuccess,
@@ -82,12 +56,6 @@ export async function getCreateMetricPropsFromBody(
       body.metricType === "proportion" || body.metricType === "retention"
         ? "$$distinctUsers"
         : body.numerator.column || "$$distinctUsers",
-  });
-
-  validateAggregationSpecification({
-    errorPrefix: "Numerator misspecified. ",
-    column: cleanedNumerator,
-    factTable: factTable,
   });
 
   const data: CreateFactMetricProps = {
@@ -134,7 +102,7 @@ export async function getCreateMetricPropsFromBody(
       type: "",
       value: 0,
     },
-    priorSettings: {
+    priorSettings: priorSettings ?? {
       override: false,
       proper: false,
       mean: 0,
@@ -162,16 +130,12 @@ export async function getCreateMetricPropsFromBody(
     if (!denominatorFactTable) {
       throw new Error("Could not find denominator fact table");
     }
-    validateAggregationSpecification({
-      errorPrefix: "Denominator misspecified. ",
-      column: data.denominator,
-      factTable: denominatorFactTable,
-    });
   }
 
   if (cappingSettings?.type && cappingSettings?.type !== "none") {
     data.cappingSettings.type = cappingSettings.type;
     data.cappingSettings.value = cappingSettings.value || 0;
+    data.cappingSettings.ignoreZeros = cappingSettings.ignoreZeros || false;
   }
 
   if (windowSettings?.type && windowSettings?.type !== "none") {
@@ -198,7 +162,7 @@ export async function getCreateMetricPropsFromBody(
 }
 
 export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
-  async (req): Promise<PostFactMetricResponse> => {
+  async (req) => {
     if (
       req.body.metricAutoSlices &&
       req.body.metricAutoSlices.length > 0 &&
@@ -214,11 +178,13 @@ export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
       req.organization,
       lookupFactTable,
     );
-
     const factMetric = await req.context.models.factMetrics.create(data);
 
     return {
-      factMetric: req.context.models.factMetrics.toApiInterface(factMetric),
+      factMetric: await resolveOwnerEmail(
+        req.context.models.factMetrics.toApiInterface(factMetric),
+        req.context,
+      ),
     };
   },
 );

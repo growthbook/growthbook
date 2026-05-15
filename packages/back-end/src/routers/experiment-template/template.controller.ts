@@ -96,7 +96,7 @@ export const deleteTemplate = async (
     req.params.id,
   );
   if (!template) {
-    throw new Error("Could not find template with that id");
+    return context.throwNotFoundError("Could not find template with that id");
   }
   if (!context.permissions.canDeleteExperimentTemplate(template)) {
     context.permissions.throwPermissionError();
@@ -126,7 +126,7 @@ export const putTemplate = async (
     req.params.id,
   );
   if (!existingTemplate) {
-    throw new Error("Could not find template with that id");
+    return context.throwNotFoundError("Could not find template with that id");
   }
   if (
     !context.permissions.canUpdateExperimentTemplate(

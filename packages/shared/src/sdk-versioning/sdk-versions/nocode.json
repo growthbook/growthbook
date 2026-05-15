@@ -4,6 +4,7 @@
       "version": "0.0.0",
       "capabilities": [
         "looseUnmarshalling",
+        "namespacesV2",
         "encryption",
         "streaming",
         "bucketingV2",
@@ -15,7 +16,9 @@
         "prerequisites",
         "redirects",
         "stickyBucketing",
-        "savedGroupReferences"
+        "savedGroupReferences",
+        "caseInsensitiveRegex",
+        "caseInsensitiveMembership"
       ]
     }
   ]

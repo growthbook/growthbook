@@ -1,7 +1,7 @@
 import { FeatureInterface } from "shared/types/feature";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Environment } from "shared/types/organization";
-import { SavedGroupInterface } from "shared/types/groups";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import { TagInterface } from "shared/types/tag";
 import { ProjectInterface } from "shared/types/project";
 import { cloneDeep, omit } from "lodash";
@@ -12,6 +12,7 @@ import {
   CreateFactTableProps,
 } from "shared/types/fact-table";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { ApiCallType } from "@/services/auth";
 import { transformStatsigMetricSourceToFactTable } from "@/services/importing/statsig/transformers/metricSourceTransformer";
 import { transformStatsigMetricToMetric } from "@/services/importing/statsig/transformers/metricTransformer";
@@ -1262,6 +1263,22 @@ export async function buildImportedData(
             metricSourceIdMap.set(ft.name, ft.id);
           });
 
+          // For new metric sources being imported, add placeholder IDs to the map
+          // This allows metrics to be transformed/previewed before fact tables are actually created
+          // The placeholder IDs are replaced with real IDs during the actual import phase
+          data.metricSources?.forEach((ms) => {
+            if (
+              ms.metricSource &&
+              !metricSourceIdMap.has(ms.metricSource.name)
+            ) {
+              // Use a temporary ID that matches the name - this will be replaced during actual import
+              metricSourceIdMap.set(
+                ms.metricSource.name,
+                `temp_${ms.metricSource.name.replace(/\s/g, "_")}`,
+              );
+            }
+          });
+
           for (const metricImport of data.metrics) {
             if (!metricImport.metric) continue;
             try {
@@ -1491,10 +1508,10 @@ export async function runImport(options: RunImportOptions) {
     // Check item-level checkbox
     if (itemEnabled && itemEnabled[category]) {
       const key = getItemKey(category, index, item);
-      return itemEnabled[category][key] !== false; // Default to true if not explicitly set
+      return itemEnabled[category][key] === true;
     }
 
-    return true; // Default to importing if no checkbox state
+    return !itemEnabled;
   };
 
   // Helper function to check if an item can be processed (pending or re-runnable)
@@ -1526,7 +1543,7 @@ export async function runImport(options: RunImportOptions) {
       case "experiments":
         return `exp-${item.experiment?.name || item.experiment?.id || index}`;
       case "metrics":
-        return `metric-${item.metric?.id || index}`;
+        return `metric-${item.metric?.name || index}`;
       case "metricSources":
         return `metricSource-${item.metricSource?.name || index}`;
       default:
@@ -1930,7 +1947,9 @@ export async function runImport(options: RunImportOptions) {
             availableEnvironments,
             {
               id: experimentRes.experiment.id,
-              variations: experimentRes.experiment.variations.map((v) => ({
+              variations: getLatestPhaseVariations(
+                experimentRes.experiment,
+              ).map((v) => ({
                 id: v.id,
                 key: v.key,
               })),
@@ -1954,15 +1973,10 @@ export async function runImport(options: RunImportOptions) {
             for (const linkedFeatureId of linkedFeatureIds) {
               const linkedFeature = featuresMap.get(linkedFeatureId);
               if (linkedFeature) {
-                // Check if this feature has experiment-ref rules for this experiment
-                const hasExperimentRef = Object.values(
-                  linkedFeature.environmentSettings || {},
-                ).some((envSettings) =>
-                  envSettings.rules?.some(
-                    (rule) =>
-                      rule.type === "experiment-ref" &&
-                      rule.experimentId === existingExperiment.id,
-                  ),
+                const hasExperimentRef = (linkedFeature.rules ?? []).some(
+                  (rule) =>
+                    rule.type === "experiment-ref" &&
+                    rule.experimentId === existingExperiment.id,
                 );
                 if (hasExperimentRef) {
                   existingCompanionFeature = linkedFeature;

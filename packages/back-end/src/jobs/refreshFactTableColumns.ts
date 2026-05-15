@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import chunk from "lodash/chunk";
 import { canInlineFilterColumn } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/constants";
 import {
@@ -17,9 +18,57 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { determineColumnTypes } from "back-end/src/util/sql";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { deriveUserIdTypesFromColumns } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 
 const JOB_NAME = "refreshFactTableColumns";
+
+export const MAX_COLUMNS_WITH_TOP_VALUES = 50;
+export const MAX_TOP_VALUE_LENGTH = 100;
+export const TOP_VALUES_CHUNK_SIZE = 25;
+
+// Selects the string columns on a fact table that should have topValues
+// populated. Columns explicitly opted-in via alwaysInlineFilter or
+// isAutoSliceColumn are always included.
+//
+// We then fill up to maxColumns total with additional eligible string columns
+// to give users dropdown filter pickers by default.
+//
+// The total cap keeps the stored fact-table document well under Mongo's
+// 16MB per-doc limit, and matching it to a multiple of TOP_VALUES_CHUNK_SIZE
+// avoids small trailing chunks in the batch query. Running top-values for every string column would
+// re-scan the fact table once per column, so we fall back to the legacy
+// behavior of only populating the explicitly-opted-in columns.
+export function selectColumnsForTopValues({
+  columns,
+  userIdTypes,
+  maxColumns = MAX_COLUMNS_WITH_TOP_VALUES,
+}: {
+  columns: ColumnInterface[];
+  userIdTypes: string[];
+  maxColumns?: number;
+}): ColumnInterface[] {
+  const factTableLike = { columns, userIdTypes };
+
+  const eligible = columns.filter(
+    (col) =>
+      col.datatype === "string" &&
+      !col.deleted &&
+      canInlineFilterColumn(factTableLike, col.column),
+  );
+
+  const alwaysCaptured = eligible.filter(
+    (c) => c.alwaysInlineFilter || c.isAutoSliceColumn,
+  );
+
+  const remainingSlots = Math.max(0, maxColumns - alwaysCaptured.length);
+  const newlyCaptured = eligible
+    .filter((c) => !c.alwaysInlineFilter && !c.isAutoSliceColumn)
+    .slice(0, remainingSlots);
+
+  return [...alwaysCaptured, ...newlyCaptured];
+}
+
 type RefreshFactTableColumnsJob = Job<{
   organization: string;
   factTableId: string;
@@ -38,8 +87,12 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
   const datasource = await getDataSourceById(context, factTable.datasource);
   if (!datasource) return;
 
-  const updates: Partial<Pick<FactTableInterface, "columns" | "columnsError">> =
-    {};
+  const updates: Partial<
+    Pick<
+      FactTableInterface,
+      "columns" | "columnsError" | "columnRefreshPending" | "userIdTypes"
+    >
+  > = {};
 
   try {
     const columns = await runRefreshColumnsQuery(
@@ -49,19 +102,23 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
     );
     updates.columns = columns;
     updates.columnsError = null;
+
+    updates.userIdTypes = deriveUserIdTypesFromColumns(datasource, columns);
   } catch (e) {
     updates.columnsError = e.message;
   }
 
+  // Always set columnRefreshPending to false - job is done (even if it failed)
+  updates.columnRefreshPending = false;
   await updateFactTableColumns(factTable, updates, context);
 };
 
-export async function runColumnTopValuesQuery(
+export async function runColumnsTopValuesQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
   factTable: Pick<FactTableInterface, "sql" | "eventName">,
-  column: ColumnInterface,
-): Promise<string[]> {
+  columns: ColumnInterface[],
+): Promise<Record<string, string[]>> {
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
   }
@@ -69,24 +126,38 @@ export async function runColumnTopValuesQuery(
   const integration = getSourceIntegrationObject(context, datasource, true);
 
   if (
-    !integration.getColumnTopValuesQuery ||
-    !integration.runColumnTopValuesQuery
+    !integration.getColumnsTopValuesQuery ||
+    !integration.runColumnsTopValuesQuery
   ) {
     throw new Error("Top values not supported on this data source");
   }
 
-  const sql = integration.getColumnTopValuesQuery({
+  if (columns.length === 0) {
+    return {};
+  }
+
+  const sql = integration.getColumnsTopValuesQuery({
     factTable,
-    column,
+    columns,
     limit: Math.max(
       100,
       context.org.settings?.maxMetricSliceLevels ??
         DEFAULT_MAX_METRIC_SLICE_LEVELS,
     ),
+    maxValueLength: MAX_TOP_VALUE_LENGTH,
   });
-  const result = await integration.runColumnTopValuesQuery(sql);
+  const result = await integration.runColumnsTopValuesQuery(sql);
 
-  return result.rows.map((r) => r.value);
+  // Group results by column name
+  const columnValues: Record<string, string[]> = {};
+  for (const row of result.rows) {
+    if (!columnValues[row.column]) {
+      columnValues[row.column] = [];
+    }
+    columnValues[row.column].push(row.value);
+  }
+
+  return columnValues;
 }
 
 export function populateAutoSlices(
@@ -132,6 +203,8 @@ export async function runRefreshColumnsQuery(
     throw new Error("Testing not supported on this data source");
   }
 
+  const timestampColumn = "timestamp";
+
   const sql = integration.getTestQuery({
     query: factTable.sql,
     templateVariables: {
@@ -139,9 +212,14 @@ export async function runRefreshColumnsQuery(
     },
     testDays: context.org.settings?.testQueryDays,
     limit: 20,
+    timestampColumn,
   });
 
-  const result = await integration.runTestQuery(sql, ["timestamp"]);
+  const result = await integration.runTestQuery(
+    sql,
+    [timestampColumn],
+    "factTableValidation",
+  );
 
   const typeMap = new Map<string, FactTableColumnType>();
   const jsonMap = new Map<string, JSONColumnFields>();
@@ -250,33 +328,51 @@ export async function runRefreshColumnsQuery(
 
     if (col.datatype === "boolean" && col.isAutoSliceColumn) {
       col.autoSlices = ["true", "false"];
-    } else if (
-      (col.alwaysInlineFilter || col.isAutoSliceColumn) &&
-      canInlineFilterColumn(factTable, col.column) &&
-      col.datatype === "string"
-    ) {
+    }
+  }
+
+  const columnsNeedingTopValues = selectColumnsForTopValues({
+    columns,
+    userIdTypes: factTable.userIdTypes,
+  });
+
+  // Batch query for all columns that need top values. Datasources
+  // scan the fact table once per chunk, so we batch aggressively (25
+  // columns * ~100 values = ~2500 rows per chunk).
+  if (columnsNeedingTopValues.length > 0) {
+    const columnChunks = chunk(columnsNeedingTopValues, TOP_VALUES_CHUNK_SIZE);
+
+    for (const columnChunk of columnChunks) {
       try {
-        const topValues = await runColumnTopValuesQuery(
+        const topValuesByColumn = await runColumnsTopValuesQuery(
           context,
           datasource,
           factTable,
-          col,
+          columnChunk,
         );
 
-        col.topValues = topValues;
-        col.topValuesDate = new Date();
+        // Process results for each column
+        for (const col of columnChunk) {
+          const topValues = topValuesByColumn[col.column] || [];
+          col.topValues = topValues;
+          col.topValuesDate = new Date();
 
-        if (col.isAutoSliceColumn) {
-          col.autoSlices = populateAutoSlices(
-            col,
-            topValues,
-            context.org.settings?.maxMetricSliceLevels,
-          );
+          if (col.isAutoSliceColumn) {
+            col.autoSlices = populateAutoSlices(
+              col,
+              topValues,
+              context.org.settings?.maxMetricSliceLevels,
+            );
+          }
         }
       } catch (e) {
-        logger.error(e, "Error running top values query", {
-          column: col.column,
-        });
+        logger.error(
+          e,
+          `Error running top values query on ${datasource.type}`,
+          {
+            columns: columnChunk.map((c) => c.column),
+          },
+        );
       }
     }
   }
@@ -292,7 +388,7 @@ export default function (ag: Agenda) {
 }
 
 export async function queueFactTableColumnsRefresh(
-  factTable: FactTableInterface,
+  factTable: Pick<FactTableInterface, "id" | "organization">,
 ) {
   const job = agenda.create(JOB_NAME, {
     organization: factTable.organization,

@@ -51,7 +51,7 @@ export default function MetricValueColumn({
   style,
   rowSpan,
   showRatio = true,
-  noDataMessage = "no data",
+  noDataMessage = "No data",
   displayCurrency,
   getExperimentMetricById,
   getFactTableById,
@@ -137,7 +137,7 @@ export default function MetricValueColumn({
           ) : null}
         </>
       ) : (
-        <em className="text-muted">{noDataMessage}</em>
+        <em className="text-muted small">{noDataMessage}</em>
       )}
     </ConditionalWrapper>
   );

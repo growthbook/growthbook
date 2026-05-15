@@ -78,7 +78,7 @@ const TemplatePage: FC = () => {
           },
           {
             display: "Templates",
-            href: `/experiments#templates`,
+            href: `/experiments/templates`,
           },
           { display: template.templateMetadata.name },
         ]}

@@ -6,6 +6,7 @@ import {
   isRatioMetric,
   isRegressionAdjusted,
   quantileMetricType,
+  eligibleForUncappedMetric,
 } from "shared/experiments";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { MetricInterface } from "shared/types/metric";
@@ -18,13 +19,17 @@ import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
   BANDIT_CUPED_FLOAT_COLS,
   BASE_METRIC_CUPED_FLOAT_COLS,
+  BASE_METRIC_CUPED_FLOAT_COLS_UNCAPPED,
   BASE_METRIC_FLOAT_COLS,
+  BASE_METRIC_FLOAT_COLS_UNCAPPED,
   BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
   MAX_METRICS_PER_QUERY,
   N_STAR_VALUES,
   RATIO_METRIC_CUPED_FLOAT_COLS,
+  RATIO_METRIC_CUPED_FLOAT_COLS_UNCAPPED,
   RATIO_METRIC_FLOAT_COLS,
   RATIO_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
+  RATIO_METRIC_FLOAT_COLS_UNCAPPED,
 } from "./constants";
 
 // Gets all columns besides the speciality quantile columns for all metrics
@@ -94,7 +99,37 @@ export function getNonQuantileFloatColumns({
     }
   })();
 
-  const cols = [...baseCols, ...cupedCols, ...percentileCappingCols];
+  const uncappedCols = (() => {
+    if (!eligibleForUncappedMetric(metric)) {
+      return [];
+    }
+    switch (metric.metricType) {
+      case "proportion":
+      case "retention":
+      case "quantile":
+        return [];
+      case "mean":
+      case "dailyParticipation":
+        return [
+          ...BASE_METRIC_FLOAT_COLS_UNCAPPED,
+          ...(regressionAdjusted ? BASE_METRIC_CUPED_FLOAT_COLS_UNCAPPED : []),
+        ];
+      case "ratio":
+        return [
+          ...BASE_METRIC_FLOAT_COLS_UNCAPPED,
+          ...RATIO_METRIC_FLOAT_COLS_UNCAPPED,
+          ...(regressionAdjusted ? BASE_METRIC_CUPED_FLOAT_COLS_UNCAPPED : []),
+          ...(regressionAdjusted ? RATIO_METRIC_CUPED_FLOAT_COLS_UNCAPPED : []),
+        ];
+    }
+  })();
+
+  const cols = [
+    ...baseCols,
+    ...cupedCols,
+    ...percentileCappingCols,
+    ...uncappedCols,
+  ];
 
   if (isBandit) {
     cols.push(...BANDIT_CUPED_FLOAT_COLS);
@@ -255,9 +290,17 @@ export function getFactMetricGroups(
   // Group fact metrics into efficient groups (primarily if they share a fact table)
   const groups: Record<string, FactMetricInterface[]> = {};
   factMetrics.forEach((m) => {
-    // Skip grouping metrics with percentile caps or quantile metrics if there's not an efficient implementation
+    // Skip grouping metrics with percentile caps if they cannot be grouped at all
     if (
-      (m.cappingSettings.type === "percentile" || quantileMetricType(m)) &&
+      m.cappingSettings.type === "percentile" &&
+      !integration.getSourceProperties().canGroupPercentileCappedMetrics
+    ) {
+      return;
+    }
+
+    // Skip grouping quantile metrics if there's not an efficient implementation
+    if (
+      quantileMetricType(m) &&
       !integration.getSourceProperties().hasEfficientPercentiles
     ) {
       return;

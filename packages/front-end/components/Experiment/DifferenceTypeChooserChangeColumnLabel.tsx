@@ -11,6 +11,7 @@ import {
 } from "shared/types/stats";
 import { Flex, Text } from "@radix-ui/themes";
 import { PiCaretDownFill, PiCheck } from "react-icons/pi";
+import { getSnapshotAnalysis } from "shared/util";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import {
   DropdownMenu,
@@ -21,7 +22,7 @@ import {
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { analysisUpdate } from "./DifferenceTypeChooser";
+import { analysisUpdate } from "@/services/snapshots";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -173,32 +174,36 @@ export default function DifferenceTypeChooserChangeColumnLabel({
       return;
     }
 
-    const newSettings: ExperimentSnapshotAnalysisSettings = {
-      ...analysis.settings,
-      differenceType: newDifferenceType,
-    };
-
-    const status = await triggerAnalysisUpdate(
-      newSettings,
-      analysis,
-      snapshot,
-      apiCall,
-      setPostLoading,
-      phase,
-    );
-
-    if (status === "success") {
-      setDifferenceType?.(newDifferenceType);
-      setAnalysisSettings(newSettings);
-      track("Experiment Analysis: switch difference type", {
+    try {
+      const newSettings: ExperimentSnapshotAnalysisSettings = {
+        ...analysis.settings,
         differenceType: newDifferenceType,
-      });
-      mutate();
-    } else if (status === "fail") {
-      setDesiredDifferenceType(differenceType);
-      mutate();
+      };
+
+      const analysisExists = getSnapshotAnalysis(snapshot, newSettings);
+      const status = await triggerAnalysisUpdate(
+        newSettings,
+        analysis,
+        snapshot,
+        apiCall,
+        setPostLoading,
+        phase,
+      );
+
+      if (status === "success") {
+        setDifferenceType?.(newDifferenceType);
+        track("Experiment Analysis: switch difference type", {
+          differenceType: newDifferenceType,
+        });
+        if (!analysisExists) await mutate();
+        setAnalysisSettings(newSettings);
+      } else if (status === "fail") {
+        setDesiredDifferenceType(differenceType);
+        mutate();
+      }
+    } finally {
+      setPostLoading(false);
     }
-    setPostLoading(false);
   };
 
   const tooltipBody = (

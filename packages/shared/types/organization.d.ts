@@ -18,9 +18,19 @@ import {
   SubscriptionInfo,
 } from "shared/enterprise";
 import { AIModel, EmbeddingModel } from "shared/ai";
-import { AgreementType, environment } from "shared/validators";
+import {
+  AgreementType,
+  environment,
+  expandedMember,
+  expandedMemberInfo,
+  invite,
+  member,
+  memberRoleInfo,
+  memberRoleWithProjects,
+  pendingMember,
+  projectMemberRole,
+} from "shared/validators";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
-import { ApiKeyInterface } from "shared/types/apikey";
 import { TeamInterface } from "shared/types/team";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
@@ -57,6 +67,10 @@ export type RequireReview = {
   resetReviewOnChange: boolean;
   environments: string[];
   projects: string[];
+  featureRequireEnvironmentReview?: boolean;
+  featureRequireMetadataReview?: boolean;
+  // When true, co-authors (contributors[]) are also blocked from approving, not just the original author.
+  blockSelfApproval?: boolean;
 };
 
 export type OwnerJobTitle = keyof typeof OWNER_JOB_TITLES;
@@ -74,6 +88,7 @@ export interface CreateOrganizationPostBody {
   demographicData?: DemographicData;
 }
 
+// If adding new default roles, please prefix the role with "gbDefault_" to reduce the risk of collision with custom roles that organizations may have created
 export type DefaultMemberRole =
   | "noaccess"
   | "readonly"
@@ -82,58 +97,39 @@ export type DefaultMemberRole =
   | "analyst"
   | "engineer"
   | "experimenter"
+  | "gbDefault_projectAdmin"
   | "admin";
+
+/** Custom role IDs defined by orgs in org.customRoles */
+export type CustomRole = string;
+
+/** A member's role is either a built-in default or a custom role ID */
+export type MemberRole = DefaultMemberRole | CustomRole;
 
 export type Role = {
   id: string;
   description: string;
   policies: Policy[];
+  displayName?: string;
 };
 
-export interface MemberRoleInfo {
-  role: string;
-  limitAccessByEnvironment: boolean;
-  environments: string[];
-  teams?: string[];
-}
+export type MemberRoleInfo = z.infer<typeof memberRoleInfo>;
 
-export interface ProjectMemberRole extends MemberRoleInfo {
-  project: string;
-}
+export type ProjectMemberRole = z.infer<typeof projectMemberRole>;
 
-export interface MemberRoleWithProjects extends MemberRoleInfo {
-  projectRoles?: ProjectMemberRole[];
-}
+export type MemberRoleWithProjects = z.infer<typeof memberRoleWithProjects>;
 
-export interface Invite extends MemberRoleWithProjects {
-  email: string;
-  key: string;
-  dateCreated: Date;
-}
+export type Invite = z.infer<typeof invite>;
 
-export interface PendingMember extends MemberRoleWithProjects {
-  id: string;
-  name: string;
-  email: string;
-  dateCreated: Date;
-}
+export type PendingMember = z.infer<typeof pendingMember>;
 
-export interface Member extends MemberRoleWithProjects {
-  id: string;
-  dateCreated?: Date;
-  externalId?: string;
-  managedByIdp?: boolean;
-  lastLoginDate?: Date;
-}
+export type Member = z.infer<typeof member>;
 
-export interface ExpandedMemberInfo {
-  email: string;
-  name: string;
-  verified: boolean;
-  numTeams?: number;
-}
+export type ExpandedMemberInfo = z.infer<
+  z.ZodObject<typeof expandedMemberInfo>
+>;
 
-export type ExpandedMember = Member & ExpandedMemberInfo;
+export type ExpandedMember = z.infer<typeof expandedMember>;
 
 export interface NorthStarMetric {
   //enabled: boolean;
@@ -155,12 +151,26 @@ export interface MetricDefaults {
   targetMDE?: number;
 }
 
-export interface Namespaces {
+export type NamespaceFormat = NonNullable<Namespaces["format"]>;
+
+export interface NamespaceBase {
   name: string;
   label: string;
   description: string;
   status: "active" | "inactive";
 }
+
+export interface LegacyNamespace extends NamespaceBase {
+  format?: "legacy";
+}
+
+export interface MultiRangeNamespace extends NamespaceBase {
+  format: "multiRange";
+  hashAttribute: string;
+  seed: string;
+}
+
+export type Namespaces = LegacyNamespace | MultiRangeNamespace;
 
 export type SDKAttributeFormat = "" | "version" | "date" | "isoCountryCode";
 
@@ -176,6 +186,7 @@ export type SDKAttribute = {
   format?: SDKAttributeFormat;
   projects?: string[];
   disableEqualityConditions?: boolean;
+  tags?: string[];
 };
 
 export type SDKAttributeSchema = SDKAttribute[];
@@ -187,6 +198,22 @@ export type ExperimentUpdateSchedule = {
 };
 
 export type Environment = z.infer<typeof environment>;
+
+export type ApprovalFlowConfiguration = {
+  requireMetadataReview: boolean;
+  required: boolean;
+  // When true, anyone listed in `revision.contributors` (including the author)
+  // is blocked from approving the revision. A separate, non-contributor
+  // reviewer is required.
+  blockSelfApproval?: boolean;
+  // TODO: Should we add support for these additional settings?
+  canBypassReview?: boolean;
+  resetReviewOnChange?: boolean;
+};
+
+export type ApprovalFlowConfigurations = {
+  savedGroups: ApprovalFlowConfiguration[];
+};
 
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;
@@ -227,8 +254,10 @@ export interface OrganizationSettings {
   sequentialTestingTuningParameter?: number;
   displayCurrency?: string;
   secureAttributeSalt?: string;
+  /** @deprecated */
   killswitchConfirmation?: boolean;
   requireReviews?: boolean | RequireReview[];
+  restApiBypassesReviews?: boolean;
   defaultDataSource?: string;
   testQueryDays?: number;
   disableMultiMetricQueries?: boolean;
@@ -254,6 +283,7 @@ export interface OrganizationSettings {
   banditBurnInValue?: number;
   banditBurnInUnit?: "hours" | "days";
   requireExperimentTemplates?: boolean;
+  requireUniqueExperimentTrackingKeys?: boolean;
   experimentMinLengthDays?: number;
   experimentMaxLengthDays?: number;
   decisionFrameworkEnabled?: boolean;
@@ -265,6 +295,7 @@ export interface OrganizationSettings {
   /** @deprecated Use postStratificationEnabled instead */
   postStratificationDisabled?: boolean;
   postStratificationEnabled?: boolean;
+  approvalFlows?: ApprovalFlowConfigurations;
 }
 
 export interface OrganizationConnections {
@@ -293,6 +324,7 @@ export type OrganizationMessage = {
 // The type used to get member data to calculate usage counts for licenses
 export type OrgMemberInfo = {
   id: string;
+  licenseKey?: string;
   invites: { email: string }[];
   members: {
     id: string;
@@ -372,7 +404,6 @@ export type GetOrganizationResponse = {
   seatsInUse: number;
   roles: Role[];
   agreements: AgreementType[];
-  apiKeys: ApiKeyInterface[];
   enterpriseSSO: Partial<SSOConnectionInterface> | null;
   accountPlan: AccountPlan;
   effectiveAccountPlan: AccountPlan;

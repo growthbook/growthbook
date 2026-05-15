@@ -3,6 +3,7 @@ import React, { ReactElement, useState } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { FaPlay } from "react-icons/fa";
 import type { TestQueryRow } from "shared/types/integrations";
+import { parseIntWithDefault } from "shared/util";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -72,6 +73,9 @@ export default function SQLInputField({
         body: JSON.stringify({
           query: userEnteredQuery,
           datasourceId: datasourceId,
+          timestampColumn: requiredColumns.has("timestamp")
+            ? "timestamp"
+            : undefined,
         }),
       });
 
@@ -142,7 +146,7 @@ export default function SQLInputField({
           )}
           {testQueryResults && (
             <DisplayTestQueryResults
-              duration={parseInt(testQueryResults.duration || "0")}
+              duration={parseIntWithDefault(testQueryResults.duration, 0)}
               results={testQueryResults.results || []}
               sql={testQueryResults.sql || ""}
               error={testQueryResults.error || ""}

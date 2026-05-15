@@ -1,6 +1,6 @@
 import { FC } from "react";
 import { PiLightning, PiLightningSlash, PiWarningFill } from "react-icons/pi";
-import { ago, datetime, getValidDate } from "shared/dates";
+import { ago, datetime, getValidDate, abbreviateAgo } from "shared/dates";
 import { Text, Flex, IconButton } from "@radix-ui/themes";
 import { QueryStatus } from "shared/types/query";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -8,14 +8,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 const FAILED_STRING = `The most recent update failed. Click to view queries.`;
 const PARTIALLY_SUCCEEDED_STRING = `Some of the queries had an error. The partial results
                 are displayed below.`;
-
-function abbreviateAgo(date?: Date): string {
-  return ago(date ?? "")
-    .replace("about ", "")
-    .replace("less than a", "<1")
-    .replace(/second(s)?/g, "sec$1")
-    .replace(/minute(s)?/g, "min$1");
-}
 
 const QueriesLastRun: FC<{
   status: QueryStatus;

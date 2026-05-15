@@ -9,6 +9,28 @@ import {
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
+import { getTokensUsedByOrganization } from "back-end/src/models/AITokenUsageModel";
+
+type GetTokenUsageResponse = {
+  status: 200;
+  tokenUsage: {
+    numTokensUsed: number;
+    dailyLimit: number;
+    nextResetAt: number;
+  };
+};
+
+export async function getTokenUsage(
+  req: AuthRequest,
+  res: Response<GetTokenUsageResponse>,
+) {
+  const { org } = getContextFromReq(req);
+  const tokenUsage = await getTokensUsedByOrganization(org);
+  return res.status(200).json({
+    status: 200,
+    tokenUsage,
+  });
+}
 
 type GetAIPromptResponse = {
   status: 200;
@@ -62,7 +84,7 @@ export async function postAIPrompts(
 }
 
 export async function postReformat(
-  req: AuthRequest<{ type: AIPromptType; text: string }>,
+  req: AuthRequest<{ type: AIPromptType; text: string; temperature?: number }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -93,6 +115,7 @@ export async function postReformat(
     });
   }
 
+  const temperature = req.body.temperature ?? 0.1;
   const { prompt, isDefaultPrompt, overrideModel } =
     await context.models.aiPrompts.getAIPrompt(req.body.type);
   if (!prompt) {
@@ -107,7 +130,7 @@ export async function postReformat(
   const aiResults = await simpleCompletion({
     context,
     prompt: reformatPrompt,
-    temperature: 0.1,
+    temperature,
     type: req.body.type,
     isDefaultPrompt,
     overrideModel,

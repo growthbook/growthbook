@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Flex } from "@radix-ui/themes";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
-import { ExperimentStatus, MetricTimeSeries } from "shared/validators";
+import { MetricTimeSeries } from "shared/validators";
 import { daysBetween, getValidDate } from "shared/dates";
 import { addDays, min } from "date-fns";
 import { filterInvalidMetricTimeSeries } from "shared/util";
@@ -14,24 +14,28 @@ import {
   getExperimentMetricFormatter,
   formatPercent,
 } from "@/services/metrics";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useCurrency } from "@/hooks/useCurrency";
+import { GraphVariation } from "./ExperimentDateGraph";
 import ExperimentTimeSeriesGraph, {
   ExperimentTimeSeriesGraphDataPoint,
 } from "./ExperimentTimeSeriesGraph";
 
 interface ExperimentMetricTimeSeriesGraphWrapperProps {
   experimentId: string;
+  pValueThreshold: number;
   phase: number;
-  experimentStatus: ExperimentStatus;
   metric: ExperimentMetricInterface;
   differenceType: DifferenceType;
-  variationNames: string[];
+  variations: GraphVariation[];
   showVariations: boolean[];
   statsEngine: StatsEngine;
   pValueAdjustmentEnabled: boolean;
   firstDateToRender: Date;
   sliceId?: string;
+  baselineRow?: number;
+  unavailableMessage?: string;
+  dimensionId?: string;
+  dimensionValue?: string;
 }
 
 export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
@@ -53,19 +57,22 @@ export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
 
 function ExperimentMetricTimeSeriesGraphWrapper({
   experimentId,
+  pValueThreshold,
   phase,
-  experimentStatus,
   metric,
   differenceType,
-  variationNames,
+  variations,
   showVariations,
   statsEngine,
   pValueAdjustmentEnabled,
   firstDateToRender,
   sliceId,
+  baselineRow = 0,
+  unavailableMessage,
+  dimensionId,
+  dimensionValue,
 }: ExperimentMetricTimeSeriesGraphWrapperProps) {
   const { getFactTableById } = useDefinitions();
-  const pValueThreshold = usePValueThreshold();
 
   const displayCurrency = useCurrency();
   const formatterOptions = { currency: displayCurrency };
@@ -75,14 +82,45 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   );
 
   const metricId = sliceId ?? metric.id;
+  const dimensionQuery =
+    dimensionId && dimensionValue !== undefined
+      ? `&dimensions[0][id]=${encodeURIComponent(
+          dimensionId,
+        )}&dimensions[0][value]=${encodeURIComponent(dimensionValue)}`
+      : dimensionId
+        ? `&dimensions[0][id]=${encodeURIComponent(dimensionId)}`
+        : "";
 
   const { data, isLoading, error } = useApi<{ timeSeries: MetricTimeSeries[] }>(
-    `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${encodeURIComponent(metricId)}`,
+    `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${encodeURIComponent(metricId)}${dimensionQuery}`,
   );
 
   const filteredMetricTimeSeries = useMemo(() => {
-    return filterInvalidMetricTimeSeries(data?.timeSeries || []);
-  }, [data]);
+    const all = filterInvalidMetricTimeSeries(data?.timeSeries || []);
+    if (!dimensionId) {
+      return all.filter((t) => !t.dimensionId);
+    }
+    if (dimensionValue === undefined) {
+      return all.filter((t) => t.dimensionId === dimensionId);
+    }
+    return all.filter(
+      (t) =>
+        t.dimensionId === dimensionId && t.dimensionValue === dimensionValue,
+    );
+  }, [data, dimensionId, dimensionValue]);
+
+  if (unavailableMessage) {
+    return <Message height="70px">{unavailableMessage}</Message>;
+  }
+
+  if (baselineRow !== 0) {
+    return (
+      <Message>
+        Time series is only available when comparing against Control as a
+        baseline.
+      </Message>
+    );
+  }
 
   if (error) {
     return (
@@ -120,8 +158,8 @@ function ExperimentMetricTimeSeriesGraphWrapper({
     additionalGraphDataPoints.push({
       d: addDays(new Date(lastDataPointDate), 7 - numOfDays),
     });
-  } else if (experimentStatus === "running") {
-    // When experiment is running, always show one additional day at the end of the graph
+  } else {
+    // Always show one additional day at the end of the graph
     additionalGraphDataPoints.push({
       d: addDays(new Date(lastDataPointDate), 1),
     });
@@ -135,9 +173,8 @@ function ExperimentMetricTimeSeriesGraphWrapper({
 
   const dataPoints = [
     ...timeSeries.dataPoints.map((point, idx) => {
-      // Preprocess variations to match variationNames order exactly with indices
-      const variations = variationNames.map((vName) => {
-        const variation = point.variations.find((v) => v.name === vName);
+      const pointVariations = variations.map((gv) => {
+        const variation = point.variations.find((v) => v.name === gv.name);
         if (!variation) return null;
 
         // compute adjusted CI if we have all the data and adjustment exists
@@ -173,7 +210,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
 
       const parsedPoint: ExperimentTimeSeriesGraphDataPoint = {
         d: new Date(point.date),
-        variations,
+        variations: pointVariations,
         helperText:
           idx < lastIndexInvalidConfiguration
             ? "Analysis or metric settings do not match current version"
@@ -199,7 +236,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   return (
     <ExperimentTimeSeriesGraph
       yaxis="effect"
-      variationNames={variationNames}
+      variations={variations}
       label={labelText}
       datapoints={dataPoints}
       showVariations={showVariations}
@@ -218,13 +255,19 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   );
 }
 
-function Message({ children }: { children: React.ReactNode }) {
+function Message({
+  children,
+  height = "220px",
+}: {
+  children: React.ReactNode;
+  height?: string;
+}) {
   return (
     <Flex
       align="center"
-      height="220px"
+      height={height}
       justify="center"
-      pb="1rem"
+      mb="-1rem"
       position="relative"
       width="100%"
     >

@@ -1,37 +1,29 @@
 import { useMemo, useState } from "react";
 import { ago } from "shared/dates";
-import {
-  experimentsReferencingSavedGroups,
-  featuresReferencingSavedGroups,
-  isProjectListValidForProject,
-  truncateString,
-} from "shared/util";
+import { isProjectListValidForProject, truncateString } from "shared/util";
 import Link from "next/link";
 import {
   SavedGroupInterface,
   SavedGroupWithoutValues,
-} from "shared/types/groups";
-import { FaMagnifyingGlass } from "react-icons/fa6";
-import { isEmpty } from "lodash";
-import { Box } from "@radix-ui/themes";
+} from "shared/types/saved-group";
+import { Box, Flex, Heading } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
-import { useEnvironments, useFeaturesList } from "@/services/features";
-import { useSearch } from "@/services/search";
-import { getSavedGroupMessage } from "@/pages/saved-groups";
+import { useAddComputedFields, useSearch } from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
-import { useExperiments } from "@/hooks/useExperiments";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import SavedGroupForm from "./SavedGroupForm";
+import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
+import SavedGroupRowMenu from "./SavedGroupRowMenu";
 
 export interface Props {
   groups: SavedGroupWithoutValues[];
@@ -41,14 +33,21 @@ export interface Props {
 export default function IdLists({ groups, mutate }: Props) {
   const [savedGroupForm, setSavedGroupForm] =
     useState<null | Partial<SavedGroupInterface>>(null);
-  const { project } = useDefinitions();
+  const [deleteModal, setDeleteModal] =
+    useState<SavedGroupWithoutValues | null>(null);
+  const settings = useOrgSettings();
+  const approvalFlowRequired =
+    settings.approvalFlows?.savedGroups?.[0]?.required ?? false;
+  const { project, projects } = useDefinitions();
+  const { getOwnerDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
-  const canCreate = permissionsUtil.canViewSavedGroupModal(project);
+  const canCreate = permissionsUtil.canViewSavedGroupModal(project, projects);
   const canUpdate = (savedGroup: Pick<SavedGroupInterface, "projects">) =>
     permissionsUtil.canUpdateSavedGroup(savedGroup, savedGroup);
-  const canDelete = (savedGroup: Pick<SavedGroupInterface, "projects">) =>
-    permissionsUtil.canDeleteSavedGroup(savedGroup);
+  const canDeleteSavedGroup = (
+    savedGroup: Pick<SavedGroupInterface, "projects">,
+  ) => permissionsUtil.canDeleteSavedGroup(savedGroup);
   const { apiCall } = useAuth();
 
   const idLists = useMemo(() => {
@@ -61,56 +60,30 @@ export default function IdLists({ groups, mutate }: Props) {
       )
     : idLists;
 
-  const { features } = useFeaturesList(false);
-  const { experiments } = useExperiments();
-
-  const environments = useEnvironments();
-
   const { hasLargeSavedGroupFeature, unsupportedConnections } =
     useLargeSavedGroupSupport();
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
 
-  const conditionGroups = useMemo(
-    () => groups.filter((g) => g.type === "condition"),
-    [groups],
+  const idListsWithOwners = useAddComputedFields(
+    filteredIdLists,
+    (group) => ({
+      ownerNameDisplay: getOwnerDisplay(group.owner),
+    }),
+    [getOwnerDisplay],
   );
-
-  const referencingFeaturesByGroup = useMemo(
-    () =>
-      featuresReferencingSavedGroups({
-        savedGroups: idLists,
-        features,
-        environments,
-      }),
-    [idLists, environments, features],
-  );
-  const referencingExperimentsByGroup = useMemo(
-    () =>
-      experimentsReferencingSavedGroups({
-        savedGroups: idLists,
-        experiments,
-      }),
-    [idLists, experiments],
-  );
-
-  const referencingSavedGroupsByGroup = useMemo(() => {
-    const result: Record<string, SavedGroupWithoutValues[]> = {};
-    filteredIdLists.forEach((targetGroup) => {
-      result[targetGroup.id] = conditionGroups.filter((sg) => {
-        if (!sg.condition) return false;
-        return sg.condition.includes(targetGroup.id);
-      });
-    });
-    return result;
-  }, [filteredIdLists, conditionGroups]);
 
   const { items, searchInputProps, isFiltered, SortableTH, pagination } =
     useSearch({
-      items: filteredIdLists,
+      items: idListsWithOwners,
       localStorageKey: "savedGroups",
       defaultSortField: "dateCreated",
       defaultSortDir: -1,
-      searchFields: ["groupName^3", "attributeKey^2", "owner", "description^2"],
+      searchFields: [
+        "groupName^3",
+        "attributeKey^2",
+        "ownerNameDisplay",
+        "description^2",
+      ],
       pageSize: 50,
       updateSearchQueryOnChange: true,
     });
@@ -126,25 +99,35 @@ export default function IdLists({ groups, mutate }: Props) {
           commercialFeature="large-saved-groups"
         />
       )}
+      {deleteModal && (
+        <SavedGroupDeleteModal
+          savedGroup={deleteModal}
+          close={() => setDeleteModal(null)}
+          onDelete={async () => {
+            await apiCall(`/saved-groups/${deleteModal.id}`, {
+              method: "DELETE",
+            });
+            mutate();
+          }}
+        />
+      )}
       <Box mt="4" mb="5" p="4" className="appbox">
         {savedGroupForm && (
           <SavedGroupForm
             close={() => setSavedGroupForm(null)}
             current={savedGroupForm}
             type="list"
+            approvalFlowRequired={approvalFlowRequired}
           />
         )}
-        <div className="row align-items-center mb-1">
-          <div className="col-auto">
-            <h2 className="mb-0">ID Lists</h2>
-          </div>
-          <div className="flex-1"></div>
+        <Flex align="center" justify="between" mb="1">
+          <Heading size="6" mb="0">
+            ID Lists
+          </Heading>
           {canCreate ? (
-            <div className="col-auto">
-              <Button onClick={() => setSavedGroupForm({})}>Add ID List</Button>
-            </div>
+            <Button onClick={() => setSavedGroupForm({})}>Add ID List</Button>
           ) : null}
-        </div>
+        </Flex>
         <p className="text-gray mb-1">
           Specify a list of values to include for an attribute.
         </p>
@@ -165,121 +148,80 @@ export default function IdLists({ groups, mutate }: Props) {
 
         {filteredIdLists.length > 0 && (
           <>
-            <div className="row mb-4 align-items-center">
-              <div className="col-auto">
-                <Field
-                  prepend={<FaMagnifyingGlass />}
-                  placeholder="Search..."
-                  type="search"
-                  {...searchInputProps}
-                />
-              </div>
-            </div>
-            <div className="row mb-0">
-              <div className="col-12">
-                <table className="table gbtable">
-                  <thead>
-                    <tr>
-                      <SortableTH field={"groupName"}>Name</SortableTH>
-                      <SortableTH field="attributeKey">Attribute</SortableTH>
-                      <th>Description</th>
-                      <th className="col-2">Projects</th>
-                      <SortableTH field={"owner"}>Owner</SortableTH>
-                      <SortableTH field={"dateUpdated"}>
-                        Date Updated
-                      </SortableTH>
-                      <th />
+            <Box className="relative" width="40%" mb="4">
+              <Field
+                placeholder="Search..."
+                type="search"
+                {...searchInputProps}
+              />
+            </Box>
+            <table className="table gbtable table-valign-top">
+              <thead>
+                <tr>
+                  <SortableTH field={"groupName"}>Name</SortableTH>
+                  <SortableTH field="attributeKey">Attribute</SortableTH>
+                  <th>Description</th>
+                  <th>Projects</th>
+                  <SortableTH field={"ownerNameDisplay"}>Owner</SortableTH>
+                  <SortableTH field={"dateUpdated"}>Date Updated</SortableTH>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((s) => {
+                  return (
+                    <tr key={s.id}>
+                      <td>
+                        <Flex align="center" gap="2">
+                          <Link
+                            className="link-purple"
+                            key={s.id}
+                            href={`/saved-groups/${s.id}`}
+                          >
+                            {s.groupName}
+                          </Link>
+                        </Flex>
+                      </td>
+                      <td>{s.attributeKey}</td>
+                      <td>{truncateString(s.description || "", 40)}</td>
+                      <td>
+                        {(s?.projects?.length || 0) > 0 ? (
+                          <ProjectBadges
+                            resourceType="saved group"
+                            projectIds={s.projects}
+                          />
+                        ) : (
+                          <ProjectBadges resourceType="saved group" />
+                        )}
+                      </td>
+                      <td>{s.ownerNameDisplay}</td>
+                      <td>{ago(s.dateUpdated)}</td>
+                      <td style={{ width: 30 }}>
+                        <SavedGroupRowMenu
+                          canUpdate={canUpdate(s)}
+                          canDelete={canDeleteSavedGroup(s) && !!s.archived}
+                          deleteDisabledReason={
+                            canDeleteSavedGroup(s) && !s.archived
+                              ? "Archive this saved group before deleting"
+                              : undefined
+                          }
+                          onEdit={() => setSavedGroupForm(s)}
+                          onDelete={() => setDeleteModal(s)}
+                        />
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((s) => {
-                      return (
-                        <tr key={s.id}>
-                          <td>
-                            <Link
-                              className="link-purple"
-                              key={s.id}
-                              href={`/saved-groups/${s.id}`}
-                            >
-                              {s.groupName}
-                            </Link>
-                          </td>
-                          <td>{s.attributeKey}</td>
-                          <td>
-                            <div className="d-flex flex-wrap">
-                              {truncateString(s.description || "", 40)}
-                            </div>
-                          </td>
-                          <td>
-                            {(s?.projects?.length || 0) > 0 ? (
-                              <ProjectBadges
-                                resourceType="saved group"
-                                projectIds={s.projects}
-                              />
-                            ) : (
-                              <ProjectBadges resourceType="saved group" />
-                            )}
-                          </td>
-                          <td>{s.owner}</td>
-                          <td>{ago(s.dateUpdated)}</td>
-                          <td style={{ width: 30 }}>
-                            <MoreMenu>
-                              {canUpdate(s) ? (
-                                <a
-                                  href="#"
-                                  className="dropdown-item"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setSavedGroupForm(s);
-                                  }}
-                                >
-                                  Edit
-                                </a>
-                              ) : null}
-                              {canDelete(s) ? (
-                                <DeleteButton
-                                  displayName="Saved Group"
-                                  className="dropdown-item text-danger"
-                                  useIcon={false}
-                                  text="Delete"
-                                  title="Delete SavedGroup"
-                                  onClick={async () => {
-                                    await apiCall(`/saved-groups/${s.id}`, {
-                                      method: "DELETE",
-                                    });
-                                    mutate();
-                                  }}
-                                  getConfirmationContent={getSavedGroupMessage(
-                                    referencingFeaturesByGroup[s.id],
-                                    referencingExperimentsByGroup[s.id],
-                                    referencingSavedGroupsByGroup[s.id],
-                                  )}
-                                  canDelete={
-                                    isEmpty(referencingFeaturesByGroup[s.id]) &&
-                                    isEmpty(
-                                      referencingExperimentsByGroup[s.id],
-                                    ) &&
-                                    isEmpty(referencingSavedGroupsByGroup[s.id])
-                                  }
-                                />
-                              ) : null}
-                            </MoreMenu>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {!items.length && isFiltered && (
-                      <tr>
-                        <td colSpan={7} align={"center"}>
-                          No matching saved groups
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-                {pagination}
-              </div>
-            </div>
+                  );
+                })}
+                {!items.length && isFiltered && (
+                  <tr>
+                    <td colSpan={6} align={"center"}>
+                      No matching saved groups
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            {pagination}
           </>
         )}
       </Box>

@@ -9,6 +9,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
+import Callout from "@/ui/Callout";
 
 const WebhooksPage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
@@ -32,9 +33,9 @@ const WebhooksPage: FC = () => {
   if (!canManageWebhooks) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           You do not have access to view this page.
-        </div>
+        </Callout>
       </div>
     );
   }

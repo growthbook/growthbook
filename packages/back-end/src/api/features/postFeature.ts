@@ -1,16 +1,19 @@
 import { z } from "zod";
-import { validateFeatureValue, validateScheduleRules } from "shared/util";
-import { PostFeatureResponse } from "shared/types/openapi";
+import { validateFeatureValue } from "shared/util";
 import { postFeatureValidator } from "shared/validators";
-import { FeatureInterface, JSONSchemaDef } from "shared/types/feature";
-import { OrganizationInterface } from "shared/types/organization";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import {
+  resolveOwnerToUserId,
+  resolveOwnerEmail,
+} from "back-end/src/services/owner";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
+  addIdsToFlatRules,
   addIdsToRules,
+  buildFeatureRulesFromApiEnvSettings,
   createInterfaceEnvSettingsFromApiEnvSettings,
   getApiFeatureObj,
   getSavedGroupMap,
@@ -19,8 +22,12 @@ import { auditDetailsCreate } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
-import { logger } from "back-end/src/util/logger";
-import { validateCustomFields } from "./validation";
+import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
+import { validateCustomFields } from "./validations";
+import {
+  assertValidProjectId,
+  validateEnvRulesScheduleRules,
+} from "./v2Shared";
 
 export type ApiFeatureEnvSettings = NonNullable<
   z.infer<typeof postFeatureValidator.bodySchema>["environments"]
@@ -44,33 +51,9 @@ export const validateEnvKeys = (
   }
 };
 
-export const parseJsonSchemaForEnterprise = (
-  org: OrganizationInterface,
-  jsonSchema: string | undefined,
-) => {
-  const jsonSchemaWrapper: JSONSchemaDef = {
-    schemaType: "schema",
-    schema: "",
-    simple: { type: "object", fields: [] },
-    date: new Date(),
-    enabled: false,
-  };
-  if (!jsonSchema) return jsonSchemaWrapper;
-  if (!orgHasPremiumFeature(org, "json-validation")) return jsonSchemaWrapper;
-  try {
-    // ensure the schema is valid JSON
-    jsonSchemaWrapper.schema = JSON.stringify(JSON.parse(jsonSchema));
-    jsonSchemaWrapper.enabled = true;
-    return jsonSchemaWrapper;
-  } catch (e) {
-    logger.error(e, "Failed to parse feature json schema");
-    return jsonSchemaWrapper;
-  }
-};
-
 export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   req,
-): Promise<PostFeatureResponse> => {
+) => {
   if (!req.context.permissions.canCreateFeature(req.body)) {
     req.context.permissions.throwPermissionError();
   }
@@ -94,32 +77,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     Object.keys(req.body.environments ?? {}),
   );
 
-  // Validate scheduleRules before processing environment settings
-  if (req.body.environments) {
-    Object.entries(req.body.environments).forEach(([envName, envSettings]) => {
-      if (envSettings.rules) {
-        envSettings.rules.forEach((rule, ruleIndex) => {
-          if (rule.scheduleRules) {
-            // Validate that the org has access to schedule rules
-            if (!req.context.hasPremiumFeature("schedule-feature-flag")) {
-              throw new Error(
-                "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise.",
-              );
-            }
-            try {
-              validateScheduleRules(rule.scheduleRules);
-            } catch (error) {
-              throw new Error(
-                `Invalid scheduleRules in environment "${envName}", rule ${
-                  ruleIndex + 1
-                }: ${error.message}`,
-              );
-            }
-          }
-        });
-      }
-    });
-  }
+  validateEnvRulesScheduleRules(req.body.environments, req.context);
 
   if (
     req.context.org.settings?.requireProjectForFeatures &&
@@ -128,22 +86,13 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     throw new Error("Must specify a project for new features");
   }
 
-  // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
-  if (req.body.project) {
-    const projects = await req.context.getProjects();
-    if (!projects.some((p) => p.id === req.body.project)) {
-      throw new Error(`Project id ${req.body.project} is not a valid project.`);
-    }
-  }
+  await assertValidProjectId(req.body.project, req.context);
 
-  // check if the custom fields are valid
-  if (req.body.customFields) {
-    await validateCustomFields(
-      req.body.customFields,
-      req.context,
-      req.body.project,
-    );
-  }
+  await validateCustomFields(
+    req.body.customFields,
+    req.context,
+    req.body.project,
+  );
 
   const tags = req.body.tags || [];
 
@@ -154,7 +103,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   const feature: FeatureInterface = {
     defaultValue: req.body.defaultValue ?? "",
     valueType: req.body.valueType,
-    owner: req.body.owner,
+    owner: (await resolveOwnerToUserId(req.body.owner, req.context)) ?? "",
     description: req.body.description || "",
     project: req.body.project || "",
     dateCreated: new Date(),
@@ -164,6 +113,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     archived: !!req.body.archived,
     version: 1,
     environmentSettings: {},
+    rules: [],
     prerequisites: (req.body?.prerequisites || []).map((p) => ({
       id: p,
       condition: `{"value": true}`,
@@ -179,11 +129,15 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   );
 
   feature.environmentSettings = environmentSettings;
-
-  const jsonSchema = parseJsonSchemaForEnterprise(
-    req.context.org,
-    req.body.jsonSchema,
+  // v2: rules live on feature.rules (flat array), sourced from the API's
+  // per-env payload stamped with single-env scope.
+  feature.rules = buildFeatureRulesFromApiEnvSettings(
+    feature,
+    orgEnvs,
+    req.body.environments ?? {},
   );
+
+  const jsonSchema = parseApiJsonSchema(req.context.org, req.body.jsonSchema);
 
   feature.jsonSchema = jsonSchema;
 
@@ -205,6 +159,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   }
 
   addIdsToRules(feature.environmentSettings, feature.id);
+  addIdsToFlatRules(feature.rules, feature.id);
 
   await createFeature(req.context, feature);
 
@@ -217,7 +172,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     details: auditDetailsCreate(feature),
   });
 
-  const groupMap = await getSavedGroupMap(req.organization);
+  const groupMap = await getSavedGroupMap(req.context);
 
   const experimentMap = await getExperimentMapForFeature(
     req.context,
@@ -229,17 +184,20 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     context: req.context,
     organization: feature.organization,
     featureId: feature.id,
+    feature,
     version: feature.version,
   });
-
   return {
-    feature: getApiFeatureObj({
-      feature,
-      organization: req.organization,
-      groupMap,
-      experimentMap,
-      revision,
-      safeRolloutMap,
-    }),
+    feature: await resolveOwnerEmail(
+      getApiFeatureObj({
+        feature,
+        organization: req.organization,
+        groupMap,
+        experimentMap,
+        revision,
+        safeRolloutMap,
+      }),
+      req.context,
+    ),
   };
 });

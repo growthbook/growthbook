@@ -26,8 +26,8 @@
 
   --form-input-group-background: #e9ecef;
   --form-input-group-color: #{colors.$gray-700};
-  --form-multivalue-background-color: #f2ecfd;
-  --form-multivalue-text-color: #7c45ea;
+  --form-multivalue-background-color: var(--slate-a3);
+  --form-multivalue-text-color: var(--slate-12);
   --form-switch-background: #{colors.$gray-300};
   --form-switch-background-active: #{colors.$purple};
 
@@ -156,8 +156,8 @@
 
   --form-input-group-background: #{colors.$gray-800};
   --form-input-group-color: #{colors.$gray6};
-  --form-multivalue-background-color: #{darken(colors.$highlight-purple, 30%)};
-  --form-multivalue-text-color: #{colors.$gray4};
+  --form-multivalue-background-color: var(--slate-a3);
+  --form-multivalue-text-color: var(--slate-12);
   --form-switch-background: #{colors.$gray-800};
   --form-switch-background-active: #{colors.$highlight-purple};
 

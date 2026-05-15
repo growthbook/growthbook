@@ -2,10 +2,11 @@ import { useFormContext } from "react-hook-form";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { date } from "shared/dates";
-import Link from "next/link";
 import React from "react";
 import { PiClock } from "react-icons/pi";
 import { Box } from "@radix-ui/themes";
+import { getLatestPhaseVariations } from "shared/experiments";
+import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
@@ -16,9 +17,12 @@ import {
 } from "@/services/features";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useExperiments } from "@/hooks/useExperiments";
-import ScheduleInputs from "@/components/Features/ScheduleInputs";
+import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
+import RuleEnvironmentScopeField, {
+  type EnvScopeProps,
+} from "@/components/Features/RuleModal/EnvironmentScopeField";
 
 export default function ExperimentRefFields({
   feature,
@@ -28,6 +32,7 @@ export default function ExperimentRefFields({
   noSchedule,
   scheduleToggleEnabled,
   setScheduleToggleEnabled,
+  envScope,
 }: {
   feature: FeatureInterface;
   existingRule: boolean;
@@ -36,6 +41,7 @@ export default function ExperimentRefFields({
   noSchedule?: boolean;
   scheduleToggleEnabled?: boolean;
   setScheduleToggleEnabled?: (b: boolean) => void;
+  envScope: EnvScopeProps;
 }) {
   const form = useFormContext();
 
@@ -78,7 +84,7 @@ export default function ExperimentRefFields({
               form.setValue("experimentId", experimentId);
               form.setValue(
                 "variations",
-                exp.variations.map((v, i) => ({
+                getLatestPhaseVariations(exp).map((v, i) => ({
                   variationId: v.id,
                   value: i ? variationValue : controlValue,
                 })),
@@ -150,7 +156,7 @@ export default function ExperimentRefFields({
       {selectedExperiment && (
         <Box px="5" pt="5" pb="1" mb="4" className="bg-highlight rounded">
           <label className="mb-3">Variation Values</label>
-          {selectedExperiment.variations.map((v, i) => (
+          {getLatestPhaseVariations(selectedExperiment).map((v, i) => (
             <FeatureValueField
               key={v.id}
               label={v.name}
@@ -175,6 +181,8 @@ export default function ExperimentRefFields({
         {...form.register("description")}
         placeholder="Short human-readable description of the rule"
       />
+
+      <RuleEnvironmentScopeField {...envScope} my="5" />
 
       {!noSchedule && setScheduleToggleEnabled ? (
         <div className="mt-4 mb-3">

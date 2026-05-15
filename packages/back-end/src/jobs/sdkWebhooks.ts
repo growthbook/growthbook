@@ -1,20 +1,14 @@
 import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import md5 from "md5";
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
-import { filterProjectsByEnvironmentWithNull } from "shared/util";
 import { Promise as BluebirdPromise } from "bluebird";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { WebhookInterface, WebhookPayloadFormat } from "shared/types/webhook";
-import { getFeatureDefinitions } from "back-end/src/services/features";
+import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
 import { WEBHOOKS } from "back-end/src/util/secrets";
 import { findSDKConnectionsByIds } from "back-end/src/models/SdkConnectionModel";
 import { logger } from "back-end/src/util/logger";
-import {
-  findAllSdkWebhooksByConnectionIds,
-  findSdkWebhookByIdAcrossOrgs,
-  setLastSdkWebhookError,
-} from "back-end/src/models/WebhookModel";
+import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { createSdkWebhookLog } from "back-end/src/models/SdkWebhookLogModel";
 import {
   cancellableFetch,
@@ -53,7 +47,8 @@ const fireWebhooks = async (job: SDKWebhookJob) => {
     return;
   }
 
-  const webhook = await findSdkWebhookByIdAcrossOrgs(webhookId);
+  const webhook =
+    await SdkWebhookModel.dangerousFindSdkWebhookByIdAcrossOrgs(webhookId);
   if (!webhook || !webhook.sdks) {
     logger.error(
       {
@@ -61,6 +56,10 @@ const fireWebhooks = async (job: SDKWebhookJob) => {
       },
       "SDK webhook: No webhook found for id",
     );
+    return;
+  }
+
+  if (webhook.disabled) {
     return;
   }
 
@@ -118,9 +117,10 @@ export async function queueWebhooksByConnections(
 ) {
   if (!connections.length) return;
   const sdkKeys = connections.map((c) => c.id);
-  const webhooks = await findAllSdkWebhooksByConnectionIds(context, sdkKeys);
+  const webhooks =
+    await context.models.sdkWebhooks.findAllSdkWebhooksByConnectionIds(sdkKeys);
   for (const webhook of webhooks) {
-    if (webhook) await queueSingleSdkWebhookJob(webhook);
+    if (webhook && !webhook.disabled) await queueSingleSdkWebhookJob(webhook);
   }
 }
 
@@ -284,7 +284,8 @@ async function runWebhookFetch({
         responseCode: res.responseWithoutBody.status,
       },
     });
-    if (!global) await setLastSdkWebhookError(webhook, "");
+    if (!global)
+      await context.models.sdkWebhooks.setLastSdkWebhookError(webhook, "");
     return res;
   } catch (e) {
     const message = res?.stringBody || e.message;
@@ -299,7 +300,8 @@ async function runWebhookFetch({
         responseCode: res?.responseWithoutBody?.status || 0,
       },
     });
-    if (!global) await setLastSdkWebhookError(webhook, message);
+    if (!global)
+      await context.models.sdkWebhooks.setLastSdkWebhookError(webhook, message);
     throw e;
   }
 }
@@ -331,29 +333,9 @@ export async function fireSdkWebhook(
       async (payloads: [string, Record<string, unknown>][], connection) => {
         if (!sendPayload) return [[connection.key, {}], ...payloads];
 
-        const environmentDoc = webhookContext.org?.settings?.environments?.find(
-          (e) => e.id === connection.environment,
-        );
-        const filteredProjects = filterProjectsByEnvironmentWithNull(
-          connection.projects,
-          environmentDoc,
-          true,
-        );
-
-        const defs = await getFeatureDefinitions({
+        const defs = await getFeatureDefinitionsWithCache({
           context: webhookContext,
-          capabilities: getConnectionSDKCapabilities(connection),
-          environment: connection.environment,
-          projects: filteredProjects,
-          encryptionKey: connection.encryptPayload
-            ? connection.encryptionKey
-            : undefined,
-          includeVisualExperiments: connection.includeVisualExperiments,
-          includeDraftExperiments: connection.includeDraftExperiments,
-          includeExperimentNames: connection.includeExperimentNames,
-          includeRedirectExperiments: connection.includeRedirectExperiments,
-          includeRuleIds: connection.includeRuleIds,
-          hashSecureAttributes: connection.hashSecureAttributes,
+          params: connection,
         });
 
         return [[connection.key, defs], ...payloads];
@@ -378,30 +360,9 @@ export async function fireGlobalSdkWebhooks(
   if (!connections.length) return;
 
   for (const connection of connections) {
-    const environmentDoc = context.org?.settings?.environments?.find(
-      (e) => e.id === connection.environment,
-    );
-    const filteredProjects = filterProjectsByEnvironmentWithNull(
-      connection.projects,
-      environmentDoc,
-      true,
-    );
-
-    const payload = await getFeatureDefinitions({
+    const payload = await getFeatureDefinitionsWithCache({
       context,
-      capabilities: getConnectionSDKCapabilities(connection),
-      environment: connection.environment,
-      projects: filteredProjects,
-      encryptionKey: connection.encryptPayload
-        ? connection.encryptionKey
-        : undefined,
-
-      includeVisualExperiments: connection.includeVisualExperiments,
-      includeDraftExperiments: connection.includeDraftExperiments,
-      includeExperimentNames: connection.includeExperimentNames,
-      includeRedirectExperiments: connection.includeRedirectExperiments,
-      includeRuleIds: connection.includeRuleIds,
-      hashSecureAttributes: connection.hashSecureAttributes,
+      params: connection,
     });
 
     WEBHOOKS.forEach((webhook) => {
@@ -436,7 +397,8 @@ export async function fireGlobalSdkWebhooks(
         payloadFormat: format,
         payloadKey,
         organization: context.org?.id,
-        created: new Date(),
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
         error: "",
         lastSuccess: new Date(),
         name: "",

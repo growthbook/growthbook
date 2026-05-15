@@ -4,12 +4,13 @@ import {
 } from "shared/types/experiment";
 import { useMemo } from "react";
 import { HoldoutInterface } from "shared/validators";
-import useApi from "./useApi";
+import useApi, { UseApiOptions } from "./useApi";
 
 export function useExperiments(
   project?: string,
   includeArchived: boolean = false,
   type?: ExperimentType,
+  apiOptions?: UseApiOptions,
 ) {
   const { data, error, mutate } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
@@ -19,6 +20,7 @@ export function useExperiments(
     `/experiments?project=${project || ""}&includeArchived=${
       includeArchived ? "1" : ""
     }&type=${type || ""}`,
+    apiOptions,
   );
 
   const experiments = useMemo(() => data?.experiments || [], [data]);

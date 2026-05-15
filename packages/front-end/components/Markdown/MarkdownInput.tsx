@@ -13,6 +13,8 @@ import emoji from "@jukben/emoji-search";
 import { useDropzone } from "react-dropzone";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PiArrowClockwise } from "react-icons/pi";
+import { AISuggestionType } from "shared/ai";
+import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -22,12 +24,21 @@ import OptInModal from "@/components/License/OptInModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import track from "@/services/track";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Markdown from "./Markdown";
 
 const Item = ({ entity: { name, char } }) => <div>{`${name}: ${char}`}</div>;
 const Loading = () => <div>Loading</div>;
 
+//Extracts a human-readable link label from a URL for Markdown link shorthand.
+function getLinkLabelFromUrl(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "") || "Link";
+  } catch {
+    return "Link";
+  }
+}
 const MarkdownInput: FC<{
   value: string;
   setValue: (value: string) => void;
@@ -44,6 +55,9 @@ const MarkdownInput: FC<{
   onCancel?: () => void;
   hidePreview?: boolean;
   showButtons?: boolean;
+  maxRows?: number;
+  onAISuggestionReceived?: (result: string) => void;
+  trackingSource?: string;
 }> = ({
   value,
   setValue,
@@ -60,6 +74,9 @@ const MarkdownInput: FC<{
   onOptInModalOpen, // If this component is in Modal itself this can be used to close that modal when the OptInModal opens
   onOptInModalClose, // ... And this can be used to open that modal when the OptInModal closes
   showButtons = true,
+  maxRows = 6,
+  onAISuggestionReceived,
+  trackingSource,
 }) => {
   const { aiEnabled, aiAgreedTo } = useAISettings();
   const [activeControlledTab, setActiveControlledTab] = useState<
@@ -82,6 +99,35 @@ const MarkdownInput: FC<{
       textareaRef.current.focus();
     }
   }, [autofocus, textareaRef.current]);
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const pasted = e.clipboardData.getData("text/plain").trim();
+    if (!pasted || !/^https?:\/\/\S+$/i.test(pasted)) return;
+
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    e.preventDefault();
+
+    const start = textarea.selectionStart ?? 0;
+    const end = textarea.selectionEnd ?? start;
+    const selectedText = value.slice(start, end).trim();
+    const linkLabel =
+      start !== end && selectedText
+        ? selectedText
+        : getLinkLabelFromUrl(pasted);
+    const markdownLink = `[${linkLabel}](<${pasted}>)`;
+    const newValue = value.slice(0, start) + markdownLink + value.slice(end);
+    setValue(newValue);
+
+    const cursorAfterInsert = start + markdownLink.length;
+    // Defer so React can commit the new value to the DOM first; otherwise
+    // setSelectionRange runs against the old value and may be overwritten.
+    setTimeout(() => {
+      textarea.setSelectionRange(cursorAfterInsert, cursorAfterInsert);
+      textarea.focus();
+    }, 0);
+  };
 
   const onDrop = (files: File[]) => {
     if (blockFileUploads) return;
@@ -122,8 +168,9 @@ const MarkdownInput: FC<{
     HTMLDivElement
   >;
 
-  const doAISuggestion = async () => {
+  const doAISuggestion = async (type?: AISuggestionType) => {
     if (aiSuggestFunction && aiEnabled) {
+      track("ai-suggestion", { source: trackingSource, type });
       setError("");
       try {
         setLoading(true);
@@ -131,6 +178,9 @@ const MarkdownInput: FC<{
         setActiveControlledTab("write");
         const suggestedText = await aiSuggestFunction();
         if (suggestedText) {
+          if (onAISuggestionReceived) {
+            onAISuggestionReceived(suggestedText);
+          }
           if (!value || !value.trim()) {
             setValue(suggestedText);
           } else {
@@ -175,10 +225,10 @@ const MarkdownInput: FC<{
         )}
         <Box pt="2">
           <TabsContent value="write">
-            <div className="position-relative" {...typedRootProps}>
+            <div style={{ position: "relative" }} {...typedRootProps}>
               <ReactTextareaAutocomplete
                 className="form-control mb-1"
-                rows={6}
+                rows={maxRows}
                 loadingComponent={Loading}
                 minChar={0}
                 dropdownStyle={{
@@ -198,6 +248,7 @@ const MarkdownInput: FC<{
                 onChange={(e) => {
                   setValue(e.target.value);
                 }}
+                onPaste={handlePaste}
                 placeholder={placeholder}
                 trigger={{
                   ":": {
@@ -216,58 +267,69 @@ const MarkdownInput: FC<{
               {!blockFileUploads && (
                 <>
                   <input {...getInputProps()} />
-                  <div className="cursor-pointer py-1 px-2 border rounded-bottom mb-2 bg-light">
+                  <Flex
+                    align="center"
+                    justify="between"
+                    px="2"
+                    py="1"
+                    mb="2"
+                    onClick={open}
+                    style={{
+                      cursor: "pointer",
+                      border: "1px solid var(--gray-a6)",
+                      borderTop: "none",
+                      marginTop: -4,
+                      borderBottomLeftRadius: "var(--radius-2)",
+                      borderBottomRightRadius: "var(--radius-2)",
+                      background: "var(--gray-a2)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "var(--font-size-1)",
+                        color: "var(--gray-11)",
+                      }}
+                    >
+                      Upload images by dragging &amp; dropping or clicking here
+                    </span>
                     <a
                       href="https://guides.github.com/features/mastering-markdown/"
                       target="_blank"
                       rel="noreferrer"
-                      className="text-dark float-right"
+                      title="Github-flavored Markdown is supported"
+                      onClick={(e) => e.stopPropagation()}
                       style={{
+                        color: "var(--gray-12)",
                         fontSize: "1.2em",
                         lineHeight: "1em",
                       }}
-                      title="Github-flavored Markdown is supported"
                     >
                       <FaMarkdown />
                     </a>
-                    <div className="small text-muted" onClick={open}>
-                      Upload images by dragging &amp; dropping or clicking
-                      here{" "}
-                    </div>
-                  </div>
+                  </Flex>
                 </>
               )}
             </div>
             {showButtons && (
-              <div className="row">
-                {error ? (
-                  <div className="col-auto">
-                    <span className="text-danger">{error}</span>
-                  </div>
-                ) : (
-                  ""
+              <Flex align="center" mt="3" gap="2">
+                {error && (
+                  <span
+                    style={{
+                      fontSize: "var(--font-size-1)",
+                      color: "var(--red-11)",
+                    }}
+                  >
+                    {error}
+                  </span>
                 )}
-                <div style={{ flex: 1 }} />
-
-                <div className="col-auto">
-                  {onCancel && (
-                    <button
-                      className="btn btn-link mr-2 ml-3"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        onCancel();
-                      }}
-                    >
-                      cancel
-                    </button>
-                  )}
-                  {cta && (
-                    <button type="submit" className="btn btn-primary">
-                      {cta}
-                    </button>
-                  )}
-                </div>
-              </div>
+                <Box flexGrow="1" />
+                {onCancel && (
+                  <Button variant="ghost" color="gray" onClick={onCancel}>
+                    Cancel
+                  </Button>
+                )}
+                {cta && <Button type="submit">{cta}</Button>}
+              </Flex>
             )}
             {aiSuggestFunction && !aiSuggestionText && (
               <Flex pt={"5"}>
@@ -282,7 +344,7 @@ const MarkdownInput: FC<{
                   <Button
                     variant="soft"
                     disabled={loading}
-                    onClick={doAISuggestion}
+                    onClick={() => doAISuggestion("suggest")}
                   >
                     <BsStars /> {loading ? "Generating..." : aiButtonText}
                   </Button>
@@ -320,13 +382,16 @@ const MarkdownInput: FC<{
               </Flex>
             )}
             {aiSuggestionText && (
-              <div className="mt-2">
+              <Box mt="2">
                 <Flex align="center" justify="between" my="4">
                   <Heading size="2" weight="medium">
                     {aiSuggestionHeader}:
                   </Heading>
                   <Flex gap="2">
-                    <Button variant="ghost" onClick={doAISuggestion}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => doAISuggestion("try-again")}
+                    >
                       <PiArrowClockwise /> Try Again
                     </Button>
                     {aiSuggestionText && value != aiSuggestionText && (
@@ -336,6 +401,9 @@ const MarkdownInput: FC<{
                           onClick={() => {
                             setRevertValue(value);
                             setValue(aiSuggestionText);
+                            track("use-ai-suggestion", {
+                              source: trackingSource,
+                            });
                           }}
                         >
                           Use Suggested
@@ -349,6 +417,9 @@ const MarkdownInput: FC<{
                           onClick={() => {
                             setValue(revertValue);
                             setRevertValue(null);
+                            track("revert-ai-suggestion", {
+                              source: trackingSource,
+                            });
                           }}
                         >
                           Revert
@@ -358,18 +429,18 @@ const MarkdownInput: FC<{
                   </Flex>
                 </Flex>
                 <Box className="appbox" p="3">
-                  <Markdown className="card-text mb-2">
-                    {aiSuggestionText}
-                  </Markdown>
+                  <Markdown>{aiSuggestionText}</Markdown>
                 </Box>
-              </div>
+              </Box>
             )}
             {!showButtons && error && (
-              <div className="alert alert-danger mt-2">{error}</div>
+              <Callout status="error" mt="2">
+                {error}
+              </Callout>
             )}
           </TabsContent>
           <TabsContent value="preview">
-            <Markdown className="card-text px-2">{value}</Markdown>
+            <Markdown>{value}</Markdown>
           </TabsContent>
         </Box>
       </Tabs>

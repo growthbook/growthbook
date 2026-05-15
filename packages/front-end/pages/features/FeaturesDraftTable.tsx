@@ -1,10 +1,12 @@
-import { FeatureInterface } from "shared/types/feature";
+import { FeatureMetaInfo } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { ago, datetime } from "shared/dates";
-import { EventUserLoggedIn } from "shared/types/events/event-types";
-import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
+import {
+  EventUserLoggedIn,
+  EventUserApiKey,
+} from "shared/types/events/event-types";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
@@ -14,66 +16,29 @@ import Pagination from "@/components/Pagination";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import ProjectBadges from "@/components/ProjectBadges";
-export interface Props {
-  features: FeatureInterface[];
-}
+import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
+
 type FeaturesAndRevisions = FeatureRevisionInterface & {
-  feature: FeatureInterface;
+  featureMeta?: FeatureMetaInfo;
 };
-export default function FeaturesDraftTable({ features }: Props) {
+export default function FeaturesDraftTable() {
   const draftAndReviewData = useApi<{
     status: number;
-    revisions: FeatureRevisionInterface[];
-  }>(`/revision/feature`);
+    revisions: FeaturesAndRevisions[];
+  }>(`/revision/feature?sparse=true`);
   const [currentPage, setCurrentPage] = useState(1);
 
   const NUM_PER_PAGE = 20;
   const { data } = draftAndReviewData;
   const { getProjectById } = useDefinitions();
-  const renderStatusCopy = (revision: FeatureRevisionInterface) => {
-    switch (revision.status) {
-      case "approved":
-        return (
-          <span className="mr-3">
-            <PiCheckCircleFill className="text-success  mr-1" /> Approved
-          </span>
-        );
-      case "pending-review":
-        return (
-          <span className="mr-3">
-            <PiCircleDuotone className="text-warning  mr-1" /> Pending Review
-          </span>
-        );
-      case "draft":
-        return <span className="mr-3">Draft</span>;
-      case "changes-requested":
-        return (
-          <span className="mr-3">
-            <PiFileX className="text-danger mr-1" />
-            Changes Requested
-          </span>
-        );
-      default:
-        return;
-    }
-  };
 
-  const featuresAndRevisions = data?.revisions.reduce<FeaturesAndRevisions[]>(
-    (result, revision) => {
-      const feature = features.find((f) => f.id === revision.featureId);
-      if (feature && feature?.dateCreated <= revision.dateCreated) {
-        result.push({
-          ...revision,
-          feature,
-        });
-      }
-      return result;
-    },
-    [],
-  );
+  const featuresAndRevisions = data?.revisions;
 
   const revisions = useAddComputedFields(featuresAndRevisions, (revision) => {
-    const createdBy = revision?.createdBy as EventUserLoggedIn | null;
+    const createdBy = revision?.createdBy as
+      | EventUserLoggedIn
+      | EventUserApiKey
+      | null;
     let dateAndStatus = new Date(revision?.dateUpdated).getTime();
     switch (revision?.status) {
       case "draft":
@@ -90,13 +55,16 @@ export default function FeaturesDraftTable({ features }: Props) {
         break;
     }
     return {
-      id: revision.feature?.id,
-      tags: revision.feature?.tags,
+      // Composite ID so MiniSearch never sees duplicate IDs when a feature has
+      // multiple open revisions (e.g. both a draft and a pending-review).
+      id: `${revision.featureId}-v${revision.version}`,
+      featureKey: revision.featureId,
+      tags: revision.featureMeta?.tags,
       status: revision?.status,
       version: revision?.version,
       dateCreated: revision?.dateCreated,
       dateUpdated: revision?.dateUpdated,
-      project: revision.feature?.project,
+      project: revision.featureMeta?.project,
       creator: createdBy?.name,
       comment: revision?.comment,
       dateAndStatus,
@@ -107,7 +75,7 @@ export default function FeaturesDraftTable({ features }: Props) {
     items: revisions,
     defaultSortField: "dateAndStatus",
     defaultSortDir: -1,
-    searchFields: ["id^3", "comment", "tags^2", "status", "creator"],
+    searchFields: ["featureKey^3", "comment", "tags^2", "status", "creator"],
     localStorageKey: "features-drafts-table-test-1-3",
     searchTermFilters: {
       is: (item) => {
@@ -120,7 +88,7 @@ export default function FeaturesDraftTable({ features }: Props) {
       },
       status: (item) => item.status,
       tag: (item) => item.tags,
-      project: (item) => item.feature?.project,
+      project: (item) => item.featureMeta?.project,
       created: (item) => item.dateCreated,
       updated: (item) => item.dateUpdated,
       user: (item) => item.creator,
@@ -155,8 +123,8 @@ export default function FeaturesDraftTable({ features }: Props) {
             style={{ top: "56px", zIndex: 900 }}
           >
             <tr>
-              <SortableTH field="id">Feature Key</SortableTH>
-              <th>Comment</th>
+              <SortableTH field="featureKey">Feature Key</SortableTH>
+              <th>Notes</th>
               <th>Project</th>
               <th> Creator</th>
               <SortableTH field="dateUpdated">Last Updated</SortableTH>
@@ -172,16 +140,13 @@ export default function FeaturesDraftTable({ features }: Props) {
               const projectIsDeReferenced = projectId && !projectName;
 
               return (
-                <tr
-                  key={`${featureAndRevision.id}:${featureAndRevision.version}`}
-                  className="hover-highlight"
-                >
+                <tr key={featureAndRevision.id} className="hover-highlight">
                   <td className="py-0">
                     <Link
                       className="featurename d-block p-2"
-                      href={`/features/${featureAndRevision.id}?v=${featureAndRevision?.version}`}
+                      href={`/features/${featureAndRevision.featureKey}?v=${featureAndRevision?.version}`}
                     >
-                      {featureAndRevision.id}
+                      {featureAndRevision.featureKey}
                     </Link>
                   </td>
                   <td>
@@ -222,7 +187,12 @@ export default function FeaturesDraftTable({ features }: Props) {
                   <td title={datetime(featureAndRevision.dateUpdated)}>
                     {ago(featureAndRevision.dateUpdated)}
                   </td>
-                  <td>{renderStatusCopy(featureAndRevision)}</td>
+                  <td>
+                    <RevisionStatusBadge
+                      revision={featureAndRevision}
+                      liveVersion={-1}
+                    />
+                  </td>
                 </tr>
               );
             })}

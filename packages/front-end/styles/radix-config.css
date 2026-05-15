@@ -1,6 +1,10 @@
 /* Shared styles for light & dark themes */
 .radix-themes {
   font-size: 14px !important; /* radix should start at 16px as standard but that messes with all our em and rem */
+
+  --default-line-height: var(
+    --line-height-2
+  ); /* 1.5 is the default which makes it 21px instead of 20px that we want */
   --font-weight-light: 200;
   --font-weight-regular: 400;
   --font-weight-medium: 500;

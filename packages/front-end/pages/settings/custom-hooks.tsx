@@ -35,14 +35,13 @@ const dummyFeature: FeatureInterface = {
   environmentSettings: {
     production: {
       enabled: true,
-      rules: [],
     },
   },
+  rules: [],
   archived: false,
   owner: "",
   project: "",
   version: 1,
-  hasDrafts: false,
   prerequisites: [],
   customFields: {},
 };
@@ -62,7 +61,7 @@ const dummyRevision: FeatureRevisionInterface = {
   },
   defaultValue: "false",
   status: "draft",
-  rules: {},
+  rules: [],
   datePublished: null,
   publishedBy: null,
 };

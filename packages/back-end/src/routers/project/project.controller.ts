@@ -2,7 +2,6 @@ import type { Response } from "express";
 import { ProjectInterface, ProjectSettings } from "shared/types/project";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { stringToBoolean } from "shared/util";
-import { removeProjectFromSavedGroups } from "back-end/src/models/SavedGroupModel";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -31,7 +30,11 @@ import { deleteAllFactTablesForAProject } from "back-end/src/models/FactTableMod
 
 // region POST /projects
 
-type CreateProjectRequest = AuthRequest<{ name: string; description: string }>;
+type CreateProjectRequest = AuthRequest<{
+  name: string;
+  description?: string;
+  publicId?: string;
+}>;
 
 type CreateProjectResponse = {
   status: 200;
@@ -56,11 +59,12 @@ export const postProject = async (
   if (!context.permissions.canCreateProjects()) {
     context.permissions.throwPermissionError();
   }
-  const { name, description } = req.body;
+  const { name, description, publicId } = req.body;
 
   const doc = await context.models.projects.create({
     name,
     description,
+    publicId,
   });
 
   res.status(200).json({
@@ -113,11 +117,12 @@ export const putProject = async (
     return;
   }
 
-  const { name, description } = req.body;
+  const { name, description, publicId } = req.body;
 
   await context.models.projects.updateById(id, {
     name,
     description,
+    publicId,
   });
 
   res.status(200).json({
@@ -281,7 +286,7 @@ export const deleteProject = async (
 
   // Clean up saved groups
   try {
-    await removeProjectFromSavedGroups(id, org.id);
+    await context.models.savedGroups.removeProjectIdFromAllGroups(id);
   } catch (e) {
     failedToDeleteResources.push("saved groups");
   }

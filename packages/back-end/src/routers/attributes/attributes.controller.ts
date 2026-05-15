@@ -1,24 +1,19 @@
 import type { Response } from "express";
 import { SDKAttribute } from "shared/types/organization";
+import { recursiveWalk } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
+import { getAllFeatures } from "back-end/src/models/FeatureModel";
+import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 
 export const postAttribute = async (
   req: AuthRequest<SDKAttribute>,
   res: Response<{ status: number }>,
 ) => {
-  const {
-    property,
-    description,
-    datatype,
-    projects,
-    format,
-    enum: enumValue,
-    hashAttribute,
-    disableEqualityConditions,
-  } = req.body;
+  const { tags = [], ...attributeFields } = req.body;
   const context = getContextFromReq(req);
 
   if (!context.permissions.canCreateAttribute({ ...req.body })) {
@@ -28,19 +23,17 @@ export const postAttribute = async (
 
   const attributeSchema = org.settings?.attributeSchema || [];
 
-  if (attributeSchema.some((a) => a.property === property)) {
-    throw new Error("An attribute with that name already exists");
+  if (attributeSchema.some((a) => a.property === attributeFields.property)) {
+    context.throwBadRequestError("An attribute with that name already exists");
+  }
+
+  if (tags.length > 0) {
+    await addTags(org.id, tags);
   }
 
   const newAttribute: SDKAttribute = {
-    property,
-    description,
-    datatype,
-    projects,
-    format,
-    enum: enumValue,
-    hashAttribute,
-    disableEqualityConditions,
+    ...attributeFields,
+    ...(tags.length > 0 && { tags }),
   };
 
   await updateOrganization(org.id, {
@@ -74,18 +67,7 @@ export const putAttribute = async (
   req: AuthRequest<SDKAttribute & { previousName?: string }>,
   res: Response<{ status: number }>,
 ) => {
-  const {
-    property,
-    description,
-    datatype,
-    projects,
-    format,
-    enum: enumValue,
-    hashAttribute,
-    archived,
-    disableEqualityConditions,
-    previousName,
-  } = req.body;
+  const { previousName, tags, ...attributeFields } = req.body;
   const context = getContextFromReq(req);
   const { org } = context;
 
@@ -93,39 +75,48 @@ export const putAttribute = async (
 
   // If the name is being changed, we need to access the attribute via its previous name
   const index = attributeSchema.findIndex(
-    (a) => a.property === (previousName ? previousName : property),
+    (a) =>
+      a.property === (previousName ? previousName : attributeFields.property),
   );
 
   if (index === -1) {
-    throw new Error("Attribute not found");
+    context.throwNotFoundError("Attribute not found");
   }
 
   const existing = attributeSchema[index];
-  if (!context.permissions.canUpdateAttribute(existing, { projects })) {
+  // Only pass `projects` when the client actually sent it — passing
+  // `{ projects: undefined }` would be interpreted as a request to scope the
+  // attribute globally and incorrectly deny project-scoped users.
+  if (
+    !context.permissions.canUpdateAttribute(
+      existing,
+      "projects" in attributeFields
+        ? { projects: attributeFields.projects }
+        : {},
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
 
   if (
     previousName &&
-    property !== previousName &&
-    attributeSchema.some((a) => a.property === property)
+    attributeFields.property !== previousName &&
+    attributeSchema.some((a) => a.property === attributeFields.property)
   ) {
     // If the name is being changed, check if the new name already exists
-    throw new Error("An attribute with that name already exists");
+    context.throwBadRequestError("An attribute with that name already exists");
   }
 
-  // Update the attribute
+  if (tags !== undefined) {
+    await addTagsDiff(org.id, existing.tags || [], tags);
+  }
+
+  // Only merge fields the client actually sent — absent keys preserve the
+  // existing value, avoiding the BSON `undefined → null` round trip.
   attributeSchema[index] = {
     ...attributeSchema[index],
-    property,
-    description,
-    datatype,
-    projects,
-    format,
-    enum: enumValue,
-    hashAttribute,
-    archived,
-    disableEqualityConditions,
+    ...attributeFields,
+    ...(tags !== undefined && { tags: tags.length > 0 ? tags : undefined }),
   };
 
   await updateOrganization(org.id, {
@@ -168,7 +159,7 @@ export const deleteAttribute = async (
   const index = attributeSchema.findIndex((a) => a.property === id);
 
   if (index === -1) {
-    throw new Error("Attribute not found");
+    context.throwNotFoundError("Attribute not found");
   }
 
   // Check permissions on existing project list
@@ -203,4 +194,131 @@ export const deleteAttribute = async (
   return res.status(200).json({
     status: 200,
   });
+};
+
+type AttributeRef = { id: string; name: string; project?: string };
+type AttributeRefExperiment = {
+  id: string;
+  name: string;
+  project?: string;
+  projects?: string[];
+};
+type AttributeRefGroup = { id: string; groupName: string; projects?: string[] };
+type AttributeReferencesMap = Record<
+  string,
+  {
+    features: AttributeRef[];
+    experiments: AttributeRefExperiment[];
+    savedGroups: AttributeRefGroup[];
+  }
+>;
+
+/**
+ * GET /attribute/references?ids=attr1,attr2
+ * Returns features, experiments, and condition groups that reference each requested attribute key.
+ * Walks rule/phase condition JSON and checks hashAttribute on experiments.
+ */
+export const getAttributeReferences = async (
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
+  res: Response<{ status: 200; references: AttributeReferencesMap }>,
+) => {
+  const context = getContextFromReq(req);
+  const attributeKeys = req.query.ids
+    ? req.query.ids.split(",").filter(Boolean)
+    : [];
+
+  if (!attributeKeys.length) {
+    return res.status(200).json({ status: 200, references: {} });
+  }
+
+  const keySet = new Set(attributeKeys);
+
+  const [allFeatures, allExperiments, allSavedGroups] = await Promise.all([
+    getAllFeatures(context, {}),
+    getAllExperiments(context, {}),
+    context.models.savedGroups.getAll(),
+  ]);
+
+  // { attributeKey -> { featureId -> { id, name, project } } }
+  const featureRefs = new Map<string, Map<string, AttributeRef>>();
+  const experimentRefs = new Map<string, Map<string, AttributeRefExperiment>>();
+  const savedGroupRefs = new Map<string, Map<string, AttributeRefGroup>>();
+
+  for (const key of attributeKeys) {
+    featureRefs.set(key, new Map());
+    experimentRefs.set(key, new Map());
+    savedGroupRefs.set(key, new Map());
+  }
+
+  for (const feature of allFeatures) {
+    // v2: rules live on feature.rules (flat). We don't need to project per-env
+    // here — attribute usage is feature-scoped for this panel.
+    for (const rule of feature.rules ?? []) {
+      try {
+        const parsed = JSON.parse(rule.condition ?? "{}");
+        recursiveWalk(parsed, ([nodeKey]) => {
+          if (keySet.has(nodeKey)) {
+            featureRefs.get(nodeKey)!.set(feature.id, {
+              id: feature.id,
+              name: feature.id,
+              project: feature.project,
+            });
+          }
+        });
+      } catch {
+        // ignore unparseable conditions
+      }
+    }
+  }
+
+  for (const experiment of allExperiments) {
+    const addExp = (key: string) => {
+      if (!keySet.has(key)) return;
+      experimentRefs.get(key)!.set(experiment.id, {
+        id: experiment.id,
+        name: experiment.name,
+        project: (experiment as { project?: string }).project,
+        projects: (experiment as { projects?: string[] }).projects,
+      });
+    };
+
+    addExp(experiment.hashAttribute);
+
+    const phase = experiment.phases?.slice(-1)?.[0];
+    try {
+      const parsed = JSON.parse(phase?.condition ?? "{}");
+      recursiveWalk(parsed, ([nodeKey]) => addExp(nodeKey));
+    } catch {
+      // ignore
+    }
+  }
+
+  for (const group of allSavedGroups) {
+    if (group.type !== "condition") continue;
+    try {
+      const parsed = JSON.parse(group.condition ?? "{}");
+      recursiveWalk(parsed, ([nodeKey]) => {
+        if (keySet.has(nodeKey)) {
+          savedGroupRefs.get(nodeKey)!.set(group.id, {
+            id: group.id,
+            groupName: group.groupName,
+            projects: group.projects,
+          });
+        }
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  const references: AttributeReferencesMap = {};
+  for (const key of attributeKeys) {
+    references[key] = {
+      features: Array.from(featureRefs.get(key)!.values()),
+      experiments: Array.from(experimentRefs.get(key)!.values()),
+      savedGroups: Array.from(savedGroupRefs.get(key)!.values()),
+    };
+  }
+
+  return res.status(200).json({ status: 200, references });
 };

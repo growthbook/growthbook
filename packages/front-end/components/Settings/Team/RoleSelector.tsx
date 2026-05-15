@@ -28,6 +28,7 @@ export default function RoleSelector({
         }}
         label="Global Role"
         includeAdminRole={true}
+        includeProjectAdminRole={true}
       />
       <ProjectRolesSelector
         projectRoles={value.projectRoles || []}

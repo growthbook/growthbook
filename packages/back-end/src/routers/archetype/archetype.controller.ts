@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { filterEnvironmentsByFeature } from "shared/util";
+import { filterEnvironmentsByFeature, namespacesToMap } from "shared/util";
 import {
   ArchetypeAttributeValues,
   ArchetypeInterface,
@@ -105,6 +105,7 @@ export const getArchetypeAndEval = async (
     context: context,
     organization: org.id,
     featureId: feature.id,
+    feature,
     version: parseInt(version),
   });
   if (!revision) {
@@ -115,7 +116,7 @@ export const getArchetypeAndEval = async (
   const featureResults: { [key: string]: FeatureTestResult[] } = {};
 
   if (archetype.length) {
-    const groupMap = await getSavedGroupMap(org);
+    const groupMap = await getSavedGroupMap(context);
     const experimentMap = await getAllPayloadExperiments(context);
     const allEnvironments = getEnvironments(org);
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -137,6 +138,8 @@ export const getArchetypeAndEval = async (
           scrubPrerequisites,
           skipRulesWithPrerequisites,
           safeRolloutMap,
+          namespaces: namespacesToMap(org.settings?.namespaces),
+          organization: org,
         });
 
         if (!result) return;

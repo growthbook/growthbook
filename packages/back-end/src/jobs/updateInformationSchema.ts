@@ -1,15 +1,16 @@
 import Agenda, { Job } from "agenda";
 import { InformationSchemaError } from "shared/types/integrations";
+import { formatQueryExecutionErrorForApi } from "shared/util";
+import {
+  DataSourceNotSupportedError,
+  MissingDatasourceParamsError,
+} from "back-end/src/util/errors";
 import { updateDatasourceInformationSchema } from "back-end/src/services/informationSchema";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   getInformationSchemaById,
   updateInformationSchemaById,
 } from "back-end/src/models/InformationSchemaModel";
-import {
-  DataSourceNotSupportedError,
-  MissingDatasourceParamsError,
-} from "back-end/src/types/Integration";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 
 const UPDATE_INFORMATION_SCHEMA_JOB_NAME = "updateInformationSchema";
@@ -42,7 +43,7 @@ const updateInformationSchema = async (job: UpdateInformationSchemaJob) => {
   } catch (e) {
     const error: InformationSchemaError = {
       errorType: "generic",
-      message: e.message,
+      message: formatQueryExecutionErrorForApi(e),
     };
     if (e instanceof DataSourceNotSupportedError) {
       error.errorType = "not_supported";

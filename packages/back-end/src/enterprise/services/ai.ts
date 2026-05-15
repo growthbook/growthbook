@@ -1,12 +1,28 @@
-import { generateText, generateObject, embed } from "ai";
+import {
+  generateText,
+  streamText,
+  embed,
+  Output,
+  tool as aiTool,
+  stepCountIs,
+} from "ai";
+import type { ToolSet, ModelMessage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
+import { createXai } from "@ai-sdk/xai";
+import { createMistral } from "@ai-sdk/mistral";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import {
   encoding_for_model,
   get_encoding,
   TiktokenModel,
 } from "@dqbd/tiktoken";
-import { AIModel, AIPromptType, getProviderFromModel } from "shared/ai";
+import {
+  AIModel,
+  AIPromptType,
+  getProviderFromModel,
+  getProviderFromEmbeddingModel,
+} from "shared/ai";
 import { z, ZodObject, ZodRawShape } from "zod";
 import { OrganizationInterface } from "shared/types/organization";
 import { logger } from "back-end/src/util/logger";
@@ -23,11 +39,20 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 export const getAIProviderClass = (
   context: ReqContext | ApiReqContext,
   model: AIModel,
-): ReturnType<typeof createAnthropic> | ReturnType<typeof createOpenAI> => {
-  const { aiEnabled, openAIAPIKey, anthropicAPIKey } = getAISettingsForOrg(
-    context,
-    true,
-  );
+):
+  | ReturnType<typeof createAnthropic>
+  | ReturnType<typeof createOpenAI>
+  | ReturnType<typeof createXai>
+  | ReturnType<typeof createMistral>
+  | ReturnType<typeof createGoogleGenerativeAI> => {
+  const {
+    aiEnabled,
+    openAIAPIKey,
+    anthropicAPIKey,
+    xaiAPIKey,
+    mistralAPIKey,
+    googleAPIKey,
+  } = getAISettingsForOrg(context, true);
 
   if (!aiEnabled) {
     throw new Error("AI is not enabled for this organization.");
@@ -42,8 +67,28 @@ export const getAIProviderClass = (
     return createAnthropic({
       apiKey: anthropicAPIKey,
     });
+  } else if (selectedProvider === "xai") {
+    if (!xaiAPIKey) {
+      throw new Error("XAI_API_KEY is not set.");
+    }
+    return createXai({
+      apiKey: xaiAPIKey,
+    });
+  } else if (selectedProvider === "mistral") {
+    if (!mistralAPIKey) {
+      throw new Error("MISTRAL_API_KEY is not set.");
+    }
+    return createMistral({
+      apiKey: mistralAPIKey,
+    });
+  } else if (selectedProvider === "google") {
+    if (!googleAPIKey) {
+      throw new Error("GOOGLE_AI_API_KEY is not set.");
+    }
+    return createGoogleGenerativeAI({
+      apiKey: googleAPIKey,
+    });
   } else {
-    // selectedProvider === "openai"
     if (!openAIAPIKey) {
       throw new Error("OPENAI_API_KEY is not set.");
     }
@@ -155,7 +200,7 @@ export const simpleCompletion = async ({
   const messages = constructMessages(prompt, instructions);
 
   const generateOptions = {
-    model: aiProvider(model),
+    model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
     messages,
     ...(temperature != null ? { temperature } : {}),
   };
@@ -166,12 +211,14 @@ export const simpleCompletion = async ({
   let result: string;
 
   if (returnType === "json" && jsonSchema) {
-    const objectResponse = await generateObject({
+    const objectResponse = await generateText({
       ...generateOptions,
-      schema: jsonSchema,
+      output: Output.object({
+        schema: jsonSchema,
+      }),
     });
     numTokensUsed = objectResponse.usage?.totalTokens;
-    result = JSON.stringify(objectResponse.object);
+    result = JSON.stringify(objectResponse.output);
     inputTokensUsed = objectResponse.usage?.inputTokens;
     outputTokensUsed = objectResponse.usage?.outputTokens;
   } else {
@@ -202,6 +249,69 @@ export const simpleCompletion = async ({
 
   return result;
 };
+
+export const streamingChatCompletion = async ({
+  context,
+  system,
+  messages,
+  temperature,
+  type,
+  isDefaultPrompt,
+  overrideModel,
+  tools,
+  maxSteps = 1,
+  abortSignal,
+}: {
+  context: ReqContext | ApiReqContext;
+  system: string;
+  messages: ModelMessage[];
+  temperature?: number;
+  type: AIPromptType;
+  isDefaultPrompt: boolean;
+  overrideModel?: AIModel;
+  tools?: ToolSet;
+  maxSteps?: number;
+  abortSignal?: AbortSignal;
+}) => {
+  const { defaultAIModel } = getAISettingsForOrg(context, true);
+  const model = overrideModel || defaultAIModel;
+  const aiProvider = getAIProviderClass(context, model);
+
+  if (aiProvider == null) {
+    throw new Error("AI provider not enabled or key not set");
+  }
+
+  const result = streamText({
+    model: aiProvider(model) as Parameters<typeof streamText>[0]["model"],
+    system,
+    messages,
+    ...(temperature != null ? { temperature } : {}),
+    ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
+    ...(abortSignal ? { abortSignal } : {}),
+    onFinish: async ({ usage }) => {
+      if (IS_CLOUD) {
+        const numTokensUsed = usage?.totalTokens ?? 0;
+        if (numTokensUsed) {
+          await updateTokenUsage({ numTokensUsed, organization: context.org });
+        }
+
+        logCloudAIUsage({
+          organization: context.org.id,
+          type,
+          model,
+          numPromptTokensUsed: usage?.inputTokens,
+          numCompletionTokensUsed: usage?.outputTokens,
+          temperature,
+          usedDefaultPrompt: isDefaultPrompt,
+        });
+      }
+    },
+  });
+
+  return result;
+};
+
+export { aiTool };
 
 export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   context,
@@ -239,10 +349,12 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
 
   const messages = constructMessages(prompt, instructions);
 
-  const response = await generateObject({
-    model: aiProvider(model),
+  const response = await generateText({
+    model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
     messages: messages,
-    schema: zodObjectSchema,
+    output: Output.object({
+      schema: zodObjectSchema,
+    }),
     ...(temperature != null ? { temperature } : {}),
   });
 
@@ -263,10 +375,10 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     await updateTokenUsage({ numTokensUsed, organization: context.org });
   }
 
-  if (!response.object) {
-    throw new Error("No object returned from AI API.");
+  if (!response.output) {
+    throw new Error("No output returned from AI API.");
   }
-  return response.object as z.infer<T>;
+  return response.output as z.infer<T>;
 };
 
 export function cosineSimilarity(vec1: number[], vec2: number[]): number {
@@ -286,25 +398,49 @@ export async function generateEmbeddings({
   context: ReqContext | ApiReqContext;
   input: string[];
 }): Promise<number[][]> {
-  const { aiEnabled, openAIAPIKey, embeddingModel } = getAISettingsForOrg(
-    context,
-    true,
-  );
+  const {
+    aiEnabled,
+    openAIAPIKey,
+    mistralAPIKey,
+    googleAPIKey,
+    embeddingModel,
+  } = getAISettingsForOrg(context, true);
 
   if (!aiEnabled) {
     throw new Error("AI features are not enabled");
   }
 
-  if (!openAIAPIKey) {
-    throw new Error("OpenAI API key not set");
+  // Get the provider for this embedding model
+  const provider = getProviderFromEmbeddingModel(embeddingModel);
+
+  // Check that we have the API key for this provider
+  let aiProvider;
+  if (provider === "openai") {
+    if (!openAIAPIKey) {
+      throw new Error("OpenAI API key not set");
+    }
+    aiProvider = createOpenAI({
+      apiKey: openAIAPIKey,
+    });
+  } else if (provider === "mistral") {
+    if (!mistralAPIKey) {
+      throw new Error("Mistral API key not set");
+    }
+    aiProvider = createMistral({
+      apiKey: mistralAPIKey,
+    });
+  } else if (provider === "google") {
+    if (!googleAPIKey) {
+      throw new Error("Google AI API key not set");
+    }
+    aiProvider = createGoogleGenerativeAI({
+      apiKey: googleAPIKey,
+    });
+  } else {
+    throw new Error(`Unsupported embedding provider: ${provider}`);
   }
 
   try {
-    // Always use OpenAI for embeddings
-    const aiProvider = createOpenAI({
-      apiKey: openAIAPIKey,
-    });
-
     const model = aiProvider.embedding(embeddingModel);
 
     // Generate embeddings for each input string

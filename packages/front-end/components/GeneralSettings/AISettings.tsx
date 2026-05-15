@@ -6,15 +6,28 @@ import {
   AIPromptInterface,
   AIModel,
   EmbeddingModel,
+  formatAIRateLimitRetryMessage,
   getProviderFromModel,
+  getProviderFromEmbeddingModel,
 } from "shared/ai";
 import { ensureValuesExactlyMatchUnion } from "shared/util";
+import {
+  getAvailableAIModelOptions,
+  getAvailablePromptModelOptions,
+} from "@/services/aiModelSelectOptions";
 import { useAuth } from "@/services/auth";
 import Frame from "@/ui/Frame";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
-import { isCloud, hasOpenAIKey, hasAnthropicKey } from "@/services/env";
+import {
+  isCloud,
+  hasOpenAIKey,
+  hasAnthropicKey,
+  hasXaiKey,
+  hasMistralKey,
+  hasGoogleAIKey,
+} from "@/services/env";
 import useApi from "@/hooks/useApi";
 import Button from "@/ui/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
@@ -23,38 +36,47 @@ import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
 
-const AI_MODEL_LABELS = ensureValuesExactlyMatchUnion<AIModel>()([
-  { value: "gpt-4o-mini", label: "GTP 4o mini" },
-  { value: "gpt-4o", label: "GTP 4o" },
-  { value: "gpt-4-turbo", label: "GTP 4 turbo" },
-  { value: "claude-haiku-4-5-20251001", label: "Claude 4.5 Haiku" },
-  { value: "claude-sonnet-4-5-20250929", label: "Claude 4.5 Sonnet" },
-  { value: "claude-opus-4-1-20250805", label: "Claude 4.1 Opus" },
-  { value: "claude-opus-4-20250514", label: "Claude 4 Opus" },
-  { value: "claude-sonnet-4-20250514", label: "Claude 4 Sonnet" },
-  { value: "claude-3-7-sonnet-20250219", label: "Claude 3.7 Sonnet" },
-  { value: "claude-3-5-haiku-20241022", label: "Claude 3.5 Haiku" },
-  { value: "claude-3-haiku-20240307", label: "Claude 3 Haiku" },
-]);
-
-const PROMPT_MODEL_LABELS = [
-  { value: "", label: "-- Use Default AI Model --" },
-  ...AI_MODEL_LABELS,
-];
-
 const EMBEDDING_MODEL_LABELS = ensureValuesExactlyMatchUnion<EmbeddingModel>()([
-  { value: "text-embedding-3-small", label: "OpenAI text embedding 3 small" },
-  { value: "text-embedding-3-large", label: "OpenAI text embedding 3 large" },
-  { value: "text-embedding-ada-002", label: "OpenAI text embedding Ada 002" },
+  // OpenAI embeddings
+  { value: "text-embedding-3-small", label: "OpenAI: text-embedding-3-small" },
+  { value: "text-embedding-3-large", label: "OpenAI: text-embedding-3-large" },
+  {
+    value: "text-embedding-ada-002",
+    label: "OpenAI: text-embedding-ada-002",
+  },
+  // Mistral embeddings
+  { value: "mistral-embed", label: "Mistral: mistral-embed" },
+  { value: "codestral-embed", label: "Mistral: codestral-embed" },
+  // Google embeddings
+  { value: "text-embedding-005", label: "Google: text-embedding-005" },
+  {
+    value: "text-multilingual-embedding-002",
+    label: "Google: text-multilingual-embedding-002",
+  },
+  { value: "gemini-embedding-001", label: "Google: gemini-embedding-001" },
 ]);
 
 const hasAPIforModel = (model: AIModel | string) => {
-  const provider = getProviderFromModel(model as AIModel);
+  let provider;
+  try {
+    provider = getProviderFromModel(model as AIModel);
+  } catch {
+    return false;
+  }
   if (provider === "openai") {
     return hasOpenAIKey();
   }
   if (provider === "anthropic") {
     return hasAnthropicKey();
+  }
+  if (provider === "xai") {
+    return hasXaiKey();
+  }
+  if (provider === "mistral") {
+    return hasMistralKey();
+  }
+  if (provider === "google") {
+    return hasGoogleAIKey();
   }
   return false;
 };
@@ -128,6 +150,23 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
       overrideModel: data.prompts.find((p) => p.type === "generate-sql-query")
         ?.overrideModel,
     },
+    {
+      promptType: "product-analytics-chat",
+      promptName: "Product Analytics AI Analyst",
+      promptDescription:
+        "Used by the product analytics explorer AI assistant. GrowthBook still provides datasource context, metrics and fact tables, exploration schema, and tool behavior automatically; the field below adds organization-specific guidance (tone, naming, policies, how to explain charts, etc.).",
+      promptValue:
+        data.prompts.find((p) => p.type === "product-analytics-chat")?.prompt ||
+        AI_PROMPT_DEFAULTS["product-analytics-chat"],
+      promptDefaultValue: AI_PROMPT_DEFAULTS["product-analytics-chat"],
+      promptHelpText:
+        "Optional. Leave blank to use only the built-in assistant instructions. When set, this text is appended to the system prompt.",
+      overrideModelHelpText:
+        "Tool-heavy assistants often work better with a capable model.",
+      overrideModel: data.prompts.find(
+        (p) => p.type === "product-analytics-chat",
+      )?.overrideModel,
+    },
   ];
 }
 
@@ -138,7 +177,12 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
 const ApiKeyWarning: React.FC<{ model?: string }> = ({ model }) => {
   if (!model) return null;
   if (hasAPIforModel(model)) return null;
-  const provider = getProviderFromModel(model as AIModel);
+  let provider;
+  try {
+    provider = getProviderFromModel(model as AIModel);
+  } catch {
+    return null;
+  }
   return (
     <Box mt="2">
       <Callout status="warning">
@@ -163,6 +207,13 @@ export default function AISettings({
   const { hasCommercialFeature } = useUser();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
 
+  // Subscribe to formState.isDirty by reading it during render.
+  // This is required for react-hook-form to properly track dirty state
+  // when this component modifies form values via register() or setValue().
+  // See: https://react-hook-form.com/docs/useform/formstate (extracting formState)
+  const { isDirty: _isDirty } = promptForm.formState;
+  void _isDirty; // Ensure the variable is used to prevent tree-shaking
+
   const handleRegenerate = async () => {
     setLoading(true);
     setError(null);
@@ -174,12 +225,7 @@ export default function AISettings({
         },
         (responseData) => {
           if (responseData.status === 429) {
-            const retryAfter = parseInt(responseData.retryAfter);
-            const hours = Math.floor(retryAfter / 3600);
-            const minutes = Math.floor((retryAfter % 3600) / 60);
-            setError(
-              `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
-            );
+            setError(formatAIRateLimitRetryMessage(responseData.retryAfter));
           } else if (responseData.message) {
             throw new Error(responseData.message);
           } else {
@@ -274,7 +320,7 @@ export default function AISettings({
                       helpText="Default is 4o-mini."
                       value={form.watch("defaultAIModel")}
                       onChange={(v) => form.setValue("defaultAIModel", v)}
-                      options={AI_MODEL_LABELS}
+                      options={getAvailableAIModelOptions()}
                     />
                     {/* Use centralized warning component */}
                     <ApiKeyWarning
@@ -292,7 +338,7 @@ export default function AISettings({
                     </Text>
                     <SelectField
                       id="embeddingModel"
-                      helpText="Choose the OpenAI embedding model to use. Default is text-embedding-ada-002."
+                      helpText="Choose the embedding model to use for semantic search. Supports OpenAI, Mistral, and Google. Default is text-embedding-ada-002."
                       value={
                         form.watch("embeddingModel") || "text-embedding-ada-002"
                       }
@@ -301,26 +347,49 @@ export default function AISettings({
                     />
                   </Box>
                   {(() => {
-                    const defaultModel =
-                      form.watch("defaultAIModel") || "gpt-4o-mini";
-                    const defaultProvider = getProviderFromModel(defaultModel);
+                    const defaultModel = form.watch("defaultAIModel");
+                    const usedProviders = new Set<string>();
 
-                    const promptUsesAnthropic = prompts.some((prompt) => {
+                    // Add default model provider if set
+                    if (defaultModel) {
+                      try {
+                        const defaultProvider =
+                          getProviderFromModel(defaultModel);
+                        usedProviders.add(defaultProvider);
+                      } catch {
+                        // Ignore invalid models
+                      }
+                    }
+
+                    // Check which providers are used by prompts
+                    prompts.forEach((prompt) => {
                       const promptModel = promptForm.watch(
                         `${prompt.promptType}-model`,
                       );
-                      return (
-                        promptModel &&
-                        getProviderFromModel(promptModel) === "anthropic"
-                      );
+                      if (promptModel) {
+                        try {
+                          usedProviders.add(getProviderFromModel(promptModel));
+                        } catch {
+                          // Ignore invalid models
+                        }
+                      }
                     });
 
-                    const showAnthropicKey =
-                      defaultProvider === "anthropic" || promptUsesAnthropic;
+                    // Add embedding model provider if set
+                    const embeddingModel = form.watch("embeddingModel");
+                    if (embeddingModel) {
+                      try {
+                        const embeddingProvider =
+                          getProviderFromEmbeddingModel(embeddingModel);
+                        usedProviders.add(embeddingProvider);
+                      } catch {
+                        // Ignore invalid embedding models
+                      }
+                    }
 
                     return (
                       <>
-                        {showAnthropicKey && (
+                        {usedProviders.has("anthropic") && (
                           <Box mb="6" width="100%">
                             <Text
                               as="label"
@@ -352,35 +421,129 @@ export default function AISettings({
                             )}
                           </Box>
                         )}
-                        <Box mb="6" width="100%">
-                          <Text
-                            as="label"
-                            size="3"
-                            className="font-weight-semibold"
-                          >
-                            OpenAI API Key
-                          </Text>
-                          {hasOpenAIKey() ? (
-                            <Box>
-                              Your OpenAI API key is correctly set in your
-                              environment variable <code>OPENAI_API_KEY</code>.
-                            </Box>
-                          ) : (
-                            <Box>
-                              <Callout status="warning">
-                                {defaultProvider === "openai"
-                                  ? "You must set your OpenAI API key to use GPT models."
-                                  : "OpenAI API key is required for embeddings."}{" "}
-                                Please define it in your environment variables
-                                as <code>OPENAI_API_KEY</code>. See more in our{" "}
-                                <a href="https://docs.growthbook.io/self-host/env">
-                                  self-hosting docs
-                                </a>
+                        {usedProviders.has("xai") && (
+                          <Box mb="6" width="100%">
+                            <Text
+                              as="label"
+                              size="3"
+                              className="font-weight-semibold"
+                            >
+                              xAI API Key
+                            </Text>
+                            {hasXaiKey() ? (
+                              <Box>
+                                Your xAI API key is correctly set in your
+                                environment variable <code>XAI_API_KEY</code>.
+                              </Box>
+                            ) : (
+                              <Box>
+                                <Callout status="warning">
+                                  You must set your xAI API key to use Grok
+                                  models. Please define it in your environment
+                                  variables as <code>XAI_API_KEY</code>. See
+                                  more in our{" "}
+                                  <a href="https://docs.growthbook.io/self-host/env">
+                                    self-hosting docs
+                                  </a>
+                                  .
+                                </Callout>
+                              </Box>
+                            )}
+                          </Box>
+                        )}
+                        {usedProviders.has("mistral") && (
+                          <Box mb="6" width="100%">
+                            <Text
+                              as="label"
+                              size="3"
+                              className="font-weight-semibold"
+                            >
+                              Mistral API Key
+                            </Text>
+                            {hasMistralKey() ? (
+                              <Box>
+                                Your Mistral API key is correctly set in your
+                                environment variable{" "}
+                                <code>MISTRAL_API_KEY</code>.
+                              </Box>
+                            ) : (
+                              <Box>
+                                <Callout status="warning">
+                                  You must set your Mistral API key to use
+                                  Mistral models. Please define it in your
+                                  environment variables as{" "}
+                                  <code>MISTRAL_API_KEY</code>. See more in our{" "}
+                                  <a href="https://docs.growthbook.io/self-host/env">
+                                    self-hosting docs
+                                  </a>
+                                  .
+                                </Callout>
+                              </Box>
+                            )}
+                          </Box>
+                        )}
+                        {usedProviders.has("google") && (
+                          <Box mb="6" width="100%">
+                            <Text
+                              as="label"
+                              size="3"
+                              className="font-weight-semibold"
+                            >
+                              Google API Key
+                            </Text>
+                            {hasGoogleAIKey() ? (
+                              <Box>
+                                Your Google API key is correctly set in your
+                                environment variable{" "}
+                                <code>GOOGLE_AI_API_KEY</code>.
+                              </Box>
+                            ) : (
+                              <Box>
+                                <Callout status="warning">
+                                  You must set your Google API key to use Gemini
+                                  models. Please define it in your environment
+                                  variables as <code>GOOGLE_AI_API_KEY</code>.
+                                  See more in our{" "}
+                                  <a href="https://docs.growthbook.io/self-host/env">
+                                    self-hosting docs
+                                  </a>
+                                  .
+                                </Callout>
+                              </Box>
+                            )}
+                          </Box>
+                        )}
+                        {usedProviders.has("openai") && (
+                          <Box mb="6" width="100%">
+                            <Text
+                              as="label"
+                              size="3"
+                              className="font-weight-semibold"
+                            >
+                              OpenAI API Key
+                            </Text>
+                            {hasOpenAIKey() ? (
+                              <Box>
+                                Your OpenAI API key is correctly set in your
+                                environment variable <code>OPENAI_API_KEY</code>
                                 .
-                              </Callout>
-                            </Box>
-                          )}
-                        </Box>
+                              </Box>
+                            ) : (
+                              <Box>
+                                <Callout status="warning">
+                                  You must set your OpenAI API key to use OpenAI
+                                  models. Please define it in your environment
+                                  variables as <code>OPENAI_API_KEY</code>. See
+                                  more in our{" "}
+                                  <a href="https://docs.growthbook.io/self-host/env">
+                                    self-hosting docs
+                                  </a>
+                                  .
+                                </Callout>
+                              </Box>
+                            )}
+                          </Box>
+                        )}
                       </>
                     );
                   })()}
@@ -442,9 +605,10 @@ export default function AISettings({
                                   promptForm.setValue(
                                     `${prompt.promptType}-model`,
                                     v,
+                                    { shouldDirty: true },
                                   )
                                 }
-                                options={PROMPT_MODEL_LABELS}
+                                options={getAvailablePromptModelOptions()}
                                 helpText={prompt?.overrideModelHelpText || ""}
                               />
                               {(() => {
@@ -496,6 +660,7 @@ export default function AISettings({
                                     promptForm.setValue(
                                       prompt.promptType,
                                       prompt.promptDefaultValue,
+                                      { shouldDirty: true },
                                     );
                                   }}
                                 >
@@ -534,22 +699,66 @@ export default function AISettings({
                         These similarity scores are automatically updated, but
                         if the results seem off, you can regenerate them here.
                       </p>
-                      <Button
-                        onClick={handleRegenerate}
-                        disabled={loading || !hasOpenAIKey()}
-                        variant="solid"
-                      >
-                        {loading ? "Regenerating..." : "Regenerate all"}
-                      </Button>
-                      {!hasOpenAIKey() && (
-                        <Box mt="2">
-                          <Callout status="warning">
-                            OpenAI API key is required for embeddings. Please
-                            set <code>OPENAI_API_KEY</code> in your environment
-                            variables.
-                          </Callout>
-                        </Box>
-                      )}
+                      {(() => {
+                        const embeddingModel =
+                          form.watch("embeddingModel") ||
+                          "text-embedding-ada-002";
+                        let embeddingProvider = "openai";
+                        let hasKey = true;
+                        try {
+                          embeddingProvider =
+                            getProviderFromEmbeddingModel(embeddingModel);
+                          if (embeddingProvider === "openai") {
+                            hasKey = hasOpenAIKey();
+                          } else if (embeddingProvider === "mistral") {
+                            hasKey = hasMistralKey();
+                          } else if (embeddingProvider === "google") {
+                            hasKey = hasGoogleAIKey();
+                          }
+                        } catch {
+                          // Use defaults
+                        }
+
+                        const providerNames: Record<string, string> = {
+                          openai: "OpenAI",
+                          mistral: "Mistral",
+                          google: "Google",
+                          anthropic: "Anthropic",
+                          xai: "xAI",
+                        };
+
+                        const providerEnvVars: Record<string, string> = {
+                          openai: "OPENAI_API_KEY",
+                          mistral: "MISTRAL_API_KEY",
+                          google: "GOOGLE_AI_API_KEY",
+                          anthropic: "ANTHROPIC_API_KEY",
+                          xai: "XAI_API_KEY",
+                        };
+
+                        return (
+                          <>
+                            <Button
+                              onClick={handleRegenerate}
+                              disabled={loading || !hasKey}
+                              variant="solid"
+                            >
+                              {loading ? "Regenerating..." : "Regenerate all"}
+                            </Button>
+                            {!hasKey && (
+                              <Box mt="2">
+                                <Callout status="warning">
+                                  {providerNames[embeddingProvider]} API key is
+                                  required for embeddings. Please set{" "}
+                                  <code>
+                                    {providerEnvVars[embeddingProvider]}
+                                  </code>{" "}
+                                  in your environment variables.
+                                </Callout>
+                              </Box>
+                            )}
+                          </>
+                        );
+                      })()}
                       {error && (
                         <Box className="col-auto pt-3">
                           <div className="alert alert-danger">{error}</div>

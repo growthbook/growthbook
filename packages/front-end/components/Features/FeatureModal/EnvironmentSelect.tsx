@@ -2,7 +2,6 @@ import { FC, useMemo } from "react";
 import { Environment } from "shared/types/organization";
 import { FeatureEnvironment } from "shared/types/feature";
 import { Box, Grid, Text } from "@radix-ui/themes";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Checkbox from "@/ui/Checkbox";
 
@@ -11,9 +10,9 @@ const EnvironmentSelect: FC<{
   environments: Environment[];
   setValue: (env: Environment, enabled: boolean) => void;
   label?: string;
-}> = ({ environmentSettings, environments, setValue, label }) => {
+  project?: string;
+}> = ({ environmentSettings, environments, setValue, label, project = "" }) => {
   const permissionsUtil = usePermissionsUtil();
-  const { project } = useDefinitions();
   const environmentsUserCanAccess = useMemo(() => {
     return environments.filter((env) => {
       return permissionsUtil.canPublishFeature({ project }, [env.id]);
@@ -29,8 +28,12 @@ const EnvironmentSelect: FC<{
 
   return (
     <div className="form-group">
-      <Text as="label" weight="bold" mb="2">
+      <Text as="label" weight="bold" mb="1">
         {label || "Enabled Environments"}
+      </Text>
+      <Text as="p" size="1" color="gray" mb="2">
+        Which environments are toggled <strong>ON</strong> by default in the new
+        feature. Disabled environments will be excluded from the SDK Payload.
       </Text>
       <Box
         className="box"

@@ -1,9 +1,5 @@
-import { ListSavedGroupsResponse } from "shared/types/openapi";
 import { listSavedGroupsValidator } from "shared/validators";
-import {
-  getAllSavedGroups,
-  toSavedGroupApiInterface,
-} from "back-end/src/models/SavedGroupModel";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -11,8 +7,8 @@ import {
 
 export const listSavedGroups = createApiRequestHandler(
   listSavedGroupsValidator,
-)(async (req): Promise<ListSavedGroupsResponse> => {
-  const savedGroups = await getAllSavedGroups(req.organization.id);
+)(async (req) => {
+  const savedGroups = await req.context.models.savedGroups.getAll();
 
   // TODO: Move sorting/limiting to the database query for better performance
   const { filtered, returnFields } = applyPagination(
@@ -21,8 +17,11 @@ export const listSavedGroups = createApiRequestHandler(
   );
 
   return {
-    savedGroups: filtered.map((savedGroup) =>
-      toSavedGroupApiInterface(savedGroup),
+    savedGroups: await resolveOwnerEmails(
+      filtered.map((savedGroup) =>
+        req.context.models.savedGroups.toApiInterface(savedGroup),
+      ),
+      req.context,
     ),
     ...returnFields,
   };

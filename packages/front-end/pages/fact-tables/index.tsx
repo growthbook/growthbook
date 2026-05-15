@@ -1,10 +1,10 @@
 import { isProjectListValidForProject } from "shared/util";
-import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { date } from "shared/dates";
 import { FaArrowRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { Box, Flex, Separator } from "@radix-ui/themes";
+import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactTableModal from "@/components/FactTables/FactTableModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -33,18 +33,21 @@ import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { GBInfo } from "@/components/Icons";
+import { useUser } from "@/services/UserContext";
 
 export default function FactTablesPage() {
   const {
     _factTablesIncludingArchived: factTables,
     getDatasourceById,
     project,
+    projects,
     factMetrics,
     mutateDefinitions,
     datasources,
   } = useDefinitions();
 
   const router = useRouter();
+  const { getOwnerDisplay } = useUser();
 
   const { demoDataSourceId } = useDemoDataSourceProject();
 
@@ -109,7 +112,10 @@ export default function FactTablesPage() {
 
   const hasArchivedFactTables = factTables.some((t) => t.archived);
 
-  const canCreate = permissionsUtil.canViewCreateFactTableModal(project);
+  const canCreate = permissionsUtil.canViewCreateFactTableModal(
+    project,
+    projects,
+  );
 
   const factTablesWithLabels = useAddComputedFields(
     filteredFactTables,
@@ -122,13 +128,14 @@ export default function FactTablesPage() {
       return {
         ...table,
         datasourceName: getDatasourceById(table.datasource)?.name || "Unknown",
+        ownerNameDisplay: getOwnerDisplay(table.owner),
         numMetrics: factMetricCounts[table.id] || 0,
         numFilters: table.filters.length,
         numAutoSlices,
         userIdTypes: sortedUserIdTypes,
       };
     },
-    [getDatasourceById],
+    [getDatasourceById, getOwnerDisplay],
   );
 
   const tagsFilter = useTagsFilter("facttables");
@@ -402,7 +409,7 @@ export default function FactTablesPage() {
                 <SortableTH field="numMetrics">Metrics</SortableTH>
                 <SortableTH field="numAutoSlices">Auto Slices</SortableTH>
                 <SortableTH field="numFilters">Filters</SortableTH>
-                <SortableTH field="owner">Owner</SortableTH>
+                <SortableTH field="ownerNameDisplay">Owner</SortableTH>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
               </tr>
             </thead>
@@ -437,16 +444,18 @@ export default function FactTablesPage() {
                   className="cursor-pointer"
                 >
                   <td>
-                    <Link href={`/fact-tables/${f.id}`}>{f.name}</Link>
-                    <OfficialBadge
-                      type="fact table"
-                      managedBy={f.managedBy}
-                      leftGap={true}
-                    />
+                    <Link href={`/fact-tables/${f.id}`}>
+                      {f.name}
+                      <OfficialBadge
+                        type="fact table"
+                        leftGap={true}
+                        managedBy={f.managedBy}
+                      />
+                    </Link>
                   </td>
                   <td>{f.datasourceName}</td>
                   <td>
-                    <SortedTags tags={f.tags} />
+                    <SortedTags tags={f.tags} useFlex />
                   </td>
                   <td className="col-2">
                     {f.projects.length > 0 ? (
@@ -458,17 +467,11 @@ export default function FactTablesPage() {
                       <ProjectBadges resourceType="fact table" />
                     )}
                   </td>
-                  <td>
-                    {f.userIdTypes.map((t) => (
-                      <span className="badge badge-secondary mr-1" key={t}>
-                        {t}
-                      </span>
-                    ))}
-                  </td>
+                  <td>{f.userIdTypes.join(", ")}</td>
                   <td>{f.numMetrics}</td>
                   <td>{f.numAutoSlices}</td>
                   <td>{f.numFilters}</td>
-                  <td>{f.owner}</td>
+                  <td>{f.ownerNameDisplay}</td>
                   <td>{f.dateUpdated ? date(f.dateUpdated) : null}</td>
                 </tr>
               ))}

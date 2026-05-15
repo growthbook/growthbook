@@ -6,8 +6,9 @@ import {
   TaxIdType,
 } from "shared/types/subscriptions";
 import { DailyUsage, UsageLimits } from "shared/types/organization";
+import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
+import { LicenseServerError } from "back-end/src/util/errors";
 import {
-  LicenseServerError,
   getLicense,
   licenseInit,
   postCreateBillingSessionToLicenseServer,
@@ -33,10 +34,8 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import {
-  getDailyUsageForOrg,
-  migrateOverageEventsForOrgId,
-} from "back-end/src/services/clickhouse";
+import { getDailyUsageForOrg } from "back-end/src/services/clickhouse";
+import { migrateOverageEventsForOrgId } from "back-end/src/services/licenseServerManagedClickhouse";
 import {
   createSetupIntent,
   deletePaymentMethodById,
@@ -194,7 +193,10 @@ export const postInlineProSubscription = withLicenseServerErrorHandling(
     );
 
     const managedWarehouseDatasource = await getGrowthbookDatasource(context);
-    if (managedWarehouseDatasource) {
+    if (
+      managedWarehouseDatasource &&
+      !isManagedWarehouseAwaitingProvisioning(managedWarehouseDatasource)
+    ) {
       // new pro users might have events in the overage_events table if they had
       // use more than 1M events.  This moves those events over to the main table,
       // so that they can see them.

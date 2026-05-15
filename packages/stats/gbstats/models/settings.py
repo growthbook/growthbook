@@ -4,9 +4,9 @@ from pydantic.dataclasses import dataclass
 # Types
 DifferenceType = Literal["relative", "absolute", "scaled"]
 StatsEngine = Literal["bayesian", "frequentist"]
-StatisticType = Literal[
-    "ratio", "ratio_ra", "mean", "mean_ra", "quantile_event", "quantile_unit"
-]
+UnadjustedStatisticType = Literal["ratio", "mean", "quantile_event", "quantile_unit"]
+RegressionAdjustedStatisticType = Literal["ratio_ra", "mean_ra"]
+StatisticType = Union[UnadjustedStatisticType, RegressionAdjustedStatisticType]
 MetricType = Literal["binomial", "count", "quantile"]
 BusinessMetricType = Literal["goal", "guardrail", "secondary"]
 
@@ -28,7 +28,9 @@ class AnalysisSettingsForStatsEngine:
     max_dimensions: int = 20
     traffic_percentage: float = 1
     num_goal_metrics: int = 1
+    num_guardrail_metrics: int = 0
     one_sided_intervals: bool = False
+    use_covariate_as_response: bool = False
     post_stratification_enabled: bool = False
 
 
@@ -79,6 +81,7 @@ class MetricSettingsForStatsEngine:
     quantile_value: Optional[float] = None
     business_metric_type: Optional[List[BusinessMetricType]] = None
     target_mde: float = 0.01
+    compute_uncapped_metric: bool = False
 
 
 @dataclass

@@ -59,10 +59,19 @@ describe("features events", () => {
             .fn()
             .mockResolvedValue(new Map([["sr_123", safeRollout]])),
         },
+        savedGroups: {
+          getAll: jest.fn().mockResolvedValue([]),
+        },
       },
       userId: "aabb",
       email: "user@mail.com",
       userName: "User Name",
+      auditUser: {
+        type: "dashboard",
+        id: "aabb",
+        email: "user@mail.com",
+        name: "User Name",
+      },
     };
   });
 
@@ -109,6 +118,7 @@ describe("features events", () => {
             project: "project",
             revision: {
               comment: "",
+              createdBy: "",
               date: "",
               publishedBy: "",
               version: undefined,
@@ -156,7 +166,7 @@ describe("features events", () => {
             id: "id",
             owner: "owner",
             project: "project",
-            revision: { comment: "", date: "", publishedBy: "" },
+            revision: { comment: "", createdBy: "", date: "", publishedBy: "" },
             tags: ["tag"],
             valueType: "string",
           }),
@@ -218,6 +228,7 @@ describe("features events", () => {
             project: "project",
             revision: {
               comment: "",
+              createdBy: "",
               date: "",
               publishedBy: "",
               version: undefined,
@@ -266,7 +277,7 @@ describe("features events", () => {
             id: "id",
             owner: "owner",
             project: "project",
-            revision: { comment: "", date: "", publishedBy: "" },
+            revision: { comment: "", createdBy: "", date: "", publishedBy: "" },
             tags: ["tag"],
             valueType: "string",
           }),
@@ -291,7 +302,7 @@ describe("features events", () => {
             id: "id",
             owner: "owner",
             project: "project",
-            revision: { comment: "", date: "", publishedBy: "" },
+            revision: { comment: "", createdBy: "", date: "", publishedBy: "" },
             tags: ["tag"],
             valueType: "string",
           }),
@@ -350,6 +361,7 @@ describe("features events", () => {
             project: "project",
             revision: {
               comment: "",
+              createdBy: "",
               date: "",
               publishedBy: "",
               version: undefined,
@@ -358,7 +370,7 @@ describe("features events", () => {
             valueType: "string",
           }),
         }),
-        environments: [],
+        environments: ["dev", "production"],
         event: "feature.deleted",
         object: "feature",
         projects: ["project"],
@@ -397,12 +409,12 @@ describe("features events", () => {
             id: "id",
             owner: "owner",
             project: "project",
-            revision: { comment: "", date: "", publishedBy: "" },
+            revision: { comment: "", createdBy: "", date: "", publishedBy: "" },
             tags: ["tag"],
             valueType: "string",
           }),
         }),
-        environments: [],
+        environments: ["dev", "production"],
         event: "feature.deleted",
         object: "feature",
         projects: ["project"],
@@ -415,5 +427,56 @@ describe("features events", () => {
         },
       }),
     );
+  });
+
+  it("includes all environments in feature.deleted event even when feature is disabled", async () => {
+    let rawPayload;
+
+    jest
+      .spyOn(EventModel, "create")
+      .mockImplementation((doc: unknown, callback?: unknown) => {
+        rawPayload = doc.data;
+        const result = { toJSON: () => "" };
+        if (callback) callback(null, result);
+        return result;
+      });
+
+    const disabledFeature = {
+      ...featureSnapshot,
+      environmentSettings: {
+        production: { enabled: false, rules: [] },
+        dev: { enabled: false, rules: [] },
+      },
+    };
+
+    await logFeatureDeletedEvent(context, disabledFeature);
+
+    expect(rawPayload.environments).toEqual(
+      expect.arrayContaining(["dev", "production"]),
+    );
+    expect(rawPayload.environments.length).toBe(2);
+  });
+
+  it("includes all environments when archiving a feature (global event)", async () => {
+    let rawPayload;
+
+    jest
+      .spyOn(EventModel, "create")
+      .mockImplementation((doc: unknown, callback?: unknown) => {
+        rawPayload = doc.data;
+        const result = { toJSON: () => "" };
+        if (callback) callback(null, result);
+        return result;
+      });
+
+    const unarchivedFeature = { ...featureSnapshot, archived: false };
+    const archivedFeature = { ...featureSnapshot, archived: true };
+
+    await logFeatureUpdatedEvent(context, unarchivedFeature, archivedFeature);
+
+    expect(rawPayload.environments).toEqual(
+      expect.arrayContaining(["dev", "production"]),
+    );
+    expect(rawPayload.environments.length).toBe(2);
   });
 });

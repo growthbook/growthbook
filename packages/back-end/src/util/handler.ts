@@ -1,17 +1,19 @@
 import { Request, RequestHandler } from "express";
-import { z, Schema, ZodNever, output } from "zod";
-import { ApiPaginationFields } from "shared/types/openapi";
+import { z, ZodType, ZodNever, output } from "zod";
+import { ApiPaginationFields } from "shared/validators";
 import { UserInterface } from "shared/types/user";
 import { OrganizationInterface } from "shared/types/organization";
+import { HttpVerb } from "back-end/src/api/apiModelHandlers";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
+import { ConflictError } from "./errors";
 import { IS_MULTI_ORG } from "./secrets";
 
-type ApiRequest<
+export type ApiRequest<
   ResponseType = never,
-  ParamsSchema extends Schema = Schema<never>,
-  BodySchema extends Schema = Schema<never>,
-  QuerySchema extends Schema = Schema<never>,
+  ParamsSchema extends ZodType = ZodType<never>,
+  BodySchema extends ZodType = ZodType<never>,
+  QuerySchema extends ZodType = ZodType<never>,
 > = ApiRequestLocals &
   Request<
     z.infer<ParamsSchema>,
@@ -20,7 +22,55 @@ type ApiRequest<
     z.infer<QuerySchema>
   >;
 
-function validate<T extends Schema>(
+export type ExampleRequest<
+  Params = unknown,
+  Body = unknown,
+  Query = unknown,
+  Response = unknown,
+> = {
+  params?: Params;
+  body?: Body;
+  query?: Query;
+  response?: Response;
+};
+
+export type RequestSchemas<ParamsSchema, BodySchema, QuerySchema> = {
+  bodySchema?: BodySchema;
+  querySchema?: QuerySchema;
+  paramsSchema?: ParamsSchema;
+};
+
+export type ApiEndpointSpec<
+  ParamsSchema,
+  BodySchema,
+  QuerySchema,
+  ResponseSchema,
+> = RequestSchemas<ParamsSchema, BodySchema, QuerySchema> & {
+  responseSchema: ResponseSchema;
+  method: HttpVerb;
+  path: string;
+  operationId: string;
+  summary?: string;
+  description?: string;
+  tags?: string[];
+  middleware?: RequestHandler[];
+  exampleRequest?: ExampleRequest<
+    z.infer<ParamsSchema>,
+    z.infer<BodySchema>,
+    z.infer<QuerySchema>,
+    z.infer<ResponseSchema>
+  >;
+  excludeFromSpec?: boolean;
+  version?: "v1" | "v2";
+  deprecated?: boolean;
+  /**
+   * RFC 8594 `Deprecation` header field value. Accepts either `"true"` (deprecated
+   * now, no removal date) or `"@<unix-timestamp>"` (deprecated as of that date).
+   */
+  deprecationDate?: string;
+};
+
+function validate<T extends ZodType>(
   schema: T,
   value: unknown,
 ):
@@ -48,29 +98,102 @@ function validate<T extends Schema>(
   };
 }
 
+export type WrappedRequestHandler<
+  ParamsSchema extends ZodType = ZodType<never>,
+  BodySchema extends ZodType = ZodType<never>,
+  QuerySchema extends ZodType = ZodType<never>,
+  ResponseSchema extends ZodType = ZodType<never>,
+> = RequestHandler<
+  z.infer<ParamsSchema>,
+  ApiErrorResponse | z.infer<ResponseSchema>,
+  z.infer<BodySchema>,
+  z.infer<QuerySchema>
+>;
+
+export type OpenApiRoute<
+  ParamsSchema extends ZodType = ZodType<unknown>,
+  BodySchema extends ZodType = ZodType<unknown>,
+  QuerySchema extends ZodType = ZodType<unknown>,
+  ResponseSchema extends ZodType = ZodType<unknown>,
+> = {
+  method: HttpVerb;
+  path: string;
+  operationId: string;
+  handler: WrappedRequestHandler<
+    ParamsSchema,
+    BodySchema,
+    QuerySchema,
+    ResponseSchema
+  >;
+  middleware?: RequestHandler[];
+  /** API version prefix for the OpenAPI spec path (default: "v1"). */
+  version?: "v1" | "v2";
+  deprecated?: boolean;
+  /**
+   * RFC 8594 `Deprecation` header field value. Accepts either `"true"` (deprecated
+   * now, no removal date) or `"@<unix-timestamp>"` (deprecated as of that date).
+   */
+  deprecationDate?: string;
+  summary?: string;
+  description?: string;
+  tags?: string[];
+  schemas: {
+    params?: ParamsSchema;
+    body?: BodySchema;
+    query?: QuerySchema;
+    response?: ResponseSchema;
+  };
+  exampleRequest?: ExampleRequest<
+    z.infer<ParamsSchema>,
+    z.infer<BodySchema>,
+    z.infer<QuerySchema>,
+    z.infer<ResponseSchema>
+  >;
+  excludeFromSpec?: boolean;
+};
+
 export function createApiRequestHandler<
-  ParamsSchema extends Schema = Schema<never>,
-  BodySchema extends Schema = Schema<never>,
-  QuerySchema extends Schema = Schema<never>,
->({
-  paramsSchema,
-  bodySchema,
-  querySchema,
-}: {
-  bodySchema?: BodySchema;
-  querySchema?: QuerySchema;
-  paramsSchema?: ParamsSchema;
-} = {}) {
-  return <ResponseType>(
+  ParamsSchema extends ZodType = ZodType<never>,
+  BodySchema extends ZodType = ZodType<never>,
+  QuerySchema extends ZodType = ZodType<never>,
+  ResponseSchema extends ZodType = ZodType<never>,
+>(
+  data: ApiEndpointSpec<ParamsSchema, BodySchema, QuerySchema, ResponseSchema>,
+) {
+  const {
+    paramsSchema,
+    bodySchema,
+    querySchema,
+    responseSchema,
+    summary,
+    description,
+    exampleRequest,
+    tags,
+    operationId,
+    method,
+    path,
+    middleware,
+    excludeFromSpec,
+    version,
+    deprecated,
+    deprecationDate,
+  } = data;
+
+  return (
     handler: (
-      req: ApiRequest<ResponseType, ParamsSchema, BodySchema, QuerySchema>,
-    ) => Promise<ResponseType>,
+      req: ApiRequest<
+        z.infer<ResponseSchema>,
+        ParamsSchema,
+        BodySchema,
+        QuerySchema
+      >,
+    ) => Promise<z.infer<ResponseSchema>>,
   ) => {
-    const wrappedHandler: RequestHandler<
-      z.infer<ParamsSchema>,
-      ApiErrorResponse | ResponseType,
-      z.infer<BodySchema>,
-      z.infer<QuerySchema>
+    const wrappedHandler: WrappedRequestHandler<
+      ParamsSchema,
+      BodySchema,
+      QuerySchema,
+      ResponseSchema
     > = async (req, res, next) => {
       try {
         const allErrors: string[] = [];
@@ -107,7 +230,7 @@ export function createApiRequestHandler<
         try {
           const result = await handler(
             req as ApiRequest<
-              ApiErrorResponse | ResponseType,
+              ApiErrorResponse | z.infer<ResponseSchema>,
               ParamsSchema,
               BodySchema,
               QuerySchema
@@ -115,17 +238,50 @@ export function createApiRequestHandler<
           );
           return res.status(200).json(result);
         } catch (e) {
-          return res.status(400).json({
-            message: e.message,
-          });
+          const body: ApiErrorResponse = { message: e.message };
+          // Surface the structured conflicts so clients can react to them.
+          if (e instanceof ConflictError && e.conflicts) {
+            body.conflicts = e.conflicts;
+          }
+          return res.status(e.status || 400).json(body);
         }
       } catch (e) {
         next(e);
       }
     };
-    return wrappedHandler;
+
+    const route: OpenApiRoute<
+      ParamsSchema,
+      BodySchema,
+      QuerySchema,
+      ResponseSchema
+    > = {
+      method,
+      path,
+      operationId,
+      summary,
+      description,
+      tags,
+      exampleRequest,
+      middleware,
+      version,
+      deprecated,
+      deprecationDate,
+      schemas: {
+        params: paramsSchema,
+        body: bodySchema,
+        query: querySchema,
+        response: responseSchema,
+      },
+      handler: wrappedHandler,
+      excludeFromSpec,
+    };
+
+    return route;
   };
 }
+
+export const statusCodeReturn = z.strictObject({ status: z.number() });
 
 export async function validateIsSuperUserRequest(req: {
   user?: UserInterface;
@@ -179,24 +335,54 @@ export function getPaginationReturnFields<T>(
   };
 }
 
+const PAGINATION_LIMIT_DEFAULT = 10;
+const PAGINATION_OFFSET_DEFAULT = 0;
+const PAGINATION_LIMIT_MIN = 1;
+const PAGINATION_LIMIT_MAX = 100;
+
+export type PaginationQuery = {
+  limit?: number | undefined;
+  offset?: number | undefined;
+};
+
+export type PaginationParams = {
+  limit: number;
+  offset: number;
+};
+
+/**
+ * Validates limit and offset params from a query. Use before DB-level pagination
+ */
+export function validatePagination(
+  query: PaginationQuery,
+  defaults: { limit?: number; offset?: number } = {},
+): PaginationParams {
+  const limit = query.limit ?? defaults.limit ?? PAGINATION_LIMIT_DEFAULT;
+  const offset = query.offset ?? defaults.offset ?? PAGINATION_OFFSET_DEFAULT;
+  if (
+    Number.isNaN(limit) ||
+    limit < PAGINATION_LIMIT_MIN ||
+    limit > PAGINATION_LIMIT_MAX
+  ) {
+    throw new Error("Pagination limit must be between 1 and 100");
+  }
+  if (Number.isNaN(offset) || offset < 0) {
+    throw new Error("Invalid pagination offset");
+  }
+  return { limit, offset };
+}
+
 /**
  * Given an unpaginated list of items and a query object, return the paginated list of items and the pagination fields
  */
 export function applyPagination<T>(
   items: T[],
-  query: { limit?: number | undefined; offset?: number | undefined },
+  query: PaginationQuery,
 ): {
   filtered: T[];
   returnFields: ApiPaginationFields;
 } {
-  const limit = query.limit || 10;
-  const offset = query.offset || 0;
-  if (isNaN(limit) || limit < 1 || limit > 100) {
-    throw new Error("Pagination limit must be between 1 and 100");
-  }
-  if (isNaN(offset) || offset < 0) {
-    throw new Error("Invalid pagination offset");
-  }
+  const { limit, offset } = validatePagination(query);
 
   const filtered = items.slice(offset, limit + offset);
   const nextOffset = offset + limit;

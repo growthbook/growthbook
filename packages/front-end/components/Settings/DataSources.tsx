@@ -1,9 +1,9 @@
 import React, { FC } from "react";
 import { useRouter } from "next/router";
-import Link from "next/link";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { ago } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
+import Link from "@/ui/Link";
 import ProjectBadges from "@/components/ProjectBadges";
 import { hasFileConfig } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";

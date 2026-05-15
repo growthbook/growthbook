@@ -268,7 +268,7 @@ export const postEnvironment = async (
   }
 
   if (environment.parent && !DEFAULT_ENVIRONMENT_IDS.includes(environment.id)) {
-    throw new Error(
+    context.throwBadRequestError(
       `Manual environment inheritance only valid for environments ${DEFAULT_ENVIRONMENT_IDS.join(
         ", ",
       )}. For programmatic control use the API endpoint instead.`,
