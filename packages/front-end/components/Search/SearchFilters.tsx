@@ -3,6 +3,7 @@ import {
   FC,
   Fragment,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -109,6 +110,7 @@ export const FilterDropdown: FC<{
   menuPlacement = "start",
 }) => {
   const [filterSearch, setFilterSearch] = useState<string>("");
+  const filterLabel = heading ?? filter;
   const showSearchFilter = useMemo(
     () => USE_SEARCH_BOX && items.length > 10,
     [items],
@@ -132,11 +134,21 @@ export const FilterDropdown: FC<{
   );
 
   const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (open !== filter) {
+      setFilterSearch("");
+      return;
+    }
+
+    if (showSearchFilter) {
+      inputRef.current?.focus();
+    }
+  }, [filter, open, showSearchFilter]);
 
   return (
     <DropdownMenu
       trigger={FilterHeading({
-        heading: heading ?? filter,
+        heading: filterLabel,
         open: open === filter,
       })}
       variant="soft"
@@ -146,7 +158,7 @@ export const FilterDropdown: FC<{
         setOpen(o ? filter : "");
       }}
     >
-      <DropdownMenuLabel>Filter by {heading ?? filter}</DropdownMenuLabel>
+      <DropdownMenuLabel>Filter by {filterLabel}</DropdownMenuLabel>
       {showSearchFilter && (
         <Box px="2" pb="1" style={{ maxWidth: "250px" }}>
           <Field
@@ -154,6 +166,8 @@ export const FilterDropdown: FC<{
             value={filterSearch}
             onChange={(e) => setFilterSearch(e.target.value)}
             type="search"
+            placeholder={`Search ${filterLabel}`}
+            aria-label={`Search ${filterLabel} filters`}
             onKeyDown={(e) => {
               if (e.key !== "ArrowUp" && e.key !== "ArrowDown") {
                 e.stopPropagation();
