@@ -348,7 +348,7 @@ export default function FeatureModal({
             }>(`/feature/${res.feature.id}/import-draft`, {
               method: "POST",
               body: JSON.stringify({
-                rules,
+                rules: feature.rules,
                 environmentsEnabled: Object.fromEntries(
                   Object.keys(createEnvironmentSettings).map((env) => [
                     env,
@@ -379,7 +379,8 @@ export default function FeatureModal({
         track("Feature Created", {
           valueType: values.valueType,
           hasDescription: !!values.description?.length,
-          initialRule: isImport && rules.length ? "imported-draft" : "none",
+          initialRule:
+            isImport && feature.rules?.length ? "imported-draft" : "none",
         });
         values.tags && refreshTags(values.tags);
         refreshWatching();
