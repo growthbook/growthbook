@@ -167,10 +167,10 @@ const genFormDefaultValues = ({
       ? {
           valueType: featureToImport.valueType,
           defaultValue: featureToImport.defaultValue,
-          description: featureToImport.description,
+          description: featureToImport.description ?? "",
           id: featureToImport.id,
-          project,
-          tags: featureToImport.tags,
+          project: featureToImport.project ?? project,
+          tags: featureToImport.tags ?? [],
           environmentSettings,
           rules: featureToImport.rules ?? [],
           customFields: importedCustomFieldValues,
@@ -341,25 +341,39 @@ export default function FeatureModal({
 
         let draftVersion: number | undefined;
         if (isImport) {
-          const importDraftRes = await apiCall<{
-            status: 200;
-            draftVersion: number;
-          }>(`/feature/${res.feature.id}/import-draft`, {
-            method: "POST",
-            body: JSON.stringify({
-              rules,
-              environmentsEnabled: Object.fromEntries(
-                Object.keys(createEnvironmentSettings).map((env) => [
-                  env,
-                  true,
-                ]),
-              ),
-              title: "Imported feature configuration",
-              comment:
-                "Imported from a copied GrowthBook feature configuration.",
-            }),
-          });
-          draftVersion = importDraftRes.draftVersion;
+          try {
+            const importDraftRes = await apiCall<{
+              status: 200;
+              draftVersion: number;
+            }>(`/feature/${res.feature.id}/import-draft`, {
+              method: "POST",
+              body: JSON.stringify({
+                rules,
+                environmentsEnabled: Object.fromEntries(
+                  Object.keys(createEnvironmentSettings).map((env) => [
+                    env,
+                    true,
+                  ]),
+                ),
+                title: "Imported feature configuration",
+                comment:
+                  "Imported from a copied GrowthBook feature configuration.",
+              }),
+            });
+            draftVersion = importDraftRes.draftVersion;
+          } catch (e) {
+            // The live feature was created but the draft with the imported
+            // rules failed — clean up so the user isn't left with an empty,
+            // permanently-disabled feature. Surface the original error.
+            try {
+              await apiCall(`/feature/${res.feature.id}`, {
+                method: "DELETE",
+              });
+            } catch {
+              // If cleanup fails, fall through and surface the original error.
+            }
+            throw e;
+          }
         }
 
         track("Feature Created", {
@@ -497,7 +511,14 @@ export default function FeatureModal({
             <MarkdownInput
               value={form.watch("description") || ""}
               setValue={(value) => form.setValue("description", value)}
-              autofocus={!featureToDuplicate?.description?.length}
+              // Autofocus only when there's no preexisting description to
+              // read — pre-populated content (from duplicate or import) means
+              // the user is more likely reviewing than typing, and focusing
+              // the editor scrolls the modal past the informational callouts.
+              autofocus={
+                !featureToDuplicate?.description?.length &&
+                !featureToImport?.description?.length
+              }
             />
           </Box>
         </div>

@@ -1,0 +1,326 @@
+import { useMemo, useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiArrowRight } from "react-icons/pi";
+import {
+  GrowthBookClipboardReferenceContext,
+  GrowthBookFeatureClipboardPayload,
+  SafeRolloutInterface,
+} from "shared/validators";
+import { FeatureInterface } from "shared/types/feature";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import Modal from "@/ui/Modal";
+import ModalForm from "@/ui/Modal/ModalForm";
+import Button from "@/ui/Button";
+import Text from "@/ui/Text";
+import SelectField from "@/components/Forms/SelectField";
+import Callout from "@/ui/Callout";
+import useApi from "@/hooks/useApi";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useExperiments } from "@/hooks/useExperiments";
+import { useEnvironments, useFeaturesList } from "@/services/features";
+import {
+  applyFeatureReferenceMappings,
+  EMPTY_FEATURE_REFERENCE_MAPPINGS,
+  FeatureReferenceCategory,
+  FeatureReferenceMappings,
+} from "@/services/feature-configuration-clipboard";
+
+type CategoryDescriptor = {
+  category: FeatureReferenceCategory;
+  title: string;
+  emptyMessage: string;
+};
+
+const CATEGORIES: CategoryDescriptor[] = [
+  {
+    category: "experiments",
+    title: "Experiments",
+    emptyMessage:
+      "No experiments in this organization. Mapping not available — these rules will be created with their original (broken) reference.",
+  },
+  {
+    category: "savedGroups",
+    title: "Saved Groups",
+    emptyMessage:
+      "No saved groups in this organization. Mapping not available — these references will be left as-is.",
+  },
+  {
+    category: "safeRollouts",
+    title: "Safe Rollouts",
+    emptyMessage:
+      "No safe rollouts in this organization. Mapping not available — these rules will be created with their original (broken) reference.",
+  },
+  {
+    category: "features",
+    title: "Prerequisite Features",
+    emptyMessage:
+      "No other features in this organization. Mapping not available — these prerequisites will be left as-is.",
+  },
+  {
+    category: "environments",
+    title: "Environments",
+    emptyMessage:
+      "No environments configured in this organization. Mapping not available — env-scoped rules will keep their source ids.",
+  },
+];
+
+type Option = { label: string; value: string };
+
+// Returns the references manifest grouped by category. The manifest is the
+// source of truth for which references to show — it's produced by the
+// exporter, which knows which ids each rule referenced and enriches them with
+// source-org names + details.
+function buildReferenceRows(
+  payload: GrowthBookFeatureClipboardPayload,
+): Record<FeatureReferenceCategory, GrowthBookClipboardReferenceContext[]> {
+  return {
+    experiments: payload.references.experiments,
+    savedGroups: payload.references.savedGroups,
+    safeRollouts: payload.references.safeRollouts,
+    features: payload.references.features,
+    environments: payload.references.environments,
+  };
+}
+
+export default function FeatureConfigurationReferenceMappingModal({
+  payload,
+  close,
+  onConfirm,
+}: {
+  payload: GrowthBookFeatureClipboardPayload;
+  close: () => void;
+  onConfirm: (mappedPayload: GrowthBookFeatureClipboardPayload) => void;
+}) {
+  const rowsByCategory = useMemo(() => buildReferenceRows(payload), [payload]);
+
+  const totalRefs =
+    rowsByCategory.experiments.length +
+    rowsByCategory.savedGroups.length +
+    rowsByCategory.safeRollouts.length +
+    rowsByCategory.features.length +
+    rowsByCategory.environments.length;
+
+  const { experiments } = useExperiments(undefined, /* includeArchived */ true);
+  const { savedGroups } = useDefinitions();
+  const { data: safeRolloutsData } = useApi<{
+    status: 200;
+    safeRollouts: SafeRolloutInterface[];
+  }>("/safe-rollout");
+  const { features } = useFeaturesList({
+    useCurrentProject: false,
+    includeArchived: true,
+  });
+  const destinationEnvironments = useEnvironments();
+
+  const optionsByCategory: Record<FeatureReferenceCategory, Option[]> = useMemo(
+    () => ({
+      experiments: experiments.map(
+        (e: ExperimentInterfaceStringDates): Option => ({
+          label: e.name ? `${e.name} (${e.id})` : e.id,
+          value: e.id,
+        }),
+      ),
+      savedGroups: savedGroups.map(
+        (sg): Option => ({
+          label: sg.groupName ? `${sg.groupName} (${sg.id})` : sg.id,
+          value: sg.id,
+        }),
+      ),
+      safeRollouts: (safeRolloutsData?.safeRollouts ?? []).map(
+        (sr): Option => ({
+          label: sr.featureId
+            ? `${sr.featureId} / ${sr.environment} (${sr.id})`
+            : sr.id,
+          value: sr.id,
+        }),
+      ),
+      features: (features ?? []).map(
+        (f: FeatureInterface): Option => ({
+          label: f.description ? `${f.id} — ${f.description}` : f.id,
+          value: f.id,
+        }),
+      ),
+      environments: destinationEnvironments.map(
+        (env): Option => ({
+          label: env.description ? `${env.id} — ${env.description}` : env.id,
+          value: env.id,
+        }),
+      ),
+    }),
+    [
+      experiments,
+      savedGroups,
+      safeRolloutsData,
+      features,
+      destinationEnvironments,
+    ],
+  );
+
+  // Pre-populate any reference whose source id exists in the destination org.
+  // For those rows we leave the SelectField at that value so the user can
+  // confirm or override; everything else starts blank and must be chosen.
+  const [mappings, setMappings] = useState<FeatureReferenceMappings>(() => {
+    const next: FeatureReferenceMappings = {
+      experiments: { ...EMPTY_FEATURE_REFERENCE_MAPPINGS.experiments },
+      savedGroups: { ...EMPTY_FEATURE_REFERENCE_MAPPINGS.savedGroups },
+      safeRollouts: { ...EMPTY_FEATURE_REFERENCE_MAPPINGS.safeRollouts },
+      features: { ...EMPTY_FEATURE_REFERENCE_MAPPINGS.features },
+      environments: { ...EMPTY_FEATURE_REFERENCE_MAPPINGS.environments },
+    };
+    (Object.keys(rowsByCategory) as FeatureReferenceCategory[]).forEach(
+      (category) => {
+        const validIds = new Set(
+          optionsByCategory[category].map((o) => o.value),
+        );
+        rowsByCategory[category].forEach((row) => {
+          if (validIds.has(row.id)) next[category][row.id] = row.id;
+        });
+      },
+    );
+    return next;
+  });
+
+  // We treat the form as complete once every row either has an explicit
+  // mapping or is skipped because no options exist in the destination org.
+  const allMapped = (
+    Object.keys(rowsByCategory) as FeatureReferenceCategory[]
+  ).every((category) => {
+    const options = optionsByCategory[category];
+    if (!options.length) return true;
+    return rowsByCategory[category].every(
+      (row) => !!mappings[category][row.id],
+    );
+  });
+
+  if (totalRefs === 0) {
+    // Defensive: parent should have skipped opening this modal. Auto-confirm.
+    onConfirm(payload);
+    return null;
+  }
+
+  return (
+    <Modal.Root
+      open
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) close();
+      }}
+      size="lg"
+      trackingEventModalType="feature-import-reference-mapping"
+    >
+      <ModalForm
+        onSubmit={() => {
+          // Advance the state machine manually here. We deliberately avoid
+          // ModalStandard (which would call `close()` on submit success) —
+          // `close` is wired to clear the import payload, which would race
+          // the `onConfirm` update and drop us out of the flow with no UI.
+          const mappedFeature = applyFeatureReferenceMappings(
+            payload.feature,
+            mappings,
+          );
+          onConfirm({ ...payload, feature: mappedFeature });
+        }}
+      >
+        <Modal.Header>
+          <Modal.Title>Map References Before Importing</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Callout status="info" mb="3">
+            This feature was exported from another GrowthBook instance and
+            references objects that may not exist here. Pick the matching
+            experiment, saved group, safe rollout, or feature in this
+            organization for each reference below.
+          </Callout>
+
+          {CATEGORIES.map((cat) => {
+            const rows = rowsByCategory[cat.category];
+            if (!rows.length) return null;
+            const options = optionsByCategory[cat.category];
+            return (
+              <Box key={cat.category} mb="4">
+                <Text size="large" weight="semibold">
+                  {cat.title}
+                </Text>
+                {options.length === 0 ? (
+                  <Callout status="warning" mt="2">
+                    {cat.emptyMessage}
+                  </Callout>
+                ) : (
+                  <Box mt="2">
+                    {rows.map((row) => (
+                      <Flex
+                        key={row.id}
+                        align="center"
+                        gap="3"
+                        mb="3"
+                        style={{ width: "100%" }}
+                      >
+                        <Box style={{ flex: 1, minWidth: 0 }}>
+                          <Text weight="medium" as="div">
+                            {row.name || row.id}
+                          </Text>
+                          <Text size="small" as="div" color="text-low">
+                            {row.id}
+                          </Text>
+                          {row.details && (
+                            <Text size="small" as="div" color="text-low">
+                              {row.details}
+                            </Text>
+                          )}
+                        </Box>
+                        <Box style={{ flexShrink: 0 }}>
+                          <PiArrowRight size={18} />
+                        </Box>
+                        <Box style={{ flex: 1, minWidth: 0 }}>
+                          <SelectField
+                            value={mappings[cat.category][row.id] ?? ""}
+                            options={options}
+                            placeholder={`Select a ${cat.title.toLowerCase().slice(0, -1)}...`}
+                            onChange={(value) => {
+                              setMappings((prev) => ({
+                                ...prev,
+                                [cat.category]: {
+                                  ...prev[cat.category],
+                                  [row.id]: value,
+                                },
+                              }));
+                            }}
+                            sort
+                          />
+                        </Box>
+                      </Flex>
+                    ))}
+                  </Box>
+                )}
+              </Box>
+            );
+          })}
+        </Modal.Body>
+        <Modal.Footer>
+          <Modal.Close>
+            <Button variant="ghost" onClick={close}>
+              Cancel
+            </Button>
+          </Modal.Close>
+          <Button type="submit" disabled={!allMapped}>
+            Continue
+          </Button>
+        </Modal.Footer>
+      </ModalForm>
+    </Modal.Root>
+  );
+}
+
+// Helper used by the parent to decide whether to render the modal at all.
+// Returns true if the payload's references manifest contains at least one
+// cross-org reference that the importer needs to resolve.
+export function payloadHasReferences(
+  payload: GrowthBookFeatureClipboardPayload,
+): boolean {
+  const r = payload.references;
+  return (
+    r.experiments.length > 0 ||
+    r.savedGroups.length > 0 ||
+    r.safeRollouts.length > 0 ||
+    r.features.length > 0
+  );
+}

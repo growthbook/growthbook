@@ -8,8 +8,9 @@ import { filterEnvironmentsByFeature, isDefined } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiEye, PiWarning } from "react-icons/pi";
-import { HoldoutInterface } from "shared/validators";
+import { HoldoutInterface, SafeRolloutInterface } from "shared/validators";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import { useUser } from "@/services/UserContext";
@@ -61,6 +62,8 @@ export default function FeaturesHeader({
   setEditFeatureInfoModal,
   holdout,
   isReadOnly = false,
+  experiments,
+  safeRollouts,
 }: {
   feature: FeatureInterface;
   mutate: () => Promise<unknown>;
@@ -72,6 +75,8 @@ export default function FeaturesHeader({
   setEditFeatureInfoModal: (open: boolean) => void;
   holdout: HoldoutInterface | undefined;
   isReadOnly?: boolean;
+  experiments?: ExperimentInterfaceStringDates[];
+  safeRollouts?: SafeRolloutInterface[];
 }) {
   const router = useRouter();
   const projectId = feature?.project;
@@ -118,6 +123,7 @@ export default function FeaturesHeader({
     getProjectById,
     project: currentProject,
     projects,
+    savedGroups,
   } = useDefinitions();
   const { holdouts } = useHoldouts(feature.project);
   const holdoutsEnabled = hasCommercialFeature("holdouts");
@@ -204,8 +210,45 @@ export default function FeaturesHeader({
   const copyFeatureConfiguration = async () => {
     setDropdownOpen(false);
     try {
+      // Enrich the clipboard payload with the source org's names for any
+      // referenced experiments / saved groups / safe rollouts so the import-
+      // time mapping UI can show useful context to the destination user.
+      const experimentsLookup = new Map(
+        (experiments ?? []).map((e) => [
+          e.id,
+          { name: e.name, hypothesis: e.hypothesis },
+        ]),
+      );
+      const savedGroupsLookup = new Map(
+        savedGroups.map((sg) => [
+          sg.id,
+          {
+            groupName: sg.groupName,
+            type: sg.type,
+            attributeKey: sg.attributeKey,
+          },
+        ]),
+      );
+      const safeRolloutsLookup = new Map(
+        (safeRollouts ?? []).map((sr) => [
+          sr.id,
+          { featureId: sr.featureId, environment: sr.environment },
+        ]),
+      );
+      const environmentsLookup = new Map(
+        allEnvironments.map((env) => [
+          env.id,
+          { description: env.description },
+        ]),
+      );
+
       await navigator.clipboard.writeText(
-        buildFeatureConfigurationClipboardPayload(feature),
+        buildFeatureConfigurationClipboardPayload(feature, {
+          experiments: experimentsLookup,
+          savedGroups: savedGroupsLookup,
+          safeRollouts: safeRolloutsLookup,
+          environments: environmentsLookup,
+        }),
       );
       setCopyFeatureConfigMessage("success");
     } catch {

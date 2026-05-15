@@ -17,10 +17,42 @@ export const growthbookClipboardMetadata = z
   .object({
     source: z.literal("growthbook"),
     object: z.literal("feature"),
-    version: z.literal(1),
+    // Accept any positive integer version. Field-level validation below will
+    // catch any structural incompatibility from a future envelope rather than
+    // silently rejecting the entire paste with no feedback.
+    version: z.number().int().min(1),
     exportedAt: z.string().optional(),
   })
   .strict();
+
+// Source-org context for a single reference (experiment, saved group, etc.).
+// `name` (and `details` when present) are shown in the import-time reference
+// mapping UI so a user can identify what the original referred to.
+export const growthbookClipboardReferenceContext = z
+  .object({
+    id: z.string(),
+    name: z.string().optional(),
+    details: z.string().optional(),
+  })
+  .strict();
+
+export type GrowthBookClipboardReferenceContext = z.infer<
+  typeof growthbookClipboardReferenceContext
+>;
+
+export const growthbookFeatureClipboardReferences = z
+  .object({
+    experiments: z.array(growthbookClipboardReferenceContext),
+    savedGroups: z.array(growthbookClipboardReferenceContext),
+    safeRollouts: z.array(growthbookClipboardReferenceContext),
+    features: z.array(growthbookClipboardReferenceContext),
+    environments: z.array(growthbookClipboardReferenceContext),
+  })
+  .strict();
+
+export type GrowthBookFeatureClipboardReferences = z.infer<
+  typeof growthbookFeatureClipboardReferences
+>;
 
 export const growthbookFeatureClipboardFeature = z
   .object({
@@ -42,6 +74,7 @@ export const growthbookFeatureClipboardPayload = z
   .object({
     growthbook: growthbookClipboardMetadata,
     feature: growthbookFeatureClipboardFeature,
+    references: growthbookFeatureClipboardReferences,
   })
   .strict();
 

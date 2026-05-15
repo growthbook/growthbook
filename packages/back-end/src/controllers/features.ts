@@ -3603,18 +3603,28 @@ export async function postFeatureImportDraft(
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
-  const changedEnvironments = Object.keys(environmentsEnabled);
 
-  changedEnvironments.forEach((env) => {
+  Object.keys(environmentsEnabled).forEach((env) => {
     if (!environmentIds.includes(env)) {
       throw new Error(`Invalid environment: ${env}`);
     }
   });
 
+  // Publish permission is only required for environments whose enabled state
+  // differs from the live feature — those are the ones a future publish of
+  // this draft would actually flip.
+  const envsRequiringPublish = Object.entries(environmentsEnabled)
+    .filter(
+      ([env, enabled]) =>
+        (feature.environmentSettings?.[env]?.enabled ?? false) !== enabled,
+    )
+    .map(([env]) => env);
+
   if (
     !context.permissions.canUpdateFeature(feature, {}) ||
     !context.permissions.canManageFeatureDrafts(feature) ||
-    !context.permissions.canPublishFeature(feature, changedEnvironments)
+    (envsRequiringPublish.length > 0 &&
+      !context.permissions.canPublishFeature(feature, envsRequiringPublish))
   ) {
     context.permissions.throwPermissionError();
   }
