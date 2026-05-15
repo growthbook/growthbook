@@ -1,16 +1,10 @@
-import {
-  ExperimentInterfaceStringDates,
-  LinkedFeatureInfo,
-} from "shared/types/experiment";
-import React, { useState } from "react";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { useState } from "react";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
 import { Box, Flex, ScrollArea } from "@radix-ui/themes";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Markdown from "@/components/Markdown/Markdown";
@@ -36,16 +30,8 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   holdout?: HoldoutInterfaceStringDates;
   holdoutExperiments?: ExperimentInterfaceStringDates[];
-  visualChangesets: VisualChangesetInterface[];
   mutate: () => void;
-  editTargeting?: (() => void) | null;
-  linkedFeatures: LinkedFeatureInfo[];
-  matchingConnections: SDKConnectionInterface[];
   disableEditing?: boolean;
-  checklistItemsRemaining: number | null;
-  setChecklistItemsRemaining: (value: number | null) => void;
-  setChecklistHardBlockerCount?: (value: number) => void;
-  envs: string[];
   editHoldoutSchedule?: (() => void) | null;
 }
 
@@ -53,16 +39,8 @@ export default function SetupTabOverview({
   experiment,
   holdout,
   holdoutExperiments,
-  visualChangesets,
   mutate,
-  editTargeting,
-  linkedFeatures,
-  matchingConnections,
   disableEditing,
-  checklistItemsRemaining,
-  setChecklistItemsRemaining,
-  setChecklistHardBlockerCount,
-  envs,
   editHoldoutSchedule,
 }: Props) {
   const { aiEnabled, aiAgreedTo } = useAISettings();
@@ -152,20 +130,6 @@ export default function SetupTabOverview({
             </Button>
           ) : null}
         </Flex>
-        {experiment.status === "draft" && experiment.type !== "holdout" ? (
-          <PreLaunchChecklist
-            experiment={experiment}
-            envs={envs}
-            mutateExperiment={mutate}
-            linkedFeatures={linkedFeatures}
-            visualChangesets={visualChangesets}
-            editTargeting={editTargeting}
-            connections={matchingConnections}
-            checklistItemsRemaining={checklistItemsRemaining}
-            setChecklistItemsRemaining={setChecklistItemsRemaining}
-            setChecklistHardBlockerCount={setChecklistHardBlockerCount}
-          />
-        ) : null}
         {isHoldout && holdout && holdoutHasSchedule && editHoldoutSchedule ? (
           <Frame id="holdout-schedule" style={{ scrollMarginTop: "100px" }}>
             <Flex align="center" justify="between" className="text-dark">

@@ -47,6 +47,7 @@ import { useExperimentDashboards } from "@/hooks/useDashboards";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import CompareExperimentEventsModal from "@/components/Experiment/CompareExperimentEventsModal";
+import { PreLaunchChecklistDrawer } from "@/components/Experiment/PreLaunchChecklist";
 import ExperimentHeader from "./ExperimentHeader";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
@@ -620,9 +621,6 @@ export default function TabbedPage({
             visualChangesets={visualChangesets}
             editTargeting={editTargeting}
             matchingConnections={matchingConnections}
-            checklistItemsRemaining={checklistItemsRemaining}
-            setChecklistItemsRemaining={setChecklistItemsRemaining}
-            setChecklistHardBlockerCount={setChecklistHardBlockerCount}
             envs={envs}
             editHoldoutSchedule={editHoldoutSchedule}
           />
@@ -775,6 +773,24 @@ export default function TabbedPage({
           </div>
         </div>
       )}
+
+      {tab === "overview" &&
+        !showDashboardView &&
+        experiment.status === "draft" &&
+        experiment.type !== "holdout" && (
+          <PreLaunchChecklistDrawer
+            experiment={experiment}
+            linkedFeatures={linkedFeatures}
+            visualChangesets={visualChangesets}
+            connections={connections}
+            mutateExperiment={mutate}
+            checklistItemsRemaining={checklistItemsRemaining}
+            setChecklistItemsRemaining={setChecklistItemsRemaining}
+            setChecklistHardBlockerCount={setChecklistHardBlockerCount}
+            editTargeting={editTargeting}
+            envs={envs}
+          />
+        )}
     </>
   );
 }

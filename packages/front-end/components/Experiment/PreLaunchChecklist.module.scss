@@ -1,3 +1,53 @@
+@use "../../styles/variables";
+
+.drawer {
+  position: fixed;
+  bottom: 0;
+  left: calc(variables.$sidebarwidth + 15px);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.drawerHeader {
+  width: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  cursor: pointer;
+  user-select: none;
+  background-color: var(--color-landmark, #0c1225);
+  color: #fff;
+  border-radius: 8px 8px 0 0;
+  border: 1px solid var(--slate-a3);
+  border-bottom: none;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
+
+  &:hover {
+    background-color: color-mix(
+      in srgb,
+      var(--color-landmark, #0c1225) 100%,
+      white 8%
+    );
+  }
+}
+
+.drawerBody {
+  // Matches the width of .pagecontents blocks: viewport minus sidebar and both 15px paddings
+  width: calc(100vw - variables.$sidebarwidth - 30px);
+  max-width: calc(1340px - 30px);
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 8px 14px 14px;
+  background-color: var(--color-landmark, #0c1225);
+  color: #fff;
+  border: 1px solid var(--slate-a3);
+  border-bottom: none;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
+}
+
 // Auto items aren't user-toggleable; the label cursor and the inner
 // checkbox button both need their pointer reset.
 .readonly {
