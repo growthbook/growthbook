@@ -4246,6 +4246,7 @@ export async function getLinkedFeatureInfo(
         valuesFrom: matches[0]?.environmentId || "",
         rulesAbove: matches.some((m) => m.i > 0),
         inconsistentValues: uniqueValues.size > 1,
+        liveHasMatchingRule: liveMatches.length > 0,
         ...(pendingApproval !== undefined && { pendingApproval }),
         ...(matchedDraftRevision && {
           draftRevisionVersion: matchedDraftRevision.version,

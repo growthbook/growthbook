@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiCaretDown } from "react-icons/pi";
+import { PiCaretDown, PiLockSimple } from "react-icons/pi";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { date } from "shared/dates";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import RevisionLabel, {
   revisionLabelText,
 } from "@/components/Features/RevisionLabel";
@@ -34,6 +35,8 @@ export default function DraftSelectorDropdown({
   canAutoPublish,
   gatedEnvSet,
   hideExisting = false,
+  locked = false,
+  lockedTooltip,
 }: {
   feature: FeatureInterface;
   revisionList: MinimalFeatureRevisionInterface[];
@@ -44,6 +47,11 @@ export default function DraftSelectorDropdown({
   canAutoPublish: boolean;
   gatedEnvSet: Set<string> | "all" | "none";
   hideExisting?: boolean;
+  // When true, the dropdown is rendered as a non-interactive label pinned to
+  // the currently-selected revision. The caller is responsible for ensuring
+  // `mode === "existing"` and `selectedDraft` points at the pinned revision.
+  locked?: boolean;
+  lockedTooltip?: string;
 }) {
   const ctx = useFeatureRevisionsContext();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -118,6 +126,51 @@ export default function DraftSelectorDropdown({
     }
     return "Save to new draft";
   })();
+
+  if (locked) {
+    const lockedTrigger = (
+      <Flex
+        align="center"
+        gap="2"
+        className="dropdown-trigger-select-style"
+        style={{
+          overflow: "hidden",
+          opacity: 0.85,
+          cursor: "default",
+          paddingLeft: 8,
+          paddingRight: 8,
+          borderRadius: 6,
+        }}
+        width="195px"
+        height="24px"
+      >
+        <PiLockSimple style={{ flexShrink: 0 }} />
+        <Box style={{ flex: 1, minWidth: 0 }}>
+          <Text size="small" color="text-high">
+            <span
+              style={{
+                display: "block",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {triggerLabel}
+            </span>
+          </Text>
+        </Box>
+      </Flex>
+    );
+    return (
+      <Box width="195px">
+        {lockedTooltip ? (
+          <Tooltip content={lockedTooltip}>{lockedTrigger}</Tooltip>
+        ) : (
+          lockedTrigger
+        )}
+      </Box>
+    );
+  }
 
   const handlePickNew = () => {
     setMode("new");

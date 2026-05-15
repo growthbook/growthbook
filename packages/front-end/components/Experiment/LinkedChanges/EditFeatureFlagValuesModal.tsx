@@ -124,11 +124,30 @@ export default function EditFeatureFlagValuesModal({
 
   const defaultDraft = useDefaultDraft(revisionList);
 
-  const [mode, setMode] = useState<DraftMode>(
-    defaultDraft != null ? "existing" : canAutoPublish ? "publish" : "new",
-  );
+  // The linking flow always creates a pending draft that adds the
+  // experiment-ref rule, so live doesn't have the rule yet. In that state,
+  // "Apply now" (publish to live) would fail on the back-end because there's
+  // no rule on live to update. Force the modal into the only path that works:
+  // save the change to the existing draft that already adds the rule.
+  const ruleOnlyOnDraft =
+    info.state === "draft" &&
+    !info.liveHasMatchingRule &&
+    info.draftRevisionVersion != null;
+
+  const initialMode: DraftMode = ruleOnlyOnDraft
+    ? "existing"
+    : defaultDraft != null
+      ? "existing"
+      : canAutoPublish
+        ? "publish"
+        : "new";
+  const initialSelectedDraft = ruleOnlyOnDraft
+    ? (info.draftRevisionVersion ?? null)
+    : defaultDraft;
+
+  const [mode, setMode] = useState<DraftMode>(initialMode);
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
-    defaultDraft,
+    initialSelectedDraft,
   );
   const [isEditingVariations, setIsEditingVariations] = useState(false);
 
@@ -173,8 +192,14 @@ export default function EditFeatureFlagValuesModal({
           setMode={setMode}
           selectedDraft={selectedDraft}
           setSelectedDraft={setSelectedDraft}
-          canAutoPublish={canAutoPublish}
+          canAutoPublish={ruleOnlyOnDraft ? false : canAutoPublish}
           gatedEnvSet={gatedEnvSet}
+          locked={ruleOnlyOnDraft}
+          lockedTooltip={
+            ruleOnlyOnDraft
+              ? "This experiment is added in this draft revision. Changes will be saved to it."
+              : undefined
+          }
         />
       }
       submit={form.handleSubmit(async (values) => {
