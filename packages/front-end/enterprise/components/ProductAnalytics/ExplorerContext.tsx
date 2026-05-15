@@ -85,9 +85,6 @@ export interface ExplorerContextValue {
     "bigNumberTrends" | "tableTrendsByRow" | "previousPeriod"
   > | null;
   setCompareEnabled: (value: boolean) => void;
-  /** Draft comparison window when Compare is on (controlled or embedded). */
-  previousTimeFrame: ExplorationDateRange | null;
-  setPreviousTimeFrame: (value: ExplorationDateRange | null) => void;
 
   // ─── Modifiers ─────────────────────────────────────────────────────────
   setDraftExploreState: (action: SetDraftStateAction) => void;
@@ -129,11 +126,6 @@ interface ExplorerProviderProps {
   hasExistingResults?: boolean;
   onRunComplete?: (exploration: ProductAnalyticsExploration) => void;
   trackingSource?: string;
-  /** Controlled comparison window (e.g. nuqs on the explore page). */
-  previousTimeFrame?: ExplorationDateRange | null;
-  onPreviousTimeFrameChange?: (value: ExplorationDateRange | null) => void;
-  /** Uncontrolled initial comparison window (e.g. embedded explorer). */
-  initialPreviousTimeFrame?: ExplorationDateRange | null;
 }
 
 export function ExplorerProvider({
@@ -142,9 +134,6 @@ export function ExplorerProvider({
   hasExistingResults = false,
   onRunComplete,
   trackingSource,
-  previousTimeFrame: controlledPreviousTimeFrame,
-  onPreviousTimeFrameChange,
-  initialPreviousTimeFrame = null,
 }: ExplorerProviderProps) {
   const { loading, fetchData } = useExploreData();
   const {
@@ -191,18 +180,6 @@ export function ExplorerProvider({
   );
   const [comparisonComputed, setComparisonComputed] =
     useState<ExplorerContextValue["comparisonComputed"]>(null);
-  const [submittedPreviousTimeFrame, setSubmittedPreviousTimeFrame] =
-    useState<ExplorationDateRange | null>(null);
-  const [embeddedPreviousTimeFrame, setEmbeddedPreviousTimeFrame] =
-    useState<ExplorationDateRange | null>(initialPreviousTimeFrame);
-
-  const isPreviousControlled = onPreviousTimeFrameChange !== undefined;
-  const activePreviousTimeFrame = isPreviousControlled
-    ? (controlledPreviousTimeFrame ?? null)
-    : embeddedPreviousTimeFrame;
-  const setActivePreviousTimeFrame = isPreviousControlled
-    ? onPreviousTimeFrameChange
-    : setEmbeddedPreviousTimeFrame;
 
   const normalizedInitialDateRange = useMemo(() => {
     const withUnits = fillMissingUnits(
@@ -223,10 +200,7 @@ export function ExplorerProvider({
 
   const draftExploreState: ExplorationConfig = explorerState.draftState;
 
-  const draftExploreStateRef = useRef(draftExploreState);
-  draftExploreStateRef.current = draftExploreState;
-
-  const compareEnabled = activePreviousTimeFrame !== null;
+  const compareEnabled = draftExploreState.previousTimeFrame != null;
 
   const setDraftExploreState = useCallback(
     (newStateOrUpdater: SetDraftStateAction) => {
@@ -313,8 +287,11 @@ export function ExplorerProvider({
   const submittedExploreState = explorerState.submittedState;
   const query = explorerState.query;
 
+  const submittedPreviousTimeFrame =
+    submittedExploreState?.previousTimeFrame ?? null;
+
   useEffect(() => {
-    if (activePreviousTimeFrame === null) return;
+    if (draftExploreState.previousTimeFrame == null) return;
 
     const dr = draftExploreState.dateRange;
     const customKey = customPrimaryBoundsKey(dr);
@@ -322,44 +299,51 @@ export function ExplorerProvider({
     if (customKey !== null) {
       if (lastCustomPrimaryBoundsRef.current !== customKey) {
         lastCustomPrimaryBoundsRef.current = customKey;
-        setActivePreviousTimeFrame(
-          buildContiguousPreviousCustomDateRange(
+        setDraftExploreState((prev) => ({
+          ...prev,
+          previousTimeFrame: buildContiguousPreviousCustomDateRange(
             dr.startDate as string,
             dr.endDate as string,
             dr.lookbackValue ?? null,
             dr.lookbackUnit ?? null,
           ),
-        );
+        }));
       }
       return;
     }
 
     lastCustomPrimaryBoundsRef.current = null;
     const aligned = buildComparisonDateRange(dr);
-    if (!isEqual(activePreviousTimeFrame, aligned)) {
-      setActivePreviousTimeFrame(aligned);
+    if (!isEqual(draftExploreState.previousTimeFrame, aligned)) {
+      setDraftExploreState((prev) => ({
+        ...prev,
+        previousTimeFrame: aligned,
+      }));
     }
   }, [
     draftExploreState.dateRange,
-    activePreviousTimeFrame,
-    setActivePreviousTimeFrame,
+    draftExploreState.previousTimeFrame,
+    setDraftExploreState,
   ]);
 
   const setCompareEnabled = useCallback(
     (value: boolean) => {
       if (value) {
-        setActivePreviousTimeFrame(
-          buildComparisonDateRange(draftExploreStateRef.current.dateRange),
-        );
+        setDraftExploreState((prev) => ({
+          ...prev,
+          previousTimeFrame: buildComparisonDateRange(prev.dateRange),
+        }));
       } else {
-        setActivePreviousTimeFrame(null);
-        setSubmittedPreviousTimeFrame(null);
+        setDraftExploreState((prev) => {
+          const { previousTimeFrame: _, ...rest } = prev;
+          return rest as ExplorationConfig;
+        });
         setComparisonExploration(null);
         setComparisonQuery(null);
         setComparisonComputed(null);
       }
     },
-    [setActivePreviousTimeFrame],
+    [setDraftExploreState],
   );
 
   const commonColumns = useMemo(() => {
@@ -378,13 +362,13 @@ export function ExplorerProvider({
   const { needsFetch, needsUpdate } = useMemo(() => {
     return compareConfig(baselineConfig, cleanedDraftExploreState, {
       lastPreviousTimeFrame: submittedPreviousTimeFrame,
-      newPreviousTimeFrame: activePreviousTimeFrame,
+      newPreviousTimeFrame: draftExploreState.previousTimeFrame ?? null,
     });
   }, [
     baselineConfig,
     cleanedDraftExploreState,
     submittedPreviousTimeFrame,
-    activePreviousTimeFrame,
+    draftExploreState.previousTimeFrame,
   ]);
 
   const isSubmittable = useMemo(() => {
@@ -393,9 +377,9 @@ export function ExplorerProvider({
 
   const doSubmit = useCallback(
     async (options?: { cache?: CacheOption; config?: ExplorationConfig }) => {
-      const configToSubmit = cleanConfigForSubmission(
-        options?.config ?? draftExploreState,
-      );
+      const sourceConfig = options?.config ?? draftExploreState;
+      const configToSubmit = cleanConfigForSubmission(sourceConfig);
+      const previousForRequest = sourceConfig.previousTimeFrame ?? null;
       if (!isSubmittableConfig(configToSubmit)) return;
 
       if (managedWarehouseAwaitingProvisioning) {
@@ -417,7 +401,6 @@ export function ExplorerProvider({
       const requestId = ++submitRequestIdRef.current;
 
       const startTime = Date.now();
-      const previousForRequest = activePreviousTimeFrame;
       const {
         data: fetchResult,
         query,
@@ -454,19 +437,21 @@ export function ExplorerProvider({
         setComparisonComputed(null);
       }
 
+      const submittedConfig: ExplorationConfig = previousForRequest
+        ? { ...configToSubmit, previousTimeFrame: previousForRequest }
+        : configToSubmit;
+
       // Clear staleness when there is an error
       if (fetchError) {
         setIsStale(false);
-        setSubmittedExploreState(configToSubmit);
+        setSubmittedExploreState(submittedConfig);
       }
 
       // Set staleness to false and update submitted state when there is a result
       if (fetchResult) {
-        setSubmittedExploreState(configToSubmit);
+        setSubmittedExploreState(submittedConfig);
         setIsStale(false);
       }
-
-      setSubmittedPreviousTimeFrame(previousForRequest);
 
       setExplorerState((prev) => ({
         ...prev,
@@ -512,7 +497,6 @@ export function ExplorerProvider({
       managedWarehouseAwaitingProvisioning,
       trackingSource,
       getDatasourceById,
-      activePreviousTimeFrame,
     ],
   );
 
@@ -547,18 +531,24 @@ export function ExplorerProvider({
     if (needsFetch) {
       doSubmit();
     } else if (needsUpdate && !needsFetch) {
-      setSubmittedExploreState(cleanedDraftExploreState);
-      setSubmittedPreviousTimeFrame(activePreviousTimeFrame);
+      const submittedConfig: ExplorationConfig =
+        draftExploreState.previousTimeFrame
+          ? {
+              ...cleanedDraftExploreState,
+              previousTimeFrame: draftExploreState.previousTimeFrame,
+            }
+          : cleanedDraftExploreState;
+      setSubmittedExploreState(submittedConfig);
     }
   }, [
     needsFetch,
     needsUpdate,
     doSubmit,
     cleanedDraftExploreState,
+    draftExploreState.previousTimeFrame,
     setSubmittedExploreState,
     isSubmittable,
     managedWarehouseAwaitingProvisioning,
-    activePreviousTimeFrame,
   ]);
 
   /** Clear staleness when draft matches submitted (known state) */
@@ -705,12 +695,10 @@ export function ExplorerProvider({
 
   const clearAllDatasets = useCallback(
     (newDatasourceId?: string) => {
-      setActivePreviousTimeFrame(null);
       lastCustomPrimaryBoundsRef.current = null;
       setComparisonExploration(null);
       setComparisonQuery(null);
       setComparisonComputed(null);
-      setSubmittedPreviousTimeFrame(null);
       const datasourceId: string = newDatasourceId ?? datasources[0]?.id ?? "";
       setIsStale(false);
       if (datasourceId) {
@@ -734,9 +722,11 @@ export function ExplorerProvider({
 
       setExplorerState((prev) => {
         const type = prev.draftState.dataset.type;
+        const { previousTimeFrame: _, ...initialWithoutPrevious } =
+          initialConfig;
         return {
           draftState: {
-            ...initialConfig,
+            ...initialWithoutPrevious,
             datasource: datasourceId,
             dataset: {
               ...createEmptyDataset(type),
@@ -755,7 +745,6 @@ export function ExplorerProvider({
       datasources,
       getDatasourceById,
       initialConfig,
-      setActivePreviousTimeFrame,
       setDefaultDataSourceId,
       trackingSource,
       draftExploreState.datasource,
@@ -792,8 +781,6 @@ export function ExplorerProvider({
       comparisonQuery,
       comparisonComputed,
       setCompareEnabled,
-      previousTimeFrame: activePreviousTimeFrame,
-      setPreviousTimeFrame: setActivePreviousTimeFrame,
     }),
     [
       addValueToDataset,
@@ -816,8 +803,6 @@ export function ExplorerProvider({
       needsFetch,
       needsUpdate,
       query,
-      activePreviousTimeFrame,
-      setActivePreviousTimeFrame,
       setCompareEnabled,
       setDraftExploreState,
       submittedExploreState,
