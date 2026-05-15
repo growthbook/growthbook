@@ -1,5 +1,7 @@
 import { keyBy } from "lodash";
 import omit from "lodash/omit";
+import pick from "lodash/pick";
+import pickBy from "lodash/pickBy";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { hasVisualChanges } from "shared/util";
@@ -221,11 +223,14 @@ export async function updateVisualChange({
     throw new Error("Visual Changeset not found");
   }
 
+  // Strip `id` from the payload so callers can't rename a visual change
+  // and orphan it from the URL-param id used to look it up.
+  const safePayload = omit(payload, ["id"]);
   const visualChanges = visualChangeset.visualChanges.map((visualChange) => {
     if (visualChange.id === visualChangeId) {
       return {
         ...visualChange,
-        ...payload,
+        ...safePayload,
       };
     }
     return visualChange;
@@ -297,13 +302,27 @@ export const createVisualChangeset = async ({
   return visualChangeset;
 };
 
+type VisualChangeUpdate = Partial<VisualChange> &
+  Pick<VisualChange, "variation">;
+
+export type VisualChangesetUpdates = {
+  editorUrl?: string;
+  urlPatterns?: VisualChangesetURLPattern[];
+  visualChanges?: VisualChangeUpdate[];
+};
+
 // type guard
 const _isUpdatingVisualChanges = (
-  updates: Partial<VisualChangesetInterface>,
+  updates: VisualChangesetUpdates,
 ): updates is {
-  visualChanges: VisualChange[];
-} & Partial<VisualChangesetInterface> =>
-  updates.visualChanges !== undefined && updates.visualChanges.length > 0;
+  visualChanges: VisualChangeUpdate[];
+} & VisualChangesetUpdates => updates.visualChanges !== undefined;
+
+const UPDATABLE_VISUAL_CHANGESET_FIELDS = [
+  "editorUrl",
+  "urlPatterns",
+  "visualChanges",
+] as const;
 
 export const updateVisualChangeset = async ({
   visualChangeset,
@@ -315,17 +334,38 @@ export const updateVisualChangeset = async ({
   visualChangeset: VisualChangesetInterface;
   experiment: ExperimentInterface | null;
   context: ReqContext | ApiReqContext;
-  updates: Partial<VisualChangesetInterface>;
+  updates: VisualChangesetUpdates;
   bypassWebhooks?: boolean;
 }) => {
-  const isUpdatingVisualChanges = _isUpdatingVisualChanges(updates);
+  // pick() preserves explicit-undefined keys, which would flow into $set and
+  // could unset fields if Mongoose's casting behavior changes. Strip them.
+  const safeUpdates = pickBy(
+    pick(updates, UPDATABLE_VISUAL_CHANGESET_FIELDS),
+    (value) => value !== undefined,
+  ) as VisualChangesetUpdates;
+  const isUpdatingVisualChanges = _isUpdatingVisualChanges(safeUpdates);
 
-  // ensure new visual changes have ids assigned
+  // For partial updates, merge with the existing visual change by id so
+  // fields the caller omitted aren't wiped. Brand-new entries (no id, or an
+  // id that doesn't match an existing change) get defaults applied.
+  const existingVisualChangesById = keyBy(
+    visualChangeset.visualChanges || [],
+    "id",
+  );
   const visualChanges = isUpdatingVisualChanges
-    ? updates.visualChanges.map((vc) => ({
-        ...vc,
-        id: vc.id || uniqid("vc_"),
-      }))
+    ? safeUpdates.visualChanges.map((vc) => {
+        const existing = vc.id ? existingVisualChangesById[vc.id] : undefined;
+        if (existing) {
+          return { ...existing, ...vc };
+        }
+        return {
+          description: "",
+          css: "",
+          domMutations: [],
+          ...vc,
+          id: vc.id || uniqid("vc_"),
+        };
+      })
     : visualChangeset.visualChanges || [];
 
   const res = await VisualChangesetModel.updateOne(
@@ -335,7 +375,7 @@ export const updateVisualChangeset = async ({
     },
     {
       $set: {
-        ...updates,
+        ...safeUpdates,
         visualChanges,
       },
     },
@@ -351,13 +391,20 @@ export const updateVisualChangeset = async ({
     });
   }
 
+  const updatedVisualChangeset: VisualChangesetInterface = {
+    ...visualChangeset,
+    ...(safeUpdates.editorUrl !== undefined
+      ? { editorUrl: safeUpdates.editorUrl }
+      : {}),
+    ...(safeUpdates.urlPatterns !== undefined
+      ? { urlPatterns: safeUpdates.urlPatterns }
+      : {}),
+    visualChanges,
+  };
+
   await onVisualChangesetUpdate({
     oldVisualChangeset: visualChangeset,
-    newVisualChangeset: {
-      ...visualChangeset,
-      ...updates,
-      visualChanges,
-    },
+    newVisualChangeset: updatedVisualChangeset,
     context,
     bypassWebhooks,
   });
