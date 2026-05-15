@@ -131,7 +131,11 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
 
     // Apply patch including v2 scope fields.
     const { allEnvironments, environments, ...basePatch } = patch;
-    const updatedRule = applyPatch(oldRule, basePatch as RulePatchInput);
+    const updatedRule = applyPatch(
+      oldRule,
+      basePatch as RulePatchInput,
+      feature.id,
+    );
 
     // Apply scope changes if present. When the client sends only
     // `environments` (without `allEnvironments`), infer `allEnvironments:false`

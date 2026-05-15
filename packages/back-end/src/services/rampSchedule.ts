@@ -1082,6 +1082,12 @@ export async function restartSchedule(
   return startSchedule(ctx, readied);
 }
 
+/**
+ * Move the schedule to `targetStepIndex` (forward or backward) and leave it
+ * paused. Re-applies (forward) or rolls back (backward) rule patches between
+ * the old and new step, stops the linked SafeRollout, and emits
+ * `rampSchedule.actions.jumped`. Use -1 for pre-start.
+ */
 export async function jumpSchedule(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,

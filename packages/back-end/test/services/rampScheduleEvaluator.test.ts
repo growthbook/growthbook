@@ -271,4 +271,423 @@ describe("rampScheduleEvaluator monitored SafeRollout integration", () => {
     );
     expect(mockCreateSafeRolloutSnapshot).not.toHaveBeenCalled();
   });
+
+  it("rolls back when an expanded guardrail metric is a significant loser", async () => {
+    const schedule = makeSchedule({
+      monitoringConfig: {
+        datasourceId: "ds_1",
+        exposureQueryId: "exposure_1",
+        guardrailMetricIds: ["m_guard"],
+        signalMetricIds: [],
+        monitoringMode: "auto",
+        autoUpdate: true,
+      },
+    });
+    const baseSafeRollout = makeSafeRollout("srsnp_guard_lost");
+    const safeRollout = {
+      ...baseSafeRollout,
+      analysisSummary: {
+        ...baseSafeRollout.analysisSummary!,
+        resultsStatus: {
+          variations: [
+            {
+              variationId: "1",
+              goalMetrics: {},
+              guardrailMetrics: {
+                m_guard: { status: "lost" },
+              },
+            },
+          ],
+        },
+      },
+    } as SafeRolloutInterface;
+    const context = makeContext({
+      safeRollout,
+      snapshotDate: new Date("2026-01-01T01:05:00Z"),
+    });
+
+    const decision = await evaluateCurrentStep(
+      context as Parameters<typeof evaluateCurrentStep>[0],
+      schedule,
+      new Date("2026-01-01T02:00:00Z"),
+    );
+
+    expect(decision).toEqual({
+      action: "rollback",
+      reason: expect.stringMatching(/Guardrail metric m_guard.*significant/i),
+    });
+  });
+
+  it("ignores non-guardrail lost metrics (signal-only or unrelated)", async () => {
+    const schedule = makeSchedule({
+      monitoringConfig: {
+        datasourceId: "ds_1",
+        exposureQueryId: "exposure_1",
+        guardrailMetricIds: ["m_guard"],
+        signalMetricIds: [],
+        monitoringMode: "auto",
+        autoUpdate: true,
+      },
+    });
+    const baseSafeRollout = makeSafeRollout("srsnp_unrelated_lost");
+    const safeRollout = {
+      ...baseSafeRollout,
+      analysisSummary: {
+        ...baseSafeRollout.analysisSummary!,
+        resultsStatus: {
+          variations: [
+            {
+              variationId: "1",
+              goalMetrics: {},
+              // Lost metric is not in the guardrail list — must not trigger rollback.
+              guardrailMetrics: {
+                m_other: { status: "lost" },
+              },
+            },
+          ],
+        },
+      },
+    } as SafeRolloutInterface;
+    const context = makeContext({
+      safeRollout,
+      snapshotDate: new Date("2026-01-01T01:05:00Z"),
+    });
+
+    const decision = await evaluateCurrentStep(
+      context as Parameters<typeof evaluateCurrentStep>[0],
+      schedule,
+      new Date("2026-01-01T02:00:00Z"),
+    );
+
+    expect(decision).toEqual({ action: "advance" });
+  });
+
+  it("rolls back on SRM failure when srmAction=rollback", async () => {
+    const schedule = makeSchedule({
+      monitoringConfig: {
+        datasourceId: "ds_1",
+        exposureQueryId: "exposure_1",
+        guardrailMetricIds: [],
+        signalMetricIds: [],
+        monitoringMode: "auto",
+        autoUpdate: true,
+        srmAction: "rollback",
+      },
+    });
+    const baseSafeRollout = makeSafeRollout("srsnp_srm");
+    const safeRollout = {
+      ...baseSafeRollout,
+      analysisSummary: {
+        ...baseSafeRollout.analysisSummary!,
+        health: {
+          // p-value below the default 0.001 threshold with enough users.
+          srm: 0.0001,
+          multipleExposures: 0,
+          totalUsers: 1000,
+        },
+      },
+    } as SafeRolloutInterface;
+    const context = makeContext({
+      safeRollout,
+      snapshotDate: new Date("2026-01-01T01:05:00Z"),
+    });
+
+    const decision = await evaluateCurrentStep(
+      context as Parameters<typeof evaluateCurrentStep>[0],
+      schedule,
+      new Date("2026-01-01T02:00:00Z"),
+    );
+
+    expect(decision).toEqual({
+      action: "rollback",
+      reason: expect.stringMatching(/SRM check failed/),
+    });
+  });
+
+  it("holds on SRM failure when srmAction=hold (default)", async () => {
+    const schedule = makeSchedule({
+      monitoringConfig: {
+        datasourceId: "ds_1",
+        exposureQueryId: "exposure_1",
+        guardrailMetricIds: [],
+        signalMetricIds: [],
+        monitoringMode: "auto",
+        autoUpdate: true,
+      },
+    });
+    const baseSafeRollout = makeSafeRollout("srsnp_srm_hold");
+    const safeRollout = {
+      ...baseSafeRollout,
+      analysisSummary: {
+        ...baseSafeRollout.analysisSummary!,
+        health: {
+          srm: 0.0001,
+          multipleExposures: 0,
+          totalUsers: 1000,
+        },
+      },
+    } as SafeRolloutInterface;
+    const context = makeContext({
+      safeRollout,
+      snapshotDate: new Date("2026-01-01T01:05:00Z"),
+    });
+
+    const decision = await evaluateCurrentStep(
+      context as Parameters<typeof evaluateCurrentStep>[0],
+      schedule,
+      new Date("2026-01-01T02:00:00Z"),
+    );
+
+    expect(decision).toEqual({
+      action: "hold",
+      reason: expect.stringMatching(/SRM check failed/),
+    });
+  });
+
+  it("ignores SRM failure when srmAction=warn (advances past the gate)", async () => {
+    const schedule = makeSchedule({
+      monitoringConfig: {
+        datasourceId: "ds_1",
+        exposureQueryId: "exposure_1",
+        guardrailMetricIds: [],
+        signalMetricIds: [],
+        monitoringMode: "auto",
+        autoUpdate: true,
+        srmAction: "warn",
+      },
+    });
+    const baseSafeRollout = makeSafeRollout("srsnp_srm_warn");
+    const safeRollout = {
+      ...baseSafeRollout,
+      analysisSummary: {
+        ...baseSafeRollout.analysisSummary!,
+        health: {
+          srm: 0.0001,
+          multipleExposures: 0,
+          totalUsers: 1000,
+        },
+      },
+    } as SafeRolloutInterface;
+    const context = makeContext({
+      safeRollout,
+      snapshotDate: new Date("2026-01-01T01:05:00Z"),
+    });
+
+    const decision = await evaluateCurrentStep(
+      context as Parameters<typeof evaluateCurrentStep>[0],
+      schedule,
+      new Date("2026-01-01T02:00:00Z"),
+    );
+
+    expect(decision).toEqual({ action: "advance" });
+  });
+
+  it("rolls back on multiple-exposure failure when multipleExposureAction=rollback", async () => {
+    const schedule = makeSchedule({
+      monitoringConfig: {
+        datasourceId: "ds_1",
+        exposureQueryId: "exposure_1",
+        guardrailMetricIds: [],
+        signalMetricIds: [],
+        monitoringMode: "auto",
+        autoUpdate: true,
+        multipleExposureAction: "rollback",
+      },
+    });
+    const baseSafeRollout = makeSafeRollout("srsnp_me");
+    const safeRollout = {
+      ...baseSafeRollout,
+      analysisSummary: {
+        ...baseSafeRollout.analysisSummary!,
+        health: {
+          // healthy SRM
+          srm: 0.5,
+          // 5% multi-exposure with 100 users — well over the 1% default threshold
+          multipleExposures: 5,
+          totalUsers: 100,
+        },
+      },
+    } as SafeRolloutInterface;
+    const context = makeContext({
+      safeRollout,
+      snapshotDate: new Date("2026-01-01T01:05:00Z"),
+    });
+
+    const decision = await evaluateCurrentStep(
+      context as Parameters<typeof evaluateCurrentStep>[0],
+      schedule,
+      new Date("2026-01-01T02:00:00Z"),
+    );
+
+    expect(decision).toEqual({
+      action: "rollback",
+      reason: expect.stringMatching(/multiple exposures/),
+    });
+  });
+
+  describe("no-traffic handling", () => {
+    function noTrafficContext(noTrafficAction: "hold" | "rollback" | "warn") {
+      const schedule = makeSchedule({
+        // Start of monitoring set on step entry; default helper sets these.
+        monitoringConfig: {
+          datasourceId: "ds_1",
+          exposureQueryId: "exposure_1",
+          guardrailMetricIds: [],
+          signalMetricIds: [],
+          monitoringMode: "auto",
+          autoUpdate: true,
+          noTrafficAction,
+        },
+      });
+      const baseSafeRollout = makeSafeRollout("srsnp_no_traffic");
+      const safeRollout = {
+        ...baseSafeRollout,
+        analysisSummary: {
+          ...baseSafeRollout.analysisSummary!,
+          health: {
+            srm: 0.5,
+            multipleExposures: 0,
+            totalUsers: 0,
+          },
+        },
+      } as SafeRolloutInterface;
+      return { schedule, safeRollout };
+    }
+
+    it("holds during the no-traffic grace period regardless of action", async () => {
+      const { schedule, safeRollout } = noTrafficContext("rollback");
+      const context = makeContext({
+        safeRollout,
+        snapshotDate: new Date("2026-01-01T01:05:00Z"),
+      });
+
+      // monitoringStartDate is 2026-01-01T00:00:00Z; "now" is +1h, well inside
+      // the 24h grace window.
+      const decision = await evaluateCurrentStep(
+        context as Parameters<typeof evaluateCurrentStep>[0],
+        schedule,
+        new Date("2026-01-01T01:30:00Z"),
+      );
+
+      expect(decision).toMatchObject({
+        action: "hold",
+        reason: expect.stringMatching(/No traffic yet.*grace period/i),
+        nextProcessAt: expect.any(Date),
+      });
+    });
+
+    it("rolls back after grace period expires when noTrafficAction=rollback", async () => {
+      const { schedule, safeRollout } = noTrafficContext("rollback");
+      const context = makeContext({
+        safeRollout,
+        snapshotDate: new Date("2026-01-02T01:05:00Z"),
+      });
+
+      // 25h elapsed — past the 24h grace window.
+      const decision = await evaluateCurrentStep(
+        context as Parameters<typeof evaluateCurrentStep>[0],
+        schedule,
+        new Date("2026-01-02T01:00:00Z"),
+      );
+
+      expect(decision).toEqual({
+        action: "rollback",
+        reason: expect.stringMatching(/No traffic detected.*rollback/i),
+      });
+    });
+
+    it("holds after grace period expires when noTrafficAction=hold", async () => {
+      const { schedule, safeRollout } = noTrafficContext("hold");
+      const context = makeContext({
+        safeRollout,
+        snapshotDate: new Date("2026-01-02T01:05:00Z"),
+      });
+
+      const decision = await evaluateCurrentStep(
+        context as Parameters<typeof evaluateCurrentStep>[0],
+        schedule,
+        new Date("2026-01-02T01:00:00Z"),
+      );
+
+      expect(decision).toEqual({
+        action: "hold",
+        reason: expect.stringMatching(/No traffic detected.*hold/i),
+      });
+    });
+
+    it("falls through to downstream checks after grace period when noTrafficAction=warn", async () => {
+      // With healthy downstream signals, "warn" should not gate progression.
+      const { schedule, safeRollout } = noTrafficContext("warn");
+      const context = makeContext({
+        safeRollout,
+        snapshotDate: new Date("2026-01-02T01:05:00Z"),
+      });
+
+      const decision = await evaluateCurrentStep(
+        context as Parameters<typeof evaluateCurrentStep>[0],
+        schedule,
+        new Date("2026-01-02T01:00:00Z"),
+      );
+
+      expect(decision).toEqual({ action: "advance" });
+    });
+  });
+
+  it("holds when totalUsers is below the step's minSampleSize", async () => {
+    const schedule = makeSchedule({
+      steps: [
+        {
+          trigger: { type: "interval", seconds: 3600 },
+          monitored: true,
+          actions: [],
+          holdConditions: { minSampleSize: 1000 },
+        },
+      ],
+    });
+    const safeRollout = makeSafeRollout("srsnp_min_sample");
+    // totalUsers default is 100; minSampleSize = 1000 → should hold.
+    const context = makeContext({
+      safeRollout,
+      snapshotDate: new Date("2026-01-01T01:05:00Z"),
+    });
+
+    const decision = await evaluateCurrentStep(
+      context as Parameters<typeof evaluateCurrentStep>[0],
+      schedule,
+      new Date("2026-01-01T02:00:00Z"),
+    );
+
+    expect(decision).toEqual({
+      action: "hold",
+      reason: expect.stringMatching(
+        /Waiting for minimum sample size.*100\/1000/,
+      ),
+    });
+  });
+
+  it("advances once totalUsers meets minSampleSize", async () => {
+    const schedule = makeSchedule({
+      steps: [
+        {
+          trigger: { type: "interval", seconds: 3600 },
+          monitored: true,
+          actions: [],
+          holdConditions: { minSampleSize: 50 },
+        },
+      ],
+    });
+    const safeRollout = makeSafeRollout("srsnp_min_sample_ok");
+    const context = makeContext({
+      safeRollout,
+      snapshotDate: new Date("2026-01-01T01:05:00Z"),
+    });
+
+    const decision = await evaluateCurrentStep(
+      context as Parameters<typeof evaluateCurrentStep>[0],
+      schedule,
+      new Date("2026-01-01T02:00:00Z"),
+    );
+
+    expect(decision).toEqual({ action: "advance" });
+  });
 });

@@ -1166,7 +1166,11 @@ export default function RampScheduleSection({
                         ),
                         environments: [],
                       }
-                    : setPatchField(state.endPatch, field, FIELD_DEFAULTS[field]);
+                    : setPatchField(
+                        state.endPatch,
+                        field,
+                        FIELD_DEFAULTS[field],
+                      );
                 patchState({
                   endAdditionalEffectsOpen: true,
                   endPatch: patchWithField,
@@ -1524,67 +1528,67 @@ export default function RampScheduleSection({
                           getAvailableRuleEffects(step.patch).length > 0;
                         return (
                           <>
-                      {step.monitored && (
-                        <>
-                          <DropdownMenuGroup label="Monitoring settings">
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setOpenMenuIndex(null);
-                                setMinSamplePopoverIndex(i);
-                              }}
-                            >
-                              Minimum sample size
-                            </DropdownMenuItem>
-                          </DropdownMenuGroup>
-                          <DropdownMenuSeparator />
-                        </>
-                      )}
-                      {renderRuleEffectsMenuGroup(step.patch, (field) => {
-                        setOpenMenuIndex(null);
-                        const patchWithField =
-                          field === "allEnvironments"
-                            ? {
-                                ...setPatchField(
-                                  step.patch,
-                                  "allEnvironments",
-                                  FIELD_DEFAULTS.allEnvironments,
-                                ),
-                                environments: [],
-                              }
-                            : setPatchField(
-                                step.patch,
-                                field,
-                                FIELD_DEFAULTS[field],
-                              );
-                        updateStep(i, {
-                          additionalEffectsOpen: true,
-                          patch: patchWithField,
-                        });
-                      })}
-                      {hasRuleEffects ? <DropdownMenuSeparator /> : null}
-                      <DropdownMenuGroup>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setOpenMenuIndex(null);
-                            addStepAfter(i);
-                          }}
-                        >
-                          Add step after
-                        </DropdownMenuItem>
-                      </DropdownMenuGroup>
-                      {state.steps.length > 1 ? (
-                        <DropdownMenuGroup>
-                          <DropdownMenuItem
-                            color="red"
-                            onClick={() => {
+                            {step.monitored && (
+                              <>
+                                <DropdownMenuGroup label="Monitoring settings">
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setOpenMenuIndex(null);
+                                      setMinSamplePopoverIndex(i);
+                                    }}
+                                  >
+                                    Minimum sample size
+                                  </DropdownMenuItem>
+                                </DropdownMenuGroup>
+                                <DropdownMenuSeparator />
+                              </>
+                            )}
+                            {renderRuleEffectsMenuGroup(step.patch, (field) => {
                               setOpenMenuIndex(null);
-                              removeStep(i);
-                            }}
-                          >
-                            Remove step
-                          </DropdownMenuItem>
-                        </DropdownMenuGroup>
-                      ) : null}
+                              const patchWithField =
+                                field === "allEnvironments"
+                                  ? {
+                                      ...setPatchField(
+                                        step.patch,
+                                        "allEnvironments",
+                                        FIELD_DEFAULTS.allEnvironments,
+                                      ),
+                                      environments: [],
+                                    }
+                                  : setPatchField(
+                                      step.patch,
+                                      field,
+                                      FIELD_DEFAULTS[field],
+                                    );
+                              updateStep(i, {
+                                additionalEffectsOpen: true,
+                                patch: patchWithField,
+                              });
+                            })}
+                            {hasRuleEffects ? <DropdownMenuSeparator /> : null}
+                            <DropdownMenuGroup>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setOpenMenuIndex(null);
+                                  addStepAfter(i);
+                                }}
+                              >
+                                Add step after
+                              </DropdownMenuItem>
+                            </DropdownMenuGroup>
+                            {state.steps.length > 1 ? (
+                              <DropdownMenuGroup>
+                                <DropdownMenuItem
+                                  color="red"
+                                  onClick={() => {
+                                    setOpenMenuIndex(null);
+                                    removeStep(i);
+                                  }}
+                                >
+                                  Remove step
+                                </DropdownMenuItem>
+                              </DropdownMenuGroup>
+                            ) : null}
                           </>
                         );
                       })()}
@@ -1596,7 +1600,11 @@ export default function RampScheduleSection({
                   step.patch,
                   (field, value) => updateStepPatch(i, field, value),
                   (field) => {
-                    const nextPatch = setPatchField(step.patch, field, undefined);
+                    const nextPatch = setPatchField(
+                      step.patch,
+                      field,
+                      undefined,
+                    );
                     updateStep(i, {
                       patch: nextPatch,
                       additionalEffectsOpen: hasSelectedRuleEffects(nextPatch),
@@ -2732,7 +2740,9 @@ export function reconstructUIPatch(
       monitored ? (patch.coverage * 100) / 2 : patch.coverage * 100,
     );
   if (patch.condition != null) {
-    p.condition = isEmptyConditionValue(patch.condition) ? null : patch.condition;
+    p.condition = isEmptyConditionValue(patch.condition)
+      ? null
+      : patch.condition;
   }
   if (patch.savedGroups != null) {
     const savedGroups = patch.savedGroups as SavedGroupTargeting[];
@@ -2742,8 +2752,7 @@ export function reconstructUIPatch(
     const prerequisites = patch.prerequisites as FeaturePrerequisite[];
     p.prerequisites = prerequisites.length > 0 ? prerequisites : null;
   }
-  if (patch.allEnvironments != null)
-    p.allEnvironments = patch.allEnvironments;
+  if (patch.allEnvironments != null) p.allEnvironments = patch.allEnvironments;
   if (patch.environments != null)
     p.environments = patch.environments as string[];
   if (patch.force !== undefined) {
@@ -2988,11 +2997,7 @@ export function buildTemplatePayload(
   }));
 
   const rawEndPatch = buildPatch(state.endPatch, PLACEHOLDER_RULE);
-  const {
-    ruleId: _ruleId,
-    enabled: _enabled,
-    ...endPatchFields
-  } = rawEndPatch;
+  const { ruleId: _ruleId, enabled: _enabled, ...endPatchFields } = rawEndPatch;
   const endPatch: TemplateEndPatch =
     Object.keys(endPatchFields).length > 0
       ? (endPatchFields as TemplateEndPatch)

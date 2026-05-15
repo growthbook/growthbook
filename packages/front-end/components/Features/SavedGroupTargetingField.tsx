@@ -155,29 +155,31 @@ export default function SavedGroupTargetingField({
               {emptyText || "No saved group targeting applied."}
             </Text>
           )}
-          {!showAddRemoveSelector && <Box mt={slimMode ? "0" : "2"}>
-            <Link
-              onClick={() => {
-                if (locked) return;
-                setValue([
-                  ...value,
-                  {
-                    match: "any",
-                    ids: [],
-                  },
-                ]);
-              }}
-            >
-              <Text
-                weight="semibold"
-                size="medium"
-                color={locked ? "text-low" : undefined}
+          {!showAddRemoveSelector && (
+            <Box mt={slimMode ? "0" : "2"}>
+              <Link
+                onClick={() => {
+                  if (locked) return;
+                  setValue([
+                    ...value,
+                    {
+                      match: "any",
+                      ids: [],
+                    },
+                  ]);
+                }}
               >
-                <PiPlusCircleBold className="mr-1" />
-                Add group targeting
-              </Text>
-            </Link>
-          </Box>}
+                <Text
+                  weight="semibold"
+                  size="medium"
+                  color={locked ? "text-low" : undefined}
+                >
+                  <PiPlusCircleBold className="mr-1" />
+                  Add group targeting
+                </Text>
+              </Link>
+            </Box>
+          )}
         </Box>
       </Box>
     );
@@ -329,10 +331,7 @@ export default function SavedGroupTargetingField({
                         size="1"
                         disabled={locked}
                         onClick={() => {
-                          if (
-                            showAddRemoveSelector &&
-                            value.length === 1
-                          ) {
+                          if (showAddRemoveSelector && value.length === 1) {
                             if (onRemoveEffect) {
                               onRemoveEffect();
                             } else {

@@ -50,6 +50,7 @@ const SAFE_ROLLOUT_TRACKING_KEY_PREFIX = "sr-";
 export function buildRuleFromInput(
   input: RuleCreateInput,
   id: string,
+  featureId: string,
 ): FeatureRule {
   const base = {
     id,
@@ -111,7 +112,9 @@ export function buildRuleFromInput(
       value: input.value,
       coverage: input.coverage ?? 1,
       hashAttribute: input.hashAttribute,
-      ...(input.seed !== undefined && { seed: input.seed }),
+      // Default to feature id so multiple rollout rules on the same feature share
+      // a hash space (users in treatment stay in treatment as coverage steps up).
+      seed: input.seed || featureId,
     };
     return rule;
   }
@@ -238,7 +241,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       }
     }
 
-    const rule = buildRuleFromInput(ruleInput, uuidv4());
+    const rule = buildRuleFromInput(ruleInput, uuidv4(), feature.id);
 
     // Validate condition JSON and references before any DB writes.
     validateRuleConditions(rule);

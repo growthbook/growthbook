@@ -861,6 +861,11 @@ export function getFeatureDefinition({
         } else if (r.type === "rollout") {
           const monitorInfo = rampMonitoredRuleMap?.get(r.id);
 
+          // Monitored rollout rules need a hashAttribute + seed to emit experiment-mode
+          // payload (tracking key, stable bucketing). Rules created via the modal or API
+          // should always have these populated, but we fall through to a plain force
+          // rollout if a legacy/manually-crafted rule is missing them so the SDK doesn't
+          // break. The UI surfaces a warning on the rule card so operators can fix it.
           if (monitorInfo && r.hashAttribute && r.seed) {
             // Reuse rollout bucketing so monitored steps do not cause variation hopping.
             const clampedCoverage =

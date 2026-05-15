@@ -350,6 +350,7 @@ export const postRampScheduleAction = async (
     }
 
     case "jump": {
+      // `jump` always pauses on landing — see jumpSchedule.
       if (["completed", "rolled-back"].includes(schedule.status)) {
         return res.status(400).json({
           status: 400,

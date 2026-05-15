@@ -127,7 +127,7 @@ export const jumpRampSchedule = createApiRequestHandler({
   operationId: "jumpRampSchedule",
   summary: "Jump to a specific step",
   description:
-    "Moves the schedule directly to `targetStepIndex` (forward or backward) and\npauses. Use `-1` to jump to the pre-start position without rolling back rule\npatches.\n",
+    "Moves the schedule to `targetStepIndex` (forward or backward) and leaves it\n`paused`. Use `-1` to jump to the pre-start position without rolling back rule\npatches.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(

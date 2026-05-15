@@ -18402,11 +18402,11 @@ paths:
       operationId: jumpRampSchedule
       summary: Jump to a specific step
       description: >
-        Moves the schedule directly to `targetStepIndex` (forward or backward)
-        and
+        Moves the schedule to `targetStepIndex` (forward or backward) and leaves
+        it
 
-        pauses. Use `-1` to jump to the pre-start position without rolling back
-        rule
+        `paused`. Use `-1` to jump to the pre-start position without rolling
+        back rule
 
         patches.
       tags:

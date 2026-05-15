@@ -237,7 +237,8 @@ export default function ConditionInput({
   const usingDisabledEqualityAttributes = conds.some((cond) =>
     cond.some((c) => !!attributes.get(c.field)?.disableEqualityConditions),
   );
-  const isRemoveSelection = showAddRemoveSelector && addRemoveValue === "remove";
+  const isRemoveSelection =
+    showAddRemoveSelector && addRemoveValue === "remove";
 
   if (advanced || !attributes.size || !simpleAllowed) {
     const hasSecureAttributes = some(
@@ -372,36 +373,38 @@ export default function ConditionInput({
           </Flex>
         )}
         {renderAddRemoveSelector()}
-        {!isRemoveSelection && <Box mb="3">
-          {codeEditorToggledOn ? (
-            <CodeTextArea
-              labelClassName={labelClassName}
-              language="json"
-              value={value}
-              setValue={setValue}
-              helpText={combinedHelpText}
-              resizable={true}
-              defaultHeight={FIVE_LINES_HEIGHT}
-              showCopyButton={!locked}
-              showFullscreenButton={!locked}
-              disabled={locked}
-            />
-          ) : (
-            <Field
-              labelClassName={labelClassName}
-              containerClassName="mb-0"
-              placeholder=""
-              value={value}
-              onChange={(e) => {
-                setValue(e.target.value);
-              }}
-              textarea
-              minRows={1}
-              helpText={combinedHelpText}
-              disabled={locked}
-            />
-          )}
-        </Box>}
+        {!isRemoveSelection && (
+          <Box mb="3">
+            {codeEditorToggledOn ? (
+              <CodeTextArea
+                labelClassName={labelClassName}
+                language="json"
+                value={value}
+                setValue={setValue}
+                helpText={combinedHelpText}
+                resizable={true}
+                defaultHeight={FIVE_LINES_HEIGHT}
+                showCopyButton={!locked}
+                showFullscreenButton={!locked}
+                disabled={locked}
+              />
+            ) : (
+              <Field
+                labelClassName={labelClassName}
+                containerClassName="mb-0"
+                placeholder=""
+                value={value}
+                onChange={(e) => {
+                  setValue(e.target.value);
+                }}
+                textarea
+                minRows={1}
+                helpText={combinedHelpText}
+                disabled={locked}
+              />
+            )}
+          </Box>
+        )}
       </Box>
     );
   }
@@ -435,48 +438,52 @@ export default function ConditionInput({
             </Text>
           ))}
         {renderAddRemoveSelector()}
-        {!isRemoveSelection && <Box>
-          {(!slimMode || !!emptyText?.trim()) && (
-            <Text
-              color="text-low"
-              fontStyle="italic"
-              mb="2"
-              size={slimMode ? "small" : undefined}
-            >
-              {emptyText}
-            </Text>
-          )}
-          {!showAddRemoveSelector && <Box mt={slimMode ? "0" : "2"}>
-            <Link
-              onClick={() => {
-                const prop = attributeSchema[0];
-                setConds([
-                  [
-                    {
-                      field: prop?.property || "",
-                      operator:
-                        prop?.datatype === "boolean"
-                          ? "$true"
-                          : prop?.disableEqualityConditions
-                            ? "$regex"
-                            : "$eq",
-                      value: "",
-                    },
-                  ],
-                ]);
-              }}
-            >
+        {!isRemoveSelection && (
+          <Box>
+            {(!slimMode || !!emptyText?.trim()) && (
               <Text
-                weight="semibold"
-                size="medium"
-                color={locked ? "text-low" : undefined}
+                color="text-low"
+                fontStyle="italic"
+                mb="2"
+                size={slimMode ? "small" : undefined}
               >
-                <PiPlusCircleBold className="mr-1" />
-                Add attribute targeting
+                {emptyText}
               </Text>
-            </Link>
-          </Box>}
-        </Box>}
+            )}
+            {!showAddRemoveSelector && (
+              <Box mt={slimMode ? "0" : "2"}>
+                <Link
+                  onClick={() => {
+                    const prop = attributeSchema[0];
+                    setConds([
+                      [
+                        {
+                          field: prop?.property || "",
+                          operator:
+                            prop?.datatype === "boolean"
+                              ? "$true"
+                              : prop?.disableEqualityConditions
+                                ? "$regex"
+                                : "$eq",
+                          value: "",
+                        },
+                      ],
+                    ]);
+                  }}
+                >
+                  <Text
+                    weight="semibold"
+                    size="medium"
+                    color={locked ? "text-low" : undefined}
+                  >
+                    <PiPlusCircleBold className="mr-1" />
+                    Add attribute targeting
+                  </Text>
+                </Link>
+              </Box>
+            )}
+          </Box>
+        )}
       </Box>
     );
   }
@@ -552,77 +559,79 @@ export default function ConditionInput({
       {renderAddRemoveSelector()}
       {!isRemoveSelection &&
         conds.map((andGroup, i) => (
-        <Box key={i}>
-          {i > 0 && <OrSeparator slimMode={slimMode} />}
-          <TargetingConditionsCard
-            targetingType="attribute"
-            total={conds.length}
-            slimMode={slimMode}
-            addButton={
-              attributeSchema.length > 0 ? (
-                <AddConditionButton
-                  slimMode={slimMode}
-                  disabled={locked}
-                  onClick={() => {
-                    const prop = attributeSchema[0];
-                    const newAndGroups = [...conds];
-                    newAndGroups[i] = [
-                      ...andGroup,
-                      {
-                        field: prop?.property || "",
-                        operator:
-                          prop?.datatype === "boolean"
-                            ? "$true"
-                            : prop?.disableEqualityConditions
-                              ? "$regex"
-                              : "$eq",
-                        value: "",
-                      },
-                    ];
-                    setConds(newAndGroups);
-                  }}
-                />
-              ) : undefined
-            }
-          >
-            <ConditionAndGroupInput
-              conds={andGroup}
-              setConds={(newConds) => {
-                const newAndGroups = [...conds];
-                if (newConds.length === 0) {
-                  newAndGroups.splice(i, 1);
-                } else {
-                  newAndGroups[i] = newConds;
-                }
-                const hasAnyConditions = newAndGroups.some((g) => g.length > 0);
-                if (
-                  showAddRemoveSelector &&
-                  !hasAnyConditions &&
-                  (onRemoveEffect || onAddRemoveValueChange)
-                ) {
-                  if (onRemoveEffect) {
-                    onRemoveEffect();
-                  } else {
-                    onAddRemoveValueChange?.("remove");
-                  }
-                  return;
-                }
-                setConds(newAndGroups);
-              }}
-              orGroupsCount={conds.length}
-              project={project}
-              labelClassName={labelClassName}
-              emptyText={emptyText}
-              label={label}
-              require={require}
-              allowNestedSavedGroups={allowNestedSavedGroups}
-              excludeSavedGroupId={excludeSavedGroupId}
+          <Box key={i}>
+            {i > 0 && <OrSeparator slimMode={slimMode} />}
+            <TargetingConditionsCard
+              targetingType="attribute"
+              total={conds.length}
               slimMode={slimMode}
-              disabled={locked}
-            />
-          </TargetingConditionsCard>
-        </Box>
-      ))}
+              addButton={
+                attributeSchema.length > 0 ? (
+                  <AddConditionButton
+                    slimMode={slimMode}
+                    disabled={locked}
+                    onClick={() => {
+                      const prop = attributeSchema[0];
+                      const newAndGroups = [...conds];
+                      newAndGroups[i] = [
+                        ...andGroup,
+                        {
+                          field: prop?.property || "",
+                          operator:
+                            prop?.datatype === "boolean"
+                              ? "$true"
+                              : prop?.disableEqualityConditions
+                                ? "$regex"
+                                : "$eq",
+                          value: "",
+                        },
+                      ];
+                      setConds(newAndGroups);
+                    }}
+                  />
+                ) : undefined
+              }
+            >
+              <ConditionAndGroupInput
+                conds={andGroup}
+                setConds={(newConds) => {
+                  const newAndGroups = [...conds];
+                  if (newConds.length === 0) {
+                    newAndGroups.splice(i, 1);
+                  } else {
+                    newAndGroups[i] = newConds;
+                  }
+                  const hasAnyConditions = newAndGroups.some(
+                    (g) => g.length > 0,
+                  );
+                  if (
+                    showAddRemoveSelector &&
+                    !hasAnyConditions &&
+                    (onRemoveEffect || onAddRemoveValueChange)
+                  ) {
+                    if (onRemoveEffect) {
+                      onRemoveEffect();
+                    } else {
+                      onAddRemoveValueChange?.("remove");
+                    }
+                    return;
+                  }
+                  setConds(newAndGroups);
+                }}
+                orGroupsCount={conds.length}
+                project={project}
+                labelClassName={labelClassName}
+                emptyText={emptyText}
+                label={label}
+                require={require}
+                allowNestedSavedGroups={allowNestedSavedGroups}
+                excludeSavedGroupId={excludeSavedGroupId}
+                slimMode={slimMode}
+                disabled={locked}
+              />
+            </TargetingConditionsCard>
+          </Box>
+        ))}
       {!isRemoveSelection && attributeSchema.length > 0 && (
         <AddOrGroupButton
           slimMode={slimMode}

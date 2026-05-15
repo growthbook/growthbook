@@ -35,6 +35,7 @@ import {
 export function applyPatch(
   existing: FeatureRule,
   patch: RulePatchInput,
+  featureId: string,
 ): FeatureRule {
   const type = existing.type;
 
@@ -143,6 +144,12 @@ export function applyPatch(
           "hashAttribute is required for rollout rules (coverage < 100%)",
         );
       }
+      // Backfill seed for legacy rollout rules that were saved without one so
+      // monitored ramps always have stable bucketing (see util/features.ts).
+      // Default to feature id so rollout rules on the same feature share a
+      // hash space (treatment users stay in treatment across coverage steps).
+      const existingSeed = (existing as RolloutRule).seed;
+      const resolvedSeed = patch.seed ?? existingSeed ?? featureId;
       const updated: RolloutRule = {
         ...(existing as RolloutRule),
         ...commonUpdates,
@@ -150,7 +157,7 @@ export function applyPatch(
         value: effectiveValue ?? "",
         coverage: effectiveCoverage,
         hashAttribute: effectiveHashAttr,
-        ...(patch.seed !== undefined && { seed: patch.seed }),
+        seed: resolvedSeed || featureId,
       };
       return updated;
     } else {
@@ -279,7 +286,7 @@ export const putFeatureRevisionRule = createApiRequestHandler(
         );
       }
     }
-    const updatedRule = applyPatch(oldRule, patch);
+    const updatedRule = applyPatch(oldRule, patch, feature.id);
 
     // Only validate fields in the patch, so edits don't break on stale refs
     // elsewhere in the rule (e.g. since-deleted saved groups).
