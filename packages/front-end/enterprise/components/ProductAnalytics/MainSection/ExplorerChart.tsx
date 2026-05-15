@@ -660,7 +660,8 @@ export default function ExplorerChart({
           style={{ flex: 1, minHeight: 0, position: "relative" }}
         >
           <EChartsReact
-            key={JSON.stringify(chartConfig)}
+            key={`${submittedExploreState.chartType}:${JSON.stringify(chartConfig)}`}
+            notMerge
             option={{
               ...chartConfig,
               ...(animate ? {} : { animation: false }),

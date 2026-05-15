@@ -111,11 +111,24 @@ export function buildComparisonDateRange(
   const prevStart = new Date(startDate.getTime() - spanMs);
   const prevEnd = new Date(endDate.getTime() - spanMs);
 
+  const primaryStartDay = dateToYyyyMmDdUtc(startDate);
+  let prevStartStr = dateToYyyyMmDdUtc(prevStart);
+  let prevEndStr = dateToYyyyMmDdUtc(prevEnd);
+  // Rolling presets use sub-day instants, but comparison is submitted as
+  // `customDateRange` and expanded to full UTC calendar days. When the shifted
+  // previous end truncates to the same UTC day as the primary start, the
+  // expanded window would overlap the primary; end one UTC day earlier and
+  // shift the start back by the same amount to preserve inclusive day count.
+  if (prevEndStr === primaryStartDay) {
+    prevEndStr = addUtcCalendarDays(primaryStartDay, -1);
+    prevStartStr = addUtcCalendarDays(prevStartStr, -1);
+  }
+
   return {
     predefined: "customDateRange",
     lookbackValue,
     lookbackUnit,
-    startDate: dateToYyyyMmDdUtc(prevStart),
-    endDate: dateToYyyyMmDdUtc(prevEnd),
+    startDate: prevStartStr,
+    endDate: prevEndStr,
   };
 }

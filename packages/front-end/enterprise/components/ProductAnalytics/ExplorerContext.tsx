@@ -353,6 +353,7 @@ export function ExplorerProvider({
         );
       } else {
         setActivePreviousTimeFrame(null);
+        setSubmittedPreviousTimeFrame(null);
         setComparisonExploration(null);
         setComparisonQuery(null);
         setComparisonComputed(null);
