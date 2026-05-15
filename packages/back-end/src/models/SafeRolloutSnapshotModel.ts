@@ -124,6 +124,14 @@ export class SafeRolloutSnapshotModel extends BaseClass {
           analysisSummary: safeRolloutAnalysisSummary,
         });
 
+      if (safeRollout.rampScheduleId) {
+        await evaluateRampScheduleAfterSafeRolloutSnapshot(
+          this.context,
+          updatedSafeRollout,
+        );
+        return;
+      }
+
       const notificationTriggered = await notifySafeRolloutChange({
         context: this.context,
         updatedSafeRollout,
@@ -142,14 +150,6 @@ export class SafeRolloutSnapshotModel extends BaseClass {
           { err: e, safeRolloutId: safeRollout.id, snapshotId: updatedDoc.id },
           "Failed to update Safe Rollout time series data",
         );
-      }
-
-      if (safeRollout.rampScheduleId) {
-        await evaluateRampScheduleAfterSafeRolloutSnapshot(
-          this.context,
-          updatedSafeRollout,
-        );
-        return;
       }
 
       const feature = await getFeature(this.context, safeRollout.featureId);

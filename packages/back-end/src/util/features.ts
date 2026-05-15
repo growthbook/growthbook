@@ -905,6 +905,16 @@ export function getFeatureDefinition({
             if (includeExperimentNames)
               rule.name = `${feature.id} - Monitored Ramp`;
           } else {
+            if (monitorInfo && !r.hashAttribute) {
+              logger.warn(
+                {
+                  featureId: feature.id,
+                  ruleId: r.id,
+                  rampScheduleId: monitorInfo.rampScheduleId,
+                },
+                "Monitored ramp rule missing hashAttribute — falling back to force rollout payload",
+              );
+            }
             rule.force = getJSONValue(feature.valueType, r.value);
             const clampedCoverage =
               r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;

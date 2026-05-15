@@ -157,6 +157,8 @@ describe("SafeRolloutSnapshotModel ramp integration", () => {
     expect(
       mockEvaluateRampScheduleAfterSafeRolloutSnapshot,
     ).toHaveBeenCalledWith(context, updatedSafeRollout);
+    expect(mockNotifySafeRolloutChange).not.toHaveBeenCalled();
+    expect(mockUpdateSafeRolloutTimeSeries).not.toHaveBeenCalled();
     expect(mockCheckAndRollbackSafeRollout).not.toHaveBeenCalled();
     expect(mockUpdateRampUpSchedule).not.toHaveBeenCalled();
     expect(mockGetFeature).not.toHaveBeenCalled();
