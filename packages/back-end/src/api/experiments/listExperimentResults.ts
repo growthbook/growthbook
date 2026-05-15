@@ -45,10 +45,14 @@ export const listExperimentResults = createApiRequestHandler(
   // Preserve the experiment ordering from getAllExperiments and drop
   // experiments without a completed snapshot. `count` is overridden below so it
   // reflects the response array, not the page slice.
-  const experimentResults = filtered.flatMap((experiment) => {
-    const snapshot = snapshotsByExperiment.get(experiment.id);
-    return snapshot ? [toSnapshotApiInterface(experiment, snapshot)] : [];
-  });
+  const experimentResults = await Promise.all(
+    filtered.flatMap((experiment) => {
+      const snapshot = snapshotsByExperiment.get(experiment.id);
+      return snapshot
+        ? [toSnapshotApiInterface(req.context, experiment, snapshot)]
+        : [];
+    }),
+  );
 
   return {
     experimentResults,

@@ -69,7 +69,6 @@ import {
   ExperimentAnalysisSummary,
   ExperimentAnalysisSummaryResultsStatus,
   GoalMetricResult,
-  ExperimentInterfaceExcludingHoldouts,
   SafeRolloutInterface,
   postExperimentValidator,
   postMetricValidator,
@@ -2264,7 +2263,7 @@ function getExperimentMetric(
 
 export async function toExperimentApiInterface(
   context: ReqContext | ApiReqContext,
-  experiment: ExperimentInterfaceExcludingHoldouts,
+  experiment: ExperimentInterface,
   projectMap?: Map<string, ProjectInterface>,
 ): Promise<ApiExperiment> {
   const appOrigin = (APP_ORIGIN ?? "").replace(/\/$/, "");
@@ -2451,10 +2450,11 @@ function safeFloat(n: number | undefined, fallback = 0): number {
   return parseFloat(n.toFixed(20));
 }
 
-export function toSnapshotApiInterface(
+export async function toSnapshotApiInterface(
+  context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
-): ApiExperimentResults {
+): Promise<ApiExperimentResults> {
   const dimension = !snapshot.dimension
     ? {
         type: "none",
@@ -2490,6 +2490,34 @@ export function toSnapshotApiInterface(
       Object.keys(v.metrics).forEach((m) => metricIds.add(m));
     });
   });
+
+  // Resolve display names for every metric that appears in the results, using
+  // the canonical "Parent (col: val, ...)" format for slice metrics so the
+  // payload is self-describing.
+  const baseMetricIds = Array.from(
+    new Set(
+      Array.from(metricIds).map((id) => parseSliceMetricId(id).baseMetricId),
+    ),
+  );
+  const baseMetricsById = new Map(
+    (await getExperimentMetricsByIds(context, baseMetricIds)).map((m) => [
+      m.id,
+      m,
+    ]),
+  );
+  const getMetricName = (id: string): string | undefined => {
+    const { baseMetricId, sliceLevels } = parseSliceMetricId(id);
+    const baseName = baseMetricsById.get(baseMetricId)?.name;
+    if (!baseName) return undefined;
+    if (!sliceLevels.length) return baseName;
+    const sliceContext = sliceLevels
+      .map(
+        (s) =>
+          `${s.column}: ${s.levels.length ? s.levels.join(" OR ") : "other"}`,
+      )
+      .join(", ");
+    return `${baseName} (${sliceContext})`;
+  };
 
   return {
     id: snapshot.id,
@@ -2536,32 +2564,36 @@ export function toSnapshotApiInterface(
         checks: {
           srm: s.srm,
         },
-        metrics: Array.from(metricIds).map((m) => ({
-          metricId: m,
-          variations: s.variations.map((v, i) => {
-            const data = v.metrics[m];
-            return {
-              variationId: variationIds[i],
-              users: v.users,
-              analyses: [
-                {
-                  engine:
-                    analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
-                  numerator: safeFloat(data?.value),
-                  denominator: safeFloat(data?.denominator ?? data?.users),
-                  mean: safeFloat(data?.stats?.mean),
-                  stddev: safeFloat(data?.stats?.stddev),
-                  percentChange: safeFloat(data?.expected),
-                  ciLow: safeFloat(data?.ci?.[0]),
-                  ciHigh: safeFloat(data?.ci?.[1]),
-                  pValue: safeFloat(data?.pValue),
-                  risk: safeFloat(data?.risk?.[1]),
-                  chanceToBeatControl: safeFloat(data?.chanceToWin),
-                },
-              ],
-            };
-          }),
-        })),
+        metrics: Array.from(metricIds).map((m) => {
+          const metricName = getMetricName(m);
+          return {
+            metricId: m,
+            ...(metricName ? { metricName } : null),
+            variations: s.variations.map((v, i) => {
+              const data = v.metrics[m];
+              return {
+                variationId: variationIds[i],
+                users: v.users,
+                analyses: [
+                  {
+                    engine:
+                      analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
+                    numerator: safeFloat(data?.value),
+                    denominator: safeFloat(data?.denominator ?? data?.users),
+                    mean: safeFloat(data?.stats?.mean),
+                    stddev: safeFloat(data?.stats?.stddev),
+                    percentChange: safeFloat(data?.expected),
+                    ciLow: safeFloat(data?.ci?.[0]),
+                    ciHigh: safeFloat(data?.ci?.[1]),
+                    pValue: safeFloat(data?.pValue),
+                    risk: safeFloat(data?.risk?.[1]),
+                    chanceToBeatControl: safeFloat(data?.chanceToWin),
+                  },
+                ],
+              };
+            }),
+          };
+        }),
       };
     }),
   };
