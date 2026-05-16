@@ -5,6 +5,7 @@ import {
   advanceUntilBlocked,
   appendRampEvent,
   applyRampStartActions,
+  completeRollout,
   computeNextProcessAt,
   ensureSafeRolloutForMonitoredRamp,
   onActivatingRevisionPublished,
@@ -131,6 +132,13 @@ export const advanceSingleRampSchedule = async (
     }
 
     if (current.status === "running") {
+      if (current.cutoffDate && current.cutoffDate <= now) {
+        await completeRollout(context, current, {
+          disableActiveTargets: true,
+        });
+        return;
+      }
+
       current = await ensureSafeRolloutForMonitoredRamp(context, current);
 
       const decision = await evaluateCurrentStep(context, current, now);
