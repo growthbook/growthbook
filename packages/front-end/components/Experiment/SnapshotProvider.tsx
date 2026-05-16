@@ -182,22 +182,24 @@ export function LocalSnapshotProvider({
       validParentSettings ?? defaultAnalysisSettings,
     );
 
+  // Refresh by snapshot id (not by experiment+phase) so this works for both
+  // experiments and reports. Reports have their own specific snapshot which
+  // may differ from the experiment's current latest snapshot, and we want to
+  // pick up newly-added analyses on this exact snapshot.
+  const snapshotId = localSnapshot.id;
   const mutateSnapshot = useCallback(async () => {
     setLoading(true);
     try {
       const response = await apiCall<{
         snapshot: ExperimentSnapshotInterface;
-      }>(
-        `/experiment/${experiment.id}/snapshot/${phase}` +
-          (dimension ? "/" + dimension : ""),
-      );
+      }>(`/snapshot/${snapshotId}`);
       if (response.snapshot) {
         setLocalSnapshot(response.snapshot);
       }
     } finally {
       setLoading(false);
     }
-  }, [apiCall, experiment.id, phase, dimension]);
+  }, [apiCall, snapshotId]);
 
   // Compute analysis from local snapshot + local settings
   const analysis = localSnapshot
