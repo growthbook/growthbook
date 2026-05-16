@@ -92,6 +92,39 @@ describe("feature configuration clipboard payloads", () => {
     );
   });
 
+  it("accepts rules carrying stale fields from a prior rule type", () => {
+    // Real-world feature rules carry leftover fields when the user switches
+    // rule type in the UI — e.g., a rule that was a `rollout` (with
+    // `coverage`) and was changed to `force` may still persist `coverage` on
+    // disk. The clipboard schema must tolerate these so paste doesn't
+    // silently drop the entire payload.
+    const featureWithStaleField: FeatureInterface = {
+      ...feature,
+      rules: [
+        {
+          id: "fr_force_stale",
+          type: "force",
+          description: "",
+          allEnvironments: false,
+          environments: ["dev"],
+          value: "false",
+          // `coverage` is a `rollout`-rule field; forceRule schema is strict
+          // and would reject it without the clipboard validator's leniency.
+          coverage: 1,
+        } as unknown as FeatureRule,
+      ],
+    };
+
+    const payload = parseFeatureConfigurationClipboardPayload(
+      buildFeatureConfigurationClipboardPayload(featureWithStaleField),
+    );
+
+    expect(payload).not.toBeNull();
+    expect(payload?.feature.rules).toHaveLength(1);
+    expect(payload?.feature.rules[0]?.type).toBe("force");
+    expect(payload?.references.environments.map((r) => r.id)).toContain("dev");
+  });
+
   it("ignores non-JSON clipboard text", () => {
     expect(parseFeatureConfigurationClipboardPayload("not json")).toBeNull();
   });

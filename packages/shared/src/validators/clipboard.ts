@@ -18,6 +18,19 @@ const clipboardJSONSchemaDef = JSONSchemaDef.extend({
 // safeParse. Coerce any known date fields back to Date instances before the
 // rule union validator runs.
 const RULE_DATE_FIELDS = ["banditStageDateStarted"] as const;
+
+// Each rule variant in `featureRule` is `.strict()`, but real-world feature
+// rules in the DB often carry stale fields left over from earlier rule types
+// (e.g. a rule was a `rollout` with `coverage`, then switched to `force` —
+// the form drops `coverage` from the active UI but the value persists on
+// disk). Strict validation would reject those rules and silently drop the
+// entire paste. Rebuild the union with `.passthrough()` so unknown top-level
+// fields are kept, matching the back-end's accept-what-we-got posture for
+// imports.
+const lenientFeatureRule = z.union(
+  featureRule.options.map((member) => member.passthrough()),
+);
+
 export const clipboardFeatureRule = z.preprocess((value) => {
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
   const obj = value as Record<string, unknown>;
@@ -30,7 +43,7 @@ export const clipboardFeatureRule = z.preprocess((value) => {
     }
   }
   return next ?? value;
-}, featureRule);
+}, lenientFeatureRule);
 
 export const growthbookClipboardMetadata = z
   .object({
