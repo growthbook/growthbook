@@ -1515,27 +1515,38 @@ export default function RuleModal({
                   Rule&apos;s <strong>Ramp-up</strong> schedule
                 </Text>
               </Box>
-              <Button
-                variant="soft"
-                size="xs"
-                onClick={() => {
-                  setOverviewRadioSelectorRuleType("rollout");
-                  setOverviewRuleType("rollout");
-                  setNewRuleOverviewPage(false);
-                  changeRuleType("rollout");
-                  setScheduleType("ramp");
-                  setRampSectionState((prev) => ({
-                    ...prev,
-                    mode: prev.mode === "off" ? "create" : prev.mode,
-                    steps: prev.steps.map((s) => ({
-                      ...s,
-                      monitored: true,
-                    })),
-                  }));
-                }}
-              >
-                Show me
-              </Button>
+              {hasCommercialFeature("safe-rollout") ? (
+                <Button
+                  variant="soft"
+                  size="xs"
+                  onClick={() => {
+                    setOverviewRadioSelectorRuleType("rollout");
+                    setOverviewRuleType("rollout");
+                    setNewRuleOverviewPage(false);
+                    changeRuleType("rollout");
+                    setScheduleType("ramp");
+                    setRampSectionState((prev) => ({
+                      ...prev,
+                      mode: prev.mode === "off" ? "create" : prev.mode,
+                      steps: prev.steps.map((s) => ({
+                        ...s,
+                        monitored: true,
+                      })),
+                    }));
+                  }}
+                >
+                  Show me
+                </Button>
+              ) : (
+                <PremiumTooltip
+                  commercialFeature="safe-rollout"
+                  usePortal={true}
+                >
+                  <Button variant="soft" size="xs" disabled>
+                    Show me
+                  </Button>
+                </PremiumTooltip>
+              )}
             </Flex>
           </Callout>
         </div>

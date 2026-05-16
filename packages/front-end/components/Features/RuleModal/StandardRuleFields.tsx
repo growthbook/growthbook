@@ -103,6 +103,9 @@ export default function StandardRuleFields({
   const showScheduleBadge =
     !!ruleRampSchedule && ruleRampSchedule.status !== "pending";
 
+  const actualScheduleIsMonitored =
+    !!ruleRampSchedule && ruleRampSchedule.steps.some((s) => !!s.monitored);
+
   const hasLegacySchedule = (
     "scheduleRules" in defaultValues ? defaultValues.scheduleRules || [] : []
   ).some((r) => r.timestamp !== null);
@@ -296,7 +299,7 @@ export default function StandardRuleFields({
                   <PaidFeatureBadge commercialFeature="ramp-schedules" />
                   {showScheduleBadge &&
                     !isSimpleSchedule &&
-                    !rampSectionState.steps.some((s) => s.monitored) && (
+                    !actualScheduleIsMonitored && (
                       <RampScheduleBadge
                         rs={ruleRampSchedule!}
                         featureRuleContext
@@ -318,7 +321,7 @@ export default function StandardRuleFields({
                   <PaidFeatureBadge commercialFeature="safe-rollout" />
                   {showScheduleBadge &&
                     !isSimpleSchedule &&
-                    rampSectionState.steps.some((s) => s.monitored) && (
+                    actualScheduleIsMonitored && (
                       <RampScheduleBadge
                         rs={ruleRampSchedule!}
                         featureRuleContext

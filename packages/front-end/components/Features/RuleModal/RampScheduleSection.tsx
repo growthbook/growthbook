@@ -1887,9 +1887,11 @@ export default function RampScheduleSection({
                       <>
                         <Tooltip
                           body={
-                            step.monitored
-                              ? "This step is monitored"
-                              : "Monitor this step"
+                            !hasSafeRolloutFeature
+                              ? "Monitoring requires a Pro plan"
+                              : step.monitored
+                                ? "This step is monitored"
+                                : "Monitor this step"
                           }
                         >
                           <Box
@@ -1907,6 +1909,7 @@ export default function RampScheduleSection({
                               color={step.monitored ? "indigo" : "gray"}
                               size="2"
                               radius="medium"
+                              disabled={!hasSafeRolloutFeature}
                               onClick={() => {
                                 const nowMonitored = !step.monitored;
                                 const update: Partial<UIStep> = {
@@ -2711,13 +2714,19 @@ export default function RampScheduleSection({
         <Checkbox
           value={monitorCheckboxValue}
           setValue={handleMonitorToggle}
-          label="Monitor this release"
+          label={
+            !hasSafeRolloutFeature ? (
+              <>
+                Monitor this release{" "}
+                <PaidFeatureBadge commercialFeature="safe-rollout" />
+              </>
+            ) : (
+              "Monitor this release"
+            )
+          }
           description="Enable guardrail monitoring and auto-rollback for monitored steps"
           disabled={!hasSafeRolloutFeature}
         />
-        {!hasSafeRolloutFeature && (
-          <PaidFeatureBadge commercialFeature="safe-rollout" />
-        )}
       </Flex>
 
       {showMonitoringConfig && (
