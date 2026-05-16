@@ -1638,13 +1638,11 @@ export default function RampScheduleSection({
                       return (
                         <Box style={{ width: COL.coverage, flexShrink: 0 }}>
                           {isReadOnlyView ? (
-                            <Text
-                              size="small"
-                              color="text-low"
-                              style={{ height: 38 }}
-                            >
-                              {formatReadonlyCoverage(step)}
-                            </Text>
+                            <Box style={{ height: 38 }}>
+                              <Text size="small" color="text-low">
+                                {formatReadonlyCoverage(step)}
+                              </Text>
+                            </Box>
                           ) : (
                             <div
                               className={`position-relative ${styles.percentInputWrap}`}
