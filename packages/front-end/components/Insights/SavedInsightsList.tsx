@@ -73,6 +73,8 @@ const SavedInsightsList: FC<{
   const [search, setSearch] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
+  // Each entry is a status id, or "" (empty string) for the "(No status)" bucket.
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [openFilter, setOpenFilter] = useState<string>("");
@@ -125,6 +127,75 @@ const SavedInsightsList: FC<{
     );
   };
 
+  // Status filter — built from the org-configured learning statuses, plus a
+  // synthetic "(No status)" bucket that matches learnings with no status set.
+  const statusCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    insights.forEach((i) => {
+      const key = i.status || "";
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return counts;
+  }, [insights]);
+
+  const statusFilterItems: SearchFiltersItem[] = useMemo(() => {
+    const items: SearchFiltersItem[] = learningStatuses.map((s) => {
+      const count = statusCounts.get(s.id) || 0;
+      return {
+        id: `status-${s.id}`,
+        name: (
+          <Flex gap="2" align="center">
+            <Badge
+              label={s.label}
+              color={s.color || "gray"}
+              variant="soft"
+              size="sm"
+            />
+            <span style={{ color: "var(--color-text-mid)" }}>({count})</span>
+          </Flex>
+        ),
+        searchValue: s.id,
+      };
+    });
+    const noStatusCount = statusCounts.get("") || 0;
+    items.push({
+      id: "status-none",
+      name: (
+        <Flex gap="2" align="center">
+          <em style={{ color: "var(--color-text-mid)" }}>(No status)</em>
+          <span style={{ color: "var(--color-text-mid)" }}>
+            ({noStatusCount})
+          </span>
+        </Flex>
+      ),
+      searchValue: "",
+    });
+    return items;
+  }, [learningStatuses, statusCounts]);
+
+  const statusSyntaxFilters: SyntaxFilter[] = useMemo(
+    () =>
+      selectedStatuses.length > 0
+        ? [
+            {
+              field: "status",
+              values: selectedStatuses,
+              operator: "" as const,
+              negated: false,
+            },
+          ]
+        : [],
+    [selectedStatuses],
+  );
+
+  const handleStatusUpdateQuery = (f: SyntaxFilter) => {
+    if (f.values.length === 0) return;
+    const value = f.values[0];
+    setSelectedStatuses((prev) =>
+      prev.includes(value) ? prev.filter((x) => x !== value) : [...prev, value],
+    );
+  };
+
   const projectOptions = useMemo(
     () => orgProjects.map((p) => ({ label: p.name, value: p.id })),
     [orgProjects],
@@ -134,6 +205,7 @@ const SavedInsightsList: FC<{
     const q = search.trim().toLowerCase();
     const selectedTagSet = new Set(selectedTags);
     const selectedProjectSet = new Set(selectedProjects);
+    const selectedStatusSet = new Set(selectedStatuses);
 
     return insights.filter((i) => {
       // Tag filter (AND across selected tags)
@@ -156,6 +228,13 @@ const SavedInsightsList: FC<{
         }
       }
 
+      // Status filter (OR across selected statuses). Empty string is the
+      // "(No status)" bucket — matches insights with no status set.
+      if (selectedStatusSet.size > 0) {
+        const key = i.status || "";
+        if (!selectedStatusSet.has(key)) return false;
+      }
+
       // Date range — filter on dateCreated
       if (startDate || endDate) {
         const created = getValidDate(i.dateCreated);
@@ -172,12 +251,21 @@ const SavedInsightsList: FC<{
       }
       return true;
     });
-  }, [insights, search, selectedTags, selectedProjects, startDate, endDate]);
+  }, [
+    insights,
+    search,
+    selectedTags,
+    selectedProjects,
+    selectedStatuses,
+    startDate,
+    endDate,
+  ]);
 
   const anyFilterActive =
     !!search ||
     selectedTags.length > 0 ||
     selectedProjects.length > 0 ||
+    selectedStatuses.length > 0 ||
     !!startDate ||
     !!endDate;
 
@@ -245,6 +333,17 @@ const SavedInsightsList: FC<{
                 updateQuery={handleTagUpdateQuery}
               />
             )}
+            {statusFilterItems.length > 0 && (
+              <FilterDropdown
+                filter="status"
+                heading="Status"
+                items={statusFilterItems}
+                syntaxFilters={statusSyntaxFilters}
+                open={openFilter}
+                setOpen={setOpenFilter}
+                updateQuery={handleStatusUpdateQuery}
+              />
+            )}
           </Flex>
           <Flex align="center" gap="4" style={{ fontSize: "0.8rem" }}>
             <Flex align="center">
@@ -290,6 +389,7 @@ const SavedInsightsList: FC<{
                   setSearch("");
                   setSelectedTags([]);
                   setSelectedProjects([]);
+                  setSelectedStatuses([]);
                   setStartDate(undefined);
                   setEndDate(undefined);
                 }}
