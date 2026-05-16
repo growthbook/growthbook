@@ -7,7 +7,7 @@ import {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { ExperimentRefVariation, Screenshot } from "shared/validators";
-import { getLatestPhaseVariations } from "shared/experiments";
+import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import {
   validateFeatureValue,
   getReviewSetting,
@@ -30,7 +30,12 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import Callout from "@/ui/Callout";
-import { decimalToPercent, percentToDecimal } from "@/services/utils";
+import {
+  decimalToPercent,
+  distributeWeights,
+  percentToDecimal,
+  rebalance,
+} from "@/services/utils";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import { getDefaultVariationValue } from "@/services/features";
@@ -58,6 +63,59 @@ type VariationRow = {
 };
 
 type FormValues = { variations: VariationRow[] };
+
+function SplitField({
+  index,
+  weight,
+  onCommit,
+}: {
+  index: number;
+  weight: number;
+  onCommit: (i: number, decimal: number) => void;
+}) {
+  const weightPct = decimalToPercent(weight);
+  const [val, setVal] = useState<string>(
+    isNaN(weightPct) ? "" : String(weightPct),
+  );
+
+  useEffect(() => {
+    const next = isNaN(weightPct) ? "" : String(weightPct);
+    setVal((prev) => {
+      const prevDecimal = percentToDecimal(prev);
+      if (prev === "" || isNaN(prevDecimal) || prevDecimal !== weight) {
+        return next;
+      }
+      return prev;
+    });
+  }, [weightPct, weight]);
+
+  return (
+    <Field
+      label="Split %"
+      type="number"
+      min={0}
+      max={100}
+      step="1"
+      containerClassName="mb-0"
+      append="%"
+      value={val}
+      onChange={(e) => {
+        setVal(e.target.value);
+      }}
+      onBlur={() => {
+        if (val === "") {
+          onCommit(index, 0);
+          return;
+        }
+        let decimal = percentToDecimal(val);
+        if (isNaN(decimal)) decimal = 0;
+        if (decimal < 0) decimal = 0;
+        if (decimal > 1) decimal = 1;
+        onCommit(index, decimal);
+      }}
+    />
+  );
+}
 
 export default function EditFeatureFlagValuesModal({
   feature,
@@ -166,7 +224,25 @@ export default function EditFeatureFlagValuesModal({
   const weightSumPct = decimalToPercent(weightSum);
   const weightsOutOfBalance = Math.abs(weightSum - 1) > 1e-4;
 
+  const rebalanceWeights = (i: number, newDecimal: number) => {
+    const currentWeights = (form.getValues("variations") ?? []).map(
+      (v) => Number(v?.weight) || 0,
+    );
+    const next = rebalance(currentWeights, i, newDecimal);
+    next.forEach((w, j) => {
+      if (w !== currentWeights[j]) {
+        form.setValue(`variations.${j}.weight`, w);
+      }
+    });
+  };
+
   const handleAddVariation = () => {
+    const currentRows = form.getValues("variations") ?? [];
+    const currentWeights = currentRows.map((v) => Number(v?.weight) || 0);
+    const wasEqualWeights =
+      currentWeights.length > 0 &&
+      currentWeights.every((w) => Math.abs(w - currentWeights[0]) < 0.0001);
+
     append({
       id: generateVariationId(),
       name: `Variation ${fields.length}`,
@@ -176,6 +252,16 @@ export default function EditFeatureFlagValuesModal({
       weight: 0,
       value: getDefaultVariationValue(feature.defaultValue ?? ""),
     });
+
+    const newLength = currentWeights.length + 1;
+    const newWeights = wasEqualWeights
+      ? getEqualWeights(newLength)
+      : distributeWeights([...currentWeights, 0], true);
+
+    newWeights.forEach((w, j) => {
+      form.setValue(`variations.${j}.weight`, w);
+    });
+
     setIsEditingVariations(true);
   };
 
@@ -294,7 +380,6 @@ export default function EditFeatureFlagValuesModal({
 
               if (isEditingVariations) {
                 const isNewVariation = !existingVariationIds.has(row.id);
-                const weightPct = decimalToPercent(rowWeight);
                 return (
                   <Box key={field.id}>
                     <Flex direction="row" gap="3" align="start">
@@ -319,30 +404,10 @@ export default function EditFeatureFlagValuesModal({
                             />
                           </Box>
                           <Box style={{ width: 140 }}>
-                            <Field
-                              label="Split %"
-                              type="number"
-                              min={0}
-                              max={100}
-                              step="1"
-                              containerClassName="mb-0"
-                              append="%"
-                              value={isNaN(weightPct) ? "" : weightPct}
-                              onChange={(e) => {
-                                const raw = e.target.value;
-                                if (raw === "") {
-                                  form.setValue(`variations.${i}.weight`, 0);
-                                  return;
-                                }
-                                let decimal = percentToDecimal(raw);
-                                if (isNaN(decimal)) decimal = 0;
-                                if (decimal < 0) decimal = 0;
-                                if (decimal > 1) decimal = 1;
-                                form.setValue(
-                                  `variations.${i}.weight`,
-                                  decimal,
-                                );
-                              }}
+                            <SplitField
+                              index={i}
+                              weight={rowWeight}
+                              onCommit={rebalanceWeights}
                             />
                           </Box>
                         </Flex>
