@@ -362,6 +362,7 @@ export const experimentInterface = z
     lastSnapshotAttempt: z.date().optional(),
     nextSnapshotAttempt: z.date().optional(),
     autoSnapshots: z.boolean(),
+    disableAutoSnapshots: z.boolean().optional(),
     ideaSource: z.string().optional(),
     hasVisualChangesets: z.boolean().optional(),
     hasURLRedirects: z.boolean().optional(),
@@ -1663,6 +1664,45 @@ export const getExperimentResultsValidator = {
   tags: ["experiments"],
   method: "get" as const,
   path: "/experiments/:id/results",
+};
+
+export const listExperimentResultsValidator = {
+  bodySchema: z.never(),
+  querySchema: z
+    .object({
+      ...paginationQueryFields,
+      projectId: z.string().describe("Filter by project id").optional(),
+      datasourceId: z.string().describe("Filter by Data Source").optional(),
+      trackingKey: z
+        .string()
+        .describe("Filter by experiment tracking key")
+        .optional(),
+      status: z.enum(experimentStatus).optional(),
+    })
+    .strict(),
+  paramsSchema: z.never(),
+  responseSchema: z.intersection(
+    z.object({
+      experimentResults: z.array(apiExperimentResultsValidator),
+    }),
+    apiPaginationFieldsValidator,
+  ),
+  summary: "Get latest results for many experiments",
+  description: [
+    "Returns the latest non-dimension snapshot for each experiment matching the filters. Use this to scan results across a portfolio in one call.",
+    "",
+    "Pagination semantics:",
+    "- `total` is the count of experiments matching the filters.",
+    "- `count` is the length of the returned `experimentResults` array.",
+    "- Experiments without a completed snapshot are omitted from `experimentResults`, so `count` may be less than the page slice and a page may legitimately return `count: 0` while `hasMore: true`.",
+    "- `hasMore` and `nextOffset` advance over experiments matching the filters, not over returned results.",
+    "",
+    "Use the per-experiment `GET /experiments/{id}/results` endpoint to inspect specific phases or dimensions.",
+  ].join("\n"),
+  operationId: "listExperimentResults",
+  tags: ["experiments"],
+  method: "get" as const,
+  path: "/experiments/results",
 };
 
 export const getExperimentSnapshotValidator = {
