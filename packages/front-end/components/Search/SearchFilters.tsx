@@ -3,6 +3,7 @@ import {
   FC,
   Fragment,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -133,6 +134,20 @@ export const FilterDropdown: FC<{
 
   const inputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (open !== filter) {
+      setFilterSearch("");
+      return;
+    }
+    if (!showSearchFilter) return;
+
+    const timeout = window.setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [filter, open, showSearchFilter]);
+
   return (
     <DropdownMenu
       trigger={FilterHeading({
@@ -154,6 +169,8 @@ export const FilterDropdown: FC<{
             value={filterSearch}
             onChange={(e) => setFilterSearch(e.target.value)}
             type="search"
+            placeholder="Search..."
+            aria-label={`Search ${heading ?? filter} filters`}
             onKeyDown={(e) => {
               if (e.key !== "ArrowUp" && e.key !== "ArrowDown") {
                 e.stopPropagation();
