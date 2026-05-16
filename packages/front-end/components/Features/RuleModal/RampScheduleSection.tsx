@@ -2716,7 +2716,7 @@ export default function RampScheduleSection({
           pt="3"
           pb="4"
           style={{
-            backgroundColor: "var(--indigo-a3)",
+            backgroundColor: "var(--violet-a2)",
             borderRadius: "var(--radius-2)",
           }}
         >
