@@ -197,23 +197,30 @@ export abstract class QueryRunner<
       );
       this.timer = setTimeout(async () => {
         this.timer = null;
-        // The runner may have been finalized while this timer was pending —
-        // most commonly when the user cancelled and the calling controller
-        // (e.g. cancelSnapshot) deleted the underlying model immediately
-        // after. Re-reading the model would just throw "Could not load
-        // model" with nothing useful to do, so bail out.
-        // Read into a local so the narrowing doesn't leak past the awaits
-        // below, where `this.status` can change if a concurrent cancel fires.
-        const statusAtStart = this.status;
-        if (statusAtStart === "finished") {
+        // Fetch the latest model in its own try so we can distinguish
+        // "model is gone or unreadable" from a genuine refresh failure.
+        // The most common cause of getLatestModel throwing here is a
+        // concurrent cancel: cancelSnapshot constructs its own runner
+        // instance to call cancelQueries() and then deletes the snapshot,
+        // so this (separate) instance never sees the status flip and only
+        // learns about the cancellation when getLatestModel returns null.
+        // There's nothing useful to refresh in that case; if instead this
+        // was a transient DB error, one of the other onQueryFinish call
+        // sites will retry on the next query state change.
+        let latest: Model;
+        try {
+          logger.debug("Getting latest model for " + this.model.id);
+          latest = await this.getLatestModel();
+        } catch (e) {
           logger.debug(
-            "Skipping refresh for finished runner of " + this.model.id,
+            `Skipping refresh for ${this.model.id}: ${
+              e instanceof Error ? e.message : String(e)
+            }`,
           );
           return;
         }
+        this.model = latest;
         try {
-          logger.debug("Getting latest model for " + this.model.id);
-          this.model = await this.getLatestModel();
           const queryMap = await this.refreshQueryStatuses();
           await this.startReadyQueries(queryMap);
         } catch (e) {
