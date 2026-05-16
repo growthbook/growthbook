@@ -1114,11 +1114,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/RampSchedule/SafeRolloutRuleDashboard.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Report/ConfigureLegacyReport.tsx": {
     "no-restricted-imports": {
       "count": 1

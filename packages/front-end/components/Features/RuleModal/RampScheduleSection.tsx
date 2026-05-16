@@ -1394,7 +1394,7 @@ export default function RampScheduleSection({
 
     const endRow = (
       <Box
-        my="2"
+        my={isReadOnlyView ? "4" : "2"}
         style={{
           position: "relative",
           border: "1px solid var(--gray-a5)",
@@ -1414,14 +1414,21 @@ export default function RampScheduleSection({
           }}
         />
         <Flex direction="column" gap="2" pl="2">
-          <Flex align="center" gap="4">
+          <Flex align="center" gap="4" style={{ minHeight: 38 }}>
             <Box style={{ width: COL.num, flexShrink: 0, textAlign: "center" }}>
               <Text size="small" weight="medium" color="text-low">
                 end
               </Text>
             </Box>
             {activeFields.has("coverage") && (
-              <Box style={{ width: COL.coverage, flexShrink: 0 }}>
+              <Box
+                style={{
+                  width: COL.coverage,
+                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
                 {isReadOnlyView ? (
                   <Text size="small" color="text-low">
                     {state.endPatch.coverage ?? 100}%
@@ -1638,7 +1645,13 @@ export default function RampScheduleSection({
                       return (
                         <Box style={{ width: COL.coverage, flexShrink: 0 }}>
                           {isReadOnlyView ? (
-                            <Box style={{ height: 38 }}>
+                            <Box
+                              style={{
+                                height: 38,
+                                display: "flex",
+                                alignItems: "center",
+                              }}
+                            >
                               <Text size="small" color="text-low">
                                 {formatReadonlyCoverage(step)}
                               </Text>
