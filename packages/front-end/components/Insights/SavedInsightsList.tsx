@@ -3,6 +3,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { PiPencilSimple, PiTrash } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { date, getValidDate } from "shared/dates";
+import { DEFAULT_LEARNING_STATUSES } from "shared/constants";
 import EmptyState from "@/components/EmptyState";
 import Markdown from "@/components/Markdown/Markdown";
 import Link from "@/ui/Link";
@@ -25,6 +26,7 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import EditInsightModal from "./EditInsightModal";
 
 type FrontEndInsight = {
@@ -38,6 +40,7 @@ type FrontEndInsight = {
   supportingExperimentIds: string[];
   contraryEvidence?: string[];
   projects?: string[];
+  status?: string;
   dateCreated: string;
   dateUpdated: string;
 };
@@ -53,6 +56,13 @@ const SavedInsightsList: FC<{
   const { userId, superAdmin, getOwnerDisplay } = useUser();
   const { projects: orgProjects, getProjectById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
+  const orgSettings = useOrgSettings();
+  const learningStatuses =
+    orgSettings.learningStatuses ?? DEFAULT_LEARNING_STATUSES;
+  const statusMap = useMemo(
+    () => new Map(learningStatuses.map((s) => [s.id, s])),
+    [learningStatuses],
+  );
   const [pendingDelete, setPendingDelete] = useState<FrontEndInsight | null>(
     null,
   );
@@ -321,9 +331,28 @@ const SavedInsightsList: FC<{
               }}
             >
               <Flex justify="between" align="start" gap="3" mb="2">
-                <Heading as="h4" size="medium">
-                  {insight.title}
-                </Heading>
+                <Flex gap="2" align="center" wrap="wrap">
+                  <Heading as="h4" size="medium">
+                    {insight.title}
+                  </Heading>
+                  {insight.status &&
+                    (() => {
+                      const s = statusMap.get(insight.status);
+                      return (
+                        <Badge
+                          label={s?.label || insight.status}
+                          color={s?.color || "gray"}
+                          variant="soft"
+                          size="sm"
+                          title={
+                            s
+                              ? undefined
+                              : "This status no longer exists in settings"
+                          }
+                        />
+                      );
+                    })()}
+                </Flex>
                 {allowManage && (
                   <Flex gap="1">
                     <Button

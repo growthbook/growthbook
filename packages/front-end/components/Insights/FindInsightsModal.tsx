@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from "react";
+import { FC, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { AiInsightSuggestion } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -33,12 +33,37 @@ const FindInsightsModal: FC<{
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<SuggestionState[]>([]);
 
+  // Stable key derived from the actual experiment IDs. We depend on this
+  // rather than the experiments array reference so that SWR-driven
+  // re-renders of the parent (e.g. on tab focus / revalidation) don't cause
+  // us to re-fire the expensive AI generation when the underlying set of
+  // experiments hasn't actually changed.
+  const experimentIdsKey = useMemo(
+    () =>
+      experiments
+        .map((e) => e.id)
+        .sort()
+        .join(","),
+    [experiments],
+  );
+
+  // Guard against React strict-mode double invocation in dev and any other
+  // accidental re-runs for the same set of experiments while this modal
+  // instance is open. The user explicitly clicks "Find insights" to open
+  // the modal; we never want a passive event (tab switch, focus return) to
+  // re-trigger AI generation.
+  const lastFetchedKey = useRef<string | null>(null);
+
   useEffect(() => {
+    if (lastFetchedKey.current === experimentIdsKey) return;
+    lastFetchedKey.current = experimentIdsKey;
+
     let cancelled = false;
     const run = async () => {
       setLoading(true);
       setError(null);
       try {
+        const ids = experimentIdsKey ? experimentIdsKey.split(",") : [];
         const res = await apiCall<{
           status: number;
           insights?: AiInsightSuggestion[];
@@ -46,7 +71,7 @@ const FindInsightsModal: FC<{
         }>("/insights/find", {
           method: "POST",
           body: JSON.stringify({
-            experimentIds: experiments.map((e) => e.id),
+            experimentIds: ids,
           }),
         });
         if (cancelled) return;
@@ -74,9 +99,12 @@ const FindInsightsModal: FC<{
     return () => {
       cancelled = true;
     };
-  }, [apiCall, experiments]);
+  }, [apiCall, experimentIdsKey]);
 
-  const experimentMap = new Map(experiments.map((e) => [e.id, e]));
+  const experimentMap = useMemo(
+    () => new Map(experiments.map((e) => [e.id, e])),
+    [experiments],
+  );
 
   async function saveSuggestion(index: number) {
     const item = suggestions[index];

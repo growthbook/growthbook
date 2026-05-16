@@ -18,6 +18,10 @@ export const insightValidator = z
     // curated manually by the team.
     contraryEvidence: z.array(z.string()),
     projects: z.array(z.string()).optional(),
+    // ID of a learning status configured at the org level
+    // (OrganizationSettings.learningStatuses). Empty / undefined means
+    // "no status".
+    status: z.string().optional(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
   })
@@ -40,6 +44,7 @@ export const updateInsightValidator = z
     supportingExperimentIds: z.array(z.string()).optional(),
     contraryEvidence: z.array(z.string()).optional(),
     projects: z.array(z.string()).optional(),
+    status: z.string().optional(),
   })
   .strict();
 

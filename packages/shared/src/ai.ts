@@ -131,6 +131,7 @@ export const AI_PROMPT_TYPES = [
   "visual-changeset-copy-transform-concise",
   "visual-changeset-copy-transform-humorous",
   "product-analytics-chat",
+  "find-insights-context",
 ] as const;
 export type AIPromptType = (typeof AI_PROMPT_TYPES)[number];
 
@@ -164,6 +165,7 @@ export const AI_PROMPT_DEFAULTS: Record<AIPromptType, string> = {
   "visual-changeset-copy-transform-concise": "", // Always uses the default prompt set in postCopyTransform.ts
   "visual-changeset-copy-transform-humorous": "", // Always uses the default prompt set in postCopyTransform.ts
   "product-analytics-chat": "",
+  "find-insights-context": "", // Org-specific context appended when finding cross-experiment insights
 };
 
 // Prompt types that have default values and can be customized by users
@@ -171,7 +173,8 @@ export const CUSTOMIZABLE_PROMPT_TYPES = Object.keys(AI_PROMPT_DEFAULTS).filter(
   (key) =>
     AI_PROMPT_DEFAULTS[key as AIPromptType] !== "" ||
     key === "generate-sql-query" ||
-    key === "product-analytics-chat",
+    key === "product-analytics-chat" ||
+    key === "find-insights-context",
 ) as AIPromptType[];
 
 export interface AIUsageData {

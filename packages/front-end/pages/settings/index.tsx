@@ -15,6 +15,7 @@ import {
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
   DEFAULT_POST_STRATIFICATION_ENABLED,
+  DEFAULT_LEARNING_STATUSES,
 } from "shared/constants";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { OrganizationSettings } from "shared/types/organization";
@@ -188,6 +189,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.postStratificationEnabled ??
         DEFAULT_POST_STRATIFICATION_ENABLED,
       approvalFlows: settings.approvalFlows,
+      learningStatuses: settings.learningStatuses ?? DEFAULT_LEARNING_STATUSES,
     },
   });
   const { apiCall } = useAuth();
@@ -241,6 +243,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
     savedGroupSizeLimit: form.watch("savedGroupSizeLimit"),
     approvalFlows: form.watch("approvalFlows"),
+    learningStatuses: form.watch("learningStatuses"),
   };
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";

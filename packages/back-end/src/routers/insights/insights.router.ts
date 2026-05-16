@@ -23,6 +23,7 @@ router.post(
         supportingExperimentIds: z.array(z.string()),
         contraryEvidence: z.array(z.string()).optional(),
         projects: z.array(z.string()).optional(),
+        status: z.string().optional(),
       })
       .strict(),
   }),
@@ -41,6 +42,7 @@ router.put(
         supportingExperimentIds: z.array(z.string()).optional(),
         contraryEvidence: z.array(z.string()).optional(),
         projects: z.array(z.string()).optional(),
+        status: z.string().optional(),
       })
       .strict(),
   }),

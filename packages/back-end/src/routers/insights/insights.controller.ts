@@ -37,6 +37,7 @@ type CreateInsightRequest = AuthRequest<{
   supportingExperimentIds: string[];
   contraryEvidence?: string[];
   projects?: string[];
+  status?: string;
 }>;
 
 type CreateInsightResponse = {
@@ -56,6 +57,7 @@ export const postInsight = async (
     supportingExperimentIds,
     contraryEvidence,
     projects,
+    status,
   } = req.body;
 
   const insight = await context.models.insights.create({
@@ -67,6 +69,7 @@ export const postInsight = async (
     supportingExperimentIds: supportingExperimentIds || [],
     contraryEvidence: contraryEvidence || [],
     projects: projects || [],
+    status: status || undefined,
   });
 
   res.status(200).json({ status: 200, insight });
@@ -80,6 +83,7 @@ type UpdateInsightRequest = AuthRequest<
     supportingExperimentIds?: string[];
     contraryEvidence?: string[];
     projects?: string[];
+    status?: string;
   },
   { id: string }
 >;
@@ -106,6 +110,11 @@ export const putInsight = async (
       : existingAuthors;
 
   const updates = { ...req.body, authors: nextAuthors };
+
+  // Normalize empty status string to undefined so "no status" persists cleanly.
+  if (updates.status === "") {
+    updates.status = undefined;
+  }
 
   const updated = await context.models.insights.update(existing, updates);
   res.status(200).json({ status: 200, insight: updated });
@@ -214,7 +223,7 @@ export const postFindInsights = async (
     tags: i.tags || [],
   }));
 
-  const instructions =
+  let instructions =
     "You are an expert experimentation analyst. Your job is to read a set of A/B experiments and identify common themes, patterns, or insights that span multiple experiments. " +
     "Look for things like: shared psychological or design tactics that tend to work (or not work), audience preferences (e.g. color, copy tone, emotional appeals, urgency, social proof), recurring product behaviors, or patterns in what causes wins vs. losses. " +
     "Only surface insights that are supported by at least 2 of the experiments provided. " +
@@ -223,6 +232,18 @@ export const postFindInsights = async (
     "Use only experiment ids from the input set. Return at most 8 insights, ordered from most to least confident. " +
     "If no meaningful cross-experiment patterns exist, return an empty list. " +
     "IMPORTANT: A list of insights that the team has ALREADY SAVED is provided. Do not duplicate or paraphrase those — only surface genuinely new patterns. If a candidate insight overlaps meaningfully with a saved one, omit it.";
+
+  // Append any organization-specific context the team has configured under
+  // General Settings → Experiment Settings → Find Insights Context.
+  const findInsightsPromptConfig = await context.models.aiPrompts.getAIPrompt(
+    "find-insights-context",
+  );
+  const customContext = (findInsightsPromptConfig.prompt || "").trim();
+  if (customContext) {
+    instructions +=
+      "\n\nAdditional organization-specific context about the product, audience, and what counts as a meaningful insight:\n" +
+      customContext;
+  }
 
   const prompt =
     "Here are the experiments to analyze (as JSON). Each has an id, name, hypothesis, description, tags, status, results, an AI-written or human-written analysis summary, and the variations tested:\n\n" +
@@ -235,8 +256,9 @@ export const postFindInsights = async (
       context,
       instructions,
       prompt,
-      type: "experiment-analysis",
-      isDefaultPrompt: true,
+      type: "find-insights-context",
+      isDefaultPrompt: !customContext,
+      overrideModel: findInsightsPromptConfig.overrideModel,
       temperature: 0.4,
       zodObjectSchema: aiInsightSuggestionsResponseValidator,
     });
