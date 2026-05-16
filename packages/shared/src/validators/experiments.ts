@@ -128,6 +128,20 @@ export const variation = z
   .strict();
 export type Variation = z.infer<typeof variation>;
 
+export const manualLaunchChecklistItemValidator = z
+  .object({
+    key: z.string(),
+    status: z.enum(["complete", "incomplete"]),
+  })
+  .strict();
+export type ManualLaunchChecklistItem = z.infer<
+  typeof manualLaunchChecklistItemValidator
+>;
+
+export const manualLaunchChecklistValidator = z.array(
+  manualLaunchChecklistItemValidator,
+);
+
 export const attributionModel = [
   "firstExposure",
   "experimentDuration",
@@ -380,16 +394,7 @@ export const experimentInterface = z
           .strict(),
       )
       .optional(),
-    manualLaunchChecklist: z
-      .array(
-        z
-          .object({
-            key: z.string(),
-            status: z.enum(["complete", "incomplete"]),
-          })
-          .strict(),
-      )
-      .optional(),
+    manualLaunchChecklist: manualLaunchChecklistValidator.optional(),
     type: z.enum(experimentType).optional(),
     banditStage: z.enum(banditStageType).optional(),
     banditStageDateStarted: z.date().optional(),
@@ -1279,6 +1284,17 @@ const postExperimentStartBody = z
   .strict()
   .optional();
 
+const postExperimentStartChecklistManualCompleteBody = z
+  .object({
+    keys: z
+      .array(z.string())
+      .min(1)
+      .describe(
+        "Manual pre-launch checklist item keys to mark as complete (auto-computed items cannot be updated via this endpoint).",
+      ),
+  })
+  .strict();
+
 const postExperimentStopBody = z
   .object({
     results: z
@@ -1455,6 +1471,49 @@ export const getExperimentValidator = {
   exampleRequest: { params: { id: "abc123" } },
 };
 
+const checklistStatusValidator = z.enum(["complete", "incomplete"]);
+export type ChecklistStatus = z.infer<typeof checklistStatusValidator>;
+
+const startChecklistItemStatusValidator = z
+  .object({
+    key: z.string(),
+    required: z.boolean(),
+    status: checklistStatusValidator,
+    manual: z.boolean(),
+    reason: z.string(),
+  })
+  .strict();
+
+export type StartChecklistItemStatus = z.infer<
+  typeof startChecklistItemStatusValidator
+>;
+
+const experimentStartChecklistStatusValidator = z.enum(["ready", "notReady"]);
+
+export type ExperimentStartChecklistStatus = z.infer<
+  typeof experimentStartChecklistStatusValidator
+>;
+
+const experimentStartChecklistResponseValidator = z
+  .object({
+    checklistItems: z.array(startChecklistItemStatusValidator),
+    status: experimentStartChecklistStatusValidator,
+  })
+  .strict();
+
+export const getExperimentStartChecklistValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: experimentStartChecklistResponseValidator,
+  summary: "Get an experiment pre-launch checklist status",
+  operationId: "getExperimentStartChecklist",
+  tags: ["experiments"],
+  method: "get" as const,
+  path: "/experiments/:id/start-checklist",
+  exampleRequest: { params: { id: "exp_abc123" } },
+};
+
 export const updateExperimentValidator = {
   bodySchema: updateExperimentBody,
   querySchema: z.never(),
@@ -1487,6 +1546,24 @@ export const postExperimentStartValidator = {
   path: "/experiments/:id/start",
   exampleRequest: {
     params: { id: "exp_abc123" },
+  },
+};
+
+export const postExperimentStartChecklistManualCompleteValidator = {
+  bodySchema: postExperimentStartChecklistManualCompleteBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: experimentStartChecklistResponseValidator,
+  summary: "Mark manual pre-launch checklist items complete",
+  operationId: "postExperimentStartChecklistManualComplete",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/start-checklist/manual/complete",
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+    body: {
+      keys: ["Stakeholder sign-off", "QA complete"],
+    },
   },
 };
 
