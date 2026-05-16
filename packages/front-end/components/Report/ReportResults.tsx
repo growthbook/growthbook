@@ -216,12 +216,6 @@ export default function ReportResults({
             ssrPolyfills={ssrPolyfills}
             isReportContext
             snapshot={snapshot}
-            experiment={
-              experiment?.id
-                ? (experiment as ExperimentInterfaceStringDates)
-                : undefined
-            }
-            dimension={snapshot.dimension ?? undefined}
           >
             {showDateResults ? (
               <DateResults

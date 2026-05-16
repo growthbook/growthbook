@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useMemo, FC, ReactNode } from "react";
 import {
-  ExperimentInterfaceStringDates,
   ExperimentStatus,
   LookbackOverride,
   MetricOverride,
@@ -81,11 +80,10 @@ export interface MetricDrilldownProviderProps {
   // When true, timeseries is unavailable and a message is shown instead
   isReportContext?: boolean;
 
-  // Optional snapshot and experiment for report context (no parent SnapshotProvider)
-  // These are used to create a LocalSnapshotProvider in the modal
+  // Snapshot for report context (no parent SnapshotProvider).
+  // When provided, a LocalSnapshotProvider is created in the modal so it can
+  // refresh when baseline/difference settings change.
   snapshot?: ExperimentSnapshotInterface;
-  experiment?: ExperimentInterfaceStringDates;
-  dimension?: string;
 }
 
 interface OpenModalInfo {
@@ -126,8 +124,6 @@ export const MetricDrilldownProvider: FC<MetricDrilldownProviderProps> = ({
   ssrPolyfills,
   isReportContext,
   snapshot,
-  experiment,
-  dimension,
 }) => {
   const [openModalInfo, setOpenModalInfo] = useState<OpenModalInfo | null>(
     null,
@@ -232,8 +228,6 @@ export const MetricDrilldownProvider: FC<MetricDrilldownProviderProps> = ({
           ssrPolyfills={ssrPolyfills}
           isReportContext={isReportContext}
           snapshot={snapshot}
-          experiment={experiment}
-          dimension={dimension}
         />
       )}
     </MetricDrilldownContext.Provider>

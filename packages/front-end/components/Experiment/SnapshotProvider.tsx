@@ -140,7 +140,7 @@ export function useSnapshot() {
 }
 
 export interface LocalSnapshotProviderProps {
-  experiment: ExperimentInterfaceStringDates;
+  experiment?: ExperimentInterfaceStringDates;
   snapshot: ExperimentSnapshotInterface;
   phase: number;
   dimension: string;

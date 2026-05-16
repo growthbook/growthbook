@@ -14,7 +14,6 @@ import {
   StatsEngine,
 } from "shared/types/stats";
 import {
-  ExperimentInterfaceStringDates,
   ExperimentStatus,
   LookbackOverride,
   MetricOverride,
@@ -107,11 +106,10 @@ interface MetricDrilldownModalProps {
   // When true, timeseries is unavailable and a message is shown instead
   isReportContext?: boolean;
 
-  // Optional snapshot and experiment for report context (no parent SnapshotProvider)
-  // These are used to create a LocalSnapshotProvider when parent context is empty
+  // Snapshot for report context (no parent SnapshotProvider).
+  // When provided, a LocalSnapshotProvider is created so the modal can refresh
+  // when baseline/difference settings change.
   snapshot?: ExperimentSnapshotInterface;
-  experiment?: ExperimentInterfaceStringDates;
-  dimension?: string;
 }
 
 /**
@@ -453,10 +451,8 @@ const MetricDrilldownModal = ({
   dimensionInfo,
   // Report context
   isReportContext: isReportContextProp,
-  // Optional snapshot and experiment for report context
+  // Snapshot for report context (no parent SnapshotProvider)
   snapshot: snapshotProp,
-  experiment: experimentProp,
-  dimension: dimensionProp,
 }: MetricDrilldownModalProps) => {
   useBodyScrollLock(true);
   const { metric } = row;
@@ -470,7 +466,6 @@ const MetricDrilldownModal = ({
   // Get snapshot from global snapshot context, to initialize LocalSnapshotProvider
   const {
     snapshot: parentSnapshot,
-    experiment: contextExperiment,
     phase: contextPhase,
     dimension: contextDimension,
     analysisSettings: parentAnalysisSettings,
@@ -478,8 +473,9 @@ const MetricDrilldownModal = ({
 
   // Use prop values when parent context is empty (report context)
   const effectiveSnapshot = parentSnapshot ?? snapshotProp;
-  const effectiveExperiment = contextExperiment ?? experimentProp;
-  const effectiveDimension = contextDimension ?? dimensionProp ?? "";
+  // Prefer the context dimension, then fall back to the snapshot's own dimension
+  const effectiveDimension =
+    contextDimension || effectiveSnapshot?.dimension || "";
   // Use contextPhase from snapshot context when available, otherwise use phase prop
   const effectivePhase = parentSnapshot ? contextPhase : phase;
 
@@ -619,9 +615,8 @@ const MetricDrilldownModal = ({
         autoFocusSelector=""
       >
         <MetricDrilldownContext.Provider value={null}>
-          {effectiveSnapshot && effectiveExperiment ? (
+          {effectiveSnapshot ? (
             <LocalSnapshotProvider
-              experiment={effectiveExperiment}
               snapshot={effectiveSnapshot}
               phase={effectivePhase}
               dimension={effectiveDimension}
