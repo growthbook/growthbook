@@ -156,7 +156,7 @@ export default function EditTrafficModal({
             />
           ) : null}
 
-          <hr className="my-4" />
+          {/* <hr className="my-4" /> */}
 
           <NamespaceSelector
             form={form}
