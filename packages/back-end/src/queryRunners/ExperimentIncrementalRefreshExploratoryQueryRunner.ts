@@ -30,7 +30,10 @@ import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
 import { parseDimension } from "back-end/src/services/experiments";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
-import { validateIncrementalPipeline } from "back-end/src/services/dataPipeline";
+import {
+  formatIncompatibleMetricsWarning,
+  validateIncrementalPipeline,
+} from "back-end/src/services/dataPipeline";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
@@ -237,7 +240,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       throw new Error("Experiment not found");
     }
 
-    await validateIncrementalPipeline({
+    const { incompatibleMetrics } = await validateIncrementalPipeline({
       org: this.context.org,
       integration: this.integration,
       snapshotSettings: params.snapshotSettings,
@@ -248,9 +251,33 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       analysisType: "exploratory",
     });
 
+    let runnerParams = params;
+    if (incompatibleMetrics.length) {
+      const incompatibleIds = new Set(incompatibleMetrics.map((m) => m.id));
+      runnerParams = {
+        ...params,
+        snapshotSettings: {
+          ...params.snapshotSettings,
+          metricSettings: params.snapshotSettings.metricSettings.filter(
+            (m) => !incompatibleIds.has(m.id),
+          ),
+        },
+      };
+      await updateSnapshot({
+        context: this.context,
+        id: this.model.id,
+        updates: {
+          warnings: [
+            ...(this.model.warnings ?? []),
+            formatIncompatibleMetricsWarning(incompatibleMetrics),
+          ],
+        },
+      });
+    }
+
     return startExperimentIncrementalRefreshExploratoryQueries(
       this.context,
-      params,
+      runnerParams,
       this.integration,
       this.startQuery.bind(this),
     );

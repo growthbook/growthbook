@@ -68,6 +68,7 @@ export type SnapshotResult = {
   analyses: ExperimentSnapshotAnalysis[];
   banditResult?: BanditResult;
   health?: ExperimentSnapshotHealth;
+  warnings?: string[];
 };
 
 export type ExperimentResultsQueryParams = {

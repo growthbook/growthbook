@@ -16,8 +16,16 @@ import {
   getMetricSettingsHashForIncrementalRefresh,
 } from "./experimentTimeSeries";
 
-// If the given settings / experiment is not compatible with incremental refresh, throw an error.
-// Otherwise, return void.
+export type IncompatibleMetric = {
+  id: string;
+  name: string;
+  reason: string;
+};
+
+// Throws if the experiment as a whole cannot use incremental refresh
+// (experiment-wide gates). Per-metric incompatibilities are returned instead
+// of thrown so the runner can still process the compatible subset and surface
+// a non-fatal warning for the rest. Throws if no compatible metrics remain.
 export async function validateIncrementalPipeline({
   org,
   integration,
@@ -36,7 +44,7 @@ export async function validateIncrementalPipeline({
   experiment: ExperimentInterface;
   incrementalRefreshModel: IncrementalRefreshInterface | null;
   analysisType: "main-update" | "main-fullRefresh" | "exploratory";
-}): Promise<void> {
+}): Promise<{ incompatibleMetrics: IncompatibleMetric[] }> {
   if (snapshotSettings.skipPartialData) {
     throw new Error(
       "'Exclude In-Progress Conversions' is not supported for incremental refresh queries while in beta. Please select 'Include' in the Analysis Settings for Metric Conversion Windows.",
@@ -93,35 +101,50 @@ export async function validateIncrementalPipeline({
   if (!selectedMetrics.length) {
     throw new Error("Experiment must have at least 1 metric selected.");
   }
-  if (selectedMetrics.some((m) => !isFactMetric(m))) {
-    throw new Error(
-      "Only fact metrics are supported with incremental refresh.",
-    );
-  }
 
-  selectedMetrics.filter(isFactMetric).forEach((metric) => {
+  const incompatibleMetrics: IncompatibleMetric[] = [];
+  const hasQuantileKLL = integration.getSourceProperties().hasQuantileKLL;
+
+  selectedMetrics.forEach((metric) => {
+    if (!isFactMetric(metric)) {
+      incompatibleMetrics.push({
+        id: metric.id,
+        name: metric.name ?? metric.id,
+        reason: "only fact metrics are supported with incremental refresh",
+      });
+      return;
+    }
     if (
       isRatioMetric(metric) &&
       metric.numerator.factTableId !== metric.denominator?.factTableId
     ) {
-      throw new Error(
-        "Ratio metrics must have the same numerator and denominator fact table with incremental refresh.",
-      );
+      incompatibleMetrics.push({
+        id: metric.id,
+        name: metric.name ?? metric.id,
+        reason:
+          "ratio metric numerator and denominator must use the same fact table for incremental refresh",
+      });
+      return;
     }
-
     // Unit quantiles store a float and re-aggregate via SUM, so they work on
     // any incremental-capable warehouse. Only event quantiles need KLL (the
     // quantile must be computed over raw event values, which requires a
     // mergeable sketch for incremental aggregation).
-    if (
-      quantileMetricType(metric) === "event" &&
-      !integration.getSourceProperties().hasQuantileKLL
-    ) {
-      throw new Error(
-        "Event quantile metrics are not supported with incremental refresh on this data source.",
-      );
+    if (quantileMetricType(metric) === "event" && !hasQuantileKLL) {
+      incompatibleMetrics.push({
+        id: metric.id,
+        name: metric.name ?? metric.id,
+        reason:
+          "event quantile metrics require KLL sketch support, which this data source does not provide",
+      });
     }
   });
+
+  if (incompatibleMetrics.length === selectedMetrics.length) {
+    throw new Error(
+      `No metrics are compatible with incremental refresh: ${incompatibleMetrics[0].reason}.`,
+    );
+  }
 
   // If not forcing a full refresh and we have a previous run, ensure the
   // current configuration matches what the incremental pipeline was built with.
@@ -167,4 +190,15 @@ export async function validateIncrementalPipeline({
       });
     }
   }
+
+  return { incompatibleMetrics };
+}
+
+export function formatIncompatibleMetricsWarning(
+  incompatibleMetrics: IncompatibleMetric[],
+): string {
+  const list = incompatibleMetrics
+    .map((m) => `"${m.name}" (${m.reason})`)
+    .join(", ");
+  return `${incompatibleMetrics.length} metric(s) excluded from incremental refresh and not computed in this snapshot: ${list}. Remove or replace these metrics, or disable incremental pipeline mode for this experiment, to compute them.`;
 }

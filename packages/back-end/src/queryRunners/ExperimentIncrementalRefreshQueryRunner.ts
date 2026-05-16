@@ -45,7 +45,10 @@ import {
   getExperimentSettingsHashForIncrementalRefresh,
   getMetricSettingsHashForIncrementalRefresh,
 } from "back-end/src/services/experimentTimeSeries";
-import { validateIncrementalPipeline } from "back-end/src/services/dataPipeline";
+import {
+  formatIncompatibleMetricsWarning,
+  validateIncrementalPipeline,
+} from "back-end/src/services/dataPipeline";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import { chunkMetrics } from "back-end/src/services/experimentQueries/experimentQueries";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -906,8 +909,9 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       throw new Error("Experiment not found");
     }
 
-    // Throws if any settings/experiment is not supported
-    await validateIncrementalPipeline({
+    // Throws on experiment-wide incompatibilities; returns per-metric ones so
+    // we can run incremental refresh on the compatible subset.
+    const { incompatibleMetrics } = await validateIncrementalPipeline({
       org: this.context.org,
       integration: this.integration,
       snapshotSettings: params.snapshotSettings,
@@ -918,9 +922,33 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       analysisType: params.fullRefresh ? "main-fullRefresh" : "main-update",
     });
 
+    let runnerParams = params;
+    if (incompatibleMetrics.length) {
+      const incompatibleIds = new Set(incompatibleMetrics.map((m) => m.id));
+      runnerParams = {
+        ...params,
+        snapshotSettings: {
+          ...params.snapshotSettings,
+          metricSettings: params.snapshotSettings.metricSettings.filter(
+            (m) => !incompatibleIds.has(m.id),
+          ),
+        },
+      };
+      await updateSnapshot({
+        context: this.context,
+        id: this.model.id,
+        updates: {
+          warnings: [
+            ...(this.model.warnings ?? []),
+            formatIncompatibleMetricsWarning(incompatibleMetrics),
+          ],
+        },
+      });
+    }
+
     return await startExperimentIncrementalRefreshQueries(
       this.context,
-      params,
+      runnerParams,
       this.integration,
       this.startQuery.bind(this),
     );
