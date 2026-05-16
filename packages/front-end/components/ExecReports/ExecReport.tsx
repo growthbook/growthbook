@@ -286,9 +286,24 @@ export default function ExecReport() {
         </Flex>
       )}
       <Flex gap="4" align="start" justify="between" mb="4" wrap="wrap">
-        <Box flexBasis="300px" flexShrink="0">
-          <Field placeholder="Search..." type="search" {...searchInputProps} />
-        </Box>
+        <Flex align="center" gap="3">
+          <Box flexBasis="300px" flexShrink="0">
+            <Field
+              placeholder="Search..."
+              type="search"
+              {...searchInputProps}
+            />
+          </Box>
+          {(syntaxFilters.length > 0 || !!searchInputProps.value) && (
+            <Link
+              size="1"
+              onClick={() => setSearchValue("")}
+              style={{ whiteSpace: "nowrap" }}
+            >
+              Clear filters
+            </Link>
+          )}
+        </Flex>
         <ExperimentSearchFilters
           searchInputProps={searchInputProps}
           syntaxFilters={syntaxFilters}
