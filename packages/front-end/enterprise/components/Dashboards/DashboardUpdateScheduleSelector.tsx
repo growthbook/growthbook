@@ -32,6 +32,7 @@ export default function DashboardUpdateScheduleSelector({
               value: "stale",
               description: (
                 <Field
+                  size="legacy"
                   label="Refresh when"
                   append="hours old"
                   type="number"
@@ -67,6 +68,7 @@ export default function DashboardUpdateScheduleSelector({
                     hour.
                   </Text>
                   <Field
+                    size="legacy"
                     disabled={currentUpdateSchedule?.type !== "cron"}
                     value={
                       currentUpdateSchedule?.type === "cron"

@@ -336,6 +336,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
     : {};
   return (
     <Field
+      size="legacy"
       {...fieldProps}
       customClassName={clsx(customClassName, { "cursor-disabled": disabled })}
       render={(id, ref) => {

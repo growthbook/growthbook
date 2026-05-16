@@ -183,6 +183,7 @@ export const IdListItemInput: FC<{
       )}
       {importMethod === "values" && (
         <StringArrayField
+          size="legacy"
           containerClassName="mb-0"
           label="List Values to Include"
           labelClassName="font-weight-bold"

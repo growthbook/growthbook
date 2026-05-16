@@ -9,7 +9,7 @@ import {
 import { config, FullModalPowerCalculationParams } from "shared/power";
 import { isProjectListValidForProject } from "shared/util";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Modal from "@/components/Modal";
@@ -375,6 +375,7 @@ export const SelectStep = ({
         {metricValuesSource !== "manual" ? (
           <>
             <SelectField
+              size="legacy"
               label={
                 <>
                   <span className="mr-auto font-weight-bold">
@@ -394,6 +395,7 @@ export const SelectStep = ({
               forceUndefinedValueToNull={true}
             />
             <SelectField
+              size="legacy"
               label={
                 <>
                   <span className="mr-auto font-weight-bold">
@@ -439,6 +441,7 @@ export const SelectStep = ({
           Pick the key metrics for which you want to estimate power.
         </div>
         <MultiSelectField
+          size="legacy"
           sort={false}
           value={selectedMetrics}
           options={availableMetrics.map(({ name: label, id: value }) => ({

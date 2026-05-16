@@ -206,6 +206,7 @@ export default function StandardRuleFields({
   return (
     <>
       <Field
+        size="legacy"
         label="Description"
         textarea
         minRows={1}

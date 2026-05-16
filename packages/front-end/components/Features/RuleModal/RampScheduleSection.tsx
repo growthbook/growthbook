@@ -10,7 +10,7 @@ import { Box, Flex, Separator, IconButton } from "@radix-ui/themes";
 import {
   PiPlusBold,
   PiInfo,
-  PiCaretDownBold,
+  PiCaretDown,
   PiBookmarkSimple,
 } from "react-icons/pi";
 import type {
@@ -728,7 +728,8 @@ export default function RampScheduleSection({
             <Box style={{ width: COL.coverage, flexShrink: 0 }}>
               <div className={`position-relative ${styles.percentInputWrap}`}>
                 <Field
-                  style={{ width: COL.coverage, minHeight: 38 }}
+                  size="legacy"
+                  style={{ width: COL.coverage }}
                   type="number"
                   min="0"
                   max="100"
@@ -813,6 +814,7 @@ export default function RampScheduleSection({
               </Text>
             </Box>
             <SelectField
+              size="legacy"
               value={state.startDate ? "on-date" : "immediately"}
               options={START_OPTIONS}
               onChange={(v) => {
@@ -881,7 +883,8 @@ export default function RampScheduleSection({
                       className={`position-relative ${styles.percentInputWrap}`}
                     >
                       <Field
-                        style={{ width: COL.coverage, minHeight: 38 }}
+                        size="legacy"
+                        style={{ width: COL.coverage }}
                         type="number"
                         min="0"
                         max="100"
@@ -921,6 +924,7 @@ export default function RampScheduleSection({
                 >
                   <Box style={{ width: COL.trigger, flexShrink: 0 }}>
                     <SelectField
+                      size="legacy"
                       value={step.triggerType}
                       options={[
                         {
@@ -942,7 +946,6 @@ export default function RampScheduleSection({
                         })
                       }
                       containerClassName="mb-0"
-                      containerStyle={{ minHeight: 38 }}
                       useMultilineLabels
                       formatOptionLabel={(option, meta) => {
                         if (meta.context === "value")
@@ -969,7 +972,7 @@ export default function RampScheduleSection({
                   {step.triggerType === "interval" && (
                     <>
                       <Field
-                        style={{ minHeight: 38 }}
+                        size="legacy"
                         type="number"
                         min="1"
                         onFocus={(e) => e.target.select()}
@@ -991,6 +994,7 @@ export default function RampScheduleSection({
                       />
                       <Box style={{ flex: 1 }}>
                         <SelectField
+                          size="legacy"
                           value={step.intervalUnit}
                           options={[
                             { value: "minutes", label: "minutes" },
@@ -1003,7 +1007,6 @@ export default function RampScheduleSection({
                             })
                           }
                           containerClassName="mb-0"
-                          containerStyle={{ minHeight: 38 }}
                         />
                       </Box>
                     </>
@@ -1035,6 +1038,7 @@ export default function RampScheduleSection({
                       ) : (
                         <Box style={{ flex: 1, minWidth: 0 }}>
                           <Field
+                            size="legacy"
                             label=""
                             placeholder="ex: Check error rates"
                             value={step.approvalNotes}
@@ -1042,7 +1046,6 @@ export default function RampScheduleSection({
                               updateStep(i, { approvalNotes: e.target.value })
                             }
                             containerClassName="mb-0"
-                            style={{ minHeight: 38 }}
                           />
                         </Box>
                       )}
@@ -1213,7 +1216,10 @@ export default function RampScheduleSection({
         {selectedTemplate?.name ??
           (templates.length === 0 ? "No presets available" : "Custom...")}
       </span>
-      <PiCaretDownBold style={{ flexShrink: 0 }} />
+      <PiCaretDown
+        size={16}
+        style={{ flexShrink: 0, color: "var(--gray-12)" }}
+      />
     </Flex>
   );
 
@@ -1231,7 +1237,7 @@ export default function RampScheduleSection({
           open={presetOpen}
           onOpenChange={setPresetOpen}
           trigger={presetTrigger}
-          triggerClassName="dropdown-trigger-select-style dropdown-trigger-header"
+          triggerClassName="dropdown-trigger-select-style"
           triggerStyle={{ paddingTop: 4, paddingBottom: 4 }}
           menuWidth="full"
           menuPlacement="end"
@@ -1345,6 +1351,7 @@ export default function RampScheduleSection({
           return (
             <Flex direction="column" gap="3">
               <Field
+                size="legacy"
                 label="Template name"
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}

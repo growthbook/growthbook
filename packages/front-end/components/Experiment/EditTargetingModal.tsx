@@ -487,6 +487,7 @@ function TargetingForm({
       {safeToEdit && (
         <>
           <Field
+            size="legacy"
             label="Tracking Key"
             labelClassName="font-weight-bold"
             {...form.register("trackingKey")}

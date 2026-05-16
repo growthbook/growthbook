@@ -67,6 +67,7 @@ export function MetricPriorSettingsForm({
               <div className="row">
                 <div className="col">
                   <Field
+                    size="legacy"
                     label="Prior Mean"
                     type="number"
                     step="any"
@@ -90,6 +91,7 @@ export function MetricPriorSettingsForm({
                 </div>
                 <div className="col">
                   <Field
+                    size="legacy"
                     label="Prior Standard Deviation"
                     type="number"
                     step="any"

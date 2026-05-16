@@ -18,7 +18,7 @@ import {
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Checkbox from "@/ui/Checkbox";
 import RadioGroup from "@/ui/RadioGroup";
 import Link from "@/ui/Link";
@@ -190,7 +190,11 @@ export default function SaveToDashboardModal({
           <Text as="label" weight="semibold">
             Chart Title
           </Text>
-          <Field placeholder="Chart title" {...form.register("chartTitle")} />
+          <Field
+            size="legacy"
+            placeholder="Chart title"
+            {...form.register("chartTitle")}
+          />
         </Flex>
         <Flex direction="column" gap="2">
           <Text as="label" weight="semibold">
@@ -219,6 +223,7 @@ export default function SaveToDashboardModal({
         </Flex>
         {createOrAdd === "existing" ? (
           <SelectField
+            size="legacy"
             options={dashboards
               .filter((dashboard) =>
                 permissionsUtil.canUpdateGeneralDashboards(
@@ -237,11 +242,13 @@ export default function SaveToDashboardModal({
         ) : (
           <Flex direction="column">
             <Field
+              size="legacy"
               label="Name"
               placeholder="Dashboard name"
               {...form.register("title")}
             />
             <MultiSelectField
+              size="legacy"
               label="Projects"
               placeholder="All projects"
               options={projectsOptions}
@@ -264,6 +271,7 @@ export default function SaveToDashboardModal({
                 <Box className="bg-highlight rounded p-3" mt="3">
                   <Flex direction="column" gap="4">
                     <SelectField
+                      size="legacy"
                       label="View access"
                       containerClassName="mb-0"
                       disabled={!hasSharing}
@@ -287,6 +295,7 @@ export default function SaveToDashboardModal({
                       }}
                     />
                     <SelectField
+                      size="legacy"
                       label="Edit access"
                       containerClassName="mb-0"
                       disabled={

@@ -594,6 +594,7 @@ function RevisionDetail<T>({
                     Leave a comment
                   </Text>
                   <Field
+                    size="legacy"
                     textarea
                     minRows={2}
                     placeholder={

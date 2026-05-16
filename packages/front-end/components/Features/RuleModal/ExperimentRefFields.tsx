@@ -68,6 +68,7 @@ export default function ExperimentRefFields({
     <>
       {experimentOptions.length > 0 ? (
         <SelectField
+          size="legacy"
           label="Experiment"
           initialOption="Choose One..."
           options={experimentOptions}
@@ -175,6 +176,7 @@ export default function ExperimentRefFields({
       )}
 
       <Field
+        size="legacy"
         label="Description"
         textarea
         minRows={1}

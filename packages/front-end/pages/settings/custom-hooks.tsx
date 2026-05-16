@@ -11,7 +11,7 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import useProjectOptions from "@/hooks/useProjectOptions";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
@@ -203,8 +203,14 @@ function CustomHooksModal({
     >
       <Flex align="start" gap="5">
         <div style={{ width: "50%" }} className="border-right pr-4">
-          <Field label="Name" required {...form.register("name")} />
+          <Field
+            size="legacy"
+            label="Name"
+            required
+            {...form.register("name")}
+          />
           <SelectField
+            size="legacy"
             label="Hook Type"
             required
             options={Object.entries(hookTypes).map(([value, { label }]) => ({
@@ -224,6 +230,7 @@ function CustomHooksModal({
             }}
           />
           <MultiSelectField
+            size="legacy"
             label={"Projects"}
             placeholder="All projects"
             value={form.watch("projects") || []}

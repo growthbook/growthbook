@@ -7,7 +7,7 @@ import { PiArrowLeft, PiCaretRight, PiCheckCircleFill } from "react-icons/pi";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
@@ -187,6 +187,7 @@ const EventWebHookAddEditSettings = ({
   return (
     <>
       <SelectField
+        size="legacy"
         label="Payload Type"
         value={form.watch("payloadType")}
         placeholder="Choose payload type"
@@ -217,6 +218,7 @@ const EventWebHookAddEditSettings = ({
 
       <Box mt="4">
         <Field
+          size="legacy"
           label="Webhook Name"
           placeholder="My Webhook"
           {...form.register("name")}
@@ -230,6 +232,7 @@ const EventWebHookAddEditSettings = ({
       {isDetailedWebhook && (
         <Box mt="4">
           <SelectField
+            size="legacy"
             label="Method"
             value={forcedParams?.method || form.watch("method")}
             placeholder="Choose HTTP method"
@@ -248,6 +251,7 @@ const EventWebHookAddEditSettings = ({
 
       <Box mt="4">
         <Field
+          size="legacy"
           label="Endpoint URL"
           placeholder="https://example.com/growthbook-webhook"
           {...form.register("url")}
@@ -301,6 +305,7 @@ const EventWebHookAddEditSettings = ({
 
       <Box mt="4">
         <MultiSelectField
+          size="legacy"
           label="Events"
           value={form.watch("events")}
           placeholder="Choose events"
@@ -329,6 +334,7 @@ const EventWebHookAddEditSettings = ({
             })}
           >
             <MultiSelectField
+              size="legacy"
               label={
                 <FilterLabel
                   name="Environment"
@@ -358,6 +364,7 @@ const EventWebHookAddEditSettings = ({
             })}
           >
             <MultiSelectField
+              size="legacy"
               label={
                 <FilterLabel
                   name="Projects"

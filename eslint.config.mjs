@@ -268,6 +268,18 @@ export default defineConfig([
           message:
             "Don't use window.history.replaceState directly. Use router.replace(url, undefined, { shallow: true }) from next/router instead.",
         },
+        {
+          selector:
+            "JSXAttribute[name.name='size'][value.type='Literal'][value.value='legacy']",
+          message:
+            'Do not add new `size="legacy"` props. The "legacy" size is being phased out in favor of the design system sizes ("xs", "sm", "md", "lg"). Use one of those instead.',
+        },
+        {
+          selector:
+            "JSXAttribute[name.name='size'] JSXExpressionContainer > Literal[value='legacy']",
+          message:
+            'Do not add new `size="legacy"` props. The "legacy" size is being phased out in favor of the design system sizes ("xs", "sm", "md", "lg"). Use one of those instead.',
+        },
       ],
       "local/no-alert-classname": "error",
     },

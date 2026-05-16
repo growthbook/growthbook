@@ -121,6 +121,7 @@ export default function AddMaterializedColumnsModal({
       disabledMessage={disabledMessage}
     >
       <SelectField
+        size="legacy"
         id="materialized-column-source-field-input"
         labelClassName="w-100"
         label={
@@ -195,6 +196,7 @@ export default function AddMaterializedColumnsModal({
       {localSourceField && (
         <>
           <SelectField
+            size="legacy"
             label="Data type"
             value={form.watch("datatype")}
             options={[
@@ -223,12 +225,14 @@ export default function AddMaterializedColumnsModal({
             }}
           />
           <Field
+            size="legacy"
             label="Column Name"
             helpText="The SQL column the attribute will be stored in. Must start with a letter or underscore and use only alphanumeric characters and '_'"
             {...form.register("columnName")}
             pattern="^[a-zA-Z_][a-zA-Z0-9_]*$"
           />
           <SelectField
+            size="legacy"
             label="Treat As"
             value={form.watch("type") || ""}
             options={typeOptions}

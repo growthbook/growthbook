@@ -301,6 +301,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
               <Flex justify="between" gap="3" align="center">
                 <Box className="relative" style={{ width: "40%" }}>
                   <Field
+                    size="legacy"
                     placeholder="Search..."
                     type="search"
                     {...searchInputProps}

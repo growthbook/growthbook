@@ -56,6 +56,7 @@ export default function BanditRefFields({
     <>
       {experimentOptions.length > 0 ? (
         <SelectField
+          size="legacy"
           label="Bandit"
           initialOption="Choose One..."
           options={experimentOptions}
@@ -158,6 +159,7 @@ export default function BanditRefFields({
       )}
 
       <Field
+        size="legacy"
         label="Description"
         textarea
         minRows={1}

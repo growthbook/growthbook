@@ -149,6 +149,7 @@ export default function ExperimentSettings({
               </Flex>
               <Box width="150px">
                 <Field
+                  size="legacy"
                   type="number"
                   append="days"
                   step="1"
@@ -339,6 +340,7 @@ export default function ExperimentSettings({
                       value: "stale",
                       description: (
                         <Field
+                          size="legacy"
                           label="Refresh when"
                           append="hours old"
                           type="number"
@@ -364,6 +366,7 @@ export default function ExperimentSettings({
                             an hour.
                           </Text>
                           <Field
+                            size="legacy"
                             disabled={
                               hasFileConfig() ||
                               form.watch("updateSchedule.type") !== "cron"
@@ -439,6 +442,7 @@ export default function ExperimentSettings({
                     className="form-inline flex-column align-items-start"
                   >
                     <Field
+                      size="legacy"
                       type="number"
                       step="0.001"
                       style={{
@@ -483,6 +487,7 @@ export default function ExperimentSettings({
                   </Text>
                   <Flex>
                     <Field
+                      size="legacy"
                       type="number"
                       step="1"
                       min="0"

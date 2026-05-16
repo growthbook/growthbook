@@ -190,6 +190,7 @@ export default function FeaturesPage() {
             <Flex justify="between" mb="3" gap="3" align="center">
               <Box className="relative" width="40%">
                 <Field
+                  size="legacy"
                   placeholder="Search..."
                   type="search"
                   {...searchInputProps}

@@ -273,6 +273,7 @@ const ExperimentsPage = (): React.ReactElement => {
                 </div>
                 <div className="col-auto">
                   <Field
+                    size="legacy"
                     placeholder="Search..."
                     type="search"
                     {...searchInputProps}

@@ -229,6 +229,7 @@ export default function DatePicker({
                   }}
                 >
                   <Field
+                    size="legacy"
                     id={id ?? ""}
                     disabled={disabled}
                     style={{
@@ -295,6 +296,7 @@ export default function DatePicker({
                   }}
                 >
                   <Field
+                    size="legacy"
                     disabled={disabled}
                     style={{
                       border: 0,

@@ -12,7 +12,7 @@ import {
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import clsx from "clsx";
 import { FormatOptionLabelMeta } from "react-select";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { SingleValue } from "@/components/Forms/SelectField";
 import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
@@ -486,6 +486,7 @@ export default function ResultsFilter({
                     </Heading>
                   </Box>
                   <MultiSelectField
+                    size="legacy"
                     customClassName="multiselect-unfixed"
                     containerClassName="w-100"
                     placeholder="Type to search..."
@@ -522,6 +523,7 @@ export default function ResultsFilter({
                     Metrics
                   </Heading>
                   <MultiSelectField
+                    size="legacy"
                     customClassName="multiselect-unfixed"
                     containerClassName="w-100"
                     placeholder="Type to search..."

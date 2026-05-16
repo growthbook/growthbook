@@ -280,6 +280,7 @@ export default function ExperimentRefNewFields({
                 <label>Select Template</label>
               </PremiumTooltip>
               <SelectField
+                size="legacy"
                 value={form.watch("templateId") ?? ""}
                 onChange={(t) => {
                   if (t === "") {
@@ -330,6 +331,7 @@ export default function ExperimentRefNewFields({
             </div>
           )}
           <Field
+            size="legacy"
             required={true}
             minLength={2}
             label="Experiment Name"
@@ -337,6 +339,7 @@ export default function ExperimentRefNewFields({
           />
 
           <Field
+            size="legacy"
             label="Tracking Key"
             {...form.register(`trackingKey`)}
             placeholder={feature?.id || ""}
@@ -344,6 +347,7 @@ export default function ExperimentRefNewFields({
           />
 
           <Field
+            size="legacy"
             label="Hypothesis"
             textarea
             minRows={1}
@@ -352,6 +356,7 @@ export default function ExperimentRefNewFields({
           />
 
           <Field
+            size="legacy"
             label="Description"
             textarea
             minRows={1}
@@ -378,6 +383,7 @@ export default function ExperimentRefNewFields({
         <>
           <div className="mb-4">
             <SelectField
+              size="legacy"
               withRadixThemedPortal
               label="Assign Variation by Attribute"
               containerClassName="flex-1"
@@ -531,6 +537,7 @@ export default function ExperimentRefNewFields({
         <>
           <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
             <SelectField
+              size="legacy"
               label="Data Source"
               labelClassName="font-weight-bold"
               value={form.watch("datasource") ?? ""}
@@ -582,6 +589,7 @@ export default function ExperimentRefNewFields({
 
             {datasourceProperties?.exposureQueries && exposureQueries ? (
               <SelectField
+                size="legacy"
                 label={
                   <>
                     Experiment Assignment Table{" "}
@@ -685,6 +693,7 @@ export default function ExperimentRefNewFields({
               )}
               {datasourceProperties?.experimentSegments && (
                 <SelectField
+                  size="legacy"
                   label="Segment"
                   labelClassName="font-weight-bold"
                   value={form.watch("segment")}
@@ -701,6 +710,7 @@ export default function ExperimentRefNewFields({
               )}
               {datasourceProperties?.separateExperimentResultQueries && (
                 <SelectField
+                  size="legacy"
                   label="Metric Conversion Windows"
                   labelClassName="font-weight-bold"
                   value={form.watch("skipPartialData")}

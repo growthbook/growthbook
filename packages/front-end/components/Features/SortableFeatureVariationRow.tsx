@@ -158,6 +158,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
         <td key={`${variation.id}__${i}__2`}>
           {setVariations ? (
             <Field
+              size="legacy"
               placeholder={`${getVariationDefaultName(
                 variation,
                 valueType ?? "string",
@@ -182,6 +183,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
           <td key={`${variation.id}__${i}__3`}>
             {setVariations ? (
               <Field
+                size="legacy"
                 value={variation.description || ""}
                 onChange={(e) => {
                   const newVariations = [...variations];
@@ -214,6 +216,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                       className={`position-relative ${styles.percentInputWrap}`}
                     >
                       <Field
+                        size="legacy"
                         id={`${variation.id}__${i}__3__input`}
                         style={{ width: 95 }}
                         value={val}

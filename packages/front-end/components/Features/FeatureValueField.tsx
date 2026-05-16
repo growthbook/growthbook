@@ -16,7 +16,7 @@ import { formatJSON, LARGE_FILE_SIZE } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Modal from "@/components/Modal";
 import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -98,6 +98,7 @@ export default function FeatureValueField({
   if (valueType === "boolean" && useDropdown) {
     return (
       <SelectField
+        size="legacy"
         options={[
           { label: "TRUE", value: "true" },
           { label: "FALSE", value: "false" },
@@ -262,6 +263,7 @@ export default function FeatureValueField({
 
   return (
     <Field
+      size="legacy"
       label={label}
       value={value}
       placeholder={placeholder}
@@ -359,6 +361,7 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
   if (field.enum?.length && field.type !== "boolean") {
     return (
       <SelectField
+        size="legacy"
         options={field.enum.map((v) => ({
           label: v,
           value: v,
@@ -440,6 +443,7 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
     case "string":
       return (
         <Field
+          size="legacy"
           containerClassName={containerClassName}
           labelClassName={labelClassName}
           label={label}
@@ -459,6 +463,7 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
     case "float":
       return (
         <Field
+          size="legacy"
           containerClassName={containerClassName}
           labelClassName={labelClassName}
           label={label}
@@ -564,6 +569,7 @@ function SimpleSchemaEditor({
 
     return (
       <MultiSelectField
+        size="legacy"
         options={options}
         value={valueParsed.map((v) => v + "")}
         onChange={(v) => {
@@ -618,6 +624,7 @@ function SimpleSchemaEditor({
         ) : null}
         <div>
           <Field
+            size="legacy"
             textarea
             value={stringify(valueParsed)}
             maxRows={5}
@@ -685,6 +692,7 @@ function JSONTextEditor({
     <div className="mb-2">
       <div style={{ position: "relative" }}>
         <Field
+          size="legacy"
           labelClassName={
             editAsForm ? "d-flex w-100" : labelClassName ? labelClassName : ""
           }

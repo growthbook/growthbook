@@ -423,6 +423,7 @@ export default function FeatureFromExperimentModal({
       })}
     >
       <SelectField
+        size="legacy"
         label="Create New or Use Existing?"
         options={validFeatures.map((f) => ({
           label: f.id + " (" + f.valueType + ")",

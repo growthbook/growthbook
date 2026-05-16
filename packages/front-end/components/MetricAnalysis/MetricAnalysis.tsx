@@ -345,6 +345,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                   <div className="row nowrap align-items-center">
                     <div className="col-auto">
                       <SelectField
+                        size="legacy"
                         containerClassName={"select-dropdown-underline"}
                         options={[
                           ...LOOKBACK_DAY_OPTIONS.map((days) => ({
@@ -369,6 +370,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                     {watch("lookbackSelected") === "custom" && (
                       <div className="col-auto" style={{ marginTop: "-10px" }}>
                         <Field
+                          size="legacy"
                           type="number"
                           min={1}
                           max={999999}

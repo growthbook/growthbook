@@ -48,6 +48,7 @@ const EditLicenseModal: FC<{
       {editField ? (
         <>
           <Field
+            size="legacy"
             label="License Key"
             className={styles.textarea}
             textarea={true}

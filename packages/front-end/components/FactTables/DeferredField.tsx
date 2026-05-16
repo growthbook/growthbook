@@ -28,6 +28,7 @@ export function DeferredField({
 
   return (
     <Field
+      size="legacy"
       {...fieldProps}
       value={localValue}
       onChange={(e) => {

@@ -2,7 +2,7 @@ import { FC } from "react";
 import { StylesConfig } from "react-select";
 import { TagInterface } from "shared/types/tag";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { findClosestRadixColor, TAG_COLORS_MAP } from "@/services/tags";
 import { RadixColor } from "@/ui/HelperText";
@@ -119,6 +119,7 @@ const TagsInput: FC<{
 
   return (
     <MultiSelectField
+      size="legacy"
       options={
         tagOptions.map((t) => {
           // Converts Radix color to hex color to make it compatible with MultiSelectField

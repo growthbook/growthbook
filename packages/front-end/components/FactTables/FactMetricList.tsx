@@ -300,6 +300,7 @@ export default function FactMetricList({
         {metrics.length > 0 && (
           <div className="col-auto">
             <Field
+              size="legacy"
               placeholder="Search..."
               type="search"
               {...searchInputProps}

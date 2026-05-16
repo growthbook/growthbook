@@ -15,6 +15,7 @@ import DataListStories from "@/ui/DataList.stories";
 import DatePickerStories from "@/ui/DatePicker.stories";
 import DropdownMenuStories from "@/ui/DropdownMenu.stories";
 import ExperimentResultIndicatorStories from "@/ui/ExperimentResultIndicator.stories";
+import FieldStories from "@/ui/Field.stories";
 import ExperimentStatusIndicatorStories from "@/ui/ExperimentStatusIndicator.stories";
 import TextStories from "@/ui/Text.stories";
 import HeadingStories from "@/ui/Heading.stories";
@@ -26,7 +27,9 @@ import PopoverStories from "@/ui/Popover.stories";
 import PremiumCalloutStories from "@/ui/PremiumCallout.stories";
 import RadioCardsStories from "@/ui/RadioCards.stories";
 import RadioGroupStories from "@/ui/RadioGroup.stories";
+import MultiSelectFieldStories from "@/ui/MultiSelectField.stories";
 import SelectStories from "@/ui/Select.stories";
+import SelectFieldStories from "@/ui/SelectField.stories";
 import SliderStories from "@/ui/Slider.stories";
 import StepperStories from "@/ui/Stepper.stories";
 import SwitchStories from "@/ui/Switch.stories";
@@ -93,6 +96,9 @@ export default function DesignSystemPage() {
     { name: "RadioCards", Stories: RadioCardsStories },
     { name: "RadioGroup", Stories: RadioGroupStories },
     { name: "Select", Stories: SelectStories },
+    { name: "Field (legacy)", Stories: FieldStories },
+    { name: "SelectField (legacy)", Stories: SelectFieldStories },
+    { name: "MultiSelectField", Stories: MultiSelectFieldStories },
     { name: "Slider", Stories: SliderStories },
     { name: "Stepper", Stories: StepperStories },
     { name: "Switch", Stories: SwitchStories },

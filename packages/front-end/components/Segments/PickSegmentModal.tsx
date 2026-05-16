@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export default function PickSegmentModal({
@@ -26,12 +26,7 @@ export default function PickSegmentModal({
   const segmentOptions = useMemo(() => {
     return segments
       .filter((s) => s.datasource === datasource)
-      .map((s) => {
-        return {
-          display: s.name,
-          value: s.id,
-        };
-      });
+      .map((s) => ({ label: s.name, value: s.id }));
   }, [segments]);
 
   return (
@@ -44,11 +39,14 @@ export default function PickSegmentModal({
         await save(data.segment);
       })}
     >
-      <Field
+      <SelectField
+        size="legacy"
         label="Segment"
         options={segmentOptions}
-        initialOption="None"
-        {...form.register("segment")}
+        isClearable
+        placeholder="None"
+        value={form.watch("segment")}
+        onChange={(value) => form.setValue("segment", value)}
       />
     </ModalStandard>
   );

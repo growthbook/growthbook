@@ -45,6 +45,7 @@ const DataInput = ({
     <>
       <div className="ml-2 mt-4">
         <Field
+          size="legacy"
           label={
             <div>
               <span className="font-weight-bold mr-1">

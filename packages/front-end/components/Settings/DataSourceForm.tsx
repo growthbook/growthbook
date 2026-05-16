@@ -10,7 +10,7 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import { dataSourceConnections } from "@/services/eventSchema";
 import Button from "@/components/Button";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { getInitialSettings } from "@/services/datasources";
 import { DocLink, DocSection } from "@/components/DocLink";
 import { useAuth } from "@/services/auth";
@@ -217,6 +217,7 @@ const DataSourceForm: FC<{
         </div>
       )}
       <SelectField
+        size="legacy"
         label="Data Source Type"
         value={datasource.type || typeOptions[0].type}
         onChange={(value) => {
@@ -276,6 +277,7 @@ const DataSourceForm: FC<{
       {projects?.length > 0 && (
         <div className="form-group">
           <MultiSelectField
+            size="legacy"
             label={
               <>
                 Projects{" "}

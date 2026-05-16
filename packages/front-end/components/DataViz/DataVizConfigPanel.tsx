@@ -176,7 +176,7 @@ export default function DataVizConfigPanel({
             </Flex>
             <Select
               label="Graph type"
-              size="2"
+              size="small"
               value={dataVizConfig.chartType}
               placeholder="Select graph type"
               setValue={(v) => {
@@ -258,7 +258,7 @@ export default function DataVizConfigPanel({
                       ],
                     });
                   }}
-                  size="2"
+                  size="small"
                   placeholder="Select Value Column"
                 >
                   {axisKeys
@@ -271,7 +271,7 @@ export default function DataVizConfigPanel({
                 </Select>
                 <Select
                   label="Format"
-                  size="2"
+                  size="small"
                   value={dataVizConfig.format ?? "shortNumber"}
                   setValue={(v) => {
                     onDataVizConfigChange({
@@ -288,7 +288,7 @@ export default function DataVizConfigPanel({
                 </Select>
                 <Select
                   label="Aggregation"
-                  size="2"
+                  size="small"
                   value={dataVizConfig.yAxis?.[0]?.aggregation ?? "sum"}
                   setValue={(v) => {
                     onDataVizConfigChange({
@@ -330,7 +330,7 @@ export default function DataVizConfigPanel({
                       }),
                     );
                   }}
-                  size="2"
+                  size="small"
                   placeholder="Select X Axis"
                 >
                   {axisKeys.map((key) => (
@@ -356,7 +356,7 @@ export default function DataVizConfigPanel({
                             }),
                           );
                         }}
-                        size="2"
+                        size="small"
                         placeholder="Select type"
                       >
                         <SelectItem value="string">String</SelectItem>
@@ -385,7 +385,7 @@ export default function DataVizConfigPanel({
                                 }),
                               );
                             }}
-                            size="2"
+                            size="small"
                             placeholder="Select granularity"
                           >
                             <SelectItem value="none">None</SelectItem>
@@ -422,7 +422,7 @@ export default function DataVizConfigPanel({
                               }),
                             );
                           }}
-                          size="2"
+                          size="small"
                           placeholder="Select sort"
                         >
                           <SelectItem value="none">None</SelectItem>
@@ -463,7 +463,7 @@ export default function DataVizConfigPanel({
                       ],
                     });
                   }}
-                  size="2"
+                  size="small"
                   placeholder="Select Y Axis"
                 >
                   {axisKeys.map((key) => (
@@ -493,7 +493,7 @@ export default function DataVizConfigPanel({
                             ],
                           });
                         }}
-                        size="2"
+                        size="small"
                         placeholder="Select type"
                       >
                         <SelectItem value="string">String</SelectItem>
@@ -521,7 +521,7 @@ export default function DataVizConfigPanel({
                             ],
                           });
                         }}
-                        size="2"
+                        size="small"
                         placeholder="Select"
                       >
                         {dataVizConfig.yAxis?.[0].type === "number" ? (
@@ -618,7 +618,7 @@ export default function DataVizConfigPanel({
                         }),
                       );
                     }}
-                    size="2"
+                    size="small"
                     placeholder="Select columns"
                   >
                     {sortedAxisKeys.map((key) => (
@@ -644,7 +644,7 @@ export default function DataVizConfigPanel({
                               }),
                             );
                           }}
-                          size="2"
+                          size="small"
                           placeholder="Select type"
                         >
                           <SelectItem value="string">String</SelectItem>
@@ -673,7 +673,7 @@ export default function DataVizConfigPanel({
                                   }),
                                 );
                               }}
-                              size="2"
+                              size="small"
                               placeholder="Select granularity"
                             >
                               <SelectItem value="none">None</SelectItem>
@@ -710,7 +710,7 @@ export default function DataVizConfigPanel({
                                 }),
                               );
                             }}
-                            size="2"
+                            size="small"
                             placeholder="Select sort"
                           >
                             <SelectItem value="none">None</SelectItem>
@@ -805,7 +805,7 @@ export default function DataVizConfigPanel({
                       ],
                     });
                   }}
-                  size="2"
+                  size="small"
                   placeholder="Select Y Axis"
                 >
                   {axisKeys.map((key) => (
@@ -835,7 +835,7 @@ export default function DataVizConfigPanel({
                             ],
                           });
                         }}
-                        size="2"
+                        size="small"
                         placeholder="Select type"
                       >
                         <SelectItem value="string">String</SelectItem>
@@ -863,7 +863,7 @@ export default function DataVizConfigPanel({
                             ],
                           });
                         }}
-                        size="2"
+                        size="small"
                         placeholder="Select"
                       >
                         {dataVizConfig.yAxis?.[0].type === "number" ? (

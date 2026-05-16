@@ -217,6 +217,7 @@ export default function UpdateOrbSubscriptionModal({
                 Monthly invoices will be sent to this address
               </Text>
               <Field
+                size="legacy"
                 type="email"
                 required={true}
                 {...form.register("email")}
@@ -226,6 +227,7 @@ export default function UpdateOrbSubscriptionModal({
             <Flex align="center" width="100%" gap="4">
               <Box style={{ width: "50%" }}>
                 <SelectField
+                  size="legacy"
                   label="Tax ID type"
                   placeholder="(optional)"
                   options={taxIdTypeOptions}
@@ -238,6 +240,7 @@ export default function UpdateOrbSubscriptionModal({
               </Box>
               <Box style={{ width: "50%" }}>
                 <Field
+                  size="legacy"
                   type="text"
                   placeholder="(optional)"
                   {...form.register("taxIdValue")}

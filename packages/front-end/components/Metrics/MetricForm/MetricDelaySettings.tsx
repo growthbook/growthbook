@@ -10,6 +10,7 @@ export function MetricDelaySettings({ form }) {
           <div className="col-auto">Begin using metric data</div>
           <div className="col-auto">
             <Field
+              size="legacy"
               {...form?.register("windowSettings.delayValue", {
                 valueAsNumber: true,
               })}
@@ -22,6 +23,7 @@ export function MetricDelaySettings({ form }) {
           </div>
           <div className="col-auto">
             <SelectField
+              size="legacy"
               value={form?.watch("windowSettings.delayUnit")}
               onChange={(value) => {
                 form.setValue(

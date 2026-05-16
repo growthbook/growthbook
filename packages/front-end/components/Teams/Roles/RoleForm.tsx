@@ -130,6 +130,7 @@ export default function RoleForm({
     <FormProvider {...form}>
       <div className="bg-white p-4 mt-2">
         <Field
+          size="legacy"
           label="Name"
           required
           autoFocus
@@ -151,6 +152,7 @@ export default function RoleForm({
           }
         />
         <Field
+          size="legacy"
           label="Description"
           disabled={status === "viewing"}
           currentLength={currentValue.description.length}
@@ -160,6 +162,7 @@ export default function RoleForm({
           {...form.register("description")}
         />
         <Field
+          size="legacy"
           label="Display Name"
           disabled={status === "viewing"}
           currentLength={currentValue.displayName?.length || 0}

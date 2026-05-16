@@ -13,7 +13,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -167,6 +167,7 @@ export default function AttributeModal({ close, attribute }: Props) {
       })}
     >
       <Field
+        size="legacy"
         label={
           <>
             Attribute{" "}
@@ -199,6 +200,7 @@ export default function AttributeModal({ close, attribute }: Props) {
       {projects?.length > 0 && (
         <div className="form-group">
           <MultiSelectField
+            size="legacy"
             label={
               <>
                 Projects{" "}
@@ -221,6 +223,7 @@ export default function AttributeModal({ close, attribute }: Props) {
         </div>
       )}
       <SelectField
+        size="legacy"
         label="Data Type"
         value={datatype}
         onChange={(datatype: SDKAttributeType) =>
@@ -292,6 +295,7 @@ export default function AttributeModal({ close, attribute }: Props) {
       {datatype === "string" && (
         <>
           <SelectField
+            size="legacy"
             label="String Format"
             value={form.watch(`format`) || ""}
             onChange={(v) => form.setValue(`format`, v as SDKAttributeFormat)}
@@ -333,6 +337,7 @@ export default function AttributeModal({ close, attribute }: Props) {
       )}
       {datatype === "enum" && (
         <Field
+          size="legacy"
           label="Enum Options"
           textarea
           minRows={1}

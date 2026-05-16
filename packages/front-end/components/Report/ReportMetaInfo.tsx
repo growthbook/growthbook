@@ -429,7 +429,11 @@ export default function ReportMetaInfo({
           header={`Edit "${report.title}"`}
           useRadixButton={true}
         >
-          <Field label="Report Name" {...generalForm.register("title")} />
+          <Field
+            size="legacy"
+            label="Report Name"
+            {...generalForm.register("title")}
+          />
 
           <label>Description</label>
           <MarkdownInput
@@ -470,6 +474,7 @@ export default function ReportMetaInfo({
           </div>
 
           <SelectField
+            size="legacy"
             label="View access"
             value={shareLevel}
             onChange={(v: ShareLevel) => setShareLevel(v)}
@@ -499,6 +504,7 @@ export default function ReportMetaInfo({
           </div>
 
           <SelectField
+            size="legacy"
             label="Edit access"
             value={editLevel}
             onChange={(v: EditLevel) => setEditLevel(v)}

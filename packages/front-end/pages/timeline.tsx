@@ -101,6 +101,7 @@ const ExperimentTimelinePage = (): React.ReactElement => {
               <Flex align="center" gap="2" className="mb-3" justify="between">
                 <Box flexBasis="60%" flexShrink="1" flexGrow="0">
                   <Field
+                    size="legacy"
                     placeholder="Search..."
                     type="search"
                     {...searchInputProps}
