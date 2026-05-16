@@ -2,6 +2,7 @@ import { OpenApiRoute } from "back-end/src/util/handler";
 import { postVisualChangesets } from "back-end/src/api/visual-changesets/postVisualChangesets";
 import { listVisualChangesets } from "back-end/src/api/visual-changesets/listVisualChangesets";
 import { getExperimentResults } from "./getExperimentResults";
+import { listExperimentResults } from "./listExperimentResults";
 import { getExperiment } from "./getExperiment";
 import { listExperiments } from "./listExperiments";
 import { updateExperiment } from "./updateExperiment";
@@ -20,6 +21,9 @@ export const experimentsRoutes: OpenApiRoute[] = [
   // Experiment Endpoints
   listExperiments,
   postExperiment,
+  // listExperimentResults must come before getExperimentResults so the literal
+  // path `/experiments/results` is not captured by `/experiments/:id/results`.
+  listExperimentResults,
   getExperiment,
   getExperimentStartChecklist,
   getExperimentResults,
