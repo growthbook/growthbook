@@ -45,6 +45,11 @@ export const clipboardFeatureRule = z.preprocess((value) => {
   return next ?? value;
 }, lenientFeatureRule);
 
+// All clipboard schemas use `.passthrough()` rather than `.strict()` so that
+// a payload exported from a newer GrowthBook instance (with extra fields we
+// don't yet know about) still parses successfully. Field-level validation
+// will catch structural incompatibilities; unknown fields are ignored rather
+// than causing the entire paste to silently fail.
 export const growthbookClipboardMetadata = z
   .object({
     source: z.literal("growthbook"),
@@ -55,7 +60,7 @@ export const growthbookClipboardMetadata = z
     version: z.number().int().min(1),
     exportedAt: z.string().optional(),
   })
-  .strict();
+  .passthrough();
 
 // Source-org context for a single reference (experiment, saved group, etc.).
 // `name` (and `details` when present) are shown in the import-time reference
@@ -66,7 +71,7 @@ export const growthbookClipboardReferenceContext = z
     name: z.string().optional(),
     details: z.string().optional(),
   })
-  .strict();
+  .passthrough();
 
 export type GrowthBookClipboardReferenceContext = z.infer<
   typeof growthbookClipboardReferenceContext
@@ -80,7 +85,7 @@ export const growthbookFeatureClipboardReferences = z
     features: z.array(growthbookClipboardReferenceContext),
     environments: z.array(growthbookClipboardReferenceContext),
   })
-  .strict();
+  .passthrough();
 
 export type GrowthBookFeatureClipboardReferences = z.infer<
   typeof growthbookFeatureClipboardReferences
@@ -100,7 +105,7 @@ export const growthbookFeatureClipboardFeature = z
     jsonSchema: clipboardJSONSchemaDef.optional(),
     neverStale: z.boolean().optional(),
   })
-  .strict();
+  .passthrough();
 
 export const growthbookFeatureClipboardPayload = z
   .object({
@@ -108,7 +113,7 @@ export const growthbookFeatureClipboardPayload = z
     feature: growthbookFeatureClipboardFeature,
     references: growthbookFeatureClipboardReferences,
   })
-  .strict();
+  .passthrough();
 
 export const growthbookClipboardPayload = z.union([
   growthbookFeatureClipboardPayload,

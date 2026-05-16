@@ -294,11 +294,15 @@ export default function FeatureModal({
           throw new Error("Please select a value type");
         }
 
-        // When duplicating, skip JSON schema validation since the value is
-        // copied verbatim from an existing feature and the user cannot edit it.
-        const featureForValidation = featureToDuplicate
-          ? { valueType: feature.valueType }
-          : feature;
+        // When duplicating or importing, skip JSON schema validation since
+        // the value is copied verbatim from an existing valid feature and the
+        // user cannot edit it in this modal. Running validateFeatureValue
+        // with the full feature can "fix" an already-valid value and force
+        // the confusing two-submit dance.
+        const featureForValidation =
+          featureToDuplicate || featureToImport
+            ? { valueType: feature.valueType }
+            : feature;
         const newDefaultValue = validateFeatureValue(
           featureForValidation,
           defaultValue,
