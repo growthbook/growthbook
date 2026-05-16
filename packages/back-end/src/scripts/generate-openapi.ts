@@ -295,7 +295,7 @@ type RequestBody = {
 };
 
 type Response = {
-  description?: string;
+  description: string;
   content: {
     "application/json": {
       schema: z.core.JSONSchema.BaseSchema;
@@ -303,11 +303,24 @@ type Response = {
   };
 };
 
+function defaultResponseDescription(method: string): string {
+  switch (method.toLowerCase()) {
+    case "post":
+      return "Resource created";
+    case "put":
+    case "patch":
+      return "Resource updated";
+    case "delete":
+      return "Resource deleted";
+    default:
+      return "Successful response";
+  }
+}
+
 type Path = {
   operationId: string;
   summary?: string;
   description?: string;
-  deprecated?: boolean;
   tags?: string[];
   parameters?: (Parameter | Ref)[];
   requestBody?: RequestBody;
@@ -329,6 +342,10 @@ async function run() {
     servers: {
       url: string;
       description: string;
+      variables?: Record<
+        string,
+        { default: string; description?: string; enum?: string[] }
+      >;
     }[];
     tags: {
       name: string;
@@ -417,6 +434,13 @@ The response body will be a JSON object with the following properties:
       {
         url: "https://{domain}/api",
         description: "Self-hosted GrowthBook",
+        variables: {
+          domain: {
+            default: "localhost:3100",
+            description:
+              "The host (and optional port) of your self-hosted GrowthBook API server, e.g. `growthbook.example.com` or `localhost:3100`.",
+          },
+        },
       },
     ],
     tags: openApiTags.map((id) => ({
@@ -462,7 +486,7 @@ curl https://api.growthbook.io/api/v1/features \
   const schemaHashMap: Record<string, string> = {};
 
   for (const route of allRoutes) {
-    if (route.excludeFromSpec) {
+    if (route.excludeFromSpec || route.deprecated) {
       continue;
     }
 
@@ -476,7 +500,6 @@ curl https://api.growthbook.io/api/v1/features \
       path,
       exampleRequest,
       version,
-      deprecated,
     } = route;
 
     if (!path || !method || !operationId) {
@@ -657,7 +680,7 @@ curl https://api.growthbook.io/api/v1/features \
 
     const responses: Record<string, Response> = {
       "200": {
-        ...(responseDescription && { description: responseDescription }),
+        description: responseDescription || defaultResponseDescription(method),
         content: {
           "application/json": {
             schema: responseSchema,
@@ -683,7 +706,6 @@ curl https://api.growthbook.io/api/v1/features \
       operationId,
       summary,
       ...(description !== undefined && { description }),
-      ...(deprecated && { deprecated: true }),
       tags,
       ...(parameters.length > 0 && { parameters }),
       ...(requestBody !== undefined && { requestBody }),
