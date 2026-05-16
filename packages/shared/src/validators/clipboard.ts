@@ -24,11 +24,11 @@ const RULE_DATE_FIELDS = ["banditStageDateStarted"] as const;
 // (e.g. a rule was a `rollout` with `coverage`, then switched to `force` —
 // the form drops `coverage` from the active UI but the value persists on
 // disk). Strict validation would reject those rules and silently drop the
-// entire paste. Rebuild the union with `.passthrough()` so unknown top-level
+// entire paste. Rebuild the union with `.loose()` so unknown top-level
 // fields are kept, matching the back-end's accept-what-we-got posture for
 // imports.
 const lenientFeatureRule = z.union(
-  featureRule.options.map((member) => member.passthrough()),
+  featureRule.options.map((member) => member.loose()),
 );
 
 export const clipboardFeatureRule = z.preprocess((value) => {
@@ -45,7 +45,7 @@ export const clipboardFeatureRule = z.preprocess((value) => {
   return next ?? value;
 }, lenientFeatureRule);
 
-// All clipboard schemas use `.passthrough()` rather than `.strict()` so that
+// All clipboard schemas use `.loose()` rather than `.strict()` so that
 // a payload exported from a newer GrowthBook instance (with extra fields we
 // don't yet know about) still parses successfully. Field-level validation
 // will catch structural incompatibilities; unknown fields are ignored rather
@@ -60,7 +60,7 @@ export const growthbookClipboardMetadata = z
     version: z.number().int().min(1),
     exportedAt: z.string().optional(),
   })
-  .passthrough();
+  .loose();
 
 // Source-org context for a single reference (experiment, saved group, etc.).
 // `name` (and `details` when present) are shown in the import-time reference
@@ -71,7 +71,7 @@ export const growthbookClipboardReferenceContext = z
     name: z.string().optional(),
     details: z.string().optional(),
   })
-  .passthrough();
+  .loose();
 
 export type GrowthBookClipboardReferenceContext = z.infer<
   typeof growthbookClipboardReferenceContext
@@ -85,13 +85,13 @@ export const growthbookFeatureClipboardReferences = z
     features: z.array(growthbookClipboardReferenceContext),
     environments: z.array(growthbookClipboardReferenceContext),
   })
-  .passthrough();
+  .loose();
 
 export type GrowthBookFeatureClipboardReferences = z.infer<
   typeof growthbookFeatureClipboardReferences
 >;
 
-export const growthbookFeatureClipboardFeature = z
+export const growthbookClipboardFeature = z
   .object({
     id: z.string(),
     description: z.string().optional(),
@@ -105,24 +105,24 @@ export const growthbookFeatureClipboardFeature = z
     jsonSchema: clipboardJSONSchemaDef.optional(),
     neverStale: z.boolean().optional(),
   })
-  .passthrough();
+  .loose();
 
-export const growthbookFeatureClipboardPayload = z
+export const growthbookClipboardFeaturePayload = z
   .object({
     growthbook: growthbookClipboardMetadata,
-    feature: growthbookFeatureClipboardFeature,
+    feature: growthbookClipboardFeature,
     references: growthbookFeatureClipboardReferences,
   })
-  .passthrough();
+  .loose();
 
 export const growthbookClipboardPayload = z.union([
-  growthbookFeatureClipboardPayload,
+  growthbookClipboardFeaturePayload,
 ]);
 
-export type GrowthBookFeatureClipboardFeature = z.infer<
-  typeof growthbookFeatureClipboardFeature
+export type GrowthBookClipboardFeature = z.infer<
+  typeof growthbookClipboardFeature
 >;
 
-export type GrowthBookFeatureClipboardPayload = z.infer<
-  typeof growthbookFeatureClipboardPayload
+export type GrowthBookClipboardPayload = z.infer<
+  typeof growthbookClipboardPayload
 >;

@@ -4,7 +4,7 @@ import {
   FeatureInterface,
   FeatureValueType,
 } from "shared/types/feature";
-import { GrowthBookFeatureClipboardFeature } from "shared/validators";
+import { GrowthBookClipboardFeature } from "shared/validators";
 import React, { ReactElement } from "react";
 import { validateFeatureValue } from "shared/util";
 import { PiInfo } from "react-icons/pi";
@@ -51,7 +51,7 @@ export type Props = {
   cta?: string;
   secondaryCTA?: ReactElement;
   featureToDuplicate?: FeatureInterface;
-  featureToImport?: GrowthBookFeatureClipboardFeature;
+  featureToImport?: GrowthBookClipboardFeature;
   features?: FeatureInterface[];
 };
 
@@ -64,7 +64,7 @@ const genEnvironmentSettings = ({
 }: {
   environments: ReturnType<typeof useEnvironments>;
   featureToDuplicate?: FeatureInterface;
-  featureToImport?: GrowthBookFeatureClipboardFeature;
+  featureToImport?: GrowthBookClipboardFeature;
   permissions: ReturnType<typeof usePermissionsUtil>;
   project: string;
 }): Record<string, FeatureEnvironment> => {
@@ -97,7 +97,7 @@ const genFormDefaultValues = ({
   environments: ReturnType<typeof useEnvironments>;
   permissions: ReturnType<typeof usePermissionsUtil>;
   featureToDuplicate?: FeatureInterface;
-  featureToImport?: GrowthBookFeatureClipboardFeature;
+  featureToImport?: GrowthBookClipboardFeature;
   project: string;
   customFields?: ReturnType<typeof useCustomFields>;
 }): Pick<

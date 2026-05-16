@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { GrowthBookFeatureClipboardPayload } from "shared/validators";
+import { GrowthBookClipboardPayload } from "shared/validators";
 import FeatureModal from "@/components/Features/FeatureModal";
 import FeatureConfigurationReferenceMappingModal, {
   payloadHasReferences,
@@ -48,8 +48,9 @@ type ImportStep = "mapping" | "creating";
 
 export default function FeatureConfigurationClipboardImporter() {
   const router = useRouter();
-  const [payload, setPayload] =
-    useState<GrowthBookFeatureClipboardPayload | null>(null);
+  const [payload, setPayload] = useState<GrowthBookClipboardPayload | null>(
+    null,
+  );
   const [step, setStep] = useState<ImportStep>("creating");
 
   useEffect(() => {

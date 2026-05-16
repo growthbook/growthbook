@@ -1,9 +1,9 @@
 import {
   GrowthBookClipboardReferenceContext,
-  GrowthBookFeatureClipboardFeature,
-  GrowthBookFeatureClipboardPayload,
+  GrowthBookClipboardFeature,
+  GrowthBookClipboardPayload,
   GrowthBookFeatureClipboardReferences,
-  growthbookFeatureClipboardPayload,
+  growthbookClipboardPayload,
 } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 
@@ -45,7 +45,7 @@ export type FeatureReferenceLookups = {
 
 export function featureToClipboardConfiguration(
   feature: FeatureInterface,
-): GrowthBookFeatureClipboardFeature {
+): GrowthBookClipboardFeature {
   return {
     id: feature.id,
     description: feature.description,
@@ -65,7 +65,7 @@ export function featureToClipboardConfiguration(
 // living in another collection — experiments, saved groups, safe rollouts,
 // prerequisite features, and environments (rule scoping + envSettings keys).
 export function extractFeatureReferenceIds(
-  feature: GrowthBookFeatureClipboardFeature,
+  feature: GrowthBookClipboardFeature,
 ): Record<FeatureReferenceCategory, Set<string>> {
   const ids: Record<FeatureReferenceCategory, Set<string>> = {
     experiments: new Set(),
@@ -130,7 +130,7 @@ export function extractFeatureReferenceIds(
 }
 
 function buildReferenceManifest(
-  feature: GrowthBookFeatureClipboardFeature,
+  feature: GrowthBookClipboardFeature,
   lookups: FeatureReferenceLookups,
 ): GrowthBookFeatureClipboardReferences {
   const ids = extractFeatureReferenceIds(feature);
@@ -193,7 +193,7 @@ export function buildFeatureConfigurationClipboardPayload(
   lookups: FeatureReferenceLookups = {},
 ): string {
   const featureConfig = featureToClipboardConfiguration(feature);
-  const payload: GrowthBookFeatureClipboardPayload = {
+  const payload: GrowthBookClipboardPayload = {
     growthbook: {
       source: "growthbook",
       object: "feature",
@@ -209,7 +209,7 @@ export function buildFeatureConfigurationClipboardPayload(
 
 export function parseFeatureConfigurationClipboardPayload(
   text: string,
-): GrowthBookFeatureClipboardPayload | null {
+): GrowthBookClipboardPayload | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -217,7 +217,7 @@ export function parseFeatureConfigurationClipboardPayload(
     return null;
   }
 
-  const result = growthbookFeatureClipboardPayload.safeParse(parsed);
+  const result = growthbookClipboardPayload.safeParse(parsed);
   return result.success ? result.data : null;
 }
 
@@ -299,9 +299,9 @@ function remapConditionSavedGroups(
 }
 
 export function applyFeatureReferenceMappings(
-  feature: GrowthBookFeatureClipboardFeature,
+  feature: GrowthBookClipboardFeature,
   mappings: FeatureReferenceMappings,
-): GrowthBookFeatureClipboardFeature {
+): GrowthBookClipboardFeature {
   // `environmentSettings` is deliberately not remapped: the importer
   // regenerates env settings from the destination org (see FeatureModal's
   // `genEnvironmentSettings`), so any mapping applied here would be silently

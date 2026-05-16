@@ -3,7 +3,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowRight } from "react-icons/pi";
 import {
   GrowthBookClipboardReferenceContext,
-  GrowthBookFeatureClipboardPayload,
+  GrowthBookClipboardPayload,
   SafeRolloutInterface,
 } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
@@ -71,7 +71,7 @@ type Option = { label: string; value: string };
 // exporter, which knows which ids each rule referenced and enriches them with
 // source-org names + details.
 function buildReferenceRows(
-  payload: GrowthBookFeatureClipboardPayload,
+  payload: GrowthBookClipboardPayload,
 ): Record<FeatureReferenceCategory, GrowthBookClipboardReferenceContext[]> {
   return {
     experiments: payload.references.experiments,
@@ -87,9 +87,9 @@ export default function FeatureConfigurationReferenceMappingModal({
   close,
   onConfirm,
 }: {
-  payload: GrowthBookFeatureClipboardPayload;
+  payload: GrowthBookClipboardPayload;
   close: () => void;
-  onConfirm: (mappedPayload: GrowthBookFeatureClipboardPayload) => void;
+  onConfirm: (mappedPayload: GrowthBookClipboardPayload) => void;
 }) {
   const rowsByCategory = useMemo(() => buildReferenceRows(payload), [payload]);
 
@@ -193,21 +193,57 @@ export default function FeatureConfigurationReferenceMappingModal({
         features: { ...prev.features },
         environments: { ...prev.environments },
       };
+      // Name-fallback lookups for the categories where the entity has a real
+      // human-readable name distinct from its id. Only seed from name when
+      // exactly one destination shares that name — ambiguous matches are left
+      // for the user to disambiguate.
+      const nameToIds: Partial<
+        Record<FeatureReferenceCategory, Map<string, string[]>>
+      > = {};
+      const addName = (
+        category: FeatureReferenceCategory,
+        name: string | undefined,
+        id: string,
+      ) => {
+        if (!name) return;
+        const key = name.trim().toLowerCase();
+        if (!key) return;
+        const map = nameToIds[category] ?? new Map<string, string[]>();
+        const ids = map.get(key) ?? [];
+        ids.push(id);
+        map.set(key, ids);
+        nameToIds[category] = map;
+      };
+      experiments.forEach((e: ExperimentInterfaceStringDates) =>
+        addName("experiments", e.name, e.id),
+      );
+      savedGroups.forEach((sg) => addName("savedGroups", sg.groupName, sg.id));
+
       (Object.keys(rowsByCategory) as FeatureReferenceCategory[]).forEach(
         (category) => {
           const validIds = new Set(
             optionsByCategory[category].map((o) => o.value),
           );
+          const byName = nameToIds[category];
           rowsByCategory[category].forEach((row) => {
             // Don't clobber a value the user already touched.
             if (next[category][row.id]) return;
-            if (validIds.has(row.id)) next[category][row.id] = row.id;
+            if (validIds.has(row.id)) {
+              next[category][row.id] = row.id;
+              return;
+            }
+            if (byName && row.name) {
+              const candidates = byName.get(row.name.trim().toLowerCase());
+              if (candidates && candidates.length === 1) {
+                next[category][row.id] = candidates[0];
+              }
+            }
           });
         },
       );
       return next;
     });
-  }, [loading, rowsByCategory, optionsByCategory]);
+  }, [loading, rowsByCategory, optionsByCategory, experiments, savedGroups]);
 
   // Defensive: parent should have skipped opening this modal when there are
   // no references. Auto-confirm in an effect so we don't set state on the
@@ -355,7 +391,7 @@ export default function FeatureConfigurationReferenceMappingModal({
 // Returns true if the payload's references manifest contains at least one
 // cross-org reference that the importer needs to resolve.
 export function payloadHasReferences(
-  payload: GrowthBookFeatureClipboardPayload,
+  payload: GrowthBookClipboardPayload,
 ): boolean {
   const r = payload.references;
   return (
