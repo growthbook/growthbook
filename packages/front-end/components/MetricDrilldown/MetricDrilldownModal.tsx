@@ -466,6 +466,7 @@ const MetricDrilldownModal = ({
   // Get snapshot from global snapshot context, to initialize LocalSnapshotProvider
   const {
     snapshot: parentSnapshot,
+    experiment,
     phase: contextPhase,
     dimension: contextDimension,
     analysisSettings: parentAnalysisSettings,
@@ -617,6 +618,7 @@ const MetricDrilldownModal = ({
         <MetricDrilldownContext.Provider value={null}>
           {effectiveSnapshot ? (
             <LocalSnapshotProvider
+              experiment={experiment}
               snapshot={effectiveSnapshot}
               phase={effectivePhase}
               dimension={effectiveDimension}
