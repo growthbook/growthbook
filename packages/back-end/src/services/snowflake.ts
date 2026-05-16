@@ -127,14 +127,15 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
 ): Promise<QueryResponse<T[]>> {
   const connection = buildSnowflakeConnection(conn, queryMetadata);
 
-  // promise with timeout to prevent hanging, esp. for test query
-  const connectionTimeout = sql === TEST_QUERY_SQL ? 30000 : 600000;
-  await connectSnowflake(connection, connectionTimeout);
-
   // The connection holds an HTTP keep-alive session and an SDK heartbeat
   // timer; both leak if we don't explicitly destroy the connection on every
-  // exit path. Wrap everything from here on in try/finally.
+  // exit path. Wrap everything from here on (including connect, so any OS
+  // resources allocated mid-handshake are released) in try/finally.
   try {
+    // promise with timeout to prevent hanging, esp. for test query
+    const connectionTimeout = sql === TEST_QUERY_SQL ? 30000 : 600000;
+    await connectSnowflake(connection, connectionTimeout);
+
     // Submit with asyncExec: true so Snowflake responds immediately with the
     // queryId before the query finishes executing to manage this query (e.g.
     // cancel it in flight)
@@ -246,12 +247,14 @@ export async function cancelSnowflakeQuery(
     await connectSnowflake(connection, 30000);
 
     await new Promise<void>((resolve, reject) => {
-      // `fetchResult` requires `sqlText` per the TS types, but the SDK
-      // doesn't actually use it on the post-exec/cancel path — only the
-      // queryId on the statement context matters for the abort URL.
+      // `fetchResult` requires `sqlText` per the TS types but doesn't use
+      // it on the cancel path today — only the queryId on the statement
+      // context matters for the abort URL. Pass a non-empty sentinel so we
+      // don't silently break if a future SDK version starts validating
+      // sqlText (e.g. rejecting empty strings).
       const statement = connection.fetchResult({
         queryId,
-        sqlText: "",
+        sqlText: "-- growthbook cancel",
         // Side effect of fetchResult is a result-fetch request, which we
         // don't care about. Swallow whatever it returns.
         complete: () => {},
