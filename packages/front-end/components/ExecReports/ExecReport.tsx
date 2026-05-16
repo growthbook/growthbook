@@ -173,9 +173,10 @@ export default function ExecReport() {
         updateUrl = true;
       }
     });
-    // loop through existing searchParams and remove any that are not in params:
+    // loop through existing searchParams and remove any that are not in params.
+    // Preserve `q` since useExperimentSearch owns that param.
     searchParams.forEach((value, key) => {
-      if (!params[key]) {
+      if (!params[key] && key !== "q") {
         searchParams.delete(key);
         updateUrl = true;
       }
