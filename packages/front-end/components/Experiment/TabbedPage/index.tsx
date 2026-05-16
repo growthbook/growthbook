@@ -386,15 +386,15 @@ export default function TabbedPage({
   const { data: sdkConnectionsData } = useSDKConnections();
   const connections = sdkConnectionsData?.connections || [];
 
-  const projectConnections = connections.filter(
-    (connection) =>
-      !connection.projects.length ||
-      connection.projects.includes(experiment.project || ""),
-  );
-  const matchingConnections = projectConnections.filter(
-    (connection) =>
-      !visualChangesets.length || connection.includeVisualExperiments,
-  );
+  // const projectConnections = connections.filter(
+  //   (connection) =>
+  //     !connection.projects.length ||
+  //     connection.projects.includes(experiment.project || ""),
+  // );
+  // const matchingConnections = projectConnections.filter(
+  //   (connection) =>
+  //     !visualChangesets.length || connection.includeVisualExperiments,
+  // );
 
   const { data, mutate: mutateWatchers } = useApi<{
     userIds: string[];
@@ -619,11 +619,6 @@ export default function TabbedPage({
             holdoutExperiments={holdoutExperiments}
             mutate={mutate}
             disableEditing={viewingOldPhase}
-            linkedFeatures={linkedFeatures}
-            visualChangesets={visualChangesets}
-            editTargeting={editTargeting}
-            matchingConnections={matchingConnections}
-            envs={envs}
             editHoldoutSchedule={editHoldoutSchedule}
           />
           <Implementation
