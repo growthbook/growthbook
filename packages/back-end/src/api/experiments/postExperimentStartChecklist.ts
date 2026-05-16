@@ -25,10 +25,6 @@ export const postExperimentStartChecklistManualComplete =
         experiment,
         keys: req.body.keys,
       });
-      const checklist = await getExperimentStartChecklist({
-        context,
-        experiment: updated,
-      });
 
       await req.audit({
         event: "experiment.launchChecklist.updated",
@@ -40,6 +36,11 @@ export const postExperimentStartChecklistManualComplete =
           experiment.manualLaunchChecklist || [],
           updated.manualLaunchChecklist || [],
         ),
+      });
+
+      const checklist = await getExperimentStartChecklist({
+        context,
+        experiment: updated,
       });
 
       return {
