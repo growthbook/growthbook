@@ -126,7 +126,6 @@ function OrganizationRow({
   current,
   switchTo,
   showExternalId,
-  showVerfiedDomain,
   onEdit,
   ssoInfo,
   datasources,
@@ -136,7 +135,6 @@ function OrganizationRow({
   switchTo: (organization: OrganizationInterface) => void;
   current: boolean;
   showExternalId: boolean;
-  showVerfiedDomain: boolean;
   onEdit: () => void;
   ssoInfo: SSOConnectionInterface | undefined;
   datasources: DataSourceInterface[];
@@ -312,14 +310,6 @@ function OrganizationRow({
         </td>
         <td>{organization.ownerEmail}</td>
         <td>{date(organization.dateCreated)}</td>
-        <td>
-          <small>{organization.id}</small>
-        </td>
-        {showVerfiedDomain && (
-          <td>
-            <small>{organization.verifiedDomain}</small>
-          </td>
-        )}
         {showExternalId && (
           <td>
             <small>{organization.externalId}</small>
@@ -366,7 +356,7 @@ function OrganizationRow({
       {expanded && (
         <tr>
           <td
-            colSpan={8}
+            colSpan={showExternalId ? 7 : 6}
             className="bg-light p-3"
             style={{ minWidth: 0, width: "100%", maxWidth: "100%" }}
           >
@@ -431,10 +421,7 @@ function MemberRow({
       >
         <td>{member.name}</td>
         <td>{member.email}</td>
-        <td>{member.id}</td>
         <td>{member.dateCreated ? date(member.dateCreated) : "-"}</td>
-        <td>{member.verified ? "Yes" : "No"}</td>
-        <td>{describeSuperAdmin(member.superAdmin)}</td>
         <td>
           {memberOrgs.length ? memberOrgs.map((mo) => mo.name).join(", ") : "-"}
         </td>
@@ -477,7 +464,22 @@ function MemberRow({
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={9} className="bg-light">
+          <td colSpan={6} className="bg-light">
+            <div className="mb-3 p-3 bg-white border rounded">
+              <div className="row">
+                <div className="col-md-4">
+                  <span className="font-weight-bold">Id:</span> {member.id}
+                </div>
+                <div className="col-md-4">
+                  <span className="font-weight-bold">Verified:</span>{" "}
+                  {member.verified ? "Yes" : "No"}
+                </div>
+                <div className="col-md-4">
+                  <span className="font-weight-bold">Super Admin:</span>{" "}
+                  {describeSuperAdmin(member.superAdmin)}
+                </div>
+              </div>
+            </div>
             <div className="mb-3">
               <h4>Organization Info</h4>
               <div className="row">
@@ -782,8 +784,6 @@ const Admin: FC = () => {
                   <th>Name</th>
                   <th style={{ width: "260px" }}>Owner</th>
                   <th>Created</th>
-                  <th>Id</th>
-                  {isCloud() && <th>Verified Domain</th>}
                   {!isCloud() && <th>External Id</th>}
                   <th style={{ width: "120px" }}>Members</th>
                   <th style={{ width: "14px" }}></th>
@@ -801,7 +801,6 @@ const Admin: FC = () => {
                       (ds) => ds.organization === o.id,
                     )}
                     showExternalId={!isCloud()}
-                    showVerfiedDomain={isCloud()}
                     canWrite={canWrite}
                     key={o.id}
                     current={o.id === orgId}
@@ -915,10 +914,7 @@ const Admin: FC = () => {
                 <tr>
                   <th>Name</th>
                   <th>email</th>
-                  <th>Id</th>
                   <th>Created</th>
-                  <th title="Verified Email">Verified</th>
-                  <th title="Super Admin">Super Admin</th>
                   <th>Orgs</th>
                   <th style={{ width: 40 }}></th>
                   <th style={{ width: 40 }}></th>
