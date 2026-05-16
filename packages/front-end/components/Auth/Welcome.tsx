@@ -9,9 +9,11 @@ import WelcomeFrame from "./WelcomeFrame";
 export default function Welcome({
   onSuccess,
   firstTime = false,
+  registrationDisabled = false,
 }: {
   onSuccess: (token: string, projectId?: string) => void;
   firstTime?: boolean;
+  registrationDisabled?: boolean;
 }): ReactElement {
   const [state, setState] = useState<
     "login" | "register" | "forgot" | "forgotSuccess" | "firsttime"
@@ -142,18 +144,34 @@ export default function Welcome({
           {state === "register" && (
             <div>
               <h3 className="h2">Register</h3>
-              <p>
-                Already have an account?{" "}
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setState("login");
-                  }}
-                >
-                  Log In
-                </a>
-              </p>
+              {registrationDisabled ? (
+                <div className="alert alert-warning">
+                  Registration is disabled. Please contact your administrator
+                  for an invitation.{" "}
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setState("login");
+                    }}
+                  >
+                    Log In
+                  </a>
+                </div>
+              ) : (
+                <p>
+                  Already have an account?{" "}
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setState("login");
+                    }}
+                  >
+                    Log In
+                  </a>
+                </p>
+              )}
             </div>
           )}
           {state === "firsttime" && (
@@ -169,18 +187,20 @@ export default function Welcome({
           {state === "login" && (
             <div>
               <h3 className="h2">Log In</h3>
-              <p>
-                Don&apos;t have an account yet?{" "}
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setState("register");
-                  }}
-                >
-                  Register
-                </a>
-              </p>
+              {!registrationDisabled && (
+                <p>
+                  Don&apos;t have an account yet?{" "}
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setState("register");
+                    }}
+                  >
+                    Register
+                  </a>
+                </p>
+              )}
             </div>
           )}
           {state === "forgot" && (
@@ -229,7 +249,8 @@ export default function Welcome({
               {...form.register("companyname")}
             />
           )}
-          {(state === "register" || state === "firsttime") && (
+          {((state === "register" && !registrationDisabled) ||
+            state === "firsttime") && (
             <Field
               label="Name"
               required
@@ -240,7 +261,7 @@ export default function Welcome({
             />
           )}
           {(state === "login" ||
-            state === "register" ||
+            (state === "register" && !registrationDisabled) ||
             state === "forgot" ||
             state === "firsttime") && (
             <Field
@@ -253,7 +274,7 @@ export default function Welcome({
             />
           )}
           {(state === "login" ||
-            state === "register" ||
+            (state === "register" && !registrationDisabled) ||
             state === "firsttime") && (
             <Field
               label="Password"
@@ -280,9 +301,14 @@ export default function Welcome({
             />
           )}
           {error && <div className="alert alert-danger mr-auto">{error}</div>}
-          <button className={`btn btn-primary btn-block btn-lg`} type="submit">
-            {cta}
-          </button>
+          {!(state === "register" && registrationDisabled) && (
+            <button
+              className={`btn btn-primary btn-block btn-lg`}
+              type="submit"
+            >
+              {cta}
+            </button>
+          )}
         </form>
       </WelcomeFrame>
     </>
