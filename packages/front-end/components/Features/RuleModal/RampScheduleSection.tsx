@@ -1779,6 +1779,9 @@ export default function RampScheduleSection({
                                 })
                               }
                               containerStyle={{ width: 75, flexShrink: 0 }}
+                              errorLevel={
+                                isStepBelowCadence(step) ? "warning" : undefined
+                              }
                             />
                             <Box style={{ flex: 1 }}>
                               <SelectField
@@ -2313,6 +2316,55 @@ export default function RampScheduleSection({
     if (s.type === "cron" && s.cron) return `cron: ${s.cron}`;
     return "6 hours";
   }, [settings?.updateSchedule]);
+
+  const effectiveCadenceSeconds = useMemo(() => {
+    if (!state.steps.some((s) => s.monitored)) return null;
+    if (
+      state.monitoring.updateScheduleMinutes != null &&
+      state.monitoring.updateScheduleMinutes > 0
+    ) {
+      return state.monitoring.updateScheduleMinutes * 60;
+    }
+    const s = settings?.updateSchedule;
+    if (s?.type === "stale" && s.hours) return s.hours * 3600;
+    return 6 * 3600;
+  }, [
+    state.steps,
+    state.monitoring.updateScheduleMinutes,
+    settings?.updateSchedule,
+  ]);
+
+  function isStepBelowCadence(step: UIStep): boolean {
+    if (!effectiveCadenceSeconds || !step.monitored) return false;
+    if (step.triggerType !== "interval") return false;
+    return (
+      Math.max(1, step.intervalValue) * UNIT_MULT[step.intervalUnit] <=
+      effectiveCadenceSeconds
+    );
+  }
+
+  const anyCadenceWarning = useMemo(() => {
+    if (!effectiveCadenceSeconds) return false;
+    if (state.builderMode === "simple") {
+      const unit = state.simpleDurationUnit ?? "days";
+      const totalSeconds = state.simpleDurationDays * UNIT_MULT[unit];
+      const perStepSeconds = totalSeconds / SIMPLE_COVERAGES.length;
+      return perStepSeconds <= effectiveCadenceSeconds;
+    }
+    return state.steps.some(
+      (s) =>
+        s.monitored &&
+        s.triggerType === "interval" &&
+        Math.max(1, s.intervalValue) * UNIT_MULT[s.intervalUnit] <=
+          effectiveCadenceSeconds,
+    );
+  }, [
+    effectiveCadenceSeconds,
+    state.builderMode,
+    state.simpleDurationDays,
+    state.simpleDurationUnit,
+    state.steps,
+  ]);
 
   const dsName =
     selectedDatasource?.name ??
@@ -2875,6 +2927,7 @@ export default function RampScheduleSection({
             }
             containerClassName="mb-0"
             style={{ width: 60, minHeight: 38 }}
+            errorLevel={anyCadenceWarning ? "warning" : undefined}
           />
           <SelectField
             value={state.simpleDurationUnit ?? "days"}
@@ -3206,6 +3259,14 @@ export default function RampScheduleSection({
       {customizeLink}
 
       {simplifyLink}
+
+      {anyCadenceWarning && effectiveCadenceSeconds && (
+        <HelperText status="warning" mb="3">
+          Monitored steps shorter than the update cadence (
+          {formatRemainingDuration(effectiveCadenceSeconds)}) will hold until a
+          fresh analysis completes, taking longer than configured.
+        </HelperText>
+      )}
 
       {showAdvancedEditor && (
         <>

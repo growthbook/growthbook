@@ -3416,6 +3416,20 @@ td.disabled {
   color: var(--color-text-disabled) !important;
   background-color: var(--gray-a2) !important;
 }
+.form-control--error {
+  border-color: var(--red-8) !important;
+  &:focus {
+    border-color: var(--violet-8) !important;
+    outline-color: var(--violet-8) !important;
+  }
+}
+.form-control--warning {
+  border-color: var(--amber-8) !important;
+  &:focus {
+    border-color: var(--violet-8) !important;
+    outline-color: var(--violet-8) !important;
+  }
+}
 input:disabled {
   cursor: not-allowed;
 }
