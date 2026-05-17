@@ -117,6 +117,11 @@ export interface SearchProps<T extends { id: string }> {
   };
   filterResults?: (items: T[]) => T[];
   updateSearchQueryOnChange?: boolean;
+  // When true, the hook will not initialize its search term from the URL `q`
+  // param. Use this when an enclosing useSearch instance owns the `q` param
+  // (e.g. a sort-only inner table inside a search-filtered page) so the inner
+  // hook doesn't latch onto the outer hook's filter string.
+  disableUrlSearchTerm?: boolean;
   pageSize?: number;
 }
 
@@ -155,6 +160,7 @@ export function useSearch<T extends { id: string }>({
   defaultMappings = {},
   searchTermFilters,
   updateSearchQueryOnChange,
+  disableUrlSearchTerm,
   pageSize,
 }: SearchProps<T>): SearchReturn<T> {
   const defaultSort = { field: defaultSortField, dir: defaultSortDir || 1 };
@@ -167,7 +173,11 @@ export function useSearch<T extends { id: string }>({
 
   const router = useRouter();
   const { q } = router.query;
-  const initialSearchTerm = Array.isArray(q) ? q.join(" ") : q;
+  const initialSearchTerm = disableUrlSearchTerm
+    ? ""
+    : Array.isArray(q)
+      ? q.join(" ")
+      : q;
   const [value, setValue] = useState(initialSearchTerm ?? "");
   const [disableRelevanceSort, setDisableRelevanceSort] = useState(false);
 
