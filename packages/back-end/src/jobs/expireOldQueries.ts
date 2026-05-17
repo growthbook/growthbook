@@ -1,5 +1,6 @@
 import Agenda from "agenda";
 import { Queries } from "shared/types/query";
+import { SafeRolloutSnapshotInterface } from "shared/validators";
 import {
   errorSnapshotIfStillRunning,
   findRunningSnapshotsByQueryId,
@@ -25,6 +26,7 @@ import {
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
+import { getCollection } from "back-end/src/util/mongo.util";
 const JOB_NAME = "expireOldQueries";
 
 // The time after which a snapshot is considered stalled
@@ -139,6 +141,27 @@ const expireOldQueries = async () => {
     });
   }
 
+  // Look for matching safe rollout snapshots and update the status
+  const srSnapshots = await findRunningSafeRolloutSnapshotsByQueryId([
+    ...queryIds,
+  ]);
+  for (const srSnapshot of srSnapshots) {
+    logger.info("Updating status of safe rollout snapshot " + srSnapshot.id);
+    updateQueryStatus(srSnapshot.queries, queryIds);
+    await getCollection<SafeRolloutSnapshotInterface>(
+      "saferolloutsnapshots",
+    ).updateOne(
+      { id: srSnapshot.id },
+      {
+        $set: {
+          error: "Queries were interrupted. Please try updating results again.",
+          status: "error",
+          queries: srSnapshot.queries,
+        },
+      },
+    );
+  }
+
   try {
     await reapStalledSnapshots();
   } catch (e) {
@@ -207,4 +230,19 @@ export default async function (agenda: Agenda) {
   job.unique({});
   job.repeatEvery("1 minute");
   await job.save();
+}
+
+async function findRunningSafeRolloutSnapshotsByQueryId(
+  ids: string[],
+): Promise<SafeRolloutSnapshotInterface[]> {
+  const earliestDate = new Date();
+  earliestDate.setDate(earliestDate.getDate() - 1);
+
+  return getCollection<SafeRolloutSnapshotInterface>("saferolloutsnapshots")
+    .find({
+      status: "running",
+      dateCreated: { $gt: earliestDate },
+      queries: { $elemMatch: { query: { $in: ids }, status: "running" } },
+    })
+    .toArray();
 }

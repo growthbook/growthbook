@@ -37,7 +37,7 @@ export default async function (agenda: Agenda) {
       {},
     );
     updateResultsJob.unique({});
-    updateResultsJob.repeatEvery("10 minutes");
+    updateResultsJob.repeatEvery("1 minute");
     await updateResultsJob.save();
   }
 
@@ -70,12 +70,14 @@ const updateSingleSafeRolloutSnapshot = async (
 
   try {
     logger.info("Start Refreshing Results for SafeRollout " + id);
-    await createSafeRolloutSnapshot({
+    const { queryRunner } = await createSafeRolloutSnapshot({
       context,
       safeRollout,
       customFields: feature.customFields,
       triggeredBy: "schedule",
     });
+    await queryRunner.waitForResults();
+    logger.info("Successfully Refreshed Results for SafeRollout " + id);
   } catch (e) {
     logger.error(e, "Failed to create SafeRollout Snapshot: " + id);
   }
