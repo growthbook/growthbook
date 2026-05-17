@@ -26,6 +26,12 @@ export function parseExperimentFactMetricsParams(
     lastMaxTimestamp: Date | null;
     covariateTableAlias: string;
     forcedUserIdType?: string;
+    // When true, numerator/denominator source indices on the generated
+    // FactMetricData are forced to 0. Used by the incremental-refresh
+    // statistics query, which joins all per-user cache values into a single
+    // aliased CTE (`m`) before computing statistics regardless of which fact
+    // table they originated from.
+    collapseSourceIndices?: boolean;
   },
 ): {
   factTablesWithMetricData: FactMetricSourceData[];
@@ -53,13 +59,17 @@ export function parseExperimentFactMetricsParams(
     factTableMap,
   );
 
+  const factTablesForMetricData = params.collapseSourceIndices
+    ? factTablesWithMetrics.map((f) => ({ ...f, index: 0 }))
+    : factTablesWithMetrics;
+
   const metricData = metricsWithIndices.map((m) => {
     return getMetricData(
       dialect,
       { metric: m.metric, index: m.index },
       settings,
       activationMetric,
-      factTablesWithMetrics,
+      factTablesForMetricData,
       params.covariateTableAlias,
       `m${m.index}`,
     );

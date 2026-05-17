@@ -1,7 +1,9 @@
+import cloneDeep from "lodash/cloneDeep";
 import {
   ExperimentMetricInterface,
   isFactMetric,
   isRatioMetric,
+  isRegressionAdjusted,
   quantileMetricType,
 } from "shared/experiments";
 import { IncrementalRefreshInterface } from "shared/validators";
@@ -11,6 +13,7 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
   getExperimentSettingsHashForIncrementalRefresh,
   getMetricSettingsHashForIncrementalRefresh,
@@ -100,13 +103,26 @@ export async function validateIncrementalPipeline({
   }
 
   selectedMetrics.filter(isFactMetric).forEach((metric) => {
+    // Cross-fact-table ratio metrics are supported by caching the numerator
+    // and denominator per-user aggregates in separate tables and joining them
+    // in the statistics query. CUPED (regression adjustment) on a cross-FT
+    // ratio metric would also require the pre-exposure covariate aggregates to
+    // span two fact tables, which is not implemented yet, so we only block the
+    // CUPED case.
     if (
       isRatioMetric(metric) &&
       metric.numerator.factTableId !== metric.denominator?.factTableId
     ) {
-      throw new Error(
-        "Ratio metrics must have the same numerator and denominator fact table with incremental refresh.",
-      );
+      const metricWithOverrides = cloneDeep(metric);
+      applyMetricOverrides(metricWithOverrides, snapshotSettings);
+      if (
+        snapshotSettings.regressionAdjustmentEnabled &&
+        isRegressionAdjusted(metricWithOverrides)
+      ) {
+        throw new Error(
+          "Ratio metrics with different numerator and denominator fact tables do not support regression adjustment (CUPED) with incremental refresh. Disable regression adjustment for this metric or use a full query to analyze it.",
+        );
+      }
     }
 
     // Unit quantiles store a float and re-aggregate via SUM, so they work on

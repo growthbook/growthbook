@@ -349,6 +349,10 @@ export interface CreateMetricSourceTableQueryParams {
   metrics: FactMetricInterface[];
   factTableMap: FactTableMap;
   metricSourceTableFullName: string;
+  // When a metric source group spans two fact tables (cross-fact-table ratio
+  // metrics), identifies which fact table this cache table is built from. If
+  // omitted, the numerator fact table of the first metric is used.
+  factTableId?: string;
 }
 
 export interface InsertMetricSourceDataQueryParams {
@@ -359,6 +363,8 @@ export interface InsertMetricSourceDataQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
+  // See CreateMetricSourceTableQueryParams.factTableId
+  factTableId?: string;
 }
 
 export interface DropMetricSourceCovariateTableQueryParams {
@@ -388,6 +394,10 @@ export interface IncrementalRefreshStatisticsQueryParams {
   dimensionsForAnalysis: Dimension[];
   factTableMap: FactTableMap;
   metricSourceTableFullName: string;
+  // For cross-fact-table ratio metric groups, the cache table holding the
+  // per-user denominator aggregates from the denominator fact table. Joined to
+  // metricSourceTableFullName on the unit id before computing statistics.
+  metricSourceDenominatorTableFullName?: string | null;
   metricSourceCovariateTableFullName: string | null;
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];

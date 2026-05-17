@@ -2,6 +2,7 @@ import { tabulateCovariateImbalance } from "shared/health";
 import {
   ExperimentMetricInterface,
   isFactMetric,
+  isRatioMetric,
   isRegressionAdjusted,
   quantileMetricType,
 } from "shared/experiments";
@@ -88,6 +89,22 @@ export interface MetricSourceGroups {
   metrics: FactMetricInterface[];
 }
 
+// Returns the denominator fact table id for a metric whose numerator and
+// denominator live in different fact tables. Undefined for non-ratio metrics
+// and for ratio metrics where both sides share a fact table.
+export function getCrossFtDenominatorFactTableId(
+  metric: FactMetricInterface,
+): string | undefined {
+  if (
+    isRatioMetric(metric) &&
+    metric.denominator?.factTableId &&
+    metric.denominator.factTableId !== metric.numerator.factTableId
+  ) {
+    return metric.denominator.factTableId;
+  }
+  return undefined;
+}
+
 export function getIncrementalRefreshMetricSources({
   metrics,
   existingMetricSources,
@@ -102,14 +119,19 @@ export function getIncrementalRefreshMetricSources({
   metrics: FactMetricInterface[];
   groupId: string;
   factTableId: string;
+  denominatorFactTableId?: string;
 }[] {
   // TODO(incremental-refresh): skip partial data is currently ignored
   // TODO(incremental-refresh): error if no efficient percentiles
   // shouldn't be possible since we are unlikely to build incremental
   // refresh for mySQL
   const getMetricGroupKey = (metric: FactMetricInterface) => {
+    // Cross-fact-table ratio metrics get their own group keyed by the fact
+    // table pair so they can be cached in two tables (numerator + denominator)
+    // without expanding the schema of other groups' cache tables.
+    const crossFtDenominator = getCrossFtDenominatorFactTableId(metric);
     // Keep quantiles in their own source (similar to experimentQueries grouping)
-    return `${metric.numerator.factTableId}${quantileMetricType(metric) ? "_qtile" : ""}`;
+    return `${metric.numerator.factTableId}${crossFtDenominator ? `_${crossFtDenominator}` : ""}${quantileMetricType(metric) ? "_qtile" : ""}`;
   };
 
   const groups: Record<
@@ -117,6 +139,7 @@ export function getIncrementalRefreshMetricSources({
     {
       alreadyExists: boolean;
       factTableId: string;
+      denominatorFactTableId?: string;
       metrics: FactMetricInterface[];
     }
   > = {};
@@ -130,18 +153,20 @@ export function getIncrementalRefreshMetricSources({
       groups[existingGroup.groupId] = groups[existingGroup.groupId] || {
         alreadyExists: true,
         factTableId: existingGroup.factTableId,
+        denominatorFactTableId: existingGroup.denominatorFactTableId,
         metrics: [],
       };
       groups[existingGroup.groupId].metrics.push(metric);
       return;
     }
 
-    // TODO(incremental-refresh): handle cross-table metrics
     const factTableId = metric.numerator.factTableId;
+    const denominatorFactTableId = getCrossFtDenominatorFactTableId(metric);
     const groupKey = getMetricGroupKey(metric);
     groups[groupKey] = groups[groupKey] || {
       alreadyExists: false,
       factTableId,
+      denominatorFactTableId,
       metrics: [],
     };
     groups[groupKey].metrics.push(metric);
@@ -150,6 +175,7 @@ export function getIncrementalRefreshMetricSources({
   const finalGroups: {
     groupId: string;
     factTableId: string;
+    denominatorFactTableId?: string;
     metrics: FactMetricInterface[];
   }[] = [];
   Object.entries(groups).forEach(([groupId, group]) => {
@@ -157,6 +183,7 @@ export function getIncrementalRefreshMetricSources({
       finalGroups.push({
         groupId,
         factTableId: group.factTableId,
+        denominatorFactTableId: group.denominatorFactTableId,
         metrics: group.metrics,
       });
       return;
@@ -183,6 +210,7 @@ export function getIncrementalRefreshMetricSources({
       finalGroups.push({
         groupId: groupId + "_" + randomId + i,
         factTableId: group.factTableId,
+        denominatorFactTableId: group.denominatorFactTableId,
         metrics: chunk,
       });
     });
@@ -557,6 +585,7 @@ const startExperimentIncrementalRefreshQueries = async (
           metrics: group.metrics,
           factTableMap: params.factTableMap,
           metricSourceTableFullName,
+          factTableId: group.factTableId,
         }),
         dependencies: [updateUnitsTableQuery.query],
         run: (query, setExternalId, queryMetadata) =>
@@ -578,6 +607,7 @@ const startExperimentIncrementalRefreshQueries = async (
       unitsSourceTableFullName: unitsTableFullName,
       metrics: group.metrics,
       lastMaxTimestamp: existingSource?.maxTimestamp || null,
+      factTableId: group.factTableId,
     };
 
     const insertMetricsSourceDataQuery = await startQuery({
@@ -597,6 +627,109 @@ const startExperimentIncrementalRefreshQueries = async (
       queryType: "experimentIncrementalRefreshInsertMetricsSourceData",
     });
     queries.push(insertMetricsSourceDataQuery);
+
+    // Cross-fact-table ratio metric groups store the denominator per-user
+    // aggregates in a separate cache table built from the denominator fact
+    // table, so each side of the ratio tracks its own incremental max
+    // timestamp.
+    const denominatorFactTable = group.denominatorFactTableId
+      ? params.factTableMap.get(group.denominatorFactTableId)
+      : undefined;
+    const denominatorSourceName = denominatorFactTable
+      ? `(${denominatorFactTable.name})`
+      : "";
+
+    const metricSourceDenominatorTableFullName: string | undefined =
+      group.denominatorFactTableId
+        ? (existingSource?.denominatorTableFullName ??
+          (integration.generateTablePath &&
+            integration.generateTablePath(
+              `${INCREMENTAL_METRICS_TABLE_PREFIX}_${experimentId}_${group.groupId}_denom`,
+              settings.pipelineSettings?.writeDataset,
+              settings.pipelineSettings?.writeDatabase,
+              true,
+            )))
+        : undefined;
+    if (group.denominatorFactTableId && !metricSourceDenominatorTableFullName) {
+      throw new Error(
+        "Unable to generate table; table path generator not specified.",
+      );
+    }
+
+    let createMetricsDenominatorSourceQuery: QueryPointer | null = null;
+    let insertMetricsDenominatorSourceDataQuery: QueryPointer | null = null;
+    let maxTimestampMetricsDenominatorSourceQuery: QueryPointer | null = null;
+    // Captured by the numerator max-timestamp onSuccess below so both max
+    // timestamps can be persisted to the incremental refresh model in a single
+    // update without racing on the shared runningSourceData closure.
+    let denominatorMaxTimestamp: Date | null =
+      existingSource?.denominatorMaxTimestamp ?? null;
+    if (group.denominatorFactTableId && metricSourceDenominatorTableFullName) {
+      if (!existingSource) {
+        createMetricsDenominatorSourceQuery = await startQuery({
+          name: `create_metrics_denominator_source_${group.groupId}`,
+          displayTitle: `Create Metrics Denominator Source ${denominatorSourceName}`,
+          query: integration.getCreateMetricSourceTableQuery({
+            settings: snapshotSettings,
+            metrics: group.metrics,
+            factTableMap: params.factTableMap,
+            metricSourceTableFullName: metricSourceDenominatorTableFullName,
+            factTableId: group.denominatorFactTableId,
+          }),
+          dependencies: [updateUnitsTableQuery.query],
+          run: (query, setExternalId, queryMetadata) =>
+            integration.runIncrementalWithNoOutputQuery(
+              query,
+              setExternalId,
+              queryMetadata,
+            ),
+          queryType: "experimentIncrementalRefreshCreateMetricsSourceTable",
+        });
+        queries.push(createMetricsDenominatorSourceQuery);
+      }
+
+      insertMetricsDenominatorSourceDataQuery = await startQuery({
+        name: `insert_metrics_denominator_source_data_${group.groupId}`,
+        displayTitle: `Update Metrics Denominator Source ${denominatorSourceName}`,
+        query: integration.getInsertMetricSourceDataQuery({
+          ...metricParams,
+          metricSourceTableFullName: metricSourceDenominatorTableFullName,
+          lastMaxTimestamp: existingSource?.denominatorMaxTimestamp || null,
+          factTableId: group.denominatorFactTableId,
+        }),
+        dependencies: [
+          ...(createMetricsDenominatorSourceQuery
+            ? [createMetricsDenominatorSourceQuery.query]
+            : []),
+          alterUnitsTableQuery.query,
+        ],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runIncrementalWithNoOutputQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        queryType: "experimentIncrementalRefreshInsertMetricsSourceData",
+      });
+      queries.push(insertMetricsDenominatorSourceDataQuery);
+
+      maxTimestampMetricsDenominatorSourceQuery = await startQuery({
+        name: `max_timestamp_metrics_denominator_source_${group.groupId}`,
+        displayTitle: `Find Latest Metrics Denominator Source Timestamp ${denominatorSourceName}`,
+        query: integration.getMaxTimestampMetricSourceQuery({
+          metricSourceTableFullName: metricSourceDenominatorTableFullName,
+          lastMaxTimestamp: existingSource?.denominatorMaxTimestamp || null,
+        }),
+        dependencies: [insertMetricsDenominatorSourceDataQuery.query],
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runMaxTimestampQuery(query, setExternalId, queryMetadata),
+        onSuccess: async (rows) => {
+          denominatorMaxTimestamp = new Date(rows[0].max_timestamp as string);
+        },
+        queryType: "experimentIncrementalRefreshMaxTimestampMetricsSource",
+      });
+      queries.push(maxTimestampMetricsDenominatorSourceQuery);
+    }
 
     // CUPED tables
     const metricSourceCovariateTableFullName: string | undefined =
@@ -734,7 +867,14 @@ const startExperimentIncrementalRefreshQueries = async (
         metricSourceTableFullName,
         lastMaxTimestamp: existingSource?.maxTimestamp || null,
       }),
-      dependencies: [insertMetricsSourceDataQuery.query],
+      dependencies: [
+        insertMetricsSourceDataQuery.query,
+        // Sequenced after the denominator max timestamp query so both max
+        // timestamps are known when the onSuccess below persists the source.
+        ...(maxTimestampMetricsDenominatorSourceQuery
+          ? [maxTimestampMetricsDenominatorSourceQuery.query]
+          : []),
+      ],
       run: (query, setExternalId, queryMetadata) =>
         integration.runMaxTimestampQuery(query, setExternalId, queryMetadata),
       onFailure: async () => {
@@ -761,7 +901,13 @@ const startExperimentIncrementalRefreshQueries = async (
           // TODO(incremental-refresh): Clean up metadata handling in query runner
           const updatedSource: IncrementalRefreshMetricSourceInterface =
             existingSource
-              ? { ...existingSource, maxTimestamp }
+              ? {
+                  ...existingSource,
+                  maxTimestamp,
+                  ...(group.denominatorFactTableId
+                    ? { denominatorMaxTimestamp }
+                    : {}),
+                }
               : {
                   groupId: group.groupId,
                   factTableId: group.factTableId,
@@ -778,6 +924,15 @@ const startExperimentIncrementalRefreshQueries = async (
                     }),
                   })),
                   tableFullName: metricSourceTableFullName,
+                  ...(group.denominatorFactTableId &&
+                  metricSourceDenominatorTableFullName
+                    ? {
+                        denominatorFactTableId: group.denominatorFactTableId,
+                        denominatorTableFullName:
+                          metricSourceDenominatorTableFullName,
+                        denominatorMaxTimestamp,
+                      }
+                    : {}),
                 };
           if (!existingSource) {
             runningSourceData = runningSourceData.concat(updatedSource);
@@ -822,9 +977,14 @@ const startExperimentIncrementalRefreshQueries = async (
         dimensionsForPrecomputation,
         dimensionsForAnalysis: [],
         metricSourceCovariateTableFullName,
+        metricSourceDenominatorTableFullName:
+          metricSourceDenominatorTableFullName ?? null,
       }),
       dependencies: [
         insertMetricsSourceDataQuery.query,
+        ...(insertMetricsDenominatorSourceDataQuery
+          ? [insertMetricsDenominatorSourceDataQuery.query]
+          : []),
         ...(insertMetricCovariateDataQuery
           ? [insertMetricCovariateDataQuery.query]
           : []),

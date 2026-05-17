@@ -12,6 +12,13 @@ export const incrementalRefreshMetricSourceValidator = z.object({
   ),
   maxTimestamp: z.date().nullable(),
   tableFullName: z.string(),
+  // Cross-fact-table ratio metrics store their denominator aggregates in a
+  // separate cache table built from the denominator fact table. The two fact
+  // tables can have different data availability, so we track a separate max
+  // timestamp for each.
+  denominatorFactTableId: z.string().optional(),
+  denominatorMaxTimestamp: z.date().nullable().optional(),
+  denominatorTableFullName: z.string().optional(),
 });
 
 export const incrementalRefreshMetricCovariateSourceValidator = z.object({

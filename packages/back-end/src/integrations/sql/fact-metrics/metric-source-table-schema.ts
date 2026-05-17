@@ -9,22 +9,36 @@ export function getMetricSourceTableSchema(
   dialect: SqlDialect,
   baseIdType: string,
   metrics: FactMetricInterface[],
+  // Which fact table this cache table is built from. When a metric source
+  // group spans two fact tables (cross-fact-table ratio metrics), the
+  // numerator aggregates and denominator aggregates are stored in separate
+  // cache tables, one per fact table. When omitted, the schema includes every
+  // column (the default behavior when numerator and denominator always live in
+  // the same fact table).
+  factTableId?: string,
 ): Map<string, string> {
   const schema = new Map<string, string>();
 
   schema.set(baseIdType, dialect.getDataType("string"));
 
   metrics.forEach((metric) => {
-    const numeratorMetadata = getAggregationMetadata(dialect, {
-      metric,
-      useDenominator: false,
-    });
-    schema.set(
-      `${encodeMetricIdForColumnName(metric.id)}_value`,
-      dialect.getDataType(numeratorMetadata.intermediateDataType),
-    );
+    const numeratorInThisTable =
+      !factTableId || metric.numerator.factTableId === factTableId;
+    const denominatorInThisTable =
+      !factTableId || metric.denominator?.factTableId === factTableId;
 
-    if (isRatioMetric(metric)) {
+    if (numeratorInThisTable) {
+      const numeratorMetadata = getAggregationMetadata(dialect, {
+        metric,
+        useDenominator: false,
+      });
+      schema.set(
+        `${encodeMetricIdForColumnName(metric.id)}_value`,
+        dialect.getDataType(numeratorMetadata.intermediateDataType),
+      );
+    }
+
+    if (isRatioMetric(metric) && denominatorInThisTable) {
       const denominatorMetadata = getAggregationMetadata(dialect, {
         metric,
         useDenominator: true,
@@ -39,7 +53,7 @@ export function getMetricSourceTableSchema(
     // count per user-date. The count is needed to compute n_events and the
     // clustered-variance denominator at stats time (sketches cannot answer
     // rank queries).
-    if (quantileMetricType(metric) === "event") {
+    if (quantileMetricType(metric) === "event" && numeratorInThisTable) {
       schema.set(
         `${encodeMetricIdForColumnName(metric.id)}_n_events`,
         dialect.getDataType("integer"),

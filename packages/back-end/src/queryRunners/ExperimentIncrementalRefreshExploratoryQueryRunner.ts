@@ -175,6 +175,8 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       dimensionsForAnalysis: dimensionObjs,
       factTableMap: params.factTableMap,
       metricSourceTableFullName: existingSource.tableFullName,
+      metricSourceDenominatorTableFullName:
+        existingSource.denominatorTableFullName ?? null,
       metricSourceCovariateTableFullName:
         existingCovariateSource?.tableFullName ?? null,
       unitsSourceTableFullName: unitsTableFullName,
