@@ -1,7 +1,6 @@
 import {
   RampScheduleInterface,
   SafeRolloutInterface,
-  StepHoldConditions,
   ExperimentHealthAction,
 } from "shared/validators";
 import { expandMetricGroups } from "shared/experiments";
@@ -38,15 +37,6 @@ export async function evaluateCurrentStep(
   if (step.monitored) {
     const decision = await evaluateMonitoredStep(ctx, schedule, now);
     return decision;
-  }
-
-  if (step.holdConditions) {
-    const holdDecision = checkHoldConditions(
-      schedule,
-      step.holdConditions,
-      now,
-    );
-    if (holdDecision) return holdDecision;
   }
 
   return { action: "advance" };
@@ -217,15 +207,6 @@ async function evaluateMonitoredStep(
   const signalDecision = checkSignalMetricGating(safeRollout, signalOnly);
   if (signalDecision) return signalDecision;
 
-  if (step?.holdConditions) {
-    const holdDecision = checkHoldConditions(
-      schedule,
-      step.holdConditions,
-      now,
-    );
-    if (holdDecision) return holdDecision;
-  }
-
   return { action: "advance" };
 }
 
@@ -388,27 +369,4 @@ export async function evaluateRampScheduleAfterSafeRolloutSnapshot(
 
   const decision = await evaluateCurrentStep(ctx, schedule, now);
   await applyRampEvaluationDecision(ctx, schedule, decision);
-}
-
-function checkHoldConditions(
-  schedule: RampScheduleInterface,
-  hold: StepHoldConditions,
-  now: Date,
-): EvalDecision | null {
-  const stepEnteredAt = schedule.currentStepEnteredAt;
-  if (!stepEnteredAt) return null;
-
-  if (hold.minDurationMs) {
-    const elapsed = now.getTime() - stepEnteredAt.getTime();
-    if (elapsed < hold.minDurationMs) {
-      const remainingMin = Math.ceil((hold.minDurationMs - elapsed) / 60_000);
-      return {
-        action: "hold",
-        reason: `Holding for min duration: ~${remainingMin} minutes remaining`,
-        nextProcessAt: new Date(stepEnteredAt.getTime() + hold.minDurationMs),
-      };
-    }
-  }
-
-  return null;
 }

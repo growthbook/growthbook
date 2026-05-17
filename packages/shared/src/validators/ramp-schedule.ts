@@ -104,7 +104,6 @@ export type RampTrigger = z.infer<typeof rampTrigger>;
 
 // Step advancement gates beyond the trigger itself.
 export const stepHoldConditions = z.object({
-  minDurationMs: z.number().int().positive().optional(),
   minSampleSize: z.number().int().positive().optional(),
 });
 export type StepHoldConditions = z.infer<typeof stepHoldConditions>;

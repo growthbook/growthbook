@@ -3647,9 +3647,6 @@ paths:
                           holdConditions:
                             type: object
                             properties:
-                              minDurationMs:
-                                type: integer
-                                exclusiveMinimum: 0
                               minSampleSize:
                                 type: integer
                                 exclusiveMinimum: 0
@@ -4245,9 +4242,6 @@ paths:
                           holdConditions:
                             type: object
                             properties:
-                              minDurationMs:
-                                type: integer
-                                exclusiveMinimum: 0
                               minSampleSize:
                                 type: integer
                                 exclusiveMinimum: 0
@@ -4873,9 +4867,6 @@ paths:
                       holdConditions:
                         type: object
                         properties:
-                          minDurationMs:
-                            type: integer
-                            exclusiveMinimum: 0
                           minSampleSize:
                             type: integer
                             exclusiveMinimum: 0
@@ -8139,9 +8130,6 @@ paths:
                           holdConditions:
                             type: object
                             properties:
-                              minDurationMs:
-                                type: integer
-                                exclusiveMinimum: 0
                               minSampleSize:
                                 type: integer
                                 exclusiveMinimum: 0
@@ -8733,9 +8721,6 @@ paths:
                           holdConditions:
                             type: object
                             properties:
-                              minDurationMs:
-                                type: integer
-                                exclusiveMinimum: 0
                               minSampleSize:
                                 type: integer
                                 exclusiveMinimum: 0
@@ -9333,9 +9318,6 @@ paths:
                       holdConditions:
                         type: object
                         properties:
-                          minDurationMs:
-                            type: integer
-                            exclusiveMinimum: 0
                           minSampleSize:
                             type: integer
                             exclusiveMinimum: 0
@@ -17842,9 +17824,6 @@ paths:
                       holdConditions:
                         type: object
                         properties:
-                          minDurationMs:
-                            type: integer
-                            exclusiveMinimum: 0
                           minSampleSize:
                             type: integer
                             exclusiveMinimum: 0
@@ -26019,9 +25998,6 @@ paths:
                       holdConditions:
                         type: object
                         properties:
-                          minDurationMs:
-                            type: integer
-                            exclusiveMinimum: 0
                           minSampleSize:
                             type: integer
                             exclusiveMinimum: 0
@@ -26329,9 +26305,6 @@ paths:
                       holdConditions:
                         type: object
                         properties:
-                          minDurationMs:
-                            type: integer
-                            exclusiveMinimum: 0
                           minSampleSize:
                             type: integer
                             exclusiveMinimum: 0
@@ -26765,9 +26738,6 @@ paths:
                       holdConditions:
                         type: object
                         properties:
-                          minDurationMs:
-                            type: integer
-                            exclusiveMinimum: 0
                           minSampleSize:
                             type: integer
                             exclusiveMinimum: 0
@@ -28550,9 +28520,6 @@ components:
                         holdConditions:
                           type: object
                           properties:
-                            minDurationMs:
-                              type: integer
-                              exclusiveMinimum: 0
                             minSampleSize:
                               type: integer
                               exclusiveMinimum: 0
@@ -28969,9 +28936,6 @@ components:
                         holdConditions:
                           type: object
                           properties:
-                            minDurationMs:
-                              type: integer
-                              exclusiveMinimum: 0
                             minSampleSize:
                               type: integer
                               exclusiveMinimum: 0
@@ -29726,9 +29690,6 @@ components:
                         holdConditions:
                           type: object
                           properties:
-                            minDurationMs:
-                              type: integer
-                              exclusiveMinimum: 0
                             minSampleSize:
                               type: integer
                               exclusiveMinimum: 0
@@ -30145,9 +30106,6 @@ components:
                         holdConditions:
                           type: object
                           properties:
-                            minDurationMs:
-                              type: integer
-                              exclusiveMinimum: 0
                             minSampleSize:
                               type: integer
                               exclusiveMinimum: 0
@@ -33770,9 +33728,6 @@ components:
               holdConditions:
                 type: object
                 properties:
-                  minDurationMs:
-                    type: integer
-                    exclusiveMinimum: 0
                   minSampleSize:
                     type: integer
                     exclusiveMinimum: 0
@@ -36243,9 +36198,6 @@ components:
               holdConditions:
                 type: object
                 properties:
-                  minDurationMs:
-                    type: integer
-                    exclusiveMinimum: 0
                   minSampleSize:
                     type: integer
                     exclusiveMinimum: 0
@@ -38644,9 +38596,6 @@ components:
         holdConditions:
           type: object
           properties:
-            minDurationMs:
-              type: integer
-              exclusiveMinimum: 0
             minSampleSize:
               type: integer
               exclusiveMinimum: 0
