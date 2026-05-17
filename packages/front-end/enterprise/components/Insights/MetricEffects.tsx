@@ -1,14 +1,5 @@
-import React, {
-  useEffect,
-  useCallback,
-  useState,
-  useMemo,
-  ReactNode,
-} from "react";
-import {
-  ComputedExperimentInterface,
-  ExperimentInterfaceStringDates,
-} from "shared/types/experiment";
+import React, { useEffect, useState, useMemo, ReactNode } from "react";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   ExperimentSnapshotInterface,
   ExperimentWithSnapshot,
@@ -177,10 +168,6 @@ const MetricEffects = (): React.ReactElement => {
     error: experimentsError,
   } = useExperiments("", true, "standard");
 
-  const filterResults = useCallback((items: ComputedExperimentInterface[]) => {
-    return items.filter((item) => item.type !== "multi-armed-bandit");
-  }, []);
-
   const {
     items: filteredExperiments,
     searchInputProps,
@@ -188,7 +175,6 @@ const MetricEffects = (): React.ReactElement => {
     setSearchValue,
   } = useExperimentSearch({
     allExperiments,
-    filterResults,
     localStorageKey: "metric-effects-experiments",
   });
 
@@ -200,18 +186,9 @@ const MetricEffects = (): React.ReactElement => {
   const computedTheme = theme === "light" ? "light" : "dark";
   const { metrics, factMetrics, datasources } = useDefinitions();
 
-  // Non-bandit experiments memoized once so every downstream consumer can use
-  // a stable reference. Without this, each parent render produces a new array
-  // that cascades through MetricEffectCard's useMemos and forces the heavy
-  // histogram computation to re-run on every render.
-  const standardExperiments = useMemo(
-    () => allExperiments.filter((e) => e.type !== "multi-armed-bandit"),
-    [allExperiments],
-  );
-
-  // Counts include all non-bandit experiments (ignoring user filters) so the
-  // metric dropdown options stay stable as the user adjusts filters.
-  const metricExpCounts = useMetricExpCounts(standardExperiments);
+  // Counts use the full experiment list (ignoring user filters) so the metric
+  // dropdown options stay stable as the user adjusts filters.
+  const metricExpCounts = useMetricExpCounts(allExperiments);
 
   if (!hasMetricEffectsCommercialFeature) {
     return (
@@ -299,7 +276,7 @@ const MetricEffects = (): React.ReactElement => {
       </Flex>
       <MetricEffectCard
         filteredExperiments={filteredExperiments}
-        allExperiments={standardExperiments}
+        allExperiments={allExperiments}
         metricExpCounts={metricExpCounts}
         params={params[0] || undefined}
       />

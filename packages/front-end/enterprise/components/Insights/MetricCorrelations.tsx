@@ -5,10 +5,7 @@ import {
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import {
-  ComputedExperimentInterface,
-  ExperimentInterfaceStringDates,
-} from "shared/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   ExperimentSnapshotInterface,
   ExperimentWithSnapshot,
@@ -159,18 +156,6 @@ const MetricCorrelations = (): React.ReactElement => {
     error: experimentsError,
   } = useExperiments("", true, "standard");
 
-  // Memoized once so every downstream consumer can share a stable reference,
-  // preventing the heavy correlation computation in MetricCorrelationCard from
-  // re-running on every parent render.
-  const allStandardExperiments = useMemo(
-    () => allExperiments.filter((e) => e.type !== "multi-armed-bandit"),
-    [allExperiments],
-  );
-
-  const filterResults = useCallback((items: ComputedExperimentInterface[]) => {
-    return items.filter((item) => item.type !== "multi-armed-bandit");
-  }, []);
-
   const {
     items: filteredExperiments,
     searchInputProps,
@@ -178,7 +163,6 @@ const MetricCorrelations = (): React.ReactElement => {
     setSearchValue,
   } = useExperimentSearch({
     allExperiments,
-    filterResults,
     localStorageKey: "metric-correlations-experiments",
   });
 
@@ -213,7 +197,7 @@ const MetricCorrelations = (): React.ReactElement => {
     );
   }
 
-  if (allStandardExperiments.length === 0) {
+  if (allExperiments.length === 0) {
     return (
       <Box mb="3">
         <PremiumEmptyState
@@ -260,7 +244,7 @@ const MetricCorrelations = (): React.ReactElement => {
       </Flex>
       <MetricCorrelationCard
         filteredExperiments={filteredExperiments}
-        allExperiments={allStandardExperiments}
+        allExperiments={allExperiments}
         params={params[0]}
       />
     </Box>
