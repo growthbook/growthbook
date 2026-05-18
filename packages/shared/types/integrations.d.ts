@@ -271,6 +271,12 @@ export type ProcessedDimensions = {
   dateDimension: DateDimension | null;
 };
 
+export type IdentityPlan = {
+  baseIdType: string;
+  joinsRequired: string[];
+  idJoinMap: Record<string, string>;
+};
+
 export interface DropTableQueryParams {
   fullTablePath: string;
 }
@@ -302,6 +308,7 @@ interface ExperimentBaseQueryParams {
   factTableMap: FactTableMap;
   dimensions: Dimension[];
   segment: SegmentInterface | null;
+  identityPlan: IdentityPlan;
   unitsTableFullName?: string;
 }
 
@@ -315,6 +322,7 @@ export interface CreateExperimentIncrementalUnitsQueryParams {
   dimensions: Dimension[];
   factTableMap: FactTableMap;
   unitsTableFullName: string;
+  identityPlan: IdentityPlan;
 }
 
 export interface UpdateExperimentIncrementalUnitsQueryParams
@@ -359,6 +367,7 @@ export interface InsertMetricSourceDataQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
+  identityPlan: IdentityPlan;
 }
 
 export interface DropMetricSourceCovariateTableQueryParams {
@@ -379,6 +388,7 @@ export interface InsertMetricSourceCovariateDataQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastCovariateSuccessfulMaxTimestamp: Date | null;
+  identityPlan: IdentityPlan;
 }
 
 export interface IncrementalRefreshStatisticsQueryParams {
@@ -392,6 +402,7 @@ export interface IncrementalRefreshStatisticsQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
+  identityPlan: IdentityPlan;
 }
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";

@@ -1,5 +1,4 @@
 import cloneDeep from "lodash/cloneDeep";
-import { getUserIdTypes } from "shared/experiments";
 import { format } from "shared/sql";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type {
@@ -18,7 +17,6 @@ import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
 import { getExperimentUnitsQuery } from "back-end/src/integrations/sql/queries/experiment-units-query";
-import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
 import { getFactMetricQuantileData } from "back-end/src/integrations/sql/columns/fact-metric-quantile-data";
 import { getFactTablesForMetrics } from "back-end/src/integrations/sql/fact-metrics/fact-tables-for-metrics";
@@ -34,7 +32,7 @@ export function getExperimentFactMetricsQuery(
   datasource: DataSourceInterface,
   params: ExperimentFactMetricsQueryParams,
 ): string {
-  const { settings, segment } = params;
+  const { settings, identityPlan } = params;
   const metricsWithIndices = cloneDeep(params.metrics).map((m, i) => ({
     metric: m,
     index: i,
@@ -48,12 +46,7 @@ export function getExperimentFactMetricsQuery(
     applyMetricOverrides(m.metric, settings);
   });
   // Replace any placeholders in the user defined dimension SQL
-  const { unitDimensions } = processDimensions(
-    dialect,
-    params.dimensions,
-    settings,
-    activationMetric,
-  );
+  processDimensions(dialect, params.dimensions, settings, activationMetric);
 
   const factTableMap = params.factTableMap;
 
@@ -62,17 +55,11 @@ export function getExperimentFactMetricsQuery(
     factTableMap,
   );
 
-  const factTable = factTablesWithIndices[0]?.factTable;
-
   const queryName = `${
     factTablesWithIndices.length === 1
       ? `Fact Table`
       : `Cross-Fact Table Metrics`
   }: ${factTablesWithIndices.map((f) => f.factTable.name).join(" & ")}`;
-
-  const userIdType =
-    params.forcedUserIdType ??
-    getExposureQuery(datasource, settings.exposureQueryId || "").userIdType;
 
   const metricData = metricsWithIndices.map((metric) =>
     getMetricData(
@@ -103,24 +90,13 @@ export function getExperimentFactMetricsQuery(
   );
 
   // Get any required identity join queries
-  const idTypeObjects = [[userIdType], factTable.userIdTypes || []];
-  // add idTypes usually handled in units query here in the case where
-  // we don't have a separate table for the units query
-  if (params.unitsSource === "exposureQuery") {
-    idTypeObjects.push(
-      ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
-      segment ? [segment.userIdType || "user_id"] : [],
-      activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
-    );
-  }
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
     dialect,
     datasource.settings,
     {
-      objects: idTypeObjects,
+      identityPlan,
       from: settings.startDate,
       to: settings.endDate,
-      forcedBaseIdType: userIdType,
       experimentId: settings.experimentId,
     },
   );

@@ -11,6 +11,8 @@ Object.keys(helpers).forEach((helperName) => {
 export function getBaseIdTypeAndJoins(
   objects: string[][],
   forcedBaseIdType?: string,
+  availableIdJoins?: { ids: string[] }[],
+  preferredIdTypes: string[] = [],
 ) {
   // Get rid of empty ids, sort from least to most ids
   const sorted = objects
@@ -28,12 +30,28 @@ export function getBaseIdTypeAndJoins(
     });
   });
 
-  const idTypesSortedByFrequency = Object.entries(counts).sort(
-    (a, b) => b[1] - a[1],
-  );
+  const idTypesSortedByFrequency = Object.entries(counts)
+    .sort((a, b) => {
+      if (b[1] !== a[1]) return b[1] - a[1];
+      return a[0].localeCompare(b[0]);
+    })
+    .map(([idType]) => idType);
 
   // use most frequent ID as base type, unless forcedBaseIdType is passed
-  const baseIdType = forcedBaseIdType || idTypesSortedByFrequency[0]?.[0] || "";
+  const baseIdType = forcedBaseIdType || idTypesSortedByFrequency[0] || "";
+  const preferredIdTypeSet = new Set(preferredIdTypes.filter(Boolean));
+
+  const hasDirectJoinToBase = (idType: string): boolean => {
+    if (!idType || !baseIdType || idType === baseIdType) return true;
+    return (
+      availableIdJoins?.some(
+        (join) =>
+          join.ids.includes(baseIdType) &&
+          join.ids.includes(idType) &&
+          baseIdType !== idType,
+      ) ?? false
+    );
+  };
 
   const joinsRequired: Set<string> = new Set();
   sorted.forEach((types) => {
@@ -42,11 +60,24 @@ export function getBaseIdTypeAndJoins(
     // Object supports one of the join types already
     if (types.filter((type) => joinsRequired.has(type)).length > 0) return;
 
-    // Add id type that is most frequent to help minimize N joins needed
-    joinsRequired.add(
-      idTypesSortedByFrequency.find((x) => types.includes(x[0]))?.[0] ||
-        types[0],
+    const candidatesByFrequency = idTypesSortedByFrequency.filter((idType) =>
+      types.includes(idType),
     );
+    const directJoinCandidates = availableIdJoins
+      ? candidatesByFrequency.filter((idType) => hasDirectJoinToBase(idType))
+      : candidatesByFrequency;
+    const candidates = directJoinCandidates.length
+      ? directJoinCandidates
+      : candidatesByFrequency;
+
+    const preferredCandidates = candidates.filter((idType) =>
+      preferredIdTypeSet.has(idType),
+    );
+
+    // Add id type that is most frequent to help minimize N joins needed.
+    // If there are multiple direct-reachable options, prefer IDs also
+    // used by units-side context (activation/segment/unit dimensions).
+    joinsRequired.add(preferredCandidates[0] || candidates[0] || types[0]);
   });
 
   return {

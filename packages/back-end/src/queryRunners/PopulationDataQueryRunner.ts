@@ -1,6 +1,7 @@
 import { UpdateProps } from "shared/types/base-model";
 import {
   ExperimentMetricInterface,
+  getUserIdTypes,
   isBinomialMetric,
   isFactMetric,
   isRatioMetric,
@@ -39,6 +40,7 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
+import { createIdentityPlanBuilder } from "./buildIdentityPlan";
 
 export interface PopulationDataQueryParams {
   populationSettings: PopulationDataQuerySettings;
@@ -62,6 +64,7 @@ export const startPopulationDataQueries = async (
 ): Promise<Queries> => {
   const settings = params.snapshotSettings;
   const metricMap = params.metricMap;
+  const baseUserIdType = params.populationSettings.userIdType || "user_id";
 
   const { org } = context;
 
@@ -78,6 +81,8 @@ export const startPopulationDataQueries = async (
   const dimensionObj: Dimension = { type: "date" };
 
   const queries: Queries = [];
+  const availableIdJoins =
+    integration.datasource.settings?.queries?.identityJoins;
 
   const { factMetricGroups, legacyMetricSingles } = getFactMetricGroups(
     selectedMetrics,
@@ -98,6 +103,12 @@ export const startPopulationDataQueries = async (
       throw new Error("Segment not found");
     }
   }
+  const buildRunnerIdentityPlan = createIdentityPlanBuilder({
+    exposureBaseIdType: baseUserIdType,
+    availableIdJoins,
+    forcedBaseIdType: baseUserIdType,
+    segmentUserIdType: segment ? segment.userIdType || "user_id" : undefined,
+  });
 
   for (const m of legacyMetricSingles) {
     if (
@@ -128,6 +139,15 @@ export const startPopulationDataQueries = async (
       unitsSource: "otherQuery",
       factTableMap: params.factTableMap,
       populationSettings: params.populationSettings,
+      identityPlan: buildRunnerIdentityPlan({
+        metricObjects: [
+          getUserIdTypes(m, params.factTableMap),
+          ...denominatorMetrics.map((dm) =>
+            getUserIdTypes(dm, params.factTableMap, true),
+          ),
+        ],
+        unitDimensions: [dimensionObj],
+      }),
     };
 
     queries.push(
@@ -163,6 +183,12 @@ export const startPopulationDataQueries = async (
       unitsSource: "otherQuery",
       factTableMap: params.factTableMap,
       populationSettings: params.populationSettings,
+      identityPlan: buildRunnerIdentityPlan({
+        metricObjects: [
+          ...m.map((metric) => getUserIdTypes(metric, params.factTableMap)),
+        ],
+        unitDimensions: [dimensionObj],
+      }),
     };
 
     queries.push(

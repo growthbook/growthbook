@@ -1581,14 +1581,9 @@ export default abstract class SqlIntegration
       this.getSqlDialect(),
       this.datasource.settings,
       {
-        objects: [
-          [exposureQuery.userIdType],
-          // activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
-          segment ? [segment.userIdType || "user_id"] : [],
-        ],
+        identityPlan: params.identityPlan,
         from: settings.startDate,
         to: settings.endDate,
-        forcedBaseIdType: exposureQuery.userIdType,
         experimentId: settings.experimentId,
       },
     );
@@ -1865,12 +1860,6 @@ export default abstract class SqlIntegration
   getInsertMetricSourceCovariateDataQuery(
     params: InsertMetricSourceCovariateDataQueryParams,
   ): string {
-    const exposureQuery = getExposureQuery(
-      this.datasource,
-      params.settings.exposureQueryId || "",
-      undefined,
-    );
-
     // sort metrics and add indices for tracking across sub-queries
     const sortedMetrics = cloneDeep(params.metrics)
       .map((m) => ({
@@ -1914,15 +1903,9 @@ export default abstract class SqlIntegration
       this.getSqlDialect(),
       this.datasource.settings,
       {
-        objects: [
-          [exposureQuery.userIdType],
-          factTableWithMetricData.factTable?.userIdTypes || [],
-        ],
-        // TODO(incremental-refresh): this gets all identities from history
-        // of experiment, which we think is right, but could be improved
+        identityPlan: params.identityPlan,
         from: params.settings.startDate,
         to: params.settings.endDate,
-        forcedBaseIdType: exposureQuery.userIdType,
         experimentId: params.settings.experimentId,
       },
     );
@@ -2164,12 +2147,6 @@ export default abstract class SqlIntegration
   getInsertMetricSourceDataQuery(
     params: InsertMetricSourceDataQueryParams,
   ): string {
-    const exposureQuery = getExposureQuery(
-      this.datasource,
-      params.settings.exposureQueryId || "",
-      undefined,
-    );
-
     const factTableMap = params.factTableMap;
     const factTable = factTableMap.get(
       params.metrics[0].numerator?.factTableId,
@@ -2182,12 +2159,9 @@ export default abstract class SqlIntegration
       this.getSqlDialect(),
       this.datasource.settings,
       {
-        objects: [[exposureQuery.userIdType], factTable?.userIdTypes || []],
-        // TODO(incremental-refresh): this gets all identities from history
-        // of experiment, which we think is right, but could be improved
+        identityPlan: params.identityPlan,
         from: params.settings.startDate,
         to: params.settings.endDate,
-        forcedBaseIdType: exposureQuery.userIdType,
         experimentId: params.settings.experimentId,
       },
     );
@@ -2387,12 +2361,6 @@ export default abstract class SqlIntegration
   getIncrementalRefreshStatisticsQuery(
     params: IncrementalRefreshStatisticsQueryParams,
   ): string {
-    const exposureQuery = getExposureQuery(
-      this.datasource,
-      params.settings.exposureQueryId || "",
-      undefined,
-    );
-
     const { factTablesWithMetricData } = parseExperimentFactMetricsParams(
       this.getSqlDialect(),
       {
@@ -2431,19 +2399,13 @@ export default abstract class SqlIntegration
         params.activationMetric,
       );
 
-    const idTypeObjects = [
-      [exposureQuery.userIdType],
-      ...unitDimensions.map((d) => [d.dimension.userIdType]),
-    ];
-
     const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
       this.getSqlDialect(),
       this.datasource.settings,
       {
-        objects: idTypeObjects,
+        identityPlan: params.identityPlan,
         from: params.settings.startDate,
         to: params.settings.endDate,
-        forcedBaseIdType: exposureQuery.userIdType,
         experimentId: params.settings.experimentId,
       },
     );

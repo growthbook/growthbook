@@ -1,5 +1,6 @@
 import {
   ExperimentMetricInterface,
+  getUserIdTypes,
   isFactMetric,
   isRegressionAdjusted,
 } from "shared/experiments";
@@ -40,6 +41,7 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
+import { createIdentityPlanBuilder } from "./buildIdentityPlan";
 import { SnapshotResult } from "./ExperimentResultsQueryRunner";
 
 export type ExperimentIncrementalRefreshExploratoryQueryParams = {
@@ -116,6 +118,20 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       "Units table not found in incremental refresh model; required for exploratory analysis.",
     );
   }
+  const exposureQuery = (
+    integration.datasource.settings?.queries?.exposure || []
+  ).find((q) => q.id === snapshotSettings.exposureQueryId);
+  if (!exposureQuery) {
+    throw new Error("Exposure query not found");
+  }
+  const buildRunnerIdentityPlan = createIdentityPlanBuilder({
+    exposureBaseIdType: exposureQuery.userIdType,
+    availableIdJoins: integration.datasource.settings?.queries?.identityJoins,
+    activationIdTypes: activationMetric
+      ? getUserIdTypes(activationMetric, params.factTableMap)
+      : [],
+    forcedBaseIdType: exposureQuery.userIdType,
+  });
 
   // Metric Queries
   const existingSources = incrementalRefreshModel?.metricSources;
@@ -180,6 +196,11 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       unitsSourceTableFullName: unitsTableFullName,
       metrics: group.metrics,
       lastMaxTimestamp: existingSource?.maxTimestamp || null,
+      identityPlan: buildRunnerIdentityPlan({
+        unitDimensions: dimensionObjs,
+        includeActivation: false,
+        includeSegment: false,
+      }),
     };
     const statisticsQuery = await startQuery({
       name: `statistics_${group.groupId}`,

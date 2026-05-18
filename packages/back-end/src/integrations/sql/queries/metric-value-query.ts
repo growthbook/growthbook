@@ -2,6 +2,7 @@ import { format } from "shared/sql";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { MetricValueParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
+import { getBaseIdTypeAndJoins } from "back-end/src/util/sql";
 
 import { getAggregateMetricColumnLegacyMetrics } from "back-end/src/integrations/sql/columns/aggregate-metric-column-legacy-metrics";
 import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
@@ -16,14 +17,31 @@ export function getMetricValueQuery(
   datasource: DataSourceInterface,
   params: MetricValueParams,
 ): string {
+  const { baseIdType: resolvedBaseIdType, joinsRequired } =
+    getBaseIdTypeAndJoins(
+      [
+        params.metric.userIdTypes || [],
+        params.segment ? [params.segment.userIdType || "user_id"] : [],
+      ],
+      undefined,
+      datasource.settings?.queries?.identityJoins,
+      [],
+    );
+  const identityPlan = {
+    baseIdType: resolvedBaseIdType || "",
+    joinsRequired,
+    idJoinMap: Object.fromEntries(
+      joinsRequired.map((idType) => [
+        idType,
+        `__identities_${idType.replace(/[^a-zA-Z0-9_]/g, "")}`,
+      ]),
+    ),
+  };
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
     dialect,
     datasource.settings,
     {
-      objects: [
-        params.metric.userIdTypes || [],
-        params.segment ? [params.segment.userIdType || "user_id"] : [],
-      ],
+      identityPlan,
       from: params.from,
       to: params.to,
     },

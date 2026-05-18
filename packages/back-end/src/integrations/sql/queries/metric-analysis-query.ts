@@ -5,6 +5,7 @@ import type { DataSourceInterface } from "shared/types/datasource";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type { MetricAnalysisParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
+import { getBaseIdTypeAndJoins } from "back-end/src/util/sql";
 
 import { capCoalesceValue } from "back-end/src/integrations/sql/primitives/cap-coalesce-value";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
@@ -24,6 +25,23 @@ export function getMetricAnalysisQuery(
   // Get any required identity join queries; only use same id type for now,
   // so not needed
   const idTypeObjects = [getUserIdTypes(metric, params.factTableMap)];
+  const { baseIdType: resolvedBaseIdType, joinsRequired } =
+    getBaseIdTypeAndJoins(
+      idTypeObjects,
+      settings.userIdType,
+      datasource.settings?.queries?.identityJoins,
+      [],
+    );
+  const identityPlan = {
+    baseIdType: resolvedBaseIdType || "",
+    joinsRequired,
+    idJoinMap: Object.fromEntries(
+      joinsRequired.map((idType) => [
+        idType,
+        `__identities_${idType.replace(/[^a-zA-Z0-9_]/g, "")}`,
+      ]),
+    ),
+  };
 
   // TODO check if query broken if segment has template variables
   // TODO return cap numbers
@@ -31,10 +49,9 @@ export function getMetricAnalysisQuery(
     dialect,
     datasource.settings,
     {
-      objects: idTypeObjects,
+      identityPlan,
       from: settings.startDate,
       to: settings.endDate ?? undefined,
-      forcedBaseIdType: settings.userIdType,
     },
   );
 

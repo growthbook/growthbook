@@ -1320,6 +1320,11 @@ describe("full fact metric experiment query - bigquery", () => {
     [ordersFactTable.id, ordersFactTable],
     [eventsFactTable.id, eventsFactTable],
   ]);
+  const defaultIdentityPlan = {
+    baseIdType: "user_id",
+    joinsRequired: [],
+    idJoinMap: {},
+  };
 
   const metricsToTest = generateFactMetrics();
 
@@ -1370,6 +1375,7 @@ describe("full fact metric experiment query - bigquery", () => {
           segment: null,
           metrics: [metric],
           factTableMap,
+          identityPlan: defaultIdentityPlan,
         },
       );
 

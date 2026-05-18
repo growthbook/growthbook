@@ -4,6 +4,7 @@ import { addDays } from "date-fns";
 import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
+  getUserIdTypes,
   quantileMetricType,
 } from "shared/experiments";
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
@@ -61,6 +62,7 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
+import { createIdentityPlanBuilder } from "./buildIdentityPlan";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
 export type SnapshotResult = {
   unknownVariations: string[];
@@ -171,16 +173,35 @@ export const startExperimentResultQueries = async (
         eligibleDimensionsWithSlices: [],
       };
 
+  const availableIdJoins =
+    integration.datasource.settings?.queries?.identityJoins;
+  const exposureBaseIdType = exposureQuery?.userIdType || "user_id";
+  const unitDimensions = snapshotDimensions.length
+    ? snapshotDimensions
+    : dimensionsForTraffic;
+  const buildRunnerIdentityPlan = createIdentityPlanBuilder({
+    exposureBaseIdType,
+    availableIdJoins,
+    activationIdTypes: activationMetric
+      ? getUserIdTypes(activationMetric, params.factTableMap)
+      : [],
+    segmentUserIdType: segmentObj
+      ? segmentObj.userIdType || "user_id"
+      : undefined,
+    forcedBaseIdType: exposureBaseIdType,
+  });
+
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,
-    dimensions: snapshotDimensions.length
-      ? snapshotDimensions
-      : dimensionsForTraffic,
+    dimensions: unitDimensions,
     segment: segmentObj,
     settings: snapshotSettings,
     unitsTableFullName: unitsTableFullName,
     includeIdJoins: true,
     factTableMap: params.factTableMap,
+    identityPlan: buildRunnerIdentityPlan({
+      unitDimensions,
+    }),
   };
 
   if (useUnitsTable) {
@@ -228,17 +249,31 @@ export const startExperimentResultQueries = async (
     // regardless of how many dimensions are requested
     const runOverallQuantileAnalysis =
       snapshotType === "standard" && quantileMetricType(m);
+    const analysisDimensions = runOverallQuantileAnalysis
+      ? []
+      : snapshotDimensions;
 
     const queryParams: ExperimentMetricQueryParams = {
       activationMetric,
       denominatorMetrics,
-      dimensions: runOverallQuantileAnalysis ? [] : snapshotDimensions,
+      dimensions: analysisDimensions,
       metric: m,
       segment: segmentObj,
       settings: snapshotSettings,
       unitsSource: unitQuery ? "exposureTable" : "exposureQuery",
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
+      identityPlan: buildRunnerIdentityPlan({
+        metricObjects: [
+          getUserIdTypes(m, params.factTableMap),
+          ...denominatorMetrics.map((dm) =>
+            getUserIdTypes(dm, params.factTableMap, true),
+          ),
+        ],
+        unitDimensions: unitQuery ? [] : analysisDimensions,
+        includeActivation: !unitQuery,
+        includeSegment: !unitQuery,
+      }),
     };
     queries.push(
       await startQuery({
@@ -261,16 +296,27 @@ export const startExperimentResultQueries = async (
     // regardless of how many dimensions are requested
     const runOverallQuantileAnalysis =
       snapshotType === "standard" && m.some(quantileMetricType);
+    const analysisDimensions = runOverallQuantileAnalysis
+      ? []
+      : snapshotDimensions;
 
     const queryParams: ExperimentFactMetricsQueryParams = {
       activationMetric,
-      dimensions: runOverallQuantileAnalysis ? [] : snapshotDimensions,
+      dimensions: analysisDimensions,
       metrics: m,
       segment: segmentObj,
       settings: snapshotSettings,
       unitsSource: unitQuery ? "exposureTable" : "exposureQuery",
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
+      identityPlan: buildRunnerIdentityPlan({
+        metricObjects: m.map((metric) =>
+          getUserIdTypes(metric, params.factTableMap),
+        ),
+        unitDimensions: unitQuery ? [] : analysisDimensions,
+        includeActivation: !unitQuery,
+        includeSegment: !unitQuery,
+      }),
     };
 
     if (
@@ -283,7 +329,7 @@ export const startExperimentResultQueries = async (
     queries.push(
       await startQuery({
         name: `group_${i}`,
-        query: integration.getExperimentFactMetricsQuery(queryParams),
+        query: integration.getExperimentFactMetricsQuery!(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
         run: (query, setExternalId, queryMetadata) =>
           (integration as SqlIntegration).runExperimentFactMetricsQuery(
@@ -313,14 +359,19 @@ export const startExperimentResultQueries = async (
       }
     });
 
+    const trafficDimensions = snapshotDimensionsForTraffic.length
+      ? snapshotDimensionsForTraffic
+      : dimensionsForTraffic;
     trafficQuery = await startQuery({
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
         ...unitQueryParams,
-        dimensions: snapshotDimensionsForTraffic.length
-          ? snapshotDimensionsForTraffic
-          : dimensionsForTraffic,
+        dimensions: trafficDimensions,
         useUnitsTable: !!unitQuery,
+        identityPlan: buildRunnerIdentityPlan({
+          includeActivation: !unitQuery,
+          includeSegment: !unitQuery,
+        }),
       }),
       dependencies: unitQuery ? [unitQuery.query] : [],
       run: (query, setExternalId, queryMetadata) =>

@@ -348,6 +348,49 @@ describe("backend", () => {
         joinsRequired: ["user_id"],
       });
     });
+
+    it("prefers direct-reachable candidates when identity joins are available", () => {
+      expect(
+        getBaseIdTypeAndJoins(
+          [["device_id"], ["user_id", "visitor_id"]],
+          "device_id",
+          [{ ids: ["device_id", "visitor_id"] }],
+        ),
+      ).toEqual({
+        baseIdType: "device_id",
+        joinsRequired: ["visitor_id"],
+      });
+    });
+
+    it("falls back to frequency when no direct reachable candidate exists", () => {
+      expect(
+        getBaseIdTypeAndJoins(
+          [["device_id"], ["user_id", "visitor_id"]],
+          "device_id",
+          [{ ids: ["device_id", "other_id"] }],
+        ),
+      ).toEqual({
+        baseIdType: "device_id",
+        joinsRequired: ["user_id"],
+      });
+    });
+
+    it("prefers preferredIdTypes when multiple direct joins are valid", () => {
+      expect(
+        getBaseIdTypeAndJoins(
+          [["device_id"], ["user_id", "visitor_id"]],
+          "device_id",
+          [
+            { ids: ["device_id", "user_id"] },
+            { ids: ["device_id", "visitor_id"] },
+          ],
+          ["visitor_id"],
+        ),
+      ).toEqual({
+        baseIdType: "device_id",
+        joinsRequired: ["visitor_id"],
+      });
+    });
   });
 
   describe("expandDenominatorMetrics", () => {
