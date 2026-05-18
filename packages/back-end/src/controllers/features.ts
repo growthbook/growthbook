@@ -42,6 +42,7 @@ import {
   RevisionRampDetachAction,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
+import { computeNextProcessAt } from "../services/rampSchedule";
 import {
   ExperimentRefRule,
   FeatureInterface,
@@ -3276,6 +3277,16 @@ export async function putFeatureRule(
       if (rampSchedulePayload.endActions !== undefined) {
         updates.endActions = rampSchedulePayload.endActions.map(remapT1);
       }
+      updates.nextProcessAt = computeNextProcessAt({
+        status: existing.status,
+        nextStepAt: existing.nextStepAt,
+        endCondition: (updates.endCondition !== undefined
+          ? updates.endCondition
+          : existing.endCondition) as typeof existing.endCondition,
+        startDate: (updates.startDate !== undefined
+          ? updates.startDate
+          : existing.startDate) as typeof existing.startDate,
+      });
       await context.models.rampSchedules.updateById(existing.id, updates);
     }
   }

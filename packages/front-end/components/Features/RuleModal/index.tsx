@@ -1117,7 +1117,7 @@ export default function RuleModal({
                 !isNoOpSchedule &&
                 rampState.mode === "edit" &&
                 ruleRampSchedule?.id &&
-                !["running", "ready", "pending-approval"].includes(
+                !["running", "pending-approval"].includes(
                   ruleRampSchedule.status,
                 )
               ) {
@@ -1175,15 +1175,6 @@ export default function RuleModal({
                 rampScheduleInline = { mode: "clear" };
               }
             }
-          }
-
-          // Future-dated schedule → start with rule disabled.
-          if (
-            rampScheduleInline &&
-            "startDate" in rampScheduleInline &&
-            rampScheduleInline.startDate
-          ) {
-            values = { ...values, enabled: false };
           }
 
           res = await apiCall<{ version: number }>(
@@ -1254,7 +1245,9 @@ export default function RuleModal({
           }
         }
 
-        // Future-dated schedule → start with rule disabled until the ramp activates.
+        // Schedule with a start date → create rule disabled; the backend
+        // enables it via onActivatingRevisionPublished when the draft is
+        // published (immediately if the date has passed, or via poller if future).
         if (
           rampScheduleInline &&
           "startDate" in rampScheduleInline &&

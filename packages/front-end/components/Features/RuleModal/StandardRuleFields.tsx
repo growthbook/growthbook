@@ -303,6 +303,16 @@ export default function StandardRuleFields({
                 setState={setRampSectionState}
               />
             )}
+            {defaultValues.id &&
+              form.watch("enabled") &&
+              rampSectionState.startDate &&
+              new Date(rampSectionState.startDate).getTime() > Date.now() && (
+                <Callout status="warning" mt="4">
+                  This rule is currently enabled and will remain live until the
+                  schedule starts. Disable the rule first if you don&apos;t want
+                  it serving traffic before then.
+                </Callout>
+              )}
           </Box>
         )}
 
@@ -332,6 +342,16 @@ export default function StandardRuleFields({
                 environments={environments}
               />
             )}
+            {defaultValues.id &&
+              form.watch("enabled") &&
+              rampSectionState.startDate &&
+              new Date(rampSectionState.startDate).getTime() > Date.now() && (
+                <Callout status="warning" mt="4">
+                  This rule is currently enabled and will remain live until the
+                  schedule starts. Disable the rule first if you don&apos;t want
+                  it serving traffic before then.
+                </Callout>
+              )}
           </>
         )}
       </div>
