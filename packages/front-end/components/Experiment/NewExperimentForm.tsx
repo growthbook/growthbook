@@ -1078,6 +1078,19 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   {...form.register("hypothesis", {
                     onChange: () => {
                       queueCheckForSimilar(); // Debounced call
+                      // Clear any prior hypothesis check result so stale
+                      // pass/fail feedback isn't shown while the user types.
+                      if (
+                        hypothesisCheckResult ||
+                        hypothesisSuggestionRevealed ||
+                        lastCheckedHypothesis !== null ||
+                        hypothesisCheckError
+                      ) {
+                        setHypothesisCheckResult(null);
+                        setHypothesisSuggestionRevealed(false);
+                        setLastCheckedHypothesis(null);
+                        setHypothesisCheckError(null);
+                      }
                     },
                     onBlur: () => {
                       // cancel any pending debounced calls
