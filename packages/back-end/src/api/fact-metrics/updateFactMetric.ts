@@ -11,74 +11,6 @@ import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 
-/**
- * Returns the required column for metric types that enforce a specific column.
- * Returns null for metric types that allow user-specified columns.
- */
-function getRequiredColumn(
-  metricType: FactMetricType,
-): "$$distinctUsers" | "$$distinctDates" | null {
-  switch (metricType) {
-    case "proportion":
-    case "retention":
-      return "$$distinctUsers";
-    case "dailyParticipation":
-      return "$$distinctDates";
-    default:
-      return null;
-  }
-}
-
-/**
- * Validates numerator values for an update operation.
- *
- * When changing metric type, we auto-correct column/aggregation for ergonomics.
- * However, if the user explicitly provides incompatible values in the same request,
- * we error to prevent confusion.
- */
-function validateNumeratorForUpdate(
-  metricType: FactMetricType,
-  numerator: { column?: string; aggregation?: string } | undefined,
-  isChangingMetricType: boolean,
-): void {
-  if (!numerator) return;
-
-  const requiredColumn = getRequiredColumn(metricType);
-  if (!requiredColumn) return;
-
-  // If user explicitly provides an incompatible column, error
-  if (numerator.column && numerator.column !== requiredColumn) {
-    if (isChangingMetricType) {
-      throw new Error(
-        `Cannot change metricType to "${metricType}" while setting numerator.column to "${numerator.column}". ` +
-          `${metricType} metrics require column "${requiredColumn}". ` +
-          `Either omit numerator.column to auto-correct, or use a compatible column value.`,
-      );
-    } else {
-      throw new Error(
-        `${metricType} metrics require numerator.column to be "${requiredColumn}". ` +
-          `Received: "${numerator.column}"`,
-      );
-    }
-  }
-
-  // If user explicitly provides an aggregation for a metric type that doesn't support it, error
-  if (numerator.aggregation) {
-    if (isChangingMetricType) {
-      throw new Error(
-        `Cannot change metricType to "${metricType}" while setting numerator.aggregation. ` +
-          `${metricType} metrics do not support aggregation. ` +
-          `Either omit numerator.aggregation to auto-correct, or remove the aggregation field.`,
-      );
-    } else {
-      throw new Error(
-        `${metricType} metrics do not support numerator.aggregation. ` +
-          `Remove the aggregation field from your request.`,
-      );
-    }
-  }
-}
-
 function expectsDenominator(metricType: FactMetricType) {
   switch (metricType) {
     case "ratio":
@@ -87,6 +19,7 @@ function expectsDenominator(metricType: FactMetricType) {
     case "proportion":
     case "quantile":
     case "retention":
+    case "dailyParticipation":
       return false;
   }
 }
@@ -114,23 +47,27 @@ export async function getUpdateFactMetricPropsFromBody(
   };
 
   const metricType = updates.metricType ?? factMetric.metricType;
-  const isChangingMetricType =
-    updates.metricType !== undefined &&
-    updates.metricType !== factMetric.metricType;
-
-  // Validate that explicitly provided values are compatible with the metric type
-  validateNumeratorForUpdate(metricType, numerator, isChangingMetricType);
-
   if (numerator) {
-    // Set the correct column based on metric type (auto-correct for ergonomics)
-    const requiredColumn = getRequiredColumn(metricType);
-    const column = requiredColumn ?? numerator.column ?? "$$distinctUsers";
+    // Set the correct column based on metric type
+    let column: string;
+    if (metricType === "proportion" || metricType === "retention") {
+      column = "$$distinctUsers";
+    } else if (metricType === "dailyParticipation") {
+      column = "$$distinctDates";
+    } else {
+      column = numerator.column || "$$distinctUsers";
+    }
 
     updates.numerator = FactMetricModel.migrateColumnRef({
       ...numerator,
       column,
       // Clear aggregation for metric types that use special columns
-      aggregation: requiredColumn ? undefined : numerator.aggregation,
+      aggregation:
+        metricType === "proportion" ||
+        metricType === "retention" ||
+        metricType === "dailyParticipation"
+          ? undefined
+          : numerator.aggregation,
     });
     const factTable = await getFactTable(updates.numerator.factTableId);
     if (!factTable) {
