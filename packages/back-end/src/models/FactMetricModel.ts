@@ -117,26 +117,6 @@ function denominatorRequiredByMetricType(metricType: FactMetricType): boolean {
   }
 }
 
-/**
- * Returns the required column for metric types that enforce a specific column.
- * Returns null for metric types that allow user-specified columns.
- */
-function getRequiredColumnForMetricType(
-  metricType: FactMetricType,
-): "$$distinctUsers" | "$$distinctDates" | null {
-  switch (metricType) {
-    case "proportion":
-    case "retention":
-      return "$$distinctUsers";
-    case "dailyParticipation":
-      return "$$distinctDates";
-    case "mean":
-    case "ratio":
-    case "quantile":
-      return null;
-  }
-}
-
 function validateSavedFilterIds({
   columnRef,
   factTable,
@@ -239,13 +219,15 @@ export class FactMetricModel extends BaseClass {
       newDoc.numerator = FactMetricModel.migrateColumnRef(newDoc.numerator);
     }
 
-    // Fix metrics that have incorrect column values for their metric type
-    // (e.g., dailyParticipation requires $$distinctDates, proportion/retention require $$distinctUsers)
-    const requiredColumn = getRequiredColumnForMetricType(newDoc.metricType);
-    if (requiredColumn && newDoc.numerator?.column !== requiredColumn) {
+    // Fix Daily Participation metrics that have incorrect column values
+    // These metrics require $$distinctDates to correctly generate COUNT(DISTINCT DATE(...))
+    if (
+      newDoc.metricType === "dailyParticipation" &&
+      newDoc.numerator?.column !== "$$distinctDates"
+    ) {
       newDoc.numerator = {
         ...newDoc.numerator,
-        column: requiredColumn,
+        column: "$$distinctDates",
         aggregation: undefined,
       };
     }
