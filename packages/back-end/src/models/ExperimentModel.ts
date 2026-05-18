@@ -282,6 +282,7 @@ const experimentSchema = new mongoose.Schema({
   lastSnapshotAttempt: Date,
   nextSnapshotAttempt: Date,
   autoSnapshots: Boolean,
+  disableAutoSnapshots: Boolean,
   ideaSource: String,
   regressionAdjustmentEnabled: Boolean,
   postStratificationEnabled: Boolean,
@@ -600,7 +601,7 @@ export async function createExperiment({
     uid: uuidv4().replace(/-/g, ""),
     // If this is a sample experiment, we'll override the id with data.id
     ...data,
-    //set the default phase seed to uuid
+    // set the default phase seed to uuid
     phases: data.phases
       ? data.phases.map(({ ...phase }) => {
           return {
@@ -737,6 +738,7 @@ export async function getExperimentsToUpdate(
       },
       status: "running",
       autoSnapshots: true,
+      disableAutoSnapshots: { $ne: true },
       nextSnapshotAttempt: {
         $exists: true,
         $lte: new Date(),
@@ -770,6 +772,7 @@ export async function getExperimentsToUpdateLegacy(
       },
       status: "running",
       autoSnapshots: true,
+      disableAutoSnapshots: { $ne: true },
       nextSnapshotAttempt: {
         $exists: false,
       },

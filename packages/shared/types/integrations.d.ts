@@ -288,6 +288,7 @@ export type ColumnTopValuesParams = {
   columns: ColumnInterface[];
   limit?: number;
   lookbackDays?: number;
+  maxValueLength?: number;
 };
 export type ColumnTopValuesResponseRow = {
   column: string;
