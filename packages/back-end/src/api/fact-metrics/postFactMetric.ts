@@ -11,6 +11,7 @@ import {
 import { postFactMetricValidator } from "shared/validators";
 import {
   CreateFactMetricProps,
+  FactMetricType,
   FactTableInterface,
 } from "shared/types/fact-table";
 import { OrganizationInterface } from "shared/types/organization";
@@ -18,6 +19,51 @@ import { getFactTable } from "back-end/src/models/FactTableModel";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
+
+/**
+ * Returns the required column for metric types that enforce a specific column.
+ * Returns null for metric types that allow user-specified columns.
+ */
+function getRequiredColumn(
+  metricType: FactMetricType,
+): "$$distinctUsers" | "$$distinctDates" | null {
+  switch (metricType) {
+    case "proportion":
+    case "retention":
+      return "$$distinctUsers";
+    case "dailyParticipation":
+      return "$$distinctDates";
+    default:
+      return null;
+  }
+}
+
+/**
+ * Validates that explicitly provided numerator values are compatible with the metric type.
+ * Throws an error if incompatible values are explicitly provided.
+ */
+function validateNumeratorForMetricType(
+  metricType: FactMetricType,
+  numerator: { column?: string; aggregation?: string },
+): void {
+  const requiredColumn = getRequiredColumn(metricType);
+
+  if (requiredColumn) {
+    // These metric types require a specific column and no aggregation
+    if (numerator.column && numerator.column !== requiredColumn) {
+      throw new Error(
+        `${metricType} metrics require numerator.column to be "${requiredColumn}" or omitted. ` +
+          `Received: "${numerator.column}"`,
+      );
+    }
+    if (numerator.aggregation) {
+      throw new Error(
+        `${metricType} metrics do not support numerator.aggregation. ` +
+          `Remove the aggregation field from your request.`,
+      );
+    }
+  }
+}
 
 export async function getCreateMetricPropsFromBody(
   body: z.infer<typeof postFactMetricValidator.bodySchema>,
@@ -50,26 +96,18 @@ export async function getCreateMetricPropsFromBody(
     ...otherFields
   } = body;
 
+  // Validate that explicitly provided numerator values are compatible with metric type
+  validateNumeratorForMetricType(body.metricType, numerator);
+
   // Set the correct column based on metric type
-  let column: string;
-  if (body.metricType === "proportion" || body.metricType === "retention") {
-    column = "$$distinctUsers";
-  } else if (body.metricType === "dailyParticipation") {
-    column = "$$distinctDates";
-  } else {
-    column = body.numerator.column || "$$distinctUsers";
-  }
+  const requiredColumn = getRequiredColumn(body.metricType);
+  const column = requiredColumn ?? numerator.column ?? "$$distinctUsers";
 
   const cleanedNumerator = FactMetricModel.migrateColumnRef({
     ...numerator,
     column,
     // Clear aggregation for metric types that use special columns
-    aggregation:
-      body.metricType === "proportion" ||
-      body.metricType === "retention" ||
-      body.metricType === "dailyParticipation"
-        ? undefined
-        : numerator.aggregation,
+    aggregation: requiredColumn ? undefined : numerator.aggregation,
   });
 
   const data: CreateFactMetricProps = {
