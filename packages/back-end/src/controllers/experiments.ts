@@ -1373,7 +1373,7 @@ export async function postExperiments(
  */
 export async function postExperiment(
   req: AuthRequest<
-    ExperimentInterfaceStringDates & {
+    Omit<ExperimentInterfaceStringDates, "nextScheduledStatusUpdate"> & {
       currentPhase?: number;
       phaseStartDate?: string;
       phaseEndDate?: string;
@@ -1644,7 +1644,6 @@ export async function postExperiment(
     "variations",
     "status",
     "statusUpdateSchedule",
-    "nextScheduledStatusUpdate",
     "results",
     "analysis",
     "winner",
@@ -1698,7 +1697,6 @@ export async function postExperiment(
       key === "lookbackOverride" ||
       key === "variations" ||
       key === "statusUpdateSchedule" ||
-      key === "nextScheduledStatusUpdate" ||
       key === "customFields" ||
       key === "customMetricSlices"
     ) {
@@ -1714,8 +1712,7 @@ export async function postExperiment(
 
   // Normalize statusUpdateSchedule dates. We only support `startAt` for now.
   // Clearing the schedule always clears any existing approval. Editing the
-  // schedule to a new value invalidates any existing approval unless the
-  // caller explicitly sets nextScheduledStatusUpdate in the same request.
+  // schedule to a new value invalidates any existing approval.
   if ("statusUpdateSchedule" in changes) {
     const incoming = changes.statusUpdateSchedule;
     if (incoming === null) {
@@ -1726,9 +1723,7 @@ export async function postExperiment(
         ? getValidDate(incoming.startAt)
         : undefined;
       changes.statusUpdateSchedule = startAt ? { startAt } : null;
-      if (!("nextScheduledStatusUpdate" in changes)) {
-        changes.nextScheduledStatusUpdate = null;
-      }
+      changes.nextScheduledStatusUpdate = null;
     }
   } else if (
     changes.status &&
@@ -1863,7 +1858,6 @@ export async function postExperiment(
       "banditScheduleUnit",
       "banditBurnInValue",
       "banditBurnInUnit",
-      "nextScheduledStatusUpdate",
     ] as (keyof ExperimentInterfaceStringDates)[]
   ).some((key) => key in changes);
   if (needsRunExperimentsPermission) {
