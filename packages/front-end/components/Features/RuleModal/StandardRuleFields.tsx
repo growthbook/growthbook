@@ -301,6 +301,7 @@ export default function StandardRuleFields({
               <ScheduleInputs
                 state={rampSectionState}
                 setState={setRampSectionState}
+                ruleRampSchedule={ruleRampSchedule}
               />
             )}
             {defaultValues.id &&

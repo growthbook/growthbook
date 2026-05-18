@@ -3119,7 +3119,22 @@ export async function putFeatureRule(
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
   const existingRules = cloneDeep(revision.rules ?? []);
-  const existingRule = existingRules.find((r) => r.id === ruleId);
+  let existingRule = existingRules.find((r) => r.id === ruleId);
+
+  // Stale-draft case: the rule was published to live after this draft was
+  // created (draft.baseVersion < the version where the rule was added), so
+  // the draft never picked it up. The modal still surfaces the rule (it's in
+  // feature.rules), so failing here surprises the user. Pull the live rule
+  // into the draft so the edit applies; autoMerge will reconcile cleanly at
+  // publish (live already has the rule with the same id).
+  if (!existingRule) {
+    const liveRule = (feature.rules ?? []).find((r) => r.id === ruleId);
+    if (liveRule) {
+      existingRules.push(cloneDeep(liveRule));
+      existingRule = existingRules[existingRules.length - 1];
+    }
+  }
+
   if (!existingRule) throw new Error("Unknown rule");
 
   // Audit/review scope is the rule's own env scope.
@@ -3140,25 +3155,6 @@ export async function putFeatureRule(
     | RevisionRampDetachAction
     | undefined;
   if (rampSchedulePayload) {
-    // Pre-validate "update" mode before mutating the revision so we don't leave a
-    // partial state on failure. Clearing startDate on a "ready" schedule would set
-    // nextProcessAt to null (computeNextProcessAt returns startDate ?? null for
-    // "ready"), stranding the schedule — the poller would never see it again.
-    if (
-      rampSchedulePayload.mode === "update" &&
-      "startDate" in rampSchedulePayload &&
-      !rampSchedulePayload.startDate
-    ) {
-      const existingForValidation = await context.models.rampSchedules.getById(
-        rampSchedulePayload.rampScheduleId,
-      );
-      if (existingForValidation?.status === "ready") {
-        throw new Error(
-          "Cannot clear the start date of a schedule that is waiting to start. Set a new start date or detach the schedule.",
-        );
-      }
-    }
-
     if (rampSchedulePayload.mode === "create") {
       const createAction: RevisionRampCreateAction = {
         mode: "create",
@@ -3277,9 +3273,19 @@ export async function putFeatureRule(
         }));
       }
       if ("startDate" in rampSchedulePayload) {
-        updates.startDate = rampSchedulePayload.startDate
+        const nextStartDate = rampSchedulePayload.startDate
           ? new Date(rampSchedulePayload.startDate)
           : null;
+        // Clearing startDate on a "ready" schedule would set nextProcessAt to null
+        // (computeNextProcessAt returns startDate ?? null for "ready"), stranding it.
+        // The UI gates this in `RampScheduleSection` / `ScheduleInputs`; API callers
+        // still need a guard here so a stranded schedule can't slip through.
+        if (nextStartDate === null && existing.status === "ready") {
+          throw new Error(
+            'Cannot clear the start date of a schedule that is waiting to start. Use the "Start now" action on the rule to run it immediately.',
+          );
+        }
+        updates.startDate = nextStartDate;
       }
       if (rampSchedulePayload.endCondition !== undefined) {
         const ec = rampSchedulePayload.endCondition;
