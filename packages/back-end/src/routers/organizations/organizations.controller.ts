@@ -1603,6 +1603,25 @@ export async function putOrganization(
     const updates: Partial<OrganizationInterface> = {};
 
     const orig: Partial<OrganizationInterface> = {};
+    let sanitizedSettings = settings;
+    if (
+      sanitizedSettings?.approvalFlows?.savedGroups?.[0]?.required &&
+      !context.hasPremiumFeature("require-approvals")
+    ) {
+      sanitizedSettings = {
+        ...sanitizedSettings,
+        approvalFlows: {
+          ...sanitizedSettings.approvalFlows,
+          savedGroups: [
+            {
+              ...sanitizedSettings.approvalFlows.savedGroups[0],
+              required: false,
+            },
+            ...sanitizedSettings.approvalFlows.savedGroups.slice(1),
+          ],
+        },
+      };
+    }
 
     if (name) {
       updates.name = name;
@@ -1651,10 +1670,10 @@ export async function putOrganization(
       updates.externalId = externalId;
       orig.externalId = org.externalId;
     }
-    if (settings) {
+    if (sanitizedSettings) {
       updates.settings = {
         ...org.settings,
-        ...settings,
+        ...sanitizedSettings,
       };
       orig.settings = org.settings;
     }

@@ -55,7 +55,13 @@ function RevisionDetail<T>({
   requiresApproval = true,
   closeModal,
 }: RevisionDetailProps<T>) {
-  const { getUserDisplay, userId, user, organization } = useUser();
+  const {
+    getUserDisplay,
+    userId,
+    user,
+    organization,
+    hasCommercialFeature,
+  } = useUser();
   const { apiCall } = useAuth();
   const [bypassApproval, setBypassApproval] = useState(false);
   const [confirmReopen, setConfirmReopen] = useState(false);
@@ -168,6 +174,7 @@ function RevisionDetail<T>({
   const isRevisionAuthor = !!userId && revision.authorId === userId;
   const isBlockedContributor =
     !!userId &&
+    hasCommercialFeature("require-approvals") &&
     isUserBlockedFromApproving({
       approvalFlows: organization?.settings?.approvalFlows,
       entityType: revision.target.type,

@@ -21,6 +21,9 @@ export default function ApprovalFlowSettings() {
   const { projects } = useDefinitions();
 
   const hasRequireApprovals = hasCommercialFeature("require-approvals");
+  const savedGroupApprovalRequired =
+    hasRequireApprovals &&
+    !!form.watch("approvalFlows.savedGroups.0.required");
 
   const rawRequireReviews = form.watch("requireReviews");
   const featureRequireReviews = Array.isArray(rawRequireReviews)
@@ -302,15 +305,20 @@ export default function ApprovalFlowSettings() {
 
             <Checkbox
               id="toggle-require-approvals-saved-groups"
-              label="Require approval to modify Saved Groups"
-              description="When enabled, all changes to Saved Groups must be reviewed and approved by another person before going live."
-              value={!!form.watch("approvalFlows.savedGroups.0.required")}
-              setValue={(v) =>
-                form.setValue("approvalFlows.savedGroups.0.required", v)
+              label={
+                <PremiumTooltip commercialFeature="require-approvals">
+                  Require approval to modify Saved Groups
+                </PremiumTooltip>
               }
+              description="When enabled, all changes to Saved Groups must be reviewed and approved by another person before going live."
+              value={savedGroupApprovalRequired}
+              setValue={(v) => {
+                if (!hasRequireApprovals) return;
+                form.setValue("approvalFlows.savedGroups.0.required", v);
+              }}
               disabled={!hasRequireApprovals}
             />
-            {!!form.watch("approvalFlows.savedGroups.0.required") && (
+            {savedGroupApprovalRequired && (
               <Flex direction="column" gap="3" mt="2" ml="5">
                 <Box mt="2">
                   <Text as="label" size="medium" weight="semibold" mb="2">
