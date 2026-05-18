@@ -172,10 +172,19 @@ export async function postReformat(
       jsonSchema: checkResponseSchema,
     });
 
+    let parsedCheck;
+    try {
+      parsedCheck = JSON.parse(aiResults);
+    } catch {
+      return res.status(500).json({
+        status: 500,
+        message: "Failed to parse AI response",
+      });
+    }
     return res.status(200).json({
       status: 200,
       data: {
-        check: JSON.parse(aiResults),
+        check: parsedCheck,
       },
     });
   }
