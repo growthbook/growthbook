@@ -344,6 +344,10 @@ export const statusUpdateScheduleValidator = z.object({
 const nextScheduledStatusUpdateValidator = z.object({
   type: z.enum(["start", "stop"]),
   date: z.date(),
+  // Number of times the scheduled job has failed to apply this update.
+  // The job clears `nextScheduledStatusUpdate` once this hits the retry cap
+  // (see SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS in updateExperimentStatus.ts).
+  failedAttempts: z.number().int().nonnegative().optional(),
 });
 
 export const experimentInterface = z

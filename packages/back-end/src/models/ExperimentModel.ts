@@ -193,6 +193,7 @@ const experimentSchema = new mongoose.Schema({
     _id: false,
     type: { type: String },
     date: Date,
+    failedAttempts: Number,
   },
   results: String,
   analysis: String,

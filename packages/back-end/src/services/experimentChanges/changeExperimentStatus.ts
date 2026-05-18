@@ -438,6 +438,54 @@ export async function startExperiment({
   return { experiment, updated, checklistItems };
 }
 
+/**
+ * Approves the configured `statusUpdateSchedule.startAt` for a draft
+ * experiment by setting the internal `nextScheduledStatusUpdate` field. The
+ * agenda job will then auto-start the experiment when the scheduled time is
+ * reached. Throws if the experiment is not in draft status or does not have
+ * a valid future scheduled start.
+ */
+export async function approveScheduledExperimentStart({
+  context,
+  experimentId,
+}: {
+  context: ReqContext;
+  experimentId: string;
+}) {
+  const experiment = await loadAndValidateExperimentForStatusChange(
+    context,
+    experimentId,
+  );
+
+  if (experiment.status !== "draft") {
+    throw new Error(
+      "invalid_status: Experiment must be in draft status to approve a scheduled start",
+    );
+  }
+
+  const startAt = experiment.statusUpdateSchedule?.startAt
+    ? getValidDate(experiment.statusUpdateSchedule.startAt)
+    : null;
+  if (!startAt || startAt <= new Date()) {
+    throw new Error(
+      "no_valid_scheduled_start: No valid future scheduled start date to approve",
+    );
+  }
+
+  const updated = await updateExperiment({
+    context,
+    experiment,
+    changes: {
+      nextScheduledStatusUpdate: {
+        type: "start",
+        date: startAt,
+      },
+    },
+  });
+
+  return { experiment, updated };
+}
+
 export async function stopExperiment({
   context,
   input,

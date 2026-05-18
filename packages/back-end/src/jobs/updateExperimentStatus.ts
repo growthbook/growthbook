@@ -7,6 +7,8 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { executeExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { notifyScheduledStatusUpdateFailed } from "back-end/src/services/experimentNotifications";
 
 type UpdateSingleExperimentStatusJob = Job<{
   experimentId: string;
@@ -16,6 +18,14 @@ type UpdateSingleExperimentStatusJob = Job<{
 const QUEUE_EXPERIMENT_STATUS_UPDATES = "queueScheduledExperimentStatusUpdates";
 
 const UPDATE_SINGLE_EXPERIMENT_STATUS = "updateSingleExperimentStatus";
+
+// Caps retries of a scheduled status transition. The QUEUE_* job runs every
+// minute, so without a cap a persistently-failing experiment (e.g. a linked
+// feature draft with a merge conflict) would re-queue forever. Each failure
+// increments `nextScheduledStatusUpdate.failedAttempts`; once the count hits
+// this cap the job clears `nextScheduledStatusUpdate` and emits a terminal
+// `experiment.warning` event so the user can re-schedule manually.
+const SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS = 5;
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_EXPERIMENT_STATUS_UPDATES, async () => {
@@ -118,7 +128,18 @@ const updateSingleExperimentStatus = async (
           return;
         }
 
-        await executeExperimentStart(context, experiment);
+        const experimentBefore = experiment;
+        const { updated } = await executeExperimentStart(context, experiment);
+        // The agenda context has no logged-in user, so this is recorded
+        // as a `system` audit event.
+        await context.auditLog({
+          event: "experiment.status",
+          entity: {
+            object: "experiment",
+            id: experimentBefore.id,
+          },
+          details: auditDetailsUpdate(experimentBefore, updated),
+        });
         break;
       }
       // TODO(schedule-status-updates): handle "stop" once stopAt is supported
@@ -136,6 +157,57 @@ const updateSingleExperimentStatus = async (
 
     logger.info("Successfully updated status for experiment " + experiment.id);
   } catch (e) {
-    logger.error(e, "Failed to update experiment status " + experiment.id);
+    const attempts = (scheduled.failedAttempts ?? 0) + 1;
+    const willRetry = attempts < SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS;
+    const reason = e instanceof Error ? e.message : String(e);
+
+    logger.error(
+      e,
+      `Failed to update experiment status ${experiment.id} (attempt ${attempts}/${SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS})`,
+    );
+
+    if (!willRetry) {
+      logger.warn(
+        `Giving up on scheduled status update for experiment ${experiment.id} after ${attempts} failed attempts; clearing nextScheduledStatusUpdate.`,
+      );
+    }
+
+    // Persist the new attempt count (or clear the schedule once we've hit
+    // the cap). Wrapped because if executeExperimentStart already wrote to
+    // the experiment we may hit a stale-revision error here, and a failure
+    // to record state must not mask the original error in the logs.
+    try {
+      await updateExperiment({
+        context,
+        experiment,
+        changes: {
+          nextScheduledStatusUpdate: willRetry
+            ? { ...scheduled, failedAttempts: attempts }
+            : null,
+        },
+      });
+    } catch (inner) {
+      logger.error(
+        inner,
+        `Failed to persist nextScheduledStatusUpdate after status update failure for experiment ${experiment.id}`,
+      );
+    }
+
+    try {
+      await notifyScheduledStatusUpdateFailed({
+        context,
+        experiment,
+        scheduledStatusUpdateType: scheduled.type,
+        attempts,
+        maxAttempts: SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS,
+        willRetry,
+        reason,
+      });
+    } catch (inner) {
+      logger.error(
+        inner,
+        `Failed to dispatch experiment.warning for scheduled status update failure on ${experiment.id}`,
+      );
+    }
   }
 };

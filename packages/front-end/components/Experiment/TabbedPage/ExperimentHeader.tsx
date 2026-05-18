@@ -337,9 +337,8 @@ export default function ExperimentHeader({
   }
 
   async function approveScheduledExperimentStart() {
-    await apiCall(`/experiment/${experiment.id}`, {
+    await apiCall(`/experiment/${experiment.id}/approve-scheduled-start`, {
       method: "POST",
-      body: JSON.stringify({ approveScheduledStart: true }),
     });
     await mutate();
 

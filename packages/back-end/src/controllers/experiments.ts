@@ -62,6 +62,7 @@ import {
   validateExperimentData,
 } from "back-end/src/services/experiments";
 import {
+  approveScheduledExperimentStart,
   startExperiment,
   stopExperiment,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
@@ -1377,7 +1378,6 @@ export async function postExperiment(
       phaseStartDate?: string;
       phaseEndDate?: string;
       variationWeights?: number[];
-      approveScheduledStart?: boolean;
     },
     { id: string }
   >,
@@ -1390,13 +1390,7 @@ export async function postExperiment(
   const context = getContextFromReq(req);
   const { org, userId } = context;
   const { id } = req.params;
-  const {
-    phaseStartDate,
-    phaseEndDate,
-    currentPhase,
-    approveScheduledStart,
-    ...data
-  } = req.body;
+  const { phaseStartDate, phaseEndDate, currentPhase, ...data } = req.body;
 
   const experiment = await getExperimentById(context, id);
   const aiSettings = getAISettingsForOrg(context);
@@ -1744,20 +1738,6 @@ export async function postExperiment(
     // If the experiment moves out of a schedulable state, clear any pending
     // scheduled status update so the agenda job doesn't try to start it.
     changes.nextScheduledStatusUpdate = null;
-  }
-
-  if (approveScheduledStart) {
-    const startAt = experiment.statusUpdateSchedule?.startAt
-      ? getValidDate(experiment.statusUpdateSchedule.startAt)
-      : null;
-    if (!startAt || startAt <= new Date()) {
-      res.status(400).json({
-        status: 400,
-        message: "No valid future scheduled start date to approve",
-      });
-      return;
-    }
-    changes.nextScheduledStatusUpdate = { type: "start", date: startAt };
   }
 
   // Coerce lookbackOverride date value when type is "date"
@@ -2279,6 +2259,40 @@ export async function postExperimentStatus(
   res.status(200).json({
     status: 200,
   });
+}
+
+export async function postApproveScheduledExperimentStart(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  try {
+    const { experiment, updated } = await approveScheduledExperimentStart({
+      context,
+      experimentId: id,
+    });
+
+    await req.audit({
+      event: "experiment.update",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsUpdate(experiment, updated),
+    });
+
+    res.status(200).json({
+      status: 200,
+      experiment: updated,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message || "Failed to approve scheduled experiment start",
+    });
+  }
 }
 
 type PostExperimentStopBody = {

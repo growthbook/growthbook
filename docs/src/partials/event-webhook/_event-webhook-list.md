@@ -2450,6 +2450,15 @@ Triggered when a warning condition is detected on an experiment
             experimentName: string;
             experimentId: string;
             threshold: number;
+        } | {
+            type: "scheduled-status-update-failed";
+            experimentName: string;
+            experimentId: string;
+            scheduledStatusUpdateType: "start" | "stop";
+            attempts: number;
+            maxAttempts: number;
+            willRetry: boolean;
+            reason: string;
         };
     };
     user: {
