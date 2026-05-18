@@ -718,7 +718,7 @@ curl https://api.growthbook.io/api/v1/features \
   const knownTags = new Set<string>(openApiTags);
   const discoveredTags = new Set<string>();
   for (const route of allRoutes) {
-    if (route.excludeFromSpec || !route.tags) continue;
+    if (route.excludeFromSpec || route.deprecated || !route.tags) continue;
     for (const tag of route.tags) {
       if (!knownTags.has(tag)) {
         discoveredTags.add(tag);
