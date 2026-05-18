@@ -13,6 +13,7 @@ import Checkbox from "@/ui/Checkbox";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Link from "@/ui/Link";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 
 export default function ApprovalFlowSettings() {
   const form = useFormContext<OrganizationSettingsWithMetricDefaults>();
@@ -111,7 +112,16 @@ export default function ApprovalFlowSettings() {
                   <Box key={`approval-flow-${i}`}>
                     <Checkbox
                       id={`toggle-require-reviews-${i}`}
-                      label="Require approval to publish changes"
+                      label={
+                        <>
+                          Require approval to publish changes
+                          <PaidFeatureBadge
+                            commercialFeature="require-approvals"
+                            useTip={false}
+                            ml="2"
+                          />
+                        </>
+                      }
                       value={featureApprovalRequired}
                       setValue={(value) => {
                         if (!hasRequireApprovals) return;
@@ -310,7 +320,16 @@ export default function ApprovalFlowSettings() {
 
             <Checkbox
               id="toggle-require-approvals-saved-groups"
-              label="Require approval to modify Saved Groups"
+              label={
+                <>
+                  Require approval to modify Saved Groups
+                  <PaidFeatureBadge
+                    commercialFeature="require-approvals"
+                    useTip={false}
+                    ml="2"
+                  />
+                </>
+              }
               description="When enabled, all changes to Saved Groups must be reviewed and approved by another person before going live."
               value={savedGroupApprovalRequired}
               setValue={(v) => {
