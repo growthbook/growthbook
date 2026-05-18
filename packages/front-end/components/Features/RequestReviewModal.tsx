@@ -18,7 +18,8 @@ import {
 } from "shared/types/events/event-types";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaArrowLeft } from "react-icons/fa";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
+import { format } from "date-fns";
 import EventUser from "@/components/Avatar/EventUser";
 import { getCurrentUser, useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -26,6 +27,7 @@ import {
   useEnvironments,
   useFeatureExperimentChecklists,
 } from "@/services/features";
+import { getFutureScheduledStartDate } from "@/services/experiments";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import Button from "@/components/Button";
@@ -47,6 +49,7 @@ import Callout from "@/ui/Callout";
 import { PreLaunchChecklistForDraft } from "@/components/Experiment/PreLaunchChecklist";
 import Checkbox from "@/ui/Checkbox";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
+import Heading from "@/ui/Heading";
 export interface Props {
   feature: FeatureInterface;
   version: number;
@@ -123,11 +126,12 @@ export default function RequestReviewModal({
 
   const [comment, setComment] = useState("");
 
-  const { experiments } = useFeatureExperimentChecklists({
-    feature,
-    revision,
-    experimentsMap,
-  });
+  const { experiments, immediateStartExperiments, scheduledExperiments } =
+    useFeatureExperimentChecklists({
+      feature,
+      revision,
+      experimentsMap,
+    });
 
   const [selectedExperiments, setSelectedExperiments] = useState(
     new Set(experiments.map((e) => e.id)),
@@ -479,8 +483,23 @@ export default function RequestReviewModal({
                 {experiments.map((experiment) => {
                   if (!selectedExperiments.has(experiment.id)) return null;
 
+                  const scheduledStartDate =
+                    getFutureScheduledStartDate(experiment);
+
                   return (
                     <div key={experiment.id} className="mb-3">
+                      {scheduledStartDate && (
+                        <Callout status="info" mb="2">
+                          <strong>{experiment.name}</strong> will start on{" "}
+                          <strong>
+                            {format(
+                              scheduledStartDate,
+                              "MMM d, yyyy 'at' h:mm a",
+                            )}
+                          </strong>
+                          .
+                        </Callout>
+                      )}
                       <PreLaunchChecklistForDraft
                         experiment={experiment}
                         feature={feature}
@@ -501,26 +520,56 @@ export default function RequestReviewModal({
             ) : (
               <>
                 {approved && experiments.length > 0 ? (
-                  <div className="mb-3">
-                    <h4>Start running experiments upon publishing:</h4>
-                    {experiments.map((experiment) => (
-                      <div key={experiment.id}>
-                        <Checkbox
-                          value={selectedExperiments.has(experiment.id)}
-                          setValue={(e) => {
-                            const newValue = new Set(selectedExperiments);
-                            if (e === true) {
-                              newValue.add(experiment.id);
-                            } else {
-                              newValue.delete(experiment.id);
-                            }
-                            setSelectedExperiments(newValue);
-                          }}
-                          label={experiment.name}
-                        />
-                      </div>
-                    ))}
-                  </div>
+                  <Box mb="3">
+                    {immediateStartExperiments.length > 0 && (
+                      <Box mb={scheduledExperiments.length > 0 ? "3" : "0"}>
+                        <Heading as="h4" size="small" mb="2">
+                          Start running experiments upon publishing:
+                        </Heading>
+                        {immediateStartExperiments.map((experiment) => (
+                          <Box key={experiment.id}>
+                            <Checkbox
+                              value={selectedExperiments.has(experiment.id)}
+                              setValue={(e) => {
+                                const newValue = new Set(selectedExperiments);
+                                if (e === true) {
+                                  newValue.add(experiment.id);
+                                } else {
+                                  newValue.delete(experiment.id);
+                                }
+                                setSelectedExperiments(newValue);
+                              }}
+                              label={experiment.name}
+                            />
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
+                    {scheduledExperiments.length > 0 && (
+                      <Box>
+                        <Heading as="h4" size="small" mb="2">
+                          Approve scheduled start for experiments:
+                        </Heading>
+                        {scheduledExperiments.map((experiment) => (
+                          <Box key={experiment.id}>
+                            <Checkbox
+                              value={selectedExperiments.has(experiment.id)}
+                              setValue={(e) => {
+                                const newValue = new Set(selectedExperiments);
+                                if (e === true) {
+                                  newValue.add(experiment.id);
+                                } else {
+                                  newValue.delete(experiment.id);
+                                }
+                                setSelectedExperiments(newValue);
+                              }}
+                              label={experiment.name}
+                            />
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
+                  </Box>
                 ) : null}
                 {allDiffsWithChanges.length > 0 && (
                   <>
