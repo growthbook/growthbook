@@ -42,7 +42,6 @@ import {
   RevisionRampDetachAction,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
-import { computeNextProcessAt } from "../services/rampSchedule";
 import {
   ExperimentRefRule,
   FeatureInterface,
@@ -195,6 +194,7 @@ import {
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
 import { getInitialFeatureJsonSchema } from "back-end/src/util/feature-json-schema";
+import { computeNextProcessAt } from "back-end/src/services/rampSchedule";
 
 /**
  * Routes an envelope change through the revision system.
@@ -3140,6 +3140,25 @@ export async function putFeatureRule(
     | RevisionRampDetachAction
     | undefined;
   if (rampSchedulePayload) {
+    // Pre-validate "update" mode before mutating the revision so we don't leave a
+    // partial state on failure. Clearing startDate on a "ready" schedule would set
+    // nextProcessAt to null (computeNextProcessAt returns startDate ?? null for
+    // "ready"), stranding the schedule — the poller would never see it again.
+    if (
+      rampSchedulePayload.mode === "update" &&
+      "startDate" in rampSchedulePayload &&
+      !rampSchedulePayload.startDate
+    ) {
+      const existingForValidation = await context.models.rampSchedules.getById(
+        rampSchedulePayload.rampScheduleId,
+      );
+      if (existingForValidation?.status === "ready") {
+        throw new Error(
+          "Cannot clear the start date of a schedule that is waiting to start. Set a new start date or detach the schedule.",
+        );
+      }
+    }
+
     if (rampSchedulePayload.mode === "create") {
       const createAction: RevisionRampCreateAction = {
         mode: "create",
