@@ -167,9 +167,10 @@ describe("assertRegisteredAttributes", () => {
 
   it("emits a project-scope-aware error when the attribute exists but isn't on this project", () => {
     // `country` is registered, but only for proj_one. Calling it from
-    // proj_two should fail with a "not available in this project" message
-    // rather than the generic "Unknown attribute key" message — the user
-    // otherwise reads the latter as "must declare" and tries to recreate it.
+    // proj_two should fail with a "not part of this project's scope"
+    // message rather than the generic "Unknown attribute key" message —
+    // the user otherwise reads the latter as "must declare" and tries to
+    // recreate it.
     const ctx = makeContext({
       attributeSchema: [
         { property: "userId", datatype: "string" },
@@ -198,7 +199,7 @@ describe("assertRegisteredAttributes", () => {
       err = e as BadRequestError;
     }
     expect(err).toBeInstanceOf(BadRequestError);
-    expect(err?.message).toMatch(/not available in this project/);
+    expect(err?.message).toMatch(/not part of this project's scope/);
     expect(err?.message).toMatch(/country/);
     expect(err?.message).not.toMatch(/Unknown attribute key/);
   });
@@ -237,7 +238,7 @@ describe("assertRegisteredAttributes", () => {
     // Both buckets are surfaced.
     expect(err?.message).toMatch(/Unknown attribute key/);
     expect(err?.message).toMatch(/totally_made_up/);
-    expect(err?.message).toMatch(/not available in this project/);
+    expect(err?.message).toMatch(/not part of this project's scope/);
     expect(err?.message).toMatch(/country/);
   });
 
@@ -329,7 +330,7 @@ describe("assertRegisteredAttributes", () => {
     expect(err).toBeInstanceOf(BadRequestError);
     expect(err?.message).toMatch(/Unknown attribute key/);
     expect(err?.message).toMatch(/userID/);
-    expect(err?.message).not.toMatch(/not available in this project/);
+    expect(err?.message).not.toMatch(/not part of this project's scope/);
   });
 
   it("with isOn=false and a bogus attribute, is a no-op (master switch beats sub-toggles)", () => {

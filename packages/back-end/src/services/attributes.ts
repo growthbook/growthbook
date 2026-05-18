@@ -107,17 +107,13 @@ export function formatUnregisteredAttributesError(
   const parts: string[] = [];
   if (buckets.unknown.length) {
     const quoted = buckets.unknown.map((k) => `"${k}"`).join(", ");
-    parts.push(
-      `Unknown attribute key(s) on ${label}: ${quoted}. ` +
-        `Declare them under Settings > Targeting Attributes or fix the typo.`,
-    );
+    parts.push(`Unknown attribute key(s) on ${label}: ${quoted}.`);
   }
   if (buckets.outOfProject.length) {
     const quoted = buckets.outOfProject.map((k) => `"${k}"`).join(", ");
     parts.push(
-      `Attribute key(s) on ${label} not available in this project: ${quoted}. ` +
-        `Add this project to the attribute's scope under Settings > Targeting Attributes.`,
+      `Attribute key(s) are not part of this project's scope: ${quoted}.`,
     );
   }
-  return parts.join(" ");
+  return parts.join("\n");
 }

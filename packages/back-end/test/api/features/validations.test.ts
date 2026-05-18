@@ -100,7 +100,7 @@ describe("validateRuleAttributes (V2 helper)", () => {
     const ctx = makeContext({
       attributeSchema: [
         // `country` is registered, but only for proj_one. Calling it from
-        // proj_two should fail with the "not available in this project"
+        // proj_two should fail with the "not part of this project's scope"
         // message rather than the generic "Unknown attribute key" message.
         {
           property: "country",
@@ -120,7 +120,7 @@ describe("validateRuleAttributes (V2 helper)", () => {
       err = e;
     }
     expect(err).toBeInstanceOf(BadRequestError);
-    expect((err as Error).message).toMatch(/not available in this project/);
+    expect((err as Error).message).toMatch(/not part of this project's scope/);
     expect((err as Error).message).toMatch(/country/);
     // Critical: this is *not* an "Unknown attribute key(s)" error.
     expect((err as Error).message).not.toMatch(/Unknown attribute key/);

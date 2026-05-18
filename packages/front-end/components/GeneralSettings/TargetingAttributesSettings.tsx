@@ -37,6 +37,11 @@ export default function TargetingAttributesSettings() {
               </Box>
 
               <Flex align="start" direction="column" flexGrow="1" pt="6">
+                <Box mb="3" width="100%">
+                  <Heading size="small" as="h5" mb="0">
+                    Attribute Validation
+                  </Heading>
+                </Box>
                 <Box mb="4" width="100%">
                   <Checkbox
                     id="toggle-requireRegisteredAttributes"
