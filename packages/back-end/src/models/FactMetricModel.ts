@@ -223,7 +223,8 @@ export class FactMetricModel extends BaseClass {
     // These metrics require $$distinctDates to correctly generate COUNT(DISTINCT DATE(...))
     if (
       newDoc.metricType === "dailyParticipation" &&
-      newDoc.numerator?.column !== "$$distinctDates"
+      newDoc.numerator &&
+      newDoc.numerator.column !== "$$distinctDates"
     ) {
       newDoc.numerator = {
         ...newDoc.numerator,
