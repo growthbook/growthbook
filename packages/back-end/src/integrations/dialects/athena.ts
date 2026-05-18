@@ -28,4 +28,21 @@ export const athenaDialect: SqlDialect = {
   hllCardinality: (col: string) => `CARDINALITY(${col})`,
   percentileCapSelectClause: (values, metricTable, where = "") =>
     defaultPercentileCapSelectClause(athenaDialect, values, metricTable, where),
+
+  // Amazon Athena — same unpivot pattern as Presto. UNNEST with parallel
+  // arrays (rather than ARRAY[ROW(...)]) works on both Athena engine v2
+  // (Presto 0.217) and v3 (Trino), where the row-expansion behavior of
+  // UNNEST(ARRAY[ROW(...)]) AS t(a, b) is not consistent.
+  unpivotLabeledPairs: (pairs) => {
+    const namesArr = pairs.map((p) => `'${p.keyLiteral}'`).join(", ");
+    const valsArr = pairs.map((p) => p.valueSql).join(", ");
+    return {
+      fromContinuation: `CROSS JOIN UNNEST(
+        ARRAY[${namesArr}],
+        ARRAY[${valsArr}]
+      ) AS __col(column_name, value)`,
+      keyExpr: "__col.column_name",
+      valueExpr: "__col.value",
+    };
+  },
 };

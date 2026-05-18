@@ -1,12 +1,9 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { Flex, Box, Text, Heading } from "@radix-ui/themes";
-import { getDisallowedProjects } from "shared/util";
 import { ComputedExperimentInterface } from "shared/types/experiment";
 import { useRouter } from "next/router";
 import Link from "@/ui/Link";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
-import useProjectOptions from "@/hooks/useProjectOptions";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperiments } from "@/hooks/useExperiments";
 import SelectField from "@/components/Forms/SelectField";
@@ -20,6 +17,8 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
 import ExecExperimentImpact from "@/enterprise/components/ExecReports/ExecExperimentImpact";
 import { formatDateForURL, parseDateFromURL } from "@/utils/date";
+import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
+import Field from "@/components/Forms/Field";
 import ExperimentWinRate from "./ExperimentWinRate";
 import ExecExperimentsGraph from "./ExecExperimentsGraph";
 
@@ -39,11 +38,6 @@ export default function ExecReport() {
   const searchParams = new URLSearchParams(window.location.search);
 
   // Initialize state from query string
-  const [selectedProjects, setSelectedProjects] = useState<string[]>(
-    searchParams.get("selectedProjects")?.split(",") || currentProject === ""
-      ? []
-      : [currentProject],
-  );
   const [dateRange, setDateRange] = useState(
     searchParams.get("dateRange") || "90",
   );
@@ -70,20 +64,6 @@ export default function ExecReport() {
   );
 
   const { hasCommercialFeature } = useUser();
-  //const permissionsUtil = usePermissionsUtil();
-
-  const disallowedProjects = getDisallowedProjects(
-    projects,
-    selectedProjects ?? [],
-  );
-
-  const projectsOptions = useProjectOptions(
-    () => {
-      return true;
-    },
-    selectedProjects || [],
-    [...projects, ...disallowedProjects],
-  );
 
   const {
     experiments: allExperiments,
@@ -93,78 +73,77 @@ export default function ExecReport() {
 
   //const tagsFilter = useTagsFilter("experiments");
 
-  const filterResults = useCallback(
-    (items: ComputedExperimentInterface[]) => {
-      // filter by projects:
-      if (selectedProjects && selectedProjects.length > 0) {
-        items = items.filter((item) => {
-          if (!item.project) return false;
-          return selectedProjects.includes(item.project);
-        });
-      }
-      // filter out any multi armed bandits:
-      items = items.filter((item) => item.type !== "multi-armed-bandit");
+  // Shared filter for the search results: exclude multi-armed bandits. Status
+  // and date-range constraints are applied separately on top of the search
+  // results so the user's search filters affect both the Completed and
+  // Running sections of the page.
+  const filterResults = useCallback((items: ComputedExperimentInterface[]) => {
+    return items.filter((item) => item.type !== "multi-armed-bandit");
+  }, []);
 
-      // filter out to only stopped experiments:
-      items = items.filter((item) => item.status === "stopped");
-      //items = filterByTags(items, tagsFilter.tags);
-
-      // filter to dates:
-      if (startDate && endDate) {
-        items = items.filter((e) => {
-          return e.phases.some((p) => {
-            if (!p.dateEnded) return false;
-            const endDatePhase = new Date(p.dateEnded);
-            return endDatePhase >= startDate && endDatePhase <= endDate;
-          });
-        });
-      } else if (endDate) {
-        items = items.filter((e) => {
-          return e.phases.some((p) => {
-            if (!p.dateEnded) return false;
-            const endDatePhase = new Date(p.dateEnded);
-            return endDatePhase <= endDate;
-          });
-        });
-      } else if (startDate) {
-        items = items.filter((e) => {
-          return e.phases.some((p) => {
-            if (!p.dateEnded) return false;
-            const endDatePhase = new Date(p.dateEnded);
-            return endDatePhase >= startDate;
-          });
-        });
-      }
-
-      return items;
-    },
-    [endDate, selectedProjects, startDate],
-  );
-
-  const { items } = useExperimentSearch({
+  const {
+    items: filteredExperiments,
+    searchInputProps,
+    syntaxFilters,
+    setSearchValue,
+  } = useExperimentSearch({
     allExperiments,
     filterResults,
-    localStorageKey: "exec-report-completed-experiments",
+    localStorageKey: "exec-report-experiments",
   });
 
-  // get a separate list of experiments, given the same filterResults function, but with the status of "running":
-  const { items: allExpInProject } = useExperimentSearch({
-    allExperiments,
-    localStorageKey: "exec-report-all-experiments",
-    filterResults: useCallback(
-      (items: ComputedExperimentInterface[]) => {
-        return items.filter((item) => {
-          // filter by projects:
-          if (selectedProjects && selectedProjects.length > 0) {
-            if (!item.project) return false;
-            return selectedProjects.includes(item.project);
-          }
-          return true;
-        });
-      },
-      [selectedProjects],
-    ),
-  });
+  // Completed Experiments section: further restrict to stopped + date range.
+  const items = useMemo(() => {
+    let filtered = filteredExperiments.filter((e) => e.status === "stopped");
+    if (startDate && endDate) {
+      filtered = filtered.filter((e) =>
+        e.phases.some((p) => {
+          if (!p.dateEnded) return false;
+          const endDatePhase = new Date(p.dateEnded);
+          return endDatePhase >= startDate && endDatePhase <= endDate;
+        }),
+      );
+    } else if (endDate) {
+      filtered = filtered.filter((e) =>
+        e.phases.some((p) => {
+          if (!p.dateEnded) return false;
+          const endDatePhase = new Date(p.dateEnded);
+          return endDatePhase <= endDate;
+        }),
+      );
+    } else if (startDate) {
+      filtered = filtered.filter((e) =>
+        e.phases.some((p) => {
+          if (!p.dateEnded) return false;
+          const endDatePhase = new Date(p.dateEnded);
+          return endDatePhase >= startDate;
+        }),
+      );
+    }
+    return filtered;
+  }, [filteredExperiments, startDate, endDate]);
+
+  // Derive selected project IDs from the syntax filters (project dropdown stores
+  // project names as values; fall back to matching by id for typed filters).
+  // When a global project is active, the project filter is hidden, so scope to it.
+  const selectedProjects = useMemo<string[]>(() => {
+    if (currentProject) return [currentProject];
+    const projectFilter = syntaxFilters.find(
+      (f) => f.field === "project" && !f.negated,
+    );
+    if (!projectFilter) return [];
+    const ids: string[] = [];
+    projectFilter.values.forEach((v) => {
+      const match = projects.find((p) => p.id === v || p.name === v);
+      if (match) ids.push(match.id);
+    });
+    return ids;
+  }, [syntaxFilters, currentProject, projects]);
+
+  // Running Experiments section: use the full search-filtered list so the
+  // user's filters (project, owner, tag, metric, etc.) apply here too.
+  // ExperimentList filters internally to status === "running".
+  const allExpInProject = filteredExperiments;
 
   // Update URL query string when state changes
   useEffect(() => {
@@ -172,13 +151,6 @@ export default function ExecReport() {
 
     const params: Record<string, string> = {};
     let updateUrl = false;
-    if (
-      selectedProjects.length > 0 &&
-      selectedProjects[0] !== "" &&
-      selectedProjects[0] !== currentProject
-    ) {
-      params.selectedProjects = selectedProjects.join(",");
-    }
     if (dateRange) {
       params.dateRange = dateRange;
     }
@@ -201,9 +173,10 @@ export default function ExecReport() {
         updateUrl = true;
       }
     });
-    // loop through existing searchParams and remove any that are not in params:
+    // loop through existing searchParams and remove any that are not in params.
+    // Preserve `q` since useExperimentSearch owns that param.
     searchParams.forEach((value, key) => {
-      if (!params[key]) {
+      if (!params[key] && key !== "q") {
         searchParams.delete(key);
         updateUrl = true;
       }
@@ -222,7 +195,6 @@ export default function ExecReport() {
         .then();
     }
   }, [
-    selectedProjects,
     dateRange,
     startDate,
     endDate,
@@ -248,29 +220,6 @@ export default function ExecReport() {
           <Box>Use filters to adjust data displayed in this section.</Box>
         </Box>
         <Flex gap="5">
-          <Box style={{ width: "250px" }}>
-            <label className="mb-1">
-              <Text
-                weight="medium"
-                size="2"
-                style={{ color: "var(--color-text-high)" }}
-                as="p"
-                mb="0"
-              >
-                Projects
-              </Text>
-            </label>
-            <MultiSelectField
-              placeholder="All Projects"
-              value={selectedProjects ?? []}
-              onChange={(ps) => setSelectedProjects(ps)}
-              options={projectsOptions}
-              containerClassName="mb-0 w-100"
-              sort={false}
-              closeMenuOnSelect={true}
-            />
-            {/*<TagsFilter filter={tagsFilter} items={filterResults} />*/}
-          </Box>
           <Box>
             <label>
               <Text
@@ -337,10 +286,37 @@ export default function ExecReport() {
           </Flex>
         </Flex>
       )}
+      <Flex gap="4" align="start" justify="between" mb="4" wrap="wrap">
+        <Flex align="center" gap="3">
+          <Box flexBasis="300px" flexShrink="0">
+            <Field
+              placeholder="Search..."
+              type="search"
+              {...searchInputProps}
+            />
+          </Box>
+          {(syntaxFilters.length > 0 || !!searchInputProps.value) && (
+            <Link
+              size="1"
+              onClick={() => setSearchValue("")}
+              style={{ whiteSpace: "nowrap" }}
+            >
+              Clear filters
+            </Link>
+          )}
+        </Flex>
+        <ExperimentSearchFilters
+          searchInputProps={searchInputProps}
+          syntaxFilters={syntaxFilters}
+          setSearchValue={setSearchValue}
+          experiments={allExperiments}
+          showStatusFilter={false}
+        />
+      </Flex>
       {items.length > 0 ? (
         <>
           {hasCommercialFeature("experiment-impact") ? (
-            <Box className="appbox" p="4" px="4">
+            <Box className="appbox" p="4" px="4" mb="4">
               <ExecExperimentImpact
                 allExperiments={items}
                 startDate={startDate}
@@ -353,7 +329,7 @@ export default function ExecReport() {
               />
             </Box>
           ) : (
-            <Box className="appbox" p="4" px="4">
+            <Box className="appbox" p="4" px="4" mb="4">
               <div className="pt-2">
                 <div className="row align-items-start mb-4">
                   <div className="col-lg-auto">

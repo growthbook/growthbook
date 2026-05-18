@@ -2299,7 +2299,7 @@ export async function toExperimentApiInterface(
     dateUpdated: experiment.dateUpdated.toISOString(),
     archived: !!experiment.archived,
     status: experiment.status,
-    autoRefresh: !!experiment.autoSnapshots,
+    autoRefresh: !!experiment.autoSnapshots && !experiment.disableAutoSnapshots,
     hashAttribute: experiment.hashAttribute || "id",
     fallbackAttribute: experiment.fallbackAttribute,
     hashVersion: experiment.hashVersion || 2,
@@ -3547,7 +3547,12 @@ export function postExperimentApiPayloadToInterface(
     ...(payload.minBucketVersion !== undefined
       ? { minBucketVersion: payload.minBucketVersion }
       : {}),
-    autoSnapshots: payload.autoRefresh ?? true,
+    // autoSnapshots is system-managed (createExperiment derives it from the
+    // org update schedule). An explicit autoRefresh:false from the API maps to
+    // the user-only disableAutoSnapshots override so the system never
+    // overwrites it.
+    autoSnapshots: true,
+    ...(payload.autoRefresh === false ? { disableAutoSnapshots: true } : {}),
     project: payload.project,
     owner: payload.owner || "",
     trackingKey: payload.trackingKey || "",
@@ -3904,7 +3909,15 @@ export function updateExperimentApiPayloadToInterface(
     ...(shareLevel !== undefined ? { shareLevel } : {}),
     ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
     ...(customFields !== undefined ? { customFields } : {}),
-    ...(autoRefresh !== undefined ? { autoSnapshots: !!autoRefresh } : {}),
+    ...(autoRefresh !== undefined
+      ? {
+          disableAutoSnapshots: !autoRefresh,
+          // An explicit user opt-in must also clear the system-managed flag,
+          // otherwise PUT autoRefresh:true can't recover from a cron failure
+          // or an org schedule of "never" (both set autoSnapshots:false).
+          ...(autoRefresh ? { autoSnapshots: true } : {}),
+        }
+      : {}),
     ...(banditScheduleValue !== undefined ? { banditScheduleValue } : {}),
     ...(banditScheduleUnit !== undefined ? { banditScheduleUnit } : {}),
     ...(banditBurnInValue !== undefined ? { banditBurnInValue } : {}),

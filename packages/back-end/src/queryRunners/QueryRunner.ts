@@ -197,9 +197,30 @@ export abstract class QueryRunner<
       );
       this.timer = setTimeout(async () => {
         this.timer = null;
+        // Fetch the latest model in its own try so we can distinguish
+        // "model is gone or unreadable" from a genuine refresh failure.
+        // The most common cause of getLatestModel throwing here is a
+        // concurrent cancel: cancelSnapshot constructs its own runner
+        // instance to call cancelQueries() and then deletes the snapshot,
+        // so this (separate) instance never sees the status flip and only
+        // learns about the cancellation when getLatestModel returns null.
+        // There's nothing useful to refresh in that case; if instead this
+        // was a transient DB error, one of the other onQueryFinish call
+        // sites will retry on the next query state change.
+        let latest: Model;
         try {
           logger.debug("Getting latest model for " + this.model.id);
-          this.model = await this.getLatestModel();
+          latest = await this.getLatestModel();
+        } catch (e) {
+          logger.debug(
+            `Skipping refresh for ${this.model.id}: ${
+              e instanceof Error ? e.message : String(e)
+            }`,
+          );
+          return;
+        }
+        this.model = latest;
+        try {
           const queryMap = await this.refreshQueryStatuses();
           await this.startReadyQueries(queryMap);
         } catch (e) {
@@ -520,7 +541,37 @@ export abstract class QueryRunner<
           false,
         );
 
-        const externalIds = queryDocs.map((q) => q.externalId).filter(Boolean);
+        // Some "running" docs are pointers to a previously-started in-flight
+        // query (see `createNewQueryFromCached`). Those copies share the
+        // upstream datasource job with the original via `cachedQueryUsed`
+        // and never have their own `externalId` set — only the original
+        // doc does, populated by the integration's `runQuery`/poller.
+        // Chase one hop to find the real id so we can actually cancel the
+        // upstream job. `cachedQueryUsed` always points at the original
+        // (not a copy of a copy), so a single lookup is sufficient.
+        const cachedSourceIds = Array.from(
+          new Set(
+            queryDocs
+              .map((q) => q.cachedQueryUsed)
+              .filter((id): id is string => Boolean(id)),
+          ),
+        );
+        const cachedSourceDocs = cachedSourceIds.length
+          ? await getQueriesByIds(this.context, cachedSourceIds, false)
+          : [];
+        const cachedSourceById = new Map(
+          cachedSourceDocs.map((q) => [q.id, q]),
+        );
+
+        const externalIds = queryDocs
+          .map((q) => {
+            if (q.externalId) return q.externalId;
+            if (q.cachedQueryUsed) {
+              return cachedSourceById.get(q.cachedQueryUsed)?.externalId;
+            }
+            return undefined;
+          })
+          .filter((id): id is string => Boolean(id));
 
         if (externalIds.length) {
           await promiseAllChunks(

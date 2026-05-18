@@ -118,10 +118,12 @@ export default function StandardRuleFields({
     scheduleType === "ramp" &&
     (!ruleRampSchedule || ruleRampSchedule.status === "pending");
 
-  // Ramp exists in the DB and is not yet in a terminal state. Everything ramp-related
-  // is locked — including the coverage/hash/seed widget.
+  // Ramp-up (with steps) exists and is not yet in a terminal state. Locks
+  // targeting + coverage since the ramp steps own those fields. Standard
+  // schedules (no steps) never lock targeting.
   const rampNotComplete =
     !!ruleRampSchedule &&
+    ruleRampSchedule.steps.length > 0 &&
     !["completed", "rolled-back", "pending"].includes(ruleRampSchedule.status);
 
   const hasLegacySchedule = (
