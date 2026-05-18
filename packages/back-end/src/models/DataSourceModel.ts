@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { cloneDeep, isEqual, merge } from "lodash";
+import { cloneDeep, isEqual } from "lodash";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import {
@@ -405,14 +405,15 @@ export async function updateDataSource(
   }
 
   if (updates.settings) {
-    const mergedSettings = merge(
-      {},
-      datasource.settings,
-      updates.settings,
-    ) as DataSourceSettings;
+    // Validate exposure from updates when provided; lodash.merge would keep stale
+    // targetingAttributeColumns when the client sends [] to clear them.
+    const exposureQueries =
+      updates.settings.queries?.exposure !== undefined
+        ? updates.settings.queries.exposure
+        : datasource.settings?.queries?.exposure;
     assertExposureQueriesTargetingAttributeColumnsValid(
       context.org.settings?.attributeSchema,
-      mergedSettings.queries?.exposure,
+      exposureQueries,
     );
     updates.settings = await validateExposureQueriesAndAddMissingIds(
       context,
