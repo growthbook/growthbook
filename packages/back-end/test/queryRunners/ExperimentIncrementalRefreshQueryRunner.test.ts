@@ -1,6 +1,7 @@
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import {
-  getCrossFtDenominatorFactTableId,
+  getCrossFtPairKey,
+  isCrossFtRatioMetric,
   getIncrementalRefreshMetricSources,
 } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
@@ -36,22 +37,32 @@ const crossFtRatioMetric = factMetricFactory.build({
   denominator: { factTableId: "ft_sessions", column: "$$count" },
 });
 
-describe("getCrossFtDenominatorFactTableId", () => {
-  it("returns undefined for non-ratio metrics", () => {
-    expect(getCrossFtDenominatorFactTableId(sameFtMetric)).toBeUndefined();
+describe("isCrossFtRatioMetric", () => {
+  it("returns false for non-ratio metrics", () => {
+    expect(isCrossFtRatioMetric(sameFtMetric)).toBe(false);
   });
-  it("returns undefined for same-FT ratio metrics", () => {
-    expect(getCrossFtDenominatorFactTableId(sameFtRatioMetric)).toBeUndefined();
+  it("returns false for same-FT ratio metrics", () => {
+    expect(isCrossFtRatioMetric(sameFtRatioMetric)).toBe(false);
   });
-  it("returns the denominator fact table id for cross-FT ratio metrics", () => {
-    expect(getCrossFtDenominatorFactTableId(crossFtRatioMetric)).toBe(
-      "ft_sessions",
+  it("returns true for cross-FT ratio metrics", () => {
+    expect(isCrossFtRatioMetric(crossFtRatioMetric)).toBe(true);
+  });
+});
+
+describe("getCrossFtPairKey", () => {
+  it("returns null for non-cross-FT metrics", () => {
+    expect(getCrossFtPairKey(sameFtMetric)).toBeNull();
+    expect(getCrossFtPairKey(sameFtRatioMetric)).toBeNull();
+  });
+  it("returns a sorted pair key for cross-FT ratio metrics", () => {
+    expect(getCrossFtPairKey(crossFtRatioMetric)).toBe(
+      "ft_purchases__ft_sessions",
     );
   });
 });
 
 describe("getIncrementalRefreshMetricSources cross-FT grouping", () => {
-  it("keeps cross-FT ratio metrics in their own group with a denominator fact table id", () => {
+  it("fans cross-FT ratio metric into both numerator and denominator FT groups", () => {
     const groups = getIncrementalRefreshMetricSources({
       metrics: [sameFtMetric, sameFtRatioMetric, crossFtRatioMetric],
       existingMetricSources: [],
@@ -59,51 +70,89 @@ describe("getIncrementalRefreshMetricSources cross-FT grouping", () => {
       snapshotSettings,
     });
 
-    // Same-FT metrics share a group; the cross-FT ratio metric gets its own.
+    // ft_purchases group: sameFtMetric (both), sameFtRatioMetric (both),
+    //                     crossFtRatioMetric (numerator)
+    // ft_sessions  group: crossFtRatioMetric (denominator)
     expect(groups).toHaveLength(2);
 
-    const crossFtGroup = groups.find((g) =>
-      g.metrics.some((m) => m.id === crossFtRatioMetric.id),
-    );
-    expect(crossFtGroup).toBeDefined();
-    expect(crossFtGroup?.factTableId).toBe("ft_purchases");
-    expect(crossFtGroup?.denominatorFactTableId).toBe("ft_sessions");
-    expect(crossFtGroup?.metrics.map((m) => m.id)).toEqual([
-      crossFtRatioMetric.id,
-    ]);
+    const purchasesGroup = groups.find((g) => g.factTableId === "ft_purchases");
+    expect(purchasesGroup).toBeDefined();
+    // No denominatorFactTableId on the group shape anymore.
+    expect(
+      (purchasesGroup as { denominatorFactTableId?: string })
+        ?.denominatorFactTableId,
+    ).toBeUndefined();
 
-    const sameFtGroup = groups.find((g) =>
-      g.metrics.some((m) => m.id === sameFtMetric.id),
+    const purchasesMetricIds = purchasesGroup?.metrics
+      .map((e) => e.metric.id)
+      .sort();
+    expect(purchasesMetricIds).toEqual(
+      [sameFtMetric.id, sameFtRatioMetric.id, crossFtRatioMetric.id].sort(),
     );
-    expect(sameFtGroup).toBeDefined();
-    expect(sameFtGroup?.factTableId).toBe("ft_purchases");
-    expect(sameFtGroup?.denominatorFactTableId).toBeUndefined();
-    expect(sameFtGroup?.metrics.map((m) => m.id).sort()).toEqual(
-      [sameFtMetric.id, sameFtRatioMetric.id].sort(),
+
+    // Roles within ft_purchases group
+    const crossFtEntryInPurchases = purchasesGroup?.metrics.find(
+      (e) => e.metric.id === crossFtRatioMetric.id,
     );
+    expect(crossFtEntryInPurchases?.role).toBe("numerator");
+
+    const sameFtEntryInPurchases = purchasesGroup?.metrics.find(
+      (e) => e.metric.id === sameFtMetric.id,
+    );
+    expect(sameFtEntryInPurchases?.role).toBe("complete");
+
+    const sessionsGroup = groups.find((g) => g.factTableId === "ft_sessions");
+    expect(sessionsGroup).toBeDefined();
+    expect(sessionsGroup?.metrics).toHaveLength(1);
+    expect(sessionsGroup?.metrics[0].metric.id).toBe(crossFtRatioMetric.id);
+    expect(sessionsGroup?.metrics[0].role).toBe("denominator");
   });
 
-  it("preserves denominator fact table id when reusing an existing group", () => {
+  it("reuses existing source group ids for both FTs when cross-FT metric already persisted", () => {
     const groups = getIncrementalRefreshMetricSources({
       metrics: [crossFtRatioMetric],
       existingMetricSources: [
         {
-          groupId: "ft_purchases_ft_sessions_abc0",
+          groupId: "existing_purchases_group",
           factTableId: "ft_purchases",
-          denominatorFactTableId: "ft_sessions",
-          denominatorTableFullName: "proj.ds.denom",
-          denominatorMaxTimestamp: null,
-          metrics: [{ id: crossFtRatioMetric.id, settingsHash: "h" }],
+          metrics: [
+            {
+              id: crossFtRatioMetric.id,
+              settingsHash: "h",
+              role: "numerator",
+            },
+          ],
           maxTimestamp: null,
-          tableFullName: "proj.ds.num",
+          tableFullName: "proj.ds.purchases",
+        },
+        {
+          groupId: "existing_sessions_group",
+          factTableId: "ft_sessions",
+          metrics: [
+            {
+              id: crossFtRatioMetric.id,
+              settingsHash: "h",
+              role: "denominator",
+            },
+          ],
+          maxTimestamp: null,
+          tableFullName: "proj.ds.sessions",
         },
       ],
       integration,
       snapshotSettings,
     });
 
-    expect(groups).toHaveLength(1);
-    expect(groups[0].groupId).toBe("ft_purchases_ft_sessions_abc0");
-    expect(groups[0].denominatorFactTableId).toBe("ft_sessions");
+    expect(groups).toHaveLength(2);
+    const purchasesGroup = groups.find(
+      (g) => g.groupId === "existing_purchases_group",
+    );
+    expect(purchasesGroup).toBeDefined();
+    expect(purchasesGroup?.factTableId).toBe("ft_purchases");
+    const sessionsGroup = groups.find(
+      (g) => g.groupId === "existing_sessions_group",
+    );
+    expect(sessionsGroup).toBeDefined();
+    expect(sessionsGroup?.factTableId).toBe("ft_sessions");
   });
 });

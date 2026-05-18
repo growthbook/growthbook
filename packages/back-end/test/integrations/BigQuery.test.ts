@@ -451,9 +451,10 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
   it("getCreateMetricSourceTableQuery emits BYTES sketch + INT64 n_events columns", () => {
     const sql = integration.getCreateMetricSourceTableQuery({
       settings,
-      metrics: [eventQuantileMetric],
+      metrics: [{ metric: eventQuantileMetric, role: "complete" }],
       factTableMap,
       metricSourceTableFullName: "proj.ds.metric_source",
+      factTableId: "ft_events",
     });
     // KLL sketch stored as BYTES
     expect(sql).toMatch(/_value\s+BYTES/);
@@ -468,8 +469,9 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       factTableMap,
       metricSourceTableFullName: "proj.ds.metric_source",
       unitsSourceTableFullName: "proj.ds.units",
-      metrics: [eventQuantileMetric],
+      metrics: [{ metric: eventQuantileMetric, role: "complete" }],
       lastMaxTimestamp: null,
+      factTableId: "ft_events",
     });
     // Partial aggregation builds the sketch
     expect(sql).toContain("KLL_QUANTILES.INIT_FLOAT64");
@@ -494,8 +496,9 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       factTableMap,
       metricSourceTableFullName: "proj.ds.metric_source",
       unitsSourceTableFullName: "proj.ds.units",
-      metrics: [prebuiltSketchMetric],
+      metrics: [{ metric: prebuiltSketchMetric, role: "complete" }],
       lastMaxTimestamp: null,
+      factTableId: "ft_events",
     });
     // Partial aggregation merges the pre-built sketch; must not INIT.
     expect(sql).toContain("KLL_QUANTILES.MERGE_PARTIAL");
@@ -519,8 +522,9 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       factTableMap,
       metricSourceTableFullName: "proj.ds.metric_source",
       unitsSourceTableFullName: "proj.ds.units",
-      metrics: [prebuiltSketchMetric],
+      metrics: [{ metric: prebuiltSketchMetric, role: "complete" }],
       lastMaxTimestamp: null,
+      factTableId: "ft_events",
     });
     // The paired count column must be projected from the source fact table
     // and SUM-aggregated for n_events. COUNT(<col>_value) would be wrong:
@@ -557,8 +561,9 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       factTableMap,
       metricSourceTableFullName: "proj.ds.metric_source",
       unitsSourceTableFullName: "proj.ds.units",
-      metrics: [overrideMetric],
+      metrics: [{ metric: overrideMetric, role: "complete" }],
       lastMaxTimestamp: null,
+      factTableId: "ft_events",
     });
     // Override column is projected as the n_events source.
     expect(sql).toContain("rollup_event_count");
@@ -576,7 +581,9 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       dimensionsForPrecomputation: [],
       dimensionsForAnalysis: [],
       factTableMap,
-      metricSourceTableFullName: "proj.ds.metric_source",
+      metricSources: [
+        { tableFullName: "proj.ds.metric_source", factTableId: "ft_events" },
+      ],
       metricSourceCovariateTableFullName: null,
       unitsSourceTableFullName: "proj.ds.units",
       metrics: [eventQuantileMetric],
@@ -783,10 +790,12 @@ describe("BigQuery cross-fact-table ratio metric incremental refresh SQL generat
     });
   });
 
-  it("getCreateMetricSourceTableQuery splits numerator and denominator columns across cache tables by factTableId", () => {
+  it("getCreateMetricSourceTableQuery puts numerator column in numerator-FT cache (role=numerator)", () => {
+    // Cross-FT ratio metric contributes only its numerator column to the
+    // numerator-FT cache table (role "numerator").
     const numeratorSql = integration.getCreateMetricSourceTableQuery({
       settings,
-      metrics: [crossFtRatioMetric],
+      metrics: [{ metric: crossFtRatioMetric, role: "numerator" }],
       factTableMap,
       metricSourceTableFullName: "proj.ds.metric_source_num",
       factTableId: "ft_purchases",
@@ -795,10 +804,14 @@ describe("BigQuery cross-fact-table ratio metric incremental refresh SQL generat
     expect(numeratorSql).not.toContain(
       "fact_revenue_per_session_denominator_value",
     );
+  });
 
+  it("getCreateMetricSourceTableQuery puts denominator column in denominator-FT cache (role=denominator)", () => {
+    // Cross-FT ratio metric contributes only its denominator column to the
+    // denominator-FT cache table (role "denominator").
     const denominatorSql = integration.getCreateMetricSourceTableQuery({
       settings,
-      metrics: [crossFtRatioMetric],
+      metrics: [{ metric: crossFtRatioMetric, role: "denominator" }],
       factTableMap,
       metricSourceTableFullName: "proj.ds.metric_source_denom",
       factTableId: "ft_sessions",
@@ -810,25 +823,26 @@ describe("BigQuery cross-fact-table ratio metric incremental refresh SQL generat
     expect(denominatorSql).not.toMatch(/fact_revenue_per_session_value\b/);
   });
 
-  it("getCreateMetricSourceTableQuery keeps both columns in one cache table for same-FT ratio metrics (unchanged behavior)", () => {
+  it("getCreateMetricSourceTableQuery keeps both columns in one cache table for same-FT ratio metrics (role=both)", () => {
     const sql = integration.getCreateMetricSourceTableQuery({
       settings,
-      metrics: [sameFtRatioMetric],
+      metrics: [{ metric: sameFtRatioMetric, role: "complete" }],
       factTableMap,
       metricSourceTableFullName: "proj.ds.metric_source",
+      factTableId: "ft_purchases",
     });
     expect(sql).toContain("fact_revenue_per_order_value");
     expect(sql).toContain("fact_revenue_per_order_denominator_value");
   });
 
-  it("getInsertMetricSourceDataQuery scans only the requested fact table for cross-FT ratio metrics", () => {
+  it("getInsertMetricSourceDataQuery scans only the numerator FT for cross-FT metric with role=numerator", () => {
     const numeratorSql = integration.getInsertMetricSourceDataQuery({
       settings,
       activationMetric: null,
       factTableMap,
       metricSourceTableFullName: "proj.ds.metric_source_num",
       unitsSourceTableFullName: "proj.ds.units",
-      metrics: [crossFtRatioMetric],
+      metrics: [{ metric: crossFtRatioMetric, role: "numerator" }],
       lastMaxTimestamp: null,
       factTableId: "ft_purchases",
     });
@@ -840,14 +854,16 @@ describe("BigQuery cross-fact-table ratio metric incremental refresh SQL generat
       "fact_revenue_per_session_denominator_value",
     );
     expect(flatNumerator).toContain("INSERT INTO proj.ds.metric_source_num");
+  });
 
+  it("getInsertMetricSourceDataQuery scans only the denominator FT for cross-FT metric with role=denominator", () => {
     const denominatorSql = integration.getInsertMetricSourceDataQuery({
       settings,
       activationMetric: null,
       factTableMap,
       metricSourceTableFullName: "proj.ds.metric_source_denom",
       unitsSourceTableFullName: "proj.ds.units",
-      metrics: [crossFtRatioMetric],
+      metrics: [{ metric: crossFtRatioMetric, role: "denominator" }],
       lastMaxTimestamp: null,
       factTableId: "ft_sessions",
     });
@@ -863,15 +879,20 @@ describe("BigQuery cross-fact-table ratio metric incremental refresh SQL generat
     );
   });
 
-  it("getIncrementalRefreshStatisticsQuery joins numerator and denominator cache tables on the unit id", () => {
+  it("getIncrementalRefreshStatisticsQuery (cross-FT): joins two cache tables via __metricSourceData / __metricSourceData1", () => {
+    // ft_purchases is sorted first alphabetically, so it gets index 0 (alias m);
+    // ft_sessions gets index 1 (alias m1). The cross-FT ratio metric has its
+    // numerator in ft_purchases (index 0) and denominator in ft_sessions (index 1).
     const sql = integration.getIncrementalRefreshStatisticsQuery({
       settings,
       activationMetric: null,
       dimensionsForPrecomputation: [],
       dimensionsForAnalysis: [],
       factTableMap,
-      metricSourceTableFullName: "proj.ds.metric_source_num",
-      metricSourceDenominatorTableFullName: "proj.ds.metric_source_denom",
+      metricSources: [
+        { tableFullName: "proj.ds.metric_source_num", factTableId: "ft_purchases" },
+        { tableFullName: "proj.ds.metric_source_denom", factTableId: "ft_sessions" },
+      ],
       metricSourceCovariateTableFullName: null,
       unitsSourceTableFullName: "proj.ds.units",
       metrics: [crossFtRatioMetric],
@@ -880,41 +901,53 @@ describe("BigQuery cross-fact-table ratio metric incremental refresh SQL generat
 
     const flat = sql.replace(/\s+/g, " ");
 
-    // Both cache tables are read and aggregated per user
+    // Both cache tables are read as named CTEs
     expect(sql).toContain("__metricSourceData");
-    expect(sql).toContain("__metricSourceDenominatorData");
+    expect(sql).toContain("__metricSourceData1");
     expect(flat).toContain("FROM proj.ds.metric_source_num");
     expect(flat).toContain("FROM proj.ds.metric_source_denom");
-    expect(sql).toContain("__metricDenominatorDataAggregated");
 
-    // Denominator is joined onto units on the unit id, and COALESCEd to 0 for
-    // units with no denominator events (same missing-user semantics as the
-    // inline path).
+    // Per-source re-aggregation CTEs
+    expect(sql).toContain("__metricDataAggregated");
+    expect(sql).toContain("__metricDataAggregated1");
+
+    // Both are LEFT JOINed onto units
     expect(flat).toMatch(
-      /LEFT JOIN __metricDenominatorDataAggregated md ON u\.user_id = md\.user_id/,
+      /LEFT JOIN __metricDataAggregated m ON u\.user_id = m\.user_id/,
     );
+    expect(flat).toMatch(
+      /LEFT JOIN __metricDataAggregated1 m1 ON u\.user_id = m1\.user_id/,
+    );
+
+    // Numerator value comes from m (index 0 = ft_purchases cache)
     expect(flat).toContain(
-      "COALESCE(md.fact_revenue_per_session_denominator_value, 0)",
+      "COALESCE(m.fact_revenue_per_session_value, 0)",
     );
-    // The denominator must NOT be read from the numerator cache table.
+    // Denominator value comes from m1 (index 1 = ft_sessions cache)
+    expect(flat).toContain(
+      "COALESCE(m1.fact_revenue_per_session_denominator_value, 0)",
+    );
+    // Denominator must NOT be read from the numerator cache (m)
     expect(flat).not.toContain(
       "COALESCE(m.fact_revenue_per_session_denominator_value, 0)",
     );
+
     // Statistics still fold numerator and denominator per-user into ratio sums
     expect(sql).toContain("m0_main_sum");
     expect(sql).toContain("m0_denominator_sum");
     expect(sql).toContain("m0_main_denominator_sum_product");
   });
 
-  it("getIncrementalRefreshStatisticsQuery reads same-FT ratio denominator from the primary cache table (unchanged behavior)", () => {
+  it("getIncrementalRefreshStatisticsQuery (same-FT): reads denominator from the single cache table (unchanged behavior)", () => {
     const sql = integration.getIncrementalRefreshStatisticsQuery({
       settings,
       activationMetric: null,
       dimensionsForPrecomputation: [],
       dimensionsForAnalysis: [],
       factTableMap,
-      metricSourceTableFullName: "proj.ds.metric_source",
-      metricSourceDenominatorTableFullName: null,
+      metricSources: [
+        { tableFullName: "proj.ds.metric_source", factTableId: "ft_purchases" },
+      ],
       metricSourceCovariateTableFullName: null,
       unitsSourceTableFullName: "proj.ds.units",
       metrics: [sameFtRatioMetric],
@@ -922,27 +955,11 @@ describe("BigQuery cross-fact-table ratio metric incremental refresh SQL generat
     });
 
     const flat = sql.replace(/\s+/g, " ");
-    expect(sql).not.toContain("__metricDenominatorDataAggregated");
+    // Only one source CTE; no index-1 variants
+    expect(sql).not.toContain("__metricSourceData1");
+    expect(sql).not.toContain("__metricDataAggregated1");
     expect(flat).toContain(
       "COALESCE(m.fact_revenue_per_order_denominator_value, 0)",
     );
-  });
-
-  it("getIncrementalRefreshStatisticsQuery throws when the group spans two fact tables but no denominator cache table is provided", () => {
-    expect(() =>
-      integration.getIncrementalRefreshStatisticsQuery({
-        settings,
-        activationMetric: null,
-        dimensionsForPrecomputation: [],
-        dimensionsForAnalysis: [],
-        factTableMap,
-        metricSourceTableFullName: "proj.ds.metric_source_num",
-        metricSourceDenominatorTableFullName: null,
-        metricSourceCovariateTableFullName: null,
-        unitsSourceTableFullName: "proj.ds.units",
-        metrics: [crossFtRatioMetric],
-        lastMaxTimestamp: null,
-      }),
-    ).toThrow(/denominator cache table/);
   });
 });

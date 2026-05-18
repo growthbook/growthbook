@@ -19,12 +19,17 @@ import {
   QueryPointer,
   QueryStatus,
 } from "shared/types/query";
+import { FactMetricInterface } from "shared/types/fact-table";
 import { ApiReqContext } from "back-end/types/api";
 import {
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import { getIncrementalRefreshMetricSources } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
+import {
+  getCrossFtPairFactTableIds,
+  getCrossFtPairKey,
+  getIncrementalRefreshMetricSources,
+} from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
@@ -129,24 +134,31 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     snapshotSettings,
   });
 
+  // Same-FT stats: one query per source, covering only metrics with role "complete".
   for (const group of metricSourceGroups) {
     const existingSource = existingSources?.find(
       (s) => s.groupId === group.groupId,
     );
     if (!existingSource) {
-      // skip in case the group just has new metrics
+      // skip in case the group just has new metrics (no cache table yet)
       continue;
     }
 
-    const factTable = params.factTableMap.get(
-      group.metrics[0].numerator?.factTableId,
-    );
+    const sameFtMetrics = group.metrics
+      .filter((e) => e.role === "complete")
+      .map((e) => e.metric);
 
+    if (sameFtMetrics.length === 0) {
+      // Source only holds cross-FT ratio partial columns; skip for same-FT pass.
+      continue;
+    }
+
+    const factTable = params.factTableMap.get(group.factTableId);
     const existingCovariateSource = existingCovariateSources?.find(
       (s) => s.groupId === group.groupId,
     );
 
-    const anyMetricHasCuped = group.metrics.some((m) => {
+    const anyMetricHasCuped = sameFtMetrics.some((m) => {
       const metric = cloneDeep(m);
       applyMetricOverrides(metric, snapshotSettings);
       return (
@@ -165,7 +177,6 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     // in case same fact table is split across multiple sources
     const sourceName = factTable ? `(${factTable.name})` : "";
 
-    // Return statistics
     const metricParams: IncrementalRefreshStatisticsQueryParams = {
       settings: snapshotSettings,
       activationMetric: activationMetric,
@@ -174,13 +185,16 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       dimensionsForPrecomputation: [],
       dimensionsForAnalysis: dimensionObjs,
       factTableMap: params.factTableMap,
-      metricSourceTableFullName: existingSource.tableFullName,
-      metricSourceDenominatorTableFullName:
-        existingSource.denominatorTableFullName ?? null,
+      metricSources: [
+        {
+          tableFullName: existingSource.tableFullName,
+          factTableId: group.factTableId,
+        },
+      ],
       metricSourceCovariateTableFullName:
         existingCovariateSource?.tableFullName ?? null,
       unitsSourceTableFullName: unitsTableFullName,
-      metrics: group.metrics,
+      metrics: sameFtMetrics,
       lastMaxTimestamp: existingSource?.maxTimestamp || null,
     };
     const statisticsQuery = await startQuery({
@@ -198,6 +212,76 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     });
     queries.push(statisticsQuery);
   }
+
+  // Cross-FT stats: one query per unordered fact-table pair derived from
+  // persisted sources. Each cross-FT ratio metric appears in both the
+  // numerator-FT source and the denominator-FT source; we join them here.
+  type CrossFtPair = {
+    factTables: [string, string];
+    metrics: FactMetricInterface[];
+  };
+  const crossFtMetricsByPair = new Map<string, CrossFtPair>();
+  selectedMetrics.filter(isFactMetric).forEach((m) => {
+    if (!isFactMetric(m)) return;
+    const pair = getCrossFtPairFactTableIds(m);
+    if (!pair) return;
+    const key = getCrossFtPairKey(m) ?? "";
+    if (!crossFtMetricsByPair.has(key)) {
+      crossFtMetricsByPair.set(key, { factTables: pair, metrics: [] });
+    }
+    crossFtMetricsByPair.get(key)?.metrics.push(m);
+  });
+
+  for (const {
+    factTables,
+    metrics: crossMetrics,
+  } of crossFtMetricsByPair.values()) {
+    const [ftA, ftB] = factTables;
+    // Find the persisted sources for each FT in the pair.
+    const ftASource = existingSources?.find((s) => s.factTableId === ftA);
+    const ftBSource = existingSources?.find((s) => s.factTableId === ftB);
+    if (!ftASource || !ftBSource) {
+      // Cache tables not yet built; skip (can happen if the main run is still in progress).
+      continue;
+    }
+
+    const ftAFactTable = params.factTableMap.get(ftA);
+    const ftBFactTable = params.factTableMap.get(ftB);
+    const ftAName = ftAFactTable?.name ?? ftA;
+    const ftBName = ftBFactTable?.name ?? ftB;
+
+    const crossMetricParams: IncrementalRefreshStatisticsQueryParams = {
+      settings: snapshotSettings,
+      activationMetric: activationMetric,
+      dimensionsForPrecomputation: [],
+      dimensionsForAnalysis: dimensionObjs,
+      factTableMap: params.factTableMap,
+      metricSources: [
+        { tableFullName: ftASource.tableFullName, factTableId: ftA },
+        { tableFullName: ftBSource.tableFullName, factTableId: ftB },
+      ],
+      metricSourceCovariateTableFullName: null,
+      unitsSourceTableFullName: unitsTableFullName,
+      metrics: crossMetrics,
+      lastMaxTimestamp: null,
+    };
+    const crossStatsQuery = await startQuery({
+      name: `statistics_cross_${ftA}_${ftB}`,
+      displayTitle: `Compute Cross-Fact Statistics (${ftAName} x ${ftBName})`,
+      query:
+        integration.getIncrementalRefreshStatisticsQuery(crossMetricParams),
+      dependencies: [],
+      run: (query, setExternalId, queryMetadata) =>
+        integration.runIncrementalRefreshStatisticsQuery(
+          query,
+          setExternalId,
+          queryMetadata,
+        ),
+      queryType: "experimentIncrementalRefreshStatistics",
+    });
+    queries.push(crossStatsQuery);
+  }
+
   return queries;
 };
 

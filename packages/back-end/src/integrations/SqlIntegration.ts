@@ -75,6 +75,7 @@ import {
   MaxTimestampMetricSourceQueryParams,
   CreateMetricSourceTableQueryParams,
   InsertMetricSourceDataQueryParams,
+  MetricSourceMetricEntry,
   DimensionColumnData,
   DropMetricSourceCovariateTableQueryParams,
   MaxTimestampQueryResponse,
@@ -2042,21 +2043,21 @@ export default abstract class SqlIntegration
     );
 
     const baseIdType = exposureQuery.userIdType;
-    const sortedMetrics = params.metrics.sort((a, b) =>
-      a.id.localeCompare(b.id),
+    const sortedEntries = [...params.metrics].sort((a, b) =>
+      a.metric.id.localeCompare(b.metric.id),
     );
-
-    const factTableId =
-      params.factTableId ?? params.metrics[0].numerator?.factTableId;
 
     const columnDefinitions = this.getMetricSourceTableColumnDefinitions(
       baseIdType,
-      sortedMetrics,
-      factTableId,
+      sortedEntries,
     );
 
     if (
-      sortedMetrics.some((m) => quantileMetricType(m) === "event") &&
+      sortedEntries.some(
+        ({ metric, role }) =>
+          (role === "complete" || role === "numerator") &&
+          quantileMetricType(metric) === "event",
+      ) &&
       !this.hasQuantileKLL()
     ) {
       throw new Error(
@@ -2081,14 +2082,12 @@ export default abstract class SqlIntegration
 
   protected getMetricSourceTableColumnDefinitions(
     baseIdType: string,
-    metrics: FactMetricInterface[],
-    factTableId?: string,
+    metrics: MetricSourceMetricEntry[],
   ): string[] {
     const schema = getMetricSourceTableSchema(
       this.getSqlDialect(),
       baseIdType,
       metrics,
-      factTableId,
     );
     return Array.from(schema.entries()).map(
       ([columnName, dataType]) => `${columnName} ${dataType}`,
@@ -2097,14 +2096,12 @@ export default abstract class SqlIntegration
 
   protected getMetricSourceTableColumns(
     baseIdType: string,
-    metrics: FactMetricInterface[],
-    factTableId?: string,
+    metrics: MetricSourceMetricEntry[],
   ): string[] {
     const schema = getMetricSourceTableSchema(
       this.getSqlDialect(),
       baseIdType,
       metrics,
-      factTableId,
     );
     return Array.from(schema.keys());
   }
@@ -2179,8 +2176,7 @@ export default abstract class SqlIntegration
     );
 
     const factTableMap = params.factTableMap;
-    const targetFactTableId =
-      params.factTableId ?? params.metrics[0].numerator?.factTableId;
+    const targetFactTableId = params.factTableId;
     const factTable = factTableMap.get(targetFactTableId);
     if (!factTable) {
       throw new Error("Could not find fact table");
@@ -2200,29 +2196,32 @@ export default abstract class SqlIntegration
       },
     );
 
-    const sortedMetrics = params.metrics.sort((a, b) =>
-      a.id.localeCompare(b.id),
+    // Sort entries by metric id for consistent column ordering.
+    const sortedEntries = [...params.metrics].sort((a, b) =>
+      a.metric.id.localeCompare(b.metric.id),
     );
-    const paramsMetricsSorted = {
-      ...params,
-      metrics: sortedMetrics,
-    };
+    // Build a role lookup so column-emission predicates use the authoritative
+    // role rather than fact-table index comparisons.
+    const roleByMetricId = new Map(
+      sortedEntries.map(({ metric, role }) => [metric.id, role]),
+    );
+    const plainMetrics = sortedEntries.map((e) => e.metric);
 
     // TODO(incremental-refresh): use max hours to convert from here
     // for eventual "skipPartialData" feature
     const { factTablesWithMetricData } = parseExperimentFactMetricsParams(
       this.getSqlDialect(),
       {
-        ...paramsMetricsSorted,
+        ...params,
+        metrics: plainMetrics,
         covariateTableAlias: "c",
       },
     );
 
     // Each getInsertMetricSourceDataQuery call scans exactly one fact table
-    // and writes to exactly one cache table. Metric source groups that span
-    // two fact tables (cross-fact-table ratio metrics) issue two calls, one
-    // per side of the ratio, so the denominator is cached from its own fact
-    // table with its own incremental max timestamp.
+    // and writes to exactly one cache table. Cross-fact-table ratio metrics
+    // appear in two sources (numerator FT and denominator FT) and the role
+    // field tells us which side belongs to this cache table.
     const factTableWithMetricData = factTablesWithMetricData.find(
       (f) => f.factTable.id === targetFactTableId,
     );
@@ -2231,21 +2230,23 @@ export default abstract class SqlIntegration
         "Could not find metric data for the target fact table of the metric source insert query",
       );
     }
-    const ftIndex = factTableWithMetricData.index;
     // metricData is the full list for the group; filter per-column below based
-    // on which side of each metric (numerator/denominator) lives in this fact
-    // table.
+    // on the role stored in this source for each metric.
     const metricData = factTableWithMetricData.metricData;
-    const numeratorInThisTable = (d: (typeof metricData)[number]) =>
-      d.numeratorSourceIndex === ftIndex;
-    const denominatorInThisTable = (d: (typeof metricData)[number]) =>
-      d.ratioMetric && d.denominatorSourceIndex === ftIndex;
+    const numeratorInThisTable = (d: (typeof metricData)[number]) => {
+      const role = roleByMetricId.get(d.metric.id);
+      return role === "complete" || role === "numerator";
+    };
+    const denominatorInThisTable = (d: (typeof metricData)[number]) => {
+      if (!d.ratioMetric) return false;
+      const role = roleByMetricId.get(d.metric.id);
+      return role === "complete" || role === "denominator";
+    };
 
-    // Get consistent column names using the helper
+    // Get consistent column names using the role-aware schema helper.
     const columnNames = this.getMetricSourceTableColumns(
       baseIdType,
-      sortedMetrics,
-      targetFactTableId,
+      sortedEntries,
     );
 
     return format(
@@ -2429,62 +2430,47 @@ export default abstract class SqlIntegration
       undefined,
     );
 
+    // Build a stable mapping from factTableId → source index from the ordered
+    // metricSources array so that numeratorSourceIndex / denominatorSourceIndex
+    // on the generated FactMetricData objects match the __metricDataAggregated{i}
+    // CTEs we emit below.
+    const forcedFactTableIndices = new Map<string, number>(
+      params.metricSources.map((s, i) => [s.factTableId, i]),
+    );
+
     const { factTablesWithMetricData } = parseExperimentFactMetricsParams(
       this.getSqlDialect(),
       {
         ...params,
-        // Covariate data joined to single table with `m` alias before columns are extracted
+        // Covariate data joined with alias `m` (index 0).
         covariateTableAlias: "m",
-        // All per-user cache values are joined into a single `m` alias in
-        // __joinedData below, so force a single source index regardless of
-        // how many fact tables back a cross-FT ratio metric group.
-        collapseSourceIndices: true,
+        forcedFactTableIndices,
       },
     );
 
-    if (factTablesWithMetricData.length > 2) {
-      throw new Error(
-        "Expected at most two fact tables with metric data for incremental refresh statistics",
-      );
-    }
-    // When the group spans two fact tables (cross-fact-table ratio metrics),
-    // the denominator per-user aggregates live in a separate cache table and
-    // are joined into __joinedData below.
-    const hasDenominatorSource =
-      factTablesWithMetricData.length > 1 &&
-      !!params.metricSourceDenominatorTableFullName;
-    if (factTablesWithMetricData.length > 1 && !hasDenominatorSource) {
-      throw new Error(
-        "Metric source group spans two fact tables but no denominator cache table was provided",
-      );
-    }
-
-    const factTableWithMetricData = factTablesWithMetricData[0];
-    // percentileData/eventQuantileData are already filtered to metrics that
-    // touch this fact table; since the numerator always lives in the first
-    // fact table of a cross-FT group these cover every metric in the group.
-    const metricData = factTableWithMetricData.metricData;
-    const percentileData = factTableWithMetricData.percentileData;
-    const eventQuantileData = factTableWithMetricData.eventQuantileData;
+    // Collect all metric data across fact tables (one canonical list since
+    // parseExperimentFactMetricsParams returns all metrics on each entry).
+    const metricData = factTablesWithMetricData[0]?.metricData ?? [];
+    const percentileData = factTablesWithMetricData.flatMap(
+      (f) => f.percentileData,
+    );
+    const eventQuantileData = factTablesWithMetricData.flatMap(
+      (f) => f.eventQuantileData,
+    );
     const regressionAdjustedMetrics =
-      factTableWithMetricData.regressionAdjustedMetrics;
+      factTablesWithMetricData[0]?.regressionAdjustedMetrics ?? [];
 
-    const regressionAdjustedTableIndices = new Set<number>();
-    if (regressionAdjustedMetrics.length > 0) {
-      regressionAdjustedTableIndices.add(0);
-    }
-    const percentileTableIndices = new Set<number>();
-    if (percentileData.length > 0) {
-      percentileTableIndices.add(0);
-    }
+    // Deduplicate percentile data by valueCol (can appear on multiple FTs).
+    const seenPercentileCols = new Set<string>();
+    const uniquePercentileData = percentileData.filter((p) => {
+      if (seenPercentileCols.has(p.valueCol)) return false;
+      seenPercentileCols.add(p.valueCol);
+      return true;
+    });
 
-    // For cross-fact-table ratio metrics, the denominator per-user aggregates
-    // come from the separate denominator cache table. Same-fact-table ratio
-    // metrics read both sides from the primary cache table.
-    const isCrossFtRatio = (data: (typeof metricData)[number]) =>
-      data.ratioMetric &&
-      data.metric.denominator?.factTableId !==
-        data.metric.numerator.factTableId;
+    const percentileTableIndices = new Set<number>(
+      uniquePercentileData.map((p) => p.sourceIndex),
+    );
 
     // exploratory dimensions
     const { experimentDimensions, unitDimensions, dateDimension } =
@@ -2546,6 +2532,12 @@ export default abstract class SqlIntegration
       ...precomputedDimensionCols,
     ];
     const allDimensionCols = [...nonUnitDimensionCols, ...unitDimensionCols];
+
+    // For each source i, produce an alias suffix: "" for index 0 (→ "m"),
+    // "1" for index 1 (→ "m1"), etc. — matches the convention in getMetricData.
+    const aggCteAlias = (i: number) =>
+      `__metricDataAggregated${i === 0 ? "" : i}`;
+
     // TODO(incremental-refresh): Handle activation metric in dimensions
     // like in getExperimentFactMetricsQuery
     // TODO(incremental-refresh): Validate with existing columns
@@ -2553,16 +2545,14 @@ export default abstract class SqlIntegration
       `
       WITH
       ${idJoinSQL}
-      __metricSourceData AS (
-        SELECT * FROM ${params.metricSourceTableFullName}
-      )
-      ${
-        hasDenominatorSource
-          ? `, __metricSourceDenominatorData AS (
-        SELECT * FROM ${params.metricSourceDenominatorTableFullName}
-      )`
-          : ""
-      }
+      ${params.metricSources
+        .map(
+          (src, i) =>
+            `${i === 0 ? "" : ", "}__metricSourceData${i === 0 ? "" : i} AS (
+        SELECT * FROM ${src.tableFullName}
+      )`,
+        )
+        .join("\n")}
       ${unitDimensions
         .map(
           (d) =>
@@ -2584,9 +2574,8 @@ export default abstract class SqlIntegration
           FROM ${params.unitsSourceTableFullName} e
           ${unitDimensions
             .map(
-              (
-                d,
-              ) => `LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
+              (d) =>
+                `LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
             ${this.getSqlDialect().castToString(`__dim_unit_${d.dimension.id}.${baseIdType}`)} = e.${baseIdType}
           )`,
             )
@@ -2601,58 +2590,50 @@ export default abstract class SqlIntegration
           ${nonUnitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
         FROM ${params.unitsSourceTableFullName} e`
       })
-      , __metricDataAggregated AS (
-        SELECT
-          ${baseIdType}
-          ${metricData
+      ${params.metricSources
+        .map((_, i) => {
+          const srcAlias = `__metricSourceData${i === 0 ? "" : i}`;
+          const cols = metricData
             .map((data) => {
               const reAggFunction = data.numeratorAggFns.reAggregationFunction;
               const denomReAggFunction =
                 data.denominatorAggFns.reAggregationFunction;
-              return `, ${reAggFunction(`umj.${encodeMetricIdForColumnName(data.metric.id)}_value`)} AS ${encodeMetricIdForColumnName(data.metric.id)}_value
-                ${
-                  !isCrossFtRatio(data) &&
-                  data.ratioMetric &&
-                  denomReAggFunction
-                    ? `, ${denomReAggFunction(`umj.${encodeMetricIdForColumnName(data.metric.id)}_denominator_value`)} AS ${encodeMetricIdForColumnName(data.metric.id)}_denominator_value`
-                    : ""
-                }
-                ${
-                  data.quantileMetric === "event"
-                    ? `, SUM(COALESCE(umj.${encodeMetricIdForColumnName(data.metric.id)}_n_events, 0)) AS ${encodeMetricIdForColumnName(data.metric.id)}_n_events`
-                    : ""
-                }`;
+              const numInThisSource = data.numeratorSourceIndex === i;
+              const denomInThisSource =
+                data.ratioMetric && data.denominatorSourceIndex === i;
+              return [
+                numInThisSource
+                  ? `, ${reAggFunction(`umj.${encodeMetricIdForColumnName(data.metric.id)}_value`)} AS ${encodeMetricIdForColumnName(data.metric.id)}_value`
+                  : "",
+                denomInThisSource && denomReAggFunction
+                  ? `, ${denomReAggFunction(`umj.${encodeMetricIdForColumnName(data.metric.id)}_denominator_value`)} AS ${encodeMetricIdForColumnName(data.metric.id)}_denominator_value`
+                  : "",
+                data.quantileMetric === "event" && numInThisSource
+                  ? `, SUM(COALESCE(umj.${encodeMetricIdForColumnName(data.metric.id)}_n_events, 0)) AS ${encodeMetricIdForColumnName(data.metric.id)}_n_events`
+                  : "",
+              ]
+                .filter(Boolean)
+                .join("\n");
             })
-            .join("\n")}
-        FROM __metricSourceData umj
-        GROUP BY
-          ${baseIdType}
-      )
-      ${
-        hasDenominatorSource
-          ? `, __metricDenominatorDataAggregated AS (
+            .filter(Boolean)
+            .join("\n");
+          return `, ${aggCteAlias(i)} AS (
         SELECT
           ${baseIdType}
-          ${metricData
-            .filter((data) => isCrossFtRatio(data))
-            .map((data) => {
-              const denomReAggFunction =
-                data.denominatorAggFns.reAggregationFunction;
-              return `, ${denomReAggFunction(`umj.${encodeMetricIdForColumnName(data.metric.id)}_denominator_value`)} AS ${encodeMetricIdForColumnName(data.metric.id)}_denominator_value`;
-            })
-            .join("\n")}
-        FROM __metricSourceDenominatorData umj
+          ${cols}
+        FROM ${srcAlias} umj
         GROUP BY
           ${baseIdType}
-      )`
-          : ""
-      }
+      )`;
+        })
+        .join("\n")}
       ${
         // __eventQuantileSketch: pass 1 of two-pass KLL rank recovery — merge
         // per-user sketches by variation+dimension. __eventQuantileMetric
         // below extracts the quantile grid (including q_hat) from these
         // merged sketches; __joinedData then uses q_hat as the threshold for
-        // per-user rank recovery (pass 2).
+        // per-user rank recovery (pass 2). Event quantile metrics only live in
+        // same-FT sources (role "complete"), so their sketches are always in index-0.
         eventQuantileData.length > 0
           ? `
       , __eventQuantileSketch AS (
@@ -2667,7 +2648,7 @@ export default abstract class SqlIntegration
             )
             .join("\n")}
         FROM __experimentUnits u
-        INNER JOIN __metricDataAggregated m ON u.${baseIdType} = m.${baseIdType}
+        INNER JOIN ${aggCteAlias(0)} m ON u.${baseIdType} = m.${baseIdType}
         GROUP BY
           u.variation
           ${allDimensionCols.map((c) => `, u.${c.alias}`).join("")}
@@ -2698,6 +2679,17 @@ export default abstract class SqlIntegration
             , u.variation
             ${metricData
               .map((data) => {
+                // Alias for the aggregated CTE containing the numerator.
+                const numAlias =
+                  data.numeratorSourceIndex === 0
+                    ? "m"
+                    : `m${data.numeratorSourceIndex}`;
+                // Alias for the aggregated CTE containing the denominator.
+                const denomAlias =
+                  data.denominatorSourceIndex === 0
+                    ? "m"
+                    : `m${data.denominatorSourceIndex}`;
+
                 if (data.quantileMetric === "event") {
                   // Two-pass KLL rank recovery: __eventQuantileMetric provides
                   // the global q_hat per variation+dimension (pass 1). Here we
@@ -2710,8 +2702,8 @@ export default abstract class SqlIntegration
                   // Note: ignoreZeros for event quantiles is handled upstream in
                   // addCaseWhenTimeFilter (zeros are filtered out of __newMetricRows
                   // before sketching, so they never enter the KLL sketch or n_events).
-                  const nEventsCol = `COALESCE(m.${encodeMetricIdForColumnName(data.metric.id)}_n_events, 0)`;
-                  const sketchCol = `m.${encodeMetricIdForColumnName(data.metric.id)}_value`;
+                  const nEventsCol = `COALESCE(${numAlias}.${encodeMetricIdForColumnName(data.metric.id)}_n_events, 0)`;
+                  const sketchCol = `${numAlias}.${encodeMetricIdForColumnName(data.metric.id)}_value`;
                   const thresholdCol = `qm.${data.alias}_quantile`;
                   return `, ${this.getSqlDialect().kllRankApprox(sketchCol, thresholdCol, nEventsCol, 100)} AS ${data.alias}_value
                   , ${nEventsCol} AS ${data.alias}_n_events`;
@@ -2725,8 +2717,8 @@ export default abstract class SqlIntegration
                   data.quantileMetric === "unit" &&
                   data.metricQuantileSettings.ignoreZeros;
                 const valueCol = nullIfZero
-                  ? `m.${encodeMetricIdForColumnName(data.metric.id)}_value`
-                  : `COALESCE(m.${encodeMetricIdForColumnName(data.metric.id)}_value, 0)`;
+                  ? `${numAlias}.${encodeMetricIdForColumnName(data.metric.id)}_value`
+                  : `COALESCE(${numAlias}.${encodeMetricIdForColumnName(data.metric.id)}_value, 0)`;
                 return `, ${data.aggregatedValueTransformation({
                   column: valueCol,
                   initialTimestampColumn: "u.first_exposure_timestamp",
@@ -2734,19 +2726,11 @@ export default abstract class SqlIntegration
                 })} AS ${data.alias}_value ${
                   data.ratioMetric
                     ? `, ${data.aggregatedValueTransformation({
-                        // Cross-FT ratio denominators come from the joined
-                        // denominator cache table (md); same-FT ratios read
-                        // from the primary cache table (m). Both are LEFT
-                        // JOINed onto the units table, so COALESCE to 0 for
-                        // units with no events on that side — matching the
-                        // inline path, where __userMetricAgg{N} always
-                        // contains every experiment unit via
-                        // __distinctUsers LEFT JOIN __factTable{N}.
-                        column: `COALESCE(${
-                          hasDenominatorSource && isCrossFtRatio(data)
-                            ? "md"
-                            : "m"
-                        }.${encodeMetricIdForColumnName(data.metric.id)}_denominator_value, 0)`,
+                        // Both same-FT and cross-FT ratio denominators are
+                        // LEFT JOINed via their respective aggregated CTE
+                        // (denomAlias), so COALESCE to 0 for units with no
+                        // events on that side — matching the inline path.
+                        column: `COALESCE(${denomAlias}.${encodeMetricIdForColumnName(data.metric.id)}_denominator_value, 0)`,
                         initialTimestampColumn: "u.first_exposure_timestamp",
                         analysisEndDate: params.settings.endDate,
                       })} AS ${data.alias}_denominator`
@@ -2770,12 +2754,13 @@ export default abstract class SqlIntegration
                 : ""
             }
           FROM __experimentUnits u
-          LEFT JOIN __metricDataAggregated m ON u.${baseIdType} = m.${baseIdType}
-          ${
-            hasDenominatorSource
-              ? `LEFT JOIN __metricDenominatorDataAggregated md ON u.${baseIdType} = md.${baseIdType}`
-              : ""
-          }
+          ${params.metricSources
+            .map((_, i) => {
+              const cteAlias = aggCteAlias(i);
+              const tableAlias = i === 0 ? "m" : `m${i}`;
+              return `LEFT JOIN ${cteAlias} ${tableAlias} ON u.${baseIdType} = ${tableAlias}.${baseIdType}`;
+            })
+            .join("\n          ")}
           ${
             // TODO(incremental-refresh): GROUP BY is not necessary but is a failsafe
             // against bad insertions into covariate table
@@ -2812,10 +2797,10 @@ export default abstract class SqlIntegration
           }
       )
       ${
-        percentileData.length > 0
+        uniquePercentileData.length > 0
           ? `
         , __capValue AS (
-            ${this.getSqlDialect().percentileCapSelectClause(percentileData, "__joinedData")}
+            ${this.getSqlDialect().percentileCapSelectClause(uniquePercentileData, "__joinedData")}
         )
         `
           : ""
@@ -2828,12 +2813,10 @@ export default abstract class SqlIntegration
         joinedMetricTableName: "__joinedData",
         eventQuantileTableName: "__eventQuantileMetric",
         capValueTableName: "__capValue",
-        factTablesWithIndices: [
-          {
-            factTable: factTableWithMetricData.factTable,
-            index: 0,
-          },
-        ],
+        factTablesWithIndices: factTablesWithMetricData.map((f) => ({
+          factTable: f.factTable,
+          index: f.index,
+        })),
         percentileTableIndices,
       })}
       `,

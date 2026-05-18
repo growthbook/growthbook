@@ -344,15 +344,25 @@ export interface MaxTimestampMetricSourceQueryParams {
   lastMaxTimestamp: Date | null;
 }
 
+// Which side(s) of a cross-fact-table ratio metric this source's cache table
+// materializes. Mirrors IncrementalRefreshMetricRole on the validator.
+export type MetricSourceRole = "complete" | "numerator" | "denominator";
+
+export interface MetricSourceMetricEntry {
+  metric: FactMetricInterface;
+  role: MetricSourceRole;
+}
+
 export interface CreateMetricSourceTableQueryParams {
   settings: ExperimentSnapshotSettings;
-  metrics: FactMetricInterface[];
+  metrics: MetricSourceMetricEntry[];
   factTableMap: FactTableMap;
   metricSourceTableFullName: string;
-  // When a metric source group spans two fact tables (cross-fact-table ratio
-  // metrics), identifies which fact table this cache table is built from. If
-  // omitted, the numerator fact table of the first metric is used.
-  factTableId?: string;
+  // Fact table id this cache is built from. Required: cross-fact-table ratio
+  // metrics may appear in two different cache tables (numerator FT and
+  // denominator FT), so the schema must know which side belongs here based on
+  // each metric's role rather than inferring from the metric's numerator FT.
+  factTableId: string;
 }
 
 export interface InsertMetricSourceDataQueryParams {
@@ -361,10 +371,10 @@ export interface InsertMetricSourceDataQueryParams {
   factTableMap: FactTableMap;
   metricSourceTableFullName: string;
   unitsSourceTableFullName: string;
-  metrics: FactMetricInterface[];
+  metrics: MetricSourceMetricEntry[];
   lastMaxTimestamp: Date | null;
   // See CreateMetricSourceTableQueryParams.factTableId
-  factTableId?: string;
+  factTableId: string;
 }
 
 export interface DropMetricSourceCovariateTableQueryParams {
@@ -393,11 +403,16 @@ export interface IncrementalRefreshStatisticsQueryParams {
   dimensionsForPrecomputation: ExperimentDimensionWithSpecifiedSlices[];
   dimensionsForAnalysis: Dimension[];
   factTableMap: FactTableMap;
-  metricSourceTableFullName: string;
-  // For cross-fact-table ratio metric groups, the cache table holding the
-  // per-user denominator aggregates from the denominator fact table. Joined to
-  // metricSourceTableFullName on the unit id before computing statistics.
-  metricSourceDenominatorTableFullName?: string | null;
+  // One or more cache tables that this stats query reads from, joined on the
+  // unit id. Length 1 for same-fact-table runs; length 2 for cross-fact-table
+  // ratio stats queries (and future N for many-FT cross-table metrics). Order
+  // is significant: index 0 is the primary cache, addressed by alias `m`;
+  // subsequent entries are addressed by aliases `m1`, `m2`, ... matching the
+  // alias scheme produced by getMetricData.
+  metricSources: Array<{
+    tableFullName: string;
+    factTableId: string;
+  }>;
   metricSourceCovariateTableFullName: string | null;
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
