@@ -77,6 +77,7 @@ export {
   FeaturesReady,
   GrowthBookContext,
   GrowthBookProvider,
+  GrowthBookErrorBoundary,
   IfFeatureEnabled,
   useExperiment,
   useFeature,
@@ -87,3 +88,5 @@ export {
   useFeatureIsOn,
   useFeatureValue,
 } from "./GrowthBookReact";
+
+export type { GrowthBookErrorBoundaryProps } from "./GrowthBookReact";

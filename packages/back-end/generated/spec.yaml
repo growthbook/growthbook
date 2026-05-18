@@ -234,6 +234,9 @@ tags:
   - name: usage
     x-displayName: Usage
     description: Usage information for metrics in experiments.
+  - name: error-tracking
+    x-displayName: error-tracking
+    description: ''
   - name: Dashboards
     x-displayName: Dashboards
     description: ''
@@ -17531,6 +17534,98 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/namespaces/ns-abc123/rotateSeed' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/error-tracking/source-maps:
+    post:
+      operationId: postErrorTrackingSourceMap
+      summary: Upload an error tracking source map
+      description: >-
+        Stores a source map for a minified bundle so GrowthBook can symbolicate
+        error stack traces for a release.
+      tags:
+        - error-tracking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                clientKey:
+                  description: SDK connection key for the app that emitted the error
+                  type: string
+                release:
+                  description: >-
+                    Release identifier that matches error events (for example a
+                    git SHA)
+                  type: string
+                minifiedUrl:
+                  description: URL of the minified bundle that produced the stack frame
+                  type: string
+                sourceMapJson:
+                  description: Source map JSON contents as a string
+                  type: string
+              required:
+                - clientKey
+                - release
+                - minifiedUrl
+                - sourceMapJson
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploaded:
+                    type: boolean
+                    const: true
+                required:
+                  - uploaded
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/error-tracking/source-maps' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"clientKey":"sdk-abc123","release":"a1b2c3d4","minifiedUrl":"https://app.example.com/_next/static/chunks/main-abc123.js","sourceMapJson":"{\"version\":3,\"sources\":[\"app.tsx\"],\"mappings\":\"AAAA\"}"}'
+    get:
+      operationId: listErrorTrackingSourceMaps
+      summary: List uploaded error tracking source maps
+      tags:
+        - error-tracking
+      parameters:
+        - name: clientKey
+          in: query
+          required: true
+          description: SDK connection key for the app that emitted the error
+          schema:
+            description: SDK connection key for the app that emitted the error
+            type: string
+        - $ref: '#/components/parameters/release'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  maps:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/maps'
+                required:
+                  - maps
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/error-tracking/source-maps?clientKey=sdk-abc123&release=a1b2c3d4'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/transform-copy:
     post:
       operationId: postCopyTransform
@@ -24717,6 +24812,13 @@ components:
       in: query
       description: ''
       schema:
+        type: string
+    release:
+      name: release
+      in: query
+      description: Optional release filter
+      schema:
+        description: Optional release filter
         type: string
     index:
       name: index
@@ -33538,6 +33640,20 @@ components:
         - environments
         - limitAccessByEnvironment
       additionalProperties: false
+    maps:
+      type: object
+      properties:
+        minifiedUrl:
+          type: string
+        release:
+          type: string
+        dateUpdated:
+          format: date-time
+          type: string
+      required:
+        - minifiedUrl
+        - release
+      additionalProperties: false
   securitySchemes:
     bearerAuth:
       type: http
@@ -33595,6 +33711,7 @@ x-tagGroups:
       - settings
       - attributes
       - usage
+      - error-tracking
       - Dashboards
       - CustomFields
       - MetricGroups

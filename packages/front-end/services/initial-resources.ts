@@ -6,7 +6,10 @@ import {
   CreateFactTableProps,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
+import {
+  MANAGED_WAREHOUSE_ERRORS_FACT_TABLE_ID,
+  MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+} from "shared/constants";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   MetricDefaults,
@@ -147,6 +150,67 @@ WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`,
                   values: ["Session Start"],
                 },
               ],
+            },
+          },
+        ],
+      },
+      {
+        factTable: {
+          id: MANAGED_WAREHOUSE_ERRORS_FACT_TABLE_ID,
+          name: "Errors",
+          description: "",
+          sql: `SELECT * FROM errors
+WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`,
+          managedBy: "api",
+          columns: generateColumns({
+            timestamp: { datatype: "date" },
+            user_id: { datatype: "string" },
+            device_id: { datatype: "string" },
+            client_key: { datatype: "string" },
+            issue_fingerprint: { datatype: "string", alwaysInlineFilter: true },
+            title: { datatype: "string" },
+            error_type: { datatype: "string" },
+            transaction_name: { datatype: "string" },
+            release_version: { datatype: "string" },
+            runtime_name: { datatype: "string" },
+            properties: { datatype: "json" },
+            attributes: { datatype: "json" },
+            environment: { datatype: "string" },
+            sdk_language: { datatype: "string" },
+            sdk_version: { datatype: "string" },
+            event_uuid: { datatype: "string" },
+            ip: { datatype: "string" },
+            geo_country: { datatype: "string" },
+            ua_device_type: { datatype: "string" },
+            ua_browser: { datatype: "string" },
+            ua_os: { datatype: "string" },
+            utm_source: { datatype: "string" },
+            utm_medium: { datatype: "string" },
+            utm_campaign: { datatype: "string" },
+            url_path: { datatype: "string" },
+          }),
+          userIdTypes: ["user_id", "device_id"],
+          eventName: "",
+        },
+        filters: [],
+        metrics: [
+          {
+            name: "Errors Per User",
+            metricType: "mean",
+            numerator: {
+              factTableId: "",
+              column: "$$count",
+              rowFilters: [],
+            },
+          },
+          {
+            name: "Distinct Errors Per User",
+            metricType: "mean",
+            numerator: {
+              factTableId: "",
+              column: "issue_fingerprint",
+              aggregation: "count distinct",
+              rowFilters: [],
             },
           },
         ],

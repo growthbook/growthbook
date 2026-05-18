@@ -11,6 +11,9 @@ import type {
 } from "@growthbook/growthbook";
 import { GrowthBook } from "@growthbook/growthbook";
 
+/** Must match {@link EVENT_GROWTHBOOK_ERROR} in `@growthbook/growthbook` / managed warehouse `errors` MV. */
+const GROWTHBOOK_MANAGED_ERROR_EVENT = "GrowthBook Error";
+
 export type GrowthBookContextValue = {
   growthbook: GrowthBook;
 };
@@ -171,6 +174,90 @@ export const withRunExperiment = <P extends WithRunExperimentProps>(
   return withRunExperimentWrapper;
 };
 withRunExperiment.displayName = "WithRunExperiment";
+
+function growthBookReactErrorPayload(error: Error, info: React.ErrorInfo) {
+  const message = error.message || error.name || "Error";
+  const stack = error.stack;
+  const stackLine =
+    stack
+      ?.split("\n")
+      .map((l) => l.trim())
+      .find(Boolean) || "";
+  const raw = `${message}\n${stackLine}`;
+  let h = 2166136261;
+  for (let i = 0; i < raw.length; i++) {
+    h ^= raw.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const fingerprint = (h >>> 0).toString(16);
+  const displayMessage =
+    message.length > 500 ? `${message.slice(0, 497)}...` : message;
+  return {
+    fingerprint,
+    title: displayMessage,
+    message: displayMessage,
+    errorType: "react",
+    stack,
+    stackFrames: [] as { filename?: string; function?: string }[],
+    handled: false,
+    contexts: {
+      react: {
+        componentStack: info.componentStack,
+      },
+    },
+  };
+}
+
+export type GrowthBookErrorBoundaryProps = {
+  children: React.ReactNode;
+  fallback?: React.ReactNode | ((args: { error: Error }) => React.ReactNode);
+};
+
+type GrowthBookErrorBoundaryState = { error: Error | null };
+
+/**
+ * Reports React render errors via {@link captureGrowthBookError} (requires
+ * `growthbookTrackingPlugin` before `growthbookErrorTrackingPlugin` in the same instance).
+ */
+export class GrowthBookErrorBoundary extends React.Component<
+  GrowthBookErrorBoundaryProps,
+  GrowthBookErrorBoundaryState
+> {
+  static contextType = GrowthBookContext;
+  declare context: GrowthBookContextValue;
+
+  state: GrowthBookErrorBoundaryState = { error: null };
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    const gb = this.context?.growthbook;
+    if (gb) {
+      void gb.logEvent(
+        GROWTHBOOK_MANAGED_ERROR_EVENT,
+        growthBookReactErrorPayload(error, info),
+      );
+    }
+    this.setState({ error });
+  }
+
+  render() {
+    const { error } = this.state;
+    if (!error) return this.props.children;
+
+    const { fallback } = this.props;
+    if (typeof fallback === "function") {
+      return fallback({ error });
+    }
+    if (fallback != null) {
+      return fallback;
+    }
+
+    return (
+      <div role="alert">
+        <p>Something went wrong.</p>
+      </div>
+    );
+  }
+}
 
 export const GrowthBookProvider: React.FC<
   React.PropsWithChildren<{
