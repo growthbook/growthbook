@@ -1603,24 +1603,13 @@ export async function putOrganization(
     const updates: Partial<OrganizationInterface> = {};
 
     const orig: Partial<OrganizationInterface> = {};
-    let sanitizedSettings = settings;
     if (
-      sanitizedSettings?.approvalFlows?.savedGroups?.[0]?.required &&
+      settings?.approvalFlows?.savedGroups?.[0]?.required &&
       !context.hasPremiumFeature("require-approvals")
     ) {
-      sanitizedSettings = {
-        ...sanitizedSettings,
-        approvalFlows: {
-          ...sanitizedSettings.approvalFlows,
-          savedGroups: [
-            {
-              ...sanitizedSettings.approvalFlows.savedGroups[0],
-              required: false,
-            },
-            ...sanitizedSettings.approvalFlows.savedGroups.slice(1),
-          ],
-        },
-      };
+      throw new Error(
+        "Saved Groups approval flows require the Require Approvals enterprise feature.",
+      );
     }
 
     if (name) {
@@ -1670,10 +1659,10 @@ export async function putOrganization(
       updates.externalId = externalId;
       orig.externalId = org.externalId;
     }
-    if (sanitizedSettings) {
+    if (settings) {
       updates.settings = {
         ...org.settings,
-        ...sanitizedSettings,
+        ...settings,
       };
       orig.settings = org.settings;
     }
