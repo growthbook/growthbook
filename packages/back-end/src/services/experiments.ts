@@ -82,6 +82,7 @@ import {
   ApiExperimentMetric,
   ApiExperimentResults,
   ApiMetric,
+  assertContextualBanditExperimentFieldsValid,
 } from "shared/validators";
 import { Dimension } from "shared/types/integrations";
 import {
@@ -3650,6 +3651,12 @@ export function postExperimentApiPayloadToInterface(
       obj.banditConversionWindowUnit = payload.banditConversionWindowUnit;
     }
     obj.banditIsContextual = payload.banditIsContextual ?? false;
+    assertContextualBanditExperimentFieldsValid({
+      experimentType: obj.type,
+      banditIsContextual: obj.banditIsContextual,
+      exposureQueryId: obj.exposureQueryId,
+      exposureQueries: datasource?.settings?.queries?.exposure,
+    });
   }
 
   return obj;
@@ -4618,6 +4625,35 @@ export async function computeResultsStatus({
   };
 }
 
+export async function validateContextualBanditExperimentForSave(
+  context: ReqContext,
+  params: {
+    type?: string;
+    banditIsContextual?: boolean;
+    datasourceId?: string;
+    exposureQueryId?: string;
+    datasource?: DataSourceInterface | null;
+  },
+): Promise<void> {
+  if (!params.banditIsContextual) {
+    return;
+  }
+  const datasource =
+    params.datasource ??
+    (params.datasourceId
+      ? await getDataSourceById(context, params.datasourceId)
+      : null);
+  if (params.datasourceId && !datasource) {
+    throw new Error("Invalid datasource: " + params.datasourceId);
+  }
+  assertContextualBanditExperimentFieldsValid({
+    experimentType: params.type,
+    banditIsContextual: true,
+    exposureQueryId: params.exposureQueryId,
+    exposureQueries: datasource?.settings?.queries?.exposure,
+  });
+}
+
 export async function validateExperimentData(
   context: ReqContext,
   data: Partial<ExperimentInterfaceStringDates>,
@@ -4673,6 +4709,14 @@ export async function validateExperimentData(
       }
     }
   }
+
+  await validateContextualBanditExperimentForSave(context, {
+    type: data.type,
+    banditIsContextual: data.banditIsContextual,
+    datasourceId: data.datasource,
+    exposureQueryId: data.exposureQueryId,
+    datasource,
+  });
 
   return { metricIds, datasource, invalidMetricIds };
 }

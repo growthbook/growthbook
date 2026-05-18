@@ -60,6 +60,7 @@ import {
   updateExperimentAndSync,
   validateVariationIds,
   validateExperimentData,
+  validateContextualBanditExperimentForSave,
 } from "back-end/src/services/experiments";
 import {
   startExperiment,
@@ -1856,6 +1857,22 @@ export async function postExperiment(
         }
       });
     }
+  }
+
+  try {
+    await validateContextualBanditExperimentForSave(context, {
+      type: changes.type ?? experiment.type,
+      banditIsContextual:
+        changes.banditIsContextual ?? experiment.banditIsContextual,
+      datasourceId: changes.datasource ?? experiment.datasource,
+      exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e instanceof Error ? e.message : String(e),
+    });
+    return;
   }
 
   const updated = await updateExperimentAndSync({

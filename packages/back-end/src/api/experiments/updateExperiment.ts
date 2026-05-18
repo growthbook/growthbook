@@ -13,6 +13,7 @@ import {
 import {
   toExperimentApiInterface,
   updateExperimentApiPayloadToInterface,
+  validateContextualBanditExperimentForSave,
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { startExperiment } from "back-end/src/services/experimentChanges/changeExperimentStatus";
@@ -236,6 +237,15 @@ export const updateExperiment = createApiRequestHandler(
       "lookbackOverride is only allowed when attributionModel is 'lookbackOverride'",
     );
   }
+
+  await validateContextualBanditExperimentForSave(req.context, {
+    type: req.body.type ?? experiment.type,
+    banditIsContextual:
+      req.body.banditIsContextual ?? experiment.banditIsContextual,
+    datasourceId: datasourceId || undefined,
+    exposureQueryId: req.body.assignmentQueryId ?? experiment.exposureQueryId,
+    datasource,
+  });
 
   const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
   const changes = updateExperimentApiPayloadToInterface(
