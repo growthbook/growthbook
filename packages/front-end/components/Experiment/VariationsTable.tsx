@@ -4,8 +4,12 @@ import {
 } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { FC, useState, useRef, useCallback } from "react";
-import { Box, Flex, Grid, Heading } from "@radix-ui/themes";
-import { PiCameraLight, PiCameraPlusLight } from "react-icons/pi";
+import { Box, Flex, Grid, Heading, IconButton } from "@radix-ui/themes";
+import {
+  PiCameraLight,
+  PiCameraPlusLight,
+  PiPencilSimple,
+} from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { trafficSplitPercentages } from "@/services/utils";
 import Carousel from "@/components/Carousel";
@@ -111,6 +115,7 @@ interface Props {
   isPublic?: boolean;
   shareUid?: string;
   shareType?: "experiment" | "report";
+  onEditMetadata?: (variationIndex: number) => void;
 }
 
 function NoImageBox({
@@ -159,6 +164,7 @@ export function VariationBox({
   isPublic = false,
   shareUid,
   shareType = "experiment",
+  onEditMetadata,
 }: {
   i: number;
   v: Variation;
@@ -175,6 +181,7 @@ export function VariationBox({
   isPublic?: boolean;
   shareUid?: string;
   shareType?: "experiment" | "report";
+  onEditMetadata?: (variationIndex: number) => void;
 }) {
   const { blockFileUploads } = useOrgSettings();
 
@@ -201,13 +208,26 @@ export function VariationBox({
       <Flex gap="2" direction="column" justify="between" height="100%">
         <Box>
           <Box mb="3">
-            <Flex gap="0">
-              <Box className="">
-                <span className="circle-label label">{i}</span>
-              </Box>
-              <Heading as="h4" size="3" mb="0">
-                {v.name}
-              </Heading>
+            <Flex gap="0" align="center" justify="between">
+              <Flex gap="0" align="center">
+                <Box className="">
+                  <span className="circle-label label">{i}</span>
+                </Box>
+                <Heading as="h4" size="3" mb="0">
+                  {v.name}
+                </Heading>
+              </Flex>
+              {canEdit && onEditMetadata ? (
+                <IconButton
+                  variant="ghost"
+                  size="1"
+                  color="gray"
+                  onClick={() => onEditMetadata(i)}
+                  aria-label="Edit variation"
+                >
+                  <PiPencilSimple />
+                </IconButton>
+              ) : null}
             </Flex>
           </Box>
           {allowImages && (
@@ -297,6 +317,7 @@ const VariationsTable: FC<Props> = ({
   isPublic = false,
   shareUid,
   shareType = "experiment",
+  onEditMetadata,
 }) => {
   const { apiCall } = useAuth();
   const variations = getLatestPhaseVariations(experiment);
@@ -351,6 +372,7 @@ const VariationsTable: FC<Props> = ({
               isPublic={isPublic}
               shareUid={shareUid}
               shareType={shareType}
+              onEditMetadata={onEditMetadata}
             />
           ),
         )}

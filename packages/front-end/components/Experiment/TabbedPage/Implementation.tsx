@@ -14,17 +14,16 @@ import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import VariationsTable from "@/components/Experiment/VariationsTable";
+import EditVariationMetadataModal from "@/components/Experiment/EditVariationMetadataModal";
 import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import Callout from "@/ui/Callout";
-import Button from "@/ui/Button";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import LinkedExperimentsTable from "@/components/Holdout/LinkedExperimentsTable";
 import LinkedFeaturesTable from "@/components/Holdout/LinkedFeaturesTable";
 import EditEnvironmentsModal from "@/components/Holdout/EditEnvironmentsModal";
 import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
-import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Checkbox from "@/ui/Checkbox";
 import HoldoutEnvironments from "./HoldoutEnvironments";
@@ -70,6 +69,9 @@ export default function Implementation({
 }: Props) {
   const [showEditEnvironmentsModal, setShowEditEnvironmentsModal] =
     useState(false);
+  const [editMetadataIndex, setEditMetadataIndex] = useState<number | null>(
+    null,
+  );
   const phases = experiment.phases || [];
   const { apiCall } = useAuth();
 
@@ -97,8 +99,6 @@ export default function Implementation({
 
   const holdoutHasLinkedExpOrFeatures =
     holdoutExperiments?.length || holdoutFeatures?.length;
-
-  const showEditVariations = editVariations;
 
   const [tab, setTab] = useState<"experiments" | "features">(
     holdoutExperiments?.length ? "experiments" : "features",
@@ -133,30 +133,18 @@ export default function Implementation({
           mutate={mutate}
         />
       )}
+      {editMetadataIndex !== null && canEditExperiment && (
+        <EditVariationMetadataModal
+          experiment={experiment}
+          variationIndex={editMetadataIndex}
+          close={() => setEditMetadataIndex(null)}
+          mutate={mutate}
+          source="implementation-tab"
+        />
+      )}
       <div className="my-4">
         <h2>Implementation</h2>
-        {!isHoldout && (
-          <div className="box my-3 mb-4 px-2 py-3">
-            <div className="d-flex flex-row align-items-center justify-content-between text-dark px-3 mb-3">
-              <Heading as="h4" size="small" mb="0">
-                Variations
-              </Heading>
-              <div className="flex-1" />
-              {showEditVariations ? (
-                <Button variant="ghost" onClick={editVariations}>
-                  Edit
-                </Button>
-              ) : null}
-            </div>
-
-            <VariationsTable
-              experiment={experiment}
-              canEditExperiment={canEditExperiment}
-              mutate={mutate}
-            />
-          </div>
-        )}
-        {hasLinkedChanges && !isHoldout ? (
+        {!isHoldout ? (
           <LinkedChanges
             linkedFeatures={linkedFeatures}
             experiment={experiment}
@@ -171,6 +159,20 @@ export default function Implementation({
             setVisualEditorModal={setVisualEditorModal}
             setFeatureModal={setFeatureModal}
             setUrlRedirectModal={setUrlRedirectModal}
+            onAddVariation={editVariations ?? undefined}
+            variationsTable={
+              <VariationsTable
+                experiment={experiment}
+                canEditExperiment={canEditExperiment}
+                mutate={mutate}
+                noMargin
+                onEditMetadata={
+                  canEditExperiment
+                    ? (index) => setEditMetadataIndex(index)
+                    : undefined
+                }
+              />
+            }
           />
         ) : null}
         {!isHoldout && (
