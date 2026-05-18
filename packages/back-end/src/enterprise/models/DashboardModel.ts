@@ -21,7 +21,6 @@ import {
   isDifferenceType,
   BlockLayout,
   DASHBOARD_GRID_COLS,
-  DASHBOARD_BLOCK_MAX_H,
   getBlockSizeBounds,
 } from "shared/enterprise";
 import omit from "lodash/omit";
@@ -771,8 +770,9 @@ const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value));
 
 // Normalize block layouts: fill in per-type defaults for blocks without a
-// layout (stacked beneath existing blocks) and clamp w/h/x/y to the absolute
-// grid caps. Per-type drag/resize minimums are NOT persisted - they live in
+// layout (stacked beneath existing blocks) and clamp w/x/y to grid bounds.
+// Height is intentionally unclamped - users can grow a block as tall as they
+// need. Per-type drag/resize minimums are NOT persisted - they live in
 // DEFAULT_BLOCK_SIZE_BY_TYPE and are injected at render time on the client.
 export function normalizeLayouts<
   T extends DashboardBlockInterface | CreateDashboardBlockInterface,
@@ -783,7 +783,7 @@ export function normalizeLayouts<
   const clampedExisting = blocks.map((block) => {
     if (!block.layout) return block;
     const w = clamp(block.layout.w, 1, cols);
-    const h = clamp(block.layout.h, 1, DASHBOARD_BLOCK_MAX_H);
+    const h = Math.max(1, block.layout.h);
     const x = clamp(block.layout.x, 0, Math.max(0, cols - w));
     const y = Math.max(0, block.layout.y);
     const layout: BlockLayout = {
@@ -801,7 +801,7 @@ export function normalizeLayouts<
     if (block.layout) return block;
     const defaults = getBlockSizeBounds(block.type);
     const w = clamp(defaults.w, 1, cols);
-    const h = clamp(defaults.h, 1, DASHBOARD_BLOCK_MAX_H);
+    const h = Math.max(1, defaults.h);
     const layout: BlockLayout = {
       x: 0,
       y: nextY,

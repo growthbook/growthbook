@@ -3798,10 +3798,13 @@ input:disabled {
   position: relative;
 
   // Make sure each grid item is a clean stacking context so the inner
-  // .appbox shadow/border don't get clipped by RGL's positioning.
+  // .appbox shadow/border don't get clipped by RGL's positioning. Also need
+  // position:relative so the disabled-resize tooltip overlay can absolutely
+  // position itself in the corner where RGL renders the handle.
   .dashboard-grid-item {
     height: 100%;
     width: 100%;
+    position: relative;
   }
 
   // RGL adds .react-resizable-handle on every item; only show it while the
@@ -3820,6 +3823,14 @@ input:disabled {
     border-color: var(--violet-9);
   }
 
+  // When resizing is disabled (edit drawer is open) keep the handle visible
+  // but dimmed, and let the sibling overlay capture hover so we can surface
+  // a tooltip explaining why it's inactive.
+  &.is-resize-disabled .react-resizable-handle {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+
   // The placeholder RGL shows under a dragging block - match the violet
   // accent and round the corners to look like an inset block outline.
   .react-grid-placeholder {
@@ -3828,6 +3839,21 @@ input:disabled {
     border-radius: 6px;
     opacity: 1 !important;
   }
+}
+
+// Transparent overlay rendered over the bottom-right corner of a block while
+// the edit drawer is open. Sits on Tooltip's own trigger <span> so Popper
+// anchors correctly. `display: block` is required because <span> is inline
+// by default, which would collapse the overlay.
+.dashboard-resize-handle-disabled-overlay {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: block;
+  width: 22px;
+  height: 22px;
+  cursor: not-allowed;
+  z-index: 3;
 }
 
 // Drag handle inside the block toolbar.

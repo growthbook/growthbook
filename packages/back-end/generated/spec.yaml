@@ -17725,18 +17725,17 @@ paths:
                                   x:
                                     type: integer
                                     minimum: 0
-                                    maximum: 11
+                                    maximum: 23
                                   'y':
                                     type: integer
                                     minimum: 0
                                   w:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
+                                    maximum: 24
                                   h:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
                                   static:
                                     type: boolean
                                 required:
@@ -17770,18 +17769,17 @@ paths:
                                   x:
                                     type: integer
                                     minimum: 0
-                                    maximum: 11
+                                    maximum: 23
                                   'y':
                                     type: integer
                                     minimum: 0
                                   w:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
+                                    maximum: 24
                                   h:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
                                   static:
                                     type: boolean
                                 required:
@@ -17828,18 +17826,17 @@ paths:
                                   x:
                                     type: integer
                                     minimum: 0
-                                    maximum: 11
+                                    maximum: 23
                                   'y':
                                     type: integer
                                     minimum: 0
                                   w:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
+                                    maximum: 24
                                   h:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
                                   static:
                                     type: boolean
                                 required:
@@ -17934,18 +17931,17 @@ paths:
                                   x:
                                     type: integer
                                     minimum: 0
-                                    maximum: 11
+                                    maximum: 23
                                   'y':
                                     type: integer
                                     minimum: 0
                                   w:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
+                                    maximum: 24
                                   h:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
                                   static:
                                     type: boolean
                                 required:
@@ -18043,18 +18039,17 @@ paths:
                                   x:
                                     type: integer
                                     minimum: 0
-                                    maximum: 11
+                                    maximum: 23
                                   'y':
                                     type: integer
                                     minimum: 0
                                   w:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
+                                    maximum: 24
                                   h:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
                                   static:
                                     type: boolean
                                 required:
@@ -18136,18 +18131,17 @@ paths:
                                   x:
                                     type: integer
                                     minimum: 0
-                                    maximum: 11
+                                    maximum: 23
                                   'y':
                                     type: integer
                                     minimum: 0
                                   w:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
+                                    maximum: 24
                                   h:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
                                   static:
                                     type: boolean
                                 required:
@@ -18187,18 +18181,17 @@ paths:
                                   x:
                                     type: integer
                                     minimum: 0
-                                    maximum: 11
+                                    maximum: 23
                                   'y':
                                     type: integer
                                     minimum: 0
                                   w:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
+                                    maximum: 24
                                   h:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
                                   static:
                                     type: boolean
                                 required:
@@ -18239,18 +18232,17 @@ paths:
                                   x:
                                     type: integer
                                     minimum: 0
-                                    maximum: 11
+                                    maximum: 23
                                   'y':
                                     type: integer
                                     minimum: 0
                                   w:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
+                                    maximum: 24
                                   h:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
                                   static:
                                     type: boolean
                                 required:
@@ -18347,18 +18339,17 @@ paths:
                                   x:
                                     type: integer
                                     minimum: 0
-                                    maximum: 11
+                                    maximum: 23
                                   'y':
                                     type: integer
                                     minimum: 0
                                   w:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
+                                    maximum: 24
                                   h:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
                                   static:
                                     type: boolean
                                 required:
@@ -18457,18 +18448,17 @@ paths:
                                   x:
                                     type: integer
                                     minimum: 0
-                                    maximum: 11
+                                    maximum: 23
                                   'y':
                                     type: integer
                                     minimum: 0
                                   w:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
+                                    maximum: 24
                                   h:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
                                   static:
                                     type: boolean
                                 required:
@@ -18511,18 +18501,17 @@ paths:
                                   x:
                                     type: integer
                                     minimum: 0
-                                    maximum: 11
+                                    maximum: 23
                                   'y':
                                     type: integer
                                     minimum: 0
                                   w:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
+                                    maximum: 24
                                   h:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
                                   static:
                                     type: boolean
                                 required:
@@ -18578,18 +18567,17 @@ paths:
                                   x:
                                     type: integer
                                     minimum: 0
-                                    maximum: 11
+                                    maximum: 23
                                   'y':
                                     type: integer
                                     minimum: 0
                                   w:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
+                                    maximum: 24
                                   h:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
                                   static:
                                     type: boolean
                                 required:
@@ -18693,18 +18681,17 @@ paths:
                                   x:
                                     type: integer
                                     minimum: 0
-                                    maximum: 11
+                                    maximum: 23
                                   'y':
                                     type: integer
                                     minimum: 0
                                   w:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
+                                    maximum: 24
                                   h:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
                                   static:
                                     type: boolean
                                 required:
@@ -18811,18 +18798,17 @@ paths:
                                   x:
                                     type: integer
                                     minimum: 0
-                                    maximum: 11
+                                    maximum: 23
                                   'y':
                                     type: integer
                                     minimum: 0
                                   w:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
+                                    maximum: 24
                                   h:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
                                   static:
                                     type: boolean
                                 required:
@@ -18913,18 +18899,17 @@ paths:
                                   x:
                                     type: integer
                                     minimum: 0
-                                    maximum: 11
+                                    maximum: 23
                                   'y':
                                     type: integer
                                     minimum: 0
                                   w:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
+                                    maximum: 24
                                   h:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
                                   static:
                                     type: boolean
                                 required:
@@ -18973,18 +18958,17 @@ paths:
                                   x:
                                     type: integer
                                     minimum: 0
-                                    maximum: 11
+                                    maximum: 23
                                   'y':
                                     type: integer
                                     minimum: 0
                                   w:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
+                                    maximum: 24
                                   h:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
                                   static:
                                     type: boolean
                                 required:
@@ -19034,18 +19018,17 @@ paths:
                                   x:
                                     type: integer
                                     minimum: 0
-                                    maximum: 11
+                                    maximum: 23
                                   'y':
                                     type: integer
                                     minimum: 0
                                   w:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
+                                    maximum: 24
                                   h:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
                                   static:
                                     type: boolean
                                 required:
@@ -19346,18 +19329,17 @@ paths:
                                   x:
                                     type: integer
                                     minimum: 0
-                                    maximum: 11
+                                    maximum: 23
                                   'y':
                                     type: integer
                                     minimum: 0
                                   w:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
+                                    maximum: 24
                                   h:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
                                   static:
                                     type: boolean
                                 required:
@@ -19667,18 +19649,17 @@ paths:
                                   x:
                                     type: integer
                                     minimum: 0
-                                    maximum: 11
+                                    maximum: 23
                                   'y':
                                     type: integer
                                     minimum: 0
                                   w:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
+                                    maximum: 24
                                   h:
                                     type: integer
                                     minimum: 1
-                                    maximum: 12
                                   static:
                                     type: boolean
                                 required:
@@ -20098,18 +20079,17 @@ paths:
                               x:
                                 type: integer
                                 minimum: 0
-                                maximum: 11
+                                maximum: 23
                               'y':
                                 type: integer
                                 minimum: 0
                               w:
                                 type: integer
                                 minimum: 1
-                                maximum: 12
+                                maximum: 24
                               h:
                                 type: integer
                                 minimum: 1
-                                maximum: 12
                               static:
                                 type: boolean
                             required:
@@ -20143,18 +20123,17 @@ paths:
                               x:
                                 type: integer
                                 minimum: 0
-                                maximum: 11
+                                maximum: 23
                               'y':
                                 type: integer
                                 minimum: 0
                               w:
                                 type: integer
                                 minimum: 1
-                                maximum: 12
+                                maximum: 24
                               h:
                                 type: integer
                                 minimum: 1
-                                maximum: 12
                               static:
                                 type: boolean
                             required:
@@ -20201,18 +20180,17 @@ paths:
                               x:
                                 type: integer
                                 minimum: 0
-                                maximum: 11
+                                maximum: 23
                               'y':
                                 type: integer
                                 minimum: 0
                               w:
                                 type: integer
                                 minimum: 1
-                                maximum: 12
+                                maximum: 24
                               h:
                                 type: integer
                                 minimum: 1
-                                maximum: 12
                               static:
                                 type: boolean
                             required:
@@ -20307,18 +20285,17 @@ paths:
                               x:
                                 type: integer
                                 minimum: 0
-                                maximum: 11
+                                maximum: 23
                               'y':
                                 type: integer
                                 minimum: 0
                               w:
                                 type: integer
                                 minimum: 1
-                                maximum: 12
+                                maximum: 24
                               h:
                                 type: integer
                                 minimum: 1
-                                maximum: 12
                               static:
                                 type: boolean
                             required:
@@ -20416,18 +20393,17 @@ paths:
                               x:
                                 type: integer
                                 minimum: 0
-                                maximum: 11
+                                maximum: 23
                               'y':
                                 type: integer
                                 minimum: 0
                               w:
                                 type: integer
                                 minimum: 1
-                                maximum: 12
+                                maximum: 24
                               h:
                                 type: integer
                                 minimum: 1
-                                maximum: 12
                               static:
                                 type: boolean
                             required:
@@ -20509,18 +20485,17 @@ paths:
                               x:
                                 type: integer
                                 minimum: 0
-                                maximum: 11
+                                maximum: 23
                               'y':
                                 type: integer
                                 minimum: 0
                               w:
                                 type: integer
                                 minimum: 1
-                                maximum: 12
+                                maximum: 24
                               h:
                                 type: integer
                                 minimum: 1
-                                maximum: 12
                               static:
                                 type: boolean
                             required:
@@ -20560,18 +20535,17 @@ paths:
                               x:
                                 type: integer
                                 minimum: 0
-                                maximum: 11
+                                maximum: 23
                               'y':
                                 type: integer
                                 minimum: 0
                               w:
                                 type: integer
                                 minimum: 1
-                                maximum: 12
+                                maximum: 24
                               h:
                                 type: integer
                                 minimum: 1
-                                maximum: 12
                               static:
                                 type: boolean
                             required:
@@ -20612,18 +20586,17 @@ paths:
                               x:
                                 type: integer
                                 minimum: 0
-                                maximum: 11
+                                maximum: 23
                               'y':
                                 type: integer
                                 minimum: 0
                               w:
                                 type: integer
                                 minimum: 1
-                                maximum: 12
+                                maximum: 24
                               h:
                                 type: integer
                                 minimum: 1
-                                maximum: 12
                               static:
                                 type: boolean
                             required:
@@ -30259,7 +30232,7 @@ components:
           type: object
           properties:
             cols:
-              default: 12
+              default: 24
               type: integer
               minimum: 1
               maximum: 24
@@ -30322,18 +30295,17 @@ components:
                       x:
                         type: integer
                         minimum: 0
-                        maximum: 11
+                        maximum: 23
                       'y':
                         type: integer
                         minimum: 0
                       w:
                         type: integer
                         minimum: 1
-                        maximum: 12
+                        maximum: 24
                       h:
                         type: integer
                         minimum: 1
-                        maximum: 12
                       static:
                         type: boolean
                     required:
@@ -30432,18 +30404,17 @@ components:
                       x:
                         type: integer
                         minimum: 0
-                        maximum: 11
+                        maximum: 23
                       'y':
                         type: integer
                         minimum: 0
                       w:
                         type: integer
                         minimum: 1
-                        maximum: 12
+                        maximum: 24
                       h:
                         type: integer
                         minimum: 1
-                        maximum: 12
                       static:
                         type: boolean
                     required:
@@ -30486,18 +30457,17 @@ components:
                       x:
                         type: integer
                         minimum: 0
-                        maximum: 11
+                        maximum: 23
                       'y':
                         type: integer
                         minimum: 0
                       w:
                         type: integer
                         minimum: 1
-                        maximum: 12
+                        maximum: 24
                       h:
                         type: integer
                         minimum: 1
-                        maximum: 12
                       static:
                         type: boolean
                     required:
@@ -30553,18 +30523,17 @@ components:
                       x:
                         type: integer
                         minimum: 0
-                        maximum: 11
+                        maximum: 23
                       'y':
                         type: integer
                         minimum: 0
                       w:
                         type: integer
                         minimum: 1
-                        maximum: 12
+                        maximum: 24
                       h:
                         type: integer
                         minimum: 1
-                        maximum: 12
                       static:
                         type: boolean
                     required:
@@ -30668,18 +30637,17 @@ components:
                       x:
                         type: integer
                         minimum: 0
-                        maximum: 11
+                        maximum: 23
                       'y':
                         type: integer
                         minimum: 0
                       w:
                         type: integer
                         minimum: 1
-                        maximum: 12
+                        maximum: 24
                       h:
                         type: integer
                         minimum: 1
-                        maximum: 12
                       static:
                         type: boolean
                     required:
@@ -30786,18 +30754,17 @@ components:
                       x:
                         type: integer
                         minimum: 0
-                        maximum: 11
+                        maximum: 23
                       'y':
                         type: integer
                         minimum: 0
                       w:
                         type: integer
                         minimum: 1
-                        maximum: 12
+                        maximum: 24
                       h:
                         type: integer
                         minimum: 1
-                        maximum: 12
                       static:
                         type: boolean
                     required:
@@ -30888,18 +30855,17 @@ components:
                       x:
                         type: integer
                         minimum: 0
-                        maximum: 11
+                        maximum: 23
                       'y':
                         type: integer
                         minimum: 0
                       w:
                         type: integer
                         minimum: 1
-                        maximum: 12
+                        maximum: 24
                       h:
                         type: integer
                         minimum: 1
-                        maximum: 12
                       static:
                         type: boolean
                     required:
@@ -30948,18 +30914,17 @@ components:
                       x:
                         type: integer
                         minimum: 0
-                        maximum: 11
+                        maximum: 23
                       'y':
                         type: integer
                         minimum: 0
                       w:
                         type: integer
                         minimum: 1
-                        maximum: 12
+                        maximum: 24
                       h:
                         type: integer
                         minimum: 1
-                        maximum: 12
                       static:
                         type: boolean
                     required:
@@ -31009,18 +30974,17 @@ components:
                       x:
                         type: integer
                         minimum: 0
-                        maximum: 11
+                        maximum: 23
                       'y':
                         type: integer
                         minimum: 0
                       w:
                         type: integer
                         minimum: 1
-                        maximum: 12
+                        maximum: 24
                       h:
                         type: integer
                         minimum: 1
-                        maximum: 12
                       static:
                         type: boolean
                     required:
@@ -31321,18 +31285,17 @@ components:
                       x:
                         type: integer
                         minimum: 0
-                        maximum: 11
+                        maximum: 23
                       'y':
                         type: integer
                         minimum: 0
                       w:
                         type: integer
                         minimum: 1
-                        maximum: 12
+                        maximum: 24
                       h:
                         type: integer
                         minimum: 1
-                        maximum: 12
                       static:
                         type: boolean
                     required:
@@ -31642,18 +31605,17 @@ components:
                       x:
                         type: integer
                         minimum: 0
-                        maximum: 11
+                        maximum: 23
                       'y':
                         type: integer
                         minimum: 0
                       w:
                         type: integer
                         minimum: 1
-                        maximum: 12
+                        maximum: 24
                       h:
                         type: integer
                         minimum: 1
-                        maximum: 12
                       static:
                         type: boolean
                     required:

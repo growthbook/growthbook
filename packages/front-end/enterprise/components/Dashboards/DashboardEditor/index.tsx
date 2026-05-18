@@ -31,7 +31,6 @@ import {
   DashboardShareLevel,
   DashboardUpdateSchedule,
   DASHBOARD_GRID_COLS,
-  DASHBOARD_BLOCK_MAX_H,
   DASHBOARD_GRID_ROW_HEIGHT_DEFAULT,
   getBlockSizeBounds,
 } from "shared/enterprise";
@@ -170,8 +169,9 @@ export function getGridKeyForBlock(
 
 // Build the RGL LayoutItem[] from blocks. Blocks without an existing layout
 // get stacked full-width below the highest occupied y so they don't collide.
-// minW/minH come from the shared per-type defaults; maxW/maxH are always the
-// absolute grid caps. None of these constraints are persisted.
+// minW/minH come from the shared per-type defaults; maxW is the absolute grid
+// cap. Height is intentionally uncapped. None of these constraints are
+// persisted.
 export function buildRGLLayout(
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
   cols: number = DASHBOARD_GRID_COLS,
@@ -186,24 +186,22 @@ export function buildRGLLayout(
     const i = getGridKeyForBlock(block, index);
     const bounds = getBlockSizeBounds(block.type);
     const maxW = cols;
-    const maxH = DASHBOARD_BLOCK_MAX_H;
     if (block.layout) {
       const item: LayoutItem = {
         i,
         x: block.layout.x,
         y: block.layout.y,
         w: Math.min(block.layout.w, maxW),
-        h: Math.min(block.layout.h, maxH),
+        h: Math.max(1, block.layout.h),
         minW: bounds.minW,
         minH: bounds.minH,
         maxW,
-        maxH,
       };
       if (block.layout.static) item.static = true;
       return item;
     }
     const w = Math.min(bounds.w, maxW);
-    const h = Math.min(bounds.h, maxH);
+    const h = Math.max(1, bounds.h);
     const layout: LayoutItem = {
       i,
       x: 0,
@@ -213,7 +211,6 @@ export function buildRGLLayout(
       minW: bounds.minW,
       minH: bounds.minH,
       maxW,
-      maxH,
     };
     nextY += h;
     return layout;
@@ -884,6 +881,11 @@ function DashboardGrid({
   // interaction so the user can't shuffle blocks mid-edit.
   const isInteractive =
     isEditing && !editSidebarDirty && !isDefined(stagedBlockIndex);
+  // When we're in edit mode but interaction is disabled (because the edit
+  // drawer is open), keep the resize handle visible-but-dimmed and surface a
+  // tooltip explaining why it doesn't respond. Outside of edit mode the
+  // handle is hidden entirely, so no overlay is needed.
+  const showDisabledResizeOverlay = isEditing && !isInteractive;
 
   return (
     <div
@@ -898,6 +900,7 @@ function DashboardGrid({
           width={width}
           className={clsx("dashboard-grid", {
             "is-editing": isEditing,
+            "is-resize-disabled": showDisabledResizeOverlay,
           })}
           layouts={layouts}
           breakpoints={RGL_BREAKPOINTS}
@@ -921,6 +924,25 @@ function DashboardGrid({
             return (
               <div key={key} className="dashboard-grid-item">
                 {renderBlock(block, i)}
+                {showDisabledResizeOverlay && (
+                  // Tooltip wraps its children in an inline <span> and anchors
+                  // its popper to that span. We put the overlay styles on the
+                  // span itself (via className) so Popper measures the corner
+                  // hit target instead of a collapsed zero-size box. The inner
+                  // child is a placeholder to suppress Tooltip's GBInfo
+                  // fallback when no children are provided.
+                  <Tooltip
+                    body="Close the edit panel to resize this block"
+                    tipPosition="top"
+                    className="dashboard-resize-handle-disabled-overlay"
+                    // Render through a portal so the popper escapes the grid's
+                    // stacking context - otherwise the edit drawer (which has
+                    // its own stacking context above the grid) clips it.
+                    usePortal
+                  >
+                    <span aria-hidden />
+                  </Tooltip>
+                )}
               </div>
             );
           })}

@@ -28,7 +28,12 @@ export const dashboardUpdateSchedule = z.discriminatedUnion("type", [
 export const DASHBOARD_GRID_ROW_HEIGHT_DEFAULT = 40;
 export const dashboardGridConfig = z
   .object({
-    cols: z.number().int().min(1).max(24).default(DASHBOARD_GRID_COLS),
+    cols: z
+      .number()
+      .int()
+      .min(1)
+      .max(DASHBOARD_GRID_COLS)
+      .default(DASHBOARD_GRID_COLS),
     rowHeight: z
       .number()
       .int()

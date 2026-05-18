@@ -10,7 +10,6 @@ import {
   getBlockData,
   getInitialConfigByBlockType,
   DASHBOARD_GRID_COLS,
-  DASHBOARD_BLOCK_MAX_H,
 } from "shared/enterprise";
 import { LayoutItem } from "react-grid-layout";
 import { Container, Flex, IconButton, Text } from "@radix-ui/themes";
@@ -480,7 +479,7 @@ export default function DashboardWorkspace({
                     const l = byId.get(b.id);
                     if (!l) return b;
                     const w = Math.min(l.w, DASHBOARD_GRID_COLS);
-                    const h = Math.min(l.h, DASHBOARD_BLOCK_MAX_H);
+                    const h = Math.max(1, l.h);
                     const nextLayout = {
                       x: l.x,
                       y: l.y,
