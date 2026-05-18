@@ -10068,6 +10068,41 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/experiments/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/start-checklist:
+    get:
+      operationId: getExperimentStartChecklist
+      summary: Get an experiment pre-launch checklist status
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  checklistItems:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/checklistItems'
+                  status:
+                    type: string
+                    enum:
+                      - ready
+                      - notReady
+                required:
+                  - checklistItems
+                  - status
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/start-checklist'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/results:
     get:
       operationId: getExperimentResults
@@ -10135,6 +10170,61 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/experiments/exp_abc123/start' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/start-checklist/manual/complete:
+    post:
+      operationId: postExperimentStartChecklistManualComplete
+      summary: Mark manual pre-launch checklist items complete
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                keys:
+                  description: >-
+                    Manual pre-launch checklist item keys to mark as complete
+                    (auto-computed items cannot be updated via this endpoint).
+                  minItems: 1
+                  type: array
+                  items:
+                    type: string
+              required:
+                - keys
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  checklistItems:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/checklistItems'
+                  status:
+                    type: string
+                    enum:
+                      - ready
+                      - notReady
+                required:
+                  - checklistItems
+                  - status
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/start-checklist/manual/complete'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"keys":["Stakeholder sign-off","QA complete"]}'
   /v1/experiments/{id}/stop:
     post:
       operationId: postExperimentStop
@@ -33346,6 +33436,29 @@ components:
                 - value
               additionalProperties: false
             - type: 'null'
+      additionalProperties: false
+    checklistItems:
+      type: object
+      properties:
+        key:
+          type: string
+        required:
+          type: boolean
+        status:
+          type: string
+          enum:
+            - complete
+            - incomplete
+        manual:
+          type: boolean
+        reason:
+          type: string
+      required:
+        - key
+        - required
+        - status
+        - manual
+        - reason
       additionalProperties: false
     snapshot:
       type: object
