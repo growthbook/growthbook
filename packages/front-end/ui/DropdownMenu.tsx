@@ -278,11 +278,13 @@ export function DropdownMenuItem({
           setLoading(true);
           try {
             await onClick(event);
+            setLoading(false);
+            closeDropdown?.();
           } catch (e) {
             setError(e.message);
             console.error(e);
+            setLoading(false);
           }
-          setLoading(false);
         }
       }}
       color={color}
