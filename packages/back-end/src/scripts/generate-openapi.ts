@@ -718,10 +718,10 @@ curl https://api.growthbook.io/api/v1/features \
       responses,
       "x-codeSamples": codeSamples,
     };
-    // Deprecated routes still appear in the spec (so SDK generators can pick
-    // them up if needed) but the docs hide them, so don't let their tags keep
-    // an otherwise-empty section alive in the sidebar.
-    if (!deprecated) tags?.forEach((t) => usedTags.add(t));
+    // Track tags used by emitted operations so we can prune empty endpoint
+    // sections from the spec below. Deprecated routes are already filtered
+    // out at the top of this loop, so anything reaching here is live.
+    tags?.forEach((t) => usedTags.add(t));
   }
 
   // Auto-discover tags from routes that aren't in the hardcoded openApiTags list
