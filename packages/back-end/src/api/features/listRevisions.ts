@@ -1,5 +1,6 @@
 import { listRevisionsValidator } from "shared/validators";
 import { stringToBoolean } from "shared/util";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   getFeatureRevisionsByStatus,
   countDocuments,
@@ -10,113 +11,151 @@ import {
   validatePagination,
 } from "back-end/src/util/handler";
 import { API_ALLOW_SKIP_PAGINATION } from "back-end/src/util/secrets";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import { toApiRevision } from "back-end/src/services/features";
 import { BadRequestError } from "back-end/src/util/errors";
 
-const emptyListResponse = (limit: number, offset: number) => ({
-  revisions: [],
-  limit,
-  offset,
-  count: 0,
-  total: 0,
-  hasMore: false,
-  nextOffset: null,
+export const emptyListResponse = (limit: number, offset: number) => ({
+  empty: true as const,
+  response: {
+    revisions: [] as never[],
+    limit,
+    offset,
+    count: 0,
+    total: 0,
+    hasMore: false,
+    nextOffset: null,
+  },
 });
+
+export async function loadRevisionsPage(
+  context: ApiReqContext,
+  organizationId: string,
+  query: {
+    featureId?: string;
+    status?: string;
+    author?: string;
+    mine?: string | boolean;
+    skipPagination?: string | boolean;
+    limit?: number;
+    offset?: number;
+  },
+) {
+  const { featureId, status, author } = query;
+
+  const mine = stringToBoolean(query.mine?.toString());
+  if (mine && author) {
+    throw new BadRequestError(
+      "`mine` and `author` are mutually exclusive. Pass one or the other.",
+    );
+  }
+  if (mine && !context.userId) {
+    throw new BadRequestError(
+      "`mine=true` requires a user-scoped API key (the caller must be identifiable as a user).",
+    );
+  }
+  const involvedUserId = mine ? context.userId : undefined;
+
+  const skipPagination = stringToBoolean(query.skipPagination?.toString());
+  if (skipPagination && !API_ALLOW_SKIP_PAGINATION) {
+    throw new Error(
+      "skipPagination is not allowed. Set API_ALLOW_SKIP_PAGINATION=true in API environment variables. Self-hosted only.",
+    );
+  }
+  let limit: number;
+  let offset: number;
+  if (skipPagination) {
+    limit = query.limit ?? 10;
+    offset = query.offset ?? 0;
+  } else {
+    ({ limit, offset } = validatePagination(query));
+  }
+
+  let featureIds: string[] | undefined;
+  let singleFeature: Awaited<ReturnType<typeof getFeature>> | undefined;
+  if (featureId) {
+    singleFeature = await getFeature(context, featureId);
+    if (!singleFeature) return emptyListResponse(limit, offset);
+  } else {
+    const readableProjects =
+      context.permissions.getProjectsWithPermission("readData");
+    if (readableProjects !== null) {
+      if (readableProjects.length === 0) {
+        return emptyListResponse(limit, offset);
+      }
+      const scopedFeatures = await getAllFeatures(context, {
+        projects: readableProjects,
+        includeArchived: true,
+      });
+      featureIds = scopedFeatures.map((f) => f.id);
+      if (featureIds.length === 0) {
+        return emptyListResponse(limit, offset);
+      }
+    }
+  }
+
+  const [revisions, total] = await Promise.all([
+    getFeatureRevisionsByStatus({
+      context,
+      organization: organizationId,
+      featureId,
+      featureIds,
+      status: status as Parameters<
+        typeof getFeatureRevisionsByStatus
+      >[0]["status"],
+      author,
+      involvedUserId,
+      limit,
+      offset,
+      sort: "desc",
+      skipPagination,
+    }),
+    countDocuments(organizationId, {
+      featureId,
+      featureIds,
+      status: status as NonNullable<
+        Parameters<typeof countDocuments>[1]
+      >["status"],
+      author,
+      involvedUserId,
+    }),
+  ]);
+
+  const hasMore = skipPagination ? false : offset + limit < total;
+  const nextOffset = hasMore ? offset + limit : null;
+  const outLimit = skipPagination ? total : limit;
+  const outOffset = skipPagination ? 0 : offset;
+
+  return {
+    empty: false as const,
+    revisions,
+    singleFeature,
+    total,
+    outLimit,
+    outOffset,
+    hasMore,
+    nextOffset,
+  };
+}
 
 export const listRevisions = createApiRequestHandler(listRevisionsValidator)(
   async (req) => {
-    const { featureId, status, author } = req.query;
-
-    const mine = stringToBoolean(req.query.mine?.toString());
-    if (mine && author) {
-      throw new BadRequestError(
-        "`mine` and `author` are mutually exclusive. Pass one or the other.",
-      );
-    }
-    if (mine && !req.context.userId) {
-      throw new BadRequestError(
-        "`mine=true` requires a user-scoped API key (the caller must be identifiable as a user).",
-      );
-    }
-    const involvedUserId = mine ? req.context.userId : undefined;
-
-    const skipPagination = stringToBoolean(
-      req.query.skipPagination?.toString(),
+    const r = await loadRevisionsPage(
+      req.context,
+      req.organization.id,
+      req.query,
     );
-    if (skipPagination && !API_ALLOW_SKIP_PAGINATION) {
-      throw new Error(
-        "skipPagination is not allowed. Set API_ALLOW_SKIP_PAGINATION=true in API environment variables. Self-hosted only.",
-      );
-    }
-    let limit: number;
-    let offset: number;
-    if (skipPagination) {
-      limit = req.query.limit ?? 10;
-      offset = req.query.offset ?? 0;
-    } else {
-      ({ limit, offset } = validatePagination(req.query));
-    }
-
-    // ACL: load the single feature (return [] if unreadable to avoid leaking
-    // existence), or restrict to readable projects when featureId is absent.
-    let featureIds: string[] | undefined;
-    if (featureId) {
-      const feature = await getFeature(req.context, featureId);
-      if (!feature) return emptyListResponse(limit, offset);
-    } else {
-      const readableProjects =
-        req.context.permissions.getProjectsWithPermission("readData");
-      if (readableProjects !== null) {
-        if (readableProjects.length === 0) {
-          return emptyListResponse(limit, offset);
-        }
-        const scopedFeatures = await getAllFeatures(req.context, {
-          projects: readableProjects,
-          includeArchived: true,
-        });
-        featureIds = scopedFeatures.map((f) => f.id);
-        if (featureIds.length === 0) {
-          return emptyListResponse(limit, offset);
-        }
-      }
-    }
-
-    const [revisions, total] = await Promise.all([
-      getFeatureRevisionsByStatus({
-        context: req.context,
-        organization: req.organization.id,
-        featureId,
-        featureIds,
-        status,
-        author,
-        involvedUserId,
-        limit,
-        offset,
-        sort: "desc",
-        skipPagination,
-      }),
-      countDocuments(req.organization.id, {
-        featureId,
-        featureIds,
-        status,
-        author,
-        involvedUserId,
-      }),
-    ]);
-
-    const mapped = revisions.map(revisionToApiInterface);
-    const hasMore = skipPagination ? false : offset + limit < total;
-    const nextOffset = hasMore ? offset + limit : null;
-    const outLimit = skipPagination ? total : limit;
-    const outOffset = skipPagination ? 0 : offset;
+    if (r.empty) return r.response;
+    const mapped = r.revisions.map((rev) =>
+      toApiRevision(rev, req.context, r.singleFeature),
+    );
     return {
       revisions: mapped,
-      limit: outLimit,
-      offset: outOffset,
+      limit: r.outLimit,
+      offset: r.outOffset,
       count: mapped.length,
-      total,
-      hasMore,
-      nextOffset,
+      total: r.total,
+      hasMore: r.hasMore,
+      nextOffset: r.nextOffset,
     };
   },
 );

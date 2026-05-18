@@ -24,6 +24,7 @@ import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
+import { runEagerPrecomputedDimensionAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { queriesSchema } from "./QueryModel";
@@ -502,6 +503,9 @@ export async function updateSnapshot({
     experimentSnapshot.type === "standard" &&
     experimentSnapshot.status === "success";
 
+  const shouldRunEagerPrecomputedDimensionAnalyses =
+    shouldUpdateExperimentAnalysisSummary && hasAnalysisUpdates;
+
   if (shouldUpdateExperimentAnalysisSummary) {
     const currentExperimentModel = await getExperimentById(
       context,
@@ -543,6 +547,23 @@ export async function updateSnapshot({
           },
           "Unable to update experiment time series",
         );
+      }
+
+      if (shouldRunEagerPrecomputedDimensionAnalyses) {
+        runEagerPrecomputedDimensionAnalyses({
+          context,
+          experiment: updatedExperimentModel,
+          experimentSnapshot,
+        }).catch((error) => {
+          logger.error(
+            {
+              err: error,
+              experimentId: currentExperimentModel.id,
+              snapshotId: experimentSnapshot.id,
+            },
+            "Unexpected unhandled rejection from runEagerPrecomputedDimensionAnalyses",
+          );
+        });
       }
     }
   }
@@ -706,6 +727,24 @@ export async function addOrUpdateSnapshotAnalysis(
     },
     updateDoc,
   );
+}
+
+export async function addOrUpdateSnapshotMultipleAnalysis({
+  context,
+  id,
+  analyses,
+}: {
+  context: Context;
+  id: string;
+  analyses: ExperimentSnapshotAnalysis[];
+}) {
+  for (const analysis of analyses) {
+    await addOrUpdateSnapshotAnalysis({
+      context,
+      id,
+      analysis,
+    });
+  }
 }
 
 export async function updateSnapshotAnalysis({

@@ -69,13 +69,13 @@ export async function checkAndRollbackSafeRollout({
   context,
   updatedSafeRollout,
   safeRolloutSnapshot,
-  ruleIndex,
+  ruleId,
   feature,
 }: {
   context: ReqContext;
   updatedSafeRollout: SafeRolloutInterface;
   safeRolloutSnapshot: SafeRolloutSnapshotInterface;
-  ruleIndex: number;
+  ruleId: string;
   feature: FeatureInterface;
 }): Promise<SafeRolloutStatus> {
   if (updatedSafeRollout.status !== "running") return updatedSafeRollout.status;
@@ -112,16 +112,17 @@ export async function checkAndRollbackSafeRollout({
       context,
       feature,
       revision,
-      updatedSafeRollout.environment,
-      ruleIndex,
+      ruleId,
       { status },
       context.auditUser,
       false,
+      updatedSafeRollout.environment,
     );
     const live = await getRevision({
       context,
       organization: updatedSafeRollout.organization,
       featureId: feature.id,
+      feature,
       version: feature.version,
     });
     if (!live) {
@@ -135,6 +136,7 @@ export async function checkAndRollbackSafeRollout({
             context,
             organization: updatedSafeRollout.organization,
             featureId: feature.id,
+            feature,
             version: revision.baseVersion,
           });
     if (!base) {

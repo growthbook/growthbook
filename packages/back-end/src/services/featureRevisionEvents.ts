@@ -5,14 +5,70 @@ import {
   ResourceEvents,
 } from "shared/types/events/base-types";
 import { FeatureRevisionUpdatedPayload } from "shared/validators";
+import { Environment } from "shared/types/organization";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { logger } from "back-end/src/util/logger";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import {
+  revisionToApiInterface,
+  toApiRevision,
+} from "back-end/src/services/features";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
+import { getEnvironments } from "back-end/src/util/organization.util";
 
 type RevisionChange = FeatureRevisionUpdatedPayload["change"];
+
+/**
+ * Envs a revision event applies to, used to fan out webhook/Slack
+ * notifications. Precedence: `overrideEnvironments` → union of rule scopes
+ * on `revision.rules` → feature's configured envs. Result is filtered to
+ * envs applicable to the feature's project.
+ */
+export function deriveRevisionEventEnvironments(
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  orgEnvs: Environment[],
+  overrideEnvironments?: string[],
+): string[] {
+  const featureProject = feature.project;
+  const inProject = (envId: string) => {
+    const envDef = orgEnvs.find((e) => e.id === envId);
+    return (
+      !envDef ||
+      !envDef.projects?.length ||
+      !featureProject ||
+      envDef.projects.includes(featureProject)
+    );
+  };
+
+  let rawEnvironments: string[];
+  if (overrideEnvironments !== undefined) {
+    rawEnvironments = overrideEnvironments;
+  } else if (Array.isArray(revision.rules) && revision.rules.length > 0) {
+    // Union of each rule's scope. `allEnvironments: true` expands to the
+    // feature's applicable envs, not every org env. Nullish slots (sparse
+    // pre-v2 docs) are skipped defensively — JIT-boundary filters already
+    // drop them, but this loop fans out into event dispatch so a guard here
+    // protects against any future regression.
+    const applicableEnvs = getApplicableEnvIds(orgEnvs, featureProject);
+    const declared = new Set<string>();
+    for (const rule of revision.rules) {
+      if (rule == null || typeof rule !== "object") continue;
+      if (rule.allEnvironments) {
+        applicableEnvs.forEach((e) => declared.add(e));
+      } else if (rule.environments?.length) {
+        rule.environments.forEach((e) => declared.add(e));
+      }
+    }
+    rawEnvironments = [...declared];
+  } else {
+    rawEnvironments = Object.keys(feature.environmentSettings ?? {});
+  }
+
+  return rawEnvironments.filter(inProject);
+}
 
 type FeatureRevisionEvent = Extract<
   ResourceEvents<"feature">,
@@ -47,32 +103,15 @@ export async function dispatchFeatureRevisionEvent<
   opts: { environments?: string[] } = {},
 ): Promise<void> {
   try {
-    const apiRevision = revisionToApiInterface(revision);
+    const apiRevision = toApiRevision(revision, ctx, feature);
     const projects = feature.project ? [feature.project] : [];
     const tags = feature.tags ?? [];
-    // Environment filter precedence:
-    //   1. Caller-provided (e.g. specific env(s) touched for revision.updated)
-    //   2. Envs declared on the revision
-    //   3. All envs configured on the feature
-    // In all cases, filter to envs that belong to the feature's project so that
-    // webhook/Slack filters scoped to a project don't receive irrelevant envs.
-    const featureProject = feature.project;
-    const orgEnvs = ctx.org.settings?.environments ?? [];
-    const inProject = (envId: string) => {
-      const envDef = orgEnvs.find((e) => e.id === envId);
-      return (
-        !envDef ||
-        !envDef.projects?.length ||
-        !featureProject ||
-        envDef.projects.includes(featureProject)
-      );
-    };
-    const rawEnvironments =
-      opts.environments ??
-      (revision.rules && Object.keys(revision.rules).length > 0
-        ? Object.keys(revision.rules)
-        : Object.keys(feature.environmentSettings ?? {}));
-    const environments = rawEnvironments.filter(inProject);
+    const environments = deriveRevisionEventEnvironments(
+      feature,
+      revision,
+      getEnvironments(ctx.org),
+      opts.environments,
+    );
 
     const object = {
       ...apiRevision,

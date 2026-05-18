@@ -133,6 +133,7 @@ export default function ExplorerSideBar({
                   <PaidFeatureBadge
                     commercialFeature="product-analytics-dashboards"
                     useTip={false}
+                    inheritColor
                   />
                   Save to Dashboard
                 </Flex>

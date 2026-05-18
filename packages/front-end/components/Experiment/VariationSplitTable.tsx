@@ -143,7 +143,10 @@ export default function VariationSplitTable<TRow>({
         <TableHeader>
           <TableRow>
             <TableColumnHeader>Variation</TableColumnHeader>
-            <TableColumnHeader justify="end" style={{ width: SPLIT_COLUMN_WIDTH }}>
+            <TableColumnHeader
+              justify="end"
+              style={{ width: SPLIT_COLUMN_WIDTH }}
+            >
               Split
               {!disableCustomSplit && !editingSplits && (
                 <Tooltip

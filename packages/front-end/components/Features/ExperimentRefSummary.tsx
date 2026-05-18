@@ -15,6 +15,7 @@ import ValidateValue from "@/components/Features/ValidateValue";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
+import SkippedVariationBadge from "@/components/Experiment/SkippedVariationBadge";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
 import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
@@ -240,6 +241,7 @@ export default function ExperimentRefSummary({
                       ?.value ?? "null";
 
                   const weight = phase.variationWeights?.[j] || 0;
+                  const isSkipped = variation.status === "passThrough";
 
                   return (
                     <TableRow
@@ -267,6 +269,7 @@ export default function ExperimentRefSummary({
                             {j}
                           </span>
                           <Text weight="medium">{variation.name}</Text>
+                          {isSkipped && <SkippedVariationBadge addArrow />}
                         </Flex>
                       </TableCell>
                       <TableCell width="100%">

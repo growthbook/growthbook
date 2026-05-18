@@ -9,7 +9,7 @@ import isEqual from "lodash/isEqual";
 import { useEffect, useMemo, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
 import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
-import { Flex, Box, Text } from "@radix-ui/themes";
+import { Flex, Box } from "@radix-ui/themes";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
@@ -33,17 +33,18 @@ import SelectField from "@/components//Forms/SelectField";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import track from "@/services/track";
 import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import RemoveVariationsSection, {
   RemoveVariationDraftVariation,
   RemoveVariationMode,
 } from "@/components/Experiment/RemoveVariationsSection";
 import VariationSplitTable from "@/components/Experiment/VariationSplitTable";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";
@@ -363,7 +364,7 @@ export default function EditTargetingModal({
 
   if (safeToEdit) {
     return (
-      <Modal
+      <ModalStandard
         trackingEventModalType=""
         open={true}
         close={close}
@@ -384,7 +385,7 @@ export default function EditTargetingModal({
           setRemoveVariationDraft={setRemoveVariationDraft}
           setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
         />
-      </Modal>
+      </ModalStandard>
     );
   }
 
@@ -434,9 +435,9 @@ export default function EditTargetingModal({
             <Callout status="warning" contentsAs="div">
               <Flex align="center" justify="between" gap="3">
                 <Text>
-                  <Text weight="bold">Warning:</Text> Changes made will apply to
-                  linked Feature Flags, Visual Changes, and URL Redirects
-                  immediately upon publishing
+                  <Text weight="semibold">Warning:</Text> Changes made will
+                  apply to linked Feature Flags, Visual Changes, and URL
+                  Redirects immediately upon publishing
                 </Text>
                 <Box>
                   <label
@@ -448,7 +449,7 @@ export default function EditTargetingModal({
                       cursor: "pointer",
                     }}
                   >
-                    <Text weight="bold">Confirm</Text>
+                    <Text weight="semibold">Confirm</Text>
                     <input
                       id="confirm-changes"
                       type="checkbox"
@@ -852,15 +853,7 @@ function TargetingForm({
                     >
                       {v.index}
                     </span>
-                    <Text
-                      style={{
-                        whiteSpace: "normal",
-                        wordBreak: "break-word",
-                        lineHeight: "1.4",
-                      }}
-                    >
-                      {v.name}
-                    </Text>
+                    <Text whiteSpace="normal">{v.name}</Text>
                   </Flex>
                 )}
               />

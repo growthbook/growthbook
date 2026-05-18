@@ -28,8 +28,12 @@ const EnvironmentSelect: FC<{
 
   return (
     <div className="form-group">
-      <Text as="label" weight="bold" mb="2">
+      <Text as="label" weight="bold" mb="1">
         {label || "Enabled Environments"}
+      </Text>
+      <Text as="p" size="1" color="gray" mb="2">
+        Which environments are toggled <strong>ON</strong> by default in the new
+        feature. Disabled environments will be excluded from the SDK Payload.
       </Text>
       <Box
         className="box"

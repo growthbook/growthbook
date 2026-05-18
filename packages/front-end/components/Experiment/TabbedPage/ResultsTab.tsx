@@ -4,6 +4,7 @@ import { getScopedSettings } from "shared/settings";
 import {
   isPrecomputedDimension,
   getEffectiveLookbackOverride,
+  getSkippedVariationIndexes,
 } from "shared/experiments";
 import React, { useState, useCallback } from "react";
 import {
@@ -167,10 +168,10 @@ export default function ResultsTab({
       ...prev,
       dimension: isPrecomputedDimension(prev.dimension) ? "" : prev.dimension,
       baselineRow: 0,
-      variationFilter: [],
+      variationFilter: getSkippedVariationIndexes(experiment),
       differenceType: "relative",
     }));
-  }, [setAnalysisBarSettings, setAnalysisSettings]);
+  }, [experiment, setAnalysisBarSettings, setAnalysisSettings]);
 
   const endDate =
     experiment.status !== "running" ? snapshot?.settings?.endDate : undefined;
@@ -345,7 +346,7 @@ export default function ResultsTab({
                   ? {
                       baselineRow: 0,
                       differenceType: "relative",
-                      variationFilter: [],
+                      variationFilter: getSkippedVariationIndexes(experiment),
                     }
                   : {}),
               })

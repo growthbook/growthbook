@@ -82,3 +82,63 @@ export function getAllVariations(
     index: i,
   }));
 }
+
+/**
+ * Returns the indexes of variations that are disabled (passThrough) in the
+ * latest phase. These are the indexes consumers should hide from the results
+ * table variation selector by default — the user can opt back in via the
+ * "Show Variations" dropdown.
+ */
+export function getSkippedVariationIndexes(
+  experiment: ExperimentWithVariationsAndPhases,
+): number[] {
+  return getLatestPhaseVariations(experiment)
+    .filter((v) => v.status === "passThrough")
+    .map((v) => v.index);
+}
+
+export type VariationPhaseDisplayStatus = "active" | "passThrough" | "deleted";
+
+export type VariationWithPhaseDisplayStatus = Variation & {
+  index: number;
+  displayStatus: VariationPhaseDisplayStatus;
+};
+
+/**
+ * Returns the variations to display for an experiment along with their
+ * effective phase status:
+ *   - "active" or "passThrough": present in the latest phase
+ *   - "deleted": absent from the latest phase but present in at least one
+ *     past phase (so it ran historically and we still want to surface it)
+ *
+ * Variations that aren't referenced by any phase are returned as "active"
+ * to match the pre-phase-aware behavior (e.g. brand new draft experiments).
+ */
+export function getVariationsForDisplay(
+  experiment: ExperimentWithVariationsAndPhases,
+): VariationWithPhaseDisplayStatus[] {
+  const all = getAllVariations(experiment);
+  const phases = experiment.phases ?? [];
+  const latestPhase = phases[phases.length - 1];
+
+  const latestStatusById = new Map<string, VariationStatus>();
+  latestPhase?.variations?.forEach((v) => {
+    latestStatusById.set(v.id, v.status);
+  });
+
+  const pastPhaseIds = new Set<string>();
+  for (let i = 0; i < phases.length - 1; i++) {
+    phases[i]?.variations?.forEach((v) => pastPhaseIds.add(v.id));
+  }
+
+  return all.map((v) => {
+    const latestStatus = latestStatusById.get(v.id);
+    if (latestStatus) {
+      return { ...v, displayStatus: latestStatus };
+    }
+    if (pastPhaseIds.has(v.id)) {
+      return { ...v, displayStatus: "deleted" as const };
+    }
+    return { ...v, displayStatus: "active" as const };
+  });
+}

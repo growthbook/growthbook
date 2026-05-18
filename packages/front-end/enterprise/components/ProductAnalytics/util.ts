@@ -491,6 +491,45 @@ export function compareConfig(
   return { needsFetch, needsUpdate: true };
 }
 
+export type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
+
+export function formatDateByGranularity(
+  date: Date,
+  granularity: ResolvedGranularity,
+): string {
+  switch (granularity) {
+    case "year":
+      return date.toLocaleDateString(undefined, { year: "numeric" });
+    case "month":
+      return date.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "long",
+      });
+    case "week":
+      return `Week of ${date.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })}`;
+    case "hour":
+      return `${date.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })} ${date.toLocaleTimeString(undefined, {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`;
+    case "day":
+    default:
+      return date.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+  }
+}
+
 export function getRefreshInterval(elapsedSeconds: number): number {
   if (elapsedSeconds < 60) return 10_000; // 0-59s: update every 10s
   if (elapsedSeconds < 3600) return 60_000; // 1-59m: update every 60s

@@ -654,7 +654,9 @@ export default function AnalysisSettingsSummary({
                 dateCreated={snapshot?.dateCreated}
                 latestQueryDate={latest?.dateCreated}
                 nextUpdate={experiment.nextSnapshotAttempt}
-                autoUpdateEnabled={experiment.autoSnapshots}
+                autoUpdateEnabled={
+                  experiment.autoSnapshots && !experiment.disableAutoSnapshots
+                }
                 showAutoUpdateWidget={true}
                 failedString={
                   latest && !latest.queries.length && latest.error

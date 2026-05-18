@@ -5,6 +5,7 @@ import {
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { isDefined, experimentHasLiveLinkedChanges } from "shared/util";
+import { getSkippedVariationIndexes } from "shared/experiments";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -76,8 +77,10 @@ export interface Props {
   duplicate?: (() => void) | null;
   editTags?: (() => void) | null;
   checklistItemsRemaining: number | null;
+  checklistHardBlockerCount: number;
   envs: string[];
   setChecklistItemsRemaining: (value: number | null) => void;
+  setChecklistHardBlockerCount: (value: number) => void;
   editVariations?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
   urlRedirects: URLRedirectInterface[];
@@ -111,7 +114,9 @@ export default function TabbedPage({
   editMetrics,
   editResult,
   checklistItemsRemaining,
+  checklistHardBlockerCount,
   setChecklistItemsRemaining,
+  setChecklistHardBlockerCount,
   editHoldoutSchedule,
   visualChangesetEnvStates,
   urlRedirectEnvStates,
@@ -141,6 +146,8 @@ export default function TabbedPage({
     experiment.defaultDashboardId ? true : false,
   );
 
+  const defaultVariationFilter = getSkippedVariationIndexes(experiment);
+
   // Results tab filters
   const [analysisBarSettings, setAnalysisBarSettings] = useState<{
     dimension: string;
@@ -150,7 +157,7 @@ export default function TabbedPage({
   }>({
     dimension: "",
     baselineRow: 0,
-    variationFilter: [],
+    variationFilter: defaultVariationFilter,
     differenceType: "relative",
   });
   const [metricTagFilter, setMetricTagFilter] = useLocalStorage<string[]>(
@@ -498,6 +505,9 @@ export default function TabbedPage({
           close={() => setFeatureModal(false)}
           mutate={mutate}
           source={trackSource}
+          reAddableFeatureIds={linkedFeatures
+            .filter((f) => f.state === "discarded")
+            .map((f) => f.feature.id)}
         />
       )}
       {/* TODO: Update Experiment Header props to include redirect and pipe through to StartExperimentBanner */}
@@ -522,6 +532,7 @@ export default function TabbedPage({
         editPhases={editPhases}
         healthNotificationCount={healthNotificationCount}
         checklistItemsRemaining={checklistItemsRemaining}
+        checklistHardBlockerCount={checklistHardBlockerCount}
         linkedFeatures={linkedFeatures}
         showDashboardView={showDashboardView}
         safeToEdit={safeToEdit}
@@ -614,6 +625,7 @@ export default function TabbedPage({
             matchingConnections={matchingConnections}
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
+            setChecklistHardBlockerCount={setChecklistHardBlockerCount}
             envs={envs}
             editHoldoutSchedule={editHoldoutSchedule}
           />
@@ -747,7 +759,7 @@ export default function TabbedPage({
               ...analysisBarSettings,
               baselineRow: 0,
               differenceType: "relative",
-              variationFilter: [],
+              variationFilter: defaultVariationFilter,
             });
           }}
         />

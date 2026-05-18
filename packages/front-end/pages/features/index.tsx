@@ -341,23 +341,27 @@ export default function FeaturesPage() {
                     </td>
                     {showGraphs && (
                       <td style={{ width: 170 }}>
-                        <RealTimeFeatureGraph
-                          data={usage?.[feature.id]?.realtime || []}
-                          yDomain={usageDomain}
-                        />
+                        {!feature.archived && (
+                          <RealTimeFeatureGraph
+                            data={usage?.[feature.id]?.realtime || []}
+                            yDomain={usageDomain}
+                          />
+                        )}
                       </td>
                     )}
                     <td>
-                      <StaleFeatureIcon
-                        context="list"
-                        neverStale={feature.neverStale}
-                        valueType={feature.valueType}
-                        staleData={staleHook.getStaleState(feature.id)}
-                        fetchStaleData={async () => {
-                          staleHook.invalidate([feature.id]);
-                          await staleHook.fetchSome([feature.id]);
-                        }}
-                      />
+                      {!feature.archived && (
+                        <StaleFeatureIcon
+                          context="list"
+                          neverStale={feature.neverStale}
+                          valueType={feature.valueType}
+                          staleData={staleHook.getStaleState(feature.id)}
+                          fetchStaleData={async () => {
+                            staleHook.invalidate([feature.id]);
+                            await staleHook.fetchSome([feature.id]);
+                          }}
+                        />
+                      )}
                     </td>
                     <td>
                       <MoreMenu>

@@ -126,6 +126,20 @@ export const variation = z
   .strict();
 export type Variation = z.infer<typeof variation>;
 
+export const manualLaunchChecklistItemValidator = z
+  .object({
+    key: z.string(),
+    status: z.enum(["complete", "incomplete"]),
+  })
+  .strict();
+export type ManualLaunchChecklistItem = z.infer<
+  typeof manualLaunchChecklistItemValidator
+>;
+
+export const manualLaunchChecklistValidator = z.array(
+  manualLaunchChecklistItemValidator,
+);
+
 export const attributionModel = [
   "firstExposure",
   "experimentDuration",
@@ -360,20 +374,25 @@ export const experimentInterface = z
     lastSnapshotAttempt: z.date().optional(),
     nextSnapshotAttempt: z.date().optional(),
     autoSnapshots: z.boolean(),
+    disableAutoSnapshots: z.boolean().optional(),
     ideaSource: z.string().optional(),
     hasVisualChangesets: z.boolean().optional(),
     hasURLRedirects: z.boolean().optional(),
     linkedFeatures: z.array(z.string()).optional(),
-    manualLaunchChecklist: z
+    // Drafts queued for auto-publish on `status -> running`. Each
+    // (featureId, revisionVersion) pair is its own row — multiple drafts of
+    // the same feature can be queued and are merged sequentially at start.
+    pendingFeatureDrafts: z
       .array(
         z
           .object({
-            key: z.string(),
-            status: z.enum(["complete", "incomplete"]),
+            featureId: z.string(),
+            revisionVersion: z.number(),
           })
           .strict(),
       )
       .optional(),
+    manualLaunchChecklist: manualLaunchChecklistValidator.optional(),
     type: z.enum(experimentType).optional(),
     banditStage: z.enum(banditStageType).optional(),
     banditStageDateStarted: z.date().optional(),
@@ -1251,6 +1270,89 @@ const updateExperimentBody = z
   })
   .strict();
 
+const postExperimentStartBody = z
+  .object({
+    skipChecklist: z
+      .boolean()
+      .describe(
+        "If true, skips validating the experiment satisifies all pre-launch checklist items",
+      )
+      .optional(),
+  })
+  .strict()
+  .optional();
+
+const postExperimentStartChecklistManualCompleteBody = z
+  .object({
+    keys: z
+      .array(z.string())
+      .min(1)
+      .describe(
+        "Manual pre-launch checklist item keys to mark as complete (auto-computed items cannot be updated via this endpoint).",
+      ),
+  })
+  .strict();
+
+const postExperimentStopBody = z
+  .object({
+    results: z
+      .enum(experimentResultsType)
+      .describe("The experiment conclusion status."),
+    enableTemporaryRollout: z
+      .boolean()
+      .describe(
+        "If true, include this stopped experiment in SDK payload and force the release variation (`releasedVariationId`) to all traffic.",
+      )
+      .optional(),
+    releasedVariationId: z
+      .string()
+      .describe(
+        "Required if enableTemporaryRollout is true. Variation ID (e.g. var_abc123) to release to 100% of traffic eligible for this experiment.",
+      )
+      .optional(),
+    winnerVariationId: z
+      .string()
+      .describe(
+        "Variation ID (e.g. var_abc123) of the winning variation. Used only as metadata. Required if results is 'won' and there are multiple test variations. Otherwise, defaults to the test variation when results is 'won' and to the baseline variation for other results.",
+      )
+      .optional(),
+    analysis: z
+      .string()
+      .describe(
+        "Optional markdown summary displayed on the experiment results page.",
+      )
+      .optional(),
+    reason: z
+      .string()
+      .describe(
+        "Optional reason for ending the phase stored on the latest phase metadata.",
+      )
+      .optional(),
+    dateEnded: z
+      .string()
+      .describe(
+        "Optional ISO datetime for ending the latest phase. Defaults to the current date and time.",
+      )
+      .optional(),
+  })
+  .strict();
+
+const postExperimentModifyTemporaryRolloutBody = z
+  .object({
+    enableTemporaryRollout: z
+      .boolean()
+      .describe(
+        "If true, keep the stopped experiment in SDK payload and force traffic to the winner variation. If false, end temporary rollout and remove from SDK payload.",
+      ),
+    releasedVariationId: z
+      .string()
+      .describe(
+        "Variation ID (e.g. var_abc123) to release to 100% of traffic eligible for this experiment. Required if enableTemporaryRollout is true.",
+      )
+      .optional(),
+  })
+  .strict();
+
 // Common params
 const idParams = z
   .object({
@@ -1367,6 +1469,49 @@ export const getExperimentValidator = {
   exampleRequest: { params: { id: "abc123" } },
 };
 
+const checklistStatusValidator = z.enum(["complete", "incomplete"]);
+export type ChecklistStatus = z.infer<typeof checklistStatusValidator>;
+
+const startChecklistItemStatusValidator = z
+  .object({
+    key: z.string(),
+    required: z.boolean(),
+    status: checklistStatusValidator,
+    manual: z.boolean(),
+    reason: z.string(),
+  })
+  .strict();
+
+export type StartChecklistItemStatus = z.infer<
+  typeof startChecklistItemStatusValidator
+>;
+
+const experimentStartChecklistStatusValidator = z.enum(["ready", "notReady"]);
+
+export type ExperimentStartChecklistStatus = z.infer<
+  typeof experimentStartChecklistStatusValidator
+>;
+
+const experimentStartChecklistResponseValidator = z
+  .object({
+    checklistItems: z.array(startChecklistItemStatusValidator),
+    status: experimentStartChecklistStatusValidator,
+  })
+  .strict();
+
+export const getExperimentStartChecklistValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: experimentStartChecklistResponseValidator,
+  summary: "Get an experiment pre-launch checklist status",
+  operationId: "getExperimentStartChecklist",
+  tags: ["experiments"],
+  method: "get" as const,
+  path: "/experiments/:id/start-checklist",
+  exampleRequest: { params: { id: "exp_abc123" } },
+};
+
 export const updateExperimentValidator = {
   bodySchema: updateExperimentBody,
   querySchema: z.never(),
@@ -1383,6 +1528,92 @@ export const updateExperimentValidator = {
   path: "/experiments/:id",
 };
 
+export const postExperimentStartValidator = {
+  bodySchema: postExperimentStartBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      experiment: apiExperimentWithEnhancedStatus,
+    })
+    .strict(),
+  summary: "Start an experiment",
+  operationId: "postExperimentStart",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/start",
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+  },
+};
+
+export const postExperimentStartChecklistManualCompleteValidator = {
+  bodySchema: postExperimentStartChecklistManualCompleteBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: experimentStartChecklistResponseValidator,
+  summary: "Mark manual pre-launch checklist items complete",
+  operationId: "postExperimentStartChecklistManualComplete",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/start-checklist/manual/complete",
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+    body: {
+      keys: ["Stakeholder sign-off", "QA complete"],
+    },
+  },
+};
+
+export const postExperimentStopValidator = {
+  bodySchema: postExperimentStopBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      experiment: apiExperimentWithEnhancedStatus,
+    })
+    .strict(),
+  summary: "Stop an experiment",
+  operationId: "postExperimentStop",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/stop",
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+    body: {
+      results: "won" as const,
+      releasedVariationId: "var_treatment",
+      winnerVariationId: "var_treatment",
+      enableTemporaryRollout: true,
+      analysis:
+        "Reached desired sample size with statistically significant positive lift; shipping treatment",
+    },
+  },
+};
+
+export const postExperimentModifyTemporaryRolloutValidator = {
+  bodySchema: postExperimentModifyTemporaryRolloutBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      experiment: apiExperimentWithEnhancedStatus,
+    })
+    .strict(),
+  summary: "Modify temporary rollout status for a stopped experiment",
+  operationId: "postExperimentModifyTemporaryRollout",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/modify-temporary-rollout",
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+    body: {
+      enableTemporaryRollout: false,
+    },
+  },
+};
+
 export const postExperimentSnapshotValidator = {
   bodySchema: z
     .object({
@@ -1390,6 +1621,20 @@ export const postExperimentSnapshotValidator = {
         .enum(["manual", "schedule"])
         .describe(
           'Set to "schedule" if you want this request to trigger notifications and other events as it if were a scheduled update. Defaults to manual.',
+        )
+        .optional(),
+      dimension: z
+        .string()
+        .describe(
+          'Dimension to break results down by. For Unit Dimensions, use the dimension id (e.g. "dim_abc123"). For Experiment Dimensions, use "exp:<dimensionName>" (e.g. "exp:country"). Built-in pre-exposure dimensions include "pre:date" and, when configured, "pre:activation". Omit this field to create a standard snapshot.',
+        )
+        .optional(),
+      phase: z
+        .number()
+        .int()
+        .nonnegative()
+        .describe(
+          "Zero-based phase index to snapshot, where 0 is the first experiment phase. Defaults to the latest phase.",
         )
         .optional(),
     })
@@ -1494,6 +1739,45 @@ export const getExperimentResultsValidator = {
   tags: ["experiments"],
   method: "get" as const,
   path: "/experiments/:id/results",
+};
+
+export const listExperimentResultsValidator = {
+  bodySchema: z.never(),
+  querySchema: z
+    .object({
+      ...paginationQueryFields,
+      projectId: z.string().describe("Filter by project id").optional(),
+      datasourceId: z.string().describe("Filter by Data Source").optional(),
+      trackingKey: z
+        .string()
+        .describe("Filter by experiment tracking key")
+        .optional(),
+      status: z.enum(experimentStatus).optional(),
+    })
+    .strict(),
+  paramsSchema: z.never(),
+  responseSchema: z.intersection(
+    z.object({
+      experimentResults: z.array(apiExperimentResultsValidator),
+    }),
+    apiPaginationFieldsValidator,
+  ),
+  summary: "Get latest results for many experiments",
+  description: [
+    "Returns the latest non-dimension snapshot for each experiment matching the filters. Use this to scan results across a portfolio in one call.",
+    "",
+    "Pagination semantics:",
+    "- `total` is the count of experiments matching the filters.",
+    "- `count` is the length of the returned `experimentResults` array.",
+    "- Experiments without a completed snapshot are omitted from `experimentResults`, so `count` may be less than the page slice and a page may legitimately return `count: 0` while `hasMore: true`.",
+    "- `hasMore` and `nextOffset` advance over experiments matching the filters, not over returned results.",
+    "",
+    "Use the per-experiment `GET /experiments/{id}/results` endpoint to inspect specific phases or dimensions.",
+  ].join("\n"),
+  operationId: "listExperimentResults",
+  tags: ["experiments"],
+  method: "get" as const,
+  path: "/experiments/results",
 };
 
 export const getExperimentSnapshotValidator = {

@@ -15,6 +15,7 @@ import * as Sentry from "@sentry/node";
 import { parseEnvInt, stringToBoolean } from "shared/util";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
 import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
+import { revisionRouter } from "back-end/src/routers/revision/revision.router";
 import { usingFileConfig } from "./init/config";
 import { AuthRequest } from "./types/AuthRequest";
 import {
@@ -103,6 +104,7 @@ import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
 import { aiRouter } from "./routers/ai/ai.router";
 import { getCustomLogProps, httpLogger, logger } from "./util/logger";
+import { shouldSkipErrorLog } from "./util/errors";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
 import { uploadRouter } from "./routers/upload/upload.router";
@@ -362,8 +364,10 @@ app.get(
 );
 
 // Secret API routes (no JWT or CORS)
+// Routes register themselves with version prefixes (/v1/..., /v2/...) so we
+// mount the router at /api — yielding /api/v1/<route> and /api/v2/<route>.
 app.use(
-  "/api/v1",
+  "/api",
   // TODO add authentication
   cors({
     origin: "*",
@@ -813,6 +817,12 @@ app.use("/projects", projectRouter);
 
 app.use(factTableRouter);
 
+// Must be registered before mounting revisionRouter — the router's GET /:id
+// catch-all would otherwise consume this path and resolve `id = "feature"`.
+app.get("/revision/feature", featuresController.getDraftandReviewRevisions);
+
+app.use("/revision", revisionRouter);
+
 app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 
 // Features
@@ -862,6 +872,10 @@ app.post(
   "/feature/:id/:version/experiment",
   featuresController.postFeatureExperimentRefRule,
 );
+app.delete(
+  "/experiment/:id/linked-feature/:featureId",
+  experimentsController.deleteExperimentLinkedFeature,
+);
 app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
 app.put("/feature/:id/:version/title", featuresController.putRevisionTitle);
 app.put("/feature/:id/:version/rule", featuresController.putFeatureRule);
@@ -901,12 +915,6 @@ app.post(
   "/feature/:id/:version/comment",
   featuresController.postFeatureReviewOrComment,
 );
-app.post(
-  "/feature/:id/:version/copyEnvironment",
-  featuresController.postCopyEnvironmentRules,
-);
-
-app.get("/revision/feature", featuresController.getDraftandReviewRevisions);
 
 // Data Sources
 app.get("/datasources", datasourcesController.getDataSources);
@@ -1132,11 +1140,12 @@ const errorHandler: ErrorRequestHandler = (
   next,
 ) => {
   const status = err.status || 400;
+  const level = shouldSkipErrorLog(err) ? "debug" : "error";
 
   if (req.log) {
-    req.log.error(err.message);
+    req.log[level](err.message);
   } else {
-    httpLogger.logger.error(getCustomLogProps(req), err.message);
+    httpLogger.logger[level](getCustomLogProps(req), err.message);
   }
 
   res.status(status).json({

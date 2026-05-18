@@ -7,6 +7,10 @@ import type {
 } from "shared/validators";
 import { isManagedWarehousePendingQueryError } from "shared/util";
 import {
+  calculateProductAnalyticsDateRange,
+  getDateGranularity,
+} from "shared/enterprise";
+import {
   shouldChartSectionShow,
   getEffectiveMetricValue,
   computeDimensionTotals,
@@ -14,6 +18,8 @@ import {
   getEffectiveShowAs,
   getSharedUnit,
   showAsAppliesTo,
+  formatDateByGranularity,
+  type ResolvedGranularity,
   type RenderOpts,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
@@ -109,6 +115,17 @@ export default function ExplorerChart({
     )
       return null;
     const rows = exploration.result.rows;
+
+    // Resolve date granularity for tooltip formatting
+    const dateDimension = submittedExploreState.dimensions?.find(
+      (d) => d.dimensionType === "date",
+    );
+    const resolvedGranularity: ResolvedGranularity | null = dateDimension
+      ? getDateGranularity(
+          dateDimension.dateGranularity,
+          calculateProductAnalyticsDateRange(submittedExploreState.dateRange),
+        )
+      : null;
     const chartType = submittedExploreState.chartType;
     const isHorizontalBar =
       chartType === "horizontalBar" || chartType === "stackedHorizontalBar";
@@ -267,6 +284,16 @@ export default function ExplorerChart({
       }
     });
 
+    const axisPointerLabelFormatter = resolvedGranularity
+      ? (params: { value: string | number }) => {
+          const date =
+            typeof params.value === "number"
+              ? new Date(params.value)
+              : new Date(String(params.value));
+          return formatDateByGranularity(date, resolvedGranularity);
+        }
+      : undefined;
+
     // Define the category axis (shows the dimension labels)
     const categoryAxis = {
       type: chartType === "line" || chartType === "area" ? "time" : "category",
@@ -283,6 +310,15 @@ export default function ExplorerChart({
         rotate: isHorizontalBar ? 0 : -45,
         hideOverlap: true,
       },
+      // Only attach the axisPointer key when we actually have a formatter to
+      // apply. Setting `axisPointer: undefined` overwrites ECharts' default
+      ...(axisPointerLabelFormatter
+        ? {
+            axisPointer: {
+              label: { formatter: axisPointerLabelFormatter },
+            },
+          }
+        : {}),
       splitLine: { lineStyle: { color: gridLineColor, width: 1 } },
     };
 
@@ -307,6 +343,42 @@ export default function ExplorerChart({
     const xAxis = isHorizontalBar ? valueAxis : categoryAxis;
     const yAxis = isHorizontalBar ? categoryAxis : valueAxis;
 
+    // Build a custom tooltip formatter that applies granularity-aware date formatting
+    const tooltipFormatter = resolvedGranularity
+      ? (params: unknown) => {
+          const items = (Array.isArray(params) ? params : [params]) as {
+            axisValue: string | number;
+            marker: string;
+            seriesName: string;
+            value: number | [number, number];
+          }[];
+          if (!items.length) return "";
+
+          // axisValue is a timestamp (ms) for time axis, raw string for category axis
+          const rawAxisValue = items[0].axisValue;
+          const date =
+            typeof rawAxisValue === "number"
+              ? new Date(rawAxisValue)
+              : new Date(String(rawAxisValue));
+          const header = formatDateByGranularity(date, resolvedGranularity);
+
+          const seriesRows = items
+            .map((item) => {
+              const numValue = Array.isArray(item.value)
+                ? item.value[1]
+                : item.value;
+              const formatted =
+                typeof numValue === "number"
+                  ? formatNumber(numValue)
+                  : String(numValue);
+              return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${item.marker}${item.seriesName}</span><span><b>${formatted}</b></span></div>`;
+            })
+            .join("");
+
+          return `<div><div style="margin-bottom:4px">${header}</div>${seriesRows}</div>`;
+        }
+      : undefined;
+
     return {
       tooltip: {
         appendTo: "body",
@@ -324,6 +396,7 @@ export default function ExplorerChart({
             ? "shadow"
             : "cross",
         },
+        formatter: tooltipFormatter,
       },
       legend: {
         show: seriesConfigs.length > 1,

@@ -102,11 +102,11 @@ export default function RoleList() {
                         </>
                       ) : null}
                       <ConfirmButton
+                        isDestructive={!isDeactivated}
                         modalHeader={`${
                           isDeactivated ? "Reactivate" : "Deactivate"
                         } ${r.id}`}
                         disabled={!canManageRoles || isOrgDefault}
-                        ctaColor="danger"
                         confirmationText={
                           <div>
                             {isDeactivated

@@ -11,6 +11,7 @@ export const factTableColumnTypes = [
   "date",
   "boolean",
   "json",
+  "binary",
   "other",
   "",
 ];
@@ -21,6 +22,7 @@ export const factTableColumnTypeValidator = z.enum([
   "date",
   "boolean",
   "json",
+  "binary",
   "other",
   "",
 ]);
@@ -118,6 +120,14 @@ export const columnAggregationValidator = z.enum([
   "sum",
   "max",
   "count distinct",
+  // The column is a pre-built HLL sketch (e.g. BigQuery BYTES from
+  // HLL_COUNT.INIT). Per-user aggregation merges sketches and extracts the
+  // cardinality; downstream stats treat it as a numeric value per user.
+  "hll merge",
+  // The column is a pre-built KLL sketch (e.g. BigQuery BYTES from
+  // KLL_QUANTILES.INIT_*). Only valid for event-quantile metrics. Per-user
+  // aggregation merges sketches; variation stats reuse the two-pass KLL path.
+  "kll merge",
 ]);
 
 export const rowFilterOperators = [
@@ -196,6 +206,12 @@ export const quantileSettingsValidator = z.object({
   quantile: z.number(),
   type: z.enum(["unit", "event"]),
   ignoreZeros: z.boolean(),
+  // Override the source-column name used to recover per-row event counts for
+  // 'kll merge' event-quantile metrics. When unset, the SQL pipeline falls
+  // back to the convention `<sketch>_n_events` on the same fact table. Only
+  // valid when numerator.aggregation === "kll merge"; the validator rejects
+  // any other usage.
+  quantileEventCountColumn: z.string().optional(),
 });
 
 export const priorSettingsValidator = z.object({
@@ -298,6 +314,7 @@ export const apiFactTableColumnValidator = namedSchema(
         "date",
         "boolean",
         "json",
+        "binary",
         "other",
         "",
       ]),
@@ -321,6 +338,7 @@ export const apiFactTableColumnValidator = namedSchema(
                 "date",
                 "boolean",
                 "json",
+                "binary",
                 "other",
                 "",
               ])

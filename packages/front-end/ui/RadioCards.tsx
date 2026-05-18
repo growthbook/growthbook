@@ -83,7 +83,9 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
                         <Text
                           weight={labelWeight}
                           size={labelSize}
-                          className={wrapText ? "main-text" : "main-text truncate"}
+                          className={
+                            wrapText ? "main-text" : "main-text truncate"
+                          }
                           style={{
                             minWidth: 0,
                             ...(wrapText

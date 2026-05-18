@@ -1,5 +1,6 @@
 import type { SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
+import { indicesTableUnpivot } from "back-end/src/integrations/sql/clauses/indices-table-unpivot";
 import { baseDialect } from "./base";
 
 export const verticaDialect: SqlDialect = {
@@ -24,4 +25,8 @@ export const verticaDialect: SqlDialect = {
       metricTable,
       where,
     ),
+
+  // Vertica's FROM clause rejects bare VALUES, and LATERAL derived tables are
+  // restricted to a single SELECT (no UNION).
+  unpivotLabeledPairs: indicesTableUnpivot,
 };

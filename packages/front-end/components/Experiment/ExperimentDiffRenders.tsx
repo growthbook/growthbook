@@ -140,15 +140,48 @@ function MetricDiff({
 
 // ─── Section renders ──────────────────────────────────────────────────────────
 
+type PhaseVariationStatus = "active" | "passThrough";
+type PhaseVariation = { id: string; status: PhaseVariationStatus };
+
 type PhaseTargeting = {
   coverage?: number;
   condition?: unknown;
   savedGroups?: SavedGroupTargeting[];
   prerequisites?: unknown[];
   variationWeights?: number[];
+  variations?: PhaseVariation[];
   namespace?: NamespaceValue | null;
   seed?: string;
 };
+
+// Returns the indexes of phase variations whose status is "passThrough" — the
+// Skip Experiment state. Indexes match the top-level experiment.variations
+// array since phase.variations is built via experiment.variations.map().
+function getSkippedIndexes(vars: PhaseVariation[] | undefined): number[] {
+  if (!vars?.length) return [];
+  const result: number[] = [];
+  vars.forEach((v, idx) => {
+    if (v.status === "passThrough") result.push(idx);
+  });
+  return result;
+}
+
+function phaseVariationStatusChanged(
+  preVars: PhaseVariation[] | undefined,
+  postVars: PhaseVariation[] | undefined,
+): boolean {
+  const pre = preVars ?? [];
+  const post = postVars ?? [];
+  const preById = new Map(pre.map((v) => [v.id, v.status]));
+  const postById = new Map(post.map((v) => [v.id, v.status]));
+  for (const [id, status] of postById) {
+    if ((preById.get(id) ?? "active") !== status) return true;
+  }
+  for (const [id, status] of preById) {
+    if (!postById.has(id) && status === "passThrough") return true;
+  }
+  return false;
+}
 
 /**
  * Collapse a namespace to a shape-stable form for comparison. Without this,
@@ -314,6 +347,33 @@ export function renderUserTargetingPhases(
           changed
           oldNode={preP.seed ?? <em>None</em>}
           newNode={postP.seed || <em>None</em>}
+        />,
+      );
+    }
+
+    // ── Skipped variations (Skip Experiment) ──────────────────────────────────
+    // Surfaces variation status changes (active ⇄ passThrough) as a labeled
+    // row so the audit history shows them explicitly instead of burying the
+    // change in the raw phases JSON diff.
+    if (phaseVariationStatusChanged(preP.variations, postP.variations)) {
+      const fmtSkipped = (vars: PhaseVariation[] | undefined): ReactNode => {
+        const idxs = getSkippedIndexes(vars);
+        if (!idxs.length) return <em>None</em>;
+        return (
+          <div className="d-flex flex-column" style={{ gap: 2 }}>
+            {idxs.map((idx) => (
+              <span key={idx}>Variation {idx}</span>
+            ))}
+          </div>
+        );
+      };
+      sections.push(
+        <ChangeField
+          key={`skip-${i}`}
+          label={`Skipped variations${ph}`}
+          changed
+          oldNode={fmtSkipped(preP.variations)}
+          newNode={fmtSkipped(postP.variations)}
         />,
       );
     }
@@ -751,8 +811,38 @@ export function renderMetadata(pre: Pre, post: Post): ReactNode | null {
 
 // ─── Badge getters ────────────────────────────────────────────────────────────
 
-export function getExperimentTargetingBadges(): DiffBadge[] {
-  return [{ label: "Edit targeting", action: "edit targeting" }];
+export function getExperimentTargetingBadges(
+  pre: Pre,
+  post: Post,
+): DiffBadge[] {
+  const badges: DiffBadge[] = [
+    { label: "Edit targeting", action: "edit targeting" },
+  ];
+
+  // Detect Skip Experiment (phase variation status) changes and surface them
+  // as their own badges. Both directions are emitted so the badge strip
+  // reflects what changed (Skip when a variation moved to passThrough,
+  // Resume when it moved back to active).
+  const prePhases = (pre?.phases ?? []) as PhaseTargeting[];
+  const postPhases = (post.phases ?? []) as PhaseTargeting[];
+  let added = 0;
+  postPhases.forEach((postP, idx) => {
+    const preP = prePhases[idx] ?? {};
+    const preById = new Map(
+      (preP.variations ?? []).map((v) => [v.id, v.status]),
+    );
+    (postP.variations ?? []).forEach((pv) => {
+      const preStatus = preById.get(pv.id) ?? "active";
+      if (preStatus !== pv.status) {
+        if (pv.status === "passThrough") added++;
+      }
+    });
+  });
+  if (added > 0) {
+    badges.push({ label: "Skip variation", action: "skip variation" });
+  }
+
+  return badges;
 }
 
 export function getExperimentPhaseInfoBadges(

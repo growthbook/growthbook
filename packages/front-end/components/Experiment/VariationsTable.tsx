@@ -2,7 +2,7 @@ import {
   ExperimentInterfaceStringDates,
   Variation,
 } from "shared/types/experiment";
-import { getLatestPhaseVariations } from "shared/experiments";
+import { getVariationsForDisplay } from "shared/experiments";
 import { FC, useState, useRef, useCallback } from "react";
 import { Box, Flex, Grid, Heading, Text } from "@radix-ui/themes";
 import { PiCameraLight, PiCameraPlusLight } from "react-icons/pi";
@@ -12,6 +12,8 @@ import Carousel from "@/components/Carousel";
 import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
 import AuthorizedImage from "@/components/AuthorizedImage";
 import Button from "@/ui/Button";
+import SkippedVariationBadge from "@/components/Experiment/SkippedVariationBadge";
+import DeletedVariationBadge from "@/components/Experiment/DeletedVariationBadge";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
 import useOrgSettings from "@/hooks/useOrgSettings";
 
@@ -154,6 +156,8 @@ export function VariationBox({
   isPublic = false,
   shareUid,
   shareType = "experiment",
+  isSkipped = false,
+  isDeleted = false,
 }: {
   i: number;
   v: Variation;
@@ -170,6 +174,8 @@ export function VariationBox({
   isPublic?: boolean;
   shareUid?: string;
   shareType?: "experiment" | "report";
+  isSkipped?: boolean;
+  isDeleted?: boolean;
 }) {
   const { blockFileUploads } = useOrgSettings();
 
@@ -196,13 +202,23 @@ export function VariationBox({
       <Flex gap="2" direction="column" justify="between" height="100%">
         <Box>
           <Box mb="3">
-            <Flex gap="0">
+            <Flex gap="0" align="center" wrap="wrap">
               <Box className="">
                 <span className="circle-label label">{i}</span>
               </Box>
               <Heading as="h4" size="3" mb="0">
                 {v.name}
               </Heading>
+              {isSkipped && (
+                <Box ml="2">
+                  <SkippedVariationBadge />
+                </Box>
+              )}
+              {isDeleted && (
+                <Box ml="2">
+                  <DeletedVariationBadge />
+                </Box>
+              )}
             </Flex>
           </Box>
           {allowImages && (
@@ -292,13 +308,22 @@ const VariationsTable: FC<Props> = ({
   shareType = "experiment",
 }) => {
   const { apiCall } = useAuth();
-  const variations = getLatestPhaseVariations(experiment);
+  const variations = getVariationsForDisplay(experiment);
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
   const lastPhase = phases[lastPhaseIndex];
   const weights = lastPhase?.variationWeights ?? null;
   const percentages =
     (weights?.length || 0) > 0 ? trafficSplitPercentages(weights) : null;
+  // variationWeights are indexed by position within the latest phase's
+  // variations array, not by experiment.variations index, so map by id.
+  const percentByVariationId = new Map<string, number>();
+  if (percentages && lastPhase?.variations) {
+    lastPhase.variations.forEach((pv, idx) => {
+      const p = percentages[idx];
+      if (p !== undefined) percentByVariationId.set(pv.id, p);
+    });
+  }
   const [openCarousel, setOpenCarousel] = useState<{
     variationId: string;
     index: number;
@@ -324,7 +349,7 @@ const VariationsTable: FC<Props> = ({
           md: cols.toString(),
         }}
       >
-        {variations.map((v, i) =>
+        {variations.map((v) =>
           variationsList && !variationsList.includes(v.id) ? null : (
             <VariationBox
               key={v.id}
@@ -340,10 +365,12 @@ const VariationsTable: FC<Props> = ({
                 setOpenCarousel({ variationId, index });
               }}
               mutate={mutate}
-              percent={percentages?.[i]}
+              percent={percentByVariationId.get(v.id)}
               isPublic={isPublic}
               shareUid={shareUid}
               shareType={shareType}
+              isSkipped={v.displayStatus === "passThrough"}
+              isDeleted={v.displayStatus === "deleted"}
             />
           ),
         )}

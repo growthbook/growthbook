@@ -34,10 +34,8 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import {
-  getDailyUsageForOrg,
-  migrateOverageEventsForOrgId,
-} from "back-end/src/services/clickhouse";
+import { getDailyUsageForOrg } from "back-end/src/services/clickhouse";
+import { migrateOverageEventsForOrgId } from "back-end/src/services/licenseServerManagedClickhouse";
 import {
   createSetupIntent,
   deletePaymentMethodById,
