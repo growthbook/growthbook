@@ -1543,6 +1543,16 @@ export async function signup(
   }
 }
 
+function settingsEnableFeatureApprovals(
+  settings: Partial<OrganizationSettings> | undefined,
+): boolean {
+  const requireReviews = settings?.requireReviews;
+  if (requireReviews === true) return true;
+  if (!Array.isArray(requireReviews)) return false;
+
+  return requireReviews.some((reviewSetting) => !!reviewSetting.requireReviewOn);
+}
+
 export async function putOrganization(
   req: AuthRequest<Partial<OrganizationInterface>>,
   res: Response,
@@ -1603,13 +1613,18 @@ export async function putOrganization(
     const updates: Partial<OrganizationInterface> = {};
 
     const orig: Partial<OrganizationInterface> = {};
-    if (
-      settings?.approvalFlows?.savedGroups?.[0]?.required &&
-      !context.hasPremiumFeature("require-approvals")
-    ) {
-      throw new Error(
-        "Saved Groups approval flows require the Require Approvals enterprise feature.",
-      );
+    if (!context.hasPremiumFeature("require-approvals")) {
+      if (settingsEnableFeatureApprovals(settings)) {
+        throw new Error(
+          "Feature approval flows require the Require Approvals enterprise feature.",
+        );
+      }
+
+      if (settings?.approvalFlows?.savedGroups?.[0]?.required) {
+        throw new Error(
+          "Saved Groups approval flows require the Require Approvals enterprise feature.",
+        );
+      }
     }
 
     if (name) {
