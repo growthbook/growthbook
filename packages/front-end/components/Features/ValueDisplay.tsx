@@ -14,6 +14,97 @@ import { parseFeatureResult } from "@/hooks/useArchetype";
 import Modal from "@/components/Modal";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
+
+function formatObjectValue(v: unknown): string {
+  if (v === null || v === undefined) return "—";
+  if (typeof v === "boolean") return v ? "TRUE" : "FALSE";
+  if (typeof v === "string") return v;
+  if (typeof v === "number") return String(v);
+  try {
+    return stringify(v, { maxLength: 60 });
+  } catch {
+    return String(v);
+  }
+}
+
+function ObjectValueDisplay({
+  value,
+  full,
+  additionalStyle,
+  fullStyle,
+  fullClassName,
+}: {
+  value: string;
+  full: boolean;
+  additionalStyle: CSSProperties;
+  fullStyle: CSSProperties;
+  fullClassName: string;
+}) {
+  const parsed = useMemo(() => {
+    try {
+      const p = JSON.parse(value);
+      if (p && typeof p === "object" && !Array.isArray(p)) {
+        return p as Record<string, unknown>;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }, [value]);
+
+  if (!parsed) {
+    return (
+      <Box style={full ? fullStyle : additionalStyle} className={fullClassName}>
+        <InlineCode language="json" code={value} />
+      </Box>
+    );
+  }
+
+  const entries = Object.entries(parsed);
+
+  if (entries.length === 0) {
+    return (
+      <Text size="medium" color="text-low" fontStyle="italic">
+        (empty)
+      </Text>
+    );
+  }
+
+  if (!full) {
+    return (
+      <div
+        style={{
+          textOverflow: "ellipsis",
+          overflow: "hidden",
+          maxWidth: "180px",
+          whiteSpace: "nowrap",
+          ...additionalStyle,
+        }}
+        className="text-muted"
+      >
+        {entries.map(([k, v]) => `${k}: ${formatObjectValue(v)}`).join(" · ")}
+      </div>
+    );
+  }
+
+  return (
+    <Box style={fullStyle} className={fullClassName}>
+      <Flex direction="row" gap="4" align="center">
+        {entries.map(([k, v]) => (
+          <Flex key={k} gap="2" align="baseline" wrap="wrap">
+            <Text size="small" weight="medium" color="text-low">
+              {k}
+            </Text>
+            <Text size="medium" overflowWrap="break-word" whiteSpace="pre-wrap">
+              {formatObjectValue(v)}
+            </Text>
+          </Flex>
+        ))}
+      </Flex>
+    </Box>
+  );
+}
 
 export default function ValueDisplay({
   value,
@@ -69,6 +160,18 @@ export default function ValueDisplay({
         ></div>
         {on ? "TRUE" : "FALSE"}
       </span>
+    );
+  }
+
+  if (type === "object") {
+    return (
+      <ObjectValueDisplay
+        value={value}
+        full={full}
+        additionalStyle={additionalStyle}
+        fullStyle={fullStyle}
+        fullClassName={fullClassName}
+      />
     );
   }
 
