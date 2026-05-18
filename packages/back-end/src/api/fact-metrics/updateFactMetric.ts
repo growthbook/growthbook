@@ -47,12 +47,26 @@ export async function getUpdateFactMetricPropsFromBody(
 
   const metricType = updates.metricType;
   if (numerator) {
+    // Set the correct column based on metric type
+    let column: string;
+    if (metricType === "proportion" || metricType === "retention") {
+      column = "$$distinctUsers";
+    } else if (metricType === "dailyParticipation") {
+      column = "$$distinctDates";
+    } else {
+      column = numerator.column || "$$distinctUsers";
+    }
+
     updates.numerator = FactMetricModel.migrateColumnRef({
       ...numerator,
-      column:
-        metricType === "proportion" || metricType === "retention"
-          ? "$$distinctUsers"
-          : numerator.column || "$$distinctUsers",
+      column,
+      // Clear aggregation for metric types that use special columns
+      aggregation:
+        metricType === "proportion" ||
+        metricType === "retention" ||
+        metricType === "dailyParticipation"
+          ? undefined
+          : numerator.aggregation,
     });
     const factTable = await getFactTable(updates.numerator.factTableId);
     if (!factTable) {
