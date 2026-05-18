@@ -188,6 +188,20 @@ export const ExperimentAssignmentQueries: FC<
                       <em className="text-muted">none</em>
                     )}
                   </Box>
+                  <Box>
+                    <strong className="font-weight-semibold">
+                      Targeting Attribute Columns:{" "}
+                    </strong>
+                    {(query.targetingAttributeColumns ?? []).map((d, i) => (
+                      <Fragment key={i}>
+                        {i ? ", " : ""}
+                        <code key={d}>{d}</code>
+                      </Fragment>
+                    ))}
+                    {!(query.targetingAttributeColumns ?? []).length && (
+                      <em className="text-muted">none</em>
+                    )}
+                  </Box>
                 </Flex>
                 {query.error && (
                   <Callout status="error" mt="3">

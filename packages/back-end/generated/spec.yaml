@@ -27739,6 +27739,10 @@ components:
                 type: array
                 items:
                   type: string
+              targetingAttributeColumns:
+                type: array
+                items:
+                  type: string
             required:
               - id
               - name
