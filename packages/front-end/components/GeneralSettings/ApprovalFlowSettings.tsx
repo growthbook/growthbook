@@ -111,11 +111,7 @@ export default function ApprovalFlowSettings() {
                   <Box key={`approval-flow-${i}`}>
                     <Checkbox
                       id={`toggle-require-reviews-${i}`}
-                      label={
-                        <PremiumTooltip commercialFeature="require-approvals">
-                          Require approval to publish changes
-                        </PremiumTooltip>
-                      }
+                      label="Require approval to publish changes"
                       value={featureApprovalRequired}
                       setValue={(value) => {
                         if (!hasRequireApprovals) return;
@@ -314,11 +310,7 @@ export default function ApprovalFlowSettings() {
 
             <Checkbox
               id="toggle-require-approvals-saved-groups"
-              label={
-                <PremiumTooltip commercialFeature="require-approvals">
-                  Require approval to modify Saved Groups
-                </PremiumTooltip>
-              }
+              label="Require approval to modify Saved Groups"
               description="When enabled, all changes to Saved Groups must be reviewed and approved by another person before going live."
               value={savedGroupApprovalRequired}
               setValue={(v) => {
