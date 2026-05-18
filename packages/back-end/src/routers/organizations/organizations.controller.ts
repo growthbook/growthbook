@@ -1550,7 +1550,9 @@ function settingsEnableFeatureApprovals(
   if (requireReviews === true) return true;
   if (!Array.isArray(requireReviews)) return false;
 
-  return requireReviews.some((reviewSetting) => !!reviewSetting.requireReviewOn);
+  return requireReviews.some(
+    (reviewSetting) => !!reviewSetting.requireReviewOn,
+  );
 }
 
 export async function putOrganization(

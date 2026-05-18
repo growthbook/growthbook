@@ -22,8 +22,7 @@ export default function ApprovalFlowSettings() {
 
   const hasRequireApprovals = hasCommercialFeature("require-approvals");
   const savedGroupApprovalRequired =
-    hasRequireApprovals &&
-    !!form.watch("approvalFlows.savedGroups.0.required");
+    hasRequireApprovals && !!form.watch("approvalFlows.savedGroups.0.required");
 
   const rawRequireReviews = form.watch("requireReviews");
   const featureRequireReviews = Array.isArray(rawRequireReviews)

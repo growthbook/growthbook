@@ -55,13 +55,8 @@ function RevisionDetail<T>({
   requiresApproval = true,
   closeModal,
 }: RevisionDetailProps<T>) {
-  const {
-    getUserDisplay,
-    userId,
-    user,
-    organization,
-    hasCommercialFeature,
-  } = useUser();
+  const { getUserDisplay, userId, user, organization, hasCommercialFeature } =
+    useUser();
   const { apiCall } = useAuth();
   const [bypassApproval, setBypassApproval] = useState(false);
   const [confirmReopen, setConfirmReopen] = useState(false);
