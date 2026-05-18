@@ -1,4 +1,11 @@
-import React, { FC, useEffect, useState, useCallback, useMemo } from "react";
+import React, {
+  FC,
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
@@ -244,6 +251,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [lastCheckedHypothesis, setLastCheckedHypothesis] = useState<
     string | null
   >(null);
+  // Monotonic sequence id for hypothesis check requests. Only the most
+  // recently issued request is allowed to commit its result; older
+  // in-flight responses are dropped.
+  const hypothesisCheckRequestIdRef = useRef(0);
   const environments = useEnvironments();
   const { experiments } = useExperiments();
 
@@ -847,6 +858,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       if (!aiEnabled || !aiAgreedTo || !hasAISuggestions) return;
       if (!force && hypothesisText === lastCheckedHypothesis) return;
 
+      // Bump the request id so any in-flight response from an earlier
+      // request is discarded when it eventually resolves.
+      const requestId = ++hypothesisCheckRequestIdRef.current;
+      const isLatest = () => hypothesisCheckRequestIdRef.current === requestId;
+
       setHypothesisCheckError(null);
       setHypothesisCheckLoading(true);
       setHypothesisSuggestionRevealed(false);
@@ -868,6 +884,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             }),
           },
           (responseData) => {
+            if (!isLatest()) return;
             if (responseData.status === 429) {
               setHypothesisCheckError(
                 formatAIRateLimitRetryMessage(responseData.retryAfter),
@@ -879,12 +896,18 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             }
           },
         );
+        if (!isLatest()) return;
         setHypothesisCheckResult(res.data.check);
         setLastCheckedHypothesis(hypothesisText);
       } catch {
         // Error handling is done by the apiCall errorHandler
       } finally {
-        setHypothesisCheckLoading(false);
+        // Only the most recent request is allowed to clear the loading
+        // state; otherwise we'd flicker off while a newer request is
+        // still in flight.
+        if (isLatest()) {
+          setHypothesisCheckLoading(false);
+        }
       }
     },
     [
@@ -1078,18 +1101,24 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   {...form.register("hypothesis", {
                     onChange: () => {
                       queueCheckForSimilar(); // Debounced call
+                      // Invalidate any in-flight hypothesis check so its
+                      // response is dropped on arrival rather than overwriting
+                      // the now-stale UI for text the user is still editing.
+                      hypothesisCheckRequestIdRef.current += 1;
                       // Clear any prior hypothesis check result so stale
                       // pass/fail feedback isn't shown while the user types.
                       if (
                         hypothesisCheckResult ||
                         hypothesisSuggestionRevealed ||
                         lastCheckedHypothesis !== null ||
-                        hypothesisCheckError
+                        hypothesisCheckError ||
+                        hypothesisCheckLoading
                       ) {
                         setHypothesisCheckResult(null);
                         setHypothesisSuggestionRevealed(false);
                         setLastCheckedHypothesis(null);
                         setHypothesisCheckError(null);
+                        setHypothesisCheckLoading(false);
                       }
                     },
                     onBlur: () => {
@@ -1181,8 +1210,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                               <Button
                                 variant="soft"
                                 onClick={() => {
-                                  const previous =
-                                    form.getValues("hypothesis") || "";
                                   const next = hypothesisCheckResult.suggestion;
                                   form.setValue("hypothesis", next);
                                   setHypothesisCheckResult({
@@ -1196,7 +1223,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                                     "experiment-hypothesis-saved-after-ai-suggestion",
                                     {
                                       aiUsageData: computeAIUsageData({
-                                        value: previous,
+                                        value: next,
                                         aiSuggestionText: next,
                                       }),
                                     },
