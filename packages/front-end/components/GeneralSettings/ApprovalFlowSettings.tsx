@@ -83,8 +83,8 @@ export default function ApprovalFlowSettings() {
         </Box>
       </Flex>
 
-      <Flex align="start" direction="column" gap="5" mt="7">
-        <Box mb="6" width="100%">
+      <Flex align="start" direction="column" gap="4" mt="7">
+        <Box width="100%">
           <Frame p="3" mb="0">
             <Heading as="h4" size="small" weight="semibold" mb="4">
               Features
@@ -289,7 +289,7 @@ export default function ApprovalFlowSettings() {
           </Frame>
         </Box>
 
-        <Box mb="6" width="100%">
+        <Box width="100%">
           <Frame p="3" mb="0">
             <Heading as="h4" size="small" weight="semibold" mb="4">
               Saved Groups
