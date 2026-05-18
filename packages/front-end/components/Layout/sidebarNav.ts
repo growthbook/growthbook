@@ -90,6 +90,7 @@ export const navlinks: SidebarLinkProps[] = [
         href: "/error-tracking",
         path: /^error-tracking/,
         beta: true,
+        filter: ({ gb }) => !!gb?.isOn("enable-error-tracking"),
       },
     ],
   },

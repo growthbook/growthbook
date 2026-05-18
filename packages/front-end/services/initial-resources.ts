@@ -55,168 +55,175 @@ export interface InitialDatasourceResources {
   }[];
 }
 
-function getBuiltInWarehouseResources(): InitialDatasourceResources {
-  return {
-    factTables: [
-      // Events
-      {
-        factTable: {
-          // Give it a known id so we can reference it easily
-          id: MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
-          name: "Events",
-          description: "",
-          sql: `SELECT * FROM events
+function getBuiltInWarehouseResources({
+  enableErrorTracking,
+}: {
+  enableErrorTracking: boolean;
+}): InitialDatasourceResources {
+  const factTables: InitialDatasourceResources["factTables"] = [
+    // Events
+    {
+      factTable: {
+        // Give it a known id so we can reference it easily
+        id: MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+        name: "Events",
+        description: "",
+        sql: `SELECT * FROM events
 WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`,
-          // Mark the fact table as Official and block editing/deleting in the UI
-          managedBy: "api",
-          columns: generateColumns({
-            timestamp: { datatype: "date" },
-            user_id: { datatype: "string" },
-            device_id: { datatype: "string" },
-            properties: { datatype: "json" },
-            attributes: { datatype: "json" },
-            event_name: { datatype: "string", alwaysInlineFilter: true },
-            client_key: { datatype: "string" },
-            environment: { datatype: "string" },
-            sdk_language: { datatype: "string" },
-            sdk_version: { datatype: "string" },
-            event_uuid: { datatype: "string" },
-            ip: { datatype: "string" },
-            geo_country: { datatype: "string" },
-            ua_device_type: { datatype: "string" },
-            ua_browser: { datatype: "string" },
-            ua_os: { datatype: "string" },
-            utm_source: { datatype: "string" },
-            utm_medium: { datatype: "string" },
-            utm_campaign: { datatype: "string" },
-            url_path: { datatype: "string" },
-          }),
-          userIdTypes: ["user_id", "device_id"],
-          eventName: "",
-        },
-        filters: [],
-        metrics: [
-          {
-            name: "Page Views per User",
-            metricType: "mean",
-            numerator: {
-              factTableId: "",
-              column: "$$count",
-              rowFilters: [
-                {
-                  column: "event_name",
-                  operator: "=",
-                  values: ["Page View"],
-                },
-              ],
-            },
-          },
-          {
-            name: "Sessions per User",
-            metricType: "mean",
-            numerator: {
-              factTableId: "",
-              column: "$$count",
-              rowFilters: [
-                {
-                  column: "event_name",
-                  operator: "=",
-                  values: ["Session Start"],
-                },
-              ],
-            },
-          },
-          {
-            name: "Pages per Session",
-            metricType: "ratio",
-            numerator: {
-              factTableId: "",
-              column: "$$count",
-              rowFilters: [
-                {
-                  column: "event_name",
-                  operator: "=",
-                  values: ["Page View"],
-                },
-              ],
-            },
-            denominator: {
-              factTableId: "",
-              column: "$$count",
-              rowFilters: [
-                {
-                  column: "event_name",
-                  operator: "=",
-                  values: ["Session Start"],
-                },
-              ],
-            },
-          },
-        ],
+        // Mark the fact table as Official and block editing/deleting in the UI
+        managedBy: "api",
+        columns: generateColumns({
+          timestamp: { datatype: "date" },
+          user_id: { datatype: "string" },
+          device_id: { datatype: "string" },
+          properties: { datatype: "json" },
+          attributes: { datatype: "json" },
+          event_name: { datatype: "string", alwaysInlineFilter: true },
+          client_key: { datatype: "string" },
+          environment: { datatype: "string" },
+          sdk_language: { datatype: "string" },
+          sdk_version: { datatype: "string" },
+          event_uuid: { datatype: "string" },
+          ip: { datatype: "string" },
+          geo_country: { datatype: "string" },
+          ua_device_type: { datatype: "string" },
+          ua_browser: { datatype: "string" },
+          ua_os: { datatype: "string" },
+          utm_source: { datatype: "string" },
+          utm_medium: { datatype: "string" },
+          utm_campaign: { datatype: "string" },
+          url_path: { datatype: "string" },
+        }),
+        userIdTypes: ["user_id", "device_id"],
+        eventName: "",
       },
-      {
-        factTable: {
-          id: MANAGED_WAREHOUSE_ERRORS_FACT_TABLE_ID,
-          name: "Errors",
-          description: "",
-          sql: `SELECT * FROM errors
+      filters: [],
+      metrics: [
+        {
+          name: "Page Views per User",
+          metricType: "mean",
+          numerator: {
+            factTableId: "",
+            column: "$$count",
+            rowFilters: [
+              {
+                column: "event_name",
+                operator: "=",
+                values: ["Page View"],
+              },
+            ],
+          },
+        },
+        {
+          name: "Sessions per User",
+          metricType: "mean",
+          numerator: {
+            factTableId: "",
+            column: "$$count",
+            rowFilters: [
+              {
+                column: "event_name",
+                operator: "=",
+                values: ["Session Start"],
+              },
+            ],
+          },
+        },
+        {
+          name: "Pages per Session",
+          metricType: "ratio",
+          numerator: {
+            factTableId: "",
+            column: "$$count",
+            rowFilters: [
+              {
+                column: "event_name",
+                operator: "=",
+                values: ["Page View"],
+              },
+            ],
+          },
+          denominator: {
+            factTableId: "",
+            column: "$$count",
+            rowFilters: [
+              {
+                column: "event_name",
+                operator: "=",
+                values: ["Session Start"],
+              },
+            ],
+          },
+        },
+      ],
+    },
+  ];
+
+  if (enableErrorTracking) {
+    factTables.push({
+      factTable: {
+        id: MANAGED_WAREHOUSE_ERRORS_FACT_TABLE_ID,
+        name: "Errors",
+        description: "",
+        sql: `SELECT * FROM errors
 WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`,
-          managedBy: "api",
-          columns: generateColumns({
-            timestamp: { datatype: "date" },
-            user_id: { datatype: "string" },
-            device_id: { datatype: "string" },
-            client_key: { datatype: "string" },
-            issue_fingerprint: { datatype: "string", alwaysInlineFilter: true },
-            title: { datatype: "string" },
-            error_type: { datatype: "string" },
-            transaction_name: { datatype: "string" },
-            release_version: { datatype: "string" },
-            runtime_name: { datatype: "string" },
-            properties: { datatype: "json" },
-            attributes: { datatype: "json" },
-            environment: { datatype: "string" },
-            sdk_language: { datatype: "string" },
-            sdk_version: { datatype: "string" },
-            event_uuid: { datatype: "string" },
-            ip: { datatype: "string" },
-            geo_country: { datatype: "string" },
-            ua_device_type: { datatype: "string" },
-            ua_browser: { datatype: "string" },
-            ua_os: { datatype: "string" },
-            utm_source: { datatype: "string" },
-            utm_medium: { datatype: "string" },
-            utm_campaign: { datatype: "string" },
-            url_path: { datatype: "string" },
-          }),
-          userIdTypes: ["user_id", "device_id"],
-          eventName: "",
-        },
-        filters: [],
-        metrics: [
-          {
-            name: "Errors Per User",
-            metricType: "mean",
-            numerator: {
-              factTableId: "",
-              column: "$$count",
-              rowFilters: [],
-            },
-          },
-          {
-            name: "Distinct Errors Per User",
-            metricType: "mean",
-            numerator: {
-              factTableId: "",
-              column: "issue_fingerprint",
-              aggregation: "count distinct",
-              rowFilters: [],
-            },
-          },
-        ],
+        managedBy: "api",
+        columns: generateColumns({
+          timestamp: { datatype: "date" },
+          user_id: { datatype: "string" },
+          device_id: { datatype: "string" },
+          client_key: { datatype: "string" },
+          issue_fingerprint: { datatype: "string", alwaysInlineFilter: true },
+          title: { datatype: "string" },
+          error_type: { datatype: "string" },
+          transaction_name: { datatype: "string" },
+          release_version: { datatype: "string" },
+          runtime_name: { datatype: "string" },
+          properties: { datatype: "json" },
+          attributes: { datatype: "json" },
+          environment: { datatype: "string" },
+          sdk_language: { datatype: "string" },
+          sdk_version: { datatype: "string" },
+          event_uuid: { datatype: "string" },
+          ip: { datatype: "string" },
+          geo_country: { datatype: "string" },
+          ua_device_type: { datatype: "string" },
+          ua_browser: { datatype: "string" },
+          ua_os: { datatype: "string" },
+          utm_source: { datatype: "string" },
+          utm_medium: { datatype: "string" },
+          utm_campaign: { datatype: "string" },
+          url_path: { datatype: "string" },
+        }),
+        userIdTypes: ["user_id", "device_id"],
+        eventName: "",
       },
-    ],
-  };
+      filters: [],
+      metrics: [
+        {
+          name: "Errors Per User",
+          metricType: "mean",
+          numerator: {
+            factTableId: "",
+            column: "$$count",
+            rowFilters: [],
+          },
+        },
+        {
+          name: "Distinct Errors Per User",
+          metricType: "mean",
+          numerator: {
+            factTableId: "",
+            column: "issue_fingerprint",
+            aggregation: "count distinct",
+            rowFilters: [],
+          },
+        },
+      ],
+    });
+  }
+
+  return { factTables };
 }
 
 function getSegmentResources(
@@ -717,11 +724,13 @@ function getGA4Resources(
 
 export function getInitialDatasourceResources({
   datasource,
+  enableErrorTracking,
 }: {
   datasource: DataSourceInterfaceWithParams;
+  enableErrorTracking: boolean;
 }): InitialDatasourceResources {
   if (datasource.type === "growthbook_clickhouse") {
-    return getBuiltInWarehouseResources();
+    return getBuiltInWarehouseResources({ enableErrorTracking });
   }
 
   switch (datasource.settings?.schemaFormat) {

@@ -15,6 +15,7 @@ import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
 import { useUser } from "@/services/UserContext";
 import { getMemberDisplayName } from "@/components/ErrorTracking/memberDisplay";
+import { useFeatureDisabledRedirect } from "@/hooks/useFeatureDisabledRedirect";
 
 type IssueRow = {
   fingerprint: string;
@@ -41,8 +42,11 @@ function ageLabel(firstSeen: string): string {
 }
 
 export default function ErrorTrackingIndexPage(): React.ReactElement {
+  const { ready: featureReady, shouldRender } = useFeatureDisabledRedirect(
+    "enable-error-tracking",
+  );
   const router = useRouter();
-  const { datasources, projects, ready } = useDefinitions();
+  const { datasources, projects, ready: definitionsReady } = useDefinitions();
   const { users, getUserDisplay } = useUser();
 
   const growthbookManagedDatasource = datasources.find(
@@ -54,7 +58,7 @@ export default function ErrorTrackingIndexPage(): React.ReactElement {
 
   const { data: sdkData } = useApi<{ connections: SDKConnectionInterface[] }>(
     "/sdk-connections",
-    { shouldRun: () => ready },
+    { shouldRun: () => definitionsReady },
   );
 
   const projectFilter = router.query.project as string | undefined;
@@ -83,11 +87,14 @@ export default function ErrorTrackingIndexPage(): React.ReactElement {
     issuesUrl || "",
     {
       shouldRun: () =>
-        !!growthbookManagedDatasource && !pending && !!clientKey && ready,
+        !!growthbookManagedDatasource &&
+        !pending &&
+        !!clientKey &&
+        definitionsReady,
     },
   );
 
-  if (!ready) {
+  if (!definitionsReady || !featureReady || !shouldRender) {
     return <LoadingOverlay />;
   }
 
