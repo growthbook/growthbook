@@ -5,6 +5,7 @@
 import type { AIPromptType } from "shared/ai";
 import type { MaterializedColumn } from "shared/types/datasource";
 import type { DailyUsage } from "shared/types/organization";
+import { dailyUsageForOrgResponseValidator } from "shared/validators";
 import type { RequestInit, Response } from "node-fetch";
 import { LICENSE_SERVER_URL } from "back-end/src/enterprise/licenseUtil";
 import { logger } from "back-end/src/util/logger";
@@ -229,18 +230,20 @@ export async function getDailyUsageForOrg(
   start: Date,
   end: Date,
 ): Promise<DailyUsage[]> {
-  const json = await postManagedClickhouseJson<{ days?: unknown }>(
-    "daily-usage-for-org",
-    {
-      orgId,
-      start: start.toISOString(),
-      end: end.toISOString(),
-    },
-  );
-  if (!Array.isArray(json?.days)) {
+  const json = await postManagedClickhouseJson("daily-usage-for-org", {
+    orgId,
+    start: start.toISOString(),
+    end: end.toISOString(),
+  });
+  const parsed = dailyUsageForOrgResponseValidator.safeParse(json);
+  if (!parsed.success) {
+    logger.error(
+      { zodError: parsed.error.flatten() },
+      "Unexpected response shape from daily-usage-for-org endpoint",
+    );
     throw new Error(
       "Unexpected response shape from daily-usage-for-org endpoint",
     );
   }
-  return json.days as DailyUsage[];
+  return parsed.data.days;
 }
