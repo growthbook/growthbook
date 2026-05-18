@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { RampScheduleInterface } from "shared/validators";
+import { isAwaitingApproval, RampScheduleInterface } from "shared/validators";
 import { abbreviateAgo, datetime } from "shared/dates";
 import Badge from "@/ui/Badge";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -59,13 +59,13 @@ export default function RampScheduleBadge({
       ready: "Schedule scheduled",
       running: "Schedule active",
       paused: "Schedule paused",
-      "pending-approval": "Schedule needs approval",
       completed: "Schedule complete",
       "rolled-back": "Rolled back",
     };
-    const displayLabel =
-      statusLabels[rs.status] ??
-      `Schedule ${getRampStatusLabel(rs).toLowerCase()}`;
+    const displayLabel = isAwaitingApproval(rs)
+      ? "Schedule needs approval"
+      : (statusLabels[rs.status] ??
+        `Schedule ${getRampStatusLabel(rs).toLowerCase()}`);
 
     let timingLabel: string | null = null;
     if (futureStart) {
@@ -80,7 +80,7 @@ export default function RampScheduleBadge({
     const badge = (
       <Badge
         label={displayLabel + (timingLabel ? ` · ${timingLabel}` : "")}
-        color={getRampBadgeColor(rs.status)}
+        color={getRampBadgeColor(rs)}
         radius="full"
       />
     );
@@ -124,18 +124,18 @@ export default function RampScheduleBadge({
     ready: "Ramp scheduled",
     running: "Ramp active",
     paused: "Ramp paused",
-    "pending-approval": "Ramp needs approval",
     completed: "Ramp complete",
     "rolled-back": "Rolled back",
   };
-  const displayLabel = featureRuleContext
-    ? (featureContextLabels[rs.status] ?? `Ramp ${baseLabel.toLowerCase()}`)
-    : baseLabel;
+  const featureContextLabel = isAwaitingApproval(rs)
+    ? "Ramp needs approval"
+    : (featureContextLabels[rs.status] ?? `Ramp ${baseLabel.toLowerCase()}`);
+  const displayLabel = featureRuleContext ? featureContextLabel : baseLabel;
 
   const badge = (
     <Badge
       label={displayLabel + (timingLabel ? ` · ${timingLabel}` : "")}
-      color={getRampBadgeColor(rs.status)}
+      color={getRampBadgeColor(rs)}
       radius="full"
     />
   );

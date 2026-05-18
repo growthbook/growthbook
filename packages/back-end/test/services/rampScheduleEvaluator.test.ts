@@ -45,7 +45,7 @@ function makeSchedule(
     targets: [],
     steps: [
       {
-        trigger: { type: "interval", seconds: 3600 },
+        interval: 3600,
         monitored: true,
         actions: [],
       },
@@ -139,6 +139,7 @@ function makeContext({
       },
       safeRollout: {
         getById: jest.fn().mockResolvedValue(safeRollout),
+        update: jest.fn(),
       },
       safeRolloutSnapshots: {
         getById: jest.fn().mockResolvedValue({
@@ -637,7 +638,7 @@ describe("rampScheduleEvaluator monitored SafeRollout integration", () => {
     const schedule = makeSchedule({
       steps: [
         {
-          trigger: { type: "interval", seconds: 3600 },
+          interval: 3600,
           monitored: true,
           actions: [],
           holdConditions: { minSampleSize: 1000 },
@@ -669,7 +670,7 @@ describe("rampScheduleEvaluator monitored SafeRollout integration", () => {
     const schedule = makeSchedule({
       steps: [
         {
-          trigger: { type: "interval", seconds: 3600 },
+          interval: 3600,
           monitored: true,
           actions: [],
           holdConditions: { minSampleSize: 50 },

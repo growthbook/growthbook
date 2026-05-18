@@ -456,9 +456,7 @@ export default function FeaturesOverview({
   const featureLockedByRamp = useMemo(
     () =>
       rampSchedules?.some(
-        (rs) =>
-          rs.lockdownConfig?.mode === "locked" &&
-          ["running", "pending-approval"].includes(rs.status),
+        (rs) => rs.lockdownConfig?.mode === "locked" && rs.status === "running",
       ) ?? false,
     [rampSchedules],
   );

@@ -52,7 +52,7 @@ export interface FastRampOptions extends BasePresetOptions {
 
 function intervalStep(seconds: number, actions: RampStepAction[]): RampStep {
   return {
-    trigger: { type: "interval", seconds },
+    interval: seconds,
     actions,
     monitored: false,
   };
@@ -60,10 +60,15 @@ function intervalStep(seconds: number, actions: RampStepAction[]): RampStep {
 
 function approvalStep(actions: RampStepAction[]): RampStep {
   return {
-    trigger: { type: "approval" },
+    interval: null,
     actions,
     monitored: false,
+    holdConditions: { requiresApproval: true },
   };
+}
+
+function isApprovalStep(step: RampStep): boolean {
+  return step.interval == null && !!step.holdConditions?.requiresApproval;
 }
 
 // ---------------------------------------------------------------------------
@@ -146,8 +151,8 @@ export function generateApprovalMilestonePreset(
     steps.push(approvalStep(stepActions));
   });
 
-  if (!finalApproval && steps[steps.length - 1]?.trigger.type === "approval") {
-    // Remove trailing approval if not wanted
+  const lastStep = steps[steps.length - 1];
+  if (!finalApproval && lastStep && isApprovalStep(lastStep)) {
     steps.pop();
   }
 

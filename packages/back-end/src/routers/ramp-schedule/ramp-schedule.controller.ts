@@ -238,7 +238,7 @@ export const deleteRampSchedule = async (
       .status(404)
       .json({ status: 404, message: "Ramp schedule not found" });
   }
-  if (["running", "pending-approval"].includes(schedule.status)) {
+  if (schedule.status === "running") {
     return res.status(400).json({
       status: 400,
       message: `Cannot delete a ramp schedule in status "${schedule.status}". Pause or complete it first.`,
@@ -284,7 +284,7 @@ export const postRampScheduleAction = async (
     }
 
     case "pause":
-      if (!["running", "pending-approval"].includes(schedule.status)) {
+      if (schedule.status !== "running") {
         return res.status(400).json({
           status: 400,
           message: `Cannot pause a schedule in status "${schedule.status}"`,
@@ -373,10 +373,16 @@ export const postRampScheduleAction = async (
     }
 
     case "approve-step": {
-      if (schedule.status !== "pending-approval") {
+      const currentStep = schedule.steps[schedule.currentStepIndex];
+      const awaitingApproval =
+        schedule.status === "running" &&
+        currentStep?.holdConditions?.requiresApproval &&
+        !schedule.stepApprovedAt;
+
+      if (!awaitingApproval) {
         return res.status(400).json({
           status: 400,
-          message: `Cannot approve step: schedule is not in "pending-approval" status (currently "${schedule.status}")`,
+          message: `Cannot approve step: schedule is not awaiting approval (currently "${schedule.status}")`,
         });
       }
       const approveErr = await approveAndPublishStep(context, schedule);

@@ -159,7 +159,7 @@ function makeSchedule(
     ],
     steps: [
       {
-        trigger: { type: "interval", seconds: 300 },
+        interval: 300,
         actions: [
           {
             targetType: "feature-rule" as const,
@@ -169,7 +169,7 @@ function makeSchedule(
         ],
       },
       {
-        trigger: { type: "interval", seconds: 600 },
+        interval: 600,
         actions: [
           {
             targetType: "feature-rule" as const,
@@ -179,7 +179,7 @@ function makeSchedule(
         ],
       },
       {
-        trigger: { type: "interval", seconds: 900 },
+        interval: 900,
         actions: [
           {
             targetType: "feature-rule" as const,
@@ -337,7 +337,7 @@ function sparseSchedule(
 ): Pick<RampScheduleInterface, "steps" | "endActions"> {
   return {
     steps: stepActions.map((acts) => ({
-      trigger: { type: "interval", seconds: 300 },
+      interval: 300,
       actions: acts as RampScheduleInterface["steps"][0]["actions"],
     })),
   };
@@ -609,57 +609,58 @@ describe("computeNextStepAt", () => {
   const phaseStart = new Date("2025-01-01T00:00:00Z");
   const now = new Date("2025-01-01T01:00:00Z");
 
-  it("returns now for an approval step", () => {
+  it("returns null for a pure approval step (no time gate)", () => {
+    // Pure approval steps (interval=null) have no time deadline; nextStepAt
+    // is null and the step only advances when the approver acts.
     const schedule = makeSchedule({
-      steps: [{ trigger: { type: "approval" }, actions: [] }],
+      steps: [
+        {
+          interval: null,
+          holdConditions: { requiresApproval: true },
+          actions: [],
+        },
+      ],
       phaseStartedAt: phaseStart,
     });
     const result = computeNextStepAt(schedule, 0, now);
-    expect(result).toEqual(now);
-  });
-
-  it("returns trigger.at for a scheduled step", () => {
-    const at = new Date("2025-06-01T12:00:00Z");
-    const schedule = makeSchedule({
-      steps: [{ trigger: { type: "scheduled", at }, actions: [] }],
-    });
-    const result = computeNextStepAt(schedule, 0, now);
-    expect(result).toEqual(at);
+    expect(result).toBeNull();
   });
 
   it("computes cumulative interval from phaseStart (step 0)", () => {
     const schedule = makeSchedule({
-      steps: [{ trigger: { type: "interval", seconds: 600 }, actions: [] }],
+      steps: [{ interval: 600, actions: [] }],
       phaseStartedAt: phaseStart,
     });
     const result = computeNextStepAt(schedule, 0, now);
-    // phaseStart + 600s
     expect(result).toEqual(new Date(phaseStart.getTime() + 600_000));
   });
 
   it("computes cumulative interval for step 1 (sum of steps 0+1)", () => {
     const schedule = makeSchedule({
       steps: [
-        { trigger: { type: "interval", seconds: 300 }, actions: [] },
-        { trigger: { type: "interval", seconds: 600 }, actions: [] },
+        { interval: 300, actions: [] },
+        { interval: 600, actions: [] },
       ],
       phaseStartedAt: phaseStart,
     });
     const result = computeNextStepAt(schedule, 1, now);
-    // phaseStart + (300 + 600)s = phaseStart + 900s
     expect(result).toEqual(new Date(phaseStart.getTime() + 900_000));
   });
 
-  it("approval steps are excluded from the cumulative sum", () => {
+  it("pure approval steps are excluded from the cumulative sum", () => {
     const schedule = makeSchedule({
       steps: [
-        { trigger: { type: "interval", seconds: 300 }, actions: [] },
-        { trigger: { type: "approval" }, actions: [] },
-        { trigger: { type: "interval", seconds: 600 }, actions: [] },
+        { interval: 300, actions: [] },
+        {
+          interval: null,
+          holdConditions: { requiresApproval: true },
+          actions: [],
+        },
+        { interval: 600, actions: [] },
       ],
       phaseStartedAt: phaseStart,
     });
-    // Step 2 (index 2): sum = 300 (step 0) + 0 (approval, step 1) + 600 (step 2) = 900
+    // Step 2: sum = 300 (step 0) + 0 (pure approval, step 1) + 600 (step 2) = 900
     const result = computeNextStepAt(schedule, 2, now);
     expect(result).toEqual(new Date(phaseStart.getTime() + 900_000));
   });
@@ -678,17 +679,21 @@ describe("computePhaseStartAfterApproval", () => {
     const now = new Date("2025-01-01T01:00:00Z");
     const schedule = makeSchedule({
       steps: [
-        { trigger: { type: "interval", seconds: 300 }, actions: [] },
-        { trigger: { type: "approval" }, actions: [] },
-        { trigger: { type: "interval", seconds: 600 }, actions: [] },
+        { interval: 300, actions: [] },
+        {
+          interval: null,
+          holdConditions: { requiresApproval: true },
+          actions: [],
+        },
+        { interval: 600, actions: [] },
       ],
     });
-    // After approval at step 1, next step is index 2.
-    // phaseStart = now - sum(intervals 0..1 exclusive) = now - 300s
+    // After approval at the pure-approval step (index 1), rebase phaseStart
+    // so that step 2 fires interval=600s from now.
+    // computePhaseStartAfterApproval takes the *next* step index.
     const phaseStart = computePhaseStartAfterApproval(now, schedule, 2);
     expect(phaseStart).toEqual(new Date(now.getTime() - 300_000));
 
-    // Verify: computeNextStepAt(step 2, phaseStart=phaseStart) = phaseStart + (300 + 600) = now + 600s
     const nextAt = computeNextStepAt(
       { ...schedule, phaseStartedAt: phaseStart },
       2,
@@ -919,12 +924,17 @@ describe("advanceStep — approval step", () => {
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
   });
 
-  it("sets status to pending-approval without publishing a revision (deferred to approve)", async () => {
+  it("stays in 'running' on a pure approval step (awaiting approval is derived)", async () => {
+    // pending-approval is no longer a stored status; the UI/evaluator derive
+    // it from running + holdConditions.requiresApproval + !stepApprovedAt.
+    // We assert: status stays running, the patch is applied immediately
+    // (apply-first), and nextStepAt is null (no time gate).
     const schedule = makeSchedule({
       currentStepIndex: -1,
       steps: [
         {
-          trigger: { type: "approval" },
+          interval: null,
+          holdConditions: { requiresApproval: true },
           actions: [
             {
               targetType: "feature-rule" as const,
@@ -939,8 +949,9 @@ describe("advanceStep — approval step", () => {
     await advanceStep(ctx as never, schedule);
 
     const [, updates] = updateById.mock.calls[0];
-    expect(updates.status).toBe("pending-approval");
-    // Apply-first: coverage is applied immediately on entering the step.
+    expect(updates.status).toBe("running");
+    expect(updates.stepApprovedAt).toBeNull();
+    expect(updates.nextStepAt).toBeNull();
     expect(mockPublishRevision).toHaveBeenCalledTimes(1);
   });
 });
@@ -1464,7 +1475,10 @@ describe("advanceUntilBlocked", () => {
     expect(callCount).toBe(1);
   });
 
-  it("stops at an approval gate (status → pending-approval)", async () => {
+  it("stops at an approval gate (status stays running, awaiting derived)", async () => {
+    // After advancing onto the approval step, the loop must stop because
+    // the step still requires manual approval. status is "running" (not the
+    // old "pending-approval"); awaiting approval is derived externally.
     const past = new Date(Date.now() - 1000);
     const scheduleWithApproval = makeSchedule({
       currentStepIndex: -1,
@@ -1472,7 +1486,8 @@ describe("advanceUntilBlocked", () => {
       status: "running",
       steps: [
         {
-          trigger: { type: "approval" },
+          interval: null,
+          holdConditions: { requiresApproval: true },
           actions: [
             {
               targetType: "feature-rule" as const,
@@ -1482,7 +1497,7 @@ describe("advanceUntilBlocked", () => {
           ],
         },
         {
-          trigger: { type: "interval", seconds: 300 },
+          interval: 300,
           actions: [
             {
               targetType: "feature-rule" as const,
@@ -1503,6 +1518,8 @@ describe("advanceUntilBlocked", () => {
           return {
             ...scheduleWithApproval,
             ...updates,
+            currentStepIndex:
+              updates.currentStepIndex ?? scheduleWithApproval.currentStepIndex,
             status: updates.status ?? scheduleWithApproval.status,
           };
         },
@@ -1520,10 +1537,11 @@ describe("advanceUntilBlocked", () => {
 
     await advanceUntilBlocked(ctx as never, scheduleWithApproval, new Date());
 
-    // Should only advance to step 0 (approval gate), then stop.
     expect(callCount).toBe(1);
     const [, updates] = updateById.mock.calls[0];
-    expect(updates.status).toBe("pending-approval");
+    expect(updates.status).toBe("running");
+    expect(updates.currentStepIndex).toBe(0);
+    expect(updates.stepApprovedAt).toBeNull();
   });
 });
 

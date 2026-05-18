@@ -524,8 +524,8 @@ function rampDiffsForRevision(
     }
 
     // "ready" / "pending" are pre-start lifecycle states; everything else
-    // (running, paused, pending-approval, completed, rolled-back) means the
-    // ramp has already begun, so use past tense.
+    // (running, paused, completed, rolled-back) means the ramp has already
+    // begun, so use past tense.
     const alreadyStarted = ramp.status !== "pending" && ramp.status !== "ready";
     const startDescription = ramp.startDate
       ? alreadyStarted

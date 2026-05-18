@@ -41,16 +41,11 @@ function normalizeMonitoringConfig(
   };
 }
 
-// Tight ISO datetime validation for all ramp date fields so bad strings
-// fail here rather than downstream in `new Date()`.
-const apiRampTrigger = z.union([
-  z.object({ type: z.literal("interval"), seconds: z.number().positive() }),
-  z.object({ type: z.literal("approval") }),
-  z.object({ type: z.literal("scheduled"), at: z.string().datetime() }),
-]);
-
+// New unified step shape: `interval` is the hold duration in seconds (null
+// means no time gate). Pure approval steps use
+// `{ interval: null, holdConditions: { requiresApproval: true } }`.
 const postBodyStep = z.object({
-  trigger: apiRampTrigger,
+  interval: z.number().positive().nullable(),
   actions: z.array(postBodyAction).optional().default([]),
   approvalNotes: z.string().nullish(),
   monitored: z.boolean().default(false),
@@ -132,18 +127,6 @@ const postRampScheduleValidator = {
       }
     }),
 };
-
-function normalizeApiTrigger(
-  trigger: z.infer<typeof apiRampTrigger>,
-): RampScheduleInterface["steps"][number]["trigger"] {
-  if (trigger.type === "scheduled") {
-    return { type: "scheduled", at: new Date(trigger.at) };
-  }
-  if (trigger.type === "interval") {
-    return { type: "interval", seconds: trigger.seconds };
-  }
-  return { type: "approval" };
-}
 
 function normalizeAction(action: PostBodyAction): RampStepAction {
   return {
@@ -237,7 +220,7 @@ export const postRampSchedule = createApiRequestHandler(
   const resolvedSteps: RampScheduleInterface["steps"] = (() => {
     if (body.steps !== undefined) {
       return body.steps.map((s) => ({
-        trigger: normalizeApiTrigger(s.trigger),
+        interval: s.interval,
         actions: s.actions.map((a) =>
           hasTarget
             ? injectTarget(a, targetId!, body.ruleId!)
@@ -250,7 +233,7 @@ export const postRampSchedule = createApiRequestHandler(
     }
     if (template && hasTarget) {
       return template.steps.map((s) => ({
-        trigger: s.trigger,
+        interval: s.interval,
         actions: remapTemplateActions(
           s.actions,
           targetId!,

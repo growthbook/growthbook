@@ -36,14 +36,14 @@ const postBodyAction = z.object({
   patch: postBodyPatch,
 });
 
-const apiRampTrigger = z.union([
-  z.object({ type: z.literal("interval"), seconds: z.number().positive() }),
-  z.object({ type: z.literal("approval") }),
-  z.object({ type: z.literal("scheduled"), at: z.string() }),
-]);
-
 const postBodyStep = z.object({
-  trigger: apiRampTrigger,
+  interval: z
+    .number()
+    .positive()
+    .nullable()
+    .describe(
+      "Hold duration in seconds before this step's gates are evaluated. null = no time gate (advance as soon as holdConditions clear). Pure approval steps use `{ interval: null, holdConditions: { requiresApproval: true } }`.",
+    ),
   actions: z.array(postBodyAction).optional(),
   approvalNotes: z.string().nullish(),
   monitored: z
@@ -156,7 +156,13 @@ const putBodyAction = z.object({
 });
 
 const putBodyStep = z.object({
-  trigger: apiRampTrigger,
+  interval: z
+    .number()
+    .positive()
+    .nullable()
+    .describe(
+      "Hold duration in seconds before this step's gates are evaluated. null = no time gate (advance as soon as holdConditions clear).",
+    ),
   actions: z.array(putBodyAction).optional(),
   approvalNotes: z.string().nullish(),
   monitored: z
@@ -191,15 +197,7 @@ const listQuerySchema = z.object({
   ...paginationQueryFields,
   featureId: z.string().optional(),
   status: z
-    .enum([
-      "pending",
-      "ready",
-      "running",
-      "paused",
-      "pending-approval",
-      "completed",
-      "rolled-back",
-    ])
+    .enum(["pending", "ready", "running", "paused", "completed", "rolled-back"])
     .optional()
     .describe("Filter by schedule status"),
 });

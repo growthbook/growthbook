@@ -2160,20 +2160,21 @@ export async function postFeatureRule(
         name: rampSchedulePayload.name,
         steps: (rampSchedulePayload.steps ?? []).map(
           (s: {
-            trigger: unknown;
+            interval?: number | null;
             actions?: unknown[];
             approvalNotes?: string | null;
             monitored?: boolean;
             holdConditions?: Record<string, unknown>;
           }) => ({
-            trigger:
-              s.trigger as RevisionRampCreateAction["steps"][number]["trigger"],
+            interval: s.interval ?? null,
             actions: (s.actions ?? []).map((a: unknown) =>
               normalizeRampStepAction(a as { patch: Record<string, unknown> }),
             ),
             approvalNotes: s.approvalNotes ?? undefined,
             monitored: !!s.monitored,
-            holdConditions: s.holdConditions ?? undefined,
+            holdConditions: s.holdConditions as
+              | RevisionRampCreateAction["steps"][number]["holdConditions"]
+              | undefined,
           }),
         ),
         startActions: rampSchedulePayload.startActions?.map((a: unknown) =>
@@ -3179,20 +3180,21 @@ export async function putFeatureRule(
         name: rampSchedulePayload.name,
         steps: (rampSchedulePayload.steps ?? []).map(
           (s: {
-            trigger: unknown;
+            interval?: number | null;
             actions?: unknown[];
             approvalNotes?: string | null;
             monitored?: boolean;
             holdConditions?: Record<string, unknown>;
           }) => ({
-            trigger:
-              s.trigger as RevisionRampCreateAction["steps"][number]["trigger"],
+            interval: s.interval ?? null,
             actions: (s.actions ?? []).map((a: unknown) =>
               normalizeRampStepAction(a as { patch: Record<string, unknown> }),
             ),
             approvalNotes: s.approvalNotes ?? undefined,
             monitored: !!s.monitored,
-            holdConditions: s.holdConditions ?? undefined,
+            holdConditions: s.holdConditions as
+              | RevisionRampCreateAction["steps"][number]["holdConditions"]
+              | undefined,
           }),
         ),
         startActions: rampSchedulePayload.startActions?.map((a: unknown) =>
@@ -3229,20 +3231,21 @@ export async function putFeatureRule(
         name: rampSchedulePayload.name,
         steps: (rampSchedulePayload.steps ?? []).map(
           (s: {
-            trigger: unknown;
+            interval?: number | null;
             actions?: unknown[];
             approvalNotes?: string | null;
             monitored?: boolean;
             holdConditions?: Record<string, unknown>;
           }) => ({
-            trigger:
-              s.trigger as RevisionRampCreateAction["steps"][number]["trigger"],
+            interval: s.interval ?? null,
             actions: (s.actions ?? []).map((a: unknown) =>
               normalizeRampStepAction(a as { patch: Record<string, unknown> }),
             ),
             approvalNotes: s.approvalNotes ?? undefined,
             monitored: !!s.monitored,
-            holdConditions: s.holdConditions ?? undefined,
+            holdConditions: s.holdConditions as
+              | RevisionRampCreateAction["steps"][number]["holdConditions"]
+              | undefined,
           }),
         ),
         startActions: rampSchedulePayload.startActions?.map((a: unknown) =>

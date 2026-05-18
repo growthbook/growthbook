@@ -536,8 +536,7 @@ export default function RuleModal({
   const hasRampPage =
     isRampType && (ruleType === "force" || ruleType === "rollout");
   const rampIsEditable =
-    !ruleRampSchedule ||
-    !["running", "pending-approval"].includes(ruleRampSchedule.status);
+    !ruleRampSchedule || ruleRampSchedule.status !== "running";
 
   // Reset to page 1 when the ramp page disappears (user switched away from ramp).
   useEffect(() => {

@@ -4,10 +4,11 @@ import { PiCheckBold } from "react-icons/pi";
 import { format } from "date-fns";
 import { abbreviateAgo } from "shared/dates";
 import {
+  isAwaitingApproval,
   RampScheduleInterface,
   RampScheduleStatus,
   RampStepAction,
-  RampTrigger,
+  StepHoldConditions,
 } from "shared/validators";
 import stringify from "json-stringify-pretty-compact";
 import Text from "@/ui/Text";
@@ -21,10 +22,20 @@ import styles from "./RampTimeline.module.scss";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
-export function formatTrigger(trigger: RampTrigger): ReactNode {
-  if (trigger.type === "approval") return <Text size="small">approval</Text>;
-  if (trigger.type === "scheduled") return formatScheduledDate(trigger.at);
-  const s = trigger.seconds;
+// Renders the step's time/approval gate. Composite steps (interval +
+// requiresApproval) show each gate on its own line; pure approval steps
+// (interval=null + requiresApproval) show just "approval"; instant steps
+// (interval=null, no requiresApproval) show "instant".
+export function formatStepGate(
+  interval: number | null,
+  holdConditions?: StepHoldConditions,
+): ReactNode {
+  const requiresApproval = !!holdConditions?.requiresApproval;
+  if (interval == null) {
+    if (requiresApproval) return <Text size="small">approval</Text>;
+    return <Text size="small">instant</Text>;
+  }
+  const s = interval;
   let duration: string;
   if (s < 60) duration = `${s}s`;
   else {
@@ -38,6 +49,20 @@ export function formatTrigger(trigger: RampTrigger): ReactNode {
         duration = Number.isInteger(d) ? `${d}d` : `${d.toFixed(1)}d`;
       }
     }
+  }
+  if (requiresApproval) {
+    return (
+      <div style={{ textAlign: "center", lineHeight: 1 }}>
+        <div>
+          <Text size="small">{duration},</Text>
+        </div>
+        <div>
+          <Text size="small" color="text-low">
+            approval
+          </Text>
+        </div>
+      </div>
+    );
   }
   return <Text size="small">{duration}</Text>;
 }
@@ -275,11 +300,14 @@ interface NodePopoverContentProps {
   nodeColor: string;
   nodeState: NodeState;
   status: RampScheduleStatus;
-  trigger: RampTrigger | null;
+  // Step's time gate in seconds (null = no time gate). null is also used for
+  // start/end synthetic nodes that aren't backed by a step.
+  interval: number | null;
   triggerLabel: ReactNode;
   actions: RampStepAction[];
   syntheticEnabled?: boolean;
   monitored?: boolean;
+  holdConditions?: StepHoldConditions;
   stepIndex: number | "start" | "end";
   isActive: boolean;
   rs: RampScheduleInterface;
@@ -293,11 +321,12 @@ function NodePopoverContent({
   nodeColor,
   nodeState,
   status,
-  trigger,
+  interval,
   triggerLabel,
   actions,
   syntheticEnabled,
   monitored,
+  holdConditions,
   stepIndex,
   isActive,
   rs,
@@ -306,8 +335,7 @@ function NodePopoverContent({
 }: NodePopoverContentProps) {
   const [loading, setLoading] = useState(false);
 
-  const canAct =
-    !isActive && ["running", "paused", "pending-approval"].includes(rs.status);
+  const canAct = !isActive && ["running", "paused"].includes(rs.status);
 
   let ctaLabel: string | null = null;
   if (canAct) {
@@ -338,8 +366,9 @@ function NodePopoverContent({
     if (nodeState === "completed")
       return { label: "Completed", color: "var(--violet-9)" };
     if (nodeState === "active") {
-      if (status === "pending-approval")
-        return { label: "Needs Approval", color: "var(--orange-9)" };
+      if (isAwaitingApproval(rs)) {
+        return { label: "Awaiting Approval", color: "var(--orange-9)" };
+      }
       if (status === "paused")
         return { label: "Paused", color: "var(--amber-11)" };
       if (monitored) return { label: "Monitoring", color: "var(--blue-9)" };
@@ -391,14 +420,35 @@ function NodePopoverContent({
         )
       ) : (
         <Box mb="2">
-          <PopoverEffectRow label={monitored ? "Min hold" : "Hold"}>
+          <PopoverEffectRow
+            label={
+              monitored
+                ? "Min hold"
+                : holdConditions?.requiresApproval
+                  ? "Hold + approval"
+                  : "Hold"
+            }
+          >
             {triggerLabel}
           </PopoverEffectRow>
         </Box>
       )}
 
+      {isActive && holdConditions?.requiresApproval && interval != null && (
+        <Box mb="2">
+          <PopoverEffectRow label="Approval">
+            <Text
+              size="small"
+              color={rs.stepApprovedAt ? undefined : "text-low"}
+            >
+              {rs.stepApprovedAt ? "Approved" : "Pending"}
+            </Text>
+          </PopoverEffectRow>
+        </Box>
+      )}
+
       {isActive &&
-        trigger?.type === "interval" &&
+        interval != null &&
         !monitored &&
         (() => {
           if (!rs.nextStepAt) return null;
@@ -455,7 +505,6 @@ function activeDotColor(status: RampScheduleStatus): string {
   if (status === "running") return "var(--green-9)";
   if (status === "pending" || status === "ready" || status === "paused")
     return "var(--amber-9)";
-  if (status === "pending-approval") return "var(--orange-9)";
   if (status === "rolled-back") return "var(--gray-8)";
   return "var(--accent-9)";
 }
@@ -464,7 +513,6 @@ function activeLabelColor(status: RampScheduleStatus): string {
   if (status === "running") return "var(--green-11)";
   if (status === "pending" || status === "ready" || status === "paused")
     return "var(--amber-11)";
-  if (status === "pending-approval") return "var(--orange-11)";
   if (status === "rolled-back") return "var(--gray-10)";
   return "var(--accent-11)";
 }
@@ -627,11 +675,13 @@ export function getRampStatusLabel(rs: RampScheduleInterface): string {
   if (rs.status === "ready") {
     return "Scheduled";
   }
+  if (isAwaitingApproval(rs)) {
+    return "Needs Approval";
+  }
   const labels: Partial<Record<RampScheduleStatus, string>> = {
     pending: "Schedule Start is Pending",
     running: "Running",
     paused: "Paused",
-    "pending-approval": "Needs Approval",
     completed: "Complete",
     "rolled-back": "Rolled back",
   };
@@ -639,8 +689,12 @@ export function getRampStatusLabel(rs: RampScheduleInterface): string {
 }
 
 export function getRampBadgeColor(
-  status: RampScheduleStatus,
+  rs: Pick<
+    RampScheduleInterface,
+    "status" | "currentStepIndex" | "steps" | "stepApprovedAt"
+  >,
 ): "amber" | "green" | "orange" | "gray" | "red" {
+  if (isAwaitingApproval(rs)) return "orange";
   const colors: Record<
     RampScheduleStatus,
     "amber" | "green" | "orange" | "gray" | "red"
@@ -649,11 +703,10 @@ export function getRampBadgeColor(
     ready: "amber",
     running: "green",
     paused: "amber",
-    "pending-approval": "orange",
     completed: "gray",
     "rolled-back": "red",
   };
-  return colors[status] ?? "gray";
+  return colors[rs.status] ?? "gray";
 }
 
 export function getRampStepsCompleted(rs: RampScheduleInterface): number {
@@ -708,7 +761,7 @@ export default function RampTimeline({
           nodeColor={dotColor(getState(0), status)}
           nodeState={getState(0)}
           status={status}
-          trigger={null}
+          interval={null}
           triggerLabel={
             startDateDisplay ? formatScheduledDate(startDateDisplay) : null
           }
@@ -740,7 +793,7 @@ export default function RampTimeline({
               <Text size="small">auto</Text>
             ) : undefined
           ) : (
-            formatTrigger(steps[i - 1].trigger)
+            formatStepGate(steps[i - 1].interval, steps[i - 1].holdConditions)
           ),
         popoverContent: (
           <NodePopoverContent
@@ -749,10 +802,11 @@ export default function RampTimeline({
             nodeColor={dotColor(state, status)}
             nodeState={state}
             status={status}
-            trigger={step.trigger}
-            triggerLabel={formatTrigger(step.trigger)}
+            interval={step.interval}
+            triggerLabel={formatStepGate(step.interval, step.holdConditions)}
             actions={step.actions}
             monitored={step.monitored}
+            holdConditions={step.holdConditions}
             stepIndex={i}
             isActive={state === "active"}
             rs={rs}
@@ -766,7 +820,10 @@ export default function RampTimeline({
       const dual = hasDualEndNodes(rs);
       const lastStepConnector =
         steps.length > 0
-          ? formatTrigger(steps[steps.length - 1].trigger)
+          ? formatStepGate(
+              steps[steps.length - 1].interval,
+              steps[steps.length - 1].holdConditions,
+            )
           : undefined;
 
       if (dual) {
@@ -785,7 +842,7 @@ export default function RampTimeline({
                 nodeColor={dotColor(getState(rampEndIdx), status)}
                 nodeState={getState(rampEndIdx)}
                 status={status}
-                trigger={null}
+                interval={null}
                 triggerLabel={null}
                 actions={rs.endActions ?? []}
                 stepIndex="end"
@@ -807,7 +864,7 @@ export default function RampTimeline({
                 nodeColor={dotColor(getState(cutoffIdx), status)}
                 nodeState={getState(cutoffIdx)}
                 status={status}
-                trigger={null}
+                interval={null}
                 triggerLabel={formatScheduledDate(rs.cutoffDate!)}
                 actions={[]}
                 stepIndex="end"
@@ -839,7 +896,7 @@ export default function RampTimeline({
               nodeColor={dotColor(getState(endNodeIndex), status)}
               nodeState={getState(endNodeIndex)}
               status={status}
-              trigger={null}
+              interval={null}
               triggerLabel={singleDate ? formatScheduledDate(singleDate) : null}
               actions={rs.endActions ?? []}
               stepIndex="end"

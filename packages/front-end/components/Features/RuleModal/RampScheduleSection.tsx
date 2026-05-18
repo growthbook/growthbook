@@ -25,6 +25,7 @@ import {
   PiCalendarBlank,
   PiArrowCounterClockwise,
   PiTrash,
+  PiCheck,
 } from "react-icons/pi";
 import type {
   FeatureInterface,
@@ -42,6 +43,7 @@ import {
   type TemplateEndPatch,
   type RevisionRampCreateAction,
   type StepHoldConditions,
+  isAwaitingApproval,
 } from "shared/validators";
 import { date as formatDate } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -324,10 +326,15 @@ export function isRampSectionConfigured(state: RampSectionState): boolean {
 }
 
 export function formatRampStepSummary(
-  steps: { trigger: { type: string } }[],
+  steps: {
+    interval: number | null;
+    holdConditions?: StepHoldConditions;
+  }[],
 ): string {
   const count = steps.length;
-  const approvals = steps.filter((s) => s.trigger.type === "approval").length;
+  const approvals = steps.filter(
+    (s) => !!s.holdConditions?.requiresApproval,
+  ).length;
   const parts = [`${count} step${count !== 1 ? "s" : ""}`];
   if (approvals)
     parts.push(`${approvals} approval${approvals !== 1 ? "s" : ""}`);
@@ -336,7 +343,7 @@ export function formatRampStepSummary(
 
 const COL = {
   num: 30, // "1" / "2" / "start" / "end"
-  trigger: 130, // trigger type select
+  trigger: 175, // trigger type select
   duration: 200, // trigger details (interval inputs, datetime, "Awaiting approval")
   coverage: 80, // [number] %
 } as const;
@@ -472,21 +479,31 @@ export function buildRampSteps(
 ) {
   return steps.map((s) => {
     const patch = buildPatch(s.patch, ruleId, s.monitored);
+    const hasInterval = s.triggerType === "interval";
+    // Pure approval steps always emit `requiresApproval: true` in
+    // holdConditions; composite (interval + approval) preserves any
+    // user-configured approval flag.
+    const approvalRequired =
+      !hasInterval || !!s.holdConditions?.requiresApproval;
+    const mergedHoldConditions: StepHoldConditions | undefined = (() => {
+      const base = s.holdConditions ?? {};
+      const merged: StepHoldConditions = {
+        ...base,
+        ...(approvalRequired ? { requiresApproval: true } : {}),
+      };
+      return Object.keys(merged).length > 0 ? merged : undefined;
+    })();
     return {
-      trigger:
-        s.triggerType === "interval"
-          ? {
-              type: "interval" as const,
-              seconds: Math.max(1, s.intervalValue) * UNIT_MULT[s.intervalUnit],
-            }
-          : { type: "approval" as const },
+      interval: hasInterval
+        ? Math.max(1, s.intervalValue) * UNIT_MULT[s.intervalUnit]
+        : null,
       actions: [{ targetType: "feature-rule" as const, targetId, patch }],
-      ...(s.triggerType === "approval" && s.approvalNotes
+      ...(approvalRequired && s.approvalNotes
         ? { approvalNotes: s.approvalNotes }
         : {}),
       monitored: !!s.monitored,
-      ...(s.monitored && s.holdConditions
-        ? { holdConditions: s.holdConditions }
+      ...(mergedHoldConditions && (s.monitored || approvalRequired)
+        ? { holdConditions: mergedHoldConditions }
         : {}),
     };
   });
@@ -637,9 +654,10 @@ function formatReadonlyDurationFromSchedule(rs: RampScheduleInterface): string {
   let approvals = 0;
   let hasMonitored = false;
   for (const step of rs.steps) {
-    if (step.trigger.type === "interval") {
-      totalSeconds += step.trigger.seconds;
-    } else {
+    if (step.interval != null) {
+      totalSeconds += step.interval;
+    }
+    if (step.holdConditions?.requiresApproval) {
       approvals++;
     }
     if (step.monitored) hasMonitored = true;
@@ -1002,9 +1020,7 @@ export default function RampScheduleSection({
 
   const canEdit =
     !ruleRampSchedule ||
-    !["running", "pending-approval", "conflict"].includes(
-      ruleRampSchedule.status,
-    );
+    !["running", "conflict"].includes(ruleRampSchedule.status);
   const isReadOnlyView = readOnly || (state.mode !== "create" && !canEdit);
 
   function renderStepGrid() {
@@ -1021,6 +1037,15 @@ export default function RampScheduleSection({
       if (!isReadOnlyView || !ruleRampSchedule) return null;
       if (stepIndex !== currentReadOnlyStepIndex) return null;
 
+      if (isAwaitingApproval(ruleRampSchedule)) {
+        return {
+          borderColor: "var(--yellow-9)",
+          textColor: "var(--yellow-11)",
+          tooltip:
+            "Pending approval: ramp is waiting for manual approval on this step.",
+        };
+      }
+
       switch (ruleRampSchedule.status) {
         case "running":
           return {
@@ -1033,13 +1058,6 @@ export default function RampScheduleSection({
             borderColor: "var(--amber-9)",
             textColor: "var(--amber-11)",
             tooltip: "Paused step: ramp is paused on this step.",
-          };
-        case "pending-approval":
-          return {
-            borderColor: "var(--yellow-9)",
-            textColor: "var(--yellow-11)",
-            tooltip:
-              "Pending approval: ramp is waiting for manual approval on this step.",
           };
         case "ready":
         case "pending":
@@ -1354,31 +1372,52 @@ export default function RampScheduleSection({
         );
       }
 
-      if (step?.holdConditions?.minSampleSize != null) {
-        rows.push(
-          <ReadOnlyEffectRow label="Minimum sample size">
-            {step.holdConditions.minSampleSize.toLocaleString()}
-          </ReadOnlyEffectRow>,
-        );
-      }
-      if (step?.approvalNotes?.trim()) {
-        rows.push(
-          <ReadOnlyEffectRow label="Approval notes">
-            {step.approvalNotes.trim()}
-          </ReadOnlyEffectRow>,
-        );
-      }
+      const hasHoldConditions =
+        step?.holdConditions?.minSampleSize != null ||
+        step?.holdConditions?.requiresApproval;
 
-      if (!rows.length) return null;
+      if (!rows.length && !hasHoldConditions) return null;
 
       return (
-        <Box mt="2" pr="2" style={{ paddingLeft: subRowIndent }}>
-          <Flex direction="column" gap="2">
+        <Box mt="1" pr="2" style={{ paddingLeft: subRowIndent }}>
+          <Flex direction="column" gap="1">
+            {hasHoldConditions && (
+              <Flex direction="column" gap="1">
+                <Text as="div" size="small" weight="medium" color="text-low">
+                  Then:
+                </Text>
+                <Flex direction="column" gap="1" style={{ paddingLeft: 12 }}>
+                  {step?.holdConditions?.requiresApproval && (
+                    <Flex wrap="wrap" gap="2" align="baseline">
+                      <Text size="small" weight="medium">
+                        Hold for approval
+                      </Text>
+                      {step?.approvalNotes?.trim() && (
+                        <Text size="small" color="text-low">
+                          {step.approvalNotes.trim()}
+                        </Text>
+                      )}
+                    </Flex>
+                  )}
+                  {step?.holdConditions?.minSampleSize != null && (
+                    <Flex wrap="wrap" gap="2" align="baseline">
+                      <Text size="small" weight="medium">
+                        Hold for min. sample
+                      </Text>
+                      <Text size="small" color="text-low">
+                        {step.holdConditions.minSampleSize.toLocaleString()}
+                      </Text>
+                    </Flex>
+                  )}
+                </Flex>
+              </Flex>
+            )}
             {rows.map((row, index) => (
               <Box
                 key={`readonly-effect-row-${index}`}
                 px="2"
                 py="2"
+                mt={index === 0 && hasHoldConditions ? "2" : undefined}
                 style={{
                   border: "1px solid var(--gray-a5)",
                   borderRadius: "var(--radius-2)",
@@ -1697,10 +1736,14 @@ export default function RampScheduleSection({
                   <Flex
                     align="center"
                     gap="2"
+                    flexGrow="1"
                     style={
                       step.triggerType === "approval"
                         ? { flex: 1, minWidth: COL.trigger }
-                        : { width: COL.trigger + COL.duration, flexShrink: 0 }
+                        : {
+                            width: COL.trigger + COL.duration + 80,
+                            flexShrink: 0,
+                          }
                     }
                   >
                     {isReadOnlyView ? (
@@ -1715,22 +1758,47 @@ export default function RampScheduleSection({
                             options={[
                               {
                                 value: "interval",
-                                label: "Hold",
+                                label: "Hold for",
                                 tooltip:
                                   "Apply this step's effects, then hold for the interval before advancing",
                               },
                               {
                                 value: "approval",
-                                label: "Approval",
+                                label: "Hold for approval",
                                 tooltip:
                                   "Apply this step's effects, then hold for manual approval before advancing",
                               },
                             ]}
-                            onChange={(v) =>
-                              updateStep(i, {
-                                triggerType: v as "interval" | "approval",
-                              })
-                            }
+                            onChange={(v) => {
+                              const next = v as "interval" | "approval";
+                              const update: Partial<UIStep> = {
+                                triggerType: next,
+                              };
+                              if (next === "approval") {
+                                // Dropping the interval; approval is now the
+                                // only gate so requiresApproval moves into the
+                                // top-level approval step (holdConditions not
+                                // needed). Show notes if the user had already
+                                // typed something.
+                                update.holdConditions = {
+                                  ...step.holdConditions,
+                                  requiresApproval: undefined,
+                                };
+                                update.notesOpen = !!step.approvalNotes?.trim();
+                              } else {
+                                // Adding an interval to a pure-approval step.
+                                // Carry the approval gate over so the "Then:"
+                                // section and any notes the user wrote survive.
+                                update.holdConditions = {
+                                  ...step.holdConditions,
+                                  requiresApproval: true,
+                                };
+                                update.intervalValue = step.intervalValue || 10;
+                                update.intervalUnit =
+                                  step.intervalUnit || "minutes";
+                              }
+                              updateStep(i, update);
+                            }}
                             className="select-unfixed"
                             containerClassName="mb-0"
                             containerStyle={{ minHeight: 38 }}
@@ -1740,7 +1808,11 @@ export default function RampScheduleSection({
                                 return <>{option.label}</>;
                               return (
                                 <div>
-                                  <div>{option.label}</div>
+                                  <div>
+                                    {option.value === "interval"
+                                      ? "Hold for time"
+                                      : option.label}
+                                  </div>
                                   {option.tooltip && (
                                     <div
                                       style={{
@@ -1783,7 +1855,7 @@ export default function RampScheduleSection({
                                 isStepBelowCadence(step) ? "warning" : undefined
                               }
                             />
-                            <Box style={{ flex: 1 }}>
+                            <Box style={{ width: 95, flexShrink: 0 }}>
                               <SelectField
                                 value={step.intervalUnit}
                                 options={[
@@ -1801,6 +1873,30 @@ export default function RampScheduleSection({
                                 containerStyle={{ minHeight: 38 }}
                               />
                             </Box>
+                            {!step.holdConditions?.requiresApproval && (
+                              <Link
+                                size="1"
+                                color="gray"
+                                style={{ flexShrink: 0, whiteSpace: "nowrap" }}
+                                onClick={() =>
+                                  updateStep(i, {
+                                    holdConditions: {
+                                      ...step.holdConditions,
+                                      requiresApproval: true,
+                                    },
+                                    notesOpen: false,
+                                  })
+                                }
+                              >
+                                <PiPlusBold
+                                  style={{
+                                    marginRight: 3,
+                                    verticalAlign: "middle",
+                                  }}
+                                />
+                                Approval
+                              </Link>
+                            )}
                           </>
                         )}
                         {step.triggerType === "approval" && (
@@ -1852,15 +1948,7 @@ export default function RampScheduleSection({
                     )}
                   </Flex>
 
-                  <Box flexGrow="1" />
-
                   <Flex align="center" gap="2" pr="3" style={{ flexShrink: 0 }}>
-                    {step.holdConditions?.minSampleSize != null && (
-                      <Text size="small" color="text-low">
-                        Min. sample:{" "}
-                        {step.holdConditions.minSampleSize.toLocaleString()}
-                      </Text>
-                    )}
                     {isReadOnlyView && (
                       <Tooltip
                         body={
@@ -1935,7 +2023,7 @@ export default function RampScheduleSection({
                                 padding: 0,
                               }}
                             >
-                              <MonitoredIcon size={16} />
+                              <MonitoredIcon size={18} />
                             </IconButton>
                           </Box>
                         </Tooltip>
@@ -1962,17 +2050,97 @@ export default function RampScheduleSection({
                               getAvailableRuleEffects(step.patch).length > 0;
                             return (
                               <>
-                                {step.monitored && (
+                                {(step.monitored ||
+                                  step.triggerType === "interval" ||
+                                  step.triggerType === "approval") && (
                                   <>
-                                    <DropdownMenuGroup label="Monitoring settings">
-                                      <DropdownMenuItem
-                                        onClick={() => {
-                                          setOpenMenuIndex(null);
-                                          setMinSamplePopoverIndex(i);
-                                        }}
-                                      >
-                                        Minimum sample size
-                                      </DropdownMenuItem>
+                                    <DropdownMenuGroup label="Hold conditions">
+                                      {step.monitored && (
+                                        <DropdownMenuItem
+                                          onClick={() => {
+                                            setOpenMenuIndex(null);
+                                            setMinSamplePopoverIndex(i);
+                                          }}
+                                        >
+                                          <Flex
+                                            align="center"
+                                            gap="2"
+                                            justify="between"
+                                            style={{ flex: 1 }}
+                                          >
+                                            <Flex
+                                              align="center"
+                                              gap="1"
+                                              asChild
+                                            >
+                                              <span>
+                                                {step.holdConditions
+                                                  ?.minSampleSize != null && (
+                                                  <PiCheck size={16} />
+                                                )}
+                                                Minimum sample size
+                                              </span>
+                                            </Flex>
+                                            <Box
+                                              style={{
+                                                opacity: 0.35,
+                                                lineHeight: 0,
+                                              }}
+                                            >
+                                              <MonitoredIcon size={16} />
+                                            </Box>
+                                          </Flex>
+                                        </DropdownMenuItem>
+                                      )}
+                                      {step.triggerType === "interval" && (
+                                        <DropdownMenuItem
+                                          onClick={() => {
+                                            const turningOn =
+                                              !step.holdConditions
+                                                ?.requiresApproval;
+                                            setOpenMenuIndex(null);
+                                            updateStep(i, {
+                                              holdConditions: {
+                                                ...step.holdConditions,
+                                                requiresApproval: turningOn,
+                                              },
+                                              // Always start with notes hidden
+                                              // behind "+Add notes" trigger when
+                                              // enabling; clear when disabling.
+                                              notesOpen: false,
+                                              approvalNotes: turningOn
+                                                ? step.approvalNotes
+                                                : "",
+                                            });
+                                          }}
+                                        >
+                                          <Flex align="center" gap="1">
+                                            {step.holdConditions
+                                              ?.requiresApproval && (
+                                              <PiCheck size={16} />
+                                            )}
+                                            Require approval
+                                          </Flex>
+                                        </DropdownMenuItem>
+                                      )}
+                                      {step.triggerType === "approval" && (
+                                        <DropdownMenuItem
+                                          onClick={() => {
+                                            setOpenMenuIndex(null);
+                                            updateStep(i, {
+                                              triggerType: "interval",
+                                              intervalValue: 10,
+                                              intervalUnit: "minutes",
+                                              holdConditions: {
+                                                ...step.holdConditions,
+                                                requiresApproval: true,
+                                              },
+                                            });
+                                          }}
+                                        >
+                                          Add hold duration
+                                        </DropdownMenuItem>
+                                      )}
                                     </DropdownMenuGroup>
                                     <DropdownMenuSeparator />
                                   </>
@@ -2051,6 +2219,137 @@ export default function RampScheduleSection({
                     )}
                   </Flex>
                 </Flex>
+
+                {!isReadOnlyView &&
+                  step.triggerType === "interval" &&
+                  (step.holdConditions?.requiresApproval ||
+                    step.holdConditions?.minSampleSize != null) && (
+                    <Flex
+                      direction="column"
+                      gap="1"
+                      mt="2"
+                      style={{
+                        paddingLeft: COL.num + 16 + COL.coverage + 16,
+                      }}
+                    >
+                      <Text color="text-low" weight="medium">
+                        Then:
+                      </Text>
+
+                      {step.holdConditions?.requiresApproval && (
+                        <Flex
+                          align="center"
+                          gap="4"
+                          style={{ paddingLeft: 16, minHeight: 32 }}
+                        >
+                          <Flex align="center" gap="3" flexGrow="1">
+                            <Box style={{ flexShrink: 0 }}>
+                              <Text weight="medium">Hold for approval</Text>
+                            </Box>
+                            {!step.notesOpen ? (
+                              <Link
+                                size="1"
+                                color="gray"
+                                style={{ flexShrink: 0 }}
+                                onClick={() =>
+                                  updateStep(i, {
+                                    notesOpen: true,
+                                    approvalNotes: "",
+                                  })
+                                }
+                              >
+                                <PiPlusBold
+                                  style={{
+                                    marginRight: 3,
+                                    verticalAlign: "middle",
+                                  }}
+                                />
+                                Add notes
+                              </Link>
+                            ) : (
+                              <Box style={{ flex: 1, minWidth: 120 }}>
+                                <Field
+                                  label=""
+                                  placeholder="ex: Check error rates"
+                                  value={step.approvalNotes}
+                                  onChange={(e) =>
+                                    updateStep(i, {
+                                      approvalNotes: e.target.value,
+                                    })
+                                  }
+                                  containerClassName="mb-0"
+                                  style={{ height: 32 }}
+                                />
+                              </Box>
+                            )}
+                          </Flex>
+                          <Tooltip body="Remove condition" tipMinWidth="50px">
+                            <IconButton
+                              type="button"
+                              variant="ghost"
+                              color="red"
+                              size="2"
+                              radius="full"
+                              style={{ marginRight: 11, marginTop: -2 }}
+                              onClick={() =>
+                                updateStep(i, {
+                                  holdConditions: {
+                                    ...step.holdConditions,
+                                    requiresApproval: false,
+                                  },
+                                  notesOpen: false,
+                                  approvalNotes: "",
+                                })
+                              }
+                            >
+                              <PiTrash />
+                            </IconButton>
+                          </Tooltip>
+                        </Flex>
+                      )}
+
+                      {step.holdConditions?.minSampleSize != null && (
+                        <Flex
+                          align="center"
+                          gap="3"
+                          style={{ paddingLeft: 16, minHeight: 32 }}
+                        >
+                          <Box style={{ flexShrink: 0 }}>
+                            <Text weight="medium">Hold for min. sample</Text>
+                          </Box>
+                          <Link
+                            size="2"
+                            color="gray"
+                            style={{ flexShrink: 0 }}
+                            onClick={() => setMinSamplePopoverIndex(i)}
+                          >
+                            {step.holdConditions.minSampleSize.toLocaleString()}
+                          </Link>
+                          <Box flexGrow="1" />
+                          <Tooltip body="Remove condition" tipMinWidth="50px">
+                            <IconButton
+                              type="button"
+                              variant="ghost"
+                              color="red"
+                              size="2"
+                              radius="full"
+                              style={{ marginRight: 4 }}
+                              onClick={() =>
+                                updateStep(i, {
+                                  holdConditions: {
+                                    ...step.holdConditions,
+                                    minSampleSize: undefined,
+                                  },
+                                })
+                              }
+                            >
+                              <PiTrash />
+                            </IconButton>
+                          </Tooltip>
+                        </Flex>
+                      )}
+                    </Flex>
+                  )}
 
                 {isReadOnlyView
                   ? renderReadonlyPatchSubRows(step.patch, step)
@@ -3310,9 +3609,7 @@ export default function RampScheduleSection({
                   : getRampStatusLabel(ruleRampSchedule)
               }
               color={
-                pendingDetach
-                  ? "red"
-                  : getRampBadgeColor(ruleRampSchedule.status)
+                pendingDetach ? "red" : getRampBadgeColor(ruleRampSchedule)
               }
               radius="full"
             />
@@ -3424,7 +3721,11 @@ export function reconstructUIStep(step: RampStep): UIStep {
   const additionalEffectsOpen = VALID_STEP_FIELDS.some(
     (f) => patch[f] !== undefined,
   );
-  if (step.trigger.type === "approval" || step.trigger.type === "scheduled") {
+  // interval=null is a pure approval gate (or instant); editor mode is
+  // "approval" with default placeholder timing. interval>0 is "interval"
+  // mode; if it also has requiresApproval, the composite UI surfaces it
+  // through holdConditions.
+  if (step.interval == null) {
     const approvalNotes = step.approvalNotes ?? "";
     return {
       patch,
@@ -3438,7 +3739,7 @@ export function reconstructUIStep(step: RampStep): UIStep {
       holdConditions: step.holdConditions ?? undefined,
     };
   }
-  const seconds = step.trigger.seconds;
+  const seconds = step.interval;
   const intervalUnit: IntervalUnit =
     seconds % 86400 === 0 && seconds >= 86400
       ? "days"
@@ -3455,8 +3756,10 @@ export function reconstructUIStep(step: RampStep): UIStep {
         : intervalUnit === "hours"
           ? seconds / 3600
           : seconds / 60,
-    approvalNotes: "",
-    notesOpen: false,
+    approvalNotes: step.approvalNotes ?? "",
+    notesOpen: !!(
+      step.holdConditions?.requiresApproval && step.approvalNotes?.trim()
+    ),
     additionalEffectsOpen,
     monitored: step.monitored ?? false,
     holdConditions: step.holdConditions ?? undefined,

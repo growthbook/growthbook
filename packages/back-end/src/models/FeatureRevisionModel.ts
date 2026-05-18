@@ -42,7 +42,10 @@ import { logger } from "back-end/src/util/logger";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import { createWithVersionRetry } from "back-end/src/util/mongo.util";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
-import { migrateRampScheduleEndCondition } from "./RampScheduleModel";
+import {
+  migrateRampScheduleEndCondition,
+  migrateRampStepTriggers,
+} from "./RampScheduleModel";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
@@ -185,17 +188,25 @@ export function buildFeatureRevisionInterface(
     });
   }
 
-  // JIT migration: normalize legacy endCondition → cutoffDate on ramp actions.
-  // Old DB documents may still have endCondition even though the schema no
-  // longer defines it — cast through `unknown` so the migration can read it.
+  // JIT migration: normalize legacy ramp action shapes on read:
+  //   - endCondition → cutoffDate
+  //   - steps[].trigger discriminated union → steps[].interval + holdConditions
+  // Old DB documents may still hold these legacy shapes even though the schema
+  // no longer defines them — cast through `unknown` so the migration can read.
   if (revision.rampActions?.length) {
     revision.rampActions = revision.rampActions.map((action) => {
       if (action.mode !== "create") return action;
-      return migrateRampScheduleEndCondition(
+      const endCondMigrated = migrateRampScheduleEndCondition(
         action as unknown as Parameters<
           typeof migrateRampScheduleEndCondition
         >[0],
-      ) as typeof action;
+      );
+      const triggersMigrated = migrateRampStepTriggers(
+        endCondMigrated as unknown as Parameters<
+          typeof migrateRampStepTriggers
+        >[0],
+      );
+      return triggersMigrated as unknown as typeof action;
     });
   }
 

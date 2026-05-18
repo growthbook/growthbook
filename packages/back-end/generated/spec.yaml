@@ -3512,38 +3512,11 @@ paths:
                       items:
                         type: object
                         properties:
-                          trigger:
+                          interval:
                             anyOf:
-                              - type: object
-                                properties:
-                                  type:
-                                    type: string
-                                    const: interval
-                                  seconds:
-                                    type: number
-                                    exclusiveMinimum: 0
-                                required:
-                                  - type
-                                  - seconds
-                                additionalProperties: false
-                              - type: object
-                                properties:
-                                  type:
-                                    type: string
-                                    const: approval
-                                required:
-                                  - type
-                                additionalProperties: false
-                              - type: object
-                                properties:
-                                  type:
-                                    type: string
-                                    const: scheduled
-                                  at: {}
-                                required:
-                                  - type
-                                  - at
-                                additionalProperties: false
+                              - type: number
+                                exclusiveMinimum: 0
+                              - type: 'null'
                           actions:
                             type: array
                             items:
@@ -3650,9 +3623,11 @@ paths:
                               minSampleSize:
                                 type: integer
                                 exclusiveMinimum: 0
+                              requiresApproval:
+                                type: boolean
                             additionalProperties: false
                         required:
-                          - trigger
+                          - interval
                         additionalProperties: false
                     endActions:
                       type: array
@@ -4107,38 +4082,11 @@ paths:
                       items:
                         type: object
                         properties:
-                          trigger:
+                          interval:
                             anyOf:
-                              - type: object
-                                properties:
-                                  type:
-                                    type: string
-                                    const: interval
-                                  seconds:
-                                    type: number
-                                    exclusiveMinimum: 0
-                                required:
-                                  - type
-                                  - seconds
-                                additionalProperties: false
-                              - type: object
-                                properties:
-                                  type:
-                                    type: string
-                                    const: approval
-                                required:
-                                  - type
-                                additionalProperties: false
-                              - type: object
-                                properties:
-                                  type:
-                                    type: string
-                                    const: scheduled
-                                  at: {}
-                                required:
-                                  - type
-                                  - at
-                                additionalProperties: false
+                              - type: number
+                                exclusiveMinimum: 0
+                              - type: 'null'
                           actions:
                             type: array
                             items:
@@ -4245,9 +4193,11 @@ paths:
                               minSampleSize:
                                 type: integer
                                 exclusiveMinimum: 0
+                              requiresApproval:
+                                type: boolean
                             additionalProperties: false
                         required:
-                          - trigger
+                          - interval
                         additionalProperties: false
                     endActions:
                       type: array
@@ -4733,38 +4683,11 @@ paths:
                   items:
                     type: object
                     properties:
-                      trigger:
+                      interval:
                         anyOf:
-                          - type: object
-                            properties:
-                              type:
-                                type: string
-                                const: interval
-                              seconds:
-                                type: number
-                                exclusiveMinimum: 0
-                            required:
-                              - type
-                              - seconds
-                            additionalProperties: false
-                          - type: object
-                            properties:
-                              type:
-                                type: string
-                                const: approval
-                            required:
-                              - type
-                            additionalProperties: false
-                          - type: object
-                            properties:
-                              type:
-                                type: string
-                                const: scheduled
-                              at: {}
-                            required:
-                              - type
-                              - at
-                            additionalProperties: false
+                          - type: number
+                            exclusiveMinimum: 0
+                          - type: 'null'
                       actions:
                         type: array
                         items:
@@ -4870,9 +4793,11 @@ paths:
                           minSampleSize:
                             type: integer
                             exclusiveMinimum: 0
+                          requiresApproval:
+                            type: boolean
                         additionalProperties: false
                     required:
-                      - trigger
+                      - interval
                     additionalProperties: false
                 endActions:
                   type: array
@@ -7995,38 +7920,11 @@ paths:
                       items:
                         type: object
                         properties:
-                          trigger:
+                          interval:
                             anyOf:
-                              - type: object
-                                properties:
-                                  type:
-                                    type: string
-                                    const: interval
-                                  seconds:
-                                    type: number
-                                    exclusiveMinimum: 0
-                                required:
-                                  - type
-                                  - seconds
-                                additionalProperties: false
-                              - type: object
-                                properties:
-                                  type:
-                                    type: string
-                                    const: approval
-                                required:
-                                  - type
-                                additionalProperties: false
-                              - type: object
-                                properties:
-                                  type:
-                                    type: string
-                                    const: scheduled
-                                  at: {}
-                                required:
-                                  - type
-                                  - at
-                                additionalProperties: false
+                              - type: number
+                                exclusiveMinimum: 0
+                              - type: 'null'
                           actions:
                             type: array
                             items:
@@ -8133,9 +8031,11 @@ paths:
                               minSampleSize:
                                 type: integer
                                 exclusiveMinimum: 0
+                              requiresApproval:
+                                type: boolean
                             additionalProperties: false
                         required:
-                          - trigger
+                          - interval
                         additionalProperties: false
                     endActions:
                       type: array
@@ -8586,38 +8486,11 @@ paths:
                       items:
                         type: object
                         properties:
-                          trigger:
+                          interval:
                             anyOf:
-                              - type: object
-                                properties:
-                                  type:
-                                    type: string
-                                    const: interval
-                                  seconds:
-                                    type: number
-                                    exclusiveMinimum: 0
-                                required:
-                                  - type
-                                  - seconds
-                                additionalProperties: false
-                              - type: object
-                                properties:
-                                  type:
-                                    type: string
-                                    const: approval
-                                required:
-                                  - type
-                                additionalProperties: false
-                              - type: object
-                                properties:
-                                  type:
-                                    type: string
-                                    const: scheduled
-                                  at: {}
-                                required:
-                                  - type
-                                  - at
-                                additionalProperties: false
+                              - type: number
+                                exclusiveMinimum: 0
+                              - type: 'null'
                           actions:
                             type: array
                             items:
@@ -8724,9 +8597,11 @@ paths:
                               minSampleSize:
                                 type: integer
                                 exclusiveMinimum: 0
+                              requiresApproval:
+                                type: boolean
                             additionalProperties: false
                         required:
-                          - trigger
+                          - interval
                         additionalProperties: false
                     endActions:
                       type: array
@@ -9184,38 +9059,11 @@ paths:
                   items:
                     type: object
                     properties:
-                      trigger:
+                      interval:
                         anyOf:
-                          - type: object
-                            properties:
-                              type:
-                                type: string
-                                const: interval
-                              seconds:
-                                type: number
-                                exclusiveMinimum: 0
-                            required:
-                              - type
-                              - seconds
-                            additionalProperties: false
-                          - type: object
-                            properties:
-                              type:
-                                type: string
-                                const: approval
-                            required:
-                              - type
-                            additionalProperties: false
-                          - type: object
-                            properties:
-                              type:
-                                type: string
-                                const: scheduled
-                              at: {}
-                            required:
-                              - type
-                              - at
-                            additionalProperties: false
+                          - type: number
+                            exclusiveMinimum: 0
+                          - type: 'null'
                       actions:
                         type: array
                         items:
@@ -9321,9 +9169,11 @@ paths:
                           minSampleSize:
                             type: integer
                             exclusiveMinimum: 0
+                          requiresApproval:
+                            type: boolean
                         additionalProperties: false
                     required:
-                      - trigger
+                      - interval
                     additionalProperties: false
                 endActions:
                   type: array
@@ -17497,7 +17347,6 @@ paths:
               - ready
               - running
               - paused
-              - pending-approval
               - completed
               - rolled-back
       responses:
@@ -17666,39 +17515,17 @@ paths:
                   items:
                     type: object
                     properties:
-                      trigger:
+                      interval:
+                        description: >-
+                          Hold duration in seconds before this step's gates are
+                          evaluated. null = no time gate (advance as soon as
+                          holdConditions clear). Pure approval steps use `{
+                          interval: null, holdConditions: { requiresApproval:
+                          true } }`.
                         anyOf:
-                          - type: object
-                            properties:
-                              type:
-                                type: string
-                                const: interval
-                              seconds:
-                                type: number
-                                exclusiveMinimum: 0
-                            required:
-                              - type
-                              - seconds
-                            additionalProperties: false
-                          - type: object
-                            properties:
-                              type:
-                                type: string
-                                const: approval
-                            required:
-                              - type
-                            additionalProperties: false
-                          - type: object
-                            properties:
-                              type:
-                                type: string
-                                const: scheduled
-                              at:
-                                type: string
-                            required:
-                              - type
-                              - at
-                            additionalProperties: false
+                          - type: number
+                            exclusiveMinimum: 0
+                          - type: 'null'
                       actions:
                         type: array
                         items:
@@ -17827,9 +17654,11 @@ paths:
                           minSampleSize:
                             type: integer
                             exclusiveMinimum: 0
+                          requiresApproval:
+                            type: boolean
                         additionalProperties: false
                     required:
-                      - trigger
+                      - interval
                       - monitored
                     additionalProperties: false
                 startActions:
@@ -18206,9 +18035,9 @@ paths:
     post:
       operationId: pauseRampSchedule
       summary: Pause a ramp schedule
-      description: |
-        Pauses a `running` or `pending-approval` schedule. The schedule can be
-        resumed from the same position with the `/actions/resume` endpoint.
+      description: >
+        Pauses a `running` schedule. The schedule can be resumed from the same
+        position with the `/actions/resume` endpoint.
       tags:
         - ramp-schedules
       parameters:
@@ -18474,11 +18303,12 @@ paths:
   /v1/ramp-schedules/{id}/actions/approve-step:
     post:
       operationId: approveStepRampSchedule
-      summary: Approve the current pending-approval step
-      description: |
-        Approves the current step on a schedule in `pending-approval` status and
-        advances to the next step. Requires the caller to have feature review
-        permissions for the associated feature.
+      summary: Approve the current step
+      description: >
+        Satisfies a `holdConditions.requiresApproval` gate on the current step
+        of a `running` schedule. After approval, the schedule advances when all
+        remaining gates (interval, sample size, health) clear. Requires the
+        caller to have feature review permissions for the associated feature.
       tags:
         - ramp-schedules
       parameters:
@@ -18868,7 +18698,6 @@ paths:
                       - ready
                       - running
                       - paused
-                      - pending-approval
                       - completed
                       - rolled-back
                   currentStepIndex:
@@ -18885,7 +18714,7 @@ paths:
                   phaseStartedAt:
                     description: >-
                       Anchor for cumulative interval timing; resets after each
-                      approval gate
+                      approval gate is satisfied
                     anyOf:
                       - type: string
                         format: date-time
@@ -18901,8 +18730,8 @@ paths:
                       - type: 'null'
                   nextStepAt:
                     description: >-
-                      When the next step fires; null for approval steps and
-                      terminal states
+                      When the current step's time gate elapses; null for steps
+                      with no interval (pure approval gates) and terminal states
                     anyOf:
                       - type: string
                         format: date-time
@@ -18984,6 +18813,17 @@ paths:
                       - hold
                       - warn
                   currentStepEnteredAt:
+                    anyOf:
+                      - type: string
+                        format: date-time
+                        pattern: >-
+                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                      - type: 'null'
+                  stepApprovedAt:
+                    description: >-
+                      When the current step's holdConditions.requiresApproval
+                      was satisfied. Null if not yet approved or step has no
+                      approval gate.
                     anyOf:
                       - type: string
                         format: date-time
@@ -19206,7 +19046,6 @@ paths:
                       - ready
                       - running
                       - paused
-                      - pending-approval
                       - completed
                       - rolled-back
                   currentStepIndex:
@@ -19223,7 +19062,7 @@ paths:
                   phaseStartedAt:
                     description: >-
                       Anchor for cumulative interval timing; resets after each
-                      approval gate
+                      approval gate is satisfied
                     anyOf:
                       - type: string
                         format: date-time
@@ -19239,8 +19078,8 @@ paths:
                       - type: 'null'
                   nextStepAt:
                     description: >-
-                      When the next step fires; null for approval steps and
-                      terminal states
+                      When the current step's time gate elapses; null for steps
+                      with no interval (pure approval gates) and terminal states
                     anyOf:
                       - type: string
                         format: date-time
@@ -19322,6 +19161,17 @@ paths:
                       - hold
                       - warn
                   currentStepEnteredAt:
+                    anyOf:
+                      - type: string
+                        format: date-time
+                        pattern: >-
+                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                      - type: 'null'
+                  stepApprovedAt:
+                    description: >-
+                      When the current step's holdConditions.requiresApproval
+                      was satisfied. Null if not yet approved or step has no
+                      approval gate.
                     anyOf:
                       - type: string
                         format: date-time
@@ -25851,42 +25701,37 @@ paths:
                   items:
                     type: object
                     properties:
-                      trigger:
+                      interval:
+                        description: >-
+                          Hold duration in seconds before this step's gates are
+                          evaluated. null = no time gate (advance as soon as
+                          holdConditions clear).
                         anyOf:
-                          - type: object
-                            properties:
-                              type:
-                                type: string
-                                const: interval
-                              seconds:
-                                type: number
-                                exclusiveMinimum: 0
-                            required:
-                              - type
-                              - seconds
-                            additionalProperties: false
-                          - type: object
-                            properties:
-                              type:
-                                type: string
-                                const: approval
-                            required:
-                              - type
-                            additionalProperties: false
-                          - type: object
-                            properties:
-                              type:
-                                type: string
-                                const: scheduled
-                              at:
-                                type: string
-                                format: date-time
-                                pattern: >-
-                                  ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
-                            required:
-                              - type
-                              - at
-                            additionalProperties: false
+                          - type: number
+                            exclusiveMinimum: 0
+                          - type: 'null'
+                      approvalNotes:
+                        anyOf:
+                          - type: string
+                          - type: 'null'
+                      monitored:
+                        description: >-
+                          When true, the step is backed by a safe rollout
+                          experiment. Coverage represents total experiment
+                          enrollment; variation-1 exposure is coverage/2. The
+                          SDK uses hash-based filters on the experiment rule to
+                          prevent bucketing shifts across monitored/unmonitored
+                          transitions.
+                        type: boolean
+                      holdConditions:
+                        type: object
+                        properties:
+                          minSampleSize:
+                            type: integer
+                            exclusiveMinimum: 0
+                          requiresApproval:
+                            type: boolean
+                        additionalProperties: false
                       actions:
                         type: array
                         items:
@@ -25982,28 +25827,8 @@ paths:
                             - targetId
                             - patch
                           additionalProperties: false
-                      approvalNotes:
-                        anyOf:
-                          - type: string
-                          - type: 'null'
-                      monitored:
-                        description: >-
-                          When true, the step is backed by a safe rollout
-                          experiment. Coverage represents total experiment
-                          enrollment; variation-1 exposure is coverage/2. The
-                          SDK uses hash-based filters on the experiment rule to
-                          prevent bucketing shifts across monitored/unmonitored
-                          transitions.
-                        type: boolean
-                      holdConditions:
-                        type: object
-                        properties:
-                          minSampleSize:
-                            type: integer
-                            exclusiveMinimum: 0
-                        additionalProperties: false
                     required:
-                      - trigger
+                      - interval
                       - actions
                     additionalProperties: false
                 endPatch:
@@ -26158,42 +25983,37 @@ paths:
                   items:
                     type: object
                     properties:
-                      trigger:
+                      interval:
+                        description: >-
+                          Hold duration in seconds before this step's gates are
+                          evaluated. null = no time gate (advance as soon as
+                          holdConditions clear).
                         anyOf:
-                          - type: object
-                            properties:
-                              type:
-                                type: string
-                                const: interval
-                              seconds:
-                                type: number
-                                exclusiveMinimum: 0
-                            required:
-                              - type
-                              - seconds
-                            additionalProperties: false
-                          - type: object
-                            properties:
-                              type:
-                                type: string
-                                const: approval
-                            required:
-                              - type
-                            additionalProperties: false
-                          - type: object
-                            properties:
-                              type:
-                                type: string
-                                const: scheduled
-                              at:
-                                type: string
-                                format: date-time
-                                pattern: >-
-                                  ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
-                            required:
-                              - type
-                              - at
-                            additionalProperties: false
+                          - type: number
+                            exclusiveMinimum: 0
+                          - type: 'null'
+                      approvalNotes:
+                        anyOf:
+                          - type: string
+                          - type: 'null'
+                      monitored:
+                        description: >-
+                          When true, the step is backed by a safe rollout
+                          experiment. Coverage represents total experiment
+                          enrollment; variation-1 exposure is coverage/2. The
+                          SDK uses hash-based filters on the experiment rule to
+                          prevent bucketing shifts across monitored/unmonitored
+                          transitions.
+                        type: boolean
+                      holdConditions:
+                        type: object
+                        properties:
+                          minSampleSize:
+                            type: integer
+                            exclusiveMinimum: 0
+                          requiresApproval:
+                            type: boolean
+                        additionalProperties: false
                       actions:
                         type: array
                         items:
@@ -26289,28 +26109,8 @@ paths:
                             - targetId
                             - patch
                           additionalProperties: false
-                      approvalNotes:
-                        anyOf:
-                          - type: string
-                          - type: 'null'
-                      monitored:
-                        description: >-
-                          When true, the step is backed by a safe rollout
-                          experiment. Coverage represents total experiment
-                          enrollment; variation-1 exposure is coverage/2. The
-                          SDK uses hash-based filters on the experiment rule to
-                          prevent bucketing shifts across monitored/unmonitored
-                          transitions.
-                        type: boolean
-                      holdConditions:
-                        type: object
-                        properties:
-                          minSampleSize:
-                            type: integer
-                            exclusiveMinimum: 0
-                        additionalProperties: false
                     required:
-                      - trigger
+                      - interval
                       - actions
                     additionalProperties: false
                 endPatch:
@@ -26592,39 +26392,15 @@ paths:
                   items:
                     type: object
                     properties:
-                      trigger:
+                      interval:
+                        description: >-
+                          Hold duration in seconds before this step's gates are
+                          evaluated. null = no time gate (advance as soon as
+                          holdConditions clear).
                         anyOf:
-                          - type: object
-                            properties:
-                              type:
-                                type: string
-                                const: interval
-                              seconds:
-                                type: number
-                                exclusiveMinimum: 0
-                            required:
-                              - type
-                              - seconds
-                            additionalProperties: false
-                          - type: object
-                            properties:
-                              type:
-                                type: string
-                                const: approval
-                            required:
-                              - type
-                            additionalProperties: false
-                          - type: object
-                            properties:
-                              type:
-                                type: string
-                                const: scheduled
-                              at:
-                                type: string
-                            required:
-                              - type
-                              - at
-                            additionalProperties: false
+                          - type: number
+                            exclusiveMinimum: 0
+                          - type: 'null'
                       actions:
                         type: array
                         items:
@@ -26741,9 +26517,11 @@ paths:
                           minSampleSize:
                             type: integer
                             exclusiveMinimum: 0
+                          requiresApproval:
+                            type: boolean
                         additionalProperties: false
                     required:
-                      - trigger
+                      - interval
                       - monitored
                     additionalProperties: false
                 startActions:
@@ -28385,38 +28163,11 @@ components:
                     items:
                       type: object
                       properties:
-                        trigger:
+                        interval:
                           anyOf:
-                            - type: object
-                              properties:
-                                type:
-                                  type: string
-                                  const: interval
-                                seconds:
-                                  type: number
-                                  exclusiveMinimum: 0
-                              required:
-                                - type
-                                - seconds
-                              additionalProperties: false
-                            - type: object
-                              properties:
-                                type:
-                                  type: string
-                                  const: approval
-                              required:
-                                - type
-                              additionalProperties: false
-                            - type: object
-                              properties:
-                                type:
-                                  type: string
-                                  const: scheduled
-                                at: {}
-                              required:
-                                - type
-                                - at
-                              additionalProperties: false
+                            - type: number
+                              exclusiveMinimum: 0
+                            - type: 'null'
                         actions:
                           type: array
                           items:
@@ -28523,9 +28274,11 @@ components:
                             minSampleSize:
                               type: integer
                               exclusiveMinimum: 0
+                            requiresApproval:
+                              type: boolean
                           additionalProperties: false
                       required:
-                        - trigger
+                        - interval
                       additionalProperties: false
                   endActions:
                     type: array
@@ -28801,38 +28554,11 @@ components:
                     items:
                       type: object
                       properties:
-                        trigger:
+                        interval:
                           anyOf:
-                            - type: object
-                              properties:
-                                type:
-                                  type: string
-                                  const: interval
-                                seconds:
-                                  type: number
-                                  exclusiveMinimum: 0
-                              required:
-                                - type
-                                - seconds
-                              additionalProperties: false
-                            - type: object
-                              properties:
-                                type:
-                                  type: string
-                                  const: approval
-                              required:
-                                - type
-                              additionalProperties: false
-                            - type: object
-                              properties:
-                                type:
-                                  type: string
-                                  const: scheduled
-                                at: {}
-                              required:
-                                - type
-                                - at
-                              additionalProperties: false
+                            - type: number
+                              exclusiveMinimum: 0
+                            - type: 'null'
                         actions:
                           type: array
                           items:
@@ -28939,9 +28665,11 @@ components:
                             minSampleSize:
                               type: integer
                               exclusiveMinimum: 0
+                            requiresApproval:
+                              type: boolean
                           additionalProperties: false
                       required:
-                        - trigger
+                        - interval
                       additionalProperties: false
                   endActions:
                     type: array
@@ -29555,38 +29283,11 @@ components:
                     items:
                       type: object
                       properties:
-                        trigger:
+                        interval:
                           anyOf:
-                            - type: object
-                              properties:
-                                type:
-                                  type: string
-                                  const: interval
-                                seconds:
-                                  type: number
-                                  exclusiveMinimum: 0
-                              required:
-                                - type
-                                - seconds
-                              additionalProperties: false
-                            - type: object
-                              properties:
-                                type:
-                                  type: string
-                                  const: approval
-                              required:
-                                - type
-                              additionalProperties: false
-                            - type: object
-                              properties:
-                                type:
-                                  type: string
-                                  const: scheduled
-                                at: {}
-                              required:
-                                - type
-                                - at
-                              additionalProperties: false
+                            - type: number
+                              exclusiveMinimum: 0
+                            - type: 'null'
                         actions:
                           type: array
                           items:
@@ -29693,9 +29394,11 @@ components:
                             minSampleSize:
                               type: integer
                               exclusiveMinimum: 0
+                            requiresApproval:
+                              type: boolean
                           additionalProperties: false
                       required:
-                        - trigger
+                        - interval
                       additionalProperties: false
                   endActions:
                     type: array
@@ -29971,38 +29674,11 @@ components:
                     items:
                       type: object
                       properties:
-                        trigger:
+                        interval:
                           anyOf:
-                            - type: object
-                              properties:
-                                type:
-                                  type: string
-                                  const: interval
-                                seconds:
-                                  type: number
-                                  exclusiveMinimum: 0
-                              required:
-                                - type
-                                - seconds
-                              additionalProperties: false
-                            - type: object
-                              properties:
-                                type:
-                                  type: string
-                                  const: approval
-                              required:
-                                - type
-                              additionalProperties: false
-                            - type: object
-                              properties:
-                                type:
-                                  type: string
-                                  const: scheduled
-                                at: {}
-                              required:
-                                - type
-                                - at
-                              additionalProperties: false
+                            - type: number
+                              exclusiveMinimum: 0
+                            - type: 'null'
                         actions:
                           type: array
                           items:
@@ -30109,9 +29785,11 @@ components:
                             minSampleSize:
                               type: integer
                               exclusiveMinimum: 0
+                            requiresApproval:
+                              type: boolean
                           additionalProperties: false
                       required:
-                        - trigger
+                        - interval
                       additionalProperties: false
                   endActions:
                     type: array
@@ -33582,42 +33260,36 @@ components:
           items:
             type: object
             properties:
-              trigger:
+              interval:
+                description: >-
+                  Hold duration in seconds before this step's gates are
+                  evaluated. null = no time gate (advance as soon as
+                  holdConditions clear).
                 anyOf:
-                  - type: object
-                    properties:
-                      type:
-                        type: string
-                        const: interval
-                      seconds:
-                        type: number
-                        exclusiveMinimum: 0
-                    required:
-                      - type
-                      - seconds
-                    additionalProperties: false
-                  - type: object
-                    properties:
-                      type:
-                        type: string
-                        const: approval
-                    required:
-                      - type
-                    additionalProperties: false
-                  - type: object
-                    properties:
-                      type:
-                        type: string
-                        const: scheduled
-                      at:
-                        type: string
-                        format: date-time
-                        pattern: >-
-                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
-                    required:
-                      - type
-                      - at
-                    additionalProperties: false
+                  - type: number
+                    exclusiveMinimum: 0
+                  - type: 'null'
+              approvalNotes:
+                anyOf:
+                  - type: string
+                  - type: 'null'
+              monitored:
+                description: >-
+                  When true, the step is backed by a safe rollout experiment.
+                  Coverage represents total experiment enrollment; variation-1
+                  exposure is coverage/2. The SDK uses hash-based filters on the
+                  experiment rule to prevent bucketing shifts across
+                  monitored/unmonitored transitions.
+                type: boolean
+              holdConditions:
+                type: object
+                properties:
+                  minSampleSize:
+                    type: integer
+                    exclusiveMinimum: 0
+                  requiresApproval:
+                    type: boolean
+                additionalProperties: false
               actions:
                 type: array
                 items:
@@ -33713,27 +33385,8 @@ components:
                     - targetId
                     - patch
                   additionalProperties: false
-              approvalNotes:
-                anyOf:
-                  - type: string
-                  - type: 'null'
-              monitored:
-                description: >-
-                  When true, the step is backed by a safe rollout experiment.
-                  Coverage represents total experiment enrollment; variation-1
-                  exposure is coverage/2. The SDK uses hash-based filters on the
-                  experiment rule to prevent bucketing shifts across
-                  monitored/unmonitored transitions.
-                type: boolean
-              holdConditions:
-                type: object
-                properties:
-                  minSampleSize:
-                    type: integer
-                    exclusiveMinimum: 0
-                additionalProperties: false
             required:
-              - trigger
+              - interval
               - actions
             additionalProperties: false
         endActions:
@@ -33863,7 +33516,6 @@ components:
             - ready
             - running
             - paused
-            - pending-approval
             - completed
             - rolled-back
         currentStepIndex:
@@ -33880,7 +33532,7 @@ components:
         phaseStartedAt:
           description: >-
             Anchor for cumulative interval timing; resets after each approval
-            gate
+            gate is satisfied
           anyOf:
             - type: string
               format: date-time
@@ -33896,8 +33548,8 @@ components:
             - type: 'null'
         nextStepAt:
           description: >-
-            When the next step fires; null for approval steps and terminal
-            states
+            When the current step's time gate elapses; null for steps with no
+            interval (pure approval gates) and terminal states
           anyOf:
             - type: string
               format: date-time
@@ -33986,6 +33638,16 @@ components:
             - hold
             - warn
         currentStepEnteredAt:
+          anyOf:
+            - type: string
+              format: date-time
+              pattern: >-
+                ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+            - type: 'null'
+        stepApprovedAt:
+          description: >-
+            When the current step's holdConditions.requiresApproval was
+            satisfied. Null if not yet approved or step has no approval gate.
           anyOf:
             - type: string
               format: date-time
@@ -36054,42 +35716,36 @@ components:
           items:
             type: object
             properties:
-              trigger:
+              interval:
+                description: >-
+                  Hold duration in seconds before this step's gates are
+                  evaluated. null = no time gate (advance as soon as
+                  holdConditions clear).
                 anyOf:
-                  - type: object
-                    properties:
-                      type:
-                        type: string
-                        const: interval
-                      seconds:
-                        type: number
-                        exclusiveMinimum: 0
-                    required:
-                      - type
-                      - seconds
-                    additionalProperties: false
-                  - type: object
-                    properties:
-                      type:
-                        type: string
-                        const: approval
-                    required:
-                      - type
-                    additionalProperties: false
-                  - type: object
-                    properties:
-                      type:
-                        type: string
-                        const: scheduled
-                      at:
-                        type: string
-                        format: date-time
-                        pattern: >-
-                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
-                    required:
-                      - type
-                      - at
-                    additionalProperties: false
+                  - type: number
+                    exclusiveMinimum: 0
+                  - type: 'null'
+              approvalNotes:
+                anyOf:
+                  - type: string
+                  - type: 'null'
+              monitored:
+                description: >-
+                  When true, the step is backed by a safe rollout experiment.
+                  Coverage represents total experiment enrollment; variation-1
+                  exposure is coverage/2. The SDK uses hash-based filters on the
+                  experiment rule to prevent bucketing shifts across
+                  monitored/unmonitored transitions.
+                type: boolean
+              holdConditions:
+                type: object
+                properties:
+                  minSampleSize:
+                    type: integer
+                    exclusiveMinimum: 0
+                  requiresApproval:
+                    type: boolean
+                additionalProperties: false
               actions:
                 type: array
                 items:
@@ -36183,27 +35839,8 @@ components:
                     - targetId
                     - patch
                   additionalProperties: false
-              approvalNotes:
-                anyOf:
-                  - type: string
-                  - type: 'null'
-              monitored:
-                description: >-
-                  When true, the step is backed by a safe rollout experiment.
-                  Coverage represents total experiment enrollment; variation-1
-                  exposure is coverage/2. The SDK uses hash-based filters on the
-                  experiment rule to prevent bucketing shifts across
-                  monitored/unmonitored transitions.
-                type: boolean
-              holdConditions:
-                type: object
-                properties:
-                  minSampleSize:
-                    type: integer
-                    exclusiveMinimum: 0
-                additionalProperties: false
             required:
-              - trigger
+              - interval
               - actions
             additionalProperties: false
         endPatch:
@@ -38451,42 +38088,35 @@ components:
     steps:
       type: object
       properties:
-        trigger:
+        interval:
+          description: >-
+            Hold duration in seconds before this step's gates are evaluated.
+            null = no time gate (advance as soon as holdConditions clear).
           anyOf:
-            - type: object
-              properties:
-                type:
-                  type: string
-                  const: interval
-                seconds:
-                  type: number
-                  exclusiveMinimum: 0
-              required:
-                - type
-                - seconds
-              additionalProperties: false
-            - type: object
-              properties:
-                type:
-                  type: string
-                  const: approval
-              required:
-                - type
-              additionalProperties: false
-            - type: object
-              properties:
-                type:
-                  type: string
-                  const: scheduled
-                at:
-                  type: string
-                  format: date-time
-                  pattern: >-
-                    ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
-              required:
-                - type
-                - at
-              additionalProperties: false
+            - type: number
+              exclusiveMinimum: 0
+            - type: 'null'
+        approvalNotes:
+          anyOf:
+            - type: string
+            - type: 'null'
+        monitored:
+          description: >-
+            When true, the step is backed by a safe rollout experiment. Coverage
+            represents total experiment enrollment; variation-1 exposure is
+            coverage/2. The SDK uses hash-based filters on the experiment rule
+            to prevent bucketing shifts across monitored/unmonitored
+            transitions.
+          type: boolean
+        holdConditions:
+          type: object
+          properties:
+            minSampleSize:
+              type: integer
+              exclusiveMinimum: 0
+            requiresApproval:
+              type: boolean
+          additionalProperties: false
         actions:
           type: array
           items:
@@ -38581,27 +38211,8 @@ components:
               - targetId
               - patch
             additionalProperties: false
-        approvalNotes:
-          anyOf:
-            - type: string
-            - type: 'null'
-        monitored:
-          description: >-
-            When true, the step is backed by a safe rollout experiment. Coverage
-            represents total experiment enrollment; variation-1 exposure is
-            coverage/2. The SDK uses hash-based filters on the experiment rule
-            to prevent bucketing shifts across monitored/unmonitored
-            transitions.
-          type: boolean
-        holdConditions:
-          type: object
-          properties:
-            minSampleSize:
-              type: integer
-              exclusiveMinimum: 0
-          additionalProperties: false
       required:
-        - trigger
+        - interval
         - actions
       additionalProperties: false
     lockdownConfig:

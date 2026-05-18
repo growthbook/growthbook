@@ -1759,7 +1759,7 @@ async function createRampSchedulesForRevision(
           }))
         : template
           ? template.steps.map((s) => ({
-              trigger: s.trigger,
+              interval: s.interval,
               actions: remapTemplateActions(
                 s.actions,
                 targetId,

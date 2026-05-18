@@ -57,8 +57,11 @@ function freshState(): RampSectionState {
 // ---------------------------------------------------------------------------
 
 describe("formatRampStepSummary", () => {
-  const interval = { trigger: { type: "interval" } };
-  const approval = { trigger: { type: "approval" } };
+  const interval = { interval: 600 };
+  const approval = {
+    interval: null,
+    holdConditions: { requiresApproval: true },
+  };
 
   it("'1 step' for a single interval step", () => {
     expect(formatRampStepSummary([interval])).toBe("1 step");
@@ -285,7 +288,7 @@ describe("templateToSectionState", () => {
       makeStoredTemplate({
         steps: [
           {
-            trigger: { type: "interval", seconds: 3600 },
+            interval: 3600,
             actions: [
               {
                 targetType: "feature-rule",
@@ -325,7 +328,7 @@ describe("templateToSectionState", () => {
     const twoStepTemplate = makeStoredTemplate({
       steps: [
         {
-          trigger: { type: "interval", seconds: 3600 },
+          interval: 3600,
           actions: [
             {
               targetType: "feature-rule",
@@ -336,7 +339,7 @@ describe("templateToSectionState", () => {
           monitored: false,
         },
         {
-          trigger: { type: "interval", seconds: 7200 },
+          interval: 7200,
           actions: [
             {
               targetType: "feature-rule",

@@ -14,7 +14,6 @@ import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import {
   featureRulePatch,
   lockdownConfigSchema,
-  rampTrigger,
   rampStep,
   rampStepAction,
   rampMonitoringConfig,
@@ -332,7 +331,7 @@ const revisionApiRampStepAction = z.object({
 });
 
 const revisionApiRampStep = z.object({
-  trigger: rampTrigger,
+  interval: z.number().positive().nullable(),
   actions: z.array(revisionApiRampStepAction).optional(),
   approvalNotes: z.string().nullish(),
   monitored: z.boolean().optional(),

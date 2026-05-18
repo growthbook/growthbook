@@ -29,7 +29,7 @@ import {
 } from "back-end/src/util/flattenRules";
 import { logger } from "back-end/src/util/logger";
 
-const LOCKDOWN_ACTIVE_STATUSES = ["running", "pending-approval"] as const;
+const LOCKDOWN_ACTIVE_STATUSES = ["running"] as const;
 
 const MAX_EVENT_HISTORY = 500;
 export const MONITORING_NO_TRAFFIC_GRACE_PERIOD_MS = 24 * 60 * 60 * 1000;
@@ -454,19 +454,18 @@ export function computeNextStepAt(
   stepIndex: number,
   now: Date,
 ): Date | null {
-  // Interval steps are cumulative from phaseStartedAt; approval gates are immediate.
+  // Time-gated steps fire at phaseStartedAt + cumulative interval up through
+  // stepIndex. Steps with interval=null (pure approval / instant gates) have
+  // no time gate and return null so the evaluator drives them on the next tick.
   const step = schedule.steps[stepIndex];
   if (!step) return null;
-
-  const trigger = step.trigger;
-  if (trigger.type === "approval") return now;
-  if (trigger.type === "scheduled") return trigger.at;
+  if (step.interval == null) return null;
 
   const phaseStart = schedule.phaseStartedAt ?? schedule.startedAt ?? now;
   let total = 0;
   for (let i = 0; i <= stepIndex; i++) {
-    const t = schedule.steps[i]?.trigger;
-    if (t?.type === "interval") total += t.seconds;
+    const interval = schedule.steps[i]?.interval;
+    if (interval != null) total += interval;
   }
   return new Date(phaseStart.getTime() + total * 1000);
 }
@@ -489,8 +488,6 @@ export function computeNextProcessAt(schedule: {
         .sort((a, b) => a.getTime() - b.getTime())[0];
       return earliest ?? null;
     }
-    case "pending-approval":
-      return cutoff ?? null;
     case "ready":
       return schedule.startDate ?? null;
     default:
@@ -566,8 +563,8 @@ export function computePhaseStartAfterApproval(
   // Rebase so the next interval is measured from approval time.
   let total = 0;
   for (let i = 0; i < nextStepIndex; i++) {
-    const t = schedule.steps[i]?.trigger;
-    if (t?.type === "interval") total += t.seconds;
+    const interval = schedule.steps[i]?.interval;
+    if (interval != null) total += interval;
   }
   return new Date(now.getTime() - total * 1000);
 }
@@ -728,8 +725,8 @@ export async function advanceStep(
   }
 
   const now = new Date();
-  const isApprovalStep = step.trigger.type === "approval";
   const isMonitoredStep = step.monitored === true;
+  const hasInterval = step.interval != null;
 
   const effective = computeEffectivePatch(schedule, nextStepIndex);
   const effectiveActions: RampStepAction[] = [...effective.entries()].map(
@@ -741,14 +738,18 @@ export async function advanceStep(
   );
   await executeStepActions(ctx, schedule, nextStepIndex, effectiveActions);
 
+  // `nextStepAt` is the time gate. Steps without an interval (pure approval /
+  // instant gates) have no time gate; the evaluator drives them on each tick
+  // until holdConditions clear. Monitored steps don't use nextStepAt for
+  // tick scheduling — `monitoredStepDueAt` + nextSnapshotAt drive monitoring.
   const nextStepAt =
-    isApprovalStep || isMonitoredStep
+    !hasInterval || isMonitoredStep
       ? null
       : (computeNextStepAt(schedule, nextStepIndex, now) ?? now);
 
-  const newStatus = isApprovalStep
-    ? ("pending-approval" as const)
-    : ("running" as const);
+  // `pending-approval` is no longer a stored status — running steps with
+  // requiresApproval are derived as "awaiting approval" via isAwaitingApproval.
+  const newStatus = "running" as const;
   const nextSnapshotAt = await getMirroredNextSnapshotAt(
     ctx,
     { ...schedule, status: newStatus, currentStepIndex: nextStepIndex },
@@ -761,8 +762,8 @@ export async function advanceStep(
   );
 
   let monitoredStepDueAt: Date | null = null;
-  if (isMonitoredStep && step?.trigger.type === "interval") {
-    monitoredStepDueAt = new Date(now.getTime() + step.trigger.seconds * 1000);
+  if (isMonitoredStep && step.interval != null) {
+    monitoredStepDueAt = new Date(now.getTime() + step.interval * 1000);
   }
 
   const shouldResetMonitoringStart = shouldResetMonitoringStartDate(
@@ -773,6 +774,7 @@ export async function advanceStep(
     status: newStatus,
     currentStepIndex: nextStepIndex,
     currentStepEnteredAt: now,
+    stepApprovedAt: null,
     ...(shouldResetMonitoringStart ? { monitoringStartDate: now } : {}),
     nextStepAt,
     nextSnapshotAt,
@@ -802,7 +804,7 @@ export async function advanceStep(
     },
   });
 
-  if (isApprovalStep) {
+  if (step.holdConditions?.requiresApproval) {
     await dispatchRampEvent(
       ctx,
       updated,
@@ -963,17 +965,20 @@ export async function resumeSchedule(
     : now;
 
   const currentStep = schedule.steps[schedule.currentStepIndex];
-  const pausedAtApproval = currentStep?.trigger?.type === "approval";
+  // A step without an interval (e.g. pure approval gate) has no time gate to
+  // resume; the evaluator will re-tick the step's holdConditions.
+  const pausedAtNoIntervalGate =
+    currentStep != null && currentStep.interval == null;
 
   const resumeUpdates: Record<string, unknown> = {
-    status: pausedAtApproval ? "pending-approval" : "running",
+    status: "running",
     pausedAt: null,
     startedAt: newStartedAt,
     phaseStartedAt: newPhaseStartedAt,
-    nextStepAt: pausedAtApproval ? null : schedule.nextStepAt,
+    nextStepAt: pausedAtNoIntervalGate ? null : schedule.nextStepAt,
   };
 
-  if (!pausedAtApproval) {
+  if (!pausedAtNoIntervalGate) {
     if (schedule.nextStepAt) {
       resumeUpdates.nextStepAt = new Date(
         schedule.nextStepAt.getTime() + pauseDurationMs,
@@ -986,8 +991,8 @@ export async function resumeSchedule(
         const currentStepIndex = schedule.currentStepIndex;
         let sumBefore = 0;
         for (let i = 0; i < currentStepIndex; i++) {
-          const t = schedule.steps[i]?.trigger;
-          if (t?.type === "interval") sumBefore += t.seconds;
+          const interval = schedule.steps[i]?.interval;
+          if (interval != null) sumBefore += interval;
         }
         const freshPhaseStart = new Date(now.getTime() - sumBefore * 1000);
         resumeUpdates.phaseStartedAt = freshPhaseStart;
@@ -1029,10 +1034,11 @@ export async function resumeSchedule(
     resumeUpdates,
   );
 
-  if (!pausedAtApproval) {
-    await advanceUntilBlocked(ctx, updated, now);
-    updated = (await ctx.models.rampSchedules.getById(schedule.id)) ?? updated;
-  }
+  // After resuming, drive a tick to advance through any non-time-gated steps
+  // (e.g. instantly-clearing holdConditions). Pure approval / no-interval
+  // steps will hold within the evaluator on requiresApproval, so this is safe.
+  await advanceUntilBlocked(ctx, updated, now);
+  updated = (await ctx.models.rampSchedules.getById(schedule.id)) ?? updated;
 
   await syncLinkedSafeRolloutForRampState(ctx, updated);
 
@@ -1057,6 +1063,7 @@ export async function restartSchedule(
     nextSnapshotAt: null,
     nextProcessAt: null,
     monitoringStartDate: null,
+    stepApprovedAt: null,
     eventHistory: appendRampEvent(schedule, "restart", {
       stepIndex: -1,
       previousStepIndex: schedule.currentStepIndex,
@@ -1099,8 +1106,8 @@ export async function jumpSchedule(
     if (targetStepIndex <= 0) return now;
     let elapsed = 0;
     for (let i = 0; i < targetStepIndex; i++) {
-      const t = schedule.steps[i]?.trigger;
-      if (t?.type === "interval") elapsed += t.seconds;
+      const interval = schedule.steps[i]?.interval;
+      if (interval != null) elapsed += interval;
     }
     return new Date(now.getTime() - elapsed * 1000);
   })();
@@ -1125,6 +1132,7 @@ export async function jumpSchedule(
       nextStepAt: null,
       nextSnapshotAt: null,
       nextProcessAt: null,
+      stepApprovedAt: null,
     });
   } else if (targetStepIndex > schedule.currentStepIndex) {
     updated = await jumpAheadToStep(ctx, schedule, targetStepIndex);
@@ -1136,6 +1144,7 @@ export async function jumpSchedule(
       nextStepAt: null,
       nextSnapshotAt: null,
       nextProcessAt: null,
+      stepApprovedAt: null,
       ...(shouldResetMonitoringStartDate(schedule, targetStepIndex)
         ? { monitoringStartDate: now }
         : {}),
@@ -1226,8 +1235,8 @@ export async function advanceScheduleManually(
     const nextStepIndex = schedule.currentStepIndex + 1;
     let elapsed = 0;
     for (let i = 0; i < nextStepIndex; i++) {
-      const t = schedule.steps[i]?.trigger;
-      if (t?.type === "interval") elapsed += t.seconds;
+      const interval = schedule.steps[i]?.interval;
+      if (interval != null) elapsed += interval;
     }
     const freshPhaseStart = new Date(now.getTime() - elapsed * 1000);
     scheduleToAdvance = await ctx.models.rampSchedules.updateById(schedule.id, {
@@ -1320,6 +1329,7 @@ export async function jumpAheadToStep(
     nextSnapshotAt: null,
     pausedAt: now,
     nextProcessAt: null,
+    stepApprovedAt: null,
     ...(shouldResetMonitoringStart ? { monitoringStartDate: now } : {}),
     eventHistory: appendRampEvent(schedule, "step-jumped", {
       stepIndex: jumpTarget,
@@ -1566,7 +1576,7 @@ export async function advanceUntilBlocked(
     if (
       current.cutoffDate &&
       current.cutoffDate <= now &&
-      ["running", "paused", "pending-approval"].includes(current.status)
+      ["running", "paused"].includes(current.status)
     ) {
       await completeRollout(ctx, current, { disableActiveTargets: true });
       return;
@@ -1618,59 +1628,57 @@ export async function approveAndPublishStep(
     };
   }
 
-  const now = new Date();
-  const wasApprovalGate =
-    schedule.steps[stepIndex]?.trigger.type === "approval";
-
-  const nextStepIndex = stepIndex + 1;
-  const newPhaseStart = wasApprovalGate
-    ? computePhaseStartAfterApproval(now, schedule, nextStepIndex)
-    : schedule.phaseStartedAt;
-
-  const nextStepAt = schedule.steps[nextStepIndex]
-    ? computeNextStepAt(
-        { ...schedule, phaseStartedAt: newPhaseStart },
-        nextStepIndex,
-        now,
-      )
-    : null;
-
-  const isCompleting = !nextStepAt;
-
-  if (isCompleting) {
-    await completeRollout(ctx, schedule);
+  const step = schedule.steps[stepIndex];
+  if (!step?.holdConditions?.requiresApproval) {
+    return {
+      code: "error",
+      detail: "This step does not require approval",
+    };
+  }
+  if (schedule.status !== "running") {
+    return {
+      code: "error",
+      detail: `Cannot approve a step on a schedule in status "${schedule.status}"`,
+    };
+  }
+  if (schedule.stepApprovedAt) {
     return null;
   }
 
-  const approvalDraft = {
-    ...schedule,
-    status: "running" as const,
-  };
-  const nextSnapshotAt = await getMirroredNextSnapshotAt(
-    ctx,
-    approvalDraft,
-    getEffectiveRampAutoUpdateState(approvalDraft).enabled,
-  );
+  const now = new Date();
+  // Pure approval steps (no time gate) rebase phaseStartedAt so the next
+  // step's interval is measured from approval time. Composite steps
+  // (interval + approval) keep their original phaseStartedAt — the time hold
+  // and approval hold overlap; once both clear, advance immediately.
+  const rebasedPhaseStart =
+    step.interval == null
+      ? computePhaseStartAfterApproval(now, schedule, stepIndex + 1)
+      : null;
 
-  const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
-    status: "running",
-    nextStepAt,
-    nextSnapshotAt,
-    ...(wasApprovalGate ? { phaseStartedAt: newPhaseStart } : {}),
-    nextProcessAt: computeNextProcessAt({
-      status: "running",
-      nextStepAt,
-      nextSnapshotAt,
-      cutoffDate: schedule.cutoffDate,
-    }),
+  const updates: Record<string, unknown> = {
+    stepApprovedAt: now,
+    ...(rebasedPhaseStart ? { phaseStartedAt: rebasedPhaseStart } : {}),
+    // Bump nextProcessAt to now so the agenda re-evaluates immediately.
+    nextProcessAt: now,
     eventHistory: appendRampEvent(schedule, "approval-granted", {
-      stepIndex: schedule.currentStepIndex,
-      status: "running",
+      stepIndex,
+      status: schedule.status,
       previousStatus: schedule.status,
     }),
-  });
+  };
 
-  await syncLinkedSafeRolloutForRampState(ctx, updated);
+  const approved = await ctx.models.rampSchedules.updateById(
+    schedule.id,
+    updates,
+  );
+
+  // Non-monitored steps have no further gates after approval — advance now
+  // so the user sees the rollout move immediately. Monitored steps may still
+  // be held by interval / analysis / health gates; the agenda tick will
+  // re-evaluate (we bumped nextProcessAt above).
+  if (!step.monitored) {
+    await advanceStep(ctx, approved);
+  }
 
   return null;
 }

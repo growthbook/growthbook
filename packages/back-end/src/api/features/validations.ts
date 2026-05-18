@@ -45,7 +45,7 @@ function normalizeRevisionRampCreateAction(
   return {
     ...input,
     steps: (input.steps ?? []).map((s) => ({
-      trigger: s.trigger,
+      interval: s.interval,
       actions: (s.actions ?? []).map(normalizeAction),
       approvalNotes: s.approvalNotes ?? undefined,
       monitored: !!s.monitored,
@@ -146,34 +146,26 @@ export function assertValidEnvironment(
 
 // Build a RevisionRampCreateAction from start/end dates (enable/disable).
 // `environment` is intentionally absent — new actions target by `ruleId` only.
+//
+// startDate is set at the ramp level — `applyRampStartActions` auto-enables
+// the rule when the schedule starts. cutoffDate disables the rule at the
+// end. No explicit step is needed for either gate; an empty `steps` array is
+// valid as long as startDate or cutoffDate is present.
 export function buildScheduleRampAction(
   ruleId: string,
   startDate?: string | null,
   endDate?: string | null,
 ): RevisionRampCreateAction {
-  // targetId is overwritten at publish time in createRampSchedulesForRevision.
-  const steps: RevisionRampCreateAction["steps"] = startDate
-    ? [
-        {
-          trigger: { type: "scheduled", at: new Date(startDate) },
-          actions: [
-            {
-              targetType: "feature-rule" as const,
-              targetId: "",
-              patch: { ruleId, enabled: true },
-            },
-          ],
-          monitored: false,
-        },
-      ]
-    : [];
-
   const action: RevisionRampCreateAction = {
     mode: "create",
     name: "Rule schedule",
     ruleId,
-    steps,
+    steps: [],
   };
+
+  if (startDate) {
+    action.startDate = startDate;
+  }
 
   if (endDate) {
     action.cutoffDate = endDate;

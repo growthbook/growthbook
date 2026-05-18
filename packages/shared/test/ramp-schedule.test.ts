@@ -9,12 +9,13 @@ import {
 // ---------------------------------------------------------------------------
 
 const VALID_INTERVAL_STEP = {
-  trigger: { type: "interval" as const, seconds: 300 },
+  interval: 300,
   actions: [],
 };
 
 const VALID_APPROVAL_STEP = {
-  trigger: { type: "approval" as const },
+  interval: null,
+  holdConditions: { requiresApproval: true },
   actions: [],
 };
 
@@ -109,20 +110,19 @@ describe("rampStep", () => {
     expect(result.success).toBe(true);
   });
 
-  it("requires seconds on interval trigger", () => {
+  it("rejects a non-numeric interval", () => {
     const result = rampStep.safeParse({
-      trigger: { type: "interval" },
+      interval: "not-a-number",
       actions: [],
     });
     expect(result.success).toBe(false);
   });
 
-  it("rejects unknown trigger types", () => {
-    const result = rampStep.safeParse({
-      trigger: { type: "cron", expression: "* * * * *" },
-      actions: [],
-    });
-    expect(result.success).toBe(false);
+  it("rejects a zero-or-negative interval (positive nullable)", () => {
+    const zero = rampStep.safeParse({ interval: 0, actions: [] });
+    expect(zero.success).toBe(false);
+    const negative = rampStep.safeParse({ interval: -1, actions: [] });
+    expect(negative.success).toBe(false);
   });
 
   it("no longer accepts defaultEffects (removed field is silently ignored)", () => {
@@ -185,12 +185,13 @@ describe("rampScheduleValidator — valid documents", () => {
   });
 
   it("accepts all valid status values", () => {
+    // `pending-approval` is no longer a stored status; awaiting-approval is
+    // derived from `running` + `holdConditions.requiresApproval`.
     const statuses = [
       "pending",
       "ready",
       "running",
       "paused",
-      "pending-approval",
       "completed",
       "rolled-back",
     ];
@@ -198,6 +199,13 @@ describe("rampScheduleValidator — valid documents", () => {
       const result = rampScheduleValidator.safeParse(makeSchedule({ status }));
       expect(result.success).toBe(true);
     }
+  });
+
+  it("rejects the legacy 'pending-approval' status", () => {
+    const result = rampScheduleValidator.safeParse(
+      makeSchedule({ status: "pending-approval" }),
+    );
+    expect(result.success).toBe(false);
   });
 });
 
@@ -221,7 +229,7 @@ describe("rampScheduleValidator — invalid documents", () => {
   it("rejects a step with a negative interval", () => {
     const result = rampScheduleValidator.safeParse(
       makeSchedule({
-        steps: [{ trigger: { type: "interval", seconds: -1 }, actions: [] }],
+        steps: [{ interval: -1, actions: [] }],
       }),
     );
     expect(result.success).toBe(false);
@@ -237,7 +245,7 @@ describe("rampScheduleValidator — invalid documents", () => {
       makeSchedule({
         steps: [
           {
-            trigger: { type: "interval", seconds: 60 },
+            interval: 60,
             actions: [
               {
                 targetType: "feature-rule",

@@ -83,17 +83,61 @@ function dateToIso(d: Date | null | undefined): string | null | undefined {
   return d.toISOString();
 }
 
-function serializeTrigger(
-  trigger: RampScheduleInterface["steps"][number]["trigger"],
-) {
-  switch (trigger.type) {
-    case "scheduled":
-      return { type: "scheduled" as const, at: trigger.at.toISOString() };
-    case "interval":
-      return { type: "interval" as const, seconds: trigger.seconds };
-    case "approval":
-      return { type: "approval" as const };
+// Legacy step shape (pre-`interval` redesign). Kept here purely so JIT
+// migration can recognize it on read.
+type LegacyTriggerStep = {
+  trigger?:
+    | { type: "interval"; seconds: number }
+    | { type: "approval" }
+    | { type: "scheduled"; at: Date | string }
+    | null;
+  interval?: number | null;
+  holdConditions?: StepHoldConditions;
+};
+
+// Normalizes legacy `trigger` discriminated union to the unified `interval` +
+// `holdConditions.requiresApproval` shape. Idempotent on already-migrated docs.
+export function migrateRampStepTriggers<
+  T extends { steps?: LegacyTriggerStep[] | null },
+>(doc: T): T {
+  if (!doc.steps || !Array.isArray(doc.steps)) return doc;
+  let changed = false;
+  const steps = doc.steps.map((s) => {
+    if (!s || !s.trigger) return s;
+    const trigger = s.trigger;
+    changed = true;
+    const { trigger: _drop, ...rest } = s;
+    if (trigger.type === "interval") {
+      return { ...rest, interval: trigger.seconds };
+    }
+    if (trigger.type === "approval") {
+      return {
+        ...rest,
+        interval: null,
+        holdConditions: {
+          ...(rest.holdConditions ?? {}),
+          requiresApproval: true,
+        },
+      };
+    }
+    // "scheduled" steps were only emitted by buildScheduleRampAction as a
+    // synthetic step-0; their `at` is already represented at the ramp level
+    // via startDate. Strip the trigger and let the schedule's startDate drive.
+    return { ...rest, interval: null };
+  });
+  return changed ? { ...doc, steps } : doc;
+}
+
+// `pending-approval` is no longer a stored status. The evaluator derives
+// "awaiting approval" from `running` + current step's
+// `holdConditions.requiresApproval` + `!stepApprovedAt`.
+export function migrateRampScheduleStatus<T extends { status?: string }>(
+  doc: T,
+): T {
+  if (doc.status === "pending-approval") {
+    return { ...doc, status: "running" };
   }
+  return doc;
 }
 
 export function rampScheduleToApiInterface(
@@ -109,7 +153,7 @@ export function rampScheduleToApiInterface(
     targets: doc.targets,
     startActions: doc.startActions,
     steps: doc.steps.map((s) => ({
-      trigger: serializeTrigger(s.trigger),
+      interval: s.interval,
       actions: s.actions,
       approvalNotes: s.approvalNotes ?? undefined,
       monitored: !!s.monitored,
@@ -158,7 +202,9 @@ export function rampScheduleToApiInterface(
   };
 }
 
-type ApiRampTrigger =
+// Legacy API trigger shape, accepted on input for backward compatibility.
+// Public responses always emit the unified `interval` + `holdConditions` shape.
+type LegacyApiRampTrigger =
   | { type: "interval"; seconds: number }
   | { type: "approval" }
   | { type: "scheduled"; at: string };
@@ -199,16 +245,53 @@ function remapTemplateActions(
   });
 }
 
-function normalizeApiTrigger(
-  trigger: ApiRampTrigger,
-): RampScheduleInterface["steps"][number]["trigger"] {
-  if (trigger.type === "scheduled") {
-    return { type: "scheduled", at: new Date(trigger.at) };
-  }
+// Normalize a legacy API trigger input into the unified `interval` +
+// `holdConditions` shape used internally and on output.
+function normalizeLegacyApiTrigger(
+  trigger: LegacyApiRampTrigger,
+  existingHoldConditions?: StepHoldConditions,
+): { interval: number | null; holdConditions?: StepHoldConditions } {
   if (trigger.type === "interval") {
-    return { type: "interval", seconds: trigger.seconds };
+    return {
+      interval: trigger.seconds,
+      ...(existingHoldConditions
+        ? { holdConditions: existingHoldConditions }
+        : {}),
+    };
   }
-  return { type: "approval" };
+  if (trigger.type === "approval") {
+    return {
+      interval: null,
+      holdConditions: {
+        ...(existingHoldConditions ?? {}),
+        requiresApproval: true,
+      },
+    };
+  }
+  // `scheduled` trigger types are no longer accepted as step-level triggers;
+  // callers should set `startDate` at the schedule level instead.
+  return {
+    interval: null,
+    ...(existingHoldConditions
+      ? { holdConditions: existingHoldConditions }
+      : {}),
+  };
+}
+
+// Accepts both the new `{ interval, holdConditions }` shape and the legacy
+// `{ trigger: { type, ... } }` shape on input. Returns the unified shape.
+function normalizeApiStepShape(s: {
+  interval?: number | null;
+  trigger?: LegacyApiRampTrigger;
+  holdConditions?: StepHoldConditions;
+}): { interval: number | null; holdConditions?: StepHoldConditions } {
+  if (s.trigger) {
+    return normalizeLegacyApiTrigger(s.trigger, s.holdConditions);
+  }
+  return {
+    interval: s.interval ?? null,
+    ...(s.holdConditions ? { holdConditions: s.holdConditions } : {}),
+  };
 }
 
 function normalizeAction(action: PostBodyAction): RampStepAction {
@@ -263,9 +346,12 @@ export class RampScheduleModel extends BaseClass {
     });
   }
 
-  protected override migrate(legacyDoc: unknown): RampScheduleInterface {
+  protected migrate(legacyDoc: unknown): RampScheduleInterface {
     const doc = legacyDoc as RampScheduleInterface;
-    const migrated = migrateRampScheduleEndCondition(doc);
+    const endCondMigrated = migrateRampScheduleEndCondition(doc);
+    const statusMigrated = migrateRampScheduleStatus(endCondMigrated);
+    const triggersMigrated = migrateRampStepTriggers(statusMigrated);
+    const migrated = triggersMigrated as RampScheduleInterface;
     const result =
       migrated.cutoffDate && typeof migrated.cutoffDate === "string"
         ? { ...migrated, cutoffDate: new Date(migrated.cutoffDate) }
@@ -461,27 +547,31 @@ export class RampScheduleModel extends BaseClass {
       if (body.steps !== undefined) {
         return body.steps.map(
           (s: {
-            trigger: ApiRampTrigger;
+            interval?: number | null;
+            trigger?: LegacyApiRampTrigger;
             actions?: PostBodyAction[];
             approvalNotes?: string | null;
             monitored?: boolean;
             holdConditions?: StepHoldConditions;
-          }) => ({
-            trigger: normalizeApiTrigger(s.trigger),
-            actions: (s.actions ?? []).map((a: PostBodyAction) =>
-              hasTarget
-                ? injectTarget(a, targetId!, body.ruleId!)
-                : normalizeAction(a),
-            ),
-            approvalNotes: s.approvalNotes ?? undefined,
-            monitored: !!s.monitored,
-            holdConditions: s.holdConditions ?? undefined,
-          }),
+          }) => {
+            const normalized = normalizeApiStepShape(s);
+            return {
+              interval: normalized.interval,
+              actions: (s.actions ?? []).map((a: PostBodyAction) =>
+                hasTarget
+                  ? injectTarget(a, targetId!, body.ruleId!)
+                  : normalizeAction(a),
+              ),
+              approvalNotes: s.approvalNotes ?? undefined,
+              monitored: !!s.monitored,
+              holdConditions: normalized.holdConditions,
+            };
+          },
         );
       }
       if (template && hasTarget) {
         return template.steps.map((s) => ({
-          trigger: s.trigger,
+          interval: s.interval,
           actions: remapTemplateActions(
             s.actions,
             targetId!,
@@ -652,7 +742,8 @@ export class RampScheduleModel extends BaseClass {
     if (body.steps !== undefined) {
       updates.steps = body.steps.map(
         (step: {
-          trigger: unknown;
+          interval?: number | null;
+          trigger?: LegacyApiRampTrigger;
           actions?: {
             targetType?: "feature-rule";
             targetId?: string;
@@ -660,13 +751,21 @@ export class RampScheduleModel extends BaseClass {
           }[];
           approvalNotes?: string | null;
           monitored?: boolean | null;
-          holdConditions?: unknown | null;
-        }) => ({
-          ...step,
-          actions: (step.actions ?? []).map(resolveTargetId),
-          monitored: !!step.monitored,
-          holdConditions: step.holdConditions ?? undefined,
-        }),
+          holdConditions?: StepHoldConditions | null;
+        }) => {
+          const normalized = normalizeApiStepShape({
+            interval: step.interval,
+            trigger: step.trigger,
+            holdConditions: step.holdConditions ?? undefined,
+          });
+          return {
+            interval: normalized.interval,
+            actions: (step.actions ?? []).map(resolveTargetId),
+            approvalNotes: step.approvalNotes ?? undefined,
+            monitored: !!step.monitored,
+            holdConditions: normalized.holdConditions,
+          };
+        },
       );
     }
     if (body.endActions !== undefined) {
@@ -745,7 +844,7 @@ export class RampScheduleModel extends BaseClass {
       throw new Error("Ramp schedule not found");
     }
 
-    if (["running", "pending-approval"].includes(schedule.status)) {
+    if (schedule.status === "running") {
       throw new Error(
         `Cannot delete a ramp schedule in status "${schedule.status}". Pause or complete the schedule first.`,
       );
@@ -800,6 +899,9 @@ export class RampScheduleModel extends BaseClass {
   }
 
   public async getActiveSchedules(): Promise<RampScheduleInterface[]> {
+    // Include the legacy `pending-approval` value so the agenda can still pick
+    // up docs that haven't been written back through the JIT status migration
+    // yet. Migration normalizes the in-memory value to `running` on read.
     return this._find({
       status: { $in: ["running", "pending", "pending-approval"] },
     });
@@ -825,6 +927,9 @@ export class RampScheduleModel extends BaseClass {
     Map<string, RampMonitoredRuleInfo>
   > {
     // SDK payloads need monitored rollout rules rendered as experiments.
+    // Include the legacy `pending-approval` value during the migration window
+    // so we don't drop monitored rules from docs that have not yet been
+    // written back through the JIT status migration.
     const schedules = await this._find({
       status: { $in: ["running", "pending-approval"] },
     });

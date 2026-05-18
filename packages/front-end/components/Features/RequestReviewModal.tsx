@@ -88,9 +88,7 @@ export default function RequestReviewModal({
   const canAdminPublish = permissionsUtil.canBypassApprovalChecks(feature);
   const featureLockedByRamp =
     rampSchedules?.some(
-      (rs) =>
-        rs.lockdownConfig?.mode === "locked" &&
-        ["running", "pending-approval"].includes(rs.status),
+      (rs) => rs.lockdownConfig?.mode === "locked" && rs.status === "running",
     ) ?? false;
   const revision = revisions.find((r) => r.version === version);
   const isPendingReview =

@@ -364,9 +364,7 @@ export default function DraftModal({
 
   const featureLockedByRamp =
     rampSchedules?.some(
-      (rs) =>
-        rs.lockdownConfig?.mode === "locked" &&
-        ["running", "pending-approval"].includes(rs.status),
+      (rs) => rs.lockdownConfig?.mode === "locked" && rs.status === "running",
     ) ?? false;
 
   // Users who reach DraftModal already have direct publish permission, so the

@@ -39,6 +39,10 @@ export async function evaluateCurrentStep(
     return decision;
   }
 
+  if (step.holdConditions?.requiresApproval && !schedule.stepApprovedAt) {
+    return { action: "hold", reason: "Awaiting approval" };
+  }
+
   return { action: "advance" };
 }
 
@@ -63,9 +67,10 @@ async function evaluateMonitoredStep(
     monitoringConfig?.multipleExposureAction ?? "hold";
 
   const stepEnteredAt = schedule.currentStepEnteredAt;
-  if (stepEnteredAt && step?.trigger.type === "interval") {
+  const stepIntervalSeconds = step?.interval ?? null;
+  if (stepEnteredAt && stepIntervalSeconds != null) {
     const stepElapsedMs = now.getTime() - stepEnteredAt.getTime();
-    const stepDurationMs = step.trigger.seconds * 1000;
+    const stepDurationMs = stepIntervalSeconds * 1000;
     if (stepElapsedMs < stepDurationMs) {
       const remainingMin = Math.ceil((stepDurationMs - stepElapsedMs) / 60_000);
       return {
@@ -77,8 +82,8 @@ async function evaluateMonitoredStep(
   }
 
   const intervalEndAt =
-    stepEnteredAt && step?.trigger.type === "interval"
-      ? new Date(stepEnteredAt.getTime() + step.trigger.seconds * 1000)
+    stepEnteredAt && stepIntervalSeconds != null
+      ? new Date(stepEnteredAt.getTime() + stepIntervalSeconds * 1000)
       : null;
   const requiredSnapshotAt =
     intervalEndAt ?? stepEnteredAt ?? schedule.startedAt;
@@ -206,6 +211,10 @@ async function evaluateMonitoredStep(
 
   const signalDecision = checkSignalMetricGating(safeRollout, signalOnly);
   if (signalDecision) return signalDecision;
+
+  if (step?.holdConditions?.requiresApproval && !schedule.stepApprovedAt) {
+    return { action: "hold", reason: "Awaiting approval" };
+  }
 
   return { action: "advance" };
 }

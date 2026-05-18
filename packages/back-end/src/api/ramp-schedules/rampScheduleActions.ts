@@ -67,14 +67,14 @@ export const pauseRampSchedule = createApiRequestHandler({
   operationId: "pauseRampSchedule",
   summary: "Pause a ramp schedule",
   description:
-    "Pauses a `running` or `pending-approval` schedule. The schedule can be\nresumed from the same position with the `/actions/resume` endpoint.\n",
+    "Pauses a `running` schedule. The schedule can be resumed from the same position with the `/actions/resume` endpoint.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
-  if (!["running", "pending-approval"].includes(schedule.status)) {
+  if (schedule.status !== "running") {
     throw new Error(
       `Cannot pause a ramp schedule in status "${schedule.status}"`,
     );
@@ -184,18 +184,25 @@ export const approveStepRampSchedule = createApiRequestHandler({
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/approve-step",
   operationId: "approveStepRampSchedule",
-  summary: "Approve the current pending-approval step",
+  summary: "Approve the current step",
   description:
-    "Approves the current step on a schedule in `pending-approval` status and\nadvances to the next step. Requires the caller to have feature review\npermissions for the associated feature.\n",
+    "Satisfies a `holdConditions.requiresApproval` gate on the current step of a `running` schedule. After approval, the schedule advances when all remaining gates (interval, sample size, health) clear. Requires the caller to have feature review permissions for the associated feature.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
-  if (schedule.status !== "pending-approval") {
+
+  const currentStep = schedule.steps[schedule.currentStepIndex];
+  const awaitingApproval =
+    schedule.status === "running" &&
+    currentStep?.holdConditions?.requiresApproval &&
+    !schedule.stepApprovedAt;
+
+  if (!awaitingApproval) {
     throw new Error(
-      `Cannot approve step: schedule is not in "pending-approval" status (currently "${schedule.status}")`,
+      `Cannot approve step: schedule is not awaiting approval (currently "${schedule.status}")`,
     );
   }
 

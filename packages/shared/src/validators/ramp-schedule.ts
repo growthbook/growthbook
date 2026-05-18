@@ -90,27 +90,20 @@ export const rampTarget = z.object({
 });
 export type RampTarget = z.infer<typeof rampTarget>;
 
-// Legacy DB compatibility. New schedules should use cutoffDate.
-const rampEndTrigger = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("scheduled"), at: z.coerce.date() }),
-]);
-
-export const rampTrigger = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("interval"), seconds: z.number().positive() }),
-  z.object({ type: z.literal("approval") }),
-  z.object({ type: z.literal("scheduled"), at: z.coerce.date() }),
-]);
-export type RampTrigger = z.infer<typeof rampTrigger>;
-
-// Step advancement gates beyond the trigger itself.
+// Step advancement gates beyond the time interval itself. All gates are ANDed
+// — the step holds while any gate is unmet, and advances when all are clear.
 export const stepHoldConditions = z.object({
   minSampleSize: z.number().int().positive().optional(),
+  requiresApproval: z.boolean().optional(),
 });
 export type StepHoldConditions = z.infer<typeof stepHoldConditions>;
 
 // Sparse patch per step; absent fields accumulate from previous steps.
+// `interval` is the time-based hold in seconds; `null` means no time gate
+// (advance as soon as holdConditions clear). Pure approval steps use
+// `{ interval: null, holdConditions: { requiresApproval: true } }`.
 export const rampStep = z.object({
-  trigger: rampTrigger,
+  interval: z.number().positive().nullable(),
   actions: z.array(rampStepAction),
   approvalNotes: z.string().nullish(),
   monitored: z.boolean().optional(),
@@ -123,7 +116,6 @@ export const rampScheduleStatusArray = [
   "ready",
   "running",
   "paused",
-  "pending-approval",
   "completed",
   "rolled-back",
 ] as const;
@@ -174,16 +166,6 @@ export const rampScheduleValidator = baseSchema
     endActions: z.array(rampStepAction).optional(),
     // When set, the rule stays disabled until this activation date.
     startDate: z.date().nullish(),
-    /**
-     * @deprecated Use `cutoffDate` instead for new schedules. Retained for
-     * backward compatibility. The backend normalizes legacy endCondition
-     * scheduled triggers to cutoffDate at runtime.
-     */
-    endCondition: z
-      .object({
-        trigger: rampEndTrigger.optional(),
-      })
-      .nullish(),
     cutoffDate: z.date().nullish(),
     status: z.enum(rampScheduleStatusArray),
     currentStepIndex: z.number().int().min(-1),
@@ -203,6 +185,7 @@ export const rampScheduleValidator = baseSchema
     safeRolloutId: z.string().nullish(),
 
     currentStepEnteredAt: z.date().nullish(),
+    stepApprovedAt: z.date().nullish(),
     monitoringStartDate: z.date().nullish(),
     nextSnapshotAt: z.date().nullish(),
     lastRollbackAt: z.date().nullish(),
@@ -237,6 +220,22 @@ export const rampScheduleValidator = baseSchema
   });
 
 export type RampScheduleInterface = z.infer<typeof rampScheduleValidator>;
+
+// Derives the "awaiting approval" display state. A `running` schedule whose
+// current step has `holdConditions.requiresApproval` set and hasn't been
+// approved yet (`!stepApprovedAt`) is awaiting approval. Used by UI,
+// notifications, and evaluator gating in lieu of a stored "pending-approval"
+// status.
+export function isAwaitingApproval(schedule: {
+  status: string;
+  currentStepIndex: number;
+  steps: { holdConditions?: { requiresApproval?: boolean } }[];
+  stepApprovedAt?: Date | string | null;
+}): boolean {
+  if (schedule.status !== "running") return false;
+  const step = schedule.steps[schedule.currentStepIndex];
+  return !!step?.holdConditions?.requiresApproval && !schedule.stepApprovedAt;
+}
 
 export const TEMPLATE_PATCH_FIELDS = [
   "coverage",
@@ -282,15 +281,17 @@ export type RampScheduleTemplateInterface = z.infer<
   typeof rampScheduleTemplateValidator
 >;
 
-const apiRampTrigger = z.union([
-  z.object({ type: z.literal("interval"), seconds: z.number().positive() }),
-  z.object({ type: z.literal("approval") }),
-  z.object({ type: z.literal("scheduled"), at: z.iso.datetime() }),
-]);
-
-export const apiTemplateRampStep = z.object({
-  trigger: apiRampTrigger,
-  actions: z.array(templateRampStepAction),
+// Public API step shape. `interval` is the hold duration in seconds; `null`
+// means no time gate. Pure approval steps use
+// `{ interval: null, holdConditions: { requiresApproval: true } }`.
+const apiRampStepCommon = {
+  interval: z
+    .number()
+    .positive()
+    .nullable()
+    .describe(
+      "Hold duration in seconds before this step's gates are evaluated. null = no time gate (advance as soon as holdConditions clear).",
+    ),
   approvalNotes: z.string().nullish(),
   monitored: z
     .boolean()
@@ -299,6 +300,11 @@ export const apiTemplateRampStep = z.object({
       "When true, the step is backed by a safe rollout experiment. Coverage represents total experiment enrollment; variation-1 exposure is coverage/2. The SDK uses hash-based filters on the experiment rule to prevent bucketing shifts across monitored/unmonitored transitions.",
     ),
   holdConditions: stepHoldConditions.optional(),
+};
+
+export const apiTemplateRampStep = z.object({
+  ...apiRampStepCommon,
+  actions: z.array(templateRampStepAction),
 });
 export type ApiTemplateRampStep = z.infer<typeof apiTemplateRampStep>;
 
@@ -315,16 +321,8 @@ export const apiRampScheduleTemplateValidator = namedSchema(
 );
 
 const apiRampStep = z.object({
-  trigger: apiRampTrigger,
+  ...apiRampStepCommon,
   actions: z.array(rampStepAction),
-  approvalNotes: z.string().nullish(),
-  monitored: z
-    .boolean()
-    .optional()
-    .describe(
-      "When true, the step is backed by a safe rollout experiment. Coverage represents total experiment enrollment; variation-1 exposure is coverage/2. The SDK uses hash-based filters on the experiment rule to prevent bucketing shifts across monitored/unmonitored transitions.",
-    ),
-  holdConditions: stepHoldConditions.optional(),
 });
 
 export const apiRampScheduleInterface = namedSchema(
@@ -371,14 +369,14 @@ export const apiRampScheduleInterface = namedSchema(
       .datetime()
       .nullish()
       .describe(
-        "Anchor for cumulative interval timing; resets after each approval gate",
+        "Anchor for cumulative interval timing; resets after each approval gate is satisfied",
       ),
     pausedAt: z.iso.datetime().nullish(),
     nextStepAt: z.iso
       .datetime()
       .nullable()
       .describe(
-        "When the next step fires; null for approval steps and terminal states",
+        "When the current step's time gate elapses; null for steps with no interval (pure approval gates) and terminal states",
       ),
     nextProcessAt: z.iso.datetime().nullish(),
     elapsedMs: z
@@ -392,6 +390,12 @@ export const apiRampScheduleInterface = namedSchema(
     monitoringConfig: rampMonitoringConfig.nullish(),
     experimentHealthAction: experimentHealthAction.optional(),
     currentStepEnteredAt: z.iso.datetime().nullish(),
+    stepApprovedAt: z.iso
+      .datetime()
+      .nullish()
+      .describe(
+        "When the current step's holdConditions.requiresApproval was satisfied. Null if not yet approved or step has no approval gate.",
+      ),
     monitoringStartDate: z.iso
       .datetime()
       .nullish()

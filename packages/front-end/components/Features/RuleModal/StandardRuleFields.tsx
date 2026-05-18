@@ -114,11 +114,9 @@ export default function StandardRuleFields({
     Partial<Record<ScheduleType, { ramp: RampSectionState; coverage: number }>>
   >({});
 
-  const activeRampStatuses = ["running", "pending-approval"];
   const rampScheduleEditLocked =
     !!ruleRampSchedule &&
-    (activeRampStatuses.includes(ruleRampSchedule.status) ||
-      ruleRampSchedule.status === "pending");
+    ["running", "pending"].includes(ruleRampSchedule.status);
   const releasePlanLocked = rampScheduleEditLocked;
   const selectorScheduleType: ScheduleSelectorType =
     scheduleType === "ramp" && rampSectionState.steps.some((s) => s.monitored)

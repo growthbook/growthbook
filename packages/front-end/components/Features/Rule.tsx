@@ -24,6 +24,7 @@ import {
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { format as formatTimeZone } from "date-fns-tz";
 import {
+  isAwaitingApproval,
   SafeRolloutInterface,
   HoldoutInterface,
   RampScheduleInterface,
@@ -134,33 +135,28 @@ export function formatRemainingDuration(totalSeconds: number): string {
 function computeRemainingTime(
   rs: RampScheduleInterface,
 ): { seconds: number; manualApprovals: number } | null {
-  if (
-    rs.status !== "running" &&
-    rs.status !== "paused" &&
-    rs.status !== "pending-approval"
-  )
-    return null;
+  if (rs.status !== "running" && rs.status !== "paused") return null;
 
-  const now = Date.now();
   let seconds = 0;
   let manualApprovals = 0;
 
-  const currentIsApproval =
-    rs.currentStepIndex >= 0 &&
-    rs.steps[rs.currentStepIndex]?.trigger.type === "approval";
-  const nextIdx =
-    rs.status === "pending-approval" ||
-    (rs.status === "paused" && currentIsApproval)
-      ? Math.max(0, rs.currentStepIndex) // include current unapproved step
-      : rs.currentStepIndex + 1; // works for -1 → 0
+  // For a step awaiting approval (status running + requiresApproval +
+  // !stepApprovedAt) or a paused approval step, the current step is still
+  // pending — include it in the count.
+  const currentStep =
+    rs.currentStepIndex >= 0 ? rs.steps[rs.currentStepIndex] : undefined;
+  const currentAwaiting =
+    !!currentStep?.holdConditions?.requiresApproval && !rs.stepApprovedAt;
+  const nextIdx = currentAwaiting
+    ? Math.max(0, rs.currentStepIndex)
+    : rs.currentStepIndex + 1;
   for (let i = nextIdx; i < rs.steps.length; i++) {
-    const trigger = rs.steps[i].trigger;
-    if (trigger.type === "interval") {
-      seconds += trigger.seconds;
-    } else if (trigger.type === "approval") {
+    const step = rs.steps[i];
+    if (step.interval != null) {
+      seconds += step.interval;
+    }
+    if (step.holdConditions?.requiresApproval) {
       manualApprovals++;
-    } else if (trigger.type === "scheduled") {
-      seconds += Math.max(0, (new Date(trigger.at).getTime() - now) / 1000);
     }
   }
 
@@ -462,7 +458,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           </Button>,
         );
       }
-      if (rampSchedule.status === "pending-approval") {
+      if (isAwaitingApproval(rampSchedule)) {
         ruleCtas.push(
           <Button
             key="ramp-approve"
@@ -485,7 +481,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               }
             }}
           >
-            Approve and Resume
+            Approve Step
           </Button>,
         );
       }
@@ -619,6 +615,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     onAdvance={async () => {
                       await apiCall(
                         `/ramp-schedule/${rampSchedule.id}/actions/advance`,
+                        { method: "POST" },
+                      );
+                      await mutate();
+                    }}
+                    onApproveStep={async () => {
+                      await apiCall(
+                        `/ramp-schedule/${rampSchedule.id}/actions/approve-step`,
                         { method: "POST" },
                       );
                       await mutate();
@@ -811,9 +814,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                 </DropdownMenuItem>
                               ))}
                             {/* Pause */}
-                            {["running", "pending-approval"].includes(
-                              rampSchedule.status,
-                            ) && (
+                            {rampSchedule.status === "running" && (
                               <DropdownMenuItem
                                 onClick={async () => {
                                   await apiCall(
@@ -861,7 +862,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                 </DropdownMenuItem>
                               ))}
                             {/* Roll back / Jump ahead / Complete — active ramps */}
-                            {["running", "paused", "pending-approval"].includes(
+                            {["running", "paused"].includes(
                               rampSchedule.status,
                             ) && (
                               <>
@@ -1055,8 +1056,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             </Flex>
           </Flex>
           <Box>{info.callout}</Box>
-          {rampSchedule?.status === "pending-approval" &&
-            rampSchedule.currentStepIndex >= 0 &&
+          {rampSchedule &&
+            isAwaitingApproval(rampSchedule) &&
             rampSchedule.steps[rampSchedule.currentStepIndex]
               ?.approvalNotes && (
               <Callout status="info" mt="3" color="orange" size="sm">
@@ -1226,9 +1227,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           status="warning"
                           icon={<PiLockSimple size={15} />}
                         >
-                          {["running", "pending-approval"].includes(
-                            rampSchedule.status,
-                          )
+                          {rampSchedule.status === "running"
                             ? "Feature locked during ramp-up"
                             : "Feature will be locked while ramp-up is running"}
                         </HelperText>

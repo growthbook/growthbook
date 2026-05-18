@@ -1,6 +1,10 @@
 import { useMemo } from "react";
 import { useRouter } from "next/router";
-import { RampScheduleInterface, SafeRolloutInterface } from "shared/validators";
+import {
+  isAwaitingApproval,
+  RampScheduleInterface,
+  SafeRolloutInterface,
+} from "shared/validators";
 import { SafeRolloutSnapshotInterface } from "shared/types/safe-rollout";
 import { getValidDate } from "shared/dates";
 import {
@@ -140,11 +144,11 @@ function isHoldingNow(rampSchedule: RampScheduleInterface): boolean {
   if (
     rampSchedule.status === "running" &&
     step?.monitored &&
-    step.trigger.type === "interval" &&
+    step.interval != null &&
     rampSchedule.currentStepEnteredAt
   ) {
     const stepEnteredAt = getValidDate(rampSchedule.currentStepEnteredAt);
-    const stepDueAt = stepEnteredAt.getTime() + step.trigger.seconds * 1000;
+    const stepDueAt = stepEnteredAt.getTime() + step.interval * 1000;
     return Date.now() >= stepDueAt;
   }
   return false;
@@ -588,18 +592,15 @@ export function getRampHealthOverview(
       autoExpand: false,
     };
   }
-  if (rampSchedule.status === "pending-approval") {
-    const approvalNotes =
-      rampSchedule.currentStepIndex >= 0
-        ? rampSchedule.steps[
-            rampSchedule.currentStepIndex
-          ]?.approvalNotes?.trim()
-        : "";
+  if (isAwaitingApproval(rampSchedule)) {
+    const currentStep = rampSchedule.steps[rampSchedule.currentStepIndex];
+    const approvalNotes = currentStep?.approvalNotes?.trim();
     return {
-      severity: "inactive",
-      label: "Approval required",
+      severity: "inactive" as const,
+      label: "Awaiting approval",
       summary:
-        approvalNotes || "Approve this step to continue monitored ramp-up",
+        approvalNotes ||
+        "This step requires approval before the ramp can advance",
       autoExpand: false,
     };
   }
@@ -862,12 +863,7 @@ export function RampMonitoringCTAs({
       </Button>
     );
   }
-  if (
-    rampSchedule.status === "pending-approval" &&
-    onApproveStep &&
-    rampSchedule.currentStepIndex >= 0 &&
-    !!rampSchedule.steps[rampSchedule.currentStepIndex]?.monitored
-  ) {
+  if (onApproveStep && isAwaitingApproval(rampSchedule)) {
     return (
       <Button size={size} variant="solid" onClick={onApproveStep}>
         Approve Step
