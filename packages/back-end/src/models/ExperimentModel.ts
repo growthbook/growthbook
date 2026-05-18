@@ -272,12 +272,20 @@ const experimentSchema = new mongoose.Schema({
   lastSnapshotAttempt: Date,
   nextSnapshotAttempt: Date,
   autoSnapshots: Boolean,
+  disableAutoSnapshots: Boolean,
   ideaSource: String,
   regressionAdjustmentEnabled: Boolean,
   postStratificationEnabled: Boolean,
   hasVisualChangesets: Boolean,
   hasURLRedirects: Boolean,
   linkedFeatures: [String],
+  pendingFeatureDrafts: [
+    {
+      _id: false,
+      featureId: String,
+      revisionVersion: Number,
+    },
+  ],
   sequentialTestingEnabled: Boolean,
   sequentialTestingTuningParameter: Number,
   statsEngine: String,
@@ -579,7 +587,7 @@ export async function createExperiment({
     uid: uuidv4().replace(/-/g, ""),
     // If this is a sample experiment, we'll override the id with data.id
     ...data,
-    //set the default phase seed to uuid
+    // set the default phase seed to uuid
     phases: data.phases
       ? data.phases.map(({ ...phase }) => {
           return {
@@ -716,6 +724,7 @@ export async function getExperimentsToUpdate(
       },
       status: "running",
       autoSnapshots: true,
+      disableAutoSnapshots: { $ne: true },
       nextSnapshotAttempt: {
         $exists: true,
         $lte: new Date(),
@@ -749,6 +758,7 @@ export async function getExperimentsToUpdateLegacy(
       },
       status: "running",
       autoSnapshots: true,
+      disableAutoSnapshots: { $ne: true },
       nextSnapshotAttempt: {
         $exists: false,
       },
@@ -1433,6 +1443,142 @@ export async function removeLinkedFeatureFromExperiment(
   }).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on experiment update");
   });
+}
+
+// Removes linkedFeatures + pendingFeatureDrafts for one feature from one experiment.
+export async function unlinkFeatureFromExperiment(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+  featureId: string,
+) {
+  const experiment = await findExperiment({ experimentId, context });
+  if (!experiment) return;
+
+  await ExperimentModel.updateOne(
+    { id: experimentId, organization: context.org.id },
+    {
+      $pull: { linkedFeatures: featureId, pendingFeatureDrafts: { featureId } },
+    },
+  );
+
+  onExperimentUpdate({
+    context,
+    oldExperiment: experiment,
+    newExperiment: {
+      ...experiment,
+      linkedFeatures: (experiment.linkedFeatures || []).filter(
+        (f) => f !== featureId,
+      ),
+      pendingFeatureDrafts: (experiment.pendingFeatureDrafts || []).filter(
+        (d) => d.featureId !== featureId,
+      ),
+    },
+  }).catch((e) => {
+    logger.error(e, "Error refreshing SDK payload on experiment update");
+  });
+}
+
+// Clears pendingFeatureDrafts but leaves linkedFeatures intact (used for archive).
+export async function clearPendingFeatureDraftsForFeature(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+) {
+  await ExperimentModel.updateMany(
+    {
+      organization: context.org.id,
+      "pendingFeatureDrafts.featureId": featureId,
+    },
+    { $pull: { pendingFeatureDrafts: { featureId } } },
+  );
+}
+
+// Clears both linkedFeatures[] and pendingFeatureDrafts[] for a feature (used for delete).
+export async function unlinkFeatureFromAllExperiments(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+) {
+  await ExperimentModel.updateMany(
+    {
+      organization: context.org.id,
+      linkedFeatures: featureId,
+    },
+    {
+      $pull: {
+        linkedFeatures: featureId,
+        pendingFeatureDrafts: { featureId },
+      },
+    },
+  );
+}
+
+// Queues a draft for auto-publish when the experiment transitions to running.
+// $addToSet is atomic and idempotent on exact (featureId, revisionVersion)
+// pairs. Multiple drafts of the same feature are intentionally allowed and
+// applied sequentially at start (publishPendingFeatureDraftsForExperiment).
+export async function addPendingFeatureDraftToExperiment(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+  featureId: string,
+  revisionVersion: number,
+) {
+  await ExperimentModel.updateOne(
+    { id: experimentId, organization: context.org.id },
+    {
+      $addToSet: {
+        pendingFeatureDrafts: { featureId, revisionVersion },
+      },
+    },
+  );
+}
+
+// Removes pending draft entries. Pass `revisionVersion` to drop one specific
+// row; omit it to drop every row for the feature (used by archive/unlink).
+export async function removePendingFeatureDraftFromExperiment(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+  featureId: string,
+  revisionVersion?: number,
+) {
+  const pullFilter =
+    revisionVersion != null ? { featureId, revisionVersion } : { featureId };
+
+  await ExperimentModel.updateOne(
+    { id: experimentId, organization: context.org.id },
+    { $pull: { pendingFeatureDrafts: pullFilter } },
+  );
+}
+
+// Clears pendingFeatureDrafts for all experiments referenced by the revision's experiment-ref rules.
+export async function clearPendingFeatureDraftsForRevision(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+  revisionVersion: number,
+  rules:
+    | ({ type?: string; experimentId?: string } | null | undefined)[]
+    | undefined,
+) {
+  const experimentIds = new Set<string>();
+  for (const rule of rules ?? []) {
+    // Defensive: pre-v2 docs persisted via Mongoose `Mixed` can carry
+    // sparse `null`/`undefined` rule slots. JIT-boundary filters strip
+    // them on read, but guard here so a regression in those filters
+    // can't crash the publish pipeline (called from `publishRevision`).
+    if (rule?.type === "experiment-ref" && rule.experimentId) {
+      experimentIds.add(rule.experimentId);
+    }
+  }
+  if (!experimentIds.size) return;
+
+  await Promise.all(
+    [...experimentIds].map((expId) =>
+      removePendingFeatureDraftFromExperiment(
+        context,
+        expId,
+        featureId,
+        revisionVersion,
+      ),
+    ),
+  );
 }
 
 function logAllChanges(

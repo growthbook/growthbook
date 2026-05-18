@@ -10,12 +10,12 @@ import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import Link from "@/ui/Link";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import Modal from "@/components/Modal";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 interface Props {
   close: () => void;
@@ -65,7 +65,7 @@ export default function EditFeatureDescriptionModal({
   });
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="edit-feature-description-modal"
       header="Edit Description"
       open={true}
@@ -93,7 +93,6 @@ export default function EditFeatureDescriptionModal({
       })}
       cta={mode === "publish" ? "Save" : "Save to draft"}
       ctaEnabled={form.formState.isDirty}
-      useRadixButton={true}
     >
       <DraftSelectorForChanges
         feature={feature}
@@ -128,6 +127,6 @@ export default function EditFeatureDescriptionModal({
         }
         placeholder="Add context about this feature for your team"
       />
-    </Modal>
+    </ModalStandard>
   );
 }

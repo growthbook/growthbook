@@ -65,21 +65,15 @@ export function transformStatsigExperimentToFeature(
   const valueType: "boolean" | "string" | "number" | "json" =
     hasNonEmptyParameterValues ? "json" : "number";
 
-  // Create environment settings
   const environmentSettings: FeatureInterface["environmentSettings"] = {};
+  const allRules: FeatureRule[] = [];
 
-  // Initialize all available environments
   availableEnvironments.forEach((envKey) => {
-    environmentSettings[envKey] = {
-      enabled: true,
-      rules: [],
-    };
+    environmentSettings[envKey] = { enabled: true };
   });
 
-  // Process targeting rules
   targetingRules.forEach((rule, ruleIndex) => {
     try {
-      // Convert Statsig condition format to our format
       const conditions = rule.conditionJSON.map((cond) => ({
         type: cond.conditionType.toString(),
         operator: cond.operator.toString(),
@@ -93,15 +87,15 @@ export function transformStatsigExperimentToFeature(
         savedGroupIdMap,
       );
 
-      // Determine which environments this rule applies to
       const targetEnvironments =
         rule.enabledEnvironments || availableEnvironments;
 
-      // Create the rule
       const gbRule: FeatureRule = {
         type: "force",
         id: rule.id || `rule_${ruleIndex}`,
         description: rule.groupName,
+        allEnvironments: false,
+        environments: targetEnvironments,
         condition: transformedCondition.condition,
         enabled: true,
         value: rule.returnValueJSON,
@@ -110,45 +104,33 @@ export function transformStatsigExperimentToFeature(
         scheduleRules: transformedCondition.scheduleRules || [],
       };
 
-      // Add the rule to all target environments
-      targetEnvironments.forEach((envKey) => {
-        if (environmentSettings[envKey]) {
-          environmentSettings[envKey].rules.push(gbRule);
-        }
-      });
+      allRules.push(gbRule);
     } catch (error) {
       console.error(`Error transforming targeting rule ${rule.id}:`, error);
     }
   });
 
-  // Add experiment-ref rule to all environments
   const experimentRefRule: FeatureRule = {
     type: "experiment-ref",
-    id: `fr_${gbExperiment.id}`, // Use GrowthBook experiment ID
+    id: `fr_${gbExperiment.id}`,
     description: "",
+    allEnvironments: true,
     condition: "",
     enabled: true,
-    experimentId: gbExperiment.id, // Use GrowthBook experiment ID
+    experimentId: gbExperiment.id,
     variations: groups.map((group, index) => {
-      // Find the corresponding GB variation by matching the key
       const gbVariation = gbExperiment.variations.find(
         (v) => v.key === index.toString(),
       );
       return {
-        variationId: gbVariation?.id || group.id, // Use GB variation ID
+        variationId: gbVariation?.id || group.id,
         value: JSON.stringify(group.parameterValues),
       };
     }),
   };
 
-  // Add experiment-ref rule to all environments
-  availableEnvironments.forEach((envKey) => {
-    if (environmentSettings[envKey]) {
-      environmentSettings[envKey].rules.push(experimentRefRule);
-    }
-  });
+  allRules.push(experimentRefRule);
 
-  // Format owner information
   const ownerString = owner ? `${owner.ownerName} (${owner.ownerEmail})` : "";
 
   return {
@@ -157,6 +139,7 @@ export function transformStatsigExperimentToFeature(
     valueType,
     defaultValue: valueType === "json" ? "{}" : "0",
     environmentSettings,
+    rules: allRules,
     owner: ownerString,
     tags: tags || [],
     project: project || "",
