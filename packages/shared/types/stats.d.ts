@@ -175,10 +175,28 @@ export type SingleVariationResult = {
   ci?: [number, number];
 };
 
+/** One contextual slice from gbstats; stored on snapshots as `contextualBanditSnapshot`. */
+export type ContextualBanditResponseSnapshot = {
+  context: Record<string, unknown>;
+  sampleSizePerVariation?: number[] | null;
+  variationMeans?: number[] | null;
+  updatedWeights?: number[] | null;
+  bestArmProbabilities?: number[] | null;
+  updateMessage?: string | null;
+  error?: string | null;
+};
+
+/** Full contextual bandit output for a decision-metric run (mirrors gbstats `ContextualBanditResult`). */
+export type ContextualBanditSnapshot = {
+  attributes: string[];
+  responses: ContextualBanditResponseSnapshot[];
+};
+
 export type MultipleExperimentMetricAnalysis = {
   id: string;
   results: ExperimentMetricAnalysis;
   banditResult?: BanditResult;
+  contextualBanditResult?: ContextualBanditSnapshot | null;
   error?: string;
   traceback?: string;
 };

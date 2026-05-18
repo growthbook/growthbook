@@ -1,0 +1,15 @@
+.contextualBanditTable {
+  :global(.rt-TableRootTable) {
+    table-layout: fixed;
+    width: 100%;
+  }
+}
+
+.heatmapCell {
+  padding: 6px 8px !important;
+  vertical-align: middle;
+}
+
+.heatmapCellLightText {
+  color: hsl(214, 45%, 16%) !important;
+}

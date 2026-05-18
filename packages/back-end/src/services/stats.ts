@@ -36,6 +36,7 @@ import {
   MetricSettingsForStatsEngine,
   MultipleExperimentMetricAnalysis,
   QueryResultsForStatsEngine,
+  ContextualBanditSnapshot,
 } from "shared/types/stats";
 import {
   ExperimentReportResultDimension,
@@ -264,7 +265,11 @@ function createStatsEngineData(
 
 export async function runSnapshotAnalysis(
   params: ExperimentMetricAnalysisParams,
-): Promise<{ results: ExperimentMetricAnalysis; banditResult?: BanditResult }> {
+): Promise<{
+  results: ExperimentMetricAnalysis;
+  banditResult?: BanditResult;
+  contextualBanditResult?: ContextualBanditSnapshot | null;
+}> {
   const analysis: MultipleExperimentMetricAnalysis | undefined = (
     await runStatsEngine([
       { id: params.id, data: createStatsEngineData(params) },
@@ -286,6 +291,7 @@ export async function runSnapshotAnalysis(
   return {
     results: analysis.results,
     banditResult: analysis.banditResult,
+    contextualBanditResult: analysis.contextualBanditResult ?? null,
   };
 }
 
@@ -703,6 +709,7 @@ export async function analyzeExperimentResults({
 }): Promise<{
   results: ExperimentReportResults[];
   banditResult?: BanditResult;
+  contextualBanditResult?: ContextualBanditSnapshot | null;
 }> {
   const mdat = getMetricsAndQueryDataForStatsEngine(
     queryData,
@@ -729,7 +736,11 @@ export async function analyzeExperimentResults({
     metrics: metricSettings,
     banditSettings: snapshotSettings.banditSettings,
   };
-  const { results: analysis, banditResult } = await runSnapshotAnalysis(params);
+  const {
+    results: analysis,
+    banditResult,
+    contextualBanditResult,
+  } = await runSnapshotAnalysis(params);
 
   const results = parseStatsEngineResult({
     analysisSettings,
@@ -738,7 +749,7 @@ export async function analyzeExperimentResults({
     unknownVariations,
     result: analysis,
   });
-  return { results, banditResult };
+  return { results, banditResult, contextualBanditResult };
 }
 
 export function analyzeExperimentTraffic({

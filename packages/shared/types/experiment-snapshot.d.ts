@@ -15,6 +15,7 @@ import {
   MetricPowerResponseFromStatsEngine,
   RealizedSettings,
   SupplementalResults,
+  ContextualBanditSnapshot,
 } from "shared/types/stats";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
@@ -249,6 +250,8 @@ export interface ExperimentSnapshotInterface {
   // Keyed by `ExperimentSnapshotAnalysis.analysisKey`
   chunkedAnalysesMeta?: Record<AnalysisKeyType, AnalysisMetaEntry>;
   banditResult?: BanditResult;
+  /** Contextual multi-armed bandit weight/mean table (gbstats contextual path); null clears on non-contextual refresh. */
+  contextualBanditSnapshot?: ContextualBanditSnapshot | null;
 
   health?: ExperimentSnapshotHealth;
 }

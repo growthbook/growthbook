@@ -1904,13 +1904,8 @@ class UpdateWeightsContextualTree:
                         error=r.error,
                     )
                 )
-                new_w = (
-                    r.updatedWeights
-                    if r.updatedWeights is not None
-                    else r.bestArmProbabilities
-                )
-                if new_w is not None:
-                    wlist = list(new_w)
+                if r.updatedWeights is not None:
+                    wlist = list(r.updatedWeights)
                     ccw = getattr(
                         self.contextual_bandit_settings,
                         "current_contextual_weights",

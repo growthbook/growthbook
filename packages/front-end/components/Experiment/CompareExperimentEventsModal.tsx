@@ -192,6 +192,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   customMetricSlices: "analysis",
   banditBurnInUnit: "analysis",
   banditBurnInValue: "analysis",
+  banditIsContextual: "analysis",
   banditScheduleUnit: "analysis",
   banditScheduleValue: "analysis",
   lookbackOverride: "analysis",
