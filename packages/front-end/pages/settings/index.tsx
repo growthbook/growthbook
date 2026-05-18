@@ -21,6 +21,7 @@ import { OrganizationSettings } from "shared/types/organization";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
 import { CUSTOMIZABLE_PROMPT_TYPES } from "shared/ai";
+import { getRequireRegisteredAttributesSettings } from "shared/util";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
@@ -47,6 +48,7 @@ import HelperText from "@/ui/HelperText";
 import { StickyTabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
 import Frame from "@/ui/Frame";
 import SavedGroupSettings from "@/components/GeneralSettings/SavedGroupSettings";
+import TargetingAttributesSettings from "@/components/GeneralSettings/TargetingAttributesSettings";
 import ApprovalFlowSettings from "@/components/GeneralSettings/ApprovalFlowSettings";
 
 export const ConnectSettingsForm = ({ children }) => {
@@ -173,6 +175,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
       requireProjectForFeatures:
         settings.requireProjectForFeatures ??
         DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
+      requireRegisteredAttributes: getRequireRegisteredAttributesSettings(
+        settings.requireRegisteredAttributes,
+      ),
       aiEnabled: settings.aiEnabled ?? false,
       defaultAIModel: settings.defaultAIModel || "gpt-4o-mini",
       embeddingModel: settings.embeddingModel || "text-embedding-ada-002",
@@ -241,6 +246,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
     savedGroupSizeLimit: form.watch("savedGroupSizeLimit"),
     approvalFlows: form.watch("approvalFlows"),
+    requireRegisteredAttributes: form.watch("requireRegisteredAttributes"),
   };
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";
@@ -287,6 +293,13 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 }
               : {}),
           };
+        } else if (k === "requireRegisteredAttributes") {
+          // Stored as either a legacy boolean or the canonical object shape;
+          // normalize to the object so the form always works with one type.
+          newVal.requireRegisteredAttributes =
+            getRequireRegisteredAttributesSettings(
+              settings?.requireRegisteredAttributes,
+            );
         } else {
           newVal[k] = settings?.[k] || newVal[k];
         }
@@ -503,6 +516,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
             <TabsContent value="sdk">
               <>
                 <SavedGroupSettings />
+                <TargetingAttributesSettings />
               </>
             </TabsContent>
             <TabsContent value="approval-flow">
