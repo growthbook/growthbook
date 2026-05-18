@@ -172,19 +172,26 @@ export async function postReformat(
       jsonSchema: checkResponseSchema,
     });
 
-    let parsedCheck;
+    let rawCheck: unknown;
     try {
-      parsedCheck = JSON.parse(aiResults);
+      rawCheck = JSON.parse(aiResults);
     } catch {
       return res.status(500).json({
         status: 500,
         message: "Failed to parse AI response",
       });
     }
+    const parsedCheck = checkResponseSchema.safeParse(rawCheck);
+    if (!parsedCheck.success) {
+      return res.status(500).json({
+        status: 500,
+        message: "AI response did not match expected shape",
+      });
+    }
     return res.status(200).json({
       status: 200,
       data: {
-        check: parsedCheck,
+        check: parsedCheck.data,
       },
     });
   }
