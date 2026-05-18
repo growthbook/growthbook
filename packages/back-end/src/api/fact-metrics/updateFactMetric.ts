@@ -45,7 +45,7 @@ export async function getUpdateFactMetricPropsFromBody(
     loseRisk: riskThresholdDanger,
   };
 
-  const metricType = updates.metricType;
+  const metricType = updates.metricType ?? factMetric.metricType;
   if (numerator) {
     // Set the correct column based on metric type
     let column: string;
