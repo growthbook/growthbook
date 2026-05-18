@@ -11,7 +11,6 @@ import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationM
 import Frame from "@/ui/Frame";
 import Checkbox from "@/ui/Checkbox";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Link from "@/ui/Link";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 
@@ -82,9 +81,7 @@ export default function ApprovalFlowSettings() {
       <Flex gap="4">
         <Box width="220px" flexShrink="0">
           <Heading size="medium" as="h4">
-            <PremiumTooltip commercialFeature="require-approvals">
-              Approval Flows
-            </PremiumTooltip>
+            Approval Flows
           </Heading>
         </Box>
       </Flex>
