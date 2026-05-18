@@ -20,6 +20,7 @@ import SymbolicatedStackTrace, {
   type SymbolicatedStack,
 } from "@/components/ErrorTracking/SymbolicatedStackTrace";
 import { getMemberDisplayName } from "@/components/ErrorTracking/memberDisplay";
+import { useFeatureDisabledRedirect } from "@/hooks/useFeatureDisabledRedirect";
 
 type IssueDetailResponse = {
   issue: {
@@ -61,6 +62,9 @@ const GRAPH_RANGE_OPTIONS: { value: GraphRange; label: string }[] = [
 ];
 
 export default function ErrorIssuePage(): React.ReactElement {
+  const { ready: featureReady, shouldRender } = useFeatureDisabledRedirect(
+    "enable-error-tracking",
+  );
   const router = useRouter();
   const fingerprint = router.query.fingerprint as string;
   const clientKey = router.query.clientKey as string;
@@ -299,6 +303,10 @@ export default function ErrorIssuePage(): React.ReactElement {
     { value: "", display: "Unassigned" },
     ...memberAssigneeOptions,
   ];
+
+  if (!featureReady || !shouldRender) {
+    return <LoadingOverlay />;
+  }
 
   if (!clientKey) {
     return (

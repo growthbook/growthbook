@@ -8,6 +8,7 @@ import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import { useFeatureDisabledRedirect } from "@/hooks/useFeatureDisabledRedirect";
 
 type Row = {
   eventId: string;
@@ -24,6 +25,9 @@ type Row = {
 };
 
 export default function ErrorIssueEventsPage(): React.ReactElement {
+  const { ready: featureReady, shouldRender } = useFeatureDisabledRedirect(
+    "enable-error-tracking",
+  );
   const router = useRouter();
   const fingerprint = router.query.fingerprint as string;
   const clientKey = router.query.clientKey as string;
@@ -38,6 +42,10 @@ export default function ErrorIssueEventsPage(): React.ReactElement {
   const { data, error, isLoading } = useApi<{ events: Row[] }>(url, {
     shouldRun: () => !!fingerprint && !!clientKey,
   });
+
+  if (!featureReady || !shouldRender) {
+    return <LoadingOverlay />;
+  }
 
   if (!clientKey) {
     return (

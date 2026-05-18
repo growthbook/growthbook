@@ -14,6 +14,7 @@ import { useForm } from "react-hook-form";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { Text } from "@radix-ui/themes";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import {
@@ -38,6 +39,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
 import { DocLink } from "@/components/DocLink";
+import { AppFeatures } from "@/types/app-features";
 import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
@@ -83,6 +85,8 @@ const NewDataSourceForm: FC<{
 
   const settings = useOrgSettings();
   const { metricDefaults } = useOrganizationMetricDefaults();
+  const gb = useGrowthBook<AppFeatures>();
+  const enableErrorTracking = gb?.isOn("enable-error-tracking") ?? false;
 
   useEffect(() => {
     track("View Datasource Form", {
@@ -339,7 +343,10 @@ const NewDataSourceForm: FC<{
       return;
     }
 
-    const resources = getInitialDatasourceResources({ datasource: ds });
+    const resources = getInitialDatasourceResources({
+      datasource: ds,
+      enableErrorTracking,
+    });
     if (!resources.factTables.length) {
       setCreatingResources(false);
       return;

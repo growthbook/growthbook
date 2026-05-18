@@ -4,6 +4,7 @@ import { date } from "shared/dates";
 import { FaArrowRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { Box, Flex, Separator } from "@radix-ui/themes";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactTableModal from "@/components/FactTables/FactTableModal";
@@ -34,6 +35,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { GBInfo } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
+import { AppFeatures } from "@/types/app-features";
 
 export default function FactTablesPage() {
   const {
@@ -59,6 +61,8 @@ export default function FactTablesPage() {
   );
 
   const { apiCall } = useAuth();
+  const gb = useGrowthBook<AppFeatures>();
+  const enableErrorTracking = gb?.isOn("enable-error-tracking") ?? false;
   const settings = useOrgSettings();
   const { metricDefaults } = useOrganizationMetricDefaults();
   const [autoGenerateError, setAutoGenerateError] = useState<string | null>(
@@ -69,7 +73,10 @@ export default function FactTablesPage() {
 
     for (const datasource of datasources) {
       if (isProjectListValidForProject(datasource.projects, project)) {
-        const resources = getInitialDatasourceResources({ datasource });
+        const resources = getInitialDatasourceResources({
+          datasource,
+          enableErrorTracking,
+        });
         if (resources.factTables.length > 0) {
           return {
             datasource,
@@ -80,7 +87,7 @@ export default function FactTablesPage() {
     }
 
     return null;
-  }, [factTables.length, datasources, project]);
+  }, [factTables.length, datasources, project, enableErrorTracking]);
 
   const permissionsUtil = usePermissionsUtil();
 
