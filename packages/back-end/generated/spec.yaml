@@ -142,24 +142,6 @@ tags:
 
 
       Revision `rules` is a flat array with per-rule scope fields.
-  - name: features
-    x-displayName: Feature Flags (legacy)
-    description: >-
-      Control your feature flags programatically.
-
-
-      **These are v1 endpoints.** New integrations should use the v2 Feature
-      Flags endpoints, which expose a unified per-rule environment scope instead
-      of per-environment rule arrays.
-  - name: feature-revisions
-    x-displayName: Feature Revisions (legacy)
-    description: >-
-      Draft revisions for feature flags, including rules, scheduling, and
-      approval workflows.
-
-
-      **These are v1 endpoints.** New integrations should use the v2 Feature
-      Revisions endpoints.
   - name: ramp-schedules
     x-displayName: Ramp Schedules
     description: >-
@@ -28111,8 +28093,6 @@ x-tagGroups:
       - environments
       - features-v2
       - feature-revisions-v2
-      - features
-      - feature-revisions
       - ramp-schedules
       - data-sources
       - fact-tables

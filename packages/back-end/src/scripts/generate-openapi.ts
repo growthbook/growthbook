@@ -485,6 +485,12 @@ curl https://api.growthbook.io/api/v1/features \
   // Be able to look up a schema by its JSON stringified schema
   const schemaHashMap: Record<string, string> = {};
 
+  // Tags actually referenced by an emitted operation. Used at the end to prune
+  // entries from openapiSpec.tags and the Endpoints tag group so the generated
+  // docs don't show empty sections (e.g. when every route under a tag is
+  // `deprecated: true` and skipped).
+  const usedTags = new Set<string>();
+
   for (const route of allRoutes) {
     if (route.excludeFromSpec || route.deprecated) {
       continue;
@@ -712,6 +718,10 @@ curl https://api.growthbook.io/api/v1/features \
       responses,
       "x-codeSamples": codeSamples,
     };
+    // Deprecated routes still appear in the spec (so SDK generators can pick
+    // them up if needed) but the docs hide them, so don't let their tags keep
+    // an otherwise-empty section alive in the sidebar.
+    if (!deprecated) tags?.forEach((t) => usedTags.add(t));
   }
 
   // Auto-discover tags from routes that aren't in the hardcoded openApiTags list
@@ -776,11 +786,22 @@ curl https://api.growthbook.io/api/v1/features \
     });
   }
 
-  // Build x-tagGroups for docs navigation
+  // Build x-tagGroups for docs navigation. Only include tags that actually
+  // have an emitted operation, so the docs don't render empty sidebar groups.
   const endpointTags: string[] = [
-    ...openApiTags,
-    ...Array.from(discoveredTags),
+    ...openApiTags.filter((t) => usedTags.has(t)),
+    ...Array.from(discoveredTags).filter((t) => usedTags.has(t)),
   ];
+  // Prune the top-level tags array to match — drop any endpoint tag that's
+  // unused. (Model `_model` tags are kept regardless; they belong to the
+  // Models section and aren't operation-bound.)
+  const allEndpointTagNames = new Set<string>([
+    ...openApiTags,
+    ...discoveredTags,
+  ]);
+  openapiSpec.tags = openapiSpec.tags.filter(
+    (t) => !allEndpointTagNames.has(t.name) || usedTags.has(t.name),
+  );
   (openapiSpec as Record<string, unknown>)["x-tagGroups"] = [
     { name: "Endpoints", tags: endpointTags },
     { name: "Models", tags: modelTags },
