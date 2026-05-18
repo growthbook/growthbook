@@ -95,6 +95,9 @@ const informationSchemasController = wrapController(
   informationSchemasControllerRaw,
 );
 
+import * as errorTrackingControllerRaw from "./controllers/errorTracking";
+const errorTrackingController = wrapController(errorTrackingControllerRaw);
+
 import * as uploadControllerRaw from "./routers/upload/upload.controller";
 const uploadController = wrapController(uploadControllerRaw);
 
@@ -830,6 +833,33 @@ app.get("/feature", featuresController.getFeatures);
 app.get("/feature/:id", featuresController.getFeatureById);
 app.get("/feature/:id/revisions", featuresController.getFeatureRevisions);
 app.get("/feature/:id/usage", featuresController.getFeatureUsage);
+
+app.get("/error-tracking/issues", errorTrackingController.getIssues);
+app.get(
+  "/error-tracking/issues/:fingerprint/detail",
+  errorTrackingController.getIssueDetail,
+);
+app.get(
+  "/error-tracking/issues/:fingerprint/events",
+  errorTrackingController.getIssueEvents,
+);
+app.get(
+  "/error-tracking/events/:eventUuid",
+  errorTrackingController.getEventDetail,
+);
+app.get(
+  "/error-tracking/events/:eventUuid/adjacent",
+  errorTrackingController.getEventAdjacent,
+);
+app.patch(
+  "/error-tracking/issues/:fingerprint",
+  errorTrackingController.patchIssue,
+);
+app.post(
+  "/error-tracking/issues/:fingerprint/comments",
+  errorTrackingController.postIssueComment,
+);
+
 app.get("/feature/:id/watchers", featuresController.getFeatureWatchers);
 app.post("/feature", featuresController.postFeatures);
 app.put("/feature/:id", featuresController.putFeature);

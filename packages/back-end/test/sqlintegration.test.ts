@@ -17,10 +17,40 @@ import { addCaseWhenTimeFilter } from "back-end/src/integrations/sql/clauses/add
 import { getAggregateMetricColumnLegacyMetrics } from "back-end/src/integrations/sql/columns/aggregate-metric-column-legacy-metrics";
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
+import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
 import { getExperimentFactMetricsQuery } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
 import { getFeatureEvalDiagnosticsQuery } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 import { factTableFactory } from "./factories/FactTable.factory";
+
+describe("ClickHouse dialect — fact metric count distinct (HLL)", () => {
+  it("uses AggregateFunction column type for HLL intermediate (not VARBINARY)", () => {
+    expect(clickHouseDialect.getDataType("hll")).toBe(
+      "AggregateFunction(uniq, String)",
+    );
+  });
+
+  it("partial aggregation keeps uniqState without CAST to VARBINARY", () => {
+    const metric = factMetricFactory.build({
+      metricType: "mean",
+      numerator: {
+        factTableId: "ft1",
+        column: "issue_fingerprint",
+        aggregation: "count distinct",
+      },
+    });
+    const metadata = getAggregationMetadata(clickHouseDialect, {
+      metric,
+      useDenominator: false,
+    });
+    expect(metadata.partialAggregationFunction("m.col")).toBe(
+      "uniqState(m.col)",
+    );
+    expect(metadata.reAggregationFunction("value_for_reaggregation")).toBe(
+      "finalizeAggregation(uniqMergeState(value_for_reaggregation))",
+    );
+  });
+});
 
 describe("bigquery integration", () => {
   it("builds the correct aggregate metric column", () => {

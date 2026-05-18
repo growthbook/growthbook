@@ -128,6 +128,10 @@ export const UNSUPPORTED_METRIC_EXPLORER_TYPES: readonly FactMetricType[] = [
 ] as const;
 
 export const MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID = "ch_events";
+export const MANAGED_WAREHOUSE_ERRORS_FACT_TABLE_ID = "ch_errors";
+
+/** Ingest event name for managed warehouse `errors` table — keep in sync with sdk-js `EVENT_GROWTHBOOK_ERROR`. */
+export const EVENT_GROWTHBOOK_ERROR = "GrowthBook Error";
 
 export const sdkLanguages = [
   "nocode-webflow",
