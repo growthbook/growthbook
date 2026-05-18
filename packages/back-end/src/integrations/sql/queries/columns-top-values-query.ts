@@ -73,17 +73,24 @@ function getTopValuesCTEBody(
 
   const lengthFilter =
     maxValueLength !== undefined
-      ? `AND ${dialect.stringLength(u.valueExpr)} <= ${maxValueLength}`
+      ? `AND ${dialect.stringLength("value")} <= ${maxValueLength}`
       : "";
 
+  // Materialize the unpivoted (column_name, value) once in an inner subquery so
+  // keyExpr/valueExpr are only embedded one time. Some dialects (Redshift,
+  // Snowflake) resolve these via large CASE expressions, and repeating those
+  // across SELECT/WHERE/GROUP BY would balloon the SQL.
   const aggQuery = `
-      SELECT ${u.keyExpr} AS column_name, ${u.valueExpr} AS value, COUNT(*) AS count
-      FROM __factTable
-      ${u.fromContinuation}
-      WHERE timestamp >= ${dialect.toTimestamp(start)}
-        AND ${u.valueExpr} IS NOT NULL
+      SELECT column_name, value, COUNT(*) AS count
+      FROM (
+        SELECT ${u.keyExpr} AS column_name, ${u.valueExpr} AS value
+        FROM __factTable
+        ${u.fromContinuation}
+        WHERE timestamp >= ${dialect.toTimestamp(start)}
+      ) __unpivot
+      WHERE value IS NOT NULL
         ${lengthFilter}
-      GROUP BY ${u.keyExpr}, ${u.valueExpr}`;
+      GROUP BY column_name, value`;
 
   // Wraps an aggregation query shaped like (column_name, value, count) and
   // returns the top `limit` values per column. Shared across all efficient

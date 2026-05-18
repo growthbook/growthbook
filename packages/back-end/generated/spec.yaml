@@ -9481,6 +9481,69 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/experiments' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/results:
+    get:
+      operationId: listExperimentResults
+      summary: Get latest results for many experiments
+      description: >-
+        Returns the latest non-dimension snapshot for each experiment matching
+        the filters. Use this to scan results across a portfolio in one call.
+
+
+        Pagination semantics:
+
+        - `total` is the count of experiments matching the filters.
+
+        - `count` is the length of the returned `experimentResults` array.
+
+        - Experiments without a completed snapshot are omitted from
+        `experimentResults`, so `count` may be less than the page slice and a
+        page may legitimately return `count: 0` while `hasMore: true`.
+
+        - `hasMore` and `nextOffset` advance over experiments matching the
+        filters, not over returned results.
+
+
+        Use the per-experiment `GET /experiments/{id}/results` endpoint to
+        inspect specific phases or dimensions.
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/datasourceId'
+        - $ref: '#/components/parameters/trackingKey'
+        - name: status
+          in: query
+          description: ''
+          schema:
+            type: string
+            enum:
+              - draft
+              - running
+              - stopped
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      experimentResults:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ExperimentResults'
+                    required:
+                      - experimentResults
+                    additionalProperties: false
+                  - $ref: '#/components/schemas/PaginationFields'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/experiments/results' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}:
     get:
       operationId: getExperiment
@@ -10009,6 +10072,41 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/experiments/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/start-checklist:
+    get:
+      operationId: getExperimentStartChecklist
+      summary: Get an experiment pre-launch checklist status
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  checklistItems:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/checklistItems'
+                  status:
+                    type: string
+                    enum:
+                      - ready
+                      - notReady
+                required:
+                  - checklistItems
+                  - status
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/start-checklist'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/results:
     get:
       operationId: getExperimentResults
@@ -10076,6 +10174,61 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/experiments/exp_abc123/start' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/start-checklist/manual/complete:
+    post:
+      operationId: postExperimentStartChecklistManualComplete
+      summary: Mark manual pre-launch checklist items complete
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                keys:
+                  description: >-
+                    Manual pre-launch checklist item keys to mark as complete
+                    (auto-computed items cannot be updated via this endpoint).
+                  minItems: 1
+                  type: array
+                  items:
+                    type: string
+              required:
+                - keys
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  checklistItems:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/checklistItems'
+                  status:
+                    type: string
+                    enum:
+                      - ready
+                      - notReady
+                required:
+                  - checklistItems
+                  - status
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/start-checklist/manual/complete'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"keys":["Stakeholder sign-off","QA complete"]}'
   /v1/experiments/{id}/stop:
     post:
       operationId: postExperimentStop
@@ -10477,11 +10630,11 @@ paths:
                     required:
                       - type
                       - pattern
-                    additionalProperties: false
+                    additionalProperties: {}
               required:
                 - editorUrl
                 - urlPatterns
-              additionalProperties: false
+              additionalProperties: {}
       responses:
         '200':
           content:
@@ -12910,6 +13063,84 @@ paths:
         - visual-changesets
       parameters:
         - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                editorUrl:
+                  description: >-
+                    URL of the page opened in the visual editor when creating
+                    this changeset
+                  type: string
+                urlPatterns:
+                  description: >-
+                    URL patterns that determine which pages this visual
+                    changeset applies to
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      include:
+                        type: boolean
+                      type:
+                        type: string
+                        enum:
+                          - simple
+                          - regex
+                      pattern:
+                        type: string
+                    required:
+                      - type
+                      - pattern
+                    additionalProperties: {}
+                visualChanges:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      description:
+                        type: string
+                      css:
+                        type: string
+                      js:
+                        type: string
+                      variation:
+                        type: string
+                      domMutations:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            selector:
+                              type: string
+                            action:
+                              type: string
+                              enum:
+                                - append
+                                - set
+                                - remove
+                            attribute:
+                              type: string
+                            value:
+                              type: string
+                            parentSelector:
+                              type: string
+                            insertBeforeSelector:
+                              type: string
+                          required:
+                            - selector
+                            - action
+                            - attribute
+                          additionalProperties: {}
+                    required:
+                      - variation
+                    additionalProperties: {}
+              additionalProperties: {}
       responses:
         '200':
           content:
@@ -12930,7 +13161,9 @@ paths:
           source: >-
             curl -X PUT
             'https://api.growthbook.io/api/v1/visual-changesets/abc123' \
-              -H 'Authorization: Bearer YOUR_API_KEY'
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"editorUrl":"https://example.com/"}'
   /v1/visual-changesets/{id}/visual-change:
     post:
       operationId: postVisualChange
@@ -12939,6 +13172,52 @@ paths:
         - visual-changesets
       parameters:
         - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                description:
+                  type: string
+                css:
+                  type: string
+                js:
+                  type: string
+                variation:
+                  type: string
+                domMutations:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      selector:
+                        type: string
+                      action:
+                        type: string
+                        enum:
+                          - append
+                          - set
+                          - remove
+                      attribute:
+                        type: string
+                      value:
+                        type: string
+                      parentSelector:
+                        type: string
+                      insertBeforeSelector:
+                        type: string
+                    required:
+                      - selector
+                      - action
+                      - attribute
+                    additionalProperties: {}
+              required:
+                - variation
+              additionalProperties: {}
       responses:
         '200':
           content:
@@ -12948,16 +13227,21 @@ paths:
                 properties:
                   nModified:
                     type: number
+                  visualChangeId:
+                    type: string
                 required:
                   - nModified
+                  - visualChangeId
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/visual-changesets/{id}/visual-change'
+            'https://api.growthbook.io/api/v1/visual-changesets/abc123/visual-change'
             \
-              -H 'Authorization: Bearer YOUR_API_KEY'
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"variation":"var_abc123","domMutations":[]}'
   /v1/visual-changesets/{id}/visual-change/{visualChangeId}:
     put:
       operationId: putVisualChange
@@ -12967,6 +13251,50 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
         - $ref: '#/components/parameters/visualChangeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                description:
+                  type: string
+                css:
+                  type: string
+                js:
+                  type: string
+                variation:
+                  type: string
+                domMutations:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      selector:
+                        type: string
+                      action:
+                        type: string
+                        enum:
+                          - append
+                          - set
+                          - remove
+                      attribute:
+                        type: string
+                      value:
+                        type: string
+                      parentSelector:
+                        type: string
+                      insertBeforeSelector:
+                        type: string
+                    required:
+                      - selector
+                      - action
+                      - attribute
+                    additionalProperties: {}
+              additionalProperties: {}
       responses:
         '200':
           content:
@@ -12983,9 +13311,11 @@ paths:
         - lang: cURL
           source: >-
             curl -X PUT
-            'https://api.growthbook.io/api/v1/visual-changesets/{id}/visual-change/{visualChangeId}'
+            'https://api.growthbook.io/api/v1/visual-changesets/abc123/visual-change/vc_abc123'
             \
-              -H 'Authorization: Bearer YOUR_API_KEY'
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"css":"h1 { color: red; }"}'
   /v1/saved-groups:
     get:
       operationId: listSavedGroups
@@ -13199,6 +13529,58 @@ paths:
           source: >-
             curl -X DELETE
             'https://api.growthbook.io/api/v1/saved-groups/abc123' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups/{id}/archive:
+    post:
+      operationId: archiveSavedGroup
+      summary: Archive a single saved group
+      tags:
+        - saved-groups
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  savedGroup:
+                    $ref: '#/components/schemas/SavedGroup'
+                required:
+                  - savedGroup
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/saved-groups/abc123/archive' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups/{id}/unarchive:
+    post:
+      operationId: unarchiveSavedGroup
+      summary: Unarchive a single saved group
+      tags:
+        - saved-groups
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  savedGroup:
+                    $ref: '#/components/schemas/SavedGroup'
+                required:
+                  - savedGroup
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/saved-groups/abc123/unarchive' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/organizations:
     get:
@@ -26139,6 +26521,136 @@ components:
         - metricId
         - overrides
       additionalProperties: false
+    ExperimentResults:
+      type: object
+      properties:
+        id:
+          type: string
+        dateUpdated:
+          type: string
+        experimentId:
+          type: string
+        phase:
+          type: string
+        dateStart:
+          type: string
+        dateEnd:
+          type: string
+        dimension:
+          type: object
+          properties:
+            type:
+              type: string
+            id:
+              type: string
+          required:
+            - type
+          additionalProperties: false
+        settings:
+          $ref: '#/components/schemas/ExperimentAnalysisSettings'
+        queryIds:
+          type: array
+          items:
+            type: string
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              dimension:
+                type: string
+              totalUsers:
+                type: number
+              checks:
+                type: object
+                properties:
+                  srm:
+                    type: number
+                required:
+                  - srm
+                additionalProperties: false
+              metrics:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    metricId:
+                      type: string
+                    variations:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          variationId:
+                            type: string
+                          users:
+                            type: number
+                          analyses:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                engine:
+                                  type: string
+                                  enum:
+                                    - bayesian
+                                    - frequentist
+                                numerator:
+                                  type: number
+                                denominator:
+                                  type: number
+                                mean:
+                                  type: number
+                                stddev:
+                                  type: number
+                                percentChange:
+                                  type: number
+                                ciLow:
+                                  type: number
+                                ciHigh:
+                                  type: number
+                                pValue:
+                                  type: number
+                                risk:
+                                  type: number
+                                chanceToBeatControl:
+                                  type: number
+                              required:
+                                - engine
+                                - numerator
+                                - denominator
+                                - mean
+                                - stddev
+                                - percentChange
+                                - ciLow
+                                - ciHigh
+                              additionalProperties: false
+                        required:
+                          - variationId
+                          - analyses
+                        additionalProperties: false
+                  required:
+                    - metricId
+                    - variations
+                  additionalProperties: false
+            required:
+              - dimension
+              - totalUsers
+              - checks
+              - metrics
+            additionalProperties: false
+      required:
+        - id
+        - dateUpdated
+        - experimentId
+        - phase
+        - dateStart
+        - dateEnd
+        - dimension
+        - settings
+        - queryIds
+        - results
+      additionalProperties: false
     ExperimentWithEnhancedStatus:
       allOf:
         - type: object
@@ -26458,136 +26970,6 @@ components:
                 - status
               additionalProperties: false
           additionalProperties: false
-    ExperimentResults:
-      type: object
-      properties:
-        id:
-          type: string
-        dateUpdated:
-          type: string
-        experimentId:
-          type: string
-        phase:
-          type: string
-        dateStart:
-          type: string
-        dateEnd:
-          type: string
-        dimension:
-          type: object
-          properties:
-            type:
-              type: string
-            id:
-              type: string
-          required:
-            - type
-          additionalProperties: false
-        settings:
-          $ref: '#/components/schemas/ExperimentAnalysisSettings'
-        queryIds:
-          type: array
-          items:
-            type: string
-        results:
-          type: array
-          items:
-            type: object
-            properties:
-              dimension:
-                type: string
-              totalUsers:
-                type: number
-              checks:
-                type: object
-                properties:
-                  srm:
-                    type: number
-                required:
-                  - srm
-                additionalProperties: false
-              metrics:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    metricId:
-                      type: string
-                    variations:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          variationId:
-                            type: string
-                          users:
-                            type: number
-                          analyses:
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                engine:
-                                  type: string
-                                  enum:
-                                    - bayesian
-                                    - frequentist
-                                numerator:
-                                  type: number
-                                denominator:
-                                  type: number
-                                mean:
-                                  type: number
-                                stddev:
-                                  type: number
-                                percentChange:
-                                  type: number
-                                ciLow:
-                                  type: number
-                                ciHigh:
-                                  type: number
-                                pValue:
-                                  type: number
-                                risk:
-                                  type: number
-                                chanceToBeatControl:
-                                  type: number
-                              required:
-                                - engine
-                                - numerator
-                                - denominator
-                                - mean
-                                - stddev
-                                - percentChange
-                                - ciLow
-                                - ciHigh
-                              additionalProperties: false
-                        required:
-                          - variationId
-                          - analyses
-                        additionalProperties: false
-                  required:
-                    - metricId
-                    - variations
-                  additionalProperties: false
-            required:
-              - dimension
-              - totalUsers
-              - checks
-              - metrics
-            additionalProperties: false
-      required:
-        - id
-        - dateUpdated
-        - experimentId
-        - phase
-        - dateStart
-        - dateEnd
-        - dimension
-        - settings
-        - queryIds
-        - results
-      additionalProperties: false
     VisualChangeset:
       type: object
       properties:
@@ -27577,6 +27959,8 @@ components:
           type: array
           items:
             type: string
+        archived:
+          type: boolean
       required:
         - id
         - type
@@ -33064,6 +33448,29 @@ components:
                 - value
               additionalProperties: false
             - type: 'null'
+      additionalProperties: false
+    checklistItems:
+      type: object
+      properties:
+        key:
+          type: string
+        required:
+          type: boolean
+        status:
+          type: string
+          enum:
+            - complete
+            - incomplete
+        manual:
+          type: boolean
+        reason:
+          type: string
+      required:
+        - key
+        - required
+        - status
+        - manual
+        - reason
       additionalProperties: false
     snapshot:
       type: object
