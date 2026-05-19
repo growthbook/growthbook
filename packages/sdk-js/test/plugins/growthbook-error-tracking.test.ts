@@ -6,7 +6,11 @@ import {
   normalizeErrorMessageForFingerprint,
   normalizeFilenameForFingerprint,
 } from "../../src/plugins/growthbook-error-tracking";
-import { EVENT_GROWTHBOOK_ERROR, GrowthBook, GrowthBookClient } from "../../src";
+import {
+  EVENT_GROWTHBOOK_ERROR,
+  GrowthBook,
+  GrowthBookClient,
+} from "../../src";
 
 describe("growthbookErrorTracking helpers", () => {
   afterEach(() => {
@@ -193,10 +197,9 @@ describe("growthbookErrorTracking helpers", () => {
       clientKey: "test",
       eventLogger,
     });
-    const scoped = client.createScopedInstance(
-      { attributes: { id: "123" } },
-      [growthbookErrorTrackingPlugin()],
-    );
+    const scoped = client.createScopedInstance({ attributes: { id: "123" } }, [
+      growthbookErrorTrackingPlugin(),
+    ]);
     const errorListener = addSpy.mock.calls.find(
       ([eventName]) => eventName === "error",
     )?.[1];
