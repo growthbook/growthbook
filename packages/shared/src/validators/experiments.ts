@@ -770,6 +770,23 @@ const apiExperimentShape = z.object({
     .describe("ID of the default dashboard for this experiment.")
     .optional(),
   templateId: z.string().optional(),
+  statusUpdateSchedule: z
+    .object({
+      startAt: z.string().meta({ format: "date-time" }).optional(),
+    })
+    .nullable()
+    .optional(),
+  nextScheduledStatusUpdate: z
+    .object({
+      // Only "start" is supported for experiments today. The internal
+      // statusUpdateScheduleValidator has a `TODO(schedule-status-updates):
+      // add stopAt`, and updateExperimentStatus.ts treats any other type as
+      // unsupported and clears the field
+      type: z.literal("start"),
+      date: z.string().meta({ format: "date-time" }),
+    })
+    .nullable()
+    .optional(),
 });
 export const apiExperimentValidator = namedSchema(
   "Experiment",
@@ -1293,6 +1310,21 @@ const updateExperimentBody = z
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
     customMetricSlices: apiCustomMetricSlices.optional(),
+    statusUpdateSchedule: z
+      .object({
+        startAt: z
+          .string()
+          .meta({ format: "date-time" })
+          .describe(
+            "ISO datetime when the experiment should start. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule.",
+          )
+          .optional(),
+      })
+      .describe(
+        "Schedule a future start for a draft experiment. Set to `null` to remove the schedule. Provide `{ startAt }` to set or update it. Only `startAt` is currently supported.",
+      )
+      .nullable()
+      .optional(),
   })
   .strict();
 
@@ -1561,6 +1593,12 @@ export const postExperimentStartValidator = {
   responseSchema: z
     .object({
       experiment: apiExperimentWithEnhancedStatus,
+      message: z
+        .string()
+        .describe(
+          "Present only when the request staged a future scheduled start instead of starting the experiment immediately.",
+        )
+        .optional(),
     })
     .strict(),
   summary: "Start an experiment",

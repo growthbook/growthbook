@@ -57,7 +57,7 @@ import {
   getAllVariations,
   getLatestPhaseVariations,
 } from "shared/experiments";
-import { hoursBetween } from "shared/dates";
+import { getValidDate, hoursBetween } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import { v4 as uuidv4 } from "uuid";
 import { differenceInMinutes } from "date-fns";
@@ -2440,6 +2440,27 @@ export async function toExperimentApiInterface(
     customMetricSlices: experiment.customMetricSlices ?? [],
     defaultDashboardId: experiment.defaultDashboardId,
     templateId: experiment.templateId || undefined,
+    statusUpdateSchedule: experiment.statusUpdateSchedule
+      ? {
+          ...(experiment.statusUpdateSchedule.startAt
+            ? {
+                startAt: experiment.statusUpdateSchedule.startAt.toISOString(),
+              }
+            : {}),
+        }
+      : experiment.statusUpdateSchedule,
+    // Only "start" is produced for experiments; updateExperimentStatus.ts
+    // clears any other type before it can be observed. Filter defensively
+    // so the API response always matches the documented schema.
+    nextScheduledStatusUpdate:
+      experiment.nextScheduledStatusUpdate?.type === "start"
+        ? {
+            type: "start" as const,
+            date: experiment.nextScheduledStatusUpdate.date.toISOString(),
+          }
+        : experiment.nextScheduledStatusUpdate === undefined
+          ? undefined
+          : null,
   };
   return apiExperiment;
 }
@@ -3790,6 +3811,41 @@ function resolveExperimentUpdateVariationsAndPhases(
 }
 
 /**
+ * Normalize `statusUpdateSchedule` / `nextScheduledStatusUpdate` on an in-progress
+ * Changeset:
+ *  - Explicit null clears both the schedule and any staged start.
+ *  - An object resolves `startAt` via getValidDate; missing startAt is treated
+ *    as "clear the schedule"; any existing staged start is reset so the schedule
+ *    must be re-staged.
+ *  - If `statusUpdateSchedule` is not in the payload but `status` is moving out
+ *    of draft, clear any pending staged start so the agenda job won't fire it.
+ */
+export function normalizeStatusUpdateScheduleChanges(
+  experiment: ExperimentInterface,
+  changes: Changeset,
+): void {
+  if ("statusUpdateSchedule" in changes) {
+    const incoming = changes.statusUpdateSchedule;
+    if (incoming === null) {
+      changes.statusUpdateSchedule = null;
+      changes.nextScheduledStatusUpdate = null;
+    } else {
+      const startAt = incoming?.startAt
+        ? getValidDate(incoming.startAt)
+        : undefined;
+      changes.statusUpdateSchedule = startAt ? { startAt } : null;
+      changes.nextScheduledStatusUpdate = null;
+    }
+  } else if (
+    changes.status &&
+    changes.status !== "draft" &&
+    experiment.nextScheduledStatusUpdate
+  ) {
+    changes.nextScheduledStatusUpdate = null;
+  }
+}
+
+/**
  * Converts the OpenAPI POST /experiment/:id payload to a {@link ExperimentInterface}
  * @param payload
  * @param organization
@@ -3852,6 +3908,7 @@ export function updateExperimentApiPayloadToInterface(
     decisionFrameworkSettings,
     postStratificationEnabled,
     defaultDashboardId,
+    statusUpdateSchedule,
   } = payload;
 
   let changes: ExperimentInterface = {
@@ -3936,6 +3993,7 @@ export function updateExperimentApiPayloadToInterface(
       ? { postStratificationEnabled }
       : {}),
     ...(defaultDashboardId !== undefined ? { defaultDashboardId } : {}),
+    ...(statusUpdateSchedule !== undefined ? { statusUpdateSchedule } : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 

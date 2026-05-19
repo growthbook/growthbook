@@ -53,6 +53,7 @@ import {
   determineNextBanditSchedule,
   getLinkedChangeEnvironmentStates,
   getLinkedFeatureInfo,
+  normalizeStatusUpdateScheduleChanges,
   resetExperimentBanditSettings,
   SnapshotAnalysisParams,
   createExperimentSnapshot,
@@ -1710,30 +1711,7 @@ export async function postExperiment(
     }
   });
 
-  // Normalize statusUpdateSchedule dates. We only support `startAt` for now.
-  // Clearing the schedule always clears any existing approval. Editing the
-  // schedule to a new value invalidates any existing approval.
-  if ("statusUpdateSchedule" in changes) {
-    const incoming = changes.statusUpdateSchedule;
-    if (incoming === null) {
-      changes.statusUpdateSchedule = null;
-      changes.nextScheduledStatusUpdate = null;
-    } else {
-      const startAt = incoming?.startAt
-        ? getValidDate(incoming.startAt)
-        : undefined;
-      changes.statusUpdateSchedule = startAt ? { startAt } : null;
-      changes.nextScheduledStatusUpdate = null;
-    }
-  } else if (
-    changes.status &&
-    changes.status !== "draft" &&
-    experiment.nextScheduledStatusUpdate
-  ) {
-    // If the experiment moves out of a schedulable state, clear any pending
-    // scheduled status update so the agenda job doesn't try to start it.
-    changes.nextScheduledStatusUpdate = null;
-  }
+  normalizeStatusUpdateScheduleChanges(experiment, changes);
 
   // Coerce lookbackOverride date value when type is "date"
   if (changes.lookbackOverride?.type === "date") {
