@@ -35,6 +35,7 @@ export function scheduleAutoName(state: RampSectionState): string {
   return "schedule";
 }
 
+// `tooltip` here renders inline beneath the option label (subtitle style).
 const START_OPTIONS = [
   {
     value: "immediately",

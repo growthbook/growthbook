@@ -23,6 +23,7 @@ import {
   defaultRampSectionState,
 } from "@/components/Features/RuleModal/RampScheduleSection";
 import HelperText from "@/ui/HelperText";
+import Callout from "@/ui/Callout";
 import MonitoredIcon from "@/components/Features/RuleModal/MonitoredIcon";
 import RampScheduleBadge from "@/components/RampSchedule/RampScheduleBadge";
 import ScheduleInputs from "@/components/Features/RuleModal/ScheduleInputs";
@@ -66,8 +67,8 @@ export default function StandardRuleFields({
   setRampSectionState,
   scheduleType,
   setScheduleType,
-  pendingDetach: _pendingDetach,
   envScope,
+  isLiveRule,
 }: {
   ruleType: "force" | "rollout";
   feature: FeatureInterface;
@@ -84,8 +85,8 @@ export default function StandardRuleFields({
   setRampSectionState: (s: RampSectionState) => void;
   scheduleType: ScheduleType;
   setScheduleType: (t: ScheduleType) => void;
-  pendingDetach?: boolean;
   envScope: EnvScopeProps;
+  isLiveRule?: boolean;
 }) {
   const form = useFormContext();
   const [advancedOptionsOpen, setadvancedOptionsOpen] = useState(
@@ -351,6 +352,16 @@ export default function StandardRuleFields({
                 setState={setRampSectionState}
               />
             )}
+            {isLiveRule &&
+              form.watch("enabled") &&
+              rampSectionState.startDate &&
+              new Date(rampSectionState.startDate).getTime() > Date.now() && (
+                <Callout status="warning" mt="4">
+                  This rule is currently enabled and will remain live until the
+                  schedule starts. Disable the rule first if you don&apos;t want
+                  it serving traffic before then.
+                </Callout>
+              )}
           </Box>
         )}
 

@@ -746,14 +746,20 @@ export default function RampTimeline({
     return "future";
   }
 
-  const startDateDisplay = startDate ?? rs.startedAt ?? null;
+  // Show the configured startDate on the Start node only while the schedule
+  // is still waiting to actually start. `startDate` is a one-shot gate
+  // consumed when the schedule first transitions out of pending/ready; the
+  // resume path from a rolled-back step -1 also fires step 0 immediately
+  // (it doesn't re-arm the startDate hold), so showing the date once we've
+  // started would just be stale UI.
+  const showStartDate =
+    !!startDate && (status === "pending" || status === "ready");
+  const startSublabel = showStartDate ? formatScheduledDate(startDate!) : null;
   const nodes: NodeMeta[] = [
     {
       key: "start",
       label: "start",
-      sublabel: startDateDisplay
-        ? formatScheduledDate(startDateDisplay, { compact: true })
-        : null,
+      sublabel: startSublabel,
       popoverContent: (
         <NodePopoverContent
           heading="Start"
@@ -762,9 +768,7 @@ export default function RampTimeline({
           nodeState={getState(0)}
           status={status}
           interval={null}
-          triggerLabel={
-            startDateDisplay ? formatScheduledDate(startDateDisplay) : null
-          }
+          triggerLabel={startSublabel}
           actions={rs.startActions ?? []}
           stepIndex="start"
           isActive={getState(0) === "active"}

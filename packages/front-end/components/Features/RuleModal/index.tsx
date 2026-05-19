@@ -129,8 +129,13 @@ function buildRampStartActionsFromRule(
 }
 export interface Props {
   close: () => void;
+  // Merged feature (base + draft changes). Use baseFeature to check live/published state.
   feature: FeatureInterface;
-  baseFeature?: FeatureInterface;
+  // Published feature before draft changes are applied. Required so we can
+  // distinguish a draft-only rule (not yet in live) from a published rule
+  // being edited; falling back to `feature` here would silently mis-classify
+  // draft-added rules as "live".
+  baseFeature: FeatureInterface;
   setVersion: (version: number) => void;
   mutate: () => void;
   // Global flat index in `feature.rules`. Positions new rules; ignored for edit/duplicate.
@@ -192,9 +197,12 @@ export default function RuleModal({
   const rule: FeatureRule | undefined = ruleId
     ? flatRules.find((r) => r.id === ruleId)
     : undefined;
-  const ruleHasBeenPublished =
-    !!rule?.id &&
-    (baseFeature?.rules ?? feature.rules ?? []).some((r) => r.id === rule.id);
+  // True when this rule already exists on the published feature. We use this
+  // (not `defaultValues.id`, which is also set for newly-added draft rules) to
+  // decide whether scheduling against a future date should warn about
+  // overriding an already-live rule's state.
+  const isLiveRule =
+    !!ruleId && (baseFeature.rules ?? []).some((r) => r.id === ruleId);
   const safeRollout =
     rule?.type === "safe-rollout"
       ? safeRolloutsMap?.get(rule?.safeRolloutId)
@@ -572,7 +580,7 @@ export default function RuleModal({
     // If there's a ramp with coverage, must be rollout
     if (hasRampWithCoverage) {
       targetType = "rollout";
-      if (!ruleHasBeenPublished) {
+      if (!isLiveRule) {
         targetCoverage = 0;
       }
     }
@@ -614,7 +622,7 @@ export default function RuleModal({
     rampSectionState,
     scheduleType,
     isRampType,
-    ruleHasBeenPublished,
+    isLiveRule,
     form,
     attributeSchema,
   ]);
@@ -1108,6 +1116,15 @@ export default function RuleModal({
           let rampScheduleInline:
             | PutFeatureRuleBody["rampSchedule"]
             | undefined;
+          // When removing a schedule that never fired, restore the rule to
+          // enabled. New rules with a future schedule are stored as
+          // enabled:false on POST; detaching/clearing the schedule before it
+          // ran would otherwise leave the rule permanently disabled.
+          let restoreEnabledOnDetach = false;
+          const scheduleNeverFired =
+            !ruleRampSchedule ||
+            ruleRampSchedule.status === "pending" ||
+            ruleRampSchedule.status === "ready";
           if (
             (values.type === "rollout" || values.type === "force") &&
             rule?.id
@@ -1121,6 +1138,7 @@ export default function RuleModal({
                 rampScheduleId: ruleRampSchedule.id,
                 deleteScheduleWhenEmpty: true,
               };
+              restoreEnabledOnDetach = scheduleNeverFired;
             } else if (hasPendingDetach && rampSectionState.mode === "edit") {
               // User re-enabled the ramp section to restore the detached schedule — cancel the removal
               rampScheduleInline = { mode: "clear" };
@@ -1192,7 +1210,8 @@ export default function RuleModal({
               } else if (
                 !isNoOpSchedule &&
                 rampState.mode === "edit" &&
-                ruleRampSchedule?.id
+                ruleRampSchedule?.id &&
+                ruleRampSchedule.status !== "running"
               ) {
                 rampScheduleInline = {
                   mode: "update",
@@ -1237,6 +1256,29 @@ export default function RuleModal({
                     ? { lockdownConfig: { mode: "locked" as const } }
                     : { lockdownConfig: { mode: "none" as const } }),
                 };
+              } else if (
+                isNoOpSchedule &&
+                rampState.mode === "edit" &&
+                ruleRampSchedule?.id
+              ) {
+                // Schedule became a no-op (e.g. user switched to "Immediately"
+                // with no end date) — detach the existing schedule.
+                rampScheduleInline = {
+                  mode: "detach",
+                  rampScheduleId: ruleRampSchedule.id,
+                  deleteScheduleWhenEmpty: true,
+                };
+                restoreEnabledOnDetach = scheduleNeverFired;
+              } else if (
+                isNoOpSchedule &&
+                rampState.mode === "create" &&
+                pendingCreateAction
+              ) {
+                // Pending-create schedule reduced to a no-op (e.g. user cleared
+                // the dates) — drop the pending create from the draft so we
+                // don't publish a useless schedule doc.
+                rampScheduleInline = { mode: "clear" };
+                restoreEnabledOnDetach = true;
               } else if (rampState.mode === "off" && ruleRampSchedule?.id) {
                 // User unchecked the ramp schedule checkbox — detach this rule from the ramp
                 rampScheduleInline = {
@@ -1244,16 +1286,22 @@ export default function RuleModal({
                   rampScheduleId: ruleRampSchedule.id,
                   deleteScheduleWhenEmpty: true,
                 };
+                restoreEnabledOnDetach = scheduleNeverFired;
               } else if (rampState.mode === "off" && pendingCreateAction) {
                 // Pending-create schedule only exists in the draft (not yet published) —
                 // user removed the schedule, so clear the create action from the draft.
                 rampScheduleInline = { mode: "clear" };
+                restoreEnabledOnDetach = true;
               } else if (rampState.mode === "off" && hasPendingDetach) {
                 // User saved without re-configuring a schedule while a pending detach exists —
                 // clear the detach action from the draft (cancel the pending removal)
                 rampScheduleInline = { mode: "clear" };
               }
             }
+          }
+
+          if (restoreEnabledOnDetach && !values.enabled) {
+            values.enabled = true;
           }
 
           // For real ramps that have not started yet, targeting widgets edit the
@@ -1361,8 +1409,9 @@ export default function RuleModal({
           }
         }
 
-        // Future-dated schedule → publish the rule as disabled so it
-        // remains hidden until the ramp activates.
+        // Schedule with a start date → create rule disabled; the backend
+        // enables it via onActivatingRevisionPublished when the draft is
+        // published (immediately if the date has passed, or via poller if future).
         if (
           rampScheduleInline &&
           "startDate" in rampScheduleInline &&
@@ -1688,8 +1737,8 @@ export default function RuleModal({
               setRampSectionState={setRampSectionState}
               scheduleType={scheduleType}
               setScheduleType={setScheduleType}
-              pendingDetach={hasPendingDetach}
               envScope={envScopeProps!}
+              isLiveRule={isLiveRule}
             />
           </Page>
         )}

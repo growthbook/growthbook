@@ -1652,6 +1652,7 @@ export async function postExperiment(
     "releasedVariationId",
     "excludeFromPayload",
     "autoSnapshots",
+    "disableAutoSnapshots",
     "project",
     "regressionAdjustmentEnabled",
     "postStratificationEnabled",

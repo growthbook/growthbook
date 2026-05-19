@@ -272,6 +272,7 @@ const experimentSchema = new mongoose.Schema({
   lastSnapshotAttempt: Date,
   nextSnapshotAttempt: Date,
   autoSnapshots: Boolean,
+  disableAutoSnapshots: Boolean,
   ideaSource: String,
   regressionAdjustmentEnabled: Boolean,
   postStratificationEnabled: Boolean,
@@ -723,6 +724,7 @@ export async function getExperimentsToUpdate(
       },
       status: "running",
       autoSnapshots: true,
+      disableAutoSnapshots: { $ne: true },
       nextSnapshotAttempt: {
         $exists: true,
         $lte: new Date(),
@@ -756,6 +758,7 @@ export async function getExperimentsToUpdateLegacy(
       },
       status: "running",
       autoSnapshots: true,
+      disableAutoSnapshots: { $ne: true },
       nextSnapshotAttempt: {
         $exists: false,
       },

@@ -45,6 +45,10 @@ export default function RampScheduleBadge({
   const now = new Date();
   const startAt = rs.startDate ? new Date(rs.startDate) : null;
   const futureStart = startAt && startAt > now;
+  // Surface "Starts in …" only while the schedule is genuinely waiting to
+  // start (pending/ready). Once it's running/paused/completed the original
+  // startDate is stale UI noise.
+  const preStart = rs.status === "pending" || rs.status === "ready";
 
   const dateRow = (label: string, d: Date) => (
     <div>
@@ -68,7 +72,7 @@ export default function RampScheduleBadge({
         `Schedule ${getRampStatusLabel(rs).toLowerCase()}`);
 
     let timingLabel: string | null = null;
-    if (futureStart) {
+    if (preStart && futureStart) {
       timingLabel = `Starts ${abbreviateAgo(startAt)}`;
     }
 
@@ -106,7 +110,7 @@ export default function RampScheduleBadge({
 
   let timingLabel: string | null = null;
   const timingTooltipRows: ReactNode[] = [];
-  if (futureStart) {
+  if (preStart && futureStart) {
     timingLabel = `Starts ${abbreviateAgo(startAt)}`;
     timingTooltipRows.push(dateRow("Starts", startAt));
   }

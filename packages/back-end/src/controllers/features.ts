@@ -38,6 +38,7 @@ import {
   SafeRolloutRule,
   ACTIVE_DRAFT_STATUSES,
   RevisionMetadata,
+  RevisionRampAction,
   RevisionRampCreateAction,
   RevisionRampDetachAction,
   RevisionRampUpdateAction,
@@ -3152,7 +3153,22 @@ export async function putFeatureRule(
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
   const existingRules = cloneDeep(revision.rules ?? []);
-  const existingRule = existingRules.find((r) => r.id === ruleId);
+  let existingRule = existingRules.find((r) => r.id === ruleId);
+
+  // Stale-draft case: the rule was published to live after this draft was
+  // created (draft.baseVersion < the version where the rule was added), so
+  // the draft never picked it up. The modal still surfaces the rule (it's in
+  // feature.rules), so failing here surprises the user. Pull the live rule
+  // into the draft so the edit applies; autoMerge will reconcile cleanly at
+  // publish (live already has the rule with the same id).
+  if (!existingRule) {
+    const liveRule = (feature.rules ?? []).find((r) => r.id === ruleId);
+    if (liveRule) {
+      existingRules.push(cloneDeep(liveRule));
+      existingRule = existingRules[existingRules.length - 1];
+    }
+  }
+
   if (!existingRule) throw new Error("Unknown rule");
 
   // Audit/review scope is the rule's own env scope.
@@ -3326,6 +3342,13 @@ export async function putFeatureRule(
     "rule.update",
     { environments: ruleChangedEnvs },
   );
+
+  // Schedule edits flow through draft revisions: `mode: "update"` enqueues a
+  // RevisionRampUpdateAction above (see L3248) which createRampSchedulesForRevision
+  // applies at publish time. The prior real-time-update block has been removed —
+  // a "start now" (clear startDate on a ready schedule) affordance for live edits
+  // is a follow-up; until then, clearing startDate via the modal just queues an
+  // update that lands at the next publish without flipping status → running.
 
   // If editing an experiment-ref rule, keep pendingFeatureDrafts in sync.
   const editedRule = (updatedRevisionAfterRuleEdit ?? revision).rules?.find(
@@ -3733,7 +3756,18 @@ export async function deleteFeatureRule(
       ? environmentIds
       : (rule.environments ?? []);
 
-  const changes = { rules: nextRules };
+  // Strip any pending ramp actions for the deleted rule so publish doesn't
+  // create a schedule doc that would be immediately cleaned up as orphaned.
+  // Mirrors the REST handler's behavior.
+  const changes: { rules: FeatureRule[]; rampActions?: RevisionRampAction[] } =
+    { rules: nextRules };
+  const existingRampActions = revision.rampActions ?? [];
+  const filteredRampActions = existingRampActions.filter(
+    (a) => a.ruleId !== ruleId,
+  );
+  if (filteredRampActions.length !== existingRampActions.length) {
+    changes.rampActions = filteredRampActions;
+  }
 
   const resetReview = resetReviewOnChange({
     feature,
