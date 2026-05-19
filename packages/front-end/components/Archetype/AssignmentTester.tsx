@@ -384,21 +384,6 @@ export default function AssignmentTester({
           </Flex>
           {open && (
             <div>
-              {featureEnvironments.length > 1 && (
-                <Box mb="3">
-                  <MultiSelectField
-                    label="Environments"
-                    placeholder="All environments"
-                    value={selectedEnvs}
-                    options={featureEnvironments.map((env) => ({
-                      label: env.id,
-                      value: env.id,
-                    }))}
-                    onChange={setSelectedEnvs}
-                    helpText="Only show results for these environments. Leave empty to show all."
-                  />
-                </Box>
-              )}
               <div className="row">
                 <div className="col-6">
                   <AttributeForm
@@ -407,6 +392,21 @@ export default function AssignmentTester({
                       setFormValues(attrs);
                     }}
                     hideTitle={true}
+                    headerContent={
+                      featureEnvironments.length > 1 ? (
+                        <MultiSelectField
+                          label="Environments"
+                          placeholder="All environments"
+                          value={selectedEnvs}
+                          options={featureEnvironments.map((env) => ({
+                            label: env.id,
+                            value: env.id,
+                          }))}
+                          onChange={setSelectedEnvs}
+                          helpText="Limit results and saved archetype to these environments. Leave empty for all."
+                        />
+                      ) : null
+                    }
                   />
                   <div className="mt-2">
                     <PremiumTooltip commercialFeature="archetypes">
@@ -415,6 +415,7 @@ export default function AssignmentTester({
                           e.preventDefault();
                           setOpenArchetypeModal({
                             attributes: JSON.stringify(formValues),
+                            environments: selectedEnvs,
                           });
                         }}
                         href="#"
