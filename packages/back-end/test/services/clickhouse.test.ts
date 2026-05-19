@@ -12,17 +12,6 @@ import {
   updateFactTableColumns,
 } from "back-end/src/models/FactTableModel";
 
-jest.mock("back-end/src/util/secrets", () => ({
-  CLICKHOUSE_HOST: "http://localhost:8123",
-  CLICKHOUSE_ADMIN_USER: "admin",
-  CLICKHOUSE_ADMIN_PASSWORD: "password",
-  CLICKHOUSE_DATABASE: "default",
-  CLICKHOUSE_MAIN_TABLE: "events",
-  ENVIRONMENT: "development",
-  IS_CLOUD: false,
-  CLICKHOUSE_OVERAGE_TABLE: "overage",
-}));
-
 jest.mock("back-end/src/services/licenseServerManagedClickhouse", () => ({
   updateMaterializedColumnsInClickhouse: jest.fn().mockResolvedValue(undefined),
 }));
