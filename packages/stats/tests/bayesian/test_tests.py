@@ -258,5 +258,26 @@ class TestGaussianEffectRelativeAbsolutePriors(TestCase):
         self.assertAlmostEqual(abs_res.chanceToWin, rel_res.chanceToWin, places=2)
 
 
+class TestGetRiskNumericalStability(TestCase):
+    def test_extreme_mu_over_sigma_no_overflow(self):
+        # Posterior with tiny sigma (e.g. quantile metric over discrete values at
+        # large n). Previously overflowed inside scipy truncnorm.
+        risk = EffectBayesianABTest.get_risk(mu=0.01, sigma=4.5e-9)
+        self.assertEqual(risk, [0.01, 0.0])
+        risk_neg = EffectBayesianABTest.get_risk(mu=-0.01, sigma=4.5e-9)
+        self.assertEqual(risk_neg, [0.0, 0.01])
+
+    def test_normal_inputs_bit_exact_regression(self):
+        # Short-circuit must not change results in the normal regime.
+        mu, sigma = 0.1, 0.05
+        p = norm.cdf(0.0, loc=mu, scale=sigma)
+        from gbstats.utils import truncated_normal_mean
+
+        mn_neg = truncated_normal_mean(mu=mu, sigma=sigma, a=-np.inf, b=0.0)
+        mn_pos = truncated_normal_mean(mu=mu, sigma=sigma, a=0, b=np.inf)
+        expected = [float((1.0 - p) * mn_pos), -float(p * mn_neg)]
+        self.assertEqual(EffectBayesianABTest.get_risk(mu, sigma), expected)
+
+
 if __name__ == "__main__":
     unittest_main()
