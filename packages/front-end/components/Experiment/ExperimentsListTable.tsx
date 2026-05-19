@@ -47,7 +47,7 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
     tab === "stopped" || tab === "running" || tab === "all";
   // If "All Projects" is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && filtered.some((e) => e.project);
-  // Health column surfaces signals like "No data", "Unhealthy", or
+  // State column surfaces signals like "No data", "Unhealthy", or
   // "Temp Rollout" — things that need attention beyond the lifecycle status.
   const showHealthColumn = filtered.some((e) => e.healthStatus !== "");
 

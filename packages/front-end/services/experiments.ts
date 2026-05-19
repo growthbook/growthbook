@@ -340,7 +340,7 @@ export function hasTempRollout(
   );
 }
 
-// Detailed-status values that belong in the "Health" column (data/setup
+// Detailed-status values that belong in the "State" column (data/setup
 // problems with a running experiment) rather than the "Result" column.
 // Kept in sync with the cases in `statusIndicatorData.ts`.
 export const HEALTH_DETAILED_STATUSES = ["No data", "Unhealthy"] as const;
@@ -353,7 +353,7 @@ export function isHealthDetailedStatus(detailedStatus?: string): boolean {
 }
 
 /**
- * Display string for the "Health" column. Returns the experiment's health
+ * Display string for the "State" column. Returns the experiment's health
  * `detailedStatus` (e.g. "No data", "Unhealthy") when one is set, otherwise
  * "Temp Rollout" when the experiment is a temp rollout, otherwise "".
  */
