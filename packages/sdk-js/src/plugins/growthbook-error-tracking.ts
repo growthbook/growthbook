@@ -121,17 +121,117 @@ export function growthbookComposedError(
   return err;
 }
 
-/** Collapse volatile message values while keeping static wording. */
+/**
+ * Collapse `{...}` segments (e.g. JSON payloads) innermost-first so dynamic
+ * object bodies do not split fingerprints. No-op when braces are absent.
+ */
+export function collapseBraceSegments(message: string): string {
+  if (!message.includes("{") || !message.includes("}")) {
+    return message;
+  }
+  let normalized = message;
+  for (let pass = 0; pass < 64; pass++) {
+    const start = normalized.indexOf("{");
+    if (start < 0) {
+      break;
+    }
+    let depth = 0;
+    let end = -1;
+    for (let i = start; i < normalized.length; i++) {
+      const ch = normalized[i];
+      if (ch === "{") {
+        depth++;
+      } else if (ch === "}") {
+        depth--;
+        if (depth === 0) {
+          end = i;
+          break;
+        }
+      }
+    }
+    if (end < 0) {
+      break;
+    }
+    const inner = normalized.slice(start + 1, end);
+    if (!inner.length) {
+      break;
+    }
+    normalized = normalized.slice(0, start) + "{}" + normalized.slice(end + 1);
+  }
+  return normalized;
+}
+
+/**
+ * Normalize volatile fragments in error messages for stable issue grouping.
+ *
+ * Inspired by Sentry's server-side message parameterization (see
+ * `sentry/grouping/parameterization.py`): replace emails, URLs, IDs, dates,
+ * etc. with placeholders. Unlike Sentry, we also fold stack frames into the
+ * fingerprint client-side; Sentry primarily groups on stack when available.
+ */
 export function normalizeErrorMessageForFingerprint(message: string): string {
   let normalized = message.trim();
+  normalized = collapseBraceSegments(normalized);
+
+  // W3C traceparent / AWS ALB trace ids
   normalized = normalized.replace(
-    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,
+    /\b00-[0-9a-f]{32}-[0-9a-f]{16}-0[01]\b/gi,
+    "{trace}",
+  );
+  normalized = normalized.replace(
+    /\b1-[0-9a-f]{8}-[0-9a-f]{24}\b/gi,
+    "{trace}",
+  );
+
+  normalized = normalized.replace(
+    /[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+/g,
+    "{email}",
+  );
+  normalized = normalized.replace(/https?:\/\/\S+/gi, "{url}");
+  normalized = normalized.replace(/\bwww\.\S+/gi, "{url}");
+
+  normalized = normalized.replace(
+    /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/gi,
     "{uuid}",
   );
+
+  // Distinct hash lengths before generic hex (Sentry: sha1 / md5)
+  normalized = normalized.replace(/\b[0-9a-f]{40}\b/gi, "{sha1}");
+  normalized = normalized.replace(/\b[0-9a-f]{32}\b/gi, "{md5}");
+
+  normalized = normalized.replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, "{ip}");
+
+  normalized = normalized.replace(
+    /\d{4}-[01]\d-[0-3]\d(?:[T\s][0-2]\d:[0-5]\d(?::[0-5]\d)?(?:\.\d+)?(?:Z|[+-][0-2]\d:?[0-5]\d)?)?/g,
+    "{datetime}",
+  );
+
+  normalized = normalized.replace(/"[^"]{3,}"/g, "{str}");
+  normalized = normalized.replace(/'[^']{3,}'/g, "{str}");
+
+  normalized = normalized.replace(
+    /(?:\/?[\w.-]+)+\.(?:tsx?|jsx?|mjs|cjs|vue|py|go|rb|java|cs|php|rs)\b/gi,
+    "{path}",
+  );
+
   normalized = normalized.replace(/\b0x[0-9a-f]+\b/gi, "{hex}");
-  normalized = normalized.replace(/\b[0-9a-f]{16,}\b/gi, "{hex}");
-  normalized = normalized.replace(/https?:\/\/\S+/gi, "{url}");
-  normalized = normalized.replace(/\b\d+\b/g, "{n}");
+  normalized = normalized.replace(
+    /\b(?=[0-9a-f]*[a-f])(?=[0-9a-f]*[0-9])[0-9a-f]{8,}\b/gi,
+    "{hex}",
+  );
+
+  normalized = normalized.replace(/\btx[0-9a-f]{21}-[0-9a-f]{10}\S*/gi, "{id}");
+
+  // Mixed alphanumeric tokens (request ids, base64-ish chunks, etc.)
+  normalized = normalized.replace(
+    /\b(?=[\w-]*[a-zA-Z])(?=[\w-]*[0-9])[\w-]{8,}\b/g,
+    "{id}",
+  );
+
+  normalized = normalized.replace(/\b\d+(\.\d+)?ms\b/gi, "{duration}");
+  normalized = normalized.replace(/\b-?\d{1,3}(?:,\d{3})+(?:\.\d+)?\b/g, "{n}");
+  normalized = normalized.replace(/\b-?\d+\.\d+\b/g, "{n}");
+  normalized = normalized.replace(/\b-?\d+\b/g, "{n}");
   normalized = normalized.replace(/\s+/g, " ");
   return normalized;
 }
@@ -229,12 +329,10 @@ export type BuiltErrorEventProps = {
   handled?: boolean;
 };
 
-type ParsedErrorCore = Pick<
-  BuiltErrorEventProps,
-  "fingerprint" | "title" | "message" | "stack" | "stackFrames"
->;
-
-function parseErrorCore(error: unknown): ParsedErrorCore {
+export function buildErrorEventProperties(
+  error: unknown,
+  extras?: Record<string, unknown>,
+): BuiltErrorEventProps & Record<string, unknown> {
   const { message, stack, name } = stringifyUnknown(error);
   const stackFrames = parseStackFrames(stack);
   const composedPattern = getComposedErrorPattern(error);
@@ -244,27 +342,6 @@ function parseErrorCore(error: unknown): ParsedErrorCore {
     name,
     composedPattern,
   );
-  const displayMessage =
-    message.length > 500 ? `${message.slice(0, 497)}...` : message;
-
-  return {
-    fingerprint,
-    title: displayMessage,
-    message: displayMessage,
-    stack: stack?.slice(0, 50_000),
-    stackFrames,
-  };
-}
-
-function mergeErrorEventExtras(
-  core: ParsedErrorCore,
-  extras?: Record<string, unknown>,
-): BuiltErrorEventProps & Record<string, unknown> {
-  const { title, fingerprint, message, ...extrasWithoutCoreFields } =
-    extras || {};
-  void title;
-  void fingerprint;
-  void message;
 
   const {
     errorType,
@@ -275,13 +352,23 @@ function mergeErrorEventExtras(
     contexts,
     breadcrumbs,
     handled,
+    title: _extrasTitle,
+    fingerprint: _extrasFingerprint,
+    message: _extrasMessage,
     ...rest
-  } = extrasWithoutCoreFields;
+  } = extras || {};
+
+  const displayMessage =
+    message.length > 500 ? `${message.slice(0, 497)}...` : message;
 
   return {
     ...rest,
-    ...core,
+    fingerprint,
+    title: displayMessage,
+    message: displayMessage,
     errorType: typeof errorType === "string" ? errorType : "unknown",
+    stack: stack?.slice(0, 50_000),
+    stackFrames,
     transaction: typeof transaction === "string" ? transaction : undefined,
     release: typeof release === "string" ? release : undefined,
     runtime:
@@ -303,22 +390,12 @@ function mergeErrorEventExtras(
   };
 }
 
-export function buildErrorEventProperties(
-  error: unknown,
-  extras?: Record<string, unknown>,
-): BuiltErrorEventProps & Record<string, unknown> {
-  return mergeErrorEventExtras(parseErrorCore(error), extras);
-}
-
 async function logError(
   gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient,
   error: unknown,
   extras?: Record<string, unknown>,
-  parsedCore?: ParsedErrorCore,
 ) {
-  const props = parsedCore
-    ? mergeErrorEventExtras(parsedCore, extras)
-    : buildErrorEventProperties(error, extras);
+  const props = buildErrorEventProperties(error, extras);
   if (gb instanceof GrowthBook || gb instanceof UserScopedGrowthBook) {
     await gb.logEvent(EVENT_GROWTHBOOK_ERROR, props);
     return;
@@ -419,15 +496,9 @@ export function growthbookErrorTrackingPlugin({
     const run = async (error: unknown, extras?: Record<string, unknown>) => {
       if (!enable) return;
 
+      const propsPreview = buildErrorEventProperties(error, extras);
+      const fp = propsPreview.fingerprint;
       const now = Date.now();
-      recentFingerprints.forEach((ts, fp) => {
-        if (now - ts >= dedupeWindowMs) {
-          recentFingerprints.delete(fp);
-        }
-      });
-
-      const parsedCore = parseErrorCore(error);
-      const fp = parsedCore.fingerprint;
       const last = recentFingerprints.get(fp);
       if (last !== undefined && now - last < dedupeWindowMs) {
         return;
@@ -448,30 +519,20 @@ export function growthbookErrorTrackingPlugin({
         ...(envTag ? { environment: envTag } : {}),
       };
 
-      await logError(
-        gb,
-        error,
-        {
-          ...extras,
-          release: resolvedRelease,
-          runtime:
-            extras?.runtime ?? runtime ?? (browser ? "browser" : "javascript"),
-          tags: { ...tags, ...(extras?.tags as Record<string, string>) },
-          contexts: {
-            ...defaultBrowserContexts(),
-            ...(typeof extras?.contexts === "object" ? extras.contexts : {}),
-          },
+      await logError(gb, error, {
+        ...extras,
+        release: resolvedRelease,
+        runtime:
+          extras?.runtime ?? runtime ?? (browser ? "browser" : "javascript"),
+        tags: { ...tags, ...(extras?.tags as Record<string, string>) },
+        contexts: {
+          ...defaultBrowserContexts(),
+          ...(typeof extras?.contexts === "object" ? extras.contexts : {}),
         },
-        parsedCore,
-      );
+      });
     };
 
-    if (
-      !enable ||
-      !browser ||
-      (!captureUnhandled && !captureUnhandledRejections) ||
-      gb instanceof GrowthBookClient
-    ) {
+    if (!browser || (!captureUnhandled && !captureUnhandledRejections)) {
       return;
     }
 

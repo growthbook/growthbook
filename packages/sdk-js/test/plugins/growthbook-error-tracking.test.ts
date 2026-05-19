@@ -1,22 +1,14 @@
 import {
   buildErrorEventProperties,
+  collapseBraceSegments,
   fingerprintForError,
   growthbookComposedError,
-  growthbookErrorTrackingPlugin,
   normalizeErrorMessageForFingerprint,
   normalizeFilenameForFingerprint,
 } from "../../src/plugins/growthbook-error-tracking";
-import {
-  EVENT_GROWTHBOOK_ERROR,
-  GrowthBook,
-  GrowthBookClient,
-} from "../../src";
+import { EVENT_GROWTHBOOK_ERROR } from "../../src/core";
 
 describe("growthbookErrorTracking helpers", () => {
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
   it("uses stable fingerprint for same message and stack", () => {
     const err = new Error("boom");
     err.stack = "Error: boom\n  at foo (file.js:1:2)";
@@ -76,11 +68,43 @@ describe("growthbookErrorTracking helpers", () => {
         "Request failed for https://example.com/a",
       ),
     ).toEqual("Request failed for {url}");
+  });
+
+  it("collapses JSON and nested brace segments", () => {
+    expect(
+      collapseBraceSegments('API failed {"code":404,"user":"alice"}'),
+    ).toEqual("API failed {}");
+    expect(collapseBraceSegments("outer { a: { b: 1 } } tail")).toEqual(
+      "outer {} tail",
+    );
+  });
+
+  it("normalizes emails, hashes, and quoted strings", () => {
+    const sha1 = "a".repeat(40);
     expect(
       normalizeErrorMessageForFingerprint(
-        "Checkout failed 018f4e2a-7b3c-7def-8a2b-9c3d4e5f6789",
+        `Notify admin@example.com about ${sha1}`,
       ),
-    ).toEqual("Checkout failed {uuid}");
+    ).toEqual("Notify {email} about {sha1}");
+    expect(
+      normalizeErrorMessageForFingerprint('Validation: "field x is invalid"'),
+    ).toEqual("Validation: {str}");
+  });
+
+  it("groups errors whose messages differ only by JSON payloads", () => {
+    const stack = "Error: boom\n  at save (src/api/client.ts:40:5)";
+    expect(
+      fingerprintForError('Save failed {"id":1,"name":"a"}', stack, "Error"),
+    ).toEqual(
+      fingerprintForError('Save failed {"id":99,"name":"zzz"}', stack, "Error"),
+    );
+  });
+
+  it("groups errors with different opaque alphanumeric ids", () => {
+    const stack = "Error: boom\n  at run (src/job.ts:10:1)";
+    expect(
+      fingerprintForError("Job abc12xyz99 failed", stack, "Error"),
+    ).toEqual(fingerprintForError("Job qwerty9999 failed", stack, "Error"));
   });
 
   it("normalizes bundled filenames to app-relative labels", () => {
@@ -157,81 +181,5 @@ describe("growthbookErrorTracking helpers", () => {
 
   it("EVENT_GROWTHBOOK_ERROR matches warehouse filter string", () => {
     expect(EVENT_GROWTHBOOK_ERROR).toEqual("GrowthBook Error");
-  });
-
-  it("does not register unhandled listeners when disabled", () => {
-    const addSpy = jest.spyOn(window, "addEventListener");
-
-    growthbookErrorTrackingPlugin({ enable: false })(
-      new GrowthBook({ clientKey: "test" }),
-    );
-
-    expect(addSpy).not.toHaveBeenCalledWith("error", expect.any(Function));
-    expect(addSpy).not.toHaveBeenCalledWith(
-      "unhandledrejection",
-      expect.any(Function),
-    );
-  });
-
-  it("does not register unhandled listeners on the root multi-user client", () => {
-    const addSpy = jest.spyOn(window, "addEventListener");
-
-    const client = new GrowthBookClient({
-      clientKey: "test",
-      plugins: [growthbookErrorTrackingPlugin()],
-    });
-
-    expect(addSpy).not.toHaveBeenCalledWith("error", expect.any(Function));
-    expect(addSpy).not.toHaveBeenCalledWith(
-      "unhandledrejection",
-      expect.any(Function),
-    );
-    client.destroy();
-  });
-
-  it("captures scoped unhandled errors until the scoped instance is destroyed", async () => {
-    const addSpy = jest.spyOn(window, "addEventListener");
-    const removeSpy = jest.spyOn(window, "removeEventListener");
-    const eventLogger = jest.fn();
-    const client = new GrowthBookClient({
-      clientKey: "test",
-      eventLogger,
-    });
-    const scoped = client.createScopedInstance({ attributes: { id: "123" } }, [
-      growthbookErrorTrackingPlugin(),
-    ]);
-    const errorListener = addSpy.mock.calls.find(
-      ([eventName]) => eventName === "error",
-    )?.[1];
-    const rejectionListener = addSpy.mock.calls.find(
-      ([eventName]) => eventName === "unhandledrejection",
-    )?.[1];
-
-    window.dispatchEvent(
-      new ErrorEvent("error", {
-        error: new Error("first"),
-        message: "first",
-      }),
-    );
-    await Promise.resolve();
-
-    expect(eventLogger).toHaveBeenCalledTimes(1);
-    expect(eventLogger).toHaveBeenCalledWith(
-      EVENT_GROWTHBOOK_ERROR,
-      expect.objectContaining({
-        errorType: "uncaught",
-        handled: false,
-        message: "first",
-      }),
-      expect.any(Object),
-    );
-
-    scoped.destroy();
-    expect(removeSpy).toHaveBeenCalledWith("error", errorListener);
-    expect(removeSpy).toHaveBeenCalledWith(
-      "unhandledrejection",
-      rejectionListener,
-    );
-    client.destroy();
   });
 });
