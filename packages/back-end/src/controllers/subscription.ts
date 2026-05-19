@@ -195,6 +195,7 @@ export const postInlineProSubscription = withLicenseServerErrorHandling(
     }
 
     const nonInviteSeatQty = org.members.length;
+    const clientIp = getClientIp(req);
 
     const result = await postNewInlineSubscriptionToLicenseServer(
       org.id,
@@ -204,6 +205,7 @@ export const postInlineProSubscription = withLicenseServerErrorHandling(
       req.body.name,
       req.body.address,
       req.body.taxConfig,
+      { clientIp },
     );
 
     const managedWarehouseDatasource = await getGrowthbookDatasource(context);
