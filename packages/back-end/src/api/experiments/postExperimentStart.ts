@@ -61,6 +61,7 @@ export const postExperimentStart = createApiRequestHandler(
     const { experiment, updated } = await approveScheduledExperimentStart({
       context,
       experimentId: req.params.id,
+      skipChecklist: req.body?.skipChecklist,
     });
 
     await req.audit({

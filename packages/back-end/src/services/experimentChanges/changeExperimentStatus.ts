@@ -448,9 +448,11 @@ export async function startExperiment({
 export async function approveScheduledExperimentStart({
   context,
   experimentId,
+  skipChecklist = false,
 }: {
   context: ReqContext;
   experimentId: string;
+  skipChecklist?: boolean;
 }) {
   const experiment = await loadAndValidateExperimentForStatusChange(
     context,
@@ -470,6 +472,21 @@ export async function approveScheduledExperimentStart({
     throw new Error(
       "no_valid_scheduled_start: No valid future scheduled start date to approve",
     );
+  }
+
+  if (!skipChecklist) {
+    const checklistItems = await getExperimentStartChecklistStatus(
+      context,
+      experiment,
+    );
+    const incompleteRequired = checklistItems.filter(
+      (item) => item.required && item.status === "incomplete",
+    );
+    if (incompleteRequired.length > 0) {
+      throw new Error(
+        `checklist_incomplete: ${incompleteRequired.map((i) => i.key).join(", ")}`,
+      );
+    }
   }
 
   const updated = await updateExperiment({

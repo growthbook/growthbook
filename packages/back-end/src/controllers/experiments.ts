@@ -2245,6 +2245,7 @@ export async function postApproveScheduledExperimentStart(
     const { experiment, updated } = await approveScheduledExperimentStart({
       context,
       experimentId: id,
+      skipChecklist: true,
     });
 
     await req.audit({
