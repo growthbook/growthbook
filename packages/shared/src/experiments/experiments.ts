@@ -1974,8 +1974,12 @@ export function expandAllSliceMetricsInMap({
   }
 }
 
-export function isPrecomputedDimension(dimension: string | undefined): boolean {
-  return dimension?.startsWith(PRECOMPUTED_DIMENSION_PREFIX) ?? false;
+export function isPrecomputedDimension(
+  dimension: string | undefined,
+  precomputedUnitDimensionIds: string[],
+): boolean {
+  if (dimension?.startsWith(PRECOMPUTED_DIMENSION_PREFIX)) return true;
+  return !!dimension && precomputedUnitDimensionIds.includes(dimension);
 }
 
 /**

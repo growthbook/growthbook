@@ -21,7 +21,7 @@ import {
   getOrCreatePrecomputedDimensionTimeSeriesAnalyses,
 } from "back-end/src/services/experimentDimensionTimeSeries";
 import {
-  claimEagerUnitDimensionSnapshot,
+  createExperimentSnapshotModel,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
@@ -54,7 +54,7 @@ export async function runEagerExperimentDimensionAnalyses({
 
     const precomputedDimensions = (
       experimentSnapshot.settings.dimensions ?? []
-    ).filter((d) => isPrecomputedDimension(d.id));
+    ).filter((d) => isPrecomputedDimension(d.id, []));
 
     if (precomputedDimensions.length === 0) {
       return;
@@ -139,6 +139,14 @@ export function getDerivedSnapshotStatusFromQueries(
  * configured unit dimension from the per-dim metric queries the parent runner
  * already executed against the shared units table. This runs gbstats only —
  * zero new warehouse queries.
+ *
+ * Derived snapshots are append-only, exactly like every other snapshot: each
+ * parent refresh inserts a fresh derived snapshot dated with the *parent's*
+ * dateCreated. "Newest parent wins" then falls out of the existing read path
+ * (`getLatestSnapshot` sorts by dateCreated desc) and the time-series layer
+ * (`dropInvalidAndLimitDataPoints` keeps the newest-dated point per day), so
+ * an older overlapping refresh finishing late can't supersede a newer one —
+ * no dedupe index or compare-and-swap required.
  */
 export async function runEagerUnitDimensionAnalyses({
   context,
@@ -197,25 +205,23 @@ export async function runEagerUnitDimensionAnalyses({
       (v) => v.name,
     );
 
-    // Write a terminal state to the claimed derived snapshot, guarded by the
-    // CAS so a superseding parent refresh aborts this write silently.
+    // Write the terminal state to the derived snapshot.
     const finalizeDerived = (
-      claimed: ExperimentSnapshotInterface,
+      created: ExperimentSnapshotInterface,
       result:
         | { status: "success"; analyses: ExperimentSnapshotAnalysis[] }
         | { status: "error"; error: string },
     ) =>
       updateSnapshot({
         context,
-        id: claimed.id,
-        requireDerivedFromSnapshot: experimentSnapshot.id,
+        id: created.id,
         updates:
           result.status === "success"
             ? { status: "success", error: "", analyses: result.analyses }
             : {
                 status: "error",
                 error: result.error,
-                analyses: claimed.analyses.map((a) => ({
+                analyses: created.analyses.map((a) => ({
                   ...a,
                   status: "error",
                   error: result.error,
@@ -243,7 +249,11 @@ export async function runEagerUnitDimensionAnalyses({
           phase: experimentSnapshot.phase,
           dimension: dimensionId,
           runStarted: experimentSnapshot.runStarted,
-          dateCreated: new Date(),
+          // Date the derived snapshot with the *parent's* dateCreated, not the
+          // derive execution time. This makes "newest parent wins" fall out of
+          // the existing read path and time-series per-day dedupe even when an
+          // older overlapping refresh finishes its derive after a newer one.
+          dateCreated: experimentSnapshot.dateCreated,
           status: "running",
           error: "",
           settings: {
@@ -259,17 +269,15 @@ export async function runEagerUnitDimensionAnalyses({
           multipleExposures: 0,
         };
 
-        // Atomic claim: newest parent wins; older overlapping refresh gets
-        // null and bows out (no torn write, no double time-series).
-        const claimed = await claimEagerUnitDimensionSnapshot(context, {
+        // Append-only, like every other snapshot: one fresh derived snapshot
+        // per parent refresh. No dedupe index or compare-and-swap.
+        const created = await createExperimentSnapshotModel({
+          context,
           data: derivedDoc,
-          parentSnapshotId: experimentSnapshot.id,
-          parentSnapshotDate: experimentSnapshot.dateCreated,
         });
-        if (!claimed) continue;
 
         if (derivedStatus === "error") {
-          await finalizeDerived(claimed, {
+          await finalizeDerived(created, {
             status: "error",
             error: "One or more per-dimension queries failed",
           });
@@ -281,10 +289,10 @@ export async function runEagerUnitDimensionAnalyses({
         // loop wraps only analyzeExperimentResults — not this DB read.
         let queryMap: Awaited<ReturnType<typeof getQueryMap>>;
         try {
-          queryMap = await getQueryMap(context, claimed.queries);
+          queryMap = await getQueryMap(context, created.queries);
         } catch (err) {
           const error = err instanceof Error ? err.message : String(err);
-          await finalizeDerived(claimed, { status: "error", error });
+          await finalizeDerived(created, { status: "error", error });
           logger.error(
             {
               err,
@@ -304,12 +312,12 @@ export async function runEagerUnitDimensionAnalyses({
           try {
             const { results } = await analyzeExperimentResults({
               queryData: queryMap,
-              snapshotSettings: claimed.settings,
-              analysisSettings: claimed.analyses.map((a) => a.settings),
+              snapshotSettings: created.settings,
+              analysisSettings: created.analyses.map((a) => a.settings),
               variationNames,
               metricMap,
             });
-            completedAnalyses = claimed.analyses.map((a, i) => ({
+            completedAnalyses = created.analyses.map((a, i) => ({
               ...a,
               results: results[i]?.dimensions ?? [],
               status: "success" as const,
@@ -322,14 +330,14 @@ export async function runEagerUnitDimensionAnalyses({
         }
 
         if (completedAnalyses) {
-          await finalizeDerived(claimed, {
+          await finalizeDerived(created, {
             status: "success",
             analyses: completedAnalyses,
           });
         } else {
           const error =
             lastError instanceof Error ? lastError.message : String(lastError);
-          await finalizeDerived(claimed, { status: "error", error });
+          await finalizeDerived(created, { status: "error", error });
           logger.error(
             {
               err: lastError,

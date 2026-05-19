@@ -13,7 +13,7 @@ import { getOrCreatePrecomputedDimensionTimeSeriesAnalyses } from "back-end/src/
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import {
-  claimEagerUnitDimensionSnapshot,
+  createExperimentSnapshotModel,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getQueryMap } from "back-end/src/queryRunners/QueryRunner";
@@ -24,8 +24,10 @@ import { logger } from "back-end/src/util/logger";
 jest.mock("shared/experiments", () => ({
   getAllExpandedMetricIdsFromExperiment: jest.fn(() => ["met_1"]),
   isFactMetricId: jest.fn(() => false),
-  isPrecomputedDimension: jest.fn((id: string | undefined) =>
-    id?.startsWith("precomputed:"),
+  isPrecomputedDimension: jest.fn(
+    (id: string | undefined, precomputedUnitDimensionIds: string[]) =>
+      id?.startsWith("precomputed:") ||
+      (!!id && precomputedUnitDimensionIds.includes(id)),
   ),
   expandAllSliceMetricsInMap: jest.fn(),
   getLatestPhaseVariations: jest.fn(() => [
@@ -48,7 +50,7 @@ jest.mock("back-end/src/services/experimentDimensionTimeSeries", () => ({
 }));
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
-  claimEagerUnitDimensionSnapshot: jest.fn(),
+  createExperimentSnapshotModel: jest.fn(),
   updateSnapshot: jest.fn(),
 }));
 
@@ -534,8 +536,8 @@ describe("runEagerUnitDimensionAnalyses", () => {
         baseQueryName: rest.slice(sep + 1),
       };
     });
-    (claimEagerUnitDimensionSnapshot as jest.Mock).mockImplementation(
-      async (_ctx, { data }) => data,
+    (createExperimentSnapshotModel as jest.Mock).mockImplementation(
+      async ({ data }) => data,
     );
     (getQueryMap as jest.Mock).mockResolvedValue(new Map());
     (analyzeExperimentResults as jest.Mock).mockResolvedValue({
@@ -550,7 +552,7 @@ describe("runEagerUnitDimensionAnalyses", () => {
       experiment: makeUnitExperiment(),
       experimentSnapshot: makeSnapshot(),
     });
-    expect(claimEagerUnitDimensionSnapshot).not.toHaveBeenCalled();
+    expect(createExperimentSnapshotModel).not.toHaveBeenCalled();
   });
 
   it("returns immediately for dimensioned snapshots (guard #1)", async () => {
@@ -559,7 +561,7 @@ describe("runEagerUnitDimensionAnalyses", () => {
       experiment: makeUnitExperiment(),
       experimentSnapshot: makeParentSnapshot({ dimension: "dim_country" }),
     });
-    expect(claimEagerUnitDimensionSnapshot).not.toHaveBeenCalled();
+    expect(createExperimentSnapshotModel).not.toHaveBeenCalled();
   });
 
   it("returns immediately for non-standard snapshots (guard #2)", async () => {
@@ -568,7 +570,7 @@ describe("runEagerUnitDimensionAnalyses", () => {
       experiment: makeUnitExperiment(),
       experimentSnapshot: makeParentSnapshot({ type: "exploratory" }),
     });
-    expect(claimEagerUnitDimensionSnapshot).not.toHaveBeenCalled();
+    expect(createExperimentSnapshotModel).not.toHaveBeenCalled();
   });
 
   it("returns immediately for already-derived snapshots (guard #3)", async () => {
@@ -579,7 +581,7 @@ describe("runEagerUnitDimensionAnalyses", () => {
         triggeredBy: "eager-unit-dimension",
       }),
     });
-    expect(claimEagerUnitDimensionSnapshot).not.toHaveBeenCalled();
+    expect(createExperimentSnapshotModel).not.toHaveBeenCalled();
   });
 
   it("returns immediately for bandit experiments (guard #4)", async () => {
@@ -588,7 +590,7 @@ describe("runEagerUnitDimensionAnalyses", () => {
       experiment: makeUnitExperiment({ type: "multi-armed-bandit" }),
       experimentSnapshot: makeParentSnapshot(),
     });
-    expect(claimEagerUnitDimensionSnapshot).not.toHaveBeenCalled();
+    expect(createExperimentSnapshotModel).not.toHaveBeenCalled();
   });
 
   it("derives one snapshot per dimension found in the parent's queries and writes success", async () => {
@@ -597,27 +599,23 @@ describe("runEagerUnitDimensionAnalyses", () => {
       experiment: makeUnitExperiment(),
       experimentSnapshot: makeParentSnapshot(),
     });
-    expect(claimEagerUnitDimensionSnapshot).toHaveBeenCalledTimes(1);
-    expect(claimEagerUnitDimensionSnapshot).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ parentSnapshotId: "snp_1" }),
+    expect(createExperimentSnapshotModel).toHaveBeenCalledTimes(1);
+    expect(createExperimentSnapshotModel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          dimension: "dim_country",
+          triggeredBy: "eager-unit-dimension",
+          // Derived snapshot is dated with the parent's dateCreated so
+          // "newest parent wins" falls out of the existing read path.
+          dateCreated: new Date("2025-01-02T00:00:00Z"),
+        }),
+      }),
     );
     expect(updateSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({
-        requireDerivedFromSnapshot: "snp_1",
         updates: expect.objectContaining({ status: "success" }),
       }),
     );
-  });
-
-  it("aborts silently when a newer parent already owns the claim", async () => {
-    (claimEagerUnitDimensionSnapshot as jest.Mock).mockResolvedValue(null);
-    await runEagerUnitDimensionAnalyses({
-      context: makeContext() as never,
-      experiment: makeUnitExperiment(),
-      experimentSnapshot: makeParentSnapshot(),
-    });
-    expect(updateSnapshot).not.toHaveBeenCalled();
   });
 
   it("writes an error status when source per-dim queries failed", async () => {

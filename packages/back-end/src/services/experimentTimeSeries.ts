@@ -184,7 +184,7 @@ export async function updateExperimentAnalysisTimeSeries({
     experimentSnapshot.triggeredBy === "eager-unit-dimension";
   if (
     dimensionId &&
-    !isPrecomputedDimension(dimensionId) &&
+    !isPrecomputedDimension(dimensionId, []) &&
     !isEagerUnitDimensionSnapshot
   ) {
     throw new Error(

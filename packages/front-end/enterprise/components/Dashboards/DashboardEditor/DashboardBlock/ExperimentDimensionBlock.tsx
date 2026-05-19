@@ -182,8 +182,11 @@ export default function ExperimentDimensionBlock({
         differenceType={differenceType}
         setDifferenceType={isEditing ? setDifferenceType : undefined}
         renderMetricName={(metric) => metric.name}
-        showErrorsOnQuantileMetrics={analysis?.settings?.dimensions.some(
-          isPrecomputedDimension,
+        showErrorsOnQuantileMetrics={analysis?.settings?.dimensions.some((d) =>
+          isPrecomputedDimension(
+            d,
+            experiment.precomputedUnitDimensionIds ?? [],
+          ),
         )}
         sortBy={blockSortBy ?? null}
         setSortBy={isEditing ? setSortBy : undefined}

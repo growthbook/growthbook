@@ -755,7 +755,7 @@ export async function parseDimension(
         id: dimension.substring(4),
         specifiedSlices: slices,
       };
-    } else if (isPrecomputedDimension(dimension)) {
+    } else if (isPrecomputedDimension(dimension, [])) {
       return {
         type: "experiment",
         id: dimension.substring(PRECOMPUTED_DIMENSION_PREFIX.length),

@@ -107,7 +107,10 @@ export default function RefreshResultsButton<
           onSubmit={async () => {
             // Precomputed dimensions are computed as part of a standard snapshot,
             // so we don't need to pass them to the backend for a new snapshot query
-            const snapshotDimension = isPrecomputedDimension(dimension)
+            const snapshotDimension = isPrecomputedDimension(
+              dimension,
+              experiment?.precomputedUnitDimensionIds ?? [],
+            )
               ? ""
               : (dimension ?? "");
             const body =

@@ -252,8 +252,10 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   );
   const hasDimensionTimeSeries =
     !dimensionInfo ||
-    isPrecomputedDimension(dimensionInfo.id) ||
-    !!experiment?.precomputedUnitDimensionIds?.includes(dimensionInfo.id);
+    isPrecomputedDimension(
+      dimensionInfo.id,
+      experiment?.precomputedUnitDimensionIds ?? [],
+    );
   const hideTimeSeries = isReportContext || !hasDimensionTimeSeries;
   const [visibleSliceTimeSeriesRowIds, setVisibleSliceTimeSeriesRowIds] =
     useState<string[]>(() => {

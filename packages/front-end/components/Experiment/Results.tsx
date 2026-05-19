@@ -196,8 +196,8 @@ const Results: FC<{
   }
 
   // cannot re-aggregate quantile metrics across pre-computed dimensions
-  const showErrorsOnQuantileMetrics = analysis?.settings?.dimensions.some(
-    isPrecomputedDimension,
+  const showErrorsOnQuantileMetrics = analysis?.settings?.dimensions.some((d) =>
+    isPrecomputedDimension(d, experiment.precomputedUnitDimensionIds ?? []),
   );
 
   const datasource = experiment.datasource

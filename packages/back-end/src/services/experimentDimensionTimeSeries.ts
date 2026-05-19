@@ -98,7 +98,7 @@ export async function getOrCreatePrecomputedDimensionTimeSeriesAnalyses(
     dimensionId: string;
   },
 ): Promise<ExperimentSnapshotAnalysis[]> {
-  if (!isPrecomputedDimension(dimensionId)) {
+  if (!isPrecomputedDimension(dimensionId, [])) {
     throw new Error("Dimension is not precomputed");
   }
 

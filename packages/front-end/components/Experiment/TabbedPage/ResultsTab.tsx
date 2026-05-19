@@ -165,12 +165,21 @@ export default function ResultsTab({
     setAnalysisSettings(null);
     setAnalysisBarSettings((prev) => ({
       ...prev,
-      dimension: isPrecomputedDimension(prev.dimension) ? "" : prev.dimension,
+      dimension: isPrecomputedDimension(
+        prev.dimension,
+        experiment.precomputedUnitDimensionIds ?? [],
+      )
+        ? ""
+        : prev.dimension,
       baselineRow: 0,
       variationFilter: [],
       differenceType: "relative",
     }));
-  }, [setAnalysisBarSettings, setAnalysisSettings]);
+  }, [
+    setAnalysisBarSettings,
+    setAnalysisSettings,
+    experiment.precomputedUnitDimensionIds,
+  ]);
 
   const endDate =
     experiment.status !== "running" ? snapshot?.settings?.endDate : undefined;
