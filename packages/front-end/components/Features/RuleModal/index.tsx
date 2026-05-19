@@ -13,6 +13,7 @@ import {
   generateVariationId,
   isProjectListValidForProject,
   getReviewSetting,
+  stemRuleId,
 } from "shared/util";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -212,9 +213,15 @@ export default function RuleModal({
   // without an extra round-trip. The back-end preserves a truthy id sent by the client.
   const [pregenRuleId] = useState(() => uniqId("fr_"));
 
-  // Find any existing ramp schedule that already targets this specific rule
+  // Find any existing ramp schedule that already targets this specific rule.
+  // Uses stem matching so environment-suffixed rule IDs (e.g. fr_abc__production)
+  // still resolve to the same schedule as their bare stem (fr_abc).
   const ruleRampSchedule = rule?.id
-    ? rampSchedules.find((rs) => rs.targets.some((t) => t.ruleId === rule.id))
+    ? rampSchedules.find((rs) =>
+        rs.targets.some(
+          (t) => t.ruleId && stemRuleId(t.ruleId) === stemRuleId(rule.id),
+        ),
+      )
     : undefined;
 
   // Check if there's a pending detach action for this rule in the draft.
@@ -223,14 +230,16 @@ export default function RuleModal({
   const hasPendingDetach =
     rule?.id != null &&
     (draftRevision?.rampActions ?? []).some(
-      (a) => a.mode === "detach" && a.ruleId === rule.id,
+      (a) =>
+        a.mode === "detach" && stemRuleId(a.ruleId) === stemRuleId(rule.id),
     );
 
   // Find a pending create action for this rule, if any (used when no live schedule exists yet).
   const pendingCreateAction =
     !ruleRampSchedule && !hasPendingDetach && rule?.id
       ? (draftRevision?.rampActions ?? []).find(
-          (a) => a.mode === "create" && a.ruleId === rule.id,
+          (a) =>
+            a.mode === "create" && stemRuleId(a.ruleId) === stemRuleId(rule.id),
         )
       : undefined;
   const pendingCreateActionTyped =
@@ -1155,10 +1164,16 @@ export default function RuleModal({
 
               // A "schedule" type with no start date and no end date is a no-op —
               // no schedule should be created or updated in this case.
+              // A ramp with zero steps and no bounding dates is equally meaningless
+              // and would Zod-fail at publish time; treat it the same way.
               const isNoOpSchedule =
-                isScheduleMode &&
-                !rampState.startDate &&
-                !rampState.endScheduleAt;
+                (isScheduleMode &&
+                  !rampState.startDate &&
+                  !rampState.endScheduleAt) ||
+                (!isScheduleMode &&
+                  rampState.steps.length === 0 &&
+                  !rampState.startDate &&
+                  !rampState.cutoffDate);
               const activeTargetId =
                 ruleRampSchedule?.targets.find((t) => t.status === "active")
                   ?.id ?? "t1";

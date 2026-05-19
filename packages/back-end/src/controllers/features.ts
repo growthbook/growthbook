@@ -3345,10 +3345,9 @@ export async function putFeatureRule(
 
   // Schedule edits flow through draft revisions: `mode: "update"` enqueues a
   // RevisionRampUpdateAction above (see L3248) which createRampSchedulesForRevision
-  // applies at publish time. The prior real-time-update block has been removed —
-  // a "start now" (clear startDate on a ready schedule) affordance for live edits
-  // is a follow-up; until then, clearing startDate via the modal just queues an
-  // update that lands at the next publish without flipping status → running.
+  // applies at publish time. Clearing startDate on a ready schedule triggers
+  // the "start now" path in createRampSchedulesForRevision, which transitions
+  // ready → running immediately when the revision publishes.
 
   // If editing an experiment-ref rule, keep pendingFeatureDrafts in sync.
   const editedRule = (updatedRevisionAfterRuleEdit ?? revision).rules?.find(

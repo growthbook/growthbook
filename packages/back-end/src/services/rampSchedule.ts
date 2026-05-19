@@ -1521,6 +1521,78 @@ export async function onActivatingRevisionPublished(
   }
 }
 
+/**
+ * Transition a `ready` schedule to `running` immediately (the "start now"
+ * path). Called from `createRampSchedulesForRevision` when an update action
+ * explicitly clears `startDate` on a schedule that has not yet started.
+ *
+ * Content-level fields (name, steps, cutoffDate, etc.) should already be
+ * applied to `schedule` before this is called, or passed in via
+ * `contentUpdates` so they land atomically in a single write.
+ */
+export async function startReadyScheduleNow(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+  contentUpdates: Partial<
+    Pick<
+      RampScheduleInterface,
+      | "name"
+      | "steps"
+      | "startActions"
+      | "endActions"
+      | "cutoffDate"
+      | "monitoringConfig"
+      | "lockdownConfig"
+    >
+  > = {},
+): Promise<void> {
+  if (schedule.status !== "ready") return;
+
+  const now = new Date();
+  const steps = contentUpdates.steps ?? schedule.steps;
+  const cutoffDate =
+    "cutoffDate" in contentUpdates
+      ? contentUpdates.cutoffDate
+      : schedule.cutoffDate;
+  const initialNextStepAt = steps.length > 0 ? now : null;
+
+  let current = await ctx.models.rampSchedules.updateById(schedule.id, {
+    ...contentUpdates,
+    startDate: null,
+    status: "running",
+    startedAt: now,
+    phaseStartedAt: now,
+    monitoringStartDate: null,
+    nextStepAt: initialNextStepAt,
+    nextProcessAt: computeNextProcessAt({
+      status: "running",
+      nextStepAt: initialNextStepAt,
+      cutoffDate: cutoffDate ?? null,
+    }),
+    eventHistory: appendRampEvent(schedule, "started", {
+      stepIndex: -1,
+      status: "running",
+      previousStatus: schedule.status,
+    }),
+  });
+
+  await applyRampStartActions(ctx, current);
+  current = await ensureSafeRolloutForMonitoredRamp(ctx, current);
+  await advanceUntilBlocked(ctx, current, now);
+  current = (await ctx.models.rampSchedules.getById(current.id)) ?? current;
+  await syncLinkedSafeRolloutForRampState(ctx, current);
+
+  await dispatchRampEvent(ctx, current, "rampSchedule.actions.started", {
+    object: {
+      rampScheduleId: current.id,
+      rampName: current.name,
+      orgId: ctx.org.id,
+      currentStepIndex: current.currentStepIndex,
+      status: current.status,
+    },
+  });
+}
+
 export async function onRevisionPublished(
   ctx: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,

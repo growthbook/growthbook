@@ -117,7 +117,8 @@ export default function StandardRuleFields({
 
   const rampScheduleEditLocked =
     !!ruleRampSchedule &&
-    ["running", "pending"].includes(ruleRampSchedule.status);
+    ruleRampSchedule.status === "running" &&
+    !isSimpleSchedule;
   const releasePlanLocked = rampScheduleEditLocked;
   const selectorScheduleType: ScheduleSelectorType =
     scheduleType === "ramp" && rampSectionState.steps.some((s) => s.monitored)

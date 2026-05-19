@@ -50,10 +50,12 @@ import {
   synthesizeRuleId,
 } from "back-end/src/services/features";
 import {
+  appendRampEvent,
   assertFeatureNotLockedByRamp,
   computeNextProcessAt,
   getStartActionsFromRules,
   remapTemplateActions,
+  startReadyScheduleNow,
 } from "back-end/src/services/rampSchedule";
 import {
   applyNonRuleFeatureUpgrades,
@@ -1804,6 +1806,26 @@ async function createRampSchedulesForRevision(
           });
 
     if (action.mode === "create") {
+      // Guard against duplicate schedules: if the revision is re-published or
+      // an older revision is published while a live schedule already targets
+      // this rule, skip the create rather than producing a second schedule
+      // that both try to drive the same rule.
+      const existing = await context.models.rampSchedules.findByTargetRule(
+        action.ruleId,
+        action.environment ?? undefined,
+      );
+      if (existing.length > 0) {
+        logger.warn(
+          {
+            ruleId: action.ruleId,
+            conflictingScheduleId: existing[0].id,
+            revisionVersion: revision.version,
+          },
+          "Skipping deferred ramp create action — a live schedule already targets this rule",
+        );
+        continue;
+      }
+
       const created = await context.models.rampSchedules.create({
         name: action.name ?? defaultName,
         entityType: "feature",
@@ -1866,7 +1888,8 @@ async function createRampSchedulesForRevision(
     const nextSnapshotAt =
       existingSchedule?.nextSnapshotAt ?? existingSchedule?.nextStepAt ?? null;
 
-    await context.models.rampSchedules.updateById(updateAction.rampScheduleId, {
+    // Build the content-level updates that apply regardless of start-now vs normal.
+    const contentUpdates = {
       ...(updateAction.name !== undefined ? { name: updateAction.name } : {}),
       ...(updateAction.startActions !== undefined
         ? { startActions: startActions.length > 0 ? startActions : undefined }
@@ -1874,9 +1897,6 @@ async function createRampSchedulesForRevision(
       steps,
       ...(updateAction.endActions !== undefined
         ? { endActions: endActions.length > 0 ? endActions : undefined }
-        : {}),
-      ...(updateAction.startDate !== undefined
-        ? { startDate: nextStartDate }
         : {}),
       ...(updateAction.cutoffDate !== undefined
         ? { cutoffDate: nextCutoffDate }
@@ -1886,6 +1906,91 @@ async function createRampSchedulesForRevision(
         : {}),
       ...(updateAction.lockdownConfig !== undefined
         ? { lockdownConfig: updateAction.lockdownConfig }
+        : {}),
+      // Q9: if steps were edited on a paused schedule, clamp currentStepIndex
+      // to avoid an out-of-bounds access on resume, and clear nextStepAt so
+      // resumeSchedule() recalculates timing from scratch instead of
+      // adjusting a stale value that reflects the old step intervals.
+      ...(existingSchedule?.status === "paused" &&
+      existingSchedule.currentStepIndex >= steps.length
+        ? {
+            currentStepIndex: Math.max(steps.length - 1, -1),
+            nextStepAt: null,
+          }
+        : {}),
+    };
+
+    // Audit event: record which fields changed via the draft/publish path,
+    // mirroring what the direct-edit controller already does.
+    const editedFields = Object.keys(contentUpdates).filter(
+      (k) => k !== "eventHistory",
+    );
+    if (updateAction.startDate !== undefined) editedFields.push("startDate");
+    const auditEvent =
+      editedFields.length > 0 && existingSchedule
+        ? {
+            eventHistory: appendRampEvent(existingSchedule, "config-edited", {
+              stepIndex: existingSchedule.currentStepIndex,
+              status: existingSchedule.status,
+              reason: `Edited via draft: ${editedFields.join(", ")}`,
+            }),
+          }
+        : {};
+
+    // "Start now": user explicitly cleared startDate on a schedule that has
+    // not yet started. Transition ready → running inline so the rule is
+    // enabled immediately when this revision publishes rather than waiting
+    // for the next poller tick.
+    if (
+      updateAction.startDate === null &&
+      existingSchedule?.status === "ready"
+    ) {
+      await startReadyScheduleNow(context, existingSchedule, {
+        ...contentUpdates,
+        cutoffDate: nextCutoffDate,
+      });
+      continue;
+    }
+
+    // Running schedule TOCTOU guard: the schedule may have transitioned from
+    // ready → running between when the user opened the modal and when this
+    // revision was published. Since the UI prevents editing a running
+    // schedule's steps/startDate, a stale draft update here is almost always
+    // an accidental race. We apply only the safe metadata fields (the same
+    // surface the direct-edit controller exposes for running schedules) and
+    // silently drop the structural changes (steps, startActions, startDate).
+    // This keeps publish from failing while avoiding mid-run step desyncs.
+    if (existingSchedule?.status === "running") {
+      const safeUpdates: Record<string, unknown> = {};
+      if (updateAction.name !== undefined) safeUpdates.name = updateAction.name;
+      if (updateAction.cutoffDate !== undefined)
+        safeUpdates.cutoffDate = nextCutoffDate;
+      if (updateAction.monitoringConfig !== undefined)
+        safeUpdates.monitoringConfig = nextMonitoringConfig;
+      if (updateAction.lockdownConfig !== undefined)
+        safeUpdates.lockdownConfig = updateAction.lockdownConfig;
+      if (Object.keys(safeUpdates).length === 0) continue;
+      await context.models.rampSchedules.updateById(
+        updateAction.rampScheduleId,
+        {
+          ...safeUpdates,
+          ...auditEvent,
+          nextProcessAt: computeNextProcessAt({
+            status: "running",
+            nextStepAt: existingSchedule.nextStepAt,
+            cutoffDate: nextCutoffDate,
+            nextSnapshotAt: nextSnapshotAt,
+          }),
+        },
+      );
+      continue;
+    }
+
+    await context.models.rampSchedules.updateById(updateAction.rampScheduleId, {
+      ...contentUpdates,
+      ...auditEvent,
+      ...(updateAction.startDate !== undefined
+        ? { startDate: nextStartDate }
         : {}),
       nextProcessAt: computeNextProcessAt({
         status: existingSchedule?.status ?? "paused",
@@ -2093,15 +2198,23 @@ export async function publishRevision({
   }
 
   // Apply deferred update actions after publish succeeds.
-  // Best-effort: logged but do not fail publish.
+  // Best-effort: errors are logged but do not fail the publish response
+  // (feature is already committed; a failed schedule update is recoverable).
   if (updateActions.length) {
-    await createRampSchedulesForRevision(
-      context,
-      updatedFeature,
-      revision,
-      result,
-      updateActions,
-    );
+    try {
+      await createRampSchedulesForRevision(
+        context,
+        updatedFeature,
+        revision,
+        result,
+        updateActions,
+      );
+    } catch (err) {
+      logger.error(
+        err,
+        "Failed to apply deferred ramp update actions after publish",
+      );
+    }
   }
 
   // Apply detach actions (best-effort: logged but do not fail publish).
