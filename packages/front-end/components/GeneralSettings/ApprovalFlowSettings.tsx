@@ -28,9 +28,6 @@ export default function ApprovalFlowSettings() {
   const featureRequireReviews = Array.isArray(rawRequireReviews)
     ? rawRequireReviews
     : [];
-  const displayedFeatureRequireReviews = featureRequireReviews.length
-    ? featureRequireReviews
-    : [{}];
 
   const [showProjectScope, setShowProjectScope] = useState<
     Record<number, boolean>
@@ -100,36 +97,24 @@ export default function ApprovalFlowSettings() {
               settings.
             </Text>
 
-            <>
-              {displayedFeatureRequireReviews.map((_, i) => {
-                const featureApprovalRequired =
-                  hasRequireApprovals &&
-                  !!form.watch(`requireReviews.${i}.requireReviewOn`);
-                return (
+            {hasRequireApprovals && (
+              <>
+                {featureRequireReviews.map((_, i) => (
                   <Box key={`approval-flow-${i}`}>
                     <Checkbox
                       id={`toggle-require-reviews-${i}`}
-                      label={
-                        <>
-                          Require approval to publish changes
-                          <PaidFeatureBadge
-                            commercialFeature="require-approvals"
-                            useTip={false}
-                            ml="2"
-                          />
-                        </>
+                      label="Require approval to publish changes"
+                      value={
+                        !!form.watch(`requireReviews.${i}.requireReviewOn`)
                       }
-                      value={featureApprovalRequired}
-                      setValue={(value) => {
-                        if (!hasRequireApprovals) return;
+                      setValue={(value) =>
                         form.setValue(
                           `requireReviews.${i}.requireReviewOn`,
                           value,
-                        );
-                      }}
-                      disabled={!hasRequireApprovals}
+                        )
+                      }
                     />
-                    {featureApprovalRequired && (
+                    {!!form.watch(`requireReviews.${i}.requireReviewOn`) && (
                       <Flex direction="column" gap="3" mt="2" ml="5">
                         <Flex direction="column" gap="3" mb="3">
                           {showProjectScope[i] ? (
@@ -298,9 +283,9 @@ export default function ApprovalFlowSettings() {
                       </Flex>
                     )}
                   </Box>
-                );
-              })}
-            </>
+                ))}
+              </>
+            )}
           </Frame>
         </Box>
 

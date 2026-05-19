@@ -86,13 +86,6 @@ function applyApprovalFlowEntitlements(
   };
 }
 
-function applyRequireReviewEntitlements(
-  requireReviews: OrganizationSettings["requireReviews"],
-  hasRequireApprovals: boolean,
-): OrganizationSettings["requireReviews"] {
-  return hasRequireApprovals ? requireReviews : [];
-}
-
 const GeneralSettingsPage = (): React.ReactElement => {
   const { refreshOrganization, settings, organization, hasCommercialFeature } =
     useUser();
@@ -157,19 +150,16 @@ const GeneralSettingsPage = (): React.ReactElement => {
       displayCurrency,
       secureAttributeSalt: "",
       killswitchConfirmation: false,
-      requireReviews: applyRequireReviewEntitlements(
-        [
-          {
-            requireReviewOn: false,
-            resetReviewOnChange: false,
-            environments: [],
-            projects: [],
-            featureRequireEnvironmentReview: true,
-            featureRequireMetadataReview: true,
-          },
-        ],
-        hasRequireApprovals,
-      ),
+      requireReviews: [
+        {
+          requireReviewOn: false,
+          resetReviewOnChange: false,
+          environments: [],
+          projects: [],
+          featureRequireEnvironmentReview: true,
+          featureRequireMetadataReview: true,
+        },
+      ],
       restApiBypassesReviews: settings.restApiBypassesReviews ?? false,
       defaultDataSource: settings.defaultDataSource || "",
       testQueryDays: DEFAULT_TEST_QUERY_DAYS,
@@ -324,11 +314,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 }
               : {}),
           };
-        } else if (k === "requireReviews") {
-          newVal.requireReviews = applyRequireReviewEntitlements(
-            settings?.requireReviews,
-            hasRequireApprovals,
-          );
         } else if (k === "approvalFlows") {
           newVal.approvalFlows = applyApprovalFlowEntitlements(
             settings?.approvalFlows,
@@ -364,7 +349,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         );
       }
     }
-  }, [settings]);
+  }, [settings, hasRequireApprovals]);
 
   useEffect(() => {
     form.setValue(
@@ -407,10 +392,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
       preferredEnvironment: value.preferredEnvironment || null,
       approvalFlows: applyApprovalFlowEntitlements(
         value.approvalFlows,
-        hasRequireApprovals,
-      ),
-      requireReviews: applyRequireReviewEntitlements(
-        value.requireReviews,
         hasRequireApprovals,
       ),
     };
