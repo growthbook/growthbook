@@ -1029,7 +1029,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     <DropdownMenuItem
                       color="red"
                       onClick={() => {
-                        setDeleteMode(defaultDraft != null ? "existing" : "new");
+                        setDeleteMode(
+                          defaultDraft != null ? "existing" : "new",
+                        );
                         setDeleteSelectedDraft(defaultDraft);
                         setShowDeleteRuleModal(true);
                         setDropdownOpen(false);
