@@ -459,7 +459,6 @@ export async function postNewInlineSubscriptionToLicenseServer(
   name: string,
   address?: StripeAddress,
   taxConfig?: { type: TaxIdType; value: string },
-  options?: { clientIp?: string },
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/start-new-pro`;
   const license = await callLicenseServer({
@@ -473,7 +472,6 @@ export async function postNewInlineSubscriptionToLicenseServer(
       taxConfig,
       name,
       address,
-      clientIp: options?.clientIp,
     }),
   });
 
@@ -509,7 +507,7 @@ export async function postNewProSubscriptionIntentToLicenseServer(
   companyName: string,
   ownerEmail: string,
   name: string,
-  options?: { radarSessionId?: string; clientIp?: string },
+  options?: { radarSessionId?: string },
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/setup-subscription-intent`;
   return await callLicenseServer({
@@ -522,7 +520,6 @@ export async function postNewProSubscriptionIntentToLicenseServer(
       ownerEmail,
       name,
       radarSessionId: options?.radarSessionId,
-      clientIp: options?.clientIp,
     }),
   });
 }

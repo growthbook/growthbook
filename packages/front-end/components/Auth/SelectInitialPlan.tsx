@@ -16,7 +16,6 @@ import { useUser } from "@/services/UserContext";
 import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
 import { useStripeContext } from "@/hooks/useStripeContext";
 import { taxIdTypeOptions } from "@/enterprise/components/Billing/CloudProUpgradeModal";
-import CardVerificationNotice from "@/enterprise/components/Billing/CardVerificationNotice";
 import RadioCards from "@/ui/RadioCards";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -448,7 +447,6 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
           You will be charged a pro-rated amount for the remainder of this
           month, and $40 per month per seat thereafter. Cancel anytime.
         </p>
-        <CardVerificationNotice />
       </div>
       <div className="mb-4">
         <Checkbox

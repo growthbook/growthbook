@@ -66,12 +66,6 @@ function withLicenseServerErrorHandling<T>(
   };
 }
 
-// Used to attach client IP to Stripe SetupIntent metadata for fraud detection.
-// Relies on Express's `trust proxy` being configured (see EXPRESS_TRUST_PROXY_OPTS).
-function getClientIp(req: AuthRequest<unknown, unknown, unknown>): string {
-  return req.ip || req.socket?.remoteAddress || "unknown";
-}
-
 export const postNewProTrialSubscription = withLicenseServerErrorHandling(
   async function (
     req: AuthRequest<{ name: string; email?: string }>,
@@ -122,14 +116,13 @@ export const postNewProSubscriptionIntent = withLicenseServerErrorHandling(
 
     const { org, userName } = context;
     const { radarSessionId } = req.body || {};
-    const clientIp = getClientIp(req);
 
     const result = await postNewProSubscriptionIntentToLicenseServer(
       org.id,
       org.name,
       org.ownerEmail,
       userName,
-      { radarSessionId, clientIp },
+      { radarSessionId },
     );
     await updateOrganization(org.id, { licenseKey: result.license.id });
 
@@ -195,7 +188,6 @@ export const postInlineProSubscription = withLicenseServerErrorHandling(
     }
 
     const nonInviteSeatQty = org.members.length;
-    const clientIp = getClientIp(req);
 
     const result = await postNewInlineSubscriptionToLicenseServer(
       org.id,
@@ -205,7 +197,6 @@ export const postInlineProSubscription = withLicenseServerErrorHandling(
       req.body.name,
       req.body.address,
       req.body.taxConfig,
-      { clientIp },
     );
 
     const managedWarehouseDatasource = await getGrowthbookDatasource(context);
@@ -309,7 +300,6 @@ export async function postSetupIntent(
 
   const { org } = context;
   const { radarSessionId } = req.body || {};
-  const clientIp = getClientIp(req);
 
   try {
     if (!org.licenseKey) {
@@ -317,7 +307,6 @@ export async function postSetupIntent(
     }
     const { clientSecret } = await createSetupIntent(org.licenseKey, {
       radarSessionId,
-      clientIp,
     });
     return res.status(200).json({ clientSecret });
   } catch (e) {

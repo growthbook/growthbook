@@ -20,7 +20,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
 import Checkbox from "@/ui/Checkbox";
 import Modal from "@/components/Modal";
-import CardVerificationNotice from "@/enterprise/components/Billing/CardVerificationNotice";
 
 export const taxIdTypeOptions: { label: string; value: TaxIdType }[] = [
   { label: "US EIN", value: "us_ein" },
@@ -185,12 +184,24 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
         }
       }
 
-      // Add payment method to customer in stripe
-      await stripe.confirmSetup({
-        elements,
-        clientSecret,
-        redirect: "if_required",
-      });
+      // Add payment method to customer in stripe. If Radar blocks the
+      // SetupIntent (e.g. high-risk card), confirmSetup resolves with an
+      // `error` instead of throwing, so we must inspect the result before
+      // proceeding to subscription creation.
+      const { setupIntent, error: setupIntentError } =
+        await stripe.confirmSetup({
+          elements,
+          clientSecret,
+          redirect: "if_required",
+        });
+
+      if (setupIntentError) {
+        throw new Error(setupIntentError.message);
+      }
+
+      if (!setupIntent || !setupIntent.payment_method) {
+        throw new Error("Unable to save new payment method");
+      }
 
       // Now that payment is confirmed, create the subscription
       await apiCall("/subscription/start-new-pro", {
@@ -351,7 +362,6 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
               current month and it will renew automatically on the 1st of each
               subsequent month. Cancel anytime.
             </p>
-            <CardVerificationNotice />
             <Separator size="4" mb="3" mt="3" />
             <div className="mb-4">
               <Checkbox
