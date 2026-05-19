@@ -68,6 +68,7 @@ import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
 } from "shared/types/feature-rule";
+import { getValidDate } from "shared/dates";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getContextForAgendaJobByOrgId,
@@ -182,6 +183,7 @@ import { getAllCodeRefsForFeature } from "back-end/src/models/FeatureCodeRefs";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import { getChangesToStartExperiment } from "back-end/src/services/experiments";
+import { approveScheduledExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import {
   formatPendingDraftFailureMessage,
   PendingDraftPublishResult,
@@ -1365,11 +1367,14 @@ export async function postFeaturePublish(
     context.permissions.throwPermissionError();
   }
 
-  // If publishing experiments along with this draft, ensure they are valid
+  // If publishing experiments along with this draft, ensure they are valid.
+  // Experiments with a future statusUpdateSchedule.startAt are routed through
+  // approveScheduledExperimentStart instead of starting immediately.
   const experimentsToUpdate: {
     experiment: ExperimentInterface;
     changes: Changeset;
   }[] = [];
+  const experimentsToApproveSchedule: ExperimentInterface[] = [];
   if (publishExperimentIds && publishExperimentIds.length) {
     const experiments = await getExperimentsByIds(
       context,
@@ -1398,7 +1403,20 @@ export async function postFeaturePublish(
       context.permissions.throwPermissionError();
     }
 
-    for (const experiment of experiments) {
+    const now = new Date();
+    const startNowExperiments: ExperimentInterface[] = [];
+    for (const exp of experiments) {
+      const startAt = exp.statusUpdateSchedule?.startAt
+        ? getValidDate(exp.statusUpdateSchedule.startAt)
+        : null;
+      if (startAt && startAt > now) {
+        experimentsToApproveSchedule.push(exp);
+      } else {
+        startNowExperiments.push(exp);
+      }
+    }
+
+    for (const experiment of startNowExperiments) {
       try {
         const changes = await getChangesToStartExperiment(context, experiment);
 
@@ -1412,10 +1430,20 @@ export async function postFeaturePublish(
       }
     }
 
+    // Permission gate for scheduled-approval bucket — mirrors the check in
+    // approveScheduledExperimentStart so the request fails before we publish
+    // the feature revision instead of after.
+    for (const experiment of experimentsToApproveSchedule) {
+      if (!context.permissions.canUpdateExperiment(experiment, {})) {
+        context.permissions.throwPermissionError();
+      }
+    }
+
     // Pre-flight: check for merge conflicts in OTHER pending feature drafts
-    // for each experiment being started. The current feature's conflict is
-    // already guarded above by the mergeResult.success check.
-    for (const experiment of experiments) {
+    // for each experiment being started immediately. Scheduled-approval
+    // experiments defer the pending-draft publish to the agenda job, which
+    // runs its own merge check at start time.
+    for (const experiment of startNowExperiments) {
       const otherDrafts = (experiment.pendingFeatureDrafts ?? []).filter(
         (d) => d.featureId !== feature.id,
       );
@@ -1520,6 +1548,27 @@ export async function postFeaturePublish(
 
     await req.audit({
       event: "experiment.status",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsUpdate(experiment, updated),
+    });
+  }
+
+  // Approve scheduled starts for experiments whose `statusUpdateSchedule.startAt`
+  // is in the future. The agenda job will publish their other pending feature
+  // drafts and transition the experiment to running when the scheduled time
+  // is reached, so we intentionally don't call publishPendingFeatureDraftsForExperiment
+  // here.
+  for (const experiment of experimentsToApproveSchedule) {
+    const { updated } = await approveScheduledExperimentStart({
+      context,
+      experimentId: experiment.id,
+    });
+
+    await req.audit({
+      event: "experiment.update",
       entity: {
         object: "experiment",
         id: experiment.id,
