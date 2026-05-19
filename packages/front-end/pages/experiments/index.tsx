@@ -34,12 +34,25 @@ const EXPERIMENT_LIST_TABS = [
   "running",
   "drafts",
   "stopped",
+  "temp-rollouts",
   "archived",
 ] as const;
 type ExperimentListTab = (typeof EXPERIMENT_LIST_TABS)[number];
 const isExperimentListTab = (value: string): value is ExperimentListTab => {
   return EXPERIMENT_LIST_TABS.includes(value as ExperimentListTab);
 };
+
+// Temp rollouts are a flavor of stopped — they keep their primary `tab: "stopped"`
+// classification (so they still show in the Stopped tab) and surface here as a
+// dedicated cleanup-oriented view.
+const hasTempRollout = (item: {
+  status?: string;
+  excludeFromPayload?: boolean;
+  releasedVariationId?: string;
+}) =>
+  item.status === "stopped" &&
+  !item.excludeFromPayload &&
+  !!item.releasedVariationId;
 
 const ExperimentsPage = (): React.ReactElement => {
   const { ready, project, projects } = useDefinitions();
@@ -109,16 +122,20 @@ const ExperimentsPage = (): React.ReactElement => {
   const tabCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     items.forEach((item) => {
-      counts[item.tab] = counts[item.tab] || 0;
-      counts[item.tab]++;
+      counts[item.tab] = (counts[item.tab] || 0) + 1;
+      if (hasTempRollout(item)) {
+        counts["temp-rollouts"] = (counts["temp-rollouts"] || 0) + 1;
+      }
     });
     return counts;
   }, [items]);
 
+  const hasAnyTempRollouts = (tabCounts["temp-rollouts"] ?? 0) > 0;
+
   const filtered = useMemo(() => {
-    return activeTab !== "all"
-      ? items.filter((item) => item.tab === activeTab)
-      : items;
+    if (activeTab === "all") return items;
+    if (activeTab === "temp-rollouts") return items.filter(hasTempRollout);
+    return items.filter((item) => item.tab === activeTab);
   }, [activeTab, items]);
 
   if (error) {
@@ -252,26 +269,41 @@ const ExperimentsPage = (): React.ReactElement => {
                     <div className="col-auto d-flex">
                       <TabsList>
                         <TabsTrigger value="all">All Experiments</TabsTrigger>
-                        {["running", "drafts", "stopped", "archived"].map(
-                          (tabValue, i) => {
-                            if (tabValue === "archived" && !hasArchived)
-                              return null;
-
-                            return (
-                              <TabsTrigger value={tabValue} key={tabValue + i}>
-                                <span className="mr-1 ml-2">
-                                  {tabValue.slice(0, 1).toUpperCase()}
-                                  {tabValue.slice(1)}
+                        {(
+                          [
+                            { value: "running", label: "Running" },
+                            { value: "drafts", label: "Drafts" },
+                            { value: "stopped", label: "Stopped" },
+                            {
+                              value: "temp-rollouts",
+                              label: "Temp Rollouts",
+                              hidden: !hasAnyTempRollouts,
+                            },
+                            {
+                              value: "archived",
+                              label: "Archived",
+                              hidden: !hasArchived,
+                              hideCount: true,
+                            },
+                          ] as Array<{
+                            value: ExperimentListTab;
+                            label: string;
+                            hidden?: boolean;
+                            hideCount?: boolean;
+                          }>
+                        ).map((t) => {
+                          if (t.hidden) return null;
+                          return (
+                            <TabsTrigger value={t.value} key={t.value}>
+                              <span className="mr-1 ml-2">{t.label}</span>
+                              {!t.hideCount && (
+                                <span className="badge bg-white border text-dark mr-2 mb-0">
+                                  {tabCounts[t.value] || 0}
                                 </span>
-                                {tabValue !== "archived" && (
-                                  <span className="badge bg-white border text-dark mr-2 mb-0">
-                                    {tabCounts[tabValue] || 0}
-                                  </span>
-                                )}
-                              </TabsTrigger>
-                            );
-                          },
-                        )}
+                              )}
+                            </TabsTrigger>
+                          );
+                        })}
                       </TabsList>
                     </div>
                   </div>
@@ -307,26 +339,37 @@ const ExperimentsPage = (): React.ReactElement => {
                       setSearchValue={setSearchValue}
                     />
                   </TabsContent>
-                  {["running", "drafts", "stopped", "archived"].map(
-                    (tabValue) => {
-                      if (tabValue === "archived" && !hasArchived) return null;
-                      return (
-                        <TabsContent value={tabValue} key={tabValue}>
-                          <ExperimentsListTable
-                            tab={tabValue}
-                            SortableTH={SortableTH}
-                            filtered={filtered.filter(
-                              (e) => e.tab === tabValue,
-                            )}
-                            isFiltered={isFiltered}
-                            project={project}
-                            searchValue={searchInputProps.value}
-                            setSearchValue={setSearchValue}
-                          />
-                        </TabsContent>
-                      );
-                    },
-                  )}
+                  {(
+                    [
+                      "running",
+                      "drafts",
+                      "stopped",
+                      "temp-rollouts",
+                      "archived",
+                    ] as const
+                  ).map((tabValue) => {
+                    if (tabValue === "archived" && !hasArchived) return null;
+                    if (tabValue === "temp-rollouts" && !hasAnyTempRollouts) {
+                      return null;
+                    }
+                    const tabFiltered =
+                      tabValue === "temp-rollouts"
+                        ? filtered.filter(hasTempRollout)
+                        : filtered.filter((e) => e.tab === tabValue);
+                    return (
+                      <TabsContent value={tabValue} key={tabValue}>
+                        <ExperimentsListTable
+                          tab={tabValue}
+                          SortableTH={SortableTH}
+                          filtered={tabFiltered}
+                          isFiltered={isFiltered}
+                          project={project}
+                          searchValue={searchInputProps.value}
+                          setSearchValue={setSearchValue}
+                        />
+                      </TabsContent>
+                    );
+                  })}
                 </Tabs>
               </>
             )

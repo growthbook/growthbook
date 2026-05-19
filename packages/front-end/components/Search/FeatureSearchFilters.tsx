@@ -352,6 +352,21 @@ const FeatureSearchFilters: FC<
         <DropdownMenuItem
           onClick={() => {
             updateQuery({
+              field: "has",
+              values: ["temp-rollout"],
+              operator: "",
+              negated: false,
+            });
+          }}
+        >
+          <FilterItem
+            item="Has temporary rollout"
+            exists={doesFilterExist("has", "temp-rollout", "")}
+          />
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            updateQuery({
               field: "is",
               values: ["stale-disabled"],
               operator: "",

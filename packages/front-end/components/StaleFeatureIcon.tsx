@@ -25,6 +25,8 @@ const staleReasonToMessageMap: Record<StaleFeatureReason, string> = {
   "abandoned-draft": "Draft not updated in over a month.",
   "toggled-off": "Environment is disabled.",
   "active-experiment": "Live experiment rule in this environment.",
+  "temp-rollout":
+    "Rule serves the released variation of a stopped experiment — cleanup candidate.",
   "has-rules": "Has rules with targeting conditions.",
   error: "Error evaluating staleness.",
 };
@@ -208,6 +210,9 @@ export default function StaleFeatureIcon({
 
   const hasSomeStaleEnvs = Object.values(envResults).some((e) => e.stale);
   const mixed = !isStale && hasSomeStaleEnvs;
+  const hasTempRollout =
+    !isStale &&
+    Object.values(envResults).some((e) => e.reason === "temp-rollout");
 
   const envEntries = Object.entries(envResults);
 
@@ -240,6 +245,16 @@ export default function StaleFeatureIcon({
             <span style={{ color: "var(--yellow-11)" }}>
               <Text size="large" weight="semibold">
                 Stale
+              </Text>
+            </span>
+          ) : hasTempRollout ? (
+            <span style={{ color: "var(--orange-11)" }}>
+              <Text size="large" weight="semibold">
+                Temp Rollout
+              </Text>
+              <Text as="div" size="medium" color="text-low" mt="1">
+                Cleanup candidate — a stopped experiment is still serving its
+                released variation.
               </Text>
             </span>
           ) : (
@@ -405,6 +420,19 @@ export default function StaleFeatureIcon({
     </Box>
   );
 
+  const dotClass = isStale
+    ? styles.staleDot
+    : hasTempRollout
+      ? styles.tempRolloutDot
+      : styles.freshDot;
+  const label = isStale
+    ? "Stale"
+    : hasTempRollout
+      ? "Temp Rollout"
+      : mixed
+        ? "Not Stale*"
+        : "Not stale";
+
   if (context === "list") {
     return (
       <Popover
@@ -419,10 +447,8 @@ export default function StaleFeatureIcon({
             className={styles.listTrigger}
             style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
           >
-            <span
-              className={`${styles.dot} ${isStale ? styles.staleDot : styles.freshDot}`}
-            />
-            {isStale ? "Stale" : mixed ? "Not Stale*" : "Not stale"}
+            <span className={`${styles.dot} ${dotClass}`} />
+            {label}
           </span>
         }
         content={body}
@@ -430,17 +456,24 @@ export default function StaleFeatureIcon({
     );
   }
 
+  const badgeColor = isStale ? "yellow" : hasTempRollout ? "orange" : "green";
+  const badgeClass = isStale
+    ? styles.staleBadge
+    : hasTempRollout
+      ? styles.tempRolloutBadge
+      : styles.freshBadge;
+
   return (
     <>
       <Badge
-        color={isStale ? "yellow" : "green"}
+        color={badgeColor}
         variant="soft"
         radius="full"
         size="2"
-        className={isStale ? styles.staleBadge : styles.freshBadge}
+        className={badgeClass}
         onClick={() => setOpen(true)}
       >
-        {isStale ? "Stale" : mixed ? "Not Stale*" : "Not stale"}
+        {label}
       </Badge>
       <Modal
         open={open}

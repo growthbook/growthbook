@@ -43,7 +43,10 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
 
   const needsStatusColumn = tab === "all" || tab === "running";
   const needsResultColumn =
-    tab === "stopped" || tab === "running" || tab === "all";
+    tab === "stopped" ||
+    tab === "running" ||
+    tab === "all" ||
+    tab === "temp-rollouts";
   // If "All Projects" is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && filtered.some((e) => e.project);
 

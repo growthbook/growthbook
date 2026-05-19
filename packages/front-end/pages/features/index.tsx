@@ -148,7 +148,10 @@ export default function FeaturesPage() {
   const hasStaleFilter = syntaxFilters.some(
     (f) =>
       (f.field === "is" && f.values.includes("stale")) ||
-      (f.field === "has" && f.values.includes("stale-env")),
+      (f.field === "has" &&
+        (f.values.includes("stale-env") ||
+          f.values.includes("temp-rollout") ||
+          f.values.includes("tempRollout"))),
   );
 
   useEffect(() => {
@@ -229,7 +232,7 @@ export default function FeaturesPage() {
                     <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
                   </th>
                 )}
-                <th>Stale</th>
+                <th>Status</th>
                 <th style={{ width: 30 }}></th>
               </tr>
             </thead>
