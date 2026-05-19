@@ -186,6 +186,8 @@ describe("growthbookErrorTracking helpers", () => {
   });
 
   it("captures scoped unhandled errors until the scoped instance is destroyed", async () => {
+    const addSpy = jest.spyOn(window, "addEventListener");
+    const removeSpy = jest.spyOn(window, "removeEventListener");
     const eventLogger = jest.fn();
     const client = new GrowthBookClient({
       clientKey: "test",
@@ -195,6 +197,12 @@ describe("growthbookErrorTracking helpers", () => {
       { attributes: { id: "123" } },
       [growthbookErrorTrackingPlugin()],
     );
+    const errorListener = addSpy.mock.calls.find(
+      ([eventName]) => eventName === "error",
+    )?.[1];
+    const rejectionListener = addSpy.mock.calls.find(
+      ([eventName]) => eventName === "unhandledrejection",
+    )?.[1];
 
     window.dispatchEvent(
       new ErrorEvent("error", {
@@ -216,15 +224,11 @@ describe("growthbookErrorTracking helpers", () => {
     );
 
     scoped.destroy();
-    window.dispatchEvent(
-      new ErrorEvent("error", {
-        error: new Error("second"),
-        message: "second",
-      }),
+    expect(removeSpy).toHaveBeenCalledWith("error", errorListener);
+    expect(removeSpy).toHaveBeenCalledWith(
+      "unhandledrejection",
+      rejectionListener,
     );
-    await Promise.resolve();
-
-    expect(eventLogger).toHaveBeenCalledTimes(1);
     client.destroy();
   });
 });
