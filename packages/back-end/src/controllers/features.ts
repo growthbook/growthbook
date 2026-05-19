@@ -1443,7 +1443,7 @@ export async function postFeaturePublish(
       );
       const schedEnvs = getAffectedEnvsForExperiment({
         experiment,
-        orgEnvironments: allEnvironments,
+        orgEnvironments: context.org.settings?.environments || [],
         linkedFeatures,
       });
       if (
