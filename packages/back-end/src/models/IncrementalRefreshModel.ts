@@ -65,8 +65,9 @@ export class IncrementalRefreshModel extends BaseClass {
           $or: [
             // Unlocked
             { currentExecutionSnapshotId: null },
-            // Heartbeat stale → holder crashed or stalled
-            { lockHeartbeatAt: { $lt: staleThreshold } },
+            // Heartbeat stale → holder crashed or stalled (non-null only;
+            // null/missing heartbeats use the dateUpdated fallback below)
+            { lockHeartbeatAt: { $lt: staleThreshold, $ne: null } },
             // Legacy docs without a heartbeat: fall back to dateUpdated
             { lockHeartbeatAt: null, dateUpdated: { $lt: staleThreshold } },
           ],
