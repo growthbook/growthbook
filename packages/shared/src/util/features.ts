@@ -537,6 +537,9 @@ function buildEnvResults(
     // Walk rules in order; an unconditional catcher shadows everything after it.
     // A stopped experiment that's still in the payload is a temporary rollout — a
     // distinct non-stale signal so engineers can find features ready for cleanup.
+    // Prefer a live running experiment over a temp rollout when both are
+    // reachable: the running experiment is the dominant signal, so we record
+    // any temp rollout we encounter but keep scanning for a running one.
     let activeExperimentReason: "active-experiment" | "temp-rollout" | null =
       null;
     for (const rule of rules) {
@@ -544,9 +547,14 @@ function buildEnvResults(
       if (isExperimentRefRule(rule)) {
         const exp = experimentMap.get(rule.experimentId);
         if (exp && includeExperimentInPayload(exp)) {
-          activeExperimentReason =
-            exp.status === "stopped" ? "temp-rollout" : "active-experiment";
-          break;
+          if (exp.status === "stopped") {
+            if (!activeExperimentReason) {
+              activeExperimentReason = "temp-rollout";
+            }
+          } else {
+            activeExperimentReason = "active-experiment";
+            break;
+          }
         }
       }
     }

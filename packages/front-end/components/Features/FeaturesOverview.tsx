@@ -435,7 +435,6 @@ export default function FeaturesOverview({
   }, [revision, revisions, feature, baseFeature, environments, rampSchedules]);
 
   const bannerRef = useRef<HTMLDivElement>(null);
-  const bannerSentinelRef = useRef<HTMLDivElement>(null);
   const [bannerPinned, setBannerPinned] = useState(false);
 
   const [envGridWidth, setEnvGridWidth] = useState(0);
@@ -452,15 +451,26 @@ export default function FeaturesOverview({
   // genuinely pinned — a more reliable signal than getBoundingClientRect math,
   // which falsely reports "pinned" whenever the banner's natural position
   // already sits near the top of the page.
-  useEffect(() => {
-    const el = bannerSentinelRef.current;
-    if (!el) return;
+  //
+  // Use a ref callback (not useRef + useEffect[]) so the observer re-attaches
+  // when the sentinel later mounts — e.g. when a user creates a draft on a
+  // page that initially had no banner.
+  const bannerSentinelObserver = useRef<IntersectionObserver | null>(null);
+  const bannerSentinelRef = useCallback((el: HTMLDivElement | null) => {
+    if (bannerSentinelObserver.current) {
+      bannerSentinelObserver.current.disconnect();
+      bannerSentinelObserver.current = null;
+    }
+    if (!el) {
+      setBannerPinned(false);
+      return;
+    }
     const observer = new IntersectionObserver(
       ([entry]) => setBannerPinned(!entry.isIntersecting),
       { rootMargin: "-110px 0px 0px 0px", threshold: 0 },
     );
     observer.observe(el);
-    return () => observer.disconnect();
+    bannerSentinelObserver.current = observer;
   }, []);
 
   if (!baseFeature || !feature || !revision) return null;
