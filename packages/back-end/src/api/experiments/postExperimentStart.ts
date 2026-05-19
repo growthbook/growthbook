@@ -42,11 +42,14 @@ export const postExperimentStart = createApiRequestHandler(
     throw new Error("Holdouts are not supported via this API");
   }
 
-  const startAt = existing.statusUpdateSchedule?.startAt
-    ? getValidDate(existing.statusUpdateSchedule.startAt)
-    : null;
+  // Bandits manage their own update cadence; they don't use statusUpdateSchedule.
+  const isBandit = existing.type === "multi-armed-bandit";
+  const startAt =
+    !isBandit && existing.statusUpdateSchedule?.startAt
+      ? getValidDate(existing.statusUpdateSchedule.startAt)
+      : null;
   const hasFutureSchedule = startAt && startAt > new Date();
-  const alreadyStaged = !!existing.nextScheduledStatusUpdate;
+  const alreadyStaged = !isBandit && !!existing.nextScheduledStatusUpdate;
 
   if (hasFutureSchedule && alreadyStaged) {
     throw new Error(

@@ -3825,6 +3825,13 @@ export function normalizeStatusUpdateScheduleChanges(
   changes: Changeset,
 ): void {
   if ("statusUpdateSchedule" in changes) {
+    const effectiveType = changes.type ?? experiment.type;
+    if (
+      effectiveType === "multi-armed-bandit" &&
+      !!changes.statusUpdateSchedule
+    ) {
+      throw new Error("Bandit experiments do not support scheduled starts.");
+    }
     const incoming = changes.statusUpdateSchedule;
     if (incoming === null) {
       changes.statusUpdateSchedule = null;
