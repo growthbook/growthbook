@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { FeatureInterface, FeatureTestResult } from "shared/types/feature";
-import { stemRuleId } from "shared/util";
+import { filterEnvironmentsByFeature, stemRuleId } from "shared/util";
 import { FaChevronRight } from "react-icons/fa";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { FiAlertTriangle } from "react-icons/fi";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
+import { useEnvironments } from "@/services/features";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -45,6 +47,13 @@ export default function AssignmentTester({
   const [skipRulesWithPrerequisites, setSkipRulesWithPrerequisites] =
     useState(false);
   const [evalDate, setEvalDate] = useState<Date | undefined>(new Date());
+  const [selectedEnvs, setSelectedEnvs] = useState<string[]>([]);
+
+  const allEnvironments = useEnvironments();
+  const featureEnvironments = useMemo(
+    () => filterEnvironmentsByFeature(allEnvironments, feature),
+    [allEnvironments, feature],
+  );
 
   const { data, mutate: mutateData } = useArchetype({
     feature,
@@ -102,9 +111,22 @@ export default function AssignmentTester({
       return <div>Add attributes to see results</div>;
     }
 
+    const displayResults =
+      selectedEnvs.length > 0
+        ? results.filter((r) => selectedEnvs.includes(r.env))
+        : results;
+
+    if (displayResults.length === 0) {
+      return (
+        <div className="text-muted">
+          No results for the selected environments.
+        </div>
+      );
+    }
+
     return (
       <div className="row">
-        {results.map((tr, i) => {
+        {displayResults.map((tr, i) => {
           let matchedRule;
           const debugLog: string[] = [];
           if (tr?.result?.ruleId && tr?.featureDefinition?.rules) {
@@ -362,6 +384,21 @@ export default function AssignmentTester({
           </Flex>
           {open && (
             <div>
+              {featureEnvironments.length > 1 && (
+                <Box mb="3">
+                  <MultiSelectField
+                    label="Environments"
+                    placeholder="All environments"
+                    value={selectedEnvs}
+                    options={featureEnvironments.map((env) => ({
+                      label: env.id,
+                      value: env.id,
+                    }))}
+                    onChange={setSelectedEnvs}
+                    helpText="Only show results for these environments. Leave empty to show all."
+                  />
+                </Box>
+              )}
               <div className="row">
                 <div className="col-6">
                   <AttributeForm
