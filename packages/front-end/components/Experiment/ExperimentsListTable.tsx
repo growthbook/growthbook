@@ -11,6 +11,7 @@ import SortedTags from "@/components/Tags/SortedTags";
 import { ExperimentStatusDetailsWithDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Pagination from "@/components/Pagination";
 import { tagFilterOnClick, tagLinkProps } from "@/services/search";
+import { isHealthDetailedStatus } from "@/services/experiments";
 
 interface ExperimentsListTableProps {
   tab: string;
@@ -43,12 +44,12 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
 
   const needsStatusColumn = tab === "all" || tab === "running";
   const needsResultColumn =
-    tab === "stopped" ||
-    tab === "running" ||
-    tab === "all" ||
-    tab === "temp-rollouts";
+    tab === "stopped" || tab === "running" || tab === "all";
   // If "All Projects" is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && filtered.some((e) => e.project);
+  // Health column surfaces signals like "No data", "Unhealthy", or
+  // "Temp Rollout" — things that need attention beyond the lifecycle status.
+  const showHealthColumn = filtered.some((e) => e.healthStatus !== "");
 
   // Reset to page 1 when a filter is applied or tabs change
   useEffect(() => {
@@ -70,14 +71,15 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
             <SortableTH field="tags">Tags</SortableTH>
             <SortableTH field="ownerName">Owner</SortableTH>
             <SortableTH field="date">Date</SortableTH>
-            {needsStatusColumn && needsResultColumn ? (
-              <>
-                <SortableTH field="statusSortOrder">Status</SortableTH>
-                <th></th>
-              </>
-            ) : needsStatusColumn || needsResultColumn ? (
+            {needsStatusColumn && (
               <SortableTH field="statusSortOrder">Status</SortableTH>
-            ) : null}
+            )}
+            {needsResultColumn && (
+              <SortableTH field="statusSortOrder">Result</SortableTH>
+            )}
+            {showHealthColumn && (
+              <SortableTH field="healthStatus">State</SortableTH>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -182,10 +184,47 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                   </td>
                 ) : null}
                 {needsResultColumn ? (
-                  <td className="nowrap" data-title="Details:">
-                    <ExperimentStatusDetailsWithDot
-                      statusIndicatorData={e.statusIndicator}
-                    />
+                  <td className="nowrap" data-title="Result:">
+                    {isHealthDetailedStatus(
+                      e.statusIndicator.detailedStatus,
+                    ) ? null : (
+                      <ExperimentStatusDetailsWithDot
+                        statusIndicatorData={e.statusIndicator}
+                      />
+                    )}
+                  </td>
+                ) : null}
+                {showHealthColumn ? (
+                  <td className="nowrap" data-title="State:">
+                    {isHealthDetailedStatus(
+                      e.statusIndicator.detailedStatus,
+                    ) ? (
+                      <ExperimentStatusDetailsWithDot
+                        statusIndicatorData={e.statusIndicator}
+                      />
+                    ) : e.hasTempRollout ? (
+                      <Tooltip body="A stopped experiment is still serving its released variation. Ready for cleanup.">
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
+                        >
+                          <span
+                            aria-label="Temporary rollout"
+                            style={{
+                              display: "inline-block",
+                              width: 8,
+                              height: 8,
+                              borderRadius: 8,
+                              backgroundColor: "var(--orange-9)",
+                            }}
+                          />
+                          Temp Rollout
+                        </span>
+                      </Tooltip>
+                    ) : null}
                   </td>
                 ) : null}
               </tr>
