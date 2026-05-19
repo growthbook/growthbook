@@ -19,6 +19,8 @@ import {
   PiTrash,
   PiCaretUp,
   PiCaretDown,
+  PiCaretDoubleUp,
+  PiCaretDoubleDown,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { format as formatTimeZone } from "date-fns-tz";
@@ -192,6 +194,8 @@ interface SortableProps {
   // rule cannot move in that direction.
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  onMoveToTop?: () => void;
+  onMoveToBottom?: () => void;
   // True when the draft has this rule disabled but the live feature has it enabled.
   // Surfaces a warning so users don't accidentally revert a schedule-driven enable.
   liveEnabledDraftDisabled?: boolean;
@@ -258,6 +262,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       isAllEnvsView,
       onMoveUp,
       onMoveDown,
+      onMoveToTop,
+      onMoveToBottom,
       liveEnabledDraftDisabled,
       ...props
     },
@@ -619,10 +625,23 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       {rule.enabled ? "Disable" : "Enable"}
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
-                  {(onMoveUp || onMoveDown) && (
+                  {(onMoveUp ||
+                    onMoveDown ||
+                    onMoveToTop ||
+                    onMoveToBottom) && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuGroup>
+                        {onMoveToTop && (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              onMoveToTop();
+                              setDropdownOpen(false);
+                            }}
+                          >
+                            <PiCaretDoubleUp /> Move to top
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem
                           disabled={!onMoveUp}
                           onClick={() => {
@@ -645,6 +664,16 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         >
                           <PiCaretDown /> Move down
                         </DropdownMenuItem>
+                        {onMoveToBottom && (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              onMoveToBottom();
+                              setDropdownOpen(false);
+                            }}
+                          >
+                            <PiCaretDoubleDown /> Move to bottom
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuGroup>
                     </>
                   )}
