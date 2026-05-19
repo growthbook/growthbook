@@ -56,11 +56,8 @@ export default function EditScheduleModal({
             variant="ghost"
             color="red"
             onClick={async () => {
-              await apiCall(`/experiment/${experiment.id}`, {
+              await apiCall(`/experiment/${experiment.id}/unschedule-start`, {
                 method: "POST",
-                body: JSON.stringify({
-                  nextScheduledStatusUpdate: null,
-                }),
               });
               mutate();
               close();

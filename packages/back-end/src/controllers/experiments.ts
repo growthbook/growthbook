@@ -66,6 +66,7 @@ import {
   approveScheduledExperimentStart,
   startExperiment,
   stopExperiment,
+  unapproveScheduledExperimentStart,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import {
   createExperiment,
@@ -1374,7 +1375,7 @@ export async function postExperiments(
  */
 export async function postExperiment(
   req: AuthRequest<
-    Omit<ExperimentInterfaceStringDates, "nextScheduledStatusUpdate"> & {
+    ExperimentInterfaceStringDates & {
       currentPhase?: number;
       phaseStartDate?: string;
       phaseEndDate?: string;
@@ -2263,6 +2264,40 @@ export async function postApproveScheduledExperimentStart(
     res.status(400).json({
       status: 400,
       message: e.message || "Failed to approve scheduled experiment start",
+    });
+  }
+}
+
+export async function postUnapproveScheduledExperimentStart(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  try {
+    const { experiment, updated } = await unapproveScheduledExperimentStart({
+      context,
+      experimentId: id,
+    });
+
+    await req.audit({
+      event: "experiment.update",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsUpdate(experiment, updated),
+    });
+
+    res.status(200).json({
+      status: 200,
+      experiment: updated,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message || "Failed to unschedule experiment start",
     });
   }
 }

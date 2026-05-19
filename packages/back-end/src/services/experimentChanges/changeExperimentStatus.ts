@@ -486,6 +486,45 @@ export async function approveScheduledExperimentStart({
   return { experiment, updated };
 }
 
+/**
+ * Clears an existing `nextScheduledStatusUpdate` approval on a draft experiment
+ * so the agenda job will no longer auto-start it. The configured
+ * `statusUpdateSchedule` itself is preserved so the user can re-approve later.
+ * Throws if the experiment is not in draft status.
+ */
+export async function unapproveScheduledExperimentStart({
+  context,
+  experimentId,
+}: {
+  context: ReqContext;
+  experimentId: string;
+}) {
+  const experiment = await loadAndValidateExperimentForStatusChange(
+    context,
+    experimentId,
+  );
+
+  if (experiment.status !== "draft") {
+    throw new Error(
+      "invalid_status: Experiment must be in draft status to unschedule a scheduled start",
+    );
+  }
+
+  if (!experiment.nextScheduledStatusUpdate) {
+    return { experiment, updated: experiment };
+  }
+
+  const updated = await updateExperiment({
+    context,
+    experiment,
+    changes: {
+      nextScheduledStatusUpdate: null,
+    },
+  });
+
+  return { experiment, updated };
+}
+
 export async function stopExperiment({
   context,
   input,
