@@ -50,9 +50,10 @@ import { validateIncrementalPipeline } from "back-end/src/services/dataPipeline"
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import { chunkMetrics } from "back-end/src/services/experimentQueries/experimentQueries";
 import {
-  CrossFtRatioMetric,
+  filterRegressionAdjustedMetrics,
   planMetricFanOut,
 } from "back-end/src/services/experimentQueries/planMetricFanOut";
+import { buildCrossFtSubGroups } from "back-end/src/services/experimentQueries/crossFtSubGroups";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
@@ -670,14 +671,16 @@ const startExperimentIncrementalRefreshQueries = async (
         "Unable to generate table; table path generator not specified.",
       );
     }
-    const anyMetricHasCuped = group.metrics.some((m) => {
-      const metric = cloneDeep(m);
-      applyMetricOverrides(metric, snapshotSettings);
-      return (
-        snapshotSettings.regressionAdjustmentEnabled &&
-        isRegressionAdjusted(metric)
-      );
-    });
+    // Only RA-eligible metrics drive the covariate cache — non-RA metrics
+    // have nothing to put in there and would just bloat the schema and the
+    // insert. The stats query is symmetric: its covariate LEFT JOIN is
+    // gated per-metric on `isRegressionAdjusted`, so a missing column for a
+    // non-RA metric never matters.
+    const regressionAdjustedMetrics = filterRegressionAdjustedMetrics(
+      group.metrics,
+      snapshotSettings,
+    );
+    const anyMetricHasCuped = regressionAdjustedMetrics.length > 0;
     let createMetricCovariateTableQuery: QueryPointer | null = null;
     let insertMetricCovariateDataQuery: QueryPointer | null = null;
     if (anyMetricHasCuped) {
@@ -702,7 +705,7 @@ const startExperimentIncrementalRefreshQueries = async (
           query: integration.getCreateMetricSourceCovariateTableQuery({
             settings: snapshotSettings,
             factTableId: group.factTableId,
-            metrics: group.metrics,
+            metrics: regressionAdjustedMetrics,
             metricSourceCovariateTableFullName,
           }),
           dependencies: [dropMetricCovariateTableQuery.query],
@@ -727,7 +730,7 @@ const startExperimentIncrementalRefreshQueries = async (
           factTableId: group.factTableId,
           metricSourceCovariateTableFullName,
           unitsSourceTableFullName: unitsTableFullName,
-          metrics: group.metrics,
+          metrics: regressionAdjustedMetrics,
           lastCovariateSuccessfulMaxTimestamp:
             existingCovariateSource?.lastSuccessfulMaxTimestamp || null,
         }),
@@ -939,141 +942,87 @@ const startExperimentIncrementalRefreshQueries = async (
   // each metric's correct orientation. Same-FT metrics that happen to share
   // a cache with these cross-FT halves are NOT included here — they ran in
   // the per-FT loop above.
-  for (const pair of desiredFanOut.crossFtPairs) {
-    // Group cross-FT metrics by the unordered pair of cache pipelines
-    // they need to be joined against. A/B and B/A end up in the same
-    // subGroup — the SQL layer is symmetric on source order for cross-FT
-    // queries (source-0 privileges only apply to CUPED + event quantile,
-    // neither of which can be cross-FT), so we collapse both orientations
-    // into a single joined stats query.
-    const subGroups = new Map<
-      string,
-      {
-        pipelines: [SourcePipeline, SourcePipeline];
-        metrics: CrossFtRatioMetric[];
-      }
-    >();
+  const crossFtSubGroups = buildCrossFtSubGroups<SourcePipeline>({
+    crossFtPairs: desiredFanOut.crossFtPairs,
+    metricSourceGroups,
+    pipelineByGroupId,
+    // Main runner: the per-FT pass above must have built every pipeline a
+    // cross-FT metric needs. A missing pipeline indicates a fan-out bug.
+    onMissingPipeline: "throw",
+  });
 
-    for (const crossFt of pair.metrics) {
-      // The metric's numerator/denominator FT pins which cache holds which
-      // side. Orientation is carried by the metric's own column refs, so we
-      // just need to find both caches.
-      const numeratorGroup = metricSourceGroups.find(
-        (g) =>
-          g.factTableId === crossFt.numeratorFactTableId &&
-          g.metrics.some((m) => m.id === crossFt.metric.id),
-      );
-      const denominatorGroup = metricSourceGroups.find(
-        (g) =>
-          g.factTableId === crossFt.denominatorFactTableId &&
-          g.metrics.some((m) => m.id === crossFt.metric.id),
-      );
-      if (!numeratorGroup || !denominatorGroup) {
-        // planMetricFanOut should always produce both halves, so this is a
-        // bug in grouping rather than a runtime condition we can recover
-        // from.
-        throw new Error(
-          `Cross-FT ratio metric "${crossFt.metric.id}" is missing its numerator or denominator source group.`,
-        );
-      }
-      const numPipeline = pipelineByGroupId.get(numeratorGroup.groupId);
-      const denomPipeline = pipelineByGroupId.get(denominatorGroup.groupId);
-      if (!numPipeline || !denomPipeline) {
-        throw new Error(
-          `Cross-FT ratio metric "${crossFt.metric.id}" is missing an insert pipeline.`,
-        );
-      }
-      // Canonicalize so (numPipeline, denomPipeline) and the reverse-direction
-      // metric (denomPipeline, numPipeline) hash to the same subGroup.
-      const sortedPipelines: [SourcePipeline, SourcePipeline] =
-        numPipeline.group.groupId < denomPipeline.group.groupId
-          ? [numPipeline, denomPipeline]
-          : [denomPipeline, numPipeline];
-      const subGroupKey = `${sortedPipelines[0].group.groupId}__${sortedPipelines[1].group.groupId}`;
-      const existing = subGroups.get(subGroupKey);
-      if (existing) {
-        existing.metrics.push(crossFt);
-      } else {
-        subGroups.set(subGroupKey, {
-          pipelines: sortedPipelines,
-          metrics: [crossFt],
-        });
-      }
-    }
+  for (const subGroup of crossFtSubGroups) {
+    const [pipelineA, pipelineB] = subGroup.pipelines;
+    const ftA = params.factTableMap.get(pipelineA.group.factTableId);
+    const ftB = params.factTableMap.get(pipelineB.group.factTableId);
+    const sourceName = ftA && ftB ? `(${ftA.name} x ${ftB.name})` : "";
 
-    for (const subGroup of subGroups.values()) {
-      const [pipelineA, pipelineB] = subGroup.pipelines;
-      const ftA = params.factTableMap.get(pipelineA.group.factTableId);
-      const ftB = params.factTableMap.get(pipelineB.group.factTableId);
-      const sourceName = ftA && ftB ? `(${ftA.name} x ${ftB.name})` : "";
+    // Quantile metrics cannot be cross-FT ratios, so this set is always
+    // non-quantile and supports pre-computed dimensions.
+    const dimensionsForPrecomputation = org.settings
+      ?.disablePrecomputedDimensions
+      ? []
+      : eligibleDimensionsWithSlicesUnderMaxCells;
 
-      // Quantile metrics cannot be cross-FT ratios, so this set is always
-      // non-quantile and supports pre-computed dimensions.
-      const dimensionsForPrecomputation = org.settings
-        ?.disablePrecomputedDimensions
-        ? []
-        : eligibleDimensionsWithSlicesUnderMaxCells;
-
-      const crossStatsQuery = await startQuery({
-        name: `statistics_cross_${pipelineA.group.groupId}__${pipelineB.group.groupId}`,
-        displayTitle: `Compute Cross-Fact Statistics ${sourceName}`,
-        query: integration.getIncrementalRefreshStatisticsQuery({
-          settings: snapshotSettings,
-          activationMetric: activationMetric,
-          factTableMap: params.factTableMap,
-          unitsSourceTableFullName: unitsTableFullName,
-          metrics: subGroup.metrics.map((m) => m.metric),
-          // The earliest of the two caches' max timestamps gates which rows
-          // we can trust as fully populated. For simplicity we just pass
-          // null; the stats query reads whatever each cache holds and the
-          // ratio aggregation works regardless of catch-up state.
-          lastMaxTimestamp: null,
-          dimensionsForPrecomputation,
-          dimensionsForAnalysis: [],
-          metricSourceTables: {
-            [pipelineA.group.factTableId]: pipelineA.tableFullName,
-            [pipelineB.group.factTableId]: pipelineB.tableFullName,
-          },
-          // Cross-FT CUPED uses one covariate cache per pipeline — the
-          // numerator FT's cache carries `_value` covariates, the
-          // denominator FT's cache carries `_denominator_value` covariates,
-          // and the role-aware LEFT JOIN inside each `__joinedData{i}`
-          // picks the right side. Omit FTs with no RA metrics.
-          metricSourceCovariateTables: {
-            ...(pipelineA.covariateTableFullName
-              ? {
-                  [pipelineA.group.factTableId]:
-                    pipelineA.covariateTableFullName,
-                }
-              : {}),
-            ...(pipelineB.covariateTableFullName
-              ? {
-                  [pipelineB.group.factTableId]:
-                    pipelineB.covariateTableFullName,
-                }
-              : {}),
-          },
-        }),
-        dependencies: [
-          pipelineA.insertQuery.query,
-          pipelineB.insertQuery.query,
-          ...(pipelineA.covariateInsertQuery
-            ? [pipelineA.covariateInsertQuery.query]
-            : []),
-          ...(pipelineB.covariateInsertQuery
-            ? [pipelineB.covariateInsertQuery.query]
-            : []),
-        ],
-        run: (query, setExternalId, queryMetadata) =>
-          integration.runIncrementalRefreshStatisticsQuery(
-            query,
-            setExternalId,
-            queryMetadata,
-          ),
-        queryType: "experimentIncrementalRefreshStatistics",
-      });
-      queries.push(crossStatsQuery);
-    }
+    const crossStatsQuery = await startQuery({
+      name: `statistics_cross_${pipelineA.group.groupId}__${pipelineB.group.groupId}`,
+      displayTitle: `Compute Cross-Fact Statistics ${sourceName}`,
+      query: integration.getIncrementalRefreshStatisticsQuery({
+        settings: snapshotSettings,
+        activationMetric: activationMetric,
+        factTableMap: params.factTableMap,
+        unitsSourceTableFullName: unitsTableFullName,
+        metrics: subGroup.metrics.map((m) => m.metric),
+        // The earliest of the two caches' max timestamps gates which rows
+        // we can trust as fully populated. For simplicity we just pass
+        // null; the stats query reads whatever each cache holds and the
+        // ratio aggregation works regardless of catch-up state.
+        lastMaxTimestamp: null,
+        dimensionsForPrecomputation,
+        dimensionsForAnalysis: [],
+        metricSourceTables: {
+          [pipelineA.group.factTableId]: pipelineA.tableFullName,
+          [pipelineB.group.factTableId]: pipelineB.tableFullName,
+        },
+        // Cross-FT CUPED uses one covariate cache per pipeline — the
+        // numerator FT's cache carries `_value` covariates, the
+        // denominator FT's cache carries `_denominator_value` covariates,
+        // and the role-aware LEFT JOIN inside each `__joinedData{i}`
+        // picks the right side. Omit FTs with no RA metrics.
+        metricSourceCovariateTables: {
+          ...(pipelineA.covariateTableFullName
+            ? {
+                [pipelineA.group.factTableId]:
+                  pipelineA.covariateTableFullName,
+              }
+            : {}),
+          ...(pipelineB.covariateTableFullName
+            ? {
+                [pipelineB.group.factTableId]:
+                  pipelineB.covariateTableFullName,
+              }
+            : {}),
+        },
+      }),
+      dependencies: [
+        pipelineA.insertQuery.query,
+        pipelineB.insertQuery.query,
+        ...(pipelineA.covariateInsertQuery
+          ? [pipelineA.covariateInsertQuery.query]
+          : []),
+        ...(pipelineB.covariateInsertQuery
+          ? [pipelineB.covariateInsertQuery.query]
+          : []),
+      ],
+      run: (query, setExternalId, queryMetadata) =>
+        integration.runIncrementalRefreshStatisticsQuery(
+          query,
+          setExternalId,
+          queryMetadata,
+        ),
+      queryType: "experimentIncrementalRefreshStatistics",
+    });
+    queries.push(crossStatsQuery);
   }
   const runTrafficQuery = shouldRunHealthTrafficQuery({
     snapshotType: params.snapshotType,

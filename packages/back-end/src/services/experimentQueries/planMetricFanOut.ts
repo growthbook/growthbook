@@ -1,5 +1,8 @@
-import { isRatioMetric } from "shared/experiments";
+import { isRatioMetric, isRegressionAdjusted } from "shared/experiments";
 import type { FactMetricInterface } from "shared/types/fact-table";
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import cloneDeep from "lodash/cloneDeep";
+import { applyMetricOverrides } from "back-end/src/util/integration";
 
 // A single cross-fact-table ratio metric — its numerator and denominator live
 // in different fact tables. The cross-FT stats query joins both fact tables'
@@ -143,4 +146,37 @@ export function planMetricFanOut(metrics: FactMetricInterface[]): MetricFanOut {
     perFt: Array.from(perFtMap.values()),
     crossFtPairs: Array.from(crossFtPairMap.values()),
   };
+}
+
+// Returns the subset of `metrics` that should carry CUPED for the given
+// snapshot. A metric is regression-adjusted iff:
+//   1. The snapshot has regression adjustment enabled.
+//   2. After applying snapshot-level metric overrides, the metric itself is
+//      regression-adjusted (`regressionAdjustmentDays > 0` &&
+//      `regressionAdjustmentEnabled` && not a legacy/unsupported metric type).
+//
+// Centralized here so the runner, schema generation, and validation all share
+// one rule for "what counts as RA" — the per-call `applyMetricOverrides`
+// matters because users can flip RA on/off at the snapshot level.
+export function filterRegressionAdjustedMetrics(
+  metrics: FactMetricInterface[],
+  snapshotSettings: ExperimentSnapshotSettings,
+): FactMetricInterface[] {
+  if (!snapshotSettings.regressionAdjustmentEnabled) return [];
+  return metrics.filter((m) => {
+    const metric = cloneDeep(m);
+    applyMetricOverrides(metric, snapshotSettings);
+    return isRegressionAdjusted(metric);
+  });
+}
+
+// Convenience predicate: true iff at least one metric in `metrics` is
+// regression-adjusted under `snapshotSettings`. Avoids repeating the same
+// `cloneDeep + applyMetricOverrides + isRegressionAdjusted` boilerplate in
+// multiple runners.
+export function hasAnyRegressionAdjustedMetric(
+  metrics: FactMetricInterface[],
+  snapshotSettings: ExperimentSnapshotSettings,
+): boolean {
+  return filterRegressionAdjustedMetrics(metrics, snapshotSettings).length > 0;
 }

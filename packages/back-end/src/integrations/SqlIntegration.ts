@@ -1901,9 +1901,15 @@ export default abstract class SqlIntegration
 
     // TODO(incremental-refresh): use max hours to convert from here
     // for eventual "skipPartialData" feature
+    //
+    // Scope FT discovery to this insert's target FT so a pipeline with
+    // multiple cross-FT ratios that share a hub (e.g. `[A/B, A/C]`)
+    // doesn't trip the 2-FT cap inside `getFactTablesForMetrics` when we
+    // try to populate the hub's covariate cache. The other FTs' covariate
+    // data is populated by separate calls scoped to their own FT.
     const { factTablesWithMetricData } = parseExperimentFactMetricsParams(
       this.getSqlDialect(),
-      paramsMetricsSorted,
+      { ...paramsMetricsSorted, targetFactTableId: params.factTableId },
     );
 
     // Each insert targets one cache table fed from a single FT. For cross-FT
@@ -1982,9 +1988,21 @@ export default abstract class SqlIntegration
                   m.covariateNumeratorAggFns.fullAggregationFunction;
                 const denomAggFunction =
                   m.covariateDenominatorAggFns.fullAggregationFunction;
+                // Role-aware FT comparison matches the schema in
+                // getMetricSourceCovariateTableSchema and decides which
+                // side this FT's cache holds. We can't use the
+                // numerator/denominatorSourceIndex equality check here
+                // because, with `targetFactTableId` set, sides whose FT
+                // isn't in the bucket list fall back to index 0 and would
+                // spuriously match the target FT's index.
+                const numeratorOnThisFt =
+                  m.metric.numerator?.factTableId === params.factTableId;
+                const denominatorOnThisFt =
+                  isRatioMetric(m.metric) &&
+                  m.metric.denominator?.factTableId === params.factTableId;
                 return `
                 ${
-                  m.numeratorSourceIndex === factTableWithMetricData.index
+                  numeratorOnThisFt
                     ? `, ${aggfunction(
                         this.getSqlDialect().ifElse(
                           `m.timestamp >= ${toTimestampWithMs(raSettings.covariateStartDate)} 
@@ -1996,9 +2014,7 @@ export default abstract class SqlIntegration
                     : ""
                 }
                 ${
-                  !!denomAggFunction &&
-                  isRatioMetric(m.metric) &&
-                  m.denominatorSourceIndex === factTableWithMetricData.index
+                  !!denomAggFunction && denominatorOnThisFt
                     ? `, ${denomAggFunction(
                         this.getSqlDialect().ifElse(
                           `m.timestamp >= ${toTimestampWithMs(raSettings.covariateStartDate)} 
@@ -2031,15 +2047,16 @@ export default abstract class SqlIntegration
         ${metricData
           .map((m) => {
             // Project only the side(s) this cache materializes — matches
-            // both the schema we created above (getMetricSourceCovariateTableSchema)
-            // and the __newCovariateValues projection earlier in this query,
-            // which already gates each side on numeratorSourceIndex /
-            // denominatorSourceIndex.
+            // the schema (getMetricSourceCovariateTableSchema) and the
+            // __newCovariateValues projection above. Role-aware FT
+            // comparison, not source-index equality: when the SQL layer
+            // is scoped to a single target FT, absent sides default to
+            // index 0 and would spuriously match.
             const includeNumerator =
-              m.numeratorSourceIndex === factTableWithMetricData.index;
+              m.metric.numerator?.factTableId === params.factTableId;
             const includeDenominator =
               m.ratioMetric &&
-              m.denominatorSourceIndex === factTableWithMetricData.index;
+              m.metric.denominator?.factTableId === params.factTableId;
             // We can't reuse `m.capCoalesceCovariate` /
             // `m.capCoalesceDenominatorCovariate`: those are pre-baked for
             // the stats query, where `c{i}` disambiguates per-source
@@ -2273,19 +2290,26 @@ export default abstract class SqlIntegration
 
     // TODO(incremental-refresh): use max hours to convert from here
     // for eventual "skipPartialData" feature
+    //
+    // Scope FT discovery to this insert's target FT so a pipeline with
+    // multiple cross-FT ratios that share a hub (e.g. `[A/B, A/C]`)
+    // doesn't trip the 2-FT cap inside `getFactTablesForMetrics` when we
+    // try to populate the hub's data cache. The other FTs' data is
+    // populated by separate calls scoped to their own FT.
     const { factTablesWithMetricData } = parseExperimentFactMetricsParams(
       this.getSqlDialect(),
       {
         ...params,
         metrics: sortedMetrics,
         covariateTableAlias: "c",
+        targetFactTableId: params.factTableId,
       },
     );
 
     // Each insert query targets one cache table, which holds rows from a
-    // single fact table. Cross-FT ratio metrics surface in BOTH fact tables'
-    // entries from getFactTablesForMetrics — pick the one we were told to
-    // load.
+    // single fact table. With `targetFactTableId` set above we only get the
+    // bucket for this FT — but a metric that doesn't touch the target FT
+    // would yield an empty result, so we still defend against that.
     const factTableWithMetricData = factTablesWithMetricData.find(
       (f) => f.factTable.id === params.factTableId,
     );
@@ -2622,10 +2646,6 @@ export default abstract class SqlIntegration
       }
     }
 
-    const regressionAdjustedTableIndices = new Set<number>();
-    if (regressionAdjustedMetrics.length > 0) {
-      regressionAdjustedTableIndices.add(0);
-    }
     const percentileTableIndices = new Set<number>(
       percentileData.map((p) => p.sourceIndex),
     );

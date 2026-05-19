@@ -26,6 +26,14 @@ export function parseExperimentFactMetricsParams(
     lastMaxTimestamp: Date | null;
     covariateTableAlias: string;
     forcedUserIdType?: string;
+    // When set, restrict fact-table discovery to a single FT. Cross-FT
+    // ratio metrics still contribute to that FT's bucket for whichever
+    // side (numerator or denominator) references the target — the other
+    // side is silently ignored and is expected to be handled by a
+    // separate call scoped to its own FT. Used by per-FT incremental
+    // refresh inserts so a metric hub like `[A/B, A/C]` can populate the
+    // FT_A cache without tripping the 2-FT cap on {A, B, C}.
+    targetFactTableId?: string;
   },
 ): {
   factTablesWithMetricData: FactMetricSourceData[];
@@ -51,6 +59,7 @@ export function parseExperimentFactMetricsParams(
   const factTablesWithMetrics = getFactTablesForMetrics(
     metricsWithIndices,
     factTableMap,
+    params.targetFactTableId,
   );
 
   const metricData = metricsWithIndices.map((m) => {

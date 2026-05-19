@@ -1014,6 +1014,99 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       expect(sql).toMatch(/m1\.m0_covariate_denominator/);
     });
 
+    it("mixed same-FT + cross-FT RA metrics: per-FT stats only reads same-FT covariates; cross-FT stats reads both caches", () => {
+      // Two RA metrics on the same fact table — one same-FT, one cross-FT.
+      // This is the realistic shape that exercises the gap between unit
+      // tests (single metric in isolation) and the runner orchestration:
+      // the per-FT stats query must read ONLY the same-FT metric's
+      // covariate column, and the cross-FT pair stats query must read
+      // BOTH caches' covariates with the right alias contract.
+      const sameFtRa = factMetricFactory.build({
+        id: "fact_ra_same_ft",
+        metricType: "mean",
+        numerator: {
+          factTableId: "ft_events",
+          column: "amount",
+          aggregation: "sum",
+        },
+        regressionAdjustmentEnabled: true,
+        regressionAdjustmentDays: 14,
+      });
+      const crossFtRa = factMetricFactory.build({
+        id: "fact_ra_xft",
+        metricType: "ratio",
+        numerator: {
+          factTableId: "ft_events",
+          column: "amount",
+          aggregation: "sum",
+        },
+        denominator: {
+          factTableId: "ft_subscriptions",
+          column: "tenure_days",
+          aggregation: "sum",
+        },
+        regressionAdjustmentEnabled: true,
+        regressionAdjustmentDays: 14,
+      });
+
+      // Per-FT stats on ft_events: same-FT metric only. Reads the
+      // ft_events covariate cache; must NOT reference the ft_subscriptions
+      // covariate cache.
+      const perFtSql = integration.getIncrementalRefreshStatisticsQuery({
+        settings: { ...settings, regressionAdjustmentEnabled: true },
+        activationMetric: null,
+        dimensionsForPrecomputation: [],
+        dimensionsForAnalysis: [],
+        factTableMap: crossFactTableMap,
+        metricSourceTables: {
+          ft_events: "proj.ds.metric_source_events",
+        },
+        metricSourceCovariateTables: {
+          ft_events: "proj.ds.cov_events",
+        },
+        unitsSourceTableFullName: "proj.ds.units",
+        metrics: [sameFtRa],
+        lastMaxTimestamp: null,
+      });
+      expect(perFtSql).toMatch(/FROM\s+proj\.ds\.metric_source_events\b/);
+      expect(perFtSql).toMatch(/FROM\s+proj\.ds\.cov_events\b/);
+      expect(perFtSql).not.toMatch(/proj\.ds\.cov_subs/);
+      expect(perFtSql).not.toMatch(/proj\.ds\.metric_source_denom/);
+      // The same-FT metric's covariate value column is read through the
+      // single source's alias `m`.
+      expect(perFtSql).toMatch(/m\.m0_covariate_value/);
+
+      // Cross-FT pair stats: BOTH metrics' caches are joined. The
+      // cross-FT metric drives the two-source layout — the same-FT
+      // metric is computed in the per-FT pass above and is not part of
+      // this query.
+      const crossSql = integration.getIncrementalRefreshStatisticsQuery({
+        settings: { ...settings, regressionAdjustmentEnabled: true },
+        activationMetric: null,
+        dimensionsForPrecomputation: [],
+        dimensionsForAnalysis: [],
+        factTableMap: crossFactTableMap,
+        metricSourceTables: {
+          ft_events: "proj.ds.metric_source_events",
+          ft_subscriptions: "proj.ds.metric_source_denom",
+        },
+        metricSourceCovariateTables: {
+          ft_events: "proj.ds.cov_events",
+          ft_subscriptions: "proj.ds.cov_subs",
+        },
+        unitsSourceTableFullName: "proj.ds.units",
+        metrics: [crossFtRa],
+        lastMaxTimestamp: null,
+      });
+      expect(crossSql).toMatch(/FROM\s+proj\.ds\.metric_source_events\b/);
+      expect(crossSql).toMatch(/FROM\s+proj\.ds\.metric_source_denom\b/);
+      expect(crossSql).toMatch(/FROM\s+proj\.ds\.cov_events\b/);
+      expect(crossSql).toMatch(/FROM\s+proj\.ds\.cov_subs\b/);
+      // Numerator covariate via `m`, denominator covariate via `m1`.
+      expect(crossSql).toMatch(/m\.m0_covariate_value/);
+      expect(crossSql).toMatch(/m1\.m0_covariate_denominator/);
+    });
+
     it("getIncrementalRefreshStatisticsQuery throws when a cross-FT RA metric is missing its side's covariate cache", () => {
       const raCrossFt = factMetricFactory.build({
         id: "fact_ra_xft",
@@ -1054,6 +1147,121 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
           lastMaxTimestamp: null,
         }),
       ).toThrow(/ft_subscriptions/);
+    });
+
+    it("per-FT insert + covariate insert handle a 3-FT hub where one FT participates in two cross-FT ratios", () => {
+      // Hub pipeline: two cross-FT ratios share ft_events as their
+      // numerator side, with denominators on two different FTs. The
+      // ft_events group ends up holding both metrics, so its data/covariate
+      // inserts see metrics that collectively reference 3 FTs. Without
+      // scoping FT discovery to the target FT, this would blow up on the
+      // 2-FT cap inside `getFactTablesForMetrics`.
+      const paymentsFactTable = factTableFactory.build({
+        id: "ft_payments",
+        name: "Payments",
+        sql: "SELECT * FROM payments",
+        userIdTypes: ["user_id"],
+      });
+
+      const hubFactTableMap = new Map([
+        ["ft_events", factTable],
+        ["ft_subscriptions", denominatorFactTable],
+        ["ft_payments", paymentsFactTable],
+      ]);
+
+      const ratioAB = factMetricFactory.build({
+        id: "fact_ratio_a_b",
+        metricType: "ratio",
+        numerator: {
+          factTableId: "ft_events",
+          column: "conversions",
+          aggregation: "sum",
+        },
+        denominator: {
+          factTableId: "ft_subscriptions",
+          column: "tenure_days",
+          aggregation: "sum",
+        },
+        regressionAdjustmentEnabled: true,
+        regressionAdjustmentDays: 14,
+      });
+      const ratioAC = factMetricFactory.build({
+        id: "fact_ratio_a_c",
+        metricType: "ratio",
+        numerator: {
+          factTableId: "ft_events",
+          column: "clicks",
+          aggregation: "sum",
+        },
+        denominator: {
+          factTableId: "ft_payments",
+          column: "amount",
+          aggregation: "sum",
+        },
+        regressionAdjustmentEnabled: true,
+        regressionAdjustmentDays: 14,
+      });
+
+      // FT_events hub: data insert sees both metrics. Should NOT throw,
+      // and should project both metrics' numerator columns (since A is the
+      // numerator side for both) and no denominator columns (B and C are
+      // populated by their own per-FT calls).
+      const hubInsertSql = integration.getInsertMetricSourceDataQuery({
+        settings,
+        activationMetric: null,
+        factTableMap: hubFactTableMap,
+        factTableId: "ft_events",
+        metricSourceTableFullName: "proj.ds.metric_source_events",
+        unitsSourceTableFullName: "proj.ds.units",
+        metrics: [ratioAB, ratioAC],
+        lastMaxTimestamp: null,
+      });
+      expect(hubInsertSql).toMatch(/fact_ratio_a_b_value\b/);
+      expect(hubInsertSql).toMatch(/fact_ratio_a_c_value\b/);
+      // Denominator columns live in the OTHER FTs' caches — should not
+      // appear here.
+      expect(hubInsertSql).not.toMatch(/fact_ratio_a_b_denominator_value/);
+      expect(hubInsertSql).not.toMatch(/fact_ratio_a_c_denominator_value/);
+
+      // FT_events hub: covariate insert (CUPED) sees both metrics. Same
+      // rule — only numerator-side covariate columns appear in the hub's
+      // covariate cache.
+      const hubCovariateSql =
+        integration.getInsertMetricSourceCovariateDataQuery({
+          settings: { ...settings, regressionAdjustmentEnabled: true },
+          activationMetric: null,
+          factTableMap: hubFactTableMap,
+          factTableId: "ft_events",
+          metricSourceCovariateTableFullName: "proj.ds.cov_events",
+          unitsSourceTableFullName: "proj.ds.units",
+          metrics: [ratioAB, ratioAC],
+          lastCovariateSuccessfulMaxTimestamp: null,
+        });
+      expect(hubCovariateSql).toMatch(/fact_ratio_a_b_value\b/);
+      expect(hubCovariateSql).toMatch(/fact_ratio_a_c_value\b/);
+      expect(hubCovariateSql).not.toMatch(/fact_ratio_a_b_denominator_value/);
+      expect(hubCovariateSql).not.toMatch(/fact_ratio_a_c_denominator_value/);
+
+      // Sanity check: the OTHER FT inserts (B and C) also work — each
+      // sees its own denominator side only. (Both calls receive the full
+      // [ratioAB, ratioAC] metric list because the runner doesn't know
+      // ahead of time which FT each metric is "for"; FT scoping is the
+      // SQL layer's job now.)
+      const subsInsertSql = integration.getInsertMetricSourceDataQuery({
+        settings,
+        activationMetric: null,
+        factTableMap: hubFactTableMap,
+        factTableId: "ft_subscriptions",
+        metricSourceTableFullName: "proj.ds.metric_source_subs",
+        unitsSourceTableFullName: "proj.ds.units",
+        metrics: [ratioAB, ratioAC],
+        lastMaxTimestamp: null,
+      });
+      // FT_subscriptions hosts the denominator of ratioAB only.
+      expect(subsInsertSql).toMatch(/fact_ratio_a_b_denominator_value\b/);
+      expect(subsInsertSql).not.toMatch(/fact_ratio_a_c/);
+      // No numerator columns for either metric land on the FT_subs cache.
+      expect(subsInsertSql).not.toMatch(/fact_ratio_a_b_value[^_]/);
     });
   });
 });
