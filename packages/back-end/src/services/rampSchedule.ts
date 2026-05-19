@@ -362,9 +362,7 @@ async function executeStepActions(
 }
 
 // Build the `enabled: true` patch for each active feature target.
-function buildEnableActions(
-  schedule: RampScheduleInterface,
-): RampStepAction[] {
+function buildEnableActions(schedule: RampScheduleInterface): RampStepAction[] {
   return schedule.targets
     .filter((t) => t.status === "active" && t.entityType === "feature")
     .map((t) => ({

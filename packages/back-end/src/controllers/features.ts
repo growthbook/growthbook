@@ -3277,6 +3277,25 @@ export async function putFeatureRule(
           actions: (step.actions ?? []).map(remapT1),
         }));
       }
+      // Process endCondition/endActions before startDate so the "start now"
+      // path below (clear startDate while status is "ready") carries any
+      // simultaneously-submitted end fields through `...updates` instead of
+      // silently dropping them.
+      if (rampSchedulePayload.endCondition !== undefined) {
+        const ec = rampSchedulePayload.endCondition;
+        if (!ec) {
+          updates.endCondition = null;
+        } else {
+          const rawTrigger = ec.trigger;
+          const trigger = rawTrigger
+            ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
+            : undefined;
+          updates.endCondition = { trigger };
+        }
+      }
+      if (rampSchedulePayload.endActions !== undefined) {
+        updates.endActions = rampSchedulePayload.endActions.map(remapT1);
+      }
       if ("startDate" in rampSchedulePayload) {
         const nextStartDate = rampSchedulePayload.startDate
           ? new Date(rampSchedulePayload.startDate)
@@ -3285,8 +3304,7 @@ export async function putFeatureRule(
         // transition to running and apply start actions so the rule enables.
         if (nextStartDate === null && existing.status === "ready") {
           const now = new Date();
-          const initialNextStepAt =
-            existing.steps.length > 0 ? now : null;
+          const initialNextStepAt = existing.steps.length > 0 ? now : null;
           await context.models.rampSchedules.updateById(existing.id, {
             ...updates,
             startDate: null,
@@ -3297,13 +3315,15 @@ export async function putFeatureRule(
             nextProcessAt: computeNextProcessAt({
               status: "running",
               nextStepAt: initialNextStepAt,
-              endCondition: updates.endCondition !== undefined
-                ? (updates.endCondition as typeof existing.endCondition)
-                : existing.endCondition,
+              endCondition:
+                updates.endCondition !== undefined
+                  ? (updates.endCondition as typeof existing.endCondition)
+                  : existing.endCondition,
             }),
           });
-          const refreshed =
-            await context.models.rampSchedules.getById(existing.id);
+          const refreshed = await context.models.rampSchedules.getById(
+            existing.id,
+          );
           if (refreshed) {
             // For simple schedules this enables the rule. For ramps with steps
             // it's a no-op — advanceUntilBlocked will fire step 0 (which folds
@@ -3322,21 +3342,6 @@ export async function putFeatureRule(
           return;
         }
         updates.startDate = nextStartDate;
-      }
-      if (rampSchedulePayload.endCondition !== undefined) {
-        const ec = rampSchedulePayload.endCondition;
-        if (!ec) {
-          updates.endCondition = null;
-        } else {
-          const rawTrigger = ec.trigger;
-          const trigger = rawTrigger
-            ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
-            : undefined;
-          updates.endCondition = { trigger };
-        }
-      }
-      if (rampSchedulePayload.endActions !== undefined) {
-        updates.endActions = rampSchedulePayload.endActions.map(remapT1);
       }
       updates.nextProcessAt = computeNextProcessAt({
         status: existing.status,

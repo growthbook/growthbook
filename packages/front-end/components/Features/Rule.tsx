@@ -983,8 +983,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           <Box>{info.callout}</Box>
           {liveEnabledDraftDisabled && (
             <Callout status="warning" mt="3" size="sm">
-              This rule is <strong>enabled</strong> in the live feature but <strong>disabled</strong> in this
-              draft. Publishing may revert a schedule-driven enable.
+              This rule is <strong>enabled</strong> in the live feature but{" "}
+              <strong>disabled</strong> in this draft. Publishing may revert a
+              schedule-driven enable.
             </Callout>
           )}
           {rampSchedule?.status === "pending-approval" &&

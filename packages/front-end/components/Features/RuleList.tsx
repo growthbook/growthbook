@@ -303,8 +303,7 @@ export default function RuleList(props: RuleListProps) {
             const liveEnabledDraftDisabled =
               isDraft &&
               !rule.enabled &&
-              (draftRevision?.baseVersion ?? Infinity) <
-                baseFeature.version &&
+              (draftRevision?.baseVersion ?? Infinity) < baseFeature.version &&
               (baseFeature.rules ?? []).some(
                 (r) => r.id === rule.id && r.enabled,
               );
