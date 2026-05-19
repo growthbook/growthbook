@@ -652,7 +652,26 @@ export async function getEventDetail(
       : "";
 
     const sql = `
-SELECT *
+SELECT
+  event_uuid,
+  timestamp,
+  ${chErrorDisplayTitleExpr()} AS title,
+  issue_fingerprint,
+  properties,
+  attributes,
+  environment,
+  release_version,
+  user_id,
+  device_id,
+  url,
+  transaction_name,
+  error_type,
+  runtime_name,
+  ua_device_type,
+  ua_os,
+  ua_browser,
+  sdk_version,
+  sdk_language
 FROM errors
 WHERE client_key = '${esc(integration, clientKey)}'
 AND ${uuidFilter}
@@ -738,11 +757,25 @@ LIMIT 40
     return res.status(200).json({
       status: 200,
       event: {
-        ...row,
-        title: displayTitle,
+        event_uuid: String(row.event_uuid || ""),
         timestamp: clickhouseTimestampToIso(row.timestamp),
+        title: displayTitle,
+        issue_fingerprint: String(row.issue_fingerprint || ""),
         properties,
         attributes,
+        environment: String(row.environment || ""),
+        release_version: release,
+        user_id: String(row.user_id || ""),
+        device_id: String(row.device_id || ""),
+        url,
+        transaction_name: String(row.transaction_name || ""),
+        error_type: String(row.error_type || ""),
+        runtime_name: String(row.runtime_name || ""),
+        ua_device_type: String(row.ua_device_type || ""),
+        ua_os: String(row.ua_os || ""),
+        ua_browser: String(row.ua_browser || ""),
+        sdk_version: String(row.sdk_version || ""),
+        sdk_language: String(row.sdk_language || ""),
         relatedFeatureUsage: relatedFeatureUsageNormalized,
         relatedExperimentViews: relatedExperimentViewsNormalized,
         urlAtCapture: url,
@@ -874,6 +907,12 @@ export async function patchIssue(
       .json({ status: 400, message: "clientKey is required" });
   }
 
+  if (
+    !context.permissions.canCreateMetric({ projects: [], managedBy: undefined })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
   await requireClickhouse(context);
 
   const now = new Date();
@@ -928,6 +967,10 @@ export async function postIssueComment(
   }
   if (!text) {
     return res.status(400).json({ status: 400, message: "body is required" });
+  }
+
+  if (!context.permissions.canAddComment([])) {
+    context.permissions.throwPermissionError();
   }
 
   await requireClickhouse(context);

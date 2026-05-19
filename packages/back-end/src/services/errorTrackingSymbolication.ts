@@ -227,13 +227,14 @@ function unresolvedFrames(frames: RawStackFrame[]): SymbolicatedStackFrame[] {
 
 async function getConsumer(
   cache: Map<string, SourceMapConsumer>,
+  cacheKey: string,
   sourceMapJson: string,
 ): Promise<SourceMapConsumer> {
-  const existing = cache.get(sourceMapJson);
+  const existing = cache.get(cacheKey);
   if (existing) return existing;
 
   const consumer = await new SourceMapConsumer(JSON.parse(sourceMapJson));
-  cache.set(sourceMapJson, consumer);
+  cache.set(cacheKey, consumer);
   return consumer;
 }
 
@@ -313,7 +314,11 @@ export async function buildSymbolicatedStack({
       }
 
       try {
-        const consumer = await getConsumer(consumerCache, map.sourceMapJson);
+        const consumer = await getConsumer(
+          consumerCache,
+          map.minifiedUrl,
+          map.sourceMapJson,
+        );
         const position = consumer.originalPositionFor({
           line: frame.lineno,
           column: frame.colno ?? 0,
