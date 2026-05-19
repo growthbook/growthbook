@@ -511,7 +511,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         {showDeleteRuleModal && (
           <ModalStandard
             trackingEventModalType="delete-feature-rule"
-            header="Delete rule from a revision"
+            header="Delete rule"
             size="lg"
             close={() => setShowDeleteRuleModal(false)}
             open={true}
@@ -551,12 +551,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 triggerPrefix="Rule deletion will be"
               />
               <Text as="p" mb="2">
-                This will add a rule deletion to the selected revision. The live
-                feature will not change until that revision is published.
-              </Text>
-              <Text as="p" mb="0" color="text-low">
-                To delete the rule in a different draft, choose it above before
-                saving.
+                This rule will be removed when the revision is published. The
+                live feature will not change until then.
               </Text>
             </Box>
           </ModalStandard>
