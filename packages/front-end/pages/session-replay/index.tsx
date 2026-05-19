@@ -49,14 +49,8 @@ type SessionMetadata = {
   urlFirst: string;
 };
 
-type SessionChunk = {
-  index: number;
-  signedUrl: string;
-  expiresAt: string;
-};
-
-type SessionChunksResponse = {
-  chunks: SessionChunk[];
+type SessionResponse = {
+  events: eventWithTime[];
   metadata: SessionMetadata;
 };
 
@@ -105,32 +99,52 @@ function avatarInitial(userId: string): string {
 }
 
 /**
- * Fetch a single gzip-JSON chunk directly from S3 via its signed URL and
- * decompress it in the browser. Uses the WHATWG `DecompressionStream` API
- * (supported in current Chromium, Firefox, and Safari 16.4+).
+ * See `getReplayBlockReason` in pages/session-replay/[sessionId].tsx for
+ * the rationale. Mirrored here to keep the two playback surfaces in sync.
  */
-async function fetchAndDecompressChunk(
-  signedUrl: string,
-): Promise<eventWithTime[]> {
-  const resp = await fetch(signedUrl, { credentials: "omit" });
-  if (!resp.ok) {
-    throw new Error(
-      `Chunk fetch failed: HTTP ${resp.status} ${resp.statusText}`,
-    );
+function getReplayBlockReason(events: eventWithTime[]): string | null {
+  if (events.length < 2) {
+    return `Session has only ${events.length} event(s) — not enough to replay.`;
   }
-  if (!resp.body) {
-    throw new Error("Chunk fetch returned an empty body");
-  }
-  const decompressed = resp.body.pipeThrough(new DecompressionStream("gzip"));
-  const text = await new Response(decompressed).text();
-  return JSON.parse(text) as eventWithTime[];
-}
-
-function canReplay(events: eventWithTime[]): boolean {
-  if (events.length < 2) return false;
   const hasFullSnapshot = events.some((e) => e.type === 2);
   const hasIncremental = events.some((e) => e.type === 3);
-  return hasFullSnapshot && hasIncremental;
+  if (!hasFullSnapshot) {
+    return "Session is missing its FullSnapshot (chunk 0 was likely lost in transport — the recording can't be rendered without the initial DOM).";
+  }
+  if (!hasIncremental) {
+    return "Session has the initial DOM but no subsequent activity to replay.";
+  }
+  return null;
+}
+
+/**
+ * Pick a player size that always leaves the controller above the fold.
+ *
+ * rrweb-player renders at fixed pixel dimensions passed in props (CSS on
+ * the container is ignored). The controller bar adds ~80 px below the
+ * canvas, so we measure the actual available space in the center column
+ * (which is a 3-column layout: session list | player | evaluations) and
+ * size the player to fit. Falls back to viewport-based defaults if the
+ * container isn't measurable yet.
+ */
+const PLAYER_CONTROLLER_PX = 80;
+const PLAYER_MIN_HEIGHT = 320;
+const PLAYER_MAX_HEIGHT = 560;
+
+function computePlayerDims(container: HTMLElement | null): {
+  width: number;
+  height: number;
+} {
+  const containerEl = container?.parentElement ?? container;
+  const containerW = containerEl?.clientWidth ?? 900;
+  const containerH = containerEl?.clientHeight ?? 600;
+  const availableH = containerH - PLAYER_CONTROLLER_PX;
+  const height = Math.max(
+    PLAYER_MIN_HEIGHT,
+    Math.min(PLAYER_MAX_HEIGHT, availableH),
+  );
+  const width = Math.min(containerW, Math.round((height * 16) / 9));
+  return { width, height };
 }
 
 function formatCustomEvent(data: {
@@ -218,8 +232,33 @@ export default function SessionReplayPage() {
     sessions: SessionReplayRow[];
   }>(`/session-replay?${queryString}`);
 
-  const sessions = sessionsData?.sessions ?? [];
-  const hasNextPage = sessions.length === 100;
+  // Back-end may return duplicate rows for the same sessionId because the
+  // ClickHouse table is a plain MergeTree without FINAL dedupe (see comment
+  // in services/clickhouse.ts). Keep the most-recent row per sessionId so
+  // the list shows each session once and the "selected" highlight only
+  // applies to a single card.
+  const rawSessions = useMemo(
+    () => sessionsData?.sessions ?? [],
+    [sessionsData],
+  );
+  const hasNextPage = rawSessions.length === 100;
+  const sessions = useMemo(() => {
+    const byId = new Map<string, SessionReplayRow>();
+    for (const s of rawSessions) {
+      if (!s.sessionId) continue;
+      const existing = byId.get(s.sessionId);
+      if (
+        !existing ||
+        new Date(s.startedAt).getTime() > new Date(existing.startedAt).getTime()
+      ) {
+        byId.set(s.sessionId, s);
+      }
+    }
+    return Array.from(byId.values()).sort(
+      (a, b) =>
+        new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
+    );
+  }, [rawSessions]);
 
   const updateRouteQuery = (next: {
     userId?: string;
@@ -387,33 +426,31 @@ export default function SessionReplayPage() {
 
     const load = async () => {
       try {
+        // Back-end proxies the S3 reads + gzip decompression. See
+        // `pages/session-replay/[sessionId].tsx` for the same pattern in
+        // the standalone detail page.
         const response = await apiCall<
-          SessionChunksResponse | { status?: number; message?: string }
-        >(`/session-replay/${selectedSessionId}/chunks`, { method: "GET" });
+          SessionResponse | { status?: number; message?: string }
+        >(`/session-replay/${selectedSessionId}`, { method: "GET" });
 
         if (cancelled) return;
 
         if (
           !response ||
-          !("chunks" in response) ||
-          !Array.isArray(response.chunks)
+          !("events" in response) ||
+          !Array.isArray(response.events)
         ) {
           const msg =
             response && "message" in response && response.message
               ? response.message
               : "unexpected response shape";
-          throw new Error(`/session-replay/.../chunks failed: ${msg}`);
+          throw new Error(
+            `/session-replay/${selectedSessionId} failed: ${msg}`,
+          );
         }
 
-        const { chunks, metadata: meta } = response;
-        setMetadata(meta);
-
-        const chunkEvents = await Promise.all(
-          chunks.map((c) => fetchAndDecompressChunk(c.signedUrl)),
-        );
-
-        if (cancelled) return;
-        setEvents(chunkEvents.flat());
+        setMetadata(response.metadata);
+        setEvents(response.events);
       } catch (e) {
         if (cancelled) return;
 
@@ -439,8 +476,9 @@ export default function SessionReplayPage() {
       setFirstEvent(null);
       return;
     }
-    if (!canReplay(events)) {
-      setPlayerError("Not enough data to replay session.");
+    const blockReason = getReplayBlockReason(events);
+    if (blockReason) {
+      setPlayerError(blockReason);
       setFirstEvent(null);
       return;
     }
@@ -453,9 +491,20 @@ export default function SessionReplayPage() {
     }
     playerRef.current.innerHTML = "";
 
+    // Size the player to fit the center column so the controller bar always
+    // stays above the fold. See `computePlayerDims` for the math.
+    const { width: playerWidth, height: playerHeight } = computePlayerDims(
+      playerRef.current,
+    );
+
     const player = new Player({
       target: playerRef.current,
-      props: { events, showController: true },
+      props: {
+        events,
+        showController: true,
+        width: playerWidth,
+        height: playerHeight,
+      },
     });
     playerInstance.current = player;
 
@@ -502,7 +551,11 @@ export default function SessionReplayPage() {
       <Flex
         gap="3"
         align="stretch"
-        style={{ minHeight: "calc(100vh - 180px)" }}
+        style={{
+          height: "calc(100vh - 180px)",
+          minHeight: 520,
+          maxHeight: "calc(100vh - 180px)",
+        }}
       >
         {/* ----- LEFT: Recorded Sessions ------------------------------------ */}
         <Box
@@ -513,6 +566,8 @@ export default function SessionReplayPage() {
             display: "flex",
             flexDirection: "column",
             padding: 16,
+            minHeight: 0,
+            overflow: "hidden",
           }}
         >
           <Text size="large" weight="semibold">
@@ -599,6 +654,7 @@ export default function SessionReplayPage() {
             mt="3"
             style={{
               flex: 1,
+              minHeight: 0,
               overflowY: "auto",
               borderTop: "1px solid var(--slate-a4)",
               paddingTop: 8,
@@ -617,7 +673,9 @@ export default function SessionReplayPage() {
             )}
             {sessionsData &&
               sessions.map((session) => {
-                const isSelected = session.sessionId === selectedSessionId;
+                const isSelected =
+                  !!selectedSessionId &&
+                  session.sessionId === selectedSessionId;
                 return (
                   <Box
                     key={session.sessionId}
@@ -712,6 +770,8 @@ export default function SessionReplayPage() {
             flexDirection: "column",
             padding: 16,
             minWidth: 0,
+            minHeight: 0,
+            overflow: "hidden",
           }}
         >
           {!selectedSessionId && (
@@ -787,10 +847,11 @@ export default function SessionReplayPage() {
               <Box
                 style={{
                   flex: 1,
+                  minHeight: 0,
                   display: "flex",
                   justifyContent: "center",
                   alignItems: "center",
-                  minHeight: 400,
+                  overflow: "auto",
                 }}
               >
                 <div ref={playerRef} />
@@ -808,6 +869,8 @@ export default function SessionReplayPage() {
             display: "flex",
             flexDirection: "column",
             padding: 16,
+            minHeight: 0,
+            overflow: "hidden",
           }}
         >
           <Flex justify="between" align="center" mb="2">
@@ -828,7 +891,7 @@ export default function SessionReplayPage() {
             </Tabs>
           </Flex>
 
-          <Box style={{ flex: 1, overflowY: "auto" }}>
+          <Box style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
             {!selectedSessionId && (
               <Text color="text-mid" size="small">
                 Evaluations will appear here once a session is loaded.

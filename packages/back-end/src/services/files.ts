@@ -401,27 +401,22 @@ export async function listSessionReplayChunks(
 }
 
 /**
- * Signs a read URL for a single session-replay chunk so the browser can GET
- * the gzipped JSON payload directly from S3. Returns both the URL and an
- * absolute ISO expiry timestamp so the client can cache and refresh.
+ * Fetches a single session-replay chunk (gzipped JSON) from the session-replay
+ * bucket. Mirror of `getFileBuffer` but routed through the session-replay
+ * S3 client so the bucket+role for replay storage stay independent of the
+ * general uploads bucket.
  */
-export async function getSessionReplaySignedReadUrl(
+export async function getSessionReplayObjectBuffer(
   key: string,
-  expiresInMinutes = 15,
-): Promise<{ signedUrl: string; expiresAt: string }> {
+): Promise<Buffer> {
   if (!isSessionReplayStorageConfigured()) {
     throw new Error(
       "Session-replay storage is not configured (set S3_SESSION_REPLAY_BUCKET)",
     );
   }
-  const signedUrl = await s3GetSignedReadUrl(
+  return s3GetObjectBuffer(
     getSessionReplayS3Client(),
     S3_SESSION_REPLAY_BUCKET,
     key,
-    expiresInMinutes * 60,
   );
-  return {
-    signedUrl,
-    expiresAt: new Date(Date.now() + expiresInMinutes * 60_000).toISOString(),
-  };
 }

@@ -23,12 +23,6 @@ router.get(
   }),
   sessionReplayController.listSessions,
 );
-// Order matters: this must precede the `:sessionId` catch-all so `chunks`
-// isn't interpreted as a session id.
-router.get(
-  "/:sessionId/chunks",
-  sessionReplayController.getSessionChunks,
-);
 router.get("/:sessionId", sessionReplayController.getSession);
 
 export { router as sessionReplayRouter };

@@ -18,47 +18,66 @@ type SessionReplayRow = {
   urlFirst: string;
 };
 
-type SessionChunk = {
-  index: number;
-  signedUrl: string;
-  expiresAt: string;
-};
-
-type SessionChunksResponse = {
-  chunks: SessionChunk[];
+type SessionResponse = {
+  events: eventWithTime[];
   metadata: SessionReplayRow;
 };
 
 /**
- * Fetch a single gzip-JSON chunk directly from S3 via its signed URL and
- * decompress it in the browser. Uses the WHATWG `DecompressionStream` API
- * (supported in current Chromium, Firefox, and Safari 16.4+).
- *
- * No `credentials` — the signed URL is the capability token. Sending cookies
- * would also trigger a CORS preflight that the bucket isn't configured for.
+ * Returns null if the events are playable, or a string explaining what's
+ * missing if not. The distinction matters operationally:
+ *   - "fewer than 2 events": the recording is just too short
+ *   - "no FullSnapshot": chunk 0 is missing from S3 (lost in transport) or
+ *     the SDK never captured one (initialized after the page was already
+ *     mutating). Without a FullSnapshot rrweb cannot render any DOM.
+ *   - "no IncrementalSnapshot": something captured the initial DOM but no
+ *     subsequent activity — the recording effectively has nothing to play.
  */
-async function fetchAndDecompressChunk(
-  signedUrl: string,
-): Promise<eventWithTime[]> {
-  const resp = await fetch(signedUrl, { credentials: "omit" });
-  if (!resp.ok) {
-    throw new Error(
-      `Chunk fetch failed: HTTP ${resp.status} ${resp.statusText}`,
-    );
+function getReplayBlockReason(events: eventWithTime[]): string | null {
+  if (events.length < 2) {
+    return `Session has only ${events.length} event(s) — not enough to replay.`;
   }
-  if (!resp.body) {
-    throw new Error("Chunk fetch returned an empty body");
-  }
-  const decompressed = resp.body.pipeThrough(new DecompressionStream("gzip"));
-  const text = await new Response(decompressed).text();
-  return JSON.parse(text) as eventWithTime[];
-}
-
-function canReplay(events: eventWithTime[]): boolean {
-  if (events.length < 2) return false;
   const hasFullSnapshot = events.some((e) => e.type === 2);
   const hasIncremental = events.some((e) => e.type === 3);
-  return hasFullSnapshot && hasIncremental;
+  if (!hasFullSnapshot) {
+    return "Session is missing its FullSnapshot (chunk 0 was likely lost in transport — the recording can't be rendered without the initial DOM).";
+  }
+  if (!hasIncremental) {
+    return "Session has the initial DOM but no subsequent activity to replay.";
+  }
+  return null;
+}
+
+/**
+ * Pick a player size that always leaves the controller above the fold.
+ *
+ * rrweb-player renders at fixed pixel dimensions passed in props (CSS on
+ * the container is ignored). The controller bar adds ~80 px below the
+ * canvas, so we reserve room for it plus the page chrome (title row,
+ * metadata box, padding). Clamp to a sensible range so very tall viewports
+ * don't produce an absurdly large player and very short ones don't produce
+ * an unusable tiny one.
+ */
+const PLAYER_CONTROLLER_PX = 80;
+const PAGE_CHROME_PX = 320;
+const PLAYER_MIN_HEIGHT = 360;
+const PLAYER_MAX_HEIGHT = 540;
+
+function computePlayerDims(container: HTMLElement | null): {
+  width: number;
+  height: number;
+} {
+  const viewportH = typeof window !== "undefined" ? window.innerHeight : 800;
+  const containerW = container?.clientWidth ?? 1000;
+  const availableH = viewportH - PAGE_CHROME_PX - PLAYER_CONTROLLER_PX;
+  const height = Math.max(
+    PLAYER_MIN_HEIGHT,
+    Math.min(PLAYER_MAX_HEIGHT, availableH),
+  );
+  // Maintain a 16:9 aspect ratio, but never exceed the actual container
+  // width — the right-side evaluations panel takes some space.
+  const width = Math.min(containerW, Math.round((height * 16) / 9));
+  return { width, height };
 }
 
 function formatCustomEvent(data: {
@@ -112,45 +131,29 @@ export default function SessionReplayDetailPage() {
 
     const load = async () => {
       try {
-        // Step 1: ask the back-end for the metadata + a list of signed S3
-        // URLs (one per chunk). The back-end does auth + chunk enumeration;
-        // we never see the raw S3 keys or bucket name.
-        //
-        // Note: `apiCall` only throws on responses where the JSON body has a
-        // `status >= 400` field. Controllers that send `res.status(...).json(
-        // {error: ...})` without a body-level `status` field will resolve
-        // silently — so we also defensively check the shape here and surface
-        // any malformed response as an error.
+        // Back-end proxies the S3 reads and gzip decompression — keeps
+        // replay payloads behind authenticated REST endpoints (no signed
+        // URLs in the browser, no CORS exposure on the bucket).
         const response = await apiCall<
-          SessionChunksResponse | { status?: number; message?: string }
-        >(`/session-replay/${sessionId}/chunks`, { method: "GET" });
+          SessionResponse | { status?: number; message?: string }
+        >(`/session-replay/${sessionId}`, { method: "GET" });
 
         if (cancelled) return;
 
         if (
           !response ||
-          !("chunks" in response) ||
-          !Array.isArray(response.chunks)
+          !("events" in response) ||
+          !Array.isArray(response.events)
         ) {
           const msg =
             response && "message" in response && response.message
               ? response.message
               : "unexpected response shape";
-          throw new Error(`/session-replay/.../chunks failed: ${msg}`);
+          throw new Error(`/session-replay/${sessionId} failed: ${msg}`);
         }
 
-        const { chunks, metadata: meta } = response;
-        setMetadata(meta);
-
-        // Step 2: fetch each chunk directly from S3 in parallel and
-        // decompress in the browser. Avoids piping replay payloads through
-        // the back-end.
-        const chunkEvents = await Promise.all(
-          chunks.map((c) => fetchAndDecompressChunk(c.signedUrl)),
-        );
-
-        if (cancelled) return;
-        setEvents(chunkEvents.flat());
+        setEvents(response.events);
+        setMetadata(response.metadata);
       } catch (e) {
         if (cancelled) return;
 
@@ -178,8 +181,9 @@ export default function SessionReplayDetailPage() {
       return;
     }
 
-    if (!canReplay(events)) {
-      setError("Not enough data to replay session.");
+    const blockReason = getReplayBlockReason(events);
+    if (blockReason) {
+      setError(blockReason);
       setFirstEvent(null);
       return;
     }
@@ -192,9 +196,22 @@ export default function SessionReplayDetailPage() {
     }
     playerRef.current.innerHTML = "";
 
+    // rrweb-player ignores CSS sizing on its target — we have to pass width
+    // and height as props. Default is 1024×576 plus ~80px for the controller,
+    // which overflows the viewport on most laptops and forces a scroll to
+    // reach the controls. Size to fit available viewport instead.
+    const { width: playerWidth, height: playerHeight } = computePlayerDims(
+      playerRef.current,
+    );
+
     const player = new Player({
       target: playerRef.current,
-      props: { events, showController: true },
+      props: {
+        events,
+        showController: true,
+        width: playerWidth,
+        height: playerHeight,
+      },
     });
     playerInstance.current = player;
 
