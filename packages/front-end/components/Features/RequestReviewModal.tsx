@@ -138,6 +138,15 @@ export default function RequestReviewModal({
   );
   const [experimentsStep, setExperimentsStep] = useState(false);
 
+  const selectedImmediateCount = immediateStartExperiments.filter((e) =>
+    selectedExperiments.has(e.id),
+  ).length;
+  const selectedScheduledCount = scheduledExperiments.filter((e) =>
+    selectedExperiments.has(e.id),
+  ).length;
+  const onlyScheduledSelected =
+    selectedImmediateCount === 0 && selectedScheduledCount > 0;
+
   // Aggregates per-experiment checklist state from child components.
   // Cleared when entering/leaving the experiments step to avoid stale entries
   // from previously shown/unchecked experiments.
@@ -342,7 +351,7 @@ export default function RequestReviewModal({
   const hasChanges = mergeResultHasChanges(mergeResult) || rampDiffs.length > 0;
   let ctaCopy = "Request Review";
   if (approved && !hasNextStep) {
-    ctaCopy = "Publish";
+    ctaCopy = onlyScheduledSelected ? "Schedule to Start" : "Publish";
   } else if (canReview || hasNextStep) {
     ctaCopy = "Next";
   }
@@ -469,7 +478,9 @@ export default function RequestReviewModal({
 
             {experimentsStep && approved ? (
               <div>
-                <h3>Review &amp; Publish</h3>
+                <h3>
+                  Review &amp; {onlyScheduledSelected ? "Schedule" : "Publish"}
+                </h3>
                 <p>
                   Please review the{" "}
                   <strong>
@@ -477,8 +488,9 @@ export default function RequestReviewModal({
                     {selectedExperiments.size !== 1 ? "s" : ""}
                   </strong>{" "}
                   for the experiment
-                  {selectedExperiments.size !== 1 ? "s" : ""} that will be
-                  published along with this draft.
+                  {selectedExperiments.size !== 1 ? "s" : ""} that will be{" "}
+                  {onlyScheduledSelected ? "scheduled to start" : "published"}{" "}
+                  along with this draft.
                 </p>
                 {experiments.map((experiment) => {
                   if (!selectedExperiments.has(experiment.id)) return null;

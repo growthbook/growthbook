@@ -162,6 +162,15 @@ export default function DraftModal({
   );
   const [experimentsStep, setExperimentsStep] = useState(false);
 
+  const selectedImmediateCount = immediateStartExperiments.filter((e) =>
+    selectedExperiments.has(e.id),
+  ).length;
+  const selectedScheduledCount = scheduledExperiments.filter((e) =>
+    selectedExperiments.has(e.id),
+  ).length;
+  const onlyScheduledSelected =
+    selectedImmediateCount === 0 && selectedScheduledCount > 0;
+
   const currentRevisionData = featureToFeatureRevisionDiffInput(feature);
   const resultDiffs = useFeatureRevisionDiff({
     current: currentRevisionData,
@@ -380,6 +389,8 @@ export default function DraftModal({
           <>
             Next <FaAngleRight />
           </>
+        ) : onlyScheduledSelected ? (
+          "Schedule to Start"
         ) : (
           "Publish"
         )
@@ -429,7 +440,7 @@ export default function DraftModal({
         (experimentsStep ? (
           <Box>
             <Heading as="h3" size="medium" mb="3">
-              Review &amp; Publish
+              Review &amp; {onlyScheduledSelected ? "Schedule" : "Publish"}
             </Heading>
             <Text as="p" mb="3">
               Please review the{" "}
@@ -438,8 +449,9 @@ export default function DraftModal({
                 {selectedExperiments.size !== 1 ? "s" : ""}
               </strong>{" "}
               for the experiment
-              {selectedExperiments.size !== 1 ? "s" : ""} that will be published
-              along with this draft.
+              {selectedExperiments.size !== 1 ? "s" : ""} that will be{" "}
+              {onlyScheduledSelected ? "scheduled to start" : "published"} along
+              with this draft.
             </Text>
             {experiments.map((experiment) => {
               if (!selectedExperiments.has(experiment.id)) return null;
