@@ -83,11 +83,11 @@ export default function ApprovalFlowSettings() {
         </Box>
       </Flex>
 
-      <Flex align="start" direction="column" gap="5" mt="7">
-        <Box mb="6" width="100%">
+      <Flex align="start" direction="column" gap="4" mt="7">
+        <Box width="100%">
           <Frame p="3" mb="0">
             <Heading as="h4" size="small" weight="semibold" mb="4">
-              Drafts and Approvals
+              Features
             </Heading>
 
             <Text as="p" size="medium" mb="4" color="text-low">
@@ -289,11 +289,16 @@ export default function ApprovalFlowSettings() {
           </Frame>
         </Box>
 
-        <Box mb="6" width="100%">
+        <Box width="100%">
           <Frame p="3" mb="0">
             <Heading as="h4" size="small" weight="semibold" mb="4">
               Saved Groups
             </Heading>
+
+            <Text as="p" size="medium" mb="4" color="text-low">
+              All changes to saved groups are tracked as revisions. Requiring
+              approvals adds a review step before any change goes live.
+            </Text>
 
             <Checkbox
               id="toggle-require-approvals-saved-groups"
