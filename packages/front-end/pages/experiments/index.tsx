@@ -44,12 +44,16 @@ const isExperimentListTab = (value: string): value is ExperimentListTab => {
 
 // Temp rollouts are a flavor of stopped — they keep their primary `tab: "stopped"`
 // classification (so they still show in the Stopped tab) and surface here as a
-// dedicated cleanup-oriented view.
+// dedicated cleanup-oriented view. Mirrors the guards in
+// `includeExperimentInPayload` (shared/util) so archived experiments — which
+// are never served in feature payloads — don't appear here either.
 const hasTempRollout = (item: {
   status?: string;
   excludeFromPayload?: boolean;
   releasedVariationId?: string;
+  archived?: boolean;
 }) =>
+  !item.archived &&
   item.status === "stopped" &&
   !item.excludeFromPayload &&
   !!item.releasedVariationId;
