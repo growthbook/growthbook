@@ -466,7 +466,12 @@ export function growthbookErrorTrackingPlugin({
       );
     };
 
-    if (!browser || (!captureUnhandled && !captureUnhandledRejections)) {
+    if (
+      !enable ||
+      !browser ||
+      (!captureUnhandled && !captureUnhandledRejections) ||
+      gb instanceof GrowthBookClient
+    ) {
       return;
     }
 

@@ -2,12 +2,17 @@ import {
   buildErrorEventProperties,
   fingerprintForError,
   growthbookComposedError,
+  growthbookErrorTrackingPlugin,
   normalizeErrorMessageForFingerprint,
   normalizeFilenameForFingerprint,
 } from "../../src/plugins/growthbook-error-tracking";
-import { EVENT_GROWTHBOOK_ERROR } from "../../src/core";
+import { EVENT_GROWTHBOOK_ERROR, GrowthBook, GrowthBookClient } from "../../src";
 
 describe("growthbookErrorTracking helpers", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it("uses stable fingerprint for same message and stack", () => {
     const err = new Error("boom");
     err.stack = "Error: boom\n  at foo (file.js:1:2)";
@@ -148,5 +153,78 @@ describe("growthbookErrorTracking helpers", () => {
 
   it("EVENT_GROWTHBOOK_ERROR matches warehouse filter string", () => {
     expect(EVENT_GROWTHBOOK_ERROR).toEqual("GrowthBook Error");
+  });
+
+  it("does not register unhandled listeners when disabled", () => {
+    const addSpy = jest.spyOn(window, "addEventListener");
+
+    growthbookErrorTrackingPlugin({ enable: false })(
+      new GrowthBook({ clientKey: "test" }),
+    );
+
+    expect(addSpy).not.toHaveBeenCalledWith("error", expect.any(Function));
+    expect(addSpy).not.toHaveBeenCalledWith(
+      "unhandledrejection",
+      expect.any(Function),
+    );
+  });
+
+  it("does not register unhandled listeners on the root multi-user client", () => {
+    const addSpy = jest.spyOn(window, "addEventListener");
+
+    const client = new GrowthBookClient({
+      clientKey: "test",
+      plugins: [growthbookErrorTrackingPlugin()],
+    });
+
+    expect(addSpy).not.toHaveBeenCalledWith("error", expect.any(Function));
+    expect(addSpy).not.toHaveBeenCalledWith(
+      "unhandledrejection",
+      expect.any(Function),
+    );
+    client.destroy();
+  });
+
+  it("captures scoped unhandled errors until the scoped instance is destroyed", async () => {
+    const eventLogger = jest.fn();
+    const client = new GrowthBookClient({
+      clientKey: "test",
+      eventLogger,
+    });
+    const scoped = client.createScopedInstance(
+      { attributes: { id: "123" } },
+      [growthbookErrorTrackingPlugin()],
+    );
+
+    window.dispatchEvent(
+      new ErrorEvent("error", {
+        error: new Error("first"),
+        message: "first",
+      }),
+    );
+    await Promise.resolve();
+
+    expect(eventLogger).toHaveBeenCalledTimes(1);
+    expect(eventLogger).toHaveBeenCalledWith(
+      EVENT_GROWTHBOOK_ERROR,
+      expect.objectContaining({
+        errorType: "uncaught",
+        handled: false,
+        message: "first",
+      }),
+      expect.any(Object),
+    );
+
+    scoped.destroy();
+    window.dispatchEvent(
+      new ErrorEvent("error", {
+        error: new Error("second"),
+        message: "second",
+      }),
+    );
+    await Promise.resolve();
+
+    expect(eventLogger).toHaveBeenCalledTimes(1);
+    client.destroy();
   });
 });
