@@ -1482,8 +1482,19 @@ export async function createSnapshotFromPlan({
   }
   const integration = getSourceIntegrationObject(context, datasource, true);
 
+  // Both incremental runner kinds need exclusive access to the per-experiment
+  // pipeline tables: "incremental" mutates them (DROP/CREATE/RENAME on the
+  // units + metric-source tables), and "incremental-exploratory" reads them.
+  // Locking both prevents concurrent triggers (e.g. scheduled auto-refresh +
+  // manual Update) from racing on those tables and producing empty or
+  // malformed results. The "results" runner writes only to per-snapshot
+  // ephemeral tables, so it does not need this lock.
+  const needsIncrementalRefreshLock =
+    plan.runnerKind === "incremental" ||
+    plan.runnerKind === "incremental-exploratory";
+
   let hasIncrementalRefreshLock = false;
-  if (plan.runnerKind === "incremental") {
+  if (needsIncrementalRefreshLock) {
     hasIncrementalRefreshLock =
       await context.models.incrementalRefresh.acquireLock(
         experiment.id,
@@ -2331,7 +2342,7 @@ export async function toExperimentApiInterface(
     dateUpdated: experiment.dateUpdated.toISOString(),
     archived: !!experiment.archived,
     status: experiment.status,
-    autoRefresh: !!experiment.autoSnapshots,
+    autoRefresh: !!experiment.autoSnapshots && !experiment.disableAutoSnapshots,
     hashAttribute: experiment.hashAttribute || "id",
     fallbackAttribute: experiment.fallbackAttribute,
     hashVersion: experiment.hashVersion || 2,
@@ -3580,7 +3591,12 @@ export function postExperimentApiPayloadToInterface(
     ...(payload.minBucketVersion !== undefined
       ? { minBucketVersion: payload.minBucketVersion }
       : {}),
-    autoSnapshots: payload.autoRefresh ?? true,
+    // autoSnapshots is system-managed (createExperiment derives it from the
+    // org update schedule). An explicit autoRefresh:false from the API maps to
+    // the user-only disableAutoSnapshots override so the system never
+    // overwrites it.
+    autoSnapshots: true,
+    ...(payload.autoRefresh === false ? { disableAutoSnapshots: true } : {}),
     project: payload.project,
     owner: payload.owner || "",
     trackingKey: payload.trackingKey || "",
@@ -3942,7 +3958,15 @@ export function updateExperimentApiPayloadToInterface(
       ? { precomputedUnitDimensionIds }
       : {}),
     ...(customFields !== undefined ? { customFields } : {}),
-    ...(autoRefresh !== undefined ? { autoSnapshots: !!autoRefresh } : {}),
+    ...(autoRefresh !== undefined
+      ? {
+          disableAutoSnapshots: !autoRefresh,
+          // An explicit user opt-in must also clear the system-managed flag,
+          // otherwise PUT autoRefresh:true can't recover from a cron failure
+          // or an org schedule of "never" (both set autoSnapshots:false).
+          ...(autoRefresh ? { autoSnapshots: true } : {}),
+        }
+      : {}),
     ...(banditScheduleValue !== undefined ? { banditScheduleValue } : {}),
     ...(banditScheduleUnit !== undefined ? { banditScheduleUnit } : {}),
     ...(banditBurnInValue !== undefined ? { banditBurnInValue } : {}),

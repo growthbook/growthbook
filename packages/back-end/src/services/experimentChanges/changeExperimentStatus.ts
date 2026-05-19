@@ -7,6 +7,10 @@ import {
   ExperimentResultsType,
 } from "shared/types/experiment";
 import {
+  ChecklistStatus,
+  ExperimentStartChecklistStatus,
+} from "shared/validators";
+import {
   getAffectedEnvsForExperiment,
   experimentHasLiveLinkedChanges,
 } from "shared/util";
@@ -29,14 +33,75 @@ import {
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
 
-type ChecklistStatus = "complete" | "incomplete";
-
 export type StartChecklistItemStatus = {
   key: string;
   required: boolean;
   status: ChecklistStatus;
+  manual: boolean;
   reason: string;
 };
+
+export type ExperimentStartChecklistResult = {
+  experiment: ExperimentInterface;
+  checklistItems: StartChecklistItemStatus[];
+  status: ExperimentStartChecklistStatus;
+};
+
+export async function completeExperimentStartChecklistItems({
+  context,
+  experiment,
+  keys,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  keys: string[];
+}): Promise<ExperimentInterface> {
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
+  if (experiment.type === "holdout") {
+    throw new Error("Holdouts are not supported through this endpoint");
+  }
+
+  const configuredChecklist =
+    (experiment.project &&
+      (await getExperimentLaunchChecklist(
+        context.org.id,
+        experiment.project,
+      ))) ||
+    (await getExperimentLaunchChecklist(context.org.id, ""));
+
+  const manualTaskKeys = new Set(
+    (configuredChecklist?.tasks || [])
+      .filter((task) => task.completionType === "manual")
+      .map((task) => task.task),
+  );
+
+  const invalidKeys = keys.filter((key) => !manualTaskKeys.has(key));
+  if (invalidKeys.length > 0) {
+    throw new Error(
+      `invalid_checklist_keys: ${invalidKeys.join(", ")} are not manual checklist items`,
+    );
+  }
+
+  const existing = new Map(
+    (experiment.manualLaunchChecklist || []).map((item) => [
+      item.key,
+      item.status,
+    ]),
+  );
+  keys.forEach((key) => existing.set(key, "complete"));
+
+  const manualLaunchChecklist = Array.from(existing.entries()).map(
+    ([key, status]) => ({ key, status }),
+  );
+
+  return await updateExperiment({
+    context,
+    experiment,
+    changes: { manualLaunchChecklist },
+  });
+}
 
 export type StopExperimentInput = {
   experimentId: string;
@@ -123,6 +188,7 @@ export async function getExperimentStartChecklistStatus(
       (!isBandit && getHasLinkedChanges(experiment, linkedFeatures))
         ? "complete"
         : "incomplete",
+    manual: false,
     reason: isBandit
       ? "Add at least one live linked change before starting a bandit."
       : "Add at least one linked feature, visual changeset, or URL redirect before starting.",
@@ -133,6 +199,7 @@ export async function getExperimentStartChecklistStatus(
       key: "banditGoalMetric",
       required: true,
       status: experiment.goalMetrics?.[0] ? "complete" : "incomplete",
+      manual: false,
       reason: "Bandits require a goal metric before starting.",
     });
   }
@@ -141,6 +208,7 @@ export async function getExperimentStartChecklistStatus(
     key: "targeting",
     required: true,
     status: experiment.phases.length > 0 ? "complete" : "incomplete",
+    manual: false,
     reason: "Configure at least one phase with assignment/targeting settings.",
   });
 
@@ -148,6 +216,7 @@ export async function getExperimentStartChecklistStatus(
     key: "sdkConnection",
     required: true,
     status: sdkConnections.length > 0 ? "complete" : "incomplete",
+    manual: false,
     reason: "Add an SDK connection before starting.",
   });
 
@@ -173,6 +242,7 @@ export async function getExperimentStartChecklistStatus(
           )
             ? "complete"
             : "incomplete",
+          manual: false,
           reason: `Required custom launch checklist item is incomplete: ${task.task}`,
         });
       } else if (task.completionType === "manual") {
@@ -182,6 +252,7 @@ export async function getExperimentStartChecklistStatus(
           status: isCustomTaskComplete(experiment, task.task)
             ? "complete"
             : "incomplete",
+          manual: true,
           reason: `Required custom launch checklist item is incomplete: ${task.task}`,
         });
       }
@@ -230,6 +301,28 @@ async function loadAndValidateExperimentForStatusChange(
   return experiment;
 }
 
+export async function getExperimentStartChecklist({
+  context,
+  experiment,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+}): Promise<ExperimentStartChecklistResult> {
+  const checklistItems = await getExperimentStartChecklistStatus(
+    context,
+    experiment,
+  );
+  const hasIncompleteRequiredItems = checklistItems.some(
+    (item) => item.required && item.status === "incomplete",
+  );
+
+  return {
+    experiment,
+    checklistItems,
+    status: hasIncompleteRequiredItems ? "notReady" : "ready",
+  };
+}
+
 export async function startExperiment({
   context,
   experimentId,
@@ -239,25 +332,24 @@ export async function startExperiment({
   experimentId: string;
   skipChecklist?: boolean;
 }) {
-  const experiment = await loadAndValidateExperimentForStatusChange(
+  const loadedExperiment = await loadAndValidateExperimentForStatusChange(
     context,
     experimentId,
   );
+  const { checklistItems, status } = await getExperimentStartChecklist({
+    context,
+    experiment: loadedExperiment,
+  });
 
+  const experiment = loadedExperiment;
   if (experiment.status !== "draft") {
     throw new Error("invalid_status: Experiment must be in draft status");
   }
 
-  const checklistItems = await getExperimentStartChecklistStatus(
-    context,
-    experiment,
-  );
-  const incompleteRequiredItems = checklistItems.filter(
-    (item) => item.required && item.status === "incomplete",
-  );
-  if (incompleteRequiredItems.length > 0 && !skipChecklist) {
+  if (status === "notReady" && !skipChecklist) {
     throw new Error(
-      `checklist_incomplete: ${incompleteRequiredItems
+      `checklist_incomplete: ${checklistItems
+        .filter((i) => i.required && i.status === "incomplete")
         .map((i) => i.key)
         .join(", ")}`,
     );

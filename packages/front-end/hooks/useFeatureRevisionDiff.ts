@@ -18,6 +18,7 @@ import {
 } from "@/components/Features/FeatureDiffRenders";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import { useEnvironments } from "@/services/features";
+import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 
 // Helper
 // Normalize nullable metadata fields to canonical empty values so that
@@ -143,6 +144,7 @@ export function useFeatureRevisionDiff({
   draft: FeatureRevisionDiffInput;
 }): FeatureRevisionDiff[] {
   const orgEnvs = useEnvironments();
+  const { holdoutsMap } = useHoldouts();
   return useMemo(() => {
     const diffs: FeatureRevisionDiff[] = [];
 
@@ -328,15 +330,19 @@ export function useFeatureRevisionDiff({
         b: JSON.stringify(normalizeFeatureRules(draftRulesArr), null, 2),
         customRender: renderFeatureRules(currentRulesArr, draftRulesArr, {
           pendingRampActions: draftRampActions,
-          preHasHoldout: !!current.holdout,
-          postHasHoldout: !!draft.holdout,
+          // Match Rule.tsx numbering: the holdout occupies slot #1 only when
+          // it's actually enabled in some env; a feature can carry a holdout
+          // reference whose holdout is disabled everywhere, in which case the
+          // rules list shows Rule #1, #2, … with no holdout row.
+          preHasHoldout: holdoutOccupiesRuleSlot(current.holdout, holdoutsMap),
+          postHasHoldout: holdoutOccupiesRuleSlot(draft.holdout, holdoutsMap),
         }),
         badges: featureRuleChangeBadges(currentRulesArr, draftRulesArr),
       });
     }
 
     return diffs;
-  }, [current, draft, orgEnvs]);
+  }, [current, draft, orgEnvs, holdoutsMap]);
 }
 
 /**

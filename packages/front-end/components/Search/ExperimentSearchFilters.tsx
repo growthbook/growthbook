@@ -15,6 +15,7 @@ const ExperimentSearchFilters: FC<
   BaseSearchFiltersProps & {
     experiments: ExperimentInterfaceStringDates[];
     allowDrafts?: boolean;
+    showStatusFilter?: boolean;
   }
 > = ({
   searchInputProps,
@@ -22,6 +23,7 @@ const ExperimentSearchFilters: FC<
   experiments,
   setSearchValue,
   allowDrafts = true,
+  showStatusFilter = true,
 }) => {
   const {
     dropdownFilterOpen,
@@ -137,7 +139,7 @@ const ExperimentSearchFilters: FC<
 
   return (
     <Flex gap="5" align="center">
-      {!project && (
+      {!project && projects.length > 0 && (
         <FilterDropdown
           filter="project"
           heading="Project"
@@ -200,32 +202,34 @@ const ExperimentSearchFilters: FC<
         ]}
         updateQuery={updateQuery}
       />
-      <FilterDropdown
-        filter="status"
-        heading="Status"
-        syntaxFilters={syntaxFilters}
-        open={dropdownFilterOpen}
-        setOpen={setDropdownFilterOpen}
-        items={[
-          {
-            searchValue: "draft",
-            id: "draft",
-            name: "Draft",
-            disabled: !allowDrafts,
-          },
-          {
-            searchValue: "running",
-            id: "running",
-            name: "Running",
-          },
-          {
-            searchValue: "stopped",
-            id: "stopped",
-            name: "Stopped",
-          },
-        ]}
-        updateQuery={updateQuery}
-      />
+      {showStatusFilter && (
+        <FilterDropdown
+          filter="status"
+          heading="Status"
+          syntaxFilters={syntaxFilters}
+          open={dropdownFilterOpen}
+          setOpen={setDropdownFilterOpen}
+          items={[
+            {
+              searchValue: "draft",
+              id: "draft",
+              name: "Draft",
+              disabled: !allowDrafts,
+            },
+            {
+              searchValue: "running",
+              id: "running",
+              name: "Running",
+            },
+            {
+              searchValue: "stopped",
+              id: "stopped",
+              name: "Stopped",
+            },
+          ]}
+          updateQuery={updateQuery}
+        />
+      )}
       <FilterDropdown
         filter="tag"
         heading="Tag"
