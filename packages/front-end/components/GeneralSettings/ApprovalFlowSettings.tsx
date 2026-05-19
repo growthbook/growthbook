@@ -12,7 +12,6 @@ import Frame from "@/ui/Frame";
 import Checkbox from "@/ui/Checkbox";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Link from "@/ui/Link";
-import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 
 export default function ApprovalFlowSettings() {
   const form = useFormContext<OrganizationSettingsWithMetricDefaults>();
@@ -21,8 +20,6 @@ export default function ApprovalFlowSettings() {
   const { projects } = useDefinitions();
 
   const hasRequireApprovals = hasCommercialFeature("require-approvals");
-  const savedGroupApprovalRequired =
-    hasRequireApprovals && !!form.watch("approvalFlows.savedGroups.0.required");
 
   const rawRequireReviews = form.watch("requireReviews");
   const featureRequireReviews = Array.isArray(rawRequireReviews)
@@ -300,90 +297,83 @@ export default function ApprovalFlowSettings() {
               approvals adds a review step before any change goes live.
             </Text>
 
-            <Checkbox
-              id="toggle-require-approvals-saved-groups"
-              label={
-                <>
-                  Require approval to modify Saved Groups
-                  <PaidFeatureBadge
-                    commercialFeature="require-approvals"
-                    useTip={false}
-                    ml="2"
-                  />
-                </>
-              }
-              description="When enabled, all changes to Saved Groups must be reviewed and approved by another person before going live."
-              value={savedGroupApprovalRequired}
-              setValue={(v) => {
-                if (!hasRequireApprovals) return;
-                form.setValue("approvalFlows.savedGroups.0.required", v);
-              }}
-              disabled={!hasRequireApprovals}
-            />
-            {savedGroupApprovalRequired && (
-              <Flex direction="column" gap="3" mt="2" ml="5">
-                <Box mt="2">
-                  <Text as="label" size="medium" weight="semibold" mb="2">
-                    Require approval for
-                  </Text>
-                  <Flex direction="column" gap="2" align="start">
+            {hasRequireApprovals && (
+              <>
+                <Checkbox
+                  id="toggle-require-approvals-saved-groups"
+                  label="Require approval to modify Saved Groups"
+                  description="When enabled, all changes to Saved Groups must be reviewed and approved by another person before going live."
+                  value={!!form.watch("approvalFlows.savedGroups.0.required")}
+                  setValue={(v) =>
+                    form.setValue("approvalFlows.savedGroups.0.required", v)
+                  }
+                />
+                {!!form.watch("approvalFlows.savedGroups.0.required") && (
+                  <Flex direction="column" gap="3" mt="2" ml="5">
+                    <Box mt="2">
+                      <Text as="label" size="medium" weight="semibold" mb="2">
+                        Require approval for
+                      </Text>
+                      <Flex direction="column" gap="2" align="start">
+                        <Checkbox
+                          id="toggle-saved-group-values-conditions"
+                          label="Values and conditions"
+                          value={true}
+                          disabled={true}
+                          setValue={() => undefined}
+                        />
+                        <Checkbox
+                          id="toggle-saved-group-metadata-review"
+                          label="Metadata changes (description, owner, project, tags, etc.)"
+                          value={
+                            form.watch(
+                              `approvalFlows.savedGroups.0.requireMetadataReview`,
+                            ) !== false
+                          }
+                          setValue={(v) =>
+                            form.setValue(
+                              `approvalFlows.savedGroups.0.requireMetadataReview`,
+                              v,
+                            )
+                          }
+                        />
+                      </Flex>
+                    </Box>
                     <Checkbox
-                      id="toggle-saved-group-values-conditions"
-                      label="Values and conditions"
-                      value={true}
-                      disabled={true}
-                      setValue={() => undefined}
-                    />
-                    <Checkbox
-                      id="toggle-saved-group-metadata-review"
-                      label="Metadata changes (description, owner, project, tags, etc.)"
+                      id="toggle-saved-group-reset-review-on-change"
+                      label="Reset review on changes"
+                      description="If a draft is modified after being approved, the approval is revoked and a new review is required before publishing."
                       value={
-                        form.watch(
-                          `approvalFlows.savedGroups.0.requireMetadataReview`,
-                        ) !== false
+                        !!form.watch(
+                          `approvalFlows.savedGroups.0.resetReviewOnChange`,
+                        )
                       }
                       setValue={(v) =>
                         form.setValue(
-                          `approvalFlows.savedGroups.0.requireMetadataReview`,
+                          `approvalFlows.savedGroups.0.resetReviewOnChange`,
+                          v,
+                        )
+                      }
+                    />
+                    <Checkbox
+                      id="toggle-saved-group-block-self-approval"
+                      label="Require approval from a non-editor"
+                      description="Anyone who edited the draft is blocked from approving it. A separate reviewer must approve before publishing."
+                      value={
+                        !!form.watch(
+                          `approvalFlows.savedGroups.0.blockSelfApproval`,
+                        )
+                      }
+                      setValue={(v) =>
+                        form.setValue(
+                          `approvalFlows.savedGroups.0.blockSelfApproval`,
                           v,
                         )
                       }
                     />
                   </Flex>
-                </Box>
-                <Checkbox
-                  id="toggle-saved-group-reset-review-on-change"
-                  label="Reset review on changes"
-                  description="If a draft is modified after being approved, the approval is revoked and a new review is required before publishing."
-                  value={
-                    !!form.watch(
-                      `approvalFlows.savedGroups.0.resetReviewOnChange`,
-                    )
-                  }
-                  setValue={(v) =>
-                    form.setValue(
-                      `approvalFlows.savedGroups.0.resetReviewOnChange`,
-                      v,
-                    )
-                  }
-                />
-                <Checkbox
-                  id="toggle-saved-group-block-self-approval"
-                  label="Require approval from a non-editor"
-                  description="Anyone who edited the draft is blocked from approving it. A separate reviewer must approve before publishing."
-                  value={
-                    !!form.watch(
-                      `approvalFlows.savedGroups.0.blockSelfApproval`,
-                    )
-                  }
-                  setValue={(v) =>
-                    form.setValue(
-                      `approvalFlows.savedGroups.0.blockSelfApproval`,
-                      v,
-                    )
-                  }
-                />
-              </Flex>
+                )}
+              </>
             )}
           </Frame>
         </Box>
