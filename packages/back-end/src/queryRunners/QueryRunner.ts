@@ -131,6 +131,7 @@ export abstract class QueryRunner<
   } = {};
   private useCache: boolean;
   private pendingTimers: Record<string, NodeJS.Timeout> = {};
+  private lockHeartbeatTimer: null | NodeJS.Timeout = null;
   private finishedQueryMapCache: QueryMap = new Map();
 
   public constructor(
@@ -188,10 +189,23 @@ export abstract class QueryRunner<
     return this.pendingTimers[id] !== undefined;
   }
 
-  // Called from the per-query heartbeat interval (~every 30s while any query
-  // is executing). Subclasses that hold an external lock can override this to
-  // refresh it; the default is a no-op.
+  // Called periodically while the runner is active. Override to refresh an
+  // external lock; default is a no-op.
   protected onHeartbeat(): void {}
+
+  private startLockHeartbeat(): void {
+    if (this.lockHeartbeatTimer) return;
+    this.lockHeartbeatTimer = setInterval(() => {
+      this.onHeartbeat();
+    }, 30000);
+  }
+
+  private stopLockHeartbeat(): void {
+    if (this.lockHeartbeatTimer) {
+      clearInterval(this.lockHeartbeatTimer);
+      this.lockHeartbeatTimer = null;
+    }
+  }
 
   async onQueryFinish() {
     if (!this.timer) {
@@ -351,7 +365,12 @@ export abstract class QueryRunner<
     this.error = error;
     this.result = result;
 
+    if (this.status === "running") {
+      this.startLockHeartbeat();
+    }
+
     if (this.status === "finished") {
+      this.stopLockHeartbeat();
       this.emitter.emit(FINISH_EVENT);
     }
   }
@@ -711,7 +730,6 @@ export abstract class QueryRunner<
       updateQuery(this.context, doc, { heartbeat: new Date() }).catch((e) => {
         logger.error(e);
       });
-      this.onHeartbeat();
     }, 30000);
 
     // Run the query in the background
