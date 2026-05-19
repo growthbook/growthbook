@@ -809,12 +809,12 @@ export default function ExperimentHeader({
                   <Button
                     variant="ghost"
                     onClick={() => {
-                      setShowScheduleModal(true);
+                      if (editSchedule) setShowScheduleModal(true);
                     }}
                   >
                     Starts{" "}
                     {format(nextScheduledStartDate, "MMM d, yyyy 'at' h:mm a")}{" "}
-                    <PiPencilSimpleFill className="ml-1" />
+                    {editSchedule && <PiPencilSimpleFill className="ml-1" />}
                   </Button>
                 ) : experiment.status === "draft" ? (
                   <Tooltip
