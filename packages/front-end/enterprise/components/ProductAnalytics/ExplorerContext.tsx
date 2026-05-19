@@ -30,10 +30,12 @@ import {
   compareConfig,
   createEmptyDataset,
   createEmptyValue,
+  ExplorerDraftConfig,
   fillMissingUnits,
   generateUniqueValueName,
   getCommonColumns,
   isSubmittableConfig,
+  stripExplorerDraftFields,
   validateDimensions,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -57,13 +59,13 @@ function customPrimaryBoundsKey(
 }
 
 type SetDraftStateAction =
-  | ExplorationConfig
-  | ((prevState: ExplorationConfig) => ExplorationConfig);
+  | ExplorerDraftConfig
+  | ((prevState: ExplorerDraftConfig) => ExplorerDraftConfig);
 
 export interface ExplorerContextValue {
   // ─── State ─────────────────────────────────────────────────────────────
-  draftExploreState: ExplorationConfig;
-  submittedExploreState: ExplorationConfig | null;
+  draftExploreState: ExplorerDraftConfig;
+  submittedExploreState: ExplorerDraftConfig | null;
   exploration: ProductAnalyticsExploration | null;
   query: QueryInterface | null;
   loading: boolean;
@@ -90,7 +92,7 @@ export interface ExplorerContextValue {
   setDraftExploreState: (action: SetDraftStateAction) => void;
   handleSubmit: (options?: {
     force?: boolean;
-    config?: ExplorationConfig;
+    config?: ExplorerDraftConfig;
     setDraft?: boolean;
   }) => Promise<void>;
   addValueToDataset: (datasetType: DatasetType) => void;
@@ -122,7 +124,7 @@ export function useDefaultDataSourceId(): string | undefined {
 
 interface ExplorerProviderProps {
   children: ReactNode;
-  initialConfig: ExplorationConfig;
+  initialConfig: ExplorerDraftConfig;
   hasExistingResults?: boolean;
   onRunComplete?: (exploration: ProductAnalyticsExploration) => void;
   trackingSource?: string;
@@ -149,8 +151,8 @@ export function ExplorerProvider({
   );
 
   const [explorerState, setExplorerState] = useState<{
-    draftState: ExplorationConfig;
-    submittedState: ExplorationConfig | null;
+    draftState: ExplorerDraftConfig;
+    submittedState: ExplorerDraftConfig | null;
     exploration: ProductAnalyticsExploration | null;
     error: string | null;
     query: QueryInterface | null;
@@ -198,7 +200,7 @@ export function ExplorerProvider({
   const skipNextAutoSubmitRef = useRef(false);
   const submitRequestIdRef = useRef(0);
 
-  const draftExploreState: ExplorationConfig = explorerState.draftState;
+  const draftExploreState: ExplorerDraftConfig = explorerState.draftState;
 
   const compareEnabled = draftExploreState.previousTimeFrame != null;
 
@@ -275,7 +277,7 @@ export function ExplorerProvider({
       : false;
   }, [datasources, draftExploreState.datasource]);
 
-  const setSubmittedExploreState = useCallback((state: ExplorationConfig) => {
+  const setSubmittedExploreState = useCallback((state: ExplorerDraftConfig) => {
     setExplorerState((prev) => ({
       ...prev,
       submittedState: state,
@@ -336,7 +338,7 @@ export function ExplorerProvider({
       } else {
         setDraftExploreState((prev) => {
           const { previousTimeFrame: _, ...rest } = prev;
-          return rest as ExplorationConfig;
+          return rest;
         });
         setComparisonExploration(null);
         setComparisonQuery(null);
@@ -376,7 +378,7 @@ export function ExplorerProvider({
   }, [cleanedDraftExploreState]);
 
   const doSubmit = useCallback(
-    async (options?: { cache?: CacheOption; config?: ExplorationConfig }) => {
+    async (options?: { cache?: CacheOption; config?: ExplorerDraftConfig }) => {
       const sourceConfig = options?.config ?? draftExploreState;
       const configToSubmit = cleanConfigForSubmission(sourceConfig);
       const previousForRequest = sourceConfig.previousTimeFrame ?? null;
@@ -437,7 +439,7 @@ export function ExplorerProvider({
         setComparisonComputed(null);
       }
 
-      const submittedConfig: ExplorationConfig = previousForRequest
+      const submittedConfig: ExplorerDraftConfig = previousForRequest
         ? { ...configToSubmit, previousTimeFrame: previousForRequest }
         : configToSubmit;
 
@@ -503,7 +505,7 @@ export function ExplorerProvider({
   const handleSubmit = useCallback(
     async (submitOptions?: {
       force?: boolean;
-      config?: ExplorationConfig;
+      config?: ExplorerDraftConfig;
       setDraft?: boolean;
     }) => {
       if (submitOptions?.setDraft && submitOptions.config) {
@@ -531,7 +533,7 @@ export function ExplorerProvider({
     if (needsFetch) {
       doSubmit();
     } else if (needsUpdate && !needsFetch) {
-      const submittedConfig: ExplorationConfig =
+      const submittedConfig: ExplorerDraftConfig =
         draftExploreState.previousTimeFrame
           ? {
               ...cleanedDraftExploreState,
@@ -722,17 +724,15 @@ export function ExplorerProvider({
 
       setExplorerState((prev) => {
         const type = prev.draftState.dataset.type;
-        const { previousTimeFrame: _, ...initialWithoutPrevious } =
-          initialConfig;
         return {
           draftState: {
-            ...initialWithoutPrevious,
+            ...stripExplorerDraftFields(initialConfig),
             datasource: datasourceId,
             dataset: {
               ...createEmptyDataset(type),
               values: [createDefaultValue(type)],
             },
-          } as ExplorationConfig,
+          } as ExplorerDraftConfig,
           submittedState: null,
           exploration: null,
           error: null,

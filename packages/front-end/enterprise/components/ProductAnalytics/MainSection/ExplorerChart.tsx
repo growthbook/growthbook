@@ -41,9 +41,9 @@ import {
   getComparisonPeriodLabels,
   sortProductAnalyticsTooltipAxisItems,
   supportsAlwaysOnComparisonOverlay,
-} from "@/enterprise/components/ProductAnalytics/compareUtil";
+  buildExplorerChartTooltipFormatter,
+} from "@/enterprise/components/ProductAnalytics/comparison-chart";
 import ComparisonTrendLabel from "@/enterprise/components/ProductAnalytics/ComparisonTrendLabel";
-import { buildExplorerChartTooltipFormatter } from "@/enterprise/components/ProductAnalytics/MainSection/explorerChartTooltipFormatter";
 
 const CHART_ID = "explorer-chart";
 

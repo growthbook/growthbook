@@ -25,7 +25,9 @@ import {
   createEmptyValue,
   decodeExplorationConfig,
   explorationConfigParser,
+  ExplorerDraftConfig,
   previousTimeFrameQueryParser,
+  stripExplorerDraftFields,
 } from "./util";
 
 const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
@@ -137,7 +139,7 @@ function ExplorerUrlSync({
       hasUserModified.current = true;
       return;
     }
-    setUrlConfig(draftExploreState);
+    setUrlConfig(stripExplorerDraftFields(draftExploreState));
   }, [draftExploreState, setUrlConfig]);
 
   return null;
@@ -200,10 +202,10 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     type,
     datasource: defaultDataSourceId,
     dataset: { ...defaultDataset, values: [createEmptyValue(type)] },
-  } as ExplorationConfig;
+  } as ExplorerDraftConfig;
 
   const baseConfig = urlConfig && !configError ? urlConfig : defaultDraftState;
-  const initialConfig: ExplorationConfig = {
+  const initialConfig: ExplorerDraftConfig = {
     ...baseConfig,
     ...(urlPreviousTimeFrame
       ? { previousTimeFrame: urlPreviousTimeFrame }
