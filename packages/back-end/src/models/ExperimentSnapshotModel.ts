@@ -86,6 +86,8 @@ const experimentSnapshotSchema = new mongoose.Schema({
   multipleExposures: Number,
   hasCorrectedStats: Boolean,
   status: String,
+  derivedFromSnapshot: String,
+  derivedFromSnapshotDate: Date,
   settings: {},
   analyses: {},
   hasChunkedAnalyses: Boolean,
@@ -232,6 +234,22 @@ experimentSnapshotSchema.index({
   experiment: 1,
   dateCreated: -1,
 });
+
+// At most one derived eager-unit-dimension snapshot per
+// (experiment, phase, dimension). Enforces the dedupe so two concurrent
+// parent refreshes cannot both insert a derived doc for the same dim.
+experimentSnapshotSchema.index(
+  {
+    organization: 1,
+    experiment: 1,
+    phase: 1,
+    dimension: 1,
+  },
+  {
+    unique: true,
+    partialFilterExpression: { triggeredBy: "eager-unit-dimension" },
+  },
+);
 
 export type ExperimentSnapshotDocument = mongoose.Document &
   LegacyExperimentSnapshotInterface;
@@ -403,11 +421,17 @@ export async function updateSnapshot({
   context,
   id,
   updates,
+  requireDerivedFromSnapshot,
 }: {
   context: Context;
   id: string;
   updates: Partial<ExperimentSnapshotInterface>;
-}) {
+  // Compare-and-swap guard for derived eager-unit-dimension snapshots: only
+  // apply the update (and fire the time-series hook) if the doc is still
+  // derived from this exact parent snapshot. If a newer parent refresh has
+  // since superseded it, abort silently — no results write, no time-series.
+  requireDerivedFromSnapshot?: string;
+}): Promise<ExperimentSnapshotInterface | null> {
   const organization = context.org.id;
 
   const existingSnapshotModel = await ExperimentSnapshotModel.findOne({
@@ -419,6 +443,13 @@ export async function updateSnapshot({
   }
 
   const existingInterface = toInterface(existingSnapshotModel);
+
+  if (
+    requireDerivedFromSnapshot !== undefined &&
+    existingInterface.derivedFromSnapshot !== requireDerivedFromSnapshot
+  ) {
+    return null;
+  }
   const updatesForDb: Partial<ExperimentSnapshotInterface> = { ...updates };
   let deleteExistingChunksAfterUpdate = false;
   let chunkResult: Awaited<ReturnType<typeof chunkAndStripAnalyses>> = null;
@@ -654,6 +685,8 @@ export async function updateSnapshot({
       await updateDashboardWithSnapshot(dashboard);
     }
   }
+
+  return experimentSnapshot;
 }
 
 export type AddOrUpdateSnapshotAnalysisParams = {
@@ -900,43 +933,65 @@ export async function findSnapshotsByIds(
   return populateSnapshotAnalyses(context, snapshots);
 }
 
-export async function findInFlightEagerUnitDimensionSnapshots(
+/**
+ * Atomically claims (creates or re-claims) the single derived
+ * eager-unit-dimension snapshot for (experiment, phase, dimension).
+ *
+ * The partial unique index guarantees at most one such doc. The monotonic
+ * guard (`derivedFromSnapshotDate`) ensures only the newest parent refresh
+ * wins the claim: an older overlapping refresh fails the filter, the upsert
+ * then collides with the unique index, and we return `null` so the caller
+ * aborts (no torn write, no double time-series).
+ *
+ * Returns the claimed snapshot, or `null` if a newer parent already owns it.
+ */
+export async function claimEagerUnitDimensionSnapshot(
   context: Context,
   {
-    experimentId,
-    phase,
-    dimensionIds,
+    data,
+    parentSnapshotId,
+    parentSnapshotDate,
   }: {
-    experimentId: string;
-    phase: number;
-    dimensionIds: string[];
+    data: ExperimentSnapshotInterface;
+    parentSnapshotId: string;
+    parentSnapshotDate: Date;
   },
-): Promise<Set<string>> {
-  if (dimensionIds.length === 0) return new Set();
-  // Bound the scan; older "running" snapshots should not still be running.
-  const earliestDate = new Date();
-  earliestDate.setDate(earliestDate.getDate() - 1);
-  const docs = await ExperimentSnapshotModel.find(
-    {
-      organization: context.org.id,
-      experiment: experimentId,
-      phase,
-      dimension: { $in: dimensionIds },
-      status: "running",
-      triggeredBy: "eager-unit-dimension",
-      dateCreated: { $gt: earliestDate },
-    },
-    { dimension: 1 },
-  );
-  return new Set(
-    docs.map((d) =>
-      d
-        .get("dimension")
-        .filter(
-          (d: unknown): d is string => typeof d === "string" && d.length > 0,
-        ),
-    ),
-  );
+): Promise<ExperimentSnapshotInterface | null> {
+  const organization = context.org.id;
+  const filter = {
+    organization,
+    experiment: data.experiment,
+    phase: data.phase,
+    dimension: data.dimension,
+    triggeredBy: "eager-unit-dimension",
+    $or: [
+      { derivedFromSnapshotDate: { $exists: false } },
+      { derivedFromSnapshotDate: { $lte: parentSnapshotDate } },
+    ],
+  };
+
+  const { id: _id, dateCreated: _dateCreated, ...claimFields } = data;
+
+  try {
+    const doc = await ExperimentSnapshotModel.findOneAndUpdate(
+      filter,
+      {
+        $set: {
+          ...claimFields,
+          derivedFromSnapshot: parentSnapshotId,
+          derivedFromSnapshotDate: parentSnapshotDate,
+        },
+        $setOnInsert: { id: data.id, dateCreated: new Date() },
+      },
+      { upsert: true, new: true },
+    );
+    return doc ? toInterface(doc) : null;
+  } catch (e) {
+    // Duplicate key: a concurrent newer parent already holds the claim and
+    // the monotonic filter excluded our (older) match. Treat as superseded.
+    if (e?.code === 11000) return null;
+    throw e;
+  }
 }
 
 export async function findRunningSnapshotsByQueryId(ids: string[]) {

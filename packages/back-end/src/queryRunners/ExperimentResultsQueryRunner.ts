@@ -84,6 +84,16 @@ export const TRAFFIC_QUERY_NAME = "traffic";
 
 export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
 
+export {
+  UNIT_DIM_QUERY_PREFIX,
+  getUnitDimQueryName,
+  parseUnitDimQueryName,
+} from "./unitDimensionQueryNaming";
+import {
+  getUnitDimQueryName,
+  parseUnitDimQueryName,
+} from "./unitDimensionQueryNaming";
+
 export const startExperimentResultQueries = async (
   context: ApiReqContext,
   params: ExperimentResultsQueryParams,
@@ -134,6 +144,20 @@ export const startExperimentResultQueries = async (
   ).filter((d): d is Dimension => d !== null);
 
   const queries: Queries = [];
+
+  // Configured "always-computed" unit dimensions. These are materialized as
+  // extra dim_unit_<id> columns on the shared units table and get isolated
+  // per-dimension metric queries; they are NOT added to the parent metric
+  // queries' GROUP BY (which stays experiment-dims-only).
+  const precomputedUnitDimensionIds =
+    snapshotSettings.precomputedUnitDimensionIds ?? [];
+  const unitDimensions: Dimension[] = (
+    await Promise.all(
+      precomputedUnitDimensionIds.map((id) =>
+        parseDimension(id, undefined, org.id),
+      ),
+    )
+  ).filter((d): d is Dimension => d !== null);
 
   // Settings for units table
   const useUnitsTable =
@@ -192,7 +216,13 @@ export const startExperimentResultQueries = async (
     }
     unitQuery = await startQuery({
       name: queryParentId,
-      query: integration.getExperimentUnitsTableQuery(unitQueryParams),
+      // The shared units table carries both the parent's experiment-dim
+      // columns and one dim_unit_<id> column per configured unit dimension so
+      // the isolated per-dim metric queries can read it.
+      query: integration.getExperimentUnitsTableQuery({
+        ...unitQueryParams,
+        dimensions: [...unitQueryParams.dimensions, ...unitDimensions],
+      }),
       dependencies: [],
       run: (query, setExternalId, queryMetadata) =>
         integration.runExperimentUnitsQuery(
@@ -296,7 +326,91 @@ export const startExperimentResultQueries = async (
     );
   }
 
-  // test if precomputed dimensions fails
+  // Per-unit-dimension metric queries. They read the SAME shared units table
+  // (one already-materialized dim_unit_<id> column each) and are grouped by a
+  // single unit dimension. They are namespaced so the parent's own analysis
+  // ignores them; a post-success hook derives one exploratory snapshot per dim
+  // from these already-executed results (zero extra warehouse queries).
+  if (unitQuery && unitDimensions.length > 0) {
+    for (const unitDim of unitDimensions) {
+      if (unitDim.type !== "user") continue;
+      const dimensionId = unitDim.dimension.id;
+
+      for (const m of legacyMetricSingles) {
+        const denominatorMetrics: MetricInterface[] = [];
+        if (m.denominator) {
+          denominatorMetrics.push(
+            ...expandDenominatorMetrics(
+              m.denominator,
+              metricMap as Map<string, MetricInterface>,
+            )
+              .map((dm) => metricMap.get(dm) as MetricInterface)
+              .filter(Boolean),
+          );
+        }
+
+        const queryParams: ExperimentMetricQueryParams = {
+          activationMetric,
+          denominatorMetrics,
+          dimensions: [unitDim],
+          metric: m,
+          segment: segmentObj,
+          settings: snapshotSettings,
+          unitsSource: "exposureTable",
+          unitsTableFullName: unitsTableFullName,
+          factTableMap: params.factTableMap,
+        };
+        queries.push(
+          await startQuery({
+            name: getUnitDimQueryName(dimensionId, m.id),
+            query: integration.getExperimentMetricQuery(queryParams),
+            dependencies: [unitQuery.query],
+            run: (query, setExternalId, queryMetadata) =>
+              integration.runExperimentMetricQuery(
+                query,
+                setExternalId,
+                queryMetadata,
+              ),
+            queryType: "experimentMetric",
+          }),
+        );
+      }
+
+      for (const [i, m] of factMetricGroups.entries()) {
+        if (
+          !integration.getExperimentFactMetricsQuery ||
+          !integration.runExperimentFactMetricsQuery
+        ) {
+          throw new Error("Integration does not support multi-metric queries");
+        }
+        const queryParams: ExperimentFactMetricsQueryParams = {
+          activationMetric,
+          dimensions: [unitDim],
+          metrics: m,
+          segment: segmentObj,
+          settings: snapshotSettings,
+          unitsSource: "exposureTable",
+          unitsTableFullName: unitsTableFullName,
+          factTableMap: params.factTableMap,
+        };
+        queries.push(
+          await startQuery({
+            name: getUnitDimQueryName(dimensionId, `group_${i}`),
+            query: integration.getExperimentFactMetricsQuery(queryParams),
+            dependencies: [unitQuery.query],
+            run: (query, setExternalId, queryMetadata) =>
+              (integration as SqlIntegration).runExperimentFactMetricsQuery(
+                query,
+                setExternalId,
+                queryMetadata,
+              ),
+            queryType: "experimentMultiMetric",
+          }),
+        );
+      }
+    }
+  }
+
   let trafficQuery: QueryPointer | null = null;
   if (runTrafficQuery) {
     // the basic traffic query should only use experiment dimensions with specified slices
@@ -393,9 +507,20 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
+    // Per-unit-dimension queries live on this snapshot's `queries` but must
+    // not feed the parent's own analysis (they are consumed by derived
+    // per-dim snapshots). Excluding them keeps parent results byte-for-byte
+    // identical to a snapshot with no configured unit dimensions.
+    const parentQueryMap: QueryMap = new Map();
+    queryMap.forEach((query, name) => {
+      if (!parseUnitDimQueryName(name)) {
+        parentQueryMap.set(name, query);
+      }
+    });
+
     const { results: analysesResults, banditResult } =
       await analyzeExperimentResults({
-        queryData: queryMap,
+        queryData: parentQueryMap,
         snapshotSettings: this.model.settings,
         analysisSettings: this.model.analyses.map((a) => a.settings),
         variationNames: this.variationNames,

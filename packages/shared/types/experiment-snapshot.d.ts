@@ -191,6 +191,14 @@ export interface SnapshotBanditSettings {
 // Also used to determine when to show "out-of-date" in the UI
 export interface ExperimentSnapshotSettings {
   dimensions: DimensionForSnapshot[];
+  /**
+   * Configured "always-computed" unit dimensions eligible for this snapshot.
+   * NOT folded into `dimensions` (that would cross-product them into every
+   * parent metric query). The runner materializes one `dim_unit_<id>` column
+   * per id in the shared units table and runs isolated per-dim metric queries;
+   * a post-success hook derives one exploratory snapshot per id.
+   */
+  precomputedUnitDimensionIds?: string[];
   metricSettings: MetricForSnapshot[];
   goalMetrics: string[];
   secondaryMetrics: string[];
@@ -234,6 +242,14 @@ export interface ExperimentSnapshotInterface {
   type?: SnapshotType;
   triggeredBy?: SnapshotTriggeredBy;
   report?: string;
+
+  // For derived eager-unit-dimension snapshots: the parent standard snapshot
+  // these per-dim results were derived from. Used by the compare-and-swap
+  // dedupe so overlapping parent refreshes can't produce torn writes or
+  // double time-series. `derivedFromSnapshotDate` is the parent's
+  // dateCreated, used for monotonic (newest-parent-wins) progression.
+  derivedFromSnapshot?: string;
+  derivedFromSnapshotDate?: Date;
 
   // List of queries that were run as part of this snapshot
   queries: Queries;

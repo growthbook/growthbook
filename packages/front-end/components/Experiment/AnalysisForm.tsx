@@ -297,10 +297,20 @@ const AnalysisForm: FC<{
       value: d.id,
     }),
   );
+  const pipelineSettings = datasource?.settings.pipelineSettings;
+  const datasourceHasWritableEphemeralPipeline =
+    !!datasource?.properties?.supportsWritingTables &&
+    !!pipelineSettings?.allowWriting &&
+    pipelineSettings?.mode === "ephemeral" &&
+    !!pipelineSettings?.writeDataset &&
+    hasCommercialFeature("pipeline-mode");
   const hasEligiblePrecomputedUnitDimensions =
-    precomputedUnitDimensionOptions.length > 0;
+    precomputedUnitDimensionOptions.length > 0 &&
+    datasourceHasWritableEphemeralPipeline;
   const precomputedUnitDimensionDisabledReason =
-    "No eligible unit dimensions are available for the selected datasource and assignment table identifier type.";
+    !datasourceHasWritableEphemeralPipeline
+      ? "Always-computed unit dimensions require a datasource with ephemeral Pipeline Mode enabled."
+      : "No eligible unit dimensions are available for the selected datasource and assignment table identifier type.";
   const hasAdvancedSettings = !isBandit && !isHoldout;
 
   const removeInvalidPrecomputedUnitDimensionIds = ({

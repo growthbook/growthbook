@@ -904,7 +904,7 @@ async function _getSnapshot({
     phase = String(experimentObj.phases.length - 1);
   }
 
-  return await getLatestSnapshot({
+  const snapshot = await getLatestSnapshot({
     context,
     experiment: experimentObj.id,
     phase: parseInt(phase),
@@ -912,6 +912,24 @@ async function _getSnapshot({
     withResults,
     type,
   });
+
+  // Read-time staleness filter: never serve a derived eager-unit-dimension
+  // snapshot for a dimension the experiment no longer has configured (e.g. a
+  // removed dim, or one re-added on a newer phase). The stale doc is kept
+  // (cheap, self-healing, audit-preserving) — just not served. The phase is
+  // already part of the lookup key, so older-phase docs can't match here.
+  if (
+    snapshot &&
+    snapshot.triggeredBy === "eager-unit-dimension" &&
+    snapshot.dimension &&
+    !(experimentObj.precomputedUnitDimensionIds ?? []).includes(
+      snapshot.dimension,
+    )
+  ) {
+    return null;
+  }
+
+  return snapshot;
 }
 
 export async function getSnapshotWithDimension(
@@ -1223,6 +1241,17 @@ export async function postExperiments(
 
   try {
     validateVariationIds(obj.variations);
+
+    if (data.precomputedUnitDimensionIds !== undefined) {
+      await assertExperimentPrecomputedUnitDimensionIdsAreValid({
+        context,
+        datasource,
+        exposureQueryId:
+          data.exposureQueryId ||
+          datasource?.settings.queries?.exposure?.[0]?.id,
+        dimensionIds: data.precomputedUnitDimensionIds,
+      });
+    }
 
     // Make sure tracking key is unique
     if (

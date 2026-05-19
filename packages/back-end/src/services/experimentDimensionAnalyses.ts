@@ -1,9 +1,17 @@
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { isPrecomputedDimension } from "shared/experiments";
+import uniqid from "uniqid";
+import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotInterface,
+} from "shared/types/experiment-snapshot";
+import {
+  expandAllSliceMetricsInMap,
+  getLatestPhaseVariations,
+  isPrecomputedDimension,
+} from "shared/experiments";
+import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import { ExperimentInterface } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
-import { createExperimentSnapshot } from "back-end/src/services/experiments";
 import {
   getExperimentTimeSeriesContext,
   updateExperimentAnalysisTimeSeries,
@@ -12,9 +20,15 @@ import {
   getTimeSeriesBaseAnalysis,
   getOrCreatePrecomputedDimensionTimeSeriesAnalyses,
 } from "back-end/src/services/experimentDimensionTimeSeries";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { findInFlightEagerUnitDimensionSnapshots } from "back-end/src/models/ExperimentSnapshotModel";
-import { getEligiblePrecomputedUnitDimensionIds } from "back-end/src/services/dimensions";
+import {
+  claimEagerUnitDimensionSnapshot,
+  updateSnapshot,
+} from "back-end/src/models/ExperimentSnapshotModel";
+import { getMetricMap } from "back-end/src/models/MetricModel";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { getQueryMap } from "back-end/src/queryRunners/QueryRunner";
+import { parseUnitDimQueryName } from "back-end/src/queryRunners/unitDimensionQueryNaming";
+import { analyzeExperimentResults } from "back-end/src/services/stats";
 
 /**
  * After a successful standard snapshot, runs gbstats analyses for every
@@ -100,6 +114,32 @@ export async function runEagerExperimentDimensionAnalyses({
   }
 }
 
+const DERIVE_MAX_ATTEMPTS = 3;
+
+// Terminal status of a derived per-dim snapshot, derived deterministically
+// from its source (parent) per-dim query pointers. Never left implicitly
+// "running": a still-running source query (shouldn't happen, since the parent
+// only reaches success once every query is terminal) is treated as "error" so
+// the next parent refresh self-heals rather than stranding a spinner.
+export function getDerivedSnapshotStatusFromQueries(
+  queries: ExperimentSnapshotInterface["queries"],
+): "ready" | "error" {
+  const total = queries.length;
+  const failed = queries.filter((q) => q.status === "failed").length;
+  const running = queries.filter(
+    (q) => q.status === "running" || q.status === "queued",
+  ).length;
+  if (running > 0) return "error";
+  if (failed >= total / 2) return "error";
+  return "ready";
+}
+
+/**
+ * After a successful standard snapshot, derive one exploratory snapshot per
+ * configured unit dimension from the per-dim metric queries the parent runner
+ * already executed against the shared units table. This runs gbstats only —
+ * zero new warehouse queries.
+ */
 export async function runEagerUnitDimensionAnalyses({
   context,
   experiment,
@@ -109,7 +149,7 @@ export async function runEagerUnitDimensionAnalyses({
   experiment: ExperimentInterface;
   experimentSnapshot: ExperimentSnapshotInterface;
 }) {
-  // Don't run eager dimension from a dimensioned snapshot
+  // Don't derive from a dimensioned or already-derived snapshot
   if (
     experimentSnapshot.dimension !== null &&
     experimentSnapshot.dimension !== ""
@@ -120,52 +160,186 @@ export async function runEagerUnitDimensionAnalyses({
   if (experimentSnapshot.triggeredBy === "eager-unit-dimension") return;
   if (experiment.type === "multi-armed-bandit") return;
 
-  const requestedDimensionIds = experiment.precomputedUnitDimensionIds ?? [];
-  if (requestedDimensionIds.length === 0) return;
+  if (
+    (experimentSnapshot.settings.precomputedUnitDimensionIds ?? []).length === 0
+  )
+    return;
 
   try {
-    const datasource = await getDataSourceById(context, experiment.datasource);
-    if (!datasource) {
-      logger.warn(
-        {
-          experimentId: experiment.id,
-          datasourceId: experiment.datasource,
-        },
-        "Eager unit-dim fan-out skipped: datasource not found",
-      );
-      return;
+    // Group the parent's per-dim query pointers by dimension. This (not the
+    // settings list) is the source of truth for what was actually computed.
+    const pointersByDimension = new Map<
+      string,
+      ExperimentSnapshotInterface["queries"]
+    >();
+    for (const pointer of experimentSnapshot.queries) {
+      const parsed = parseUnitDimQueryName(pointer.name);
+      if (!parsed) continue;
+      const list = pointersByDimension.get(parsed.dimensionId) ?? [];
+      // Rewrite the namespaced name back to the bare metricId / group_N so
+      // analyzeExperimentResults resolves it for the derived snapshot.
+      list.push({ ...pointer, name: parsed.baseQueryName });
+      pointersByDimension.set(parsed.dimensionId, list);
     }
 
-    const eligibleDimensionIds = await getEligiblePrecomputedUnitDimensionIds({
-      context,
+    if (pointersByDimension.size === 0) return;
+
+    const metricGroups = await context.models.metricGroups.getAll();
+    const metricMap = await getMetricMap(context);
+    const factTableMap = await getFactTableMap(context);
+    expandAllSliceMetricsInMap({
+      metricMap,
+      factTableMap,
       experiment,
-      datasource,
-      dimensionIds: requestedDimensionIds,
+      metricGroups,
     });
-
-    if (eligibleDimensionIds.length === 0) return;
-
-    const inFlight = await findInFlightEagerUnitDimensionSnapshots(context, {
-      experimentId: experiment.id,
-      phase: experimentSnapshot.phase,
-      dimensionIds: eligibleDimensionIds,
-    });
-
-    const dimensionIdsToRun = eligibleDimensionIds.filter(
-      (dimensionId) => !inFlight.has(dimensionId),
+    const variationNames = getLatestPhaseVariations(experiment).map(
+      (v) => v.name,
     );
 
-    for (const dimensionId of dimensionIdsToRun) {
+    // Write a terminal state to the claimed derived snapshot, guarded by the
+    // CAS so a superseding parent refresh aborts this write silently.
+    const finalizeDerived = (
+      claimed: ExperimentSnapshotInterface,
+      result:
+        | { status: "success"; analyses: ExperimentSnapshotAnalysis[] }
+        | { status: "error"; error: string },
+    ) =>
+      updateSnapshot({
+        context,
+        id: claimed.id,
+        requireDerivedFromSnapshot: experimentSnapshot.id,
+        updates:
+          result.status === "success"
+            ? { status: "success", error: "", analyses: result.analyses }
+            : {
+                status: "error",
+                error: result.error,
+                analyses: claimed.analyses.map((a) => ({
+                  ...a,
+                  status: "error",
+                  error: result.error,
+                })),
+              },
+      });
+
+    for (const [dimensionId, queries] of pointersByDimension.entries()) {
       try {
-        await createExperimentSnapshot({
-          context,
-          experiment,
-          datasource,
-          dimension: dimensionId,
+        const derivedStatus = getDerivedSnapshotStatusFromQueries(queries);
+
+        const analyses: ExperimentSnapshotAnalysis[] =
+          experimentSnapshot.analyses.map((a) => ({
+            analysisKey: buildAnalysisKey(),
+            dateCreated: new Date(),
+            results: [],
+            settings: a.settings,
+            status: "running",
+          }));
+
+        const derivedDoc: ExperimentSnapshotInterface = {
+          id: uniqid("snp_"),
+          organization: experimentSnapshot.organization,
+          experiment: experimentSnapshot.experiment,
           phase: experimentSnapshot.phase,
-          useCache: true,
+          dimension: dimensionId,
+          runStarted: experimentSnapshot.runStarted,
+          dateCreated: new Date(),
+          status: "running",
+          error: "",
+          settings: {
+            ...experimentSnapshot.settings,
+            dimensions: [{ id: dimensionId }],
+            precomputedUnitDimensionIds: [],
+          },
+          type: "exploratory",
           triggeredBy: "eager-unit-dimension",
+          queries,
+          analyses,
+          unknownVariations: [],
+          multipleExposures: 0,
+        };
+
+        // Atomic claim: newest parent wins; older overlapping refresh gets
+        // null and bows out (no torn write, no double time-series).
+        const claimed = await claimEagerUnitDimensionSnapshot(context, {
+          data: derivedDoc,
+          parentSnapshotId: experimentSnapshot.id,
+          parentSnapshotDate: experimentSnapshot.dateCreated,
         });
+        if (!claimed) continue;
+
+        if (derivedStatus === "error") {
+          await finalizeDerived(claimed, {
+            status: "error",
+            error: "One or more per-dimension queries failed",
+          });
+          continue;
+        }
+
+        // Query results are immutable once the parent snapshot succeeded, so
+        // load them once. Only gbstats can transiently fail, so the retry
+        // loop wraps only analyzeExperimentResults — not this DB read.
+        let queryMap: Awaited<ReturnType<typeof getQueryMap>>;
+        try {
+          queryMap = await getQueryMap(context, claimed.queries);
+        } catch (err) {
+          const error = err instanceof Error ? err.message : String(err);
+          await finalizeDerived(claimed, { status: "error", error });
+          logger.error(
+            {
+              err,
+              experimentId: experiment.id,
+              snapshotId: experimentSnapshot.id,
+              dimensionId,
+            },
+            "Eager unit-dim derive failed loading query results",
+          );
+          continue;
+        }
+
+        // Pure gbstats over already-persisted rows — cheap and retryable.
+        let lastError: unknown = null;
+        let completedAnalyses: ExperimentSnapshotAnalysis[] | null = null;
+        for (let attempt = 1; attempt <= DERIVE_MAX_ATTEMPTS; attempt++) {
+          try {
+            const { results } = await analyzeExperimentResults({
+              queryData: queryMap,
+              snapshotSettings: claimed.settings,
+              analysisSettings: claimed.analyses.map((a) => a.settings),
+              variationNames,
+              metricMap,
+            });
+            completedAnalyses = claimed.analyses.map((a, i) => ({
+              ...a,
+              results: results[i]?.dimensions ?? [],
+              status: "success" as const,
+              error: undefined,
+            }));
+            break;
+          } catch (err) {
+            lastError = err;
+          }
+        }
+
+        if (completedAnalyses) {
+          await finalizeDerived(claimed, {
+            status: "success",
+            analyses: completedAnalyses,
+          });
+        } else {
+          const error =
+            lastError instanceof Error ? lastError.message : String(lastError);
+          await finalizeDerived(claimed, { status: "error", error });
+          logger.error(
+            {
+              err: lastError,
+              experimentId: experiment.id,
+              snapshotId: experimentSnapshot.id,
+              dimensionId,
+            },
+            "Eager unit-dim derive failed after retries",
+          );
+        }
       } catch (err) {
         logger.error(
           {
@@ -174,7 +348,7 @@ export async function runEagerUnitDimensionAnalyses({
             snapshotId: experimentSnapshot.id,
             dimensionId,
           },
-          "Eager unit-dim snapshot creation failed",
+          "Eager unit-dim derive failed for dimension",
         );
       }
     }
@@ -185,7 +359,7 @@ export async function runEagerUnitDimensionAnalyses({
         experimentId: experiment.id,
         snapshotId: experimentSnapshot.id,
       },
-      "Eager unit-dim fan-out failed before per-dimension loop",
+      "Eager unit-dim derive failed before per-dimension loop",
     );
   }
 }

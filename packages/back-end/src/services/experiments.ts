@@ -177,7 +177,10 @@ import { getSignedImageUrl } from "back-end/src/services/files";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
+import {
+  getEligiblePrecomputedUnitDimensionIds,
+  getExposureQueryEligibleDimensions,
+} from "back-end/src/services/dimensions";
 import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
 import { getMetricForSnapshot } from "./reports";
 import { validateIncrementalPipeline } from "./dataPipeline";
@@ -442,6 +445,7 @@ export function getSnapshotSettings({
   reweight,
   datasource,
   useStickyBucketing,
+  eligiblePrecomputedUnitDimensionIds = [],
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
@@ -459,6 +463,7 @@ export function getSnapshotSettings({
   reweight?: boolean;
   datasource?: DataSourceInterface;
   useStickyBucketing?: boolean;
+  eligiblePrecomputedUnitDimensionIds?: string[];
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -504,6 +509,19 @@ export function getSnapshotSettings({
         slices: d.specifiedSlices,
       })) ?? [];
   }
+
+  // Configured unit dimensions are carried on a dedicated settings field, NOT
+  // folded into `dimensions`. The runner materializes one `dim_unit_<id>`
+  // column per id in the shared units table and runs isolated per-dim metric
+  // queries; folding them into `dimensions` would instead cross-product every
+  // unit dim into every parent metric query.
+  const precomputedUnitDimensionIds =
+    snapshotType === "standard" &&
+    experiment.type !== "multi-armed-bandit" &&
+    !dimension &&
+    eligiblePrecomputedUnitDimensionIds.length > 0
+      ? eligiblePrecomputedUnitDimensionIds
+      : [];
 
   // expand metric groups and scrub unjoinable metrics
   let goalMetrics = expandMetricGroups(
@@ -701,6 +719,7 @@ export function getSnapshotSettings({
     queryFilter: experiment.queryFilter || "",
     datasourceId: experiment.datasource || "",
     dimensions: dimensions,
+    precomputedUnitDimensionIds,
     startDate: phase.dateStarted,
     endDate: phase.dateEnded || new Date(),
     experimentId: experiment.trackingKey || experiment.id,
@@ -1347,6 +1366,18 @@ export async function planSnapshot({
     !incrementalRefreshModel ||
     !incrementalRefreshModel.unitsTableFullName;
 
+  const requestedPrecomputedUnitDimensionIds =
+    experiment.precomputedUnitDimensionIds ?? [];
+  const eligiblePrecomputedUnitDimensionIds =
+    !dimension && requestedPrecomputedUnitDimensionIds.length > 0
+      ? await getEligiblePrecomputedUnitDimensionIds({
+          context,
+          experiment,
+          datasource,
+          dimensionIds: requestedPrecomputedUnitDimensionIds,
+        })
+      : [];
+
   const snapshotSettings = getSnapshotSettings({
     experiment,
     phaseIndex,
@@ -1366,6 +1397,7 @@ export async function planSnapshot({
     useStickyBucketing:
       organization.settings?.useStickyBucketing &&
       !experiment.disableStickyBucketing,
+    eligiblePrecomputedUnitDimensionIds,
   });
 
   const data: ExperimentSnapshotInterface = {

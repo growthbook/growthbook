@@ -7,14 +7,18 @@ import { ExperimentInterface } from "shared/validators";
 import {
   runEagerExperimentDimensionAnalyses,
   runEagerUnitDimensionAnalyses,
+  getDerivedSnapshotStatusFromQueries,
 } from "back-end/src/services/experimentDimensionAnalyses";
 import { getOrCreatePrecomputedDimensionTimeSeriesAnalyses } from "back-end/src/services/experimentDimensionTimeSeries";
-import { createExperimentSnapshot } from "back-end/src/services/experiments";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { findInFlightEagerUnitDimensionSnapshots } from "back-end/src/models/ExperimentSnapshotModel";
-import { getEligiblePrecomputedUnitDimensionIds } from "back-end/src/services/dimensions";
+import {
+  claimEagerUnitDimensionSnapshot,
+  updateSnapshot,
+} from "back-end/src/models/ExperimentSnapshotModel";
+import { getQueryMap } from "back-end/src/queryRunners/QueryRunner";
+import { parseUnitDimQueryName } from "back-end/src/queryRunners/unitDimensionQueryNaming";
+import { analyzeExperimentResults } from "back-end/src/services/stats";
 import { logger } from "back-end/src/util/logger";
 
 jest.mock("shared/experiments", () => ({
@@ -43,20 +47,22 @@ jest.mock("back-end/src/services/experimentDimensionTimeSeries", () => ({
   getOrCreatePrecomputedDimensionTimeSeriesAnalyses: jest.fn(),
 }));
 
-jest.mock("back-end/src/services/experiments", () => ({
-  createExperimentSnapshot: jest.fn(),
-}));
-
-jest.mock("back-end/src/models/DataSourceModel", () => ({
-  getDataSourceById: jest.fn(),
-}));
-
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
-  findInFlightEagerUnitDimensionSnapshots: jest.fn(),
+  claimEagerUnitDimensionSnapshot: jest.fn(),
+  updateSnapshot: jest.fn(),
 }));
 
-jest.mock("back-end/src/services/dimensions", () => ({
-  getEligiblePrecomputedUnitDimensionIds: jest.fn(),
+jest.mock("back-end/src/queryRunners/QueryRunner", () => ({
+  ...jest.requireActual("back-end/src/queryRunners/QueryRunner"),
+  getQueryMap: jest.fn(),
+}));
+
+jest.mock("back-end/src/queryRunners/unitDimensionQueryNaming", () => ({
+  parseUnitDimQueryName: jest.fn(),
+}));
+
+jest.mock("back-end/src/services/stats", () => ({
+  analyzeExperimentResults: jest.fn(),
 }));
 
 jest.mock("back-end/src/util/logger", () => ({
@@ -440,6 +446,38 @@ describe("runEagerExperimentDimensionAnalyses", () => {
   });
 });
 
+describe("getDerivedSnapshotStatusFromQueries", () => {
+  const q = (status: string) => ({ name: "n", query: "q", status }) as never;
+
+  it("returns ready when all queries succeeded", () => {
+    expect(
+      getDerivedSnapshotStatusFromQueries([q("succeeded"), q("succeeded")]),
+    ).toBe("ready");
+  });
+
+  it("returns ready when a minority failed", () => {
+    expect(
+      getDerivedSnapshotStatusFromQueries([
+        q("succeeded"),
+        q("succeeded"),
+        q("failed"),
+      ]),
+    ).toBe("ready");
+  });
+
+  it("returns error when half or more failed", () => {
+    expect(
+      getDerivedSnapshotStatusFromQueries([q("succeeded"), q("failed")]),
+    ).toBe("error");
+  });
+
+  it("returns error when any query is still running (never implicitly running)", () => {
+    expect(
+      getDerivedSnapshotStatusFromQueries([q("succeeded"), q("running")]),
+    ).toBe("error");
+  });
+});
+
 describe("runEagerUnitDimensionAnalyses", () => {
   function makeUnitExperiment(
     overrides: Partial<ExperimentInterface> = {},
@@ -468,158 +506,156 @@ describe("runEagerUnitDimensionAnalyses", () => {
     } as ExperimentInterface;
   }
 
+  function makeParentSnapshot(
+    overrides: Partial<ExperimentSnapshotInterface> = {},
+  ): ExperimentSnapshotInterface {
+    return makeSnapshot({
+      settings: {
+        ...makeSnapshot().settings,
+        precomputedUnitDimensionIds: ["dim_country"],
+      },
+      queries: [
+        { name: "unitdim:dim_country:met_1", query: "q1", status: "succeeded" },
+      ] as never,
+      ...overrides,
+    });
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
-    (getDataSourceById as jest.Mock).mockResolvedValue({
-      id: "ds_1",
-      settings: { queries: { exposure: [] } },
+    (getMetricMap as jest.Mock).mockResolvedValue(new Map());
+    (getFactTableMap as jest.Mock).mockResolvedValue(new Map());
+    (parseUnitDimQueryName as jest.Mock).mockImplementation((name: string) => {
+      if (!name.startsWith("unitdim:")) return null;
+      const rest = name.slice("unitdim:".length);
+      const sep = rest.indexOf(":");
+      return {
+        dimensionId: rest.slice(0, sep),
+        baseQueryName: rest.slice(sep + 1),
+      };
     });
-    (getEligiblePrecomputedUnitDimensionIds as jest.Mock).mockResolvedValue([
-      "dim_country",
-      "dim_browser",
-    ]);
-    (findInFlightEagerUnitDimensionSnapshots as jest.Mock).mockResolvedValue(
-      new Set(),
+    (claimEagerUnitDimensionSnapshot as jest.Mock).mockImplementation(
+      async (_ctx, { data }) => data,
     );
-    (createExperimentSnapshot as jest.Mock).mockResolvedValue({
-      snapshot: { id: "snp_child" },
+    (getQueryMap as jest.Mock).mockResolvedValue(new Map());
+    (analyzeExperimentResults as jest.Mock).mockResolvedValue({
+      results: [{ dimensions: [] }],
     });
+    (updateSnapshot as jest.Mock).mockResolvedValue({});
   });
 
-  it("no-ops when precomputedUnitDimensionIds is undefined", async () => {
+  it("no-ops when settings.precomputedUnitDimensionIds is empty", async () => {
     await runEagerUnitDimensionAnalyses({
       context: makeContext() as never,
-      experiment: makeUnitExperiment({
-        precomputedUnitDimensionIds: undefined,
-      }),
+      experiment: makeUnitExperiment(),
       experimentSnapshot: makeSnapshot(),
     });
-    expect(createExperimentSnapshot).not.toHaveBeenCalled();
-    expect(getEligiblePrecomputedUnitDimensionIds).not.toHaveBeenCalled();
+    expect(claimEagerUnitDimensionSnapshot).not.toHaveBeenCalled();
   });
 
-  it("no-ops when precomputedUnitDimensionIds is empty", async () => {
-    await runEagerUnitDimensionAnalyses({
-      context: makeContext() as never,
-      experiment: makeUnitExperiment({ precomputedUnitDimensionIds: [] }),
-      experimentSnapshot: makeSnapshot(),
-    });
-    expect(createExperimentSnapshot).not.toHaveBeenCalled();
-  });
-
-  it("returns immediately for dimensioned snapshots (recursion guard #1)", async () => {
+  it("returns immediately for dimensioned snapshots (guard #1)", async () => {
     await runEagerUnitDimensionAnalyses({
       context: makeContext() as never,
       experiment: makeUnitExperiment(),
-      experimentSnapshot: makeSnapshot({ dimension: "dim_country" }),
+      experimentSnapshot: makeParentSnapshot({ dimension: "dim_country" }),
     });
-    expect(createExperimentSnapshot).not.toHaveBeenCalled();
-    expect(getDataSourceById).not.toHaveBeenCalled();
+    expect(claimEagerUnitDimensionSnapshot).not.toHaveBeenCalled();
   });
 
-  it("returns immediately for non-standard snapshots (recursion guard #2)", async () => {
+  it("returns immediately for non-standard snapshots (guard #2)", async () => {
     await runEagerUnitDimensionAnalyses({
       context: makeContext() as never,
       experiment: makeUnitExperiment(),
-      experimentSnapshot: makeSnapshot({ type: "exploratory" }),
+      experimentSnapshot: makeParentSnapshot({ type: "exploratory" }),
     });
-    expect(createExperimentSnapshot).not.toHaveBeenCalled();
+    expect(claimEagerUnitDimensionSnapshot).not.toHaveBeenCalled();
   });
 
-  it("returns immediately for snapshots already triggered by eager fan-out (recursion guard #3)", async () => {
+  it("returns immediately for already-derived snapshots (guard #3)", async () => {
     await runEagerUnitDimensionAnalyses({
       context: makeContext() as never,
       experiment: makeUnitExperiment(),
-      experimentSnapshot: makeSnapshot({
+      experimentSnapshot: makeParentSnapshot({
         triggeredBy: "eager-unit-dimension",
       }),
     });
-    expect(createExperimentSnapshot).not.toHaveBeenCalled();
+    expect(claimEagerUnitDimensionSnapshot).not.toHaveBeenCalled();
   });
 
-  it("returns immediately for bandit experiments (recursion guard #4)", async () => {
+  it("returns immediately for bandit experiments (guard #4)", async () => {
     await runEagerUnitDimensionAnalyses({
       context: makeContext() as never,
       experiment: makeUnitExperiment({ type: "multi-armed-bandit" }),
-      experimentSnapshot: makeSnapshot(),
+      experimentSnapshot: makeParentSnapshot(),
     });
-    expect(createExperimentSnapshot).not.toHaveBeenCalled();
+    expect(claimEagerUnitDimensionSnapshot).not.toHaveBeenCalled();
   });
 
-  it("spawns one child snapshot per eligible dimension with eager-unit-dimension triggeredBy", async () => {
+  it("derives one snapshot per dimension found in the parent's queries and writes success", async () => {
     await runEagerUnitDimensionAnalyses({
       context: makeContext() as never,
       experiment: makeUnitExperiment(),
-      experimentSnapshot: makeSnapshot(),
+      experimentSnapshot: makeParentSnapshot(),
     });
-    expect(createExperimentSnapshot).toHaveBeenCalledTimes(2);
-    expect(createExperimentSnapshot).toHaveBeenCalledWith(
+    expect(claimEagerUnitDimensionSnapshot).toHaveBeenCalledTimes(1);
+    expect(claimEagerUnitDimensionSnapshot).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ parentSnapshotId: "snp_1" }),
+    );
+    expect(updateSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({
-        dimension: "dim_country",
-        triggeredBy: "eager-unit-dimension",
+        requireDerivedFromSnapshot: "snp_1",
+        updates: expect.objectContaining({ status: "success" }),
       }),
     );
-    expect(createExperimentSnapshot).toHaveBeenCalledWith(
+  });
+
+  it("aborts silently when a newer parent already owns the claim", async () => {
+    (claimEagerUnitDimensionSnapshot as jest.Mock).mockResolvedValue(null);
+    await runEagerUnitDimensionAnalyses({
+      context: makeContext() as never,
+      experiment: makeUnitExperiment(),
+      experimentSnapshot: makeParentSnapshot(),
+    });
+    expect(updateSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("writes an error status when source per-dim queries failed", async () => {
+    await runEagerUnitDimensionAnalyses({
+      context: makeContext() as never,
+      experiment: makeUnitExperiment(),
+      experimentSnapshot: makeParentSnapshot({
+        queries: [
+          { name: "unitdim:dim_country:met_1", query: "q1", status: "failed" },
+        ] as never,
+      }),
+    });
+    expect(analyzeExperimentResults).not.toHaveBeenCalled();
+    expect(updateSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({
-        dimension: "dim_browser",
-        triggeredBy: "eager-unit-dimension",
+        updates: expect.objectContaining({ status: "error" }),
       }),
     );
   });
 
-  it("skips dimensions filtered out by the resolver", async () => {
-    (getEligiblePrecomputedUnitDimensionIds as jest.Mock).mockResolvedValue([
-      "dim_country",
-    ]);
-    await runEagerUnitDimensionAnalyses({
-      context: makeContext() as never,
-      experiment: makeUnitExperiment(),
-      experimentSnapshot: makeSnapshot(),
-    });
-    expect(createExperimentSnapshot).toHaveBeenCalledTimes(1);
-    expect(createExperimentSnapshot).toHaveBeenCalledWith(
-      expect.objectContaining({ dimension: "dim_country" }),
-    );
-  });
-
-  it("skips dimensions that already have an in-flight eager snapshot", async () => {
-    (findInFlightEagerUnitDimensionSnapshots as jest.Mock).mockResolvedValue(
-      new Set(["dim_country"]),
+  it("retries gbstats then writes error after exhausting attempts", async () => {
+    (analyzeExperimentResults as jest.Mock).mockRejectedValue(
+      new Error("gbstats boom"),
     );
     await runEagerUnitDimensionAnalyses({
       context: makeContext() as never,
       experiment: makeUnitExperiment(),
-      experimentSnapshot: makeSnapshot(),
+      experimentSnapshot: makeParentSnapshot(),
     });
-    expect(createExperimentSnapshot).toHaveBeenCalledTimes(1);
-    expect(createExperimentSnapshot).toHaveBeenCalledWith(
-      expect.objectContaining({ dimension: "dim_browser" }),
+    expect(analyzeExperimentResults).toHaveBeenCalledTimes(3);
+    expect(updateSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({
+        updates: expect.objectContaining({ status: "error" }),
+      }),
     );
-  });
-
-  it("logs per-dim failures and continues with later dimensions", async () => {
-    (createExperimentSnapshot as jest.Mock)
-      .mockRejectedValueOnce(new Error("first dim failed"))
-      .mockResolvedValueOnce({ snapshot: { id: "snp_browser" } });
-    await runEagerUnitDimensionAnalyses({
-      context: makeContext() as never,
-      experiment: makeUnitExperiment(),
-      experimentSnapshot: makeSnapshot(),
-    });
-    expect(createExperimentSnapshot).toHaveBeenCalledTimes(2);
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({ dimensionId: "dim_country" }),
-      "Eager unit-dim snapshot creation failed",
+      "Eager unit-dim derive failed after retries",
     );
-  });
-
-  it("bails out when the experiment datasource is missing", async () => {
-    (getDataSourceById as jest.Mock).mockResolvedValue(null);
-    await runEagerUnitDimensionAnalyses({
-      context: makeContext() as never,
-      experiment: makeUnitExperiment(),
-      experimentSnapshot: makeSnapshot(),
-    });
-    expect(createExperimentSnapshot).not.toHaveBeenCalled();
   });
 });

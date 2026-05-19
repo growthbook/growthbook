@@ -12,6 +12,8 @@ import { ReqContext } from "back-end/types/request";
 import { findDimensionsByIds } from "back-end/src/models/DimensionModel";
 import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { logger } from "back-end/src/util/logger";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 
 // Gets all Dimensions from the exposure query
 export function getExposureQueryDimensions({
@@ -210,6 +212,30 @@ export async function getEligiblePrecomputedUnitDimensionIds({
 }
 
 /**
+ * Precomputed unit dimensions are only supported on datasources with a
+ * writable ephemeral pipeline. This mirrors the `useUnitsTable` gate in
+ * `ExperimentResultsQueryRunner`: an ephemeral pipeline guarantees a shared
+ * units table the per-dimension metric queries can read.
+ */
+export function datasourceHasWritableEphemeralPipeline({
+  context,
+  datasource,
+}: {
+  context: ReqContext;
+  datasource: DataSourceInterface;
+}): boolean {
+  const integration = getSourceIntegrationObject(context, datasource);
+  const pipelineSettings = datasource.settings.pipelineSettings;
+  return (
+    !!integration.getSourceProperties().supportsWritingTables &&
+    !!pipelineSettings?.allowWriting &&
+    pipelineSettings?.mode === "ephemeral" &&
+    !!pipelineSettings?.writeDataset &&
+    orgHasPremiumFeature(context.org, "pipeline-mode")
+  );
+}
+
+/**
  * Validates the precomputed unit dimension ids are valid for the experiment.
  *
  * @throws {Error} if the precomputed unit dimension ids are not valid
@@ -225,6 +251,17 @@ export async function assertExperimentPrecomputedUnitDimensionIdsAreValid({
   exposureQueryId: string | undefined;
   dimensionIds: string[];
 }): Promise<void> {
+  // Nothing to validate when clearing the config
+  if (dimensionIds.length === 0) {
+    return;
+  }
+
+  // Bounds the per-snapshot warehouse query fan-out: each id adds one
+  // isolated metric query per metric-group on every refresh.
+  if (dimensionIds.length > 5) {
+    throw new Error("A maximum of 5 precomputed unit dimensions are allowed");
+  }
+
   const { skipped } = await resolvePrecomputedUnitDimensions({
     context,
     datasource,
@@ -235,9 +272,16 @@ export async function assertExperimentPrecomputedUnitDimensionIdsAreValid({
   const missingDatasource = skipped.find(
     (s) => s.reason === "missing-datasource",
   );
-  if (missingDatasource) {
+
+  if (missingDatasource || !datasource) {
     throw new Error(
       "precomputedUnitDimensionIds requires the experiment to have a datasource",
+    );
+  }
+
+  if (!datasourceHasWritableEphemeralPipeline({ context, datasource })) {
+    throw new Error(
+      "Precomputed unit dimensions require a datasource with ephemeral Pipeline Mode enabled",
     );
   }
 
