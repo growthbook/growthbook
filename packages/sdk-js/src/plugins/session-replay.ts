@@ -55,29 +55,23 @@ type PluginOptions = {
    */
   privacy?: SessionReplayPrivacyConfig;
   /**
-   * Periodic flush cadence (ms). Flushes also fire when the buffer
-   * reaches `flushEventCount` or `flushByteSize`, whichever happens
-   * first — this is the upper bound on how stale buffered events can
-   * be before being shipped. Stretching this longer reduces request
-   * volume and improves gzip ratios at the cost of more potential
-   * data loss on a crash/close.
+   * Periodic flush cadence (ms). A flush also fires before any event
+   * that would push the buffer past `flushByteSize`. This is the
+   * upper bound on how stale buffered events can be before being
+   * shipped. Stretching this longer reduces request volume and
+   * improves gzip ratios at the cost of more potential data loss on
+   * a crash/close.
    * Default: 60_000 (60s).
    */
   flushIntervalMs?: number;
   /**
-   * Trigger an early flush once the buffer reaches this many events.
-   * Acts as a count-based escape hatch so highly active sessions don't
-   * sit on a large unsent buffer for the full flush interval. Must be
-   * less than `maxBufferedEvents`.
-   * Default: 150.
-   */
-  flushEventCount?: number;
-  /**
-   * Trigger an early flush once the approximate serialized size of the
-   * buffer exceeds this many bytes. Computed as the running sum of
-   * `JSON.stringify(event).length` since the last flush; not exact
-   * (JS strings are UTF-16) but a close enough upper-bound estimate to
-   * keep payloads comfortably under the ingest endpoint's 10MB limit.
+   * Flush before any event whose addition would push the approximate
+   * serialized buffer size past this many bytes. Computed as the
+   * running sum of `JSON.stringify(event).length` since the last
+   * flush; not exact (JS strings are UTF-16) but a close enough
+   * upper-bound estimate to keep payloads under the ingest endpoint's
+   * 10MB limit and under fetch keepalive's 64KB body limit when
+   * gzipped (~8-15x ratio for rrweb data).
    * Default: 262_144 (256KB).
    */
   flushByteSize?: number;
@@ -151,7 +145,6 @@ export function sessionReplayPlugin({
   maxDurationMs = 30 * 60 * 1000,
   privacy,
   flushIntervalMs = 60_000,
-  flushEventCount = 150,
   flushByteSize = 256 * 1024,
   maxBufferedEvents = 500,
   compress = true,
@@ -172,6 +165,11 @@ export function sessionReplayPlugin({
   let sessionStartedAt = 0;
   let lastInteractionAt = 0;
   let logCursor = 0;
+  // Re-entrancy guard for flushBuffer. The timer, size trigger, stopRecording,
+  // pagehide, and visibilitychange handlers can all fire while a previous
+  // flush is awaiting its network response — without this, a concurrent flush
+  // would race the buffer-snapshot/clear and double-send the same events.
+  let flushInFlight = false;
   let flushInterval: ReturnType<typeof setInterval> | null = null;
   let idleCheckInterval: ReturnType<typeof setInterval> | null = null;
   // Running estimate of the buffer's serialized size in bytes, used by the
@@ -193,9 +191,7 @@ export function sessionReplayPlugin({
     try {
       const inputStream = new Response(body).body;
       if (!inputStream) return null;
-      const compressed = inputStream.pipeThrough(
-        new CompressionStream("gzip"),
-      );
+      const compressed = inputStream.pipeThrough(new CompressionStream("gzip"));
       return await new Response(compressed).blob();
     } catch {
       return null;
@@ -203,10 +199,20 @@ export function sessionReplayPlugin({
   };
 
   /**
-   * Fire-and-forget upload of one already-serialized chunk. Runs the gzip
-   * step asynchronously, but the caller (flushBuffer) has already cleared
-   * the buffer synchronously so new events can't be lost to a race between
-   * snapshot and clear.
+   * Upload one already-serialized chunk. Resolves on a 2xx response; throws
+   * on a network failure or a non-2xx status so the caller (flushBuffer) can
+   * detect the failure and revert the chunk so it gets retried on the next
+   * flush. The previous fire-and-forget pattern silently lost chunks whenever
+   * the ingestor was momentarily unavailable (dev hot reload, deploy bounce,
+   * brief 5xx) — catastrophic for chunk 0 because losing the FullSnapshot
+   * leaves a session unplayable.
+   *
+   * Uses `keepalive: true` so a pagehide-triggered flush is still delivered
+   * after the page tears down. Falls back to a non-keepalive request when
+   * the body exceeds fetch keepalive's 64KB body limit — happens only when
+   * gzip compression was unavailable or refused; with our 256KB
+   * uncompressed buffer cap and rrweb's typical 8-15x compression ratio,
+   * compressed bodies usually land around 17-32KB.
    */
   const sendChunk = async (payload: string): Promise<void> => {
     let body: BodyInit = payload;
@@ -220,18 +226,35 @@ export function sessionReplayPlugin({
         headers["Content-Encoding"] = "gzip";
       }
     }
-    // Use a regular fetch — even compressed, payloads can exceed
-    // sendBeacon/keepalive limits.
-    fetch(`${host}/ingest/session-replay`, {
+    const bodySize = body instanceof Blob ? body.size : new Blob([body]).size;
+    const useKeepalive = bodySize < 64 * 1024;
+    const response = await fetch(`${host}/ingest/session-replay`, {
       method: "POST",
       headers,
       body,
-    }).catch(() => {
-      // best-effort
+      keepalive: useKeepalive,
     });
+    if (!response.ok) {
+      // Attach status to the error so the caller can distinguish transient
+      // (5xx / network) from permanent (4xx, e.g. invalid clientKey, body
+      // too large, validation failure). Retrying a 4xx would just produce
+      // the same failure forever and burn CPU/network on a hot loop.
+      const err = new Error(
+        `session-replay ingest returned ${response.status} ${response.statusText}`,
+      ) as Error & { status?: number };
+      err.status = response.status;
+      throw err;
+    }
   };
 
-  const flushBuffer = () => {
+  const flushBuffer = async (): Promise<void> => {
+    // Re-entrancy guard — a flush awaiting its response should not be raced
+    // by a second concurrent flush triggered by the timer / size cap /
+    // pagehide / visibilitychange. The in-flight flush will continue, and
+    // events accumulated while it was awaiting will be picked up by the
+    // next trigger.
+    if (flushInFlight) return;
+
     if (!gbRef || window._gbReplayEvents?.length === 0) return;
     // First chunk must contain a full snapshot so the player can initialize
     if (chunkIndex === 0 && !window._gbReplayEvents.some((e) => e.type === 2))
@@ -239,83 +262,154 @@ export function sessionReplayPlugin({
     // Don't flush sessions with no real user interaction (filters out hot-reload noise)
     if (!hasUserInteraction) return;
 
-    const evaluatedExperiments = Array.from(
-      gbRef.getAllResults().entries(),
-    ).reduce(
-      (acc, [key, { result }]) => {
-        // `result` is a Result<T>; variationId lives at the top level, not on
-        // `result.value` (which is the variation's payload of type T). Reading
-        // `result.value.variationId` returned undefined for every entry, which
-        // JSON.stringify drops — leaving experiments as `"{}"` in the payload.
-        acc[key] = result.variationId;
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
+    flushInFlight = true;
+    // Snapshot the pieces of state we'll mutate before the await, so we can
+    // revert them on send failure. Re-buffering with these snapshots is what
+    // turns a transient ingest failure into a retry instead of permanent
+    // data loss. sessionId is captured so the revert path can no-op if the
+    // session was rotated (idle timeout, max duration) during the await —
+    // otherwise we'd re-prepend the old session's events into the new
+    // session's buffer.
+    const sessionIdBeingSent = sessionId;
+    const eventsBeingSent = [...window._gbReplayEvents];
+    const bufferedBytesBeingSent = bufferedBytes;
+    const logCursorBeingSent = logCursor;
+    const chunkIndexBeingSent = chunkIndex;
 
-    const flags: Record<string, unknown> = {};
-    gbRef.logs?.forEach?.((log) => {
-      if (log.logType === "feature") {
-        flags[log.featureKey] = log.result.value;
+    try {
+      const evaluatedExperiments = Array.from(
+        gbRef.getAllResults().entries(),
+      ).reduce(
+        (acc, [key, { result }]) => {
+          // `result` is a Result<T>; variationId lives at the top level, not on
+          // `result.value` (which is the variation's payload of type T). Reading
+          // `result.value.variationId` returned undefined for every entry, which
+          // JSON.stringify drops — leaving experiments as `"{}"` in the payload.
+          acc[key] = result.variationId;
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
+
+      const flags: Record<string, unknown> = {};
+      gbRef.logs?.forEach?.((log) => {
+        if (log.logType === "feature") {
+          flags[log.featureKey] = log.result.value;
+        }
+      });
+
+      const context = {
+        attributes: JSON.stringify(gbRef.getAttributes()),
+        experiments: JSON.stringify(evaluatedExperiments),
+        flags: JSON.stringify(flags),
+      };
+
+      const minTimestamp = eventsBeingSent.reduce(
+        (min, event) => Math.min(min, event.timestamp),
+        Number.POSITIVE_INFINITY,
+      );
+      const maxTimestamp = eventsBeingSent.reduce(
+        (max, event) => Math.max(max, event.timestamp),
+        Number.NEGATIVE_INFINITY,
+      );
+
+      const events = window
+        ._gbGetReplayEvents({
+          minTimestamp:
+            minTimestamp === Number.POSITIVE_INFINITY
+              ? sessionStartedAt
+              : minTimestamp,
+          maxTimestamp:
+            maxTimestamp === Number.NEGATIVE_INFINITY
+              ? Date.now()
+              : maxTimestamp,
+        })
+        .sort((a, b) => a.timestamp - b.timestamp);
+
+      // Pre-transmission regex scrubbing — last line of defense. Replaces
+      // credit-card / SSN / email-shaped strings (and any customer-supplied
+      // patterns) with [REDACTED] anywhere they appear in the event tree,
+      // even fields rrweb's masking doesn't know about (custom event data,
+      // tooltip text, error messages, etc.). Pass `regex: false` in the
+      // privacy config to opt out — not recommended.
+      const scrubbedEvents =
+        privacy?.regex === false
+          ? events
+          : scrubEventsPayload(events, privacy?.regex ?? {});
+
+      const payload = JSON.stringify({
+        clientKey,
+        sessionId,
+        chunkIndex: chunkIndexBeingSent,
+        sessionStartedAt,
+        events: scrubbedEvents,
+        context,
+      });
+
+      // Clear the live buffer SYNCHRONOUSLY before awaiting so emits arriving
+      // mid-flight land in a fresh buffer instead of being lost to a
+      // "clear-after-await" race. chunkIndex is NOT advanced yet — we only
+      // commit the advance once the send is acknowledged below.
+      window._gbReplayEvents.length = 0;
+      bufferedBytes = 0;
+
+      try {
+        await sendChunk(payload);
+        // Success — commit the chunk index advance, but only if the session
+        // is still the one we sent for. If it rotated mid-flight, the new
+        // session has its own chunkIndex counter starting at 0.
+        if (sessionId === sessionIdBeingSent) {
+          chunkIndex = chunkIndexBeingSent + 1;
+        }
+      } catch (e) {
+        // Distinguish transient (5xx / network / no status) from permanent
+        // (4xx) failures. Retrying a permanent failure produces an
+        // infinite hot loop — every emit triggers a flush, every flush
+        // 4xxs, the events are re-buffered, repeat — which can saturate
+        // the browser and lock unrelated UI. For 4xx we treat the chunk as
+        // unrecoverably lost: advance chunkIndex so the next chunk gets a
+        // fresh number, log loudly, and move on.
+        const status = (e as { status?: number })?.status;
+        const isTransient =
+          typeof status !== "number" ||
+          status >= 500 ||
+          status === 408 ||
+          status === 429;
+
+        if (sessionId !== sessionIdBeingSent) {
+          // Session rotated mid-flight — re-prepending into the new
+          // session's buffer would corrupt it. The failed chunk is lost
+          // regardless of error class.
+          console.warn(
+            `session-replay: chunk ${chunkIndexBeingSent} lost during session rotation`,
+            e,
+          );
+        } else if (isTransient) {
+          // Same session, transient failure — revert so the next flush
+          // retries this chunk: re-prepend events, restore bufferedBytes
+          // and logCursor (so the synthesized feature-flag / experiment
+          // events get re-emitted on retry), and DON'T advance chunkIndex.
+          window._gbReplayEvents.unshift(...eventsBeingSent);
+          bufferedBytes += bufferedBytesBeingSent;
+          logCursor = logCursorBeingSent;
+          console.warn(
+            `session-replay: chunk ${chunkIndexBeingSent} send failed, will retry on next flush`,
+            e,
+          );
+        } else {
+          // Permanent failure (4xx) — chunk is unrecoverable. Advance
+          // past it so subsequent chunks aren't blocked. Log as error so
+          // it's visible above any warn-level filtering.
+          chunkIndex = chunkIndexBeingSent + 1;
+          console.error(
+            `session-replay: chunk ${chunkIndexBeingSent} permanently rejected (HTTP ${status}); skipping`,
+            e,
+          );
+        }
       }
-    });
-
-    const context = {
-      attributes: JSON.stringify(gbRef.getAttributes()),
-      experiments: JSON.stringify(evaluatedExperiments),
-      flags: JSON.stringify(flags),
-    };
-
-    const replayEvents = [...window._gbReplayEvents];
-    const minTimestamp = replayEvents.reduce(
-      (min, event) => Math.min(min, event.timestamp),
-      Number.POSITIVE_INFINITY,
-    );
-    const maxTimestamp = replayEvents.reduce(
-      (max, event) => Math.max(max, event.timestamp),
-      Number.NEGATIVE_INFINITY,
-    );
-
-    const events = window
-      ._gbGetReplayEvents({
-        minTimestamp:
-          minTimestamp === Number.POSITIVE_INFINITY
-            ? sessionStartedAt
-            : minTimestamp,
-        maxTimestamp:
-          maxTimestamp === Number.NEGATIVE_INFINITY ? Date.now() : maxTimestamp,
-      })
-      .sort((a, b) => a.timestamp - b.timestamp);
-
-    // Pre-transmission regex scrubbing — last line of defense. Replaces
-    // credit-card / SSN / email-shaped strings (and any customer-supplied
-    // patterns) with [REDACTED] anywhere they appear in the event tree,
-    // even fields rrweb's masking doesn't know about (custom event data,
-    // tooltip text, error messages, etc.). Pass `regex: false` in the
-    // privacy config to opt out — not recommended.
-    const scrubbedEvents =
-      privacy?.regex === false
-        ? events
-        : scrubEventsPayload(events, privacy?.regex ?? {});
-
-    const payload = JSON.stringify({
-      clientKey,
-      sessionId,
-      chunkIndex,
-      sessionStartedAt,
-      events: scrubbedEvents,
-      context,
-    });
-
-    // Clear the buffer SYNCHRONOUSLY before any await, so emits arriving
-    // while gzip is in flight land in a fresh buffer instead of being lost
-    // to a "clear-after-await" race. The previous chunkIndex is already
-    // baked into `payload`, so it's safe to increment here.
-    chunkIndex++;
-    window._gbReplayEvents.length = 0;
-    bufferedBytes = 0;
-
-    void sendChunk(payload);
+    } finally {
+      flushInFlight = false;
+    }
   };
 
   const startRecording = () => {
@@ -373,32 +467,38 @@ export function sessionReplayPlugin({
           }
         }
 
+        // JSON.stringify length is a UTF-16 character count, not exact
+        // encoded bytes, but it's monotonically tied to the eventual
+        // serialized size — close enough for "would adding this event
+        // overflow the size cap" and "should we flush yet" decisions.
+        const eventBytes = JSON.stringify(scrubbedEvent).length;
+
+        // Pre-push size enforcement: if adding this event would push the
+        // buffer over the size cap, flush first so the new event lands at
+        // the head of a fresh buffer. Without this the buffer can overshoot
+        // (push to 300KB, then trigger a flush — the chunk being flushed is
+        // already too big). We only do this once an interaction has
+        // happened; pre-interaction flushes no-op inside flushBuffer anyway,
+        // and the warm-up phase can otherwise pile up enough mutation
+        // events to keep flapping.
+        if (
+          hasUserInteraction &&
+          window._gbReplayEvents.length > 0 &&
+          bufferedBytes + eventBytes > flushByteSize
+        ) {
+          void flushBuffer();
+        }
+
         // Hard cap is a backstop for the pathological case where all flushes
         // are failing (offline, ingest down) — without it the buffer would
-        // grow unboundedly. Under normal conditions the count/byte triggers
-        // below will fire well before this cap is hit. We drop NEW events
-        // rather than evict old ones so the type-2 snapshot at the head of
-        // the buffer (required for the player to initialize) is preserved.
+        // grow unboundedly. Under normal conditions the size trigger above
+        // fires well before this cap is hit. We drop NEW events rather than
+        // evict old ones so the type-2 snapshot at the head of the buffer
+        // (required for the player to initialize) is preserved.
         if (window._gbReplayEvents.length >= maxBufferedEvents) return;
 
         window._gbReplayEvents.push(scrubbedEvent);
-        // JSON.stringify length is a UTF-16 character count, not exact
-        // encoded bytes, but it's monotonically tied to the eventual
-        // serialized size — close enough for a "should we flush yet"
-        // threshold check.
-        bufferedBytes += JSON.stringify(scrubbedEvent).length;
-
-        // Pre-interaction flushes always no-op inside flushBuffer, so skip
-        // the trigger entirely to avoid wasted calls during the warm-up
-        // phase (which can pile up a lot of mutation events before the
-        // first click).
-        if (!hasUserInteraction) return;
-        if (
-          window._gbReplayEvents.length >= flushEventCount ||
-          bufferedBytes >= flushByteSize
-        ) {
-          flushBuffer();
-        }
+        bufferedBytes += eventBytes;
       },
       recordCanvas: false,
       sampling: {
@@ -457,7 +557,11 @@ export function sessionReplayPlugin({
   const stopRecording = () => {
     if (!isRecording) return;
 
-    flushBuffer();
+    // Fire-and-forget the final flush; keepalive in sendChunk lets the
+    // browser deliver it even after the recorder is torn down. Awaiting
+    // here would block the synchronous shutdown path (onDestroy,
+    // checkAndRotate).
+    void flushBuffer();
     stopFn?.();
     stopFn = undefined;
     isRecording = false;
@@ -538,7 +642,7 @@ export function sessionReplayPlugin({
 
     window.addEventListener("pagehide", flushBuffer);
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "hidden") flushBuffer();
+      if (document.visibilityState === "hidden") void flushBuffer();
     });
 
     gb.onDestroy(() => {

@@ -153,9 +153,9 @@ export class SessionReplayModel {
       eventCount: row.event_count,
       urlFirst: row.url_first,
       urlsVisited: row.urls_visited,
-      attributes: JSON.parse(row.attributes || "{}"),
-      experiments: JSON.parse(row.experiments || "[]"),
-      flags: JSON.parse(row.flags || "{}"),
+      attributes: row.attributes ?? {},
+      experiments: row.experiments ?? {},
+      flags: row.flags ?? {},
       userAgent: row.user_agent,
       state: row.state,
     };

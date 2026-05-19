@@ -46,7 +46,7 @@ export const sessionReplayValidator = baseSchema.safeExtend({
   urlFirst: z.string(),
   urlsVisited: z.array(z.string()),
   attributes: z.record(z.string(), z.string()),
-  experiments: z.array(z.tuple([z.string(), z.string()])),
+  experiments: z.record(z.string(), z.string()),
   flags: z.record(z.string(), z.string()),
   userAgent: z.string(),
   // recording → finalized → deleted. Sweeper transitions

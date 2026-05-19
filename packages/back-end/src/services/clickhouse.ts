@@ -798,9 +798,9 @@ export type SessionReplayRow = {
   error_count: number;
   url_first: string;
   urls_visited: string[];
-  attributes: string; // JSON
-  experiments: string; // JSON
-  flags: string; // JSON
+  attributes: Record<string, string>;
+  experiments: Record<string, string>;
+  flags: Record<string, string>;
   country: string;
   user_agent: string;
   device: string;
@@ -851,20 +851,9 @@ export async function listSessionReplays(
   const where =
     conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-  // Note: the per-org session-replay table is literally named
-  // `session-replay-metadata` (hyphens — typo in central-license-server's
-  // managedClickhouseProvisioning.ts `baseTableName`), so we backtick it.
-  // It uses `ingested_at` (no `created_at` column), so we alias for the
-  // existing `SessionReplayRow` shape.
-  // Note: no FINAL — the license-server provisioning creates this as a plain
-  // MergeTree (ClickHouse Cloud auto-promotes to SharedMergeTree, which
-  // doesn't accept FINAL). The OLD per-org `session_replays` table was a
-  // ReplacingMergeTree(chunk_index) where FINAL was needed to dedupe Kafka
-  // redeliveries; the new MergeTree table doesn't dedupe at all (see deeper
-  // note below).
   const { rows } = await integration.runQuery(`
     SELECT *, ingested_at AS created_at
-    FROM \`session-replay-metadata\`
+    FROM session_replay_metadata
     ${where}
     ORDER BY ingested_at DESC
     LIMIT ${limit}
@@ -897,7 +886,7 @@ export async function getSessionReplayBySessionId(
 
   const { rows } = await integration.runQuery(`
     SELECT *, ingested_at AS created_at
-    FROM \`session-replay-metadata\`
+    FROM session_replay_metadata
     WHERE session_id = '${sanitizedSessionId}'
     LIMIT 1
   `);

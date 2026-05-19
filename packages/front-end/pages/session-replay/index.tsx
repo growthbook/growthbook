@@ -32,7 +32,7 @@ type SessionReplayRow = {
   urlFirst: string;
   urlsVisited: string[];
   attributes: Record<string, string>;
-  experiments: [string, string][];
+  experiments: Record<string, string>;
   flags: Record<string, string>;
   userAgent: string;
   state: "recording" | "finalized" | "deleted";
