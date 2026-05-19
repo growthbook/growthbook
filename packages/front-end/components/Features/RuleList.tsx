@@ -331,6 +331,7 @@ export default function RuleList(props: RuleListProps) {
                 isDraft={isDraft}
                 safeRolloutsMap={safeRolloutsMap}
                 holdout={holdout}
+                revisionList={revisionList}
                 rampSchedule={rampSchedulesMap.get(rule.id ?? "")}
                 draftRevision={draftRevision}
                 isAllEnvsView={allEnvsView}
@@ -383,6 +384,7 @@ export default function RuleList(props: RuleListProps) {
               isDraft={isDraft}
               safeRolloutsMap={safeRolloutsMap}
               holdout={holdout}
+              revisionList={revisionList}
               rampSchedule={rampSchedulesMap.get(activeRule.id ?? "")}
               draftRevision={draftRevision}
               isAllEnvsView={allEnvsView}

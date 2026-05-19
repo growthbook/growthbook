@@ -1,10 +1,13 @@
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import {
+  FeatureRevisionInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/types/feature-revision";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import React, { forwardRef, ReactElement, useState } from "react";
+import React, { forwardRef, ReactElement, useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { filterEnvironmentsByFeature } from "shared/util";
+import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { RiAlertLine } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
@@ -48,10 +51,16 @@ import {
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import HelperText from "@/ui/HelperText";
 import Badge from "@/ui/Badge";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RuleEnvScopeBadges from "@/components/Features/RuleEnvScopeBadges";
 import RuleCard from "@/components/Features/RuleCard";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Callout from "@/ui/Callout";
 import SafeRolloutSummary from "@/components/Features/SafeRolloutSummary";
@@ -182,6 +191,7 @@ interface SortableProps {
   hideInactive?: boolean;
   isDraft: boolean;
   holdout: HoldoutInterface | undefined;
+  revisionList: MinimalFeatureRevisionInterface[];
   rampSchedule?: RampScheduleInterface;
   draftRevision?: FeatureRevisionInterface | null;
   // True when rendered under the all-environments view. The `environment`
@@ -257,6 +267,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       hideInactive,
       isDraft,
       holdout,
+      revisionList,
       rampSchedule,
       draftRevision,
       isAllEnvsView,
@@ -276,8 +287,17 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const [safeRolloutStatusModalOpen, setSafeRolloutStatusModalOpen] =
       useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [showDeleteRuleModal, setShowDeleteRuleModal] = useState(false);
     const [rampApproveLoading, setRampApproveLoading] = useState(false);
     const [rampApproveError, setRampApproveError] = useState("");
+    const defaultDraft = useDefaultDraft(revisionList);
+    const [deleteMode, setDeleteMode] = useState<DraftMode>(
+      defaultDraft != null ? "existing" : "new",
+    );
+    const [deleteSelectedDraft, setDeleteSelectedDraft] = useState<
+      number | null
+    >(defaultDraft);
+    const settings = useOrgSettings();
 
     const toggleRuleEnabled = async () => {
       setDropdownOpen(false);
@@ -345,6 +365,16 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const canEdit =
       permissionsUtil.canViewFeatureModal(feature.project) &&
       permissionsUtil.canManageFeatureDrafts(feature);
+
+    const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
+      const raw = settings?.requireReviews;
+      if (raw === true) return "all";
+      if (!Array.isArray(raw)) return "none";
+      const reviewSetting = getReviewSetting(raw, feature);
+      if (!reviewSetting?.requireReviewOn) return "none";
+      const envList = reviewSetting.environments ?? [];
+      return envList.length === 0 ? "all" : new Set(envList);
+    }, [settings?.requireReviews, feature]);
 
     const isInactive = isRuleInactive(rule, experimentsMap);
 
@@ -487,6 +517,55 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
     const contents = (
       <Box {...props} ref={ref}>
+        {showDeleteRuleModal && (
+          <ModalStandard
+            trackingEventModalType="delete-feature-rule"
+            header="Delete rule"
+            size="lg"
+            close={() => setShowDeleteRuleModal(false)}
+            open={true}
+            cta="Save deletion"
+            ctaColor="red"
+            submit={async () => {
+              track("Delete Feature Rule", {
+                ruleIndex: i,
+                environment,
+                type: rule.type,
+              });
+              const targetVersion =
+                deleteMode === "existing" && deleteSelectedDraft != null
+                  ? deleteSelectedDraft
+                  : feature.version;
+              const res = await apiCall<{ version: number }>(
+                `/feature/${feature.id}/${targetVersion}/rule`,
+                {
+                  method: "DELETE",
+                  body: JSON.stringify({ ruleId: rule.id }),
+                },
+              );
+              await mutate();
+              res.version && setVersion(res.version);
+            }}
+          >
+            <Box style={{ minHeight: 300 }}>
+              <DraftSelectorForChanges
+                feature={feature}
+                revisionList={revisionList}
+                mode={deleteMode}
+                setMode={setDeleteMode}
+                selectedDraft={deleteSelectedDraft}
+                setSelectedDraft={setDeleteSelectedDraft}
+                canAutoPublish={false}
+                gatedEnvSet={gatedEnvSet}
+                triggerPrefix="Rule deletion will be"
+              />
+              <Text as="p" mb="2">
+                This rule will be removed when the revision is published. The
+                live feature will not change until then.
+              </Text>
+            </Box>
+          </ModalStandard>
+        )}
         <RuleCard
           index={holdout ? globalRuleIdx + 2 : globalRuleIdx + 1}
           sideColor={info.sideColor}
@@ -981,28 +1060,16 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       color="red"
-                      confirmation={{
-                        confirmationTitle: "Delete Rule",
-                        cta: "Delete",
-                        submit: async () => {
-                          track("Delete Feature Rule", {
-                            ruleIndex: i,
-                            environment,
-                            type: rule.type,
-                          });
-                          const res = await apiCall<{ version: number }>(
-                            `/feature/${feature.id}/${version}/rule`,
-                            {
-                              method: "DELETE",
-                              body: JSON.stringify({ ruleId: rule.id }),
-                            },
-                          );
-                          await mutate();
-                          res.version && setVersion(res.version);
-                        },
+                      onClick={() => {
+                        setDeleteMode(
+                          defaultDraft != null ? "existing" : "new",
+                        );
+                        setDeleteSelectedDraft(defaultDraft);
+                        setShowDeleteRuleModal(true);
+                        setDropdownOpen(false);
                       }}
                     >
-                      Delete
+                      Delete rule
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
                 </DropdownMenu>
