@@ -24,6 +24,7 @@ export const postErrorTrackingSourceMapValidator = {
         .describe("URL of the minified bundle that produced the stack frame"),
       sourceMapJson: z
         .string()
+        .max(15_000_000)
         .describe("Source map JSON contents as a string"),
     })
     .strict(),

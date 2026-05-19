@@ -9,10 +9,13 @@ import type {
   Context,
   WidenPrimitives,
 } from "@growthbook/growthbook";
-import { GrowthBook } from "@growthbook/growthbook";
+import {
+  GrowthBook,
+  EVENT_GROWTHBOOK_ERROR,
+  buildErrorEventProperties,
+} from "@growthbook/growthbook";
 
-/** Must match {@link EVENT_GROWTHBOOK_ERROR} in `@growthbook/growthbook` / managed warehouse `errors` MV. */
-const GROWTHBOOK_MANAGED_ERROR_EVENT = "GrowthBook Error";
+const GROWTHBOOK_MANAGED_ERROR_EVENT = EVENT_GROWTHBOOK_ERROR;
 
 export type GrowthBookContextValue = {
   growthbook: GrowthBook;
@@ -175,39 +178,6 @@ export const withRunExperiment = <P extends WithRunExperimentProps>(
 };
 withRunExperiment.displayName = "WithRunExperiment";
 
-function growthBookReactErrorPayload(error: Error, info: React.ErrorInfo) {
-  const message = error.message || error.name || "Error";
-  const stack = error.stack;
-  const stackLine =
-    stack
-      ?.split("\n")
-      .map((l) => l.trim())
-      .find(Boolean) || "";
-  const raw = `${message}\n${stackLine}`;
-  let h = 2166136261;
-  for (let i = 0; i < raw.length; i++) {
-    h ^= raw.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  const fingerprint = (h >>> 0).toString(16);
-  const displayMessage =
-    message.length > 500 ? `${message.slice(0, 497)}...` : message;
-  return {
-    fingerprint,
-    title: displayMessage,
-    message: displayMessage,
-    errorType: "react",
-    stack,
-    stackFrames: [] as { filename?: string; function?: string }[],
-    handled: false,
-    contexts: {
-      react: {
-        componentStack: info.componentStack,
-      },
-    },
-  };
-}
-
 export type GrowthBookErrorBoundaryProps = {
   children: React.ReactNode;
   fallback?: React.ReactNode | ((args: { error: Error }) => React.ReactNode);
@@ -233,7 +203,15 @@ export class GrowthBookErrorBoundary extends React.Component<
     if (gb) {
       void gb.logEvent(
         GROWTHBOOK_MANAGED_ERROR_EVENT,
-        growthBookReactErrorPayload(error, info),
+        buildErrorEventProperties(error, {
+          errorType: "react",
+          handled: false,
+          contexts: {
+            react: {
+              componentStack: info.componentStack,
+            },
+          },
+        }),
       );
     }
     this.setState({ error });
