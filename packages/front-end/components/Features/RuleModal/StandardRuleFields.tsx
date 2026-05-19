@@ -78,6 +78,7 @@ export default function StandardRuleFields({
   setScheduleType,
   pendingDetach,
   envScope,
+  isLiveRule,
 }: {
   ruleType: "force" | "rollout";
   feature: FeatureInterface;
@@ -96,6 +97,7 @@ export default function StandardRuleFields({
   setScheduleType: (t: ScheduleType) => void;
   pendingDetach?: boolean;
   envScope: EnvScopeProps;
+  isLiveRule?: boolean;
 }) {
   const form = useFormContext();
   const [advancedOptionsOpen, setadvancedOptionsOpen] = useState(
@@ -301,10 +303,9 @@ export default function StandardRuleFields({
               <ScheduleInputs
                 state={rampSectionState}
                 setState={setRampSectionState}
-                ruleRampSchedule={ruleRampSchedule}
               />
             )}
-            {defaultValues.id &&
+            {isLiveRule &&
               form.watch("enabled") &&
               rampSectionState.startDate &&
               new Date(rampSectionState.startDate).getTime() > Date.now() && (
@@ -343,7 +344,7 @@ export default function StandardRuleFields({
                 environments={environments}
               />
             )}
-            {defaultValues.id &&
+            {isLiveRule &&
               form.watch("enabled") &&
               rampSectionState.startDate &&
               new Date(rampSectionState.startDate).getTime() > Date.now() && (

@@ -295,6 +295,19 @@ export default function RuleList(props: RuleListProps) {
           {items.map((rule, i) => {
             const prevId = i > 0 ? items[i - 1].id : null;
             const nextId = i < items.length - 1 ? items[i + 1].id : null;
+            // Warn when a draft rule is disabled but the live counterpart is
+            // enabled and the live feature has advanced since the draft was
+            // created — surfaces stale drafts that would re-disable a rule
+            // recently enabled by a schedule. Gated on baseVersion < live
+            // version so intentional disables in fresh drafts don't trigger it.
+            const liveEnabledDraftDisabled =
+              isDraft &&
+              !rule.enabled &&
+              (draftRevision?.baseVersion ?? Infinity) <
+                baseFeature.version &&
+              (baseFeature.rules ?? []).some(
+                (r) => r.id === rule.id && r.enabled,
+              );
             return (
               <SortableRule
                 key={rule.id || i}
@@ -316,6 +329,7 @@ export default function RuleList(props: RuleListProps) {
                 rampSchedule={rampSchedulesMap.get(rule.id ?? "")}
                 draftRevision={draftRevision}
                 isAllEnvsView={allEnvsView}
+                liveEnabledDraftDisabled={liveEnabledDraftDisabled}
                 onMoveUp={
                   canEdit && prevId
                     ? () => reorderByRuleId(rule.id, prevId)

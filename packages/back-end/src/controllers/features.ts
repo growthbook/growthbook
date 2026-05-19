@@ -38,6 +38,7 @@ import {
   SafeRolloutRule,
   ACTIVE_DRAFT_STATUSES,
   RevisionMetadata,
+  RevisionRampAction,
   RevisionRampCreateAction,
   RevisionRampDetachAction,
 } from "shared/validators";
@@ -194,7 +195,11 @@ import {
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
 import { getInitialFeatureJsonSchema } from "back-end/src/util/feature-json-schema";
-import { computeNextProcessAt } from "back-end/src/services/rampSchedule";
+import {
+  advanceUntilBlocked,
+  applyRampStartActions,
+  computeNextProcessAt,
+} from "back-end/src/services/rampSchedule";
 
 /**
  * Routes an envelope change through the revision system.
@@ -3276,14 +3281,45 @@ export async function putFeatureRule(
         const nextStartDate = rampSchedulePayload.startDate
           ? new Date(rampSchedulePayload.startDate)
           : null;
-        // Clearing startDate on a "ready" schedule would set nextProcessAt to null
-        // (computeNextProcessAt returns startDate ?? null for "ready"), stranding it.
-        // The UI gates this in `RampScheduleSection` / `ScheduleInputs`; API callers
-        // still need a guard here so a stranded schedule can't slip through.
+        // Clearing startDate on a "ready" schedule means "start now" —
+        // transition to running and apply start actions so the rule enables.
         if (nextStartDate === null && existing.status === "ready") {
-          throw new Error(
-            'Cannot clear the start date of a schedule that is waiting to start. Use the "Start now" action on the rule to run it immediately.',
-          );
+          const now = new Date();
+          const initialNextStepAt =
+            existing.steps.length > 0 ? now : null;
+          await context.models.rampSchedules.updateById(existing.id, {
+            ...updates,
+            startDate: null,
+            status: "running",
+            startedAt: now,
+            phaseStartedAt: now,
+            nextStepAt: initialNextStepAt,
+            nextProcessAt: computeNextProcessAt({
+              status: "running",
+              nextStepAt: initialNextStepAt,
+              endCondition: updates.endCondition !== undefined
+                ? (updates.endCondition as typeof existing.endCondition)
+                : existing.endCondition,
+            }),
+          });
+          const refreshed =
+            await context.models.rampSchedules.getById(existing.id);
+          if (refreshed) {
+            // For simple schedules this enables the rule. For ramps with steps
+            // it's a no-op — advanceUntilBlocked will fire step 0 (which folds
+            // enabled:true into the same revision as the step's patches).
+            await applyRampStartActions(context, refreshed);
+            await advanceUntilBlocked(context, refreshed, now);
+          }
+          // The "start now" path is a live operation on the schedule, not a
+          // draft edit — skip the rest of the update block (which would
+          // overwrite our status/startedAt updates) and return the current
+          // draft version directly so the frontend stays in sync.
+          res.status(200).json({
+            status: 200,
+            version: revision.version,
+          });
+          return;
         }
         updates.startDate = nextStartDate;
       }
@@ -3718,7 +3754,18 @@ export async function deleteFeatureRule(
       ? environmentIds
       : (rule.environments ?? []);
 
-  const changes = { rules: nextRules };
+  // Strip any pending ramp actions for the deleted rule so publish doesn't
+  // create a schedule doc that would be immediately cleaned up as orphaned.
+  // Mirrors the REST handler's behavior.
+  const changes: { rules: FeatureRule[]; rampActions?: RevisionRampAction[] } =
+    { rules: nextRules };
+  const existingRampActions = revision.rampActions ?? [];
+  const filteredRampActions = existingRampActions.filter(
+    (a) => a.ruleId !== ruleId,
+  );
+  if (filteredRampActions.length !== existingRampActions.length) {
+    changes.rampActions = filteredRampActions;
+  }
 
   const resetReview = resetReviewOnChange({
     feature,

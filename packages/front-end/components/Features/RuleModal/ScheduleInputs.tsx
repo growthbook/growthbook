@@ -4,18 +4,15 @@
 // identical to the ramp schedule path.
 
 import { Box, Flex } from "@radix-ui/themes";
-import { RampScheduleInterface } from "shared/validators";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
 import DatePicker from "@/components/DatePicker";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import type { RampSectionState } from "@/components/Features/RuleModal/RampScheduleSection";
 
 interface Props {
   state: RampSectionState;
   setState: (s: RampSectionState) => void;
-  ruleRampSchedule?: RampScheduleInterface;
 }
 
 /** Auto-generate a human-readable schedule name based on start/end dates. */
@@ -39,8 +36,6 @@ export function scheduleAutoName(state: RampSectionState): string {
 }
 
 // `tooltip` here renders inline beneath the option label (subtitle style).
-// Disabled state for the "Immediately" option is derived per-render below so
-// it can react to the live schedule status.
 const START_OPTIONS = [
   {
     value: "immediately",
@@ -52,9 +47,6 @@ const START_OPTIONS = [
     tooltip: "Rule becomes active at a specific date and time",
   },
 ];
-
-const BLOCK_IMMEDIATE_REASON =
-  'This schedule is already queued to start on its scheduled date. To run it now, click "Start now" on the rule.';
 
 const END_OPTIONS = [
   {
@@ -69,19 +61,10 @@ const END_OPTIONS = [
 ];
 
 function formatOptionLabel(
-  option: { label: string; tooltip?: string; isDisabled?: boolean },
+  option: { label: string; tooltip?: string },
   meta: { context: string },
 ) {
   if (meta.context === "value") return <>{option.label}</>;
-  // Disabled options use a hover tooltip (more discoverable than inline
-  // subtitle text once the option itself is greyed out).
-  if (option.isDisabled && option.tooltip) {
-    return (
-      <Tooltip body={option.tooltip}>
-        <span>{option.label}</span>
-      </Tooltip>
-    );
-  }
   return (
     <div>
       <div>{option.label}</div>
@@ -96,11 +79,7 @@ function formatOptionLabel(
   );
 }
 
-export default function ScheduleInputs({
-  state,
-  setState,
-  ruleRampSchedule,
-}: Props) {
+export default function ScheduleInputs({ state, setState }: Props) {
   const endTriggerValue = state.endScheduleAt ? "specific-time" : "never";
 
   function patchState(patch: Partial<RampSectionState>) {
@@ -144,11 +123,7 @@ export default function ScheduleInputs({
         </Box>
         <SelectField
           value={state.startDate ? "specific-time" : "immediately"}
-          options={START_OPTIONS.map((o) =>
-            o.value === "immediately" && ruleRampSchedule?.status === "ready"
-              ? { ...o, isDisabled: true, tooltip: BLOCK_IMMEDIATE_REASON }
-              : o,
-          )}
+          options={START_OPTIONS}
           onChange={handleStartChange}
           containerClassName="mb-0"
           containerStyle={{ minHeight: 38, width: 150 }}

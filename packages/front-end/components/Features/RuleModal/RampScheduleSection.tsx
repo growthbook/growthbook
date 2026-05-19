@@ -797,20 +797,8 @@ export default function RampScheduleSection({
       </div>
     );
 
-    // "ready" = activating revision is published and the schedule is queued
-    // for its future startDate. Switching to "Immediately" here clears startDate,
-    // which would strand the schedule (nextProcessAt becomes null). Disable the
-    // option and show a tooltip; the user can still set the date to now/past.
-    const blockImmediate = ruleRampSchedule?.status === "ready";
-    const blockImmediateReason =
-      'This ramp-up is already queued to start on its scheduled date. To run it now, click "Start now" on the rule.';
     const START_OPTIONS = [
-      {
-        value: "immediately",
-        label: "Immediately",
-        isDisabled: blockImmediate,
-        tooltip: blockImmediate ? blockImmediateReason : undefined,
-      },
+      { value: "immediately", label: "Immediately" },
       { value: "on-date", label: "On date" },
     ];
 
@@ -836,15 +824,6 @@ export default function RampScheduleSection({
                   patchState({ startDate: d.toISOString().slice(0, 16) });
                 }
               }}
-              formatOptionLabel={(option) =>
-                option.tooltip ? (
-                  <Tooltip body={option.tooltip}>
-                    <span>{option.label}</span>
-                  </Tooltip>
-                ) : (
-                  <>{option.label}</>
-                )
-              }
               containerClassName="mb-0"
               containerStyle={{ minHeight: 34, width: 150 }}
             />
