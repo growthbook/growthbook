@@ -37,9 +37,10 @@ import Badge from "@/ui/Badge";
 import {
   logBadgeColor,
   CreatedRampScheduleBody,
-  createdRampScheduleTitle,
-  PendingPublishBadge,
+  RampActionLabel,
+  formatSimpleWindow,
 } from "@/components/Features/FeatureDiffRenders";
+import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import { PreLaunchChecklistForDraft } from "@/components/Experiment/PreLaunchChecklist";
@@ -136,6 +137,7 @@ export default function DraftModal({
   );
   const liveRevision = revisions.find((r) => r.version === feature.version);
   const envIds = environments.map((e) => e.id);
+  const { holdoutsMap } = useHoldouts();
 
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
@@ -222,12 +224,25 @@ export default function DraftModal({
       ),
   );
 
-  // 1-based rule indices for `Rule #N` refs. Holdout occupies #1 (Rule.tsx).
+  // 1-based rule indices for `Rule #N` refs. Holdout occupies #1 (Rule.tsx)
+  // only when it's enabled in some env — a feature may carry a disabled
+  // holdout reference, in which case the rules list shows no holdout row.
   const draftRules = Array.isArray(revision?.rules) ? revision!.rules : [];
-  const draftRuleNumberOffset = revision?.holdout ? 2 : 1;
-  const draftRuleIndexById = new Map(
+  const draftRuleNumberOffset = holdoutOccupiesRuleSlot(
+    revision?.holdout,
+    holdoutsMap,
+  )
+    ? 2
+    : 1;
+  const draftRuleIndexById = new Map<string, number>(
     draftRules.map((r, i) => [r.id, i + draftRuleNumberOffset]),
   );
+  // Fall back to the raw ID for any rule we can't number (e.g. a detach
+  // action whose rule was deleted from the draft).
+  const ruleRef = (ruleId: string): string => {
+    const idx = draftRuleIndexById.get(ruleId);
+    return idx ? `Rule #${idx}` : `Rule ${ruleId}`;
+  };
 
   // Build extra diff items so ramp changes appear in badges, custom renders, and JSON diffs.
   const rampDiffs: FeatureRevisionDiff[] = [
@@ -239,20 +254,25 @@ export default function DraftModal({
         steps: ramp.steps,
         endCondition: ramp.endCondition,
       };
-      const startDescription = ramp.startDate
-        ? "Starts at a scheduled date/time."
-        : "Starts automatically on publish.";
+      const isSimple = ramp.steps.length === 0;
+      const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
+      const endAt =
+        ramp.endCondition?.trigger?.type === "scheduled"
+          ? ramp.endCondition.trigger.at
+          : undefined;
+      const detail = isSimple
+        ? (formatSimpleWindow(ramp.startDate, endAt) ?? "starts on publish")
+        : `${ramp.steps.length} step${ramp.steps.length !== 1 ? "s" : ""}${
+            ramp.startDate ? "" : " · starts on publish"
+          }`;
       return {
-        title: `Ramp Schedule – ${ramp.name}`,
+        title: `${kindLabel} – ${ramp.name}`,
+        titleSuffix: <RampActionLabel action="activate" />,
         a: "",
         b: JSON.stringify(rampConfig, null, 2),
-        customRender: (
-          <p className="mb-0">
-            Activates ramp schedule <strong>{ramp.name}</strong> —{" "}
-            {ramp.steps.length} step{ramp.steps.length !== 1 ? "s" : ""}.{" "}
-            {startDescription}
-          </p>
-        ),
+        customRender: detail ? (
+          <p className="mb-0 text-muted">{detail}.</p>
+        ) : null,
         badges: [{ label: `Start ramp: ${ramp.name}`, action: "start ramp" }],
       } as FeatureRevisionDiff;
     }),
@@ -269,8 +289,11 @@ export default function DraftModal({
             endCondition: action.endCondition,
           };
           const targetIdx = draftRuleIndexById.get(action.ruleId);
+          const isSimple = action.steps.length === 0;
+          const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
+          const displayName = action.name ?? "schedule";
           return {
-            title: createdRampScheduleTitle(action),
+            title: `${kindLabel} – ${displayName}`,
             a: "",
             b: JSON.stringify(rampConfig, null, 2),
             customRender: (
@@ -279,19 +302,28 @@ export default function DraftModal({
                 targetRuleIndices={targetIdx ? [targetIdx] : []}
               />
             ),
-            titleSuffix: <PendingPublishBadge />,
+            titleSuffix: <RampActionLabel action="create" />,
             badges: [
               {
                 label: action.name
-                  ? `Create ramp: ${action.name}`
-                  : "Create ramp schedule",
-                action: "create ramp",
+                  ? `Create ${isSimple ? "schedule" : "ramp"}: ${action.name}`
+                  : `Create ${isSimple ? "schedule" : "ramp schedule"}`,
+                action: isSimple ? "create schedule" : "create ramp",
               },
             ],
           } as FeatureRevisionDiff;
         } else if (action.mode === "detach") {
+          const targetSchedule = (rampSchedules ?? []).find(
+            (r) => r.id === action.rampScheduleId,
+          );
+          const isSimple =
+            !!targetSchedule && targetSchedule.steps.length === 0;
+          const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
+          const kindNoun = isSimple ? "schedule" : "ramp schedule";
+          const scheduleName = targetSchedule?.name;
           return {
-            title: `Remove from Ramp Schedule (pending)`,
+            title: scheduleName ? `${kindLabel} – ${scheduleName}` : kindLabel,
+            titleSuffix: <RampActionLabel action="remove" />,
             a: "",
             b: JSON.stringify(
               {
@@ -302,17 +334,17 @@ export default function DraftModal({
               2,
             ),
             customRender: (
-              <p className="mb-0">
-                This rule will be removed from its ramp schedule
+              <p className="mb-0 text-muted">
+                {ruleRef(action.ruleId)} will be removed from this {kindNoun}
                 {action.deleteScheduleWhenEmpty &&
-                  " and the schedule will be deleted if empty"}
+                  "; the schedule is deleted if no targets remain"}
                 .
               </p>
             ),
             badges: [
               {
-                label: "Remove from ramp schedule",
-                action: "remove ramp",
+                label: `Remove from ${kindNoun}`,
+                action: isSimple ? "remove schedule" : "remove ramp",
               },
             ],
           } as FeatureRevisionDiff;

@@ -43,7 +43,12 @@ import {
 } from "@/hooks/useFeatureRevisionDiff";
 import Badge from "@/ui/Badge";
 import HelperText from "@/ui/HelperText";
-import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
+import {
+  logBadgeColor,
+  RampActionLabel,
+  formatSimpleWindow,
+} from "@/components/Features/FeatureDiffRenders";
+import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import { PreLaunchChecklistForDraft } from "@/components/Experiment/PreLaunchChecklist";
@@ -112,6 +117,7 @@ export default function RequestReviewModal({
   const liveRevision = revisions.find((r) => r.version === feature.version);
 
   const envIds = environments.map((e) => e.id);
+  const { holdoutsMap } = useHoldouts();
 
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
@@ -253,6 +259,28 @@ export default function RequestReviewModal({
       ),
   );
 
+  // Short date for diff summary lines ("May 19, 2026"); falls back to null when
+  // 1-based rule indices for `Rule #N` refs in diff summaries. Holdout
+  // occupies #1 (matching Rule.tsx's numbering) only when it's enabled in
+  // some env; a feature can carry a holdout reference whose holdout is
+  // disabled everywhere, in which case the rules list shows no holdout row.
+  const draftRules = Array.isArray(revision?.rules) ? revision!.rules : [];
+  const draftRuleNumberOffset = holdoutOccupiesRuleSlot(
+    revision?.holdout,
+    holdoutsMap,
+  )
+    ? 2
+    : 1;
+  const draftRuleIndexById = new Map<string, number>(
+    draftRules.map((r, i) => [r.id, i + draftRuleNumberOffset]),
+  );
+  // Fall back to the raw ID for any rule we can't number (e.g. a detach
+  // action whose rule was deleted from the draft).
+  const ruleRef = (ruleId: string): string => {
+    const idx = draftRuleIndexById.get(ruleId);
+    return idx ? `Rule #${idx}` : `Rule ${ruleId}`;
+  };
+
   const rampDiffs: FeatureRevisionDiff[] = [
     ...activatingRamps.map((ramp) => {
       const rampConfig = {
@@ -262,25 +290,42 @@ export default function RequestReviewModal({
         steps: ramp.steps,
         endCondition: ramp.endCondition,
       };
-      const startDescription = ramp.startDate
-        ? "Starts at a scheduled date/time."
-        : "Starts automatically on publish.";
+      const isSimple = ramp.steps.length === 0;
+      const endAt =
+        ramp.endCondition?.trigger?.type === "scheduled"
+          ? ramp.endCondition.trigger.at
+          : undefined;
+      const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
+      const detail = isSimple
+        ? formatSimpleWindow(ramp.startDate, endAt)
+        : `${ramp.steps.length} step${ramp.steps.length !== 1 ? "s" : ""}${
+            ramp.startDate ? "" : " · starts on publish"
+          }`;
       return {
-        title: `Ramp Schedule – ${ramp.name}`,
+        title: `${kindLabel} – ${ramp.name}`,
+        titleSuffix: <RampActionLabel action="activate" />,
         a: "",
         b: JSON.stringify(rampConfig, null, 2),
-        customRender: (
-          <p className="mb-0">
-            Activates ramp schedule <strong>{ramp.name}</strong> —{" "}
-            {ramp.steps.length} step{ramp.steps.length !== 1 ? "s" : ""}.{" "}
-            {startDescription}
-          </p>
-        ),
-        badges: [{ label: `Start ramp: ${ramp.name}`, action: "start ramp" }],
+        customRender: detail ? (
+          <p className="mb-0 text-muted">{detail}.</p>
+        ) : null,
+        badges: [
+          {
+            label: `Start ${isSimple ? "schedule" : "ramp"}: ${ramp.name}`,
+            action: isSimple ? "start schedule" : "start ramp",
+          },
+        ],
       } as FeatureRevisionDiff;
     }),
-    // Pending ramp actions: create/detach actions queued in the draft
+    // Pending ramp actions: create/detach actions queued in the draft.
+    // Skip actions whose target rule was deleted from the draft — they're
+    // orphaned no-ops that the publish cleanup will discard anyway.
     ...(revision?.rampActions ?? [])
+      .filter((action) => {
+        const ruleId = (action as { ruleId?: string }).ruleId;
+        if (!ruleId) return true;
+        return (revision?.rules ?? []).some((r) => r.id === ruleId);
+      })
       .map((action) => {
         if (action.mode === "create") {
           const rampConfig = {
@@ -291,27 +336,50 @@ export default function RequestReviewModal({
             steps: action.steps,
             endCondition: action.endCondition,
           };
+          const isSimple = action.steps.length === 0;
+          const endAt =
+            action.endCondition?.trigger?.type === "scheduled"
+              ? action.endCondition.trigger.at
+              : undefined;
+          const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
+          const displayName = action.name ?? "schedule";
+          const detail = isSimple
+            ? formatSimpleWindow(action.startDate, endAt)
+            : `${action.steps.length} step${
+                action.steps.length !== 1 ? "s" : ""
+              }`;
           return {
-            title: `Ramp Schedule – ${action.name} (pending creation)`,
+            title: `${kindLabel} – ${displayName}`,
+            titleSuffix: <RampActionLabel action="create" />,
             a: "",
             b: JSON.stringify(rampConfig, null, 2),
             customRender: (
-              <p className="mb-0">
-                Creates ramp schedule <strong>{action.name}</strong> for rule{" "}
-                <code>{action.ruleId}</code> — {action.steps.length} step
-                {action.steps.length !== 1 ? "s" : ""}.
+              <p className="mb-0 text-muted">
+                {ruleRef(action.ruleId)}
+                {detail ? ` · ${detail}` : ""}.
               </p>
             ),
             badges: [
               {
-                label: `Create ramp: ${action.name}`,
-                action: "create ramp",
+                label: `Create ${isSimple ? "schedule" : "ramp"}: ${displayName}`,
+                action: isSimple ? "create schedule" : "create ramp",
               },
             ],
           } as FeatureRevisionDiff;
         } else if (action.mode === "detach") {
+          // The detach action only carries a rampScheduleId, so resolve the
+          // target schedule (if still available) to pick the right wording.
+          const targetSchedule = (rampSchedules ?? []).find(
+            (r) => r.id === action.rampScheduleId,
+          );
+          const isSimple =
+            !!targetSchedule && targetSchedule.steps.length === 0;
+          const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
+          const kindNoun = isSimple ? "schedule" : "ramp schedule";
+          const scheduleName = targetSchedule?.name;
           return {
-            title: `Remove from Ramp Schedule (pending)`,
+            title: scheduleName ? `${kindLabel} – ${scheduleName}` : kindLabel,
+            titleSuffix: <RampActionLabel action="remove" />,
             a: "",
             b: JSON.stringify(
               {
@@ -322,17 +390,17 @@ export default function RequestReviewModal({
               2,
             ),
             customRender: (
-              <p className="mb-0">
-                This rule will be removed from its ramp schedule
+              <p className="mb-0 text-muted">
+                {ruleRef(action.ruleId)} will be removed from this {kindNoun}
                 {action.deleteScheduleWhenEmpty &&
-                  " and the schedule will be deleted if empty"}
+                  "; the schedule is deleted if no targets remain"}
                 .
               </p>
             ),
             badges: [
               {
-                label: "Remove from ramp schedule",
-                action: "remove ramp",
+                label: `Remove from ${kindNoun}`,
+                action: isSimple ? "remove schedule" : "remove ramp",
               },
             ],
           } as FeatureRevisionDiff;
