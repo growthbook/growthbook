@@ -24,6 +24,37 @@ function esc(integration: SqlIntegration, value: string): string {
   return integration.getSqlDialect().escapeStringLiteral(value);
 }
 
+async function findOrUpsertErrorTrackingIssue({
+  organization,
+  clientKey,
+  fingerprint,
+  now,
+}: {
+  organization: string;
+  clientKey: string;
+  fingerprint: string;
+  now: Date;
+}): Promise<ErrorTrackingIssueDocument> {
+  const doc = await ErrorTrackingIssueModel.findOneAndUpdate(
+    { organization, clientKey, fingerprint },
+    {
+      $setOnInsert: {
+        id: generateId("eti_"),
+        organization,
+        clientKey,
+        fingerprint,
+        comments: [],
+        dateCreated: now,
+      },
+    },
+    { upsert: true, new: true },
+  );
+  if (!doc) {
+    throw new Error("Failed to upsert error tracking issue");
+  }
+  return doc;
+}
+
 async function requireClickhouse(
   context: ReturnType<typeof getContextFromReq>,
 ) {
@@ -550,6 +581,7 @@ SELECT
   release_version,
   environment,
   user_id,
+  device_id,
   ua_device_type,
   ua_os,
   url,
@@ -845,23 +877,12 @@ export async function patchIssue(
   await requireClickhouse(context);
 
   const now = new Date();
-  let doc = await ErrorTrackingIssueModel.findOne({
+  const doc = await findOrUpsertErrorTrackingIssue({
     organization: context.org.id,
     clientKey,
     fingerprint,
+    now,
   });
-
-  if (!doc) {
-    doc = await ErrorTrackingIssueModel.create({
-      id: generateId("eti_"),
-      organization: context.org.id,
-      clientKey,
-      fingerprint,
-      comments: [],
-      dateCreated: now,
-      dateUpdated: now,
-    });
-  }
 
   const body = req.body || {};
   if ("assigneeUserId" in body) {
@@ -912,22 +933,12 @@ export async function postIssueComment(
   await requireClickhouse(context);
 
   const now = new Date();
-  let doc = await ErrorTrackingIssueModel.findOne({
+  const doc = await findOrUpsertErrorTrackingIssue({
     organization: context.org.id,
     clientKey,
     fingerprint,
+    now,
   });
-  if (!doc) {
-    doc = await ErrorTrackingIssueModel.create({
-      id: generateId("eti_"),
-      organization: context.org.id,
-      clientKey,
-      fingerprint,
-      comments: [],
-      dateCreated: now,
-      dateUpdated: now,
-    });
-  }
 
   doc.comments.push({
     userId: context.userId,

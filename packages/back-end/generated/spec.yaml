@@ -17564,6 +17564,7 @@ paths:
                 sourceMapJson:
                   description: Source map JSON contents as a string
                   type: string
+                  maxLength: 15000000
               required:
                 - clientKey
                 - release
