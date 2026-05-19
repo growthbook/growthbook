@@ -575,4 +575,162 @@ describe("QueryRunner", () => {
       }
     });
   });
+
+  describe("onHeartbeat lifecycle", () => {
+    let mockContext: ReqContext;
+    let mockIntegration: SourceIntegrationInterface;
+
+    beforeEach(() => {
+      mockContext = createMockContext();
+      mockIntegration = createMockIntegration();
+      (getQueriesByIds as jest.Mock).mockResolvedValue([]);
+    });
+
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    // Drives the runner into the "running" state with a DAG that still has
+    // queued/running queries, but never actually executes any query (no
+    // executeQuery, no per-query timers). onQueryFinish is neutralized so the
+    // only timer in play is the runner-level heartbeat interval. This isolates
+    // the guarantee in question: the lock heartbeat must keep firing for the
+    // whole time the runner is "running" — including the gaps between
+    // sequentially-dependent queries when no single query is executing.
+    class HeartbeatTestQueryRunner extends QueryRunner<
+      InterfaceWithQueries,
+      { pointers: Queries },
+      { success: boolean }
+    > {
+      public onHeartbeatSpy = jest.fn();
+
+      checkPermissions() {
+        return true;
+      }
+
+      async startQueries(params: { pointers: Queries }) {
+        return params.pointers;
+      }
+
+      async runAnalysis() {
+        return { success: true };
+      }
+
+      async getLatestModel() {
+        return this.model;
+      }
+
+      async updateModel(params: {
+        status: QueryStatus;
+        queries: Queries;
+      }): Promise<InterfaceWithQueries> {
+        return { ...this.model, queries: params.queries };
+      }
+
+      // Neutralize the per-query follow-up timer so the heartbeat interval is
+      // the only thing the fake clock advances.
+      async onQueryFinish() {}
+
+      protected override onHeartbeat(): void {
+        this.onHeartbeatSpy();
+      }
+    }
+
+    const runningPointers: Queries = [
+      { name: "drop_old", query: "qry_drop", status: "running" },
+      { name: "create", query: "qry_create", status: "queued" },
+    ];
+
+    it("fires onHeartbeat every ~30s while running even when no query is executing", async () => {
+      jest.useFakeTimers();
+      try {
+        const runner = new HeartbeatTestQueryRunner(
+          mockContext,
+          {
+            id: "test-model",
+            organization: "test-org",
+            queries: [],
+            runStarted: new Date(),
+          },
+          mockIntegration,
+        );
+
+        await runner.startAnalysis({ pointers: runningPointers });
+
+        expect(runner.status).toBe("running");
+        // Not yet — interval hasn't elapsed.
+        expect(runner.onHeartbeatSpy).toHaveBeenCalledTimes(0);
+
+        jest.advanceTimersByTime(30000);
+        expect(runner.onHeartbeatSpy).toHaveBeenCalledTimes(1);
+
+        // Spans the inter-query gap: still firing with zero query activity.
+        jest.advanceTimersByTime(60000);
+        expect(runner.onHeartbeatSpy).toHaveBeenCalledTimes(3);
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
+    });
+
+    it("stops firing onHeartbeat once the runner finishes", async () => {
+      jest.useFakeTimers();
+      try {
+        const runner = new HeartbeatTestQueryRunner(
+          mockContext,
+          {
+            id: "test-model",
+            organization: "test-org",
+            queries: [],
+            runStarted: new Date(),
+          },
+          mockIntegration,
+        );
+
+        await runner.startAnalysis({ pointers: runningPointers });
+        jest.advanceTimersByTime(30000);
+        expect(runner.onHeartbeatSpy).toHaveBeenCalledTimes(1);
+
+        await runner.cancelQueries();
+        expect(runner.status).toBe("finished");
+
+        // Interval must be cleared — no further beats no matter how long we wait.
+        jest.advanceTimersByTime(120000);
+        expect(runner.onHeartbeatSpy).toHaveBeenCalledTimes(1);
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
+    });
+
+    it("never starts the heartbeat when the runner finishes immediately (cached)", async () => {
+      jest.useFakeTimers();
+      try {
+        const runner = new HeartbeatTestQueryRunner(
+          mockContext,
+          {
+            id: "test-model",
+            organization: "test-org",
+            queries: [],
+            runStarted: new Date(),
+          },
+          mockIntegration,
+        );
+
+        await runner.startAnalysis({
+          pointers: [
+            { name: "a", query: "qry_a", status: "succeeded" },
+            { name: "b", query: "qry_b", status: "succeeded" },
+          ],
+        });
+
+        expect(runner.status).toBe("finished");
+        jest.advanceTimersByTime(120000);
+        expect(runner.onHeartbeatSpy).toHaveBeenCalledTimes(0);
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
+    });
+  });
 });

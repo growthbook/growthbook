@@ -131,6 +131,7 @@ export abstract class QueryRunner<
   } = {};
   private useCache: boolean;
   private pendingTimers: Record<string, NodeJS.Timeout> = {};
+  private lockHeartbeatTimer: null | NodeJS.Timeout = null;
   private finishedQueryMapCache: QueryMap = new Map();
 
   public constructor(
@@ -186,6 +187,24 @@ export abstract class QueryRunner<
 
   private hasTimer(id: string): boolean {
     return this.pendingTimers[id] !== undefined;
+  }
+
+  // Called periodically while the runner is active. Override to refresh an
+  // external lock; default is a no-op.
+  protected onHeartbeat(): void {}
+
+  private startLockHeartbeat(): void {
+    if (this.lockHeartbeatTimer) return;
+    this.lockHeartbeatTimer = setInterval(() => {
+      this.onHeartbeat();
+    }, 30000);
+  }
+
+  private stopLockHeartbeat(): void {
+    if (this.lockHeartbeatTimer) {
+      clearInterval(this.lockHeartbeatTimer);
+      this.lockHeartbeatTimer = null;
+    }
   }
 
   async onQueryFinish() {
@@ -346,7 +365,12 @@ export abstract class QueryRunner<
     this.error = error;
     this.result = result;
 
+    if (this.status === "running") {
+      this.startLockHeartbeat();
+    }
+
     if (this.status === "finished") {
+      this.stopLockHeartbeat();
       this.emitter.emit(FINISH_EVENT);
     }
   }
