@@ -1437,6 +1437,21 @@ export async function postFeaturePublish(
       if (!context.permissions.canUpdateExperiment(experiment, {})) {
         context.permissions.throwPermissionError();
       }
+      const linkedFeatures = await getFeaturesByIds(
+        context,
+        experiment.linkedFeatures || [],
+      );
+      const schedEnvs = getAffectedEnvsForExperiment({
+        experiment,
+        orgEnvironments: allEnvironments,
+        linkedFeatures,
+      });
+      if (
+        schedEnvs.length > 0 &&
+        !context.permissions.canRunExperiment(experiment, schedEnvs)
+      ) {
+        context.permissions.throwPermissionError();
+      }
     }
 
     // Pre-flight: check for merge conflicts in OTHER pending feature drafts
@@ -1565,6 +1580,7 @@ export async function postFeaturePublish(
     const { updated } = await approveScheduledExperimentStart({
       context,
       experimentId: experiment.id,
+      skipChecklist: true,
     });
 
     await req.audit({
