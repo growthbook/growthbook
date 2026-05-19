@@ -28,6 +28,7 @@ import {
   ExperimentSnapshotSettings,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
+import type { ContextualBanditSnapshot } from "shared/types/stats";
 import { MetricInterface } from "shared/types/metric";
 import {
   ExperimentQueryMetadata,
@@ -67,6 +68,7 @@ export type SnapshotResult = {
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
   banditResult?: BanditResult;
+  contextualBanditSnapshot?: ContextualBanditSnapshot | null;
   health?: ExperimentSnapshotHealth;
 };
 
@@ -393,20 +395,29 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
-    const { results: analysesResults, banditResult } =
-      await analyzeExperimentResults({
-        queryData: queryMap,
-        snapshotSettings: this.model.settings,
-        analysisSettings: this.model.analyses.map((a) => a.settings),
-        variationNames: this.variationNames,
-        metricMap: this.metricMap,
-      });
+    const {
+      results: analysesResults,
+      banditResult,
+      contextualBanditResult,
+    } = await analyzeExperimentResults({
+      queryData: queryMap,
+      snapshotSettings: this.model.settings,
+      analysisSettings: this.model.analyses.map((a) => a.settings),
+      variationNames: this.variationNames,
+      metricMap: this.metricMap,
+    });
+
+    const contextualBanditSnapshot = this.model.settings.banditSettings
+      ?.banditIsContextual
+      ? (contextualBanditResult ?? null)
+      : null;
 
     const result: SnapshotResult = {
       analyses: this.model.analyses,
       multipleExposures: 0,
       unknownVariations: [],
       banditResult,
+      contextualBanditSnapshot,
     };
 
     analysesResults.forEach((results: ExperimentReportResults, i: number) => {

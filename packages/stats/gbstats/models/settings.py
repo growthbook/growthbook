@@ -1,5 +1,8 @@
 from typing import Any, Dict, List, Literal, Optional, Union
+from pydantic import ConfigDict
 from pydantic.dataclasses import dataclass
+from dataclasses import field
+import numpy as np
 
 # Types
 DifferenceType = Literal["relative", "absolute", "scaled"]
@@ -9,6 +12,10 @@ RegressionAdjustedStatisticType = Literal["ratio_ra", "mean_ra"]
 StatisticType = Union[UnadjustedStatisticType, RegressionAdjustedStatisticType]
 MetricType = Literal["binomial", "count", "quantile"]
 BusinessMetricType = Literal["goal", "guardrail", "secondary"]
+
+
+CONTEXTUAL_BANDIT_DIMENSION_COLUMN = "dimension"
+CONTEXTUAL_BANDIT_DIMENSION_VALUE = "All"
 
 
 @dataclass
@@ -41,17 +48,31 @@ class BanditWeightsSinglePeriod:
     total_users: int  # sample size across all variations
 
 
-@dataclass
+@dataclass(config=ConfigDict(arbitrary_types_allowed=True))
 class BanditSettingsForStatsEngine:
     var_names: List[str]
     var_ids: List[str]
     current_weights: List[float]
     reweight: bool = True
     decision_metric: str = ""
-    bandit_weights_seed: int = 100
+    bandit_weights_rng: np.random.Generator = field(
+        default_factory=lambda: np.random.default_rng()
+    )
     # we can delete the bottom two attributes, which are currently used in sim study testing
     weight_by_period: bool = True
     top_two: bool = False
+
+
+@dataclass
+class ContextualBanditSettingsForStatsEngine(BanditSettingsForStatsEngine):
+    attributes: List[str] = field(
+        default_factory=list
+    )  # columns that are used to create context keys; not column values
+    max_leaves: int = 12
+
+    def __post_init__(self):
+        if not self.attributes:
+            raise ValueError("attributes must be non-empty")
 
 
 ExperimentMetricQueryResponseRows = List[Dict[str, Union[str, int, float]]]
@@ -90,6 +111,7 @@ class DataForStatsEngine:
     analyses: List[AnalysisSettingsForStatsEngine]
     query_results: List[QueryResultsForStatsEngine]
     bandit_settings: Optional[BanditSettingsForStatsEngine]
+    contextual_bandit_settings: Optional[ContextualBanditSettingsForStatsEngine]
 
 
 @dataclass

@@ -5,7 +5,7 @@ import {
   Switch as RadixSwitch,
   type SwitchProps as RadixSwitchProps,
 } from "@radix-ui/themes";
-import { useId, forwardRef } from "react";
+import { useId, forwardRef, type ReactNode } from "react";
 import { PiWarningFill, PiWarningOctagonFill } from "react-icons/pi";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import styles from "./Switch.module.scss";
@@ -27,7 +27,7 @@ type BaseProps = {
   id?: string;
   label?: React.ReactNode;
   size?: "1" | "2" | "3";
-  description?: string;
+  description?: ReactNode;
   state?: "default" | "warning" | "error";
   // stateLabel is only rendered if state is not default
   stateLabel?: string;

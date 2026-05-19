@@ -60,6 +60,23 @@ const banditResultObject = {
   weightsWereUpdated: Boolean,
 };
 
+const contextualBanditSnapshotObject = {
+  _id: false,
+  attributes: [String],
+  responses: [
+    {
+      _id: false,
+      context: mongoose.Schema.Types.Mixed,
+      sampleSizePerVariation: [Number],
+      variationMeans: [Number],
+      updatedWeights: [Number],
+      bestArmProbabilities: [Number],
+      updateMessage: String,
+      error: String,
+    },
+  ],
+};
+
 const experimentSnapshotSchema = new mongoose.Schema({
   id: {
     type: String,
@@ -148,6 +165,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
     },
   ],
   banditResult: banditResultObject,
+  contextualBanditSnapshot: contextualBanditSnapshotObject,
   health: {
     _id: false,
     traffic: {

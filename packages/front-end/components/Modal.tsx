@@ -46,7 +46,7 @@ type ModalProps = {
   closeCtaClassName?: string;
   disabledMessage?: string;
   docSection?: DocSection;
-  error?: string;
+  error?: string | ReactNode;
   loading?: boolean;
   size?: "md" | "lg" | "max" | "fill";
   sizeY?: "max" | "fill";
@@ -132,7 +132,7 @@ const Modal: FC<ModalProps> = ({
 }) => {
   const [modalUuid] = useState(_modalUuid || uuidv4());
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | ReactNode | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
 
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -151,8 +151,20 @@ const Modal: FC<ModalProps> = ({
   }
 
   useEffect(() => {
-    setError(externalError || null);
-    externalError && scrollToTop();
+    setError(
+      externalError === undefined ||
+        externalError === null ||
+        externalError === ""
+        ? null
+        : externalError,
+    );
+    if (
+      externalError !== undefined &&
+      externalError !== null &&
+      externalError !== ""
+    ) {
+      scrollToTop();
+    }
   }, [externalError]);
 
   useEffect(() => {
@@ -491,13 +503,15 @@ const Modal: FC<ModalProps> = ({
                 if (trackOnSubmit) {
                   sendTrackingEvent("modal-submit-success");
                 }
-              } catch (e) {
-                setError(e.message);
+              } catch (e: unknown) {
+                const err = e instanceof Error ? e : new Error(String(e));
+                const withDisplay = err as Error & { display?: ReactNode };
+                setError(withDisplay.display ?? err.message);
                 scrollToTop();
                 setLoading(false);
                 if (trackOnSubmit) {
                   sendTrackingEvent("modal-submit-error", {
-                    error: truncateString(e.message, 32),
+                    error: truncateString(err.message, 32),
                   });
                 }
               }

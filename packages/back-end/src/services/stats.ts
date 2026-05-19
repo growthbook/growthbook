@@ -29,12 +29,14 @@ import {
   AnalysisSettingsForStatsEngine,
   BanditSettingsForStatsEngine,
   BusinessMetricTypeForStatsEngine,
+  ContextualBanditSettingsForStatsEngine,
   DataForStatsEngine,
   ExperimentDataForStatsEngine,
   ExperimentMetricAnalysis,
   MetricSettingsForStatsEngine,
   MultipleExperimentMetricAnalysis,
   QueryResultsForStatsEngine,
+  ContextualBanditSnapshot,
 } from "shared/types/stats";
 import {
   ExperimentReportResultDimension,
@@ -65,6 +67,7 @@ import {
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { statsServerPool } from "back-end/src/services/python";
 import { metrics } from "back-end/src/util/metrics";
+import { getSafeTargetingSqlIdentifiers } from "back-end/src/integrations/sql/contextual-bandit/contextual-bandit-experiment-units-sql";
 
 export const MAX_DIMENSIONS = 20;
 
@@ -122,6 +125,14 @@ export function getBanditSettingsForStatsEngine(
     variations,
     settings.baselineVariationIndex ?? 0,
   );
+  const contextualContextColumns =
+    banditSettings.banditIsContextual &&
+    banditSettings.targetingAttributeColumns?.length
+      ? getSafeTargetingSqlIdentifiers(
+          banditSettings.targetingAttributeColumns,
+        ).map((col) => `gb_ctx_${col}`)
+      : undefined;
+
   return {
     reweight: banditSettings.reweight,
     var_names: sortedVariations.map((v) => v.name),
@@ -134,6 +145,38 @@ export function getBanditSettingsForStatsEngine(
       weights: hw.weights,
       total_users: hw.totalUsers,
     })),
+    is_contextual: !!banditSettings.banditIsContextual,
+    ...(contextualContextColumns?.length
+      ? { contexts: contextualContextColumns }
+      : {}),
+  };
+}
+
+export function getContextualBanditSettingsForStatsEngine(
+  banditSettings: SnapshotBanditSettings,
+  settings: ExperimentSnapshotAnalysisSettings,
+  variations: ExperimentReportVariation[],
+): ContextualBanditSettingsForStatsEngine {
+  const base = getBanditSettingsForStatsEngine(
+    banditSettings,
+    settings,
+    variations,
+  );
+  const fromTargeting = getSafeTargetingSqlIdentifiers(
+    banditSettings.targetingAttributeColumns ?? [],
+  ).map((col) => `gb_ctx_${col}`);
+  const attributes = base.contexts?.length ? [...base.contexts] : fromTargeting;
+  if (!attributes.length) {
+    throw new Error(
+      "getContextualBanditSettingsForStatsEngine requires targeting attribute columns (or contexts on bandit settings)",
+    );
+  }
+  return {
+    ...base,
+    is_contextual: true,
+    contexts: attributes,
+    current_contextual_weights: {},
+    attributes,
   };
 }
 
@@ -201,15 +244,32 @@ function createStatsEngineData(
         phaseLengthDays,
       ),
     ),
-    bandit_settings: banditSettings
-      ? getBanditSettingsForStatsEngine(banditSettings, analyses[0], variations)
-      : undefined,
+    bandit_settings:
+      banditSettings && !banditSettings.banditIsContextual
+        ? getBanditSettingsForStatsEngine(
+            banditSettings,
+            analyses[0],
+            variations,
+          )
+        : undefined,
+    contextual_bandit_settings:
+      banditSettings && banditSettings.banditIsContextual
+        ? getContextualBanditSettingsForStatsEngine(
+            banditSettings,
+            analyses[0],
+            variations,
+          )
+        : undefined,
   };
 }
 
 export async function runSnapshotAnalysis(
   params: ExperimentMetricAnalysisParams,
-): Promise<{ results: ExperimentMetricAnalysis; banditResult?: BanditResult }> {
+): Promise<{
+  results: ExperimentMetricAnalysis;
+  banditResult?: BanditResult;
+  contextualBanditResult?: ContextualBanditSnapshot | null;
+}> {
   const analysis: MultipleExperimentMetricAnalysis | undefined = (
     await runStatsEngine([
       { id: params.id, data: createStatsEngineData(params) },
@@ -231,6 +291,7 @@ export async function runSnapshotAnalysis(
   return {
     results: analysis.results,
     banditResult: analysis.banditResult,
+    contextualBanditResult: analysis.contextualBanditResult ?? null,
   };
 }
 
@@ -648,6 +709,7 @@ export async function analyzeExperimentResults({
 }): Promise<{
   results: ExperimentReportResults[];
   banditResult?: BanditResult;
+  contextualBanditResult?: ContextualBanditSnapshot | null;
 }> {
   const mdat = getMetricsAndQueryDataForStatsEngine(
     queryData,
@@ -674,7 +736,11 @@ export async function analyzeExperimentResults({
     metrics: metricSettings,
     banditSettings: snapshotSettings.banditSettings,
   };
-  const { results: analysis, banditResult } = await runSnapshotAnalysis(params);
+  const {
+    results: analysis,
+    banditResult,
+    contextualBanditResult,
+  } = await runSnapshotAnalysis(params);
 
   const results = parseStatsEngineResult({
     analysisSettings,
@@ -683,7 +749,7 @@ export async function analyzeExperimentResults({
     unknownVariations,
     result: analysis,
   });
-  return { results, banditResult };
+  return { results, banditResult, contextualBanditResult };
 }
 
 export function analyzeExperimentTraffic({
