@@ -67,6 +67,11 @@ describe("growthbookErrorTracking helpers", () => {
         "Request failed for https://example.com/a",
       ),
     ).toEqual("Request failed for {url}");
+    expect(
+      normalizeErrorMessageForFingerprint(
+        "Checkout failed 018f4e2a-7b3c-7def-8a2b-9c3d4e5f6789",
+      ),
+    ).toEqual("Checkout failed {uuid}");
   });
 
   it("normalizes bundled filenames to app-relative labels", () => {

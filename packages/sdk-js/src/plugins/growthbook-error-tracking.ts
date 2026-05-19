@@ -125,7 +125,7 @@ export function growthbookComposedError(
 export function normalizeErrorMessageForFingerprint(message: string): string {
   let normalized = message.trim();
   normalized = normalized.replace(
-    /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/gi,
+    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,
     "{uuid}",
   );
   normalized = normalized.replace(/\b0x[0-9a-f]+\b/gi, "{hex}");
@@ -229,10 +229,12 @@ export type BuiltErrorEventProps = {
   handled?: boolean;
 };
 
-export function buildErrorEventProperties(
-  error: unknown,
-  extras?: Record<string, unknown>,
-): BuiltErrorEventProps & Record<string, unknown> {
+type ParsedErrorCore = Pick<
+  BuiltErrorEventProps,
+  "fingerprint" | "title" | "message" | "stack" | "stackFrames"
+>;
+
+function parseErrorCore(error: unknown): ParsedErrorCore {
   const { message, stack, name } = stringifyUnknown(error);
   const stackFrames = parseStackFrames(stack);
   const composedPattern = getComposedErrorPattern(error);
@@ -242,6 +244,27 @@ export function buildErrorEventProperties(
     name,
     composedPattern,
   );
+  const displayMessage =
+    message.length > 500 ? `${message.slice(0, 497)}...` : message;
+
+  return {
+    fingerprint,
+    title: displayMessage,
+    message: displayMessage,
+    stack: stack?.slice(0, 50_000),
+    stackFrames,
+  };
+}
+
+function mergeErrorEventExtras(
+  core: ParsedErrorCore,
+  extras?: Record<string, unknown>,
+): BuiltErrorEventProps & Record<string, unknown> {
+  const { title, fingerprint, message, ...extrasWithoutCoreFields } =
+    extras || {};
+  void title;
+  void fingerprint;
+  void message;
 
   const {
     errorType,
@@ -252,23 +275,13 @@ export function buildErrorEventProperties(
     contexts,
     breadcrumbs,
     handled,
-    title: _extrasTitle,
-    fingerprint: _extrasFingerprint,
-    message: _extrasMessage,
     ...rest
-  } = extras || {};
-
-  const displayMessage =
-    message.length > 500 ? `${message.slice(0, 497)}...` : message;
+  } = extrasWithoutCoreFields;
 
   return {
     ...rest,
-    fingerprint,
-    title: displayMessage,
-    message: displayMessage,
+    ...core,
     errorType: typeof errorType === "string" ? errorType : "unknown",
-    stack: stack?.slice(0, 50_000),
-    stackFrames,
     transaction: typeof transaction === "string" ? transaction : undefined,
     release: typeof release === "string" ? release : undefined,
     runtime:
@@ -290,12 +303,22 @@ export function buildErrorEventProperties(
   };
 }
 
+export function buildErrorEventProperties(
+  error: unknown,
+  extras?: Record<string, unknown>,
+): BuiltErrorEventProps & Record<string, unknown> {
+  return mergeErrorEventExtras(parseErrorCore(error), extras);
+}
+
 async function logError(
   gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient,
   error: unknown,
   extras?: Record<string, unknown>,
+  parsedCore?: ParsedErrorCore,
 ) {
-  const props = buildErrorEventProperties(error, extras);
+  const props = parsedCore
+    ? mergeErrorEventExtras(parsedCore, extras)
+    : buildErrorEventProperties(error, extras);
   if (gb instanceof GrowthBook || gb instanceof UserScopedGrowthBook) {
     await gb.logEvent(EVENT_GROWTHBOOK_ERROR, props);
     return;
@@ -403,8 +426,8 @@ export function growthbookErrorTrackingPlugin({
         }
       });
 
-      const propsPreview = buildErrorEventProperties(error, extras);
-      const fp = propsPreview.fingerprint;
+      const parsedCore = parseErrorCore(error);
+      const fp = parsedCore.fingerprint;
       const last = recentFingerprints.get(fp);
       if (last !== undefined && now - last < dedupeWindowMs) {
         return;
@@ -425,17 +448,22 @@ export function growthbookErrorTrackingPlugin({
         ...(envTag ? { environment: envTag } : {}),
       };
 
-      await logError(gb, error, {
-        ...extras,
-        release: resolvedRelease,
-        runtime:
-          extras?.runtime ?? runtime ?? (browser ? "browser" : "javascript"),
-        tags: { ...tags, ...(extras?.tags as Record<string, string>) },
-        contexts: {
-          ...defaultBrowserContexts(),
-          ...(typeof extras?.contexts === "object" ? extras.contexts : {}),
+      await logError(
+        gb,
+        error,
+        {
+          ...extras,
+          release: resolvedRelease,
+          runtime:
+            extras?.runtime ?? runtime ?? (browser ? "browser" : "javascript"),
+          tags: { ...tags, ...(extras?.tags as Record<string, string>) },
+          contexts: {
+            ...defaultBrowserContexts(),
+            ...(typeof extras?.contexts === "object" ? extras.contexts : {}),
+          },
         },
-      });
+        parsedCore,
+      );
     };
 
     if (!browser || (!captureUnhandled && !captureUnhandledRejections)) {
