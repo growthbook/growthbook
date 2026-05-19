@@ -144,6 +144,9 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
   interface ExploratoryPipeline {
     group: (typeof metricSourceGroups)[number];
     tableFullName: string;
+    // Optional covariate cache, populated when at least one metric in the
+    // group is regression-adjusted (same-FT or cross-FT).
+    covariateTableFullName?: string;
   }
   const pipelineByGroupId = new Map<string, ExploratoryPipeline>();
 
@@ -156,9 +159,34 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       continue;
     }
 
+    const existingCovariateSource = existingCovariateSources?.find(
+      (s) => s.groupId === group.groupId,
+    );
+
+    // Evaluate CUPED across the full group — same-FT and cross-FT metrics
+    // both rely on the same per-FT covariate cache, so a missing one is a
+    // hard failure regardless of which pass would consume it.
+    const anyMetricHasCuped = group.metrics.some((m) => {
+      const metric = cloneDeep(m);
+      applyMetricOverrides(metric, snapshotSettings);
+      return (
+        snapshotSettings.regressionAdjustmentEnabled &&
+        isRegressionAdjusted(metric)
+      );
+    });
+
+    if (anyMetricHasCuped && !existingCovariateSource) {
+      throw new Error(
+        `Metric source group ${group.groupId} has CUPED metrics but no covariate source found.`,
+      );
+    }
+
     pipelineByGroupId.set(group.groupId, {
       group,
       tableFullName: existingSource.tableFullName,
+      covariateTableFullName: anyMetricHasCuped
+        ? existingCovariateSource?.tableFullName
+        : undefined,
     });
 
     // Same-FT stats only run when this cache hosts at least one metric whose
@@ -173,25 +201,6 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     if (sameFtMetrics.length === 0) continue;
 
     const factTable = params.factTableMap.get(group.factTableId);
-
-    const existingCovariateSource = existingCovariateSources?.find(
-      (s) => s.groupId === group.groupId,
-    );
-
-    const anyMetricHasCuped = sameFtMetrics.some((m) => {
-      const metric = cloneDeep(m);
-      applyMetricOverrides(metric, snapshotSettings);
-      return (
-        snapshotSettings.regressionAdjustmentEnabled &&
-        isRegressionAdjusted(metric)
-      );
-    });
-
-    if (anyMetricHasCuped && !existingCovariateSource) {
-      throw new Error(
-        `Metric source group ${group.groupId} has CUPED metrics but no covariate source found.`,
-      );
-    }
 
     // TODO(incremental-refresh): add metadata about source
     // in case same fact table is split across multiple sources
@@ -212,8 +221,10 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
         metricSourceTables: {
           [group.factTableId]: existingSource.tableFullName,
         },
-        metricSourceCovariateTableFullName:
-          existingCovariateSource?.tableFullName ?? null,
+        metricSourceCovariateTables:
+          anyMetricHasCuped && existingCovariateSource
+            ? { [group.factTableId]: existingCovariateSource.tableFullName }
+            : {},
         unitsSourceTableFullName: unitsTableFullName,
         metrics: sameFtMetrics,
         lastMaxTimestamp: existingSource?.maxTimestamp || null,
@@ -316,7 +327,23 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
             [pipelineA.group.factTableId]: pipelineA.tableFullName,
             [pipelineB.group.factTableId]: pipelineB.tableFullName,
           },
-          metricSourceCovariateTableFullName: null,
+          // Cross-FT CUPED reads each side's covariate cache. Either
+          // pipeline may have none (if its metrics aren't RA), and we omit
+          // it from the map in that case.
+          metricSourceCovariateTables: {
+            ...(pipelineA.covariateTableFullName
+              ? {
+                  [pipelineA.group.factTableId]:
+                    pipelineA.covariateTableFullName,
+                }
+              : {}),
+            ...(pipelineB.covariateTableFullName
+              ? {
+                  [pipelineB.group.factTableId]:
+                    pipelineB.covariateTableFullName,
+                }
+              : {}),
+          },
         }),
         dependencies: [],
         run: (query, setExternalId, queryMetadata) =>

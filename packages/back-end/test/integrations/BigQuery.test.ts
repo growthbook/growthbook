@@ -584,7 +584,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       metricSourceTables: {
         ft_events: "proj.ds.metric_source",
       },
-      metricSourceCovariateTableFullName: null,
+      metricSourceCovariateTables: {},
       unitsSourceTableFullName: "proj.ds.units",
       metrics: [eventQuantileMetric],
       lastMaxTimestamp: null,
@@ -791,7 +791,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
           ft_events: "proj.ds.metric_source_num",
           ft_subscriptions: "proj.ds.metric_source_denom",
         },
-        metricSourceCovariateTableFullName: null,
+        metricSourceCovariateTables: {},
         unitsSourceTableFullName: "proj.ds.units",
         metrics: [crossFtMetric],
         lastMaxTimestamp: null,
@@ -858,7 +858,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
           ft_events: "proj.ds.cache_events",
           ft_subscriptions: "proj.ds.cache_subs",
         },
-        metricSourceCovariateTableFullName: null,
+        metricSourceCovariateTables: {},
         unitsSourceTableFullName: "proj.ds.units",
         metrics: [aOverB, bOverA],
         lastMaxTimestamp: null,
@@ -883,6 +883,177 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       // alias to match each metric's own orientation.
       expect(sql).toMatch(/m1\.fact_b_over_a_value/);
       expect(sql).toMatch(/m\.fact_b_over_a_denominator_value/);
+    });
+
+    it("getCreateMetricSourceCovariateTableQuery + getInsertMetricSourceCovariateDataQuery split a cross-FT ratio metric's covariate across both FTs", () => {
+      const raCrossFt = factMetricFactory.build({
+        id: "fact_ra_xft",
+        metricType: "ratio",
+        numerator: {
+          factTableId: "ft_events",
+          column: "amount",
+          aggregation: "sum",
+        },
+        denominator: {
+          factTableId: "ft_subscriptions",
+          column: "tenure_days",
+          aggregation: "sum",
+        },
+        regressionAdjustmentEnabled: true,
+        regressionAdjustmentDays: 14,
+      });
+
+      // Numerator FT's covariate schema/insert holds only `_value`.
+      const numCreate = integration.getCreateMetricSourceCovariateTableQuery({
+        settings: { ...settings, regressionAdjustmentEnabled: true },
+        factTableId: "ft_events",
+        metrics: [raCrossFt],
+        metricSourceCovariateTableFullName: "proj.ds.cov_events",
+      });
+      expect(numCreate).toMatch(/fact_ra_xft_value\b/);
+      expect(numCreate).not.toMatch(/fact_ra_xft_denominator_value/);
+
+      const numInsert = integration.getInsertMetricSourceCovariateDataQuery({
+        settings: { ...settings, regressionAdjustmentEnabled: true },
+        activationMetric: null,
+        factTableMap: crossFactTableMap,
+        factTableId: "ft_events",
+        metricSourceCovariateTableFullName: "proj.ds.cov_events",
+        unitsSourceTableFullName: "proj.ds.units",
+        metrics: [raCrossFt],
+        lastCovariateSuccessfulMaxTimestamp: null,
+      });
+      expect(numInsert).toMatch(/fact_ra_xft_value\b/);
+      expect(numInsert).not.toMatch(/fact_ra_xft_denominator_value/);
+
+      // Denominator FT's covariate schema/insert holds only `_denominator_value`.
+      const denomCreate = integration.getCreateMetricSourceCovariateTableQuery({
+        settings: { ...settings, regressionAdjustmentEnabled: true },
+        factTableId: "ft_subscriptions",
+        metrics: [raCrossFt],
+        metricSourceCovariateTableFullName: "proj.ds.cov_subs",
+      });
+      expect(denomCreate).toMatch(/fact_ra_xft_denominator_value\b/);
+      expect(denomCreate).not.toMatch(/fact_ra_xft_value[^_]/);
+
+      const denomInsert = integration.getInsertMetricSourceCovariateDataQuery({
+        settings: { ...settings, regressionAdjustmentEnabled: true },
+        activationMetric: null,
+        factTableMap: crossFactTableMap,
+        factTableId: "ft_subscriptions",
+        metricSourceCovariateTableFullName: "proj.ds.cov_subs",
+        unitsSourceTableFullName: "proj.ds.units",
+        metrics: [raCrossFt],
+        lastCovariateSuccessfulMaxTimestamp: null,
+      });
+      expect(denomInsert).toMatch(/fact_ra_xft_denominator_value\b/);
+      expect(denomInsert).not.toMatch(/fact_ra_xft_value[^_]/);
+
+      // The covariate insert reads from a single CTE aliased `c` —
+      // multi-source aliases like `c1.` would be invalid SQL here. This
+      // matters because `getFactTablesForMetrics` discovers BOTH FTs of a
+      // cross-FT ratio metric (so denominatorSourceIndex becomes 1 in this
+      // call), and the stats-query alias scheme `c{idx}` would leak through
+      // if we naively reused `m.capCoalesceCovariate`.
+      expect(denomInsert).not.toMatch(/\bc[0-9]+\./);
+      // The `__newCovariateValues` CTE columns are keyed by the metric-data
+      // alias (`m{index}`), and the final SELECT projects through `c.`.
+      expect(denomInsert).toMatch(/\bc\.m\d+_covariate_denominator\b/);
+    });
+
+    it("getIncrementalRefreshStatisticsQuery joins each side's covariate cache into its own __joinedData{i} for cross-FT CUPED", () => {
+      const raCrossFt = factMetricFactory.build({
+        id: "fact_ra_xft",
+        metricType: "ratio",
+        numerator: {
+          factTableId: "ft_events",
+          column: "amount",
+          aggregation: "sum",
+        },
+        denominator: {
+          factTableId: "ft_subscriptions",
+          column: "tenure_days",
+          aggregation: "sum",
+        },
+        regressionAdjustmentEnabled: true,
+        regressionAdjustmentDays: 14,
+      });
+
+      const sql = integration.getIncrementalRefreshStatisticsQuery({
+        settings: { ...settings, regressionAdjustmentEnabled: true },
+        activationMetric: null,
+        dimensionsForPrecomputation: [],
+        dimensionsForAnalysis: [],
+        factTableMap: crossFactTableMap,
+        metricSourceTables: {
+          ft_events: "proj.ds.metric_source_num",
+          ft_subscriptions: "proj.ds.metric_source_denom",
+        },
+        // Both pipelines have covariate caches; numerator covariate
+        // lives in events, denominator covariate lives in subscriptions.
+        metricSourceCovariateTables: {
+          ft_events: "proj.ds.cov_events",
+          ft_subscriptions: "proj.ds.cov_subs",
+        },
+        unitsSourceTableFullName: "proj.ds.units",
+        metrics: [raCrossFt],
+        lastMaxTimestamp: null,
+      });
+
+      // Both covariate caches are joined — one per source's __joinedData{i}.
+      expect(sql).toMatch(/FROM\s+proj\.ds\.cov_events\b/);
+      expect(sql).toMatch(/FROM\s+proj\.ds\.cov_subs\b/);
+
+      // The numerator covariate column comes from source 0 (events) via `m`,
+      // the denominator covariate column comes from source 1 (subscriptions)
+      // via `m1` — same alias contract as the non-CUPED cross-FT path.
+      // The metric-data layer aliases each metric to `m{index}` (here `m0`)
+      // and the CTE column names are `<alias>_covariate_value` and
+      // `<alias>_covariate_denominator`.
+      expect(sql).toMatch(/m\.m0_covariate_value/);
+      expect(sql).toMatch(/m1\.m0_covariate_denominator/);
+    });
+
+    it("getIncrementalRefreshStatisticsQuery throws when a cross-FT RA metric is missing its side's covariate cache", () => {
+      const raCrossFt = factMetricFactory.build({
+        id: "fact_ra_xft",
+        metricType: "ratio",
+        numerator: {
+          factTableId: "ft_events",
+          column: "amount",
+          aggregation: "sum",
+        },
+        denominator: {
+          factTableId: "ft_subscriptions",
+          column: "tenure_days",
+          aggregation: "sum",
+        },
+        regressionAdjustmentEnabled: true,
+        regressionAdjustmentDays: 14,
+      });
+
+      expect(() =>
+        integration.getIncrementalRefreshStatisticsQuery({
+          settings: { ...settings, regressionAdjustmentEnabled: true },
+          activationMetric: null,
+          dimensionsForPrecomputation: [],
+          dimensionsForAnalysis: [],
+          factTableMap: crossFactTableMap,
+          metricSourceTables: {
+            ft_events: "proj.ds.metric_source_num",
+            ft_subscriptions: "proj.ds.metric_source_denom",
+          },
+          // Only the numerator FT got a covariate cache. The denominator
+          // side has nowhere to read `_covariate_denominator` from, which
+          // would silently emit invalid SQL — so we fail loudly instead.
+          metricSourceCovariateTables: {
+            ft_events: "proj.ds.cov_events",
+          },
+          unitsSourceTableFullName: "proj.ds.units",
+          metrics: [raCrossFt],
+          lastMaxTimestamp: null,
+        }),
+      ).toThrow(/ft_subscriptions/);
     });
   });
 });

@@ -126,6 +126,7 @@ import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metri
 import { getAlterNewIncrementalUnitsQuery } from "back-end/src/integrations/sql/queries/alter-new-incremental-units-query";
 import { getBanditVariationPeriodWeights as getBanditVariationPeriodWeightsFromSql } from "back-end/src/integrations/sql/clauses/bandit-variation-period-weights";
 import { getColumnsTopValuesQuery } from "back-end/src/integrations/sql/queries/columns-top-values-query";
+import { capCoalesceValue } from "back-end/src/integrations/sql/primitives/cap-coalesce-value";
 import { castToTimestamp } from "back-end/src/integrations/sql/primitives/cast-to-timestamp";
 import { getDimensionCTE } from "back-end/src/integrations/sql/ctes/dimension-cte";
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
@@ -1848,6 +1849,7 @@ export default abstract class SqlIntegration
     const columnDefinitions =
       this.getMetricSourceCovariateTableColumnDefinitions(
         baseIdType,
+        params.factTableId,
         sortedMetrics,
       );
 
@@ -1904,10 +1906,20 @@ export default abstract class SqlIntegration
       paramsMetricsSorted,
     );
 
-    if (factTablesWithMetricData.length !== 1) {
-      throw new Error("Expected exactly one fact table with metric data");
+    // Each insert targets one cache table fed from a single FT. For cross-FT
+    // ratio metrics, getFactTablesForMetrics surfaces both FTs — pick the one
+    // we were told to load. The per-metric projection below is already
+    // role-aware (it gates on `numeratorSourceIndex === factTableWithMetricData.index`
+    // for the numerator side and `denominatorSourceIndex === ...` for the
+    // denominator side), so it will emit only the side(s) this FT hosts.
+    const factTableWithMetricData = factTablesWithMetricData.find(
+      (f) => f.factTable.id === params.factTableId,
+    );
+    if (!factTableWithMetricData) {
+      throw new Error(
+        `getInsertMetricSourceCovariateDataQuery: no metric data found for fact table "${params.factTableId}".`,
+      );
     }
-    const factTableWithMetricData = factTablesWithMetricData[0];
     const metricData = factTableWithMetricData.metricData;
 
     const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
@@ -1929,6 +1941,7 @@ export default abstract class SqlIntegration
 
     const columnNames = this.getMetricSourceCovariateTableColumns(
       baseIdType,
+      params.factTableId,
       sortedMetrics,
     );
 
@@ -2016,14 +2029,41 @@ export default abstract class SqlIntegration
       SELECT
         ${baseIdType}
         ${metricData
-          .map(
-            (
-              m, // test this is only RA metrics
-            ) =>
-              `, ${m.capCoalesceCovariate} AS ${encodeMetricIdForColumnName(m.id)}_value
-              ${m.ratioMetric ? `, ${m.capCoalesceDenominatorCovariate} AS ${encodeMetricIdForColumnName(m.id)}_denominator_value` : ""}
-        `,
-          )
+          .map((m) => {
+            // Project only the side(s) this cache materializes — matches
+            // both the schema we created above (getMetricSourceCovariateTableSchema)
+            // and the __newCovariateValues projection earlier in this query,
+            // which already gates each side on numeratorSourceIndex /
+            // denominatorSourceIndex.
+            const includeNumerator =
+              m.numeratorSourceIndex === factTableWithMetricData.index;
+            const includeDenominator =
+              m.ratioMetric &&
+              m.denominatorSourceIndex === factTableWithMetricData.index;
+            // We can't reuse `m.capCoalesceCovariate` /
+            // `m.capCoalesceDenominatorCovariate`: those are pre-baked for
+            // the stats query, where `c{i}` disambiguates per-source
+            // covariate joins. Here the SELECT reads from a single CTE
+            // aliased `c`, so we build the value column locally (still
+            // running it through `capCoalesceValue` so aggregate filters
+            // like `value >= 3 THEN 1 ELSE NULL` get applied; capping is
+            // already disabled above).
+            const numeratorCol = includeNumerator
+              ? `, ${capCoalesceValue(this.getSqlDialect(), {
+                  valueCol: `c.${m.alias}_covariate_value`,
+                  metric: m.metric,
+                  columnRef: m.metric.numerator,
+                })} AS ${encodeMetricIdForColumnName(m.id)}_value`
+              : "";
+            const denominatorCol = includeDenominator
+              ? `, ${capCoalesceValue(this.getSqlDialect(), {
+                  valueCol: `c.${m.alias}_covariate_denominator`,
+                  metric: m.metric,
+                  columnRef: m.metric.denominator,
+                })} AS ${encodeMetricIdForColumnName(m.id)}_denominator_value`
+              : "";
+            return `${numeratorCol}${denominatorCol}`;
+          })
           .join("\n")}
       FROM __newCovariateValues c
       )
@@ -2115,8 +2155,15 @@ export default abstract class SqlIntegration
     return Array.from(schema.keys());
   }
 
+  // Mirrors getMetricSourceTableSchema: each cache holds only the side(s) the
+  // cache materializes for this metric — numerator-side when this FT is the
+  // metric's numerator FT, denominator-side when this FT is the metric's
+  // denominator FT. Same-FT metrics carry both sides in one cache; cross-FT
+  // ratio metrics split their numerator and denominator covariates across the
+  // two FTs' caches.
   protected getMetricSourceCovariateTableSchema(
     baseIdType: string,
+    factTableId: string,
     metrics: FactMetricInterface[],
   ): Map<string, string> {
     const schema = new Map<string, string>();
@@ -2124,16 +2171,23 @@ export default abstract class SqlIntegration
     schema.set(baseIdType, this.getSqlDialect().getDataType("string"));
 
     metrics.forEach((metric) => {
-      const numeratorMetadata = getAggregationMetadata(this.getSqlDialect(), {
-        metric,
-        useDenominator: false,
-      });
-      schema.set(
-        `${encodeMetricIdForColumnName(metric.id)}_value`,
-        this.getSqlDialect().getDataType(numeratorMetadata.finalDataType),
-      );
+      const includeNumerator = metric.numerator.factTableId === factTableId;
+      const includeDenominator =
+        isRatioMetric(metric) &&
+        metric.denominator?.factTableId === factTableId;
 
-      if (isRatioMetric(metric)) {
+      if (includeNumerator) {
+        const numeratorMetadata = getAggregationMetadata(this.getSqlDialect(), {
+          metric,
+          useDenominator: false,
+        });
+        schema.set(
+          `${encodeMetricIdForColumnName(metric.id)}_value`,
+          this.getSqlDialect().getDataType(numeratorMetadata.finalDataType),
+        );
+      }
+
+      if (includeDenominator) {
         const denominatorMetadata = getAggregationMetadata(
           this.getSqlDialect(),
           {
@@ -2153,10 +2207,12 @@ export default abstract class SqlIntegration
 
   protected getMetricSourceCovariateTableColumnDefinitions(
     baseIdType: string,
+    factTableId: string,
     metrics: FactMetricInterface[],
   ): string[] {
     const schema = this.getMetricSourceCovariateTableSchema(
       baseIdType,
+      factTableId,
       metrics,
     );
     return Array.from(schema.entries()).map(
@@ -2166,10 +2222,12 @@ export default abstract class SqlIntegration
 
   protected getMetricSourceCovariateTableColumns(
     baseIdType: string,
+    factTableId: string,
     metrics: FactMetricInterface[],
   ): string[] {
     const schema = this.getMetricSourceCovariateTableSchema(
       baseIdType,
+      factTableId,
       metrics,
     );
     return Array.from(schema.keys());
@@ -2491,6 +2549,17 @@ export default abstract class SqlIntegration
     // caller's map) so source order is purely an internal SQL detail.
     const tableFullNameForSource = (i: number): string =>
       params.metricSourceTables[factTablesWithMetricData[i].factTable.id];
+    // Each FT can have its own covariate cache (only the side(s) it hosts
+    // get materialized in it). Cross-FT ratio CUPED is supported by pairing
+    // the numerator FT's covariate cache for `_value` and the denominator
+    // FT's for `_denominator_value`. Returns undefined when the caller did
+    // not pass a covariate cache for this source — we'll then skip the
+    // covariate join for source i (and validate below that no RA metric
+    // expects it).
+    const covariateTableForSource = (i: number): string | undefined =>
+      params.metricSourceCovariateTables?.[
+        factTablesWithMetricData[i].factTable.id
+      ];
 
     // metricData across all sources, with the per-metric alias already
     // reflecting the forced index (`m0.<col>` for source 0, `m1.<col>` for
@@ -2528,6 +2597,30 @@ export default abstract class SqlIntegration
           .map((m) => [m.metric.id, m] as const),
       ).values(),
     );
+
+    // Every FT that hosts at least one side of an RA metric must have a
+    // covariate cache. The metric-data layer unconditionally references
+    // `c.<alias>_covariate_value` (and `_covariate_denominator` for ratio
+    // metrics) for every RA metric, so a missing covariate cache would
+    // generate SQL that references a column the source CTE never projects.
+    if (regressionAdjustedMetrics.length > 0) {
+      for (const f of factTablesWithMetricData) {
+        const needsCovariateCache = regressionAdjustedMetrics.some(
+          (data) =>
+            data.metric.numerator.factTableId === f.factTable.id ||
+            (data.ratioMetric &&
+              data.metric.denominator?.factTableId === f.factTable.id),
+        );
+        if (
+          needsCovariateCache &&
+          !params.metricSourceCovariateTables?.[f.factTable.id]
+        ) {
+          throw new Error(
+            `getIncrementalRefreshStatisticsQuery: metricSourceCovariateTables is missing fact table "${f.factTable.id}" which hosts regression-adjusted metrics.`,
+          );
+        }
+      }
+    }
 
     const regressionAdjustedTableIndices = new Set<number>();
     if (regressionAdjustedMetrics.length > 0) {
@@ -2840,40 +2933,61 @@ export default abstract class SqlIntegration
             .filter((s) => s.length > 0)
             .join("\n");
 
-          // Covariate (CUPED) is rejected upstream for cross-FT ratio
-          // metrics, so the covariate cache only ever holds same-FT
-          // metrics. We keep that join exclusively on the source-0 CTE.
-          const covariateColumns =
-            isSource0 && regressionAdjustedMetrics.length > 0
-              ? regressionAdjustedMetrics
-                  .map(
-                    (data) =>
-                      `, c.${data.alias}_covariate_value AS ${data.alias}_covariate_value
-                      ${
-                        data.ratioMetric
-                          ? `, c.${data.alias}_covariate_denominator AS ${data.alias}_covariate_denominator`
-                          : ""
-                      }`,
-                  )
-                  .join("\n")
-              : "";
+          // Each source's `__joinedData{i}` LEFT JOINs its own covariate
+          // cache (when one exists) and projects only the side(s) that
+          // cache materializes — numerator-side `_covariate_value` when
+          // this source is the metric's numerator FT, denominator-side
+          // `_covariate_denominator` when this source is the metric's
+          // denominator FT. Same-FT RA metrics carry both sides in one
+          // source; cross-FT RA metrics split across the two sources, and
+          // the metric-data layer's column refs (`m{numeratorIdx}.`,
+          // `m{denominatorIdx}.`) already point at the right alias.
+          const covariateTable = covariateTableForSource(i);
+          const sourceFactTableId = factTablesWithMetricData[i].factTable.id;
+          const localCovariatePairs = regressionAdjustedMetrics
+            .map((data) => {
+              const numeratorHere =
+                data.metric.numerator.factTableId === sourceFactTableId;
+              const denominatorHere =
+                data.ratioMetric &&
+                data.metric.denominator?.factTableId === sourceFactTableId;
+              return {
+                data,
+                numeratorHere,
+                denominatorHere,
+                hasAnything: numeratorHere || denominatorHere,
+              };
+            })
+            .filter((p) => p.hasAnything);
+          const covariateColumns = localCovariatePairs
+            .map(({ data, numeratorHere, denominatorHere }) => {
+              const numeratorCol = numeratorHere
+                ? `, c.${data.alias}_covariate_value AS ${data.alias}_covariate_value`
+                : "";
+              const denominatorCol = denominatorHere
+                ? `, c.${data.alias}_covariate_denominator AS ${data.alias}_covariate_denominator`
+                : "";
+              return `${numeratorCol}${denominatorCol}`;
+            })
+            .join("\n");
+          const covariateInnerColumns = localCovariatePairs
+            .map(({ data, numeratorHere, denominatorHere }) => {
+              const numeratorCol = numeratorHere
+                ? `, MAX(${encodeMetricIdForColumnName(data.id)}_value) AS ${data.alias}_covariate_value`
+                : "";
+              const denominatorCol = denominatorHere
+                ? `, MAX(${encodeMetricIdForColumnName(data.id)}_denominator_value) AS ${data.alias}_covariate_denominator`
+                : "";
+              return `${numeratorCol}${denominatorCol}`;
+            })
+            .join("\n");
           const covariateJoin =
-            isSource0 && regressionAdjustedMetrics.length > 0
+            covariateTable && localCovariatePairs.length > 0
               ? `LEFT JOIN (
                   SELECT
                     ${baseIdType}
-                    ${regressionAdjustedMetrics
-                      .map(
-                        (data) =>
-                          `, MAX(${encodeMetricIdForColumnName(data.id)}_value) AS ${data.alias}_covariate_value
-                          ${
-                            data.ratioMetric
-                              ? `, MAX(${encodeMetricIdForColumnName(data.id)}_denominator_value) AS ${data.alias}_covariate_denominator`
-                              : ""
-                          }`,
-                      )
-                      .join("\n")}
-                  FROM ${params.metricSourceCovariateTableFullName}
+                    ${covariateInnerColumns}
+                  FROM ${covariateTable}
                   GROUP BY ${baseIdType}
                 ) c ON u.${baseIdType} = c.${baseIdType}`
               : "";

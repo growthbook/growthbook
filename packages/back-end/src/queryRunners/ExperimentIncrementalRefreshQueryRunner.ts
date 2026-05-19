@@ -543,6 +543,12 @@ const startExperimentIncrementalRefreshQueries = async (
     group: MetricSourceGroups;
     tableFullName: string;
     insertQuery: QueryPointer;
+    // Optional covariate cache + insert query for this group, populated
+    // only when at least one metric in the group is regression-adjusted.
+    // The cross-FT pair pass below stitches both pipelines' covariate
+    // caches into a single `metricSourceCovariateTables` map.
+    covariateTableFullName?: string;
+    covariateInsertQuery?: QueryPointer;
   }
   const pipelineByGroupId = new Map<string, SourcePipeline>();
 
@@ -642,10 +648,14 @@ const startExperimentIncrementalRefreshQueries = async (
     });
     queries.push(insertMetricsSourceDataQuery);
 
-    // CUPED tables — only same-FT (role "complete") metrics can carry
-    // regression adjustment (cross-FT ratio CUPED is rejected upstream by
-    // validateIncrementalPipeline), so we filter to those before deciding
-    // whether to materialize a covariate cache.
+    // CUPED tables — one covariate cache per group, holding only the
+    // side(s) this FT actually materializes for each metric. Same-FT metrics
+    // contribute both sides; cross-FT ratio metrics contribute only their
+    // numerator side in their numerator FT's cache and only their
+    // denominator side in their denominator FT's cache. The role-aware
+    // projection inside getInsertMetricSourceCovariateDataQuery handles the
+    // filtering — we just hand it the full group.metrics list and the
+    // factTableId.
     const metricSourceCovariateTableFullName: string | undefined =
       existingCovariateSource?.tableFullName ??
       (integration.generateTablePath &&
@@ -660,7 +670,7 @@ const startExperimentIncrementalRefreshQueries = async (
         "Unable to generate table; table path generator not specified.",
       );
     }
-    const anyMetricHasCuped = sameFtMetrics.some((m) => {
+    const anyMetricHasCuped = group.metrics.some((m) => {
       const metric = cloneDeep(m);
       applyMetricOverrides(metric, snapshotSettings);
       return (
@@ -691,7 +701,8 @@ const startExperimentIncrementalRefreshQueries = async (
           displayTitle: `Create Metric Covariate Table ${sourceName}`,
           query: integration.getCreateMetricSourceCovariateTableQuery({
             settings: snapshotSettings,
-            metrics: sameFtMetrics,
+            factTableId: group.factTableId,
+            metrics: group.metrics,
             metricSourceCovariateTableFullName,
           }),
           dependencies: [dropMetricCovariateTableQuery.query],
@@ -713,9 +724,10 @@ const startExperimentIncrementalRefreshQueries = async (
           settings: snapshotSettings,
           activationMetric: activationMetric,
           factTableMap: params.factTableMap,
+          factTableId: group.factTableId,
           metricSourceCovariateTableFullName,
           unitsSourceTableFullName: unitsTableFullName,
-          metrics: sameFtMetrics,
+          metrics: group.metrics,
           lastCovariateSuccessfulMaxTimestamp:
             existingCovariateSource?.lastSuccessfulMaxTimestamp || null,
         }),
@@ -864,6 +876,10 @@ const startExperimentIncrementalRefreshQueries = async (
       group,
       tableFullName: metricSourceTableFullName,
       insertQuery: insertMetricsSourceDataQuery,
+      covariateTableFullName: anyMetricHasCuped
+        ? metricSourceCovariateTableFullName
+        : undefined,
+      covariateInsertQuery: insertMetricCovariateDataQuery ?? undefined,
     });
 
     // Schedule a same-FT statistics query for every "complete" entry in this
@@ -894,7 +910,10 @@ const startExperimentIncrementalRefreshQueries = async (
           metricSourceTables: {
             [group.factTableId]: metricSourceTableFullName,
           },
-          metricSourceCovariateTableFullName,
+          metricSourceCovariateTables:
+            anyMetricHasCuped && metricSourceCovariateTableFullName
+              ? { [group.factTableId]: metricSourceCovariateTableFullName }
+              : {},
         }),
         dependencies: [
           insertMetricsSourceDataQuery.query,
@@ -1015,14 +1034,35 @@ const startExperimentIncrementalRefreshQueries = async (
             [pipelineA.group.factTableId]: pipelineA.tableFullName,
             [pipelineB.group.factTableId]: pipelineB.tableFullName,
           },
-          // Cross-FT CUPED is rejected by validateIncrementalPipeline, so
-          // this query never reads a covariate cache.
-          metricSourceCovariateTableFullName: null,
+          // Cross-FT CUPED uses one covariate cache per pipeline — the
+          // numerator FT's cache carries `_value` covariates, the
+          // denominator FT's cache carries `_denominator_value` covariates,
+          // and the role-aware LEFT JOIN inside each `__joinedData{i}`
+          // picks the right side. Omit FTs with no RA metrics.
+          metricSourceCovariateTables: {
+            ...(pipelineA.covariateTableFullName
+              ? {
+                  [pipelineA.group.factTableId]:
+                    pipelineA.covariateTableFullName,
+                }
+              : {}),
+            ...(pipelineB.covariateTableFullName
+              ? {
+                  [pipelineB.group.factTableId]:
+                    pipelineB.covariateTableFullName,
+                }
+              : {}),
+          },
         }),
         dependencies: [
-          // TODO CUPED
           pipelineA.insertQuery.query,
           pipelineB.insertQuery.query,
+          ...(pipelineA.covariateInsertQuery
+            ? [pipelineA.covariateInsertQuery.query]
+            : []),
+          ...(pipelineB.covariateInsertQuery
+            ? [pipelineB.covariateInsertQuery.query]
+            : []),
         ],
         run: (query, setExternalId, queryMetadata) =>
           integration.runIncrementalRefreshStatisticsQuery(

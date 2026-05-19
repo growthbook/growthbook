@@ -377,6 +377,12 @@ export interface DropMetricSourceCovariateTableQueryParams {
 
 export interface CreateMetricSourceCovariateTableQueryParams {
   settings: ExperimentSnapshotSettings;
+  // The fact table this covariate cache is rooted in. Like the metric source
+  // schema, only the side(s) this FT actually hosts get materialized — a
+  // cross-FT ratio metric's numerator-only covariate cache lives in its
+  // numerator FT, its denominator-only covariate cache lives in its
+  // denominator FT.
+  factTableId: string;
   metrics: FactMetricInterface[];
   metricSourceCovariateTableFullName: string;
 }
@@ -385,6 +391,9 @@ export interface InsertMetricSourceCovariateDataQueryParams {
   settings: ExperimentSnapshotSettings;
   activationMetric: ExperimentMetricInterface | null;
   factTableMap: FactTableMap;
+  // The fact table whose rows feed this covariate cache. Disambiguates which
+  // side of a cross-FT ratio metric this insert is materializing.
+  factTableId: string;
   metricSourceCovariateTableFullName: string;
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
@@ -405,7 +414,13 @@ export interface IncrementalRefreshStatisticsQueryParams {
   // impose a specific ordering. The map must contain a `tableFullName` for
   // every fact table referenced by `metrics` (numerator and denominator).
   metricSourceTables: Record<string, string>;
-  metricSourceCovariateTableFullName: string | null;
+  // Covariate (CUPED) cache tables, keyed by fact-table id. Same fan-out as
+  // `metricSourceTables` — for cross-FT ratio CUPED, the numerator FT's
+  // entry holds `_value` (numerator covariate) and the denominator FT's
+  // entry holds `_denominator_value` (denominator covariate). Every FT that
+  // hosts at least one side of a regression-adjusted metric must have an
+  // entry; omit FTs with no RA metrics on either side.
+  metricSourceCovariateTables?: Record<string, string>;
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
