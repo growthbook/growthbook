@@ -85,20 +85,19 @@ function formatSimpleScheduleLabel(rs: RampScheduleInterface): string {
   return "USING SCHEDULE";
 }
 
+// Returns the scheduled enable date for a rule whose ramp is queued to flip it
+// from disabled → enabled. We don't filter by past-vs-future: a pending draft
+// schedule whose startDate has drifted into the past is still "queued to enable
+// on publish", and we want to surface that date in the disabled badge and
+// require confirmation before manual enable.
 function getRampEnableDate(
   rampSchedule: RampScheduleInterface | undefined,
 ): Date | null {
   if (!rampSchedule) return null;
   const { status, startDate } = rampSchedule;
   if (!startDate) return null;
-  const d = new Date(startDate);
-  if (
-    (status === "ready" || status === "pending") &&
-    d.getTime() > Date.now()
-  ) {
-    return d;
-  }
-  return null;
+  if (status !== "ready" && status !== "pending") return null;
+  return new Date(startDate);
 }
 
 function formatRemainingDuration(totalSeconds: number): string {
@@ -193,6 +192,9 @@ interface SortableProps {
   // rule cannot move in that direction.
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  // True when the draft has this rule disabled but the live feature has it enabled.
+  // Surfaces a warning so users don't accidentally revert a schedule-driven enable.
+  liveEnabledDraftDisabled?: boolean;
 }
 
 type RuleProps = SortableProps &
@@ -256,6 +258,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       isAllEnvsView,
       onMoveUp,
       onMoveDown,
+      liveEnabledDraftDisabled,
       ...props
     },
     ref,
@@ -978,6 +981,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             </Flex>
           </Flex>
           <Box>{info.callout}</Box>
+          {liveEnabledDraftDisabled && (
+            <Callout status="warning" mt="3" size="sm">
+              This rule is <strong>enabled</strong> in the live feature but{" "}
+              <strong>disabled</strong> in this draft. Publishing may revert a
+              schedule-driven enable.
+            </Callout>
+          )}
           {rampSchedule?.status === "pending-approval" &&
             rampSchedule.currentStepIndex >= 0 &&
             rampSchedule.steps[rampSchedule.currentStepIndex]
@@ -1277,15 +1287,26 @@ export function getRuleMetaInfo({
   if (!rule.enabled) {
     const rampEnableDate = getRampEnableDate(rampSchedule);
     if (rampEnableDate) {
+      // A pending draft schedule whose startDate has drifted into the past
+      // still hasn't fired — once published, the backend treats startDate as
+      // a one-shot gate and enables immediately. Showing the stale date is
+      // confusing; surface the actual semantics instead.
+      const inPast = rampEnableDate.getTime() <= Date.now();
+      const label = inPast
+        ? "Disabled · enables on publish"
+        : `Disabled \u00b7 enables ${fmtScheduleDate(rampEnableDate)}`;
+      const title = inPast
+        ? "Rule will be enabled by its schedule on the next publish"
+        : `Rule will be enabled by its schedule on ${rampEnableDate.toLocaleDateString()}`;
       return {
         pill: (
           <Badge
             color="gray"
-            title={`Rule will be enabled by its schedule on ${rampEnableDate.toLocaleDateString()}`}
+            title={title}
             label={
               <>
                 <RxCircleBackslash />
-                Disabled &middot; enables {fmtScheduleDate(rampEnableDate)}
+                {label}
               </>
             }
           />
