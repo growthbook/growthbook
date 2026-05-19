@@ -318,11 +318,15 @@ const startExperimentIncrementalRefreshQueries = async (
       return run(query, setExternalId, queryMetadata);
     };
 
-  // When the desired layout adds new (factTableId, metricId, role) tuples to
-  // a fact table — either a fresh metric, or an existing metric whose role
-  // shifted (e.g. same-FT → cross-FT) — we need to rebuild that FT's cache
-  // so the schema and data line up with the new role assignments.
-  // Removed tuples are fine: we simply stop populating them.
+  // Fact tables whose (factTableId, metricId) membership has drifted from
+  // what the persisted cache reflects — either a new metric appearing in
+  // the FT, or a previously-stored metric that no longer appears (e.g. a
+  // cross-FT ratio's denominator was moved back into the numerator FT).
+  // We need to rebuild those caches end-to-end so the schema matches the
+  // new desired layout instead of trying to incrementally update an
+  // out-of-shape table. Orientation flips on the same metric (numerator
+  // FT ↔ denominator FT) are caught earlier by the settingsHash check in
+  // dataPipeline.ts.
   const factTablesWithNewMetrics = new Set<string>();
 
   const factMetrics: FactMetricInterface[] = [];
@@ -340,16 +344,9 @@ const startExperimentIncrementalRefreshQueries = async (
   if (incrementalRefreshModel && incrementalRefreshModel.metricSources.length) {
     // Bidirectional (factTableId, metricId) diff between stored caches and
     // the desired fan-out:
-    //   - new (factTableId, metricId) tuples → the cache for that FT needs
-    //     to grow → mark it for rebuild.
-    //   - orphaned stored tuples (no counterpart in the desired fan-out)
-    //     → that cache holds a metric or a side that no longer applies (e.g.
-    //     a cross-FT ratio whose denominator was moved back into the
-    //     numerator FT) → mark its FT for rebuild too.
-    // Orientation flips (numerator FT swap, denominator FT swap) on a
-    // single metric are caught even earlier by the settingsHash check in
-    // dataPipeline.ts, but the orphan branch here is what handles the case
-    // where the metric simply stops appearing in a previously-used FT.
+    //   - new tuples → the cache for that FT needs to grow → mark for rebuild.
+    //   - orphaned stored tuples → cache holds a metric (or a half of a
+    //     cross-FT ratio) that no longer applies → mark its FT for rebuild.
     const storedTuples = new Set<string>();
     incrementalRefreshModel.metricSources.forEach((source) => {
       source.metrics.forEach((m) => {
@@ -546,11 +543,12 @@ const startExperimentIncrementalRefreshQueries = async (
   let existingCovariateSources =
     incrementalRefreshModel?.metricCovariateSources ?? [];
 
-  // Filter out metric source groups that belong to fact tables whose
-  // desired (metric id, role) set has changed since last run. Dropping
-  // them here forces the per-FT loop below to re-create the cache with
-  // the new schema instead of trying to incrementally update it (which
-  // would leave the cache misaligned with the desired layout).
+  // Drop existing source records for FTs flagged by the (factTableId,
+  // metricId) diff above. The per-FT loop below will see no
+  // `existingSource` and rebuild the cache from scratch (CREATE + full
+  // INSERT) instead of incrementally appending — the cache's schema may
+  // be out of shape with the desired metric set. The matching covariate
+  // sources are dropped at the same time so CUPED state stays consistent.
   if (factTablesWithNewMetrics.size > 0) {
     const sourcesGroupIdsToDelete = new Set<string>();
     existingSources.forEach((source) => {
@@ -576,8 +574,9 @@ const startExperimentIncrementalRefreshQueries = async (
   let runningCovariateSourceData = existingCovariateSources ?? [];
 
   // Track per-group state we need from the per-FT pass for the cross-FT
-  // pair pass below: the cache table identity (for `metricSources[]`) plus
-  // the insert query (for downstream dependencies).
+  // pair pass below: each pipeline's cache table name (so the stats query
+  // can build its `metricSourceTables` map keyed by factTableId) and the
+  // insert query (so the stats query can declare it as a dependency).
   interface SourcePipeline {
     group: MetricSourceGroups;
     tableFullName: string;
@@ -689,13 +688,14 @@ const startExperimentIncrementalRefreshQueries = async (
     queries.push(insertMetricsSourceDataQuery);
 
     // CUPED tables — one covariate cache per group, holding only the
-    // side(s) this FT actually materializes for each metric. Same-FT metrics
-    // contribute both sides; cross-FT ratio metrics contribute only their
-    // numerator side in their numerator FT's cache and only their
-    // denominator side in their denominator FT's cache. The role-aware
-    // projection inside getInsertMetricSourceCovariateDataQuery handles the
-    // filtering — we just hand it the full group.metrics list and the
-    // factTableId.
+    // side(s) this FT actually materializes for each metric. Same-FT
+    // metrics contribute both sides; cross-FT ratio metrics contribute
+    // only their numerator side in their numerator FT's cache and only
+    // their denominator side in their denominator FT's cache. The
+    // schema/projection inside getInsertMetricSourceCovariateDataQuery
+    // gates each side on `metric.numerator.factTableId === factTableId`
+    // (and likewise for denominator) — we filter the input to only the
+    // RA-eligible subset below so non-RA metrics don't bloat the schema.
     const metricSourceCovariateTableFullName: string | undefined =
       existingCovariateSource?.tableFullName ??
       (integration.generateTablePath &&
@@ -924,9 +924,10 @@ const startExperimentIncrementalRefreshQueries = async (
       covariateInsertQuery: insertMetricCovariateDataQuery ?? undefined,
     });
 
-    // Schedule a same-FT statistics query for every "complete" entry in this
-    // group. Caches that only host one half of a cross-FT ratio skip this —
-    // their metrics' stats are computed in the cross-FT pair pass below.
+    // Schedule a same-FT statistics query for every metric in this group
+    // whose numerator and denominator both live in this FT. Caches that
+    // only host one half of a cross-FT ratio skip this — those metrics'
+    // stats are computed in the cross-FT pair pass below.
     if (sameFtMetrics.length > 0) {
       // Match standard query runner behavior: quantiles only run overall
       // stats (no pre-computed dimensions), regardless of requested
@@ -1026,8 +1027,9 @@ const startExperimentIncrementalRefreshQueries = async (
         // Cross-FT CUPED uses one covariate cache per pipeline — the
         // numerator FT's cache carries `_value` covariates, the
         // denominator FT's cache carries `_denominator_value` covariates,
-        // and the role-aware LEFT JOIN inside each `__joinedData{i}`
-        // picks the right side. Omit FTs with no RA metrics.
+        // and the per-source covariate LEFT JOIN inside each
+        // `__joinedData{i}` picks the right side from each side's cache.
+        // FTs with no RA metrics are omitted from this map.
         metricSourceCovariateTables: {
           ...(pipelineA.covariateTableFullName
             ? {

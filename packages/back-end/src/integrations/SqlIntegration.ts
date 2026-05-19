@@ -1912,12 +1912,13 @@ export default abstract class SqlIntegration
       { ...paramsMetricsSorted, targetFactTableId: params.factTableId },
     );
 
-    // Each insert targets one cache table fed from a single FT. For cross-FT
-    // ratio metrics, getFactTablesForMetrics surfaces both FTs — pick the one
-    // we were told to load. The per-metric projection below is already
-    // role-aware (it gates on `numeratorSourceIndex === factTableWithMetricData.index`
-    // for the numerator side and `denominatorSourceIndex === ...` for the
-    // denominator side), so it will emit only the side(s) this FT hosts.
+    // With `targetFactTableId` set above, `factTablesWithMetricData` is
+    // already scoped to a single FT. Defend against an empty result (e.g.
+    // caller passed metrics that don't touch params.factTableId) — the
+    // per-metric projection below then gates each side on
+    // `metric.numerator?.factTableId === params.factTableId` (and
+    // likewise for denominator), so it will emit only the side(s) this
+    // FT hosts.
     const factTableWithMetricData = factTablesWithMetricData.find(
       (f) => f.factTable.id === params.factTableId,
     );

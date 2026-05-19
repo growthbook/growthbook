@@ -160,11 +160,11 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     snapshotSettings,
   });
 
-  // Mirror the main runner: same-FT (role "complete") metrics get a stats
-  // query against their own cache, then we do a second pass over cross-FT
-  // ratio metric pairs and emit one joined stats query per pair (so
-  // dimension breakdowns on cross-FT ratios work the same way they do for
-  // single-table metrics).
+  // Mirror the main runner: metrics whose numerator and denominator both
+  // live in one FT get a stats query against that FT's cache, then we do
+  // a second pass over cross-FT ratio metric pairs and emit one joined
+  // stats query per pair (so dimension breakdowns on cross-FT ratios work
+  // the same way they do for single-table metrics).
   interface ExploratoryPipeline {
     group: (typeof metricSourceGroups)[number];
     tableFullName: string;
