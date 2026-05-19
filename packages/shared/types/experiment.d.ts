@@ -143,6 +143,13 @@ export type ExperimentPhaseStringDates = Omit<
   dateEnded?: string;
 };
 
+type NextScheduledStatusUpdateStringDates = Omit<
+  NextScheduledStatusUpdate,
+  "date"
+> & {
+  date: string;
+};
+
 type StatusUpdateScheduleStringDates = Omit<StatusUpdateSchedule, "startAt"> & {
   startAt?: string;
 };
@@ -184,11 +191,16 @@ export interface LegacyExperimentInterface
 
 export type ExperimentInterfaceStringDates = Omit<
   ExperimentInterface,
-  "dateCreated" | "dateUpdated" | "phases" | "statusUpdateSchedule"
+  | "dateCreated"
+  | "dateUpdated"
+  | "phases"
+  | "nextScheduledStatusUpdate"
+  | "statusUpdateSchedule"
 > & {
   dateCreated: string;
   dateUpdated: string;
   phases: ExperimentPhaseStringDates[];
+  nextScheduledStatusUpdate?: NextScheduledStatusUpdateStringDates | null;
   statusUpdateSchedule?: StatusUpdateScheduleStringDates | null;
 };
 
