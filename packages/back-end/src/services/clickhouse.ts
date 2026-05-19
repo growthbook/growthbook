@@ -26,6 +26,33 @@ const REMAINING_COLUMNS_SCHEMA: Record<string, ClickHouseDataType> = {
   ip: "String",
 };
 
+/** Ingestor top-level context fields materialized on managed warehouse tables. */
+const MANAGED_WAREHOUSE_INGEST_DIMENSION_COLUMNS = [
+  "user_id",
+  "url",
+  "url_path",
+  "url_host",
+  "url_query",
+  "url_fragment",
+  "device_id",
+  "page_id",
+  "session_id",
+  "page_title",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_term",
+  "utm_content",
+  "geo_country",
+  "geo_city",
+  "geo_lat",
+  "geo_lon",
+  "ua",
+  "ua_browser",
+  "ua_os",
+  "ua_device_type",
+] as const;
+
 export function getReservedColumnNames(): Set<string> {
   return new Set(
     [
@@ -36,7 +63,14 @@ export function getReservedColumnNames(): Set<string> {
       "attributes",
       "experiment_id",
       "variation_id",
+      "issue_fingerprint",
+      "title",
+      "error_type",
+      "transaction_name",
+      "release_version",
+      "runtime_name",
       ...Object.keys(REMAINING_COLUMNS_SCHEMA),
+      ...MANAGED_WAREHOUSE_INGEST_DIMENSION_COLUMNS,
     ].map((col) => col.toLowerCase()),
   );
 }

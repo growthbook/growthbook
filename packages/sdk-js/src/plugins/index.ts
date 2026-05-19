@@ -1,5 +1,14 @@
 export { autoAttributesPlugin } from "./auto-attributes";
 export { growthbookTrackingPlugin } from "./growthbook-tracking";
+export {
+  growthbookErrorTrackingPlugin,
+  captureGrowthBookError,
+  buildErrorEventProperties,
+  fingerprintForError,
+  parseStackFrames,
+  growthbookComposedError,
+  GROWTHBOOK_COMPOSED_ERROR_PATTERN,
+} from "./growthbook-error-tracking";
 export { thirdPartyTrackingPlugin } from "./third-party-tracking";
 export {
   devtoolsPlugin,

@@ -886,6 +886,11 @@ export default {
         },
         {
           type: "doc",
+          id: "lib/error-tracking",
+          label: "Error tracking",
+        },
+        {
+          type: "doc",
           id: "lib/react",
           label: "React",
         },

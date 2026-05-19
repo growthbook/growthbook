@@ -9,6 +9,7 @@
   "exports": {
     "./package.json": "./package.json",
     ".": {
+      "types": "./dist/index.d.ts",
       "import": {
         "types": "./dist/index.d.ts",
         "default": "./dist/esm/index.mjs"
@@ -19,6 +20,7 @@
       }
     },
     "./plugins": {
+      "types": "./dist/plugins/index.d.ts",
       "import": {
         "types": "./dist/plugins/index.d.ts",
         "default": "./dist/esm/plugins/index.mjs"
@@ -26,6 +28,17 @@
       "require": {
         "types": "./dist/plugins/index.d.ts",
         "default": "./dist/cjs/plugins/index.js"
+      }
+    },
+    "./plugins/growthbook-error-tracking": {
+      "types": "./dist/plugins/growthbook-error-tracking.d.ts",
+      "import": {
+        "types": "./dist/plugins/growthbook-error-tracking.d.ts",
+        "default": "./dist/esm/plugins/growthbook-error-tracking.mjs"
+      },
+      "require": {
+        "types": "./dist/plugins/growthbook-error-tracking.d.ts",
+        "default": "./dist/cjs/plugins/growthbook-error-tracking.js"
       }
     }
   },

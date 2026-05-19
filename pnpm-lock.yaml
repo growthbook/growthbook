@@ -436,6 +436,9 @@ importers:
       snowflake-sdk:
         specifier: 2.3.3
         version: 2.3.3(asn1.js@5.4.1)(encoding@0.1.13)
+      source-map:
+        specifier: ^0.7.6
+        version: 0.7.6
       ssrf-req-filter:
         specifier: ^1.1.1
         version: 1.1.1
@@ -12241,6 +12244,10 @@ packages:
     resolution: {integrity: sha512-l3BikUxvPOcn5E74dZiq5BGsTb5yEwhaTSzccU6t4sDOH8NWJCstKO5QT2CvtFoK6F0saL7p9xHAqHOlCPJygA==}
     engines: {node: '>= 8'}
 
+  source-map@0.7.6:
+    resolution: {integrity: sha512-i5uvt8C3ikiWeNZSVZNWcfZPItFQOsYTUAOkcUPGd8DqDy1uOUikjt5dG+uRlwyvR108Fb9DOd4GvXfT0N2/uQ==}
+    engines: {node: '>= 12'}
+
   space-separated-tokens@1.1.5:
     resolution: {integrity: sha512-q/JSVd1Lptzhf5bkYm4ob4iWPjx0KiRe3sRFBNrVqbJkFaBm5vbbowy1mymoPNLRa52+oadOhJ+K49wsSeSjTA==}
 
@@ -19848,7 +19855,7 @@ snapshots:
       commander: 7.2.0
       fast-glob: 3.3.2
       slash: 3.0.0
-      source-map: 0.7.4
+      source-map: 0.7.6
     optionalDependencies:
       chokidar: 3.6.0
 
@@ -27774,6 +27781,8 @@ snapshots:
 
   source-map@0.7.4: {}
 
+  source-map@0.7.6: {}
+
   space-separated-tokens@1.1.5: {}
 
   space-separated-tokens@2.0.2: {}
@@ -28687,7 +28696,7 @@ snapshots:
     dependencies:
       '@types/istanbul-lib-coverage': 2.0.3
       convert-source-map: 1.8.0
-      source-map: 0.7.4
+      source-map: 0.7.6
 
   v8flags@4.0.0: {}
 

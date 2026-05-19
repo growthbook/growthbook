@@ -1,7 +1,10 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep, isEqual } from "lodash";
-import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
+import {
+  MANAGED_WAREHOUSE_ERRORS_FACT_TABLE_ID,
+  MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+} from "shared/constants";
 import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import {
   DataSourceInterface,
@@ -207,9 +210,9 @@ export async function deleteDatasource(
     throw new Error("Cannot delete. Data sources managed by config.yml");
   }
   if (datasource.type === "growthbook_clickhouse") {
-    if (!isManagedWarehouseAwaitingProvisioning(datasource)) {
-      await deleteClickhouseUser(context.org.id);
-    }
+    // Always attempt ClickHouse cleanup (DROP USER/DATABASE IF EXISTS) so orphaned
+    // org databases are removed even when provisioning never flipped hasBeenProvisioned.
+    await deleteClickhouseUser(context.org.id);
 
     // Also delete the main events fact table
     try {
@@ -222,6 +225,20 @@ export async function deleteDatasource(
       }
     } catch (e) {
       logger.error(e, "Error deleting clickhouse events fact table");
+    }
+
+    try {
+      const errorsFactTable = await getFactTable(
+        context,
+        MANAGED_WAREHOUSE_ERRORS_FACT_TABLE_ID,
+      );
+      if (errorsFactTable) {
+        await deleteFactTable(context, errorsFactTable, {
+          bypassManagedByCheck: true,
+        });
+      }
+    } catch (e) {
+      logger.error(e, "Error deleting clickhouse errors fact table");
     }
   }
   await DataSourceModel.deleteOne({

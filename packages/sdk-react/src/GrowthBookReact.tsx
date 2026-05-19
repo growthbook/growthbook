@@ -9,7 +9,13 @@ import type {
   Context,
   WidenPrimitives,
 } from "@growthbook/growthbook";
-import { GrowthBook } from "@growthbook/growthbook";
+import {
+  GrowthBook,
+  EVENT_GROWTHBOOK_ERROR,
+  buildErrorEventProperties,
+} from "@growthbook/growthbook";
+
+const GROWTHBOOK_MANAGED_ERROR_EVENT = EVENT_GROWTHBOOK_ERROR;
 
 export type GrowthBookContextValue = {
   growthbook: GrowthBook;
@@ -171,6 +177,65 @@ export const withRunExperiment = <P extends WithRunExperimentProps>(
   return withRunExperimentWrapper;
 };
 withRunExperiment.displayName = "WithRunExperiment";
+
+export type GrowthBookErrorBoundaryProps = {
+  children: React.ReactNode;
+  fallback?: React.ReactNode | ((args: { error: Error }) => React.ReactNode);
+};
+
+type GrowthBookErrorBoundaryState = { error: Error | null };
+
+/**
+ * Reports React render errors via {@link captureGrowthBookError} (requires
+ * `growthbookTrackingPlugin` before `growthbookErrorTrackingPlugin` in the same instance).
+ */
+export class GrowthBookErrorBoundary extends React.Component<
+  GrowthBookErrorBoundaryProps,
+  GrowthBookErrorBoundaryState
+> {
+  static contextType = GrowthBookContext;
+  declare context: GrowthBookContextValue;
+
+  state: GrowthBookErrorBoundaryState = { error: null };
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    const gb = this.context?.growthbook;
+    if (gb) {
+      void gb.logEvent(
+        GROWTHBOOK_MANAGED_ERROR_EVENT,
+        buildErrorEventProperties(error, {
+          errorType: "react",
+          handled: false,
+          contexts: {
+            react: {
+              componentStack: info.componentStack,
+            },
+          },
+        }),
+      );
+    }
+    this.setState({ error });
+  }
+
+  render() {
+    const { error } = this.state;
+    if (!error) return this.props.children;
+
+    const { fallback } = this.props;
+    if (typeof fallback === "function") {
+      return fallback({ error });
+    }
+    if (fallback != null) {
+      return fallback;
+    }
+
+    return (
+      <div role="alert">
+        <p>Something went wrong.</p>
+      </div>
+    );
+  }
+}
 
 export const GrowthBookProvider: React.FC<
   React.PropsWithChildren<{

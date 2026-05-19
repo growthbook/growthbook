@@ -85,6 +85,13 @@ export const navlinks: SidebarLinkProps[] = [
         href: "/product-analytics/dashboards",
         path: /^product-analytics\/dashboards/,
       },
+      {
+        name: "Error Tracking",
+        href: "/error-tracking",
+        path: /^error-tracking/,
+        beta: true,
+        filter: ({ gb }) => !!gb?.isOn("enable-error-tracking"),
+      },
     ],
   },
   {

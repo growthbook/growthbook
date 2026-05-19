@@ -1,0 +1,159 @@
+---
+title: Error tracking
+description: Capture application errors with the GrowthBook JavaScript SDK and upload source maps from CI.
+sidebar_label: Error tracking
+slug: error-tracking
+toc_max_heading_level: 5
+---
+
+# Error tracking
+
+The GrowthBook JavaScript SDK can capture browser errors and send them to a GrowthBook Managed Warehouse so you can triage issues in the GrowthBook app. Pair the error tracking plugin with the managed warehouse tracking plugin so each error includes user, release, and feature-evaluation context.
+
+## Prerequisites
+
+- A GrowthBook organization with a [Managed Warehouse](/experimentation-analysis/managed-warehouse) connection.
+- An SDK connection for the app you want to monitor.
+- `@growthbook/growthbook` version 1.4.0 or newer.
+
+## Install the plugins
+
+Register `growthbookTrackingPlugin` before `growthbookErrorTrackingPlugin` on the same `GrowthBook` instance. The tracking plugin sends events to the managed warehouse ingest endpoint. The error tracking plugin listens for uncaught errors and unhandled promise rejections, and also exposes `captureGrowthBookError` for manual reporting.
+
+```js
+import { GrowthBook } from "@growthbook/growthbook";
+import {
+  autoAttributesPlugin,
+  growthbookTrackingPlugin,
+  growthbookErrorTrackingPlugin,
+} from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  attributes: {
+    id: "user_123",
+    user_id: "user_123",
+  },
+  plugins: [
+    autoAttributesPlugin({
+      uuidKey: "anonymous_id",
+    }),
+    growthbookTrackingPlugin(),
+    growthbookErrorTrackingPlugin({
+      release: process.env.NEXT_PUBLIC_RELEASE,
+    }),
+  ],
+});
+
+await gb.init();
+```
+
+### Recommended attributes
+
+- Set `user_id` (and optionally `id`) to your authenticated user identifier before feature evaluation and error capture.
+- Store the browser cookie UUID on `anonymous_id` instead of `id` so managed warehouse events keep device and user identifiers separate.
+- Pass the same `release` value on errors that you upload with source maps in CI.
+
+### Manual capture
+
+Use `captureGrowthBookError` when you handle an error yourself but still want it in GrowthBook.
+
+```js
+import { captureGrowthBookError } from "@growthbook/growthbook/plugins";
+
+try {
+  await riskyOperation();
+} catch (error) {
+  await captureGrowthBookError(gb, error, {
+    errorType: "manual",
+    release: process.env.NEXT_PUBLIC_RELEASE,
+  });
+}
+```
+
+### Plugin options
+
+`growthbookErrorTrackingPlugin` accepts:
+
+- `enable` — turn reporting on or off.
+- `captureUnhandled` — listen for `window.onerror`.
+- `captureUnhandledRejections` — listen for unhandled promise rejections.
+- `dedupeWindowMs` — suppress duplicate fingerprints within a short window.
+- `release` or `getRelease()` — attach a release tag to each error.
+- `runtime` — override the runtime label (defaults to `browser` in the browser).
+- `getTransaction()` — optional transaction name, such as a route id.
+
+## Upload source maps
+
+Upload source maps from CI so GrowthBook can symbolicate minified stack traces for a release. Use the REST API with a secret API key.
+
+- `POST /api/v1/error-tracking/source-maps`
+- `GET /api/v1/error-tracking/source-maps?clientKey=...&release=...`
+
+Request body for `POST`:
+
+| Field           | Description                                                    |
+| --------------- | -------------------------------------------------------------- |
+| `clientKey`     | SDK connection key for the app that emitted the error          |
+| `release`       | Release identifier that matches the value sent on error events |
+| `minifiedUrl`   | Public URL of the minified bundle referenced in stack frames   |
+| `sourceMapJson` | Source map file contents as a JSON string                      |
+
+Authenticate with `Authorization: Bearer <secret_api_key>` or HTTP Basic auth using the secret key as the username.
+
+### CI upload script
+
+The script below uploads every `*.map` file in a build directory. Set `MINIFIED_URL_PREFIX` to the public URL prefix where the matching minified bundles are served.
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${GROWTHBOOK_API_KEY:?Set GROWTHBOOK_API_KEY to a secret API key}"
+: "${GROWTHBOOK_API_HOST:?Set GROWTHBOOK_API_HOST, for example https://api.growthbook.io}"
+: "${GROWTHBOOK_CLIENT_KEY:?Set GROWTHBOOK_CLIENT_KEY to the target SDK connection key}"
+: "${GROWTHBOOK_RELEASE:?Set GROWTHBOOK_RELEASE to the same release value sent on errors}"
+: "${SOURCE_MAP_DIR:?Set SOURCE_MAP_DIR to the directory that contains build output}"
+: "${MINIFIED_URL_PREFIX:?Set MINIFIED_URL_PREFIX to the public URL prefix for minified bundles}"
+
+upload_source_map() {
+  local map_path="$1"
+  local minified_file
+  minified_file="$(basename "${map_path%.map}")"
+  local minified_url="${MINIFIED_URL_PREFIX%/}/${minified_file}"
+
+  jq -n \
+    --arg clientKey "$GROWTHBOOK_CLIENT_KEY" \
+    --arg release "$GROWTHBOOK_RELEASE" \
+    --arg minifiedUrl "$minified_url" \
+    --rawfile sourceMapJson "$map_path" \
+    '{clientKey: $clientKey, release: $release, minifiedUrl: $minifiedUrl, sourceMapJson: $sourceMapJson}' \
+    | curl -fsS \
+      -X POST "${GROWTHBOOK_API_HOST%/}/api/v1/error-tracking/source-maps" \
+      -H "Authorization: Bearer ${GROWTHBOOK_API_KEY}" \
+      -H "Content-Type: application/json" \
+      --data-binary @-
+}
+
+while IFS= read -r map_path; do
+  echo "Uploading ${map_path}"
+  upload_source_map "$map_path"
+done < <(find "$SOURCE_MAP_DIR" -type f -name '*.map')
+```
+
+Example GitHub Actions step:
+
+```yaml
+- name: Upload GrowthBook source maps
+  env:
+    GROWTHBOOK_API_KEY: ${{ secrets.GROWTHBOOK_API_KEY }}
+    GROWTHBOOK_API_HOST: https://api.growthbook.io
+    GROWTHBOOK_CLIENT_KEY: sdk-abc123
+    GROWTHBOOK_RELEASE: ${{ github.sha }}
+    SOURCE_MAP_DIR: .next/static
+    MINIFIED_URL_PREFIX: https://app.example.com/_next/static/chunks
+  run: ./scripts/upload-growthbook-source-maps.sh
+```
+
+The OpenAPI reference for these endpoints is available in the [GrowthBook API docs](/api/).

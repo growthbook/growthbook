@@ -35,6 +35,8 @@ import { StickyBucketService } from "./sticky-bucket-service";
 
 export const EVENT_FEATURE_EVALUATED = "Feature Evaluated";
 export const EVENT_EXPERIMENT_VIEWED = "Experiment Viewed";
+/** Managed warehouse / ClickHouse `errors` table — requires `growthbookTrackingPlugin`. */
+export const EVENT_GROWTHBOOK_ERROR = "GrowthBook Error";
 
 function getForcedFeatureValues(ctx: EvalContext) {
   // Merge user and global values

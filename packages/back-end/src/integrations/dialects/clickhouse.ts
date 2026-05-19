@@ -1,3 +1,4 @@
+import type { DataType } from "shared/types/integrations";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 import { baseDialect } from "./base";
@@ -5,6 +6,14 @@ import { baseDialect } from "./base";
 export const clickHouseDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "clickhouse",
+  getDataType: (dataType: DataType): string => {
+    if (dataType === "hll") {
+      // Fact metrics only allow count distinct on string columns; `uniqState`
+      // for String produces this aggregate state type.
+      return "AggregateFunction(uniq, String)";
+    }
+    return baseDialect.getDataType(dataType);
+  },
   escapeStringLiteral: (value: string) =>
     value.replace(/\\/g, "\\\\").replace(/'/g, "''"),
   toTimestamp: (date: Date) =>

@@ -93,6 +93,28 @@ export function getValidDate(
   }
   return d;
 }
+
+/**
+ * Parse timestamps that represent a UTC instant but may omit "Z" (e.g. ClickHouse
+ * DateTime in JSON). Produces a correct Date for local display via date-fns.
+ */
+export function parseUtcInstantForDisplay(
+  isoOrRaw: string | Date | null | undefined,
+): Date {
+  if (isoOrRaw == null || isoOrRaw === "") return new Date(NaN);
+  if (isoOrRaw instanceof Date) return isoOrRaw;
+  const s = String(isoOrRaw).trim();
+  if (!s) return new Date(NaN);
+  const input =
+    /Z$/i.test(s) || /[+-]\d{2}:\d{2}$/.test(s)
+      ? s
+      : s.includes("T")
+        ? `${s}Z`
+        : `${s.replace(" ", "T")}Z`;
+  const d = new Date(input);
+  return Number.isNaN(d.getTime()) ? new Date(NaN) : d;
+}
+
 /**
  * This function will offset the time passed in
  * to show its "true" time eg if you pass in
