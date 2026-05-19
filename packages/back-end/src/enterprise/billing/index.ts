@@ -34,13 +34,18 @@ export const UNLIMITED_USAGE: OrganizationUsage = {
   },
 };
 
-export async function createSetupIntent(licenseKey: string) {
+export async function createSetupIntent(
+  licenseKey: string,
+  options?: { radarSessionId?: string; clientIp?: string },
+) {
   const url = `${LICENSE_SERVER_URL}subscription/setup-intent`;
   const res = await callLicenseServer({
     url,
     body: JSON.stringify({
       licenseKey,
       cloudSecret: process.env.CLOUD_SECRET,
+      radarSessionId: options?.radarSessionId,
+      clientIp: options?.clientIp,
     }),
   });
   return res;

@@ -20,6 +20,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
 import Checkbox from "@/ui/Checkbox";
 import Modal from "@/components/Modal";
+import CardVerificationNotice from "@/enterprise/components/Billing/CardVerificationNotice";
 
 export const taxIdTypeOptions: { label: string; value: TaxIdType }[] = [
   { label: "US EIN", value: "us_ein" },
@@ -350,7 +351,8 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
               current month and it will renew automatically on the 1st of each
               subsequent month. Cancel anytime.
             </p>
-            <Separator size="4" mb="3" />
+            <CardVerificationNotice />
+            <Separator size="4" mb="3" mt="3" />
             <div className="mb-4">
               <Checkbox
                 label="Customize Invoice"

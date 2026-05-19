@@ -507,6 +507,7 @@ export async function postNewProSubscriptionIntentToLicenseServer(
   companyName: string,
   ownerEmail: string,
   name: string,
+  options?: { radarSessionId?: string; clientIp?: string },
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/setup-subscription-intent`;
   return await callLicenseServer({
@@ -518,6 +519,8 @@ export async function postNewProSubscriptionIntentToLicenseServer(
       companyName,
       ownerEmail,
       name,
+      radarSessionId: options?.radarSessionId,
+      clientIp: options?.clientIp,
     }),
   });
 }
