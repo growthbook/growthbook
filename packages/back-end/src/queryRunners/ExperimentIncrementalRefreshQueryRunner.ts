@@ -15,6 +15,7 @@ import {
 } from "shared/validators";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
+  ExternalIdCallback,
   InsertMetricSourceDataQueryParams,
   UpdateExperimentIncrementalUnitsQueryParams,
 } from "shared/types/integrations";
@@ -26,6 +27,7 @@ import {
 import {
   ExperimentQueryMetadata,
   Queries,
+  QueryMetadata,
   QueryPointer,
   QueryStatus,
 } from "shared/types/query";
@@ -284,6 +286,38 @@ const startExperimentIncrementalRefreshQueries = async (
 
   const executionId = params.queryParentId;
 
+  // Wraps a `run` callback with an execution-fence check so that DDL on the
+  // shared per-experiment pipeline tables (units / metric-source) is skipped if
+  // another snapshot has taken over the lock since this run started. Checked at
+  // execute time (not enqueue time) because all queries are enqueued up-front
+  // but executed sequentially via dependencies — the lock can be lost between
+  // dependent queries. releaseLock() is fenced on snapshotId, so the eventual
+  // release on this run's terminal status is a safe no-op once the lock is lost.
+  const fenced =
+    <R>(
+      run: (
+        query: string,
+        setExternalId: ExternalIdCallback,
+        queryMetadata?: QueryMetadata,
+      ) => Promise<R>,
+    ) =>
+    async (
+      query: string,
+      setExternalId: ExternalIdCallback,
+      queryMetadata?: QueryMetadata,
+    ): Promise<R> => {
+      const current =
+        await context.models.incrementalRefresh.getCurrentExecutionSnapshotId(
+          experimentId,
+        );
+      if (current !== executionId) {
+        throw new Error(
+          "Incremental refresh lock was lost to another snapshot; aborting to avoid corrupting shared pipeline tables.",
+        );
+      }
+      return run(query, setExternalId, queryMetadata);
+    };
+
   // When the desired layout adds new (factTableId, metricId, role) tuples to
   // a fact table — either a fresh metric, or an existing metric whose role
   // shifted (e.g. same-FT → cross-FT) — we need to rebuild that FT's cache
@@ -384,8 +418,9 @@ const startExperimentIncrementalRefreshQueries = async (
         unitsTableFullName: unitQueryParams.unitsTableFullName,
       }),
       dependencies: [],
-      run: (query, setExternalId, queryMetadata) =>
+      run: fenced((query, setExternalId, queryMetadata) =>
         integration.runDropTableQuery(query, setExternalId, queryMetadata),
+      ),
       queryType: "experimentIncrementalRefreshDropUnitsTable",
     });
     queries.push(dropOldUnitsTableQuery);
@@ -396,12 +431,13 @@ const startExperimentIncrementalRefreshQueries = async (
       query:
         integration.getCreateExperimentIncrementalUnitsQuery(unitQueryParams),
       dependencies: [dropOldUnitsTableQuery.query],
-      run: (query, setExternalId, queryMetadata) =>
+      run: fenced((query, setExternalId, queryMetadata) =>
         integration.runIncrementalWithNoOutputQuery(
           query,
           setExternalId,
           queryMetadata,
         ),
+      ),
       queryType: "experimentIncrementalRefreshCreateUnitsTable",
     });
     queries.push(createUnitsTableQuery);
@@ -431,8 +467,9 @@ const startExperimentIncrementalRefreshQueries = async (
     query: integration.getDropOldIncrementalUnitsQuery({
       unitsTableFullName: unitsTableFullName,
     }),
-    run: (query, setExternalId, queryMetadata) =>
+    run: fenced((query, setExternalId, queryMetadata) =>
       integration.runDropTableQuery(query, setExternalId, queryMetadata),
+    ),
     dependencies: [updateUnitsTableQuery.query],
     queryType: "experimentIncrementalRefreshDropUnitsTable",
   });
@@ -446,12 +483,13 @@ const startExperimentIncrementalRefreshQueries = async (
       unitsTempTableFullName: unitsTempTableFullName,
     }),
     dependencies: [dropUnitsTableQuery.query],
-    run: (query, setExternalId, queryMetadata) =>
+    run: fenced((query, setExternalId, queryMetadata) =>
       integration.runIncrementalWithNoOutputQuery(
         query,
         setExternalId,
         queryMetadata,
       ),
+    ),
     queryType: "experimentIncrementalRefreshAlterUnitsTable",
   });
   queries.push(alterUnitsTableQuery);
@@ -609,12 +647,13 @@ const startExperimentIncrementalRefreshQueries = async (
           metricSourceTableFullName,
         }),
         dependencies: [updateUnitsTableQuery.query],
-        run: (query, setExternalId, queryMetadata) =>
+        run: fenced((query, setExternalId, queryMetadata) =>
           integration.runIncrementalWithNoOutputQuery(
             query,
             setExternalId,
             queryMetadata,
           ),
+        ),
         queryType: "experimentIncrementalRefreshCreateMetricsSourceTable",
       });
       queries.push(createMetricsSourceQuery);
@@ -992,14 +1031,12 @@ const startExperimentIncrementalRefreshQueries = async (
         metricSourceCovariateTables: {
           ...(pipelineA.covariateTableFullName
             ? {
-                [pipelineA.group.factTableId]:
-                  pipelineA.covariateTableFullName,
+                [pipelineA.group.factTableId]: pipelineA.covariateTableFullName,
               }
             : {}),
           ...(pipelineB.covariateTableFullName
             ? {
-                [pipelineB.group.factTableId]:
-                  pipelineB.covariateTableFullName,
+                [pipelineB.group.factTableId]: pipelineB.covariateTableFullName,
               }
             : {}),
         },
@@ -1064,6 +1101,17 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     return this.context.permissions.canRunExperimentQueries(
       this.integration.datasource,
     );
+  }
+
+  protected override onHeartbeat(): void {
+    this.context.models.incrementalRefresh
+      .touchLockHeartbeat(this.model.experiment, this.model.id)
+      .catch((e) =>
+        this.context.logger.warn(
+          e,
+          "Failed to refresh incremental refresh lock heartbeat",
+        ),
+      );
   }
 
   async startQueries(

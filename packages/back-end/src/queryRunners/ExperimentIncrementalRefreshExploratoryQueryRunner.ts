@@ -51,6 +51,7 @@ export type ExperimentIncrementalRefreshExploratoryQueryParams = {
   factTableMap: FactTableMap;
   experimentId: string;
   experimentQueryMetadata: ExperimentQueryMetadata | null;
+  queryParentId: string;
   // Incremental Refresh specific
   incrementalRefreshStartTime: Date;
 };
@@ -117,6 +118,31 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       "Units table not found in incremental refresh model; required for exploratory analysis.",
     );
   }
+
+  const executionId = params.queryParentId;
+
+  // Wraps a `run` callback with an execution-fence check. The exploratory
+  // runner only reads the shared per-experiment pipeline tables, but it holds
+  // the same lock the incremental runner uses to DROP/CREATE/RENAME them. If
+  // the lock is taken over by another snapshot mid-run (stale heartbeat,
+  // cancel + restart), continuing to SELECT from those tables would observe a
+  // missing or half-rebuilt table and return empty/malformed results. Checked
+  // at execute time (not enqueue time) because queries run sequentially via
+  // dependencies — the lock can be lost between dependent queries.
+  const fenced =
+    <A extends unknown[], R>(run: (...args: A) => Promise<R>) =>
+    async (...args: A): Promise<R> => {
+      const current =
+        await context.models.incrementalRefresh.getCurrentExecutionSnapshotId(
+          experimentId,
+        );
+      if (current !== executionId) {
+        throw new Error(
+          "Incremental refresh lock was lost to another snapshot; aborting exploratory analysis to avoid reading half-rebuilt pipeline tables.",
+        );
+      }
+      return run(...args);
+    };
 
   // Metric Queries
   const existingSources = incrementalRefreshModel?.metricSources;
@@ -224,12 +250,13 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
         lastMaxTimestamp: existingSource?.maxTimestamp || null,
       }),
       dependencies: [],
-      run: (query, setExternalId, queryMetadata) =>
+      run: fenced((query, setExternalId, queryMetadata) =>
         integration.runIncrementalRefreshStatisticsQuery(
           query,
           setExternalId,
           queryMetadata,
         ),
+      ),
       queryType: "experimentIncrementalRefreshStatistics",
     });
     queries.push(statisticsQuery);
@@ -277,14 +304,12 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
         metricSourceCovariateTables: {
           ...(pipelineA.covariateTableFullName
             ? {
-                [pipelineA.group.factTableId]:
-                  pipelineA.covariateTableFullName,
+                [pipelineA.group.factTableId]: pipelineA.covariateTableFullName,
               }
             : {}),
           ...(pipelineB.covariateTableFullName
             ? {
-                [pipelineB.group.factTableId]:
-                  pipelineB.covariateTableFullName,
+                [pipelineB.group.factTableId]: pipelineB.covariateTableFullName,
               }
             : {}),
         },
@@ -316,6 +341,17 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
     return this.context.permissions.canRunExperimentQueries(
       this.integration.datasource,
     );
+  }
+
+  protected override onHeartbeat(): void {
+    this.context.models.incrementalRefresh
+      .touchLockHeartbeat(this.model.experiment, this.model.id)
+      .catch((e) =>
+        this.context.logger.warn(
+          e,
+          "Failed to refresh incremental refresh lock heartbeat",
+        ),
+      );
   }
 
   async startQueries(
@@ -439,6 +475,21 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
         snapshot: this.model.id,
       });
     }
+
+    // Release the incremental refresh lock on any terminal status. This runner
+    // acquires the lock (see createSnapshotFromPlan) so that it does not read
+    // the shared pipeline tables while an incremental refresh is mutating them.
+    if (updates.status !== "running") {
+      await this.context.models.incrementalRefresh
+        .releaseLock(this.model.experiment, this.model.id)
+        .catch((e) =>
+          this.context.logger.warn(
+            e,
+            "Failed to release incremental refresh lock on terminal status",
+          ),
+        );
+    }
+
     return {
       ...this.model,
       ...updates,

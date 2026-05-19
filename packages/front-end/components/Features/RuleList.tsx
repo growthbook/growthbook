@@ -295,6 +295,24 @@ export default function RuleList(props: RuleListProps) {
           {items.map((rule, i) => {
             const prevId = i > 0 ? items[i - 1].id : null;
             const nextId = i < items.length - 1 ? items[i + 1].id : null;
+            const firstId = items.length > 0 ? items[0].id : null;
+            const lastId = items.length > 0 ? items[items.length - 1].id : null;
+            // Don't show "move to top" if already at top
+            const canMoveToTop = canEdit && i > 0;
+            // Don't show "move to bottom" if already at bottom
+            const canMoveToBottom = canEdit && i < items.length - 1;
+            // Warn when a draft rule is disabled but the live counterpart is
+            // enabled and the live feature has advanced since the draft was
+            // created — surfaces stale drafts that would re-disable a rule
+            // recently enabled by a schedule. Gated on baseVersion < live
+            // version so intentional disables in fresh drafts don't trigger it.
+            const liveEnabledDraftDisabled =
+              isDraft &&
+              !rule.enabled &&
+              (draftRevision?.baseVersion ?? Infinity) < baseFeature.version &&
+              (baseFeature.rules ?? []).some(
+                (r) => r.id === rule.id && r.enabled,
+              );
             return (
               <SortableRule
                 key={rule.id || i}
@@ -313,9 +331,11 @@ export default function RuleList(props: RuleListProps) {
                 isDraft={isDraft}
                 safeRolloutsMap={safeRolloutsMap}
                 holdout={holdout}
+                revisionList={revisionList}
                 rampSchedule={rampSchedulesMap.get(rule.id ?? "")}
                 draftRevision={draftRevision}
                 isAllEnvsView={allEnvsView}
+                liveEnabledDraftDisabled={liveEnabledDraftDisabled}
                 onMoveUp={
                   canEdit && prevId
                     ? () => reorderByRuleId(rule.id, prevId)
@@ -324,6 +344,16 @@ export default function RuleList(props: RuleListProps) {
                 onMoveDown={
                   canEdit && nextId
                     ? () => reorderByRuleId(rule.id, nextId)
+                    : undefined
+                }
+                onMoveToTop={
+                  canMoveToTop && firstId
+                    ? () => reorderByRuleId(rule.id, firstId)
+                    : undefined
+                }
+                onMoveToBottom={
+                  canMoveToBottom && lastId
+                    ? () => reorderByRuleId(rule.id, lastId)
                     : undefined
                 }
               />
@@ -354,6 +384,7 @@ export default function RuleList(props: RuleListProps) {
               isDraft={isDraft}
               safeRolloutsMap={safeRolloutsMap}
               holdout={holdout}
+              revisionList={revisionList}
               rampSchedule={rampSchedulesMap.get(activeRule.id ?? "")}
               draftRevision={draftRevision}
               isAllEnvsView={allEnvsView}

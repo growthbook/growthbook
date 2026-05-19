@@ -46,6 +46,7 @@ const incrementalRefresh = z
 
     // Incremental refresh lock
     currentExecutionSnapshotId: z.string().nullable(),
+    lockHeartbeatAt: z.date().nullable().optional(),
   })
   .strict();
 
