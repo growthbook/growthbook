@@ -11,7 +11,7 @@ import {
   getAlignedComparisonDimensionKeyForTooltip,
   parseComparisonTooltipSeriesName,
   sortProductAnalyticsTooltipAxisItems,
-} from "@/enterprise/components/ProductAnalytics/compareUtil";
+} from "@/enterprise/components/ProductAnalytics/comparison-chart";
 
 describe("alignComparisonOverlayToCategories", () => {
   const seriesKeys = ["__single__"];

@@ -169,7 +169,6 @@ export const baseExplorationConfigValidator = z.object({
   dimensions: z.array(dimensionValidator),
   chartType: z.enum(chartTypes),
   dateRange: explorationDateRangeValidator,
-  previousTimeFrame: explorationDateRangeValidator.optional(),
   // Controls how values with a denominator are rendered at the chart level.
   // "total"    -> render the raw numerator (e.g. total events)
   // "per_unit" -> divide numerator by denominator (e.g. events per unit)

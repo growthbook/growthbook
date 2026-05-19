@@ -45,6 +45,18 @@ export type {
 } from "shared/enterprise";
 
 export type RenderOpts = import("shared/enterprise").ExplorationRenderOpts;
+
+/** Explorer UI state: exploration config plus optional compare period (not on public API config). */
+export type ExplorerDraftConfig = ExplorationConfig & {
+  previousTimeFrame?: ExplorationDateRange;
+};
+
+export function stripExplorerDraftFields(
+  config: ExplorerDraftConfig,
+): ExplorationConfig {
+  const { previousTimeFrame: _, ...rest } = config;
+  return rest;
+}
 import {
   dateGranularity,
   explorationConfigValidator,
@@ -397,15 +409,16 @@ export function removeIncompleteInputs(
 
 /** Prepares a config for submission by removing incomplete inputs (values, filters) from the dataset. */
 export function cleanConfigForSubmission(
-  config: ExplorationConfig,
+  config: ExplorerDraftConfig,
 ): ExplorationConfig {
-  const cleanedDataset = removeIncompleteInputs(config.dataset);
-  const cleanedDimensions = config.dimensions.filter((d) => {
+  const { previousTimeFrame: _, ...configWithoutPrevious } = config;
+  const cleanedDataset = removeIncompleteInputs(configWithoutPrevious.dataset);
+  const cleanedDimensions = configWithoutPrevious.dimensions.filter((d) => {
     if (d.dimensionType === "date" || d.dimensionType === "slice") return true;
     return "column" in d && d.column !== null;
   });
   return {
-    ...config,
+    ...configWithoutPrevious,
     dataset: cleanedDataset,
     dimensions: cleanedDimensions,
   } as ExplorationConfig;
@@ -434,9 +447,11 @@ function getChartCategory(chartType: ExplorationConfig["chartType"]): string {
 }
 
 /** Strips fields that only affect rendering, not data fetching. */
-function toFetchKey(config: ExplorationConfig): unknown {
+function toFetchKey(config: ExplorationConfig | ExplorerDraftConfig): unknown {
+  const base =
+    "previousTimeFrame" in config ? stripExplorerDraftFields(config) : config;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { showAs, ...rest } = config;
+  const { showAs, ...rest } = base;
   return {
     ...rest,
     chartType: getChartCategory(config.chartType),
@@ -483,7 +498,7 @@ export function isSubmittableConfig(cleanedConfig: ExplorationConfig): boolean {
 
 /** Compares two configs and determines if a fetch or local update is needed. */
 export function compareConfig(
-  lastSubmittedConfig: ExplorationConfig | null,
+  lastSubmittedConfig: ExplorerDraftConfig | null,
   newConfig: ExplorationConfig,
   previousWindows?: {
     lastPreviousTimeFrame: ExplorationDateRange | null;
@@ -498,12 +513,14 @@ export function compareConfig(
     return { needsFetch: hasValues, needsUpdate: hasValues };
   }
 
-  if (isEqual(lastSubmittedConfig, newConfig) && isEqual(lastPrev, newPrev)) {
+  const lastComparable = stripExplorerDraftFields(lastSubmittedConfig);
+
+  if (isEqual(lastComparable, newConfig) && isEqual(lastPrev, newPrev)) {
     return { needsFetch: false, needsUpdate: false };
   }
 
   const needsFetch =
-    !isEqual(toFetchKey(lastSubmittedConfig), toFetchKey(newConfig)) ||
+    !isEqual(toFetchKey(lastComparable), toFetchKey(newConfig)) ||
     !isEqual(lastPrev, newPrev);
   return { needsFetch, needsUpdate: true };
 }
@@ -557,7 +574,7 @@ export function getRefreshInterval(elapsedSeconds: number): number {
 export function shouldChartSectionShow(params: {
   loading: boolean;
   error: string | null;
-  submittedExploreState: ExplorationConfig | null;
+  submittedExploreState: ExplorerDraftConfig | null;
 }): boolean {
   const { loading, error, submittedExploreState } = params;
 

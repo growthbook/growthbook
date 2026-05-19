@@ -21,7 +21,7 @@ import {
   type ExplorationColumn,
   type RenderOpts,
 } from "@/enterprise/components/ProductAnalytics/util";
-import { formatExplorerDateRangeHeading } from "@/enterprise/components/ProductAnalytics/compareUtil";
+import { formatExplorerDateRangeHeading } from "@/enterprise/components/ProductAnalytics/comparison-chart";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 /**
