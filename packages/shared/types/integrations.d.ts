@@ -346,6 +346,12 @@ export interface MaxTimestampMetricSourceQueryParams {
 
 export interface CreateMetricSourceTableQueryParams {
   settings: ExperimentSnapshotSettings;
+  // The fact table this cache is rooted in. Schema generation uses this to
+  // decide, for each metric, which of its sides (numerator, denominator) the
+  // cache materializes — a cross-FT ratio metric's numerator-only cache lives
+  // in its numerator FT, its denominator-only cache lives in its denominator
+  // FT, and same-FT metrics carry both sides in their one cache.
+  factTableId: string;
   metrics: FactMetricInterface[];
   factTableMap: FactTableMap;
   metricSourceTableFullName: string;
@@ -355,6 +361,10 @@ export interface InsertMetricSourceDataQueryParams {
   settings: ExperimentSnapshotSettings;
   activationMetric: ExperimentMetricInterface | null;
   factTableMap: FactTableMap;
+  // The fact table whose rows feed this cache. For cross-FT ratio metrics
+  // this disambiguates whether to pull numerator-side or denominator-side
+  // columns; for everything else it's just the metric's source FT.
+  factTableId: string;
   metricSourceTableFullName: string;
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
@@ -387,7 +397,14 @@ export interface IncrementalRefreshStatisticsQueryParams {
   dimensionsForPrecomputation: ExperimentDimensionWithSpecifiedSlices[];
   dimensionsForAnalysis: Dimension[];
   factTableMap: FactTableMap;
-  metricSourceTableFullName: string;
+  // Cache tables that hold the metric columns this query needs, keyed by
+  // fact-table id. Single-fact-table queries pass exactly one entry;
+  // cross-fact-table ratio queries pass two. The SQL layer derives source
+  // ordering and `m{i}` aliases on the fly from the metrics' fact-table
+  // first-appearance order — callers don't have to (and shouldn't try to)
+  // impose a specific ordering. The map must contain a `tableFullName` for
+  // every fact table referenced by `metrics` (numerator and denominator).
+  metricSourceTables: Record<string, string>;
   metricSourceCovariateTableFullName: string | null;
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];

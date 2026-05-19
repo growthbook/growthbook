@@ -2,6 +2,7 @@ import {
   ExperimentMetricInterface,
   isFactMetric,
   isRatioMetric,
+  isRegressionAdjusted,
   quantileMetricType,
 } from "shared/experiments";
 import { IncrementalRefreshInterface } from "shared/validators";
@@ -100,12 +101,20 @@ export async function validateIncrementalPipeline({
   }
 
   selectedMetrics.filter(isFactMetric).forEach((metric) => {
+    // Cross-fact-table ratio metrics fan out into per-FT cache tables (one
+    // numerator-side cache, one denominator-side cache) and a joined stats
+    // query. CUPED would require a second matched fan-out for covariates,
+    // which we don't generate today, so reject the combination explicitly
+    // rather than silently dropping the regression adjustment.
     if (
       isRatioMetric(metric) &&
-      metric.numerator.factTableId !== metric.denominator?.factTableId
+      metric.denominator?.factTableId &&
+      metric.numerator.factTableId !== metric.denominator.factTableId &&
+      snapshotSettings.regressionAdjustmentEnabled &&
+      isRegressionAdjusted(metric)
     ) {
       throw new Error(
-        "Ratio metrics must have the same numerator and denominator fact table with incremental refresh.",
+        "Regression adjustment (CUPED) is not yet supported for cross-fact-table ratio metrics with incremental refresh. Please disable CUPED for this metric or use a same-fact-table denominator.",
       );
     }
 

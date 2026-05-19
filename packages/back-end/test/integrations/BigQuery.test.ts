@@ -451,6 +451,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
   it("getCreateMetricSourceTableQuery emits BYTES sketch + INT64 n_events columns", () => {
     const sql = integration.getCreateMetricSourceTableQuery({
       settings,
+      factTableId: "ft_events",
       metrics: [eventQuantileMetric],
       factTableMap,
       metricSourceTableFullName: "proj.ds.metric_source",
@@ -466,6 +467,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       settings,
       activationMetric: null,
       factTableMap,
+      factTableId: "ft_events",
       metricSourceTableFullName: "proj.ds.metric_source",
       unitsSourceTableFullName: "proj.ds.units",
       metrics: [eventQuantileMetric],
@@ -492,6 +494,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       settings,
       activationMetric: null,
       factTableMap,
+      factTableId: "ft_events",
       metricSourceTableFullName: "proj.ds.metric_source",
       unitsSourceTableFullName: "proj.ds.units",
       metrics: [prebuiltSketchMetric],
@@ -517,6 +520,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       settings,
       activationMetric: null,
       factTableMap,
+      factTableId: "ft_events",
       metricSourceTableFullName: "proj.ds.metric_source",
       unitsSourceTableFullName: "proj.ds.units",
       metrics: [prebuiltSketchMetric],
@@ -555,6 +559,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       settings,
       activationMetric: null,
       factTableMap,
+      factTableId: "ft_events",
       metricSourceTableFullName: "proj.ds.metric_source",
       unitsSourceTableFullName: "proj.ds.units",
       metrics: [overrideMetric],
@@ -576,7 +581,9 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       dimensionsForPrecomputation: [],
       dimensionsForAnalysis: [],
       factTableMap,
-      metricSourceTableFullName: "proj.ds.metric_source",
+      metricSourceTables: {
+        ft_events: "proj.ds.metric_source",
+      },
       metricSourceCovariateTableFullName: null,
       unitsSourceTableFullName: "proj.ds.units",
       metrics: [eventQuantileMetric],
@@ -681,5 +688,201 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     // No KLL merge metrics → the per-user aggregation goes directly into
     // __userMetricAgg without the __userMetricAggBase wrapper.
     expect(sql).not.toContain("__userMetricAggBase");
+  });
+
+  describe("cross-fact-table ratio metric SQL generation", () => {
+    // A second fact table so we can exercise cross-FT ratio metrics whose
+    // numerator and denominator live in different caches.
+    const denominatorFactTable = factTableFactory.build({
+      id: "ft_subscriptions",
+      name: "Subscriptions",
+      sql: "SELECT * FROM subscriptions",
+      userIdTypes: ["user_id"],
+    });
+
+    const crossFtMetric = factMetricFactory.build({
+      id: "fact_xft_ratio",
+      metricType: "ratio",
+      numerator: {
+        factTableId: "ft_events",
+        column: "amount",
+        aggregation: "sum",
+      },
+      denominator: {
+        factTableId: "ft_subscriptions",
+        column: "tenure_days",
+        aggregation: "sum",
+      },
+    });
+
+    const crossFactTableMap = new Map([
+      ["ft_events", factTable],
+      ["ft_subscriptions", denominatorFactTable],
+    ]);
+
+    it("getCreateMetricSourceTableQuery emits only numerator columns for the numerator FT", () => {
+      const sql = integration.getCreateMetricSourceTableQuery({
+        settings,
+        factTableId: "ft_events",
+        metrics: [crossFtMetric],
+        factTableMap: crossFactTableMap,
+        metricSourceTableFullName: "proj.ds.metric_source_num",
+      });
+      // The numerator-side cache holds `_value` but no `_denominator_value`.
+      // The role is derived from the metric's column refs vs factTableId.
+      expect(sql).toMatch(/fact_xft_ratio_value\b/);
+      expect(sql).not.toMatch(/fact_xft_ratio_denominator_value/);
+    });
+
+    it("getCreateMetricSourceTableQuery emits only denominator column for the denominator FT", () => {
+      const sql = integration.getCreateMetricSourceTableQuery({
+        settings,
+        factTableId: "ft_subscriptions",
+        metrics: [crossFtMetric],
+        factTableMap: crossFactTableMap,
+        metricSourceTableFullName: "proj.ds.metric_source_denom",
+      });
+      // The denominator-side cache holds `_denominator_value` only.
+      expect(sql).toMatch(/fact_xft_ratio_denominator_value\b/);
+      // The `_value` column does not appear on the denominator side.
+      expect(sql).not.toMatch(/fact_xft_ratio_value\b/);
+    });
+
+    it("getInsertMetricSourceDataQuery for the numerator side reads from the numerator FT and projects only the numerator side", () => {
+      const sql = integration.getInsertMetricSourceDataQuery({
+        settings,
+        activationMetric: null,
+        factTableMap: crossFactTableMap,
+        factTableId: "ft_events",
+        metricSourceTableFullName: "proj.ds.metric_source_num",
+        unitsSourceTableFullName: "proj.ds.units",
+        metrics: [crossFtMetric],
+        lastMaxTimestamp: null,
+      });
+      // Only the numerator `_value` column appears in the SELECT projection.
+      expect(sql).toMatch(/fact_xft_ratio_value\b/);
+      expect(sql).not.toMatch(/fact_xft_ratio_denominator_value/);
+    });
+
+    it("getInsertMetricSourceDataQuery for the denominator side reads from the denominator FT and projects only the denominator side", () => {
+      const sql = integration.getInsertMetricSourceDataQuery({
+        settings,
+        activationMetric: null,
+        factTableMap: crossFactTableMap,
+        factTableId: "ft_subscriptions",
+        metricSourceTableFullName: "proj.ds.metric_source_denom",
+        unitsSourceTableFullName: "proj.ds.units",
+        metrics: [crossFtMetric],
+        lastMaxTimestamp: null,
+      });
+      // Only the denominator column appears in the SELECT projection.
+      expect(sql).toMatch(/fact_xft_ratio_denominator_value\b/);
+      expect(sql).not.toMatch(/fact_xft_ratio_value\b/);
+    });
+
+    it("getIncrementalRefreshStatisticsQuery joins both caches and aliases columns by source index", () => {
+      const sql = integration.getIncrementalRefreshStatisticsQuery({
+        settings,
+        activationMetric: null,
+        dimensionsForPrecomputation: [],
+        dimensionsForAnalysis: [],
+        factTableMap: crossFactTableMap,
+        metricSourceTables: {
+          ft_events: "proj.ds.metric_source_num",
+          ft_subscriptions: "proj.ds.metric_source_denom",
+        },
+        metricSourceCovariateTableFullName: null,
+        unitsSourceTableFullName: "proj.ds.units",
+        metrics: [crossFtMetric],
+        lastMaxTimestamp: null,
+      });
+      // Both per-source CTEs are emitted with the expected naming.
+      expect(sql).toContain("__metricSourceData ");
+      expect(sql).toContain("__metricSourceData1");
+      expect(sql).toContain("__metricDataAggregated ");
+      expect(sql).toContain("__metricDataAggregated1");
+      // Each source CTE reads from its own cache table. The formatter
+      // breaks the `FROM` clause across lines, so allow whitespace
+      // between `FROM` and the table identifier.
+      expect(sql).toMatch(/FROM\s+proj\.ds\.metric_source_num\b/);
+      expect(sql).toMatch(/FROM\s+proj\.ds\.metric_source_denom\b/);
+      // The joined data CTE LEFT JOINs both aggregated caches.
+      expect(sql).toMatch(/LEFT JOIN __metricDataAggregated\s+m\s+ON/);
+      expect(sql).toMatch(/LEFT JOIN __metricDataAggregated1\s+m1\s+ON/);
+      // The numerator and denominator pull from the correct alias.
+      expect(sql).toMatch(/m\.fact_xft_ratio_value/);
+      expect(sql).toMatch(/m1\.fact_xft_ratio_denominator_value/);
+    });
+
+    it("getIncrementalRefreshStatisticsQuery bundles A/B and B/A metrics into one query, with each side reading from the right cache", () => {
+      // A/B (events / subscriptions) and B/A (subscriptions / events) are
+      // valid in the same joined query: the SQL layer reads each metric's
+      // numerator from the cache whose factTableId matches the metric's
+      // numerator column ref, independent of which source happens to be
+      // source 0 vs source 1. This test pins that contract.
+      const aOverB = factMetricFactory.build({
+        id: "fact_a_over_b",
+        metricType: "ratio",
+        numerator: {
+          factTableId: "ft_events",
+          column: "amount",
+          aggregation: "sum",
+        },
+        denominator: {
+          factTableId: "ft_subscriptions",
+          column: "tenure_days",
+          aggregation: "sum",
+        },
+      });
+      const bOverA = factMetricFactory.build({
+        id: "fact_b_over_a",
+        metricType: "ratio",
+        numerator: {
+          factTableId: "ft_subscriptions",
+          column: "tenure_days",
+          aggregation: "sum",
+        },
+        denominator: {
+          factTableId: "ft_events",
+          column: "amount",
+          aggregation: "sum",
+        },
+      });
+      const sql = integration.getIncrementalRefreshStatisticsQuery({
+        settings,
+        activationMetric: null,
+        dimensionsForPrecomputation: [],
+        dimensionsForAnalysis: [],
+        factTableMap: crossFactTableMap,
+        metricSourceTables: {
+          ft_events: "proj.ds.cache_events",
+          ft_subscriptions: "proj.ds.cache_subs",
+        },
+        metricSourceCovariateTableFullName: null,
+        unitsSourceTableFullName: "proj.ds.units",
+        metrics: [aOverB, bOverA],
+        lastMaxTimestamp: null,
+      });
+
+      // Only two source CTEs are emitted (single joined query). No
+      // __metricSourceData2 etc.
+      expect(sql).toContain("__metricSourceData ");
+      expect(sql).toContain("__metricSourceData1");
+      expect(sql).not.toContain("__metricSourceData2");
+
+      // Source 0 is the events cache (first fact-table encountered while
+      // walking [aOverB, bOverA]). All projections for events-side columns
+      // route through `m`; subscriptions-side columns route through `m1`.
+      expect(sql).toMatch(/FROM\s+proj\.ds\.cache_events\b/);
+      expect(sql).toMatch(/FROM\s+proj\.ds\.cache_subs\b/);
+
+      // A/B: numerator = events, denominator = subscriptions
+      expect(sql).toMatch(/m\.fact_a_over_b_value/);
+      expect(sql).toMatch(/m1\.fact_a_over_b_denominator_value/);
+      // B/A: numerator = subscriptions, denominator = events — sides swap
+      // alias to match each metric's own orientation.
+      expect(sql).toMatch(/m1\.fact_b_over_a_value/);
+      expect(sql).toMatch(/m\.fact_b_over_a_denominator_value/);
+    });
   });
 });
