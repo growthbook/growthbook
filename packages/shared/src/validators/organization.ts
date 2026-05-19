@@ -187,3 +187,19 @@ export const putOrganizationValidator = {
     body: { name: "My Subsidiary", externalId: "subsidiary-123" },
   },
 };
+
+/** Daily usage row from license server managed-clickhouse/daily-usage-for-org */
+export const dailyUsageValidator = z
+  .object({
+    date: z.string(),
+    requests: z.number(),
+    bandwidth: z.number(),
+    managedClickhouseEvents: z.number(),
+  })
+  .strict();
+
+export const dailyUsageForOrgResponseValidator = z
+  .object({
+    days: z.array(dailyUsageValidator),
+  })
+  .strict();
