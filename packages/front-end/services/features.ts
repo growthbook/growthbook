@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Environment,
   NamespaceUsage,
@@ -27,14 +27,15 @@ import {
   featureHasEnvironment,
   generateVariationId,
   getMatchingRules,
+  getRulesForEnvironment,
   validateAndFixCondition,
   validateFeatureValue,
 } from "shared/util";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import isEqual from "lodash/isEqual";
-import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { SafeRolloutRule } from "shared/validators";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { getFutureScheduledStartDate } from "@/services/experiments";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
@@ -43,12 +44,7 @@ import useApi from "@/hooks/useApi";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useUser } from "@/services/UserContext";
 import { ALL_COUNTRY_CODES } from "@/components/Forms/CountrySelector";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import {
-  CheckListItem,
-  getChecklistItems,
-} from "@/components/Experiment/PreLaunchChecklist";
-import { SafeRolloutRuleCreateFields } from "@/components/Features/RuleModal";
+import type { SafeRolloutRuleCreateFields } from "@/components/Features/RuleModal";
 import { useDefinitions } from "./DefinitionsContext";
 
 export { generateVariationId } from "shared/util";
@@ -89,6 +85,51 @@ export type NewExperimentRefRule = {
   type: "experiment-ref-new";
   name: string;
 } & Omit<ExperimentRule, "type">;
+
+// Sentinel for the "All environments" tab; a non-empty string keeps Radix
+// Tabs in controlled mode.
+export const FEATURE_RULES_ALL_ENVS = "__all__";
+
+// Persists the selected env tab across page loads; applies any org-level
+// `preferredEnvironment` on first visit. Returns `null` for "All environments".
+export function useFeatureRulesEnv(): [
+  string | null,
+  (v: string | null) => void,
+] {
+  const [stored, setStored] = useLocalStorage<string>(
+    "featureRulesEnv",
+    FEATURE_RULES_ALL_ENVS,
+  );
+  const { settings } = useUser();
+  const environments = useEnvironments();
+  const hasApplied = useRef(false);
+
+  useEffect(() => {
+    if (hasApplied.current) return;
+    if (!settings) return;
+    hasApplied.current = true;
+
+    const preferred = settings.preferredEnvironment;
+    // Empty string means "remember previous" — leave localStorage untouched.
+    if (!preferred) return;
+    // __all__ is a valid stored value.
+    if (preferred === FEATURE_RULES_ALL_ENVS) {
+      setStored(FEATURE_RULES_ALL_ENVS);
+      return;
+    }
+    // Only apply a specific env if it actually exists in the org.
+    if (environments.some((e) => e.id === preferred)) {
+      setStored(preferred);
+    }
+  }, [settings, environments, setStored]);
+
+  const setEnv = useCallback(
+    (v: string | null) => setStored(v ?? FEATURE_RULES_ALL_ENVS),
+    [setStored],
+  );
+
+  return [stored === FEATURE_RULES_ALL_ENVS ? null : stored, setEnv];
+}
 
 export function useEnvironmentState() {
   const [state, setState] = useLocalStorage("currentEnvironment", "dev");
@@ -270,7 +311,7 @@ export function useFeatureSearch({
 }
 
 export function getRules(feature: FeatureInterface, environment: string) {
-  return feature?.environmentSettings?.[environment]?.rules ?? [];
+  return getRulesForEnvironment(feature.rules, environment);
 }
 export function getFeatureDefaultValue(feature: {
   defaultValue?: string;
@@ -684,8 +725,8 @@ export function getAffectedRevisionEnvs(
   if (revision.defaultValue !== liveFeature.defaultValue) return enabledEnvs;
 
   return enabledEnvs.filter((env) => {
-    const liveRules = liveFeature.environmentSettings?.[env]?.rules || [];
-    const revisionRules = revision.rules?.[env] || [];
+    const liveRules = getRulesForEnvironment(liveFeature.rules, env);
+    const revisionRules = getRulesForEnvironment(revision.rules, env);
 
     return !isEqual(liveRules, revisionRules);
   });
@@ -743,6 +784,7 @@ export function getDefaultRuleValue({
       type: "rollout",
       description: "",
       id: "",
+      allEnvironments: false,
       value,
       coverage: 1, // we are hardcoding the coverage to 1 for now
       condition: "",
@@ -765,6 +807,7 @@ export function getDefaultRuleValue({
       type: "safe-rollout",
       description: "",
       id: "",
+      allEnvironments: false,
       condition: "",
       safeRolloutId: "",
       enabled: true,
@@ -788,6 +831,7 @@ export function getDefaultRuleValue({
       type: "experiment",
       description: "",
       id: "",
+      allEnvironments: false,
       condition: "",
       enabled: true,
       hashAttribute,
@@ -828,6 +872,7 @@ export function getDefaultRuleValue({
       description: "",
       experimentId: "",
       id: "",
+      allEnvironments: false,
       variations: [],
       condition: "",
       enabled: true,
@@ -850,6 +895,7 @@ export function getDefaultRuleValue({
       description: "",
       name: "",
       id: "",
+      allEnvironments: false,
       condition: "",
       enabled: true,
       hashAttribute,
@@ -889,6 +935,7 @@ export function getDefaultRuleValue({
       type: "force",
       description: "",
       id: "",
+      allEnvironments: false,
       value,
       enabled: true,
       condition: "",
@@ -1593,6 +1640,7 @@ export function getNewDraftExperimentsToPublish({
   return [...new Set(draftExperiments)];
 }
 
+// Returns experiments whose draft rules would go live when this revision is published.
 export function useFeatureExperimentChecklists({
   feature,
   revision,
@@ -1604,66 +1652,36 @@ export function useFeatureExperimentChecklists({
 }) {
   const allEnvironments = useEnvironments();
 
-  const { data: checklistData } = useApi<{
-    checklist: ExperimentLaunchChecklistInterface;
-  }>("/experiments/launch-checklist");
+  const experiments = useMemo(
+    () =>
+      revision
+        ? getNewDraftExperimentsToPublish({
+            feature,
+            revision,
+            environments: allEnvironments,
+            experimentsMap,
+          })
+        : [],
+    [feature, revision, allEnvironments, experimentsMap],
+  );
 
-  const settings = useOrgSettings();
-  const orgStickyBucketing = !!settings.useStickyBucketing;
+  const { immediateStartExperiments, scheduledExperiments } = useMemo(() => {
+    const immediate: ExperimentInterfaceStringDates[] = [];
+    const scheduled: ExperimentInterfaceStringDates[] = [];
+    for (const exp of experiments) {
+      if (getFutureScheduledStartDate(exp)) {
+        scheduled.push(exp);
+      } else {
+        immediate.push(exp);
+      }
+    }
+    return {
+      immediateStartExperiments: immediate,
+      scheduledExperiments: scheduled,
+    };
+  }, [experiments]);
 
-  const { data: sdkConnectionsData } = useSDKConnections();
-  const connections = sdkConnectionsData?.connections || [];
-
-  const experimentData = useMemo(() => {
-    const experimentsAvailableToPublish = revision
-      ? getNewDraftExperimentsToPublish({
-          feature,
-          revision,
-          environments: allEnvironments,
-          experimentsMap,
-        })
-      : [];
-
-    const experimentData: {
-      checklist: CheckListItem[];
-      experiment: ExperimentInterfaceStringDates;
-      failedRequired: boolean;
-    }[] = [];
-    experimentsAvailableToPublish.forEach((exp) => {
-      const projectConnections = connections.filter(
-        (connection) =>
-          !connection.projects.length ||
-          connection.projects.includes(exp.project || ""),
-      );
-
-      const checklist = getChecklistItems({
-        experiment: exp,
-        linkedFeatures: [],
-        visualChangesets: [],
-        checklist: checklistData?.checklist,
-        checkLinkedChanges: false,
-        connections: projectConnections,
-      });
-
-      const failedRequired = checklist.some(
-        (item) => item.status === "incomplete" && item.required,
-      );
-
-      experimentData.push({ checklist, experiment: exp, failedRequired });
-    });
-
-    return experimentData;
-  }, [
-    connections,
-    allEnvironments,
-    orgStickyBucketing,
-    checklistData,
-    revision,
-  ]);
-
-  return {
-    experimentData,
-  };
+  return { experiments, immediateStartExperiments, scheduledExperiments };
 }
 
 export function parseDefaultValue(

@@ -38,7 +38,6 @@ import {
   NewExperimentRefRule,
   getDefaultRuleValue,
   getFeatureDefaultValue,
-  getRules,
   useAttributeSchema,
   useEnvironments,
   validateFeatureRule,
@@ -76,7 +75,6 @@ import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useBatchPrerequisiteStates } from "@/hooks/usePrerequisiteStates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
-import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
 import {
   type RampSectionState,
   defaultRampSectionState,
@@ -89,11 +87,20 @@ import {
 } from "@/components/Features/RuleModal/RampScheduleSection";
 export interface Props {
   close: () => void;
+  // Merged feature (base + draft changes). Use baseFeature to check live/published state.
   feature: FeatureInterface;
+  // Published feature before draft changes are applied. Required so we can
+  // distinguish a draft-only rule (not yet in live) from a published rule
+  // being edited; falling back to `feature` here would silently mis-classify
+  // draft-added rules as "live".
+  baseFeature: FeatureInterface;
   setVersion: (version: number) => void;
   mutate: () => void;
+  // Global flat index in `feature.rules`. Positions new rules; ignored for edit/duplicate.
   i: number;
   environment: string;
+  // Required for edit/duplicate.
+  ruleId?: string;
   defaultType?: string;
   mode: "create" | "edit" | "duplicate";
   safeRolloutsMap?: Map<string, SafeRolloutInterface>;
@@ -125,9 +132,11 @@ export type SafeRolloutRuleCreateFields = SafeRolloutRule & {
 export default function RuleModal({
   close,
   feature,
+  baseFeature,
   i,
   mutate,
   environment,
+  ruleId,
   defaultType = "",
   setVersion,
   mode,
@@ -142,8 +151,16 @@ export default function RuleModal({
 
   const attributeSchema = useAttributeSchema(false, feature.project);
 
-  const rules = getRules(feature, environment);
-  const rule: (typeof rules)[number] | undefined = rules[i];
+  const flatRules = feature.rules ?? [];
+  const rule: FeatureRule | undefined = ruleId
+    ? flatRules.find((r) => r.id === ruleId)
+    : undefined;
+  // True when this rule already exists on the published feature. We use this
+  // (not `defaultValues.id`, which is also set for newly-added draft rules) to
+  // decide whether scheduling against a future date should warn about
+  // overriding an already-live rule's state.
+  const isLiveRule =
+    !!ruleId && (baseFeature.rules ?? []).some((r) => r.id === ruleId);
   const safeRollout =
     rule?.type === "safe-rollout"
       ? safeRolloutsMap?.get(rule?.safeRolloutId)
@@ -247,8 +264,9 @@ export default function RuleModal({
     isSafeRolloutAutoRollbackEnabled: true,
   });
 
-  const convertRuleToFormValues = (rule: FeatureRule) => {
-    if (rule?.type === "safe-rollout") {
+  const convertRuleToFormValues = (rule: FeatureRule | undefined) => {
+    if (!rule) return undefined;
+    if (rule.type === "safe-rollout") {
       return {
         ...rule,
         safeRolloutFields: safeRollout,
@@ -308,10 +326,34 @@ export default function RuleModal({
     defaultValues,
   });
 
+  // On edit/duplicate, seed scope from the existing rule. Legacy rules with
+  // `environments === undefined` are treated as permissive (= all envs). On
+  // create, seed from org default ("all envs") or fall back to the current
+  // env tab.
+  const existingRuleAllEnvs = rule?.allEnvironments === true;
+  const existingRuleEnvList = Array.isArray(rule?.environments)
+    ? (rule?.environments ?? [])
+    : undefined;
+  const existingRuleScopeIsAll =
+    existingRuleAllEnvs ||
+    (rule !== undefined &&
+      rule.allEnvironments !== true &&
+      existingRuleEnvList === undefined);
+
+  const [scopeAllEnvs, setScopeAllEnvs] = useState<boolean>(() => {
+    if (mode === "edit" || mode === "duplicate") return existingRuleScopeIsAll;
+    // New rules: default to "All environments" only when no active env tab.
+    return !environment;
+  });
   const [selectedEnvironments, setSelectedEnvironments] = useState<string[]>(
-    mode === "create" && settings.defaultFeatureRulesInAllEnvs
-      ? environments.map((env) => env.id)
-      : [environment],
+    () => {
+      if (mode === "edit" || mode === "duplicate") {
+        if (existingRuleScopeIsAll) return [];
+        return existingRuleEnvList ?? [environment];
+      }
+      // New rules: pre-select the active env tab (or empty if "All" fallback).
+      return environment ? [environment] : [];
+    },
   );
 
   const defaultHasSchedule = (defaultValues.scheduleRules || []).some(
@@ -377,16 +419,28 @@ export default function RuleModal({
               : ruleType === "safe-rollout"
                 ? "Safe Rollout Rule"
                 : "Rule";
-    text +=
-      ruleType === "safe-rollout"
-        ? ` in ${environment}`
-        : ` in ${selectedEnvironments[0]}${
-            selectedEnvironments.length > 1
-              ? ` + ${selectedEnvironments.length - 1} more`
-              : ""
-          }`;
+    if (ruleType === "safe-rollout") {
+      if (environment) text += ` in ${environment}`;
+    } else if (scopeAllEnvs) {
+      text += ` in All Environments`;
+    } else if (selectedEnvironments.length === 0) {
+      text += ` (no environments)`;
+    } else {
+      text += ` in ${selectedEnvironments[0]}${
+        selectedEnvironments.length > 1
+          ? ` + ${selectedEnvironments.length - 1} more`
+          : ""
+      }`;
+    }
     return text;
-  }, [ruleType, experimentType, mode, environment, selectedEnvironments]);
+  }, [
+    ruleType,
+    experimentType,
+    mode,
+    environment,
+    scopeAllEnvs,
+    selectedEnvironments,
+  ]);
 
   const trackingEventModalType = useMemo(
     () => kebabCase(headerText),
@@ -424,7 +478,7 @@ export default function RuleModal({
       prerequisites.length > 0
         ? {
             environment,
-            ruleIndex: i,
+            ruleId: rule?.id,
             prerequisites: prerequisites.map((p) => ({
               id: p.id,
               condition: p.condition,
@@ -611,9 +665,27 @@ export default function RuleModal({
       values.scheduleRules = [];
     }
 
-    // unset the ID if we're duplicating the rule.
+    // Reuse pregenRuleId for duplicates so the inline ramp payload targets
+    // the rule the backend creates. (Backend preserves a truthy client id.)
     if (mode === "duplicate") {
-      values.id = "";
+      values.id = pregenRuleId;
+    }
+
+    // Safe-rollout rules are pinned to one env by the controller; skip scope.
+    if (values.type !== "safe-rollout") {
+      if (scopeAllEnvs) {
+        values = {
+          ...values,
+          allEnvironments: true,
+          environments: [],
+        };
+      } else {
+        values = {
+          ...values,
+          allEnvironments: false,
+          environments: selectedEnvironments,
+        };
+      }
     }
 
     // Loop through each scheduleRule and convert the timestamp to an ISOString()
@@ -844,6 +916,8 @@ export default function RuleModal({
           description: "",
           experimentId: res.experiment.id,
           id: values.id,
+          allEnvironments: values.allEnvironments ?? false,
+          environments: values.environments,
           condition: "",
           savedGroups: [],
           enabled: values.enabled ?? true,
@@ -918,7 +992,7 @@ export default function RuleModal({
         delete values.scheduleRules;
       }
 
-      const correctedRule = validateFeatureRule(values, feature);
+      const correctedRule = validateFeatureRule(values as FeatureRule, feature);
       if (correctedRule) {
         form.reset(correctedRule);
         throw new Error(
@@ -965,6 +1039,7 @@ export default function RuleModal({
       let res: { version: number } | undefined;
 
       if (mode === "edit") {
+        if (!ruleId) throw new Error("Missing ruleId for edit");
         if (values.type === "safe-rollout") {
           res = await apiCall(`/safe-rollout/${values.safeRolloutId}`, {
             method: "PUT",
@@ -983,6 +1058,15 @@ export default function RuleModal({
           let rampScheduleInline:
             | PutFeatureRuleBody["rampSchedule"]
             | undefined;
+          // When removing a schedule that never fired, restore the rule to
+          // enabled. New rules with a future schedule are stored as
+          // enabled:false on POST; detaching/clearing the schedule before it
+          // ran would otherwise leave the rule permanently disabled.
+          let restoreEnabledOnDetach = false;
+          const scheduleNeverFired =
+            !ruleRampSchedule ||
+            ruleRampSchedule.status === "pending" ||
+            ruleRampSchedule.status === "ready";
           if (
             (values.type === "rollout" || values.type === "force") &&
             rule?.id
@@ -996,6 +1080,7 @@ export default function RuleModal({
                 rampScheduleId: ruleRampSchedule.id,
                 deleteScheduleWhenEmpty: true,
               };
+              restoreEnabledOnDetach = scheduleNeverFired;
             } else if (hasPendingDetach && rampSectionState.mode === "edit") {
               // User re-enabled the ramp section to restore the detached schedule — cancel the removal
               rampScheduleInline = { mode: "clear" };
@@ -1055,7 +1140,7 @@ export default function RuleModal({
                 !isNoOpSchedule &&
                 rampState.mode === "edit" &&
                 ruleRampSchedule?.id &&
-                !["running", "ready", "pending-approval"].includes(
+                !["running", "pending-approval"].includes(
                   ruleRampSchedule.status,
                 )
               ) {
@@ -1096,6 +1181,29 @@ export default function RuleModal({
                         }
                       : null,
                 };
+              } else if (
+                isNoOpSchedule &&
+                rampState.mode === "edit" &&
+                ruleRampSchedule?.id
+              ) {
+                // Schedule became a no-op (e.g. user switched to "Immediately"
+                // with no end date) — detach the existing schedule.
+                rampScheduleInline = {
+                  mode: "detach",
+                  rampScheduleId: ruleRampSchedule.id,
+                  deleteScheduleWhenEmpty: true,
+                };
+                restoreEnabledOnDetach = scheduleNeverFired;
+              } else if (
+                isNoOpSchedule &&
+                rampState.mode === "create" &&
+                pendingCreateAction
+              ) {
+                // Pending-create schedule reduced to a no-op (e.g. user cleared
+                // the dates) — drop the pending create from the draft so we
+                // don't publish a useless schedule doc.
+                rampScheduleInline = { mode: "clear" };
+                restoreEnabledOnDetach = true;
               } else if (rampState.mode === "off" && ruleRampSchedule?.id) {
                 // User unchecked the ramp schedule checkbox — detach this rule from the ramp
                 rampScheduleInline = {
@@ -1103,10 +1211,12 @@ export default function RuleModal({
                   rampScheduleId: ruleRampSchedule.id,
                   deleteScheduleWhenEmpty: true,
                 };
+                restoreEnabledOnDetach = scheduleNeverFired;
               } else if (rampState.mode === "off" && pendingCreateAction) {
                 // Pending-create schedule only exists in the draft (not yet published) —
                 // user removed the schedule, so clear the create action from the draft.
                 rampScheduleInline = { mode: "clear" };
+                restoreEnabledOnDetach = true;
               } else if (rampState.mode === "off" && hasPendingDetach) {
                 // User saved without re-configuring a schedule while a pending detach exists —
                 // clear the detach action from the draft (cancel the pending removal)
@@ -1115,14 +1225,8 @@ export default function RuleModal({
             }
           }
 
-          // If the ramp has a future start date, publish the rule as disabled
-          // so it remains hidden until the ramp activates.
-          if (
-            rampScheduleInline &&
-            "startDate" in rampScheduleInline &&
-            rampScheduleInline.startDate
-          ) {
-            values = { ...values, enabled: false };
+          if (restoreEnabledOnDetach && !values.enabled) {
+            values.enabled = true;
           }
 
           res = await apiCall<{ version: number }>(
@@ -1131,8 +1235,7 @@ export default function RuleModal({
               method: "PUT",
               body: JSON.stringify({
                 rule: values,
-                environment,
-                i,
+                ruleId,
                 ...(rampScheduleInline
                   ? { rampSchedule: rampScheduleInline }
                   : {}),
@@ -1194,8 +1297,9 @@ export default function RuleModal({
           }
         }
 
-        // If the ramp has a future start date, publish the rule as disabled
-        // so it remains hidden until the ramp activates.
+        // Schedule with a start date → create rule disabled; the backend
+        // enables it via onActivatingRevisionPublished when the draft is
+        // published (immediately if the date has passed, or via poller if future).
         if (
           rampScheduleInline &&
           "startDate" in rampScheduleInline &&
@@ -1204,9 +1308,14 @@ export default function RuleModal({
           values = { ...values, enabled: false };
         }
 
-        // Clear rule-level targeting for new ramp rules — steps own state over time.
+        // Ramp-up steps own targeting over time; clear rule-level targeting so
+        // they don't conflict. Standard schedules (no steps) don't control
+        // targeting, so preserve user-set values.
         if (
           rampScheduleInline &&
+          "steps" in rampScheduleInline &&
+          rampScheduleInline.steps &&
+          rampScheduleInline.steps.length > 0 &&
           (values.type === "rollout" || values.type === "force")
         ) {
           values = {
@@ -1226,7 +1335,9 @@ export default function RuleModal({
               environments:
                 values.type === "safe-rollout"
                   ? [environment]
-                  : selectedEnvironments,
+                  : scopeAllEnvs
+                    ? environments.map((e) => e.id)
+                    : selectedEnvironments,
               safeRolloutFields,
               rampSchedule: rampScheduleInline,
             } as PostFeatureRuleBody),
@@ -1267,7 +1378,7 @@ export default function RuleModal({
             <PiCaretRight className="position-relative" style={{ top: -1 }} />
           </>
         }
-        ctaEnabled={!!overviewRuleType && selectedEnvironments.length > 0}
+        ctaEnabled={!!overviewRuleType}
         header="New Rule"
         useRadixButton={true}
         submit={submitOverview}
@@ -1402,34 +1513,24 @@ export default function RuleModal({
             />
           </>
         )}
-
-        {environments.length > 1 && overviewRuleType !== "safe-rollout" && (
-          <EnvironmentSelect
-            environments={environments}
-            project={feature.project}
-            environmentSettings={Object.fromEntries(
-              environments.map((env) => [
-                env.id,
-                { enabled: selectedEnvironments.includes(env.id) },
-              ]),
-            )}
-            setValue={(env, enabled) => {
-              if (enabled) {
-                setSelectedEnvironments((prev) => [
-                  ...new Set([...prev, env.id]),
-                ]);
-              } else {
-                setSelectedEnvironments((prev) =>
-                  prev.filter((id) => id !== env.id),
-                );
-              }
-            }}
-            label="Create Rule in Environments"
-          />
-        )}
       </Modal>
     );
   }
+
+  const envScopeProps = {
+    environments,
+    allEnvironments: scopeAllEnvs,
+    setAllEnvironments: setScopeAllEnvs,
+    selectedEnvironments,
+    setSelectedEnvironments,
+  };
+
+  // Resolved env list used by child components that care about which envs the
+  // rule currently covers (prereq cycle checks, targeting previews, etc).
+  // When `allEnvironments` is on, treat every applicable env as in-scope.
+  const effectiveEnvList = scopeAllEnvs
+    ? environments.map((e) => e.id)
+    : selectedEnvironments;
 
   return (
     <FormProvider {...form}>
@@ -1471,7 +1572,7 @@ export default function RuleModal({
           <StandardRuleFields
             ruleType={ruleType}
             feature={feature}
-            environments={selectedEnvironments}
+            environments={effectiveEnvList}
             defaultValues={defaultValues}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
@@ -1487,6 +1588,8 @@ export default function RuleModal({
             scheduleType={scheduleType}
             setScheduleType={setScheduleType}
             pendingDetach={hasPendingDetach}
+            envScope={envScopeProps!}
+            isLiveRule={isLiveRule}
           />
         )}
 
@@ -1505,6 +1608,7 @@ export default function RuleModal({
             setScheduleToggleEnabled={setScheduleToggleEnabled}
             mode={mode}
             isDraft={!safeRollout?.startedAt}
+            envScope={envScopeProps}
           />
         )}
 
@@ -1518,6 +1622,7 @@ export default function RuleModal({
             noSchedule={!defaultHasSchedule}
             scheduleToggleEnabled={scheduleToggleEnabled}
             setScheduleToggleEnabled={setScheduleToggleEnabled}
+            envScope={envScopeProps!}
           />
         ) : null}
 
@@ -1527,6 +1632,7 @@ export default function RuleModal({
             feature={feature}
             existingRule={mode === "edit"}
             changeRuleType={changeRuleType}
+            envScope={envScopeProps!}
           />
         ) : null}
 
@@ -1540,7 +1646,7 @@ export default function RuleModal({
                   source="rule"
                   feature={feature}
                   project={feature.project}
-                  environments={selectedEnvironments}
+                  environments={effectiveEnvList}
                   defaultValues={defaultValues}
                   prerequisiteValue={form.watch("prerequisites") || []}
                   setPrerequisiteValue={(prerequisites) =>
@@ -1591,6 +1697,7 @@ export default function RuleModal({
                   setCustomFields={(customFields) =>
                     form.setValue("customFields", customFields)
                   }
+                  envScope={i === 0 ? envScopeProps : undefined}
                 />
               </Page>
             ))
@@ -1604,7 +1711,7 @@ export default function RuleModal({
                   source="rule"
                   feature={feature}
                   project={feature.project}
-                  environments={selectedEnvironments}
+                  environments={effectiveEnvList}
                   prerequisiteValue={form.watch("prerequisites") || []}
                   setPrerequisiteValue={(prerequisites) =>
                     form.setValue("prerequisites", prerequisites)
@@ -1649,6 +1756,7 @@ export default function RuleModal({
                   setDisableBanditConversionWindow={
                     setDisableBanditConversionWindow
                   }
+                  envScope={i === 0 ? envScopeProps : undefined}
                 />
               </Page>
             ))

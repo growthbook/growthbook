@@ -22,6 +22,7 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SortedTags from "@/components/Tags/SortedTags";
+import { tagLinkProps } from "@/services/search";
 import { useWatching } from "@/services/WatchProvider";
 import CompareFeatureEventsModal from "@/components/Features/CompareFeatureEventsModal";
 import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
@@ -402,7 +403,7 @@ export default function FeaturesHeader({
 
           <Flex align="start" justify="between" gap="2">
             <Flex align="center" mb="2" gap="3" style={{ marginTop: "-4px" }}>
-              <Heading size="2x-large" as="h1" mb="0">
+              <Heading size="x-large" as="h1" mb="0">
                 {feature.id}
               </Heading>
               <StaleFeatureIcon
@@ -501,6 +502,7 @@ export default function FeaturesHeader({
                   tags={feature.tags || []}
                   useFlex
                   shouldShowEllipsis={false}
+                  {...tagLinkProps("features")}
                 />
               </Box>
             ) : null}

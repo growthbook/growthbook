@@ -1,11 +1,15 @@
 import { ExperimentRefRule, FeatureInterface } from "shared/types/feature";
-import Link from "next/link";
+import NextLink from "next/link";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React from "react";
-import { includeExperimentInPayload } from "shared/util";
+import {
+  includeExperimentInPayload,
+  calculateNamespaceCoverage,
+} from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { Box, Flex, Text } from "@radix-ui/themes";
+import Link from "@/ui/Link";
 import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -100,9 +104,11 @@ export default function ExperimentRefSummary({
   }
 
   const hasNamespace = phase.namespace && phase.namespace.enabled;
-  const namespaceRange = hasNamespace
-    ? phase.namespace!.range[1] - phase.namespace!.range[0]
-    : 1;
+  // Calculate total namespace allocation
+  const namespaceRange =
+    hasNamespace && phase.namespace
+      ? calculateNamespaceCoverage(phase.namespace)
+      : 1;
   const effectiveCoverage = namespaceRange * (phase.coverage ?? 1);
 
   const hasCondition =
@@ -148,7 +154,7 @@ export default function ExperimentRefSummary({
         {hasNamespace && (
           <>
             in the namespace
-            <Link href={`/namespaces`}>
+            <NextLink href={`/namespaces`}>
               <Badge
                 color="gray"
                 label={
@@ -165,7 +171,7 @@ export default function ExperimentRefSummary({
                   </Text>
                 }
               />
-            </Link>
+            </NextLink>
           </>
         )}
       </Flex>

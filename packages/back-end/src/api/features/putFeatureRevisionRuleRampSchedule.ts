@@ -1,6 +1,8 @@
+import type { OrganizationInterface } from "shared/types/organization";
 import { putFeatureRevisionRuleRampScheduleValidator } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import type { ApiReqContext } from "back-end/types/api";
+import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -10,6 +12,12 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
+  getApplicableEnvIds,
+  resolveRampTarget,
+  ruleFootprint,
+} from "back-end/src/util/flattenRules";
+import { getEnvironments } from "back-end/src/util/organization.util";
+import {
   assertValidEnvironment,
   discardIfJustCreated,
   isDraftStatus,
@@ -17,29 +25,39 @@ import {
   resolveOrCreateRevision,
 } from "./validations";
 
-export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
-  putFeatureRevisionRuleRampScheduleValidator,
-)(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
+export async function setRuleRampSchedule(
+  context: ApiReqContext,
+  organization: OrganizationInterface,
+  params: { id: string; version: number | "new"; ruleId: string },
+  body: {
+    environment?: string;
+    revisionTitle?: string;
+    revisionComment?: string;
+    // All remaining fields are forwarded as the inline schedule definition.
+    [k: string]: unknown;
+  },
+  docLinkVersion: "v1" | "v2",
+) {
+  const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
   if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
   ) {
-    req.context.permissions.throwPermissionError();
+    context.permissions.throwPermissionError();
   }
 
-  const { ruleId } = req.params;
+  const { ruleId } = params;
   const { environment, revisionTitle, revisionComment, ...scheduleInput } =
-    req.body;
-  assertValidEnvironment(req.context, environment);
+    body;
+  if (environment) assertValidEnvironment(context, environment);
 
   const { revision, created } = await resolveOrCreateRevision(
-    req.context,
-    req.organization.id,
+    context,
+    organization.id,
     feature,
-    req.params.version,
+    params.version,
     { title: revisionTitle, comment: revisionComment },
   );
 
@@ -50,86 +68,120 @@ export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
       );
     }
 
+    const envSuffix = environment ? ` in environment "${environment}"` : "";
+
     // Check draft first, then live — a ramp schedule may target a live rule
-    // the draft hasn't touched.
-    const inDraft =
-      revision.rules?.[environment]?.some((r) => r.id === ruleId) ?? false;
-    const inLive =
-      feature.environmentSettings?.[environment]?.rules?.some(
-        (r) => r.id === ruleId,
-      ) ?? false;
-    if (!inDraft && !inLive) {
-      throw new NotFoundError(
-        `Rule "${ruleId}" not found in environment "${environment}"`,
-      );
+    // the draft hasn't touched. resolveRampTarget matches the v2 unified
+    // rules array via stem+env quadrants (see its JSDoc).
+    const draftMatch = resolveRampTarget(
+      { ruleId, environment: environment ?? null },
+      revision.rules ?? [],
+    );
+    const liveMatch = resolveRampTarget(
+      { ruleId, environment: environment ?? null },
+      feature.rules ?? [],
+    );
+    const match = draftMatch ?? liveMatch;
+    if (!match) {
+      throw new NotFoundError(`Rule "${ruleId}" not found${envSuffix}`);
     }
 
+    // Canonical id the revision stores this rule under. All persisted
+    // references (rampActions.ruleId, audit subject, event payload) must use
+    // `match.id`, not the caller's URL param — otherwise round-trip cleanup
+    // (DELETE by the GET-returned id) breaks for stem↔suffix ambiguity.
+    const canonicalRuleId = match.id;
+
     // Block if an active live schedule already controls this rule.
-    const liveSchedules =
-      await req.context.models.rampSchedules.findByTargetRule(
-        ruleId,
-        environment,
-      );
+    const liveSchedules = await context.models.rampSchedules.findByTargetRule(
+      canonicalRuleId,
+      environment ?? undefined,
+    );
     if (liveSchedules.length > 0) {
       throw new BadRequestError(
-        `Rule "${ruleId}" already has a live ramp schedule.` +
-          ` Update it via PUT /api/v1/ramp-schedules/${liveSchedules[0].id}.`,
+        `Rule "${canonicalRuleId}" already has a live ramp schedule.` +
+          ` Update it via PUT /api/${docLinkVersion}/ramp-schedules/${liveSchedules[0].id}.`,
       );
     }
 
     const action = normalizeInlineRampSchedule(
-      scheduleInput,
-      ruleId,
-      environment,
+      scheduleInput as Parameters<typeof normalizeInlineRampSchedule>[0],
+      canonicalRuleId,
     );
 
-    // Replace any existing pending ramp action for this rule.
+    // Replace any existing pending ramp action for this rule. Filter tolerant
+    // to both the canonical id AND the caller-provided id, so stale entries
+    // written under either form (legacy buggy writes, or stem/suffix variants)
+    // get cleaned up on the next set.
     const filtered = (revision.rampActions ?? []).filter(
-      (a) => a.ruleId !== ruleId,
+      (a) => a.ruleId !== canonicalRuleId && a.ruleId !== ruleId,
     );
     const newRampActions = [...filtered, action];
 
+    // `changedEnvironments` drives per-env review reset and audit env fanout.
+    // When the caller didn't specify an env, use the resolved rule's full env
+    // footprint — semantically the ramp affects every env the rule covers.
+    const orgEnvs = getEnvironments(organization);
+    const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
+    const changedEnvironments = environment
+      ? [environment]
+      : ruleFootprint(match, applicableEnvs);
+
     await updateRevision(
-      req.context,
+      context,
       feature,
       revision,
       { rampActions: newRampActions },
       {
-        user: req.context.auditUser,
+        user: context.auditUser,
         action: "set ramp schedule",
-        subject: ruleId,
+        subject: canonicalRuleId,
         value: JSON.stringify(action),
       },
       resetReviewOnChange({
         feature,
-        changedEnvironments: [environment],
+        changedEnvironments,
         defaultValueChanged: false,
-        settings: req.organization.settings,
+        settings: organization.settings,
       }),
     );
 
     const updated = await getRevision({
-      context: req.context,
-      organization: req.organization.id,
+      context,
+      organization: organization.id,
       featureId: feature.id,
+      feature,
       version: revision.version,
     });
     const finalRevision = updated ?? revision;
 
     await recordRevisionUpdate(
-      req.context,
+      context,
       feature,
       finalRevision,
       "rule.rampSchedule.set",
       {
-        environments: [environment],
-        auditDetails: { ruleId },
+        environments: changedEnvironments,
+        auditDetails: { ruleId: canonicalRuleId },
       },
     );
 
-    return { revision: revisionToApiInterface(finalRevision) };
+    return { feature, revision: finalRevision };
   } catch (err) {
-    await discardIfJustCreated(req.context, revision, created);
+    await discardIfJustCreated(context, revision, created);
     throw err;
   }
+}
+
+export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
+  putFeatureRevisionRuleRampScheduleValidator,
+)(async (req) => {
+  const { feature, revision } = await setRuleRampSchedule(
+    req.context,
+    req.organization,
+    req.params,
+    req.body,
+    "v1",
+  );
+  return { revision: toApiRevision(revision, req.context, feature) };
 });

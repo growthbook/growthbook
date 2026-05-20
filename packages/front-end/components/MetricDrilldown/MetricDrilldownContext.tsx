@@ -8,13 +8,16 @@ import {
   ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "shared/types/report";
-import { ExperimentSnapshotAnalysis } from "shared/types/experiment-snapshot";
+import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotInterface,
+} from "shared/types/experiment-snapshot";
 import {
   DifferenceType,
   PValueCorrection,
+  SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
-import { formatDimensionValueForDisplay } from "shared/experiments";
 import { ExperimentTableRow } from "@/services/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import MetricDrilldownModal from "./MetricDrilldownModal";
@@ -23,6 +26,7 @@ import {
   MetricDrilldownContextValue,
   DrilldownOptions,
   MetricDrilldownTab,
+  DrilldownDimensionInfo,
 } from "./useMetricDrilldownContext";
 
 // Re-export for consumers
@@ -33,6 +37,7 @@ export interface MetricDrilldownProviderProps {
 
   // Required experiment/analysis data
   experimentId: string;
+  significanceThresholds: SignificanceThresholds;
   phase: number;
   experimentStatus?: ExperimentStatus;
   analysis: ExperimentSnapshotAnalysis | null;
@@ -74,18 +79,25 @@ export interface MetricDrilldownProviderProps {
 
   // When true, timeseries is unavailable and a message is shown instead
   isReportContext?: boolean;
+
+  // Snapshot for report context (no parent SnapshotProvider).
+  // When provided, a LocalSnapshotProvider is created in the modal so it can
+  // refresh when baseline/difference settings change.
+  snapshot?: ExperimentSnapshotInterface;
 }
 
 interface OpenModalInfo {
   metricRow: ExperimentTableRow;
+  initialResults: ExperimentSnapshotAnalysis["results"][number];
   initialTab?: MetricDrilldownTab;
   initialSliceSearchTerm?: string;
-  dimensionInfo?: { name: string; value: string; index: number };
+  dimensionInfo?: DrilldownDimensionInfo;
 }
 
 export const MetricDrilldownProvider: FC<MetricDrilldownProviderProps> = ({
   children,
   experimentId,
+  significanceThresholds,
   phase,
   experimentStatus,
   analysis,
@@ -111,6 +123,7 @@ export const MetricDrilldownProvider: FC<MetricDrilldownProviderProps> = ({
   sortDirection,
   ssrPolyfills,
   isReportContext,
+  snapshot,
 }) => {
   const [openModalInfo, setOpenModalInfo] = useState<OpenModalInfo | null>(
     null,
@@ -118,27 +131,38 @@ export const MetricDrilldownProvider: FC<MetricDrilldownProviderProps> = ({
 
   const openDrilldown = useCallback(
     (row: ExperimentTableRow, options?: DrilldownOptions) => {
-      if (!analysis?.results) return;
+      if (!analysis?.results?.length) return;
 
-      // Resolve dimension index if dimensionInfo is provided
-      let resolvedDimensionInfo:
-        | { name: string; value: string; index: number }
+      let initialResults:
+        | ExperimentSnapshotAnalysis["results"][number]
         | undefined;
+      let resolvedDimensionInfo: DrilldownDimensionInfo | undefined;
 
       if (options?.dimensionInfo) {
-        const index = analysis.results.findIndex(
-          (r) =>
-            formatDimensionValueForDisplay(r.name) ===
-            options.dimensionInfo?.value,
+        const dimensionInfo = options.dimensionInfo;
+        initialResults = analysis.results.find(
+          (r) => r.name === dimensionInfo.rawValue,
         );
-        if (index !== -1) {
-          resolvedDimensionInfo = { ...options.dimensionInfo, index };
+        if (!initialResults) {
+          console.warn("Metric drilldown dimension value not found", {
+            dimensionId: dimensionInfo.id,
+            dimensionValue: dimensionInfo.rawValue,
+          });
+          return;
         }
+        resolvedDimensionInfo = dimensionInfo;
+      } else {
+        initialResults = analysis.results[0];
+      }
+
+      if (!initialResults) {
+        return;
       }
 
       if (row.isSliceRow) {
         setOpenModalInfo({
           metricRow: row,
+          initialResults,
           initialTab: options?.initialTab ?? "slices",
           initialSliceSearchTerm:
             options?.initialSliceSearchTerm ??
@@ -148,6 +172,7 @@ export const MetricDrilldownProvider: FC<MetricDrilldownProviderProps> = ({
       } else {
         setOpenModalInfo({
           metricRow: row,
+          initialResults,
           initialTab: options?.initialTab ?? "overview",
           dimensionInfo: resolvedDimensionInfo,
         });
@@ -173,7 +198,7 @@ export const MetricDrilldownProvider: FC<MetricDrilldownProviderProps> = ({
           row={openModalInfo.metricRow}
           close={closeModal}
           initialTab={openModalInfo.initialTab}
-          results={analysis.results[openModalInfo.dimensionInfo?.index ?? 0]}
+          results={openModalInfo.initialResults}
           goalMetrics={goalMetrics}
           secondaryMetrics={secondaryMetrics}
           guardrailMetrics={guardrailMetrics}
@@ -186,6 +211,7 @@ export const MetricDrilldownProvider: FC<MetricDrilldownProviderProps> = ({
           baselineRow={baselineRow}
           variationFilter={variationFilter}
           experimentId={experimentId}
+          significanceThresholds={significanceThresholds}
           phase={phase}
           experimentStatus={experimentStatus}
           variations={variations}
@@ -201,6 +227,7 @@ export const MetricDrilldownProvider: FC<MetricDrilldownProviderProps> = ({
           lookbackOverride={lookbackOverride}
           ssrPolyfills={ssrPolyfills}
           isReportContext={isReportContext}
+          snapshot={snapshot}
         />
       )}
     </MetricDrilldownContext.Provider>

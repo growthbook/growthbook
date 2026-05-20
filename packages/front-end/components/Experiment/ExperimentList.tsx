@@ -1,4 +1,4 @@
-import Link from "next/link";
+import NextLink from "next/link";
 import React, { useCallback } from "react";
 import {
   ComputedExperimentInterface,
@@ -15,16 +15,20 @@ import { useExperimentSearch } from "@/services/experiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ExperimentStatusDetailsWithDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import SortedTags from "@/components/Tags/SortedTags";
+import { tagLinkProps } from "@/services/search";
+import Link from "@/ui/Link";
 
 export default function ExperimentList({
   num,
   status,
   experiments,
+  localStorageKey,
   as = "list",
 }: {
   num: number;
   status: ExperimentStatus;
   experiments: ExperimentInterfaceStringDates[];
+  localStorageKey: string;
   as?: "list" | "table";
 }): React.ReactElement {
   const filterResults = useCallback(
@@ -41,6 +45,7 @@ export default function ExperimentList({
   const { items, SortableTH } = useExperimentSearch({
     allExperiments: experiments,
     filterResults,
+    localStorageKey,
   });
 
   if (as === "table") {
@@ -96,7 +101,11 @@ export default function ExperimentList({
                   </Flex>
                 </td>
                 <td>
-                  <SortedTags tags={Object.values(test.tags)} useFlex={true} />
+                  <SortedTags
+                    tags={Object.values(test.tags)}
+                    useFlex={true}
+                    {...tagLinkProps("experiments")}
+                  />
                 </td>
                 <td title={datetime(test.date)}>{date(test.date)}</td>
                 <td>{test.ownerName}</td>
@@ -147,7 +156,7 @@ export default function ExperimentList({
           return (
             <li key={i} className="w-100 px-1 hover-highlight">
               <div key={test.id} className="d-flex">
-                <Link
+                <NextLink
                   href={`/experiment/${test.id}`}
                   className="w-100 no-link-color"
                 >
@@ -175,7 +184,7 @@ export default function ExperimentList({
                       {currentPhase?.name} ({test.variations.length} variations)
                     </div>
                   </div>
-                </Link>
+                </NextLink>
               </div>
             </li>
           );

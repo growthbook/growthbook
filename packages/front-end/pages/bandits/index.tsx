@@ -12,6 +12,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
+import { tagFilterOnClick, tagLinkProps } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
 import { useExperiments } from "@/hooks/useExperiments";
@@ -31,6 +32,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LinkButton from "@/ui/LinkButton";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import { useExperimentSearch } from "@/services/experiments";
+import Callout from "@/ui/Callout";
 
 const NUM_PER_PAGE = 20;
 
@@ -76,10 +78,11 @@ const ExperimentsPage = (): React.ReactElement => {
     [showMineOnly, userId, tagsFilter.tags, watchedExperiments],
   );
 
-  const { items, searchInputProps, isFiltered, SortableTH } =
+  const { items, searchInputProps, isFiltered, SortableTH, setSearchValue } =
     useExperimentSearch({
       allExperiments,
       filterResults,
+      localStorageKey: "bandits-page",
     });
 
   const tabCounts = useMemo(() => {
@@ -110,11 +113,7 @@ const ExperimentsPage = (): React.ReactElement => {
   }, [filtered.length]);
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
   if (loading || !ready) {
     return <LoadingOverlay />;
@@ -389,6 +388,11 @@ const ExperimentsPage = (): React.ReactElement => {
                           <SortedTags
                             tags={Object.values(e.tags)}
                             useFlex={true}
+                            {...tagLinkProps("bandits")}
+                            onTagClick={tagFilterOnClick(
+                              searchInputProps.value,
+                              setSearchValue,
+                            )}
                           />
                         </td>
                         <td className="nowrap" data-title="Owner:">

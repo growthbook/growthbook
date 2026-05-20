@@ -182,6 +182,67 @@ export function projectFilterQuery(projectId: string) {
   };
 }
 
+const DUPLICATE_KEY_ERROR_CODE = 11000;
+const MAX_VERSION_RETRY_ATTEMPTS = 5;
+
+/**
+ * Detect MongoDB duplicate-key errors across the various shapes the driver and
+ * mongoose can produce: top-level `code`, `writeErrors[].code`, and
+ * `BulkWriteError`/`MongoServerError` instances. We deliberately match by code
+ * (11000) rather than by error class name so we catch wrapped variants too.
+ *
+ * The final `"E11000"` substring check is a last-resort fallback for wrappers
+ * that drop the `code` field but preserve the original driver message.
+ */
+export function isDuplicateKeyError(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  const e = err as {
+    code?: unknown;
+    writeErrors?: { code?: unknown }[];
+    name?: unknown;
+    message?: unknown;
+  };
+  if (e.code === DUPLICATE_KEY_ERROR_CODE) return true;
+  if (
+    Array.isArray(e.writeErrors) &&
+    e.writeErrors.some((we) => we?.code === DUPLICATE_KEY_ERROR_CODE)
+  ) {
+    return true;
+  }
+  if (typeof e.message === "string" && e.message.includes("E11000")) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Retry an insert operation on duplicate-key error. Intended for use with
+ * sequential-version unique indexes (e.g. `(organization, target, version)`)
+ * where two concurrent creates can compute the same `nextVersion` from the
+ * same read snapshot. On collision the caller's `op` is invoked again; the
+ * caller is responsible for recomputing the version against the now-larger
+ * set of existing rows before retrying the insert.
+ *
+ * The provided `op` is invoked at most MAX_VERSION_RETRY_ATTEMPTS times. The
+ * caller is also responsible for ensuring `op` is the only thing inside the
+ * retry scope — non-idempotent work (custom hooks, audit logs, etc.) must
+ * live outside or it will run multiple times under contention.
+ */
+export async function createWithVersionRetry<R>(
+  op: () => Promise<R>,
+): Promise<R> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < MAX_VERSION_RETRY_ATTEMPTS; attempt++) {
+    try {
+      return await op();
+    } catch (err) {
+      if (!isDuplicateKeyError(err)) throw err;
+      lastErr = err;
+    }
+  }
+  throw lastErr;
+}
+
 /**
  * Attempts to perform a bulkWrite operation if supported by the database driver.
  * If not, falls back to chunked individual operations.

@@ -20,12 +20,14 @@ import {
 } from "shared/types/datasource";
 import {
   FeatureDraftChanges,
-  FeatureEnvironment,
-  FeatureInterface,
   FeatureRule,
+  JSONSchemaDef,
   LegacyFeatureInterface,
+  V1FeatureEnvironment,
+  V1FeatureInterface,
+  V1FeatureRule,
 } from "shared/types/feature";
-import { OrganizationInterface } from "shared/types/organization";
+import { Namespaces, OrganizationInterface } from "shared/types/organization";
 import {
   ExperimentInterface,
   LegacyExperimentInterface,
@@ -35,11 +37,17 @@ import {
   ExperimentSnapshotInterface,
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
+import {
+  AnalysisKeyType,
+  AnalysisMetaEntry,
+  buildAnalysisKey,
+} from "shared/snapshot-analysis-chunks";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getConfigOrganizationSettings } from "back-end/src/init/config";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
 import { getAccountPlan } from "back-end/src/enterprise";
+import { logger } from "back-end/src/util/logger";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -264,14 +272,17 @@ export function upgradeDatasourceObject(
   return datasource;
 }
 
+// v0-only: redistribute top-level legacy rules into
+// `environmentSettings[env].rules`.
 function updateEnvironmentSettings(
-  rules: FeatureRule[],
+  rules: V1FeatureRule[],
   environments: string[],
   environment: string,
-  feature: FeatureInterface,
+  feature: V1FeatureInterface,
 ) {
-  const settings: Partial<FeatureEnvironment> =
-    feature.environmentSettings?.[environment] || {};
+  const existing = feature.environmentSettings?.[environment];
+  const settings: Partial<V1FeatureEnvironment> = (existing ||
+    {}) as Partial<V1FeatureEnvironment>;
 
   if (!("rules" in settings)) {
     settings.rules = rules;
@@ -280,17 +291,17 @@ function updateEnvironmentSettings(
     settings.enabled = environments?.includes(environment) || false;
   }
 
-  // If Rules is an object instead of array, fix it
   if (settings.rules && !Array.isArray(settings.rules)) {
     settings.rules = Object.values(settings.rules);
   }
 
   feature.environmentSettings = feature.environmentSettings || {};
-  feature.environmentSettings[environment] = settings as FeatureEnvironment;
+  feature.environmentSettings[environment] = settings as V1FeatureEnvironment;
 }
 
+// v0-only: does the legacy `draft` diverge from the v1 envSettings rules?
 function draftHasChanges(
-  feature: FeatureInterface,
+  feature: V1FeatureInterface,
   draft: FeatureDraftChanges,
 ) {
   if (!draft?.active) return false;
@@ -300,7 +311,7 @@ function draftHasChanges(
   }
 
   if (draft.rules) {
-    const comp: Record<string, FeatureRule[]> = {};
+    const comp: Record<string, V1FeatureRule[]> = {};
     Object.keys(draft.rules).forEach((key) => {
       comp[key] = feature.environmentSettings?.[key]?.rules || [];
     });
@@ -313,19 +324,38 @@ function draftHasChanges(
   return false;
 }
 
+// Heal a single ancient rule on read. Returns a new rule object (pure), so
+// callers can share references (e.g. the same rule on a feature + revision).
+// Add new rule-level backfills here.
+//
+// Note: origin/main's typed Mongoose `rules: [...]` schema seeded `[]` defaults
+// for `savedGroups`, `values`, `variations`, `scheduleRules` at hydration. We
+// switched to Mixed for v2 compatibility (which silently dropped that side
+// effect) and intentionally do NOT backfill those here — empty-array seeding
+// pollutes the v1 API surface with noise that wasn't an explicit contract.
+// Diffs against origin/main may show those keys as `-` deletes; mask via the
+// `--stripOutputFields` flag in `diff-features.ts` if you need clean diffs.
 export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
+  // Defensive: `rules` is stored as Mongoose Mixed and pre-v2 docs occasionally
+  // landed with sparse/null array elements (incomplete imports, hand-edited
+  // backups, half-applied legacy migrations). Accessing `.type` on those
+  // throws "Cannot read properties of undefined (reading 'type')" and aborts
+  // the entire JIT migration on read — blocking publish/serve for the whole
+  // feature. Pass nullish through; downstream callers filter via
+  // `isPlausibleFeatureRule` before relying on the rule shape.
+  if (rule == null || typeof rule !== "object") return rule;
   // Old style experiment rule without coverage
   if (rule.type === "experiment" && !("coverage" in rule)) {
-    rule.coverage = 1;
     const weights = rule.values
       .map((v) => v.weight)
       .map((w) => (w < 0 ? 0 : w > 1 ? 1 : w))
       .map((w) => roundVariationWeight(w));
     const totalWeight = getTotalVariationWeight(weights);
+    let coverage = 1;
     if (totalWeight <= 0) {
-      rule.coverage = 0;
+      coverage = 0;
     } else if (totalWeight < 0.999) {
-      rule.coverage = totalWeight;
+      coverage = totalWeight;
     }
 
     const multiplier = totalWeight > 0 ? 1 / totalWeight : 0;
@@ -333,20 +363,53 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
       weights.map((w) => roundVariationWeight(w * multiplier)),
     );
 
-    rule.values = rule.values.map((v, j) => {
-      return { ...v, weight: adjustedWeights[j] };
-    });
+    return {
+      ...rule,
+      coverage,
+      values: rule.values.map((v, j) => ({ ...v, weight: adjustedWeights[j] })),
+    };
   }
 
   return rule;
 }
 
-export function upgradeFeatureInterface(
-  feature: LegacyFeatureInterface,
-): FeatureInterface {
-  const { environments, rules, revision, draft, ...newFeature } = feature;
+// Non-rule backfills shared by v1 and v2 docs (`version`, `jsonSchema.*`).
+// Mutates and returns. Rules go through `upgradeFeatureRule` separately.
+export function applyNonRuleFeatureUpgrades<
+  T extends {
+    version?: number;
+    jsonSchema?: Partial<JSONSchemaDef>;
+  },
+>(feature: T): T {
+  feature.version = feature.version || 1;
 
-  // Copy over old way of storing rules/toggles to new environment-scoped settings
+  if (feature.jsonSchema) {
+    feature.jsonSchema.schemaType = feature.jsonSchema.schemaType || "schema";
+    feature.jsonSchema.simple = feature.jsonSchema.simple || {
+      type: "object",
+      fields: [],
+    };
+  }
+
+  return feature;
+}
+
+/**
+ * v0 → v1 upgrade. Redistributes top-level rules into
+ * `environmentSettings.{dev,production}.rules`, seeds `enabled` from the
+ * legacy env list, promotes `draft` → `legacyDraft`, and applies rule and
+ * non-rule backfills.
+ *
+ * CRITICAL: callers MUST discriminate v0 first (no `environmentSettings`).
+ * Running this on a v1/v2 doc would redistribute legitimate v2 top-level
+ * rules into v1-only storage.
+ */
+export function upgradeV0Feature(
+  feature: LegacyFeatureInterface,
+): V1FeatureInterface {
+  const { environments, rules, revision, draft, ...rest } = feature;
+  const newFeature = rest as V1FeatureInterface;
+
   updateEnvironmentSettings(rules || [], environments || [], "dev", newFeature);
   updateEnvironmentSettings(
     rules || [],
@@ -357,32 +420,35 @@ export function upgradeFeatureInterface(
 
   newFeature.version = feature.version || revision?.version || 1;
 
-  // Upgrade all published rules
   for (const env in newFeature.environmentSettings) {
     const settings = newFeature.environmentSettings[env];
     if (settings?.rules) {
-      settings.rules = settings.rules.map((r) => upgradeFeatureRule(r));
+      // V1FeatureRule is a passthrough schema (not a structural subset of
+      // the v2 union); upgradeFeatureRule preserves unknown fields.
+      settings.rules = settings.rules.map(
+        (r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule,
+      );
     }
   }
 
   if (draft) {
-    // Upgrade all draft rules
     if (draft?.rules) {
       for (const env in draft.rules) {
-        const rules = draft.rules;
-        rules[env] = rules[env].map((r) => upgradeFeatureRule(r));
+        const dRules = draft.rules;
+        dRules[env] = dRules[env].map(
+          (r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule,
+        );
       }
     }
-    // Ignore drafts if nothing has changed
     if (draft?.active && !draftHasChanges(newFeature, draft)) {
       draft.active = false;
     }
 
     if (draft.active) {
-      const revisionRules: Record<string, FeatureRule[]> = {};
-      Object.entries(newFeature.environmentSettings).forEach(
-        ([env, { rules }]) => {
-          revisionRules[env] = rules;
+      const revisionRules: Record<string, V1FeatureRule[]> = {};
+      Object.entries(newFeature.environmentSettings || {}).forEach(
+        ([env, settings]) => {
+          revisionRules[env] = settings?.rules || [];
 
           if (draft.rules && draft.rules[env]) {
             revisionRules[env] = draft.rules[env];
@@ -390,6 +456,8 @@ export function upgradeFeatureInterface(
         },
       );
 
+      // legacyDraft is v1-shaped here (`rules: Record<env, V1FeatureRule[]>`);
+      // `FeatureRevisionModel.toInterface` flattens it to v2 on read.
       newFeature.legacyDraft = {
         baseVersion: newFeature.version,
         comment: draft.comment || "",
@@ -403,19 +471,12 @@ export function upgradeFeatureInterface(
         publishedBy: null,
         status: "draft",
         version: newFeature.version + 1,
-        rules: revisionRules,
+        rules: revisionRules as unknown as FeatureRule[],
       };
     }
   }
 
-  if (newFeature.jsonSchema) {
-    newFeature.jsonSchema.schemaType =
-      newFeature.jsonSchema.schemaType || "schema";
-    newFeature.jsonSchema.simple = newFeature.jsonSchema.simple || {
-      type: "object",
-      fields: [],
-    };
-  }
+  applyNonRuleFeatureUpgrades(newFeature);
 
   return newFeature;
 }
@@ -510,12 +571,21 @@ export function upgradeOrganizationDoc(
     }
   });
 
-  // Make sure namespaces have labels- if it's missing, use the name
+  // Make sure namespaces have labels, seeds, and format flags - if missing, use deterministic defaults.
+  // Note: do NOT use uuidv4() here. This function runs on every DB read and is never
+  // persisted, so a random seed would change on every request. Use ns.name as a stable fallback.
   if (org?.settings?.namespaces?.length) {
-    org.settings.namespaces = org.settings.namespaces.map((ns) => ({
-      ...ns,
-      label: ns.label || ns.name,
-    }));
+    org.settings.namespaces = org.settings.namespaces.map((ns) => {
+      const hashAttribute =
+        "hashAttribute" in ns ? ns.hashAttribute : undefined;
+      const seed = "seed" in ns ? ns.seed : undefined;
+      return {
+        ...ns,
+        label: ns.label || ns.name,
+        seed: seed || ns.name,
+        format: ns.format || (hashAttribute ? "multiRange" : "legacy"), // Set format based on hashAttribute presence
+      } as Namespaces;
+    });
   }
 
   // Migrate postStratificationDisabled to postStratificationEnabled
@@ -580,7 +650,7 @@ export function upgradeExperimentDoc(
       };
       // Some experiments have a namespace with only `enabled` set, no idea why
       // This breaks namespaces, so add default values if missing
-      if (!phase.namespace.range) {
+      if (!("range" in phase.namespace) && !("ranges" in phase.namespace)) {
         phase.namespace = {
           enabled: false,
           name: "",
@@ -787,6 +857,7 @@ export function migrateSnapshot(
 
       snapshot.analyses = [
         {
+          analysisKey: buildAnalysisKey(),
           dateCreated: snapshot.dateCreated,
           status: snapshot.error ? "error" : "success",
           settings: {
@@ -800,6 +871,7 @@ export function migrateSnapshot(
               sequentialTestingTuningParameter ||
               DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
             numGoalMetrics: goalMetrics.length,
+            numGuardrailMetrics: 0,
           },
           results,
         },
@@ -945,6 +1017,65 @@ export function migrateSnapshot(
   }
   if (!snapshot.runStarted) {
     snapshot.runStarted = null;
+  }
+
+  // Ensure all analyses have a unique analysisKey
+  snapshot.analyses.forEach((analysis) => {
+    if (!analysis.analysisKey) {
+      analysis.analysisKey = buildAnalysisKey();
+    }
+  });
+
+  // Legacy meta was stored as `AnalysisMetaEntry[]`, where positions
+  // matched the same index of `snapshot.analyses`.
+  // The updated shape makes Mongoose produce a Map keyed by number
+  // instead of an array. So we need to check they key values as well
+  // to determine if we need to migrate the data.
+  const chunkedAnalysesMeta = snapshot.chunkedAnalysesMeta as unknown;
+  const NUMBER_REGEX = /^\d+$/;
+  const isChunkedAnalysesInLegacyFormat =
+    Array.isArray(chunkedAnalysesMeta) ||
+    (chunkedAnalysesMeta != undefined &&
+      typeof chunkedAnalysesMeta === "object" &&
+      Object.keys(chunkedAnalysesMeta).length > 0 &&
+      Object.keys(chunkedAnalysesMeta).every((k) => NUMBER_REGEX.test(k)));
+
+  if (isChunkedAnalysesInLegacyFormat) {
+    const newChunkedAnalysesMeta: Record<AnalysisKeyType, AnalysisMetaEntry> =
+      {};
+
+    const legacyEntries = Array.isArray(chunkedAnalysesMeta)
+      ? chunkedAnalysesMeta
+      : Object.values(chunkedAnalysesMeta);
+
+    legacyEntries.forEach((entry, position) => {
+      const key = snapshot.analyses[position]?.analysisKey;
+      if (!key) {
+        // legacy meta had more entries than the current analyses
+        // array. It is unexpected, so we drop it rather than crash
+        logger.error(
+          { snapshotId: snapshot.id, position },
+          "migrateSnapshot: dropping orphan legacy chunkedAnalysesMeta entry",
+        );
+        return;
+      }
+      newChunkedAnalysesMeta[key] = entry;
+    });
+
+    snapshot.chunkedAnalysesMeta = newChunkedAnalysesMeta;
+  }
+
+  // Derive `hasChunkedAnalyses` from meta at read time for snapshots that
+  // ever touched chunked storage: single-analysis writes can race and leave
+  // the on-disk flag stale-false while meta still has entries (see
+  // `buildMetaOpsForAnalysisWrite` in ExperimentSnapshotModel). Downstream
+  // readers gate chunk loading on this flag, so re-deriving keeps populated
+  // snapshots from being silently skipped. Leave pre-chunked-storage
+  // snapshots (no flag, no meta) untouched.
+  const meta = snapshot.chunkedAnalysesMeta ?? {};
+  const metaHasEntries = Object.keys(meta).length > 0;
+  if (metaHasEntries || snapshot.hasChunkedAnalyses) {
+    snapshot.hasChunkedAnalyses = metaHasEntries;
   }
 
   return snapshot;

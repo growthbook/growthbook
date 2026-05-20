@@ -164,6 +164,21 @@ export function experimentDate(exp: ExperimentInterfaceStringDates): string {
   );
 }
 
+/**
+ * Returns the `statusUpdateSchedule.startAt` Date for an experiment if it
+ * parses to a future date, otherwise null. Past-dated and missing schedules
+ * both map to "start immediately" so they flow through the start-now path.
+ */
+export function getFutureScheduledStartDate(
+  experiment: ExperimentInterfaceStringDates,
+): Date | null {
+  const raw = experiment.statusUpdateSchedule?.startAt;
+  if (!raw) return null;
+  const parsed = new Date(raw);
+  if (isNaN(parsed.getTime())) return null;
+  return parsed > new Date() ? parsed : null;
+}
+
 export type ExperimentTableRow = {
   label: string | ReactElement;
   metric: ExperimentMetricInterface;
@@ -327,7 +342,7 @@ export function useExperimentSearch({
   defaultSortField = "date",
   defaultSortDir = -1,
   filterResults,
-  localStorageKey = "experiments",
+  localStorageKey,
   watchedExperimentIds,
 }: {
   allExperiments: ExperimentInterfaceStringDates[];
@@ -336,7 +351,7 @@ export function useExperimentSearch({
   filterResults?: (
     items: ComputedExperimentInterface[],
   ) => ComputedExperimentInterface[];
-  localStorageKey?: string;
+  localStorageKey: string;
   watchedExperimentIds?: string[];
 }) {
   const {

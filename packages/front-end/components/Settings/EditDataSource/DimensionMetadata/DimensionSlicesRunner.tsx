@@ -206,6 +206,8 @@ const RefreshData = ({
           </Flex>
         ) : null}
         <RunQueriesButton
+          useRadixButton={true}
+          radixVariant="soft"
           cta={`${dimensionSlices ? "Refresh" : "Query"} Traffic Data`}
           icon={dimensionSlices ? "refresh" : "run"}
           mutate={mutate}
@@ -319,12 +321,18 @@ export const DimensionSlicesResults: FC<{
             <th>% of Traffic</th>
             <th>
               Dimension Values{" "}
-              <Tooltip body="Dimension values are the levels of a dimension used for pre-computed dimension analysis (currently only used on the Experiment Health Tab). Values not in this list will be grouped into the '__Other__' bucket."></Tooltip>
+              <Tooltip
+                body="Dimension values are the levels of a dimension used for pre-computed dimension analysis (currently only used on the Experiment Health Tab). Values not in this list will be grouped into the '__Other__' bucket."
+                tipPosition="top"
+              />
             </th>
             {growthbook.isOn("pre-computed-dimensions") ? (
               <th>
                 Priority{" "}
-                <Tooltip body="Higher priority dimensions are used first when choosing which dimensions to pre-compute for fast slicing and dicing."></Tooltip>
+                <Tooltip
+                  body="Higher priority dimensions are used first when choosing which dimensions to pre-compute for fast slicing and dicing."
+                  tipPosition="top"
+                />
               </th>
             ) : null}
           </tr>

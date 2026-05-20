@@ -1,3 +1,4 @@
+import { tabulateCovariateImbalance } from "shared/health";
 import {
   ExperimentMetricInterface,
   isFactMetric,
@@ -13,6 +14,7 @@ import {
 } from "shared/validators";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
+  ExternalIdCallback,
   InsertMetricSourceDataQueryParams,
   UpdateExperimentIncrementalUnitsQueryParams,
 } from "shared/types/integrations";
@@ -24,6 +26,7 @@ import {
 import {
   ExperimentQueryMetadata,
   Queries,
+  QueryMetadata,
   QueryPointer,
   QueryStatus,
 } from "shared/types/query";
@@ -267,6 +270,38 @@ const startExperimentIncrementalRefreshQueries = async (
 
   const executionId = params.queryParentId;
 
+  // Wraps a `run` callback with an execution-fence check so that DDL on the
+  // shared per-experiment pipeline tables (units / metric-source) is skipped if
+  // another snapshot has taken over the lock since this run started. Checked at
+  // execute time (not enqueue time) because all queries are enqueued up-front
+  // but executed sequentially via dependencies — the lock can be lost between
+  // dependent queries. releaseLock() is fenced on snapshotId, so the eventual
+  // release on this run's terminal status is a safe no-op once the lock is lost.
+  const fenced =
+    <R>(
+      run: (
+        query: string,
+        setExternalId: ExternalIdCallback,
+        queryMetadata?: QueryMetadata,
+      ) => Promise<R>,
+    ) =>
+    async (
+      query: string,
+      setExternalId: ExternalIdCallback,
+      queryMetadata?: QueryMetadata,
+    ): Promise<R> => {
+      const current =
+        await context.models.incrementalRefresh.getCurrentExecutionSnapshotId(
+          experimentId,
+        );
+      if (current !== executionId) {
+        throw new Error(
+          "Incremental refresh lock was lost to another snapshot; aborting to avoid corrupting shared pipeline tables.",
+        );
+      }
+      return run(query, setExternalId, queryMetadata);
+    };
+
   // When adding new metrics to a fact table, we will need to scan the whole table.
   // So to simplify things we re-create the whole metric source.
   // When removing metrics this is not needed, we just don't insert updated data.
@@ -357,8 +392,9 @@ const startExperimentIncrementalRefreshQueries = async (
         unitsTableFullName: unitQueryParams.unitsTableFullName,
       }),
       dependencies: [],
-      run: (query, setExternalId, queryMetadata) =>
+      run: fenced((query, setExternalId, queryMetadata) =>
         integration.runDropTableQuery(query, setExternalId, queryMetadata),
+      ),
       queryType: "experimentIncrementalRefreshDropUnitsTable",
     });
     queries.push(dropOldUnitsTableQuery);
@@ -369,12 +405,13 @@ const startExperimentIncrementalRefreshQueries = async (
       query:
         integration.getCreateExperimentIncrementalUnitsQuery(unitQueryParams),
       dependencies: [dropOldUnitsTableQuery.query],
-      run: (query, setExternalId, queryMetadata) =>
+      run: fenced((query, setExternalId, queryMetadata) =>
         integration.runIncrementalWithNoOutputQuery(
           query,
           setExternalId,
           queryMetadata,
         ),
+      ),
       queryType: "experimentIncrementalRefreshCreateUnitsTable",
     });
     queries.push(createUnitsTableQuery);
@@ -404,8 +441,9 @@ const startExperimentIncrementalRefreshQueries = async (
     query: integration.getDropOldIncrementalUnitsQuery({
       unitsTableFullName: unitsTableFullName,
     }),
-    run: (query, setExternalId, queryMetadata) =>
+    run: fenced((query, setExternalId, queryMetadata) =>
       integration.runDropTableQuery(query, setExternalId, queryMetadata),
+    ),
     dependencies: [updateUnitsTableQuery.query],
     queryType: "experimentIncrementalRefreshDropUnitsTable",
   });
@@ -419,12 +457,13 @@ const startExperimentIncrementalRefreshQueries = async (
       unitsTempTableFullName: unitsTempTableFullName,
     }),
     dependencies: [dropUnitsTableQuery.query],
-    run: (query, setExternalId, queryMetadata) =>
+    run: fenced((query, setExternalId, queryMetadata) =>
       integration.runIncrementalWithNoOutputQuery(
         query,
         setExternalId,
         queryMetadata,
       ),
+    ),
     queryType: "experimentIncrementalRefreshAlterUnitsTable",
   });
   queries.push(alterUnitsTableQuery);
@@ -558,12 +597,13 @@ const startExperimentIncrementalRefreshQueries = async (
           metricSourceTableFullName,
         }),
         dependencies: [updateUnitsTableQuery.query],
-        run: (query, setExternalId, queryMetadata) =>
+        run: fenced((query, setExternalId, queryMetadata) =>
           integration.runIncrementalWithNoOutputQuery(
             query,
             setExternalId,
             queryMetadata,
           ),
+        ),
         queryType: "experimentIncrementalRefreshCreateMetricsSourceTable",
       });
       queries.push(createMetricsSourceQuery);
@@ -880,6 +920,17 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     );
   }
 
+  protected override onHeartbeat(): void {
+    this.context.models.incrementalRefresh
+      .touchLockHeartbeat(this.model.experiment, this.model.id)
+      .catch((e) =>
+        this.context.logger.warn(
+          e,
+          "Failed to refresh incremental refresh lock heartbeat",
+        ),
+      );
+  }
+
   async startQueries(
     params: ExperimentIncrementalRefreshQueryParams,
   ): Promise<Queries> {
@@ -1004,6 +1055,20 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       //     variationsSettings: this.model.settings.variations,
       //   });
       // }
+      const analysisForCovariateImbalance = this.model.analyses.find(
+        (a) => a.settings.useCovariateAsResponse === true,
+      );
+      const isEligibleForCovariateImbalanceAnalysis =
+        !!analysisForCovariateImbalance;
+      if (isEligibleForCovariateImbalanceAnalysis) {
+        result.health.covariateImbalance = tabulateCovariateImbalance(
+          analysisForCovariateImbalance,
+          this.model.settings.goalMetrics,
+          this.model.settings.guardrailMetrics,
+          this.model.settings.secondaryMetrics,
+          this.model.settings.metricSettings,
+        );
+      }
     }
 
     return result;

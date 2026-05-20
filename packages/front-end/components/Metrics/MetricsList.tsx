@@ -1,26 +1,36 @@
-import React, { ReactElement, useCallback, useEffect, useState } from "react";
-import { FaArchive } from "react-icons/fa";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
 import { useRouter } from "next/router";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { startCase } from "lodash";
 import SortedTags from "@/components/Tags/SortedTags";
-import { useAddComputedFields, useSearch } from "@/services/search";
+import {
+  tagFilterOnClick,
+  tagLinkProps,
+  useAddComputedFields,
+  useSearch,
+} from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import { DocLink } from "@/components/DocLink";
 import { useUser } from "@/services/UserContext";
 import { envAllowsCreatingMetrics } from "@/services/env";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import { useAuth } from "@/services/auth";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
+import ProjectBadges from "@/components/ProjectBadges";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/ui/Button";
@@ -28,12 +38,126 @@ import {
   MetricModal,
   MetricModalState,
 } from "@/components/FactTables/NewMetricModal";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MetricSearchFilters from "@/components/Search/MetricSearchFilters";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import LinkButton from "@/ui/LinkButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import Tooltip from "@/ui/Tooltip";
+import {
+  isMergeAggregationMetric,
+  REST_API_ONLY_EDIT_MESSAGE,
+} from "@/services/factMetrics";
+
+function MetricRowMenu({ metric }: { metric: MetricTableItem }) {
+  const [open, setOpen] = useState(false);
+
+  const canDuplicate =
+    !!metric.onDuplicate && envAllowsCreatingMetrics() && metric.canDuplicate;
+  const canEditMenu =
+    metric.canEdit &&
+    !metric.archived &&
+    !metric.editDisabledReason &&
+    !!metric.onEdit;
+  const canShowDisabledEdit =
+    metric.canEdit && !metric.archived && !!metric.editDisabledReason;
+  const canArchive = metric.canEdit && !!metric.onArchive;
+  const canDelete = metric.canDelete && !!metric.onDelete;
+
+  if (
+    !canDuplicate &&
+    !canEditMenu &&
+    !canShowDisabledEdit &&
+    !canArchive &&
+    !canDelete
+  ) {
+    return null;
+  }
+
+  return (
+    <DropdownMenu
+      trigger={
+        <IconButton
+          variant="ghost"
+          color="gray"
+          radius="full"
+          size="2"
+          highContrast
+        >
+          <BsThreeDotsVertical size={16} />
+        </IconButton>
+      }
+      open={open}
+      onOpenChange={setOpen}
+      menuPlacement="end"
+    >
+      <DropdownMenuGroup>
+        {(canEditMenu || canShowDisabledEdit) && (
+          <DropdownMenuItem
+            onClick={() => {
+              setOpen(false);
+              metric.onEdit?.();
+            }}
+            disabled={!!metric.editDisabledReason}
+          >
+            <Tooltip
+              content={metric.editDisabledReason}
+              enabled={!!metric.editDisabledReason}
+            >
+              <span>Edit</span>
+            </Tooltip>
+          </DropdownMenuItem>
+        )}
+        {canDuplicate && (
+          <DropdownMenuItem
+            onClick={() => {
+              setOpen(false);
+              metric.onDuplicate?.();
+            }}
+            disabled={!!metric.editDisabledReason}
+          >
+            <Tooltip
+              content={metric.editDisabledReason}
+              enabled={!!metric.editDisabledReason}
+            >
+              <span>Duplicate</span>
+            </Tooltip>
+          </DropdownMenuItem>
+        )}
+        {canArchive && (
+          <DropdownMenuItem
+            onClick={async () => {
+              setOpen(false);
+              await metric.onArchive?.(!metric.archived);
+            }}
+          >
+            {metric.archived ? "Unarchive" : "Archive"}
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuGroup>
+      {canDelete && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuItem
+              color="red"
+              confirmation={{
+                confirmationTitle: "Delete Metric",
+                cta: "Delete",
+                submit: async () => {
+                  await metric.onDelete?.();
+                },
+                closeDropdown: () => setOpen(false),
+              }}
+            >
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        </>
+      )}
+    </DropdownMenu>
+  );
+}
 
 export interface MetricTableItem {
   id: string;
@@ -52,6 +176,7 @@ export interface MetricTableItem {
   canEdit: boolean;
   canDuplicate: boolean;
   canDelete: boolean;
+  editDisabledReason?: string;
   onArchive?: (desiredState: boolean) => Promise<void>;
   onDuplicate?: () => void;
   onEdit?: () => void;
@@ -189,6 +314,9 @@ export function useCombinedMetrics({
         canDuplicate,
         canEdit,
         canDelete,
+        editDisabledReason: isMergeAggregationMetric(m)
+          ? REST_API_ONLY_EDIT_MESSAGE
+          : undefined,
         onArchive: canEdit
           ? async (archivedState) => {
               await apiCall(`/fact-metrics/${m.id}`, {
@@ -454,7 +582,6 @@ const MetricsList = (): React.ReactElement => {
       <table className="table appbox gbtable table-hover">
         <thead>
           <tr>
-            <th />
             <SortableTH field="name" className="col-3">
               Metric Name
             </SortableTH>
@@ -469,72 +596,11 @@ const MetricsList = (): React.ReactElement => {
             >
               Last Updated
             </SortableTH>
-            <th />
-            <th />
+            <th style={{ width: 30 }} className="text-right" />
           </tr>
         </thead>
         <tbody>
           {items.map((metric) => {
-            const moreMenuLinks: ReactElement[] = [];
-
-            if (metric.onDuplicate && envAllowsCreatingMetrics()) {
-              moreMenuLinks.push(
-                <button
-                  className="btn dropdown-item py-2"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    metric.onDuplicate && metric.onDuplicate();
-                  }}
-                >
-                  Duplicate
-                </button>,
-              );
-            }
-
-            if (metric.canEdit && !metric.archived && metric.onEdit) {
-              moreMenuLinks.push(
-                <button
-                  className="btn dropdown-item py-2"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    metric.onEdit?.();
-                  }}
-                >
-                  Edit
-                </button>,
-              );
-            }
-
-            if (metric.canEdit && metric.onArchive) {
-              moreMenuLinks.push(
-                <button
-                  className="btn dropdown-item py-2"
-                  onClick={async (e) => {
-                    e.preventDefault();
-                    await metric.onArchive?.(!metric.archived);
-                  }}
-                >
-                  {metric.archived ? "Unarchive" : "Archive"}
-                </button>,
-              );
-            }
-
-            if (metric.canDelete && metric.onDelete) {
-              moreMenuLinks.push(
-                <DeleteButton
-                  className="dropdown-item text-danger"
-                  onClick={async () => {
-                    await metric.onDelete?.();
-                  }}
-                  displayName="Metric"
-                  useIcon={false}
-                  text="Delete"
-                  canDelete={true}
-                  disabled={false}
-                />,
-              );
-            }
-
             return (
               <tr
                 key={metric.id}
@@ -561,13 +627,6 @@ const MetricsList = (): React.ReactElement => {
                 className={metric.archived ? "text-muted" : ""}
               >
                 <td>
-                  <OfficialBadge
-                    type="metric"
-                    managedBy={metric.managedBy || ""}
-                    leftGap
-                  />
-                </td>
-                <td>
                   <Link
                     href={getMetricLink(metric.id)}
                     className={`${
@@ -575,19 +634,34 @@ const MetricsList = (): React.ReactElement => {
                     } font-weight-bold`}
                   >
                     {metric.name}
+                    <OfficialBadge
+                      type="metric"
+                      leftGap={true}
+                      managedBy={metric.managedBy || ""}
+                    />
                   </Link>
                 </td>
                 <td>{startCase(metric.type)}</td>
                 <td className="col-2">
-                  {metric.projectNames.length === 0
-                    ? null
-                    : metric.projectNames.join(", ")}
+                  {metric.projects.length > 0 ? (
+                    <ProjectBadges
+                      resourceType="metric"
+                      projectIds={metric.projects}
+                    />
+                  ) : (
+                    <ProjectBadges resourceType="metric" />
+                  )}
                 </td>
                 <td className="col-4">
                   <SortedTags
                     tags={metric.tags ? Object.values(metric.tags) : []}
                     shouldShowEllipsis={true}
                     useFlex={true}
+                    {...tagLinkProps("metrics")}
+                    onTagClick={tagFilterOnClick(
+                      searchInputProps.value,
+                      setSearchValue,
+                    )}
                   />
                 </td>
                 <td
@@ -598,30 +672,14 @@ const MetricsList = (): React.ReactElement => {
                     ? ""
                     : date(metric.dateUpdated || "")}
                 </td>
-                <td className="text-muted">
-                  {metric.archived && (
-                    <Tooltip
-                      body={"Archived"}
-                      innerClassName="p-2"
-                      tipMinWidth="auto"
-                    >
-                      <FaArchive />
-                    </Tooltip>
-                  )}
-                </td>
                 <td
-                  style={{ cursor: "initial" }}
+                  style={{ cursor: "initial", width: 30 }}
+                  className="text-right"
                   onClick={(e) => {
                     e.stopPropagation();
                   }}
                 >
-                  <MoreMenu>
-                    {moreMenuLinks.map((menuItem, i) => (
-                      <div key={`${menuItem}-${i}`} className="d-inline">
-                        {menuItem}
-                      </div>
-                    ))}
-                  </MoreMenu>
+                  <MetricRowMenu metric={metric} />
                 </td>
               </tr>
             );

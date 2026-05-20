@@ -2,14 +2,21 @@ import { DateRange, DayPicker, Matcher } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import * as Popover from "@radix-ui/react-popover";
 import { format } from "date-fns";
-import React, { ReactNode, useMemo, useRef, useState } from "react";
-import { getValidDate } from "shared/dates";
+import React, {
+  ReactNode,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import { Flex } from "@radix-ui/themes";
 import clsx from "clsx";
 import { debounce } from "lodash";
 import Field from "@/components/Forms/Field";
 import { RadixTheme } from "@/services/RadixTheme";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import styles from "./DatePicker.module.scss";
 
 type Props = {
@@ -77,6 +84,17 @@ export default function DatePicker({
     : {};
   const dateFormat =
     precision === "datetime" ? "yyyy-MM-dd'T'HH:mm" : "yyyy-MM-dd";
+  // Parses a date prop / bound in the same frame as the user's typed input.
+  // For `date` precision, `new Date("yyyy-MM-dd")` lands on UTC midnight, so
+  // we shift to local midnight via `getValidDateOffsetByUTC`. For `datetime`,
+  // `new Date("yyyy-MM-ddTHH:mm")` already parses as local time.
+  const parseDateInput = useCallback(
+    (value: Date | string): Date =>
+      precision === "datetime"
+        ? getValidDate(value)
+        : getValidDateOffsetByUTC(value),
+    [precision],
+  );
   const [bufferedDate, setBufferedDate] = useState(
     date ? format(getValidDate(date), dateFormat) : "",
   );
@@ -86,8 +104,8 @@ export default function DatePicker({
 
   const [calendarMonth, setCalendarMonth] = useState(
     new Date(
-      getValidDate(date ?? new Date()).getUTCFullYear(),
-      getValidDate(date ?? new Date()).getUTCMonth(),
+      getValidDate(date ?? new Date()).getFullYear(),
+      getValidDate(date ?? new Date()).getMonth(),
     ),
   );
   const [open, setOpen] = useState(false);
@@ -95,10 +113,10 @@ export default function DatePicker({
 
   const disabledMatchers: Matcher[] = [];
   if (disableBefore) {
-    disabledMatchers.push({ before: getValidDate(disableBefore) });
+    disabledMatchers.push({ before: parseDateInput(disableBefore) });
   }
   if (disableAfter) {
-    disabledMatchers.push({ after: getValidDate(disableAfter) });
+    disabledMatchers.push({ after: parseDateInput(disableAfter) });
   }
 
   const markedDays: Record<string, Matcher | Matcher[] | undefined> = {};
@@ -122,12 +140,12 @@ export default function DatePicker({
 
   const debouncedSetDate = useMemo(() => {
     return debounce((value: string, field: "date" | "date2" = "date") => {
-      const parsedDate = getValidDate(value);
+      const parsedDate = parseDateInput(value);
       let finalDate = parsedDate;
-      if (disableBefore && parsedDate < getValidDate(disableBefore)) {
-        finalDate = getValidDate(disableBefore);
-      } else if (disableAfter && parsedDate > getValidDate(disableAfter)) {
-        finalDate = getValidDate(disableAfter);
+      if (disableBefore && parsedDate < parseDateInput(disableBefore)) {
+        finalDate = parseDateInput(disableBefore);
+      } else if (disableAfter && parsedDate > parseDateInput(disableAfter)) {
+        finalDate = parseDateInput(disableAfter);
       }
       if (field === "date") {
         setDate(finalDate);
@@ -136,9 +154,7 @@ export default function DatePicker({
         setDate2?.(finalDate);
         setBufferedDate2(format(finalDate, dateFormat));
       }
-      setCalendarMonth(
-        new Date(finalDate.getUTCFullYear(), finalDate.getUTCMonth()),
-      );
+      setCalendarMonth(new Date(finalDate.getFullYear(), finalDate.getMonth()));
     }, 500);
   }, [
     disableBefore,
@@ -149,6 +165,7 @@ export default function DatePicker({
     setDate2,
     setBufferedDate2,
     dateFormat,
+    parseDateInput,
   ]);
 
   return (
@@ -185,7 +202,11 @@ export default function DatePicker({
                 flex: wrapRangeInputs && isRange ? "1 1 140px" : undefined,
               }}
             >
-              {label ? <label>{label}</label> : null}
+              {label ? (
+                <Text as="label" weight="semibold">
+                  {label}
+                </Text>
+              ) : null}
               <div
                 style={
                   clearButton && !isRange

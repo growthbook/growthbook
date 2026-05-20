@@ -44,13 +44,20 @@ export default function RampScheduleBadge({
   const now = new Date();
   const startAt = rs.startDate ? new Date(rs.startDate) : null;
   const futureStart = startAt && startAt > now;
+  // Surface "Starts in …" only while the schedule is genuinely waiting to
+  // start (pending/ready). Once it's running/paused/completed the original
+  // startDate is stale UI noise.
+  const preStart = rs.status === "pending" || rs.status === "ready";
 
   // Simple schedule: show only timing, no status prefix, no tooltip.
   if (simpleSchedule) {
     let label: string;
-    if (rs.status === "running") {
+    if (rs.status === "pending") {
+      // Awaiting publish of the activating revision.
+      label = "Schedule pending publish";
+    } else if (rs.status === "running") {
       label = "Running";
-    } else if (futureStart) {
+    } else if (preStart && futureStart) {
       label = `Starts ${abbreviateAgo(startAt)}`;
     } else {
       label = "Active";
@@ -76,23 +83,30 @@ export default function RampScheduleBadge({
 
   let timingLabel: string | null = null;
   let timingTooltip: ReactNode = null;
-  if (futureStart) {
+  if (preStart && futureStart) {
     timingLabel = `Starts ${abbreviateAgo(startAt)}`;
     timingTooltip = dateRow("Starts", startAt);
   }
 
   const baseLabel = getRampStatusLabel(rs);
+
+  // simpleSchedule short-circuits above, so always treat as ramp here.
+  const featureContextLabels: Partial<Record<string, string>> = {
+    pending: "Ramp pending publish",
+    ready: "Ramp scheduled",
+    running: "Ramp active",
+    paused: "Ramp paused",
+    "pending-approval": "Ramp needs approval",
+    completed: "Ramp complete",
+    "rolled-back": "Rolled Back",
+  };
   const displayLabel = featureRuleContext
-    ? `schedule: ${baseLabel.replace(/^schedule start is /, "").replace(/^schedule: /, "")}`
+    ? (featureContextLabels[rs.status] ?? `Ramp ${baseLabel.toLowerCase()}`)
     : baseLabel;
 
   const badge = (
     <Badge
-      label={
-        rs.status === "running"
-          ? "Running"
-          : displayLabel + (timingLabel ? ` · ${timingLabel}` : "")
-      }
+      label={displayLabel + (timingLabel ? ` · ${timingLabel}` : "")}
       color={getRampBadgeColor(rs.status)}
       radius="full"
     />
@@ -111,7 +125,7 @@ export default function RampScheduleBadge({
           ? dateRow("Completed", completedAt)
           : "Schedule completed."}
         {featureRuleContext && (
-          <> The ramp schedule may be safely removed from this rule.</>
+          <>The ramp may be safely removed by editing this rule.</>
         )}
       </p>
     ) : pausedAt ? (

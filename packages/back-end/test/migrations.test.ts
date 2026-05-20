@@ -44,11 +44,12 @@ import {
   migrateSnapshot,
   upgradeDatasourceObject,
   upgradeExperimentDoc,
-  upgradeFeatureInterface,
   upgradeFeatureRule,
   upgradeMetricDoc,
   upgradeOrganizationDoc,
+  upgradeV0Feature,
 } from "back-end/src/util/migrations";
+import { flattenV1ToV2Rules } from "back-end/src/util/flattenRules";
 
 describe("Fact Metric Migration", () => {
   it("upgrades delay hours", () => {
@@ -1169,7 +1170,15 @@ describe("Datasource Migration", () => {
   });
 });
 
-describe("Feature Migration", () => {
+// v0 -> v1 feature document upgrade. These tests exercise the pipeline
+// `upgradeV0Feature` runs: redistributing legacy top-level `rules` +
+// `environments` arrays into `environmentSettings[env].rules`, moving the
+// old `draft` field into `legacyDraft`, and backfilling version/jsonSchema.
+// Note: the "doesn't overwrite new feature objects" test below demonstrates
+// that the upgrader is a no-op on v1 inputs. In production the 3-way branch
+// in FeatureModel.migrateRawFeatureToV2 never invokes this function on v1 or
+// v2 documents — v0 is identified by the absence of `environmentSettings`.
+describe("v0 Feature Migration", () => {
   it("updates old feature objects", () => {
     const rule: FeatureRule = {
       id: "fr_123",
@@ -1232,7 +1241,7 @@ describe("Feature Migration", () => {
     };
 
     expect(
-      upgradeFeatureInterface({
+      upgradeV0Feature({
         ...origFeature,
         environments: ["dev"],
         rules: [rule],
@@ -1270,7 +1279,7 @@ describe("Feature Migration", () => {
     };
 
     expect(
-      upgradeFeatureInterface({
+      upgradeV0Feature({
         ...origFeature,
         environments: ["dev"],
         rules: [
@@ -1330,7 +1339,7 @@ describe("Feature Migration", () => {
       },
     };
 
-    expect(upgradeFeatureInterface(cloneDeep(origFeature))).toEqual({
+    expect(upgradeV0Feature(cloneDeep(origFeature))).toEqual({
       ...origFeature,
       draft: undefined,
     });
@@ -1483,12 +1492,159 @@ describe("Feature Migration", () => {
       },
     };
 
-    const newFeature = upgradeFeatureInterface(cloneDeep(origFeature));
+    const newFeature = upgradeV0Feature(cloneDeep(origFeature));
 
     if (!newFeature.environmentSettings)
       throw new Error("newFeature.environmentSettings is undefined");
     expect(newFeature.environmentSettings["prod"].rules[0]).toEqual(newRule);
     expect(newFeature.environmentSettings["test"].rules[0]).toEqual(newRule);
+  });
+});
+
+// v0 -> v2 full migration pipeline. The tests above exercise `upgradeV0Feature`
+// in isolation and assert its v1 intermediate contract (legacy top-level
+// `rules` redistributed into `environmentSettings[env].rules`). In production,
+// that v1 intermediate is immediately flattened to the v2 unified top-level
+// `rules` array by `flattenV1ToV2Rules` inside `migrateRawFeatureToV2`.
+// This block composes those two steps and asserts the end-to-end "new shape"
+// that callers actually see, documenting the composition the production code
+// relies on. Fine-grained v1 -> v2 flattening semantics are covered in
+// `test/util/flattenRules.test.ts`; see `test/models/FeatureModel.test.ts`
+// for the full pipeline via `migrateRawFeatureToV2`.
+describe("v0 -> v2 Feature Migration Pipeline", () => {
+  // Helper: run the two stateless halves of the migration pipeline the same
+  // way `migrateRawFeatureToV2` does on the v0 branch.
+  const runV0ToV2 = (
+    raw: LegacyFeatureInterface,
+    envOrder: string[],
+  ): FeatureRule[] => {
+    const v1 = upgradeV0Feature(cloneDeep(raw));
+    const rulesByEnv: Record<string, FeatureRule[]> = {};
+    for (const [envId, envObj] of Object.entries(
+      v1.environmentSettings || {},
+    )) {
+      rulesByEnv[envId] = (envObj?.rules || []) as FeatureRule[];
+    }
+    return flattenV1ToV2Rules(rulesByEnv, {
+      envOrder,
+      applicableEnvs: envOrder,
+    });
+  };
+
+  it("collapses a v0 rule shared across all org envs to a single allEnvironments=true v2 rule", () => {
+    const origRule: FeatureRule = {
+      id: "fr_shared",
+      type: "force",
+      value: "true",
+      description: "",
+    };
+    const origFeature: LegacyFeatureInterface = {
+      dateCreated: new Date("2024-01-01"),
+      dateUpdated: new Date("2024-01-01"),
+      organization: "org_123",
+      owner: "",
+      defaultValue: "false",
+      valueType: "boolean",
+      id: "feat_pipeline_shared",
+      environments: ["dev", "production"],
+      rules: [origRule],
+    } as unknown as LegacyFeatureInterface;
+
+    const v2Rules = runV0ToV2(origFeature, ["dev", "production"]);
+
+    expect(v2Rules).toHaveLength(1);
+    expect(v2Rules[0].id).toBe("fr_shared");
+    expect(v2Rules[0].allEnvironments).toBe(true);
+    // Per-env scoping must be absent when allEnvironments is true.
+    expect(v2Rules[0].environments).toBeUndefined();
+  });
+
+  it("scopes v0 rules to dev+production when the org has additional envs the v0 doc can't reach", () => {
+    // v0 has no way to represent rules for envs other than dev/production:
+    // `upgradeV0Feature` always redistributes top-level `rules` into both dev
+    // and production envSettings, and `environments: []` only controls the
+    // `enabled` flag. If the org has a third env (e.g. staging), the
+    // flattener will correctly see the rule as scoped to {dev, production}
+    // and emit it as a per-env v2 rule instead of collapsing to
+    // allEnvironments=true.
+    const origRule: FeatureRule = {
+      id: "fr_legacy",
+      type: "force",
+      value: "true",
+      description: "",
+    };
+    const origFeature: LegacyFeatureInterface = {
+      dateCreated: new Date("2024-01-01"),
+      dateUpdated: new Date("2024-01-01"),
+      organization: "org_123",
+      owner: "",
+      defaultValue: "false",
+      valueType: "boolean",
+      id: "feat_pipeline_legacy",
+      environments: ["dev", "production"],
+      rules: [origRule],
+    } as unknown as LegacyFeatureInterface;
+
+    const v2Rules = runV0ToV2(origFeature, ["dev", "production", "staging"]);
+
+    expect(v2Rules).toHaveLength(1);
+    expect(v2Rules[0].id).toBe("fr_legacy");
+    // Rule reaches 2 of 3 applicable envs → must NOT collapse to allEnvironments.
+    expect(v2Rules[0].allEnvironments).toBe(false);
+    expect(v2Rules[0].environments?.sort()).toEqual(["dev", "production"]);
+  });
+
+  it("emits an empty v2 rules array for a v0 doc with no rules", () => {
+    const origFeature: LegacyFeatureInterface = {
+      dateCreated: new Date("2024-01-01"),
+      dateUpdated: new Date("2024-01-01"),
+      organization: "org_123",
+      owner: "",
+      defaultValue: "false",
+      valueType: "boolean",
+      id: "feat_pipeline_empty",
+      environments: ["dev", "production"],
+      rules: [],
+    } as unknown as LegacyFeatureInterface;
+
+    const v2Rules = runV0ToV2(origFeature, ["dev", "production"]);
+    expect(v2Rules).toEqual([]);
+  });
+
+  it("preserves experiment-rule upgrades (coverage backfill) through the v0 -> v2 chain", () => {
+    // An old v0 experiment rule with un-normalized weights and no coverage.
+    // upgradeV0Feature -> upgradeFeatureRule backfills coverage during the v1
+    // step; flattenV1ToV2Rules then carries those normalized values forward.
+    const origRule = {
+      type: "experiment",
+      description: "",
+      hashAttribute: "id",
+      id: "exp_rule",
+      trackingKey: "",
+      values: [
+        { value: "a", weight: 0.1 },
+        { value: "b", weight: 0.4 },
+      ],
+    } as unknown as FeatureRule;
+    const origFeature: LegacyFeatureInterface = {
+      dateCreated: new Date("2024-01-01"),
+      dateUpdated: new Date("2024-01-01"),
+      organization: "org_123",
+      owner: "",
+      defaultValue: "false",
+      valueType: "string",
+      id: "feat_pipeline_exp",
+      environments: ["dev", "production"],
+      rules: [origRule],
+    } as unknown as LegacyFeatureInterface;
+
+    const v2Rules = runV0ToV2(origFeature, ["dev", "production"]);
+    expect(v2Rules).toHaveLength(1);
+    const rule = v2Rules[0] as ExperimentRule;
+    // upgradeFeatureRule normalizes weights to sum to 1 and sets coverage to
+    // the original sum (0.5 here).
+    expect(rule.coverage).toBeCloseTo(0.5);
+    expect(rule.values.map((v) => v.weight)).toEqual([0.2, 0.8]);
   });
 });
 
@@ -2015,6 +2171,7 @@ describe("Snapshot Migration", () => {
       multipleExposures: 5,
       analyses: [
         {
+          analysisKey: expect.any(String),
           dateCreated: now,
           results: results,
           status: "success",
@@ -2027,6 +2184,7 @@ describe("Snapshot Migration", () => {
             sequentialTesting: false,
             sequentialTestingTuningParameter: 5000,
             numGoalMetrics: 1,
+            numGuardrailMetrics: 0,
           },
         },
       ],
@@ -2235,6 +2393,7 @@ describe("Snapshot Migration", () => {
       multipleExposures: 0,
       analyses: [
         {
+          analysisKey: expect.any(String),
           dateCreated: now,
           results,
           settings: {
@@ -2246,6 +2405,7 @@ describe("Snapshot Migration", () => {
             sequentialTesting: false,
             sequentialTestingTuningParameter: 5000,
             numGoalMetrics: 1,
+            numGuardrailMetrics: 0,
           },
           status: "success",
         },
@@ -2305,6 +2465,216 @@ describe("Snapshot Migration", () => {
     expect(
       migrateSnapshot(initial as LegacyExperimentSnapshotInterface),
     ).toEqual(result);
+  });
+
+  describe("chunkedAnalysesMeta migration", () => {
+    const now = new Date();
+    const entryA = {
+      dimensions: [{ name: "", srm: 0.95, variationUsers: [100, 100] }],
+    };
+    const entryB = {
+      dimensions: [{ name: "foo", srm: 1, variationUsers: [50, 50] }],
+    };
+
+    function buildSnapshot(
+      chunkedAnalysesMeta: unknown,
+      analyses: unknown[],
+    ): LegacyExperimentSnapshotInterface {
+      return {
+        id: "snp_meta_1",
+        organization: "org_1",
+        experiment: "exp_1",
+        phase: 0,
+        dateCreated: now,
+        runStarted: now,
+        queries: [],
+        dimension: "",
+        unknownVariations: [],
+        multipleExposures: 0,
+        hasChunkedAnalyses: true,
+        chunkedAnalysesMeta,
+        analyses,
+        settings: {
+          queryFilter: "",
+          activationMetric: null,
+          attributionModel: "firstExposure",
+          datasourceId: "",
+          dimensions: [],
+          endDate: now,
+          experimentId: "",
+          exposureQueryId: "",
+          goalMetrics: [],
+          secondaryMetrics: [],
+          guardrailMetrics: [],
+          manual: false,
+          metricSettings: [],
+          regressionAdjustmentEnabled: false,
+          segment: "",
+          skipPartialData: false,
+          startDate: now,
+          variations: [],
+          defaultMetricPriorSettings: {
+            override: false,
+            proper: false,
+            mean: 0,
+            stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+          },
+        },
+        status: "success",
+      } as unknown as LegacyExperimentSnapshotInterface;
+    }
+
+    it("converts array-shaped meta to a record keyed by each analysis's analysisKey", () => {
+      const initial = buildSnapshot(
+        [entryA, entryB],
+        [
+          { dateCreated: now, status: "success", settings: {}, results: [] },
+          { dateCreated: now, status: "success", settings: {}, results: [] },
+        ],
+      );
+
+      const migrated = migrateSnapshot(initial);
+
+      const keys = migrated.analyses.map((a) => a.analysisKey);
+      expect(keys).toHaveLength(2);
+      expect(keys[0]).toEqual(expect.any(String));
+      expect(keys[1]).toEqual(expect.any(String));
+      expect(keys[0]).not.toEqual(keys[1]);
+      expect(migrated.chunkedAnalysesMeta).toEqual({
+        [keys[0]]: entryA,
+        [keys[1]]: entryB,
+      });
+    });
+
+    it("preserves pre-existing analysisKey values when converting", () => {
+      const initial = buildSnapshot(
+        [entryA, entryB],
+        [
+          {
+            analysisKey: "an_preset_a",
+            dateCreated: now,
+            status: "success",
+            settings: {},
+            results: [],
+          },
+          {
+            analysisKey: "an_preset_b",
+            dateCreated: now,
+            status: "success",
+            settings: {},
+            results: [],
+          },
+        ],
+      );
+
+      const migrated = migrateSnapshot(initial);
+
+      expect(migrated.analyses.map((a) => a.analysisKey)).toEqual([
+        "an_preset_a",
+        "an_preset_b",
+      ]);
+      expect(migrated.chunkedAnalysesMeta).toEqual({
+        an_preset_a: entryA,
+        an_preset_b: entryB,
+      });
+    });
+
+    it("leaves record-shaped meta untouched (idempotent)", () => {
+      const record = { an_a: entryA, an_b: entryB };
+      const initial = buildSnapshot(record, [
+        {
+          analysisKey: "an_a",
+          dateCreated: now,
+          status: "success",
+          settings: {},
+          results: [],
+        },
+        {
+          analysisKey: "an_b",
+          dateCreated: now,
+          status: "success",
+          settings: {},
+          results: [],
+        },
+      ]);
+
+      const migrated = migrateSnapshot(initial);
+
+      expect(migrated.chunkedAnalysesMeta).toEqual(record);
+    });
+
+    it("converts an empty array to an empty record", () => {
+      const initial = buildSnapshot(
+        [],
+        [
+          {
+            analysisKey: "an_a",
+            dateCreated: now,
+            status: "success",
+            settings: {},
+            results: [],
+          },
+        ],
+      );
+
+      const migrated = migrateSnapshot(initial);
+
+      expect(migrated.chunkedAnalysesMeta).toEqual({});
+    });
+
+    it("converts numeric-string-keyed meta (Mongoose Map-of-array shape) to a record keyed by analysisKey", () => {
+      // When Mongoose reads a BSON array into a Map-typed schema field,
+      // toJSON() produces a POJO with stringified numeric keys rather
+      // than an Array. The migration must still recognize this as legacy.
+      const initial = buildSnapshot({ "0": entryA, "1": entryB }, [
+        { dateCreated: now, status: "success", settings: {}, results: [] },
+        { dateCreated: now, status: "success", settings: {}, results: [] },
+      ]);
+
+      const migrated = migrateSnapshot(initial);
+
+      const keys = migrated.analyses.map((a) => a.analysisKey);
+      expect(keys).toHaveLength(2);
+      expect(keys[0]).not.toEqual(keys[1]);
+      expect(migrated.chunkedAnalysesMeta).toEqual({
+        [keys[0]]: entryA,
+        [keys[1]]: entryB,
+      });
+    });
+
+    it("sorts numeric-string keys numerically before position mapping", () => {
+      // Integer-indexed property keys always enumerate in ascending numeric
+      // order per ECMA-262 §7.3.22 (OrdinaryOwnPropertyKeys) — not insertion
+      // order — so `Object.values` on a record with keys "0".."11" returns
+      // values positioned for index 0..11. Pin this invariant across a
+      // multi-digit range to catch any future code that relies on insertion
+      // order instead.
+      const entries: Record<string, typeof entryA> = {};
+      for (let i = 0; i < 12; i++) {
+        entries[String(i)] = {
+          dimensions: [
+            { name: `dim${i}`, srm: 0.9, variationUsers: [100, 100] },
+          ],
+        };
+      }
+      const analyses = Array.from({ length: 12 }, () => ({
+        dateCreated: now,
+        status: "success",
+        settings: {},
+        results: [],
+      }));
+      const initial = buildSnapshot(entries, analyses);
+
+      const migrated = migrateSnapshot(initial);
+
+      const keys = migrated.analyses.map((a) => a.analysisKey);
+      expect(migrated.chunkedAnalysesMeta[keys[10]]?.dimensions[0].name).toBe(
+        "dim10",
+      );
+      expect(migrated.chunkedAnalysesMeta[keys[11]]?.dimensions[0].name).toBe(
+        "dim11",
+      );
+    });
   });
 });
 

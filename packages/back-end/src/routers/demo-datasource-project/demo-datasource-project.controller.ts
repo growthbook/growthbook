@@ -12,7 +12,7 @@ import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { PostgresConnectionParams } from "shared/types/integrations/postgres";
 import { DataSourceSettings } from "shared/types/datasource";
 import { ExperimentInterface } from "shared/types/experiment";
-import { ExperimentRefRule, FeatureInterface } from "shared/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { ProjectInterface } from "shared/types/project";
 import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
 import {
@@ -30,6 +30,8 @@ import { createSnapshot } from "back-end/src/services/experiments";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { createFeature } from "back-end/src/models/FeatureModel";
+import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
+import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   createFactTable,
   getFactTableMap,
@@ -183,7 +185,7 @@ export const postDemoDatasourceProject = async (
   }
   req.checkPermissions("createAnalyses", "");
 
-  const { org, environments } = context;
+  const { org } = context;
 
   const demoProjId = getDemoDatasourceProjectIdForOrganization(org.id);
   const demoFactTableId = getDemoDatasourceFactTableIdForOrganization(org.id);
@@ -445,45 +447,49 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
       defaultValue: "false",
       tags: DEMO_TAGS,
       environmentSettings: {},
+      rules: [],
     };
 
-    environments.forEach((env) => {
+    // Skip envs scoped to other projects — they'd leave unreachable rules.
+    const applicableEnvs = getApplicableEnvIds(
+      getEnvironments(org),
+      project.id,
+    );
+    applicableEnvs.forEach((env) => {
       featureToCreate.environmentSettings[env] = {
         enabled: true,
-        rules: [
-          {
-            type: "force",
-            description: "",
-            id: `${getDemoDataSourceFeatureId()}-employee-force-rule`,
-            value: "true",
-            condition: `{"is_employee":true}`,
-            enabled: true,
-          },
-          {
-            type: "experiment-ref",
-            description: "",
-            id: `${getDemoDataSourceFeatureId()}-exp-rule`,
-            enabled: true,
-            experimentId: DEMO_DATA_EXPERIMENT_ID, // This value is replaced below after the experiment is created.
-            variations: [
-              {
-                variationId: "v0",
-                value: "false",
-              },
-              {
-                variationId: "v1",
-                value: "true",
-              },
-            ],
-          },
-        ],
       };
-
-      featureToCreate.environmentSettings[env].rules.forEach((rule) => {
-        if (rule.type === "experiment-ref") {
-          (rule as ExperimentRefRule).experimentId = createdExperiment.id;
-        }
-      });
+      featureToCreate.rules.push(
+        {
+          type: "force",
+          description: "",
+          id: `${getDemoDataSourceFeatureId()}-employee-force-rule-${env}`,
+          allEnvironments: false,
+          environments: [env],
+          value: "true",
+          condition: `{"is_employee":true}`,
+          enabled: true,
+        },
+        {
+          type: "experiment-ref",
+          description: "",
+          id: `${getDemoDataSourceFeatureId()}-exp-rule-${env}`,
+          allEnvironments: false,
+          environments: [env],
+          enabled: true,
+          experimentId: createdExperiment.id,
+          variations: [
+            {
+              variationId: "v0",
+              value: "false",
+            },
+            {
+              variationId: "v1",
+              value: "true",
+            },
+          ],
+        },
+      );
     });
 
     await createFeature(context, featureToCreate);
@@ -495,6 +501,7 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
       pValueThreshold:
         org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
       numGoalMetrics: goalMetrics.length,
+      numGuardrailMetrics: createdExperiment.guardrailMetrics?.length ?? 0,
     };
 
     const metricMap = await getMetricMap(context);

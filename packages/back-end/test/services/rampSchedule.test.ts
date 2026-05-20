@@ -28,6 +28,7 @@ import {
   rollbackToStep,
   advanceUntilBlocked,
   completeRollout,
+  applyRampStartActions,
 } from "back-end/src/services/rampSchedule";
 
 // ---------------------------------------------------------------------------
@@ -91,6 +92,9 @@ function makeFeature(rulesOverride?: FeatureRule[]) {
   const rules: FeatureRule[] = rulesOverride ?? [
     {
       id: RULE_ID,
+      uid: "ruid_" + RULE_ID,
+      allEnvironments: false,
+      environments: ["production"],
       type: "rollout" as const,
       coverage: 0.1,
       hashAttribute: "id",
@@ -107,9 +111,12 @@ function makeFeature(rulesOverride?: FeatureRule[]) {
     name: "Test Feature",
     valueType: "string" as const,
     defaultValue: "off",
+    // v2 unified rules at top level. environmentSettings no longer carries
+    // per-env rules; it only tracks `enabled` (and `prerequisites`).
+    rules,
     environmentSettings: {
-      production: { enabled: true, rules },
-      staging: { enabled: true, rules: [] },
+      production: { enabled: true },
+      staging: { enabled: true },
     },
   };
 }
@@ -674,14 +681,12 @@ describe("featureEntityHandler.applyActions", () => {
 
     expect(mockPublishRevision).toHaveBeenCalledTimes(1);
     const [, , , forceResult] = mockPublishRevision.mock.calls[0];
-    const productionRules: FeatureRule[] = forceResult.rules?.production ?? [];
-    const patchedRule = productionRules.find(
-      (r: FeatureRule) => r.id === RULE_ID,
-    );
+    const rules: FeatureRule[] = forceResult.rules ?? [];
+    const patchedRule = rules.find((r: FeatureRule) => r.id === RULE_ID);
     expect((patchedRule as { coverage?: number })?.coverage).toBe(0.5);
   });
 
-  it("throws when the rule is not found in any environment (no env scope)", async () => {
+  it("throws when the rule is not found (no env scope)", async () => {
     const actions = [
       {
         targetType: "feature-rule" as const,
@@ -694,7 +699,7 @@ describe("featureEntityHandler.applyActions", () => {
         stepLabel: "Ramp [1 of 3]: Test",
         user: { type: "system" },
       }),
-    ).rejects.toThrow(/not found in any environment/);
+    ).rejects.toThrow(/not found/);
   });
 
   it("throws Feature not found when entity does not exist", async () => {
@@ -723,9 +728,9 @@ describe("featureEntityHandler.applyActions", () => {
     expect(mockPublishRevision).toHaveBeenCalledTimes(1);
   });
 
-  it("without environment: patches all envs sharing the ruleId", async () => {
-    // makeFeature puts the same RULE_ID only in production (staging has no rules),
-    // so "all envs" here means production only — but the key is no env filter is applied.
+  it("without environment: resolves by ruleId alone", async () => {
+    // In v2, a rule is a single top-level entity. Without an env scope, the
+    // handler resolves purely by ruleId/uid and patches that one rule.
     const actions = [
       {
         targetType: "feature-rule" as const,
@@ -736,31 +741,38 @@ describe("featureEntityHandler.applyActions", () => {
     await featureEntityHandler.applyActions(ctx, FEATURE_ID, actions, {
       stepLabel: "step",
       user: { type: "system" },
-      // environment intentionally omitted → no scope
     });
 
     const [, , , forceResult] = mockPublishRevision.mock.calls[0];
-    const productionRules: FeatureRule[] = forceResult.rules?.production ?? [];
-    const patched = productionRules.find((r: FeatureRule) => r.id === RULE_ID);
+    const rules: FeatureRule[] = forceResult.rules ?? [];
+    const patched = rules.find((r: FeatureRule) => r.id === RULE_ID);
     expect((patched as { coverage?: number })?.coverage).toBe(0.75);
   });
 
-  it("with environment: patches only that environment, not others", async () => {
-    // Feature has the rule in both production and staging for this test.
-    const sharedRule: FeatureRule = {
-      id: RULE_ID,
+  it("with environment: selects the matching env-scoped rule when multiple rules share the ruleId stem", async () => {
+    // In v2, multiple rules may share a legacy `id` stem but differ by scope
+    // (e.g., one scoped to production, one scoped to staging). When the
+    // flattener detects a non-mergeable collision, each rule gets a
+    // deterministic `__<env>` suffix on its id. Ramp targets match by stem
+    // + env, so the `environment` on the target picks which rule to resolve.
+    const prodRule: FeatureRule = {
+      id: RULE_ID + "__production",
+      allEnvironments: false,
+      environments: ["production"],
       type: "rollout",
       coverage: 0.1,
       hashAttribute: "id",
       enabled: true,
       condition: "",
     };
+    const stagingRule: FeatureRule = {
+      ...prodRule,
+      id: RULE_ID + "__staging",
+      environments: ["staging"],
+    };
     mockGetFeature.mockResolvedValue({
       ...makeFeature(),
-      environmentSettings: {
-        production: { enabled: true, rules: [sharedRule] },
-        staging: { enabled: true, rules: [{ ...sharedRule }] },
-      },
+      rules: [prodRule, stagingRule],
     } as never);
 
     const actions = [
@@ -777,22 +789,21 @@ describe("featureEntityHandler.applyActions", () => {
     });
 
     const [, , , forceResult] = mockPublishRevision.mock.calls[0];
-    const productionRules: FeatureRule[] = forceResult.rules?.production ?? [];
-    const stagingRules: FeatureRule[] = forceResult.rules?.staging ?? [];
+    const rules: FeatureRule[] = forceResult.rules ?? [];
 
-    const patchedProd = productionRules.find(
-      (r: FeatureRule) => r.id === RULE_ID,
+    const patchedProd = rules.find(
+      (r: FeatureRule) => r.id === RULE_ID + "__production",
     );
-    const patchedStaging = stagingRules.find(
-      (r: FeatureRule) => r.id === RULE_ID,
+    const patchedStaging = rules.find(
+      (r: FeatureRule) => r.id === RULE_ID + "__staging",
     );
 
     expect((patchedProd as { coverage?: number })?.coverage).toBe(0.9);
-    // staging must be unchanged
+    // The staging-scoped rule has a different suffixed id and must be untouched.
     expect((patchedStaging as { coverage?: number })?.coverage).toBe(0.1);
   });
 
-  it("with environment: throws a scoped error when rule is not in that environment", async () => {
+  it("with environment: throws when no rule matches the (ruleId, environment) pair", async () => {
     const actions = [
       {
         targetType: "feature-rule" as const,
@@ -800,14 +811,15 @@ describe("featureEntityHandler.applyActions", () => {
         patch: { ruleId: RULE_ID, coverage: 0.5 },
       },
     ];
-    // The rule exists in production but not staging — scoping to staging should throw.
+    // makeFeature's default rule is scoped to `environments: ["production"]`.
+    // Scoping resolution to staging finds nothing → throw.
     await expect(
       featureEntityHandler.applyActions(ctx, FEATURE_ID, actions, {
         stepLabel: "step",
         user: { type: "system" },
         environment: "staging",
       }),
-    ).rejects.toThrow(/not found in environment "staging"/);
+    ).rejects.toThrow(/not found/);
   });
 });
 
@@ -846,6 +858,114 @@ describe("advanceStep — interval step", () => {
 
     const [, updates] = updateById.mock.calls[0];
     expect(updates.nextStepAt).not.toBeNull();
+  });
+
+  // Pre-start (-1) → step 0 transition: the published patch must include
+  // enabled:true alongside step 0's targeting/coverage. Without this fold,
+  // the rule would briefly be live with its pre-ramp state before step 0
+  // overwrote it.
+  it("folds enabled:true into step 0's patch on the pre-start → step 0 transition", async () => {
+    const { ctx } = makeContext({ currentStepIndex: -1 });
+    const schedule = makeSchedule({ currentStepIndex: -1 });
+    await advanceStep(ctx as never, schedule);
+
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+    const [, , , forceResult] = mockPublishRevision.mock.calls[0];
+    const rules: FeatureRule[] = forceResult.rules ?? [];
+    const patched = rules.find((r) => r.id === RULE_ID);
+    expect(patched?.enabled).toBe(true);
+    // The step-0 coverage patch is still applied.
+    expect((patched as { coverage?: number })?.coverage).toBe(0.3);
+  });
+
+  // Subsequent step transitions don't fold enable — the rule was already
+  // enabled by step 0 and we shouldn't be re-asserting it on every step.
+  it("does not re-fold enabled:true on subsequent step transitions", async () => {
+    // Start the rule disabled so we can detect whether the fold ran.
+    mockGetFeature.mockResolvedValueOnce(
+      makeFeature([
+        {
+          id: RULE_ID,
+          uid: "ruid_" + RULE_ID,
+          allEnvironments: false,
+          environments: ["production"],
+          type: "rollout" as const,
+          coverage: 0.3,
+          hashAttribute: "id",
+          enabled: false,
+          condition: "",
+        },
+      ]) as never,
+    );
+    const { ctx } = makeContext({ currentStepIndex: 0 });
+    await advanceStep(ctx as never, makeSchedule({ currentStepIndex: 0 }));
+
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+    const [, , , forceResult] = mockPublishRevision.mock.calls[0];
+    const rules: FeatureRule[] = forceResult.rules ?? [];
+    const patched = rules.find((r) => r.id === RULE_ID);
+    // Patch only carries the step-1 fields; enabled is left untouched.
+    expect(patched?.enabled).toBe(false);
+  });
+});
+
+describe("applyRampStartActions", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetFeature.mockResolvedValue(makeFeature() as never);
+    mockCreateRevision.mockResolvedValue(makeRevision() as never);
+    mockPublishRevision.mockResolvedValue(makeFeature() as never);
+  });
+
+  // For simple schedules (no steps), this is the only place the rule gets
+  // enabled — no advanceStep will run.
+  it("enables active feature targets for a 0-step schedule", async () => {
+    const schedule = makeSchedule({ steps: [], currentStepIndex: -1 });
+    const { ctx } = makeContext({ steps: [], currentStepIndex: -1 });
+
+    await applyRampStartActions(ctx as never, schedule);
+
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+    const [, , , forceResult] = mockPublishRevision.mock.calls[0];
+    const rules: FeatureRule[] = forceResult.rules ?? [];
+    const patched = rules.find((r) => r.id === RULE_ID);
+    expect(patched?.enabled).toBe(true);
+  });
+
+  // For steps>0 schedules, advanceStep's pre-start fold owns enabling so the
+  // rule lands in the same revision as step 0's targeting/coverage. Avoid a
+  // redundant publish here.
+  it("is a no-op for schedules with steps", async () => {
+    const schedule = makeSchedule({ currentStepIndex: -1 });
+    const { ctx } = makeContext({ currentStepIndex: -1 });
+
+    await applyRampStartActions(ctx as never, schedule);
+
+    expect(mockPublishRevision).not.toHaveBeenCalled();
+  });
+
+  // Skip targets that are inactive or non-feature so we don't accidentally
+  // resurrect a detached target.
+  it("skips inactive and non-feature targets", async () => {
+    const schedule = makeSchedule({
+      steps: [],
+      currentStepIndex: -1,
+      targets: [
+        {
+          id: TARGET_ID,
+          entityType: "feature",
+          entityId: FEATURE_ID,
+          ruleId: RULE_ID,
+          environment: "production",
+          status: "inactive",
+        },
+      ],
+    });
+    const { ctx } = makeContext();
+
+    await applyRampStartActions(ctx as never, schedule);
+
+    expect(mockPublishRevision).not.toHaveBeenCalled();
   });
 });
 
@@ -920,7 +1040,7 @@ describe("advanceStep — last step / completion", () => {
 
     expect(mockPublishRevision).toHaveBeenCalledTimes(1);
     const [, , , forceResult] = mockPublishRevision.mock.calls[0];
-    const rules: FeatureRule[] = forceResult.rules?.production ?? [];
+    const rules: FeatureRule[] = forceResult.rules ?? [];
     const patched = rules.find((r: FeatureRule) => r.id === RULE_ID);
     expect((patched as { coverage?: number })?.coverage).toBe(1);
   });
@@ -947,7 +1067,7 @@ describe("jumpAheadToStep", () => {
 
     expect(mockPublishRevision).toHaveBeenCalledTimes(1);
     const [, , , forceResult] = mockPublishRevision.mock.calls[0];
-    const rules: FeatureRule[] = forceResult.rules?.production ?? [];
+    const rules: FeatureRule[] = forceResult.rules ?? [];
     const patched = rules.find((r: FeatureRule) => r.id === RULE_ID);
     expect((patched as { coverage?: number })?.coverage).toBe(1.0);
   });
@@ -996,7 +1116,7 @@ describe("jumpAheadToStep", () => {
 
     expect(mockPublishRevision).toHaveBeenCalledTimes(1);
     const [, , , forceResult] = mockPublishRevision.mock.calls[0];
-    const rules: FeatureRule[] = forceResult.rules?.production ?? [];
+    const rules: FeatureRule[] = forceResult.rules ?? [];
     const patched = rules.find((r: FeatureRule) => r.id === RULE_ID);
     expect((patched as { coverage?: number })?.coverage).toBe(1.0);
     expect(patched?.condition).toBe('{"a":"1"}');
@@ -1077,7 +1197,7 @@ describe("rollbackToStep", () => {
 
     expect(mockPublishRevision).toHaveBeenCalledTimes(1);
     const [, , , forceResult] = mockPublishRevision.mock.calls[0];
-    const rules: FeatureRule[] = forceResult.rules?.production ?? [];
+    const rules: FeatureRule[] = forceResult.rules ?? [];
     const patched = rules.find((r: FeatureRule) => r.id === RULE_ID);
     // Effective at step 0: start + step0 → coverage 0.3, condition from step 0
     expect((patched as { coverage?: number })?.coverage).toBe(0.3);
@@ -1094,7 +1214,7 @@ describe("rollbackToStep", () => {
     // reflects the start-of-ramp state rather than staying at the advanced value.
     expect(mockPublishRevision).toHaveBeenCalledTimes(1);
     const [, , , forceResult] = mockPublishRevision.mock.calls[0];
-    const rules: FeatureRule[] = forceResult.rules?.production ?? [];
+    const rules: FeatureRule[] = forceResult.rules ?? [];
     const patched = rules.find((r: FeatureRule) => r.id === RULE_ID);
     expect((patched as { coverage?: number })?.coverage).toBe(0.3);
   });
@@ -1247,6 +1367,137 @@ describe("advanceUntilBlocked", () => {
     const [, updates] = updateById.mock.calls[0];
     expect(updates.status).toBe("pending-approval");
   });
+
+  // ------------------------------------------------------------------------
+  // 0-step ("simple") schedules — "enable on date" or "enable on publish"
+  // ------------------------------------------------------------------------
+
+  it("0-step + no endCondition: completes and deletes the schedule (terminal — no remaining work)", async () => {
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: null,
+      status: "running",
+      steps: [],
+    });
+    const deleteById = jest.fn().mockResolvedValue(undefined);
+    const updateById = jest
+      .fn()
+      .mockImplementation(
+        (_id: string, updates: Partial<RampScheduleInterface>) => ({
+          ...schedule,
+          ...updates,
+        }),
+      );
+    const ctx = {
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "system" },
+      environments: [],
+      permissions: {},
+      models: {
+        rampSchedules: { updateById, getById: jest.fn(), deleteById },
+      },
+    };
+
+    await advanceUntilBlocked(ctx as never, schedule, new Date());
+
+    // completeRollout transitions to "completed" before we delete.
+    expect(updateById).toHaveBeenCalled();
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.status).toBe("completed");
+    expect(deleteById).toHaveBeenCalledWith(schedule.id);
+  });
+
+  it("0-step + future endCondition: stays running (still has work to do)", async () => {
+    const future = new Date(Date.now() + 24 * 60 * 60_000);
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: null,
+      status: "running",
+      steps: [],
+      endCondition: { trigger: { type: "scheduled" as const, at: future } },
+    });
+    const deleteById = jest.fn().mockResolvedValue(undefined);
+    const updateById = jest.fn();
+    const ctx = {
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "system" },
+      environments: [],
+      permissions: {},
+      models: {
+        rampSchedules: { updateById, getById: jest.fn(), deleteById },
+      },
+    };
+
+    await advanceUntilBlocked(ctx as never, schedule, new Date());
+
+    expect(deleteById).not.toHaveBeenCalled();
+    expect(updateById).not.toHaveBeenCalled();
+  });
+
+  it("0-step + past endCondition: completes via the endCondition path (does not auto-delete)", async () => {
+    const past = new Date(Date.now() - 60_000);
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: null,
+      status: "running",
+      steps: [],
+      endCondition: { trigger: { type: "scheduled" as const, at: past } },
+    });
+    const deleteById = jest.fn().mockResolvedValue(undefined);
+    const updateById = jest
+      .fn()
+      .mockImplementation(
+        (_id: string, updates: Partial<RampScheduleInterface>) => ({
+          ...schedule,
+          ...updates,
+        }),
+      );
+    const ctx = {
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "system" },
+      environments: [],
+      permissions: {},
+      models: {
+        rampSchedules: { updateById, getById: jest.fn(), deleteById },
+      },
+    };
+
+    await advanceUntilBlocked(ctx as never, schedule, new Date());
+
+    // Windowed schedules keep a history record after completion.
+    expect(deleteById).not.toHaveBeenCalled();
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.status).toBe("completed");
+  });
+
+  // ------------------------------------------------------------------------
+  // Defensive unstuck — multi-step ramp transitioned to "running" but step 0
+  // not yet due (callsite forgot to set nextStepAt=now).
+  // ------------------------------------------------------------------------
+
+  it("defensively enables rules when a multi-step ramp is 'running' but step 0 isn't due", async () => {
+    const future = new Date(Date.now() + 60_000);
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: future,
+      status: "running",
+    });
+    const { ctx } = makeContext({
+      currentStepIndex: -1,
+      nextStepAt: future,
+      status: "running",
+    });
+
+    await advanceUntilBlocked(ctx as never, schedule, new Date());
+
+    // executeStepActions publishes a revision with enabled:true even though
+    // step 0 hasn't fired — would-be stuck rule is unstuck.
+    expect(mockPublishRevision).toHaveBeenCalled();
+    const [, , , forceResult] = mockPublishRevision.mock.calls[0];
+    const rules: FeatureRule[] = forceResult.rules ?? [];
+    const patched = rules.find((r) => r.id === RULE_ID);
+    expect(patched?.enabled).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1314,9 +1565,8 @@ describe("completeRollout", () => {
     // no later step overrode it).
     expect(mockCreateRevision).toHaveBeenCalledTimes(1);
     const [createCall] = mockCreateRevision.mock.calls;
-    const patchedRules: Record<string, FeatureRule[]> =
-      createCall[0].changes.rules;
-    const rule = patchedRules["production"]?.[0];
+    const patchedRules: FeatureRule[] = createCall[0].changes.rules;
+    const rule = patchedRules.find((r) => r.id === RULE_ID);
     expect((rule as { coverage?: number }).coverage).toBe(1.0);
     expect(rule?.condition).toBe('{"country":"US"}');
   });
@@ -1351,9 +1601,8 @@ describe("completeRollout", () => {
 
     expect(mockCreateRevision).toHaveBeenCalledTimes(1);
     const [createCall] = mockCreateRevision.mock.calls;
-    const patchedRules: Record<string, FeatureRule[]> =
-      createCall[0].changes.rules;
-    const rule = patchedRules["production"]?.[0];
+    const patchedRules: FeatureRule[] = createCall[0].changes.rules;
+    const rule = patchedRules.find((r) => r.id === RULE_ID);
     expect((rule as { coverage?: number }).coverage).toBe(1.0);
     expect(rule?.condition).toBe('{"final":true}');
   });
@@ -1415,9 +1664,8 @@ describe("completeRollout", () => {
 
     expect(mockCreateRevision).toHaveBeenCalledTimes(1);
     const [createCall] = mockCreateRevision.mock.calls;
-    const patchedRules: Record<string, FeatureRule[]> =
-      createCall[0].changes.rules;
-    const rule = patchedRules["production"]?.[0];
+    const patchedRules: FeatureRule[] = createCall[0].changes.rules;
+    const rule = patchedRules.find((r) => r.id === RULE_ID);
     // endActions overrides coverage to 1.0; condition is inherited from step 0.
     expect((rule as { coverage?: number }).coverage).toBe(1.0);
     expect(rule?.condition).toBe('{"a":"1"}');

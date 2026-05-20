@@ -19,6 +19,11 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { logger } from "back-end/src/util/logger";
+import {
+  resolveRampTargets,
+  ruleFootprint,
+  getApplicableEnvIds,
+} from "back-end/src/util/flattenRules";
 
 // Applies actions for one entity: computes a fresh patch against live state and publishes immediately.
 interface EntityHandler {
@@ -139,62 +144,59 @@ export const featureEntityHandler: EntityHandler = {
     const feature = await getFeature(ctx, entityId);
     if (!feature) throw new Error(`Feature not found: ${entityId}`);
 
-    const patchedRules: Record<string, FeatureRule[]> = {};
-    for (const [env, envSettings] of Object.entries(
-      feature.environmentSettings ?? {},
-    )) {
-      patchedRules[env] = [...(envSettings.rules ?? [])];
-    }
-
-    // When an environment is specified, scope patches to that env only.
-    // When absent, patches apply to every environment that has a matching ruleId.
-    const envsToCheck = environment
-      ? Object.keys(patchedRules).filter((e) => e === environment)
-      : Object.keys(patchedRules);
+    // v2: operate on the unified top-level FeatureRule[] array. Each patch
+    // resolves to exactly ONE rule via `(ruleId, environment)`. In v1, a
+    // multi-env rule was actually N per-env copies and the handler patched
+    // each copy; in v2 there is one rule and one patch — its scope is carried
+    // on the rule itself (`allEnvironments` or `environments: [...]`). The
+    // `environment` field on the target is a legacy disambiguator for
+    // pre-v2 data; in v2 it's typically null.
+    const updatedRules: FeatureRule[] = (feature.rules ?? []).map((r) => ({
+      ...r,
+    }));
 
     for (const action of actions) {
       if (action.targetType !== "feature-rule") continue;
       const { patch } = action;
       const { ruleId, ...patchFields } = patch;
-      let foundInAnyEnv = false;
 
-      for (const env of envsToCheck) {
-        const ruleIdx = patchedRules[env].findIndex((r) => r.id === ruleId);
-        if (ruleIdx === -1) continue;
-        foundInAnyEnv = true;
-        patchedRules[env][ruleIdx] = applyPatchToRule(
-          patchedRules[env][ruleIdx],
-          patchFields,
+      // Plural resolution — a legacy no-env ramp whose rule was split into
+      // env-scoped siblings post-migration fans out to every sibling. The
+      // patch applies identically to each since split siblings came from the
+      // same v1 rule and share field shapes. See `resolveRampTargets` JSDoc.
+      const targets = resolveRampTargets(
+        { ruleId, environment: environment ?? null },
+        updatedRules,
+      );
+      if (!targets.length) {
+        const ref =
+          `id "${ruleId}"` +
+          (environment ? ` in environment "${environment}"` : "");
+        throw new Error(
+          `Ramp target rule ${ref} not found — it may have been deleted`,
         );
       }
 
-      if (!foundInAnyEnv) {
-        throw new Error(
-          `Ramp target rule "${ruleId}" not found in ${environment ? `environment "${environment}"` : "any environment"} — it may have been deleted`,
-        );
+      for (const target of targets) {
+        const idx = updatedRules.indexOf(target);
+        updatedRules[idx] = applyPatchToRule(target, patchFields);
       }
     }
 
     const revision = await createRevision({
       context: ctx,
-      feature: feature as FeatureInterface,
+      feature,
       user,
       environments: ctx.environments,
-      changes: { rules: patchedRules },
+      changes: { rules: updatedRules },
       publish: false,
       comment: stepLabel,
       title: stepLabel,
       org: ctx.org,
     });
 
-    const forceResult: MergeResultChanges = { rules: patchedRules };
-    await publishRevision(
-      ctx,
-      feature as FeatureInterface,
-      revision,
-      forceResult,
-      stepLabel,
-    );
+    const forceResult: MergeResultChanges = { rules: updatedRules };
+    await publishRevision(ctx, feature, revision, forceResult, stepLabel);
   },
 };
 
@@ -304,6 +306,10 @@ async function executeStepActions(
         entityType: target.entityType,
         entityId: target.entityId,
         actions: [],
+        // Disambiguator for `resolveRampTarget` on pre-v2 targets whose
+        // `ruleId` could appear in multiple env-scoped rule lists. New
+        // targets will typically have `environment: null`; the resolver
+        // handles that fine.
         environment: target.environment,
       });
     }
@@ -316,10 +322,23 @@ async function executeStepActions(
     id: schedule.id,
   };
 
-  const stepLabel =
-    stepIndex >= schedule.steps.length
-      ? "Ramp complete"
-      : `Ramp step ${stepIndex + 1} of ${schedule.steps.length}`;
+  // Simple schedules (no steps) only fire start and end actions; label them as
+  // schedule events rather than ramp steps. For ramp-ups, distinguish the
+  // pre-first-step "start" pass (stepIndex < 0, used by applyRampStartActions)
+  // from intermediate steps and the final completion pass.
+  const isSimpleSchedule = schedule.steps.length === 0;
+  const isStartAction = stepIndex < 0;
+  const isCompleteAction = stepIndex >= schedule.steps.length;
+  let stepLabel: string;
+  if (isSimpleSchedule) {
+    stepLabel = isStartAction ? "Schedule started" : "Schedule ended";
+  } else if (isStartAction) {
+    stepLabel = "Ramp started";
+  } else if (isCompleteAction) {
+    stepLabel = "Ramp complete";
+  } else {
+    stepLabel = `Ramp step ${stepIndex + 1} of ${schedule.steps.length}`;
+  }
 
   for (const [, group] of byEntity) {
     const handler = getEntityHandler(group.entityType);
@@ -342,18 +361,37 @@ async function executeStepActions(
   }
 }
 
-// Injects enabled:true for each active target so the rule becomes visible when the ramp fires.
-export async function applyRampStartActions(
-  ctx: ReqContext | ApiReqContext,
-  schedule: RampScheduleInterface,
-): Promise<void> {
-  const enableActions: RampStepAction[] = schedule.targets
+// Build the `enabled: true` patch for each active feature target.
+function buildEnableActions(schedule: RampScheduleInterface): RampStepAction[] {
+  return schedule.targets
     .filter((t) => t.status === "active" && t.entityType === "feature")
     .map((t) => ({
       targetType: "feature-rule" as const,
       targetId: t.id,
-      patch: { ruleId: t.ruleId ?? "", enabled: true as const },
+      patch: {
+        ruleId: t.ruleId ?? "",
+        enabled: true as const,
+      },
     }));
+}
+
+// Injects enabled:true for each active target so the rule becomes visible when
+// the ramp fires. For ramps with steps this is a no-op — step 0's apply
+// (advanceStep) folds enabled:true into the same revision as its targeting and
+// coverage patches, avoiding a brief window where the rule is live with the
+// pre-ramp state. Simple schedules (no steps) handle enabling here.
+//
+// INVARIANT: callers that hand off a steps>0 schedule via this function must
+// follow with `advanceUntilBlocked` so step 0's apply runs and actually
+// enables the rule. `advanceUntilBlocked` carries a defensive check that
+// unsticks the ramp if that invariant is ever violated.
+export async function applyRampStartActions(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+): Promise<void> {
+  if (schedule.steps.length > 0) return;
+
+  const enableActions = buildEnableActions(schedule);
   if (!enableActions.length) return;
   await executeStepActions(ctx, schedule, -1, enableActions);
 }
@@ -376,6 +414,22 @@ export async function advanceStep(
   // Apply the accumulated effective state for this step (sparse patches accumulate from start).
   // Approval steps go live right away; the user's approval is the signal to advance.
   const effective = computeEffectivePatch(schedule, nextStepIndex);
+
+  // Pre-start → step 0 transition: fold enabled:true into the first-step patch
+  // so the rule becomes visible in the same revision as its targeting/coverage.
+  // Otherwise the rule would briefly be live with pre-ramp state.
+  if (schedule.currentStepIndex < 0) {
+    for (const target of schedule.targets) {
+      if (target.status !== "active" || target.entityType !== "feature") {
+        continue;
+      }
+      const existing = effective.get(target.id) ?? {
+        ruleId: target.ruleId ?? "",
+      };
+      effective.set(target.id, { ...existing, enabled: true });
+    }
+  }
+
   const effectiveActions: RampStepAction[] = [...effective.entries()].map(
     ([targetId, patch]) => ({ targetType: "feature-rule", targetId, patch }),
   );
@@ -574,10 +628,10 @@ export async function onActivatingRevisionPublished(
 
     await applyRampStartActions(ctx, current);
 
-    if (current.steps.length > 0) {
-      await advanceUntilBlocked(ctx, current, now);
-      current = (await ctx.models.rampSchedules.getById(current.id)) ?? current;
-    }
+    // Always advance — for 0-step schedules this is the entry point to the
+    // auto-complete check; for multi-step ramps it fires due steps.
+    await advanceUntilBlocked(ctx, current, now);
+    current = (await ctx.models.rampSchedules.getById(current.id)) ?? current;
 
     await dispatchRampEvent(ctx, current, "rampSchedule.actions.started", {
       object: {
@@ -632,14 +686,31 @@ export async function dispatchRampEvent<T extends RampFeatureEvent>(
       if (feature) {
         projects = feature.project ? [feature.project] : [];
         tags = feature.tags ?? [];
-        // Targets with a specific environment use that; targets with environment=null
-        // (multi-env ramps) fall back to all environments the feature is active in.
-        const specificEnvs = schedule.targets
-          .map((t) => t.environment)
-          .filter((e): e is string => !!e);
+        // Resolve each target to its v2 rule(s) and union their footprints.
+        // For unified rules that span multiple envs (`environments: [...]` or
+        // `allEnvironments: true`), this yields the full set rather than the
+        // legacy single `target.environment`. Orphaned targets (rule id no
+        // longer present) fall back to `target.environment`.
+        const orgEnvIds = getApplicableEnvIds(
+          getEnvironments(ctx.org),
+          feature.project,
+        );
+        const collected = new Set<string>();
+        for (const target of schedule.targets) {
+          const matches = resolveRampTargets(target, feature.rules ?? []);
+          if (matches.length === 0) {
+            if (target.environment) collected.add(target.environment);
+            continue;
+          }
+          for (const rule of matches) {
+            for (const env of ruleFootprint(rule, orgEnvIds)) {
+              collected.add(env);
+            }
+          }
+        }
         environments =
-          specificEnvs.length > 0
-            ? [...new Set(specificEnvs)]
+          collected.size > 0
+            ? [...collected]
             : Object.keys(feature.environmentSettings ?? {});
       }
     }
@@ -673,6 +744,60 @@ export async function advanceUntilBlocked(
   now: Date,
 ): Promise<void> {
   let current = initial;
+
+  // A running schedule with no remaining work (no steps and no endCondition)
+  // is terminal — auto-complete so it doesn't sit in "running" forever after
+  // its start action fired. Schedules with an endCondition still wait for it;
+  // multi-step ramps still progress through advanceStep below.
+  //
+  // For these "enable on date" schedules, the schedule has no future role once
+  // its start action fires (the rule is just enabled). Delete it so the rule
+  // ends up cleanly schedule-less rather than carrying a tombstone in the UI.
+  if (
+    current.status === "running" &&
+    current.steps.length === 0 &&
+    !current.endCondition?.trigger
+  ) {
+    await completeRollout(ctx, current);
+    await ctx.models.rampSchedules.deleteById(current.id);
+    return;
+  }
+
+  // endCondition check sits outside the steps loop so it fires for 0-step
+  // "enable on date, disable on date" schedules too (maxSteps would be 0 and
+  // the loop body would never execute, stranding the schedule indefinitely).
+  if (
+    current.endCondition?.trigger?.type === "scheduled" &&
+    current.endCondition.trigger.at <= now &&
+    ["running", "paused", "pending-approval"].includes(current.status)
+  ) {
+    await completeRollout(ctx, current);
+    return;
+  }
+
+  // Defensive unstuck: a multi-step ramp that transitioned to "running"
+  // without `nextStepAt = now` would have its rule stuck disabled, because
+  // `applyRampStartActions` no-ops for steps>0 (assuming step 0's advanceStep
+  // will fold enabled:true). Every current callsite sets nextStepAt=now
+  // before calling us, but if a future callsite forgets, fire the enable
+  // actions now so the rule isn't silently broken. `advanceStep` will
+  // re-apply enabled:true when step 0 eventually fires; that's idempotent.
+  if (
+    current.status === "running" &&
+    current.steps.length > 0 &&
+    current.currentStepIndex < 0 &&
+    (!current.nextStepAt || current.nextStepAt > now)
+  ) {
+    const enableActions = buildEnableActions(current);
+    if (enableActions.length) {
+      logger.warn(
+        { rampScheduleId: current.id, nextStepAt: current.nextStepAt },
+        "Ramp schedule reached advanceUntilBlocked in 'running' state without step 0 being due; firing enable actions defensively",
+      );
+      await executeStepActions(ctx, current, -1, enableActions);
+    }
+  }
+
   const maxSteps = current.steps.length;
 
   for (let i = 0; i < maxSteps; i++) {

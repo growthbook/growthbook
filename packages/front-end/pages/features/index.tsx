@@ -1,6 +1,7 @@
-import Link from "next/link";
+import NextLink from "next/link";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
+import { useFeature } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
@@ -12,6 +13,7 @@ import {
 } from "react-icons/fa6";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import FeatureModal from "@/components/Features/FeatureModal";
 import track from "@/services/track";
@@ -21,6 +23,7 @@ import {
   useEnvironments,
   useFeatureSearch,
 } from "@/services/features";
+import { tagFilterOnClick, tagLinkProps } from "@/services/search";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Pagination from "@/components/Pagination";
@@ -60,6 +63,8 @@ export default function FeaturesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [featureToDuplicate, setFeatureToDuplicate] =
     useState<FeatureInterface | null>(null);
+
+  const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
   const { project, projects } = useDefinitions();
   const environments = useEnvironments();
@@ -218,10 +223,12 @@ export default function FeaturesPage() {
                 <th>Type</th>
                 <th>Version</th>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
-                <th>
-                  Recent Usage{" "}
-                  <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
-                </th>
+                {showGraphs && (
+                  <th>
+                    Recent Usage{" "}
+                    <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
+                  </th>
+                )}
                 <th>Stale</th>
                 <th style={{ width: 30 }}></th>
               </tr>
@@ -246,14 +253,14 @@ export default function FeaturesPage() {
                       />
                     </td>
                     <td className="p-0">
-                      <Link
+                      <NextLink
                         href={`/features/${feature.id}`}
                         className={clsx("featurename d-block p-2", {
                           "text-muted": feature.archived,
                         })}
                       >
                         {feature.id}
-                      </Link>
+                      </NextLink>
                     </td>
                     {showProjectColumn && (
                       <td>
@@ -266,7 +273,15 @@ export default function FeaturesPage() {
                       </td>
                     )}
                     <td>
-                      <SortedTags tags={feature?.tags || []} useFlex={true} />
+                      <SortedTags
+                        tags={feature?.tags || []}
+                        useFlex={true}
+                        {...tagLinkProps("features")}
+                        onTagClick={tagFilterOnClick(
+                          searchInputProps.value,
+                          setSearchValue,
+                        )}
+                      />
                     </td>
                     {toggleEnvs.map((en) => (
                       <td key={en.id}>
@@ -324,23 +339,29 @@ export default function FeaturesPage() {
                     <td title={datetime(feature.dateUpdated)}>
                       {date(feature.dateUpdated)}
                     </td>
-                    <td style={{ width: 170 }}>
-                      <RealTimeFeatureGraph
-                        data={usage?.[feature.id]?.realtime || []}
-                        yDomain={usageDomain}
-                      />
-                    </td>
+                    {showGraphs && (
+                      <td style={{ width: 170 }}>
+                        {!feature.archived && (
+                          <RealTimeFeatureGraph
+                            data={usage?.[feature.id]?.realtime || []}
+                            yDomain={usageDomain}
+                          />
+                        )}
+                      </td>
+                    )}
                     <td>
-                      <StaleFeatureIcon
-                        context="list"
-                        neverStale={feature.neverStale}
-                        valueType={feature.valueType}
-                        staleData={staleHook.getStaleState(feature.id)}
-                        fetchStaleData={async () => {
-                          staleHook.invalidate([feature.id]);
-                          await staleHook.fetchSome([feature.id]);
-                        }}
-                      />
+                      {!feature.archived && (
+                        <StaleFeatureIcon
+                          context="list"
+                          neverStale={feature.neverStale}
+                          valueType={feature.valueType}
+                          staleData={staleHook.getStaleState(feature.id)}
+                          fetchStaleData={async () => {
+                            staleHook.invalidate([feature.id]);
+                            await staleHook.fetchSome([feature.id]);
+                          }}
+                        />
+                      )}
                     </td>
                     <td>
                       <MoreMenu>

@@ -16,7 +16,7 @@ import { isProjectListValidForProject } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import Collapsible from "react-collapsible";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { Separator } from "@radix-ui/themes";
+import { Box, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
@@ -27,7 +27,6 @@ import { hasFileConfig } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { GBCuped, GBSequential } from "@/components/Icons";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
@@ -39,6 +38,8 @@ import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import Text from "@/ui/Text";
 import MetricAnalysisWindowSelector from "./MetricAnalysisWindowSelector";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
@@ -292,7 +293,7 @@ const AnalysisForm: FC<{
       hasMetrics);
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="analysis-form"
       trackingEventModalSource={source}
       header={isHoldout ? "Analysis Settings" : "Experiment Settings"}
@@ -381,7 +382,7 @@ const AnalysisForm: FC<{
       })}
       cta="Save"
     >
-      <div className="mx-2">
+      <Box>
         {isBandit && (
           <FormProvider {...form}>
             <BanditSettings
@@ -401,7 +402,6 @@ const AnalysisForm: FC<{
 
         <SelectField
           label="Data Source"
-          labelClassName="font-weight-bold"
           value={datasource?.id || ""}
           disabled={isBandit && experiment.status !== "draft"}
           onChange={(newDatasource) => {
@@ -478,7 +478,6 @@ const AnalysisForm: FC<{
                 <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
               </>
             }
-            labelClassName="font-weight-bold"
             value={form.watch("exposureQueryId") ?? ""}
             onChange={(v) => form.setValue("exposureQueryId", v)}
             required
@@ -513,7 +512,6 @@ const AnalysisForm: FC<{
         {datasource && !isHoldout && (
           <Field
             label="Tracking Key"
-            labelClassName="font-weight-bold"
             {...form.register("trackingKey")}
             helpText={
               <>
@@ -599,7 +597,6 @@ const AnalysisForm: FC<{
                 exposureQueryId={exposureQueryId}
                 project={experiment.project}
                 includeFacts={true}
-                labelClassName="font-weight-bold"
                 label={
                   <>
                     Activation Metric
@@ -643,11 +640,11 @@ const AnalysisForm: FC<{
           label={
             isBandit ? (
               <>
-                <div>Statistics Engine</div>
-                <div className="small text-muted">
-                  Only <strong>Bayesian</strong> is available for Bandit
-                  Experiments.
-                </div>
+                <Text weight="semibold">Statistics Engine</Text>
+                <Text size="small" color="text-mid">
+                  Only <Text weight="semibold">Bayesian</Text> is available for
+                  Bandit Experiments.
+                </Text>
               </>
             ) : undefined
           }
@@ -668,7 +665,6 @@ const AnalysisForm: FC<{
                 </PremiumTooltip>
               }
               style={{ width: 200 }}
-              labelClassName="font-weight-bold"
               value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
               onChange={(v) => {
                 form.setValue("regressionAdjustmentEnabled", v === "on");
@@ -696,7 +692,6 @@ const AnalysisForm: FC<{
                   </PremiumTooltip>
                 }
                 style={{ width: 200 }}
-                labelClassName="font-weight-bold"
                 value={
                   form.watch("postStratificationEnabled") == null
                     ? ""
@@ -765,7 +760,6 @@ const AnalysisForm: FC<{
                       <GBSequential /> Use Sequential Testing
                     </PremiumTooltip>
                   }
-                  labelClassName="font-weight-bold"
                   value={form.watch("sequentialTestingEnabled") ? "on" : "off"}
                   onChange={(v) => {
                     form.setValue("sequentialTestingEnabled", v === "on");
@@ -914,7 +908,6 @@ const AnalysisForm: FC<{
                         <div className="form-group mb-2">
                           <SelectField
                             label="Segment"
-                            labelClassName="font-weight-bold"
                             value={form.watch("segment")}
                             onChange={(value) =>
                               form.setValue("segment", value || "")
@@ -940,7 +933,6 @@ const AnalysisForm: FC<{
                         >
                           <SelectField
                             label="Metric Conversion Windows"
-                            labelClassName="font-weight-bold"
                             value={form.watch("skipPartialData")}
                             onChange={(value) =>
                               form.setValue("skipPartialData", value)
@@ -995,7 +987,6 @@ const AnalysisForm: FC<{
                           <div className="col">
                             <Field
                               label="Custom SQL Filter"
-                              labelClassName="font-weight-bold"
                               {...form.register("queryFilter")}
                               textarea
                               placeholder="e.g. user_id NOT IN ('123', '456')"
@@ -1071,8 +1062,8 @@ const AnalysisForm: FC<{
             )}
           </>
         )}
-      </div>
-    </Modal>
+      </Box>
+    </ModalStandard>
   );
 };
 

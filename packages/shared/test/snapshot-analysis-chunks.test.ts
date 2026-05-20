@@ -8,8 +8,12 @@ import {
   encodeSnapshotAnalysisChunks,
   decodeSnapshotAnalysisChunks,
   buildMetricOrdering,
-  getChunkedAnalysesMetaFromSnapshot,
+  buildAnalysisKey,
+  migrateLegacySnapshotAnalysisChunkData,
+  remapChunkDataPositionKeysToAnalysisKeys,
   AnalysisMetaEntry,
+  MetricChunkData,
+  AnalysisChunkData,
 } from "../src/snapshot-analysis-chunks";
 import {
   experimentSnapshotAnalysisChunkValidator,
@@ -44,8 +48,10 @@ function makeAnalysisSettings(
 function makeAnalysis(
   results: ExperimentSnapshotAnalysis["results"],
   settingsOverrides: Partial<ExperimentSnapshotAnalysisSettings> = {},
+  analysisKey: string = buildAnalysisKey(),
 ): ExperimentSnapshotAnalysis {
   return {
+    analysisKey,
     settings: makeAnalysisSettings(settingsOverrides),
     dateCreated: new Date("2025-01-01"),
     status: "success",
@@ -61,10 +67,12 @@ function decodeHelper(
     analyses,
     [],
   );
-  const chunks = Array.from(metricChunks.entries()).map(
-    ([metricId, chunk]) => ({ metricId, ...chunk }),
-  );
+  const chunks = Array.from(metricChunks.entries()).map(([metricId, data]) => ({
+    metricId,
+    data,
+  }));
   const analysisMetadata = analyses.map((a) => ({
+    analysisKey: a.analysisKey,
     settings: a.settings,
     dateCreated: a.dateCreated,
     status: a.status as "success" | "running" | "error",
@@ -78,7 +86,9 @@ function decodeHelper(
   );
 }
 
-function makeExperimentSnapshotAnalysisChunk(data: Record<string, unknown[]>) {
+function makeExperimentSnapshotAnalysisChunk(
+  data: Record<string, AnalysisChunkData>,
+) {
   return {
     organization: "org_1",
     dateCreated: new Date("2025-01-01"),
@@ -87,32 +97,56 @@ function makeExperimentSnapshotAnalysisChunk(data: Record<string, unknown[]>) {
     snapshotId: "snp_1",
     experimentId: "exp_1",
     metricId: "met_1",
-    numRows: 2,
     data,
   };
 }
 
 describe("experimentSnapshotAnalysisChunkValidator", () => {
-  it("accepts column data when all arrays match numRows", () => {
+  it("accepts per-analysis data when all column arrays match numRows", () => {
     const result = experimentSnapshotAnalysisChunkValidator.safeParse(
       makeExperimentSnapshotAnalysisChunk({
-        a: [0, 0],
-        d: ["All", "All"],
-        v: [0, 1],
-        value: [0.1, 0.2],
+        analysisOne: {
+          numRows: 2,
+          d: ["All", "All"],
+          v: [0, 1],
+          value: [0.1, 0.2],
+        },
       }),
     );
 
     expect(result.success).toBe(true);
   });
 
-  it("rejects column data when any array length differs from the other columns", () => {
+  it("accepts multiple analysis sub-paths in a single chunk", () => {
     const result = experimentSnapshotAnalysisChunkValidator.safeParse(
       makeExperimentSnapshotAnalysisChunk({
-        a: [0, 0],
-        d: ["All"],
-        v: [0, 1],
-        value: [0.1, 0.2, 0.3],
+        analysisOne: {
+          numRows: 2,
+          d: ["All", "All"],
+          v: [0, 1],
+          value: [0.1, 0.2],
+        },
+        analysisTwo: {
+          numRows: 1,
+          d: ["All"],
+          v: [0],
+          value: [0.3],
+        },
+      }),
+    );
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects per-analysis column arrays with mismatched lengths", () => {
+    const result = experimentSnapshotAnalysisChunkValidator.safeParse(
+      makeExperimentSnapshotAnalysisChunk({
+        analysisOne: {
+          numRows: 2,
+          d: ["All"],
+          v: [0, 1],
+          value: [0.1, 0.2, 0.3],
+        },
       }),
     );
 
@@ -121,49 +155,63 @@ describe("experimentSnapshotAnalysisChunkValidator", () => {
       expect(result.error.issues).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            message: 'Column "d" has 1 rows, expected 2',
-            path: ["data", "d"],
+            message:
+              'Column "d" in analysis "analysisOne" has 1 rows, expected 2',
+            path: ["data", "analysisOne", "d"],
           }),
           expect.objectContaining({
-            message: 'Column "value" has 3 rows, expected 2',
-            path: ["data", "value"],
+            message:
+              'Column "value" in analysis "analysisOne" has 3 rows, expected 2',
+            path: ["data", "analysisOne", "value"],
           }),
         ]),
       );
     }
   });
 
-  it("rejects column data when numRows does not match the common array length", () => {
-    const result = experimentSnapshotAnalysisChunkValidator.safeParse({
-      ...makeExperimentSnapshotAnalysisChunk({
-        a: [0, 0],
-        d: ["All", "All"],
-        v: [0, 1],
+  it("rejects per-analysis numRows that disagrees with the column length", () => {
+    const result = experimentSnapshotAnalysisChunkValidator.safeParse(
+      makeExperimentSnapshotAnalysisChunk({
+        analysisOne: {
+          numRows: 3,
+          d: ["All", "All"],
+          v: [0, 1],
+        },
       }),
-      numRows: 3,
-    });
+    );
 
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            message: "numRows has 3 rows, expected 2",
-            path: ["numRows"],
+            message:
+              'numRows for analysis "analysisOne" has 3 rows, expected 2',
+            path: ["data", "analysisOne", "numRows"],
           }),
         ]),
       );
     }
   });
 
+  it("rejects analysisKey sub-paths that contain MongoDB-reserved characters", () => {
+    const result = experimentSnapshotAnalysisChunkValidator.safeParse(
+      makeExperimentSnapshotAnalysisChunk({
+        "bad.key": { numRows: 0, d: [], v: [] },
+      }),
+    );
+    expect(result.success).toBe(false);
+  });
+
   it("throws from the model-layer helper when column lengths are invalid", () => {
     expect(() =>
       validateExperimentSnapshotAnalysisChunkColumnLengths({
-        numRows: 2,
         data: {
-          a: [0, 0],
-          d: ["All"],
-          v: [0, 1],
+          analysisOne: {
+            numRows: 2,
+            d: ["All"],
+            v: [0, 1],
+          },
         },
       }),
     ).toThrow(
@@ -204,31 +252,51 @@ describe("buildMetricOrdering", () => {
   });
 });
 
+describe("analysisKey helpers", () => {
+  it("buildAnalysisKey produces unique strings", () => {
+    const keys = new Set<string>();
+    for (let i = 0; i < 100; i++) keys.add(buildAnalysisKey());
+    expect(keys.size).toBe(100);
+  });
+
+  it("buildAnalysisKey produces MongoDB-sub-path-safe keys", () => {
+    const key = buildAnalysisKey();
+    expect(key).not.toContain(".");
+    expect(key).not.toContain("$");
+    expect(key.length).toBeGreaterThan(0);
+  });
+});
+
 describe("encodeSnapshotAnalysisChunks", () => {
   it("produces one chunk per metric", () => {
+    const keyA = buildAnalysisKey();
     const analyses = [
-      makeAnalysis([
-        {
-          name: "All",
-          srm: 0.5,
-          variations: [
-            {
-              users: 500,
-              metrics: {
-                met_a: makeMetric({ value: 1 }),
-                met_b: makeMetric({ value: 2 }),
+      makeAnalysis(
+        [
+          {
+            name: "All",
+            srm: 0.5,
+            variations: [
+              {
+                users: 500,
+                metrics: {
+                  met_a: makeMetric({ value: 1 }),
+                  met_b: makeMetric({ value: 2 }),
+                },
               },
-            },
-            {
-              users: 500,
-              metrics: {
-                met_a: makeMetric({ value: 3 }),
-                met_b: makeMetric({ value: 4 }),
+              {
+                users: 500,
+                metrics: {
+                  met_a: makeMetric({ value: 3 }),
+                  met_b: makeMetric({ value: 4 }),
+                },
               },
-            },
-          ],
-        },
-      ]),
+            ],
+          },
+        ],
+        {},
+        keyA,
+      ),
     ];
 
     const { metricChunks } = encodeSnapshotAnalysisChunks(analyses, [
@@ -240,52 +308,112 @@ describe("encodeSnapshotAnalysisChunks", () => {
     expect(metricChunks.has("met_a")).toBe(true);
     expect(metricChunks.has("met_b")).toBe(true);
 
-    // Each metric has 2 rows (2 variations)
-    expect(metricChunks.get("met_a")!.numRows).toBe(2);
-    expect(metricChunks.get("met_b")!.numRows).toBe(2);
-
-    // No "m" column in data (metricId is document-level)
-    expect(metricChunks.get("met_a")!.data.m).toBeUndefined();
+    // Each metric has the analysis sub-path with 2 rows (2 variations)
+    const perMetA = metricChunks.get("met_a")!;
+    expect(Object.keys(perMetA)).toEqual([keyA]);
+    expect(perMetA[keyA].numRows).toBe(2);
+    expect(perMetA[keyA].d).toEqual(["All", "All"]);
+    expect(perMetA[keyA].v).toEqual([0, 1]);
+    // No positional "a" column — that was removed with the race fix.
+    expect((perMetA[keyA] as Record<string, unknown>).a).toBeUndefined();
   });
 
-  it("extracts chunkedAnalysesMeta correctly", () => {
+  it("keys chunkedAnalysesMeta by analysisKey", () => {
+    const keyA = buildAnalysisKey();
     const analyses = [
-      makeAnalysis([
-        {
-          name: "All",
-          srm: 0.5,
-          variations: [
-            { users: 500, metrics: { met_1: makeMetric() } },
-            { users: 600, metrics: { met_1: makeMetric() } },
-          ],
-        },
-        {
-          name: "country:US",
-          srm: 0.48,
-          variations: [
-            { users: 200, metrics: { met_1: makeMetric() } },
-            { users: 300, metrics: { met_1: makeMetric() } },
-          ],
-        },
-      ]),
+      makeAnalysis(
+        [
+          {
+            name: "All",
+            srm: 0.5,
+            variations: [
+              { users: 500, metrics: { met_1: makeMetric() } },
+              { users: 600, metrics: { met_1: makeMetric() } },
+            ],
+          },
+          {
+            name: "country:US",
+            srm: 0.48,
+            variations: [
+              { users: 200, metrics: { met_1: makeMetric() } },
+              { users: 300, metrics: { met_1: makeMetric() } },
+            ],
+          },
+        ],
+        {},
+        keyA,
+      ),
     ];
 
     const { chunkedAnalysesMeta } = encodeSnapshotAnalysisChunks(analyses, [
       "met_1",
     ]);
 
-    expect(chunkedAnalysesMeta).toHaveLength(1);
-    expect(chunkedAnalysesMeta[0].dimensions).toHaveLength(2);
-    expect(chunkedAnalysesMeta[0].dimensions[0]).toEqual({
+    expect(Object.keys(chunkedAnalysesMeta)).toEqual([keyA]);
+    expect(chunkedAnalysesMeta[keyA].dimensions).toHaveLength(2);
+    expect(chunkedAnalysesMeta[keyA].dimensions[0]).toEqual({
       name: "All",
       srm: 0.5,
       variationUsers: [500, 600],
     });
-    expect(chunkedAnalysesMeta[0].dimensions[1]).toEqual({
+    expect(chunkedAnalysesMeta[keyA].dimensions[1]).toEqual({
       name: "country:US",
       srm: 0.48,
       variationUsers: [200, 300],
     });
+  });
+
+  it("stores analyses under disjoint sub-paths in the same chunk", () => {
+    const keyA = buildAnalysisKey();
+    const keyB = buildAnalysisKey();
+    const analyses = [
+      makeAnalysis(
+        [
+          {
+            name: "All",
+            srm: 0.5,
+            variations: [
+              { users: 100, metrics: { met_1: makeMetric({ value: 1 }) } },
+            ],
+          },
+        ],
+        {},
+        keyA,
+      ),
+      makeAnalysis(
+        [
+          {
+            name: "All",
+            srm: 0.51,
+            variations: [
+              { users: 200, metrics: { met_1: makeMetric({ value: 2 }) } },
+            ],
+          },
+        ],
+        { statsEngine: "frequentist" },
+        keyB,
+      ),
+    ];
+
+    const { metricChunks } = encodeSnapshotAnalysisChunks(analyses, ["met_1"]);
+    const perMet1 = metricChunks.get("met_1")!;
+
+    expect(Object.keys(perMet1).sort()).toEqual([keyA, keyB].sort());
+    expect(perMet1[keyA].numRows).toBe(1);
+    expect(perMet1[keyB].numRows).toBe(1);
+    expect(perMet1[keyA].value).toEqual([1]);
+    expect(perMet1[keyB].value).toEqual([2]);
+  });
+
+  it("throws when two analyses share an analysisKey", () => {
+    const shared = buildAnalysisKey();
+    const analyses = [
+      makeAnalysis([], {}, shared),
+      makeAnalysis([], { statsEngine: "frequentist" }, shared),
+    ];
+    expect(() => encodeSnapshotAnalysisChunks(analyses, [])).toThrow(
+      /duplicate analysisKey/,
+    );
   });
 
   it("handles empty results", () => {
@@ -295,8 +423,10 @@ describe("encodeSnapshotAnalysisChunks", () => {
       [],
     );
     expect(metricChunks.size).toBe(0);
-    expect(chunkedAnalysesMeta).toHaveLength(1);
-    expect(chunkedAnalysesMeta[0].dimensions).toHaveLength(0);
+    expect(Object.keys(chunkedAnalysesMeta)).toHaveLength(1);
+    expect(
+      chunkedAnalysesMeta[analyses[0].analysisKey].dimensions,
+    ).toHaveLength(0);
   });
 });
 
@@ -327,6 +457,7 @@ describe("decodeSnapshotAnalysisChunks", () => {
 
     const decoded = decodeHelper(analyses);
     expect(decoded).toHaveLength(1);
+    expect(decoded[0].analysisKey).toBe(analyses[0].analysisKey);
     expect(decoded[0].results).toHaveLength(1);
     expect(decoded[0].results[0].name).toBe("All");
     expect(decoded[0].results[0].srm).toBe(0.5);
@@ -557,15 +688,17 @@ describe("decodeSnapshotAnalysisChunks", () => {
   });
 
   it("treats top-level CI nulls as absent and preserves unbounded CIs", () => {
+    const analysisKey = buildAnalysisKey();
     const analysisMetadata = [
       {
+        analysisKey,
         settings: makeAnalysisSettings(),
         dateCreated: new Date("2025-01-01"),
         status: "success" as const,
       },
     ];
-    const chunkedAnalysesMeta: AnalysisMetaEntry[] = [
-      {
+    const chunkedAnalysesMeta: Record<string, AnalysisMetaEntry> = {
+      [analysisKey]: {
         dimensions: [
           {
             name: "All",
@@ -574,33 +707,34 @@ describe("decodeSnapshotAnalysisChunks", () => {
           },
         ],
       },
-    ];
+    };
     const decoded = decodeSnapshotAnalysisChunks(
       [
         {
           metricId: "met_1",
-          numRows: 5,
           data: {
-            a: [0, 0, 0, 0, 0],
-            d: ["All", "All", "All", "All", "All"],
-            v: [0, 1, 2, 3, 4],
-            value: [1, 2, 3, 4, 5],
-            cr: [0.1, 0.2, 0.3, 0.4, 0.5],
-            users: [100, 100, 100, 100, 100],
-            ci: [
-              null,
-              undefined,
-              [-Infinity, 0.2],
-              [0.1, Infinity],
-              [-Infinity, Infinity],
-            ],
-            ciAdjusted: [
-              null,
-              undefined,
-              [-Infinity, 0.3],
-              [0.2, Infinity],
-              [-Infinity, Infinity],
-            ],
+            [analysisKey]: {
+              numRows: 5,
+              d: ["All", "All", "All", "All", "All"],
+              v: [0, 1, 2, 3, 4],
+              value: [1, 2, 3, 4, 5],
+              cr: [0.1, 0.2, 0.3, 0.4, 0.5],
+              users: [100, 100, 100, 100, 100],
+              ci: [
+                null,
+                undefined,
+                [-Infinity, 0.2],
+                [0.1, Infinity],
+                [-Infinity, Infinity],
+              ],
+              ciAdjusted: [
+                null,
+                undefined,
+                [-Infinity, 0.3],
+                [0.2, Infinity],
+                [-Infinity, Infinity],
+              ],
+            },
           },
         },
       ],
@@ -659,15 +793,19 @@ describe("decodeSnapshotAnalysisChunks", () => {
   });
 
   it("preserves analysis error field", () => {
+    const analysisKey = buildAnalysisKey();
     const analysisMetadata = [
       {
+        analysisKey,
         settings: makeAnalysisSettings(),
         dateCreated: new Date("2025-01-01"),
         status: "error" as const,
         error: "Something went wrong",
       },
     ];
-    const chunkedAnalysesMeta: AnalysisMetaEntry[] = [{ dimensions: [] }];
+    const chunkedAnalysesMeta: Record<string, AnalysisMetaEntry> = {
+      [analysisKey]: { dimensions: [] },
+    };
 
     const decoded = decodeSnapshotAnalysisChunks(
       [],
@@ -676,6 +814,55 @@ describe("decodeSnapshotAnalysisChunks", () => {
     );
     expect(decoded[0].status).toBe("error");
     expect(decoded[0].error).toBe("Something went wrong");
+  });
+
+  it("skips chunk sub-paths whose analysisKey is missing from meta", () => {
+    // Simulates the race-safety property: a chunk wrote a sub-path but the
+    // parent snapshot was rolled back / is stale. Decoder must not mis-route
+    // those rows; it must drop them silently.
+    const keyAlive = buildAnalysisKey();
+    const keyOrphan = buildAnalysisKey();
+
+    const chunks: { metricId: string; data: MetricChunkData }[] = [
+      {
+        metricId: "met_1",
+        data: {
+          [keyAlive]: {
+            numRows: 1,
+            d: ["All"],
+            v: [0],
+            value: [1],
+          },
+          [keyOrphan]: {
+            numRows: 1,
+            d: ["All"],
+            v: [0],
+            value: [999],
+          },
+        },
+      },
+    ];
+
+    const decoded = decodeSnapshotAnalysisChunks(
+      chunks,
+      {
+        [keyAlive]: {
+          dimensions: [{ name: "All", srm: 1, variationUsers: [100] }],
+        },
+      },
+      [
+        {
+          analysisKey: keyAlive,
+          settings: makeAnalysisSettings(),
+          dateCreated: new Date("2025-01-01"),
+          status: "success",
+        },
+      ],
+    );
+
+    expect(decoded).toHaveLength(1);
+    expect(decoded[0].analysisKey).toBe(keyAlive);
+    expect(decoded[0].results[0].variations[0].metrics.met_1.value).toBe(1);
   });
 
   it("chunked path produces the same result as the original inline path", () => {
@@ -861,7 +1048,6 @@ describe("decodeSnapshotAnalysisChunks", () => {
     const originalPathResult = analyses;
 
     // --- Chunked path: simulate what the production code does ---
-    // 1. Build a snapshot object as it would exist in the DB
     const snapshot = {
       id: "snp_test123",
       organization: "org_test",
@@ -903,12 +1089,10 @@ describe("decodeSnapshotAnalysisChunks", () => {
       queries: [],
       unknownVariations: [],
       multipleExposures: 0,
-      // Analyses stored with results for getChunkedAnalysesMetaFromSnapshot
       analyses,
       hasChunkedAnalyses: true,
     } satisfies ExperimentSnapshotInterface;
 
-    // 2. Encode: what createFromAnalyses does
     const metricOrdering = buildMetricOrdering(
       snapshot.settings.goalMetrics,
       snapshot.settings.secondaryMetrics,
@@ -919,27 +1103,28 @@ describe("decodeSnapshotAnalysisChunks", () => {
       metricOrdering,
     );
 
-    // 3. Simulate the snapshot as stored in DB (analyses have empty results,
-    //    chunkedAnalysesMeta is saved alongside)
     const storedSnapshot: ExperimentSnapshotInterface = {
       ...snapshot,
       analyses: analyses.map((a) => ({ ...a, results: [] })),
       chunkedAnalysesMeta,
     };
 
-    // 4. Decode: what populateChunkedAnalyses does via getChunkedAnalysesMetaFromSnapshot
-    const { chunkedAnalysesMeta: decodeMeta, analysisMetadata } =
-      getChunkedAnalysesMetaFromSnapshot(storedSnapshot);
+    const analysisMetadata = storedSnapshot.analyses.map((a) => ({
+      analysisKey: a.analysisKey,
+      settings: a.settings,
+      dateCreated: a.dateCreated,
+      status: a.status,
+      ...(a.error ? { error: a.error } : {}),
+    }));
     const chunks = Array.from(metricChunks.entries()).map(
-      ([metricId, chunk]) => ({ metricId, ...chunk }),
+      ([metricId, data]) => ({ metricId, data }),
     );
     const chunkedPathResult = decodeSnapshotAnalysisChunks(
       chunks,
-      decodeMeta,
+      storedSnapshot.chunkedAnalysesMeta ?? {},
       analysisMetadata,
     );
 
-    // --- The two paths must produce identical analyses ---
     expect(chunkedPathResult).toEqual(originalPathResult);
   });
 
@@ -973,5 +1158,313 @@ describe("decodeSnapshotAnalysisChunks", () => {
     expect(decoded[0].results[0].variations[0].metrics.met_unknown.value).toBe(
       2,
     );
+  });
+});
+
+describe("migrateLegacySnapshotAnalysisChunkData", () => {
+  it("returns already-normalized docs unchanged with migrated=null (idempotence)", () => {
+    const key = "an_preset";
+    const newShape = {
+      data: {
+        [key]: {
+          numRows: 2,
+          d: ["All", "All"],
+          v: [0, 1],
+          value: [10, 15],
+        },
+      },
+    };
+
+    const result = migrateLegacySnapshotAnalysisChunkData(newShape);
+
+    expect(result.migrated).toBeNull();
+    expect(result.data).toBe(newShape.data);
+    expect(result.data[key].numRows).toBe(2);
+  });
+
+  it("returns position-keyed docs unchanged with migrated=null (phase-2 input)", () => {
+    // Phase 1 output is also valid input for phase 1 — so re-running it
+    // (e.g. if `BaseModel.migrate` is invoked twice) is a no-op.
+    const positionKeyed = {
+      data: {
+        "0": { numRows: 1, d: ["All"], v: [0], value: [1] },
+        "1": { numRows: 1, d: ["All"], v: [0], value: [2] },
+      },
+    };
+
+    const result = migrateLegacySnapshotAnalysisChunkData(positionKeyed);
+
+    expect(result.migrated).toBeNull();
+    expect(result.data).toBe(positionKeyed.data);
+  });
+
+  it("splits a legacy chunk into position-keyed records, one per legacy `a` value", () => {
+    const legacyChunk = {
+      numRows: 5,
+      data: {
+        a: [0, 0, 1, 1, 1],
+        d: ["", "", "US", "US", "UK"],
+        v: [0, 1, 0, 1, 1],
+        value: [10, 15, 20, 25, 30],
+        cr: [0.1, 0.15, 0.2, 0.25, 0.3],
+        users: [100, 120, 50, 55, 60],
+      },
+    };
+
+    const result = migrateLegacySnapshotAnalysisChunkData(legacyChunk);
+
+    expect(result.migrated).toEqual({ legacyNumRows: 5, analysisCount: 2 });
+    expect(Object.keys(result.data).sort()).toEqual(["0", "1"]);
+
+    const aData = result.data["0"];
+    expect(aData.numRows).toBe(2);
+    expect(aData.d).toEqual(["", ""]);
+    expect(aData.v).toEqual([0, 1]);
+    expect(aData.value).toEqual([10, 15]);
+    expect(aData.cr).toEqual([0.1, 0.15]);
+    expect(aData.users).toEqual([100, 120]);
+
+    const bData = result.data["1"];
+    expect(bData.numRows).toBe(3);
+    expect(bData.d).toEqual(["US", "US", "UK"]);
+    expect(bData.v).toEqual([0, 1, 1]);
+    expect(bData.value).toEqual([20, 25, 30]);
+    expect(bData.cr).toEqual([0.2, 0.25, 0.3]);
+    expect(bData.users).toEqual([50, 55, 60]);
+  });
+
+  it("treats missing `a` column as all-position-0 and keeps value columns intact", () => {
+    const legacyChunk = {
+      numRows: 2,
+      data: {
+        d: ["All", "All"],
+        v: [0, 1],
+        value: [7, 9],
+      },
+    };
+
+    const result = migrateLegacySnapshotAnalysisChunkData(legacyChunk);
+
+    expect(result.migrated).toEqual({ legacyNumRows: 2, analysisCount: 1 });
+    expect(Object.keys(result.data)).toEqual(["0"]);
+    expect(result.data["0"].numRows).toBe(2);
+    expect(result.data["0"].d).toEqual(["All", "All"]);
+    expect(result.data["0"].v).toEqual([0, 1]);
+    expect(result.data["0"].value).toEqual([7, 9]);
+  });
+
+  it("handles empty legacy chunks (numRows=0) without producing sub-records", () => {
+    const legacyChunk = { numRows: 0, data: {} };
+
+    const result = migrateLegacySnapshotAnalysisChunkData(legacyChunk);
+
+    expect(result.migrated).toEqual({ legacyNumRows: 0, analysisCount: 0 });
+    expect(result.data).toEqual({});
+  });
+
+  it("round-trips through remap + decode with asymmetric numRows", () => {
+    const keyA = "an_a";
+    const keyB = "an_b";
+    const legacyChunk = {
+      numRows: 5,
+      data: {
+        a: [0, 0, 1, 1, 1],
+        d: ["", "", "US", "US", "UK"],
+        v: [0, 1, 0, 1, 1],
+        value: [10, 15, 20, 25, 30],
+        cr: [0.1, 0.15, 0.2, 0.25, 0.3],
+        users: [100, 120, 50, 55, 60],
+      },
+    };
+
+    const { data: positionKeyed } =
+      migrateLegacySnapshotAnalysisChunkData(legacyChunk);
+    const data = remapChunkDataPositionKeysToAnalysisKeys(positionKeyed, [
+      keyA,
+      keyB,
+    ]);
+
+    const chunkedAnalysesMeta: Record<string, AnalysisMetaEntry> = {
+      [keyA]: {
+        dimensions: [{ name: "", srm: 0.95, variationUsers: [100, 120] }],
+      },
+      [keyB]: {
+        dimensions: [
+          { name: "US", srm: 0.9, variationUsers: [50, 55] },
+          { name: "UK", srm: 0.88, variationUsers: [45, 60] },
+        ],
+      },
+    };
+    const analysisMetadata = [
+      {
+        analysisKey: keyA,
+        settings: makeAnalysisSettings({ statsEngine: "bayesian" }),
+        dateCreated: new Date("2025-01-01"),
+        status: "success" as const,
+      },
+      {
+        analysisKey: keyB,
+        settings: makeAnalysisSettings({ statsEngine: "frequentist" }),
+        dateCreated: new Date("2025-01-02"),
+        status: "success" as const,
+      },
+    ];
+
+    const decoded = decodeSnapshotAnalysisChunks(
+      [{ metricId: "met_1", data }],
+      chunkedAnalysesMeta,
+      analysisMetadata,
+    );
+
+    expect(decoded).toHaveLength(2);
+
+    // Analysis A: single dim, two variations, both populated.
+    const aAll = decoded[0].results[0];
+    expect(aAll.name).toBe("");
+    expect(aAll.variations[0].metrics.met_1.value).toBe(10);
+    expect(aAll.variations[0].metrics.met_1.users).toBe(100);
+    expect(aAll.variations[1].metrics.met_1.value).toBe(15);
+
+    // Analysis B: US has both variations; UK v0 had no legacy row -> no
+    // metric entry (users hydrated from meta), UK v1 = 30.
+    expect(decoded[1].results).toHaveLength(2);
+    const bUs = decoded[1].results.find((r) => r.name === "US")!;
+    const bUk = decoded[1].results.find((r) => r.name === "UK")!;
+    expect(bUs.variations[0].metrics.met_1.value).toBe(20);
+    expect(bUs.variations[1].metrics.met_1.value).toBe(25);
+    expect(bUk.variations[0].users).toBe(45);
+    expect(bUk.variations[0].metrics.met_1).toBeUndefined();
+    expect(bUk.variations[1].metrics.met_1.value).toBe(30);
+  });
+
+  it("is deterministic across repeated calls (same input -> same output)", () => {
+    const legacyChunk = {
+      numRows: 5,
+      data: {
+        a: [0, 0, 1, 1, 1],
+        d: ["", "", "US", "US", "UK"],
+        v: [0, 1, 0, 1, 1],
+        value: [10, 15, 20, 25, 30],
+      },
+    };
+
+    const first = migrateLegacySnapshotAnalysisChunkData(legacyChunk);
+    const second = migrateLegacySnapshotAnalysisChunkData(legacyChunk);
+
+    expect(second.data).toEqual(first.data);
+    expect(second.migrated).toEqual(first.migrated);
+  });
+
+  it("preserves new-shape sub-records coexisting with legacy flat columns", () => {
+    // A legacy chunk that had a new-shape sub-record appended via
+    // bulkWrite (writer path) before the migration ran. The migration
+    // must rebuild the position-keyed legacy data AND keep the
+    // pre-existing new-shape sub-record intact.
+    const mixedShape = {
+      numRows: 2,
+      data: {
+        a: [0, 0],
+        d: ["All", "All"],
+        v: [0, 1],
+        value: [10, 15],
+        an_newwrite: {
+          numRows: 1,
+          d: ["All"],
+          v: [0],
+          value: [42],
+        },
+      },
+    };
+
+    const result = migrateLegacySnapshotAnalysisChunkData(mixedShape);
+
+    expect(result.migrated).toEqual({ legacyNumRows: 2, analysisCount: 1 });
+    expect(Object.keys(result.data).sort()).toEqual(["0", "an_newwrite"]);
+
+    // Position-keyed legacy data rebuilt correctly.
+    expect(result.data["0"].numRows).toBe(2);
+    expect(result.data["0"].value).toEqual([10, 15]);
+
+    // New-shape sub-record preserved verbatim.
+    expect(result.data["an_newwrite"].numRows).toBe(1);
+    expect(result.data["an_newwrite"].value).toEqual([42]);
+  });
+
+  it("preserves multiple new-shape sub-records sequentially appended to a legacy chunk", () => {
+    // Simulates two sequential writes to a still-legacy chunk doc: the
+    // on-disk state accumulates two new-shape sub-records alongside
+    // the untouched legacy columns. Migration must preserve both.
+    const mixedShape = {
+      numRows: 1,
+      data: {
+        a: [0],
+        d: ["All"],
+        v: [0],
+        value: [1],
+        an_first: { numRows: 1, d: ["All"], v: [0], value: [2] },
+        an_second: { numRows: 1, d: ["All"], v: [0], value: [3] },
+      },
+    };
+
+    const result = migrateLegacySnapshotAnalysisChunkData(mixedShape);
+
+    expect(Object.keys(result.data).sort()).toEqual([
+      "0",
+      "an_first",
+      "an_second",
+    ]);
+    expect(result.data["an_first"].value).toEqual([2]);
+    expect(result.data["an_second"].value).toEqual([3]);
+  });
+});
+
+describe("remapChunkDataPositionKeysToAnalysisKeys", () => {
+  it("renames numeric position keys to the matching analysisKeys", () => {
+    const positionKeyed: Record<string, AnalysisChunkData> = {
+      "0": { numRows: 1, d: ["All"], v: [0], value: [10] },
+      "1": { numRows: 1, d: ["All"], v: [0], value: [20] },
+    };
+
+    const remapped = remapChunkDataPositionKeysToAnalysisKeys(positionKeyed, [
+      "an_first",
+      "an_second",
+    ]);
+
+    expect(Object.keys(remapped).sort()).toEqual(["an_first", "an_second"]);
+    expect(remapped["an_first"].value).toEqual([10]);
+    expect(remapped["an_second"].value).toEqual([20]);
+  });
+
+  it("drops position keys that have no matching analysisKey (orphans)", () => {
+    // Position 1's analysis was removed from the parent snapshot before
+    // migration — its rows have no home.
+    const positionKeyed: Record<string, AnalysisChunkData> = {
+      "0": { numRows: 1, d: ["All"], v: [0], value: [10] },
+      "1": { numRows: 1, d: ["All"], v: [0], value: [99] },
+    };
+
+    const remapped = remapChunkDataPositionKeysToAnalysisKeys(positionKeyed, [
+      "an_only",
+    ]);
+
+    expect(Object.keys(remapped)).toEqual(["an_only"]);
+    expect(remapped["an_only"].value).toEqual([10]);
+  });
+
+  it("passes already-renamed analysisKey-keyed data through unchanged (idempotence)", () => {
+    const analysisKeyed: Record<string, AnalysisChunkData> = {
+      an_first: { numRows: 1, d: ["All"], v: [0], value: [10] },
+      an_second: { numRows: 1, d: ["All"], v: [0], value: [20] },
+    };
+
+    // Even with a non-empty analysisKeysByPosition, the renamer must
+    // recognize that these are not numeric positions and leave them be.
+    const remapped = remapChunkDataPositionKeysToAnalysisKeys(analysisKeyed, [
+      "an_other",
+    ]);
+
+    expect(Object.keys(remapped).sort()).toEqual(["an_first", "an_second"]);
+    expect(remapped["an_first"]).toBe(analysisKeyed["an_first"]);
+    expect(remapped["an_second"]).toBe(analysisKeyed["an_second"]);
   });
 });

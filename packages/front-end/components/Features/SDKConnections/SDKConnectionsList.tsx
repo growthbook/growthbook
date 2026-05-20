@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { FaAngleRight, FaExclamationTriangle, FaLock } from "react-icons/fa";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import { BsLightningFill } from "react-icons/bs";
 import { RxDesktop } from "react-icons/rx";
@@ -10,6 +9,7 @@ import {
   getDisallowedProjects,
 } from "shared/util";
 import clsx from "clsx";
+import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";

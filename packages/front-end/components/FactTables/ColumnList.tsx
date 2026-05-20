@@ -15,6 +15,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import Avatar from "@/ui/Avatar";
 import ColumnModal from "./ColumnModal";
 
@@ -89,12 +90,14 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
       ) : null}
 
       {factTable.columnsError && (
-        <div className="alert alert-danger">
-          <strong>
-            Error {columns.length > 0 ? "Refreshing" : "Detecting"} Columns
-          </strong>
-          : {factTable.columnsError}
-        </div>
+        <Callout status="error">
+          <span>
+            <strong>
+              Error {columns.length > 0 ? "Refreshing" : "Detecting"} Columns
+            </strong>
+            : {factTable.columnsError}
+          </span>
+        </Callout>
       )}
 
       <div className="row align-items-center">
@@ -135,11 +138,13 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
         )}
       </div>
       {columns.some((col) => !col.deleted && col.datatype === "") && (
-        <div className="alert alert-warning mt-2">
-          Could not detect the data type for some columns. You can manually
-          specify data types below. Only numeric columns can be used to create
-          Metrics.
-        </div>
+        <Callout status="warning" mt="2">
+          <span>
+            Could not detect the data type for some columns. You can manually
+            specify data types below. Only numeric columns can be used to create
+            Metrics.
+          </span>
+        </Callout>
       )}
       {columns.length > 0 ? (
         <>
@@ -295,10 +300,12 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
           {pagination}
         </>
       ) : (
-        <div className="alert alert-warning mt-3">
-          <strong>Unable to Auto-Detect Columns</strong>. Double check your SQL
-          above to make sure it&apos;s correct and returning rows.
-        </div>
+        <Callout status="warning" mt="3">
+          <span>
+            <strong>Unable to Auto-Detect Columns</strong>. Double check your
+            SQL above to make sure it&apos;s correct and returning rows.
+          </span>
+        </Callout>
       )}
     </>
   );

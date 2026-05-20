@@ -58,8 +58,10 @@ import { logger } from "back-end/src/util/logger";
 import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { updateSnapshotAnalysis } from "back-end/src/models/ExperimentSnapshotModel";
 import { Context } from "back-end/src/models/BaseModel";
-import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/integrations/SqlIntegration";
-import { MAX_METRICS_PER_QUERY } from "back-end/src/services/experimentQueries/constants";
+import {
+  MAX_METRICS_PER_QUERY,
+  MAX_ROWS_UNIT_AGGREGATE_QUERY,
+} from "back-end/src/services/experimentQueries/constants";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { statsServerPool } from "back-end/src/services/python";
 import { metrics } from "back-end/src/util/metrics";
@@ -102,7 +104,9 @@ export function getAnalysisSettingsForStatsEngine(
         : MAX_DIMENSIONS,
     traffic_percentage: coverage,
     num_goal_metrics: settings.numGoalMetrics,
+    num_guardrail_metrics: settings.numGuardrailMetrics ?? 0,
     one_sided_intervals: !!settings.oneSidedIntervals,
+    use_covariate_as_response: !!settings.useCovariateAsResponse,
     post_stratification_enabled: !!settings.postStratificationEnabled,
   };
 

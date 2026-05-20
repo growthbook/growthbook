@@ -69,11 +69,12 @@ import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTempl
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
+import { RevisionModel } from "back-end/src/models/RevisionModel";
 import { AIConversationModel } from "back-end/src/models/AIConversationModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
-import { getUserByEmail } from "back-end/src/models/UserModel";
+import { getUserByEmail, getUsersByIds } from "back-end/src/models/UserModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -115,6 +116,7 @@ export type ModelName =
   | "teams"
   | "analyticsExplorations"
   | "presentationThemes"
+  | "revisions"
   | "watch"
   | "apiKeys"
   | "rampSchedules"
@@ -152,6 +154,7 @@ export const modelClasses = {
   savedGroups: SavedGroupModel,
   teams: TeamModel,
   analyticsExplorations: AnalyticsExplorationModel,
+  revisions: RevisionModel,
   presentationThemes: PresentationThemeModel,
   watch: WatchModel,
   apiKeys: ApiKeyModel,
@@ -200,6 +203,7 @@ export class ReqContextClass {
       savedGroups: new SavedGroupModel(this),
       teams: new TeamModel(this),
       analyticsExplorations: new AnalyticsExplorationModel(this),
+      revisions: new RevisionModel(this),
       presentationThemes: new PresentationThemeModel(this),
       watch: new WatchModel(this),
       apiKeys: new ApiKeyModel(this),
@@ -425,6 +429,12 @@ export class ReqContextClass {
   // This is defined on the context to prevent a circular dependency between UserModel and BaseModel
   public async getUserByEmail(email: string): Promise<UserInterface | null> {
     return getUserByEmail(email);
+  }
+
+  // Defined on the context for the same reason as getUserByEmail — lets owner
+  // helpers fetch users without statically importing UserModel.
+  public async getUsersByIds(ids: string[]): Promise<UserInterface[]> {
+    return getUsersByIds(ids);
   }
 
   // Cache projects since they are needed many places in the code

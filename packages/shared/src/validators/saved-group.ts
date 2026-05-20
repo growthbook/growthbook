@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ownerField, ownerInputField } from "./owner-field";
+import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
@@ -21,6 +21,7 @@ export const savedGroupValidator = z
     description: z.string().optional(),
     projects: z.array(z.string()).optional(),
     useEmptyListGroup: z.boolean().optional(),
+    archived: z.boolean().optional(),
   })
   .strict();
 
@@ -42,6 +43,7 @@ export const putSavedGroupBodyValidator = z.object({
   condition: z.string().optional(),
   description: z.string().optional(),
   projects: z.string().array().optional(),
+  archived: z.boolean().optional(),
 });
 
 // --- External API validators (correspond to YAML specs) ---
@@ -57,6 +59,7 @@ export const apiSavedGroupValidator = namedSchema(
       dateUpdated: z.string().meta({ format: "date-time" }),
       name: z.string(),
       owner: ownerField.optional(),
+      ownerEmail: ownerEmailField,
       condition: z
         .string()
         .describe(
@@ -77,6 +80,7 @@ export const apiSavedGroupValidator = namedSchema(
         .optional(),
       description: z.string().optional(),
       projects: z.array(z.string()).optional(),
+      archived: z.boolean().optional(),
     })
     .strict(),
 );
@@ -223,6 +227,40 @@ export const updateSavedGroupValidator = {
     params: { id: "abc123" },
     body: { values: ["userId-123", "userId-345"] },
   },
+};
+
+export const archiveSavedGroupValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      savedGroup: apiSavedGroupValidator,
+    })
+    .strict(),
+  summary: "Archive a single saved group",
+  operationId: "archiveSavedGroup",
+  tags: ["saved-groups"],
+  method: "post" as const,
+  path: "/saved-groups/:id/archive",
+  exampleRequest: { params: { id: "abc123" } },
+};
+
+export const unarchiveSavedGroupValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      savedGroup: apiSavedGroupValidator,
+    })
+    .strict(),
+  summary: "Unarchive a single saved group",
+  operationId: "unarchiveSavedGroup",
+  tags: ["saved-groups"],
+  method: "post" as const,
+  path: "/saved-groups/:id/unarchive",
+  exampleRequest: { params: { id: "abc123" } },
 };
 
 export const deleteSavedGroupValidator = {

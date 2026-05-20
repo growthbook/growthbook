@@ -8,6 +8,7 @@ import {
   DifferenceType,
   StatsEngine,
   PValueCorrection,
+  SignificanceThresholds,
 } from "shared/types/stats";
 import { ExperimentStatus } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
@@ -22,6 +23,7 @@ import { useTableSorting } from "@/hooks/useTableSorting";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { filterRowsForMetricDrilldown } from "./helpers";
+import { type DrilldownDimensionInfo } from "./useMetricDrilldownContext";
 
 interface MetricDrilldownSlicesProps {
   metric: ExperimentMetricInterface;
@@ -38,6 +40,7 @@ interface MetricDrilldownSlicesProps {
   setVariationFilter: (filter: number[] | undefined) => void;
   // Props for ResultsTable
   experimentId: string;
+  significanceThresholds: SignificanceThresholds;
   phase: number;
   variations: ExperimentReportVariation[];
   startDate: string;
@@ -59,6 +62,7 @@ interface MetricDrilldownSlicesProps {
   // SSR polyfills for public pages
   ssrPolyfills?: SSRPolyfills;
   hideTimeSeries?: boolean;
+  dimensionInfo?: DrilldownDimensionInfo;
 }
 
 const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
@@ -72,6 +76,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   variationFilter,
   setVariationFilter,
   experimentId,
+  significanceThresholds,
   phase,
   variations,
   startDate,
@@ -89,6 +94,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   setVisibleTimeSeriesRowIds,
   ssrPolyfills,
   hideTimeSeries,
+  dimensionInfo,
 }) => {
   const { hasCommercialFeature } = useUser();
 
@@ -192,6 +198,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
 
       <ResultsTable
         experimentId={experimentId}
+        significanceThresholds={significanceThresholds}
         dateCreated={reportDate}
         isLatestPhase={isLatestPhase}
         phase={phase}
@@ -249,6 +256,8 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
         analysis={analysis}
         setAnalysisSettings={setAnalysisSettings}
         mutate={mutate}
+        dimensionId={dimensionInfo?.id}
+        dimensionValue={dimensionInfo?.rawValue}
       />
     </Box>
   );

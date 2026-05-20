@@ -8,6 +8,7 @@ import {
   BanditEvent,
   ExperimentDecisionFrameworkSettings,
   HoldoutInterface,
+  RevisionStatus,
 } from "shared/validators";
 import { ExperimentRefVariation, FeatureInterface } from "./feature";
 
@@ -85,6 +86,7 @@ export type ExperimentUnhealthyData = {
     multipleExposedUsers: number;
   };
   lowPowered?: boolean;
+  covariateImbalance?: boolean;
 };
 
 export type ExperimentResultStatus =
@@ -141,6 +143,17 @@ export type ExperimentPhaseStringDates = Omit<
   dateEnded?: string;
 };
 
+type NextScheduledStatusUpdateStringDates = Omit<
+  NextScheduledStatusUpdate,
+  "date"
+> & {
+  date: string;
+};
+
+type StatusUpdateScheduleStringDates = Omit<StatusUpdateSchedule, "startAt"> & {
+  startAt?: string;
+};
+
 export type LegacyMetricOverride = MetricOverride & {
   conversionWindowHours?: number;
   conversionDelayHours?: number;
@@ -178,11 +191,17 @@ export interface LegacyExperimentInterface
 
 export type ExperimentInterfaceStringDates = Omit<
   ExperimentInterface,
-  "dateCreated" | "dateUpdated" | "phases"
+  | "dateCreated"
+  | "dateUpdated"
+  | "phases"
+  | "nextScheduledStatusUpdate"
+  | "statusUpdateSchedule"
 > & {
   dateCreated: string;
   dateUpdated: string;
   phases: ExperimentPhaseStringDates[];
+  nextScheduledStatusUpdate?: NextScheduledStatusUpdateStringDates | null;
+  statusUpdateSchedule?: StatusUpdateScheduleStringDates | null;
 };
 
 export type HoldoutExperimentInterface = ExperimentInterfaceStringDates &
@@ -230,7 +249,12 @@ export type ExperimentTargetingData = Pick<
     reseed: boolean;
   };
 
-export type LinkedFeatureState = "locked" | "live" | "draft" | "discarded";
+export type LinkedFeatureState =
+  | "locked"
+  | "live"
+  | "draft"
+  | "discarded"
+  | "archived";
 
 export type LinkedFeatureEnvState =
   | "missing"
@@ -246,6 +270,22 @@ export interface LinkedFeatureInfo {
   inconsistentValues: boolean;
   rulesAbove: boolean;
   environmentStates: Record<string, LinkedFeatureEnvState>;
+  /** True when the matching draft revision requires approval (regardless of whether it's been approved yet). */
+  pendingApproval?: boolean;
+  /** Version of the matching draft revision (present when state === "draft"). */
+  draftRevisionVersion?: number;
+  /** Status of the matching draft revision (present when state === "draft"). */
+  draftRevisionStatus?: RevisionStatus;
+  /** True when the draft cannot be auto-merged into live due to conflicting changes. */
+  hasMergeConflict?: boolean;
+  /**
+   * True when the draft would publish changes outside the target experiment's
+   * experiment-ref rule(s) — e.g. defaultValue, prerequisites, holdout, or
+   * other rules. Forces the user to publish from the feature page so they
+   * can review the full set of changes before they go live. Per-env kill
+   * switches and metadata are excluded (auto-toggled / typically no SDK impact).
+   */
+  hasUnrelatedDraftChanges?: boolean;
 }
 
 export type LinkedChangeEnvState = "active" | "no-sdk-connection";
@@ -274,6 +314,7 @@ export type ExperimentDataForStatusStringDates = Pick<
   | "guardrailMetrics"
   | "datasource"
   | "decisionFrameworkSettings"
+  | "nextScheduledStatusUpdate"
 >;
 
 export type ExperimentDataForStatus = Pick<
@@ -291,4 +332,5 @@ export type ExperimentDataForStatus = Pick<
   | "guardrailMetrics"
   | "datasource"
   | "decisionFrameworkSettings"
+  | "nextScheduledStatusUpdate"
 >;

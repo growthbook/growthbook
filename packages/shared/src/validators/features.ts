@@ -10,7 +10,7 @@ import {
   apiPaginationFieldsValidator,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
-import { ownerField, ownerInputField } from "./owner-field";
+import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import {
   featureRulePatch,
   rampTrigger,
@@ -59,7 +59,14 @@ export const baseRule = z
   .object({
     description: z.string(),
     condition: z.string().optional(),
+    // `fr_<uniqid>` for new rules; post-migration rules from a v1 collision
+    // carry a `__<env>` suffix. REST emits the qualified id; SDK/UI stem-strip.
+    // See `shared/src/util/ruleId.ts`.
     id: z.string(),
+    // Wildcard env scope. When true, `environments` must be omitted.
+    allEnvironments: z.boolean(),
+    // Env list when `allEnvironments` is false.
+    environments: z.array(z.string()).optional(),
     enabled: z.boolean().optional(),
     scheduleRules: z.array(scheduleRule).optional(),
     savedGroups: z.array(savedGroupTargeting).optional(),
@@ -192,15 +199,45 @@ export const featureRule = z.union([
 
 export type FeatureRule = z.infer<typeof featureRule>;
 
+// Env-level settings only (kill switch + prerequisites). Rules live on
+// `featureInterface.rules`.
 export const featureEnvironment = z
   .object({
     enabled: z.boolean(),
     prerequisites: z.array(featurePrerequisite).optional(),
-    rules: z.array(featureRule),
   })
   .strict();
 
 export type FeatureEnvironment = z.infer<typeof featureEnvironment>;
+
+// ---------------------------------------------------------------------------
+// v1 (legacy) validators
+// ---------------------------------------------------------------------------
+// Deliberately permissive `.passthrough()` schemas for on-disk legacy data.
+// Constructed field-by-field so evolving v2 `FeatureRule` doesn't implicitly
+// change `V1FeatureRule`.
+// ---------------------------------------------------------------------------
+
+export const v1FeatureRule = z
+  .object({
+    id: z.string(),
+    type: z.string().optional(),
+    enabled: z.boolean().optional(),
+    description: z.string().optional(),
+  })
+  .passthrough();
+
+export type V1FeatureRule = z.infer<typeof v1FeatureRule>;
+
+export const v1FeatureEnvironment = z
+  .object({
+    enabled: z.boolean().optional(),
+    prerequisites: z.array(featurePrerequisite).optional(),
+    rules: z.array(v1FeatureRule).optional(),
+  })
+  .passthrough();
+
+export type V1FeatureEnvironment = z.infer<typeof v1FeatureEnvironment>;
 
 export const JSONSchemaDef = z
   .object({
@@ -224,7 +261,7 @@ const revisionLog = z
 
 export type RevisionLog = z.infer<typeof revisionLog>;
 
-const revisionRulesSchema = z.record(z.string(), z.array(featureRule));
+const revisionRulesSchema = z.array(featureRule);
 export type RevisionRules = z.infer<typeof revisionRulesSchema>;
 
 export const revisionStatusSchema = z.enum([
@@ -307,7 +344,12 @@ export const revisionRampCreateAction = z.object({
   mode: z.literal("create"),
   /** Display name. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
   name: z.string().optional(),
-  /** If set, patches are scoped to this environment only; absent/null applies to all environments sharing the ruleId. */
+  /**
+   * @deprecated New ramp actions must omit this field and target exclusively
+   * by `ruleId`.  Retained as optional/nullable so pre-migration actions
+   * stored in the DB continue to deserialize and resolve correctly via
+   * `resolveRampTargets` in `flattenRules.ts`.
+   */
   environment: z.string().optional().nullable(),
   /** Load steps and endActions from a saved template. Explicit steps/endActions take precedence. */
   templateId: z.string().optional(),
@@ -413,6 +455,10 @@ export const featureInterface = z
     version: z.number(),
     tags: z.array(z.string()).optional(),
     environmentSettings: z.record(z.string(), featureEnvironment),
+    // Unified top-level rule array. Each rule carries `environments` (or allEnvironments=true).
+    // Repurposes the pre-existing but previously-unused `rules` field in the Mongoose schema
+    // so no DB migration is needed.
+    rules: z.array(featureRule),
     linkedExperiments: z.array(z.string()).optional(),
     jsonSchema: JSONSchemaDef.optional(),
     customFields: z.record(z.string(), z.any()).optional(),
@@ -743,7 +789,7 @@ export type ApiFeatureEnvironment = z.infer<
 >;
 
 // Holdout sub-object used in Feature
-const apiFeatureHoldout = z
+export const apiFeatureHoldout = z
   .object({
     id: z.string().describe("Holdout ID"),
     value: z
@@ -756,13 +802,13 @@ const apiFeatureHoldout = z
   .optional();
 
 // Revision prerequisite sub-object (used in FeatureRevision)
-const apiRevisionPrerequisite = z.object({
+export const apiRevisionPrerequisite = z.object({
   id: z.string().describe("Feature ID"),
   condition: z.string(),
 });
 
 // Revision metadata sub-object
-const apiRevisionMetadata = z
+export const apiRevisionMetadata = z
   .object({
     description: z.string().optional(),
     owner: ownerField.optional(),
@@ -847,6 +893,7 @@ export const apiFeatureValidator = namedSchema(
       archived: z.boolean(),
       description: z.string(),
       owner: ownerField,
+      ownerEmail: ownerEmailField,
       project: z.string(),
       valueType: z.enum(["boolean", "string", "number", "json"]),
       defaultValue: z.string(),
@@ -1123,6 +1170,17 @@ const updateFeatureBody = z
 
 // ---- Route validators ----
 
+/**
+ * RFC 8594 `Deprecation` header value for v1 feature endpoints.
+ *
+ * Emits `Deprecation: true` (boolean form, not a date) — signals "stop using
+ * this endpoint ASAP" without committing to a removal date. V1 endpoints are
+ * expected to remain available indefinitely for backward compatibility, but
+ * new integrations should always use v2. If we ever commit to a removal date,
+ * switch this to `@<unix-timestamp>` and add a `Sunset:` header alongside.
+ */
+export const FEATURE_V1_DEPRECATED = "true";
+
 export const listFeaturesValidator = {
   bodySchema: z.never(),
   querySchema: z
@@ -1145,7 +1203,9 @@ export const listFeaturesValidator = {
   ),
   summary: "Get all features",
   description:
-    "Returns features with pagination. The skipPagination query parameter is\nhonored only when API_ALLOW_SKIP_PAGINATION is set (self-hosted deployments).\n",
+    "**Deprecated.** Use [GET /v2/features](#operation/listFeaturesV2) instead.\n\nReturns features with pagination. The skipPagination query parameter is\nhonored only when API_ALLOW_SKIP_PAGINATION is set (self-hosted deployments).\n",
+  deprecated: true,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "listFeatures",
   tags: ["features"],
   method: "get" as const,
@@ -1158,6 +1218,10 @@ export const postFeatureValidator = {
   paramsSchema: z.never(),
   responseSchema: featureResponseSchema,
   summary: "Create a single feature",
+  description:
+    "**Deprecated.** Use [POST /v2/features](#operation/postFeatureV2) instead.",
+  deprecated: true,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "postFeature",
   tags: ["features"],
   method: "post" as const,
@@ -1183,6 +1247,10 @@ export const getFeatureValidator = {
     })
     .strict(),
   summary: "Get a single feature",
+  description:
+    "**Deprecated.** Use [GET /v2/features/:id](#operation/getFeatureV2) instead.",
+  deprecated: true,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "getFeature",
   tags: ["features"],
   method: "get" as const,
@@ -1197,7 +1265,9 @@ export const updateFeatureValidator = {
   responseSchema: featureResponseSchema,
   summary: "Partially update a feature",
   description:
-    'Updates any combination of a feature\'s metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.\n\nReturns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.\n',
+    '**Deprecated.** Use [POST /v2/features/:id](#operation/updateFeatureV2) instead.\n\nUpdates any combination of a feature\'s metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.\n\nReturns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.\n',
+  deprecated: true,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "updateFeature",
   tags: ["features"],
   method: "post" as const,
@@ -1218,7 +1288,9 @@ export const deleteFeatureValidator = {
     .strict(),
   summary: "Deletes a single feature",
   description:
-    'Permanently deletes a feature and all of its revisions.\n\nArchived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled, or the API key lacks delete permission.\n',
+    '**Deprecated.** Use [DELETE /v2/features/:id](#operation/deleteFeatureV2) instead.\n\nPermanently deletes a feature and all of its revisions.\n\nArchived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled, or the API key lacks delete permission.\n',
+  deprecated: true,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "deleteFeature",
   tags: ["features"],
   method: "delete" as const,
@@ -1251,7 +1323,9 @@ export const toggleFeatureValidator = {
   responseSchema: featureResponseSchema,
   summary: "Toggle a feature in one or more environments",
   description:
-    'Enables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean and immediately publishes the change.\n\nReturns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.\n',
+    '**Deprecated.** Use [POST /v2/features/:id/toggle](#operation/toggleFeatureV2) instead.\n\nEnables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean and immediately publishes the change.\n\nReturns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.\n',
+  deprecated: true,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "toggleFeature",
   tags: ["features"],
   method: "post" as const,
@@ -1276,7 +1350,9 @@ export const revertFeatureValidator = {
   responseSchema: featureResponseSchema,
   summary: "Revert a feature to a specific revision",
   description:
-    'Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.\n\nReturns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.\n',
+    '**Deprecated.** Use [POST /v2/features/:id/revert](#operation/revertFeatureV2) instead.\n\nCreates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.\n\nReturns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.\n',
+  deprecated: true,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "revertFeature",
   tags: ["features"],
   method: "post" as const,
@@ -1302,7 +1378,9 @@ export const getFeatureRevisionsValidator = {
     .extend(apiPaginationFieldsValidator.shape),
   summary: "List revisions for a feature",
   description:
-    "Returns a paginated list of revisions for this feature, sorted newest-first. Optionally filtered by status and/or author.",
+    "**Deprecated.** Use [GET /v2/features/:id/revisions](#operation/getFeatureRevisionsV2) instead.\n\nReturns a paginated list of revisions for this feature, sorted newest-first. Optionally filtered by status and/or author.",
+  deprecated: true,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "getFeatureRevisions",
   tags: ["feature-revisions"],
   method: "get" as const,
@@ -1399,6 +1477,10 @@ export const getFeatureStaleValidator = {
     })
     .strict(),
   summary: "Get stale status for one or more features",
+  description:
+    "**Deprecated.** Use [GET /v2/stale-features](#operation/getFeatureStaleV2) instead.",
+  deprecated: true,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "getFeatureStale",
   tags: ["features"],
   method: "get" as const,
@@ -1415,6 +1497,10 @@ export const getFeatureKeysValidator = {
   paramsSchema: z.never(),
   responseSchema: z.array(z.string()),
   summary: "Get list of feature keys",
+  description:
+    "**Deprecated.** Use [GET /v2/feature-keys](#operation/getFeatureKeysV2) instead.",
+  deprecated: true,
+  deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "getFeatureKeys",
   tags: ["features"],
   method: "get" as const,

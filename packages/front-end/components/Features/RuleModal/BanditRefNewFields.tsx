@@ -42,6 +42,9 @@ import {
 } from "@/components/Features/AttributeOptionTooltip";
 import Switch from "@/ui/Switch";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
+import RuleEnvironmentScopeField, {
+  type EnvScopeProps,
+} from "@/components/Features/RuleModal/EnvironmentScopeField";
 
 export default function BanditRefNewFields({
   step,
@@ -68,6 +71,7 @@ export default function BanditRefNewFields({
   setVariations,
   disableBanditConversionWindow,
   setDisableBanditConversionWindow,
+  envScope,
 }: {
   step: number;
   source: "rule" | "experiment";
@@ -92,6 +96,7 @@ export default function BanditRefNewFields({
   setVariations: (v: SortableVariation[]) => void;
   disableBanditConversionWindow: boolean;
   setDisableBanditConversionWindow: (v: boolean) => void;
+  envScope?: EnvScopeProps;
 }) {
   const form = useFormContext();
 
@@ -153,6 +158,8 @@ export default function BanditRefNewFields({
             {...form.register("description")}
             placeholder="Short human-readable description of the Bandit"
           />
+
+          {envScope && <RuleEnvironmentScopeField {...envScope} my="5" />}
         </>
       ) : null}
 
@@ -227,6 +234,8 @@ export default function BanditRefNewFields({
                 formPrefix={namespaceFormPrefix}
                 trackingKey={form.watch("trackingKey") || feature?.id}
                 featureId={feature?.id || ""}
+                experimentHashAttribute={form.watch("hashAttribute")}
+                fallbackAttribute={form.watch("fallbackAttribute")}
               />
             </div>
           )}

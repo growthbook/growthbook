@@ -1,4 +1,5 @@
 import { analyzeExperimentPower } from "shared/enterprise";
+import { tabulateCovariateImbalance } from "shared/health";
 import { addDays } from "date-fns";
 import {
   ExperimentMetricInterface,
@@ -304,7 +305,7 @@ export const startExperimentResultQueries = async (
     const snapshotDimensionsForTraffic: ExperimentDimensionWithSpecifiedSlices[] =
       [];
     snapshotDimensions.forEach((d) => {
-      if (d.type === "experiment" && d.specifiedSlices !== undefined) {
+      if (d.type === "experiment" && d.specifiedSlices?.length) {
         snapshotDimensionsForTraffic.push({
           ...d,
           specifiedSlices: d.specifiedSlices,
@@ -468,8 +469,21 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
           variationsSettings: this.model.settings.variations,
         });
       }
+      const analysisForCovariateImbalance = this.model.analyses.find(
+        (a) => a.settings.useCovariateAsResponse === true,
+      );
+      const isEligibleForCovariateImbalanceAnalysis =
+        !!analysisForCovariateImbalance;
+      if (isEligibleForCovariateImbalanceAnalysis) {
+        result.health.covariateImbalance = tabulateCovariateImbalance(
+          analysisForCovariateImbalance,
+          this.model.settings.goalMetrics,
+          this.model.settings.guardrailMetrics,
+          this.model.settings.secondaryMetrics,
+          this.model.settings.metricSettings,
+        );
+      }
     }
-
     return result;
   }
 

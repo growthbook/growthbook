@@ -1,9 +1,9 @@
-import Link from "next/link";
 import React, { ReactElement } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
 import { date } from "shared/dates";
 import { getLatestPhaseVariations } from "shared/experiments";
+import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
