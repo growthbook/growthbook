@@ -46,7 +46,7 @@ import {
   generateExperimentReportSSRData,
 } from "back-end/src/services/reports";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
-import { getAdditionalQueryMetadataForExperiment } from "back-end/src/services/experiments";
+import { getExperimentQueryMetadata } from "back-end/src/services/experiments";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<ExperimentSnapshotReportArgs, { snapshot: string }>,
@@ -594,7 +594,11 @@ export async function putReport(
         factTableMap,
         metricGroups,
         experimentQueryMetadata: experiment
-          ? getAdditionalQueryMetadataForExperiment(experiment)
+          ? {
+              ...getExperimentQueryMetadata(experiment),
+              snapshotType: "report" as const,
+              snapshotTriggeredBy: "manual" as const,
+            }
           : null,
       });
     }

@@ -11,6 +11,7 @@ import {
   getExperimentByTrackingKey,
 } from "back-end/src/models/ExperimentModel";
 import {
+  normalizeStatusUpdateScheduleChanges,
   toExperimentApiInterface,
   updateExperimentApiPayloadToInterface,
   validateVariationIds,
@@ -267,6 +268,8 @@ export const updateExperiment = createApiRequestHandler(
     map,
     req.organization,
   );
+
+  normalizeStatusUpdateScheduleChanges(experiment, changes);
 
   const isStartingFromDraft =
     experiment.status === "draft" && changes.status === "running";

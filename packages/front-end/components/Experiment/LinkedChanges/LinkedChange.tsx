@@ -125,13 +125,17 @@ export default function LinkedChange({
                   Edit
                 </Button>
               )}
-              {vc && experiment?.status === "draft" && (
-                <OpenVisualEditorLink
-                  visualChangeset={vc}
-                  useLink={true}
-                  button={<Button variant="ghost">Launch Visual Editor</Button>}
-                />
-              )}
+              {vc &&
+                experiment?.status === "draft" &&
+                !experiment?.nextScheduledStatusUpdate && (
+                  <OpenVisualEditorLink
+                    visualChangeset={vc}
+                    useLink={true}
+                    button={
+                      <Button variant="ghost">Launch Visual Editor</Button>
+                    }
+                  />
+                )}
             </Box>
           )}
         </Flex>

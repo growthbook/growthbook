@@ -133,6 +133,8 @@ export class RevisionModel extends BaseClass {
     userId: string,
   ): { status?: Revision["status"]; resetEntry?: ActivityLogEntry } {
     if (existing.status !== "approved") return {};
+    if (!this.context.hasPremiumFeature("require-approvals")) return {};
+
     const settings = getApprovalFlowSettings(
       this.context.org.settings?.approvalFlows,
       existing.target.type,

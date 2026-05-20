@@ -254,7 +254,7 @@ function Footer({
   justify?: "start" | "center" | "end" | "between";
 }) {
   return (
-    <Box flexShrink="0">
+    <Box flexShrink="0" ml="-3">
       <Inset side="x">
         <Separator size="4" mt="5" style={{ marginBottom: "20px" }} />
       </Inset>

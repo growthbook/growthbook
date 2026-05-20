@@ -89,7 +89,7 @@ export interface Props {
   editTargeting?: (() => void) | null;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
-  editHoldoutSchedule?: (() => void) | null;
+  editSchedule?: (() => void) | null;
   visualChangesetEnvStates?: LinkedChangeEnvStates;
   urlRedirectEnvStates?: LinkedChangeEnvStates;
 }
@@ -116,7 +116,7 @@ export default function TabbedPage({
   checklistHardBlockerCount,
   setChecklistItemsRemaining,
   setChecklistHardBlockerCount,
-  editHoldoutSchedule,
+  editSchedule,
   visualChangesetEnvStates,
   urlRedirectEnvStates,
 }: Props) {
@@ -533,7 +533,7 @@ export default function TabbedPage({
         linkedFeatures={linkedFeatures}
         showDashboardView={showDashboardView}
         safeToEdit={safeToEdit}
-        editHoldoutSchedule={editHoldoutSchedule}
+        editSchedule={editSchedule}
       />
 
       <div
@@ -624,7 +624,7 @@ export default function TabbedPage({
             setChecklistItemsRemaining={setChecklistItemsRemaining}
             setChecklistHardBlockerCount={setChecklistHardBlockerCount}
             envs={envs}
-            editHoldoutSchedule={editHoldoutSchedule}
+            editSchedule={editSchedule}
           />
           <Implementation
             experiment={experiment}
