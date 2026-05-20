@@ -1,7 +1,15 @@
 import dynamic from "next/dynamic";
+import { createPortal } from "react-dom";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import {
+  useMemo,
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+} from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import {
@@ -88,7 +96,6 @@ import {
   filterCustomFieldsForSectionAndProject,
 } from "@/hooks/useCustomFields";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { useScrollPosition } from "@/hooks/useScrollPosition";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
@@ -447,11 +454,54 @@ export default function FeaturesOverview({
     });
     ro.observe(el);
   }, []);
-  const { scrollY } = useScrollPosition();
-  useEffect(() => {
-    if (!bannerRef.current) return;
-    setBannerPinned(bannerRef.current.getBoundingClientRect().top <= 110);
-  }, [scrollY]);
+  // Watch a sentinel just above the sticky banner. When the sentinel scrolls
+  // out of the viewport (above the 110px sticky offset), the banner is
+  // genuinely pinned — a more reliable signal than getBoundingClientRect math,
+  // which falsely reports "pinned" whenever the banner's natural position
+  // already sits near the top of the page.
+  //
+  // Use a ref callback (not useRef + useEffect[]) so the observer re-attaches
+  // when the sentinel later mounts — e.g. when a user creates a draft on a
+  // page that initially had no banner.
+  const bannerSentinelObserver = useRef<IntersectionObserver | null>(null);
+  const bannerSentinelRef = useCallback((el: HTMLDivElement | null) => {
+    if (bannerSentinelObserver.current) {
+      bannerSentinelObserver.current.disconnect();
+      bannerSentinelObserver.current = null;
+    }
+    if (!el) {
+      setBannerPinned(false);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => setBannerPinned(!entry.isIntersecting),
+      { rootMargin: "-110px 0px 0px 0px", threshold: 0 },
+    );
+    observer.observe(el);
+    bannerSentinelObserver.current = observer;
+  }, []);
+
+  // Slot refs for the draft CTA portal (Discard / Review & Publish / Fix conflicts).
+  // The portal host migrates between the revision card slot and the sticky banner
+  // slot so the same DOM node is reused without duplicating handler logic.
+  const ctaSlotRef = useRef<HTMLDivElement>(null);
+  const bannerCtaSlotRef = useRef<HTMLDivElement>(null);
+  const [draftCtaPortalHost] = useState<HTMLDivElement | null>(() => {
+    if (typeof document === "undefined") return null;
+    const div = document.createElement("div");
+    div.style.display = "contents";
+    return div;
+  });
+  // useLayoutEffect (no deps) runs synchronously after every DOM commit, by
+  // which point all refs are guaranteed to be populated. A plain useEffect with
+  // [bannerPinned] misses the initial mount when ctaSlotRef.current isn't set
+  // yet at the time the effect fires, leaving the CTAs invisible until the next
+  // bannerPinned state change.
+  useLayoutEffect(() => {
+    if (!draftCtaPortalHost) return;
+    const target = bannerPinned ? bannerCtaSlotRef.current : ctaSlotRef.current;
+    if (target) target.appendChild(draftCtaPortalHost);
+  });
 
   if (!baseFeature || !feature || !revision) return null;
 
@@ -631,6 +681,7 @@ export default function FeaturesOverview({
 
   const renderRevisionCTA = () => {
     const actions: JSX.Element[] = [];
+    const nowrap = { whiteSpace: "nowrap" as const };
 
     if (canEditDrafts) {
       if (isLocked && !isLive && !isDiscarded) {
@@ -640,6 +691,7 @@ export default function FeaturesOverview({
             color="red"
             onClick={() => setRevertIndex(revision.version)}
             title="Create a new Draft based on this revision"
+            style={nowrap}
           >
             Revert to this version
           </Button>,
@@ -677,6 +729,7 @@ export default function FeaturesOverview({
               onClick={() => {
                 setRevertIndex(previousRevision.version);
               }}
+              style={nowrap}
             >
               Revert to Previous
             </Button>,
@@ -691,6 +744,7 @@ export default function FeaturesOverview({
             loading={creatingDraft}
             onClick={() => setConfirmNewDraft(true)}
             variant="soft"
+            style={nowrap}
           >
             New Draft
           </Button>,
@@ -698,76 +752,8 @@ export default function FeaturesOverview({
       }
 
       if (isDraft) {
-        actions.push(
-          <Button
-            variant="ghost"
-            color="red"
-            onClick={() => {
-              setConfirmDiscard(true);
-            }}
-          >
-            Discard draft
-          </Button>,
-        );
-
-        if (mergeResult?.success) {
-          if (requireReviews) {
-            actions.push(
-              <Tooltip
-                body={
-                  !revisionHasChanges
-                    ? "Draft is identical to the live version. Make changes first before requesting review"
-                    : ""
-                }
-              >
-                <Button
-                  disabled={!revisionHasChanges}
-                  onClick={() => {
-                    setReviewModal(true);
-                  }}
-                >
-                  {renderDraftBannerCopy()}
-                </Button>
-              </Tooltip>,
-            );
-          } else {
-            actions.push(
-              <Tooltip
-                body={
-                  !revisionHasChanges
-                    ? "Draft is identical to the live version. Make changes first before publishing"
-                    : !hasDraftPublishPermission
-                      ? "You do not have permission to publish this draft."
-                      : ""
-                }
-              >
-                <Button
-                  disabled={!revisionHasChanges || !hasDraftPublishPermission}
-                  onClick={() => {
-                    setDraftModal(true);
-                  }}
-                >
-                  Review &amp; Publish
-                </Button>
-              </Tooltip>,
-            );
-          }
-        } else {
-          if (mergeResult) {
-            actions.push(
-              <Tooltip body="There have been new conflicting changes published since this draft was created that must be resolved before you can publish">
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setConflictModal(true);
-                  }}
-                >
-                  Fix conflicts
-                </Button>
-              </Tooltip>,
-            );
-          }
-        }
+        // Slot: draftCtaGroup portal mounts here when not scrolled past the revision card
+        actions.push(<div key="draft-cta-slot" ref={ctaSlotRef} />);
       }
     }
 
@@ -779,6 +765,79 @@ export default function FeaturesOverview({
       </>
     );
   };
+
+  // Draft CTA group — defined once and rendered via a stable portal host.
+  // The portal host is physically moved between the revision card's ctaSlotRef
+  // and the sticky banner's bannerCtaSlotRef so CTAs only need to be defined here.
+  const nowrap = { whiteSpace: "nowrap" as const };
+  const draftCtaGroup =
+    isDraft && canEditDrafts ? (
+      <Flex align="center" gap="4">
+        <Box>
+          <Button
+            variant="ghost"
+            color="red"
+            onClick={() => setConfirmDiscard(true)}
+            style={nowrap}
+          >
+            Discard draft
+          </Button>
+        </Box>
+        {mergeResult?.success ? (
+          requireReviews ? (
+            <Box>
+              <Tooltip
+                body={
+                  !revisionHasChanges
+                    ? "Draft is identical to the live version. Make changes first before requesting review"
+                    : ""
+                }
+              >
+                <Button
+                  disabled={!revisionHasChanges}
+                  onClick={() => setReviewModal(true)}
+                  style={nowrap}
+                >
+                  {renderDraftBannerCopy()}
+                </Button>
+              </Tooltip>
+            </Box>
+          ) : (
+            <Box>
+              <Tooltip
+                body={
+                  !revisionHasChanges
+                    ? "Draft is identical to the live version. Make changes first before publishing"
+                    : !hasDraftPublishPermission
+                      ? "You do not have permission to publish this draft."
+                      : ""
+                }
+              >
+                <Button
+                  disabled={!revisionHasChanges || !hasDraftPublishPermission}
+                  onClick={() => setDraftModal(true)}
+                  style={nowrap}
+                >
+                  Review &amp; Publish
+                </Button>
+              </Tooltip>
+            </Box>
+          )
+        ) : mergeResult ? (
+          <Box>
+            <Tooltip body="There have been new conflicting changes published since this draft was created that must be resolved before you can publish">
+              <Button
+                variant="ghost"
+                onClick={() => setConflictModal(true)}
+                style={nowrap}
+              >
+                Fix conflicts
+              </Button>
+            </Tooltip>
+          </Box>
+        ) : null}
+      </Flex>
+    ) : null;
 
   const onCompareRevisions =
     (revisionList?.length ?? 0) >= 2
@@ -1012,48 +1071,69 @@ export default function FeaturesOverview({
 
           if (!bannerProps) return null;
           return (
-            <div
-              ref={bannerRef}
-              style={{
-                position: "sticky",
-                top: 110,
-                zIndex: 920,
-                marginBottom: 12,
-                display: "flex",
-                justifyContent: "center",
-                pointerEvents: "none",
-              }}
-            >
+            <>
+              <div ref={bannerSentinelRef} aria-hidden style={{ height: 0 }} />
               <div
+                ref={bannerRef}
                 style={{
-                  width: "100%",
-                  backgroundColor: "var(--color-background)",
-                  borderRadius: "var(--radius-3)",
-                  overflow: "hidden",
-                  maxWidth: bannerPinned ? "580px" : "2000px",
-                  boxShadow: bannerPinned ? "var(--shadow-3)" : undefined,
-                  transition: "all 200ms ease",
-                  pointerEvents: "auto",
+                  position: "sticky",
+                  top: 110,
+                  zIndex: 920,
+                  marginBottom: 12,
+                  display: "flex",
+                  justifyContent: "center",
+                  pointerEvents: "none",
                 }}
               >
-                <Flex
-                  align="center"
-                  justify="center"
-                  gap="2"
-                  px="4"
-                  py="3"
+                <div
                   style={{
-                    color: bannerProps.color,
-                    backgroundColor: bannerProps.bgColor,
+                    width: "100%",
+                    backgroundColor: "var(--color-background)",
+                    borderRadius: "var(--radius-3)",
+                    overflow: "hidden",
+                    maxWidth: bannerPinned ? 1280 : 1500,
+                    boxShadow: bannerPinned ? "var(--shadow-3)" : undefined,
+                    transition: "all 200ms ease",
+                    pointerEvents: "auto",
                   }}
                 >
-                  {bannerProps.icon}
-                  <span style={{ fontSize: "var(--font-size-2)" }}>
-                    {bannerProps.message}
-                  </span>
-                </Flex>
+                  <Box
+                    px="4"
+                    py="3"
+                    style={{
+                      color: bannerProps.color,
+                      backgroundColor: bannerProps.bgColor,
+                      display: "grid",
+                      gridTemplateColumns: "1fr auto 1fr",
+                      alignItems: "center",
+                      gap: "12px",
+                    }}
+                  >
+                    <span />
+                    <Flex
+                      align="center"
+                      justify="center"
+                      gap="2"
+                      style={{ gridColumn: 2 }}
+                    >
+                      {bannerProps.icon}
+                      <span style={{ fontSize: "var(--font-size-2)" }}>
+                        {bannerProps.message}
+                      </span>
+                    </Flex>
+                    <Flex
+                      align="center"
+                      gap="2"
+                      justify="end"
+                      style={{ flexShrink: 0, gridColumn: 3 }}
+                    >
+                      {/* Slot: draftCtaGroup portal mounts here when banner is pinned */}
+                      <div ref={bannerCtaSlotRef} />
+                    </Flex>
+                  </Box>
+                </div>
               </div>
-            </div>
+            </>
           );
         })()}
         {revision && (
@@ -1182,6 +1262,8 @@ export default function FeaturesOverview({
             {renderRevisionInfo()}
           </Frame>
         )}
+        {/* Portal: renders draftCtaGroup into whichever slot is active (ctaSlotRef or bannerCtaSlotRef) */}
+        {draftCtaPortalHost && createPortal(draftCtaGroup, draftCtaPortalHost)}
 
         <Frame mt="2" mb="4" px="0" py="0" style={{ overflow: "hidden" }}>
           <Collapsible
