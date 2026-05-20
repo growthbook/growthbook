@@ -42,16 +42,26 @@ export default function LinkedFeatureFlag({
   const [removing, setRemoving] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  // canViewExperimentModal is the permission gate for experiment mutations
-  // (covers update, not just view despite the name).
-  const canEdit =
-    !experiment.archived &&
-    permissionsUtil.canViewExperimentModal(experiment.project);
+  // Mirrors what the back-end actually enforces for these row actions:
+  //   - DELETE /experiment/:id/linked-feature/:featureId requires
+  //     canUpdateExperiment + canUpdateFeature(feature).
+  //   - POST /experiment/:id/features requires the above plus
+  //     canManageFeatureDrafts(feature).
+  // Note: feature-side perms are scoped to the linked feature's project,
+  // which may differ from the experiment's project.
+  const canEditExperiment =
+    !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
 
-  // canAddLinkedChanges: same gate + experiment must still be in draft and
-  // not have an approved scheduled start (which auto-locks the experiment).
+  const canUpdateLinkedFeature =
+    canEditExperiment && permissionsUtil.canUpdateFeature(info.feature, {});
+
+  const canEditFeatureDraft =
+    canUpdateLinkedFeature &&
+    permissionsUtil.canManageFeatureDrafts(info.feature);
+
+  // canAddLinkedChanges: draft-only paths that re-link / edit values.
   const canAddLinkedChanges =
-    canEdit &&
+    canEditFeatureDraft &&
     experiment.status === "draft" &&
     !experiment.nextScheduledStatusUpdate;
 
@@ -117,7 +127,7 @@ export default function LinkedFeatureFlag({
   );
 
   const showEditButton =
-    canEdit &&
+    canEditFeatureDraft &&
     experiment.status === "draft" &&
     !experiment.nextScheduledStatusUpdate &&
     info.state !== "discarded" &&
@@ -184,7 +194,7 @@ export default function LinkedFeatureFlag({
                 Go to feature page <PiArrowSquareOut className="ml-1" />
               </Link>
             )}
-            {canEdit && (
+            {canUpdateLinkedFeature && (
               <>
                 {" · "}
                 <Link
