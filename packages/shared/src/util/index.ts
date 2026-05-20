@@ -28,6 +28,8 @@ import { featureHasEnvironment } from "./features";
 export * from "./strings";
 export * from "./bigquery-table-name";
 export * from "./snowflake-table-name";
+export * from "./event-forwarder-destination";
+export * from "./event-forwarder-snowflake-url";
 export * from "./event-forwarder-access-signature";
 export * from "./features";
 export * from "./managedWarehouse";

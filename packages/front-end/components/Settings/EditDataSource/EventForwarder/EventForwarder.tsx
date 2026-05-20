@@ -2,7 +2,12 @@ import { useState } from "react";
 import {
   DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
   DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
+  formatBigQueryEventForwarderDestination,
+  formatSnowflakeEventForwarderDestination,
+  parseBigQueryEventForwarderDestination,
+  parseSnowflakeEventForwarderDestination,
   stripLeadingUtf8ByteOrderMark,
+  tryDeriveSnowflakeAccessUrlFromAccount,
 } from "shared/util";
 import {
   EventForwarderConfigDraft,
@@ -85,6 +90,8 @@ function getEventForwarderDraft(
       config: {
         tableName: existing.config.tableName,
         accessUrl: existing.config.accessUrl,
+        role: existing.config.role,
+        warehouse: existing.config.warehouse,
       },
     };
   }
@@ -98,17 +105,30 @@ function getEventForwarderDraft(
     return {
       sinkType: "bigquery",
       config: {
-        tableName: DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
+        tableName: formatBigQueryEventForwarderDestination({
+          dataset: params.defaultDataset || "",
+          table: DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
+        }),
         ...(serviceAccountKey ? { serviceAccountKey } : {}),
       },
     };
   }
   if (dataSource.type === "snowflake") {
+    const params = dataSource.params as SnowflakeConnectionParams;
     return {
       sinkType: "snowflake",
       config: {
-        tableName: DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
-        accessUrl: "",
+        tableName: formatSnowflakeEventForwarderDestination({
+          database: params.database || "",
+          schema: params.schema || "",
+          table: DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
+        }),
+        accessUrl:
+          params.accessUrl?.trim() ||
+          tryDeriveSnowflakeAccessUrlFromAccount(params.account || "") ||
+          "",
+        role: params.role || "",
+        warehouse: params.warehouse || "",
       },
     };
   }
@@ -121,15 +141,22 @@ function getEventForwarderParamsForSubmit(
   draft: EventForwarderDatasourceDraft,
 ): Partial<DataSourceParams> | undefined {
   if (draft.type !== "bigquery") return undefined;
-  const originalParams = dataSource.params as Partial<BigQueryConnectionParams>;
-  const params = draft.params as Partial<BigQueryConnectionParams>;
-  if ((params.defaultDataset || "") === (originalParams.defaultDataset || "")) {
+  const cfg = draft.eventForwarderConfig;
+  if (!cfg || cfg.sinkType !== "bigquery") return undefined;
+
+  try {
+    const parsed = parseBigQueryEventForwarderDestination(cfg.config.tableName);
+    const originalParams =
+      dataSource.params as Partial<BigQueryConnectionParams>;
+    if (parsed.dataset === (originalParams.defaultDataset || "")) {
+      return undefined;
+    }
+    return {
+      defaultDataset: parsed.dataset,
+    } as Partial<DataSourceParams>;
+  } catch {
     return undefined;
   }
-
-  return {
-    defaultDataset: params.defaultDataset || "",
-  } as Partial<DataSourceParams>;
 }
 
 function getCanConfirmEventForwarder(
@@ -139,21 +166,27 @@ function getCanConfirmEventForwarder(
   if (!cfg) return false;
   const rawParams = draft.params || {};
   if (cfg.sinkType === "bigquery") {
-    const p = rawParams as Partial<BigQueryConnectionParams>;
-    return !!p.defaultDataset?.trim() && !!cfg.config.tableName.trim();
+    try {
+      parseBigQueryEventForwarderDestination(cfg.config.tableName);
+      return true;
+    } catch {
+      return false;
+    }
   }
   if (cfg.sinkType === "snowflake") {
     const p = rawParams as Partial<SnowflakeConnectionParams>;
     const authMethod = p.authMethod ?? "password";
     const hasSnowflakePrivateKey =
       authMethod === "key-pair" || !!p.privateKey?.trim();
+    try {
+      parseSnowflakeEventForwarderDestination(cfg.config.tableName);
+    } catch {
+      return false;
+    }
     return (
-      !!cfg.config.tableName.trim() &&
       !!cfg.config.accessUrl?.trim() &&
       !!p.account?.trim() &&
       !!p.username?.trim() &&
-      !!p.database?.trim() &&
-      !!p.schema?.trim() &&
       authMethod === "key-pair" &&
       hasSnowflakePrivateKey
     );
@@ -174,8 +207,8 @@ function EventForwarderConfirmButton({
   const ctaEnabled = canConfirmEventForwarder && usEventForwarderFlowConsent;
   const disabledMessage = !canConfirmEventForwarder
     ? datasourceDraft.type === "bigquery"
-      ? "Enter a default dataset and table name before confirming."
-      : "Enter all required Snowflake fields before confirming."
+      ? "Enter a destination table (dataset.table) before confirming."
+      : "Enter destination table, Snowflake URL, and required connection fields before confirming."
     : !usEventForwarderFlowConsent
       ? "Acknowledge US data flow and authorization to use Confirm."
       : undefined;
@@ -215,15 +248,6 @@ function EventForwarderModal({
   const [usEventForwarderFlowConsent, setUsEventForwarderFlowConsent] =
     useState(false);
 
-  const setParams = (params: { [key: string]: string | boolean }) => {
-    setDatasourceDraft((current) => ({
-      ...current,
-      params: {
-        ...current.params,
-        ...params,
-      },
-    }));
-  };
   const setEventForwarderConfig = (
     eventForwarderConfig: EventForwarderConfigDraft | null,
   ) => {
@@ -293,11 +317,8 @@ function EventForwarderModal({
         <Modal.Body>
           {eventForwarderConfig?.sinkType === "bigquery" ? (
             <BigQueryEventForwarderForm
-              params={params as Partial<BigQueryConnectionParams>}
               eventForwarderConfig={eventForwarderConfig}
-              setParams={setParams}
               setEventForwarderConfig={setEventForwarderConfig}
-              showDefaultDatasetField
               className="form-group col-md-12 px-0"
             />
           ) : null}
@@ -453,7 +474,7 @@ export default function EventForwarder({
           <Flex direction="column" gap="3" p="2">
             <Flex direction="column" gap="4">
               <Box>
-                <Text weight="medium">Table Name: </Text>
+                <Text weight="medium">Destination table: </Text>
                 {tableName ? (
                   <code>{tableName}</code>
                 ) : (
