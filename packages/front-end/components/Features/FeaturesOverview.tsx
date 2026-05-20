@@ -492,11 +492,12 @@ export default function FeaturesOverview({
     div.style.display = "contents";
     return div;
   });
-  // useLayoutEffect (no deps) runs synchronously after every DOM commit, by
-  // which point all refs are guaranteed to be populated. A plain useEffect with
-  // [bannerPinned] misses the initial mount when ctaSlotRef.current isn't set
-  // yet at the time the effect fires, leaving the CTAs invisible until the next
-  // bannerPinned state change.
+  // No deps array: the effect must re-run on every render because ctaSlotRef
+  // isn't a stable dep — it starts null while the component's early return
+  // fires (props loading), then becomes populated once the full JSX renders.
+  // useLayoutEffect ensures refs are set before the effect runs, so appendChild
+  // always sees the correct target. The call is idempotent when the portal host
+  // is already in the right slot.
   useLayoutEffect(() => {
     if (!draftCtaPortalHost) return;
     const target = bannerPinned ? bannerCtaSlotRef.current : ctaSlotRef.current;
