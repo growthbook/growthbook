@@ -246,10 +246,10 @@ export const rampScheduleValidator = baseSchema
 export type RampScheduleInterface = z.infer<typeof rampScheduleValidator>;
 
 // Derives the "awaiting approval" display state. A `running` schedule whose
-// current step has `holdConditions.requiresApproval` set and hasn't been
-// approved yet (`!stepApprovedAt`) is awaiting approval. Used by UI,
-// notifications, and evaluator gating in lieu of a stored "pending-approval"
-// status.
+// current step has `holdConditions.requiresApproval` set and whose
+// `stepApproval.stepIndex` does not match `currentStepIndex` (i.e. not yet
+// approved for this step) is awaiting approval. Used by UI, notifications,
+// and evaluator gating in lieu of a stored "pending-approval" status.
 export function isAwaitingApproval(schedule: {
   status: string;
   currentStepIndex: number;

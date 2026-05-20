@@ -206,7 +206,7 @@ export const approveStepRampSchedule = createApiRequestHandler({
   operationId: "approveStepRampSchedule",
   summary: "Approve the current step",
   description:
-    "Satisfies the `holdConditions.requiresApproval` gate on the current step of\na `running` schedule. Clears the approval hold only — the step still waits\nfor any remaining gates (interval elapsed, min sample size, healthy metrics)\nbefore the evaluator will advance it.\n\nDifferent from `/actions/advance`: `approve-step` works within the normal\nevaluation loop and lets other conditions resolve naturally. Use\n`/actions/advance` only if you want to bypass all remaining holds entirely.\n\nRequires feature review permissions for the associated feature.\n",
+    "Satisfies the `holdConditions.requiresApproval` gate on the current step of\na `running` schedule.\n\n**Monitored steps**: clears the approval hold only — the step still waits\nfor any remaining gates (interval elapsed, min sample size, healthy metrics)\nbefore the agenda evaluates and advances it.\n\n**Non-monitored steps**: all holds are cleared by approval, so the schedule\nadvances immediately and chains through any subsequent instant steps in the\nsame request.\n\nDifferent from `/actions/advance`: `approve-step` works within the normal\nevaluation flow and lets other conditions resolve naturally. Use\n`/actions/advance` only if you want to bypass all remaining holds entirely.\n\nRequires feature review permissions for the associated feature.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -1165,7 +1165,7 @@ export const refreshMonitoringRampSchedule = createApiRequestHandler({
   operationId: "refreshMonitoringRampSchedule",
   summary: "Trigger a manual monitoring update",
   description:
-    "Queues a new analysis snapshot for the schedule's monitoring experiment.\nThe snapshot runs asynchronously — poll `GET /ramp-schedules/:id/status`\nuntil `snapshotAt` advances to confirm results are ready.\n\nOnly available when the schedule is within its monitored step window:\n- Not in a terminal state (`completed` or `rolled-back`).\n- Has at least one step with `monitored: true`.\n- `currentStepIndex` is within `[firstMonitoredStepIndex, lastMonitoredStepIndex]`.\n\nViolating any condition returns **409 Conflict** with a descriptive message.\n\nRequires `runQueries` permission on the configured datasource.\n",
+    "Queues a new analysis snapshot for the schedule's monitoring experiment.\nThe snapshot runs asynchronously — poll `GET /ramp-schedules/:id/status`\nuntil `snapshotAt` advances to confirm results are ready.\n\nOnly available when the schedule is within its monitored step window:\n- Not in a terminal state (`completed` or `rolled-back`).\n- Has at least one step with `monitored: true`.\n- `currentStepIndex` is within `[firstMonitoredStepIndex, lastMonitoredStepIndex]`.\n\nViolating any condition returns **409 Conflict** with a descriptive message.\n\nRequires the `runQueries` permission on the configured datasource (enforced via `canRunExperimentQueries`).\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(

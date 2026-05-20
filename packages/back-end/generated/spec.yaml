@@ -18541,19 +18541,31 @@ paths:
         Satisfies the `holdConditions.requiresApproval` gate on the current step
         of
 
-        a `running` schedule. Clears the approval hold only — the step still
+        a `running` schedule.
+
+
+        **Monitored steps**: clears the approval hold only — the step still
         waits
 
         for any remaining gates (interval elapsed, min sample size, healthy
         metrics)
 
-        before the evaluator will advance it.
+        before the agenda evaluates and advances it.
+
+
+        **Non-monitored steps**: all holds are cleared by approval, so the
+        schedule
+
+        advances immediately and chains through any subsequent instant steps in
+        the
+
+        same request.
 
 
         Different from `/actions/advance`: `approve-step` works within the
         normal
 
-        evaluation loop and lets other conditions resolve naturally. Use
+        evaluation flow and lets other conditions resolve naturally. Use
 
         `/actions/advance` only if you want to bypass all remaining holds
         entirely.
@@ -20593,7 +20605,8 @@ paths:
         message.
 
 
-        Requires `runQueries` permission on the configured datasource.
+        Requires the `runQueries` permission on the configured datasource
+        (enforced via `canRunExperimentQueries`).
       tags:
         - ramp-schedules
       parameters:

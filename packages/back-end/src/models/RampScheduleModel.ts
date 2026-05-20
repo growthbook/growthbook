@@ -129,7 +129,7 @@ export function migrateRampStepTriggers<
 
 // `pending-approval` is no longer a stored status. The evaluator derives
 // "awaiting approval" from `running` + current step's
-// `holdConditions.requiresApproval` + `!stepApprovedAt`.
+// `holdConditions.requiresApproval` + `stepApproval?.stepIndex !== currentStepIndex`.
 export function migrateRampScheduleStatus<T extends { status?: string }>(
   doc: T,
 ): T {

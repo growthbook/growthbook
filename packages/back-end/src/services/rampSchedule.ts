@@ -801,9 +801,10 @@ export async function advanceStep(
   await executeStepActions(ctx, schedule, nextStepIndex, effectiveActions);
 
   // `nextStepAt` is the time gate. Steps without an interval (pure approval /
-  // instant gates) have no time gate; the evaluator drives them on each tick
-  // until holdConditions clear. Monitored steps don't use nextStepAt for
-  // tick scheduling — `monitoredStepDueAt` + nextSnapshotAt drive monitoring.
+  // instant gates) have no time gate, so nextStepAt is null. For instant
+  // non-monitored steps we set nextProcessAt = now (see below) so the agenda
+  // re-evaluates on its very next tick and advances through them. Monitored
+  // steps use `monitoredStepDueAt` + nextSnapshotAt for tick scheduling instead.
   const nextStepAt =
     !hasInterval || isMonitoredStep
       ? null
@@ -842,7 +843,8 @@ export async function advanceStep(
     nextSnapshotAt,
     nextProcessAt: computeNextProcessAt({
       status: newStatus,
-      nextStepAt: monitoredStepDueAt ?? nextStepAt ?? (!isMonitoredStep ? now : null),
+      nextStepAt:
+        monitoredStepDueAt ?? nextStepAt ?? (!isMonitoredStep ? now : null),
       nextSnapshotAt,
       cutoffDate: schedule.cutoffDate,
     }),
@@ -1029,7 +1031,8 @@ export async function resumeSchedule(
 
   const currentStep = schedule.steps[schedule.currentStepIndex];
   // A step without an interval (e.g. pure approval gate) has no time gate to
-  // resume; the evaluator will re-tick the step's holdConditions.
+  // resume; `nextProcessAt` is set so the agenda re-evaluates hold conditions
+  // on its next tick rather than advancing synchronously here.
   const pausedAtNoIntervalGate =
     currentStep != null && currentStep.interval == null;
 
@@ -1097,9 +1100,9 @@ export async function resumeSchedule(
     resumeUpdates,
   );
 
-  // After resuming, drive a tick to advance through any non-time-gated steps
-  // (e.g. instantly-clearing holdConditions). Pure approval / no-interval
-  // steps will hold within the evaluator on requiresApproval, so this is safe.
+  // After resuming, chain through any time-due steps (nextStepAt <= now).
+  // Steps with no interval (approval gates, instant steps) have nextStepAt=null
+  // and are not traversed here — the agenda re-picks them via nextProcessAt.
   await advanceUntilBlocked(ctx, updated, now);
   updated = (await ctx.models.rampSchedules.getById(schedule.id)) ?? updated;
 
@@ -1320,9 +1323,7 @@ export async function advanceScheduleManually(
   // Chain through any subsequent instant-clearable steps in the same pass
   // so the caller sees the schedule at its first blocking point immediately.
   await advanceUntilBlocked(ctx, advanced, now);
-  return (
-    (await ctx.models.rampSchedules.getById(advanced.id)) ?? advanced
-  );
+  return (await ctx.models.rampSchedules.getById(advanced.id)) ?? advanced;
 }
 
 export async function startSchedule(
