@@ -42,7 +42,6 @@ export default function LinkedFeatureFlag({
   const [removing, setRemoving] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  // Mirrors what the back-end actually enforces for these row actions:
   const canEditExperiment =
     !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
 
@@ -53,7 +52,9 @@ export default function LinkedFeatureFlag({
     canUpdateLinkedFeature &&
     permissionsUtil.canManageFeatureDrafts(info.feature);
 
-  // canAddLinkedChanges: draft-only paths that re-link / edit values.
+  // Gates the "Re-add feature flag" link in the discarded callout: requires
+  // feature-draft perms AND the experiment to still be in draft status with no
+  // scheduled launch (post-launch, re-adding the rule isn't allowed).
   const canAddLinkedChanges =
     canEditFeatureDraft &&
     experiment.status === "draft" &&
