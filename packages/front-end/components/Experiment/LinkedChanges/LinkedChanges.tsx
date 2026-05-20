@@ -104,6 +104,7 @@ export default function LinkedChanges({
               canEdit={canEditFeatureFlags}
               mutate={mutate}
               key={info.feature.id}
+              numLinkedChanges={numLinkedChanges}
               onReAdd={
                 setFeatureModal ? () => setFeatureModal(true) : undefined
               }

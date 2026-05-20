@@ -27,6 +27,7 @@ type Props = {
   experiment: ExperimentInterfaceStringDates;
   open?: boolean;
   canEdit?: boolean;
+  numLinkedChanges: number;
   onReAdd?: () => void;
   mutate?: () => void;
 };
@@ -34,6 +35,7 @@ type Props = {
 export default function LinkedFeatureFlag({
   info,
   experiment,
+  numLinkedChanges,
   onReAdd,
   mutate,
 }: Props) {
@@ -129,6 +131,7 @@ export default function LinkedFeatureFlag({
           feature={info.feature}
           experiment={experiment}
           info={info}
+          numLinkedChanges={numLinkedChanges}
           close={() => setEditModalOpen(false)}
           mutate={() => mutate?.()}
         />

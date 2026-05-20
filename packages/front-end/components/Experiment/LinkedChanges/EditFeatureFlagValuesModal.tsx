@@ -48,6 +48,7 @@ export interface Props {
   feature: FeatureInterface;
   experiment: ExperimentInterfaceStringDates;
   info: LinkedFeatureInfo;
+  numLinkedChanges: number;
   close: () => void;
   mutate: () => void;
 }
@@ -125,6 +126,7 @@ export default function EditFeatureFlagValuesModal({
   feature,
   experiment,
   info,
+  numLinkedChanges,
   close,
   mutate,
 }: Props) {
@@ -436,6 +438,13 @@ export default function EditFeatureFlagValuesModal({
                             useCodeInput={true}
                             showFullscreenButton={true}
                           />
+                          {isNewVariation && numLinkedChanges > 1 && (
+                            <Callout status="warning" mt="2">
+                              <Text weight="semibold">Don&apos;t forget!</Text>{" "}
+                              Define values for this new variation in other
+                              implementations too.
+                            </Callout>
+                          )}
                         </Box>
                       </Flex>
                       <Box style={{ paddingTop: 24 }}>
@@ -550,6 +559,13 @@ export default function EditFeatureFlagValuesModal({
                     useCodeInput={true}
                     showFullscreenButton={true}
                   />
+                  {isNewVariation && numLinkedChanges > 1 && (
+                    <Callout status="warning" mt="2">
+                      <Text weight="semibold">Don&apos;t forget!</Text> Define
+                      values for this new variation in other implementations
+                      too.
+                    </Callout>
+                  )}
                   {i < fields.length - 1 && <Separator size="4" my="4" />}
                 </Box>
               );
