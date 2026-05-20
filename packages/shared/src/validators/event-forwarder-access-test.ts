@@ -15,6 +15,8 @@ const snowflakeEventForwarderConfigSchema = z.object({
   config: z.object({
     tableName: z.string(),
     accessUrl: z.string().optional(),
+    role: z.string().optional(),
+    warehouse: z.string().optional(),
   }),
 });
 

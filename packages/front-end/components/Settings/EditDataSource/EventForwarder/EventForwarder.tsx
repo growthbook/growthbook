@@ -1,13 +1,19 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
   DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
+  formatBigQueryEventForwarderDestination,
+  formatSnowflakeEventForwarderDestination,
+  parseBigQueryEventForwarderDestination,
+  parseSnowflakeEventForwarderDestination,
   stripLeadingUtf8ByteOrderMark,
+  tryDeriveSnowflakeAccessUrlFromAccount,
 } from "shared/util";
 import {
   EventForwarderConfigDraft,
   EventForwarderStatus,
 } from "shared/types/event-forwarder";
+import { EventForwarderStatusResponse } from "shared/validators";
 import {
   DataSourceInterfaceWithParams,
   DataSourceParams,
@@ -28,6 +34,11 @@ import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "@/ui/Modal";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import {
+  PROVISIONING_TIMEOUT_MESSAGE,
+  useEventForwarderProvisioningPoll,
+} from "@/components/Settings/EditDataSource/EventForwarder/useEventForwarderProvisioningPoll";
 
 type Props = {
   dataSource: DataSourceInterfaceWithParams;
@@ -66,6 +77,40 @@ const statusColors: Record<
 const EVENT_FORWARDER_MODAL_FAILURE_MESSAGE =
   "Something went wrong. Update your settings and try again.";
 
+function getTaskErrorMessage(
+  taskErrors: EventForwarderStatusResponse["taskErrors"],
+): string | undefined {
+  if (!taskErrors?.length) return undefined;
+
+  const traces = [
+    ...new Set(
+      taskErrors
+        .map((task) => task.trace?.trim())
+        .filter((trace): trace is string => Boolean(trace)),
+    ),
+  ];
+  return traces.length > 0 ? traces.join("\n") : undefined;
+}
+
+function getPrimaryConnectorErrorMessage({
+  actionError,
+  lastProvisioningError,
+  pollTimedOut,
+  taskErrors,
+}: {
+  actionError?: string | null;
+  lastProvisioningError: string | undefined;
+  pollTimedOut: boolean;
+  taskErrors: EventForwarderStatusResponse["taskErrors"];
+}): string | undefined {
+  if (actionError?.trim()) return actionError.trim();
+  const taskErrorMessage = getTaskErrorMessage(taskErrors);
+  if (taskErrorMessage) return taskErrorMessage;
+  if (lastProvisioningError?.trim()) return lastProvisioningError.trim();
+  if (pollTimedOut) return PROVISIONING_TIMEOUT_MESSAGE;
+  return undefined;
+}
+
 function getEventForwarderDraft(
   dataSource: DataSourceInterfaceWithParams,
 ): EventForwarderConfigDraft | null {
@@ -85,6 +130,8 @@ function getEventForwarderDraft(
       config: {
         tableName: existing.config.tableName,
         accessUrl: existing.config.accessUrl,
+        role: existing.config.role,
+        warehouse: existing.config.warehouse,
       },
     };
   }
@@ -98,17 +145,30 @@ function getEventForwarderDraft(
     return {
       sinkType: "bigquery",
       config: {
-        tableName: DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
+        tableName: formatBigQueryEventForwarderDestination({
+          dataset: params.defaultDataset || "",
+          table: DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
+        }),
         ...(serviceAccountKey ? { serviceAccountKey } : {}),
       },
     };
   }
   if (dataSource.type === "snowflake") {
+    const params = dataSource.params as SnowflakeConnectionParams;
     return {
       sinkType: "snowflake",
       config: {
-        tableName: DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
-        accessUrl: "",
+        tableName: formatSnowflakeEventForwarderDestination({
+          database: params.database || "",
+          schema: params.schema || "",
+          table: DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
+        }),
+        accessUrl:
+          params.accessUrl?.trim() ||
+          tryDeriveSnowflakeAccessUrlFromAccount(params.account || "") ||
+          "",
+        role: params.role || "",
+        warehouse: params.warehouse || "",
       },
     };
   }
@@ -121,15 +181,22 @@ function getEventForwarderParamsForSubmit(
   draft: EventForwarderDatasourceDraft,
 ): Partial<DataSourceParams> | undefined {
   if (draft.type !== "bigquery") return undefined;
-  const originalParams = dataSource.params as Partial<BigQueryConnectionParams>;
-  const params = draft.params as Partial<BigQueryConnectionParams>;
-  if ((params.defaultDataset || "") === (originalParams.defaultDataset || "")) {
+  const cfg = draft.eventForwarderConfig;
+  if (!cfg || cfg.sinkType !== "bigquery") return undefined;
+
+  try {
+    const parsed = parseBigQueryEventForwarderDestination(cfg.config.tableName);
+    const originalParams =
+      dataSource.params as Partial<BigQueryConnectionParams>;
+    if (parsed.dataset === (originalParams.defaultDataset || "")) {
+      return undefined;
+    }
+    return {
+      defaultDataset: parsed.dataset,
+    } as Partial<DataSourceParams>;
+  } catch {
     return undefined;
   }
-
-  return {
-    defaultDataset: params.defaultDataset || "",
-  } as Partial<DataSourceParams>;
 }
 
 function getCanConfirmEventForwarder(
@@ -139,26 +206,61 @@ function getCanConfirmEventForwarder(
   if (!cfg) return false;
   const rawParams = draft.params || {};
   if (cfg.sinkType === "bigquery") {
-    const p = rawParams as Partial<BigQueryConnectionParams>;
-    return !!p.defaultDataset?.trim() && !!cfg.config.tableName.trim();
+    try {
+      parseBigQueryEventForwarderDestination(cfg.config.tableName);
+      return true;
+    } catch {
+      return false;
+    }
   }
   if (cfg.sinkType === "snowflake") {
     const p = rawParams as Partial<SnowflakeConnectionParams>;
     const authMethod = p.authMethod ?? "password";
     const hasSnowflakePrivateKey =
       authMethod === "key-pair" || !!p.privateKey?.trim();
+    try {
+      parseSnowflakeEventForwarderDestination(cfg.config.tableName);
+    } catch {
+      return false;
+    }
     return (
-      !!cfg.config.tableName.trim() &&
       !!cfg.config.accessUrl?.trim() &&
       !!p.account?.trim() &&
       !!p.username?.trim() &&
-      !!p.database?.trim() &&
-      !!p.schema?.trim() &&
       authMethod === "key-pair" &&
       hasSnowflakePrivateKey
     );
   }
   return false;
+}
+
+function EventForwarderConfigField({
+  label,
+  value,
+  optional = false,
+}: {
+  label: string;
+  value: string | undefined;
+  optional?: boolean;
+}) {
+  const trimmed = value?.trim();
+
+  return (
+    <Box>
+      <Text size="small" weight="medium" color="text-mid" mb="1">
+        {optional ? `${label} (optional)` : label}
+      </Text>
+      {trimmed ? (
+        <Text as="div">
+          <code style={{ wordBreak: "break-all" }}>{trimmed}</code>
+        </Text>
+      ) : (
+        <Text color="text-low" size="small">
+          {optional ? "Not set" : "None"}
+        </Text>
+      )}
+    </Box>
+  );
 }
 
 function EventForwarderConfirmButton({
@@ -174,8 +276,8 @@ function EventForwarderConfirmButton({
   const ctaEnabled = canConfirmEventForwarder && usEventForwarderFlowConsent;
   const disabledMessage = !canConfirmEventForwarder
     ? datasourceDraft.type === "bigquery"
-      ? "Enter a default dataset and table name before confirming."
-      : "Enter all required Snowflake fields before confirming."
+      ? "Enter a destination table (dataset.table) before confirming."
+      : "Enter destination table, Snowflake URL, and required connection fields before confirming."
     : !usEventForwarderFlowConsent
       ? "Acknowledge US data flow and authorization to use Confirm."
       : undefined;
@@ -187,7 +289,7 @@ function EventForwarderConfirmButton({
       tipPosition="top"
     >
       <Button type="submit" disabled={!ctaEnabled} loading={loading}>
-        Confirm
+        Confirm & Save
       </Button>
     </Tooltip>
   );
@@ -197,10 +299,12 @@ function EventForwarderModal({
   dataSource,
   onCancel,
   onRefresh,
+  onClearError,
 }: {
   dataSource: DataSourceInterfaceWithParams;
   onCancel: () => void;
   onRefresh: () => Promise<void>;
+  onClearError: () => void;
 }) {
   const { apiCall } = useAuth();
   const [datasourceDraft, setDatasourceDraft] =
@@ -212,18 +316,10 @@ function EventForwarderModal({
       projects: dataSource.projects,
       eventForwarderConfig: getEventForwarderDraft(dataSource),
     }));
+  const isEditingEventForwarder = !!dataSource.eventForwarderConfig;
   const [usEventForwarderFlowConsent, setUsEventForwarderFlowConsent] =
-    useState(false);
+    useState(isEditingEventForwarder);
 
-  const setParams = (params: { [key: string]: string | boolean }) => {
-    setDatasourceDraft((current) => ({
-      ...current,
-      params: {
-        ...current.params,
-        ...params,
-      },
-    }));
-  };
   const setEventForwarderConfig = (
     eventForwarderConfig: EventForwarderConfigDraft | null,
   ) => {
@@ -234,7 +330,7 @@ function EventForwarderModal({
   };
 
   const eventForwarderConfig = datasourceDraft.eventForwarderConfig;
-  const modalTitle = dataSource.eventForwarderConfig
+  const modalTitle = isEditingEventForwarder
     ? "Edit Event Forwarder"
     : "Set Up Event Forwarder";
   const params = datasourceDraft.params || {};
@@ -280,6 +376,7 @@ function EventForwarderModal({
                   : {}),
               }),
             });
+            onClearError();
             await onRefresh();
             onCancel();
           } catch {
@@ -293,11 +390,8 @@ function EventForwarderModal({
         <Modal.Body>
           {eventForwarderConfig?.sinkType === "bigquery" ? (
             <BigQueryEventForwarderForm
-              params={params as Partial<BigQueryConnectionParams>}
               eventForwarderConfig={eventForwarderConfig}
-              setParams={setParams}
               setEventForwarderConfig={setEventForwarderConfig}
-              showDefaultDatasetField
               className="form-group col-md-12 px-0"
             />
           ) : null}
@@ -311,6 +405,7 @@ function EventForwarderModal({
             <Checkbox
               value={usEventForwarderFlowConsent}
               setValue={setUsEventForwarderFlowConsent}
+              disabled={isEditingEventForwarder}
               label="I understand that event data will flow through GrowthBook's US servers and confirm I'm authorized to enable this for my organization."
               weight="regular"
             />
@@ -343,16 +438,37 @@ export default function EventForwarder({
   const { apiCall } = useAuth();
   const eventForwarderConfig = dataSource.eventForwarderConfig;
 
+  const handleRefresh = useCallback(async () => {
+    await onRefresh();
+  }, [onRefresh]);
+
+  const { isProvisioning, isError, pollTimedOut, taskErrors } =
+    useEventForwarderProvisioningPoll({
+      datasourceId: dataSource.id,
+      status: eventForwarderConfig?.status,
+      onRefresh: handleRefresh,
+    });
+
   if (dataSource.type !== "bigquery" && dataSource.type !== "snowflake") {
     return null;
   }
 
-  const tableName =
-    eventForwarderConfig && "tableName" in eventForwarderConfig.config
-      ? eventForwarderConfig.config.tableName
-      : "";
   const isReady = eventForwarderConfig?.status === "ready";
   const isPaused = eventForwarderConfig?.status === "paused";
+  const primaryConnectorErrorMessage = getPrimaryConnectorErrorMessage({
+    actionError: error,
+    lastProvisioningError: eventForwarderConfig?.lastProvisioningError,
+    pollTimedOut,
+    taskErrors,
+  });
+  const showProvisioningError =
+    !isProvisioning &&
+    (!!error ||
+      (isError &&
+        (eventForwarderConfig?.status === "error" ||
+          eventForwarderConfig?.status === "schema_update_error" ||
+          pollTimedOut ||
+          !!primaryConnectorErrorMessage)));
   const canToggle = canEdit && (isReady || isPaused);
   const action = isReady ? "pause" : "resume";
 
@@ -364,11 +480,14 @@ export default function EventForwarder({
             Event Forwarder
           </Heading>
           {eventForwarderConfig ? (
-            <Badge
-              label={statusLabels[eventForwarderConfig.status]}
-              color={statusColors[eventForwarderConfig.status]}
-              variant="soft"
-            />
+            <Flex align="center" gap="2">
+              {isProvisioning ? <LoadingSpinner /> : null}
+              <Badge
+                label={statusLabels[eventForwarderConfig.status]}
+                color={statusColors[eventForwarderConfig.status]}
+                variant="soft"
+              />
+            </Flex>
           ) : null}
         </Flex>
 
@@ -452,24 +571,46 @@ export default function EventForwarder({
         <Card>
           <Flex direction="column" gap="3" p="2">
             <Flex direction="column" gap="4">
-              <Box>
-                <Text weight="medium">Table Name: </Text>
-                {tableName ? (
-                  <code>{tableName}</code>
-                ) : (
-                  <Text color="text-low">None</Text>
-                )}
-              </Box>
+              {eventForwarderConfig.sinkType === "bigquery" ? (
+                <EventForwarderConfigField
+                  label="Destination table"
+                  value={eventForwarderConfig.config.tableName}
+                />
+              ) : null}
+              {eventForwarderConfig.sinkType === "snowflake" ? (
+                <>
+                  <EventForwarderConfigField
+                    label="Snowflake URL"
+                    value={eventForwarderConfig.config.accessUrl}
+                  />
+                  <EventForwarderConfigField
+                    label="Destination table"
+                    value={eventForwarderConfig.config.tableName}
+                  />
+                  <EventForwarderConfigField
+                    label="Role"
+                    value={eventForwarderConfig.config.role}
+                  />
+                  <EventForwarderConfigField
+                    label="Warehouse"
+                    value={eventForwarderConfig.config.warehouse}
+                    optional
+                  />
+                </>
+              ) : null}
             </Flex>
 
-            {eventForwarderConfig.lastProvisioningError ? (
-              <Callout status="error" mb="0">
-                {eventForwarderConfig.lastProvisioningError}
-              </Callout>
+            {isProvisioning ? (
+              <Text color="text-low" size="small">
+                Provisioning event forwarder…
+              </Text>
             ) : null}
-            {error ? (
+
+            {showProvisioningError && primaryConnectorErrorMessage ? (
               <Callout status="error" mb="0">
-                {error}
+                <Box style={{ whiteSpace: "pre-wrap" }}>
+                  {primaryConnectorErrorMessage}
+                </Box>
               </Callout>
             ) : null}
           </Flex>
@@ -479,9 +620,10 @@ export default function EventForwarder({
         <EventForwarderModal
           dataSource={dataSource}
           onCancel={() => setShowEditModal(false)}
+          onClearError={() => setError(null)}
           onRefresh={async () => {
-            setShowEditModal(false);
             await onRefresh();
+            setShowEditModal(false);
           }}
         />
       ) : null}

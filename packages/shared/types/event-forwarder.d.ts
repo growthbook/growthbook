@@ -7,7 +7,11 @@ export type EventForwarderStatus =
   | "error"
   | "schema_update_error";
 
-/** BigQuery sink settings edited with the datasource form (dataset is the datasource Default Dataset). */
+/**
+ * BigQuery sink settings edited in the event forwarder UI.
+ * `tableName` is the qualified destination (`dataset.table` or `project.dataset.table`).
+ * Stored config keeps separate `dataset` and `tableName` fields.
+ */
 export interface BigQueryEventForwarderConfigDraft {
   tableName: string;
   serviceAccountKey?: string;
@@ -20,9 +24,16 @@ export interface BigQueryEventForwarderStoredConfig {
   serviceAccountKey?: string;
 }
 
+/**
+ * Snowflake sink settings edited in the event forwarder UI.
+ * `tableName` is the qualified destination (`DATABASE.SCHEMA.TABLE`).
+ * Stored config keeps separate database, schema, and tableName fields.
+ */
 export interface SnowflakeEventForwarderConfigDraft {
   tableName: string;
   accessUrl?: string;
+  role?: string;
+  warehouse?: string;
 }
 
 /** Encrypted payload saved for provisioning; credentials are copied from datasource params at sync time. */
