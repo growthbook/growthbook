@@ -1146,13 +1146,22 @@ export function updateExperimentBanditSettings({
   return changes;
 }
 
-export function getAdditionalQueryMetadataForExperiment(
+export function getExperimentQueryMetadata(
   experiment: ExperimentInterface,
 ): ExperimentQueryMetadata {
   return {
     experimentOwner: experiment.owner || undefined,
     experimentProject: experiment.project || undefined,
     experimentTags: experiment.tags.length > 0 ? experiment.tags : undefined,
+  };
+}
+
+export function getSnapshotQueryMetadata(
+  snapshot: ExperimentSnapshotInterface,
+): Pick<ExperimentQueryMetadata, "snapshotTriggeredBy" | "snapshotType"> {
+  return {
+    snapshotTriggeredBy: snapshot.triggeredBy,
+    snapshotType: snapshot.type,
   };
 }
 
@@ -1553,8 +1562,10 @@ export async function createSnapshotFromPlan({
       metricMap,
       queryParentId: queryRunner.model.id,
       factTableMap,
-      experimentQueryMetadata:
-        getAdditionalQueryMetadataForExperiment(experiment),
+      experimentQueryMetadata: {
+        ...getExperimentQueryMetadata(experiment),
+        ...getSnapshotQueryMetadata(plan.snapshot),
+      },
     };
 
     if (plan.runnerKind === "incremental") {
