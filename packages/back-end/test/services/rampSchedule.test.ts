@@ -1728,6 +1728,281 @@ describe("advanceUntilBlocked", () => {
     expect(updates.stepApproval).toBeNull();
   });
 
+  it("does not advance past a step whose timer elapsed while paused (hold still pending)", async () => {
+    // Scenario: step 0 has requiresApproval but its timer already elapsed
+    // (nextStepAt is in the past). advanceUntilBlocked must not bypass the
+    // approval gate just because the timer expired — e.g. after a resume where
+    // the timing rebase still leaves nextStepAt <= now.
+    const past = new Date(Date.now() - 1000);
+    const schedule = makeSchedule({
+      currentStepIndex: 0,
+      nextStepAt: past,
+      status: "running",
+      steps: [
+        {
+          interval: 300,
+          holdConditions: { requiresApproval: true },
+          actions: [
+            {
+              targetType: "feature-rule" as const,
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 0.5 },
+            },
+          ],
+        },
+        {
+          interval: 600,
+          actions: [
+            {
+              targetType: "feature-rule" as const,
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 1.0 },
+            },
+          ],
+        },
+      ],
+    });
+
+    const updateById = jest.fn();
+    const ctx = {
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "system" },
+      environments: [],
+      permissions: {},
+      models: { rampSchedules: { updateById, getById: jest.fn() } },
+    };
+
+    await advanceUntilBlocked(ctx as never, schedule, new Date());
+
+    // Should not advance at all — step 0 still requires approval.
+    expect(updateById).not.toHaveBeenCalled();
+  });
+
+  it("stops when landing on a monitored step (must go through evaluator for snapshot data)", async () => {
+    const past = new Date(Date.now() - 1000);
+    const steps = [
+      {
+        interval: 300,
+        actions: [
+          {
+            targetType: "feature-rule" as const,
+            targetId: TARGET_ID,
+            patch: { ruleId: RULE_ID, coverage: 0.3 },
+          },
+        ],
+      },
+      {
+        interval: 600,
+        monitored: true,
+        actions: [
+          {
+            targetType: "feature-rule" as const,
+            targetId: TARGET_ID,
+            patch: { ruleId: RULE_ID, coverage: 0.6 },
+          },
+        ],
+      },
+      {
+        interval: 900,
+        actions: [
+          {
+            targetType: "feature-rule" as const,
+            targetId: TARGET_ID,
+            patch: { ruleId: RULE_ID, coverage: 1.0 },
+          },
+        ],
+      },
+    ];
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: past,
+      status: "running",
+      steps,
+    });
+
+    // After advancing to step 0, return a schedule where step 1 is already due
+    // (simulates a late agenda tick). The loop must stop at step 1 because it's
+    // monitored, even though its timer has elapsed.
+    let callCount = 0;
+    const updateById = jest
+      .fn()
+      .mockImplementation(
+        (_id: string, updates: Partial<RampScheduleInterface>) => {
+          callCount++;
+          const newStepIndex =
+            updates.currentStepIndex ?? schedule.currentStepIndex;
+          return {
+            ...schedule,
+            ...updates,
+            currentStepIndex: newStepIndex,
+            steps,
+            // Step 1 already due — mimics late agenda tick.
+            nextStepAt: past,
+          };
+        },
+      );
+
+    const ctx = {
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "system" },
+      environments: [],
+      permissions: {},
+      models: { rampSchedules: { updateById, getById: jest.fn() } },
+    };
+
+    await advanceUntilBlocked(ctx as never, schedule, new Date());
+
+    // Advances step 0 (not monitored, continues) then step 1 (monitored, stops).
+    expect(callCount).toBe(2);
+    const [, lastUpdates] = updateById.mock.calls[1];
+    expect(lastUpdates.currentStepIndex).toBe(1);
+  });
+
+  it("stops when landing on a step with minSampleSize (needs evaluator + snapshot)", async () => {
+    const past = new Date(Date.now() - 1000);
+    const steps = [
+      {
+        interval: 300,
+        actions: [
+          {
+            targetType: "feature-rule" as const,
+            targetId: TARGET_ID,
+            patch: { ruleId: RULE_ID, coverage: 0.3 },
+          },
+        ],
+      },
+      {
+        interval: 600,
+        holdConditions: { minSampleSize: 1000 },
+        actions: [
+          {
+            targetType: "feature-rule" as const,
+            targetId: TARGET_ID,
+            patch: { ruleId: RULE_ID, coverage: 0.6 },
+          },
+        ],
+      },
+    ];
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: past,
+      status: "running",
+      steps,
+    });
+
+    let callCount = 0;
+    const updateById = jest
+      .fn()
+      .mockImplementation(
+        (_id: string, updates: Partial<RampScheduleInterface>) => {
+          callCount++;
+          const newStepIndex =
+            updates.currentStepIndex ?? schedule.currentStepIndex;
+          return {
+            ...schedule,
+            ...updates,
+            currentStepIndex: newStepIndex,
+            steps,
+            nextStepAt: past,
+          };
+        },
+      );
+
+    const ctx = {
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "system" },
+      environments: [],
+      permissions: {},
+      models: { rampSchedules: { updateById, getById: jest.fn() } },
+    };
+
+    await advanceUntilBlocked(ctx as never, schedule, new Date());
+
+    // Advances step 0 (no minSampleSize, continues) then step 1 (has minSampleSize, stops).
+    expect(callCount).toBe(2);
+    const [, lastUpdates] = updateById.mock.calls[1];
+    expect(lastUpdates.currentStepIndex).toBe(1);
+  });
+
+  it("chains through multiple purely time-gated steps in one pass", async () => {
+    const past = new Date(Date.now() - 10_000);
+    const future = new Date(Date.now() + 3_600_000);
+    const steps = [
+      {
+        interval: 300,
+        actions: [
+          {
+            targetType: "feature-rule" as const,
+            targetId: TARGET_ID,
+            patch: { ruleId: RULE_ID, coverage: 0.3 },
+          },
+        ],
+      },
+      {
+        interval: 300,
+        actions: [
+          {
+            targetType: "feature-rule" as const,
+            targetId: TARGET_ID,
+            patch: { ruleId: RULE_ID, coverage: 0.6 },
+          },
+        ],
+      },
+      {
+        interval: 300,
+        actions: [
+          {
+            targetType: "feature-rule" as const,
+            targetId: TARGET_ID,
+            patch: { ruleId: RULE_ID, coverage: 1.0 },
+          },
+        ],
+      },
+    ];
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: past,
+      status: "running",
+      steps,
+    });
+
+    let callCount = 0;
+    const updateById = jest
+      .fn()
+      .mockImplementation(
+        (_id: string, updates: Partial<RampScheduleInterface>) => {
+          callCount++;
+          const newStepIndex =
+            updates.currentStepIndex ?? schedule.currentStepIndex;
+          // Steps 0 and 1 are due; step 2 lands in the future.
+          const nextStepAt = newStepIndex < 2 ? past : future;
+          return {
+            ...schedule,
+            ...updates,
+            currentStepIndex: newStepIndex,
+            steps,
+            nextStepAt,
+          };
+        },
+      );
+
+    const ctx = {
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "system" },
+      environments: [],
+      permissions: {},
+      models: { rampSchedules: { updateById, getById: jest.fn() } },
+    };
+
+    await advanceUntilBlocked(ctx as never, schedule, new Date());
+
+    // Chains through steps 0, 1, and 2 (all due, all purely time-gated); stops
+    // when the loop exhausts the step array after landing on step 2.
+    expect(callCount).toBe(3);
+    const lastCall = updateById.mock.calls[callCount - 1];
+    expect(lastCall[1].currentStepIndex).toBe(2);
+  });
+
   // ------------------------------------------------------------------------
   // 0-step ("simple") schedules — "enable on date" or "enable on publish"
   // ------------------------------------------------------------------------

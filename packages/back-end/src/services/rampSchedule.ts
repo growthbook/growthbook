@@ -1130,6 +1130,11 @@ export async function restartSchedule(
     nextProcessAt: null,
     monitoringStartDate: null,
     stepApproval: null,
+    // Clear rollback metadata written by the defensive rewind above so a
+    // schedule restarted from "completed" does not surface a phantom rollback
+    // reason via the /status endpoint.
+    lastRollbackAt: null,
+    lastRollbackReason: null,
     eventHistory: appendRampEvent(schedule, "restart", {
       stepIndex: -1,
       previousStepIndex: schedule.currentStepIndex,
@@ -1781,6 +1786,26 @@ export async function advanceUntilBlocked(
 
     if (current.status !== "running") return;
     if (!current.nextStepAt || current.nextStepAt > now) return;
+
+    // Only chain through steps that are purely time-gated (interval only, no
+    // hold conditions, not monitored). Any other hold — approval, minSampleSize,
+    // monitoring-derived gates, or anything added in the future — must be
+    // evaluated by the agenda/evaluator with real data before advancing.
+    //
+    // This check runs BEFORE advancing so that a step whose timer has elapsed
+    // but whose holds have not been cleared (e.g. paused after timer but before
+    // approval was given) is not silently skipped on resume.
+    //
+    // When currentStepIndex is -1 (pre-start), there is no current step to
+    // gate on — the schedule is allowed to advance to step 0.
+    const stepBeforeAdvance = current.steps[current.currentStepIndex];
+    if (stepBeforeAdvance) {
+      const currentIsPurelyTimeGated =
+        !stepBeforeAdvance.monitored &&
+        !stepBeforeAdvance.holdConditions?.requiresApproval &&
+        !stepBeforeAdvance.holdConditions?.minSampleSize;
+      if (!currentIsPurelyTimeGated) return;
+    }
 
     current = await advanceStep(ctx, current);
   }
