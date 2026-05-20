@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
   DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
@@ -33,6 +33,9 @@ import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "@/ui/Modal";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import EventForwarderErrorLog from "@/components/Settings/EditDataSource/EventForwarder/EventForwarderErrorLog";
+import { useEventForwarderProvisioningPoll } from "@/components/Settings/EditDataSource/EventForwarder/useEventForwarderProvisioningPoll";
 
 type Props = {
   dataSource: DataSourceInterfaceWithParams;
@@ -198,10 +201,12 @@ function EventForwarderConfirmButton({
   canConfirmEventForwarder,
   usEventForwarderFlowConsent,
   datasourceDraft,
+  isEditingEventForwarder,
 }: {
   canConfirmEventForwarder: boolean;
   usEventForwarderFlowConsent: boolean;
   datasourceDraft: EventForwarderDatasourceDraft;
+  isEditingEventForwarder: boolean;
 }) {
   const { loading } = useModalForm();
   const ctaEnabled = canConfirmEventForwarder && usEventForwarderFlowConsent;
@@ -220,7 +225,7 @@ function EventForwarderConfirmButton({
       tipPosition="top"
     >
       <Button type="submit" disabled={!ctaEnabled} loading={loading}>
-        Confirm
+        {isEditingEventForwarder ? "Confirm & Edit" : "Confirm"}
       </Button>
     </Tooltip>
   );
@@ -349,6 +354,7 @@ function EventForwarderModal({
             canConfirmEventForwarder={canConfirmEventForwarder}
             usEventForwarderFlowConsent={usEventForwarderFlowConsent}
             datasourceDraft={datasourceDraft}
+            isEditingEventForwarder={isEditingEventForwarder}
           />
         </Modal.Footer>
       </ModalForm>
@@ -366,6 +372,17 @@ export default function EventForwarder({
   const { apiCall } = useAuth();
   const eventForwarderConfig = dataSource.eventForwarderConfig;
 
+  const handleRefresh = useCallback(async () => {
+    await onRefresh();
+  }, [onRefresh]);
+
+  const { isProvisioning, isError, errorLogLines, pollTimedOut } =
+    useEventForwarderProvisioningPoll({
+      datasourceId: dataSource.id,
+      status: eventForwarderConfig?.status,
+      onRefresh: handleRefresh,
+    });
+
   if (dataSource.type !== "bigquery" && dataSource.type !== "snowflake") {
     return null;
   }
@@ -376,6 +393,11 @@ export default function EventForwarder({
       : "";
   const isReady = eventForwarderConfig?.status === "ready";
   const isPaused = eventForwarderConfig?.status === "paused";
+  const showProvisioningError =
+    isError &&
+    (eventForwarderConfig?.status === "error" ||
+      pollTimedOut ||
+      !!eventForwarderConfig?.lastProvisioningError);
   const canToggle = canEdit && (isReady || isPaused);
   const action = isReady ? "pause" : "resume";
 
@@ -387,11 +409,14 @@ export default function EventForwarder({
             Event Forwarder
           </Heading>
           {eventForwarderConfig ? (
-            <Badge
-              label={statusLabels[eventForwarderConfig.status]}
-              color={statusColors[eventForwarderConfig.status]}
-              variant="soft"
-            />
+            <Flex align="center" gap="2">
+              {isProvisioning ? <LoadingSpinner /> : null}
+              <Badge
+                label={statusLabels[eventForwarderConfig.status]}
+                color={statusColors[eventForwarderConfig.status]}
+                variant="soft"
+              />
+            </Flex>
           ) : null}
         </Flex>
 
@@ -485,10 +510,23 @@ export default function EventForwarder({
               </Box>
             </Flex>
 
-            {eventForwarderConfig.lastProvisioningError ? (
+            {isProvisioning ? (
+              <Text color="text-low" size="small">
+                Provisioning event forwarder…
+              </Text>
+            ) : null}
+
+            {showProvisioningError &&
+            (eventForwarderConfig.lastProvisioningError || pollTimedOut) ? (
               <Callout status="error" mb="0">
-                {eventForwarderConfig.lastProvisioningError}
+                {pollTimedOut && !eventForwarderConfig.lastProvisioningError
+                  ? "Provisioning timed out. Try editing the Event Forwarder to retry."
+                  : eventForwarderConfig.lastProvisioningError}
               </Callout>
+            ) : null}
+
+            {showProvisioningError ? (
+              <EventForwarderErrorLog lines={errorLogLines} />
             ) : null}
             {error ? (
               <Callout status="error" mb="0">
@@ -503,8 +541,8 @@ export default function EventForwarder({
           dataSource={dataSource}
           onCancel={() => setShowEditModal(false)}
           onRefresh={async () => {
-            setShowEditModal(false);
             await onRefresh();
+            setShowEditModal(false);
           }}
         />
       ) : null}

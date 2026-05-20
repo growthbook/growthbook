@@ -1110,6 +1110,49 @@ export async function postResumeEventForwarderToLicenseServer(params: {
   });
 }
 
+export type EventForwarderLicenseConnectorPhase =
+  | "provisioning"
+  | "ready"
+  | "error"
+  | "paused";
+
+export type EventForwarderLicenseConnectorStatus = {
+  confluentState: string;
+  phase: EventForwarderLicenseConnectorPhase;
+  message?: string;
+  taskErrors?: { id: number; state: string; trace?: string }[];
+};
+
+export async function postRestartEventForwarderToLicenseServer(params: {
+  organizationId: string;
+  datasourceId: string;
+  connectorName: string;
+}): Promise<{ ok: true }> {
+  const url = `${LICENSE_SERVER_URL}event-forwarder/restart`;
+  return callLicenseServer({
+    url,
+    body: JSON.stringify({
+      ...params,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
+}
+
+export async function postEventForwarderStatusToLicenseServer(params: {
+  organizationId: string;
+  datasourceId: string;
+  connectorName: string;
+}): Promise<EventForwarderLicenseConnectorStatus> {
+  const url = `${LICENSE_SERVER_URL}event-forwarder/status`;
+  return callLicenseServer({
+    url,
+    body: JSON.stringify({
+      ...params,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
+}
+
 export type EventForwarderSchemaUpdateParams = {
   organizationId: string;
   datasourceId: string;

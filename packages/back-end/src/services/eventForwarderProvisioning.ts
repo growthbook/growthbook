@@ -10,6 +10,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   postPauseEventForwarderToLicenseServer,
   postProvisionEventForwarderToLicenseServer,
+  postRestartEventForwarderToLicenseServer,
   postResumeEventForwarderToLicenseServer,
   postTeardownEventForwarderToLicenseServer,
   postUpdateEventForwarderCredentialsToLicenseServer,
@@ -41,6 +42,7 @@ export async function provisionEventForwarderThroughLicenseServer(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface | null,
   datasourceParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
+  options?: { restartAfterProvision?: boolean },
 ): Promise<void> {
   if (!eventForwarderConfig) {
     return;
@@ -143,11 +145,19 @@ export async function provisionEventForwarderThroughLicenseServer(
 
     await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
       schemaId: result.schemaId,
-      status: "ready",
+      status: "pending",
       connectorName: result.connectorName,
       connectorId: result.connectorId,
       lastProvisioningError: "",
     });
+
+    if (options?.restartAfterProvision && result.connectorName.trim()) {
+      await postRestartEventForwarderToLicenseServer({
+        organizationId: context.org.id,
+        datasourceId: eventForwarderConfig.datasourceId,
+        connectorName: result.connectorName,
+      });
+    }
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown provisioning error";
