@@ -56,6 +56,7 @@ import {
   setAdjustedPValuesOnResults,
   getAllVariations,
   getLatestPhaseVariations,
+  getPhaseVariations,
 } from "shared/experiments";
 import { getValidDate, hoursBetween } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
@@ -2494,11 +2495,11 @@ function safeFloat(n: number | undefined, fallback = 0): number {
   return parseFloat(n.toFixed(20));
 }
 
-export async function toSnapshotApiInterface(
-  context: ReqContext | ApiReqContext,
+export function toSnapshotApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
-): Promise<ApiExperimentResults> {
+  metricMap: Map<string, ExperimentMetricInterface>,
+): ApiExperimentResults {
   const dimension = !snapshot.dimension
     ? {
         type: "none",
@@ -2522,7 +2523,9 @@ export async function toSnapshotApiInterface(
   const activationMetric =
     snapshot.settings.activationMetric || experiment.activationMetric;
 
-  const phaseVariations = getLatestPhaseVariations(experiment);
+  // Get all variations from the experiment, even if looking at old
+  // phase since we don't allow variation names to vary between phases
+  const phaseVariations = getPhaseVariations(experiment, snapshot.phase);
   const variationIds = phaseVariations.map((v) => v.id);
   const variationNames = phaseVariations.map((v) => v.name);
 
@@ -2546,10 +2549,10 @@ export async function toSnapshotApiInterface(
     ),
   );
   const baseMetricsById = new Map(
-    (await getExperimentMetricsByIds(context, baseMetricIds)).map((m) => [
-      m.id,
-      m,
-    ]),
+    baseMetricIds.flatMap((id) => {
+      const m = metricMap.get(id);
+      return m ? [[id, m]] : [];
+    }),
   );
   const getMetricName = (id: string): string | undefined => {
     const { baseMetricId, sliceLevels } = parseSliceMetricId(id);

@@ -1,6 +1,7 @@
 import { listExperimentResultsValidator } from "shared/validators";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { getLatestSnapshotMultipleExperiments } from "back-end/src/models/ExperimentSnapshotModel";
+import { getMetricMap } from "back-end/src/models/MetricModel";
 import { toSnapshotApiInterface } from "back-end/src/services/experiments";
 import {
   applyPagination,
@@ -33,10 +34,10 @@ export const listExperimentResults = createApiRequestHandler(
     }
   }
 
-  const snapshots = await getLatestSnapshotMultipleExperiments(
-    req.context,
-    experimentPhaseMap,
-  );
+  const [snapshots, metricMap] = await Promise.all([
+    getLatestSnapshotMultipleExperiments(req.context, experimentPhaseMap),
+    getMetricMap(req.context),
+  ]);
 
   const snapshotsByExperiment = new Map(
     snapshots.map((snapshot) => [snapshot.experiment, snapshot]),
@@ -45,14 +46,12 @@ export const listExperimentResults = createApiRequestHandler(
   // Preserve the experiment ordering from getAllExperiments and drop
   // experiments without a completed snapshot. `count` is overridden below so it
   // reflects the response array, not the page slice.
-  const experimentResults = await Promise.all(
-    filtered.flatMap((experiment) => {
-      const snapshot = snapshotsByExperiment.get(experiment.id);
-      return snapshot
-        ? [toSnapshotApiInterface(req.context, experiment, snapshot)]
-        : [];
-    }),
-  );
+  const experimentResults = filtered.flatMap((experiment) => {
+    const snapshot = snapshotsByExperiment.get(experiment.id);
+    return snapshot
+      ? [toSnapshotApiInterface(experiment, snapshot, metricMap)]
+      : [];
+  });
 
   return {
     experimentResults,
