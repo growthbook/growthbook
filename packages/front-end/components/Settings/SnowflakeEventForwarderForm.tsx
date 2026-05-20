@@ -33,12 +33,13 @@ const SnowflakeEventForwarderForm: FC<{
     <Flex direction="column">
       <div className="form-group col-md-12 px-0">
         <EventForwarderTableNameField
-          label="Snowflake URL"
+          label="Snowflake Access URL"
           name="eventForwarderSnowflakeUrl"
           value={snowflakeEventForwarderConfig.config.accessUrl || ""}
           onChange={(accessUrl) => updateConfig({ accessUrl })}
           placeholder="https://myorg-account123.snowflakecomputing.com"
-          tooltip="HTTPS URL for the Confluent Snowflake Sink (snowflake.url.name). Copy from Snowsight if unsure. Examples: https://myorg-account123.snowflakecomputing.com or https://xy12345.us-east-1.aws.snowflakecomputing.com"
+          tooltip="Derived from the Snowflake datasource connection (account or access URL). Update the datasource settings to change this value."
+          readOnly
         />
       </div>
       <div className="form-group col-md-12 px-0">
