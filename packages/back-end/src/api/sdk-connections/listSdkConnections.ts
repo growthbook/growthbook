@@ -1,5 +1,4 @@
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { ListSdkConnectionsResponse } from "shared/types/openapi";
 import { listSdkConnectionsValidator } from "shared/validators";
 import {
   findAllSDKConnectionsAcrossAllOrgs,
@@ -15,7 +14,7 @@ import {
 
 export const listSdkConnections = createApiRequestHandler(
   listSdkConnectionsValidator,
-)(async (req): Promise<ListSdkConnectionsResponse> => {
+)(async (req) => {
   let connections: SDKConnectionInterface[] = [];
 
   if (req.query.multiOrg) {

@@ -10,7 +10,10 @@ import {
 import { ComputedExperimentInterface } from "shared/types/experiment";
 import { FeatureMetaInfo } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { EventUserLoggedIn } from "shared/types/events/event-types";
+import {
+  EventUserLoggedIn,
+  EventUserApiKey,
+} from "shared/types/events/event-types";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import {
   getSafeRolloutDaysLeft,
@@ -34,7 +37,7 @@ import {
   ExperimentDot,
   ExperimentStatusDetailsWithDot,
 } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-import UserAvatar from "@/components/Avatar/UserAvatar";
+import Owner from "@/components/Avatar/Owner";
 import LinkButton from "@/ui/LinkButton";
 import styles from "./NeedingAttention.module.scss";
 
@@ -119,8 +122,9 @@ const NeedingAttention = (): React.ReactElement | null => {
           (item.status === "changes-requested" ||
             item.status === "approved" ||
             item.status === "draft") &&
-          item.createdBy?.type === "dashboard" &&
-          item.createdBy?.id === user?.id;
+          item.createdBy != null &&
+          "id" in item.createdBy &&
+          item.createdBy.id === user?.id;
         const isArchived = item.featureMeta?.archived;
         const safeRolloutRequiresAttention =
           safeRolloutDecisionStatus?.status === "unhealthy" || !hasDaysLeft;
@@ -200,27 +204,32 @@ const NeedingAttention = (): React.ReactElement | null => {
     return recentlyUsed;
   }, [historyData?.events, experiments, getDatasourceById, getMetricById]);
 
-  const featuresAndRevisions = revisionsData?.revisions.reduce<
-    FeaturesAndRevisions[]
-  >((result, revision) => {
-    if (
-      revision.featureMeta &&
-      revision.featureMeta.dateCreated <= revision.dateCreated
-    ) {
-      result.push({
-        ...revision,
-        safeRollout: safeRollouts?.find(
-          (sr) => sr.featureId === revision.featureId,
-        ),
-      });
-    }
-    return result;
-  }, []);
+  const featuresAndRevisions =
+    revisionsData?.revisions?.reduce<FeaturesAndRevisions[]>(
+      (result, revision) => {
+        if (
+          revision.featureMeta &&
+          revision.featureMeta.dateCreated <= revision.dateCreated
+        ) {
+          result.push({
+            ...revision,
+            safeRollout: safeRollouts?.find(
+              (sr) => sr.featureId === revision.featureId,
+            ),
+          });
+        }
+        return result;
+      },
+      [],
+    ) || [];
 
   const revisions = useAddComputedFields(
     featuresAndRevisions,
     (revision) => {
-      const createdBy = revision?.createdBy as EventUserLoggedIn | null;
+      const createdBy = revision?.createdBy as
+        | EventUserLoggedIn
+        | EventUserApiKey
+        | null;
       let dateAndStatus = new Date(revision?.dateUpdated).getTime();
       switch (revision?.status) {
         case "draft":
@@ -352,15 +361,6 @@ const NeedingAttention = (): React.ReactElement | null => {
       </Container>
     ) : null;
   };
-  const getAvatarAndName = (name: string) => {
-    if (!name) return null;
-    return (
-      <Flex align="center" gap="2">
-        <UserAvatar name={name} size="sm" variant="soft" />
-        <span className="text-truncate">{name}</span>
-      </Flex>
-    );
-  };
   const displayExperimentsRequiringAttention = () => {
     const ITEMS_PER_PAGE = 5;
     const startIndex = (experimentsPage - 1) * ITEMS_PER_PAGE;
@@ -418,7 +418,7 @@ const NeedingAttention = (): React.ReactElement | null => {
                     {getProjectById(item?.project || "")?.name}
                   </td>
                   <td className={styles.ownerTd}>
-                    {getAvatarAndName(item.ownerName)}
+                    <Owner ownerId={item.owner} />
                   </td>
                   <td className="text-truncate">
                     <ExperimentStatusDetailsWithDot
@@ -547,7 +547,7 @@ const NeedingAttention = (): React.ReactElement | null => {
                     {getProjectById(item.featureMeta?.project || "")?.name}
                   </td>
                   <td className={styles.ownerTd}>
-                    {getAvatarAndName(item.ownerNameDisplay)}
+                    <Owner ownerId={item.owner} />
                   </td>
                   <td className="text-truncate">{renderStatusCopy(item)}</td>
                 </tr>

@@ -60,6 +60,7 @@ import { MetricGroupInterface } from "shared/types/metric-groups";
 import { DataSourceInterface } from "shared/types/datasource";
 import { ProjectInterface } from "shared/types/project";
 import { accountFeatures, CommercialFeature } from "shared/enterprise";
+import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -183,6 +184,7 @@ export function getAnalysisSettingsFromReportArgs(
     differenceType: args.differenceType ?? "relative",
     baselineVariationIndex: 0,
     numGoalMetrics: args.goalMetrics.length,
+    numGuardrailMetrics: args.guardrailMetrics.length,
   };
 }
 export function getSnapshotSettingsFromReportArgs(
@@ -461,6 +463,7 @@ export async function createReportSnapshot({
       );
     snapshotData =
       (await getLatestSnapshot({
+        context,
         experiment: experiment.id,
         phase: Math.max(experiment.phases.length - 1, 0),
         type: "standard",
@@ -537,6 +540,8 @@ export async function createReportSnapshot({
     regressionAdjustmentEnabled,
     postStratificationEnabled,
     dimension: report.experimentAnalysisSettings.dimension,
+    pValueThreshold: settings.pValueThreshold.value,
+    metricGroups,
   });
 
   const analysisSettings: ExperimentSnapshotAnalysisSettings = {
@@ -575,16 +580,17 @@ export async function createReportSnapshot({
     queries: [],
     unknownVariations: [],
     multipleExposures: 0,
-    analyses: snapshotData.analyses.map((analysis) => ({
-      ...analysis,
-      dateCreated: new Date(),
-      results: [],
-      status: "running",
-      settings: {
-        ...analysis.settings,
-        ...analysisSettings,
+    hasChunkedAnalyses: false,
+    chunkedAnalysesMeta: {},
+    analyses: [
+      {
+        analysisKey: buildAnalysisKey(),
+        dateCreated: new Date(),
+        results: [],
+        status: "running",
+        settings: analysisSettings,
       },
-    })),
+    ],
   };
   if (
     snapshotData?.health?.traffic &&
@@ -595,6 +601,7 @@ export async function createReportSnapshot({
   }
 
   const snapshot = await createExperimentSnapshotModel({
+    context,
     data: snapshotData,
   });
 

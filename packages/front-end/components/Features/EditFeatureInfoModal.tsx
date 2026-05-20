@@ -4,7 +4,6 @@ import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { getReviewSetting } from "shared/util";
 import { Box } from "@radix-ui/themes";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import TagsInput from "@/components/Tags/TagsInput";
 import SelectOwner from "@/components/Owner/SelectOwner";
@@ -20,6 +19,7 @@ import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const EditFeatureInfoModal: FC<{
   feature: FeatureInterface;
@@ -82,7 +82,7 @@ const EditFeatureInfoModal: FC<{
     permissionRequired("") && !requireProjectForFeatures ? "None" : "";
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="edit-feature-info"
       trackingEventModalSource={source}
       header="Edit Feature Information"
@@ -110,7 +110,6 @@ const EditFeatureInfoModal: FC<{
       })}
       cta={mode === "publish" ? "Save" : "Save to draft"}
       ctaEnabled={form.formState.isDirty}
-      useRadixButton={true}
       size="lg"
     >
       <Box>
@@ -199,7 +198,7 @@ const EditFeatureInfoModal: FC<{
           </Box>
         </Box>
       </Box>
-    </Modal>
+    </ModalStandard>
   );
 };
 

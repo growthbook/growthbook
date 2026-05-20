@@ -1,27 +1,46 @@
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import {
   BsSearch,
   BsToggleOn,
   BsGraphUp,
   BsBarChartLine,
+  BsDiagram3,
+  BsChevronDown,
+  BsBoxArrowUpRight,
+  BsCodeSlash,
 } from "react-icons/bs";
 import { PiFolderDuotone, PiFlask, PiUsersThree } from "react-icons/pi";
 import { getMetricLink } from "shared/experiments";
 import Portal from "@/components/Modal/Portal";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { AppFeatures } from "@/types/app-features";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDashboards } from "@/hooks/useDashboards";
-import { buildCommandPaletteIndex, combinedSearch } from "./searchUtils";
+import { buildSidebarLinkFilterProps } from "@/components/Layout/SidebarLink";
+import { flattenNavItems, navlinks } from "@/components/Layout/sidebarNav";
+import { getDocSectionsForCommandPalette } from "@/components/DocLink";
+import {
+  buildCommandPaletteIndex,
+  partitionItemsForCommandPaletteSearch,
+  searchCommandPalette,
+} from "./searchUtils";
+import { getApiReferencePaletteRows } from "./apiReferencePalette";
 import styles from "./CommandPalette.module.scss";
 
 type CommandPaletteItemType =
+  | "navigation"
   | "feature"
   | "experiment"
   | "metric"
   | "dashboard"
-  | "savedGroup";
+  | "savedGroup"
+  | "documentation"
+  | "apiReference";
 
 interface CommandPaletteItem {
   id: string;
@@ -31,36 +50,79 @@ interface CommandPaletteItem {
   url: string;
   tags: string;
   icon?: FC<{ className?: string }>;
+  /** If set, activates "Show more" for this section instead of navigating */
+  expandSection?: CommandPaletteItemType;
 }
 
+// Pages first so route shortcuts (e.g. "exp" → Experiments) surface before entity hits.
 const SECTION_ORDER: CommandPaletteItemType[] = [
+  "navigation",
   "feature",
   "experiment",
   "metric",
   "savedGroup",
   "dashboard",
+  "documentation",
+  "apiReference",
 ];
 
 const SECTION_LABELS: Record<CommandPaletteItemType, string> = {
+  navigation: "Pages",
   feature: "Features",
   experiment: "Experiments",
   metric: "Metrics",
   savedGroup: "Saved Groups",
   dashboard: "Dashboards",
+  documentation: "Documentation",
+  apiReference: "REST API",
 };
 
 const SECTION_ICONS: Record<
   CommandPaletteItemType,
   FC<{ className?: string }>
 > = {
+  navigation: BsDiagram3,
   feature: BsToggleOn,
   experiment: PiFlask,
   metric: BsGraphUp,
   savedGroup: PiUsersThree,
   dashboard: BsBarChartLine,
+  documentation: BsBoxArrowUpRight,
+  apiReference: BsCodeSlash,
 };
 
-const MAX_PER_SECTION = 5;
+/** Max matches kept per section from search; "Show more" reveals up to this many. */
+const MAX_ITEMS_PER_SECTION = 10;
+/** Rows shown per section before "Show more" (when more than this exist in the pool). */
+const SECTION_INITIAL_VISIBLE = 5;
+
+function expandSectionRowId(section: CommandPaletteItemType): string {
+  return `__palette_expand_section_${section}__`;
+}
+
+function getSectionDisplayItems(
+  type: CommandPaletteItemType,
+  items: CommandPaletteItem[],
+  sectionExpanded: boolean,
+): CommandPaletteItem[] {
+  if (items.length === 0) return [];
+  if (sectionExpanded || items.length <= SECTION_INITIAL_VISIBLE) {
+    return items;
+  }
+  const hidden = items.length - SECTION_INITIAL_VISIBLE;
+  return [
+    ...items.slice(0, SECTION_INITIAL_VISIBLE),
+    {
+      id: expandSectionRowId(type),
+      type,
+      name: `Show ${hidden} more…`,
+      description: "",
+      url: "",
+      tags: "",
+      expandSection: type,
+    },
+  ];
+}
 
 /**
  * Lightweight wrapper that handles global Cmd/Ctrl+K and custom event listeners.
@@ -112,18 +174,47 @@ export const CommandPaletteLauncher: FC = () => {
 const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [expandedSections, setExpandedSections] = useState<
+    Partial<Record<CommandPaletteItemType, boolean>>
+  >({});
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
+  const { permissions, superAdmin } = useUser();
+  const { project, segments, metrics, factMetrics, metricGroups, savedGroups } =
+    useDefinitions();
+  const growthbook = useGrowthBook<AppFeatures>();
+  const permissionsUtils = usePermissionsUtil();
+
   const { features } = useFeatureMetaInfo();
   const { experiments } = useExperiments();
-  const { metrics, factMetrics, metricGroups, savedGroups } = useDefinitions();
   const { dashboards } = useDashboards(false);
+
+  const docPaletteRows = useMemo(() => getDocSectionsForCommandPalette(), []);
+  const apiReferenceRows = useMemo(() => getApiReferencePaletteRows(), []);
 
   // Build unified item list
   const items = useMemo<CommandPaletteItem[]>(() => {
-    const result: CommandPaletteItem[] = [];
+    const flatNav = flattenNavItems(
+      navlinks,
+      buildSidebarLinkFilterProps({
+        permissionsUtils,
+        permissions,
+        superAdmin,
+        gb: growthbook,
+        project,
+        segments,
+      }),
+    );
+    const result: CommandPaletteItem[] = flatNav.map((row) => ({
+      id: `nav::${row.href}::${row.name}`,
+      type: "navigation",
+      name: row.parentName ? `${row.parentName} → ${row.name}` : row.name,
+      description: row.parentName ? row.name : "",
+      url: row.href,
+      tags: row.parentName ? `${row.parentName} ${row.name}` : row.name,
+    }));
 
     for (const f of features) {
       if (f.archived) continue;
@@ -209,8 +300,36 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
       });
     }
 
+    for (const row of docPaletteRows) {
+      result.push({
+        id: `doc::${row.section}`,
+        type: "documentation",
+        name: row.title,
+        description: "",
+        url: row.url,
+        tags: row.tags,
+      });
+    }
+
+    for (const row of apiReferenceRows) {
+      result.push({
+        id: row.id,
+        type: "apiReference",
+        name: row.title,
+        description: "",
+        url: row.url,
+        tags: row.tags,
+      });
+    }
+
     return result;
   }, [
+    permissionsUtils,
+    permissions,
+    superAdmin,
+    growthbook,
+    project,
+    segments,
     features,
     experiments,
     metrics,
@@ -218,47 +337,80 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
     metricGroups,
     savedGroups,
     dashboards,
+    docPaletteRows,
+    apiReferenceRows,
   ]);
 
-  // MiniSearch index
-  const miniSearch = useMemo(() => buildCommandPaletteIndex(items), [items]);
+  const { strictItems, fuzzyItems } = useMemo(
+    () => partitionItemsForCommandPaletteSearch(items),
+    [items],
+  );
+
+  const strictIndex = useMemo(
+    () => buildCommandPaletteIndex(strictItems, { fuzzy: false }),
+    [strictItems],
+  );
+
+  const fuzzyIndex = useMemo(
+    () => buildCommandPaletteIndex(fuzzyItems, { fuzzy: true }),
+    [fuzzyItems],
+  );
 
   // Search results grouped by section
   const groupedResults = useMemo(() => {
     if (!query.trim()) return null;
 
-    const ordered = combinedSearch(miniSearch, items, query.trim());
+    const ordered = searchCommandPalette(
+      strictIndex,
+      strictItems,
+      fuzzyIndex,
+      fuzzyItems,
+      query.trim(),
+    );
     const groups: Record<CommandPaletteItemType, CommandPaletteItem[]> = {
+      navigation: [],
       feature: [],
       experiment: [],
       metric: [],
       savedGroup: [],
       dashboard: [],
+      documentation: [],
+      apiReference: [],
     };
 
     for (const item of ordered) {
-      if (groups[item.type].length < MAX_PER_SECTION) {
+      if (groups[item.type].length < MAX_ITEMS_PER_SECTION) {
         groups[item.type].push(item);
       }
     }
 
     return groups;
-  }, [query, miniSearch, items]);
+  }, [query, strictIndex, strictItems, fuzzyIndex, fuzzyItems]);
 
-  // Flat list for keyboard navigation
+  // Flat list for keyboard navigation (respects per-section "Show more" rows)
   const flatResults = useMemo(() => {
     if (!groupedResults) return [];
     const flat: CommandPaletteItem[] = [];
     for (const type of SECTION_ORDER) {
-      flat.push(...groupedResults[type]);
+      flat.push(
+        ...getSectionDisplayItems(
+          type,
+          groupedResults[type],
+          !!expandedSections[type],
+        ),
+      );
     }
     return flat;
-  }, [groupedResults]);
+  }, [groupedResults, expandedSections]);
 
-  // Reset selection when results change
+  useEffect(() => {
+    setExpandedSections({});
+  }, [query]);
+
+  // Reset selection when the search query or result set changes (not when expanding a section)
   useEffect(() => {
     setSelectedIndex(0);
-  }, [flatResults]);
+  }, [query, groupedResults]);
 
   // Scroll selected item into view
   useEffect(() => {
@@ -278,9 +430,25 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
   const navigateTo = useCallback(
     (url: string) => {
       closeAndReset();
+      if (/^https?:\/\//i.test(url)) {
+        window.open(url, "_blank", "noopener,noreferrer");
+        return;
+      }
       router.push(url);
     },
     [router, closeAndReset],
+  );
+
+  const activateItem = useCallback(
+    (item: CommandPaletteItem) => {
+      const expand = item.expandSection;
+      if (expand !== undefined) {
+        setExpandedSections((prev) => ({ ...prev, [expand]: true }));
+        return;
+      }
+      navigateTo(item.url);
+    },
+    [navigateTo],
   );
 
   // Lock body scroll when mounted
@@ -311,7 +479,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
         case "Enter":
           e.preventDefault();
           if (flatResults[selectedIndex]) {
-            navigateTo(flatResults[selectedIndex].url);
+            activateItem(flatResults[selectedIndex]);
           }
           break;
         case "Escape":
@@ -320,7 +488,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
           break;
       }
     },
-    [flatResults, selectedIndex, navigateTo, closeAndReset],
+    [flatResults, selectedIndex, activateItem, closeAndReset],
   );
 
   let flatIndex = 0;
@@ -343,7 +511,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
               className={styles.input}
               type="text"
               autoFocus
-              placeholder="Search features, experiments, metrics..."
+              placeholder="Search pages, features, experiments, metrics, docs, API…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               aria-label="Search"
@@ -359,7 +527,11 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
             )}
             {groupedResults &&
               SECTION_ORDER.map((type) => {
-                const sectionItems = groupedResults[type];
+                const sectionItems = getSectionDisplayItems(
+                  type,
+                  groupedResults[type],
+                  !!expandedSections[type],
+                );
                 if (sectionItems.length === 0) return null;
                 const SectionIcon = SECTION_ICONS[type];
                 return (
@@ -369,25 +541,25 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
                     </div>
                     {sectionItems.map((item) => {
                       const idx = flatIndex++;
-                      const Icon = item.icon || SectionIcon;
+                      const Icon =
+                        item.expandSection !== undefined
+                          ? BsChevronDown
+                          : item.icon || SectionIcon;
                       return (
                         <div
                           key={item.id}
                           data-index={idx}
                           className={`${styles.item} ${
-                            idx === selectedIndex ? styles.selected : ""
-                          }`}
-                          onClick={() => navigateTo(item.url)}
+                            item.expandSection !== undefined
+                              ? styles.showMore
+                              : ""
+                          } ${idx === selectedIndex ? styles.selected : ""}`}
+                          onClick={() => activateItem(item)}
                           onMouseEnter={() => setSelectedIndex(idx)}
                         >
                           <Icon className={styles.itemIcon} />
                           <div className={styles.itemContent}>
                             <div className={styles.itemName}>{item.name}</div>
-                            {item.description && (
-                              <div className={styles.itemDescription}>
-                                {item.description}
-                              </div>
-                            )}
                           </div>
                         </div>
                       );

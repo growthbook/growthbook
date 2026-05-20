@@ -1,0 +1,76 @@
+// Pills overlaid on Redoc's API reference (sidebar tag groups + right-pane
+// section headings).
+//
+// Two pill slots per element — `::before` and `::after` — enabled by forcing
+// the host into flex layout with explicit `order` so badges land between the
+// title and the caret (sidebar) / right of the title (heading).
+
+@mixin pill-style($bg, $fg) {
+  background-color: $bg;
+  color: $fg;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 0 8px;
+  align-items: center;
+  display: inline-flex;
+  height: 18px;
+  vertical-align: middle;
+}
+
+// Selector fragments — repeated identifier, factored out.
+$v2-tag-attr: '^="tag/"][data-item-id$="-v2"';
+$v2-section-attr: '^="tag/"][id$="-v2"';
+$beta-tag-attr: '="tag/feature-revisions-v2"';
+
+// Sidebar `<label>` is already `display: flex; justify-content: space-between`
+// (Redoc's MenuItemLabel). Switch to flex-start + gap and push the caret SVG
+// to the right with auto-margin so pseudo-elements can sit inline.
+li[data-item-id#{$v2-tag-attr}] > label {
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+}
+li[data-item-id#{$v2-tag-attr}] > label > span:first-of-type {
+  order: 1;
+}
+li[data-item-id#{$v2-tag-attr}] > label::before {
+  order: 2;
+}
+li[data-item-id#{$v2-tag-attr}] > label::after {
+  order: 3;
+}
+li[data-item-id#{$v2-tag-attr}] > label > svg {
+  order: 99;
+  margin-left: auto;
+}
+
+// Right-pane `<h2>` is a block element by default; convert to flex so the
+// share-link `<a>` and the title text node sit alongside the pseudo pills.
+[id#{$v2-section-attr}] h2 {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+[id#{$v2-section-attr}] h2::before {
+  order: 2;
+}
+[id#{$v2-section-attr}] h2::after {
+  order: 3;
+}
+
+// BETA pill — `feature-revisions-v2` only.
+li[data-item-id#{$beta-tag-attr}] > label::before,
+[id#{$beta-tag-attr}] h2::before {
+  content: "BETA";
+  @include pill-style(#fbbf24, #78350f);
+}
+
+// v2 pill — every tag group whose id ends with `-v2`. Radix blue-6 / blue-11.
+li[data-item-id#{$v2-tag-attr}] > label::after,
+[id#{$v2-section-attr}] h2::after {
+  content: "v2";
+  @include pill-style(#c2e6ff, #0d74ce);
+}

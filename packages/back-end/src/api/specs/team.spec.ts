@@ -11,7 +11,7 @@ import { statusCodeReturn } from "back-end/src/util/handler";
 import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
 
 export const addTeamMembersEndpoint = {
-  pathFragment: "/:teamId/members",
+  pathFragment: "/:id/members",
   verb: "post" as const,
   operationId: "addTeamMembers",
   validator: apiAddTeamMembersValidator,
@@ -20,7 +20,7 @@ export const addTeamMembersEndpoint = {
 };
 
 export const removeTeamMemberEndpoint = {
-  pathFragment: "/:teamId/members",
+  pathFragment: "/:id/members",
   verb: "delete" as const,
   operationId: "removeTeamMember",
   validator: apiRemoveTeamMemberValidator,
@@ -29,7 +29,7 @@ export const removeTeamMemberEndpoint = {
 };
 
 export const deleteTeamEndpoint = {
-  pathFragment: "/:teamId/",
+  pathFragment: "/:id",
   verb: "delete" as const,
   operationId: "deleteTeam",
   validator: apiDeleteTeamValidator,

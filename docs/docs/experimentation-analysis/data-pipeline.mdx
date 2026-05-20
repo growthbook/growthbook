@@ -53,7 +53,8 @@ To see specific instructions for your warehouse, please see the [Configuration](
 
 ### Limitations and notes
 
-- While in Beta, the following analysis tools aren't supported: activation metrics, quantile metrics, ratio metrics with different numerator and denominator fact tables, and dimension breakdowns in Experiment Dashboards.
+- While in Beta, the following analysis tools aren't supported: activation metrics, ratio metrics with different numerator and denominator fact tables, and dimension breakdowns in Experiment Dashboards.
+- Event-level quantile metrics are supported for BigQuery, which uses KLL sketches to store approximate event-level data for each experiment unit. This provides approximate inference, as small effects may be undetectable.
 - Changes to analysis settings sometimes require a full data refresh to take effect. In the future, we will make improvements to ensure that only the data that need be restated is restated.
 - Any changes to fact table sources require using a full refresh to take effect, but we are working on improvements to ensure that only the data that need be restated is restated.
 - Exact table schemas and partitioning/retention strategies vary by warehouse.

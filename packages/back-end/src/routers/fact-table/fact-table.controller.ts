@@ -16,7 +16,7 @@ import {
   FactTableColumnType,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
-import { CreateProps } from "shared/types/base-model";
+import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { ReqContext } from "back-end/types/request";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -75,6 +75,8 @@ async function testFilterQuery(
     throw new Error("Testing not supported on this data source");
   }
 
+  const timestampColumn = "timestamp";
+
   const sql = integration.getTestQuery({
     // Must have a newline after factTable sql in case it ends with a comment
     query: `SELECT * FROM (
@@ -84,10 +86,15 @@ async function testFilterQuery(
       eventName: factTable.eventName,
     },
     testDays: context.org.settings?.testQueryDays,
+    timestampColumn,
   });
 
   try {
-    const results = await integration.runTestQuery(sql);
+    const results = await integration.runTestQuery(
+      sql,
+      [timestampColumn],
+      "factTableValidation",
+    );
     return {
       sql,
       ...results,
@@ -180,15 +187,22 @@ export async function refreshColumns(
     !forceColumnRefresh &&
     integration.supportsLimitZeroColumnValidation?.()
   ) {
+    const timestampColumn = "timestamp";
+
     // Fast path: LIMIT 0 query
     const sql = integration.getTestQuery({
       query: factTable.sql,
       templateVariables: { eventName: factTable.eventName },
       testDays: context.org.settings?.testQueryDays,
       limit: 0,
+      timestampColumn,
     });
 
-    const result = await integration.runTestQuery(sql, ["timestamp"]);
+    const result = await integration.runTestQuery(
+      sql,
+      [timestampColumn],
+      "factTableValidation",
+    );
 
     if (!result.columns?.length) {
       throw new Error("SQL did not return any columns");
@@ -451,8 +465,7 @@ export const postColumnTopValues = async (
 
   if (
     forceAutoSlice ||
-    ((column.alwaysInlineFilter || column.isAutoSliceColumn) &&
-      canInlineFilterColumn(factTable, column.column) &&
+    (canInlineFilterColumn(factTable, column.column) &&
       column.datatype === "string")
   ) {
     try {
@@ -488,14 +501,18 @@ export const postColumnTopValues = async (
         changes,
       });
     } catch (e) {
-      logger.error(e, "Error running top values query for specific column", {
-        column: req.params.column,
-      });
+      logger.error(
+        e,
+        `Error running top values query for specific column on ${datasource.type}`,
+        {
+          column: req.params.column,
+        },
+      );
       throw e;
     }
   } else {
     throw new Error(
-      "Column does not meet requirements for top values refresh (must be string type and have alwaysInlineFilter or isAutoSliceColumn enabled)",
+      "Column does not meet requirements for top values refresh (must be a string column and not a user-id type)",
     );
   }
 
@@ -564,7 +581,10 @@ export const putColumn = async (
           });
         })
         .catch((e) => {
-          logger.warn("Failed to get top values for column", e);
+          logger.warn(
+            `Failed to get top values for column on ${datasource.type}`,
+            e,
+          );
         });
     }
   }
@@ -733,7 +753,7 @@ export const postFactMetric = async (
 };
 
 export const putFactMetric = async (
-  req: AuthRequest<Partial<FactMetricInterface>, { id: string }>,
+  req: AuthRequest<UpdateProps<FactMetricInterface>, { id: string }>,
   res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);

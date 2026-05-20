@@ -2,6 +2,7 @@ import { FaExclamationTriangle } from "react-icons/fa";
 import { PiArrowLineDownThin, PiCaretLeft, PiCaretRight } from "react-icons/pi";
 import { Flex, Separator } from "@radix-ui/themes";
 import { useRef, useState } from "react";
+import { isManagedWarehousePendingQueryError } from "shared/util";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import { convertToCSV, downloadCSVFile } from "@/services/sql";
@@ -10,6 +11,7 @@ import Callout from "@/ui/Callout";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { AreaWithHeader } from "@/components/SchemaBrowser/SqlExplorerModal";
 import { floatRound } from "@/services/utils";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 
 export type HeaderStructure = {
   row1: { label: string; colSpan?: number; rowSpan?: number }[];
@@ -29,6 +31,12 @@ export type Props = {
   showDuration?: boolean;
   headerStructure?: HeaderStructure;
   orderedColumnKeys?: string[];
+  /**
+   * Display labels aligned with `orderedColumnKeys`. When omitted, the keys
+   * themselves are used as labels (back-compat for existing callers that
+   * pass human-readable keys).
+   */
+  columnLabels?: string[];
   paddingTop?: number;
   showNoRowsWarning?: boolean;
 };
@@ -46,11 +54,13 @@ export default function DisplayTestQueryResults({
   showDuration = true,
   headerStructure,
   orderedColumnKeys,
+  columnLabels,
   paddingTop = 0,
   showNoRowsWarning = true,
 }: Props) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const cols = orderedColumnKeys ?? Object.keys(results?.[0] || {});
+  const labels = columnLabels ?? cols;
   const useTwoRowHeader = headerStructure != null && orderedColumnKeys != null;
 
   const forceShowSql = error || !results.length;
@@ -64,13 +74,29 @@ export default function DisplayTestQueryResults({
   // Match the line number from the error message that
   // either has "line <line number>" in it,
   // or ends with "[<line number>:<col number>]"
-  const errorLineMatch = error.match(/line\s+(\d+)|\[(\d+):\d+\]$/i);
+  const errorLineMatch =
+    !isManagedWarehousePendingQueryError(error) &&
+    error.match(/line\s+(\d+)|\[(\d+):\d+\]$/i);
   const errorLine = errorLineMatch
     ? Number(errorLineMatch[1] || errorLineMatch[2])
     : undefined;
 
   function handleDownload(results: Record<string, unknown>[]) {
-    const csv = convertToCSV(results);
+    // When the caller passes stable keys + separate labels, rewrite each row
+    // so the CSV column headers (derived from Object.keys) are the display
+    // labels. Otherwise fall through unchanged — the key *is* the label.
+    const rowsForCsv =
+      columnLabels && orderedColumnKeys
+        ? results.map((row) =>
+            Object.fromEntries(
+              orderedColumnKeys.map((key, i) => [
+                columnLabels[i] ?? key,
+                row[key],
+              ]),
+            ),
+          )
+        : results;
+    const csv = convertToCSV(rowsForCsv);
     if (!csv) {
       throw new Error(
         "Error downloading results. Reason: Unable to convert results to CSV.",
@@ -246,8 +272,8 @@ export default function DisplayTestQueryResults({
                     </>
                   ) : (
                     <tr>
-                      {cols.map((col) => (
-                        <th key={col}>{col}</th>
+                      {cols.map((col, i) => (
+                        <th key={col}>{labels[i] ?? col}</th>
                       ))}
                     </tr>
                   )}
@@ -282,7 +308,13 @@ export default function DisplayTestQueryResults({
             className="mt-3"
           >
             {error ? (
-              <div className="alert alert-danger mr-auto">{error}</div>
+              isManagedWarehousePendingQueryError(error) ? (
+                <div className="mb-3 mr-auto" style={{ maxWidth: 720 }}>
+                  <ManagedWarehouseNoEventsCallout />
+                </div>
+              ) : (
+                <div className="alert alert-danger mr-auto">{error}</div>
+              )
             ) : (
               showNoRowsWarning &&
               !results.length && (

@@ -4,6 +4,7 @@ import {
   MinimalFeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
+import { RampScheduleInterface } from "shared/validators";
 import React, {
   useCallback,
   useEffect,
@@ -15,12 +16,17 @@ import React, {
 import { Box, Flex } from "@radix-ui/themes";
 import {
   PiArrowsLeftRightBold,
+  PiCaretDownBold,
+  PiCaretLeftBold,
+  PiCaretRightBold,
+  PiCaretRightFill,
   PiClockClockwise,
   PiWarningBold,
   PiX,
 } from "react-icons/pi";
-import { datetime } from "shared/dates";
+import { datetime, getValidDate } from "shared/dates";
 import { DRAFT_REVISION_STATUSES } from "shared/util";
+import type { HoldoutInterface } from "shared/validators";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -40,10 +46,14 @@ import { Select, SelectItem } from "@/ui/Select";
 import Badge from "@/ui/Badge";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import EventUser from "@/components/Avatar/EventUser";
+import Code from "@/components/SyntaxHighlighting/Code";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import RevisionLabel, {
   revisionLabelText,
 } from "@/components/Features/RevisionLabel";
+import RevisionStatusBadge, {
+  isRampGenerated,
+} from "@/components/Features/RevisionStatusBadge";
 import {
   useFeatureRevisionDiff,
   FeatureRevisionDiffInput,
@@ -51,7 +61,13 @@ import {
   normalizeRevisionMetadata,
   featureToFeatureRevisionDiffInput,
 } from "@/hooks/useFeatureRevisionDiff";
-import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
+import {
+  logBadgeColor,
+  CreatedRampScheduleBody,
+  RampActionLabel,
+  formatSimpleWindow,
+} from "@/components/Features/FeatureDiffRenders";
+import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
@@ -60,7 +76,7 @@ import {
   dedupeDiffBadges,
 } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import { ExpandableDiff } from "./DraftModal";
-import RevisionStatusBadge from "./RevisionStatusBadge";
+import CoAuthors, { NON_CONTENT_ACTIONS } from "./CoAuthors";
 import styles from "./CompareRevisionsModal.module.scss";
 
 const STORAGE_KEY_PREFIX = "feature:compare-revisions";
@@ -76,18 +92,26 @@ export interface Props {
   // Opens directly in "preview draft vs live" mode for this version
   initialPreviewDraft?: number;
   initialMode?: "most-recent-live";
+  rampSchedules?: RampScheduleInterface[];
 }
 
+// Backfill envelope fields from `fallback` (the parent feature's current
+// state) when the revision doesn't store them. Pre-snapshot legacy revisions
+// only persisted defaultValue/rules; comparing one against a freshly created
+// draft (which now snapshots the full envelope) would otherwise produce
+// phantom "added" diffs for metadata, env toggles, prerequisites, and holdout.
 function revisionToDiffInput(
   r: FeatureRevisionInterface,
+  fallback?: FeatureRevisionDiffInput,
 ): FeatureRevisionDiffInput {
   return {
     defaultValue: r.defaultValue,
-    rules: r.rules ?? {},
-    environmentsEnabled: r.environmentsEnabled,
-    prerequisites: r.prerequisites,
-    holdout: r.holdout ?? null,
-    metadata: normalizeRevisionMetadata(r.metadata),
+    rules: Array.isArray(r.rules) ? r.rules : [],
+    environmentsEnabled: r.environmentsEnabled ?? fallback?.environmentsEnabled,
+    prerequisites: r.prerequisites ?? fallback?.prerequisites,
+    holdout: r.holdout !== undefined ? r.holdout : (fallback?.holdout ?? null),
+    metadata: normalizeRevisionMetadata(r.metadata) ?? fallback?.metadata,
+    rampActions: r.rampActions ?? undefined,
   };
 }
 
@@ -99,6 +123,8 @@ function RevisionCompareLabel({
   liveVersion,
   revAFailed = false,
   revBFailed = false,
+  logsA,
+  logsB,
   mb,
   mt,
 }: {
@@ -109,13 +135,15 @@ function RevisionCompareLabel({
   liveVersion: number;
   revAFailed?: boolean;
   revBFailed?: boolean;
+  logsA?: RevisionLog[];
+  logsB?: RevisionLog[];
   mb?: "1" | "2" | "3" | "4";
   mt?: "1" | "2" | "3" | "4";
 }) {
   return (
-    <Flex align="center" gap="4" wrap="nowrap" mb={mb} mt={mt}>
+    <Flex align="start" gap="4" wrap="nowrap" mb={mb} mt={mt}>
       <Flex direction="column">
-        <Flex align="center" justify="between" gap="2">
+        <Flex align="center" gap="4">
           <Flex align="center" gap="1">
             {revAFailed && (
               <Tooltip body="Could not load revision">
@@ -124,32 +152,28 @@ function RevisionCompareLabel({
                 />
               </Tooltip>
             )}
-            <Text weight="semibold" size="medium">
+            <Text weight="semibold" size="large">
               <OverflowText
                 maxWidth={250}
                 title={revisionLabelText(versionA, revA?.title)}
               >
-                <RevisionLabel version={versionA} title={revA?.title} />
+                <RevisionLabel
+                  version={versionA}
+                  title={revA?.title}
+                  minWidth={0}
+                  numberSize="inherit"
+                />
               </OverflowText>
             </Text>
           </Flex>
           <RevisionStatusBadge revision={revA} liveVersion={liveVersion} />
         </Flex>
-        {revA && (
-          <Text as="div" size="small" color="text-low">
-            {datetime(
-              (revA.status === "published" ? revA.datePublished : null) ??
-                revA.dateUpdated,
-            )}{" "}
-            · <EventUser user={revA.createdBy} display="name" />
-          </Text>
-        )}
         {revA &&
           revA.baseVersion !== 0 &&
           (() => {
             return DRAFT_REVISION_STATUSES.includes(revA.status) &&
               revA.baseVersion !== liveVersion ? (
-              <HelperText status="warning" size="sm">
+              <HelperText status="info" size="sm">
                 based on: Revision {revA.baseVersion}
               </HelperText>
             ) : (
@@ -158,10 +182,31 @@ function RevisionCompareLabel({
               </Text>
             );
           })()}
+        {revA && (
+          <Box mt="2">
+            <EventUser
+              user={revA.createdBy}
+              display="avatar-name-email"
+              size="sm"
+            />
+            <CoAuthors rev={revA} logs={logsA} />
+          </Box>
+        )}
+        {revA && (
+          <Text as="div" mt="2">
+            {datetime(
+              (revA.status === "published" ? revA.datePublished : null) ??
+                revA.dateUpdated,
+            )}
+          </Text>
+        )}
       </Flex>
-      <PiArrowsLeftRightBold size={16} />
+      <PiArrowsLeftRightBold
+        size={16}
+        style={{ flexShrink: 0, marginTop: "var(--space-4)" }}
+      />
       <Flex direction="column">
-        <Flex align="center" justify="between" gap="2">
+        <Flex align="center" gap="4">
           <Flex align="center" gap="1">
             {revBFailed && (
               <Tooltip body="Could not load revision">
@@ -170,32 +215,28 @@ function RevisionCompareLabel({
                 />
               </Tooltip>
             )}
-            <Text weight="semibold" size="medium">
+            <Text weight="semibold" size="large">
               <OverflowText
                 maxWidth={250}
                 title={revisionLabelText(versionB, revB?.title)}
               >
-                <RevisionLabel version={versionB} title={revB?.title} />
+                <RevisionLabel
+                  version={versionB}
+                  title={revB?.title}
+                  minWidth={0}
+                  numberSize="inherit"
+                />
               </OverflowText>
             </Text>
           </Flex>
           <RevisionStatusBadge revision={revB} liveVersion={liveVersion} />
         </Flex>
-        {revB && (
-          <Text as="div" size="small" color="text-low">
-            {datetime(
-              (revB.status === "published" ? revB.datePublished : null) ??
-                revB.dateUpdated,
-            )}{" "}
-            · <EventUser user={revB.createdBy} display="name" />
-          </Text>
-        )}
         {revB &&
           revB.baseVersion !== 0 &&
           (() => {
             return DRAFT_REVISION_STATUSES.includes(revB.status) &&
               revB.baseVersion !== liveVersion ? (
-              <HelperText status="warning" size="sm">
+              <HelperText status="info" size="sm">
                 based on: Revision {revB.baseVersion}
               </HelperText>
             ) : (
@@ -204,6 +245,24 @@ function RevisionCompareLabel({
               </Text>
             );
           })()}
+        {revB && (
+          <Box mt="2">
+            <EventUser
+              user={revB.createdBy}
+              display="avatar-name-email"
+              size="sm"
+            />
+            <CoAuthors rev={revB} logs={logsB} />
+          </Box>
+        )}
+        {revB && (
+          <Text as="div" mt="2">
+            {datetime(
+              (revB.status === "published" ? revB.datePublished : null) ??
+                revB.dateUpdated,
+            )}
+          </Text>
+        )}
       </Flex>
     </Flex>
   );
@@ -245,10 +304,10 @@ function RevisionCommentItem({
 
   const logEntry = useMemo(() => {
     if (!data?.log) return null;
-    const sorted = [...data.log].sort((a, b) =>
-      (b.timestamp as unknown as string).localeCompare(
-        a.timestamp as unknown as string,
-      ),
+    const sorted = [...data.log].sort(
+      (a, b) =>
+        getValidDate(b.timestamp).getTime() -
+        getValidDate(a.timestamp).getTime(),
     );
     for (const entry of sorted) {
       if (entry.action === "edit comment") {
@@ -284,8 +343,14 @@ function RevisionCommentItem({
           notes
         </Text>
         {logEntry?.user && (
+          <EventUser
+            user={logEntry.user}
+            display="avatar-name-email"
+            size="sm"
+          />
+        )}
+        {logEntry?.timestamp && (
           <Text size="small" color="text-low">
-            · <EventUser user={logEntry.user} display="name" /> ·{" "}
             {datetime(logEntry.timestamp)}
           </Text>
         )}
@@ -385,9 +450,12 @@ function DiffContent({
             <Flex direction="column" gap="0">
               {withRender.map((d) => (
                 <Box key={d.title} p="3" my="3" className="rounded bg-light">
-                  <Heading as="h6" size="small" color="text-mid" mb="2">
-                    {formatSectionTitle(d.title)}
-                  </Heading>
+                  <Flex align="center" gap="2" mb="2" wrap="wrap">
+                    <Heading as="h6" size="small" color="text-mid" mb="0">
+                      {formatSectionTitle(d.title)}
+                    </Heading>
+                    {d.titleSuffix}
+                  </Flex>
                   {d.customRender}
                 </Box>
               ))}
@@ -431,6 +499,566 @@ function DiffContent({
   );
 }
 
+// Build FeatureRevisionDiff items for any ramp schedules linked to a given revision.
+// "newerRevision" is the revision being introduced on the right-hand side of the diff.
+// Unlike DraftModal (which only shows pending ramps), this is status-agnostic so it works
+// for both draft previews and historical published-revision comparisons.
+function rampDiffsForRevision(
+  newerRevision: FeatureRevisionInterface | null,
+  featureId: string,
+  rampSchedules: RampScheduleInterface[],
+  holdoutsMap: Map<string, HoldoutInterface>,
+): FeatureRevisionDiff[] {
+  if (!newerRevision) return [];
+  const diffs: FeatureRevisionDiff[] = [];
+
+  // Activating: any ramp whose activating revision matches newerRevision (any status)
+  for (const ramp of rampSchedules) {
+    if (
+      !ramp.targets.some(
+        (t) =>
+          t.entityId === featureId &&
+          t.activatingRevisionVersion === newerRevision.version,
+      )
+    ) {
+      continue;
+    }
+
+    // "ready" / "pending" are pre-start lifecycle states; everything else
+    // (running, paused, pending-approval, completed, rolled-back) means the
+    // ramp has already begun, so use past tense.
+    const alreadyStarted = ramp.status !== "pending" && ramp.status !== "ready";
+    const isSimple = ramp.steps.length === 0;
+    const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
+    const endAt =
+      ramp.endCondition?.trigger?.type === "scheduled"
+        ? ramp.endCondition.trigger.at
+        : undefined;
+    const simpleWindow = formatSimpleWindow(ramp.startDate, endAt);
+    const startsClause = alreadyStarted
+      ? "started on publish"
+      : "starts on publish";
+    const detail = isSimple
+      ? (simpleWindow ?? startsClause)
+      : `${ramp.steps.length} step${ramp.steps.length !== 1 ? "s" : ""}${
+          ramp.startDate ? "" : ` · ${startsClause}`
+        }`;
+
+    diffs.push({
+      title: `${kindLabel} – ${ramp.name}`,
+      titleSuffix: <RampActionLabel action="activate" />,
+      a: "",
+      b: JSON.stringify(
+        {
+          name: ramp.name,
+          targets: ramp.targets,
+          startDate: ramp.startDate,
+          steps: ramp.steps,
+          endCondition: ramp.endCondition,
+        },
+        null,
+        2,
+      ),
+      customRender: detail ? (
+        <p className="mb-0 text-muted">{detail}.</p>
+      ) : null,
+      badges: [
+        {
+          label: `Start ${isSimple ? "schedule" : "ramp"}: ${ramp.name}`,
+          action: isSimple ? "start schedule" : "start ramp",
+        },
+      ],
+    });
+  }
+
+  // 1-based rule indices for `Rule #N` refs. Holdout occupies #1 (Rule.tsx)
+  // only when it's enabled in some env — a feature may carry a disabled
+  // holdout reference, in which case the rules list shows no holdout row.
+  const newerRules = Array.isArray(newerRevision.rules)
+    ? newerRevision.rules
+    : [];
+  const ruleNumberOffset = holdoutOccupiesRuleSlot(
+    newerRevision.holdout,
+    holdoutsMap,
+  )
+    ? 2
+    : 1;
+  const ruleIndexById = new Map<string, number>(
+    newerRules.map((r, i) => [r.id, i + ruleNumberOffset]),
+  );
+  // Fall back to the raw ID for any rule we can't number (e.g. a detach
+  // action whose rule was deleted from the draft).
+  const ruleRef = (ruleId: string): string => {
+    const idx = ruleIndexById.get(ruleId);
+    return idx ? `Rule #${idx}` : `Rule ${ruleId}`;
+  };
+
+  // Pending ramp actions: display "create" and "detach" actions queued in the draft
+  if (newerRevision.rampActions) {
+    for (const action of newerRevision.rampActions) {
+      if (action.mode === "create") {
+        const targetIdx = ruleIndexById.get(action.ruleId);
+        const isSimple = action.steps.length === 0;
+        const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
+        const displayName = action.name ?? "schedule";
+        diffs.push({
+          title: `${kindLabel} – ${displayName}`,
+          a: "",
+          b: JSON.stringify(
+            {
+              name: action.name,
+              environment: action.environment,
+              ruleId: action.ruleId,
+              startDate: action.startDate,
+              steps: action.steps,
+              endCondition: action.endCondition,
+            },
+            null,
+            2,
+          ),
+          customRender: (
+            <CreatedRampScheduleBody
+              action={action}
+              targetRuleIndices={targetIdx ? [targetIdx] : []}
+            />
+          ),
+          titleSuffix: <RampActionLabel action="create" />,
+          badges: [
+            {
+              label: action.name
+                ? `Create ${isSimple ? "schedule" : "ramp"}: ${action.name}`
+                : `Create ${isSimple ? "schedule" : "ramp schedule"}`,
+              action: isSimple ? "create schedule" : "create ramp",
+            },
+          ],
+        });
+      } else if (action.mode === "detach") {
+        const targetSchedule = rampSchedules.find(
+          (r) => r.id === action.rampScheduleId,
+        );
+        const isSimple = !!targetSchedule && targetSchedule.steps.length === 0;
+        const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
+        const kindNoun = isSimple ? "schedule" : "ramp schedule";
+        const scheduleName = targetSchedule?.name;
+        diffs.push({
+          title: scheduleName ? `${kindLabel} – ${scheduleName}` : kindLabel,
+          titleSuffix: <RampActionLabel action="remove" />,
+          a: "",
+          b: JSON.stringify(
+            {
+              rampScheduleId: action.rampScheduleId,
+              ruleId: action.ruleId,
+              deleteScheduleWhenEmpty: action.deleteScheduleWhenEmpty,
+            },
+            null,
+            2,
+          ),
+          customRender: (
+            <p className="mb-0 text-muted">
+              {ruleRef(action.ruleId)} will be removed from this {kindNoun}
+              {action.deleteScheduleWhenEmpty &&
+                "; the schedule is deleted if no targets remain"}
+              .
+            </p>
+          ),
+          badges: [
+            {
+              label: `Remove from ${kindNoun}`,
+              action: isSimple ? "remove schedule" : "remove ramp",
+            },
+          ],
+        });
+      }
+    }
+  }
+
+  return diffs;
+}
+
+// Actions that are review/approval lifecycle events, not content changes.
+// Excluded from sub-rows and never shown with a diff.
+// ─── Log replay engine ────────────────────────────────────────────────────────
+// Each log entry is a patch on top of the base revision. We replay them in
+// order to reconstruct the exact full-field state before and after each edit,
+// so the diff shows the rule *in context* (whole env array) rather than in
+// isolation.
+
+// Internal per-env bucketed view used by the log replay engine. This is
+// decoupled from `FeatureRevisionInterface["rules"]` (which is v2-flat):
+// logs reference rules by env+index, so the replay bookkeeping reconstructs
+// the per-env state before projecting back to a flat v2 array for display.
+type ReplayState = {
+  rules: Record<string, FeatureRevisionRule[]>;
+  defaultValue: FeatureRevisionInterface["defaultValue"];
+  prerequisites: NonNullable<FeatureRevisionInterface["prerequisites"]>;
+  environmentsEnabled: NonNullable<
+    FeatureRevisionInterface["environmentsEnabled"]
+  >;
+};
+
+type FeatureRevisionRule = NonNullable<
+  FeatureRevisionInterface["rules"]
+>[number];
+
+// Project a flat v2 rules array into per-env buckets for log replay. Revision
+// logs index rules by env+position (legacy format — see `envsFromSubject`),
+// so replay needs a per-env projection of the flat array.
+//
+// Bucketing rules:
+//   - allEnvironments:true      → appears in every env bucket (org envs derived
+//                                 from `environmentsEnabled` + any env
+//                                 explicitly mentioned by other rules).
+//   - environments:[a,b]        → appears in a's and b's buckets.
+//   - environments:[]           → pending rule, appears nowhere (unaddressable
+//                                 by env+position log format; only visible in
+//                                 the direct draft/live diff).
+//   - environments:undefined    → permissive fallback, same as
+//                                 allEnvironments:true.
+//
+// Preserves flat-array order within each bucket so positional replay remains
+// correct even when global and env-scoped rules are interleaved.
+function bucketRevisionRulesByEnv(
+  rules: FeatureRevisionInterface["rules"] | null | undefined,
+  knownEnvs: string[] = [],
+): Record<string, FeatureRevisionRule[]> {
+  const out: Record<string, FeatureRevisionRule[]> = {};
+  if (!Array.isArray(rules)) return out;
+
+  // Seed every known env so even envs with no explicitly-scoped rules still
+  // receive all-env rules.
+  for (const e of knownEnvs) out[e] = out[e] ?? [];
+
+  for (const r of rules) {
+    let envs: string[];
+    if (r.allEnvironments || r.environments === undefined) {
+      envs = Array.from(new Set([...knownEnvs, ...Object.keys(out)]));
+    } else {
+      envs = r.environments;
+    }
+    if (envs.length === 0) continue;
+    for (const e of envs) {
+      out[e] = out[e] ?? [];
+      out[e].push(r);
+    }
+  }
+  return out;
+}
+
+function initialReplayState(
+  base: FeatureRevisionInterface | null,
+): ReplayState {
+  // Seed the bucketing with every env that was referenced in the revision's
+  // own environmentsEnabled map so `allEnvironments: true` rules are placed
+  // into each bucket (otherwise they would only appear in envs referenced by
+  // some OTHER env-scoped rule).
+  const knownEnvs = Object.keys(base?.environmentsEnabled ?? {});
+  return {
+    rules: bucketRevisionRulesByEnv(base?.rules, knownEnvs),
+    defaultValue: base?.defaultValue ?? "",
+    prerequisites: base?.prerequisites ?? [],
+    environmentsEnabled: base?.environmentsEnabled ?? {},
+  };
+}
+
+/**
+ * Extract all env names from a rule operation subject:
+ *   edit rule:   "<env> rule <i>"        → [env]
+ *   add rule:    "to <env1>, <env2>, …"  → [env1, env2, …]
+ *   delete rule: "in <env> (position X)" → [env]
+ *   move rule:   "in <env> from pos X→Y" → [env]
+ */
+function envsFromSubject(action: string, subject: string): string[] {
+  if (action.startsWith("edit rule")) {
+    const m = subject.match(/^(.+?)\s+rule\s+\d+/);
+    return m ? [m[1]] : [];
+  }
+  if (action.startsWith("add rule")) {
+    const m = subject.match(/^to\s+(.+)$/);
+    return m ? m[1].split(",").map((e) => e.trim()) : [];
+  }
+  if (action === "delete rule" || action.startsWith("move rule")) {
+    const m = subject.match(/^in\s+(.+?)(?:\s+\(|\s+from)/);
+    return m ? [m[1].trim()] : [];
+  }
+  return [];
+}
+
+function applyLogEntry(state: ReplayState, log: RevisionLog): ReplayState {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(log.value);
+  } catch {
+    parsed = log.value;
+  }
+
+  const envs = envsFromSubject(log.action, log.subject);
+  const rules = { ...state.rules };
+
+  if (log.action.startsWith("add rule") && envs.length) {
+    for (const env of envs) {
+      rules[env] = [...(rules[env] ?? []), parsed as FeatureRevisionRule];
+    }
+    return { ...state, rules };
+  }
+
+  if (log.action === "delete rule" && envs.length) {
+    const env = envs[0];
+    // subject: "in <env> (position X)" — 1-indexed
+    const m = log.subject.match(/\(position (\d+)\)/);
+    const pos = m ? parseInt(m[1]) - 1 : -1;
+    if (pos >= 0) {
+      rules[env] = (rules[env] ?? []).filter((_, i) => i !== pos);
+    }
+    return { ...state, rules };
+  }
+
+  if (log.action.startsWith("edit rule") && envs.length) {
+    const env = envs[0];
+    // subject: "<env> rule X" — 0-indexed
+    const m = log.subject.match(/rule (\d+)$/);
+    const idx = m ? parseInt(m[1]) : -1;
+    if (idx >= 0) {
+      const arr = [...(rules[env] ?? [])];
+      arr[idx] = { ...arr[idx], ...(parsed as object) } as (typeof arr)[number];
+      rules[env] = arr;
+    }
+    return { ...state, rules };
+  }
+
+  if (log.action.startsWith("move rule") && envs.length) {
+    const env = envs[0];
+    // subject: "in <env> from position X to Y" — 1-indexed
+    const m = log.subject.match(/from position (\d+) to (\d+)/);
+    if (m) {
+      const from = parseInt(m[1]) - 1;
+      const to = parseInt(m[2]) - 1;
+      const arr = [...(rules[env] ?? [])];
+      const [item] = arr.splice(from, 1);
+      arr.splice(to, 0, item);
+      rules[env] = arr;
+    }
+    return { ...state, rules };
+  }
+
+  if (log.action === "edit defaultValue") {
+    return {
+      ...state,
+      defaultValue:
+        typeof parsed === "string" ? parsed : JSON.stringify(parsed),
+    };
+  }
+
+  if (log.action === "rebase") {
+    const r = parsed as Partial<ReplayState>;
+    return {
+      rules: r.rules ?? state.rules,
+      defaultValue: r.defaultValue ?? state.defaultValue,
+      prerequisites: r.prerequisites ?? state.prerequisites,
+      environmentsEnabled: r.environmentsEnabled ?? state.environmentsEnabled,
+    };
+  }
+
+  return state;
+}
+
+/**
+ * Replay all content logs up to (exclusive) logIndex, then apply entry at
+ * logIndex. Returns the a/b strings for ExpandableDiff scoped to the
+ * affected field so the diff shows full context.
+ */
+// Recursively parse JSON-string fields (condition, value, prerequisites[].condition)
+// so the diff viewer shows structured objects rather than escaped string blobs.
+function parseFeatureJsonFields(obj: unknown): unknown {
+  if (Array.isArray(obj)) return obj.map(parseFeatureJsonFields);
+  if (obj !== null && typeof obj === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+      if ((k === "condition" || k === "value") && typeof v === "string") {
+        try {
+          result[k] = parseFeatureJsonFields(JSON.parse(v));
+        } catch {
+          result[k] = v;
+        }
+      } else {
+        result[k] = parseFeatureJsonFields(v);
+      }
+    }
+    return result;
+  }
+  return obj;
+}
+
+function computeBeforeAfter(
+  log: RevisionLog,
+  allLogs: RevisionLog[],
+  logIndex: number,
+  baseRevision: FeatureRevisionInterface | null,
+): { a: string; b: string; title: string } | null {
+  const title = log.subject ? `${log.action} · ${log.subject}` : log.action;
+
+  const contentLogs = allLogs.filter((l) => !NON_CONTENT_ACTIONS.has(l.action));
+  const priorContentIdx = contentLogs.indexOf(log);
+  const priorLogs =
+    priorContentIdx >= 0
+      ? contentLogs.slice(0, priorContentIdx)
+      : allLogs
+          .slice(0, logIndex)
+          .filter((l) => !NON_CONTENT_ACTIONS.has(l.action));
+
+  const stateBefore = priorLogs.reduce(
+    applyLogEntry,
+    initialReplayState(baseRevision),
+  );
+  const stateAfter = applyLogEntry(stateBefore, log);
+
+  const pp = (v: unknown) => JSON.stringify(parseFeatureJsonFields(v), null, 2);
+
+  const envs = envsFromSubject(log.action, log.subject);
+  const env = envs[0];
+
+  if (
+    log.action.startsWith("edit rule") ||
+    log.action.startsWith("add rule") ||
+    log.action === "delete rule" ||
+    log.action.startsWith("move rule")
+  ) {
+    if (!env) return null;
+    return {
+      a: pp(stateBefore.rules[env] ?? []),
+      b: pp(stateAfter.rules[env] ?? []),
+      title,
+    };
+  }
+
+  if (log.action === "edit defaultValue") {
+    return {
+      a: pp(stateBefore.defaultValue),
+      b: pp(stateAfter.defaultValue),
+      title,
+    };
+  }
+
+  if (log.action === "rebase") {
+    return { a: pp(stateBefore), b: pp(stateAfter), title };
+  }
+
+  // Fallback: just show the raw value as "after"
+  try {
+    return { a: "", b: pp(JSON.parse(log.value)), title };
+  } catch {
+    return { a: "", b: log.value, title };
+  }
+}
+
+function LogEntryMeta({ log }: { log: RevisionLog }) {
+  const rows: [string, React.ReactNode][] = [
+    ...(log.subject
+      ? ([["Subject", log.subject]] as [string, React.ReactNode][])
+      : []),
+    [
+      "Author",
+      <EventUser
+        user={log.user}
+        display="avatar-name-email"
+        size="sm"
+        key="author"
+        wrap={true}
+      />,
+    ],
+    ["Date", datetime(log.timestamp)],
+  ];
+
+  return (
+    <Box>
+      <Heading as="h4" size="small" mb="3">
+        {log.action === "edit comment" ? "Edit revision notes" : log.action}
+      </Heading>
+      <Flex direction="column" gap="2">
+        {rows.map(([label, value]) => (
+          <Flex key={label} align="center" gap="3">
+            <span style={{ minWidth: 72, flexShrink: 0 }}>
+              <Text color="text-mid">{label}</Text>
+            </span>
+            {value}
+          </Flex>
+        ))}
+      </Flex>
+    </Box>
+  );
+}
+
+function RawLogDetails({ log }: { log: RevisionLog }) {
+  const [open, setOpen] = useState(false);
+
+  let prettyValue = log.value;
+  try {
+    prettyValue = JSON.stringify(JSON.parse(log.value), null, 2);
+  } catch {
+    // leave as-is
+  }
+
+  return (
+    <Box mt="5">
+      <div
+        className="link-purple font-weight-bold"
+        style={{ cursor: "pointer", userSelect: "none" }}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <PiCaretRightFill
+          style={{
+            display: "inline",
+            marginRight: 4,
+            transition: "transform 0.15s ease",
+            transform: open ? "rotate(90deg)" : "none",
+          }}
+        />
+        Full log entry
+      </div>
+      {open && (
+        <Box mt="3">
+          <div className="diff-wrapper">
+            <div className="bg-highlight">
+              <Code language="json" code={prettyValue} />
+            </div>
+          </div>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+function LogEntryPanel({
+  log,
+  allLogs,
+  logIndex,
+  baseRevision,
+}: {
+  log: RevisionLog;
+  allLogs: RevisionLog[];
+  logIndex: number;
+  baseRevision: FeatureRevisionInterface | null;
+}) {
+  const diff = computeBeforeAfter(log, allLogs, logIndex, baseRevision);
+
+  return (
+    <Box>
+      <LogEntryMeta log={log} />
+      {diff && (
+        <Box mt="3">
+          <ExpandableDiff
+            title={diff.title}
+            a={diff.a}
+            b={diff.b}
+            defaultOpen
+            styles={COMPACT_DIFF_STYLES}
+          />
+        </Box>
+      )}
+      <RawLogDetails log={log} />
+    </Box>
+  );
+}
+
 export default function CompareRevisionsModal({
   feature,
   baseFeature,
@@ -440,9 +1068,11 @@ export default function CompareRevisionsModal({
   onClose,
   initialPreviewDraft,
   initialMode,
+  rampSchedules = [],
 }: Props) {
   const { apiCall } = useAuth();
   const liveVersion = feature.version;
+  const { holdoutsMap } = useHoldouts();
 
   const [showDiscarded, setShowDiscarded] = useLocalStorage(
     `${STORAGE_KEY_PREFIX}:showDiscarded`,
@@ -451,6 +1081,10 @@ export default function CompareRevisionsModal({
   const [showDrafts, setShowDrafts] = useLocalStorage(
     `${STORAGE_KEY_PREFIX}:showDrafts`,
     true,
+  );
+  const [showGenerated, setShowGenerated] = useLocalStorage(
+    `${STORAGE_KEY_PREFIX}:showGenerated`,
+    false,
   );
   const [diffViewModeRaw, setDiffViewModeRaw] = useLocalStorage<string>(
     `${STORAGE_KEY_PREFIX}:diffViewMode`,
@@ -464,16 +1098,11 @@ export default function CompareRevisionsModal({
         if (r.status === "discarded" && !showDiscarded) return false;
         if (DRAFT_REVISION_STATUSES.includes(r.status) && !showDrafts)
           return false;
+        if (isRampGenerated(r) && !showGenerated) return false;
         return true;
       }),
-    [revisionList, showDiscarded, showDrafts],
+    [revisionList, showDiscarded, showDrafts, showGenerated],
   );
-
-  const versionsDesc = useMemo(() => {
-    const list = [...filteredRevisionList];
-    list.sort((a, b) => b.version - a.version);
-    return list.map((r) => r.version);
-  }, [filteredRevisionList]);
 
   // Compute the default comparison target from the full list so that the
   // initial selection is correct regardless of which filters are active.
@@ -524,6 +1153,22 @@ export default function CompareRevisionsModal({
   );
   const [failedVersions, setFailedVersions] = useState<Set<number>>(new Set());
   const fetchingRef = useRef<Set<number>>(new Set());
+
+  // Revision log drill-down state
+  const [expandedLogVersions, setExpandedLogVersions] = useState<Set<number>>(
+    new Set(),
+  );
+  const [fetchedLogs, setFetchedLogs] = useState<Record<number, RevisionLog[]>>(
+    {},
+  );
+  const [loadingLogVersions, setLoadingLogVersions] = useState<Set<number>>(
+    new Set(),
+  );
+  const [activeLogEntry, setActiveLogEntry] = useState<{
+    version: number;
+    logIndex: number;
+  } | null>(null);
+  const fetchingLogRef = useRef<Set<number>>(new Set());
 
   const getFullRevision = useCallback(
     (version: number): FeatureRevisionInterface | null => {
@@ -599,6 +1244,40 @@ export default function CompareRevisionsModal({
       }
     },
     [apiCall, feature.id, getFullRevision],
+  );
+
+  const fetchRevisionLog = useCallback(
+    async (version: number) => {
+      if (fetchedLogs[version] !== undefined) return;
+      if (fetchingLogRef.current.has(version)) return;
+      fetchingLogRef.current.add(version);
+      setLoadingLogVersions((prev) => {
+        const next = new Set(prev);
+        next.add(version);
+        return next;
+      });
+      try {
+        const response = await apiCall<{ log: RevisionLog[] }>(
+          `/feature/${feature.id}/${version}/log`,
+        );
+        const sorted = [...(response.log ?? [])].sort(
+          (a, b) =>
+            getValidDate(a.timestamp).getTime() -
+            getValidDate(b.timestamp).getTime(),
+        );
+        setFetchedLogs((prev) => ({ ...prev, [version]: sorted }));
+      } catch {
+        setFetchedLogs((prev) => ({ ...prev, [version]: [] }));
+      } finally {
+        fetchingLogRef.current.delete(version);
+        setLoadingLogVersions((prev) => {
+          const next = new Set(prev);
+          next.delete(version);
+          return next;
+        });
+      }
+    },
+    [apiCall, feature.id, fetchedLogs],
   );
 
   const selectedSorted = useMemo(() => {
@@ -710,46 +1389,33 @@ export default function CompareRevisionsModal({
   const toggleVersion = (version: number) => {
     setPreviewDraftVersion(null);
     setSelectedVersions((prev) => {
-      const idx = versionsDesc.indexOf(version);
+      // Index universe is the sidebar list (filtered list + selected-but-
+      // filtered versions). Using `versionsDesc` here would drop a hidden
+      // selected endpoint — e.g. an initial-preview draft with "Show drafts"
+      // off — and bail the shrink branch, leaving the user unable to deselect.
+      const universe = sidebarVersionsDesc;
+      const idx = universe.indexOf(version);
       if (idx === -1) return prev;
 
-      // Find the current selection range as indices in versionsDesc (newest-first)
       const prevIndices = prev
-        .map((v) => versionsDesc.indexOf(v))
+        .map((v) => universe.indexOf(v))
         .filter((i) => i !== -1)
         .sort((a, b) => a - b);
 
       const startIdx = prevIndices[0] ?? -1; // newest selected (lowest display index)
       const endIdx = prevIndices[prevIndices.length - 1] ?? -1; // oldest selected
 
-      // Clicking an endpoint shrinks the range to the nearest visible item inward
+      // Clicking an endpoint shrinks the range one step inward.
       if (prev.includes(version)) {
         if (startIdx === -1 || endIdx === -1 || endIdx - startIdx <= 1)
           return prev;
-        const visibleVersions = new Set(
-          filteredRevisionList.map((r) => r.version),
-        );
         if (idx === startIdx) {
-          let newStart = startIdx + 1;
-          while (
-            newStart < endIdx &&
-            !visibleVersions.has(versionsDesc[newStart])
-          )
-            newStart++;
-          if (newStart >= endIdx) return prev; // no visible item found
-          return [versionsDesc[newStart], versionsDesc[endIdx]].sort(
+          return [universe[startIdx + 1], universe[endIdx]].sort(
             (a, b) => a - b,
           );
         }
         if (idx === endIdx) {
-          let newEnd = endIdx - 1;
-          while (
-            newEnd > startIdx &&
-            !visibleVersions.has(versionsDesc[newEnd])
-          )
-            newEnd--;
-          if (newEnd <= startIdx) return prev; // no visible item found
-          return [versionsDesc[startIdx], versionsDesc[newEnd]].sort(
+          return [universe[startIdx], universe[endIdx - 1]].sort(
             (a, b) => a - b,
           );
         }
@@ -757,47 +1423,33 @@ export default function CompareRevisionsModal({
       }
 
       if (prevIndices.length > 0) {
-        // Count visible revisions strictly between two indices (exclusive of endpoints)
-        const visibleVersionSet = new Set(
-          filteredRevisionList.map((r) => r.version),
-        );
-        const visibleBetween = (a: number, b: number): number => {
-          const [lo, hi] = a < b ? [a, b] : [b, a];
-          let count = 0;
-          for (let i = lo + 1; i < hi; i++) {
-            if (visibleVersionSet.has(versionsDesc[i])) count++;
-          }
-          return count;
-        };
+        // Distance is in sidebar terms — items the user can see in the list.
+        const distance = (a: number, b: number) =>
+          Math.max(0, Math.abs(a - b) - 1);
 
         // Shorten range by moving the nearer endpoint; tiebreaker: move the newer one
         if (idx > startIdx && idx < endIdx) {
           const distToNewer = idx - startIdx;
           const distToOlder = endIdx - idx;
           if (distToNewer <= distToOlder) {
-            return [versionsDesc[idx], versionsDesc[endIdx]].sort(
-              (a, b) => a - b,
-            );
+            return [universe[idx], universe[endIdx]].sort((a, b) => a - b);
           } else {
-            return [versionsDesc[startIdx], versionsDesc[idx]].sort(
-              (a, b) => a - b,
-            );
+            return [universe[startIdx], universe[idx]].sort((a, b) => a - b);
           }
         }
 
-        // If 8+ visible items outside the range, pair with the adjacent item instead of expanding
+        // If 8+ items separate the click from the range, pair with the
+        // adjacent item instead of expanding into a giant range.
         if (
-          (idx < startIdx && visibleBetween(idx, startIdx) >= 8) ||
-          (idx > endIdx && visibleBetween(endIdx, idx) >= 8)
+          (idx < startIdx && distance(idx, startIdx) >= 8) ||
+          (idx > endIdx && distance(endIdx, idx) >= 8)
         ) {
-          if (idx < versionsDesc.length - 1) {
-            return [versionsDesc[idx + 1], versionsDesc[idx]].sort(
-              (a, b) => a - b,
-            );
+          if (idx < universe.length - 1) {
+            return [universe[idx + 1], universe[idx]].sort((a, b) => a - b);
           }
           // Clicked the very last (oldest) revision — round up to the two newest
-          if (versionsDesc.length >= 2) {
-            return [versionsDesc[1], versionsDesc[0]].sort((a, b) => a - b);
+          if (universe.length >= 2) {
+            return [universe[1], universe[0]].sort((a, b) => a - b);
           }
           return prev;
         }
@@ -818,6 +1470,10 @@ export default function CompareRevisionsModal({
   );
   const hasDraftRevisions = useMemo(
     () => revisionList.some((r) => DRAFT_REVISION_STATUSES.includes(r.status)),
+    [revisionList],
+  );
+  const hasGeneratedRevisions = useMemo(
+    () => revisionList.some(isRampGenerated),
     [revisionList],
   );
 
@@ -892,13 +1548,24 @@ export default function CompareRevisionsModal({
           : [];
   const displayLoading = displayVersions.some((v) => loadingVersions.has(v));
   const displayFailed = displayVersions.filter((v) => isVersionFailed(v));
+
+  // Backfill source for legacy revisions that don't store envelope fields
+  // (metadata, env toggles, prerequisites, holdout). Without this, comparing
+  // a pre-snapshot live revision against a freshly created draft produces
+  // phantom diffs for every field the draft now snapshots from the feature.
+  const liveBase = baseFeature ?? feature;
+  const liveBaseInput = useMemo(
+    () => featureToFeatureRevisionDiffInput(liveBase),
+    [liveBase],
+  );
+
   const stepDiffs = useFeatureRevisionDiff({
     current: stepRevA
-      ? revisionToDiffInput(stepRevA)
-      : { defaultValue: "", rules: {} },
+      ? revisionToDiffInput(stepRevA, liveBaseInput)
+      : { defaultValue: "", rules: [] },
     draft: stepRevB
-      ? revisionToDiffInput(stepRevB)
-      : { defaultValue: "", rules: {} },
+      ? revisionToDiffInput(stepRevB, liveBaseInput)
+      : { defaultValue: "", rules: [] },
   });
 
   const singleRevFirst =
@@ -909,28 +1576,22 @@ export default function CompareRevisionsModal({
       : null;
   const mergedDiffs = useFeatureRevisionDiff({
     current: singleRevFirst
-      ? revisionToDiffInput(singleRevFirst)
-      : { defaultValue: "", rules: {} },
+      ? revisionToDiffInput(singleRevFirst, liveBaseInput)
+      : { defaultValue: "", rules: [] },
     draft: singleRevLast
-      ? revisionToDiffInput(singleRevLast)
-      : { defaultValue: "", rules: {} },
+      ? revisionToDiffInput(singleRevLast, liveBaseInput)
+      : { defaultValue: "", rules: [] },
   });
 
-  // Use baseFeature for the left side so environmentsEnabled is dense rather than the sparse delta on the live revision
   const previewLiveRev =
     previewDraftVersion !== null ? getFullRevision(liveVersion) : null;
   const previewDraftRev =
     previewDraftVersion !== null ? getFullRevision(previewDraftVersion) : null;
-  const liveBase = baseFeature ?? feature;
-  const liveBaseInput = useMemo(
-    () => featureToFeatureRevisionDiffInput(liveBase),
-    [liveBase],
-  );
   const previewDiffs = useFeatureRevisionDiff({
     current:
       previewDraftVersion !== null
         ? liveBaseInput
-        : { defaultValue: "", rules: {} },
+        : { defaultValue: "", rules: [] },
     draft: previewDraftRev
       ? {
           // Merge environmentsEnabled on top of the live base so every env is explicit
@@ -940,7 +1601,7 @@ export default function CompareRevisionsModal({
             ...(previewDraftRev.environmentsEnabled ?? {}),
           },
         }
-      : { defaultValue: "", rules: {} },
+      : { defaultValue: "", rules: [] },
   });
   const previewDisplayLoading =
     previewDraftVersion !== null &&
@@ -950,6 +1611,39 @@ export default function CompareRevisionsModal({
     previewDraftVersion !== null
       ? [liveVersion, previewDraftVersion].filter((v) => isVersionFailed(v))
       : [];
+
+  // Augment diffs with ramp schedule context for the "newer" revision in each view
+  const stepDiffsWithRamps = useMemo(
+    () => [
+      ...stepDiffs,
+      ...rampDiffsForRevision(stepRevB, feature.id, rampSchedules, holdoutsMap),
+    ],
+    [stepDiffs, stepRevB, feature.id, rampSchedules, holdoutsMap],
+  );
+  const mergedDiffsWithRamps = useMemo(
+    () => [
+      ...mergedDiffs,
+      ...rampDiffsForRevision(
+        singleRevLast,
+        feature.id,
+        rampSchedules,
+        holdoutsMap,
+      ),
+    ],
+    [mergedDiffs, singleRevLast, feature.id, rampSchedules, holdoutsMap],
+  );
+  const previewDiffsWithRamps = useMemo(
+    () => [
+      ...previewDiffs,
+      ...rampDiffsForRevision(
+        previewDraftRev,
+        feature.id,
+        rampSchedules,
+        holdoutsMap,
+      ),
+    ],
+    [previewDiffs, previewDraftRev, feature.id, rampSchedules, holdoutsMap],
+  );
 
   return (
     <Modal
@@ -1108,7 +1802,9 @@ export default function CompareRevisionsModal({
               <Text size="medium" weight="medium" color="text-mid">
                 Select range of revisions
               </Text>
-              {(hasDraftRevisions || hasDiscardedRevisions) &&
+              {(hasDraftRevisions ||
+                hasDiscardedRevisions ||
+                hasGeneratedRevisions) &&
                 (() => {
                   const opts = [
                     ...(hasDraftRevisions
@@ -1129,12 +1825,22 @@ export default function CompareRevisionsModal({
                           },
                         ]
                       : []),
+                    ...(hasGeneratedRevisions
+                      ? [
+                          {
+                            label: "Show ramp-generated",
+                            hidden: !showGenerated,
+                            toggle: () => setShowGenerated((v) => !v),
+                          },
+                        ]
+                      : []),
                   ];
                   const count = opts.filter((o) => o.hidden).length;
                   const isShowingAll = count === 0;
                   const isAtDefault =
                     (!hasDraftRevisions || showDrafts) &&
-                    (!hasDiscardedRevisions || !showDiscarded);
+                    (!hasDiscardedRevisions || !showDiscarded) &&
+                    (!hasGeneratedRevisions || !showGenerated);
                   return (
                     <DropdownMenu
                       modal={true}
@@ -1161,6 +1867,7 @@ export default function CompareRevisionsModal({
                           onClick={() => {
                             if (hasDraftRevisions) setShowDrafts(true);
                             if (hasDiscardedRevisions) setShowDiscarded(true);
+                            if (hasGeneratedRevisions) setShowGenerated(true);
                           }}
                         >
                           <Flex align="center">
@@ -1176,6 +1883,7 @@ export default function CompareRevisionsModal({
                         onClick={() => {
                           setShowDrafts(true);
                           setShowDiscarded(false);
+                          setShowGenerated(false);
                         }}
                       >
                         <Flex align="center">
@@ -1233,6 +1941,9 @@ export default function CompareRevisionsModal({
                 const isDraftRevision =
                   !!minRev && DRAFT_REVISION_STATUSES.includes(minRev.status);
                 const rowId = `compare-rev-${v}`;
+                const isExpanded = expandedLogVersions.has(v);
+                const versionLogs = fetchedLogs[v];
+                const isLoadingLogs = loadingLogVersions.has(v);
                 return (
                   <Box key={v} className={styles.rowWrapper}>
                     <label
@@ -1244,6 +1955,7 @@ export default function CompareRevisionsModal({
                             ? styles.rowSelected
                             : ""
                       }`}
+                      onClick={() => setActiveLogEntry(null)}
                     >
                       <span style={{ pointerEvents: "none" }}>
                         <Checkbox
@@ -1298,12 +2010,12 @@ export default function CompareRevisionsModal({
                             </div>
                           </Flex>
                           {minRev ? (
-                            <Box flexShrink="0">
+                            <Flex align="center" gap="1" flexShrink="0">
                               <RevisionStatusBadge
                                 revision={minRev}
                                 liveVersion={liveVersion}
                               />
-                            </Box>
+                            </Flex>
                           ) : null}
                         </Flex>
                         {date && minRev ? (
@@ -1335,7 +2047,123 @@ export default function CompareRevisionsModal({
                           </Button>
                         </div>
                       )}
+                      <div className={styles.rowCaret}>
+                        <Tooltip
+                          body={
+                            isExpanded
+                              ? "Collapse log entries"
+                              : "Expand log entries"
+                          }
+                        >
+                          <button
+                            type="button"
+                            className={styles.expandChevron}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              const next = new Set(expandedLogVersions);
+                              if (isExpanded) {
+                                next.delete(v);
+                                if (activeLogEntry?.version === v) {
+                                  setActiveLogEntry(null);
+                                }
+                              } else {
+                                next.add(v);
+                                fetchRevisionLog(v);
+                              }
+                              setExpandedLogVersions(next);
+                            }}
+                          >
+                            {isExpanded ? (
+                              <PiCaretDownBold size={12} />
+                            ) : (
+                              <PiCaretRightBold size={12} />
+                            )}
+                          </button>
+                        </Tooltip>
+                      </div>
                     </label>
+                    {isExpanded && (
+                      <div className={styles.logSubRows}>
+                        {isLoadingLogs ? (
+                          <Text size="small" color="text-low" ml="2">
+                            Loading…
+                          </Text>
+                        ) : versionLogs && versionLogs.length > 0 ? (
+                          (() => {
+                            const contentLogs = versionLogs.flatMap(
+                              (logEntry, idx) =>
+                                NON_CONTENT_ACTIONS.has(logEntry.action)
+                                  ? []
+                                  : [{ logEntry, idx }],
+                            );
+                            if (contentLogs.length === 0) {
+                              return (
+                                <Text size="small" color="text-low" ml="2">
+                                  No changes in this revision
+                                </Text>
+                              );
+                            }
+                            return contentLogs.map(({ logEntry, idx }) => {
+                              const isActive =
+                                activeLogEntry?.version === v &&
+                                activeLogEntry.logIndex === idx;
+                              return (
+                                <div
+                                  key={idx}
+                                  className={`${styles.logSubRow} ${
+                                    isActive ? styles.logSubRowActive : ""
+                                  }`}
+                                  onClick={() =>
+                                    setActiveLogEntry(
+                                      isActive
+                                        ? null
+                                        : { version: v, logIndex: idx },
+                                    )
+                                  }
+                                >
+                                  <Flex
+                                    direction="column"
+                                    gap="1"
+                                    style={{ minWidth: 0, flex: 1 }}
+                                  >
+                                    <div
+                                      style={{
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
+                                        fontWeight: isActive ? "bold" : 500,
+                                      }}
+                                    >
+                                      {logEntry.action}
+                                      {logEntry.subject
+                                        ? ` · ${logEntry.subject}`
+                                        : ""}
+                                    </div>
+                                    <Text size="small" color="text-low">
+                                      {datetime(logEntry.timestamp)}
+                                      {logEntry.user?.type === "dashboard"
+                                        ? ` · ${logEntry.user.name}`
+                                        : logEntry.user?.type === "api_key"
+                                          ? logEntry.user.name
+                                            ? ` · ${logEntry.user.name} (API)`
+                                            : logEntry.user.email
+                                              ? ` · ${logEntry.user.email} (API)`
+                                              : " · API"
+                                          : ""}
+                                    </Text>
+                                  </Flex>
+                                </div>
+                              );
+                            });
+                          })()
+                        ) : (
+                          <Text size="small" color="text-low" ml="2">
+                            No log entries
+                          </Text>
+                        )}
+                      </div>
+                    )}
                   </Box>
                 );
               })}
@@ -1348,7 +2176,51 @@ export default function CompareRevisionsModal({
           className={`${styles.sidebar} overflow-auto`}
           style={{ minHeight: 0 }}
         >
-          {previewDraftVersion !== null ? (
+          {activeLogEntry !== null &&
+          fetchedLogs[activeLogEntry.version]?.[activeLogEntry.logIndex] ? (
+            // Log entry drill-down panel
+            <>
+              <Box
+                pb="3"
+                mb="3"
+                style={{ borderBottom: "1px solid var(--gray-5)" }}
+              >
+                <Flex align="center" gap="2" wrap="wrap">
+                  <Tooltip body="Return to revision">
+                    <button
+                      type="button"
+                      className={styles.backButton}
+                      onClick={() => setActiveLogEntry(null)}
+                    >
+                      <PiCaretLeftBold size={16} />
+                    </button>
+                  </Tooltip>
+                  <Heading as="h2" size="small" mb="0">
+                    Log entry
+                  </Heading>
+                  <Text size="small" color="text-low">
+                    · Revision {activeLogEntry.version}
+                  </Text>
+                </Flex>
+              </Box>
+              {(() => {
+                const allLogs = fetchedLogs[activeLogEntry.version];
+                const logEntry = allLogs[activeLogEntry.logIndex];
+                const rev = getFullRevision(activeLogEntry.version);
+                const baseRevision = rev?.baseVersion
+                  ? getFullRevision(rev.baseVersion)
+                  : null;
+                return (
+                  <LogEntryPanel
+                    log={logEntry}
+                    allLogs={allLogs}
+                    logIndex={activeLogEntry.logIndex}
+                    baseRevision={baseRevision}
+                  />
+                );
+              })()}
+            </>
+          ) : previewDraftVersion !== null ? (
             // Preview draft mode
             <>
               <Box
@@ -1374,6 +2246,8 @@ export default function CompareRevisionsModal({
                   liveVersion={liveVersion}
                   revAFailed={isVersionFailed(liveVersion)}
                   revBFailed={isVersionFailed(previewDraftVersion)}
+                  logsA={fetchedLogs[liveVersion]}
+                  logsB={fetchedLogs[previewDraftVersion]}
                   mt="3"
                 />
                 {previewDraftRev &&
@@ -1406,7 +2280,7 @@ export default function CompareRevisionsModal({
                 </Callout>
               ) : (
                 <DiffContent
-                  diffs={previewDiffs}
+                  diffs={previewDiffsWithRamps}
                   commentVersions={[
                     {
                       version: previewDraftVersion,
@@ -1431,7 +2305,7 @@ export default function CompareRevisionsModal({
                 mb="3"
                 style={{ borderBottom: "1px solid var(--gray-5)" }}
               >
-                <Flex align="center" justify="between" gap="4" wrap="wrap">
+                <Flex align="start" justify="between" gap="4" wrap="wrap">
                   <Flex align="center" gap="4">
                     {diffViewMode === "steps" && (
                       <>
@@ -1476,6 +2350,12 @@ export default function CompareRevisionsModal({
                           revBFailed={isVersionFailed(
                             selectedSorted[selectedSorted.length - 1],
                           )}
+                          logsA={fetchedLogs[selectedSorted[0]]}
+                          logsB={
+                            fetchedLogs[
+                              selectedSorted[selectedSorted.length - 1]
+                            ]
+                          }
                         />
                       )}
                   </Flex>
@@ -1503,6 +2383,8 @@ export default function CompareRevisionsModal({
                     liveVersion={liveVersion}
                     revAFailed={isVersionFailed(currentStep[0])}
                     revBFailed={isVersionFailed(currentStep[1])}
+                    logsA={fetchedLogs[currentStep[0]]}
+                    logsB={fetchedLogs[currentStep[1]]}
                     mt="3"
                   />
                 )}
@@ -1524,7 +2406,11 @@ export default function CompareRevisionsModal({
                 </Callout>
               ) : (
                 <DiffContent
-                  diffs={diffViewMode === "single" ? mergedDiffs : stepDiffs}
+                  diffs={
+                    diffViewMode === "single"
+                      ? mergedDiffsWithRamps
+                      : stepDiffsWithRamps
+                  }
                   commentVersions={
                     diffViewMode === "steps" && currentStep
                       ? [currentStep[1], currentStep[0]].map((v) => ({

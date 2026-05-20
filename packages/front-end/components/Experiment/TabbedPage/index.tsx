@@ -1,5 +1,6 @@
 import {
   ExperimentInterfaceStringDates,
+  LinkedChangeEnvStates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
@@ -75,8 +76,10 @@ export interface Props {
   duplicate?: (() => void) | null;
   editTags?: (() => void) | null;
   checklistItemsRemaining: number | null;
+  checklistHardBlockerCount: number;
   envs: string[];
   setChecklistItemsRemaining: (value: number | null) => void;
+  setChecklistHardBlockerCount: (value: number) => void;
   editVariations?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
   urlRedirects: URLRedirectInterface[];
@@ -86,7 +89,9 @@ export interface Props {
   editTargeting?: (() => void) | null;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
-  editHoldoutSchedule?: (() => void) | null;
+  editSchedule?: (() => void) | null;
+  visualChangesetEnvStates?: LinkedChangeEnvStates;
+  urlRedirectEnvStates?: LinkedChangeEnvStates;
 }
 
 export default function TabbedPage({
@@ -108,8 +113,12 @@ export default function TabbedPage({
   editMetrics,
   editResult,
   checklistItemsRemaining,
+  checklistHardBlockerCount,
   setChecklistItemsRemaining,
-  editHoldoutSchedule,
+  setChecklistHardBlockerCount,
+  editSchedule,
+  visualChangesetEnvStates,
+  urlRedirectEnvStates,
 }: Props) {
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
@@ -493,6 +502,9 @@ export default function TabbedPage({
           close={() => setFeatureModal(false)}
           mutate={mutate}
           source={trackSource}
+          reAddableFeatureIds={linkedFeatures
+            .filter((f) => f.state === "discarded")
+            .map((f) => f.feature.id)}
         />
       )}
       {/* TODO: Update Experiment Header props to include redirect and pipe through to StartExperimentBanner */}
@@ -517,10 +529,11 @@ export default function TabbedPage({
         editPhases={editPhases}
         healthNotificationCount={healthNotificationCount}
         checklistItemsRemaining={checklistItemsRemaining}
+        checklistHardBlockerCount={checklistHardBlockerCount}
         linkedFeatures={linkedFeatures}
         showDashboardView={showDashboardView}
         safeToEdit={safeToEdit}
-        editHoldoutSchedule={editHoldoutSchedule}
+        editSchedule={editSchedule}
       />
 
       <div
@@ -609,8 +622,9 @@ export default function TabbedPage({
             matchingConnections={matchingConnections}
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
+            setChecklistHardBlockerCount={setChecklistHardBlockerCount}
             envs={envs}
-            editHoldoutSchedule={editHoldoutSchedule}
+            editSchedule={editSchedule}
           />
           <Implementation
             experiment={experiment}
@@ -627,6 +641,8 @@ export default function TabbedPage({
             editTargeting={editTargeting}
             linkedFeatures={linkedFeatures}
             envs={envs}
+            visualChangesetEnvStates={visualChangesetEnvStates}
+            urlRedirectEnvStates={urlRedirectEnvStates}
           />
           {experiment.status !== "draft" && (
             <div className="mt-3 mb-2 text-center d-print-none">

@@ -1,6 +1,7 @@
 import { useRouter } from "next/router";
 import {
   ExperimentInterfaceStringDates,
+  LinkedChangeEnvStates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
@@ -27,6 +28,7 @@ import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import { useHoldouts } from "@/hooks/useHoldouts";
+import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 
 const ExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -45,6 +47,8 @@ const ExperimentPage = (): ReactElement => {
   const [checklistItemsRemaining, setChecklistItemsRemaining] = useState<
     number | null
   >(null);
+  const [checklistHardBlockerCount, setChecklistHardBlockerCount] = useState(0);
+  const [editScheduleModalOpen, setEditScheduleModalOpen] = useState(false);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -53,6 +57,8 @@ const ExperimentPage = (): ReactElement => {
     linkedFeatures: LinkedFeatureInfo[];
     envs: string[];
     urlRedirects: URLRedirectInterface[];
+    visualChangesetEnvStates?: LinkedChangeEnvStates;
+    urlRedirectEnvStates?: LinkedChangeEnvStates;
   }>(`/experiment/${eid}`);
 
   const { getDecisionCriteria, getRunningExperimentResultStatus } =
@@ -95,6 +101,8 @@ const ExperimentPage = (): ReactElement => {
     linkedFeatures = [],
     urlRedirects = [],
     envs = [],
+    visualChangesetEnvStates,
+    urlRedirectEnvStates,
   } = data;
 
   const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
@@ -128,6 +136,9 @@ const ExperimentPage = (): ReactElement => {
     : null;
   const editTargeting = canRunExperiment
     ? () => setTargetingModalOpen(true)
+    : null;
+  const editSchedule = canEditExperiment
+    ? () => setEditScheduleModalOpen(true)
     : null;
 
   const safeToEdit =
@@ -228,6 +239,13 @@ const ExperimentPage = (): ReactElement => {
           // source="eid"
         />
       )}
+      {editScheduleModalOpen && (
+        <EditScheduleModal
+          experiment={experiment}
+          close={() => setEditScheduleModalOpen(false)}
+          mutate={mutate}
+        />
+      )}
 
       <PageHead
         breadcrumb={[
@@ -257,7 +275,12 @@ const ExperimentPage = (): ReactElement => {
           envs={envs}
           editTargeting={editTargeting}
           checklistItemsRemaining={checklistItemsRemaining}
+          checklistHardBlockerCount={checklistHardBlockerCount}
           setChecklistItemsRemaining={setChecklistItemsRemaining}
+          setChecklistHardBlockerCount={setChecklistHardBlockerCount}
+          visualChangesetEnvStates={visualChangesetEnvStates}
+          urlRedirectEnvStates={urlRedirectEnvStates}
+          editSchedule={editSchedule}
         />
       </SnapshotProvider>
     </>

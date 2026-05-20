@@ -1,3 +1,4 @@
+import { FilterQuery } from "mongoose";
 import { omit } from "lodash";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -8,7 +9,7 @@ import {
   getSelectedColumnDatatype,
 } from "shared/experiments";
 import { UpdateProps } from "shared/types/base-model";
-import { factMetricValidator } from "shared/validators";
+import { factMetricValidator, ApiFactMetric } from "shared/validators";
 import {
   ColumnRef,
   FactMetricInterface,
@@ -17,7 +18,6 @@ import {
   LegacyColumnRef,
   LegacyFactMetricInterface,
 } from "shared/types/fact-table";
-import { ApiFactMetric } from "shared/types/openapi";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
@@ -25,6 +25,8 @@ import {
   getNetNewSqlExprRowFilters,
   validateFactMetricRowFilterSql,
 } from "back-end/src/services/factMetricRowFilterValidation";
+import { projectFilterQuery } from "back-end/src/util/mongo.util";
+import { validateAggregationSpecification } from "back-end/src/services/factMetricAggregationValidation";
 import { MakeModelClass } from "./BaseModel";
 import { getDataSourceById } from "./DataSourceModel";
 import { getFactTableMap } from "./FactTableModel";
@@ -45,6 +47,8 @@ const BaseClass = MakeModelClass({
     owner: "",
     tags: [],
   },
+  // Compound indexes for API list filtering
+  additionalIndexes: [{ fields: { organization: 1, datasource: 1 } }],
 });
 
 // extra checks on user filter
@@ -153,6 +157,25 @@ export class FactMetricModel extends BaseClass {
     return this.context.permissions.canDeleteFactMetric(doc);
   }
 
+  /**
+   * Get all fact metrics with optional filters and DB-level sorting by id
+   */
+  public getAllSorted(options?: {
+    datasourceId?: string;
+    factTableId?: string;
+    projectId?: string;
+  }) {
+    const filter: FilterQuery<FactMetricInterface> = {
+      ...(options?.datasourceId && { datasource: options.datasourceId }),
+      ...(options?.factTableId && {
+        "numerator.factTableId": options.factTableId,
+      }),
+      ...(options?.projectId && projectFilterQuery(options.projectId)),
+    };
+
+    return this._find(filter, { sort: { id: 1 } });
+  }
+
   public static upgradeFactMetricDoc(
     doc: LegacyFactMetricInterface,
   ): FactMetricInterface {
@@ -194,6 +217,20 @@ export class FactMetricModel extends BaseClass {
 
     if (newDoc.numerator) {
       newDoc.numerator = FactMetricModel.migrateColumnRef(newDoc.numerator);
+    }
+
+    // Fix Daily Participation metrics that have incorrect column values
+    // These metrics require $$distinctDates to correctly generate COUNT(DISTINCT DATE(...))
+    if (
+      newDoc.metricType === "dailyParticipation" &&
+      newDoc.numerator &&
+      newDoc.numerator.column !== "$$distinctDates"
+    ) {
+      newDoc.numerator = {
+        ...newDoc.numerator,
+        column: "$$distinctDates",
+        aggregation: undefined,
+      };
     }
 
     // Clean up orphaned denominators that should not exist
@@ -322,6 +359,19 @@ export class FactMetricModel extends BaseClass {
       filterType: "numerator",
     });
 
+    // Validate aggregation/datatype constraints (runs for every code path
+    // that hits BaseModel — internal UI controllers, external API,
+    // bulk import, etc.)
+    validateAggregationSpecification({
+      errorPrefix: "Numerator misspecified. ",
+      column: data.numerator,
+      factTable: numeratorFactTable,
+      metricType: data.metricType,
+      quantileType: data.quantileSettings?.type,
+      quantileIgnoreZeros: data.quantileSettings?.ignoreZeros,
+      quantileEventCountColumn: data.quantileSettings?.quantileEventCountColumn,
+    });
+
     // validate column
     const metricSupportsDistinctDates =
       data.metricType === "mean" ||
@@ -372,6 +422,17 @@ export class FactMetricModel extends BaseClass {
         columnRef: data.denominator,
         factTable: denominatorFactTable,
         filterType: "denominator",
+      });
+
+      validateAggregationSpecification({
+        errorPrefix: "Denominator misspecified. ",
+        column: data.denominator,
+        factTable: denominatorFactTable,
+        metricType: data.metricType,
+        quantileType: data.quantileSettings?.type,
+        quantileIgnoreZeros: data.quantileSettings?.ignoreZeros,
+        // Override is numerator-only; never relevant for denominators.
+        quantileEventCountColumn: undefined,
       });
     } else if (data.denominator?.factTableId) {
       throw new Error("Denominator not allowed for non-ratio metric");

@@ -11,7 +11,7 @@ import {
 import { getScopedSettings } from "shared/settings";
 import { generateTrackingKey } from "shared/experiments";
 import { kebabCase } from "lodash";
-import { Tooltip, Text } from "@radix-ui/themes";
+import { Tooltip, Text, Separator } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiArrowSquareOutFill, PiCaretRightFill } from "react-icons/pi";
 import { FeatureEnvironment } from "shared/types/feature";
@@ -119,9 +119,8 @@ export const genEnvironmentSettings = ({
     const canPublish = permissions.canPublishFeature({ project }, [e.id]);
     const defaultEnabled = canPublish ? (e.defaultState ?? true) : false;
     const enabled = canPublish ? defaultEnabled : false;
-    const rules = [];
 
-    envSettings[e.id] = { enabled, rules };
+    envSettings[e.id] = { enabled };
   });
 
   return envSettings;
@@ -603,7 +602,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
               }
               project={project || ""}
             />
-            <hr />
+            <Separator size="4" my="5" />
             <ConditionInput
               defaultValue={form.watch("phases.0.condition") || ""}
               onChange={(value) => form.setValue("phases.0.condition", value)}

@@ -4,7 +4,6 @@ import {
   Variation,
   updateExperimentValidator,
 } from "shared/validators";
-import { UpdateExperimentResponse } from "shared/types/openapi";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   updateExperiment as updateExperimentToDb,
@@ -12,19 +11,28 @@ import {
   getExperimentByTrackingKey,
 } from "back-end/src/models/ExperimentModel";
 import {
+  normalizeStatusUpdateScheduleChanges,
   toExperimentApiInterface,
   updateExperimentApiPayloadToInterface,
+  validateVariationIds,
 } from "back-end/src/services/experiments";
+import { startExperiment } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
+import {
+  resolveOwnerEmail,
+  resolveOwnerToUserId,
+} from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { validateVariationIds } from "back-end/src/controllers/experiments";
-import { validateCustomFields } from "./validations";
+import {
+  assertExperimentPayloadCommercialFeatures,
+  validateCustomFields,
+} from "./validations";
 
 export const updateExperiment = createApiRequestHandler(
   updateExperimentValidator,
-)(async (req): Promise<UpdateExperimentResponse> => {
+)(async (req) => {
   const experiment = await getExperimentById(req.context, req.params.id);
   if (!experiment) {
     throw new Error("Could not find the experiment to update");
@@ -41,6 +49,13 @@ export const updateExperiment = createApiRequestHandler(
   if (!req.context.permissions.canUpdateExperiment(experiment, req.body)) {
     req.context.permissions.throwPermissionError();
   }
+
+  assertExperimentPayloadCommercialFeatures(req.context, {
+    postStratificationEnabled: req.body.postStratificationEnabled,
+    decisionFrameworkSettings: req.body.decisionFrameworkSettings,
+    metricOverrides: req.body.metricOverrides,
+    defaultDashboardId: req.body.defaultDashboardId,
+  });
 
   // validate datasource only if updating
   const datasourceId = req.body.datasourceId ?? experiment.datasource;
@@ -82,19 +97,29 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   // check if tracking key is unique
+  const requireUniqueTrackingKeys =
+    !!req.organization.settings?.requireUniqueExperimentTrackingKeys;
   if (
     req.body.trackingKey != null &&
     req.body.trackingKey !== experiment.trackingKey &&
-    !req.body.bypassDuplicateKeyCheck
+    (requireUniqueTrackingKeys || !req.body.bypassDuplicateKeyCheck)
   ) {
     const existingByTrackingKey = await getExperimentByTrackingKey(
       req.context,
       req.body.trackingKey,
     );
     if (existingByTrackingKey) {
-      throw new Error(
-        `Experiment with tracking key already exists: ${req.body.trackingKey}`,
-      );
+      // If organization requires unique tracking keys, always reject duplicates
+      if (requireUniqueTrackingKeys) {
+        throw new Error(
+          `Experiment with tracking key already exists: ${req.body.trackingKey}. Your organization requires unique experiment tracking keys and bypassDuplicateKeyCheck is ignored.`,
+        );
+      }
+      if (!req.body.bypassDuplicateKeyCheck) {
+        throw new Error(
+          `Experiment with tracking key already exists: ${req.body.trackingKey}.`,
+        );
+      }
     }
   }
 
@@ -111,6 +136,15 @@ export const updateExperiment = createApiRequestHandler(
       req.context,
       req.body.project ?? experiment.project,
     );
+  }
+
+  if (req.body.defaultDashboardId) {
+    const dashboard = await req.context.models.dashboards.getById(
+      req.body.defaultDashboardId,
+    );
+    if (!dashboard) {
+      throw new Error(`Invalid dashboard: ${req.body.defaultDashboardId}`);
+    }
   }
 
   // Validate that specified metrics exist and belong to the organization
@@ -204,16 +238,47 @@ export const updateExperiment = createApiRequestHandler(
     );
   }
 
-  const updatedExperiment = await updateExperimentToDb({
-    context: req.context,
-    experiment: experiment,
-    changes: updateExperimentApiPayloadToInterface(
-      req.body,
-      experiment,
-      map,
-      req.organization,
-    ),
-  });
+  const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
+  const changes = updateExperimentApiPayloadToInterface(
+    {
+      ...req.body,
+      ...(req.body.owner !== undefined && { owner: resolvedOwner ?? "" }),
+    },
+    experiment,
+    map,
+    req.organization,
+  );
+
+  normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+  const isStartingFromDraft =
+    experiment.status === "draft" && changes.status === "running";
+
+  let experimentForUpdate = experiment;
+  let changesForUpdate = changes;
+
+  if (isStartingFromDraft) {
+    // Route draft->running transitions through the dedicated lifecycle method
+    // so checklist and pending-draft publish behavior stays consistent.
+    const { updated } = await startExperiment({
+      context: req.context,
+      experimentId: experiment.id,
+      // behavior for patch endpoint is to skip pre-launch checklist
+      skipChecklist: true,
+    });
+    experimentForUpdate = updated;
+    const { status: _ignoredStatus, ...remainingChanges } = changes;
+    changesForUpdate = remainingChanges;
+  }
+
+  const updatedExperiment =
+    Object.keys(changesForUpdate).length > 0
+      ? await updateExperimentToDb({
+          context: req.context,
+          experiment: experimentForUpdate,
+          changes: changesForUpdate,
+        })
+      : experimentForUpdate;
 
   if (updatedExperiment === null) {
     throw new Error("Error happened during updating experiment.");
@@ -228,9 +293,12 @@ export const updateExperiment = createApiRequestHandler(
     details: auditDetailsUpdate(experiment, updatedExperiment),
   });
 
-  const apiExperiment = await toExperimentApiInterface(
+  const apiExperiment = await resolveOwnerEmail(
+    await toExperimentApiInterface(
+      req.context,
+      updatedExperiment as ExperimentInterfaceExcludingHoldouts,
+    ),
     req.context,
-    updatedExperiment as ExperimentInterfaceExcludingHoldouts,
   );
   return {
     experiment: apiExperiment,

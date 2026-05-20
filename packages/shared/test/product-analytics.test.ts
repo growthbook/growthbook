@@ -1,7 +1,7 @@
+import { generateProductAnalyticsSQL } from "shared/enterprise";
 import { format } from "shared/sql";
 import { ExplorationConfig } from "shared/validators";
-import { SqlHelpers } from "shared/types/sql";
-import { generateProductAnalyticsSQL } from "shared/src/enterprise/product-analytics/sql";
+import { SqlDialect } from "shared/types/sql";
 import {
   FactMetricInterface,
   FactTableInterface,
@@ -13,7 +13,7 @@ describe("productAnalytics", () => {
     settings: {},
   };
 
-  const helpers: SqlHelpers = {
+  const helpers: SqlDialect = {
     escapeStringLiteral: (value) => value,
     jsonExtract: (jsonCol, path, isNumeric) =>
       `${jsonCol}:'${path}'::${isNumeric ? "float" : "text"}`,
@@ -21,6 +21,10 @@ describe("productAnalytics", () => {
     dateTrunc: (col, granularity) => `date_trunc('${granularity}', ${col})`,
     percentileApprox: (col, quantile) =>
       `APPROX_PERCENTILE(${col}, ${quantile})`,
+    hllReaggregate: (col) => `HLL_MERGE(${col})`,
+    hllCardinality: (col) => `HLL_COUNT(${col})`,
+    kllMergePartial: (col) => `KLL_MERGE(${col})`,
+    kllExtractPoint: (col, quantile) => `KLL_POINT(${col}, ${quantile})`,
     toTimestamp: (d: Date) =>
       // Do not include the timestamp component to make the test deterministic
       `'${d.toISOString().substring(0, 10)} 00:00:00'`,
@@ -106,11 +110,112 @@ describe("productAnalytics", () => {
 
   const metricMap = new Map<string, FactMetricInterface>();
 
+  const sketchFactTableMap = new Map<string, FactTableInterface>([
+    [
+      "sketches",
+      {
+        ...factTableMap.get("orders")!,
+        id: "sketches",
+        name: "Sketches",
+        sql: "SELECT user_id, timestamp, users_hll, latency_kll FROM sketches",
+        columns: [
+          ...factTableMap.get("orders")!.columns,
+          {
+            column: "users_hll",
+            datatype: "binary",
+            dateCreated: new Date(),
+            dateUpdated: new Date(),
+            name: "users_hll",
+            description: "",
+            numberFormat: "",
+            alwaysInlineFilter: false,
+            deleted: false,
+            autoSlices: [],
+            isAutoSliceColumn: false,
+          },
+          {
+            column: "latency_kll",
+            datatype: "binary",
+            dateCreated: new Date(),
+            dateUpdated: new Date(),
+            name: "latency_kll",
+            description: "",
+            numberFormat: "",
+            alwaysInlineFilter: false,
+            deleted: false,
+            autoSlices: [],
+            isAutoSliceColumn: false,
+          },
+        ],
+      },
+    ],
+  ]);
+
+  const sketchMetricMap = new Map<string, FactMetricInterface>([
+    [
+      "hll_metric",
+      {
+        id: "hll_metric",
+        name: "Users HLL",
+        metricType: "mean",
+        numerator: {
+          factTableId: "sketches",
+          column: "users_hll",
+          aggregation: "hll merge",
+        },
+        denominator: null,
+        cappingSettings: {
+          type: "",
+          value: 0,
+        },
+        windowSettings: {
+          type: "",
+          delayValue: 0,
+          delayUnit: "days",
+          windowValue: 0,
+          windowUnit: "days",
+        },
+        quantileSettings: null,
+      } as FactMetricInterface,
+    ],
+    [
+      "kll_metric",
+      {
+        id: "kll_metric",
+        name: "Latency KLL",
+        metricType: "quantile",
+        numerator: {
+          factTableId: "sketches",
+          column: "latency_kll",
+          aggregation: "kll merge",
+        },
+        denominator: null,
+        cappingSettings: {
+          type: "",
+          value: 0,
+        },
+        windowSettings: {
+          type: "",
+          delayValue: 0,
+          delayUnit: "days",
+          windowValue: 0,
+          windowUnit: "days",
+        },
+        quantileSettings: {
+          type: "event",
+          quantile: 0.9,
+          ignoreZeros: false,
+        },
+      } as FactMetricInterface,
+    ],
+  ]);
+
   it("generates SQL for fact tables", () => {
     const config: ExplorationConfig = {
       type: "fact_table",
       datasource: "ds_1",
       chartType: "line",
+      showAs: "total",
       dateRange: {
         predefined: "last7Days",
         startDate: null,
@@ -193,6 +298,7 @@ describe("productAnalytics", () => {
           SELECT
             dimension0,
             CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+            CAST(COUNT(m0) AS FLOAT) AS m0_denominator,
             CAST(NULL AS FLOAT) AS m1_numerator
           FROM _factTable0_unit0
           GROUP BY
@@ -202,6 +308,7 @@ describe("productAnalytics", () => {
           SELECT
             dimension0,
             CAST(NULL AS FLOAT) AS m0_numerator,
+            CAST(NULL AS FLOAT) AS m0_denominator,
             CAST(SUM(m1) AS FLOAT) AS m1_numerator
           FROM _factTable0_rows
           GROUP BY
@@ -215,6 +322,7 @@ describe("productAnalytics", () => {
       SELECT
         dimension0,
         MAX(m0_numerator) AS m0_numerator,
+        MAX(m0_denominator) AS m0_denominator,
         MAX(m1_numerator) AS m1_numerator
       FROM _combined_rollup
       GROUP BY
@@ -231,6 +339,7 @@ describe("productAnalytics", () => {
       type: "fact_table",
       datasource: "ds_1",
       chartType: "line",
+      showAs: "total",
       dateRange: {
         predefined: "last7Days",
         startDate: null,
@@ -320,6 +429,7 @@ describe("productAnalytics", () => {
           SELECT
             dimension0,
             CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+            CAST(COUNT(m0) AS FLOAT) AS m0_denominator,
             CAST(NULL AS FLOAT) AS m1_numerator
           FROM _factTable0_unit0
           GROUP BY
@@ -329,6 +439,7 @@ describe("productAnalytics", () => {
           SELECT
             dimension0,
             CAST(NULL AS FLOAT) AS m0_numerator,
+            CAST(NULL AS FLOAT) AS m0_denominator,
             CAST(SUM(m1) AS FLOAT) AS m1_numerator
           FROM _factTable0_rows
           GROUP BY
@@ -342,6 +453,7 @@ describe("productAnalytics", () => {
       SELECT
         dimension0,
         MAX(m0_numerator) AS m0_numerator,
+        MAX(m0_denominator) AS m0_denominator,
         MAX(m1_numerator) AS m1_numerator
       FROM _combined_rollup
       GROUP BY
@@ -358,6 +470,7 @@ describe("productAnalytics", () => {
       type: "fact_table",
       datasource: "ds_1",
       chartType: "line",
+      showAs: "total",
       dateRange: {
         predefined: "last7Days",
         startDate: null,
@@ -454,6 +567,7 @@ describe("productAnalytics", () => {
           SELECT
             dimension0,
             CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+            CAST(COUNT(m0) AS FLOAT) AS m0_denominator,
             CAST(NULL AS FLOAT) AS m1_numerator
           FROM _factTable0_unit0
           GROUP BY
@@ -463,6 +577,7 @@ describe("productAnalytics", () => {
           SELECT
             dimension0,
             CAST(NULL AS FLOAT) AS m0_numerator,
+            CAST(NULL AS FLOAT) AS m0_denominator,
             CAST(SUM(m1) AS FLOAT) AS m1_numerator
           FROM _factTable0_rows
           GROUP BY
@@ -476,6 +591,7 @@ describe("productAnalytics", () => {
       SELECT
         dimension0,
         MAX(m0_numerator) AS m0_numerator,
+        MAX(m0_denominator) AS m0_denominator,
         MAX(m1_numerator) AS m1_numerator
       FROM _combined_rollup
       GROUP BY
@@ -492,6 +608,7 @@ describe("productAnalytics", () => {
       type: "fact_table",
       datasource: "ds_1",
       chartType: "line",
+      showAs: "total",
       dateRange: {
         predefined: "last7Days",
         startDate: null,
@@ -588,6 +705,7 @@ describe("productAnalytics", () => {
           SELECT
             dimension0,
             CAST(SUM(m0) AS FLOAT) AS m0_numerator,
+            CAST(COUNT(m0) AS FLOAT) AS m0_denominator,
             CAST(NULL AS FLOAT) AS m1_numerator
           FROM _factTable0_unit0
           GROUP BY
@@ -597,6 +715,7 @@ describe("productAnalytics", () => {
           SELECT
             dimension0,
             CAST(NULL AS FLOAT) AS m0_numerator,
+            CAST(NULL AS FLOAT) AS m0_denominator,
             CAST(SUM(m1) AS FLOAT) AS m1_numerator
           FROM _factTable0_rows
           GROUP BY
@@ -610,6 +729,7 @@ describe("productAnalytics", () => {
       SELECT
         dimension0,
         MAX(m0_numerator) AS m0_numerator,
+        MAX(m0_denominator) AS m0_denominator,
         MAX(m1_numerator) AS m1_numerator
       FROM _combined_rollup
       GROUP BY
@@ -619,5 +739,103 @@ describe("productAnalytics", () => {
     );
 
     expect(sql).toEqual(expected);
+  });
+
+  it("generates SQL for HLL merge metric unit aggregation", () => {
+    const config: ExplorationConfig = {
+      type: "metric",
+      datasource: "ds_1",
+      chartType: "line",
+      showAs: "total",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        {
+          dimensionType: "date",
+          column: null,
+          dateGranularity: "day",
+        },
+      ],
+      dataset: {
+        type: "metric",
+        values: [
+          {
+            name: "Users HLL",
+            type: "metric",
+            metricId: "hll_metric",
+            rowFilters: [],
+            unit: "user_id",
+            denominatorUnit: null,
+          },
+        ],
+      },
+    };
+
+    const { sql } = generateProductAnalyticsSQL(
+      config,
+      sketchFactTableMap,
+      sketchMetricMap,
+      helpers,
+      datasource,
+    );
+
+    expect(sql).toMatch(
+      /HLL_COUNT\s*\(\s*HLL_MERGE\s*\(\s*m0\s*\)\s*\)\s+AS\s+m0/,
+    );
+    expect(sql).toContain("CAST(SUM(m0) AS FLOAT) AS m0_numerator");
+  });
+
+  it("generates SQL for KLL merge quantile rollup", () => {
+    const config: ExplorationConfig = {
+      type: "metric",
+      datasource: "ds_1",
+      chartType: "line",
+      showAs: "total",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        {
+          dimensionType: "date",
+          column: null,
+          dateGranularity: "day",
+        },
+      ],
+      dataset: {
+        type: "metric",
+        values: [
+          {
+            name: "Latency KLL",
+            type: "metric",
+            metricId: "kll_metric",
+            rowFilters: [],
+            unit: null,
+            denominatorUnit: null,
+          },
+        ],
+      },
+    };
+
+    const { sql } = generateProductAnalyticsSQL(
+      config,
+      sketchFactTableMap,
+      sketchMetricMap,
+      helpers,
+      datasource,
+    );
+
+    expect(sql).toMatch(
+      /CAST\s*\(\s*KLL_POINT\s*\(\s*KLL_MERGE\s*\(\s*m0\s*\),\s*0\.9\s*\)\s+AS\s+FLOAT\s*\)\s+AS\s+m0_numerator/,
+    );
+    expect(sql).not.toContain("APPROX_PERCENTILE(m0, 0.9)");
   });
 });

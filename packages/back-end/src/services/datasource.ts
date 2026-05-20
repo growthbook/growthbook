@@ -14,6 +14,7 @@ import {
 } from "shared/types/datasource";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { QueryStatistics } from "shared/types/query";
+import { formatQueryExecutionErrorForApi } from "shared/util";
 import { SQLExecutionError } from "back-end/src/util/errors";
 import { determineColumnTypes } from "back-end/src/util/sql";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
@@ -178,9 +179,11 @@ export async function runFreeFormQuery(
 
   const sql = integration.getFreeFormQuery(query, limit);
   try {
-    const { results, duration, columns } = await integration.runTestQuery(sql, [
-      "timestamp",
-    ]);
+    const { results, duration, columns } = await integration.runTestQuery(
+      sql,
+      ["timestamp"],
+      "freeFormQuery",
+    );
 
     // Build a type map from SQL engine metadata
     const typeMap = new Map<string, FactTableColumnType>();
@@ -209,7 +212,7 @@ export async function runFreeFormQuery(
     };
   } catch (e) {
     return {
-      error: e.message,
+      error: formatQueryExecutionErrorForApi(e),
       sql,
     };
   }
@@ -257,7 +260,7 @@ export async function runUserExposureQuery(
     };
   } catch (e) {
     return {
-      error: e.message,
+      error: formatQueryExecutionErrorForApi(e),
       sql,
     };
   }
@@ -311,6 +314,7 @@ export async function testQuery(
   query: string,
   templateVariables?: TemplateVariables,
   limit?: number,
+  timestampColumn?: string,
 ): Promise<{
   results?: TestQueryRow[];
   duration?: number;
@@ -333,11 +337,14 @@ export async function testQuery(
     templateVariables,
     testDays: context.org.settings?.testQueryDays,
     limit,
+    timestampColumn,
   });
   try {
-    const { results, duration } = await integration.runTestQuery(sql, [
-      "timestamp",
-    ]);
+    const { results, duration } = await integration.runTestQuery(
+      sql,
+      timestampColumn ? [timestampColumn] : ["timestamp"],
+      "testQuery",
+    );
     return {
       results,
       duration,
@@ -345,7 +352,7 @@ export async function testQuery(
     };
   } catch (e) {
     return {
-      error: e.message,
+      error: formatQueryExecutionErrorForApi(e),
       sql,
     };
   }
@@ -371,9 +378,14 @@ export async function testQueryValidity(
     ...(query.hasNameCol ? ["experiment_name", "variation_name"] : []),
   ]);
 
-  const sql = integration.getTestValidityQuery(query.query, testDays);
+  const sql = integration.getTestValidityQuery(
+    query.query,
+    testDays,
+    undefined,
+    "timestamp",
+  );
   try {
-    const results = await integration.runTestQuery(sql);
+    const results = await integration.runTestQuery(sql, undefined, "testQuery");
 
     let columns: Set<string>;
 

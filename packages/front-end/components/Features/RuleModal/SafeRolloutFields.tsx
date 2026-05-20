@@ -1,7 +1,7 @@
 import { useFormContext } from "react-hook-form";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { Box, TextField, Text, Flex, Grid } from "@radix-ui/themes";
+import { Box, TextField, Text, Flex, Grid, Separator } from "@radix-ui/themes";
 import {
   PiCaretUpFill,
   PiCaretDownFill,
@@ -22,11 +22,15 @@ import Checkbox from "@/ui/Checkbox";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import HelperText from "@/ui/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import ScheduleInputs from "@/components/Features/ScheduleInputs";
+import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import {
   AttributeOptionWithTooltip,
   type AttributeOptionForTooltip,
 } from "@/components/Features/AttributeOptionTooltip";
+import RuleEnvironmentScopeField, {
+  type EnvScopeProps,
+} from "@/components/Features/RuleModal/EnvironmentScopeField";
+
 export default function SafeRolloutFields({
   feature,
   environment,
@@ -39,6 +43,7 @@ export default function SafeRolloutFields({
   defaultValues,
   setScheduleToggleEnabled,
   scheduleToggleEnabled,
+  envScope,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -51,6 +56,7 @@ export default function SafeRolloutFields({
   setScheduleToggleEnabled: (b: boolean) => void;
   mode: "create" | "edit" | "duplicate";
   isDraft: boolean;
+  envScope: EnvScopeProps;
 }) {
   const form = useFormContext();
   const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
@@ -95,14 +101,14 @@ export default function SafeRolloutFields({
           setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
           project={feature.project || ""}
         />
-        <hr />
+        <Separator size="4" my="5" />
         <ConditionInput
           defaultValue={form.watch("condition") || ""}
           onChange={(value) => form.setValue("condition", value)}
           key={conditionKey}
           project={feature.project || ""}
         />
-        <hr />
+        <Separator size="4" my="5" />
         <PrerequisiteInput
           value={form.watch("prerequisites") || []}
           setValue={(prerequisites) =>
@@ -453,6 +459,7 @@ export default function SafeRolloutFields({
         {...form.register("description")}
         placeholder="Short human-readable description of the safe rollout"
       />
+      <RuleEnvironmentScopeField {...envScope} mt="2" mb="7" />
       {renderVariationFieldSelector()}
       {renderDataAndMetrics()}
       <ScheduleInputs

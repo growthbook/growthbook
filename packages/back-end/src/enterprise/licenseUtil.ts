@@ -30,7 +30,7 @@ import { LICENSE_PUBLIC_KEY } from "./public-key";
 
 export const LICENSE_SERVER_URL =
   process.env.LICENSE_SERVER_URL ||
-  "https://central_license_server.growthbook.io/api/v1/";
+  "https://central-license-server.growthbook.io/api/v1/";
 
 // mimic behavior in back-end/src/util/secrets.ts
 const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
@@ -54,12 +54,16 @@ function getStripeSubscriptionStatus(
 export function getSubscriptionFromLicense(
   license: Partial<LicenseInterface>,
 ): SubscriptionInfo | null {
-  const sub = license.orbSubscription || license.stripeSubscription;
+  const orbSub = license.orbSubscription?.id ? license.orbSubscription : null;
+  const stripeSub = license.stripeSubscription?.id
+    ? license.stripeSubscription
+    : null;
+  const sub = orbSub || stripeSub;
 
   if (!sub) return null;
 
   return {
-    billingPlatform: license.orbSubscription ? "orb" : "stripe",
+    billingPlatform: orbSub ? "orb" : "stripe",
     externalId: sub.id,
     trialEnd: sub.trialEnd,
     status: getStripeSubscriptionStatus(sub.status),

@@ -1,5 +1,5 @@
 import uniqid from "uniqid";
-import { CreateProps, UpdateProps } from "shared/types/base-model";
+import { UpdateProps } from "shared/types/base-model";
 import {
   IncrementalRefreshInterface,
   incrementalRefreshValidator,
@@ -8,8 +8,11 @@ import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "incrementalrefresh";
 
-// If a lock hasn't been updated in this long, consider it stale
-const STALE_LOCK_TIMEOUT_MS = 60 * 60 * 1000;
+// A lock is considered stale once its heartbeat is older than this. The
+// runner refreshes the heartbeat every ~30s while queries are executing, so
+// this only needs to cover slow polls / brief stalls — not the full runtime
+// of a refresh.
+export const INCREMENTAL_LOCK_STALE_MS = 10 * 60 * 1000;
 
 const BaseClass = MakeModelClass({
   schema: incrementalRefreshValidator,
@@ -30,9 +33,7 @@ export class IncrementalRefreshModel extends BaseClass {
   }
   public async upsertByExperimentId(
     experimentId: string,
-    data:
-      | CreateProps<IncrementalRefreshInterface>
-      | UpdateProps<IncrementalRefreshInterface>,
+    data: UpdateProps<IncrementalRefreshInterface>,
   ) {
     const existing = await this._findOne({ experimentId });
     if (existing) {
@@ -55,7 +56,7 @@ export class IncrementalRefreshModel extends BaseClass {
     experimentId: string,
     snapshotId: string,
   ): Promise<boolean> {
-    const staleLockThreshold = new Date(Date.now() - STALE_LOCK_TIMEOUT_MS);
+    const staleThreshold = new Date(Date.now() - INCREMENTAL_LOCK_STALE_MS);
     try {
       const result = await this._dangerousGetCollection().updateOne(
         {
@@ -64,13 +65,17 @@ export class IncrementalRefreshModel extends BaseClass {
           $or: [
             // Unlocked
             { currentExecutionSnapshotId: null },
-            // Or lock is stale
-            { dateUpdated: { $lt: staleLockThreshold } },
+            // Heartbeat stale → holder crashed or stalled (non-null only;
+            // null/missing heartbeats use the dateUpdated fallback below)
+            { lockHeartbeatAt: { $lt: staleThreshold, $ne: null } },
+            // Legacy docs without a heartbeat: fall back to dateUpdated
+            { lockHeartbeatAt: null, dateUpdated: { $lt: staleThreshold } },
           ],
         },
         {
           $set: {
             currentExecutionSnapshotId: snapshotId,
+            lockHeartbeatAt: new Date(),
             dateUpdated: new Date(),
           },
           $setOnInsert: {
@@ -115,8 +120,23 @@ export class IncrementalRefreshModel extends BaseClass {
         currentExecutionSnapshotId: snapshotId,
       },
       {
-        $set: { currentExecutionSnapshotId: null, dateUpdated: new Date() },
+        $set: {
+          currentExecutionSnapshotId: null,
+          lockHeartbeatAt: null,
+          dateUpdated: new Date(),
+        },
       },
+    );
+  }
+
+  public async touchLockHeartbeat(experimentId: string, snapshotId: string) {
+    await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        experimentId,
+        currentExecutionSnapshotId: snapshotId,
+      },
+      { $set: { lockHeartbeatAt: new Date(), dateUpdated: new Date() } },
     );
   }
 

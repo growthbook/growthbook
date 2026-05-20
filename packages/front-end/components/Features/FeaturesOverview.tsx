@@ -7,7 +7,7 @@ import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import {
   PiPlusCircleBold,
   PiPlus,
-  PiArrowsLeftRightBold,
+  PiGitDiff,
   PiPencilSimpleFill,
   PiCaretRightBold,
   PiPencil,
@@ -34,7 +34,10 @@ import {
   SafeRolloutInterface,
   HoldoutInterface,
   MinimalFeatureRevisionInterface,
+  RampScheduleInterface,
 } from "shared/validators";
+import EventUser from "@/components/Avatar/EventUser";
+import CoAuthors from "@/components/Features/CoAuthors";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
@@ -49,7 +52,6 @@ import {
   getAffectedRevisionEnvs,
   getPrerequisites,
   getRules,
-  isRuleInactive,
 } from "@/services/features";
 import { useFeatureDefaultValues } from "@/hooks/useFeatureDefaultValues";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
@@ -60,7 +62,6 @@ import DiscussionThread from "@/components/DiscussionThread";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
-import UserAvatar from "@/components/Avatar/UserAvatar";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import RevertModal from "@/components/Features/RevertModal";
 import {
@@ -68,7 +69,7 @@ import {
   useFeatureUsage,
 } from "@/components/Features/FeatureUsageGraph";
 import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
-import FixConflictsModal from "@/components/Features/FixConflictsModal";
+import FeatureFixConflictsModal from "@/components/Features/FeatureFixConflictsModal";
 import CompareRevisionsModal from "@/components/Features/CompareRevisionsModal";
 import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
 import RevisionLabel, {
@@ -93,8 +94,6 @@ import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
-import metaDataStyles from "@/ui/Metadata.module.scss";
-import Switch from "@/ui/Switch";
 import Link from "@/ui/Link";
 import JSONValidation from "@/components/Features/JSONValidation";
 import {
@@ -205,6 +204,7 @@ export default function FeaturesOverview({
   setVersion,
   safeRollouts,
   holdout,
+  rampSchedules,
 }: {
   baseFeature: FeatureInterface;
   feature: FeatureInterface;
@@ -214,6 +214,7 @@ export default function FeaturesOverview({
   experiments: ExperimentInterfaceStringDates[] | undefined;
   safeRollouts: SafeRolloutInterface[] | undefined;
   holdout: HoldoutInterface | undefined;
+  rampSchedules: RampScheduleInterface[] | undefined;
   mutate: () => Promise<unknown>;
   editProjectModal: boolean;
   setEditProjectModal: (b: boolean) => void;
@@ -227,6 +228,10 @@ export default function FeaturesOverview({
   const [conflictModal, setConflictModal] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [confirmNewDraft, setConfirmNewDraft] = useState(false);
+  // Always reflects the current live version — used in async callbacks to avoid
+  // stale closure captures when ramp actions auto-publish new revisions.
+  const liveVersionRef = useRef(feature.version);
+  liveVersionRef.current = feature.version;
   const [newDraftTitle, setNewDraftTitle] = useState("");
   const [newDraftTitleStash, setNewDraftTitleStash] = useState("");
   const [editingNewDraftTitle, setEditingNewDraftTitle] = useState(false);
@@ -235,10 +240,6 @@ export default function FeaturesOverview({
   const [creatingDraft, setCreatingDraft] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
-  const [hideInactive, setHideInactive] = useLocalStorage(
-    `hide-disabled-rules`,
-    false,
-  );
   const [descriptionExpanded, setDescriptionExpanded] = useLocalStorage(
     `feature-description-expanded`,
     false,
@@ -266,7 +267,7 @@ export default function FeaturesOverview({
   const showKillSwitchManager = killSwitchTarget !== null;
 
   const { apiCall } = useAuth();
-  const { hasCommercialFeature, getOwnerDisplay } = useUser();
+  const { hasCommercialFeature } = useUser();
 
   const commitTitleEdit = useCallback(async () => {
     if (!revision) return;
@@ -412,13 +413,27 @@ export default function FeaturesOverview({
       return false;
     const liveRevision = revisions.find((r) => r.version === feature.version);
     if (!liveRevision) return false;
-    return draftDiffersFromLive(
-      revision,
-      liveRevision,
-      baseFeature,
-      environments.map((e) => e.id),
+    if (
+      draftDiffersFromLive(
+        revision,
+        liveRevision,
+        baseFeature,
+        environments.map((e) => e.id),
+      )
+    )
+      return true;
+    // A draft that only activates a ramp schedule (no feature content changes)
+    // still has meaningful changes and should be publishable.
+    const hasLinkedRamp = rampSchedules?.some((rs) =>
+      rs.targets.some((t) => t.activatingRevisionVersion === revision.version),
     );
-  }, [revision, revisions, feature, baseFeature, environments]);
+    if (hasLinkedRamp) return true;
+
+    // Also check for pending ramp actions in the draft (create/detach)
+    const hasPendingRampActions =
+      revision.rampActions && revision.rampActions.length > 0;
+    return !!hasPendingRampActions;
+  }, [revision, revisions, feature, baseFeature, environments, rampSchedules]);
 
   const bannerRef = useRef<HTMLDivElement>(null);
   const [bannerPinned, setBannerPinned] = useState(false);
@@ -472,7 +487,14 @@ export default function FeaturesOverview({
         ...liveRevision,
         ...liveRevisionFromFeature(liveRevision, baseFeature),
       };
-      effectiveRevision = { ...filledLive, ...mergeResult.result };
+      // v2 rules are a flat FeatureRule[]; the mergeResult carries either the
+      // full replacement array (when rules changed) or nothing (when only
+      // non-rule fields changed). Never object-spread an array.
+      effectiveRevision = {
+        ...filledLive,
+        ...mergeResult.result,
+        rules: mergeResult.result.rules ?? filledLive.rules,
+      };
       effectiveBase = filledLive;
     }
 
@@ -482,6 +504,7 @@ export default function FeaturesOverview({
       revision: effectiveRevision,
       allEnvironments: environments.map((e) => e.id),
       settings,
+      requireApprovalsLicensed: hasCommercialFeature("require-approvals"),
     });
   }
   const isLive = revision?.version === feature.version;
@@ -573,13 +596,9 @@ export default function FeaturesOverview({
   const hasCustomFields = (featureCustomFields?.length ?? 0) > 0;
 
   let hasRules = false;
-  let hasInactiveRules = false;
   environments?.forEach((e) => {
     const r = getRules(feature, e.id) || [];
     if (r.length > 0) hasRules = true;
-    if (r.some((r) => isRuleInactive(r, experimentsMap))) {
-      hasInactiveRules = true;
-    }
   });
 
   const variables = {
@@ -768,56 +787,66 @@ export default function FeaturesOverview({
 
   const renderRevisionInfo = () => {
     return (
-      <Flex direction="column" gap="1">
-        <Flex align="center" gap="4" wrap="wrap">
+      <Flex direction="column">
+        {/* Revised by (left) + Created/Published (right) — side by side on wide, stacked on narrow */}
+        <Flex
+          align="center"
+          justify="between"
+          wrap="wrap"
+          style={{ rowGap: "var(--space-1)", columnGap: "var(--space-4)" }}
+        >
           {(() => {
             const cb = revision.createdBy;
-            if (cb?.type === "dashboard") {
-              const name = getOwnerDisplay(cb.id);
+            if (cb?.type === "dashboard" || cb?.type === "api_key") {
               return (
                 <Metadata
                   label="Revised by"
                   value={
-                    name ? (
-                      <span>
-                        <UserAvatar name={name} size="sm" variant="soft" />{" "}
-                        {name}
-                      </span>
-                    ) : (
-                      <em className="text-muted">Unknown</em>
-                    )
+                    <Flex align="center" gap="2" wrap="wrap">
+                      <EventUser
+                        user={cb}
+                        display="avatar-name-email"
+                        size="sm"
+                      />
+                    </Flex>
                   }
                 />
               );
             }
-            if (cb?.type === "api_key") {
+            if (cb?.type === "system") {
               return (
                 <Metadata
-                  label="Revised by"
-                  value={<span className="badge badge-secondary">API</span>}
+                  label="Generated by"
+                  value={
+                    <em>
+                      {cb.subtype === "ramp-schedule"
+                        ? "ramp schedule"
+                        : "system"}
+                    </em>
+                  }
                 />
               );
             }
             return null;
           })()}
-          <Metadata label="Created" value={datetime(revision.dateCreated)} />
-          {revision.status === "published" && revision.datePublished && (
-            <Metadata
-              label="Published"
-              value={datetime(revision.datePublished)}
-            />
-          )}
-          {revision.status === "draft" && (
-            <Metadata label="Last update" value={ago(revision.dateUpdated)} />
-          )}
+          <Flex align="center" gap="4" wrap="wrap">
+            <Metadata label="Created" value={datetime(revision.dateCreated)} />
+            {revision.status === "published" && revision.datePublished && (
+              <Metadata
+                label="Published"
+                value={datetime(revision.datePublished)}
+              />
+            )}
+            {revision.status === "draft" && (
+              <Metadata label="Last update" value={ago(revision.dateUpdated)} />
+            )}
+          </Flex>
         </Flex>
+        <CoAuthors rev={revision} mt="3" mb="3" />
         <Flex align="start" gap="2" style={{ width: "fit-content" }}>
-          <span
-            className={metaDataStyles.labelColor}
-            style={{ fontWeight: 500 }}
-          >
+          <Text weight="semibold" color="text-high">
             Revision notes:
-          </span>{" "}
+          </Text>{" "}
           {revision.comment ? (
             <Flex align="start" gap="1">
               <Box>
@@ -929,12 +958,57 @@ export default function FeaturesOverview({
                       bgColor: "var(--gray-a3)",
                       message: (
                         <>
-                          Viewing an old <strong>published</strong> revision —
-                          no longer live
+                          Viewing a previously <strong>published</strong>{" "}
+                          revision.{" "}
+                          <Link onClick={() => setVersion(feature.version)}>
+                            <strong>Switch to live</strong>
+                          </Link>
                         </>
                       ),
                     }
-                  : null;
+                  : isLive
+                    ? (() => {
+                        const activeDrafts = (revisionList ?? []).filter(
+                          (r) =>
+                            !(
+                              r.createdBy?.type === "system" &&
+                              r.createdBy.subtype === "ramp-schedule"
+                            ) &&
+                            (r.status === "draft" ||
+                              r.status === "approved" ||
+                              r.status === "changes-requested" ||
+                              r.status === "pending-review"),
+                        );
+                        if (activeDrafts.length === 0) return null;
+                        return {
+                          icon: <PiPencil size={18} />,
+                          color: "var(--gray-11)",
+                          bgColor: "var(--gray-a3)",
+                          message: (
+                            <>
+                              This feature has{" "}
+                              <strong>
+                                {activeDrafts.length === 1
+                                  ? "a draft revision"
+                                  : `${activeDrafts.length} draft revisions`}
+                              </strong>
+                              {activeDrafts.length === 1 && (
+                                <>
+                                  {". "}
+                                  <Link
+                                    onClick={() =>
+                                      setVersion(activeDrafts[0].version)
+                                    }
+                                  >
+                                    <strong>Switch to draft</strong>
+                                  </Link>
+                                </>
+                              )}
+                            </>
+                          ),
+                        };
+                      })()
+                    : null;
 
           if (!bannerProps) return null;
           return (
@@ -985,7 +1059,7 @@ export default function FeaturesOverview({
         {revision && (
           <Frame mt="2" mb="4" px="6" py="4">
             <Flex align="start" justify="between" mb="2" wrap="wrap" gap="2">
-              <Flex align="start" gap="4" style={{ marginTop: 6 }}>
+              <Flex align="start" gap="4" style={{ marginTop: 5 }}>
                 <Flex direction="column" gap="1">
                   <Flex align="center" gap="2">
                     {revision.title && (
@@ -1087,12 +1161,15 @@ export default function FeaturesOverview({
                       orientation="vertical"
                       style={{ marginTop: 2 }}
                     />
-                    <Link onClick={onCompareRevisions}>
-                      <PiArrowsLeftRightBold
-                        style={{ marginRight: 4, verticalAlign: "middle" }}
-                      />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={<PiGitDiff />}
+                      onClick={onCompareRevisions}
+                      style={{ position: "relative", top: -5 }}
+                    >
                       Compare revisions
-                    </Link>
+                    </Button>
                   </>
                 )}
               </Flex>
@@ -1189,10 +1266,7 @@ export default function FeaturesOverview({
               Environment Status
             </Heading>
             {showFeatureUsage && (
-              <FeatureUsageSparkline
-                valueType={feature.valueType}
-                environments={envs}
-              />
+              <FeatureUsageSparkline valueType={feature.valueType} />
             )}
           </Flex>
           <div className="mb-4">
@@ -1210,7 +1284,7 @@ export default function FeaturesOverview({
                       envGridWidth > 0 &&
                       200 + envs.length * 120 < envGridWidth - 80
                         ? -26 // align to the env grid's labels' baseline
-                        : undefined,
+                        : 8,
                   }}
                 >
                   <Button
@@ -1703,19 +1777,9 @@ export default function FeaturesOverview({
                 pt="4"
                 style={{ borderTop: "1px solid var(--gray-a4)" }}
               >
-                <Flex align="center" justify="between" mb="2">
-                  <Heading as="h4" size="small" mb="0">
-                    Rules
-                  </Heading>
-                  <label className="font-weight-semibold">
-                    <Switch
-                      disabled={!hasInactiveRules}
-                      value={!hasInactiveRules ? false : !hideInactive}
-                      onChange={(state) => setHideInactive(!state)}
-                      label="Show inactive"
-                    />
-                  </label>
-                </Flex>
+                <Heading as="h4" size="small" mb="2">
+                  Rules
+                </Heading>
                 {environments.length > 0 ? (
                   <>
                     {!hasRules && (
@@ -1736,11 +1800,12 @@ export default function FeaturesOverview({
                       mutate={mutate}
                       currentVersion={currentVersion}
                       setVersion={setVersion}
-                      hideInactive={hideInactive}
                       isDraft={isDraft}
                       safeRolloutsMap={safeRolloutsMap}
                       holdout={holdout}
                       revisionList={revisionList || []}
+                      rampSchedules={rampSchedules}
+                      draftRevision={revision}
                     />
                   </>
                 ) : (
@@ -1824,6 +1889,7 @@ export default function FeaturesOverview({
                 (r) => r.version === revertIndex,
               ) as FeatureRevisionInterface
             }
+            revisionList={revisionList}
             allRevisions={revisions}
             mutate={mutate}
             setVersion={setVersion}
@@ -1836,7 +1902,12 @@ export default function FeaturesOverview({
             version={revision.version}
             close={() => setReviewModal(false)}
             mutate={mutate}
+            onPublish={() => {
+              setVersion(revision.version);
+              setTimeout(() => setVersion(liveVersionRef.current), 300);
+            }}
             experimentsMap={experimentsMap}
+            rampSchedules={rampSchedules}
           />
         )}
         {draftModal && revision && (
@@ -1846,11 +1917,19 @@ export default function FeaturesOverview({
             version={revision.version}
             close={() => setDraftModal(false)}
             mutate={mutate}
+            onPublish={() => {
+              setVersion(revision.version);
+              // Ramp steps fire synchronously on the backend and may publish
+              // additional revisions. After React processes the mutate response,
+              // snap to whatever is actually live now.
+              setTimeout(() => setVersion(liveVersionRef.current), 300);
+            }}
             experimentsMap={experimentsMap}
+            rampSchedules={rampSchedules}
           />
         )}
         {conflictModal && revision && (
-          <FixConflictsModal
+          <FeatureFixConflictsModal
             feature={baseFeature}
             revisions={revisions}
             version={revision.version}
@@ -1965,6 +2044,7 @@ export default function FeaturesOverview({
                           revisions.find((r) => r.version === feature.version)
                             ?.title
                         }
+                        minWidth={0}
                       />
                     </OverflowText>
                   </Text>
@@ -2100,6 +2180,7 @@ export default function FeaturesOverview({
             onClose={() => setCompareRevisionsModalOpen(false)}
             initialPreviewDraft={isDraft ? (version ?? undefined) : undefined}
             initialMode={isLive && !isDraft ? "most-recent-live" : undefined}
+            rampSchedules={rampSchedules}
           />
         )}
         {showKillSwitchManager && (

@@ -6,7 +6,7 @@ const makeField = (overrides: Partial<CustomField>): CustomField => ({
   name: "Default Field",
   type: "text",
   required: false,
-  section: "feature",
+  sections: ["feature"],
   dateCreated: new Date("2026-01-01"),
   dateUpdated: new Date("2026-01-01"),
   ...overrides,
@@ -25,7 +25,7 @@ describe("filterCustomFieldsForSectionAndProject", () => {
     });
     const otherSectionField = makeField({
       id: "cf_exp",
-      section: "experiment",
+      sections: ["experiment"],
     });
 
     const result = filterCustomFieldsForSectionAndProject(

@@ -1,13 +1,19 @@
 import mongoose from "mongoose";
 import omit from "lodash/omit";
 import { checkIfRevisionNeedsReview } from "shared/util";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import {
+  FeatureInterface,
+  FeatureRule,
+  V1FeatureRule,
+  V1FeatureRevisionInterface,
+} from "shared/types/feature";
 import {
   FeatureRevisionInterface,
   RevisionLog,
+  RevisionChanges,
 } from "shared/types/feature-revision";
 import { EventUser, EventUserLoggedIn } from "shared/types/events/event-types";
-import { OrganizationInterface } from "shared/types/organization";
+import { Environment, OrganizationInterface } from "shared/types/organization";
 import {
   MinimalFeatureRevisionInterface,
   ActiveDraftStatus,
@@ -16,8 +22,25 @@ import {
 } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { applyEnvironmentInheritance } from "back-end/src/util/features";
+import {
+  ensureUniqueRuleIds,
+  flattenV1ToV2Rules,
+  getApplicableEnvIds,
+  isPlausibleFeatureRule,
+  isV2RevisionRules,
+  narrowRuleToApplicableEnvs,
+  V1RulesByEnv,
+} from "back-end/src/util/flattenRules";
+import { upgradeFeatureRule } from "back-end/src/util/migrations";
+import {
+  applyEnvironmentInheritance,
+  buildInheritedChildrenByAncestor,
+  expandRuleEnvsForInheritance,
+} from "back-end/src/util/features";
+import { getEnvironments } from "back-end/src/util/organization.util";
 import { logger } from "back-end/src/util/logger";
+import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
+import { createWithVersionRetry } from "back-end/src/util/mongo.util";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
@@ -42,6 +65,9 @@ const featureRevisionSchema = new mongoose.Schema({
   archived: Boolean,
   metadata: {},
   holdout: {},
+  rampActions: [{}],
+  // Users who have made edits to this draft beyond the original author.
+  contributors: [{}],
   status: String,
   requiresReview: Boolean,
   log: [
@@ -69,11 +95,30 @@ const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
   featureRevisionSchema,
 );
 
-function toInterface(
-  doc: FeatureRevisionDocument,
+// Project + env-settings the revision interface needs from the parent feature
+// to apply env applicability filtering and rule-env inheritance expansion.
+export type RevisionFeatureContext = Pick<
+  FeatureInterface,
+  "project" | "environmentSettings"
+>;
+
+/**
+ * Pure JIT migration from a raw revision doc to a v2 `FeatureRevisionInterface`.
+ * v1 `Record<env, FeatureRule[]>` is flattened via `flattenV1ToV2Rules`;
+ * already-v2 arrays are filtered against the same `applicableEnvs` and
+ * expanded for env inheritance so a rule scoped to a parent env also surfaces
+ * in inheriting children.
+ *
+ * Callers should pass the parent `feature` (project + environmentSettings).
+ * `undefined` is allowed for legacy paths but disables both the project
+ * applicability filter and the inheritance expansion.
+ */
+export function buildFeatureRevisionInterface(
+  raw: FeatureRevisionInterface,
   context: ReqContext | ApiReqContext,
+  feature?: RevisionFeatureContext,
 ): FeatureRevisionInterface {
-  const revision = omit(doc.toJSON<FeatureRevisionDocument>(), ["__v", "_id"]);
+  const revision = { ...raw };
 
   // These fields are new, so backfill them for old revisions
   if (revision.publishedBy && !revision.publishedBy.type) {
@@ -95,21 +140,120 @@ function toInterface(
         .revisionDate || revision.dateCreated;
   }
 
-  revision.rules = applyEnvironmentInheritance(
-    context.org.settings?.environments || [],
-    revision.rules,
+  const orgEnvs = getEnvironments(context.org);
+  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature?.project);
+  const applicableSet = new Set(applicableEnvs);
+  // Mirrors `migrateRawFeatureToV2`'s v2 inheritance gating: a child env with
+  // an explicit `environmentSettings` entry is treated as customized and does
+  // NOT inherit rules from its ancestor.
+  const childrenByAncestor = buildInheritedChildrenByAncestor(
+    orgEnvs,
+    feature?.environmentSettings || {},
   );
+  const rawRules = revision.rules as unknown;
+
+  if (isV2RevisionRules(rawRules)) {
+    // v2 pass-through. `upgradeFeatureRule` heals pre-coverage experiment
+    // rules; inheritance expansion adds any parent->child env propagation
+    // missed at write time; `narrowRuleToApplicableEnvs` strips
+    // non-applicable envs and collapses fully-orphaned rules to the no-env
+    // pending state instead of dropping them. The `isPlausibleFeatureRule`
+    // filter drops sparse `null`/`undefined` array entries so a single
+    // corrupt slot can't abort the entire migration.
+    revision.rules = rawRules
+      .filter(isPlausibleFeatureRule)
+      .map((r) => upgradeFeatureRule(r))
+      .map((r) => expandRuleEnvsForInheritance(r, childrenByAncestor))
+      .map((r) => narrowRuleToApplicableEnvs(r, applicableSet));
+  } else {
+    // v1 legacy `Record<env, FeatureRule[]>`. Inheritance must run BEFORE
+    // flattening so a sparse child env still surfaces its parent's rules
+    // (mirrors `migrateRawFeatureToV2`'s v1 path).
+    const v1Record =
+      (rawRules as V1FeatureRevisionInterface["rules"] | undefined) || {};
+    const inheritedRecord = applyEnvironmentInheritance(orgEnvs, v1Record);
+    const upgraded: V1RulesByEnv = {};
+    for (const [envId, envRules] of Object.entries(inheritedRecord)) {
+      upgraded[envId] = (envRules || [])
+        .filter(isPlausibleFeatureRule)
+        .map((r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule);
+    }
+    revision.rules = flattenV1ToV2Rules(upgraded, {
+      envOrder: orgEnvs.map((e) => e.id),
+      applicableEnvs,
+    });
+  }
   return revision;
+}
+
+// Mongoose wrapper over `buildFeatureRevisionInterface`.
+function toInterface(
+  doc: FeatureRevisionDocument,
+  context: ReqContext | ApiReqContext,
+  feature: RevisionFeatureContext | undefined,
+): FeatureRevisionInterface {
+  const revision = omit(doc.toJSON<FeatureRevisionDocument>(), ["__v", "_id"]);
+  return buildFeatureRevisionInterface(revision, context, feature);
+}
+
+// Convenience for call sites that already have the parent feature in scope.
+export function revisionToInterfaceWithFeature(
+  doc: FeatureRevisionDocument,
+  context: ReqContext | ApiReqContext,
+  feature: RevisionFeatureContext,
+): FeatureRevisionInterface {
+  return toInterface(doc, context, feature);
 }
 
 export async function countDocuments(
   organization: string,
-  featureId: string,
+  {
+    featureId,
+    featureIds,
+    status,
+    author,
+    involvedUserId,
+  }: {
+    featureId?: string;
+    featureIds?: string[];
+    status?: string | string[];
+    author?: string;
+    involvedUserId?: string;
+  } = {},
 ): Promise<number> {
-  return FeatureRevisionModel.countDocuments({
+  const filter: Record<string, unknown> = { organization };
+  if (featureId) filter.featureId = featureId;
+  else if (featureIds) filter.featureId = { $in: featureIds };
+  if (status) {
+    filter.status = Array.isArray(status) ? { $in: status } : status;
+  }
+  if (author) filter["createdBy.id"] = author;
+  if (involvedUserId) {
+    filter.$or = [
+      { "createdBy.id": involvedUserId },
+      { "contributors.id": involvedUserId },
+    ];
+  }
+  return FeatureRevisionModel.countDocuments(filter);
+}
+
+/** Returns the version/status/rules of all non-discarded revisions for a feature.
+ * Used by syncFeatureExperimentLinkages callers that don't already have the
+ * Mongoose model in scope. */
+export async function getNonDiscardedRevisionSummaries(
+  organization: string,
+  featureId: string,
+): Promise<Pick<FeatureRevisionInterface, "version" | "status" | "rules">[]> {
+  const docs = await FeatureRevisionModel.find({
     organization,
     featureId,
-  });
+    status: { $nin: ["discarded"] },
+  }).select("version status rules");
+  return docs.map((d) => ({
+    version: d.version,
+    status: d.status,
+    rules: d.rules,
+  }));
 }
 
 export async function getMinimalRevisions(
@@ -121,7 +265,9 @@ export async function getMinimalRevisions(
     organization,
     featureId,
   })
-    .select("version datePublished dateUpdated createdBy status comment title")
+    .select(
+      "version datePublished dateUpdated createdBy status comment title contributors",
+    )
     .sort({ version: -1 })
     .limit(200);
 
@@ -133,6 +279,7 @@ export async function getMinimalRevisions(
     status: m.status,
     comment: m.comment || "",
     ...(m.title ? { title: m.title } : {}),
+    ...(m.contributors?.length ? { contributors: m.contributors } : {}),
   }));
 }
 
@@ -140,6 +287,7 @@ export async function getFeaturePageRevisions(
   context: ReqContext | ApiReqContext,
   organization: string,
   featureId: string,
+  feature: RevisionFeatureContext | undefined,
 ): Promise<FeatureRevisionInterface[]> {
   // Lean initial load: top-5 recent + all active drafts in parallel, then deduplicate.
   const [recentDocs, activeDraftDocs] = await Promise.all([
@@ -185,7 +333,7 @@ export async function getFeaturePageRevisions(
     }
   }
 
-  return merged.map((m) => toInterface(m, context));
+  return merged.map((m) => toInterface(m, context, feature));
 }
 
 export async function hasDraft(
@@ -219,53 +367,108 @@ export async function getActiveDraft(
     .select("-log")
     .sort({ version: -1 });
 
-  return doc ? toInterface(doc, context) : null;
+  return doc ? toInterface(doc, context, feature) : null;
 }
 
 export async function getFeatureRevisionsByStatus({
   context,
   organization,
   featureId,
+  featureIds,
+  feature,
+  featuresByFeatureId,
   status,
+  author,
+  involvedUserId,
   limit = 10,
   offset = 0,
   sort = "desc",
+  skipPagination = false,
 }: {
   context: ReqContext;
   organization: string;
-  featureId: string;
+  featureId?: string;
+  featureIds?: string[];
+  // Parent feature when querying by `featureId`. Required when using
+  // `featureId`; otherwise pass `featuresByFeatureId` for multi-feature
+  // queries so each revision is filtered against its own feature.
+  feature?: RevisionFeatureContext;
+  featuresByFeatureId?: Record<string, RevisionFeatureContext | undefined>;
   status?: string | string[];
+  author?: string;
+  involvedUserId?: string;
   limit?: number;
   offset?: number;
   sort?: "asc" | "desc";
+  skipPagination?: boolean;
 }): Promise<FeatureRevisionInterface[]> {
-  const statusFilter = Array.isArray(status)
-    ? { status: { $in: status } }
-    : status
-      ? { status }
-      : {};
-  const docs = await FeatureRevisionModel.find({
+  const filter: Record<string, unknown> = { organization };
+  if (featureId) filter.featureId = featureId;
+  else if (featureIds) filter.featureId = { $in: featureIds };
+  if (status) {
+    filter.status = Array.isArray(status) ? { $in: status } : status;
+  }
+  if (author) filter["createdBy.id"] = author;
+  if (involvedUserId) {
+    filter.$or = [
+      { "createdBy.id": involvedUserId },
+      { "contributors.id": involvedUserId },
+    ];
+  }
+  let query = FeatureRevisionModel.find(filter)
+    .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
+    .sort({ version: sort === "desc" ? -1 : 1 });
+  if (!skipPagination) {
+    query = query.skip(offset).limit(limit);
+  }
+  const docs = await query;
+  return docs.map((m) => {
+    const f = featuresByFeatureId ? featuresByFeatureId[m.featureId] : feature;
+    return toInterface(m, context, f);
+  });
+}
+
+// Returns the most recently updated active draft for a feature, or null.
+export async function getLatestActiveDraftForFeature(
+  context: ReqContext | ApiReqContext,
+  organization: string,
+  featureId: string,
+  feature: RevisionFeatureContext | undefined,
+  { involvedUserId }: { involvedUserId?: string } = {},
+): Promise<FeatureRevisionInterface | null> {
+  const filter: Record<string, unknown> = {
     organization,
     featureId,
-    ...statusFilter,
-  })
-    .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
-    .sort({ version: sort === "desc" ? -1 : 1 })
-    .skip(offset)
-    .limit(limit);
-  return docs.map((m) => toInterface(m, context));
+    status: { $in: ACTIVE_DRAFT_STATUSES },
+  };
+  if (involvedUserId) {
+    filter.$or = [
+      { "createdBy.id": involvedUserId },
+      { "contributors.id": involvedUserId },
+    ];
+  }
+  const doc = await FeatureRevisionModel.findOne(filter, { log: 0 }).sort({
+    dateUpdated: -1,
+  });
+
+  return doc ? toInterface(doc, context, feature) : null;
 }
 
 export async function getRevision({
   context,
   organization,
   featureId,
+  feature,
   version,
   includeLog = false,
 }: {
   context: ReqContext | ApiReqContext;
   organization: string;
   featureId: string;
+  // Parent feature. Drives env applicability filtering and v2 inheritance
+  // expansion so rules scoped to envs no longer in the feature's project
+  // are scrubbed and rules on a parent env surface in inheriting children.
+  feature: RevisionFeatureContext | undefined;
   version: number;
   includeLog?: boolean;
 }) {
@@ -275,18 +478,20 @@ export async function getRevision({
     version,
   }).select(includeLog ? undefined : "-log");
 
-  return doc ? toInterface(doc, context) : null;
+  return doc ? toInterface(doc, context, feature) : null;
 }
 
 export async function getRevisionsByVersions({
   context,
   organization,
   featureId,
+  feature,
   versions,
 }: {
   context: ReqContext | ApiReqContext;
   organization: string;
   featureId: string;
+  feature: RevisionFeatureContext | undefined;
   versions: number[];
 }) {
   const docs = await FeatureRevisionModel.find({
@@ -295,7 +500,7 @@ export async function getRevisionsByVersions({
     version: { $in: versions },
   }).select("-log");
 
-  return docs.map((doc) => toInterface(doc, context));
+  return docs.map((doc) => toInterface(doc, context, feature));
 }
 
 // Fields excluded in sparse mode: large/unused payload for list-view callers.
@@ -316,7 +521,13 @@ const SPARSE_REVISION_PROJECTION = {
 export async function getRevisionsByStatus(
   context: ReqContext,
   statuses: string[],
-  { sparse = false }: { sparse?: boolean } = {},
+  {
+    sparse = false,
+    featuresByFeatureId,
+  }: {
+    sparse?: boolean;
+    featuresByFeatureId?: Record<string, RevisionFeatureContext | undefined>;
+  } = {},
 ) {
   const projection = sparse ? SPARSE_REVISION_PROJECTION : { log: 0 };
   const revisions = await FeatureRevisionModel.find(
@@ -324,7 +535,63 @@ export async function getRevisionsByStatus(
     projection,
   );
 
-  return revisions.filter((r) => !!r).map((r) => toInterface(r, context));
+  return revisions
+    .filter((r) => !!r)
+    .map((r) => toInterface(r, context, featuresByFeatureId?.[r.featureId]));
+}
+
+/**
+ * Normalize a `rules` input to the canonical v2 `FeatureRule[]` shape. v2
+ * arrays pass through; v1 records get env inheritance applied before
+ * flattening so a legacy caller's sparse `{dev: [r1]}` writes a rule scoped
+ * to dev and any envs that inherit from dev. `applicableEnvs` is seeded from
+ * org envs + feature project so fully-covering rules collapse to
+ * `allEnvironments: true`. Always runs `ensureUniqueRuleIds` on the way out
+ * so a buggy v2 caller passing duplicate ids can't smuggle them onto disk.
+ * Exported for unit testing.
+ */
+export function normalizeRulesInputToV2(
+  rulesInput: unknown,
+  opts: { orgEnvs: Environment[]; featureProject?: string },
+): FeatureRule[] {
+  if (rulesInput === undefined || rulesInput === null) return [];
+
+  let flat: FeatureRule[];
+  if (isV2RevisionRules(rulesInput)) {
+    flat = rulesInput
+      .filter(isPlausibleFeatureRule)
+      .map((r) => upgradeFeatureRule(r));
+  } else {
+    const record = rulesInput as Record<string, FeatureRule[] | undefined>;
+    const inheritedRecord = applyEnvironmentInheritance(opts.orgEnvs, record);
+    const upgraded: V1RulesByEnv = {};
+    for (const [envId, envRules] of Object.entries(inheritedRecord)) {
+      upgraded[envId] = (envRules || [])
+        .filter(isPlausibleFeatureRule)
+        .map((r) => upgradeFeatureRule(r as FeatureRule) as V1FeatureRule);
+    }
+    const applicableEnvs = getApplicableEnvIds(
+      opts.orgEnvs,
+      opts.featureProject,
+    );
+    flat = flattenV1ToV2Rules(upgraded, {
+      envOrder: opts.orgEnvs.map((e) => e.id),
+      applicableEnvs,
+    });
+  }
+
+  // Persistence-safe: dedupe ids so the v2 array pass-through can't persist
+  // a colliding-id payload from a buggy upstream caller. `flattenV1ToV2Rules`
+  // already produces unique ids on the v1 record path, so this is a no-op
+  // there.
+  const { rules: deduped, collisions } = ensureUniqueRuleIds(flat);
+  if (collisions.length > 0) {
+    logger.warn(
+      { featureProject: opts.featureProject, collisions },
+      "Duplicate rule ids auto-suffixed in normalizeRulesInputToV2",
+    );
+  }
+  return deduped;
 }
 
 export async function createInitialRevision(
@@ -334,10 +601,11 @@ export async function createInitialRevision(
   environments: string[],
   date?: Date,
 ) {
-  const rules: Record<string, FeatureRule[]> = {};
+  const rules: FeatureRule[] = (feature.rules ?? [])
+    .filter(isPlausibleFeatureRule)
+    .map((r) => upgradeFeatureRule(r));
   const environmentsEnabled: Record<string, boolean> = {};
   environments.forEach((env) => {
-    rules[env] = feature.environmentSettings?.[env]?.rules || [];
     environmentsEnabled[env] =
       feature.environmentSettings?.[env]?.enabled ?? false;
   });
@@ -373,7 +641,7 @@ export async function createInitialRevision(
     },
   });
 
-  return toInterface(doc, context);
+  return toInterface(doc, context, feature);
 }
 
 export async function createRevisionFromLegacyDraft(
@@ -382,7 +650,7 @@ export async function createRevisionFromLegacyDraft(
 ) {
   if (!feature.legacyDraft) return;
   const doc = await FeatureRevisionModel.create(feature.legacyDraft);
-  return toInterface(doc, context);
+  return toInterface(doc, context, feature);
 }
 
 async function getLastRevision(
@@ -398,7 +666,7 @@ async function getLastRevision(
       .limit(1)
   )[0];
 
-  return lastRevision ? toInterface(lastRevision, context) : null;
+  return lastRevision ? toInterface(lastRevision, context, feature) : null;
 }
 
 export async function createRevision({
@@ -426,7 +694,11 @@ export async function createRevision({
   org: OrganizationInterface;
   canBypassApprovalChecks?: boolean;
 }) {
-  // Get max version number
+  // Read once to (a) seed the baseVersion default, (b) compute the initial
+  // version guess used for validation hooks, and (c) prime the first attempt
+  // of the retry loop below. The version is reassigned inside
+  // `createWithVersionRetry` on retry so concurrent creates can't collide
+  // on the (organization, featureId, version) unique index.
   const lastRevision = await getLastRevision(context, feature);
   const newVersion = lastRevision ? lastRevision.version + 1 : 1;
 
@@ -435,14 +707,15 @@ export async function createRevision({
       ? changes.defaultValue
       : feature.defaultValue;
 
-  const rules: Record<string, FeatureRule[]> = {};
-  environments.forEach((env) => {
-    if (changes && changes.rules) {
-      rules[env] = changes.rules[env] || [];
-    } else {
-      rules[env] = feature.environmentSettings?.[env]?.rules || [];
-    }
-  });
+  const rules: FeatureRule[] =
+    changes && "rules" in changes && changes.rules !== undefined
+      ? normalizeRulesInputToV2(changes.rules as unknown, {
+          orgEnvs: getEnvironments(context.org),
+          featureProject: feature.project,
+        })
+      : (feature.rules ?? [])
+          .filter(isPlausibleFeatureRule)
+          .map((r) => upgradeFeatureRule(r));
 
   // All fields are always written as a complete snapshot so revisions are
   // self-contained and HEAD can be set to any revision without base traversal.
@@ -490,6 +763,7 @@ export async function createRevision({
           context,
           organization: feature.organization,
           featureId: feature.id,
+          feature,
           version: baseVersion,
         });
 
@@ -497,6 +771,9 @@ export async function createRevision({
     throw new Error("can not find a base revision");
   }
   const status = "draft";
+  // Version is initially set to the best-guess `newVersion` so validation
+  // hooks see a realistic value. On a duplicate-key collision the retry loop
+  // below reassigns it before the actual insert.
   const revision = {
     organization: feature.organization,
     featureId: feature.id,
@@ -534,6 +811,9 @@ export async function createRevision({
     revision.status = "pending-review";
   }
 
+  // Validation hooks (no-op on cloud; custom user code on self-hosted) MUST
+  // run exactly once — keep them outside the retry loop so a duplicate-key
+  // race never causes a hook to fire twice.
   await runValidateFeatureRevisionHooks({
     context,
     feature,
@@ -541,7 +821,20 @@ export async function createRevision({
     original: baseRevision,
   });
 
-  const doc = await FeatureRevisionModel.create(revision);
+  // Retry the insert on duplicate-key collisions from the
+  // (organization, featureId, version) unique index. The first attempt uses
+  // the already-assigned `newVersion`; on retry we re-read the max version
+  // to pick up the concurrent insert that won the previous race, then
+  // reassign `revision.version` before retrying.
+  let firstAttempt = true;
+  const doc = await createWithVersionRetry(async () => {
+    if (!firstAttempt) {
+      const latest = await getLastRevision(context, feature);
+      revision.version = latest ? latest.version + 1 : 1;
+    }
+    firstAttempt = false;
+    return FeatureRevisionModel.create(revision);
+  });
 
   // Fire and forget - no route that creates the revision expects the log to be there immediately
   context.models.featureRevisionLogs
@@ -567,28 +860,14 @@ export async function createRevision({
       logger.error(e, "Error creating revisionlog");
     });
 
-  return toInterface(doc, context);
+  return toInterface(doc, context, feature);
 }
 
 export async function updateRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
-  changes: Partial<
-    Pick<
-      FeatureRevisionInterface,
-      | "title"
-      | "comment"
-      | "defaultValue"
-      | "rules"
-      | "baseVersion"
-      | "environmentsEnabled"
-      | "prerequisites"
-      | "archived"
-      | "metadata"
-      | "holdout"
-    >
-  >,
+  changes: RevisionChanges,
   log: Omit<RevisionLog, "timestamp">,
   resetReview: boolean,
 ) {
@@ -602,6 +881,7 @@ export async function updateRevision(
     "archived",
     "metadata",
     "holdout",
+    "rampActions",
   ] as const;
 
   const hasMutableChange = MUTABLE_FIELDS.some((f) => f in changes);
@@ -626,26 +906,51 @@ export async function updateRevision(
     status = "pending-review";
   }
 
+  // Persistence chokepoint: rules go through `normalizeRulesInputToV2`
+  // (also dedups ids and logs collisions). No-op on already-v2 arrays.
+  const normalizedChanges: RevisionChanges =
+    "rules" in changes && changes.rules !== undefined
+      ? {
+          ...changes,
+          rules: normalizeRulesInputToV2(changes.rules as unknown, {
+            orgEnvs: getEnvironments(context.org),
+            featureProject: feature.project,
+          }),
+        }
+      : changes;
+
   await runValidateFeatureRevisionHooks({
     context,
     feature,
     revision: {
       ...revision,
-      ...changes,
+      ...normalizedChanges,
       status,
     },
     original: revision,
   });
 
-  await FeatureRevisionModel.updateOne(
+  // Track contributors atomically using $addToSet (deep equality dedup).
+  // Using a separate operator from $set avoids the race condition where two
+  // concurrent edits both read the same stale contributors array.
+  const contributorUpdate =
+    log.user != null ? { $addToSet: { contributors: log.user } } : {};
+
+  const doc = await FeatureRevisionModel.findOneAndUpdate(
     {
       organization: revision.organization,
       featureId: revision.featureId,
       version: revision.version,
     },
     {
-      $set: { ...changes, status, dateUpdated: new Date() },
+      $set: {
+        ...normalizedChanges,
+        status,
+        dateUpdated: new Date(),
+      },
+      ...contributorUpdate,
     },
+    { new: true },
   );
 
   // Fire and forget - no route that updates the revision expects the log to be there immediately
@@ -658,6 +963,36 @@ export async function updateRevision(
     .catch((e) => {
       logger.error(e, "Error creating revisionlog");
     });
+
+  const updatedRevision = doc ? toInterface(doc, context, feature) : null;
+
+  // Fire-and-forget linkage sync whenever draft rules change.
+  if (updatedRevision && "rules" in changes) {
+    FeatureRevisionModel.find({
+      organization: revision.organization,
+      featureId: revision.featureId,
+      status: { $nin: ["discarded"] },
+    })
+      .then((docs) =>
+        syncFeatureExperimentLinkages(
+          context,
+          revision.featureId,
+          docs.map((d) => ({
+            version: d.version,
+            status: d.status,
+            rules: d.rules,
+          })),
+        ),
+      )
+      .catch((e) => {
+        logger.error(
+          e,
+          "syncFeatureExperimentLinkages failed in updateRevision",
+        );
+      });
+  }
+
+  return updatedRevision;
 }
 
 export async function markRevisionAsPublished(
@@ -713,6 +1048,8 @@ export async function markRevisionAsPublished(
     .catch((e) => {
       logger.error(e, "Error creating revisionlog");
     });
+
+  await dispatchRevisionPublishedHook(context, revision);
 }
 
 export async function markRevisionAsReviewRequested(
@@ -838,12 +1175,40 @@ export async function discardRevision(
     .catch((e) => {
       logger.error(e, "Error creating revisionlog");
     });
+
+  // Sync linkages — the discarded revision's rules no longer count as "open drafts".
+  FeatureRevisionModel.find({
+    organization: revision.organization,
+    featureId: revision.featureId,
+    status: { $nin: ["discarded"] },
+  })
+    .then((docs) =>
+      syncFeatureExperimentLinkages(
+        context,
+        revision.featureId,
+        docs.map((d) => ({
+          version: d.version,
+          status: d.status,
+          rules: d.rules,
+        })),
+      ),
+    )
+    .catch((e) => {
+      logger.error(
+        e,
+        "syncFeatureExperimentLinkages failed in discardRevision",
+      );
+    });
 }
 
 export async function getFeatureRevisionsByFeatureIds(
   context: ReqContext | ApiReqContext,
   organization: string,
   featureIds: string[],
+  // Map of featureId -> parent feature. Drives env applicability filtering
+  // and v2 inheritance expansion per revision so a feature scoped to a
+  // project that excludes some envs doesn't surface dead rules in those envs.
+  featuresByFeatureId: Record<string, RevisionFeatureContext | undefined>,
 ): Promise<Record<string, FeatureRevisionInterface[]>> {
   const revisionsByFeatureId: Record<string, FeatureRevisionInterface[]> = {};
 
@@ -859,7 +1224,9 @@ export async function getFeatureRevisionsByFeatureIds(
     revisions.forEach((revision) => {
       const featureId = revision.featureId;
       revisionsByFeatureId[featureId] = revisionsByFeatureId[featureId] || [];
-      revisionsByFeatureId[featureId].push(toInterface(revision, context));
+      revisionsByFeatureId[featureId].push(
+        toInterface(revision, context, featuresByFeatureId[featureId]),
+      );
     });
   }
 
@@ -946,5 +1313,52 @@ export async function getFeatureRevisionsByFeaturesCurrentVersion(
     })),
   }).select("-log"); // Remove the log when fetching all revisions since it can be large to send over the network
 
-  return docs.map((m) => toInterface(m, context));
+  const featureById: Record<string, FeatureInterface> = Object.fromEntries(
+    features.map((f) => [f.id, f]),
+  );
+  return docs.map((m) => toInterface(m, context, featureById[m.featureId]));
+}
+
+// ---------------------------------------------------------------------------
+// Ramp schedule hook registry
+//
+// Services that need to react to revision publish/discard events register
+// their handlers here at startup. Using a registry pattern avoids circular
+// module dependencies between FeatureRevisionModel and services/rampSchedule.
+// ---------------------------------------------------------------------------
+
+type RevisionHook = (
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+) => Promise<void>;
+
+let _onRevisionPublishedHook: RevisionHook | null = null;
+
+export function registerRevisionPublishedHook(hook: RevisionHook): void {
+  _onRevisionPublishedHook = hook;
+}
+
+export async function dispatchRevisionPublishedHook(
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+): Promise<void> {
+  if (!_onRevisionPublishedHook) return;
+  try {
+    await _onRevisionPublishedHook(context, revision);
+  } catch (e) {
+    logger.error(e, "Error in revision published ramp hook");
+  }
+}
+
+// Mark a revision as pending-parent so it waits for its sibling approval revision.
+// Used by the ramp service when creating multi-target approval-gated steps.
+export async function markRevisionAsPendingParent(
+  organization: string,
+  featureId: string,
+  version: number,
+): Promise<void> {
+  await FeatureRevisionModel.updateOne(
+    { organization, featureId, version },
+    { $set: { status: "pending-parent" } },
+  );
 }

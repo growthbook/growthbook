@@ -1,7 +1,12 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
-import { experimentHasLinkedChanges } from "shared/util";
+import {
+  experimentHasLinkedChanges,
+  getRulesForEnvironment,
+  getNamespaceRanges,
+  parseIntWithDefaultCapped,
+} from "shared/util";
 import {
   getRoles,
   areProjectRolesValid,
@@ -18,6 +23,7 @@ import {
   CreateOrganizationPostBody,
   Invite,
   MemberRoleWithProjects,
+  NamespaceFormat,
   NamespaceUsage,
   OrganizationInterface,
   OrganizationSettings,
@@ -47,6 +53,7 @@ import {
   isEnterpriseSSO,
   removeMember,
   revokeInvite,
+  setLicenseKey,
 } from "back-end/src/services/organizations";
 import {
   getNonSensitiveParams,
@@ -98,6 +105,7 @@ import { ConfigFile } from "back-end/src/init/config";
 import { usingOpenId } from "back-end/src/services/auth";
 import { getSSOConnectionSummary } from "back-end/src/models/SSOConnectionModel";
 import { getUserPermissions } from "back-end/src/util/organization.util";
+import { buildNamespace } from "back-end/src/util/namespaces";
 import {
   deleteUser,
   getUserById,
@@ -251,9 +259,10 @@ export async function getAllHistory(
   req: AuthRequest<null, { type: string }, { cursor?: string; limit?: string }>,
   res: Response,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { type } = req.params;
-  const limit = Math.min(parseInt(req.query.limit || "50"), 100); // Max 100 per page
+  const limit = parseIntWithDefaultCapped(req.query.limit, 50, 100); // Max 100 per page
   const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
 
   if (!isValidAuditEntityType(type)) {
@@ -334,9 +343,10 @@ export async function getHistory(
   >,
   res: Response,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { type, id } = req.params;
-  const limit = Math.min(parseInt(req.query.limit || "50"), 100); // Max 100 per page
+  const limit = parseIntWithDefaultCapped(req.query.limit, 50, 100); // Max 100 per page
   const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
 
   if (!isValidAuditEntityType(type)) {
@@ -613,8 +623,9 @@ export async function putMember(
   }
 
   try {
+    const reqEmailLower = req.email.toLowerCase();
     const invite: Invite | undefined = organization.invites.find(
-      (inv) => inv.email === req.email,
+      (inv) => inv.email.toLowerCase() === reqEmailLower,
     );
     if (invite) {
       // if user already invited, accept invite
@@ -893,7 +904,6 @@ export async function getOrganization(
     : invites.map((i) => ({ email: i.email }));
 
   // Some other global org data needed by the front-end
-  const apiKeys = await context.models.apiKeys.getAll();
   const enterpriseSSO = isEnterpriseSSO(req.loginMethod)
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
@@ -927,7 +937,6 @@ export async function getOrganization(
 
   return res.status(200).json({
     status: 200,
-    apiKeys,
     enterpriseSSO,
     accountPlan: getAccountPlan(org),
     effectiveAccountPlan: getEffectiveAccountPlan(org),
@@ -999,7 +1008,8 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
     if (f.archived) return;
     environments.forEach((env) => {
       if (!f.environmentSettings?.[env]?.enabled) return;
-      const rules = f.environmentSettings?.[env]?.rules || [];
+      // v2: rules live on feature.rules, filter to this env.
+      const rules = getRulesForEnvironment(f.rules ?? [], env);
       rules
         .filter(
           (r) =>
@@ -1010,16 +1020,19 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
         )
         .forEach((r) => {
           const expRule = r as ExperimentRule;
-          const { name, range } = expRule.namespace as NamespaceValue;
-          namespaces[name] = namespaces[name] || [];
-          namespaces[name].push({
-            link: `/features/${f.id}`,
-            name: f.id,
-            id: f.id,
-            trackingKey: expRule.trackingKey || f.id,
-            start: range[0],
-            end: range[1],
-            environment: env,
+          const ns = expRule.namespace as NamespaceValue;
+          namespaces[ns.name] = namespaces[ns.name] || [];
+
+          getNamespaceRanges(ns).forEach((range) => {
+            namespaces[ns.name].push({
+              link: `/features/${f.id}`,
+              name: f.id,
+              id: f.id,
+              trackingKey: expRule.trackingKey || f.id,
+              start: range[0],
+              end: range[1],
+              environment: env,
+            });
           });
         });
     });
@@ -1046,16 +1059,19 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
     if (!phase) return;
     if (!phase.namespace || !phase.namespace.enabled) return;
 
-    const { name, range } = phase.namespace;
-    namespaces[name] = namespaces[name] || [];
-    namespaces[name].push({
-      link: `/experiment/${e.id}`,
-      name: e.name,
-      id: e.trackingKey,
-      trackingKey: e.trackingKey,
-      start: range[0],
-      end: range[1],
-      environment: "",
+    const ns = phase.namespace as NamespaceValue;
+    namespaces[ns.name] = namespaces[ns.name] || [];
+
+    getNamespaceRanges(ns).forEach((range) => {
+      namespaces[ns.name].push({
+        link: `/experiment/${e.id}`,
+        name: e.name,
+        id: e.trackingKey,
+        trackingKey: e.trackingKey,
+        start: range[0],
+        end: range[1],
+        environment: "",
+      });
     });
   });
 
@@ -1071,10 +1087,18 @@ export async function postNamespaces(
     label: string;
     description: string;
     status: "active" | "inactive";
+    hashAttribute?: string;
+    format?: NamespaceFormat;
   }>,
   res: Response,
 ) {
-  const { label, description, status } = req.body;
+  const {
+    label,
+    description,
+    status,
+    hashAttribute,
+    format = "multiRange",
+  } = req.body;
   const context = getContextFromReq(req);
 
   if (!context.permissions.canCreateNamespace()) {
@@ -1094,10 +1118,20 @@ export async function postNamespaces(
   // up later, but for now, 'name' is the unique identifier, and 'label' is
   // the display name.
   const name = uniqid("ns-");
+
+  const newNamespace = buildNamespace({
+    name,
+    label,
+    description,
+    status,
+    format,
+    hashAttribute,
+  });
+
   await updateOrganization(org.id, {
     settings: {
       ...org.settings,
-      namespaces: [...namespaces, { name, label, description, status }],
+      namespaces: [...namespaces, newNamespace],
     },
   });
 
@@ -1111,7 +1145,7 @@ export async function postNamespaces(
       { settings: { namespaces } },
       {
         settings: {
-          namespaces: [...namespaces, { name, description, status }],
+          namespaces: [...namespaces, newNamespace],
         },
       },
     ),
@@ -1128,12 +1162,14 @@ export async function putNamespaces(
       label: string;
       description: string;
       status: "active" | "inactive";
+      hashAttribute?: string;
+      format?: NamespaceFormat;
     },
     { name: string }
   >,
   res: Response,
 ) {
-  const { label, description, status } = req.body;
+  const { label, description, status, hashAttribute } = req.body;
   const { name } = req.params;
 
   const context = getContextFromReq(req);
@@ -1152,11 +1188,25 @@ export async function putNamespaces(
   }
 
   const updatedNamespaces = namespaces.map((n) => {
-    if (n.name === name) {
-      // cannot update the 'name' (id) of a namespace
-      return { label, name: n.name, description, status };
-    }
-    return n;
+    if (n.name !== name) return n;
+
+    const existingHashAttribute =
+      n.format === "multiRange" ? n.hashAttribute : undefined;
+    const existingSeed = n.format === "multiRange" ? n.seed : undefined;
+
+    // Treat missing fields as "leave alone" — partial PUTs (e.g. the
+    // Disable/Enable toggle on the namespaces page) should not blank out
+    // existing display fields on the namespace.
+    return buildNamespace({
+      name: n.name,
+      label: label ?? n.label ?? n.name,
+      description: description ?? n.description ?? "",
+      status: status ?? n.status ?? "active",
+      format: n.format ?? "legacy",
+      hashAttribute: hashAttribute ?? existingHashAttribute,
+      existingHashAttribute,
+      existingSeed,
+    });
   });
 
   await updateOrganization(org.id, {
@@ -1332,6 +1382,7 @@ export async function postInvite(
     limitAccessByEnvironment,
     environments,
     projectRoles,
+    invitedBy: req.email,
   });
 
   return res.status(200).json({
@@ -1552,6 +1603,13 @@ export async function putOrganization(
     const updates: Partial<OrganizationInterface> = {};
 
     const orig: Partial<OrganizationInterface> = {};
+    if (!context.hasPremiumFeature("require-approvals")) {
+      if (settings?.approvalFlows?.savedGroups?.some((sg) => sg?.required)) {
+        throw new Error(
+          "Saved Groups approval flows require the Require Approvals enterprise feature.",
+        );
+      }
+    }
 
     if (name) {
       updates.name = name;
@@ -1712,12 +1770,21 @@ export async function postApiKey(
   req: AuthRequest<{
     description?: string;
     type: string;
+    limitAccessByEnvironment?: boolean;
+    environments?: string[];
+    projectRoles?: ProjectMemberRole[];
   }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
   const { userId } = context;
-  const { description = "", type } = req.body;
+  const {
+    description = "",
+    type,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+  } = req.body;
 
   // Handle user personal access tokens
   if (type === "user") {
@@ -1741,6 +1808,9 @@ export async function postApiKey(
     const key = await context.models.apiKeys.createOrganizationApiKey({
       description,
       roleId: type,
+      limitAccessByEnvironment,
+      environments,
+      projectRoles,
     });
 
     return res.status(200).json({
@@ -1769,6 +1839,19 @@ export async function deleteApiKey(
   res.status(200).json({
     status: 200,
   });
+}
+
+export async function putApiKeyDisabled(
+  req: AuthRequest<{ disabled: boolean }, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { disabled } = req.body;
+
+  await context.models.apiKeys.setDisabled(id, disabled);
+
+  res.status(200).json({ status: 200 });
 }
 
 export async function postApiKeyReveal(
@@ -2170,20 +2253,6 @@ export async function putAdminResetUserPassword(
   res.status(200).json({
     status: 200,
   });
-}
-
-export async function setLicenseKey(
-  org: OrganizationInterface,
-  licenseKey: string,
-) {
-  if (!IS_CLOUD && IS_MULTI_ORG) {
-    throw new Error(
-      "You must use the LICENSE_KEY environmental variable on multi org sites.",
-    );
-  }
-
-  org.licenseKey = licenseKey;
-  await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 }
 
 export async function putLicenseKey(

@@ -3,20 +3,19 @@ import {
   FactTableInterface,
 } from "shared/types/fact-table";
 import React, { useState } from "react";
-import Link from "next/link";
 import { date } from "shared/dates";
-import { Text } from "@radix-ui/themes";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import { useSearch } from "@/services/search";
+import { IconButton, Text } from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import Link from "@/ui/Link";
+import { tagLinkProps, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import SortedTags from "@/components/Tags/SortedTags";
 import MetricName from "@/components/Metrics/MetricName";
 import FactMetricTypeDisplayName from "@/components/Metrics/FactMetricTypeDisplayName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import Switch from "@/ui/Switch";
 import RecommendedFactMetricsModal, {
@@ -25,7 +24,137 @@ import RecommendedFactMetricsModal, {
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
+import {
+  isMergeAggregationMetric,
+  REST_API_ONLY_EDIT_MESSAGE,
+} from "@/services/factMetrics";
 import FactMetricModal from "./FactMetricModal";
+
+function FactMetricRowMenu({
+  metric,
+  canEdit,
+  canDelete,
+  canDuplicate,
+  onEdit,
+  onDuplicate,
+  editDisabledReason,
+}: {
+  metric: FactMetricInterface;
+  canEdit: boolean;
+  canDelete: boolean;
+  canDuplicate: boolean;
+  onEdit: () => void;
+  onDuplicate: () => void;
+  editDisabledReason?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const { apiCall } = useAuth();
+  const { mutateDefinitions } = useDefinitions();
+  const canEditMenu =
+    canEdit && !metric.archived && !editDisabledReason && !!onEdit;
+  const canShowDisabledEdit =
+    canEdit && !metric.archived && !!editDisabledReason;
+  // Duplicate uses the same FactMetricModal as Edit, so anything that locks
+  // editing to the REST API also has to lock Duplicate — otherwise a user
+  // could open a half-broken modal pre-filled with values the picker can no
+  // longer represent.
+  const canDuplicateMenu = canDuplicate && !editDisabledReason;
+  const canShowDisabledDuplicate = canDuplicate && !!editDisabledReason;
+
+  return (
+    <DropdownMenu
+      trigger={
+        <IconButton
+          variant="ghost"
+          color="gray"
+          radius="full"
+          size="2"
+          highContrast
+        >
+          <BsThreeDotsVertical size={16} />
+        </IconButton>
+      }
+      open={open}
+      onOpenChange={setOpen}
+      menuPlacement="end"
+    >
+      <DropdownMenuGroup>
+        {(canEditMenu || canShowDisabledEdit) && (
+          <DropdownMenuItem
+            onClick={() => {
+              onEdit();
+              setOpen(false);
+            }}
+            disabled={canShowDisabledEdit}
+          >
+            <Tooltip content={editDisabledReason} enabled={canShowDisabledEdit}>
+              <span>Edit</span>
+            </Tooltip>
+          </DropdownMenuItem>
+        )}
+        {(canDuplicateMenu || canShowDisabledDuplicate) && (
+          <DropdownMenuItem
+            onClick={() => {
+              onDuplicate();
+              setOpen(false);
+            }}
+            disabled={canShowDisabledDuplicate}
+          >
+            <Tooltip
+              content={editDisabledReason}
+              enabled={canShowDisabledDuplicate}
+            >
+              <span>Duplicate</span>
+            </Tooltip>
+          </DropdownMenuItem>
+        )}
+        {canEdit && (
+          <DropdownMenuItem
+            onClick={async () => {
+              await apiCall(`/fact-metrics/${metric.id}`, {
+                method: "PUT",
+                body: JSON.stringify({ archived: !metric.archived }),
+              });
+              mutateDefinitions();
+              setOpen(false);
+            }}
+          >
+            {metric.archived ? "Unarchive" : "Archive"}
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuGroup>
+      {canDelete && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuItem
+              color="red"
+              confirmation={{
+                confirmationTitle: "Delete Metric",
+                cta: "Delete",
+                submit: async () => {
+                  await apiCall(`/fact-metrics/${metric.id}`, {
+                    method: "DELETE",
+                  });
+                  mutateDefinitions();
+                },
+                closeDropdown: () => setOpen(false),
+              }}
+            >
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        </>
+      )}
+    </DropdownMenu>
+  );
+}
 
 export interface Props {
   factTable: FactTableInterface;
@@ -39,11 +168,7 @@ export default function FactMetricList({
   const [newOpen, setNewOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
 
-  const { apiCall } = useAuth();
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  const { _factMetricsIncludingArchived: factMetrics, mutateDefinitions } =
-    useDefinitions();
+  const { _factMetricsIncludingArchived: factMetrics } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature } = useUser();
@@ -192,11 +317,8 @@ export default function FactMetricList({
         )}
         <div className="col-auto ml-auto">
           <Tooltip
-            body={
-              canCreateMetrics
-                ? ""
-                : `You don't have permission to add metrics to this fact table`
-            }
+            content={`You don't have permission to add metrics to this fact table`}
+            enabled={!canCreateMetrics}
           >
             <Button
               onClick={() => {
@@ -279,7 +401,7 @@ export default function FactMetricList({
                                 style={{ whiteSpace: "nowrap" }}
                               >
                                 <Tooltip
-                                  body={
+                                  content={
                                     hasNoLevels
                                       ? "No slice levels configured"
                                       : levels?.join(", ") || "No levels"
@@ -314,81 +436,39 @@ export default function FactMetricList({
                     </td>
                   )}
                   <td>
-                    <SortedTags tags={metric.tags} useFlex={true} />
+                    <SortedTags
+                      tags={metric.tags}
+                      useFlex={true}
+                      {...tagLinkProps("metrics")}
+                    />
                   </td>
                   <td>
                     {metric.dateUpdated ? date(metric.dateUpdated) : null}
                   </td>
                   <td>
-                    <MoreMenu>
-                      {canEdit(metric) && (
-                        <button
-                          className="btn dropdown-item"
-                          onClick={() => setEditMetric(metric)}
-                        >
-                          Edit
-                        </button>
-                      )}
-                      {canCreateMetrics && (
-                        <button
-                          className="btn dropdown-item"
-                          onClick={() =>
-                            setDuplicateMetric({
-                              ...metric,
-                              name: `${metric.name} (Copy)`,
-                              managedBy:
-                                metric.managedBy === "admin" &&
-                                permissionsUtil.canCreateOfficialResources(
-                                  metric,
-                                )
-                                  ? "admin"
-                                  : "",
-                            })
-                          }
-                        >
-                          Duplicate
-                        </button>
-                      )}
-                      {canEdit(metric) && (
-                        <button
-                          className="btn dropdown-item"
-                          onClick={async () => {
-                            await apiCall(`/fact-metrics/${metric.id}`, {
-                              method: "PUT",
-                              body: JSON.stringify({
-                                archived: !metric.archived,
-                              }),
-                            });
-                            mutateDefinitions();
-                          }}
-                        >
-                          {metric.archived ? "Unarchive" : "Archive"}
-                        </button>
-                      )}
-                      {canDelete(metric) && (
-                        <>
-                          <hr className="m-1" />
-                          <DeleteButton
-                            displayName="Delete"
-                            onClick={async () => {
-                              setIsDeleting(true);
-                              try {
-                                await apiCall(`/fact-metrics/${metric.id}`, {
-                                  method: "DELETE",
-                                });
-                                mutateDefinitions();
-                              } finally {
-                                setIsDeleting(false);
-                              }
-                            }}
-                            useIcon={false}
-                            className="dropdown-item text-danger"
-                            text="Delete"
-                            disabled={isDeleting}
-                          />
-                        </>
-                      )}
-                    </MoreMenu>
+                    <FactMetricRowMenu
+                      metric={metric}
+                      canEdit={canEdit(metric)}
+                      canDelete={canDelete(metric)}
+                      canDuplicate={canCreateMetrics}
+                      onEdit={() => setEditMetric(metric)}
+                      editDisabledReason={
+                        isMergeAggregationMetric(metric)
+                          ? REST_API_ONLY_EDIT_MESSAGE
+                          : undefined
+                      }
+                      onDuplicate={() =>
+                        setDuplicateMetric({
+                          ...metric,
+                          name: `${metric.name} (Copy)`,
+                          managedBy:
+                            metric.managedBy === "admin" &&
+                            permissionsUtil.canCreateOfficialResources(metric)
+                              ? "admin"
+                              : "",
+                        })
+                      }
+                    />
                   </td>
                 </tr>
               ))}

@@ -55,8 +55,10 @@ export function getFactTableTypeFromBigQueryType(
 
     case "RANGE":
     case "GEOGRAPHY":
-    case "BYTES":
       return "other";
+
+    case "BYTES":
+      return "binary";
 
     default: {
       const _: never = dataType;

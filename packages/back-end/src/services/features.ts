@@ -1,5 +1,6 @@
 import { webcrypto as crypto } from "node:crypto";
 import { createHash } from "crypto";
+import { z } from "zod";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
@@ -12,14 +13,20 @@ import {
   evalDeterministicPrereqValue,
   evaluatePrerequisiteState,
   filterProjectsByEnvironmentWithNull,
+  getRulesForEnvironment,
   isDefined,
+  MergeResultChanges,
   PrerequisiteStateResult,
+  toApiNamespace,
   validateCondition,
   validateFeatureValue,
   getSavedGroupsValuesFromGroupMap,
   getSavedGroupsValuesFromInterfaces,
   NodeHandler,
   recursiveWalk,
+  checkIfRevisionNeedsReview,
+  ruleAppliesToEnv,
+  namespacesToMap,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -38,15 +45,23 @@ import {
 import { clone } from "lodash";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { ArchetypeAttributeValues } from "shared/types/archetype";
-import { FeatureDefinition } from "shared/types/sdk";
 import {
-  ApiFeatureWithRevisions,
-  ApiFeatureEnvironment,
-  ApiFeatureRule,
-} from "shared/types/openapi";
+  AutoExperimentWithMetadata,
+  ExperimentMetadata,
+  FeatureDefinition,
+} from "shared/types/sdk";
+import { ProjectInterface } from "shared/types/project";
 import {
   HoldoutInterface,
   SdkConnectionCacheAuditContext,
+  apiFeatureRevisionValidator,
+  ApiFeatureWithRevisions,
+  ApiFeatureEnvironment,
+  ApiFeatureRule,
+  ApiFeatureRuleV2,
+  apiFeatureRevisionV2Validator,
+  ApiFeatureWithRevisionsV2,
+  ApiFeatureEnvironmentV2,
 } from "shared/validators";
 import {
   AttributeMap,
@@ -80,13 +95,20 @@ import {
   getAllVisualExperiments,
 } from "back-end/src/models/ExperimentModel";
 import {
+  applyNamespaceToPayload,
+  buildPayloadMetadata,
+  getEnabledEnvironments,
   getFeatureDefinition,
   getHoldoutFeatureDefId,
   getParsedCondition,
 } from "back-end/src/util/features";
+import { getEnabledEnvironments as getEnabledHoldoutEnvironments } from "back-end/src/util/holdouts";
+import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
+import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { logger } from "back-end/src/util/logger";
+import { getEnvironments } from "back-end/src/util/organization.util";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
@@ -94,7 +116,11 @@ import {
   ApiFeatureEnvSettingsRules,
 } from "back-end/src/api/features/postFeature";
 import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
-import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import {
+  createRevision,
+  getRevision,
+  normalizeRulesInputToV2,
+} from "back-end/src/models/FeatureRevisionModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import {
   getContextForAgendaJobByOrgObject,
@@ -109,6 +135,11 @@ export function generateFeaturesPayload({
   prereqStateCache = {},
   safeRolloutMap,
   holdoutsMap,
+  includeProjectIdInMetadata,
+  includeCustomFieldsInMetadata,
+  allowedCustomFieldsInMetadata,
+  includeTagsInMetadata,
+  projectsMap,
   capabilities,
   savedGroupReferencesEnabled,
   organization,
@@ -126,7 +157,12 @@ export function generateFeaturesPayload({
     string,
     { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
-  capabilities?: SDKCapability[]; // undefined = all capabilities
+  includeProjectIdInMetadata?: boolean;
+  includeCustomFieldsInMetadata?: boolean;
+  allowedCustomFieldsInMetadata?: string[];
+  includeTagsInMetadata?: boolean;
+  projectsMap?: Map<string, ProjectInterface>;
+  capabilities?: SDKCapability[];
   savedGroupReferencesEnabled?: boolean;
   organization?: OrganizationInterface;
   savedGroupsMap?: Record<string, SavedGroupInterface>;
@@ -154,6 +190,13 @@ export function generateFeaturesPayload({
       savedGroupsMap,
       includeRuleIds,
       includeExperimentNames,
+      metadataOptions: {
+        includeProjectIdInMetadata,
+        includeCustomFieldsInMetadata,
+        allowedCustomFieldsInMetadata,
+        includeTagsInMetadata,
+      },
+      projectsMap,
     });
     if (def) {
       defs[feature.id] = def;
@@ -243,6 +286,11 @@ export function generateAutoExperimentsPayload({
   features,
   environment,
   prereqStateCache = {},
+  includeProjectIdInMetadata,
+  includeCustomFieldsInMetadata,
+  allowedCustomFieldsInMetadata,
+  includeTagsInMetadata,
+  projectsMap,
   capabilities,
   savedGroupReferencesEnabled,
   organization,
@@ -255,16 +303,21 @@ export function generateAutoExperimentsPayload({
   features: FeatureInterface[];
   environment: string;
   prereqStateCache?: Record<string, PrerequisiteStateResult>;
-  capabilities?: SDKCapability[]; // undefined = all capabilities
+  includeProjectIdInMetadata?: boolean;
+  includeCustomFieldsInMetadata?: boolean;
+  allowedCustomFieldsInMetadata?: string[];
+  includeTagsInMetadata?: boolean;
+  projectsMap?: Map<string, ProjectInterface>;
+  capabilities?: SDKCapability[];
   savedGroupReferencesEnabled?: boolean;
   organization?: OrganizationInterface;
   savedGroupsMap?: Record<string, SavedGroupInterface>;
   includeExperimentNames?: boolean;
-}): AutoExperiment[] {
+}): AutoExperimentWithMetadata[] {
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
   const isValidSDKExperiment = (
-    e: AutoExperiment | null,
-  ): e is AutoExperiment => !!e;
+    e: AutoExperimentWithMetadata | null,
+  ): e is AutoExperimentWithMetadata => !!e;
 
   const newVisualExperiments = reduceExperimentsWithPrerequisites(
     visualExperiments,
@@ -287,7 +340,7 @@ export function generateAutoExperimentsPayload({
     ...newVisualExperiments,
   ];
 
-  const sdkExperiments: Array<AutoExperiment | null> =
+  const sdkExperiments: Array<AutoExperimentWithMetadata | null> =
     sortedAutoExperiments.map((data) => {
       const { experiment: e } = data;
       if (e.status === "stopped" && e.excludeFromPayload) return null;
@@ -334,7 +387,7 @@ export function generateAutoExperimentsPayload({
           ? data.urlRedirect.id
           : data.visualChangeset.id;
 
-      const exp: AutoExperiment = {
+      const exp: AutoExperimentWithMetadata = {
         key: e.trackingKey,
         changeId: sha256(
           `${e.trackingKey}_${data.type}_${implementationId}`,
@@ -382,16 +435,6 @@ export function generateAutoExperimentsPayload({
             ? { key: v.key, name: v.name }
             : { key: v.key },
         ),
-        filters: phase?.namespace?.enabled
-          ? [
-              {
-                attribute: e.hashAttribute,
-                seed: phase.namespace.name,
-                hashVersion: 2,
-                ranges: [phase.namespace.range],
-              },
-            ]
-          : [],
         seed: phase.seed,
         ...(includeExperimentNames === true ? { name: e.name } : {}),
         phase: `${e.phases.length - 1}`,
@@ -402,6 +445,15 @@ export function generateAutoExperimentsPayload({
         coverage: phase.coverage,
       };
 
+      // Handle namespace
+      if (phase?.namespace?.enabled && phase.namespace.name) {
+        applyNamespaceToPayload(
+          exp,
+          phase.namespace,
+          namespacesToMap(organization?.settings?.namespaces),
+        );
+      }
+
       if (prerequisites.length) {
         exp.parentConditions = prerequisites;
       }
@@ -409,6 +461,18 @@ export function generateAutoExperimentsPayload({
       if (data.type === "redirect" && data.urlRedirect.persistQueryString) {
         exp.persistQueryString = true;
       }
+
+      const metadata = buildPayloadMetadata<ExperimentMetadata>(
+        { project: e.project, customFields: e.customFields, tags: e.tags },
+        {
+          includeProjectIdInMetadata,
+          includeCustomFieldsInMetadata,
+          allowedCustomFieldsInMetadata,
+          includeTagsInMetadata,
+        },
+        projectsMap,
+      );
+      if (metadata) exp.metadata = metadata;
 
       if (capabilities !== undefined && savedGroupsMap && organization) {
         if (
@@ -426,7 +490,7 @@ export function generateAutoExperimentsPayload({
         }
         const { removedExperimentKeys } = getPayloadAllowedKeys(capabilities);
         if (removedExperimentKeys.length) {
-          return omit(exp, removedExperimentKeys) as AutoExperiment;
+          return omit(exp, removedExperimentKeys) as AutoExperimentWithMetadata;
         }
       }
 
@@ -653,6 +717,11 @@ export async function refreshSDKPayloadCache({
     ? await findSDKConnectionsByOrganization(context)
     : sdkConnectionsToUpdate;
 
+  if (sdkConnections.some((c) => c.includeProjectIdInMetadata)) {
+    const allProjects = await context.models.projects.getAll();
+    rawData.projectsMap = new Map(allProjects.map((p) => [p.id, p]));
+  }
+
   const connectionsUpdated: SDKConnectionInterface[] = [];
   const promises: (() => Promise<void>)[] = [];
 
@@ -706,6 +775,12 @@ export async function refreshSDKPayloadCache({
             savedGroupReferencesEnabled:
               connection.savedGroupReferencesEnabled &&
               capabilities.includes("savedGroupReferences"),
+            includeProjectIdInMetadata: connection.includeProjectIdInMetadata,
+            includeCustomFieldsInMetadata:
+              connection.includeCustomFieldsInMetadata,
+            allowedCustomFieldsInMetadata:
+              connection.allowedCustomFieldsInMetadata,
+            includeTagsInMetadata: connection.includeTagsInMetadata,
           },
           data: { ...rawData, holdoutsMap },
         });
@@ -904,6 +979,10 @@ export type FeatureDefinitionArgs = {
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
+  includeProjectIdInMetadata?: boolean;
+  includeCustomFieldsInMetadata?: boolean;
+  allowedCustomFieldsInMetadata?: string[];
+  includeTagsInMetadata?: boolean;
   hashSecureAttributes?: boolean;
   savedGroupReferencesEnabled?: boolean;
 };
@@ -922,6 +1001,8 @@ export type SDKPayloadRawData = {
   >;
   visualExperiments?: VisualExperiment[];
   urlRedirectExperiments?: URLRedirectExperiment[];
+  // Populated when any connection in the refresh has includeProjectIdInMetadata=true
+  projectsMap?: Map<string, ProjectInterface>;
 };
 
 // Payload-relevant subset of SDK connection (plus derived capabilities). Pass through encryptPayload + encryptionKey; effective key is derived inside buildSDKPayloadForConnection.
@@ -938,6 +1019,10 @@ export type ConnectionPayloadOptions = {
   includeRuleIds?: boolean;
   hashSecureAttributes?: boolean;
   savedGroupReferencesEnabled?: boolean;
+  includeProjectIdInMetadata?: boolean;
+  includeCustomFieldsInMetadata?: boolean;
+  allowedCustomFieldsInMetadata?: string[];
+  includeTagsInMetadata?: boolean;
 };
 
 // Full input for building one connection's SDK payload
@@ -981,6 +1066,10 @@ export async function buildSDKPayloadForConnection(
     includeRuleIds,
     hashSecureAttributes,
     savedGroupReferencesEnabled,
+    includeProjectIdInMetadata,
+    includeCustomFieldsInMetadata,
+    allowedCustomFieldsInMetadata,
+    includeTagsInMetadata,
   } = connection;
 
   if (projects === null) {
@@ -1031,6 +1120,13 @@ export async function buildSDKPayloadForConnection(
     projectList,
   );
 
+  // Load projects map if metadata is requested and not already provided in bulk data
+  let projectsMap: Map<string, ProjectInterface> | undefined = data.projectsMap;
+  if (includeProjectIdInMetadata && !projectsMap) {
+    const allProjects = await context.models.projects.getAll();
+    projectsMap = new Map(allProjects.map((p) => [p.id, p]));
+  }
+
   const featureDefinitions = generateFeaturesPayload({
     features: filteredFeatures,
     environment,
@@ -1047,6 +1143,11 @@ export async function buildSDKPayloadForConnection(
     savedGroupsMap,
     includeRuleIds,
     includeExperimentNames: connection.includeExperimentNames,
+    includeProjectIdInMetadata,
+    includeCustomFieldsInMetadata,
+    allowedCustomFieldsInMetadata,
+    includeTagsInMetadata,
+    projectsMap,
   });
 
   const holdoutFeatureDefinitions = generateHoldoutsPayload({
@@ -1069,6 +1170,11 @@ export async function buildSDKPayloadForConnection(
     organization: context.org,
     savedGroupsMap,
     includeExperimentNames,
+    includeProjectIdInMetadata,
+    includeCustomFieldsInMetadata,
+    allowedCustomFieldsInMetadata,
+    includeTagsInMetadata,
+    projectsMap,
   });
 
   const savedGroupsInUse = filterUsedSavedGroups(
@@ -1132,7 +1238,6 @@ export async function getFeatureDefinitions(
 ): Promise<FeatureDefinitionSDKPayload> {
   const { context, environment = "production", projects } = args;
   const projectFilter = projects && projects.length > 0 ? projects : undefined;
-
   const allSavedGroups = await context.models.savedGroups.getAll();
   const allFeatures = await getAllFeatures(context, {
     projects: projectFilter,
@@ -1159,6 +1264,10 @@ export async function getFeatureDefinitions(
       includeRuleIds: args.includeRuleIds,
       hashSecureAttributes: args.hashSecureAttributes,
       savedGroupReferencesEnabled: args.savedGroupReferencesEnabled,
+      includeProjectIdInMetadata: args.includeProjectIdInMetadata,
+      includeCustomFieldsInMetadata: args.includeCustomFieldsInMetadata,
+      allowedCustomFieldsInMetadata: args.allowedCustomFieldsInMetadata,
+      includeTagsInMetadata: args.includeTagsInMetadata,
     },
     data: {
       features: allFeatures,
@@ -1182,6 +1291,8 @@ export function evaluateFeature({
   skipRulesWithPrerequisites = true,
   date = new Date(),
   safeRolloutMap,
+  namespaces,
+  organization,
 }: {
   feature: FeatureInterface;
   attributes: ArchetypeAttributeValues;
@@ -1193,6 +1304,13 @@ export function evaluateFeature({
   skipRulesWithPrerequisites?: boolean;
   date?: Date;
   safeRolloutMap: Map<string, SafeRolloutInterface>;
+  namespaces?: Map<
+    string,
+    { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
+  >;
+  // Drives project-scoping intersect inside `getFeatureDefinition`; omitting
+  // it leaks `allEnvironments: true` rules into project-scoped-out envs.
+  organization?: OrganizationInterface;
 }) {
   const results: FeatureTestResult[] = [];
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
@@ -1226,6 +1344,8 @@ export function evaluateFeature({
         revision,
         date,
         safeRolloutMap,
+        namespaces: namespaces,
+        organization,
       });
 
       if (definition) {
@@ -1356,6 +1476,7 @@ export async function evaluateAllFeatures({
       prereqStateCache: {},
       safeRolloutMap,
       holdoutsMap,
+      organization: context.org,
     });
 
     // now we have all the definitions, lets evaluate them
@@ -1372,6 +1493,7 @@ export async function evaluateAllFeatures({
         context,
         organization: context.org.id,
         featureId: feature.id,
+        feature,
         version: parseInt(feature.version.toString()),
       });
       if (!revision) {
@@ -1422,13 +1544,51 @@ export function generateRuleId() {
   return uniqid("fr_");
 }
 
+// Sorted-key JSON; mirrors `JSON.stringify`'s undefined-dropping. Used for
+// content hashing — insertion order must not change the digest.
+function stableStringify(value: unknown): string {
+  if (value === undefined) return "";
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return "[" + value.map((v) => stableStringify(v) || "null").join(",") + "]";
+  }
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj)
+    .filter((k) => obj[k] !== undefined)
+    .sort();
+  const parts = keys.map(
+    (k) => JSON.stringify(k) + ":" + (stableStringify(obj[k]) || "null"),
+  );
+  return "{" + parts.join(",") + "}";
+}
+
+// Deterministic id for legacy rules with no `id`. Hashes the rule sans id so
+// the same content always yields the same id — replayable across reads and
+// re-runs. Identical content across envs hashes identically, which is the
+// merge-eligible case `flattenV1ToV2Rules` collapses; within-env duplicates
+// fall through to its `dupInEnvIds` suffix path.
+export function synthesizeRuleId(rule: object): string {
+  const { id: _id, ...rest } = rule as { id?: unknown } & Record<
+    string,
+    unknown
+  >;
+  const json = stableStringify(rest);
+  const hash = createHash("sha1").update(json).digest("hex").slice(0, 16);
+  return `fr_h_${hash}`;
+}
+
 export function addIdsToRules(
   environmentSettings: Record<string, FeatureEnvironment> = {},
   featureId: string,
 ) {
+  // Defensive: rules don't live under environmentSettings in v2, but stamp any
+  // stray env.rules from legacy callers. `addIdsToFlatRules` is authoritative.
   Object.values(environmentSettings).forEach((env) => {
-    if (env.rules && env.rules.length) {
-      env.rules.forEach((r) => {
+    const rules = (env as unknown as { rules?: FeatureRule[] }).rules;
+    if (rules && rules.length) {
+      rules.forEach((r) => {
         if (r.type === "experiment" && !r?.trackingKey) {
           r.trackingKey = featureId;
         }
@@ -1436,6 +1596,20 @@ export function addIdsToRules(
           r.id = generateRuleId();
         }
       });
+    }
+  });
+}
+
+export function addIdsToFlatRules(
+  rules: FeatureRule[] = [],
+  featureId: string,
+): void {
+  rules.forEach((r) => {
+    if (r.type === "experiment" && !r?.trackingKey) {
+      r.trackingKey = featureId;
+    }
+    if (!r.id) {
+      r.id = generateRuleId();
     }
   });
 }
@@ -1513,6 +1687,300 @@ export async function encrypt(
   );
 }
 
+function eventUserToString(
+  user: FeatureRevisionInterface["createdBy"],
+): string | undefined {
+  if (!user) return undefined;
+  if (user.type === "api_key") return "API";
+  if (user.type === "system") return "SYSTEM";
+  return user.name || undefined;
+}
+
+export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
+  const base = {
+    description: rule.description,
+    // REST emits the fully qualified id (with any `__<env>` suffix).
+    // Mutation endpoints enforce exact id matching, so stem-stripping here
+    // would break PUT/DELETE round-trips. SDK payloads stem-strip instead;
+    // see `getFeatureDefinition`.
+    id: rule.id,
+    condition: rule.condition || "",
+    enabled: !!rule.enabled,
+    scheduleRules: rule.scheduleRules,
+    scheduleType: rule.scheduleType,
+    savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
+      matchType: s.match,
+      savedGroups: s.ids,
+    })),
+    prerequisites: rule.prerequisites || [],
+  };
+  switch (rule.type) {
+    case "force":
+      return { ...base, type: "force", value: rule.value };
+    case "rollout":
+      return {
+        ...base,
+        type: "rollout",
+        value: rule.value,
+        coverage: rule.coverage ?? 1,
+        hashAttribute: rule.hashAttribute,
+        seed: rule.seed,
+      };
+    case "experiment":
+      return {
+        ...base,
+        type: "experiment",
+        coverage: rule.coverage ?? 1,
+        trackingKey: rule.trackingKey,
+        hashAttribute: rule.hashAttribute,
+        fallbackAttribute: rule.fallbackAttribute,
+        disableStickyBucketing: rule.disableStickyBucketing,
+        bucketVersion: rule.bucketVersion,
+        minBucketVersion: rule.minBucketVersion,
+        namespace: toApiNamespace(rule.namespace),
+        value: rule.values,
+      };
+    case "experiment-ref":
+      return {
+        ...base,
+        type: "experiment-ref",
+        variations: rule.variations,
+        experimentId: rule.experimentId,
+      };
+    case "safe-rollout":
+      return {
+        ...base,
+        type: "safe-rollout",
+        controlValue: rule.controlValue,
+        variationValue: rule.variationValue,
+        seed: rule.seed,
+        hashAttribute: rule.hashAttribute,
+        trackingKey: rule.trackingKey,
+        safeRolloutId: rule.safeRolloutId,
+        status: rule.status,
+      };
+  }
+}
+
+// Convenience wrapper that pulls the env list off the request context and
+// the project off the (optional) parent feature.
+export function toApiRevision(
+  rev: FeatureRevisionInterface,
+  ctx: ReqContext | ApiReqContext,
+  feature?: FeatureInterface | null,
+): z.infer<typeof apiFeatureRevisionValidator> {
+  return revisionToApiInterface(
+    rev,
+    getEnvironments(ctx.org),
+    feature?.project,
+  );
+}
+
+// v1 REST response shape: per-env `rules: Record<env, ApiFeatureRule[]>`.
+// Bucketing flows through `bucketRulesByEnv` (util/toLegacy); only the
+// per-rule transform differs from the internal v1 projections.
+export function revisionToApiInterface(
+  rev: FeatureRevisionInterface,
+  orgEnvs: Environment[],
+  featureProject?: string,
+): z.infer<typeof apiFeatureRevisionValidator> {
+  const applicableEnvs = getApplicableEnvIds(orgEnvs, featureProject);
+  const rules = bucketRulesByEnv(
+    Array.isArray(rev.rules) ? rev.rules : undefined,
+    applicableEnvs,
+    normalizeRuleForApi,
+  );
+
+  return {
+    featureId: rev.featureId,
+    baseVersion: rev.baseVersion,
+    version: rev.version,
+    comment: rev.comment || "",
+    date:
+      rev.dateCreated?.toISOString?.() ||
+      new Date(rev.dateCreated).toISOString(),
+    status: rev.status,
+    createdBy: eventUserToString(rev.createdBy),
+    publishedBy: eventUserToString(rev.publishedBy),
+    defaultValue: rev.defaultValue,
+    rules,
+    ...(rev.environmentsEnabled !== undefined && {
+      environmentsEnabled: rev.environmentsEnabled,
+    }),
+    ...(rev.prerequisites !== undefined && {
+      prerequisites: rev.prerequisites,
+    }),
+    ...(rev.metadata !== undefined && {
+      metadata: {
+        ...rev.metadata,
+        jsonSchema: rev.metadata.jsonSchema
+          ? {
+              ...rev.metadata.jsonSchema,
+              date:
+                rev.metadata.jsonSchema.date?.toISOString?.() ||
+                (rev.metadata.jsonSchema.date
+                  ? new Date(rev.metadata.jsonSchema.date).toISOString()
+                  : undefined),
+            }
+          : undefined,
+      },
+    }),
+  };
+}
+
+// ---- V2 serializers ----
+
+// v2 API rule shape: v1 fields + `allEnvironments` / `environments` scope.
+export function normalizeRuleForApiV2(rule: FeatureRule): ApiFeatureRuleV2 {
+  const base = normalizeRuleForApi(rule);
+  return {
+    ...base,
+    allEnvironments: rule.allEnvironments ?? true,
+    ...(rule.environments !== undefined && { environments: rule.environments }),
+  };
+}
+
+// v2 exposes a flat `rules: FeatureRuleV2[]` array; each rule carries its
+// own scope via `allEnvironments` / `environments`.
+export function revisionToApiInterfaceV2(
+  rev: FeatureRevisionInterface,
+): z.infer<typeof apiFeatureRevisionV2Validator> {
+  const rules: ApiFeatureRuleV2[] = Array.isArray(rev.rules)
+    ? rev.rules.map(normalizeRuleForApiV2)
+    : [];
+
+  return {
+    featureId: rev.featureId,
+    baseVersion: rev.baseVersion,
+    version: rev.version,
+    comment: rev.comment || "",
+    date:
+      rev.dateCreated?.toISOString?.() ||
+      new Date(rev.dateCreated).toISOString(),
+    status: rev.status,
+    createdBy: eventUserToString(rev.createdBy),
+    publishedBy: eventUserToString(rev.publishedBy),
+    defaultValue: rev.defaultValue,
+    rules,
+    ...(rev.environmentsEnabled !== undefined && {
+      environmentsEnabled: rev.environmentsEnabled,
+    }),
+    ...(rev.prerequisites !== undefined && {
+      prerequisites: rev.prerequisites,
+    }),
+    ...(rev.metadata !== undefined && {
+      metadata: {
+        ...rev.metadata,
+        jsonSchema: rev.metadata.jsonSchema
+          ? {
+              ...rev.metadata.jsonSchema,
+              date:
+                rev.metadata.jsonSchema.date?.toISOString?.() ||
+                (rev.metadata.jsonSchema.date
+                  ? new Date(rev.metadata.jsonSchema.date).toISOString()
+                  : undefined),
+            }
+          : undefined,
+      },
+    }),
+  };
+}
+
+// Mirrors `toApiRevision` at call sites; v2 serialization is context-free.
+export function toApiRevisionV2(
+  rev: FeatureRevisionInterface,
+): z.infer<typeof apiFeatureRevisionV2Validator> {
+  return revisionToApiInterfaceV2(rev);
+}
+
+/**
+ * v2 feature API shape: top-level flat `rules` array + `environments[env]`
+ * containing only `enabled` / `defaultValue` / `definition` (no rules).
+ */
+export function getApiFeatureObjV2({
+  feature,
+  organization,
+  groupMap,
+  experimentMap,
+  revision,
+  revisions,
+  safeRolloutMap,
+}: {
+  feature: FeatureInterface;
+  organization: OrganizationInterface;
+  groupMap: GroupMap;
+  experimentMap: Map<string, ExperimentInterface>;
+  revision: FeatureRevisionInterface | null;
+  revisions?: FeatureRevisionInterface[];
+  safeRolloutMap: Map<string, SafeRolloutInterface>;
+}): ApiFeatureWithRevisionsV2 {
+  const defaultValue = feature.defaultValue;
+  const featureEnvironments: Record<string, ApiFeatureEnvironmentV2> = {};
+  const environments = getEnvironmentIdsFromOrg(organization);
+
+  environments.forEach((env) => {
+    const envSettings = feature.environmentSettings?.[env];
+    const enabled = !!envSettings?.enabled;
+    const definition = getFeatureDefinition({
+      feature,
+      groupMap,
+      experimentMap,
+      environment: env,
+      safeRolloutMap,
+      organization,
+    });
+    featureEnvironments[env] = { enabled, defaultValue };
+    if (definition) {
+      featureEnvironments[env].definition = JSON.stringify(definition);
+    }
+  });
+
+  const apiRules: ApiFeatureRuleV2[] = (feature.rules ?? []).map(
+    normalizeRuleForApiV2,
+  );
+
+  const revisionDefs = revisions?.map(revisionToApiInterfaceV2);
+
+  const createdBy =
+    revision?.createdBy?.type === "api_key"
+      ? "API"
+      : revision?.createdBy?.type === "system"
+        ? "SYSTEM"
+        : revision?.createdBy?.name;
+  const publishedBy =
+    revision?.publishedBy?.type === "api_key"
+      ? "API"
+      : revision?.publishedBy?.type === "system"
+        ? "SYSTEM"
+        : revision?.publishedBy?.name;
+
+  return {
+    id: feature.id,
+    description: feature.description || "",
+    archived: !!feature.archived,
+    dateCreated: feature.dateCreated.toISOString(),
+    dateUpdated: feature.dateUpdated.toISOString(),
+    defaultValue: feature.defaultValue,
+    rules: apiRules,
+    environments: featureEnvironments,
+    prerequisites: (feature?.prerequisites || []).map((p) => p.id),
+    owner: feature.owner || "",
+    project: feature.project || "",
+    tags: feature.tags || [],
+    valueType: feature.valueType,
+    revision: {
+      comment: revision?.comment || "",
+      date: revision?.dateCreated.toISOString() || "",
+      createdBy: createdBy || "",
+      publishedBy: publishedBy || "",
+      version: feature.version,
+    },
+    revisions: revisionDefs,
+    customFields: feature.customFields ?? {},
+    ...(feature.holdout != null ? { holdout: feature.holdout } : {}),
+  };
+}
+
 export function getApiFeatureObj({
   feature,
   organization,
@@ -1533,10 +2001,19 @@ export function getApiFeatureObj({
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
   const environments = getEnvironmentIdsFromOrg(organization);
-  environments.forEach((env) => {
-    const envSettings = feature.environmentSettings?.[env];
-    const enabled = !!envSettings?.enabled;
-    const rules = (envSettings?.rules || []).map((rule) => ({
+  // Raw spread + standard overrides. Preserves internal FeatureRule field
+  // names (`values`, raw `namespace`, …) for `/api/v1/feature/:id`.
+  // `revisionToApiInterface` uses `normalizeRuleForApi` instead, which renames
+  // and reshapes; the two surfaces have always diverged.
+  //
+  // Defaults below mirror origin/main's long-standing explicit normalization.
+  // The old typed sub-schema also auto-initialized `savedGroups`,
+  // `scheduleRules`, and `variations` to `[]`; those leaked into the API
+  // response by accident and are intentionally NOT re-introduced here — the
+  // SDK payload (`definition`) is unaffected and external consumers should
+  // null-check sparse rule fields.
+  const normalizeRuleForFeatureEnv = (rule: FeatureRule): ApiFeatureRule =>
+    ({
       ...rule,
       coverage:
         rule.type === "rollout" || rule.type === "experiment"
@@ -1549,19 +2026,35 @@ export function getApiFeatureObj({
       })),
       prerequisites: rule.prerequisites || [],
       enabled: !!rule.enabled,
-    }));
+    }) as unknown as ApiFeatureRule;
+  // `applicableEnvs` scopes `allEnvironments: true` rules; seeding with
+  // `environments` keeps every org env present in the response.
+  const orgEnvs = getEnvironments(organization);
+  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
+  const featureRulesByEnv = bucketRulesByEnv(
+    feature.rules,
+    applicableEnvs,
+    normalizeRuleForFeatureEnv,
+    environments,
+  );
+  environments.forEach((env) => {
+    const envSettings = feature.environmentSettings?.[env];
+    const enabled = !!envSettings?.enabled;
+    const rules = featureRulesByEnv[env] ?? [];
     const definition = getFeatureDefinition({
       feature,
       groupMap,
       experimentMap,
       environment: env,
       safeRolloutMap,
+      namespaces: namespacesToMap(organization.settings?.namespaces),
+      organization,
     });
 
     featureEnvironments[env] = {
       enabled,
       defaultValue,
-      rules,
+      rules: rules as ApiFeatureRule[],
     };
     if (definition) {
       featureEnvironments[env].definition = JSON.stringify(definition);
@@ -1581,35 +2074,42 @@ export function getApiFeatureObj({
         : revision?.publishedBy?.name;
 
   const revisionDefs = revisions?.map((rev) => {
+    // Bucket twice: REST response shape (matches the feature env loop above)
+    // and raw FeatureRule[] for SDK payload compilation below.
+    const revRules = Array.isArray(rev?.rules) ? rev.rules : undefined;
+    const revRulesByEnv = bucketRulesByEnv(
+      revRules,
+      applicableEnvs,
+      normalizeRuleForFeatureEnv,
+      environments,
+    );
+    const revRawRulesByEnv = bucketRulesByEnv(
+      revRules,
+      applicableEnvs,
+      (r) => r,
+      environments,
+    );
+
     const environmentRules: Record<string, ApiFeatureRule[]> = {};
     const environmentDefinitions: Record<string, string> = {};
     environments.forEach((env) => {
-      const rules = (rev?.rules?.[env] || []).map((rule) => ({
-        ...rule,
-        coverage:
-          rule.type === "rollout" || rule.type === "experiment"
-            ? (rule.coverage ?? 1)
-            : 1,
-        condition: rule.condition || "",
-        savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
-          matchType: s.match,
-          savedGroups: s.ids,
-        })),
-        prerequisites: rule.prerequisites || [],
-        enabled: !!rule.enabled,
-      }));
+      // Synthesize a v2 feature from the per-env slice — rules in the slice
+      // already apply to `env`, so tag them `allEnvironments: true` to skip
+      // re-projection inside `getFeatureDefinition`.
+      const slicedRules: FeatureRule[] = (revRawRulesByEnv[env] ?? []).map(
+        (r) => ({ ...r, allEnvironments: true, environments: undefined }),
+      );
       const definition = getFeatureDefinition({
-        feature: {
-          ...feature,
-          environmentSettings: { [env]: { enabled: true, rules } },
-        },
+        feature: { ...feature, rules: slicedRules },
         groupMap,
         experimentMap,
         environment: env,
         safeRolloutMap,
+        namespaces: namespacesToMap(organization.settings?.namespaces),
+        organization,
       });
 
-      environmentRules[env] = rules;
+      environmentRules[env] = revRulesByEnv[env] ?? [];
       environmentDefinitions[env] = JSON.stringify(definition);
     });
     const createdBy =
@@ -1625,6 +2125,7 @@ export function getApiFeatureObj({
           ? "SYSTEM"
           : rev?.publishedBy?.name;
     return {
+      featureId: rev.featureId,
       baseVersion: rev.baseVersion,
       version: rev.version,
       comment: rev?.comment || "",
@@ -1683,30 +2184,24 @@ export function getApiFeatureObj({
   return featureRecord;
 }
 
+// Earliest future schedule-rule timestamp across `rules`, or null if none.
+// Schedule rules live on the rule itself and aren't env-scoped.
 export function getNextScheduledUpdate(
-  envSettings: Record<string, FeatureEnvironment>,
-  environments: string[],
+  rules: FeatureRule[] | undefined,
 ): Date | null {
-  if (!envSettings) {
+  if (!rules || rules.length === 0) {
     return null;
   }
 
   const dates: string[] = [];
-
-  environments.forEach((env) => {
-    const rules = envSettings[env]?.rules;
-
-    if (!rules) return;
-
-    rules.forEach((rule: FeatureRule) => {
-      if (rule?.scheduleRules) {
-        rule.scheduleRules.forEach((scheduleRule) => {
-          if (scheduleRule.timestamp !== null) {
-            dates.push(scheduleRule.timestamp);
-          }
-        });
-      }
-    });
+  rules.forEach((rule) => {
+    if (rule?.scheduleRules) {
+      rule.scheduleRules.forEach((scheduleRule) => {
+        if (scheduleRule.timestamp !== null) {
+          dates.push(scheduleRule.timestamp);
+        }
+      });
+    }
   });
 
   const sortedFutureDates = dates
@@ -1886,10 +2381,10 @@ export function sha256(str: string, salt: string): string {
     .digest("hex");
 }
 
-const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
+export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
   feature: FeatureInterface,
   rules: ApiFeatureEnvSettingsRules,
-): FeatureInterface["environmentSettings"][string]["rules"] =>
+): FeatureRule[] =>
   rules.map((r) => {
     const conditionRes = validateCondition(r.condition);
     if (!conditionRes.success) {
@@ -1898,74 +2393,94 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       );
     }
 
-    if (r.type === "experiment-ref") {
-      const experimentRefRule: ExperimentRefRule = {
-        // missing id will be filled in by addIdsToRules
-        id: r.id ?? "",
-        type: r.type,
-        enabled: r.enabled != null ? r.enabled : true,
-        description: r.description ?? "",
-        experimentId: r.experimentId,
-        variations: r.variations.map((v) => ({
-          variationId: v.variationId,
-          value: validateFeatureValue(feature, v.value),
-        })),
-        ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
-      };
-      return experimentRefRule;
-    } else if (r.type === "experiment") {
-      const values = r.values || r.value;
-      if (!values) {
-        throw new Error("Missing values");
+    switch (r.type) {
+      case "experiment-ref": {
+        const experimentRefRule: ExperimentRefRule = {
+          // missing id will be filled in by addIdsToRules
+          id: r.id ?? "",
+          allEnvironments: false,
+          type: r.type,
+          enabled: r.enabled != null ? r.enabled : true,
+          description: r.description ?? "",
+          experimentId: r.experimentId,
+          variations: r.variations.map((v) => ({
+            variationId: v.variationId,
+            value: validateFeatureValue(feature, v.value),
+          })),
+          ...(r.prerequisites && { prerequisites: r.prerequisites }),
+          ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
+        };
+        return experimentRefRule;
       }
-      const experimentRule: ExperimentRule = {
-        // missing id will be filled in by addIdsToRules
-        id: r.id ?? "",
-        type: r.type,
-        hashAttribute: r.hashAttribute ?? "",
-        coverage: r.coverage,
-        // missing tracking key will be filled in by addIdsToRules
-        trackingKey: r.trackingKey ?? "",
-        enabled: r.enabled != null ? r.enabled : true,
-        description: r.description ?? "",
-        values: values,
-        ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
-      };
-      return experimentRule;
-    } else if (r.type === "force") {
-      const forceRule: ForceRule = {
-        // missing id will be filled in by addIdsToRules
-        id: r.id ?? "",
-        type: r.type,
-        description: r.description ?? "",
-        value: validateFeatureValue(feature, r.value),
-        condition: r.condition,
-        savedGroups: (r.savedGroupTargeting || []).map((s) => ({
-          ids: s.savedGroups,
-          match: s.matchType,
-        })),
-        enabled: r.enabled != null ? r.enabled : true,
-        ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
-      };
-      return forceRule;
+      case "experiment": {
+        const values = r.values || r.value;
+        if (!values) {
+          throw new Error("Missing values");
+        }
+        const experimentRule: ExperimentRule = {
+          // missing id will be filled in by addIdsToRules
+          id: r.id ?? "",
+          allEnvironments: false,
+          type: r.type,
+          hashAttribute: r.hashAttribute ?? "",
+          coverage: r.coverage,
+          // missing tracking key will be filled in by addIdsToRules
+          trackingKey: r.trackingKey ?? "",
+          enabled: r.enabled != null ? r.enabled : true,
+          description: r.description ?? "",
+          values: values,
+          ...(r.prerequisites && { prerequisites: r.prerequisites }),
+          ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
+        };
+        return experimentRule;
+      }
+      case "force": {
+        const forceRule: ForceRule = {
+          // missing id will be filled in by addIdsToRules
+          id: r.id ?? "",
+          allEnvironments: false,
+          type: r.type,
+          description: r.description ?? "",
+          value: validateFeatureValue(feature, r.value),
+          condition: r.condition,
+          savedGroups: (r.savedGroupTargeting || []).map((s) => ({
+            ids: s.savedGroups,
+            match: s.matchType,
+          })),
+          enabled: r.enabled != null ? r.enabled : true,
+          ...(r.prerequisites && { prerequisites: r.prerequisites }),
+          ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
+        };
+        return forceRule;
+      }
+      case "rollout": {
+        const rolloutRule: RolloutRule = {
+          // missing id will be filled in by addIdsToRules
+          id: r.id ?? "",
+          allEnvironments: false,
+          type: r.type,
+          coverage: r.coverage,
+          description: r.description ?? "",
+          hashAttribute: r.hashAttribute,
+          value: validateFeatureValue(feature, r.value),
+          condition: r.condition,
+          savedGroups: (r.savedGroupTargeting || []).map((s) => ({
+            ids: s.savedGroups,
+            match: s.matchType,
+          })),
+          enabled: r.enabled != null ? r.enabled : true,
+          ...(r.prerequisites && { prerequisites: r.prerequisites }),
+          ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
+        };
+        return rolloutRule;
+      }
+      default: {
+        const _exhaustive: never = r;
+        throw new Error(
+          `Unrecognized feature rule type: "${(_exhaustive as { type?: string }).type ?? "unknown"}"`,
+        );
+      }
     }
-    const rolloutRule: RolloutRule = {
-      // missing id will be filled in by addIdsToRules
-      id: r.id ?? "",
-      type: r.type,
-      coverage: r.coverage,
-      description: r.description ?? "",
-      hashAttribute: r.hashAttribute,
-      value: validateFeatureValue(feature, r.value),
-      condition: r.condition,
-      savedGroups: (r.savedGroupTargeting || []).map((s) => ({
-        ids: s.savedGroups,
-        match: s.matchType,
-      })),
-      enabled: r.enabled != null ? r.enabled : true,
-      ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
-    };
-    return rolloutRule;
   });
 
 export const createInterfaceEnvSettingsFromApiEnvSettings = (
@@ -1978,12 +2493,6 @@ export const createInterfaceEnvSettingsFromApiEnvSettings = (
       ...acc,
       [e.id]: {
         enabled: incomingEnvs?.[e.id]?.enabled ?? !!e.defaultState,
-        rules: incomingEnvs?.[e.id]?.rules
-          ? fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
-              feature,
-              incomingEnvs[e.id].rules,
-            )
-          : [],
       },
     }),
     {} as Record<string, FeatureEnvironment>,
@@ -1999,15 +2508,42 @@ export const updateInterfaceEnvSettingsFromApiEnvSettings = (
       ...acc,
       [k]: {
         enabled: incomingEnvs[k].enabled ?? existing[k]?.enabled ?? false,
-        rules: incomingEnvs[k].rules
-          ? fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
-              feature,
-              incomingEnvs[k].rules,
-            )
-          : (existing[k]?.rules ?? []),
       },
     };
   }, existing);
+};
+
+// Build the v2 flat `feature.rules` from the API's per-env payload. Routes the
+// per-env record through `normalizeRulesInputToV2` so content-identical rules
+// (matched by id) across envs collapse into a single v2 rule with
+// `environments: [...envs]` (or `allEnvironments: true` when applicable). The
+// naive "stamp each as `environments: [env]`" path forced `ensureUniqueRuleIds`
+// to suffix shared ids, breaking v1 round-trip semantics for clients that
+// legitimately use the same rule id across envs.
+//
+// Rules without an id are stamped here (per env) before flattening, since
+// `flattenV1ToV2Rules` skips id-less rules (they have no group key).
+export const buildFeatureRulesFromApiEnvSettings = (
+  feature: FeatureInterface,
+  baseEnvs: Environment[],
+  incomingEnvs: ApiFeatureEnvSettings,
+): FeatureRule[] => {
+  const rulesByEnv: Record<string, FeatureRule[]> = {};
+  baseEnvs.forEach((e) => {
+    const apiRules = incomingEnvs?.[e.id]?.rules;
+    if (!apiRules) return;
+    const converted = fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
+      feature,
+      apiRules,
+    );
+    addIdsToFlatRules(converted, feature.id);
+    rulesByEnv[e.id] = converted;
+  });
+  if (Object.keys(rulesByEnv).length === 0) return [];
+  return normalizeRulesInputToV2(rulesByEnv, {
+    orgEnvs: baseEnvs,
+    featureProject: feature.project,
+  });
 };
 
 // Only keep features that are "on" or "conditional". For "on" features, remove any top level prerequisites
@@ -2073,19 +2609,19 @@ export const reduceFeaturesWithPrerequisites = (
     }
   }
 
-  // block "always off" rules, or reduce "always on" rules
+  // Block "always off" rules and reduce "always on" rules for this env.
+  // Rules scoped to other envs are carried through verbatim.
   for (let i = 0; i < newFeatures.length; i++) {
     const feature = newFeatures[i];
-    if (!feature.environmentSettings[environment]?.rules) continue;
+    const existingRules = feature.rules ?? [];
+    if (existingRules.length === 0) continue;
 
     const newFeatureRules: FeatureRule[] = [];
-
-    for (
-      let i = 0;
-      i < feature.environmentSettings[environment].rules.length;
-      i++
-    ) {
-      const rule = feature.environmentSettings[environment].rules[i];
+    for (const rule of existingRules) {
+      if (!ruleAppliesToEnv(rule, environment)) {
+        newFeatureRules.push(rule);
+        continue;
+      }
       const { removeRule, newPrerequisites } =
         getInlinePrerequisitesReductionInfo(
           rule.prerequisites || [],
@@ -2098,7 +2634,7 @@ export const reduceFeaturesWithPrerequisites = (
         newFeatureRules.push(rule);
       }
     }
-    newFeatures[i].environmentSettings[environment].rules = newFeatureRules;
+    newFeatures[i].rules = newFeatureRules;
   }
 
   return newFeatures;
@@ -2201,3 +2737,217 @@ const getInlinePrerequisitesReductionInfo = (
     newPrerequisites,
   };
 };
+
+export async function getDraftRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  version: number,
+): Promise<FeatureRevisionInterface> {
+  // This is the published version, create a new draft revision
+  const { org } = context;
+  if (version === feature.version) {
+    const newRevision = await createRevision({
+      context,
+      feature,
+      user: context.auditUser,
+      environments: getEnvironmentIdsFromOrg(context.org),
+      baseVersion: version,
+      org,
+    });
+
+    return newRevision;
+  }
+
+  // If this is already a draft, return it
+  const revision = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    feature,
+    version,
+  });
+  if (!revision) {
+    throw new Error("Cannot find revision");
+  }
+  if (
+    !(
+      revision.status === "draft" ||
+      revision.status === "pending-review" ||
+      revision.status === "changes-requested" ||
+      revision.status === "approved"
+    )
+  ) {
+    throw new Error("Can only make changes to draft revisions");
+  }
+
+  return revision;
+}
+
+export async function getLiveRevisionForFeature(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+): Promise<FeatureRevisionInterface> {
+  const live = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    feature,
+    version: feature.version,
+  });
+  if (!live) {
+    throw new Error(`Could not find live revision for feature ${feature.id}`);
+  }
+  return live;
+}
+
+export async function getLiveAndBaseRevisionsForFeature({
+  context,
+  feature,
+  revision,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+}): Promise<{
+  live: FeatureRevisionInterface;
+  base: FeatureRevisionInterface;
+}> {
+  const live = await getLiveRevisionForFeature(context, feature);
+
+  const base =
+    revision.baseVersion === live.version
+      ? live
+      : await getRevision({
+          context,
+          organization: feature.organization,
+          featureId: feature.id,
+          feature,
+          version: revision.baseVersion,
+        });
+  if (!base) {
+    throw new Error("Could not lookup feature history");
+  }
+
+  return { live, base };
+}
+
+/**
+ * Returns the env list to permission-check publish against. Global field
+ * changes (defaultValue, prerequisites, archived, metadata) widen to all
+ * enabled envs; holdout assignment widens to each transitioning holdout's
+ * enabled envs; per-env rule/toggle changes contribute only their envs.
+ * Empty contributors fall back to all enabled envs (defensive).
+ *
+ * Ramp actions intentionally not included — rule diffs cover them, and
+ * rule-less ramp-only drafts hit the all-enabled fallback.
+ */
+export async function getMergeResultPublishEnvs({
+  context,
+  feature,
+  filledLiveRules,
+  result,
+  environmentIds,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  filledLiveRules: FeatureRule[];
+  result: MergeResultChanges;
+  environmentIds: string[];
+}): Promise<string[]> {
+  const allEnabledEnvs = Array.from(
+    getEnabledEnvironments(feature, environmentIds),
+  );
+
+  const hasGlobalChange =
+    result.defaultValue !== undefined ||
+    !!result.prerequisites ||
+    result.archived !== undefined ||
+    !!result.metadata;
+  if (hasGlobalChange) return allEnabledEnvs;
+
+  const changedRuleEnvs =
+    result.rules === undefined
+      ? []
+      : environmentIds.filter(
+          (env) =>
+            !isEqual(
+              getRulesForEnvironment(filledLiveRules, env),
+              getRulesForEnvironment(result.rules!, env),
+            ),
+        );
+  const changedToggleEnvs = Object.keys(result.environmentsEnabled || {});
+  const holdoutEnvs = await collectHoldoutAffectedEnvs(
+    context,
+    feature,
+    environmentIds,
+    result.holdout,
+  );
+
+  const envScoped = Array.from(
+    new Set([...changedRuleEnvs, ...changedToggleEnvs, ...holdoutEnvs]),
+  );
+  return envScoped.length > 0 ? envScoped : allEnabledEnvs;
+}
+
+// `undefined` = merge didn't touch holdout. Otherwise unions the active
+// envs of the prior (when changing/clearing) and incoming holdouts.
+async function collectHoldoutAffectedEnvs(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  environmentIds: string[],
+  newHoldout: { id: string; value: string } | null | undefined,
+): Promise<string[]> {
+  if (newHoldout === undefined) return [];
+
+  const envs = new Set<string>();
+  const prevId = feature.holdout?.id;
+  if (prevId && prevId !== newHoldout?.id) {
+    const prev = await context.models.holdout.getById(prevId);
+    if (prev) {
+      getEnabledHoldoutEnvironments(prev, environmentIds).forEach((e) =>
+        envs.add(e),
+      );
+    }
+  }
+  if (newHoldout?.id) {
+    const next = await context.models.holdout.getById(newHoldout.id);
+    if (next) {
+      getEnabledHoldoutEnvironments(next, environmentIds).forEach((e) =>
+        envs.add(e),
+      );
+    }
+  }
+  return [...envs];
+}
+
+// Throws if the draft requires approval and the caller cannot bypass.
+export async function assertCanAutoPublish(
+  context: ReqContext,
+  feature: FeatureInterface,
+  draft: FeatureRevisionInterface,
+): Promise<void> {
+  const { org } = context;
+  const allEnvironments = getEnvironmentIdsFromOrg(org);
+
+  const baseRevision = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    feature,
+    version: draft.baseVersion,
+  });
+  if (!baseRevision) return; // can't determine — allow (legacy/missing base)
+
+  const requiresReview = checkIfRevisionNeedsReview({
+    feature,
+    baseRevision,
+    revision: draft,
+    allEnvironments,
+    settings: org.settings,
+    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
+  });
+
+  if (requiresReview && !context.permissions.canBypassApprovalChecks(feature)) {
+    context.permissions.throwPermissionError();
+  }
+}

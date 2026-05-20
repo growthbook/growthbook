@@ -1,16 +1,19 @@
 import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import React, {
+import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
+import {
   Fragment,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight, FaTable } from "react-icons/fa";
 import { cloneDeep } from "lodash";
 import clsx from "clsx";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { CursorData } from "@/components/Segments/SegmentForm";
@@ -38,9 +41,14 @@ export default function SchemaBrowser({
   updateSqlInput,
   cursorData,
 }: Props) {
+  const managedWarehousePending =
+    isManagedWarehouseAwaitingProvisioning(datasource);
+
   const { data, mutate } = useApi<{
     informationSchema: InformationSchemaInterfaceWithPaths;
-  }>(`/datasource/${datasource.id}/schema`);
+  }>(`/datasource/${datasource.id}/schema`, {
+    shouldRun: () => !managedWarehousePending,
+  });
 
   const informationSchema = data?.informationSchema;
   const permissionsUtil = usePermissionsUtil();
@@ -50,6 +58,11 @@ export default function SchemaBrowser({
   const [currentTable, setCurrentTable] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [fetching, setFetching] = useState<boolean>(false);
+  const [tableFilter, setTableFilter] = useState("");
+  const [schemaOpenState, setSchemaOpenState] = useState<
+    Record<string, boolean>
+  >({});
+  const hasQueuedStaleRefreshRef = useRef(false);
 
   const [retryCount, setRetryCount] = useState(1);
 
@@ -58,6 +71,86 @@ export default function SchemaBrowser({
   const inputArray = useMemo(
     () => cursorData?.input || [],
     [cursorData?.input],
+  );
+  const normalizedTableFilter = tableFilter.trim().toLowerCase();
+  const isFiltering = normalizedTableFilter.length > 0;
+  const filteredDatabases = useMemo(() => {
+    if (!informationSchema?.databases) return [];
+    if (!normalizedTableFilter) return informationSchema.databases;
+
+    return informationSchema.databases
+      .map((database) => {
+        const filteredSchemas = database.schemas
+          .map((schema) => {
+            const filteredTables = schema.tables.filter((table) =>
+              table.path.toLowerCase().includes(normalizedTableFilter),
+            );
+
+            return {
+              ...schema,
+              tables: filteredTables,
+            };
+          })
+          .filter((schema) => schema.tables.length > 0);
+
+        return {
+          ...database,
+          schemas: filteredSchemas,
+        };
+      })
+      .filter((database) => database.schemas.length > 0);
+  }, [informationSchema?.databases, normalizedTableFilter]);
+
+  const getSchemaKey = useCallback(
+    (schemaPath: string, databaseName: string, schemaName: string) => {
+      return schemaPath || `${databaseName}:${schemaName}`;
+    },
+    [],
+  );
+
+  const onSchemaOpening = useCallback(
+    async (schemaKey: string) => {
+      if (!isFiltering) {
+        setSchemaOpenState((state) => ({
+          ...state,
+          [schemaKey]: true,
+        }));
+      }
+
+      // During filter-driven expansion we don't want to trigger bulk refresh calls.
+      if (
+        isFiltering ||
+        hasQueuedStaleRefreshRef.current ||
+        !informationSchema
+      ) {
+        return;
+      }
+
+      const currentDate = new Date();
+      const dateLastUpdated = new Date(informationSchema.dateUpdated);
+      const diffInMilliseconds =
+        currentDate.getTime() - dateLastUpdated.getTime();
+      const diffInDays = Math.floor(diffInMilliseconds / (1000 * 3600 * 24));
+
+      if (diffInDays <= 30) return;
+
+      hasQueuedStaleRefreshRef.current = true;
+      try {
+        await apiCall<{
+          status: number;
+          message?: string;
+        }>(`/datasource/${datasource.id}/schema`, {
+          method: "PUT",
+          body: JSON.stringify({
+            informationSchemaId: informationSchema.id,
+          }),
+        });
+      } catch {
+        // Allow retry on a future open if queueing fails.
+        hasQueuedStaleRefreshRef.current = false;
+      }
+    },
+    [apiCall, datasource.id, informationSchema, isFiltering],
   );
 
   const refreshOrCreateInfoSchema = useCallback(
@@ -145,6 +238,9 @@ export default function SchemaBrowser({
 
   useEffect(() => {
     setCurrentTable("");
+    setTableFilter("");
+    setSchemaOpenState({});
+    hasQueuedStaleRefreshRef.current = false;
   }, [datasource]);
 
   // This is hacky - since we updated the logic to support BigQuery data sources with multiple schemas there are some old data sources that have a now outdated error
@@ -166,6 +262,14 @@ export default function SchemaBrowser({
     refreshOrCreateInfoSchema,
   ]);
 
+  if (managedWarehousePending) {
+    return (
+      <div className="d-flex flex-column h-100 p-2">
+        <ManagedWarehouseNoEventsCallout />
+      </div>
+    );
+  }
+
   if (!data) return <LoadingSpinner />;
 
   return (
@@ -185,6 +289,8 @@ export default function SchemaBrowser({
             setFetching={setFetching}
             fetching={fetching}
             setError={setError}
+            tableFilter={tableFilter}
+            onTableFilterChange={setTableFilter}
           >
             {informationSchema?.databases.length &&
             !informationSchema?.error &&
@@ -197,115 +303,116 @@ export default function SchemaBrowser({
                   minHeight: 0,
                 }}
               >
-                {informationSchema.databases.map((database, i) => {
-                  return (
-                    <Fragment key={i}>
-                      {database.schemas.map((schema, j) => {
-                        return (
-                          <div key={j}>
-                            <Collapsible
-                              className="pb-1"
-                              lazyRender={true}
-                              onTriggerOpening={async () => {
-                                const currentDate = new Date();
-                                const dateLastUpdated = new Date(
-                                  informationSchema.dateUpdated,
-                                );
-                                // To calculate the time difference of two dates
-                                const diffInMilliseconds =
-                                  currentDate.getTime() -
-                                  dateLastUpdated.getTime();
-
-                                // To calculate the no. of days between two dates
-                                const diffInDays = Math.floor(
-                                  diffInMilliseconds / (1000 * 3600 * 24),
-                                );
-
-                                if (diffInDays > 30) {
-                                  await apiCall<{
-                                    status: number;
-                                    message?: string;
-                                  }>(`/datasource/${datasource.id}/schema`, {
-                                    method: "PUT",
-                                    body: JSON.stringify({
-                                      informationSchemaId: informationSchema.id,
-                                    }),
-                                  });
+                {filteredDatabases.length > 0 ? (
+                  filteredDatabases.map((database) => {
+                    return (
+                      <Fragment key={database.path || database.databaseName}>
+                        {database.schemas.map((schema) => {
+                          const schemaKey = getSchemaKey(
+                            schema.path,
+                            database.databaseName,
+                            schema.schemaName,
+                          );
+                          return (
+                            <div key={schemaKey}>
+                              <Collapsible
+                                className="pb-1"
+                                lazyRender={true}
+                                open={
+                                  isFiltering
+                                    ? true
+                                    : !!schemaOpenState[schemaKey]
                                 }
-                              }}
-                              trigger={
-                                ["bigquery", "postgres"].includes(
-                                  datasource.type,
-                                ) ? (
-                                  <>
-                                    <FaAngleRight />
-                                    {`${database.databaseName}.${schema.schemaName}`}
-                                  </>
-                                ) : datasource.type ===
-                                  "growthbook_clickhouse" ? (
-                                  <>
-                                    <FaAngleRight />
-                                    Tables
-                                  </>
-                                ) : (
-                                  <>
-                                    <FaAngleRight />
-                                    {`${schema.schemaName}`}
-                                  </>
-                                )
-                              }
-                              triggerWhenOpen={
-                                ["bigquery", "postgres"].includes(
-                                  datasource.type,
-                                ) ? (
-                                  <>
-                                    <FaAngleDown />
-                                    {`${database.databaseName}.${schema.schemaName}`}
-                                  </>
-                                ) : datasource.type ===
-                                  "growthbook_clickhouse" ? (
-                                  <>
-                                    <FaAngleRight />
-                                    Tables
-                                  </>
-                                ) : (
-                                  <>
-                                    <FaAngleDown />
-                                    {`${schema.schemaName}`}
-                                  </>
-                                )
-                              }
-                              triggerStyle={{
-                                fontWeight: "bold",
-                              }}
-                              transitionTime={100}
-                            >
-                              {schema.tables.map((table, k) => {
-                                return (
-                                  <div
-                                    className={clsx(
-                                      table.id === currentTable &&
-                                        "bg-secondary rounded text-white",
-                                      "pl-3 py-1",
-                                    )}
-                                    style={{ userSelect: "none" }}
-                                    role="button"
-                                    key={k}
-                                    onClick={(e) =>
-                                      handleTableClick(e, table.path, table.id)
-                                    }
-                                  >
-                                    <FaTable /> {table.tableName}
-                                  </div>
-                                );
-                              })}
-                            </Collapsible>
-                          </div>
-                        );
-                      })}
-                    </Fragment>
-                  );
-                })}
+                                onOpening={() => {
+                                  void onSchemaOpening(schemaKey);
+                                }}
+                                onClosing={() => {
+                                  if (isFiltering) return;
+                                  setSchemaOpenState((state) => ({
+                                    ...state,
+                                    [schemaKey]: false,
+                                  }));
+                                }}
+                                trigger={
+                                  ["bigquery", "postgres"].includes(
+                                    datasource.type,
+                                  ) ? (
+                                    <>
+                                      <FaAngleRight />
+                                      {`${database.databaseName}.${schema.schemaName}`}
+                                    </>
+                                  ) : datasource.type ===
+                                    "growthbook_clickhouse" ? (
+                                    <>
+                                      <FaAngleRight />
+                                      Tables
+                                    </>
+                                  ) : (
+                                    <>
+                                      <FaAngleRight />
+                                      {`${schema.schemaName}`}
+                                    </>
+                                  )
+                                }
+                                triggerWhenOpen={
+                                  ["bigquery", "postgres"].includes(
+                                    datasource.type,
+                                  ) ? (
+                                    <>
+                                      <FaAngleDown />
+                                      {`${database.databaseName}.${schema.schemaName}`}
+                                    </>
+                                  ) : datasource.type ===
+                                    "growthbook_clickhouse" ? (
+                                    <>
+                                      <FaAngleRight />
+                                      Tables
+                                    </>
+                                  ) : (
+                                    <>
+                                      <FaAngleDown />
+                                      {`${schema.schemaName}`}
+                                    </>
+                                  )
+                                }
+                                triggerStyle={{
+                                  fontWeight: "bold",
+                                }}
+                                transitionTime={100}
+                              >
+                                {schema.tables.map((table) => {
+                                  return (
+                                    <div
+                                      className={clsx(
+                                        table.id === currentTable &&
+                                          "bg-secondary rounded text-white",
+                                        "pl-3 py-1",
+                                      )}
+                                      style={{ userSelect: "none" }}
+                                      role="button"
+                                      key={table.id || table.tableName}
+                                      onClick={(e) =>
+                                        handleTableClick(
+                                          e,
+                                          table.path,
+                                          table.id,
+                                        )
+                                      }
+                                    >
+                                      <FaTable /> {table.tableName}
+                                    </div>
+                                  );
+                                })}
+                              </Collapsible>
+                            </div>
+                          );
+                        })}
+                      </Fragment>
+                    );
+                  })
+                ) : (
+                  <div className="text-muted p-2">No tables found.</div>
+                )}
               </div>
             ) : (
               <div className="p-2">

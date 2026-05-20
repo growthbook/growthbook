@@ -2,9 +2,9 @@ import { useFormContext } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { date } from "shared/dates";
-import Link from "next/link";
 import { Box } from "@radix-ui/themes";
 import { getLatestPhaseVariations } from "shared/experiments";
+import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
@@ -16,15 +16,20 @@ import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/Experi
 import { useExperiments } from "@/hooks/useExperiments";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
+import RuleEnvironmentScopeField, {
+  type EnvScopeProps,
+} from "@/components/Features/RuleModal/EnvironmentScopeField";
 
 export default function BanditRefFields({
   feature,
   existingRule,
   changeRuleType,
+  envScope,
 }: {
   feature: FeatureInterface;
   existingRule: boolean;
   changeRuleType: (v: string) => void;
+  envScope: EnvScopeProps;
 }) {
   const form = useFormContext();
 
@@ -159,6 +164,8 @@ export default function BanditRefFields({
         {...form.register("description")}
         placeholder="Short human-readable description of the rule"
       />
+
+      <RuleEnvironmentScopeField {...envScope} my="5" />
     </>
   );
 }
