@@ -19,6 +19,7 @@ import {
 import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarderConfig";
 import { resolveBigQueryEventForwarderTableName } from "back-end/src/services/eventForwarderBqTableResolution";
 import { testEventForwarderWriteAccess } from "back-end/src/services/eventForwarderWriteAccessValidation";
+import { initializeDatasourceUserIdTypesFromOrgAttributeSchema } from "back-end/src/services/eventForwarderUserIdTypes";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
@@ -150,6 +151,11 @@ export async function provisionEventForwarderThroughLicenseServer(
       connectorId: result.connectorId,
       lastProvisioningError: "",
     });
+
+    await initializeDatasourceUserIdTypesFromOrgAttributeSchema(
+      context,
+      eventForwarderConfig.datasourceId,
+    );
 
     if (options?.restartAfterProvision && result.connectorName.trim()) {
       await postRestartEventForwarderToLicenseServer({

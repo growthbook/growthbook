@@ -10,6 +10,7 @@ import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { syncEventForwarderSchemasAfterAttributeSchemaChange } from "back-end/src/services/eventForwarderProvisioning";
 import { hasAnyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
+import { syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema } from "back-end/src/services/eventForwarderUserIdTypes";
 
 export const postAttribute = async (
   req: AuthRequest<SDKAttribute>,
@@ -51,6 +52,12 @@ export const postAttribute = async (
   // Uses the updated schema so the new attribute is included in the registration.
   // Errors are recorded on the EventForwarderConfig record and do not fail this request.
   if (await hasAnyEventForwarderConfig(context)) {
+    if (newAttribute.hashAttribute) {
+      await syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema(
+        context,
+        updatedAttributeSchema,
+      );
+    }
     await syncEventForwarderSchemasAfterAttributeSchemaChange(
       context,
       updatedAttributeSchema,
@@ -148,6 +155,17 @@ export const putAttribute = async (
       attributeSchema,
     },
   });
+
+  if (
+    hasEventForwarder &&
+    attributeFields.hashAttribute === true &&
+    !existing.hashAttribute
+  ) {
+    await syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema(
+      context,
+      attributeSchema,
+    );
+  }
 
   await req.audit({
     event: "attribute.update",

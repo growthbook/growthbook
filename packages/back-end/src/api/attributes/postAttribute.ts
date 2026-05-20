@@ -6,6 +6,7 @@ import { auditDetailsCreate } from "back-end/src/services/audit";
 import { addTags } from "back-end/src/models/TagModel";
 import { syncEventForwarderSchemasAfterAttributeSchemaChange } from "back-end/src/services/eventForwarderProvisioning";
 import { hasAnyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
+import { syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema } from "back-end/src/services/eventForwarderUserIdTypes";
 import { validatePayload } from "./validations";
 
 export const postAttribute = createApiRequestHandler(postAttributeValidator)(
@@ -50,6 +51,12 @@ export const postAttribute = createApiRequestHandler(postAttributeValidator)(
     await updateOrganization(org.id, updates);
 
     if (await hasAnyEventForwarderConfig(req.context)) {
+      if (attribute.hashAttribute) {
+        await syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema(
+          req.context,
+          updatedAttributeSchema,
+        );
+      }
       await syncEventForwarderSchemasAfterAttributeSchemaChange(
         req.context,
         updatedAttributeSchema,

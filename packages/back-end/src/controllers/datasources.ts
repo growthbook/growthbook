@@ -1,5 +1,6 @@
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
+import isEqual from "lodash/isEqual";
 import * as bq from "@google-cloud/bigquery";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import {
@@ -591,6 +592,22 @@ export async function putDataSource(
     }
 
     if (settings) {
+      const eventForwarderConfig = await getEventForwarderConfigForDatasource(
+        context,
+        datasource.id,
+      );
+      if (
+        eventForwarderConfig &&
+        settings.userIdTypes !== undefined &&
+        !isEqual(settings.userIdTypes, datasource.settings?.userIdTypes)
+      ) {
+        res.status(400).json({
+          status: 400,
+          message:
+            "Identifier types cannot be changed while an Event Forwarder is configured for this data source.",
+        });
+        return;
+      }
       updates.settings = settings;
     }
 
