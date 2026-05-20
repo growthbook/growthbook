@@ -616,7 +616,6 @@ const MetricDrilldownModal = ({
         trackingEventModalSource="results-table"
         cta="Close"
         submit={close}
-        autoCloseOnSubmit={false}
         autoFocusSelector=""
       >
         <MetricDrilldownContext.Provider value={null}>
