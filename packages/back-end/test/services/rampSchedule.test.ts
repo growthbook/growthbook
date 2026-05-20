@@ -965,6 +965,33 @@ describe("advanceStep — interval step", () => {
     // Patch only carries the step-1 fields; enabled is left untouched.
     expect(patched?.enabled).toBe(false);
   });
+
+  it("sets nextProcessAt to a non-null value when landing on an instant non-monitored step (bug: stranded schedule)", async () => {
+    // If nextProcessAt is null the agenda will never re-pick this schedule.
+    // An instant step (interval:null) with no monitoring must set nextProcessAt=now
+    // so the evaluator re-ticks it immediately.
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      steps: [
+        {
+          interval: null, // instant — no time gate
+          monitored: false,
+          actions: [
+            {
+              targetType: "feature-rule" as const,
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 0.5 },
+            },
+          ],
+        },
+      ],
+    });
+    const { ctx, updateById } = makeContext({ currentStepIndex: -1 });
+    await advanceStep(ctx as never, schedule);
+
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.nextProcessAt).not.toBeNull();
+  });
 });
 
 describe("applyRampStartActions", () => {
@@ -1237,6 +1264,29 @@ describe("advanceScheduleManually", () => {
     expect(updated.safeRolloutId).toBe("sr_manual_1");
     expect(updated.currentStepIndex).toBe(0);
   });
+
+  it("chains through instant steps after the manual advance (bug: single advanceStep stopped too early)", async () => {
+    // Timed step 0 (current) → instant step 1 → timed step 2.
+    // advanceScheduleManually from step 0 should land at step 2 (step 1 is
+    // instantly traversed) rather than stopping at step 1.
+    const schedule = makeSchedule({
+      status: "running",
+      currentStepIndex: 0,
+      steps: [
+        { interval: 300, actions: [] },
+        { interval: null, monitored: false, actions: [] }, // instant
+        { interval: 300, actions: [] },
+      ],
+    });
+    const { ctx } = makeManualAdvanceCtx(schedule);
+    const updated = await advanceScheduleManually(ctx as never, schedule);
+
+    // advanceScheduleManually advances from step 0 → step 1 (instant), then
+    // advanceUntilBlocked exits because step 1 has nextStepAt=null. The agenda
+    // re-ticks because nextProcessAt=now (Bug 1 fix ensures this).
+    expect(updated.currentStepIndex).toBe(1);
+    expect(updated.nextProcessAt).not.toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1473,6 +1523,23 @@ describe("rollbackToStep", () => {
     expect(updates).not.toHaveProperty("lastRollbackReason");
     expect(updates).not.toHaveProperty("eventHistory");
     expect(mockCreateEvent).not.toHaveBeenCalled();
+  });
+
+  it("clears stepApproval even on auto/terminal rollback to -1 (bug: stale approval on rolled-back schedule)", async () => {
+    const schedule = makeSchedule({
+      currentStepIndex: 1,
+      stepApproval: {
+        stepIndex: 1,
+        approvedAt: new Date(),
+        approvedBy: "user_1",
+        context: "ui",
+      },
+    });
+    const { ctx, updateById } = makeContext({ currentStepIndex: 1 });
+    await rollbackToStep(ctx as never, schedule, -1, "guardrail-failing");
+
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.stepApproval).toBeNull();
   });
 });
 
@@ -2605,6 +2672,76 @@ describe("approveAndPublishStep", () => {
     const err = await approveAndPublishStep(ctx as never, schedule);
 
     expect(err?.code).toBe("error");
+  });
+
+  it("chains through a subsequent instant non-monitored step after approval (bug: single advanceStep call stopped too early)", async () => {
+    // Step 0: pure approval (no interval). Step 1: instant (no interval, no holds).
+    // After approval, advanceUntilBlocked should chain through step 1 immediately
+    // so currentStepIndex lands at 1, not 0.
+    let current = makeSchedule({
+      currentStepIndex: 0,
+      status: "running",
+      steps: [
+        {
+          interval: null,
+          holdConditions: { requiresApproval: true },
+          actions: [
+            {
+              targetType: "feature-rule" as const,
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 0.5 },
+            },
+          ],
+        },
+        {
+          interval: null,
+          monitored: false,
+          actions: [
+            {
+              targetType: "feature-rule" as const,
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 1.0 },
+            },
+          ],
+        },
+      ],
+    });
+    const updateById = jest
+      .fn()
+      .mockImplementation(
+        (_id: string, updates: Partial<RampScheduleInterface>) => {
+          current = { ...current, ...updates } as RampScheduleInterface;
+          return current;
+        },
+      );
+    const ctx = {
+      userId: "user_1",
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "session" as const, userAgent: "", ip: "" },
+      environments: [],
+      permissions: {
+        canUpdateFeature: jest.fn().mockReturnValue(true),
+        canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
+        canPublishFeature: jest.fn().mockReturnValue(true),
+      },
+      models: {
+        rampSchedules: {
+          updateById,
+          getById: jest.fn().mockImplementation(() => current),
+        },
+      },
+    };
+
+    const err = await approveAndPublishStep(ctx as never, current);
+    expect(err).toBeNull();
+
+    // approveAndPublishStep advances past the approval step then calls
+    // advanceUntilBlocked on the result. The next step (index 1) is instant
+    // (interval:null) — advanceUntilBlocked exits immediately for it since
+    // nextStepAt=null. The agenda picks it up because nextProcessAt=now (Bug 1).
+    expect(current.currentStepIndex).toBe(1);
+    // nextProcessAt must be non-null so the agenda doesn't strand the schedule.
+    expect(current.nextProcessAt).not.toBeNull();
   });
 });
 

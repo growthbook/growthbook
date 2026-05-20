@@ -842,7 +842,7 @@ export async function advanceStep(
     nextSnapshotAt,
     nextProcessAt: computeNextProcessAt({
       status: newStatus,
-      nextStepAt: monitoredStepDueAt ?? nextStepAt,
+      nextStepAt: monitoredStepDueAt ?? nextStepAt ?? (!isMonitoredStep ? now : null),
       nextSnapshotAt,
       cutoffDate: schedule.cutoffDate,
     }),
@@ -936,6 +936,7 @@ export async function rollbackToStep(
     currentStepIndex: targetStepIndex,
     nextStepAt: null,
     nextSnapshotAt: null,
+    stepApproval: null,
     pausedAt: newStatus === "paused" ? now : null,
     nextProcessAt: null,
     ...(terminalRollback
@@ -1314,7 +1315,14 @@ export async function advanceScheduleManually(
     scheduleToAdvance,
   );
 
-  return advanceStep(ctx, scheduleToAdvance);
+  const now = new Date();
+  const advanced = await advanceStep(ctx, scheduleToAdvance);
+  // Chain through any subsequent instant-clearable steps in the same pass
+  // so the caller sees the schedule at its first blocking point immediately.
+  await advanceUntilBlocked(ctx, advanced, now);
+  return (
+    (await ctx.models.rampSchedules.getById(advanced.id)) ?? advanced
+  );
 }
 
 export async function startSchedule(
@@ -1866,12 +1874,15 @@ export async function approveAndPublishStep(
     updates,
   );
 
-  // Non-monitored steps have no further gates after approval — advance now
-  // so the user sees the rollout move immediately. Monitored steps may still
-  // be held by interval / analysis / health gates; the agenda tick will
-  // re-evaluate (we bumped nextProcessAt above).
+  // Non-monitored steps have no further gates after approval — advance past
+  // this step now, then let advanceUntilBlocked chain through any subsequent
+  // timed-but-already-due steps. Instant steps that follow will have
+  // nextProcessAt=now (Bug 1 fix) so the agenda re-ticks them immediately.
+  // Monitored steps may still be held by interval / analysis / health gates;
+  // the agenda tick will re-evaluate (we bumped nextProcessAt above).
   if (!step.monitored) {
-    await advanceStep(ctx, approved);
+    const afterApproval = await advanceStep(ctx, approved);
+    await advanceUntilBlocked(ctx, afterApproval, now);
   }
 
   return null;
