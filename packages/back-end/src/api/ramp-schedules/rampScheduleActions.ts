@@ -530,7 +530,7 @@ const healthSummarySchema = z.object({
   decision: z
     .enum(["advance", "hold", "rollback", "pause", "no-data"])
     .describe(
-      "Current evaluator decision for the active step. Incorporates all hold conditions (timing, approval, min sample, metric health). `no-data` means the SafeRollout or its analysis is not yet available.",
+      "Current evaluator decision for the active step. Incorporates all hold conditions (timing, approval, min sample, metric health). `no-data` means monitoring data is not yet available.",
     ),
   decisionReason: z
     .string()
@@ -620,13 +620,17 @@ export const getRampScheduleStatus = createApiRequestHandler({
         blockedReason: z.string().nullable().optional(),
         currentStepMonitored: z.boolean(),
         nextSnapshotAt: z.string().nullable().optional(),
-        safeRolloutId: z.string().nullable().optional(),
+        safeRolloutId: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("Internal ID of the linked monitoring experiment."),
       })
       .optional(),
     healthSummary: healthSummarySchema
       .optional()
       .describe(
-        "Populated when monitoring is configured and a SafeRollout is linked. Contains the current evaluator decision, aggregate traffic health, and per-metric status with effect sizes.",
+        "Populated when monitoring is enabled and analysis data is available. Contains the current evaluator decision, aggregate traffic health, and per-metric status with effect sizes.",
       ),
   }),
   method: "get" as const,
@@ -634,7 +638,7 @@ export const getRampScheduleStatus = createApiRequestHandler({
   operationId: "getRampScheduleStatus",
   summary: "Get ramp schedule status summary",
   description:
-    "Returns a derived status summary of the ramp schedule, suitable\nfor monitoring dashboards and CI pipeline integrations.\n",
+    "Returns a real-time status summary for a ramp schedule: current step, overall health decision, traffic quality, and per-metric effect sizes. Designed for CI pipeline integrations and monitoring dashboards that need a single call to determine whether it is safe to advance.",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -955,7 +959,7 @@ export const setAutoUpdateRampSchedule = createApiRequestHandler({
 export const updateMonitoringConfigRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: rampMonitoringConfig.describe(
-    "Full replacement of the monitoring configuration. `datasourceId` and `exposureQueryId` cannot be changed while a SafeRollout is active.",
+    "Full replacement of the monitoring configuration. `datasourceId` and `exposureQueryId` cannot be changed while a monitoring experiment is active — stop the schedule first.",
   ),
   responseSchema: apiRampScheduleInterface,
   method: "put" as const,
@@ -963,7 +967,7 @@ export const updateMonitoringConfigRampSchedule = createApiRequestHandler({
   operationId: "updateRampScheduleMonitoring",
   summary: "Update ramp monitoring configuration",
   description:
-    "Replaces the monitoring configuration for a ramp schedule. Metric IDs, snapshot cadence, and health-action thresholds (srmAction, noTrafficAction, etc.) can be changed at any time. `datasourceId` and `exposureQueryId` cannot be changed while a SafeRollout is active — stop the schedule first.\n\nChanges to guardrail/signal metric IDs are synced onto the linked SafeRollout immediately so the next snapshot evaluates the updated set.\n",
+    "Replaces the monitoring configuration. Metric IDs, snapshot cadence, and health-action thresholds (`srmAction`, `noTrafficAction`, etc.) can be updated at any time.\n\n`datasourceId` and `exposureQueryId` are locked once monitoring starts — stop and recreate the schedule to change the data source.\n\nChanges to guardrail or signal metric IDs take effect on the next analysis run.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -987,7 +991,7 @@ export const updateLockdownConfigRampSchedule = createApiRequestHandler({
   operationId: "updateRampScheduleLockdown",
   summary: "Update ramp lockdown configuration",
   description:
-    "Sets the lockdown mode for a ramp schedule. `locked` prevents the ramp from advancing past its current step without manual operator intervention regardless of metric health. `none` restores normal auto-advance behavior.\n",
+    "Sets the lockdown mode. `locked` prevents the schedule from auto-advancing past the current step regardless of metric health — useful when you need manual control during an incident. `none` restores normal auto-advance behavior.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -1014,7 +1018,7 @@ const putStepSchema = z.object({
     .boolean()
     .optional()
     .describe(
-      "When true this step is backed by a SafeRollout experiment. Only applies to future steps — cannot be changed on the current running step.",
+      "When true, this step runs A/B traffic analysis while active. Applies only to future steps — cannot be changed on the currently executing step.",
     ),
   holdConditions: stepHoldConditions
     .optional()
@@ -1063,7 +1067,7 @@ export const updateStepsRampSchedule = createApiRequestHandler({
   operationId: "updateRampScheduleSteps",
   summary: "Update ramp schedule steps",
   description:
-    "Replaces the steps array for a ramp schedule.\n\n**Running schedules:** past steps are frozen; the current step accepts only `holdConditions` and `approvalNotes`; future steps are fully editable. The `applied` object in the response details exactly what was applied vs restricted.\n\n**Step actions** (coverage/targeting patches) are excluded from this endpoint — they require a feature revision publish to keep the SDK payload consistent. Use the revision draft flow (`PUT /v2/features/:id/revisions/:version/rules/:ruleId/ramp-schedule`) to change step actions.\n",
+    "Replaces the steps array for a ramp schedule.\n\n**Running schedules apply partial updates per step position:**\n- **Past steps** (already executed): ignored — incoming changes are dropped.\n- **Current step** (executing now): only `holdConditions` and `approvalNotes` are applied; `interval` and `monitored` are preserved.\n- **Future steps**: fully replaced.\n\nThe `applied` object in the response reports exactly which indices were fully applied, partially applied, or skipped.\n\n**Step actions** (coverage/targeting patches) are not accepted here — they change the SDK payload and must go through a feature revision draft. Use `PUT /v2/features/:id/revisions/:version/rules/:ruleId/ramp-schedule` to modify step actions.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(

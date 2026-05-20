@@ -50,7 +50,7 @@ const postBodyStep = z.object({
     .boolean()
     .default(false)
     .describe(
-      "When true, the step is backed by a safe rollout experiment. Coverage represents total experiment enrollment; the experiment splits enrolled users 50/50 between control and variation, so variation-1 exposure is coverage/2. For example, coverage=1.0 enrolls 100% of users and 50% see variation 1. The SDK payload uses hash-based filters (not coverage) on the experiment rule to prevent bucketing shifts when transitioning between monitored and unmonitored steps.",
+      "When true, this step runs A/B traffic analysis while active. Enrolled users are split 50/50 between control and variation, so a coverage of 1.0 means 50% of users see the variation. The SDK uses hash-based filters on the experiment rule to prevent bucketing shifts when transitioning between monitored and unmonitored steps.",
     ),
   holdConditions: stepHoldConditions.optional(),
 });
@@ -169,7 +169,7 @@ const putBodyStep = z.object({
     .boolean()
     .default(false)
     .describe(
-      "When true, the step is backed by a safe rollout experiment. Coverage represents total experiment enrollment; the experiment splits enrolled users 50/50 between control and variation, so variation-1 exposure is coverage/2. For example, coverage=1.0 enrolls 100% of users and 50% see variation 1. The SDK payload uses hash-based filters (not coverage) on the experiment rule to prevent bucketing shifts when transitioning between monitored and unmonitored steps.",
+      "When true, this step runs A/B traffic analysis while active. Enrolled users are split 50/50 between control and variation, so a coverage of 1.0 means 50% of users see the variation. The SDK uses hash-based filters on the experiment rule to prevent bucketing shifts when transitioning between monitored and unmonitored steps.",
     ),
   holdConditions: stepHoldConditions.optional(),
 });

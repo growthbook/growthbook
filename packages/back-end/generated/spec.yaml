@@ -17727,15 +17727,12 @@ paths:
                           - type: 'null'
                       monitored:
                         description: >-
-                          When true, the step is backed by a safe rollout
-                          experiment. Coverage represents total experiment
-                          enrollment; the experiment splits enrolled users 50/50
-                          between control and variation, so variation-1 exposure
-                          is coverage/2. For example, coverage=1.0 enrolls 100%
-                          of users and 50% see variation 1. The SDK payload uses
-                          hash-based filters (not coverage) on the experiment
-                          rule to prevent bucketing shifts when transitioning
-                          between monitored and unmonitored steps.
+                          When true, this step runs A/B traffic analysis while
+                          active. Enrolled users are split 50/50 between control
+                          and variation, so a coverage of 1.0 means 50% of users
+                          see the variation. The SDK uses hash-based filters on
+                          the experiment rule to prevent bucketing shifts when
+                          transitioning between monitored and unmonitored steps.
                         default: false
                         type: boolean
                       holdConditions:
@@ -18613,9 +18610,11 @@ paths:
     get:
       operationId: getRampScheduleStatus
       summary: Get ramp schedule status summary
-      description: |
-        Returns a derived status summary of the ramp schedule, suitable
-        for monitoring dashboards and CI pipeline integrations.
+      description: >-
+        Returns a real-time status summary for a ramp schedule: current step,
+        overall health decision, traffic quality, and per-metric effect sizes.
+        Designed for CI pipeline integrations and monitoring dashboards that
+        need a single call to determine whether it is safe to advance.
       tags:
         - ramp-schedules
       parameters:
@@ -19377,15 +19376,17 @@ paths:
       operationId: updateRampScheduleMonitoring
       summary: Update ramp monitoring configuration
       description: >
-        Replaces the monitoring configuration for a ramp schedule. Metric IDs,
-        snapshot cadence, and health-action thresholds (srmAction,
-        noTrafficAction, etc.) can be changed at any time. `datasourceId` and
-        `exposureQueryId` cannot be changed while a SafeRollout is active — stop
-        the schedule first.
+        Replaces the monitoring configuration. Metric IDs, snapshot cadence, and
+        health-action thresholds (`srmAction`, `noTrafficAction`, etc.) can be
+        updated at any time.
 
 
-        Changes to guardrail/signal metric IDs are synced onto the linked
-        SafeRollout immediately so the next snapshot evaluates the updated set.
+        `datasourceId` and `exposureQueryId` are locked once monitoring starts —
+        stop and recreate the schedule to change the data source.
+
+
+        Changes to guardrail or signal metric IDs take effect on the next
+        analysis run.
       tags:
         - ramp-schedules
       parameters:
@@ -19402,8 +19403,8 @@ paths:
             schema:
               description: >-
                 Full replacement of the monitoring configuration. `datasourceId`
-                and `exposureQueryId` cannot be changed while a SafeRollout is
-                active.
+                and `exposureQueryId` cannot be changed while a monitoring
+                experiment is active — stop the schedule first.
               type: object
               properties:
                 datasourceId:
@@ -19774,10 +19775,10 @@ paths:
       operationId: updateRampScheduleLockdown
       summary: Update ramp lockdown configuration
       description: >
-        Sets the lockdown mode for a ramp schedule. `locked` prevents the ramp
-        from advancing past its current step without manual operator
-        intervention regardless of metric health. `none` restores normal
-        auto-advance behavior.
+        Sets the lockdown mode. `locked` prevents the schedule from
+        auto-advancing past the current step regardless of metric health —
+        useful when you need manual control during an incident. `none` restores
+        normal auto-advance behavior.
       tags:
         - ramp-schedules
       parameters:
@@ -20126,17 +20127,26 @@ paths:
         Replaces the steps array for a ramp schedule.
 
 
-        **Running schedules:** past steps are frozen; the current step accepts
-        only `holdConditions` and `approvalNotes`; future steps are fully
-        editable. The `applied` object in the response details exactly what was
-        applied vs restricted.
+        **Running schedules apply partial updates per step position:**
+
+        - **Past steps** (already executed): ignored — incoming changes are
+        dropped.
+
+        - **Current step** (executing now): only `holdConditions` and
+        `approvalNotes` are applied; `interval` and `monitored` are preserved.
+
+        - **Future steps**: fully replaced.
 
 
-        **Step actions** (coverage/targeting patches) are excluded from this
-        endpoint — they require a feature revision publish to keep the SDK
-        payload consistent. Use the revision draft flow (`PUT
-        /v2/features/:id/revisions/:version/rules/:ruleId/ramp-schedule`) to
-        change step actions.
+        The `applied` object in the response reports exactly which indices were
+        fully applied, partially applied, or skipped.
+
+
+        **Step actions** (coverage/targeting patches) are not accepted here —
+        they change the SDK payload and must go through a feature revision
+        draft. Use `PUT
+        /v2/features/:id/revisions/:version/rules/:ruleId/ramp-schedule` to
+        modify step actions.
       tags:
         - ramp-schedules
       parameters:
@@ -20175,9 +20185,9 @@ paths:
                           - type: 'null'
                       monitored:
                         description: >-
-                          When true this step is backed by a SafeRollout
-                          experiment. Only applies to future steps — cannot be
-                          changed on the current running step.
+                          When true, this step runs A/B traffic analysis while
+                          active. Applies only to future steps — cannot be
+                          changed on the currently executing step.
                         type: boolean
                       holdConditions:
                         description: >-
@@ -26661,12 +26671,12 @@ paths:
                           - type: 'null'
                       monitored:
                         description: >-
-                          When true, the step is backed by a safe rollout
-                          experiment. Coverage represents total experiment
-                          enrollment; variation-1 exposure is coverage/2. The
-                          SDK uses hash-based filters on the experiment rule to
-                          prevent bucketing shifts across monitored/unmonitored
-                          transitions.
+                          When true, this step runs A/B traffic analysis while
+                          active. Enrolled users are split 50/50 between control
+                          and variation, so a coverage of 1.0 means 50% of users
+                          see the variation. The SDK uses hash-based filters on
+                          the experiment rule to prevent bucketing shifts across
+                          monitored/unmonitored transitions.
                         type: boolean
                       holdConditions:
                         type: object
@@ -26943,12 +26953,12 @@ paths:
                           - type: 'null'
                       monitored:
                         description: >-
-                          When true, the step is backed by a safe rollout
-                          experiment. Coverage represents total experiment
-                          enrollment; variation-1 exposure is coverage/2. The
-                          SDK uses hash-based filters on the experiment rule to
-                          prevent bucketing shifts across monitored/unmonitored
-                          transitions.
+                          When true, this step runs A/B traffic analysis while
+                          active. Enrolled users are split 50/50 between control
+                          and variation, so a coverage of 1.0 means 50% of users
+                          see the variation. The SDK uses hash-based filters on
+                          the experiment rule to prevent bucketing shifts across
+                          monitored/unmonitored transitions.
                         type: boolean
                       holdConditions:
                         type: object
@@ -27445,15 +27455,12 @@ paths:
                           - type: 'null'
                       monitored:
                         description: >-
-                          When true, the step is backed by a safe rollout
-                          experiment. Coverage represents total experiment
-                          enrollment; the experiment splits enrolled users 50/50
-                          between control and variation, so variation-1 exposure
-                          is coverage/2. For example, coverage=1.0 enrolls 100%
-                          of users and 50% see variation 1. The SDK payload uses
-                          hash-based filters (not coverage) on the experiment
-                          rule to prevent bucketing shifts when transitioning
-                          between monitored and unmonitored steps.
+                          When true, this step runs A/B traffic analysis while
+                          active. Enrolled users are split 50/50 between control
+                          and variation, so a coverage of 1.0 means 50% of users
+                          see the variation. The SDK uses hash-based filters on
+                          the experiment rule to prevent bucketing shifts when
+                          transitioning between monitored and unmonitored steps.
                         default: false
                         type: boolean
                       holdConditions:
@@ -34250,11 +34257,11 @@ components:
                   - type: 'null'
               monitored:
                 description: >-
-                  When true, the step is backed by a safe rollout experiment.
-                  Coverage represents total experiment enrollment; variation-1
-                  exposure is coverage/2. The SDK uses hash-based filters on the
-                  experiment rule to prevent bucketing shifts across
-                  monitored/unmonitored transitions.
+                  When true, this step runs A/B traffic analysis while active.
+                  Enrolled users are split 50/50 between control and variation,
+                  so a coverage of 1.0 means 50% of users see the variation. The
+                  SDK uses hash-based filters on the experiment rule to prevent
+                  bucketing shifts across monitored/unmonitored transitions.
                 type: boolean
               holdConditions:
                 type: object
@@ -36706,11 +36713,11 @@ components:
                   - type: 'null'
               monitored:
                 description: >-
-                  When true, the step is backed by a safe rollout experiment.
-                  Coverage represents total experiment enrollment; variation-1
-                  exposure is coverage/2. The SDK uses hash-based filters on the
-                  experiment rule to prevent bucketing shifts across
-                  monitored/unmonitored transitions.
+                  When true, this step runs A/B traffic analysis while active.
+                  Enrolled users are split 50/50 between control and variation,
+                  so a coverage of 1.0 means 50% of users see the variation. The
+                  SDK uses hash-based filters on the experiment rule to prevent
+                  bucketing shifts across monitored/unmonitored transitions.
                 type: boolean
               holdConditions:
                 type: object
@@ -38945,6 +38952,7 @@ components:
             - type: string
             - type: 'null'
         safeRolloutId:
+          description: Internal ID of the linked monitoring experiment.
           anyOf:
             - type: string
             - type: 'null'
@@ -38957,7 +38965,7 @@ components:
       additionalProperties: false
     healthSummary:
       description: >-
-        Populated when monitoring is configured and a SafeRollout is linked.
+        Populated when monitoring is enabled and analysis data is available.
         Contains the current evaluator decision, aggregate traffic health, and
         per-metric status with effect sizes.
       type: object
@@ -38973,8 +38981,7 @@ components:
           description: >-
             Current evaluator decision for the active step. Incorporates all
             hold conditions (timing, approval, min sample, metric health).
-            `no-data` means the SafeRollout or its analysis is not yet
-            available.
+            `no-data` means monitoring data is not yet available.
           type: string
           enum:
             - advance
@@ -39283,11 +39290,11 @@ components:
             - type: 'null'
         monitored:
           description: >-
-            When true, the step is backed by a safe rollout experiment. Coverage
-            represents total experiment enrollment; variation-1 exposure is
-            coverage/2. The SDK uses hash-based filters on the experiment rule
-            to prevent bucketing shifts across monitored/unmonitored
-            transitions.
+            When true, this step runs A/B traffic analysis while active.
+            Enrolled users are split 50/50 between control and variation, so a
+            coverage of 1.0 means 50% of users see the variation. The SDK uses
+            hash-based filters on the experiment rule to prevent bucketing
+            shifts across monitored/unmonitored transitions.
           type: boolean
         holdConditions:
           type: object

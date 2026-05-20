@@ -297,7 +297,7 @@ const apiRampStepCommon = {
     .boolean()
     .optional()
     .describe(
-      "When true, the step is backed by a safe rollout experiment. Coverage represents total experiment enrollment; variation-1 exposure is coverage/2. The SDK uses hash-based filters on the experiment rule to prevent bucketing shifts across monitored/unmonitored transitions.",
+      "When true, this step runs A/B traffic analysis while active. Enrolled users are split 50/50 between control and variation, so a coverage of 1.0 means 50% of users see the variation. The SDK uses hash-based filters on the experiment rule to prevent bucketing shifts across monitored/unmonitored transitions.",
     ),
   holdConditions: stepHoldConditions.optional(),
 };

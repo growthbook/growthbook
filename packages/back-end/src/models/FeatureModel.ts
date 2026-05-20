@@ -53,10 +53,12 @@ import {
   appendRampEvent,
   assertFeatureNotLockedByRamp,
   computeNextProcessAt,
+  ensureSafeRolloutForMonitoredRamp,
   getStartActionsFromRules,
   mergeStepsForRunningSchedule,
   remapTemplateActions,
   startReadyScheduleNow,
+  syncLinkedSafeRolloutForRampState,
 } from "back-end/src/services/rampSchedule";
 import {
   applyNonRuleFeatureUpgrades,
@@ -1750,6 +1752,10 @@ async function createRampSchedulesForRevision(
           : undefined;
 
     const explicitSteps = Array.isArray(action.steps) ? action.steps : [];
+    // Whether the caller explicitly provided steps (even as an empty array to
+    // clear all steps on a simple-schedule). When false on an update action,
+    // fall back to the existing schedule's steps to avoid wiping them.
+    const stepsExplicit = explicitSteps.length > 0 || !!template;
     const steps: RampScheduleInterface["steps"] =
       explicitSteps.length > 0
         ? explicitSteps.map((step) => ({
@@ -1773,7 +1779,12 @@ async function createRampSchedulesForRevision(
               monitored: !!s.monitored,
               holdConditions: s.holdConditions ?? undefined,
             }))
-          : [];
+          : action.mode === "update"
+            ? // No explicit steps and no template: preserve the existing
+              // schedule's steps so a caller who only wants to change name /
+              // startDate / cutoffDate doesn't accidentally wipe them.
+              (existingSchedule?.steps ?? [])
+            : [];
 
     // null = explicitly cleared (skip template); undefined = not set (fall back to template).
     const endActions: RampStepAction[] =
@@ -1895,7 +1906,10 @@ async function createRampSchedulesForRevision(
       ...(updateAction.startActions !== undefined
         ? { startActions: startActions.length > 0 ? startActions : undefined }
         : {}),
-      steps,
+      // Only include steps when the caller explicitly provided them (non-empty
+      // steps array or a template). When absent, existing steps are preserved
+      // via the `existingSchedule.steps` fallback in the `steps` variable above.
+      ...(stepsExplicit ? { steps } : {}),
       ...(updateAction.endActions !== undefined
         ? { endActions: endActions.length > 0 ? endActions : undefined }
         : {}),
@@ -1924,7 +1938,7 @@ async function createRampSchedulesForRevision(
     // Audit event: record which fields changed via the draft/publish path,
     // mirroring what the direct-edit controller already does.
     const editedFields = Object.keys(contentUpdates).filter(
-      (k) => k !== "eventHistory",
+      (k) => !["eventHistory", "currentStepIndex", "nextStepAt"].includes(k),
     );
     if (updateAction.startDate !== undefined) editedFields.push("startDate");
     const auditEvent =
@@ -1963,11 +1977,14 @@ async function createRampSchedulesForRevision(
     // are fully applied — keeping publish from failing while avoiding
     // mid-run structural desyncs.
     if (existingSchedule?.status === "running") {
-      const { steps: mergedSteps } = mergeStepsForRunningSchedule(
-        existingSchedule,
-        steps,
-      );
-      const safeUpdates: Record<string, unknown> = { steps: mergedSteps };
+      const safeUpdates: Record<string, unknown> = {};
+      if (stepsExplicit) {
+        const { steps: mergedSteps } = mergeStepsForRunningSchedule(
+          existingSchedule,
+          steps,
+        );
+        safeUpdates.steps = mergedSteps;
+      }
       if (updateAction.name !== undefined) safeUpdates.name = updateAction.name;
       if (updateAction.cutoffDate !== undefined)
         safeUpdates.cutoffDate = nextCutoffDate;
@@ -1975,7 +1992,7 @@ async function createRampSchedulesForRevision(
         safeUpdates.monitoringConfig = nextMonitoringConfig;
       if (updateAction.lockdownConfig !== undefined)
         safeUpdates.lockdownConfig = updateAction.lockdownConfig;
-      await context.models.rampSchedules.updateById(
+      const updatedRunning = await context.models.rampSchedules.updateById(
         updateAction.rampScheduleId,
         {
           ...safeUpdates,
@@ -1988,6 +2005,14 @@ async function createRampSchedulesForRevision(
           }),
         },
       );
+      // Sync SafeRollout state in case monitored-step membership changed.
+      if (safeUpdates.steps) {
+        const ensured = await ensureSafeRolloutForMonitoredRamp(
+          context,
+          updatedRunning,
+        );
+        await syncLinkedSafeRolloutForRampState(context, ensured);
+      }
       continue;
     }
 
