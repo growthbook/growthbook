@@ -1,18 +1,23 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { EventForwarderStatusResponse } from "shared/validators";
 import { useAuth } from "@/services/auth";
 
 const POLL_INTERVAL_MS = 5000;
 const POLL_TIMEOUT_MS = 10 * 60 * 1000;
 
-type LogLine = { id: string; text: string };
+export const PROVISIONING_TIMEOUT_MESSAGE =
+  "Provisioning timed out. Try editing the Event Forwarder to retry.";
 
-function appendLogLine(lines: LogLine[], text: string): LogLine[] {
-  const trimmed = text.trim();
-  if (!trimmed) return lines;
-  const last = lines[lines.length - 1];
-  if (last?.text === trimmed) return lines;
-  return [...lines, { id: `${Date.now()}-${lines.length}`, text: trimmed }];
+type StatusPollResult = {
+  status: number;
+  phase: EventForwarderStatusResponse["phase"];
+  message?: EventForwarderStatusResponse["message"];
+  confluentState?: EventForwarderStatusResponse["confluentState"];
+  taskErrors?: EventForwarderStatusResponse["taskErrors"];
+};
+
+function isTerminalErrorStatus(status: string | undefined): boolean {
+  return status === "error" || status === "schema_update_error";
 }
 
 export function useEventForwarderProvisioningPoll({
@@ -25,10 +30,22 @@ export function useEventForwarderProvisioningPoll({
   onRefresh: () => Promise<void>;
 }) {
   const { apiCall } = useAuth();
-  const [errorLogLines, setErrorLogLines] = useState<LogLine[]>([]);
   const [pollTimedOut, setPollTimedOut] = useState(false);
+  const [taskErrors, setTaskErrors] =
+    useState<EventForwarderStatusResponse["taskErrors"]>();
+  const refreshedTerminalErrorRef = useRef<string | null>(null);
   const isPending = status === "pending";
-  const isError = status === "error" || pollTimedOut;
+  const isError = isTerminalErrorStatus(status) || pollTimedOut;
+
+  const fetchConnectorStatus = useCallback(async () => {
+    const result = await apiCall<StatusPollResult>(
+      `/datasource/${datasourceId}/event-forwarder/status`,
+    );
+    if (result.taskErrors?.length) {
+      setTaskErrors(result.taskErrors);
+    }
+    await onRefresh();
+  }, [apiCall, datasourceId, onRefresh]);
 
   useEffect(() => {
     if (!isPending) {
@@ -40,19 +57,9 @@ export function useEventForwarderProvisioningPoll({
 
     const poll = async () => {
       try {
-        const result = await apiCall<{
-          status: number;
-          phase: EventForwarderStatusResponse["phase"];
-          message?: string;
-        }>(`/datasource/${datasourceId}/event-forwarder/status`);
-        if (result.phase === "error" && result.message) {
-          setErrorLogLines((lines) => appendLogLine(lines, result.message!));
-        }
-        await onRefresh();
-      } catch (e) {
-        const message =
-          e instanceof Error ? e.message : "Failed to check connector status";
-        setErrorLogLines((lines) => appendLogLine(lines, message));
+        await fetchConnectorStatus();
+      } catch {
+        // Keep polling; terminal errors surface via persisted status.
       }
     };
 
@@ -60,12 +67,6 @@ export function useEventForwarderProvisioningPoll({
     const intervalId = window.setInterval(() => {
       if (Date.now() - startTime > POLL_TIMEOUT_MS) {
         setPollTimedOut(true);
-        setErrorLogLines((lines) =>
-          appendLogLine(
-            lines,
-            "Provisioning timed out. Try editing the Event Forwarder to retry.",
-          ),
-        );
         window.clearInterval(intervalId);
         return;
       }
@@ -75,19 +76,36 @@ export function useEventForwarderProvisioningPoll({
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [apiCall, datasourceId, isPending, onRefresh]);
+  }, [fetchConnectorStatus, isPending]);
+
+  useEffect(() => {
+    if (!isTerminalErrorStatus(status)) {
+      return;
+    }
+
+    const refreshKey = `${datasourceId}:${status}`;
+    if (refreshedTerminalErrorRef.current === refreshKey) {
+      return;
+    }
+    refreshedTerminalErrorRef.current = refreshKey;
+
+    void fetchConnectorStatus().catch(() => {
+      // Persisted status remains the source of truth for display.
+    });
+  }, [datasourceId, fetchConnectorStatus, status]);
 
   useEffect(() => {
     if (status === "pending") {
-      setErrorLogLines([]);
       setPollTimedOut(false);
+      setTaskErrors(undefined);
+      refreshedTerminalErrorRef.current = null;
     }
   }, [status]);
 
   return {
     isProvisioning: isPending && !pollTimedOut,
     isError,
-    errorLogLines,
     pollTimedOut,
+    taskErrors,
   };
 }

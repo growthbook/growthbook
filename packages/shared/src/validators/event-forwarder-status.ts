@@ -7,6 +7,12 @@ export const eventForwarderConnectorPhaseSchema = z.enum([
   "paused",
 ]);
 
+export const eventForwarderConnectorTaskErrorSchema = z.object({
+  id: z.number(),
+  state: z.string(),
+  trace: z.string().optional(),
+});
+
 export const eventForwarderStatusResponseSchema = z.object({
   status: z.enum([
     "pending",
@@ -18,6 +24,7 @@ export const eventForwarderStatusResponseSchema = z.object({
   phase: eventForwarderConnectorPhaseSchema,
   message: z.string().optional(),
   confluentState: z.string().optional(),
+  taskErrors: z.array(eventForwarderConnectorTaskErrorSchema).optional(),
 });
 
 export type EventForwarderStatusResponse = z.infer<

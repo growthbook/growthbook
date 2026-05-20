@@ -13,6 +13,7 @@ import {
   EventForwarderConfigDraft,
   EventForwarderStatus,
 } from "shared/types/event-forwarder";
+import { EventForwarderStatusResponse } from "shared/validators";
 import {
   DataSourceInterfaceWithParams,
   DataSourceParams,
@@ -34,8 +35,10 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "@/ui/Modal";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import EventForwarderErrorLog from "@/components/Settings/EditDataSource/EventForwarder/EventForwarderErrorLog";
-import { useEventForwarderProvisioningPoll } from "@/components/Settings/EditDataSource/EventForwarder/useEventForwarderProvisioningPoll";
+import {
+  PROVISIONING_TIMEOUT_MESSAGE,
+  useEventForwarderProvisioningPoll,
+} from "@/components/Settings/EditDataSource/EventForwarder/useEventForwarderProvisioningPoll";
 
 type Props = {
   dataSource: DataSourceInterfaceWithParams;
@@ -73,6 +76,40 @@ const statusColors: Record<
 
 const EVENT_FORWARDER_MODAL_FAILURE_MESSAGE =
   "Something went wrong. Update your settings and try again.";
+
+function getTaskErrorMessage(
+  taskErrors: EventForwarderStatusResponse["taskErrors"],
+): string | undefined {
+  if (!taskErrors?.length) return undefined;
+
+  const traces = [
+    ...new Set(
+      taskErrors
+        .map((task) => task.trace?.trim())
+        .filter((trace): trace is string => Boolean(trace)),
+    ),
+  ];
+  return traces.length > 0 ? traces.join("\n") : undefined;
+}
+
+function getPrimaryConnectorErrorMessage({
+  actionError,
+  lastProvisioningError,
+  pollTimedOut,
+  taskErrors,
+}: {
+  actionError?: string | null;
+  lastProvisioningError: string | undefined;
+  pollTimedOut: boolean;
+  taskErrors: EventForwarderStatusResponse["taskErrors"];
+}): string | undefined {
+  if (actionError?.trim()) return actionError.trim();
+  const taskErrorMessage = getTaskErrorMessage(taskErrors);
+  if (taskErrorMessage) return taskErrorMessage;
+  if (lastProvisioningError?.trim()) return lastProvisioningError.trim();
+  if (pollTimedOut) return PROVISIONING_TIMEOUT_MESSAGE;
+  return undefined;
+}
 
 function getEventForwarderDraft(
   dataSource: DataSourceInterfaceWithParams,
@@ -201,12 +238,10 @@ function EventForwarderConfirmButton({
   canConfirmEventForwarder,
   usEventForwarderFlowConsent,
   datasourceDraft,
-  isEditingEventForwarder,
 }: {
   canConfirmEventForwarder: boolean;
   usEventForwarderFlowConsent: boolean;
   datasourceDraft: EventForwarderDatasourceDraft;
-  isEditingEventForwarder: boolean;
 }) {
   const { loading } = useModalForm();
   const ctaEnabled = canConfirmEventForwarder && usEventForwarderFlowConsent;
@@ -225,7 +260,7 @@ function EventForwarderConfirmButton({
       tipPosition="top"
     >
       <Button type="submit" disabled={!ctaEnabled} loading={loading}>
-        {isEditingEventForwarder ? "Confirm & Edit" : "Confirm"}
+        Confirm & Save
       </Button>
     </Tooltip>
   );
@@ -354,7 +389,6 @@ function EventForwarderModal({
             canConfirmEventForwarder={canConfirmEventForwarder}
             usEventForwarderFlowConsent={usEventForwarderFlowConsent}
             datasourceDraft={datasourceDraft}
-            isEditingEventForwarder={isEditingEventForwarder}
           />
         </Modal.Footer>
       </ModalForm>
@@ -376,7 +410,7 @@ export default function EventForwarder({
     await onRefresh();
   }, [onRefresh]);
 
-  const { isProvisioning, isError, errorLogLines, pollTimedOut } =
+  const { isProvisioning, isError, pollTimedOut, taskErrors } =
     useEventForwarderProvisioningPoll({
       datasourceId: dataSource.id,
       status: eventForwarderConfig?.status,
@@ -393,11 +427,19 @@ export default function EventForwarder({
       : "";
   const isReady = eventForwarderConfig?.status === "ready";
   const isPaused = eventForwarderConfig?.status === "paused";
+  const primaryConnectorErrorMessage = getPrimaryConnectorErrorMessage({
+    actionError: error,
+    lastProvisioningError: eventForwarderConfig?.lastProvisioningError,
+    pollTimedOut,
+    taskErrors,
+  });
   const showProvisioningError =
-    isError &&
-    (eventForwarderConfig?.status === "error" ||
-      pollTimedOut ||
-      !!eventForwarderConfig?.lastProvisioningError);
+    !!error ||
+    (isError &&
+      (eventForwarderConfig?.status === "error" ||
+        eventForwarderConfig?.status === "schema_update_error" ||
+        pollTimedOut ||
+        !!primaryConnectorErrorMessage));
   const canToggle = canEdit && (isReady || isPaused);
   const action = isReady ? "pause" : "resume";
 
@@ -516,21 +558,11 @@ export default function EventForwarder({
               </Text>
             ) : null}
 
-            {showProvisioningError &&
-            (eventForwarderConfig.lastProvisioningError || pollTimedOut) ? (
+            {showProvisioningError && primaryConnectorErrorMessage ? (
               <Callout status="error" mb="0">
-                {pollTimedOut && !eventForwarderConfig.lastProvisioningError
-                  ? "Provisioning timed out. Try editing the Event Forwarder to retry."
-                  : eventForwarderConfig.lastProvisioningError}
-              </Callout>
-            ) : null}
-
-            {showProvisioningError ? (
-              <EventForwarderErrorLog lines={errorLogLines} />
-            ) : null}
-            {error ? (
-              <Callout status="error" mb="0">
-                {error}
+                <Box style={{ whiteSpace: "pre-wrap" }}>
+                  {primaryConnectorErrorMessage}
+                </Box>
               </Callout>
             ) : null}
           </Flex>

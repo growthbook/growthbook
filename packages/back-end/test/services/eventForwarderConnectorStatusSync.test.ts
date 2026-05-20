@@ -24,15 +24,23 @@ describe("mapLicenseConnectorPhaseToEventForwarderStatus", () => {
 });
 
 describe("buildEventForwarderStatusResponse", () => {
-  it("includes message and confluent state from license server", () => {
+  it("includes message, confluent state, and task errors from license server", () => {
     const response = buildEventForwarderStatusResponse({
       confluentState: "FAILED",
       phase: "error",
       message: "Task failed",
+      taskErrors: [
+        {
+          id: 0,
+          state: "USER_ACTIONABLE_ERROR",
+          trace: "snowflake.url.name: Cannot connect",
+        },
+      ],
     });
     expect(response.status).toBe("error");
     expect(response.phase).toBe("error");
     expect(response.message).toBe("Task failed");
     expect(response.confluentState).toBe("FAILED");
+    expect(response.taskErrors).toHaveLength(1);
   });
 });

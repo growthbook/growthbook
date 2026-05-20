@@ -38,6 +38,7 @@ export function buildEventForwarderStatusResponse(
     phase: connectorStatus.phase as EventForwarderConnectorPhase,
     message: connectorStatus.message,
     confluentState: connectorStatus.confluentState,
+    taskErrors: connectorStatus.taskErrors,
   };
 }
 
