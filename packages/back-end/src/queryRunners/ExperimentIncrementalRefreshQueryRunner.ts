@@ -47,7 +47,7 @@ import {
   getExperimentSettingsHashForIncrementalRefresh,
   getMetricSettingsHashForIncrementalRefresh,
   validateIncrementalPipeline,
-} from "back-end/src/enterprise/services/dataPipeline";
+} from "back-end/src/enterprise/services/data-pipeline";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import { chunkMetrics } from "back-end/src/services/experimentQueries/experimentQueries";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";

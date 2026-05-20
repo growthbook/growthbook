@@ -179,7 +179,7 @@ import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
-import { validateIncrementalPipeline } from "back-end/src/enterprise/services/dataPipeline";
+import { validateIncrementalPipeline } from "back-end/src/enterprise/services/data-pipeline";
 import { getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
