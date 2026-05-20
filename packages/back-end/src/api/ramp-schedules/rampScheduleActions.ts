@@ -837,7 +837,10 @@ export const getRampScheduleStatus = createApiRequestHandler({
         const inGrace =
           !!monitoringStart &&
           Date.now() - new Date(monitoringStart).getTime() <
-            24 * 60 * 60 * 1000;
+            (schedule.monitoringConfig?.noTrafficGracePeriodHours ?? 24) *
+              60 *
+              60 *
+              1000;
         signals.push(inGrace ? "awaiting-data" : "no-traffic");
       } else {
         if (trafficBlock?.srm?.status === "failing") signals.push("srm");

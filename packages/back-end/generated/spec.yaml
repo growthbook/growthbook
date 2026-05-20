@@ -3769,6 +3769,13 @@ paths:
                             - rollback
                             - hold
                             - warn
+                        noTrafficGracePeriodHours:
+                          description: >-
+                            How long to wait for traffic before applying
+                            `noTrafficAction`. Defaults to 24 hours when not
+                            set.
+                          type: number
+                          exclusiveMinimum: 0
                         multipleExposureAction:
                           type: string
                           enum:
@@ -4339,6 +4346,13 @@ paths:
                             - rollback
                             - hold
                             - warn
+                        noTrafficGracePeriodHours:
+                          description: >-
+                            How long to wait for traffic before applying
+                            `noTrafficAction`. Defaults to 24 hours when not
+                            set.
+                          type: number
+                          exclusiveMinimum: 0
                         multipleExposureAction:
                           type: string
                           enum:
@@ -4938,6 +4952,12 @@ paths:
                         - rollback
                         - hold
                         - warn
+                    noTrafficGracePeriodHours:
+                      description: >-
+                        How long to wait for traffic before applying
+                        `noTrafficAction`. Defaults to 24 hours when not set.
+                      type: number
+                      exclusiveMinimum: 0
                     multipleExposureAction:
                       type: string
                       enum:
@@ -8177,6 +8197,13 @@ paths:
                             - rollback
                             - hold
                             - warn
+                        noTrafficGracePeriodHours:
+                          description: >-
+                            How long to wait for traffic before applying
+                            `noTrafficAction`. Defaults to 24 hours when not
+                            set.
+                          type: number
+                          exclusiveMinimum: 0
                         multipleExposureAction:
                           type: string
                           enum:
@@ -8743,6 +8770,13 @@ paths:
                             - rollback
                             - hold
                             - warn
+                        noTrafficGracePeriodHours:
+                          description: >-
+                            How long to wait for traffic before applying
+                            `noTrafficAction`. Defaults to 24 hours when not
+                            set.
+                          type: number
+                          exclusiveMinimum: 0
                         multipleExposureAction:
                           type: string
                           enum:
@@ -9314,6 +9348,12 @@ paths:
                         - rollback
                         - hold
                         - warn
+                    noTrafficGracePeriodHours:
+                      description: >-
+                        How long to wait for traffic before applying
+                        `noTrafficAction`. Defaults to 24 hours when not set.
+                      type: number
+                      exclusiveMinimum: 0
                     multipleExposureAction:
                       type: string
                       enum:
@@ -18038,6 +18078,13 @@ paths:
                             - rollback
                             - hold
                             - warn
+                        noTrafficGracePeriodHours:
+                          description: >-
+                            How long to wait for traffic before applying
+                            `noTrafficAction`. Defaults to 24 hours when not
+                            set.
+                          type: number
+                          exclusiveMinimum: 0
                         multipleExposureAction:
                           type: string
                           enum:
@@ -18885,6 +18932,13 @@ paths:
                               - rollback
                               - hold
                               - warn
+                          noTrafficGracePeriodHours:
+                            description: >-
+                              How long to wait for traffic before applying
+                              `noTrafficAction`. Defaults to 24 hours when not
+                              set.
+                            type: number
+                            exclusiveMinimum: 0
                           multipleExposureAction:
                             type: string
                             enum:
@@ -19233,6 +19287,13 @@ paths:
                               - rollback
                               - hold
                               - warn
+                          noTrafficGracePeriodHours:
+                            description: >-
+                              How long to wait for traffic before applying
+                              `noTrafficAction`. Defaults to 24 hours when not
+                              set.
+                            type: number
+                            exclusiveMinimum: 0
                           multipleExposureAction:
                             type: string
                             enum:
@@ -19443,6 +19504,12 @@ paths:
                     - rollback
                     - hold
                     - warn
+                noTrafficGracePeriodHours:
+                  description: >-
+                    How long to wait for traffic before applying
+                    `noTrafficAction`. Defaults to 24 hours when not set.
+                  type: number
+                  exclusiveMinimum: 0
                 multipleExposureAction:
                   type: string
                   enum:
@@ -19633,6 +19700,13 @@ paths:
                               - rollback
                               - hold
                               - warn
+                          noTrafficGracePeriodHours:
+                            description: >-
+                              How long to wait for traffic before applying
+                              `noTrafficAction`. Defaults to 24 hours when not
+                              set.
+                            type: number
+                            exclusiveMinimum: 0
                           multipleExposureAction:
                             type: string
                             enum:
@@ -19982,6 +20056,13 @@ paths:
                               - rollback
                               - hold
                               - warn
+                          noTrafficGracePeriodHours:
+                            description: >-
+                              How long to wait for traffic before applying
+                              `noTrafficAction`. Defaults to 24 hours when not
+                              set.
+                            type: number
+                            exclusiveMinimum: 0
                           multipleExposureAction:
                             type: string
                             enum:
@@ -26876,6 +26957,13 @@ paths:
                             - rollback
                             - hold
                             - warn
+                        noTrafficGracePeriodHours:
+                          description: >-
+                            How long to wait for traffic before applying
+                            `noTrafficAction`. Defaults to 24 hours when not
+                            set.
+                          type: number
+                          exclusiveMinimum: 0
                         multipleExposureAction:
                           type: string
                           enum:
@@ -27158,6 +27246,13 @@ paths:
                             - rollback
                             - hold
                             - warn
+                        noTrafficGracePeriodHours:
+                          description: >-
+                            How long to wait for traffic before applying
+                            `noTrafficAction`. Defaults to 24 hours when not
+                            set.
+                          type: number
+                          exclusiveMinimum: 0
                         multipleExposureAction:
                           type: string
                           enum:
@@ -27714,6 +27809,13 @@ paths:
                             - rollback
                             - hold
                             - warn
+                        noTrafficGracePeriodHours:
+                          description: >-
+                            How long to wait for traffic before applying
+                            `noTrafficAction`. Defaults to 24 hours when not
+                            set.
+                          type: number
+                          exclusiveMinimum: 0
                         multipleExposureAction:
                           type: string
                           enum:
@@ -29403,6 +29505,12 @@ components:
                           - rollback
                           - hold
                           - warn
+                      noTrafficGracePeriodHours:
+                        description: >-
+                          How long to wait for traffic before applying
+                          `noTrafficAction`. Defaults to 24 hours when not set.
+                        type: number
+                        exclusiveMinimum: 0
                       multipleExposureAction:
                         type: string
                         enum:
@@ -29794,6 +29902,12 @@ components:
                           - rollback
                           - hold
                           - warn
+                      noTrafficGracePeriodHours:
+                        description: >-
+                          How long to wait for traffic before applying
+                          `noTrafficAction`. Defaults to 24 hours when not set.
+                        type: number
+                        exclusiveMinimum: 0
                       multipleExposureAction:
                         type: string
                         enum:
@@ -30523,6 +30637,12 @@ components:
                           - rollback
                           - hold
                           - warn
+                      noTrafficGracePeriodHours:
+                        description: >-
+                          How long to wait for traffic before applying
+                          `noTrafficAction`. Defaults to 24 hours when not set.
+                        type: number
+                        exclusiveMinimum: 0
                       multipleExposureAction:
                         type: string
                         enum:
@@ -30914,6 +31034,12 @@ components:
                           - rollback
                           - hold
                           - warn
+                      noTrafficGracePeriodHours:
+                        description: >-
+                          How long to wait for traffic before applying
+                          `noTrafficAction`. Defaults to 24 hours when not set.
+                        type: number
+                        exclusiveMinimum: 0
                       multipleExposureAction:
                         type: string
                         enum:
@@ -34601,6 +34727,12 @@ components:
                     - rollback
                     - hold
                     - warn
+                noTrafficGracePeriodHours:
+                  description: >-
+                    How long to wait for traffic before applying
+                    `noTrafficAction`. Defaults to 24 hours when not set.
+                  type: number
+                  exclusiveMinimum: 0
                 multipleExposureAction:
                   type: string
                   enum:
@@ -36915,6 +37047,12 @@ components:
                     - rollback
                     - hold
                     - warn
+                noTrafficGracePeriodHours:
+                  description: >-
+                    How long to wait for traffic before applying
+                    `noTrafficAction`. Defaults to 24 hours when not set.
+                  type: number
+                  exclusiveMinimum: 0
                 multipleExposureAction:
                   type: string
                   enum:

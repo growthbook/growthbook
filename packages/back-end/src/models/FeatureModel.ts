@@ -2380,6 +2380,8 @@ export async function createAndPublishRevision({
     revision,
     result: mergeResult.result,
     comment,
+    // See postFeatureRevisionPublish.ts for the bypassLockdown policy rationale:
+    // approval-bypass permission intentionally doubles as ramp-lockdown bypass.
     bypassLockdown: canBypassApprovalChecks,
   });
 

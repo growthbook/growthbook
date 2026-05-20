@@ -55,6 +55,13 @@ export const rampMonitoringConfig = z.object({
   autoUpdate: z.boolean().optional(),
   srmAction: experimentHealthAction.optional(),
   noTrafficAction: experimentHealthAction.optional(),
+  noTrafficGracePeriodHours: z
+    .number()
+    .positive()
+    .optional()
+    .describe(
+      "How long to wait for traffic before applying `noTrafficAction`. Defaults to 24 hours when not set.",
+    ),
   multipleExposureAction: experimentHealthAction.optional(),
 });
 export type RampMonitoringConfig = z.infer<typeof rampMonitoringConfig>;

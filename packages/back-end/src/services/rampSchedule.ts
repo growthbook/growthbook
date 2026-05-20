@@ -150,6 +150,14 @@ export async function syncLinkedSafeRolloutForRampState(
     updates.nextSnapshotAttempt = new Date();
   }
 
+  // Skip the write if nothing actually changed. The four-part guard covers the
+  // only fields we ever mutate here:
+  //   • status / autoSnapshots — always set; skip if already matching.
+  //   • startedAt — only set on the first running transition, so !startedAt
+  //     means "not the first transition" (subsequent calls are no-ops for this).
+  //   • nextSnapshotAttempt — only set when effective.enabled is true AND the
+  //     field is not yet populated. Once set, !nextSnapshotAttempt is false and
+  //     this branch correctly forces a write to reset the timestamp.
   if (
     sr.status === updates.status &&
     sr.autoSnapshots === updates.autoSnapshots &&
@@ -692,6 +700,13 @@ export async function ensureSafeRolloutForMonitoredRamp(
   const mc = schedule.monitoringConfig;
   if (!hasMonitoredSteps || !mc) return schedule;
 
+  // Both guardrail and signal metric IDs are stored together in the
+  // monitoring experiment's `guardrailMetricIds` field. This is intentional:
+  // the experiment's analysis pipeline surfaces per-metric results only for
+  // registered guardrail metrics. The evaluator then distinguishes between
+  // the two roles at decision time using the schedule's own guardrailMetricIds
+  // / signalMetricIds sets (see evaluateMonitoredStep). Storing signals as
+  // guardrails here is the required mechanism to get them into analysisSummary.
   const allMetricIds = [
     ...mc.guardrailMetricIds,
     ...(mc.signalMetricIds ?? []),
@@ -1905,8 +1920,10 @@ export async function updateRampMonitoringConfig(
     }),
   });
 
-  // Sync guardrail metric IDs onto the linked SafeRollout so the next
-  // snapshot run evaluates the updated set.
+  // Sync metric IDs onto the linked monitoring experiment so the next
+  // snapshot run evaluates the updated set. Signal metrics are intentionally
+  // stored alongside guardrail metrics here — see ensureSafeRolloutForMonitoredRamp
+  // for the reasoning.
   if (updated.safeRolloutId) {
     const sr = await ctx.models.safeRollout.getById(updated.safeRolloutId);
     if (sr) {
@@ -1990,6 +2007,14 @@ export function mergeStepsForRunningSchedule(
       // Preserve existing actions when caller omits them (avoids accidentally
       // clearing coverage patches that require a revision to change).
       if (!incoming) {
+        // incomingSteps is shorter than the existing array at this position.
+        // Trailing future steps that the caller did not provide are preserved
+        // rather than deleted. This is intentional: on a running schedule you
+        // cannot delete a future step by simply omitting it — you must
+        // explicitly replace it with a different step. If you want to remove a
+        // future step, send a steps array that includes a replacement for it.
+        // Callers can check `applied.skipped` in the response to see which
+        // indices were not touched.
         skippedIndices.push(idx);
         return existing;
       }

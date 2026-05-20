@@ -152,6 +152,7 @@ export interface RampMonitoringState {
   updateScheduleMinutes: number | null;
   srmAction?: "warn" | "hold" | "rollback";
   noTrafficAction?: "warn" | "hold" | "rollback";
+  noTrafficGracePeriodHours?: number;
   multipleExposureAction?: "warn" | "hold" | "rollback";
 }
 
@@ -445,6 +446,7 @@ export function buildMonitoringConfig(
       updateScheduleMinutes?: number | null;
       srmAction?: "warn" | "hold" | "rollback";
       noTrafficAction?: "warn" | "hold" | "rollback";
+      noTrafficGracePeriodHours?: number;
       multipleExposureAction?: "warn" | "hold" | "rollback";
     }
   | undefined {
@@ -468,6 +470,7 @@ export function buildMonitoringConfig(
     updateScheduleMinutes: monitoring.updateScheduleMinutes ?? undefined,
     srmAction: monitoring.srmAction,
     noTrafficAction: monitoring.noTrafficAction,
+    noTrafficGracePeriodHours: monitoring.noTrafficGracePeriodHours,
     multipleExposureAction: monitoring.multipleExposureAction,
   };
 }
@@ -683,6 +686,75 @@ function formatUserUnitLabel(userIdType?: string): string | null {
   return `${words} users`;
 }
 
+function NoTrafficGraceDialog({
+  initialValue,
+  onSave,
+  onCancel,
+}: {
+  initialValue?: number;
+  onSave: (value: number | undefined) => void;
+  onCancel: () => void;
+}) {
+  const [draft, setDraft] = useState(
+    initialValue != null ? String(initialValue) : "",
+  );
+
+  const save = () => {
+    const val = parseFloat(draft);
+    onSave(val && val > 0 ? val : undefined);
+  };
+
+  return (
+    <AlertDialog.Root open>
+      <AlertDialog.Content maxWidth="320px">
+        <Flex direction="column" gap="3">
+          <AlertDialog.Title>
+            <Text weight="medium" size="medium">
+              No-traffic grace period
+            </Text>
+          </AlertDialog.Title>
+          <AlertDialog.Description>
+            <Text as="span" size="small" color="text-mid">
+              How long to wait for traffic before applying the no-traffic
+              action. Leave empty to use the default (24 h).
+            </Text>
+          </AlertDialog.Description>
+          <Field
+            type="number"
+            min="0.1"
+            step="0.5"
+            placeholder="24"
+            autoFocus
+            append="h"
+            onFocus={(e) => e.target.select()}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                save();
+              }
+            }}
+            containerClassName="mb-0"
+          />
+          <Flex justify="end" gap="2">
+            <AlertDialog.Cancel>
+              <Button variant="ghost" size="sm" onClick={onCancel}>
+                Cancel
+              </Button>
+            </AlertDialog.Cancel>
+            <AlertDialog.Action>
+              <Button size="sm" onClick={save}>
+                Done
+              </Button>
+            </AlertDialog.Action>
+          </Flex>
+        </Flex>
+      </AlertDialog.Content>
+    </AlertDialog.Root>
+  );
+}
+
 function MinSampleDialog({
   initialValue,
   onSave,
@@ -791,6 +863,7 @@ export default function RampScheduleSection({
   const [minSamplePopoverIndex, setMinSamplePopoverIndex] = useState<
     number | null
   >(null);
+  const [noTrafficGraceOpen, setNoTrafficGraceOpen] = useState(false);
   const skipNextEnvSelectionUpdateRef = useRef(false);
 
   useEffect(() => {
@@ -1374,7 +1447,11 @@ export default function RampScheduleSection({
 
       const hasHoldConditions =
         step?.holdConditions?.minSampleSize != null ||
-        step?.holdConditions?.requiresApproval;
+        // requiresApproval is only a secondary "Then:" condition when there's
+        // also an interval — when triggerType === "approval" it IS the primary
+        // action and is already shown as the step label.
+        (step?.triggerType !== "approval" &&
+          step?.holdConditions?.requiresApproval);
 
       if (!rows.length && !hasHoldConditions) return null;
 
@@ -1387,18 +1464,19 @@ export default function RampScheduleSection({
                   Then:
                 </Text>
                 <Flex direction="column" gap="1" style={{ paddingLeft: 12 }}>
-                  {step?.holdConditions?.requiresApproval && (
-                    <Flex wrap="wrap" gap="2" align="baseline">
-                      <Text size="small" weight="medium">
-                        Hold for approval
-                      </Text>
-                      {step?.approvalNotes?.trim() && (
-                        <Text size="small" color="text-low">
-                          {step.approvalNotes.trim()}
+                  {step?.triggerType !== "approval" &&
+                    step?.holdConditions?.requiresApproval && (
+                      <Flex wrap="wrap" gap="2" align="baseline">
+                        <Text size="small" weight="medium">
+                          Hold for approval
                         </Text>
-                      )}
-                    </Flex>
-                  )}
+                        {step?.approvalNotes?.trim() && (
+                          <Text size="small" color="text-low">
+                            {step.approvalNotes.trim()}
+                          </Text>
+                        )}
+                      </Flex>
+                    )}
                   {step?.holdConditions?.minSampleSize != null && (
                     <Flex wrap="wrap" gap="2" align="baseline">
                       <Text size="small" weight="medium">
@@ -2221,7 +2299,6 @@ export default function RampScheduleSection({
                 </Flex>
 
                 {!isReadOnlyView &&
-                  step.triggerType === "interval" &&
                   (step.holdConditions?.requiresApproval ||
                     step.holdConditions?.minSampleSize != null) && (
                     <Flex
@@ -2236,77 +2313,78 @@ export default function RampScheduleSection({
                         Then:
                       </Text>
 
-                      {step.holdConditions?.requiresApproval && (
-                        <Flex
-                          align="center"
-                          gap="4"
-                          style={{ paddingLeft: 16, minHeight: 32 }}
-                        >
-                          <Flex align="center" gap="3" flexGrow="1">
-                            <Box style={{ flexShrink: 0 }}>
-                              <Text weight="medium">Hold for approval</Text>
-                            </Box>
-                            {!step.notesOpen ? (
-                              <Link
-                                size="1"
-                                color="gray"
-                                style={{ flexShrink: 0 }}
+                      {step.holdConditions?.requiresApproval &&
+                        step.triggerType !== "approval" && (
+                          <Flex
+                            align="center"
+                            gap="4"
+                            style={{ paddingLeft: 16, minHeight: 32 }}
+                          >
+                            <Flex align="center" gap="3" flexGrow="1">
+                              <Box style={{ flexShrink: 0 }}>
+                                <Text weight="medium">Hold for approval</Text>
+                              </Box>
+                              {!step.notesOpen ? (
+                                <Link
+                                  size="1"
+                                  color="gray"
+                                  style={{ flexShrink: 0 }}
+                                  onClick={() =>
+                                    updateStep(i, {
+                                      notesOpen: true,
+                                      approvalNotes: "",
+                                    })
+                                  }
+                                >
+                                  <PiPlusBold
+                                    style={{
+                                      marginRight: 3,
+                                      verticalAlign: "middle",
+                                    }}
+                                  />
+                                  Add notes
+                                </Link>
+                              ) : (
+                                <Box style={{ flex: 1, minWidth: 120 }}>
+                                  <Field
+                                    label=""
+                                    placeholder="ex: Check error rates"
+                                    value={step.approvalNotes}
+                                    onChange={(e) =>
+                                      updateStep(i, {
+                                        approvalNotes: e.target.value,
+                                      })
+                                    }
+                                    containerClassName="mb-0"
+                                    style={{ height: 32 }}
+                                  />
+                                </Box>
+                              )}
+                            </Flex>
+                            <Tooltip body="Remove condition" tipMinWidth="50px">
+                              <IconButton
+                                type="button"
+                                variant="ghost"
+                                color="red"
+                                size="2"
+                                radius="full"
+                                style={{ marginRight: 11, marginTop: -2 }}
                                 onClick={() =>
                                   updateStep(i, {
-                                    notesOpen: true,
+                                    holdConditions: {
+                                      ...step.holdConditions,
+                                      requiresApproval: false,
+                                    },
+                                    notesOpen: false,
                                     approvalNotes: "",
                                   })
                                 }
                               >
-                                <PiPlusBold
-                                  style={{
-                                    marginRight: 3,
-                                    verticalAlign: "middle",
-                                  }}
-                                />
-                                Add notes
-                              </Link>
-                            ) : (
-                              <Box style={{ flex: 1, minWidth: 120 }}>
-                                <Field
-                                  label=""
-                                  placeholder="ex: Check error rates"
-                                  value={step.approvalNotes}
-                                  onChange={(e) =>
-                                    updateStep(i, {
-                                      approvalNotes: e.target.value,
-                                    })
-                                  }
-                                  containerClassName="mb-0"
-                                  style={{ height: 32 }}
-                                />
-                              </Box>
-                            )}
+                                <PiTrash />
+                              </IconButton>
+                            </Tooltip>
                           </Flex>
-                          <Tooltip body="Remove condition" tipMinWidth="50px">
-                            <IconButton
-                              type="button"
-                              variant="ghost"
-                              color="red"
-                              size="2"
-                              radius="full"
-                              style={{ marginRight: 11, marginTop: -2 }}
-                              onClick={() =>
-                                updateStep(i, {
-                                  holdConditions: {
-                                    ...step.holdConditions,
-                                    requiresApproval: false,
-                                  },
-                                  notesOpen: false,
-                                  approvalNotes: "",
-                                })
-                              }
-                            >
-                              <PiTrash />
-                            </IconButton>
-                          </Tooltip>
-                        </Flex>
-                      )}
+                        )}
 
                       {step.holdConditions?.minSampleSize != null && (
                         <Flex
@@ -2412,6 +2490,17 @@ export default function RampScheduleSection({
               onCancel={() => setMinSamplePopoverIndex(null)}
             />
           )}
+
+        {!isReadOnlyView && noTrafficGraceOpen && (
+          <NoTrafficGraceDialog
+            initialValue={state.monitoring.noTrafficGracePeriodHours}
+            onSave={(val) => {
+              patchMonitoring({ noTrafficGracePeriodHours: val });
+              setNoTrafficGraceOpen(false);
+            }}
+            onCancel={() => setNoTrafficGraceOpen(false)}
+          />
+        )}
 
         {endRow}
       </Box>
@@ -2919,7 +3008,17 @@ export default function RampScheduleSection({
             </Flex>
             <Flex align="center" gap="1">
               <Text as="label" weight="medium" mb="0">
-                If no traffic:
+                If no traffic (
+                <Link
+                  type="button"
+                  className="hover-underline"
+                  onClick={() => setNoTrafficGraceOpen(true)}
+                >
+                  {state.monitoring.noTrafficGracePeriodHours != null
+                    ? `${state.monitoring.noTrafficGracePeriodHours}h`
+                    : "24h"}
+                </Link>
+                ):
               </Text>
               <DropdownMenu
                 trigger={
@@ -3804,6 +3903,8 @@ export function rampScheduleToSectionState(
             rs.monitoringConfig.updateScheduleMinutes ?? null,
           srmAction: rs.monitoringConfig.srmAction,
           noTrafficAction: rs.monitoringConfig.noTrafficAction,
+          noTrafficGracePeriodHours:
+            rs.monitoringConfig.noTrafficGracePeriodHours,
           multipleExposureAction: rs.monitoringConfig.multipleExposureAction,
         }
       : { ...DEFAULT_MONITORING },

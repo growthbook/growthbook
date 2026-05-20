@@ -15,6 +15,7 @@ import { ApiReqContext } from "back-end/types/api";
 import {
   MONITORING_NO_TRAFFIC_GRACE_PERIOD_MS,
   advanceStep,
+  advanceUntilBlocked,
   computeNextProcessAt,
   pauseSchedule,
   rollbackSchedule,
@@ -149,17 +150,22 @@ async function evaluateMonitoredStep(
       schedule.currentStepEnteredAt ??
       schedule.startedAt;
     if (monitoringStartDate) {
+      const gracePeriodMs =
+        (schedule.monitoringConfig?.noTrafficGracePeriodHours ?? null) != null
+          ? schedule.monitoringConfig!.noTrafficGracePeriodHours! *
+            60 *
+            60 *
+            1000
+          : MONITORING_NO_TRAFFIC_GRACE_PERIOD_MS;
       const elapsedMs = now.getTime() - monitoringStartDate.getTime();
-      if (elapsedMs < MONITORING_NO_TRAFFIC_GRACE_PERIOD_MS) {
-        const remainingMin = Math.ceil(
-          (MONITORING_NO_TRAFFIC_GRACE_PERIOD_MS - elapsedMs) / 60_000,
-        );
+      if (elapsedMs < gracePeriodMs) {
+        const remainingMin = Math.ceil((gracePeriodMs - elapsedMs) / 60_000);
+        const gracePeriodHours = gracePeriodMs / (60 * 60 * 1000);
         return {
           action: "hold",
-          reason: `No traffic yet — waiting for 24h monitoring grace period (~${remainingMin} min remaining)`,
+          reason: `No traffic yet — waiting for ${gracePeriodHours}h monitoring grace period (~${remainingMin} min remaining)`,
           nextProcessAt: new Date(
-            monitoringStartDate.getTime() +
-              MONITORING_NO_TRAFFIC_GRACE_PERIOD_MS,
+            monitoringStartDate.getTime() + gracePeriodMs,
           ),
         };
       }
@@ -377,5 +383,13 @@ export async function evaluateRampScheduleAfterSafeRolloutSnapshot(
   if (!step?.monitored) return;
 
   const decision = await evaluateCurrentStep(ctx, schedule, now);
-  await applyRampEvaluationDecision(ctx, schedule, decision);
+  const result = await applyRampEvaluationDecision(ctx, schedule, decision);
+
+  // When the decision is "advance", applyRampEvaluationDecision performs one
+  // advanceStep but stops there. Continue traversing until blocked so that
+  // consecutive non-monitoring steps don't wait for the next agenda tick —
+  // matching the behavior of the agenda-driven advancement path.
+  if (!result.handled) {
+    await advanceUntilBlocked(ctx, result.schedule, now);
+  }
 }
