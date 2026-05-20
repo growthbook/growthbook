@@ -36,7 +36,11 @@ import {
   percentToDecimal,
   rebalance,
 } from "@/services/utils";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import { getDefaultVariationValue } from "@/services/features";
 
@@ -95,7 +99,7 @@ function SplitField({
       type="number"
       min={0}
       max={100}
-      step="1"
+      step="0.01"
       containerClassName="mb-0"
       append="%"
       value={val}
@@ -283,7 +287,7 @@ export default function EditFeatureFlagValuesModal({
           locked={ruleOnlyOnDraft}
           lockedTooltip={
             ruleOnlyOnDraft
-              ? "This experiment is added in this draft revision. Changes will be saved to it."
+              ? "This experiment rule is added in this draft revision. Changes will be saved to it."
               : undefined
           }
         />
@@ -377,9 +381,9 @@ export default function EditFeatureFlagValuesModal({
             {fields.map((field, i) => {
               const row = watchedVariations?.[i] ?? field;
               const rowWeight = Number(row?.weight) || 0;
+              const isNewVariation = !existingVariationIds.has(row.id);
 
               if (isEditingVariations) {
-                const isNewVariation = !existingVariationIds.has(row.id);
                 return (
                   <Box key={field.id}>
                     <Flex direction="row" gap="3" align="start">
@@ -454,6 +458,11 @@ export default function EditFeatureFlagValuesModal({
                           <DropdownMenuItem
                             color="red"
                             disabled={!isNewVariation}
+                            tooltip={
+                              !isNewVariation
+                                ? "Existing experiment variations cannot be deleted."
+                                : undefined
+                            }
                             onClick={() => {
                               if (!isNewVariation) return;
                               remove(i);
@@ -510,6 +519,22 @@ export default function EditFeatureFlagValuesModal({
                         }}
                       >
                         Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        color="red"
+                        disabled={!isNewVariation}
+                        tooltip={
+                          !isNewVariation
+                            ? "Existing experiment variations cannot be deleted."
+                            : undefined
+                        }
+                        onClick={() => {
+                          if (!isNewVariation) return;
+                          remove(i);
+                        }}
+                      >
+                        Delete
                       </DropdownMenuItem>
                     </DropdownMenu>
                   </Flex>
