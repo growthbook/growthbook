@@ -238,7 +238,10 @@ export async function runEagerUnitDimensionAnalyses({
             analysisKey: buildAnalysisKey(),
             dateCreated: new Date(),
             results: [],
-            settings: a.settings,
+            // Override the parent's empty analysis dimensions with this unit
+            // dimension id so gbstats groups by `dim_unit_<id>` instead of
+            // collapsing every row into one "unknown" bucket.
+            settings: { ...a.settings, dimensions: [dimensionId] },
             status: "running",
           }));
 

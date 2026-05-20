@@ -1,11 +1,10 @@
-// Per-unit-dimension metric queries live on the parent snapshot's `queries`
-// array but must NOT be consumed by the parent's own analysis. They are
-// namespaced with this prefix so the parent analysis can filter them out and
-// the post-success derive hook can recover the original (metricId / group_N)
-// query name for each dimension.
+// Pre-computed unit-dimension metric Queries are named with this prefix.
 //
-// Kept in its own dependency-free module so the derive hook can import the
-// name codec without pulling in the full query-runner / SQL-integration graph.
+// Because they are not part of the parent snapshot analysis, but the data lives
+// in the parent snapshot's `queries` array, we namespace them with this prefix
+// for retrieval.
+//
+// Also used by the parent analysis to filter out these queries from its own analysis.
 export const UNIT_DIM_QUERY_PREFIX = "unitdim:";
 
 export function getUnitDimQueryName(

@@ -39,7 +39,10 @@ import Link from "@/ui/Link";
 import UITooltip from "@/ui/Tooltip";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
-import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
+import {
+  datasourceHasWritableEphemeralPipeline,
+  getIsExperimentIncludedInIncrementalRefresh,
+} from "@/services/experiments";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
 import MetricAnalysisWindowSelector from "./MetricAnalysisWindowSelector";
@@ -297,18 +300,16 @@ const AnalysisForm: FC<{
       value: d.id,
     }),
   );
-  const pipelineSettings = datasource?.settings.pipelineSettings;
-  const datasourceHasWritableEphemeralPipeline =
-    !!datasource?.properties?.supportsWritingTables &&
-    !!pipelineSettings?.allowWriting &&
-    pipelineSettings?.mode === "ephemeral" &&
-    !!pipelineSettings?.writeDataset &&
-    hasCommercialFeature("pipeline-mode");
+  const datasourceHasWritableEphemeralPipelineEnabled =
+    datasourceHasWritableEphemeralPipeline(
+      datasource,
+      hasCommercialFeature("pipeline-mode"),
+    );
   const hasEligiblePrecomputedUnitDimensions =
     precomputedUnitDimensionOptions.length > 0 &&
-    datasourceHasWritableEphemeralPipeline;
+    datasourceHasWritableEphemeralPipelineEnabled;
   const precomputedUnitDimensionDisabledReason =
-    !datasourceHasWritableEphemeralPipeline
+    !datasourceHasWritableEphemeralPipelineEnabled
       ? "Always-computed unit dimensions require a datasource with ephemeral Pipeline Mode enabled."
       : "No eligible unit dimensions are available for the selected datasource and assignment table identifier type.";
   const hasAdvancedSettings = !isBandit && !isHoldout;

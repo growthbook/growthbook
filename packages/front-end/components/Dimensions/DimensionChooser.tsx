@@ -19,6 +19,8 @@ import { analysisUpdate } from "@/services/snapshots";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
+import { useUser } from "@/services/UserContext";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import {
   DropdownMenu,
@@ -58,6 +60,7 @@ export function getDimensionOptions({
   incrementalRefresh,
   precomputedDimensions,
   precomputedUnitDimensionIds,
+  hasPipelineModeFeature = false,
   datasource,
   dimensions,
   activationMetric,
@@ -67,6 +70,7 @@ export function getDimensionOptions({
   incrementalRefresh: IncrementalRefreshInterface | null;
   precomputedDimensions?: string[];
   precomputedUnitDimensionIds?: string[];
+  hasPipelineModeFeature?: boolean;
   datasource: DataSourceInterfaceWithParams | null;
   dimensions: DimensionInterface[];
   exposureQueryId?: string;
@@ -81,8 +85,14 @@ export function getDimensionOptions({
   // When displaying, we are grouping Experiment Dimensions and
   // Precomputed Unit Dimensions under 'precomputed' as they
   // are both available for free after the main refresh.
+  const honoredPrecomputedUnitDimensionIds =
+    getHonoredPrecomputedUnitDimensionIds(
+      precomputedUnitDimensionIds,
+      datasource,
+      hasPipelineModeFeature,
+    );
   const experimentPrecomputedUnitDimensionIds = new Set(
-    precomputedUnitDimensionIds ?? [],
+    honoredPrecomputedUnitDimensionIds,
   );
 
   // Include user dimensions tied to the datasource. Precomputed unit dims are kept
@@ -199,6 +209,7 @@ export default function DimensionChooser({
   const [postLoading, setPostLoading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const { dimensions, getDatasourceById, getDimensionById } = useDefinitions();
+  const { hasCommercialFeature } = useUser();
   const { dimensionless: standardSnapshot, experiment } = useSnapshot();
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
 
@@ -220,6 +231,7 @@ export default function DimensionChooser({
     incrementalRefresh,
     precomputedDimensions,
     precomputedUnitDimensionIds: experiment?.precomputedUnitDimensionIds,
+    hasPipelineModeFeature: hasCommercialFeature("pipeline-mode"),
     exposureQueryId,
     userIdType,
     datasource,

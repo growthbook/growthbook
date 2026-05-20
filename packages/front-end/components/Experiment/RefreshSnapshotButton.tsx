@@ -7,6 +7,8 @@ import { PiArrowClockwise } from "react-icons/pi";
 import { isPrecomputedDimension } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
+import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
 import { trackSnapshot } from "@/services/track";
 import Button from "@/components/Button";
 import RadixButton from "@/ui/Button";
@@ -31,6 +33,7 @@ const RefreshSnapshotButton: FC<{
   const [loading, setLoading] = useState(false);
   const [longResult, setLongResult] = useState(false);
   const { getDatasourceById } = useDefinitions();
+  const { hasCommercialFeature } = useUser();
 
   const { apiCall } = useAuth();
 
@@ -39,7 +42,11 @@ const RefreshSnapshotButton: FC<{
     // so we don't need to pass them to the backend for a new snapshot query
     const snapshotDimension = isPrecomputedDimension(
       dimension,
-      experiment.precomputedUnitDimensionIds ?? [],
+      getHonoredPrecomputedUnitDimensionIds(
+        experiment.precomputedUnitDimensionIds,
+        getDatasourceById(experiment.datasource),
+        hasCommercialFeature("pipeline-mode"),
+      ),
     )
       ? undefined
       : dimension;

@@ -1,5 +1,9 @@
 import { DataSourceInterface } from "shared/types/datasource";
-import { datasourceHasWritableEphemeralPipeline } from "back-end/src/services/dimensions";
+import { ExperimentInterface } from "shared/validators";
+import {
+  datasourceHasWritableEphemeralPipeline,
+  getEligiblePrecomputedUnitDimensionIds,
+} from "back-end/src/services/dimensions";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 
@@ -117,5 +121,29 @@ describe("datasourceHasWritableEphemeralPipeline", () => {
         datasource: makeDatasource(undefined),
       }),
     ).toBe(false);
+  });
+});
+
+describe("getEligiblePrecomputedUnitDimensionIds", () => {
+  const experiment = {
+    id: "exp_1",
+    exposureQueryId: "exposure",
+  } as ExperimentInterface;
+
+  it("throws when the datasource lacks a writable ephemeral pipeline", async () => {
+    await expect(
+      getEligiblePrecomputedUnitDimensionIds({
+        context,
+        experiment,
+        datasource: makeDatasource({
+          allowWriting: false,
+          mode: "ephemeral",
+          writeDataset: "gb",
+        }),
+        dimensionIds: ["dim_country"],
+      }),
+    ).rejects.toThrow(
+      "Precomputed unit dimensions require a datasource with ephemeral Pipeline Mode enabled",
+    );
   });
 });

@@ -49,10 +49,12 @@ export async function updateExperimentTimeSeries({
   experimentSnapshot: ExperimentSnapshotInterface;
   notificationsTriggered: string[];
 }) {
-  // This top-level update handles the main experiment time series and
-  // unit-dim children spawned by the eager-unit-dimension fan-out.
-  // Precomputed dimension time series are handled separately by
-  // runEagerPrecomputedDimensionAnalyses.
+  // This function handles:
+  // - main experiment time series
+  // - unit-dimension timeseries from experiment.precomputedUnitDimensions
+  //
+  // It does not handle precomputed dimension timeseries, as those are handled by
+  // runEagerExperimentDimensionAnalyses
   const snapshotDimension = experimentSnapshot.dimension ?? "";
   const isEagerUnitDimension =
     snapshotDimension !== "" &&
@@ -68,20 +70,10 @@ export async function updateExperimentTimeSeries({
       experiment,
       experimentSnapshot,
     });
-  const analyses = isEagerUnitDimension
-    ? experimentSnapshot.analyses.filter((analysis) => {
-        const baselineOk =
-          analysis.settings.baselineVariationIndex === undefined ||
-          analysis.settings.baselineVariationIndex === 0;
-        return (
-          baselineOk &&
-          analysis.settings.dimensions.length === 1 &&
-          analysis.settings.dimensions[0] === snapshotDimension
-        );
-      })
-    : getTimeSeriesAnalyses({
-        analyses: experimentSnapshot.analyses,
-      });
+  const analyses = getTimeSeriesAnalyses({
+    analyses: experimentSnapshot.analyses,
+    dimensionId: isEagerUnitDimension ? snapshotDimension : undefined,
+  });
 
   // As we tag the whole snapshot, we just care if any metric has a significant difference from the previous status
   const hasSignificantDifference = getHasSignificantDifference(

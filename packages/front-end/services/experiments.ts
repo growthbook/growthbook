@@ -839,6 +839,33 @@ export function convertExperimentToTemplate(
   return template;
 }
 
+export function datasourceHasWritableEphemeralPipeline(
+  datasource: DataSourceInterfaceWithParams | undefined,
+  hasPipelineModeFeature: boolean,
+): boolean {
+  const pipelineSettings = datasource?.settings?.pipelineSettings;
+  return (
+    !!datasource?.properties?.supportsWritingTables &&
+    !!pipelineSettings?.allowWriting &&
+    pipelineSettings?.mode === "ephemeral" &&
+    !!pipelineSettings?.writeDataset &&
+    hasPipelineModeFeature
+  );
+}
+
+export function getHonoredPrecomputedUnitDimensionIds(
+  precomputedUnitDimensionIds: string[] | undefined,
+  datasource: DataSourceInterfaceWithParams | undefined,
+  hasPipelineModeFeature: boolean,
+): string[] {
+  if (
+    !datasourceHasWritableEphemeralPipeline(datasource, hasPipelineModeFeature)
+  ) {
+    return [];
+  }
+  return precomputedUnitDimensionIds ?? [];
+}
+
 export function getIsExperimentIncludedInIncrementalRefresh(
   datasource: DataSourceInterfaceWithParams | undefined,
   experimentId: string | undefined,

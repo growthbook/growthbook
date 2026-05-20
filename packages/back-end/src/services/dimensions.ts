@@ -176,9 +176,15 @@ async function resolvePrecomputedUnitDimensions({
   return { dimensions, skipped };
 }
 
+export const PRECOMPUTED_UNIT_DIMENSIONS_REQUIRE_PIPELINE_ERROR =
+  "Precomputed unit dimensions require a datasource with ephemeral Pipeline Mode enabled";
+
 /**
  * Resolves "always compute" unit dimensions into the subset still valid for
  * this experiment's datasource and exposure-query identifier type.
+ *
+ * @throws {Error} if any ids were requested but the datasource lacks a writable
+ * ephemeral pipeline.
  */
 export async function getEligiblePrecomputedUnitDimensionIds({
   context,
@@ -191,6 +197,14 @@ export async function getEligiblePrecomputedUnitDimensionIds({
   datasource: DataSourceInterface;
   dimensionIds: string[];
 }): Promise<string[]> {
+  if (dimensionIds.length === 0) {
+    return [];
+  }
+
+  if (!datasourceHasWritableEphemeralPipeline({ context, datasource })) {
+    throw new Error(PRECOMPUTED_UNIT_DIMENSIONS_REQUIRE_PIPELINE_ERROR);
+  }
+
   const { dimensions, skipped } = await resolvePrecomputedUnitDimensions({
     context,
     datasource,
@@ -280,9 +294,7 @@ export async function assertExperimentPrecomputedUnitDimensionIdsAreValid({
   }
 
   if (!datasourceHasWritableEphemeralPipeline({ context, datasource })) {
-    throw new Error(
-      "Precomputed unit dimensions require a datasource with ephemeral Pipeline Mode enabled",
-    );
+    throw new Error(PRECOMPUTED_UNIT_DIMENSIONS_REQUIRE_PIPELINE_ERROR);
   }
 
   const missing = skipped.filter((s) => s.reason === "not-found");

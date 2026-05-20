@@ -42,7 +42,10 @@ import {
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
+import {
+  getExposureQueryEligibleDimensions,
+  PRECOMPUTED_UNIT_DIMENSIONS_REQUIRE_PIPELINE_ERROR,
+} from "back-end/src/services/dimensions";
 import { getFactMetricGroups } from "back-end/src/services/experimentQueries/experimentQueries";
 import { parseDimension } from "back-end/src/services/experiments";
 import {
@@ -84,11 +87,6 @@ export const TRAFFIC_QUERY_NAME = "traffic";
 
 export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
 
-export {
-  UNIT_DIM_QUERY_PREFIX,
-  getUnitDimQueryName,
-  parseUnitDimQueryName,
-} from "./unitDimensionQueryNaming";
 import {
   getUnitDimQueryName,
   parseUnitDimQueryName,
@@ -145,20 +143,6 @@ export const startExperimentResultQueries = async (
 
   const queries: Queries = [];
 
-  // Configured "always-computed" unit dimensions. These are materialized as
-  // extra dim_unit_<id> columns on the shared units table and get isolated
-  // per-dimension metric queries; they are NOT added to the parent metric
-  // queries' GROUP BY (which stays experiment-dims-only).
-  const precomputedUnitDimensionIds =
-    snapshotSettings.precomputedUnitDimensionIds ?? [];
-  const unitDimensions: Dimension[] = (
-    await Promise.all(
-      precomputedUnitDimensionIds.map((id) =>
-        parseDimension(id, undefined, org.id),
-      ),
-    )
-  ).filter((d): d is Dimension => d !== null);
-
   // Settings for units table
   const useUnitsTable =
     (integration.getSourceProperties().supportsWritingTables &&
@@ -167,6 +151,25 @@ export const startExperimentResultQueries = async (
       !!settings.pipelineSettings?.writeDataset &&
       hasPipelineModeFeature) ??
     false;
+
+  const configuredPrecomputedUnitDimensionIds =
+    snapshotSettings.precomputedUnitDimensionIds ?? [];
+  if (configuredPrecomputedUnitDimensionIds.length > 0 && !useUnitsTable) {
+    throw new Error(PRECOMPUTED_UNIT_DIMENSIONS_REQUIRE_PIPELINE_ERROR);
+  }
+
+  // Configured "always-computed" unit dimensions. These are materialized as
+  // extra dim_unit_<id> columns on the shared units table and get isolated
+  // per-dimension metric queries; they are NOT added to the parent metric
+  // queries' GROUP BY (which stays experiment-dims-only).
+  const precomputedUnitDimensionIds = configuredPrecomputedUnitDimensionIds;
+  const unitDimensions: Dimension[] = (
+    await Promise.all(
+      precomputedUnitDimensionIds.map((id) =>
+        parseDimension(id, undefined, org.id),
+      ),
+    )
+  ).filter((d): d is Dimension => d !== null);
   let unitQuery: QueryPointer | null = null;
   const unitsTableFullName =
     useUnitsTable && !!integration.generateTablePath
