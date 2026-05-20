@@ -88,6 +88,7 @@ export type AppFeatures = {
   "safe-rollout-timeseries": boolean;
   insights: boolean;
   "global-organization-holdout-2025-05-27": string;
+  "sql-explorer": boolean;
   "pre-computed-dimensions": boolean;
   "ai-suggestions-temperature": number;
   asdf: boolean;
@@ -105,5 +106,16 @@ export type AppFeatures = {
   "incremental-refresh": boolean;
   "top-banner": Record<string, unknown>;
   "gbdemo-checkout-layout": boolean;
+  "post-stratification": boolean;
+  liebenowflag9: boolean;
   "experimentation-focused-onboarding": boolean;
+  teresatest: string;
+  teresa_test_feature: boolean;
+  "new-test-values": boolean;
+  "test-feature": boolean;
+  "pro-signup-flow": boolean;
+  "kb-ff": boolean;
+  "events-forwarder": boolean;
+  "enable-error-tracking": boolean;
+  "managed-warehouse-diagnostics": boolean;
 };
