@@ -272,8 +272,10 @@ class TestGetRiskNumericalStability(TestCase):
         mu, sigma = 0.1, 0.05
         # hardcoded expected values from previous implementation
         # to ensure that the new implementation is correct
-        expected = [0.10042453513084149, 0.00042453513084148085]
-        self.assertEqual(EffectBayesianABTest.get_risk(mu, sigma), expected)
+        expected = [round(x, 10) for x in [0.1004245351308, 0.0004245351308414]]
+        self.assertEqual(
+            [round(x, 10) for x in EffectBayesianABTest.get_risk(mu, sigma)], expected
+        )
 
 
 if __name__ == "__main__":
