@@ -121,6 +121,7 @@ export default function LinkedFeatureFlag({
   const showEditButton =
     canEdit &&
     experiment.status === "draft" &&
+    !experiment.nextScheduledStatusUpdate &&
     info.state !== "discarded" &&
     info.state !== "locked";
 
