@@ -1150,6 +1150,7 @@ export function getExperimentQueryMetadata(
   experiment: ExperimentInterface,
 ): ExperimentQueryMetadata {
   return {
+    experimentId: experiment.id,
     experimentOwner: experiment.owner || undefined,
     experimentProject: experiment.project || undefined,
     experimentTags: experiment.tags.length > 0 ? experiment.tags : undefined,

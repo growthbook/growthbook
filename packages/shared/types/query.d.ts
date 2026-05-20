@@ -104,6 +104,7 @@ export type QueryType =
   | "experimentResults";
 
 export type ExperimentQueryMetadata = {
+  experimentId?: string;
   experimentProject?: string;
   experimentOwner?: string;
   experimentTags?: string[];
