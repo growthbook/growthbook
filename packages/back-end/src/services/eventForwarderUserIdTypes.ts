@@ -20,16 +20,15 @@ export async function initializeDatasourceUserIdTypesFromOrgAttributeSchema(
     return;
   }
 
-  if ((raw.settings?.userIdTypes?.length ?? 0) > 0) {
-    return;
-  }
-
-  const userIdTypes = buildUserIdTypesFromAttributeSchema(
+  const built = buildUserIdTypesFromAttributeSchema(
     context.org.settings?.attributeSchema ?? [],
     raw.projects,
   );
 
-  if (userIdTypes.length === 0) {
+  const existing = raw.settings?.userIdTypes ?? [];
+  const merged = mergeUserIdTypes(existing, built);
+
+  if (merged.length === existing.length) {
     return;
   }
 
@@ -41,7 +40,7 @@ export async function initializeDatasourceUserIdTypesFromOrgAttributeSchema(
   await updateDataSource(context, datasource, {
     settings: {
       ...raw.settings,
-      userIdTypes,
+      userIdTypes: merged,
     },
   });
 }

@@ -31,8 +31,10 @@ export function mergeUserIdTypes(
   existing: UserIdType[],
   built: UserIdType[],
 ): UserIdType[] {
-  const existingIds = new Set(existing.map((u) => u.userIdType));
-  const toAdd = built.filter((u) => !existingIds.has(u.userIdType));
+  const existingIds = new Set(existing.map((u) => u.userIdType.toLowerCase()));
+  const toAdd = built.filter(
+    (u) => !existingIds.has(u.userIdType.toLowerCase()),
+  );
   if (toAdd.length === 0) {
     return existing;
   }

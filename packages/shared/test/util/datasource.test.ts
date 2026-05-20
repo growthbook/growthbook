@@ -124,4 +124,19 @@ describe("mergeUserIdTypes", () => {
       mergeUserIdTypes(existing, [{ userIdType: "id", description: "x" }]),
     ).toBe(existing);
   });
+
+  it("treats userIdType names as case insensitive when merging", () => {
+    const existing = [
+      { userIdType: "User_ID", description: "Existing", attributes: ["id"] },
+    ];
+    const built = [
+      { userIdType: "user_id", description: "Dup", attributes: ["id"] },
+      { userIdType: "device_id", description: "", attributes: ["device_id"] },
+    ];
+
+    expect(mergeUserIdTypes(existing, built)).toEqual([
+      { userIdType: "User_ID", description: "Existing", attributes: ["id"] },
+      { userIdType: "device_id", description: "", attributes: ["device_id"] },
+    ]);
+  });
 });

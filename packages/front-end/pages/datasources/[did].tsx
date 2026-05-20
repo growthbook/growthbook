@@ -480,12 +480,6 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   )}
 
                 <Frame>
-                  {d.eventForwarderConfig ? (
-                    <Callout status="info" mb="3">
-                      Identifier types are set from your organization attributes
-                      and cannot be edited while Event Forwarder is enabled.
-                    </Callout>
-                  ) : null}
                   <DataSourceInlineEditIdentifierTypes
                     onSave={updateDataSourceSettings}
                     onCancel={() => undefined}

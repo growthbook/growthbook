@@ -57,21 +57,37 @@ describe("initializeDatasourceUserIdTypesFromOrgAttributeSchema", () => {
     jest.clearAllMocks();
   });
 
-  it("skips when raw Mongo already has userIdTypes", async () => {
-    mockedGetRaw.mockResolvedValue(
-      ds("ds_1", {
-        userIdTypes: [{ userIdType: "user_id", description: "" }],
-      }),
-    );
+  it("merges hash attributes without overriding existing names (case insensitive)", async () => {
+    const raw = ds("ds_1", {
+      userIdTypes: [{ userIdType: "user_id", description: "Existing" }],
+    });
+    mockedGetRaw.mockResolvedValue(raw);
+    mockedGetById.mockResolvedValue(raw);
 
     await initializeDatasourceUserIdTypesFromOrgAttributeSchema(
       contextWithSchema([
+        { property: "USER_ID", datatype: "string", hashAttribute: true },
         { property: "id", datatype: "string", hashAttribute: true },
       ]) as never,
       "ds_1",
     );
 
-    expect(mockedUpdate).not.toHaveBeenCalled();
+    expect(mockedUpdate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      {
+        settings: {
+          userIdTypes: [
+            { userIdType: "user_id", description: "Existing" },
+            {
+              userIdType: "id",
+              description: "",
+              attributes: ["id"],
+            },
+          ],
+        },
+      },
+    );
   });
 
   it("writes userIdTypes when raw Mongo has none", async () => {
