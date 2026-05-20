@@ -966,6 +966,10 @@ app.put(
   "/datasource/:id/event-forwarder",
   datasourcesController.putEventForwarderForDataSource,
 );
+app.get(
+  "/datasource/:id/event-forwarder/status",
+  datasourcesController.getEventForwarderStatusForDataSource,
+);
 app.delete(
   "/datasource/:id/event-forwarder",
   datasourcesController.deleteEventForwarderForDataSource,
