@@ -251,6 +251,24 @@ export async function getExperimentMetricsByIds(
   return [...factMetrics, ...metrics];
 }
 
+// Resolve every goal/secondary/guardrail/activation metric attached to an
+// experiment (expanding metric groups) into an id-keyed lookup map. Intended
+// for callers that need to render or inspect an experiment's metric set
+// without fetching the entire org's metrics.
+export async function getMetricMapForExperiment(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<Map<string, ExperimentMetricInterface>> {
+  const metricGroups = await context.models.metricGroups.getAll();
+  const metricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    true,
+    metricGroups,
+  );
+  const metrics = await getExperimentMetricsByIds(context, metricIds);
+  return new Map(metrics.map((m) => [m.id, m]));
+}
+
 export async function refreshMetric(
   context: Context,
   metric: MetricInterface,
@@ -2498,7 +2516,7 @@ function safeFloat(n: number | undefined, fallback = 0): number {
 export function toSnapshotApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
-  metricMap: Map<string, ExperimentMetricInterface>,
+  metricsById: Map<string, ExperimentMetricInterface>,
 ): ApiExperimentResults {
   const dimension = !snapshot.dimension
     ? {
@@ -2550,7 +2568,7 @@ export function toSnapshotApiInterface(
   );
   const baseMetricsById = new Map(
     baseMetricIds.flatMap((id) => {
-      const m = metricMap.get(id);
+      const m = metricsById.get(id);
       return m ? [[id, m]] : [];
     }),
   );

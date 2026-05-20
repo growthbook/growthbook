@@ -2,8 +2,10 @@ import { getReportValidator } from "shared/validators";
 import { getReportById } from "back-end/src/models/ReportModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
-import { getMetricMap } from "back-end/src/models/MetricModel";
-import { toSnapshotApiInterface } from "back-end/src/services/experiments";
+import {
+  getMetricMapForExperiment,
+  toSnapshotApiInterface,
+} from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { toReportApiInterface } from "./toReportApiInterface";
 
@@ -32,8 +34,11 @@ export const getReport = createApiRequestHandler(getReportValidator)(async (
     const apiReport = toReportApiInterface(report, snapshot);
 
     if (snapshot?.status === "success" && experiment) {
-      const metricMap = await getMetricMap(req.context);
-      const results = toSnapshotApiInterface(experiment, snapshot, metricMap);
+      const metricsById = await getMetricMapForExperiment(
+        req.context,
+        experiment,
+      );
+      const results = toSnapshotApiInterface(experiment, snapshot, metricsById);
       return { report: { ...apiReport, results } };
     }
 

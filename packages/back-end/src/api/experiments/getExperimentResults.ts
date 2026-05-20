@@ -1,8 +1,8 @@
 import { getExperimentResultsValidator } from "shared/validators";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
-import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
+  getMetricMapForExperiment,
   toExperimentApiInterface,
   toSnapshotApiInterface,
 } from "back-end/src/services/experiments";
@@ -30,11 +30,11 @@ export const getExperimentResults = createApiRequestHandler(
     throw new Error("No results found for that experiment");
   }
 
-  const [apiExperiment, metricMap] = await Promise.all([
+  const [apiExperiment, metricsById] = await Promise.all([
     toExperimentApiInterface(req.context, experiment),
-    getMetricMap(req.context),
+    getMetricMapForExperiment(req.context, experiment),
   ]);
-  const result = toSnapshotApiInterface(experiment, snapshot, metricMap);
+  const result = toSnapshotApiInterface(experiment, snapshot, metricsById);
 
   return {
     experiment: apiExperiment,
