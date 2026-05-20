@@ -451,6 +451,7 @@ type ComputedSettingsForSnapshot = NonNullable<
 const HASHED_COMPUTED_SETTINGS_FIELDS_FOR_INCREMENTAL_REFRESH = [
   "regressionAdjustmentEnabled",
   "regressionAdjustmentDays",
+  "windowSettings",
 ] as const satisfies readonly (keyof ComputedSettingsForSnapshot)[];
 
 // Fields of `MetricForSnapshot.computedSettings` that are intentionally NOT
@@ -464,7 +465,6 @@ type IgnoredComputedSettingsFieldForIncrementalRefresh =
   | "properPrior"
   | "properPriorMean"
   | "properPriorStdDev"
-  | "windowSettings"
   | "targetMDE";
 
 // Compile-time exhaustiveness guard. When a field is added to
