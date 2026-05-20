@@ -882,6 +882,7 @@ async function _getSnapshot({
   phase,
   dimension,
   withResults = true,
+  populateResults = true,
   type,
 }: {
   context: ReqContext | ApiReqContext;
@@ -889,6 +890,7 @@ async function _getSnapshot({
   phase?: string;
   dimension?: string;
   withResults?: boolean;
+  populateResults?: boolean;
   type?: SnapshotType;
 }) {
   const experimentObj = await getExperimentById(context, experiment);
@@ -912,6 +914,7 @@ async function _getSnapshot({
     phase: parseInt(phase),
     dimension,
     withResults,
+    populateResults,
     type,
   });
 }
@@ -935,12 +938,18 @@ export async function getSnapshotWithDimension(
     dimension,
     type,
   });
+  // The `latest` field is only used by the UI for refresh status and
+  // metadata (queries, status, error, dateCreated, id, health) — never for
+  // metric results. Skip the per-metric chunk load + decode, which for large
+  // experiments dominates the cost of this endpoint and would otherwise run
+  // twice per request.
   const latest = await _getSnapshot({
     context,
     experiment: id,
     phase,
     dimension,
     withResults: false,
+    populateResults: false,
     type,
   });
   const dimensionless =
@@ -973,11 +982,17 @@ export async function getSnapshot(
   const type = req.query?.type || undefined;
 
   const snapshot = await _getSnapshot({ context, experiment: id, phase, type });
+  // The `latest` field is only used by the UI for refresh status and
+  // metadata (queries, status, error, dateCreated, id, health) — never for
+  // metric results. Skip the per-metric chunk load + decode, which for large
+  // experiments dominates the cost of this endpoint and would otherwise run
+  // twice per request.
   const latest = await _getSnapshot({
     context,
     experiment: id,
     phase,
     withResults: false,
+    populateResults: false,
     type,
   });
 
