@@ -303,16 +303,6 @@ Enterprise users can use optimized ID lists to reduce payload size. Enable this 
 
 For more advanced targeting based on the state of other feature flags, see [Prerequisite Features](/features/prerequisites).
 
-### Revisions and Approvals
-
-Every change to a saved group — edits to values or conditions, metadata changes, and archive/unarchive actions — is tracked as a revision. You can view the full revision history, compare any two revisions side by side, and revert to a previous version.
-
-Saved groups also support optional approval flows: when enabled in **Settings → General → Approval Flows**, changes must be reviewed and approved before they go live. See [Publishing & Approval Flows](/features/publishing-and-approval-flows#saved-groups) for the full lifecycle and configuration options.
-
-### Archiving Saved Groups
-
-If you no longer want a saved group to be evaluated by your SDKs but want to keep it around for reference, archive it from the saved group detail page. Archived groups stop being included in SDK payloads and can be unarchived later. Saved groups that are still referenced by a feature, experiment, or another saved group must have those references removed before they can be archived.
-
 ---
 
 :::note Legacy behavior for empty ID lists
