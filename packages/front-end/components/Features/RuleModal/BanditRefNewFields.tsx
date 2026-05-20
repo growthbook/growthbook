@@ -5,7 +5,6 @@ import {
   FeaturePrerequisite,
   SavedGroupTargeting,
 } from "shared/types/feature";
-import { FaExclamationTriangle } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import { Box, Separator } from "@radix-ui/themes";
@@ -21,9 +20,6 @@ import {
   useAttributeSchema,
 } from "@/services/features";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
-import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -51,24 +47,10 @@ import Callout from "@/ui/Callout";
 
 export default function BanditRefNewFields({
   step,
-  source,
   feature,
   project,
-  environments,
-  prerequisiteValue,
-  setPrerequisiteValue,
-  setPrerequisiteTargetingSdkIssues,
-  isCyclic,
-  cyclicFeatureId,
-  savedGroupValue,
-  setSavedGroupValue,
-  defaultConditionValue,
-  setConditionValue,
-  conditionKey,
   namespaceFormPrefix = "",
   // variation input fields
-  coverage,
-  setCoverage,
   setWeight,
   variations,
   setVariations,
@@ -256,13 +238,10 @@ export default function BanditRefNewFields({
 
           <FeatureVariationsInput
             simple={true}
-            label="Traffic Percent & Variations"
+            hideCoverage={true}
+            label="Variations"
             defaultValue={feature ? getFeatureDefaultValue(feature) : undefined}
             valueType={feature?.valueType ?? "string"}
-            coverageLabel="Traffic included in this Bandit"
-            coverageTooltip={`Users not included in the Bandit will skip this ${source}`}
-            coverage={coverage}
-            setCoverage={setCoverage}
             setWeight={setWeight}
             variations={variations}
             setVariations={setVariations}
@@ -285,46 +264,6 @@ export default function BanditRefNewFields({
       ) : null}
 
       {step === 2 ? (
-        <>
-          <SavedGroupTargetingField
-            value={savedGroupValue}
-            setValue={setSavedGroupValue}
-            // value={form.watch("savedGroups") || []}
-            // setValue={(savedGroups) =>
-            //   form.setValue("savedGroups", savedGroups)
-            // }
-            project={project || ""}
-          />
-          <Separator size="4" my="5" />
-          <ConditionInput
-            defaultValue={defaultConditionValue}
-            onChange={setConditionValue}
-            // defaultValue={form.watch("condition") || ""}
-            // onChange={(value) => form.setValue("condition", value)}
-            key={conditionKey}
-            project={project || ""}
-          />
-          <Separator size="4" my="5" />
-          <PrerequisiteInput
-            value={prerequisiteValue}
-            setValue={setPrerequisiteValue}
-            feature={feature}
-            environments={environments ?? []}
-            setPrerequisiteTargetingSdkIssues={
-              setPrerequisiteTargetingSdkIssues
-            }
-          />
-          {isCyclic ? (
-            <Callout status="error" mt="3">
-              <FaExclamationTriangle /> A prerequisite (
-              <code>{cyclicFeatureId}</code>) creates a circular dependency.
-              Remove this prerequisite to continue.
-            </Callout>
-          ) : null}
-        </>
-      ) : null}
-
-      {step === 3 ? (
         <>
           <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
             <SelectField

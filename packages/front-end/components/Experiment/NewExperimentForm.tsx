@@ -529,7 +529,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             (q) => (q.targetingAttributeColumns?.length ?? 0) > 0,
           );
           if (queries.length > 0 && withTargetingAttributes.length === 0) {
-            setStep(3);
+            setStep(2);
             throw new Error(
               "No Experiment Assignment Tables with targeting attributes exist for this data source. Add attributes to an experiment assignment table on the data source page, then try again.",
             );
@@ -542,7 +542,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 (q) => q.id === data.exposureQueryId,
               )
             ) {
-              setStep(3);
+              setStep(2);
               throw new Error(
                 "Select an Experiment Assignment Table that has targeting attribute columns configured.",
               );
@@ -1183,13 +1183,15 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 </>
               )}
             </>
-            <div className="form-group">
-              <label>Tags</label>
-              <TagsInput
-                value={form.watch("tags") ?? []}
-                onChange={(tags) => form.setValue("tags", tags)}
-              />
-            </div>
+            {!(isBandit && (isNewExperiment || duplicate)) && (
+              <div className="form-group">
+                <label>Tags</label>
+                <TagsInput
+                  value={form.watch("tags") ?? []}
+                  onChange={(tags) => form.setValue("tags", tags)}
+                />
+              </div>
+            )}
             {!isNewExperiment && (
               <>
                 <SelectField
@@ -1313,7 +1315,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
         {/* Bandit Experiments */}
         {isBandit && (isNewExperiment || duplicate)
-          ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => {
+          ? ["Overview", "Traffic", "Metrics"].map((p, i) => {
               // skip, custom overview page above
               if (i === 0) return null;
               return (

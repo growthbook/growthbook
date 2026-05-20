@@ -754,7 +754,7 @@ export default function RuleModal({
               (q) => (q.targetingAttributeColumns?.length ?? 0) > 0,
             );
             if (queries.length > 0 && withTargetingAttributes.length === 0) {
-              setStep(3);
+              setStep(2);
               throw new Error(
                 "No Experiment Assignment Tables with targeting attributes exist for this data source. Add attributes to an experiment assignment table on the data source page, then try again.",
               );
@@ -769,7 +769,7 @@ export default function RuleModal({
                   (q) => q.id === experimentValues.exposureQueryId,
                 )
               ) {
-                setStep(3);
+                setStep(2);
                 throw new Error(
                   "Select an Experiment Assignment Table that has targeting attribute columns configured.",
                 );
@@ -1693,7 +1693,7 @@ export default function RuleModal({
           : null}
 
         {ruleType === "experiment-ref-new" && experimentType === "bandit"
-          ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => (
+          ? ["Overview", "Traffic", "Metrics"].map((p, i) => (
               <Page display={p} key={i}>
                 <BanditRefNewFields
                   step={i}
