@@ -234,6 +234,6 @@ export const rampScheduleApiSpec = {
   tag: "ramp-schedules",
   navDisplayName: "Ramp Schedules",
   navDescription:
-    "Multi-step rollout schedules that gradually ramp feature rule changes over time.",
+    "Multi-step rollout schedules with optional real-time monitoring, interval timers, approval gates, and hold conditions.",
 } satisfies OpenApiModelSpec;
 export default rampScheduleApiSpec;

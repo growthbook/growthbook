@@ -157,8 +157,11 @@ tags:
   - name: ramp-schedules
     x-displayName: Ramp Schedules
     description: >-
-      Multi-step rollout schedules that gradually ramp feature rule changes over
-      time, with support for interval, approval, and scheduled triggers.
+      Multi-step rollout schedules that gradually increase feature rule traffic
+      over time, with optional real-time monitoring. Each step supports interval
+      timers, approval gates, and hold conditions. Monitored steps are backed by
+      a live analysis experiment that can automatically hold, roll back, or
+      advance the ramp based on guardrail and signal metric health.
   - name: data-sources
     x-displayName: Data Sources
     description: >-
@@ -18133,10 +18136,25 @@ paths:
       operationId: startRampSchedule
       summary: Start a ramp schedule
       description: >
-        Transitions the schedule from `ready` to `running` and processes the
-        first
+        Transitions the schedule from `ready` to `running`. The schedule must
+        have
 
-        step immediately if eligible.
+        at least one target rule attached — a schedule created without targets
+        starts
+
+        in `pending` and moves to `ready` automatically when the first target is
+
+        attached via `/actions/add-target`.
+
+
+        The first step is processed immediately: interval-free steps advance
+        right
+
+        away; interval-based steps arm a timer. Once started, use
+        `/actions/pause`
+
+        to halt, `/actions/advance` to skip steps, or `/actions/rollback` to
+        revert.
       tags:
         - ramp-schedules
       parameters:
@@ -18170,8 +18188,19 @@ paths:
       operationId: pauseRampSchedule
       summary: Pause a ramp schedule
       description: >
-        Pauses a `running` schedule. The schedule can be resumed from the same
-        position with the `/actions/resume` endpoint.
+        Pauses a `running` schedule. Traffic percentages are frozen at their
+        current
+
+        values; no step advancement happens while paused. Records `pausedAt` so
+        that
+
+        interval timing can be correctly offset when the schedule resumes.
+
+
+        Use `/actions/resume` to continue from the same step, or
+        `/actions/rollback`
+
+        to revert all rule effects entirely.
       tags:
         - ramp-schedules
       parameters:
@@ -18204,9 +18233,22 @@ paths:
     post:
       operationId: resumeRampSchedule
       summary: Resume a paused ramp schedule
-      description: |
-        Resumes a `paused` schedule. Adjusts timing anchors to account for the
-        pause duration so step intervals continue from where they left off.
+      description: >
+        Resumes a `paused` schedule without moving the current step. Timing
+        anchors
+
+        (`phaseStartedAt`, `startedAt`) are shifted forward by the pause
+        duration so
+
+        that interval-based steps continue from where they left off rather than
+
+        restarting their clock.
+
+
+        Does **not** advance to the next step — use `/actions/advance` if you
+        also
+
+        want to skip the remainder of the current step.
       tags:
         - ramp-schedules
       parameters:
@@ -18248,6 +18290,13 @@ paths:
 
         as `lastRollbackReason` (prefixed with `Manual: `) and surfaced in the
         UI.
+
+
+        This is also the correct response to a monitoring alert — when the
+
+        `/status` endpoint returns `decision: "rollback"` or signals include
+
+        `guardrail-failing`, call this endpoint with a descriptive `reason`.
 
 
         From this terminal state the schedule can be brought back to `ready` via
@@ -18350,13 +18399,25 @@ paths:
       operationId: jumpRampSchedule
       summary: Jump to a specific step
       description: >
-        Moves the schedule to `targetStepIndex` (forward or backward) and leaves
-        it
+        Teleports the schedule to `targetStepIndex` (forward or backward) and
+        leaves
 
-        `paused`. Use `-1` to jump to the pre-start position without rolling
-        back rule
+        it `paused`. Resets timing anchors so the destination step's interval
+        starts
 
-        patches.
+        fresh when the schedule is next resumed or started.
+
+
+        Pass `-1` to return to the pre-start position without applying rollback
+        rule
+
+        patches — useful for resetting a non-started schedule. For a full
+        traffic
+
+        revert, use `/actions/rollback` instead.
+
+
+        Accepts any non-terminal schedule status.
       tags:
         - ramp-schedules
       parameters:
@@ -18403,9 +18464,23 @@ paths:
     post:
       operationId: completeRampSchedule
       summary: Complete a ramp schedule immediately
-      description: |
-        Applies end actions and marks the schedule as `completed`, regardless of
-        how many steps remain.
+      description: >
+        Immediately applies the schedule's end-state rule patches (the
+        equivalent
+
+        of what would happen after the last step advances normally) and marks
+        the
+
+        schedule as `completed`, skipping any remaining steps.
+
+
+        Use this when you are confident the rollout is successful and want to
+        lock
+
+        in the final traffic allocation without waiting. For a full traffic
+        revert
+
+        instead, use `/actions/rollback`.
       tags:
         - ramp-schedules
       parameters:
@@ -18439,10 +18514,28 @@ paths:
       operationId: approveStepRampSchedule
       summary: Approve the current step
       description: >
-        Satisfies a `holdConditions.requiresApproval` gate on the current step
-        of a `running` schedule. After approval, the schedule advances when all
-        remaining gates (interval, sample size, health) clear. Requires the
-        caller to have feature review permissions for the associated feature.
+        Satisfies the `holdConditions.requiresApproval` gate on the current step
+        of
+
+        a `running` schedule. Clears the approval hold only — the step still
+        waits
+
+        for any remaining gates (interval elapsed, min sample size, healthy
+        metrics)
+
+        before the evaluator will advance it.
+
+
+        Different from `/actions/advance`: `approve-step` works within the
+        normal
+
+        evaluation loop and lets other conditions resolve naturally. Use
+
+        `/actions/advance` only if you want to bypass all remaining holds
+        entirely.
+
+
+        Requires feature review permissions for the associated feature.
       tags:
         - ramp-schedules
       parameters:
@@ -18610,10 +18703,53 @@ paths:
   /v1/ramp-schedules/{id}/actions/advance:
     post:
       operationId: apiAdvanceRampSchedule
-      summary: API-driven step advancement
-      description: >-
-        Advances the schedule to the next step. Use this for external system
-        integrations (e.g. DataDog, CI pipelines).
+      summary: Advance to the next step, overriding any holds
+      description: >
+        Moves the schedule to the next step, bypassing **all** hold conditions —
+
+        interval, min sample size, and monitoring signal holds. Accepts
+        `running`
+
+        or `paused` status; if paused, the schedule is implicitly resumed
+        (timing
+
+        anchors recalculated) before the step moves.
+
+
+        **Approval gate**: if the current step has an unsatisfied
+
+        `holdConditions.requiresApproval` gate, this endpoint returns **409** by
+
+        default. Either call `/actions/approve-step` first (recommended), or
+        pass
+
+        `force: true` to override the approval gate. `force: true` requires
+
+        `canBypassApprovalChecks` permission and is logged in the audit trail.
+
+
+        **Two common uses:**
+
+        - **Post-interval monitoring hold** (`decision: "hold"`, interval
+        elapsed): the
+          step timer has completed but a signal or guardrail is flagging concern. Use
+          this after reviewing the `/status` health summary and deciding to accept the
+          risk and proceed.
+        - **Hard override**: skip a step regardless of where it is in its
+        interval or
+          hold conditions (CI gate, external deployment pipeline).
+
+        When to use other actions instead:
+
+        - **`/actions/resume`** — restores a paused schedule without moving the
+        step.
+
+        - **`/actions/approve-step`** — clears only the approval gate; other
+        conditions
+          still resolve naturally.
+        - **`/actions/rollback`** — preferred response when `decision:
+        "rollback"` or
+          signals include `guardrail-failing`.
       tags:
         - ramp-schedules
       parameters:
@@ -18633,6 +18769,13 @@ paths:
                 reason:
                   description: Reason for advancing
                   type: string
+                force:
+                  description: >-
+                    Bypass a pending approval gate on the current step. Requires
+                    admin-level (`canBypassApprovalChecks`) permission. When
+                    omitted or `false`, a 409 is returned if the step has an
+                    unsatisfied `holdConditions.requiresApproval` gate.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -18964,16 +19107,37 @@ paths:
                         pattern: >-
                           ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                       - type: 'null'
-                  stepApprovedAt:
+                  stepApproval:
                     description: >-
-                      When the current step's holdConditions.requiresApproval
-                      was satisfied. Null if not yet approved or step has no
-                      approval gate.
+                      Approval record for the current step. Valid only while
+                      `stepApproval.stepIndex === currentStepIndex`.
                     anyOf:
-                      - type: string
-                        format: date-time
-                        pattern: >-
-                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                      - type: object
+                        properties:
+                          stepIndex:
+                            description: Index of the step that was approved.
+                            type: integer
+                          approvedAt:
+                            description: When the approval was granted.
+                            type: string
+                            format: date-time
+                            pattern: >-
+                              ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                          approvedBy:
+                            description: User ID of the approver.
+                            type: string
+                          context:
+                            description: Surface through which the approval was granted.
+                            type: string
+                            enum:
+                              - ui
+                              - api
+                        required:
+                          - stepIndex
+                          - approvedAt
+                          - approvedBy
+                          - context
+                        additionalProperties: false
                       - type: 'null'
                   monitoringStartDate:
                     description: >-
@@ -19319,16 +19483,37 @@ paths:
                         pattern: >-
                           ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                       - type: 'null'
-                  stepApprovedAt:
+                  stepApproval:
                     description: >-
-                      When the current step's holdConditions.requiresApproval
-                      was satisfied. Null if not yet approved or step has no
-                      approval gate.
+                      Approval record for the current step. Valid only while
+                      `stepApproval.stepIndex === currentStepIndex`.
                     anyOf:
-                      - type: string
-                        format: date-time
-                        pattern: >-
-                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                      - type: object
+                        properties:
+                          stepIndex:
+                            description: Index of the step that was approved.
+                            type: integer
+                          approvedAt:
+                            description: When the approval was granted.
+                            type: string
+                            format: date-time
+                            pattern: >-
+                              ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                          approvedBy:
+                            description: User ID of the approver.
+                            type: string
+                          context:
+                            description: Surface through which the approval was granted.
+                            type: string
+                            enum:
+                              - ui
+                              - api
+                        required:
+                          - stepIndex
+                          - approvedAt
+                          - approvedBy
+                          - context
+                        additionalProperties: false
                       - type: 'null'
                   monitoringStartDate:
                     description: >-
@@ -19732,16 +19917,37 @@ paths:
                         pattern: >-
                           ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                       - type: 'null'
-                  stepApprovedAt:
+                  stepApproval:
                     description: >-
-                      When the current step's holdConditions.requiresApproval
-                      was satisfied. Null if not yet approved or step has no
-                      approval gate.
+                      Approval record for the current step. Valid only while
+                      `stepApproval.stepIndex === currentStepIndex`.
                     anyOf:
-                      - type: string
-                        format: date-time
-                        pattern: >-
-                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                      - type: object
+                        properties:
+                          stepIndex:
+                            description: Index of the step that was approved.
+                            type: integer
+                          approvedAt:
+                            description: When the approval was granted.
+                            type: string
+                            format: date-time
+                            pattern: >-
+                              ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                          approvedBy:
+                            description: User ID of the approver.
+                            type: string
+                          context:
+                            description: Surface through which the approval was granted.
+                            type: string
+                            enum:
+                              - ui
+                              - api
+                        required:
+                          - stepIndex
+                          - approvedAt
+                          - approvedBy
+                          - context
+                        additionalProperties: false
                       - type: 'null'
                   monitoringStartDate:
                     description: >-
@@ -20088,16 +20294,37 @@ paths:
                         pattern: >-
                           ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                       - type: 'null'
-                  stepApprovedAt:
+                  stepApproval:
                     description: >-
-                      When the current step's holdConditions.requiresApproval
-                      was satisfied. Null if not yet approved or step has no
-                      approval gate.
+                      Approval record for the current step. Valid only while
+                      `stepApproval.stepIndex === currentStepIndex`.
                     anyOf:
-                      - type: string
-                        format: date-time
-                        pattern: >-
-                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                      - type: object
+                        properties:
+                          stepIndex:
+                            description: Index of the step that was approved.
+                            type: integer
+                          approvedAt:
+                            description: When the approval was granted.
+                            type: string
+                            format: date-time
+                            pattern: >-
+                              ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                          approvedBy:
+                            description: User ID of the approver.
+                            type: string
+                          context:
+                            description: Surface through which the approval was granted.
+                            type: string
+                            enum:
+                              - ui
+                              - api
+                        required:
+                          - stepIndex
+                          - approvedAt
+                          - approvedBy
+                          - context
+                        additionalProperties: false
                       - type: 'null'
                   monitoringStartDate:
                     description: >-
@@ -20315,6 +20542,61 @@ paths:
           source: >-
             curl -X PUT
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/steps' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/ramp-schedules/{id}/actions/refresh-monitoring:
+    post:
+      operationId: refreshMonitoringRampSchedule
+      summary: Trigger a manual monitoring update
+      description: >
+        Queues a new analysis snapshot for the schedule's monitoring experiment.
+
+        The snapshot runs asynchronously — poll `GET /ramp-schedules/:id/status`
+
+        until `snapshotAt` advances to confirm results are ready.
+
+
+        Only available when the schedule is within its monitored step window:
+
+        - Not in a terminal state (`completed` or `rolled-back`).
+
+        - Has at least one step with `monitored: true`.
+
+        - `currentStepIndex` is within `[firstMonitoredStepIndex,
+        lastMonitoredStepIndex]`.
+
+
+        Violating any condition returns **409 Conflict** with a descriptive
+        message.
+
+
+        Requires `runQueries` permission on the configured datasource.
+      tags:
+        - ramp-schedules
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+                required:
+                  - rampSchedule
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/refresh-monitoring'
+            \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/namespaces:
     get:
@@ -34758,15 +35040,37 @@ components:
               pattern: >-
                 ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
             - type: 'null'
-        stepApprovedAt:
+        stepApproval:
           description: >-
-            When the current step's holdConditions.requiresApproval was
-            satisfied. Null if not yet approved or step has no approval gate.
+            Approval record for the current step. Valid only while
+            `stepApproval.stepIndex === currentStepIndex`.
           anyOf:
-            - type: string
-              format: date-time
-              pattern: >-
-                ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+            - type: object
+              properties:
+                stepIndex:
+                  description: Index of the step that was approved.
+                  type: integer
+                approvedAt:
+                  description: When the approval was granted.
+                  type: string
+                  format: date-time
+                  pattern: >-
+                    ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                approvedBy:
+                  description: User ID of the approver.
+                  type: string
+                context:
+                  description: Surface through which the approval was granted.
+                  type: string
+                  enum:
+                    - ui
+                    - api
+              required:
+                - stepIndex
+                - approvedAt
+                - approvedBy
+                - context
+              additionalProperties: false
             - type: 'null'
         monitoringStartDate:
           description: >-

@@ -32,8 +32,21 @@ export function formatStepGate(
 ): ReactNode {
   const requiresApproval = !!holdConditions?.requiresApproval;
   if (interval == null) {
-    if (requiresApproval) return <Text size="small">approval</Text>;
-    return <Text size="small">instant</Text>;
+    if (requiresApproval)
+      return (
+        <div style={{ textAlign: "center", lineHeight: 1 }}>
+          <div>
+            <Text size="small">approval</Text>
+          </div>
+        </div>
+      );
+    return (
+      <div style={{ textAlign: "center", lineHeight: 1 }}>
+        <div>
+          <Text size="small">instant</Text>
+        </div>
+      </div>
+    );
   }
   const s = interval;
   let duration: string;
@@ -57,14 +70,43 @@ export function formatStepGate(
           <Text size="small">{duration},</Text>
         </div>
         <div>
-          <Text size="small" color="text-low">
-            approval
-          </Text>
+          <Text size="small">approval</Text>
         </div>
       </div>
     );
   }
-  return <Text size="small">{duration}</Text>;
+  return (
+    <div style={{ textAlign: "center", lineHeight: 1 }}>
+      <div>
+        <Text size="small">{duration}</Text>
+      </div>
+    </div>
+  );
+}
+
+// Plain inline string for tooltips/popovers (no multi-line wrapper).
+export function formatStepGateInline(
+  interval: number | null,
+  holdConditions?: StepHoldConditions,
+): string {
+  const requiresApproval = !!holdConditions?.requiresApproval;
+  if (interval == null) return requiresApproval ? "approval" : "instant";
+  const s = interval;
+  let duration: string;
+  if (s < 60) duration = `${s}s`;
+  else {
+    const m = s / 60;
+    if (m < 60) duration = Number.isInteger(m) ? `${m}m` : `${m.toFixed(1)}m`;
+    else {
+      const h = s / 3600;
+      if (h < 24) duration = Number.isInteger(h) ? `${h}h` : `${h.toFixed(1)}h`;
+      else {
+        const d = s / 86400;
+        duration = Number.isInteger(d) ? `${d}d` : `${d.toFixed(1)}d`;
+      }
+    }
+  }
+  return requiresApproval ? `${duration}, approval` : duration;
 }
 
 // Two-line ReactNode for a scheduled datetime; shows year only when it differs from current year.
@@ -429,7 +471,9 @@ function NodePopoverContent({
                   : "Hold"
             }
           >
-            {triggerLabel}
+            <Text size="small">
+              {formatStepGateInline(interval, holdConditions)}
+            </Text>
           </PopoverEffectRow>
         </Box>
       )}
@@ -437,11 +481,10 @@ function NodePopoverContent({
       {isActive && holdConditions?.requiresApproval && interval != null && (
         <Box mb="2">
           <PopoverEffectRow label="Approval">
-            <Text
-              size="small"
-              color={rs.stepApprovedAt ? undefined : "text-low"}
-            >
-              {rs.stepApprovedAt ? "Approved" : "Pending"}
+            <Text size="small">
+              {rs.stepApproval?.stepIndex === rs.currentStepIndex
+                ? "Approved"
+                : "Pending"}
             </Text>
           </PopoverEffectRow>
         </Box>
@@ -691,7 +734,7 @@ export function getRampStatusLabel(rs: RampScheduleInterface): string {
 export function getRampBadgeColor(
   rs: Pick<
     RampScheduleInterface,
-    "status" | "currentStepIndex" | "steps" | "stepApprovedAt"
+    "status" | "currentStepIndex" | "steps" | "stepApproval"
   >,
 ): "amber" | "green" | "orange" | "gray" | "red" {
   if (isAwaitingApproval(rs)) return "orange";

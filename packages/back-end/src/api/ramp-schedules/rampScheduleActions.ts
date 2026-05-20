@@ -17,6 +17,7 @@ import {
   advanceScheduleManually,
   approveAndPublishStep,
   completeRollout,
+  ensureSafeRolloutForMonitoredRamp,
   getEffectiveRampAutoUpdateState,
   getRampMonitoringMode,
   jumpSchedule,
@@ -34,7 +35,10 @@ import { evaluateCurrentStep } from "back-end/src/services/rampScheduleEvaluator
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import { getMetricsByIds } from "back-end/src/models/MetricModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { ConflictError } from "back-end/src/util/errors";
 import {
   rampTargetsEquivalent,
   resolveRampTarget,
@@ -57,7 +61,7 @@ export const startRampSchedule = createApiRequestHandler({
   operationId: "startRampSchedule",
   summary: "Start a ramp schedule",
   description:
-    "Transitions the schedule from `ready` to `running` and processes the first\nstep immediately if eligible.\n",
+    "Transitions the schedule from `ready` to `running`. The schedule must have\nat least one target rule attached — a schedule created without targets starts\nin `pending` and moves to `ready` automatically when the first target is\nattached via `/actions/add-target`.\n\nThe first step is processed immediately: interval-free steps advance right\naway; interval-based steps arm a timer. Once started, use `/actions/pause`\nto halt, `/actions/advance` to skip steps, or `/actions/rollback` to revert.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -83,7 +87,7 @@ export const pauseRampSchedule = createApiRequestHandler({
   operationId: "pauseRampSchedule",
   summary: "Pause a ramp schedule",
   description:
-    "Pauses a `running` schedule. The schedule can be resumed from the same position with the `/actions/resume` endpoint.\n",
+    "Pauses a `running` schedule. Traffic percentages are frozen at their current\nvalues; no step advancement happens while paused. Records `pausedAt` so that\ninterval timing can be correctly offset when the schedule resumes.\n\nUse `/actions/resume` to continue from the same step, or `/actions/rollback`\nto revert all rule effects entirely.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -110,7 +114,7 @@ export const resumeRampSchedule = createApiRequestHandler({
   operationId: "resumeRampSchedule",
   summary: "Resume a paused ramp schedule",
   description:
-    "Resumes a `paused` schedule. Adjusts timing anchors to account for the\npause duration so step intervals continue from where they left off.\n",
+    "Resumes a `paused` schedule without moving the current step. Timing anchors\n(`phaseStartedAt`, `startedAt`) are shifted forward by the pause duration so\nthat interval-based steps continue from where they left off rather than\nrestarting their clock.\n\nDoes **not** advance to the next step — use `/actions/advance` if you also\nwant to skip the remainder of the current step.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -143,7 +147,7 @@ export const jumpRampSchedule = createApiRequestHandler({
   operationId: "jumpRampSchedule",
   summary: "Jump to a specific step",
   description:
-    "Moves the schedule to `targetStepIndex` (forward or backward) and leaves it\n`paused`. Use `-1` to jump to the pre-start position without rolling back rule\npatches.\n",
+    "Teleports the schedule to `targetStepIndex` (forward or backward) and leaves\nit `paused`. Resets timing anchors so the destination step's interval starts\nfresh when the schedule is next resumed or started.\n\nPass `-1` to return to the pre-start position without applying rollback rule\npatches — useful for resetting a non-started schedule. For a full traffic\nrevert, use `/actions/rollback` instead.\n\nAccepts any non-terminal schedule status.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -175,7 +179,7 @@ export const completeRampSchedule = createApiRequestHandler({
   operationId: "completeRampSchedule",
   summary: "Complete a ramp schedule immediately",
   description:
-    "Applies end actions and marks the schedule as `completed`, regardless of\nhow many steps remain.\n",
+    "Immediately applies the schedule's end-state rule patches (the equivalent\nof what would happen after the last step advances normally) and marks the\nschedule as `completed`, skipping any remaining steps.\n\nUse this when you are confident the rollout is successful and want to lock\nin the final traffic allocation without waiting. For a full traffic revert\ninstead, use `/actions/rollback`.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -202,7 +206,7 @@ export const approveStepRampSchedule = createApiRequestHandler({
   operationId: "approveStepRampSchedule",
   summary: "Approve the current step",
   description:
-    "Satisfies a `holdConditions.requiresApproval` gate on the current step of a `running` schedule. After approval, the schedule advances when all remaining gates (interval, sample size, health) clear. Requires the caller to have feature review permissions for the associated feature.\n",
+    "Satisfies the `holdConditions.requiresApproval` gate on the current step of\na `running` schedule. Clears the approval hold only — the step still waits\nfor any remaining gates (interval elapsed, min sample size, healthy metrics)\nbefore the evaluator will advance it.\n\nDifferent from `/actions/advance`: `approve-step` works within the normal\nevaluation loop and lets other conditions resolve naturally. Use\n`/actions/advance` only if you want to bypass all remaining holds entirely.\n\nRequires feature review permissions for the associated feature.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -214,7 +218,7 @@ export const approveStepRampSchedule = createApiRequestHandler({
   const awaitingApproval =
     schedule.status === "running" &&
     currentStep?.holdConditions?.requiresApproval &&
-    !schedule.stepApprovedAt;
+    schedule.stepApproval?.stepIndex !== schedule.currentStepIndex;
 
   if (!awaitingApproval) {
     throw new Error(
@@ -222,7 +226,7 @@ export const approveStepRampSchedule = createApiRequestHandler({
     );
   }
 
-  const err = await approveAndPublishStep(req.context, schedule);
+  const err = await approveAndPublishStep(req.context, schedule, "api");
   if (err) {
     const detail = "detail" in err ? err.detail : undefined;
     if (err.code === "permission_denied") {
@@ -233,6 +237,15 @@ export const approveStepRampSchedule = createApiRequestHandler({
 
   const updated =
     (await req.context.models.rampSchedules.getById(schedule.id)) ?? schedule;
+
+  await req.audit({
+    event: "rampSchedule.step-approved",
+    entity: { object: "rampSchedule", id: schedule.id },
+    details: JSON.stringify({
+      stepIndex: schedule.currentStepIndex,
+      stepApproval: updated.stepApproval,
+    }),
+  });
 
   return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
@@ -252,7 +265,7 @@ export const rollbackRampSchedule = createApiRequestHandler({
   operationId: "rollbackRampSchedule",
   summary: "Roll back a ramp schedule",
   description:
-    "Rewinds all ramp effects (rule coverage, targeting, etc.) to the starting\nposition and lands in terminal `rolled-back` status. The reason is persisted\nas `lastRollbackReason` (prefixed with `Manual: `) and surfaced in the UI.\n\nFrom this terminal state the schedule can be brought back to `ready` via\n`/actions/restart`, after which `/actions/start` will run it again.\n",
+    'Rewinds all ramp effects (rule coverage, targeting, etc.) to the starting\nposition and lands in terminal `rolled-back` status. The reason is persisted\nas `lastRollbackReason` (prefixed with `Manual: `) and surfaced in the UI.\n\nThis is also the correct response to a monitoring alert — when the\n`/status` endpoint returns `decision: "rollback"` or signals include\n`guardrail-failing`, call this endpoint with a descriptive `reason`.\n\nFrom this terminal state the schedule can be brought back to `ready` via\n`/actions/restart`, after which `/actions/start` will run it again.\n',
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -450,15 +463,21 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
   bodySchema: z
     .object({
       reason: z.string().optional().describe("Reason for advancing"),
+      force: z
+        .boolean()
+        .optional()
+        .describe(
+          "Bypass a pending approval gate on the current step. Requires admin-level (`canBypassApprovalChecks`) permission. When omitted or `false`, a 409 is returned if the step has an unsatisfied `holdConditions.requiresApproval` gate.",
+        ),
     })
     .optional(),
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/advance",
   operationId: "apiAdvanceRampSchedule",
-  summary: "API-driven step advancement",
+  summary: "Advance to the next step, overriding any holds",
   description:
-    "Advances the schedule to the next step. Use this for external system integrations (e.g. DataDog, CI pipelines).",
+    'Moves the schedule to the next step, bypassing **all** hold conditions —\ninterval, min sample size, and monitoring signal holds. Accepts `running`\nor `paused` status; if paused, the schedule is implicitly resumed (timing\nanchors recalculated) before the step moves.\n\n**Approval gate**: if the current step has an unsatisfied\n`holdConditions.requiresApproval` gate, this endpoint returns **409** by\ndefault. Either call `/actions/approve-step` first (recommended), or pass\n`force: true` to override the approval gate. `force: true` requires\n`canBypassApprovalChecks` permission and is logged in the audit trail.\n\n**Two common uses:**\n- **Post-interval monitoring hold** (`decision: "hold"`, interval elapsed): the\n  step timer has completed but a signal or guardrail is flagging concern. Use\n  this after reviewing the `/status` health summary and deciding to accept the\n  risk and proceed.\n- **Hard override**: skip a step regardless of where it is in its interval or\n  hold conditions (CI gate, external deployment pipeline).\n\nWhen to use other actions instead:\n- **`/actions/resume`** — restores a paused schedule without moving the step.\n- **`/actions/approve-step`** — clears only the approval gate; other conditions\n  still resolve naturally.\n- **`/actions/rollback`** — preferred response when `decision: "rollback"` or\n  signals include `guardrail-failing`.\n',
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -468,6 +487,34 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
 
   if (!["running", "paused"].includes(schedule.status)) {
     throw new Error(`Cannot advance a schedule in status "${schedule.status}"`);
+  }
+
+  const force = req.body?.force ?? false;
+  const currentStep = schedule.steps[schedule.currentStepIndex];
+  const approvalPending =
+    currentStep?.holdConditions?.requiresApproval &&
+    schedule.stepApproval?.stepIndex !== schedule.currentStepIndex;
+
+  if (approvalPending && !force) {
+    throw new ConflictError(
+      "This step requires approval before advancing. Call `/actions/approve-step` first, or pass `force: true` to bypass (requires canBypassApprovalChecks permission).",
+    );
+  }
+  if (approvalPending && force) {
+    const feature = await getFeature(req.context, schedule.entityId);
+    if (!feature || !req.context.permissions.canBypassApprovalChecks(feature)) {
+      throw new PermissionError(
+        "force: true requires canBypassApprovalChecks permission on the linked feature",
+      );
+    }
+    await req.audit({
+      event: "rampSchedule.approval-bypassed",
+      entity: { object: "rampSchedule", id: schedule.id },
+      details: JSON.stringify({
+        stepIndex: schedule.currentStepIndex,
+        reason: req.body?.reason,
+      }),
+    });
   }
 
   let current = await advanceScheduleManually(req.context, schedule);
@@ -1105,4 +1152,108 @@ export const updateStepsRampSchedule = createApiRequestHandler({
       skipped: mergeResult?.skippedIndices ?? [],
     },
   };
+});
+
+export const refreshMonitoringRampSchedule = createApiRequestHandler({
+  paramsSchema: actionParamsSchema,
+  bodySchema: z.never(),
+  responseSchema: z.object({
+    rampSchedule: apiRampScheduleInterface,
+  }),
+  method: "post" as const,
+  path: "/ramp-schedules/:id/actions/refresh-monitoring",
+  operationId: "refreshMonitoringRampSchedule",
+  summary: "Trigger a manual monitoring update",
+  description:
+    "Queues a new analysis snapshot for the schedule's monitoring experiment.\nThe snapshot runs asynchronously — poll `GET /ramp-schedules/:id/status`\nuntil `snapshotAt` advances to confirm results are ready.\n\nOnly available when the schedule is within its monitored step window:\n- Not in a terminal state (`completed` or `rolled-back`).\n- Has at least one step with `monitored: true`.\n- `currentStepIndex` is within `[firstMonitoredStepIndex, lastMonitoredStepIndex]`.\n\nViolating any condition returns **409 Conflict** with a descriptive message.\n\nRequires `runQueries` permission on the configured datasource.\n",
+  tags: ["ramp-schedules"],
+})(async (req) => {
+  const schedule = await req.context.models.rampSchedules.getById(
+    req.params.id,
+  );
+  if (!schedule) throw new Error("Ramp schedule not found");
+
+  if (["completed", "rolled-back"].includes(schedule.status)) {
+    throw new ConflictError(
+      `Cannot refresh monitoring on a terminal schedule (status: "${schedule.status}").`,
+    );
+  }
+
+  const firstMonitoredStepIndex = schedule.steps.findIndex((s) => s.monitored);
+  if (firstMonitoredStepIndex === -1) {
+    throw new ConflictError(
+      "This schedule has no monitored steps. Add a step with `monitored: true` to enable monitoring.",
+    );
+  }
+
+  const lastMonitoredStepIndex = schedule.steps.reduce(
+    (last, s, i) => (s.monitored ? i : last),
+    -1,
+  );
+
+  if (schedule.currentStepIndex < firstMonitoredStepIndex) {
+    throw new ConflictError(
+      `Monitoring has not started yet. The schedule reaches its first monitored step at index ${firstMonitoredStepIndex} (current: ${schedule.currentStepIndex}).`,
+    );
+  }
+
+  if (schedule.currentStepIndex > lastMonitoredStepIndex) {
+    throw new ConflictError(
+      `The schedule has moved past all monitored steps (last monitored: index ${lastMonitoredStepIndex}, current: ${schedule.currentStepIndex}).`,
+    );
+  }
+
+  // If the current step is monitored and no SafeRollout exists yet, create it
+  // lazily (mirrors the agenda job's behavior).
+  const currentStep = schedule.steps[schedule.currentStepIndex];
+  let safeRollout = schedule.safeRolloutId
+    ? await req.context.models.safeRollout.getById(schedule.safeRolloutId)
+    : null;
+
+  if (!safeRollout && currentStep?.monitored) {
+    const updated = await ensureSafeRolloutForMonitoredRamp(
+      req.context,
+      schedule,
+    );
+    safeRollout = updated.safeRolloutId
+      ? await req.context.models.safeRollout.getById(updated.safeRolloutId)
+      : null;
+  }
+
+  if (!safeRollout) {
+    throw new ConflictError(
+      "No monitoring experiment is linked to this schedule. Wait for the schedule to reach a monitored step or configure monitoring via `PUT /ramp-schedules/:id/monitoring`.",
+    );
+  }
+
+  const datasourceId =
+    safeRollout.datasourceId ?? schedule.monitoringConfig?.datasourceId;
+  if (!datasourceId) {
+    throw new Error(
+      "No datasource configured for this schedule's monitoring experiment.",
+    );
+  }
+  const datasource = await getDataSourceById(req.context, datasourceId);
+  if (!datasource) {
+    throw new Error(`Datasource "${datasourceId}" not found.`);
+  }
+  if (!req.context.permissions.canCreateExperimentSnapshot(datasource)) {
+    req.context.permissions.throwPermissionError();
+  }
+
+  const feature = safeRollout.featureId
+    ? await getFeature(req.context, safeRollout.featureId)
+    : null;
+
+  await createSafeRolloutSnapshot({
+    context: req.context,
+    safeRollout,
+    customFields: feature?.customFields,
+    useCache: false,
+    triggeredBy: "manual",
+  });
+
+  const updated =
+    (await req.context.models.rampSchedules.getById(schedule.id)) ?? schedule;
+  return { rampSchedule: rampScheduleToApiInterface(updated) };
 });

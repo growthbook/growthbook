@@ -140,12 +140,13 @@ function computeRemainingTime(
   let manualApprovals = 0;
 
   // For a step awaiting approval (status running + requiresApproval +
-  // !stepApprovedAt) or a paused approval step, the current step is still
-  // pending — include it in the count.
+  // stepApproval not set for current step) or a paused approval step, the
+  // current step is still pending — include it in the count.
   const currentStep =
     rs.currentStepIndex >= 0 ? rs.steps[rs.currentStepIndex] : undefined;
   const currentAwaiting =
-    !!currentStep?.holdConditions?.requiresApproval && !rs.stepApprovedAt;
+    !!currentStep?.holdConditions?.requiresApproval &&
+    rs.stepApproval?.stepIndex !== rs.currentStepIndex;
   const nextIdx = currentAwaiting
     ? Math.max(0, rs.currentStepIndex)
     : rs.currentStepIndex + 1;

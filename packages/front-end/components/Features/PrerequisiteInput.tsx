@@ -450,7 +450,6 @@ export default function PrerequisiteInput({
             hasPrerequisitesCommercialFeature ? (
               <AddConditionButton
                 disabled={locked}
-                slimMode={slimMode}
                 onClick={() => {
                   setValue([
                     ...value,

@@ -150,14 +150,14 @@ export async function publishFeatureRevision(
     revision,
     result: mergeResult.result,
     comment: req.body.comment ?? "",
-    // bypassLockdown intentionally mirrors canBypassApprovalChecks. The policy
-    // choice: anyone who can skip the revision-review queue (admins and API keys
-    // with restApiBypassesReviews) can also override a ramp lockdown. Lockdown is
-    // a safety gate against accidental live-traffic changes, not a security
-    // boundary — the same elevated trust that lets you skip review also lets you
-    // push through a lockdown. If you need a stricter separation in the future,
-    // introduce a dedicated canBypassRampLockdown() permission method here.
-    bypassLockdown: canBypass,
+  // bypassLockdown intentionally mirrors canBypassApprovalChecks. The policy
+  // choice: anyone who can skip the revision-review queue (admins and API keys
+  // with restApiBypassesReviews) can also override a ramp lockdown. Lockdown is
+  // a safety gate against accidental live-traffic changes, not a security
+  // boundary — the same elevated trust that lets you skip review also lets you
+  // push through a lockdown. If you need a stricter separation in the future,
+  // introduce a dedicated canBypassRampLockdown() permission method here.
+  bypassLockdown: canBypass,
   });
 
   if (

@@ -288,6 +288,20 @@ export function MonitoringControls({
     );
   })();
 
+  const isTerminal = ["completed", "rolled-back"].includes(rampSchedule.status);
+  const firstMonitoredStepIndex = rampSchedule.steps.findIndex(
+    (s) => s.monitored,
+  );
+  const lastMonitoredStepIndex = rampSchedule.steps.reduce(
+    (last, s, i) => (s.monitored ? i : last),
+    -1,
+  );
+  const isWithinMonitoredRange =
+    firstMonitoredStepIndex >= 0 &&
+    rampSchedule.currentStepIndex >= firstMonitoredStepIndex &&
+    rampSchedule.currentStepIndex <= lastMonitoredStepIndex;
+  const showMonitoringControls = !isTerminal && isWithinMonitoredRange;
+
   const lastUpdated = snapshot?.dateCreated
     ? getValidDate(snapshot.dateCreated)
     : undefined;
@@ -312,81 +326,96 @@ export function MonitoringControls({
         </Flex>
 
         <Flex align="center" gap="3">
-          <Flex align="center" gap="1">
-            <Tooltip body={autoUpdateTooltipBody}>
-              {monitoringMode === "auto" ? (
-                <PiLightning
-                  size={18}
-                  style={{
-                    color: effectiveAutoUpdate
-                      ? "var(--violet-11)"
-                      : "var(--gray-8)",
-                    cursor: canRunQueries ? "pointer" : "default",
-                  }}
-                  onClick={
-                    canRunQueries ? handleToggleMonitoringMode : undefined
+          {showMonitoringControls && (
+            <Flex align="center" gap="1">
+              <Tooltip body={autoUpdateTooltipBody}>
+                {monitoringMode === "auto" ? (
+                  <PiLightning
+                    size={18}
+                    style={{
+                      color: effectiveAutoUpdate
+                        ? "var(--violet-11)"
+                        : "var(--gray-8)",
+                      cursor: canRunQueries ? "pointer" : "default",
+                    }}
+                    onClick={
+                      canRunQueries ? handleToggleMonitoringMode : undefined
+                    }
+                  />
+                ) : (
+                  <PiLightningSlash
+                    size={18}
+                    style={{
+                      color: "var(--gray-8)",
+                      cursor: canRunQueries ? "pointer" : "default",
+                    }}
+                    onClick={
+                      canRunQueries ? handleToggleMonitoringMode : undefined
+                    }
+                  />
+                )}
+              </Tooltip>
+              {lastUpdated && (
+                <Tooltip
+                  body={`Last update: ${getValidDate(lastUpdated).toLocaleString()}`}
+                >
+                  <Text size="medium" color="text-mid" whiteSpace="nowrap">
+                    Updated: {formatShortAgo(lastUpdated)}
+                  </Text>
+                </Tooltip>
+              )}
+              {!lastUpdated && (
+                <span style={{ color: "var(--color-text-mid)" }}>
+                  Not updated yet
+                </span>
+              )}
+            </Flex>
+          )}
+          {!showMonitoringControls && lastUpdated && (
+            <Tooltip
+              body={`Last update: ${getValidDate(lastUpdated).toLocaleString()}`}
+            >
+              <Text size="medium" color="text-mid" whiteSpace="nowrap">
+                Updated: {formatShortAgo(lastUpdated)}
+              </Text>
+            </Tooltip>
+          )}
+          {showMonitoringControls && (
+            <Flex align="center" gap="3">
+              {canRunQueries && (
+                <RunQueriesButton
+                  cta="Update"
+                  cancelEndpoint={
+                    latestSnap
+                      ? `/safe-rollout/snapshot/${latestSnap.id}/cancel`
+                      : ""
                   }
-                />
-              ) : (
-                <PiLightningSlash
-                  size={18}
-                  style={{
-                    color: "var(--gray-8)",
-                    cursor: canRunQueries ? "pointer" : "default",
+                  mutate={mutateSnapshot}
+                  model={{
+                    queries: latestSnap?.queries || [],
+                    runStarted: latestSnap?.runStarted ?? null,
                   }}
-                  onClick={
-                    canRunQueries ? handleToggleMonitoringMode : undefined
-                  }
+                  icon="refresh"
+                  useRadixButton
+                  radixVariant="outline"
+                  size="xs"
+                  onSubmit={async () => {
+                    try {
+                      await apiCall(`/safe-rollout/${safeRolloutId}/snapshot`, {
+                        method: "POST",
+                      });
+                      setRefreshError("");
+                    } catch (e) {
+                      setRefreshError(
+                        e instanceof Error ? e.message : String(e),
+                      );
+                    }
+                    mutateSnapshot();
+                  }}
                 />
               )}
-            </Tooltip>
-            {lastUpdated && (
-              <Tooltip
-                body={`Last update: ${getValidDate(lastUpdated).toLocaleString()}`}
-              >
-                <Text size="medium" color="text-mid" whiteSpace="nowrap">
-                  Updated: {formatShortAgo(lastUpdated)}
-                </Text>
-              </Tooltip>
-            )}
-            {!lastUpdated && (
-              <span style={{ color: "var(--color-text-mid)" }}>
-                Not updated yet
-              </span>
-            )}
-          </Flex>
-          <Flex align="center" gap="3">
-            {canRunQueries && (
-              <RunQueriesButton
-                cta="Update"
-                cancelEndpoint={
-                  latestSnap
-                    ? `/safe-rollout/snapshot/${latestSnap.id}/cancel`
-                    : ""
-                }
-                mutate={mutateSnapshot}
-                model={{
-                  queries: latestSnap?.queries || [],
-                  runStarted: latestSnap?.runStarted ?? null,
-                }}
-                icon="refresh"
-                useRadixButton
-                radixVariant="outline"
-                size="xs"
-                onSubmit={async () => {
-                  try {
-                    await apiCall(`/safe-rollout/${safeRolloutId}/snapshot`, {
-                      method: "POST",
-                    });
-                    setRefreshError("");
-                  } catch (e) {
-                    setRefreshError(e instanceof Error ? e.message : String(e));
-                  }
-                  mutateSnapshot();
-                }}
-              />
-            )}
-          </Flex>
+            </Flex>
+          )}
         </Flex>
       </Flex>
 

@@ -226,7 +226,6 @@ export default function SavedGroupTargetingField({
           addButton={
             <AddConditionButton
               disabled={locked}
-              slimMode={slimMode}
               onClick={() => {
                 setValue([
                   ...value,

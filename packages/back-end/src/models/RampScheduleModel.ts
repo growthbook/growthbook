@@ -104,9 +104,8 @@ export function migrateRampStepTriggers<
   let changed = false;
   const steps = doc.steps.map((s) => {
     if (!s || !s.trigger) return s;
-    const trigger = s.trigger;
     changed = true;
-    const { trigger: _drop, ...rest } = s;
+    const { trigger, ...rest } = s;
     if (trigger.type === "interval") {
       return { ...rest, interval: trigger.seconds };
     }
@@ -417,6 +416,25 @@ export class RampScheduleModel extends BaseClass {
         return rest;
       });
     }
+
+    // Migrate legacy stepApprovedAt (plain Date) → stepApproval object.
+    // stepIndex defaults to currentStepIndex since the old field had no
+    // step-scoping; approvedBy and context are unknown so we use sentinel
+    // values. The migrated record remains valid for the current step.
+    const legacy = result as Record<string, unknown>;
+    if (legacy.stepApprovedAt && !result.stepApproval) {
+      const approvedAt =
+        legacy.stepApprovedAt instanceof Date
+          ? legacy.stepApprovedAt
+          : new Date(legacy.stepApprovedAt as string);
+      result.stepApproval = {
+        stepIndex: result.currentStepIndex ?? 0,
+        approvedAt,
+        approvedBy: "unknown",
+        context: "ui",
+      };
+    }
+    delete legacy.stepApprovedAt;
 
     return result;
   }

@@ -836,7 +836,7 @@ export async function advanceStep(
     status: newStatus,
     currentStepIndex: nextStepIndex,
     currentStepEnteredAt: now,
-    stepApprovedAt: null,
+    stepApproval: null,
     ...(shouldResetMonitoringStart ? { monitoringStartDate: now } : {}),
     nextStepAt,
     nextSnapshotAt,
@@ -1125,7 +1125,7 @@ export async function restartSchedule(
     nextSnapshotAt: null,
     nextProcessAt: null,
     monitoringStartDate: null,
-    stepApprovedAt: null,
+    stepApproval: null,
     eventHistory: appendRampEvent(schedule, "restart", {
       stepIndex: -1,
       previousStepIndex: schedule.currentStepIndex,
@@ -1194,7 +1194,7 @@ export async function jumpSchedule(
       nextStepAt: null,
       nextSnapshotAt: null,
       nextProcessAt: null,
-      stepApprovedAt: null,
+      stepApproval: null,
     });
   } else if (targetStepIndex > schedule.currentStepIndex) {
     updated = await jumpAheadToStep(ctx, schedule, targetStepIndex);
@@ -1206,7 +1206,7 @@ export async function jumpSchedule(
       nextStepAt: null,
       nextSnapshotAt: null,
       nextProcessAt: null,
-      stepApprovedAt: null,
+      stepApproval: null,
       ...(shouldResetMonitoringStartDate(schedule, targetStepIndex)
         ? { monitoringStartDate: now }
         : {}),
@@ -1391,7 +1391,7 @@ export async function jumpAheadToStep(
     nextSnapshotAt: null,
     pausedAt: now,
     nextProcessAt: null,
-    stepApprovedAt: null,
+    stepApproval: null,
     ...(shouldResetMonitoringStart ? { monitoringStartDate: now } : {}),
     eventHistory: appendRampEvent(schedule, "step-jumped", {
       stepIndex: jumpTarget,
@@ -1785,6 +1785,7 @@ type ApproveStepError =
 export async function approveAndPublishStep(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
+  context: "ui" | "api" = "ui",
 ): Promise<ApproveStepError | null> {
   const stepIndex = schedule.currentStepIndex;
 
@@ -1829,7 +1830,7 @@ export async function approveAndPublishStep(
       detail: `Cannot approve a step on a schedule in status "${schedule.status}"`,
     };
   }
-  if (schedule.stepApprovedAt) {
+  if (schedule.stepApproval?.stepIndex === schedule.currentStepIndex) {
     return null;
   }
 
@@ -1844,7 +1845,12 @@ export async function approveAndPublishStep(
       : null;
 
   const updates: Record<string, unknown> = {
-    stepApprovedAt: now,
+    stepApproval: {
+      stepIndex,
+      approvedAt: now,
+      approvedBy: ctx.userId,
+      context,
+    },
     ...(rebasedPhaseStart ? { phaseStartedAt: rebasedPhaseStart } : {}),
     // Bump nextProcessAt to now so the agenda re-evaluates immediately.
     nextProcessAt: now,

@@ -40,7 +40,10 @@ export async function evaluateCurrentStep(
     return decision;
   }
 
-  if (step.holdConditions?.requiresApproval && !schedule.stepApprovedAt) {
+  if (
+    step.holdConditions?.requiresApproval &&
+    schedule.stepApproval?.stepIndex !== schedule.currentStepIndex
+  ) {
     return { action: "hold", reason: "Awaiting approval" };
   }
 
@@ -218,7 +221,10 @@ async function evaluateMonitoredStep(
   const signalDecision = checkSignalMetricGating(safeRollout, signalOnly);
   if (signalDecision) return signalDecision;
 
-  if (step?.holdConditions?.requiresApproval && !schedule.stepApprovedAt) {
+  if (
+    step?.holdConditions?.requiresApproval &&
+    schedule.stepApproval?.stepIndex !== schedule.currentStepIndex
+  ) {
     return { action: "hold", reason: "Awaiting approval" };
   }
 

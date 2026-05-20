@@ -42,6 +42,7 @@ import {
   type FeatureRulePatch,
   type TemplateEndPatch,
   type RevisionRampCreateAction,
+  type RevisionRampUpdateAction,
   type StepHoldConditions,
   isAwaitingApproval,
 } from "shared/validators";
@@ -1461,7 +1462,7 @@ export default function RampScheduleSection({
             {hasHoldConditions && (
               <Flex direction="column" gap="1">
                 <Text as="div" size="small" weight="medium" color="text-low">
-                  Then:
+                  {step?.triggerType === "approval" ? "Also:" : "Then:"}
                 </Text>
                 <Flex direction="column" gap="1" style={{ paddingLeft: 12 }}>
                   {step?.triggerType !== "approval" &&
@@ -2310,7 +2311,7 @@ export default function RampScheduleSection({
                       }}
                     >
                       <Text color="text-low" weight="medium">
-                        Then:
+                        {step.triggerType === "approval" ? "Also:" : "Then:"}
                       </Text>
 
                       {step.holdConditions?.requiresApproval &&
@@ -3011,7 +3012,7 @@ export default function RampScheduleSection({
                 If no traffic (
                 <Link
                   type="button"
-                  className="hover-underline"
+                  className="no-underline hover-underline"
                   onClick={() => setNoTrafficGraceOpen(true)}
                 >
                   {state.monitoring.noTrafficGracePeriodHours != null
@@ -3984,6 +3985,43 @@ export function createActionToSectionState(
       isSimple && firstStep
         ? firstStep.intervalValue * SIMPLE_COVERAGES.length
         : 7,
+  };
+}
+
+export function updateActionToSectionState(
+  action: RevisionRampUpdateAction,
+  liveSchedule: RampScheduleInterface,
+): RampSectionState {
+  // Merge strategy: start from the live schedule as the base, then overlay
+  // the pending update action's fields so that any un-changed fields retain
+  // their current live values. This mirrors what createRampSchedulesForRevision
+  // does on the backend when it applies an update action.
+  const merged = createActionToSectionState({
+    ...action,
+    mode: "create",
+    ruleId: action.ruleId,
+  } as RevisionRampCreateAction);
+  return {
+    ...merged,
+    mode: "edit",
+    linkedRampId: liveSchedule.id,
+    // Fields not included in the update action fall back to the live schedule.
+    name: action.name ?? liveSchedule.name,
+    startDate: action.startDate
+      ? new Date(action.startDate).toISOString()
+      : liveSchedule.startDate
+        ? new Date(liveSchedule.startDate).toISOString()
+        : "",
+    cutoffDate: action.cutoffDate
+      ? new Date(action.cutoffDate).toISOString()
+      : liveSchedule.cutoffDate
+        ? new Date(liveSchedule.cutoffDate).toISOString()
+        : "",
+    endScheduleAt: action.cutoffDate
+      ? new Date(action.cutoffDate).toISOString()
+      : liveSchedule.cutoffDate
+        ? new Date(liveSchedule.cutoffDate).toISOString()
+        : "",
   };
 }
 

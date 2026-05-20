@@ -10,6 +10,7 @@ import {
   completeRollout,
   computeNextProcessAt,
   dispatchRampEvent,
+  ensureSafeRolloutForMonitoredRamp,
   jumpSchedule,
   pauseSchedule,
   rollbackSchedule,
@@ -18,6 +19,9 @@ import {
   setRampMonitoringMode,
   startSchedule,
 } from "back-end/src/services/rampSchedule";
+import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getFeature } from "back-end/src/models/FeatureModel";
 
 type CreateBody = Pick<
   RampScheduleInterface,
@@ -47,6 +51,7 @@ type ActionBody = {
   reason?: string;
   enabled?: boolean;
   monitoringMode?: "auto" | "manual";
+  force?: boolean;
 };
 
 function normalizeMonitoringConfig(
@@ -311,6 +316,31 @@ export const postRampScheduleAction = async (
           message: `Cannot advance a schedule in status "${schedule.status}"`,
         });
       }
+      const forceAdvance = req.body?.force === true;
+      const advanceStep = schedule.steps[schedule.currentStepIndex];
+      const approvalPending =
+        advanceStep?.holdConditions?.requiresApproval &&
+        schedule.stepApproval?.stepIndex !== schedule.currentStepIndex;
+      if (approvalPending && !forceAdvance) {
+        return res.status(409).json({
+          status: 409,
+          message:
+            "This step requires approval before advancing. Use approve-step first, or pass force: true to bypass (requires canBypassApprovalChecks).",
+        });
+      }
+      if (approvalPending && forceAdvance) {
+        const linkedFeature = await getFeature(context, schedule.entityId);
+        if (
+          !linkedFeature ||
+          !context.permissions.canBypassApprovalChecks(linkedFeature)
+        ) {
+          return res.status(403).json({
+            status: 403,
+            message:
+              "Permission denied: canBypassApprovalChecks required on the linked feature",
+          });
+        }
+      }
       updated = await advanceScheduleManually(context, schedule);
       break;
     }
@@ -377,7 +407,7 @@ export const postRampScheduleAction = async (
       const awaitingApproval =
         schedule.status === "running" &&
         currentStep?.holdConditions?.requiresApproval &&
-        !schedule.stepApprovedAt;
+        schedule.stepApproval?.stepIndex !== schedule.currentStepIndex;
 
       if (!awaitingApproval) {
         return res.status(400).json({
@@ -385,7 +415,7 @@ export const postRampScheduleAction = async (
           message: `Cannot approve step: schedule is not awaiting approval (currently "${schedule.status}")`,
         });
       }
-      const approveErr = await approveAndPublishStep(context, schedule);
+      const approveErr = await approveAndPublishStep(context, schedule, "ui");
       if (approveErr) {
         const httpStatus = approveErr.code === "permission_denied" ? 403 : 400;
         return res.status(httpStatus).json({
@@ -433,6 +463,100 @@ export const postRampScheduleAction = async (
       }
       updated = await setRampMonitoringMode(context, schedule, requestedMode);
       break;
+    }
+
+    case "refresh-monitoring": {
+      const firstMonitoredIdx = schedule.steps.findIndex((s) => s.monitored);
+      const lastMonitoredIdx = schedule.steps.reduce(
+        (last, s, i) => (s.monitored ? i : last),
+        -1,
+      );
+
+      if (["completed", "rolled-back"].includes(schedule.status)) {
+        return res.status(409).json({
+          status: 409,
+          message: `Cannot refresh monitoring on a terminal schedule (status: "${schedule.status}").`,
+        });
+      }
+      if (firstMonitoredIdx === -1) {
+        return res.status(409).json({
+          status: 409,
+          message: "This schedule has no monitored steps.",
+        });
+      }
+      if (schedule.currentStepIndex < firstMonitoredIdx) {
+        return res.status(409).json({
+          status: 409,
+          message: `Monitoring has not started yet (first monitored step: ${firstMonitoredIdx}, current: ${schedule.currentStepIndex}).`,
+        });
+      }
+      if (schedule.currentStepIndex > lastMonitoredIdx) {
+        return res.status(409).json({
+          status: 409,
+          message: `The schedule has moved past all monitored steps (last monitored: ${lastMonitoredIdx}, current: ${schedule.currentStepIndex}).`,
+        });
+      }
+
+      const currentStep = schedule.steps[schedule.currentStepIndex];
+      let safeRollout = schedule.safeRolloutId
+        ? await context.models.safeRollout.getById(schedule.safeRolloutId)
+        : null;
+
+      if (!safeRollout && currentStep?.monitored) {
+        const updatedSchedule = await ensureSafeRolloutForMonitoredRamp(
+          context,
+          schedule,
+        );
+        safeRollout = updatedSchedule.safeRolloutId
+          ? await context.models.safeRollout.getById(
+              updatedSchedule.safeRolloutId,
+            )
+          : null;
+      }
+
+      if (!safeRollout) {
+        return res.status(409).json({
+          status: 409,
+          message:
+            "No monitoring experiment is linked to this schedule yet. Wait for the schedule to reach a monitored step.",
+        });
+      }
+
+      const datasourceId =
+        safeRollout.datasourceId ?? schedule.monitoringConfig?.datasourceId;
+      if (!datasourceId) {
+        return res.status(400).json({
+          status: 400,
+          message:
+            "No datasource configured for this schedule's monitoring experiment.",
+        });
+      }
+      const datasource = await getDataSourceById(context, datasourceId);
+      if (!datasource) {
+        return res.status(400).json({
+          status: 400,
+          message: `Datasource "${datasourceId}" not found.`,
+        });
+      }
+      if (!context.permissions.canCreateExperimentSnapshot(datasource)) {
+        return res
+          .status(403)
+          .json({ status: 403, message: "Permission denied" });
+      }
+
+      const feature = safeRollout.featureId
+        ? await getFeature(context, safeRollout.featureId)
+        : null;
+
+      await createSafeRolloutSnapshot({
+        context,
+        safeRollout,
+        customFields: feature?.customFields,
+        useCache: false,
+        triggeredBy: "manual",
+      });
+
+      return res.status(200).json({ status: 200 });
     }
 
     default:

@@ -87,6 +87,7 @@ import {
   defaultRampSectionState,
   rampScheduleToSectionState,
   createActionToSectionState,
+  updateActionToSectionState,
   buildRampSteps,
   buildEndActions,
   buildMonitoringConfig,
@@ -245,6 +246,18 @@ export default function RuleModal({
   const pendingCreateActionTyped =
     pendingCreateAction?.mode === "create" ? pendingCreateAction : undefined;
 
+  // Find a pending update action for this rule, if any (used when a live schedule exists
+  // but has already been modified in this draft session and the modal is re-opened).
+  const pendingUpdateAction =
+    ruleRampSchedule && !hasPendingDetach && rule?.id
+      ? (draftRevision?.rampActions ?? []).find(
+          (a) =>
+            a.mode === "update" && stemRuleId(a.ruleId) === stemRuleId(rule.id),
+        )
+      : undefined;
+  const pendingUpdateActionTyped =
+    pendingUpdateAction?.mode === "update" ? pendingUpdateAction : undefined;
+
   const [rampSectionState, setRampSectionState] = useState<RampSectionState>(
     () => {
       if (hasPendingDetach) {
@@ -265,6 +278,14 @@ export default function RuleModal({
       // Duplicate starts fresh — no schedule carried over
       if (mode === "duplicate") {
         return defaultRampSectionState(undefined);
+      }
+      // If a pending update action exists (modal re-opened after a prior edit in this draft),
+      // merge it on top of the live schedule so the user sees their pending changes.
+      if (pendingUpdateActionTyped && ruleRampSchedule) {
+        return updateActionToSectionState(
+          pendingUpdateActionTyped,
+          ruleRampSchedule,
+        );
       }
       return defaultRampSectionState(ruleRampSchedule);
     },

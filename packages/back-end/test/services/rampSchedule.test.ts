@@ -20,6 +20,7 @@ import type {
   SafeRolloutInterface,
 } from "shared/validators";
 import type { FeatureRule } from "shared/types/feature";
+import { isAwaitingApproval } from "shared/src/validators/ramp-schedule";
 import {
   computeNextStepAt,
   computePhaseStartAfterApproval,
@@ -35,6 +36,7 @@ import {
   getStartPatchForRule,
   applyRampStartActions,
   startReadyScheduleNow,
+  approveAndPublishStep,
 } from "back-end/src/services/rampSchedule";
 
 // ---------------------------------------------------------------------------
@@ -1035,7 +1037,7 @@ describe("advanceStep — approval step", () => {
 
   it("stays in 'running' on a pure approval step (awaiting approval is derived)", async () => {
     // pending-approval is no longer a stored status; the UI/evaluator derive
-    // it from running + holdConditions.requiresApproval + !stepApprovedAt.
+    // it from running + holdConditions.requiresApproval + stepApproval not set for current step.
     // We assert: status stays running, the patch is applied immediately
     // (apply-first), and nextStepAt is null (no time gate).
     const schedule = makeSchedule({
@@ -1059,7 +1061,7 @@ describe("advanceStep — approval step", () => {
 
     const [, updates] = updateById.mock.calls[0];
     expect(updates.status).toBe("running");
-    expect(updates.stepApprovedAt).toBeNull();
+    expect(updates.stepApproval).toBeNull();
     expect(updates.nextStepAt).toBeNull();
     expect(mockPublishRevision).toHaveBeenCalledTimes(1);
   });
@@ -1656,7 +1658,7 @@ describe("advanceUntilBlocked", () => {
     const [, updates] = updateById.mock.calls[0];
     expect(updates.status).toBe("running");
     expect(updates.currentStepIndex).toBe(0);
-    expect(updates.stepApprovedAt).toBeNull();
+    expect(updates.stepApproval).toBeNull();
   });
 
   // ------------------------------------------------------------------------
@@ -2477,5 +2479,196 @@ describe("startReadyScheduleNow", () => {
 
     const [eventArgs] = mockCreateEvent.mock.calls[0];
     expect(eventArgs.objectId).toBe(schedule.id);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// approveAndPublishStep — stepApproval shape and guard behaviour
+// ---------------------------------------------------------------------------
+
+describe("approveAndPublishStep", () => {
+  const USER_ID = "user_42";
+
+  function makeApprovalSchedule(
+    overrides: Partial<RampScheduleInterface> = {},
+  ): RampScheduleInterface {
+    return makeSchedule({
+      currentStepIndex: 0,
+      status: "running",
+      steps: [
+        {
+          interval: null,
+          holdConditions: { requiresApproval: true },
+          actions: [
+            {
+              targetType: "feature-rule" as const,
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 0.5 },
+            },
+          ],
+        },
+      ],
+      ...overrides,
+    });
+  }
+
+  function makeApprovalCtx(
+    scheduleOverrides: Partial<RampScheduleInterface> = {},
+  ) {
+    const schedule = makeApprovalSchedule(scheduleOverrides);
+    const updateById = jest
+      .fn()
+      .mockImplementation(
+        (_id: string, updates: Partial<RampScheduleInterface>) => ({
+          ...schedule,
+          ...updates,
+        }),
+      );
+    return {
+      ctx: {
+        userId: USER_ID,
+        org: { id: ORG_ID, settings: {} },
+        auditUser: { type: "session" as const, userAgent: "", ip: "" },
+        environments: [],
+        permissions: {
+          canUpdateFeature: jest.fn().mockReturnValue(true),
+          canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
+          canPublishFeature: jest.fn().mockReturnValue(true),
+        },
+        models: {
+          rampSchedules: { updateById, getById: jest.fn() },
+        },
+      },
+      schedule,
+      updateById,
+    };
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetFeature.mockResolvedValue(makeFeature() as never);
+    mockCreateRevision.mockResolvedValue(makeRevision() as never);
+    mockPublishRevision.mockResolvedValue(makeFeature() as never);
+  });
+
+  it("writes the full stepApproval object with stepIndex, approvedBy, and context", async () => {
+    const { ctx, schedule, updateById } = makeApprovalCtx();
+    const err = await approveAndPublishStep(ctx as never, schedule, "api");
+
+    expect(err).toBeNull();
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.stepApproval).toMatchObject({
+      stepIndex: 0,
+      approvedBy: USER_ID,
+      context: "api",
+    });
+    expect(updates.stepApproval?.approvedAt).toBeInstanceOf(Date);
+  });
+
+  it("defaults context to 'ui' when no context arg is given", async () => {
+    const { ctx, schedule, updateById } = makeApprovalCtx();
+    await approveAndPublishStep(ctx as never, schedule);
+
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.stepApproval?.context).toBe("ui");
+  });
+
+  it("is idempotent — returns null immediately if the step is already approved", async () => {
+    const { ctx, schedule, updateById } = makeApprovalCtx({
+      stepApproval: {
+        stepIndex: 0,
+        approvedAt: new Date(),
+        approvedBy: USER_ID,
+        context: "ui",
+      },
+    });
+    const err = await approveAndPublishStep(ctx as never, schedule);
+
+    expect(err).toBeNull();
+    // No DB write should happen — approval already recorded for this step.
+    expect(updateById).not.toHaveBeenCalled();
+  });
+
+  it("returns an error when the step has no requiresApproval holdCondition", async () => {
+    const { ctx, schedule } = makeApprovalCtx();
+    const scheduleNoApproval = {
+      ...schedule,
+      steps: [{ ...schedule.steps[0], holdConditions: {} }],
+    } as RampScheduleInterface;
+    const err = await approveAndPublishStep(ctx as never, scheduleNoApproval);
+
+    expect(err?.code).toBe("error");
+  });
+
+  it("returns an error when the schedule is not running", async () => {
+    const { ctx, schedule } = makeApprovalCtx({ status: "paused" });
+    const err = await approveAndPublishStep(ctx as never, schedule);
+
+    expect(err?.code).toBe("error");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isAwaitingApproval
+// ---------------------------------------------------------------------------
+
+describe("isAwaitingApproval", () => {
+  const baseSchedule = {
+    status: "running" as const,
+    currentStepIndex: 0,
+    steps: [{ holdConditions: { requiresApproval: true } }],
+    stepApproval: null,
+  };
+
+  it("returns true when running + requiresApproval + no stepApproval", () => {
+    expect(isAwaitingApproval(baseSchedule)).toBe(true);
+  });
+
+  it("returns false when stepApproval.stepIndex matches currentStepIndex", () => {
+    expect(
+      isAwaitingApproval({
+        ...baseSchedule,
+        stepApproval: {
+          stepIndex: 0,
+          approvedAt: new Date(),
+          approvedBy: "u1",
+          context: "ui" as const,
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it("returns true when stepApproval.stepIndex is for a different step (stale approval)", () => {
+    expect(
+      isAwaitingApproval({
+        ...baseSchedule,
+        currentStepIndex: 1,
+        steps: [
+          { holdConditions: {} },
+          { holdConditions: { requiresApproval: true } },
+        ],
+        stepApproval: {
+          stepIndex: 0,
+          approvedAt: new Date(),
+          approvedBy: "u1",
+          context: "ui" as const,
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it("returns false when the step has no requiresApproval", () => {
+    expect(
+      isAwaitingApproval({
+        ...baseSchedule,
+        steps: [{ holdConditions: {} }],
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when status is not running", () => {
+    expect(
+      isAwaitingApproval({ ...baseSchedule, status: "paused" as const }),
+    ).toBe(false);
   });
 });

@@ -568,7 +568,6 @@ export default function ConditionInput({
               addButton={
                 attributeSchema.length > 0 ? (
                   <AddConditionButton
-                    slimMode={slimMode}
                     disabled={locked}
                     onClick={() => {
                       const prop = attributeSchema[0];

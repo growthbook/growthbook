@@ -192,7 +192,24 @@ export const rampScheduleValidator = baseSchema
     safeRolloutId: z.string().nullish(),
 
     currentStepEnteredAt: z.date().nullish(),
-    stepApprovedAt: z.date().nullish(),
+    stepApproval: z
+      .object({
+        stepIndex: z
+          .number()
+          .int()
+          .describe("Index of the step that was approved."),
+        approvedAt: z.date().describe("When the approval was granted."),
+        approvedBy: z.string().describe("User ID of the approver."),
+        context: z
+          .enum(["ui", "api"])
+          .describe("Surface through which the approval was granted."),
+      })
+      .nullish()
+      .describe(
+        "Approval record for the current step's `holdConditions.requiresApproval` gate. " +
+          "Only valid while `stepApproval.stepIndex === currentStepIndex`. " +
+          "Cleared on step advance, jump, or restart.",
+      ),
     monitoringStartDate: z.date().nullish(),
     nextSnapshotAt: z.date().nullish(),
     lastRollbackAt: z.date().nullish(),
@@ -237,11 +254,14 @@ export function isAwaitingApproval(schedule: {
   status: string;
   currentStepIndex: number;
   steps: { holdConditions?: { requiresApproval?: boolean } }[];
-  stepApprovedAt?: Date | string | null;
+  stepApproval?: { stepIndex: number } | null;
 }): boolean {
   if (schedule.status !== "running") return false;
   const step = schedule.steps[schedule.currentStepIndex];
-  return !!step?.holdConditions?.requiresApproval && !schedule.stepApprovedAt;
+  return (
+    !!step?.holdConditions?.requiresApproval &&
+    schedule.stepApproval?.stepIndex !== schedule.currentStepIndex
+  );
 }
 
 export const TEMPLATE_PATCH_FIELDS = [
@@ -397,11 +417,21 @@ export const apiRampScheduleInterface = namedSchema(
     monitoringConfig: rampMonitoringConfig.nullish(),
     experimentHealthAction: experimentHealthAction.optional(),
     currentStepEnteredAt: z.iso.datetime().nullish(),
-    stepApprovedAt: z.iso
-      .datetime()
+    stepApproval: z
+      .object({
+        stepIndex: z
+          .number()
+          .int()
+          .describe("Index of the step that was approved."),
+        approvedAt: z.iso.datetime().describe("When the approval was granted."),
+        approvedBy: z.string().describe("User ID of the approver."),
+        context: z
+          .enum(["ui", "api"])
+          .describe("Surface through which the approval was granted."),
+      })
       .nullish()
       .describe(
-        "When the current step's holdConditions.requiresApproval was satisfied. Null if not yet approved or step has no approval gate.",
+        "Approval record for the current step. Valid only while `stepApproval.stepIndex === currentStepIndex`.",
       ),
     monitoringStartDate: z.iso
       .datetime()

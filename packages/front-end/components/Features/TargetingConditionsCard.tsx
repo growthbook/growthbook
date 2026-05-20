@@ -272,12 +272,10 @@ export function OrSeparator({ slimMode }: { slimMode?: boolean }) {
 export function AddConditionButton({
   onClick,
   children,
-  slimMode: _slimMode,
   disabled,
 }: {
   onClick: () => void;
   children?: React.ReactNode;
-  slimMode?: boolean;
   disabled?: boolean;
 }) {
   return (
