@@ -1,6 +1,7 @@
 import Agenda, { Job } from "agenda";
 import { listAllOrganizationIds } from "back-end/src/models/OrganizationModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { logger } from "back-end/src/util/logger";
 import {
   advanceUntilBlocked,
   appendRampEvent,
@@ -155,6 +156,7 @@ export const advanceSingleRampSchedule = async (
 
     await advanceUntilBlocked(context, current, now);
   } catch (e) {
+    logger.error(e, `Error advancing ramp schedule ${rampScheduleId}`);
     // Persist the failure as a schedule-level event so the UI/history shows
     // why we paused; agenda's own error path handles the throw if any
     // recovery step itself fails.
