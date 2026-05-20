@@ -100,6 +100,7 @@ export function sanitizeQueryMetadataForBigQueryLabels(
 
   const labels: Record<string, string> = {};
   for (const [key, value] of Object.entries(queryMetadata)) {
+    if (Object.keys(labels).length >= 63) break;
     if (value === undefined || value === null) continue;
     if (Array.isArray(value)) continue;
     if (typeof value !== "string") continue;
