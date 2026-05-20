@@ -306,7 +306,13 @@ function DraftRow({
 }) {
   const revDate = r.status === "published" ? r.datePublished : r.dateUpdated;
   return (
-    <Flex align="center" justify="between" gap="3" style={{ width: "452px" }}>
+    <Flex
+      align="center"
+      justify="between"
+      gap="3"
+      minWidth="300px"
+      width="100%"
+    >
       <Box style={{ flex: 1, minWidth: 0 }}>
         <Text weight="semibold">
           <span

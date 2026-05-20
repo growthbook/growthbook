@@ -202,7 +202,7 @@ export default function EditFeatureFlagValuesModal({
     ? "existing"
     : defaultDraft != null
       ? "existing"
-      : canAutoPublish
+      : gatedEnvSet === "none"
         ? "publish"
         : "new";
   const initialSelectedDraft = ruleOnlyOnDraft

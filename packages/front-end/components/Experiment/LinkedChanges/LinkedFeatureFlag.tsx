@@ -126,7 +126,8 @@ export default function LinkedFeatureFlag({
     experiment.status === "draft" &&
     !experiment.nextScheduledStatusUpdate &&
     info.state !== "discarded" &&
-    info.state !== "locked";
+    info.state !== "locked" &&
+    info.state !== "archived";
 
   return (
     <>
