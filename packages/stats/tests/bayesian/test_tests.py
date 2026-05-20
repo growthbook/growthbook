@@ -270,12 +270,9 @@ class TestGetRiskNumericalStability(TestCase):
     def test_normal_inputs_bit_exact_regression(self):
         # Short-circuit must not change results in the normal regime.
         mu, sigma = 0.1, 0.05
-        p = norm.cdf(0.0, loc=mu, scale=sigma)
-        from gbstats.utils import truncated_normal_mean
-
-        mn_neg = truncated_normal_mean(mu=mu, sigma=sigma, a=-np.inf, b=0.0)
-        mn_pos = truncated_normal_mean(mu=mu, sigma=sigma, a=0, b=np.inf)
-        expected = [float((1.0 - p) * mn_pos), -float(p * mn_neg)]
+        # hardcoded expected values from previous implementation
+        # to ensure that the new implementation is correct
+        expected = [0.10042453513084149, 0.00042453513084148085]
         self.assertEqual(EffectBayesianABTest.get_risk(mu, sigma), expected)
 
 
