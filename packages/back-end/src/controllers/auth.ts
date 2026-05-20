@@ -38,6 +38,7 @@ import {
   getUserById,
 } from "back-end/src/models/UserModel";
 import { AuthRefreshModel } from "back-end/src/models/AuthRefreshModel";
+import { reissueAttributionCookie } from "back-end/src/util/signup-attribution";
 
 export async function getHasOrganizations(req: Request, res: Response) {
   const hasOrg = IS_CLOUD && !IS_LOCALHOST ? true : await hasOrganization();
@@ -117,6 +118,11 @@ export async function postOAuthCallback(req: Request, res: Response) {
 
     RefreshTokenCookie.setValue(refreshToken, req, res);
     setIdTokenCookie(idToken, req, res);
+
+    // Harden gb_attr against Safari ITP's 7-day JS-cookie cap by re-issuing
+    // it server-side. The cookie carries marketing attribution from the
+    // Webflow site through OAuth and into org creation.
+    reissueAttributionCookie(req, res);
 
     return res.status(200).json({
       status: 200,
