@@ -37,8 +37,8 @@ const reportAnalysisSettingsSchema = z
         "How lifts are expressed in results: `relative` (% change), `absolute` (raw difference), or `scaled` (scaled impact)",
       )
       .optional(),
-    dateStarted: z.string().optional(),
-    dateEnded: z.string().optional(),
+    dateStarted: z.string().meta({ format: "date-time" }).optional(),
+    dateEnded: z.string().meta({ format: "date-time" }).optional(),
     regressionAdjustmentEnabled: z.boolean().optional(),
     sequentialTestingEnabled: z.boolean().optional(),
     sequentialTestingTuningParameter: z
@@ -240,12 +240,12 @@ const postReportBody = z
     dimension: z.string().describe("Dimension to cut results by").optional(),
     dateStarted: z
       .string()
-      .datetime({ offset: true })
+      .meta({ format: "date-time" })
       .describe("Analysis start date (ISO 8601)")
       .optional(),
     dateEnded: z
       .string()
-      .datetime({ offset: true })
+      .meta({ format: "date-time" })
       .describe("Analysis end date (ISO 8601)")
       .optional(),
     regressionAdjustmentEnabled: z
@@ -309,18 +309,6 @@ const postReportBody = z
   })
   .strict();
 
-const putReportBody = z
-  .object({
-    title: z.string().describe("Updated report title").optional(),
-    description: z.string().describe("Updated report description").optional(),
-    shareLevel: reportShareLevelSchema
-      .describe(
-        "Update the visibility of the report. Setting this to `public` is the only way to enable a `shareUrl`; setting it back to `organization` or `private` revokes public access (the underlying share token is preserved, so re-publishing exposes the same URL).",
-      )
-      .optional(),
-  })
-  .strict();
-
 export const postReportValidator = {
   bodySchema: postReportBody,
   querySchema: z.never(),
@@ -353,18 +341,151 @@ export const postReportRefreshValidator = {
   path: "/reports/:id/refresh",
 };
 
-export const putReportValidator = {
-  bodySchema: putReportBody,
+const putReportMetadataBody = z
+  .object({
+    title: z.string().describe("Report title").optional(),
+    description: z.string().describe("Report description").optional(),
+    status: z
+      .enum(["published", "private"])
+      .describe("UI lifecycle marker for the report")
+      .optional(),
+    shareLevel: reportShareLevelSchema
+      .describe(
+        "Visibility of the report. Setting to `public` enables a shareable `shareUrl`; setting back to `organization` or `private` revokes public access (the share token is preserved, so re-publishing exposes the same URL).",
+      )
+      .optional(),
+    editLevel: z
+      .enum(["organization", "private"])
+      .describe(
+        "Who can edit the report in the GrowthBook UI. `organization` allows any org member with the `createAnalyses` permission; `private` restricts editing to the report owner.",
+      )
+      .optional(),
+  })
+  .strict();
+
+export const putReportMetadataValidator = {
+  bodySchema: putReportMetadataBody,
   querySchema: z.never(),
   paramsSchema: idParams,
-  responseSchema: z
-    .object({
-      report: apiReportValidator,
-    })
-    .strict(),
-  summary: "Update a report's title, description, or share level",
-  operationId: "putReport",
+  responseSchema: z.object({ report: apiReportValidator }).strict(),
+  summary: "Update report metadata (title, description, visibility)",
+  operationId: "putReportMetadata",
   tags: ["reports"],
   method: "put" as const,
-  path: "/reports/:id",
+  path: "/reports/:id/metadata",
+};
+
+const putReportSettingsBody = z
+  .object({
+    statsEngine: z
+      .enum(["bayesian", "frequentist"])
+      .describe("Stats engine override")
+      .optional(),
+    goalMetrics: z.array(z.string()).describe("Goal metric IDs").optional(),
+    secondaryMetrics: z
+      .array(z.string())
+      .describe("Secondary metric IDs")
+      .optional(),
+    guardrailMetrics: z
+      .array(z.string())
+      .describe("Guardrail metric IDs")
+      .optional(),
+    activationMetric: z.string().describe("Activation metric ID").optional(),
+    metricOverrides: z
+      .array(metricOverride)
+      .describe("Per-metric window, risk, and regression-adjustment overrides")
+      .optional(),
+    customMetricSlices: z
+      .array(customMetricSlice)
+      .describe("Custom metric slice definitions")
+      .optional(),
+    dimension: z.string().describe("Dimension to cut results by").optional(),
+    differenceType: z
+      .enum(["relative", "absolute", "scaled"])
+      .describe("How lifts are expressed in results")
+      .optional(),
+    dateStarted: z
+      .string()
+      .meta({ format: "date-time" })
+      .describe("Analysis start date (ISO 8601)")
+      .optional(),
+    dateEnded: z
+      .string()
+      .meta({ format: "date-time" })
+      .nullable()
+      .describe(
+        "Analysis end date (ISO 8601). Pass `null` to clear the end date and analyze through today.",
+      )
+      .optional(),
+    regressionAdjustmentEnabled: z
+      .boolean()
+      .describe("Enable CUPED regression adjustment")
+      .optional(),
+    sequentialTestingEnabled: z
+      .boolean()
+      .describe("Enable sequential testing")
+      .optional(),
+    sequentialTestingTuningParameter: z
+      .number()
+      .describe("Tuning parameter for sequential testing (frequentist only)")
+      .optional(),
+    attributionModel: z
+      .enum(attributionModel)
+      .describe("Metric conversion window attribution model")
+      .optional(),
+    lookbackOverride: lookbackOverride
+      .describe("Lookback window when `attributionModel` is `lookbackOverride`")
+      .optional(),
+    segment: z.string().describe("Segment ID to filter users by").optional(),
+    queryFilter: z
+      .string()
+      .describe("Raw SQL WHERE clause added to the exposure query")
+      .optional(),
+    skipPartialData: z
+      .boolean()
+      .describe(
+        "When true, exclude users who have not completed the full conversion window",
+      )
+      .optional(),
+    variations: z
+      .array(
+        z.object({
+          id: z.string(),
+          name: z.string().optional(),
+          key: z.string().optional(),
+          weight: z
+            .number()
+            .min(0)
+            .max(1)
+            .describe("Traffic weight (0–1)")
+            .optional(),
+        }),
+      )
+      .describe(
+        "Override variation names, keys, or traffic weights used in this report. Weights are merged into the latest phase. Changes take effect on the next refresh.",
+      )
+      .optional(),
+    coverage: z
+      .number()
+      .min(0)
+      .max(1)
+      .describe(
+        "Traffic coverage (0–1) for the latest phase. Used when computing scaled impact.",
+      )
+      .optional(),
+  })
+  .strict();
+
+export const putReportSettingsValidator = {
+  bodySchema: putReportSettingsBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z.object({ report: apiReportValidator }).strict(),
+  summary: "Update report analysis settings",
+  description:
+    "Updates the analysis settings for an existing report. Changes are staged and do not take effect until you call `POST /reports/:id/refresh`.",
+  operationId: "putReportSettings",
+  tags: ["reports"],
+  method: "put" as const,
+  path: "/reports/:id/settings",
 };

@@ -1,4 +1,4 @@
-import { putReportValidator } from "shared/validators";
+import { putReportMetadataValidator } from "shared/validators";
 import { ExperimentSnapshotReportInterface } from "shared/types/report";
 import { getReportById, updateReport } from "back-end/src/models/ReportModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -7,9 +7,9 @@ import { toSnapshotApiInterface } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { toReportApiInterface } from "./toReportApiInterface";
 
-export const putReport = createApiRequestHandler(putReportValidator)(async (
-  req,
-) => {
+export const putReportMetadata = createApiRequestHandler(
+  putReportMetadataValidator,
+)(async (req) => {
   const { org } = req.context;
 
   const report = await getReportById(org.id, req.params.id);
@@ -25,8 +25,6 @@ export const putReport = createApiRequestHandler(putReportValidator)(async (
     ? await getExperimentById(req.context, report.experimentId)
     : null;
 
-  // getExperimentById returns null if the caller can't read the project,
-  // so reject before falling through to the org-level canUpdateReport({}) check.
   if (report.experimentId && !experiment) {
     throw new Error("Could not find report with that id");
   }
@@ -35,16 +33,17 @@ export const putReport = createApiRequestHandler(putReportValidator)(async (
     req.context.permissions.throwPermissionError();
   }
 
-  const { title, description, shareLevel } = req.body;
+  const { title, description, status, shareLevel, editLevel } = req.body;
 
   const updates: Partial<ExperimentSnapshotReportInterface> = {};
   if (title !== undefined) updates.title = title;
   if (description !== undefined) updates.description = description;
+  if (status !== undefined) updates.status = status;
   if (shareLevel !== undefined) updates.shareLevel = shareLevel;
+  if (editLevel !== undefined) updates.editLevel = editLevel;
 
   await updateReport(org.id, report.id, updates);
 
-  // Re-fetch so dateUpdated and any model-level coercions are reflected.
   const refreshed = await getReportById(org.id, report.id);
   const updatedReport = (
     refreshed?.type === "experiment-snapshot"
