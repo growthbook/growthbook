@@ -240,7 +240,7 @@ export default function LinkedFeatureFlag({
                   ) : (
                     <>
                       pending approval. Once approved and published, the values
-                      shown above will take effect.
+                      shown below will take effect.
                     </>
                   )}
                   <Box mt="1">
@@ -257,7 +257,7 @@ export default function LinkedFeatureFlag({
                 <>
                   A <strong>draft </strong> revision is updating this
                   feature&apos;s variation values for the experiment. The values
-                  shown above are from the draft and will take effect once
+                  shown below are from the draft and will take effect once
                   it&apos;s published.{" "}
                   <Link
                     href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""}`}
