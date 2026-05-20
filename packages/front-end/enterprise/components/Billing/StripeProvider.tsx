@@ -3,16 +3,20 @@ import {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
   createContext,
   ReactNode,
 } from "react";
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js/pure";
+import { Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { getStripePublishableKey } from "@/services/env";
+import track from "@/services/track";
 
 interface StripeContextProps {
   clientSecret: string | null;
@@ -46,13 +50,17 @@ export function StripeProvider({
     [stripePublishableKey],
   );
 
+  // Guard against concurrent invocations
+  const inFlightRef = useRef(false);
+
   const setupStripe = useCallback(async () => {
     if (!stripePublishableKey) {
       setError("Missing Stripe Publishable Key");
       return;
     }
 
-    if (clientSecret || !stripePromise) return;
+    if (clientSecret || !stripePromise || inFlightRef.current) return;
+    inFlightRef.current = true;
 
     try {
       const stripe = await stripePromise;
@@ -82,6 +90,8 @@ export function StripeProvider({
     } catch (e) {
       console.error("Failed to set up Stripe:", e);
       setError(e.message);
+    } finally {
+      inFlightRef.current = false;
     }
   }, [
     apiCall,
@@ -91,13 +101,29 @@ export function StripeProvider({
     setupIntentEndpoint,
   ]);
 
+  const retrySetupStripe = useCallback(() => {
+    track("StripeProvider: retry setup intent", { setupIntentEndpoint });
+    setError(undefined);
+    setupStripe();
+  }, [setupStripe, setupIntentEndpoint]);
+
   useEffect(() => {
     if (stripePublishableKey) setupStripe();
   }, [setupStripe, stripePublishableKey]);
 
   if (!stripePublishableKey)
     return <Callout status="error">Missing Stripe Publishable Key</Callout>;
-  if (error) return <Callout status="error">{error}</Callout>;
+  if (error)
+    return (
+      <Callout status="error" contentsAs="div">
+        <Flex align="center" justify="between" gap="3">
+          <span>{error}</span>
+          <Button variant="soft" onClick={retrySetupStripe}>
+            Retry
+          </Button>
+        </Flex>
+      </Callout>
+    );
   if (!clientSecret || !stripePromise) return <LoadingOverlay />;
 
   return (
