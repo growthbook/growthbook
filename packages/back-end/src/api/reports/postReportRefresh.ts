@@ -70,7 +70,11 @@ export const postReportRefresh = createApiRequestHandler(
     );
 
     if (newSnapshot.status === "success" && experiment) {
-      const results = toSnapshotApiInterface(experiment, newSnapshot);
+      const results = toSnapshotApiInterface(
+        experiment,
+        newSnapshot,
+        metricMap,
+      );
       return { report: { ...apiReport, results } };
     }
 
