@@ -10,6 +10,13 @@ import { savedGroupUpdated } from "back-end/src/services/savedGroups";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { MakeModelClass } from "./BaseModel";
 
+// `skipAttributeValidation` lets revert flows write a previously-published
+// condition even if it now references attributes that have since been removed
+// or archived from the org schema. Normal create/update paths leave it unset.
+type WriteOptions = {
+  skipAttributeValidation?: boolean;
+};
+
 const BaseClass = MakeModelClass({
   schema: savedGroupValidator,
   collectionName: "savedgroups",
@@ -23,7 +30,7 @@ const BaseClass = MakeModelClass({
   globallyUniquePrimaryKeys: true,
 });
 
-export class SavedGroupModel extends BaseClass {
+export class SavedGroupModel extends BaseClass<WriteOptions> {
   protected canRead(doc: SavedGroupInterface): boolean {
     return this.context.permissions.canReadMultiProjectResource(doc.projects);
   }
@@ -80,7 +87,9 @@ export class SavedGroupModel extends BaseClass {
   protected async customValidation(
     doc: SavedGroupInterface,
     previousDoc?: SavedGroupInterface,
+    writeOptions?: WriteOptions,
   ) {
+    if (writeOptions?.skipAttributeValidation) return;
     if (doc.type === "condition" && doc.condition) {
       assertRegisteredAttributes(
         this.context,
