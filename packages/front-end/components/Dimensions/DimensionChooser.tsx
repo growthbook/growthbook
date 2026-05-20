@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
@@ -210,7 +210,11 @@ export default function DimensionChooser({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const { dimensions, getDatasourceById, getDimensionById } = useDefinitions();
   const { hasCommercialFeature } = useUser();
-  const { dimensionless: standardSnapshot, experiment } = useSnapshot();
+  const {
+    dimensionless: standardSnapshot,
+    experiment,
+    precomputedUnitDimensionIds,
+  } = useSnapshot();
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
 
   const { incrementalRefresh } = useIncrementalRefresh(experiment?.id ?? "");
@@ -227,11 +231,30 @@ export default function DimensionChooser({
     apiCall,
   ]);
 
+  const hasPipelineModeFeature = hasCommercialFeature("pipeline-mode");
+  const honoredPrecomputedUnitDimensionIds = useMemo(
+    () =>
+      getHonoredPrecomputedUnitDimensionIds(
+        precomputedUnitDimensionIds,
+        datasource,
+        hasPipelineModeFeature,
+      ),
+    [precomputedUnitDimensionIds, datasource, hasPipelineModeFeature],
+  );
+  const precomputedAnalysisDimensions = useMemo(
+    () =>
+      new Set([
+        ...(precomputedDimensions ?? []),
+        ...honoredPrecomputedUnitDimensionIds,
+      ]),
+    [precomputedDimensions, honoredPrecomputedUnitDimensionIds],
+  );
+
   const dimensionOptions = getDimensionOptions({
     incrementalRefresh,
     precomputedDimensions,
-    precomputedUnitDimensionIds: experiment?.precomputedUnitDimensionIds,
-    hasPipelineModeFeature: hasCommercialFeature("pipeline-mode"),
+    precomputedUnitDimensionIds,
+    hasPipelineModeFeature,
     exposureQueryId,
     userIdType,
     datasource,
@@ -257,7 +280,7 @@ export default function DimensionChooser({
       setPostLoading(true);
       try {
         setValue?.(v);
-        if (precomputedDimensions?.includes(v)) {
+        if (precomputedAnalysisDimensions.has(v)) {
           const defaultAnalysis = standardSnapshot
             ? getSnapshotAnalysis(standardSnapshot)
             : null;
@@ -321,7 +344,7 @@ export default function DimensionChooser({
     [
       value,
       setValue,
-      precomputedDimensions,
+      precomputedAnalysisDimensions,
       standardSnapshot,
       analysis,
       triggerAnalysisUpdate,

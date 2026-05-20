@@ -1,8 +1,10 @@
+import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
+
 // Pre-computed unit-dimension metric Queries are named with this prefix.
 //
-// Because they are not part of the parent snapshot analysis, but the data lives
-// in the parent snapshot's `queries` array, we namespace them with this prefix
-// for retrieval.
+// Because they are not part of the parent snapshot's dimensionless analysis,
+// but the data lives in the parent snapshot's `queries` array, we namespace
+// them with this prefix for retrieval.
 //
 // Also used by the parent analysis to filter out these queries from its own analysis.
 export const UNIT_DIM_QUERY_PREFIX = "unitdim:";
@@ -29,4 +31,24 @@ export function parseUnitDimQueryName(
     dimensionId: rest.slice(0, sep),
     baseQueryName: rest.slice(sep + 1),
   };
+}
+
+export function buildUnitDimensionQueryMap(
+  queryMap: QueryMap,
+  dimensionId: string,
+): QueryMap {
+  const unitDimensionQueryMap: QueryMap = new Map();
+
+  queryMap.forEach((query, name) => {
+    const parsed = parseUnitDimQueryName(name);
+    if (parsed?.dimensionId === dimensionId) {
+      unitDimensionQueryMap.set(parsed.baseQueryName, query);
+    }
+  });
+
+  if (unitDimensionQueryMap.size === 0) {
+    throw new Error(`No queries found for unit dimension: ${dimensionId}`);
+  }
+
+  return unitDimensionQueryMap;
 }

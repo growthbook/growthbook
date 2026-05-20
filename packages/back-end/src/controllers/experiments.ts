@@ -109,10 +109,7 @@ import {
 } from "back-end/src/models/PastExperimentsModel";
 import { IdeaModel } from "back-end/src/models/IdeasModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import {
-  assertExperimentPrecomputedUnitDimensionIdsAreValid,
-  datasourceHasWritableEphemeralPipeline,
-} from "back-end/src/services/dimensions";
+import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
 import { IMPORT_LIMIT_DAYS } from "back-end/src/util/secrets";
 import {
@@ -915,30 +912,6 @@ async function _getSnapshot({
     withResults,
     type,
   });
-
-  // Read-time staleness filter: never serve a derived eager-unit-dimension
-  // snapshot for a dimension the experiment no longer has configured (e.g. a
-  // removed dim, or one re-added on a newer phase), or when the datasource no
-  // longer has writable ephemeral pipeline mode. The stale doc is kept (cheap,
-  // self-healing, audit-preserving) — just not served. The phase is already
-  // part of the lookup key, so older-phase docs can't match here.
-  const datasource = experimentObj.datasource
-    ? await getDataSourceById(context, experimentObj.datasource)
-    : null;
-  const honoredPrecomputedUnitDimensionIds =
-    datasource &&
-    datasourceHasWritableEphemeralPipeline({ context, datasource })
-      ? (experimentObj.precomputedUnitDimensionIds ?? [])
-      : [];
-
-  if (
-    snapshot &&
-    snapshot.triggeredBy === "eager-unit-dimension" &&
-    snapshot.dimension &&
-    !honoredPrecomputedUnitDimensionIds.includes(snapshot.dimension)
-  ) {
-    return null;
-  }
 
   return snapshot;
 }

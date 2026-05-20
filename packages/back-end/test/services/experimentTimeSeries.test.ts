@@ -162,7 +162,7 @@ function makeContext(extraFns: Record<string, unknown> = {}) {
 }
 
 describe("updateExperimentAnalysisTimeSeries dimension gate", () => {
-  it("rejects on-demand unit-dim analyses (dim id not precomputed, snapshot not eager)", async () => {
+  it("rejects on-demand unit-dim analyses when the snapshot did not precompute that unit dimension", async () => {
     const context = makeContext();
     await expect(
       updateExperimentAnalysisTimeSeries({
@@ -186,15 +186,17 @@ describe("updateExperimentAnalysisTimeSeries dimension gate", () => {
     ).rejects.toThrow(/unsupported dimension: dim_country/);
   });
 
-  it("accepts a unit-dim analysis when the snapshot was triggered by eager-unit-dimension", async () => {
+  it("accepts a unit-dim analysis when the parent snapshot precomputed that unit dimension", async () => {
     const context = makeContext();
     await expect(
       updateExperimentAnalysisTimeSeries({
         context: context as never,
         experiment: makeExperiment(),
         experimentSnapshot: makeSnapshot({
-          dimension: "dim_country",
-          triggeredBy: "eager-unit-dimension",
+          settings: {
+            ...makeSnapshot().settings,
+            precomputedUnitDimensionIds: ["dim_country"],
+          },
         }),
         analyses: [
           makeAnalysis({

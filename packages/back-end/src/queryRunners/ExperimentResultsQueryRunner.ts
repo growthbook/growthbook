@@ -332,8 +332,8 @@ export const startExperimentResultQueries = async (
   // Per-unit-dimension metric queries. They read the SAME shared units table
   // (one already-materialized dim_unit_<id> column each) and are grouped by a
   // single unit dimension. They are namespaced so the parent's own analysis
-  // ignores them; a post-success hook derives one exploratory snapshot per dim
-  // from these already-executed results (zero extra warehouse queries).
+  // ignores them; a post-success hook writes per-dimension analyses to the
+  // parent from these already-executed results (zero extra warehouse queries).
   if (unitQuery && unitDimensions.length > 0) {
     for (const unitDim of unitDimensions) {
       if (unitDim.type !== "user") continue;
@@ -511,9 +511,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
 
   async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
     // Per-unit-dimension queries live on this snapshot's `queries` but must
-    // not feed the parent's own analysis (they are consumed by derived
-    // per-dim snapshots). Excluding them keeps parent results byte-for-byte
-    // identical to a snapshot with no configured unit dimensions.
+    // not feed the parent's own dimensionless analysis. Excluding them keeps
+    // parent results byte-for-byte identical to a snapshot with no configured
+    // unit dimensions.
     const parentQueryMap: QueryMap = new Map();
     queryMap.forEach((query, name) => {
       if (!parseUnitDimQueryName(name)) {

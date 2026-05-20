@@ -51,16 +51,11 @@ export async function updateExperimentTimeSeries({
 }) {
   // This function handles:
   // - main experiment time series
-  // - unit-dimension timeseries from experiment.precomputedUnitDimensions
   //
-  // It does not handle precomputed dimension timeseries, as those are handled by
+  // It does not handle precomputed dimension time series, as those are handled by
   // runEagerExperimentDimensionAnalyses
   const snapshotDimension = experimentSnapshot.dimension ?? "";
-  const isEagerUnitDimension =
-    snapshotDimension !== "" &&
-    experimentSnapshot.triggeredBy === "eager-unit-dimension";
-
-  if (snapshotDimension !== "" && !isEagerUnitDimension) {
+  if (snapshotDimension !== "") {
     return;
   }
 
@@ -72,7 +67,6 @@ export async function updateExperimentTimeSeries({
     });
   const analyses = getTimeSeriesAnalyses({
     analyses: experimentSnapshot.analyses,
-    dimensionId: isEagerUnitDimension ? snapshotDimension : undefined,
   });
 
   // As we tag the whole snapshot, we just care if any metric has a significant difference from the previous status
@@ -140,8 +134,7 @@ export async function getExperimentTimeSeriesContext({
 /**
  * Persists time series for a group of analyses that share the same snapshot
  * context. Dimensionless analyses write the main experiment series; analyses
- * for a precomputed dimension or for an eager-unit-dimension child snapshot
- * write one series per dimension value.
+ * for a precomputed dimension write one series per dimension value.
  */
 export async function updateExperimentAnalysisTimeSeries({
   context,
@@ -169,15 +162,12 @@ export async function updateExperimentAnalysisTimeSeries({
     );
   }
   const [dimensionId] = Array.from(dimensionIds);
-  // Allow either precomputed dimensions OR unit-dim ids carried by an
-  // eager-unit-dimension child snapshot. Other on-demand dimension snapshots
-  // are still rejected to avoid polluting the time series with one-off picks.
-  const isEagerUnitDimensionSnapshot =
-    experimentSnapshot.triggeredBy === "eager-unit-dimension";
   if (
     dimensionId &&
-    !isPrecomputedDimension(dimensionId, []) &&
-    !isEagerUnitDimensionSnapshot
+    !isPrecomputedDimension(
+      dimensionId,
+      experimentSnapshot.settings.precomputedUnitDimensionIds ?? [],
+    )
   ) {
     throw new Error(
       `Cannot update time series for unsupported dimension: ${dimensionId}`,

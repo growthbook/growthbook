@@ -840,7 +840,7 @@ export function convertExperimentToTemplate(
 }
 
 export function datasourceHasWritableEphemeralPipeline(
-  datasource: DataSourceInterfaceWithParams | undefined,
+  datasource: DataSourceInterfaceWithParams | null | undefined,
   hasPipelineModeFeature: boolean,
 ): boolean {
   const pipelineSettings = datasource?.settings?.pipelineSettings;
@@ -855,7 +855,7 @@ export function datasourceHasWritableEphemeralPipeline(
 
 export function getHonoredPrecomputedUnitDimensionIds(
   precomputedUnitDimensionIds: string[] | undefined,
-  datasource: DataSourceInterfaceWithParams | undefined,
+  datasource: DataSourceInterfaceWithParams | null | undefined,
   hasPipelineModeFeature: boolean,
 ): string[] {
   if (

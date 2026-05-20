@@ -21,6 +21,7 @@ const snapshotContext = React.createContext<{
   phase: number;
   dimension: string;
   precomputedDimensions: string[];
+  precomputedUnitDimensionIds: string[];
   analysisSettings?: ExperimentSnapshotAnalysisSettings | null;
   setPhase: (phase: number) => void;
   setDimension: (dimension: string) => void;
@@ -34,6 +35,7 @@ const snapshotContext = React.createContext<{
   phase: 0,
   dimension: "",
   precomputedDimensions: [],
+  precomputedUnitDimensionIds: [],
   setPhase: () => {
     // do nothing
   },
@@ -54,13 +56,45 @@ export function getPrecomputedDimensions(
   dimensionless: ExperimentSnapshotInterface | undefined,
 ): string[] {
   if (snapshot?.type === "standard" && !snapshot?.dimension) {
-    return snapshot?.settings.dimensions.map((d) => d.id) ?? [];
+    return snapshot.settings.dimensions.map((d) => d.id) ?? [];
   }
 
   // if snapshot is not the latest standard, then show dimensions from
   // the dimensionless snapshot
   if (snapshot?.type !== "standard" && dimensionless?.type === "standard") {
-    return dimensionless?.settings.dimensions.map((d) => d.id) ?? [];
+    return dimensionless.settings.dimensions.map((d) => d.id) ?? [];
+  }
+
+  return [];
+}
+
+export function getPrecomputedUnitDimensionIds(
+  experiment: ExperimentInterfaceStringDates | undefined,
+  snapshot: ExperimentSnapshotInterface | undefined,
+  dimensionless: ExperimentSnapshotInterface | undefined,
+): string[] {
+  const getSnapshotUnitDimensionIds = (
+    snapshot: ExperimentSnapshotInterface,
+  ) => {
+    const experimentUnitDimensionIds = experiment?.precomputedUnitDimensionIds;
+    const snapshotUnitDimensionIds =
+      snapshot.settings.precomputedUnitDimensionIds ?? [];
+
+    return experimentUnitDimensionIds
+      ? snapshotUnitDimensionIds.filter((id) =>
+          experimentUnitDimensionIds.includes(id),
+        )
+      : snapshotUnitDimensionIds;
+  };
+
+  if (snapshot?.type === "standard" && !snapshot?.dimension) {
+    return getSnapshotUnitDimensionIds(snapshot);
+  }
+
+  // if snapshot is not the latest standard, then show dimensions from
+  // the dimensionless snapshot
+  if (snapshot?.type !== "standard" && dimensionless?.type === "standard") {
+    return getSnapshotUnitDimensionIds(dimensionless);
   }
 
   return [];
@@ -119,6 +153,11 @@ export default function SnapshotProvider({
         dimension,
         analysisSettings,
         precomputedDimensions: getPrecomputedDimensions(
+          data?.snapshot,
+          data?.dimensionless,
+        ),
+        precomputedUnitDimensionIds: getPrecomputedUnitDimensionIds(
+          experiment,
           data?.snapshot,
           data?.dimensionless,
         ),
@@ -221,6 +260,11 @@ export function LocalSnapshotProvider({
         analysisSettings,
         setAnalysisSettings,
         precomputedDimensions: getPrecomputedDimensions(
+          localSnapshot,
+          localSnapshot,
+        ),
+        precomputedUnitDimensionIds: getPrecomputedUnitDimensionIds(
+          experiment,
           localSnapshot,
           localSnapshot,
         ),
