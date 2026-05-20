@@ -47,6 +47,11 @@ export async function evaluateCurrentStep(
     return { action: "hold", reason: "Awaiting approval" };
   }
 
+  // `minSampleSize` is intentionally not checked here. It requires snapshot
+  // data, which is only available on monitored steps (handled above by
+  // evaluateMonitoredStep). A non-monitored step with minSampleSize set has
+  // no data source to evaluate against, so the gate is a no-op. See the
+  // stepHoldConditions schema comment for the full explanation.
   return { action: "advance" };
 }
 

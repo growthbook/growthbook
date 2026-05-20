@@ -99,6 +99,12 @@ export type RampTarget = z.infer<typeof rampTarget>;
 
 // Step advancement gates beyond the time interval itself. All gates are ANDed
 // — the step holds while any gate is unmet, and advances when all are clear.
+//
+// Note: `minSampleSize` is only meaningful on monitored steps (`step.monitored
+// === true`). Non-monitored steps have no snapshot data source, so
+// `minSampleSize` on a non-monitored step is silently ignored by the evaluator.
+// The schema does not restrict this combination because the UI prevents it and
+// the restriction would need to be duplicated in migration/import paths.
 export const stepHoldConditions = z.object({
   minSampleSize: z.number().int().positive().optional(),
   requiresApproval: z.boolean().optional(),
