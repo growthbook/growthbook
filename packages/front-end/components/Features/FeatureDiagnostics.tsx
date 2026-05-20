@@ -68,7 +68,8 @@ function getDatasourceInitialFormValue(
   const initialId =
     validDatasources.find(
       (d) =>
-        d.type === "growthbook_clickhouse" ||
+        (d.type === "growthbook_clickhouse" &&
+          !isManagedWarehouseAwaitingProvisioning(d)) ||
         (d.settings.queries?.featureUsage &&
           d.settings.queries?.featureUsage.length > 0),
     )?.id || settings.defaultDataSource;
