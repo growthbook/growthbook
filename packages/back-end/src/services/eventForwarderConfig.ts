@@ -15,8 +15,13 @@ import { EventForwarderConfigInterface } from "shared/validators";
 import {
   DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
   DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
+  formatBigQueryEventForwarderDestination,
+  formatSnowflakeEventForwarderDestination,
   normalizeBigQueryTableNameForEventForwarder,
+  normalizeSnowflakeEventForwarderAccessUrl,
   normalizeSnowflakeTableNameForEventForwarder,
+  parseBigQueryEventForwarderDestination,
+  parseSnowflakeEventForwarderDestination,
 } from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
@@ -128,14 +133,27 @@ function buildBigQueryStoredConfigFromDraft(
         )
       : null;
 
-  const dataset = datasourceParams?.defaultDataset?.trim() || "";
+  let dataset = "";
+  let tableName = DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME;
 
-  const rawTableName =
-    draft.tableName?.trim() ||
-    existingStored?.tableName?.trim() ||
-    DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME;
-
-  const tableName = normalizeBigQueryTableNameForEventForwarder(rawTableName);
+  const qualifiedDestination = draft.tableName?.trim();
+  if (qualifiedDestination) {
+    const parsed = parseBigQueryEventForwarderDestination(qualifiedDestination);
+    dataset =
+      parsed.dataset ||
+      datasourceParams?.defaultDataset?.trim() ||
+      existingStored?.dataset?.trim() ||
+      "";
+    tableName = normalizeBigQueryTableNameForEventForwarder(parsed.table);
+  } else if (existingStored?.dataset && existingStored?.tableName) {
+    dataset = existingStored.dataset;
+    tableName = existingStored.tableName;
+  } else {
+    dataset = datasourceParams?.defaultDataset?.trim() || "";
+    tableName = normalizeBigQueryTableNameForEventForwarder(
+      DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
+    );
+  }
 
   const serviceAccountKey =
     draft.serviceAccountKey?.trim() ||
@@ -178,12 +196,39 @@ function buildSnowflakeStoredConfigFromDraft(
         )
       : null;
 
-  const rawTableName =
-    draft.tableName?.trim() ||
-    existingStored?.tableName?.trim() ||
-    DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME;
-  const accessUrl =
-    draft.accessUrl?.trim() || existingStored?.accessUrl?.trim() || "";
+  let database = "";
+  let schema = "";
+  let tableName = DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME;
+
+  const qualifiedDestination = draft.tableName?.trim();
+  if (qualifiedDestination) {
+    const parsed =
+      parseSnowflakeEventForwarderDestination(qualifiedDestination);
+    database = parsed.database;
+    schema = parsed.schema;
+    tableName = parsed.table;
+  } else if (
+    existingStored?.database &&
+    existingStored?.schema &&
+    existingStored?.tableName
+  ) {
+    database = existingStored.database;
+    schema = existingStored.schema;
+    tableName = existingStored.tableName;
+  } else {
+    database = datasourceParams?.database?.trim() || "";
+    schema = datasourceParams?.schema?.trim() || "";
+    tableName = normalizeSnowflakeTableNameForEventForwarder(
+      DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
+    );
+  }
+
+  let accessUrl: string | undefined;
+  if (draft.accessUrl?.trim()) {
+    accessUrl = normalizeSnowflakeEventForwarderAccessUrl(draft.accessUrl);
+  } else if (existingStored?.accessUrl?.trim()) {
+    accessUrl = existingStored.accessUrl.trim();
+  }
 
   const authMethod = datasourceParams?.authMethod ?? "password";
   if (authMethod !== "key-pair") {
@@ -193,22 +238,18 @@ function buildSnowflakeStoredConfigFromDraft(
   }
 
   return {
-    tableName: normalizeSnowflakeTableNameForEventForwarder(rawTableName),
+    tableName,
     account:
       datasourceParams?.account?.trim() ||
       existingStored?.account?.trim() ||
       "",
-    accessUrl: accessUrl || undefined,
+    accessUrl,
     username:
       datasourceParams?.username?.trim() ||
       existingStored?.username?.trim() ||
       "",
-    database:
-      datasourceParams?.database?.trim() ||
-      existingStored?.database?.trim() ||
-      "",
-    schema:
-      datasourceParams?.schema?.trim() || existingStored?.schema?.trim() || "",
+    database,
+    schema,
     privateKey:
       normalizeSnowflakePrivateKeyForEventForwarder(
         datasourceParams?.privateKey,
@@ -222,12 +263,14 @@ function buildSnowflakeStoredConfigFromDraft(
       existingStored?.privateKeyPassword?.trim() ||
       undefined,
     role:
-      datasourceParams?.role?.trim() ||
+      draft.role?.trim() ||
       existingStored?.role?.trim() ||
+      datasourceParams?.role?.trim() ||
       undefined,
     warehouse:
-      datasourceParams?.warehouse?.trim() ||
+      draft.warehouse?.trim() ||
       existingStored?.warehouse?.trim() ||
+      datasourceParams?.warehouse?.trim() ||
       undefined,
   };
 }
@@ -275,16 +318,15 @@ export function buildNormalizedEventForwarderSinkPayloadForTest(
       bigQueryParams?.defaultProject?.trim() ||
       bigQueryParams?.projectId?.trim() ||
       "";
-    const defaultDataset = bigQueryParams?.defaultDataset?.trim() || "";
     const bq = normalizedPayload as BigQueryEventForwarderStoredConfig;
     if (
       !bqProject ||
-      !defaultDataset ||
+      !bq.dataset?.trim() ||
       !bq.tableName?.trim() ||
       !bq.serviceAccountKey
     ) {
       throw new Error(
-        "BigQuery event forwarder requires connector project (BigQuery Project ID), default dataset, table name, and service account credentials",
+        "BigQuery event forwarder requires connector project (BigQuery Project ID), destination table (dataset.table), and service account credentials",
       );
     }
   }
@@ -301,7 +343,7 @@ export function buildNormalizedEventForwarderSinkPayloadForTest(
       !snowflake.privateKey
     ) {
       throw new Error(
-        "Snowflake event forwarder requires account, username, database, schema, table name, event forwarder access URL, and private key credentials",
+        "Snowflake event forwarder requires account, username, destination table (DATABASE.SCHEMA.TABLE), Snowflake URL, and private key credentials",
       );
     }
   }
@@ -318,12 +360,20 @@ export function toEventForwarderConfigDraft(
     const decrypted = decryptSinkConfig<
       BigQueryEventForwarderStoredConfig & { projectId?: string }
     >(config.config);
-    const { dataset: _dataset, projectId: _removed, ...rest } = decrypted;
+    const {
+      dataset,
+      tableName,
+      projectId: _removed,
+      serviceAccountKey: _key,
+      ..._rest
+    } = decrypted;
     return {
       sinkType: "bigquery",
       config: {
-        tableName:
-          rest.tableName || DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
+        tableName: formatBigQueryEventForwarderDestination({
+          dataset: dataset || "",
+          table: tableName || DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
+        }),
         serviceAccountKey: "",
       },
     };
@@ -336,9 +386,15 @@ export function toEventForwarderConfigDraft(
     return {
       sinkType: "snowflake",
       config: {
-        tableName:
-          decrypted.tableName || DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
+        tableName: formatSnowflakeEventForwarderDestination({
+          database: decrypted.database || "",
+          schema: decrypted.schema || "",
+          table:
+            decrypted.tableName || DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
+        }),
         accessUrl: decrypted.accessUrl || "",
+        role: decrypted.role || "",
+        warehouse: decrypted.warehouse || "",
       },
     };
   }
@@ -434,16 +490,15 @@ export async function syncEventForwarderConfigFromDatasource({
       bigQueryParams?.defaultProject?.trim() ||
       bigQueryParams?.projectId?.trim() ||
       "";
-    const defaultDataset = bigQueryParams?.defaultDataset?.trim() || "";
     const bq = normalizedPayload as BigQueryEventForwarderStoredConfig;
     if (
       !bqProject ||
-      !defaultDataset ||
+      !bq.dataset?.trim() ||
       !bq.tableName?.trim() ||
       !bq.serviceAccountKey
     ) {
       throw new Error(
-        "BigQuery event forwarder requires connector project (BigQuery Project ID), default dataset, table name, and service account credentials",
+        "BigQuery event forwarder requires connector project (BigQuery Project ID), destination table (dataset.table), and service account credentials",
       );
     }
   }
@@ -460,7 +515,7 @@ export async function syncEventForwarderConfigFromDatasource({
       !snowflake.privateKey
     ) {
       throw new Error(
-        "Snowflake event forwarder requires account, username, database, schema, table name, event forwarder access URL, and private key credentials",
+        "Snowflake event forwarder requires account, username, destination table (DATABASE.SCHEMA.TABLE), Snowflake URL, and private key credentials",
       );
     }
   }
