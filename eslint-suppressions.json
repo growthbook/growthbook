@@ -506,11 +506,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/ExperimentRefSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/ExperimentSummary.tsx": {
     "no-restricted-imports": {
       "count": 1

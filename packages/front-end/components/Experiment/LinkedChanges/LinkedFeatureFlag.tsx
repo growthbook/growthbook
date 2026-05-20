@@ -17,6 +17,7 @@ import {
 } from "@/components/Features/RevisionStatusBadge";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -94,6 +95,7 @@ export default function LinkedFeatureFlag({
   );
 
   const variations = getLatestPhaseVariations(experiment);
+  const configuredVariationIds = new Set(info.values.map((v) => v.variationId));
   const orderedValues = variations.map((v) => {
     return info.values.find((v2) => v2.variationId === v.id)?.value || "";
   });
@@ -335,13 +337,19 @@ export default function LinkedFeatureFlag({
                     info.feature.valueType === "json" ? "start" : "center"
                   }
                   experiment={experiment}
-                  renderContent={(j) => (
-                    <ForceSummary
-                      value={orderedValues[j]}
-                      feature={info.feature}
-                      maxHeight={60}
-                    />
-                  )}
+                  renderContent={(j) =>
+                    !configuredVariationIds.has(variations[j].id) ? (
+                      <HelperText status="warning">
+                        Define missing values
+                      </HelperText>
+                    ) : (
+                      <ForceSummary
+                        value={orderedValues[j]}
+                        feature={info.feature}
+                        maxHeight={60}
+                      />
+                    )
+                  }
                 />
               </Box>
 
