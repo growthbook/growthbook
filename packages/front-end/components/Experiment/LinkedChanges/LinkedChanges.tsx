@@ -124,6 +124,7 @@ export default function LinkedChanges({
             />
           ))}
           {experiment.status === "draft" &&
+            !experiment.nextScheduledStatusUpdate &&
             !experiment.archived &&
             setFeatureModal &&
             setVisualEditorModal &&

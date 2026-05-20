@@ -57,7 +57,7 @@ import {
   getAllVariations,
   getLatestPhaseVariations,
 } from "shared/experiments";
-import { hoursBetween } from "shared/dates";
+import { getValidDate, hoursBetween } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import { v4 as uuidv4 } from "uuid";
 import { differenceInMinutes } from "date-fns";
@@ -1145,13 +1145,23 @@ export function updateExperimentBanditSettings({
   return changes;
 }
 
-export function getAdditionalQueryMetadataForExperiment(
+export function getExperimentQueryMetadata(
   experiment: ExperimentInterface,
 ): ExperimentQueryMetadata {
   return {
+    experimentId: experiment.id,
     experimentOwner: experiment.owner || undefined,
     experimentProject: experiment.project || undefined,
     experimentTags: experiment.tags.length > 0 ? experiment.tags : undefined,
+  };
+}
+
+export function getSnapshotQueryMetadata(
+  snapshot: ExperimentSnapshotInterface,
+): Pick<ExperimentQueryMetadata, "snapshotTriggeredBy" | "snapshotType"> {
+  return {
+    snapshotTriggeredBy: snapshot.triggeredBy,
+    snapshotType: snapshot.type,
   };
 }
 
@@ -1449,8 +1459,19 @@ export async function createSnapshotFromPlan({
   }
   const integration = getSourceIntegrationObject(context, datasource, true);
 
+  // Both incremental runner kinds need exclusive access to the per-experiment
+  // pipeline tables: "incremental" mutates them (DROP/CREATE/RENAME on the
+  // units + metric-source tables), and "incremental-exploratory" reads them.
+  // Locking both prevents concurrent triggers (e.g. scheduled auto-refresh +
+  // manual Update) from racing on those tables and producing empty or
+  // malformed results. The "results" runner writes only to per-snapshot
+  // ephemeral tables, so it does not need this lock.
+  const needsIncrementalRefreshLock =
+    plan.runnerKind === "incremental" ||
+    plan.runnerKind === "incremental-exploratory";
+
   let hasIncrementalRefreshLock = false;
-  if (plan.runnerKind === "incremental") {
+  if (needsIncrementalRefreshLock) {
     hasIncrementalRefreshLock =
       await context.models.incrementalRefresh.acquireLock(
         experiment.id,
@@ -1541,8 +1562,10 @@ export async function createSnapshotFromPlan({
       metricMap,
       queryParentId: queryRunner.model.id,
       factTableMap,
-      experimentQueryMetadata:
-        getAdditionalQueryMetadataForExperiment(experiment),
+      experimentQueryMetadata: {
+        ...getExperimentQueryMetadata(experiment),
+        ...getSnapshotQueryMetadata(plan.snapshot),
+      },
     };
 
     if (plan.runnerKind === "incremental") {
@@ -2298,7 +2321,7 @@ export async function toExperimentApiInterface(
     dateUpdated: experiment.dateUpdated.toISOString(),
     archived: !!experiment.archived,
     status: experiment.status,
-    autoRefresh: !!experiment.autoSnapshots,
+    autoRefresh: !!experiment.autoSnapshots && !experiment.disableAutoSnapshots,
     hashAttribute: experiment.hashAttribute || "id",
     fallbackAttribute: experiment.fallbackAttribute,
     hashVersion: experiment.hashVersion || 2,
@@ -2439,6 +2462,27 @@ export async function toExperimentApiInterface(
     customMetricSlices: experiment.customMetricSlices ?? [],
     defaultDashboardId: experiment.defaultDashboardId,
     templateId: experiment.templateId || undefined,
+    statusUpdateSchedule: experiment.statusUpdateSchedule
+      ? {
+          ...(experiment.statusUpdateSchedule.startAt
+            ? {
+                startAt: experiment.statusUpdateSchedule.startAt.toISOString(),
+              }
+            : {}),
+        }
+      : experiment.statusUpdateSchedule,
+    // Only "start" is produced for experiments; updateExperimentStatus.ts
+    // clears any other type before it can be observed. Filter defensively
+    // so the API response always matches the documented schema.
+    nextScheduledStatusUpdate:
+      experiment.nextScheduledStatusUpdate?.type === "start"
+        ? {
+            type: "start" as const,
+            date: experiment.nextScheduledStatusUpdate.date.toISOString(),
+          }
+        : experiment.nextScheduledStatusUpdate === undefined
+          ? undefined
+          : null,
   };
   return apiExperiment;
 }
@@ -3583,7 +3627,12 @@ export function postExperimentApiPayloadToInterface(
     ...(payload.minBucketVersion !== undefined
       ? { minBucketVersion: payload.minBucketVersion }
       : {}),
-    autoSnapshots: payload.autoRefresh ?? true,
+    // autoSnapshots is system-managed (createExperiment derives it from the
+    // org update schedule). An explicit autoRefresh:false from the API maps to
+    // the user-only disableAutoSnapshots override so the system never
+    // overwrites it.
+    autoSnapshots: true,
+    ...(payload.autoRefresh === false ? { disableAutoSnapshots: true } : {}),
     project: payload.project,
     owner: payload.owner || "",
     trackingKey: payload.trackingKey || "",
@@ -3821,6 +3870,48 @@ function resolveExperimentUpdateVariationsAndPhases(
 }
 
 /**
+ * Normalize `statusUpdateSchedule` / `nextScheduledStatusUpdate` on an in-progress
+ * Changeset:
+ *  - Explicit null clears both the schedule and any staged start.
+ *  - An object resolves `startAt` via getValidDate; missing startAt is treated
+ *    as "clear the schedule"; any existing staged start is reset so the schedule
+ *    must be re-staged.
+ *  - If `statusUpdateSchedule` is not in the payload but `status` is moving out
+ *    of draft, clear any pending staged start so the agenda job won't fire it.
+ */
+export function normalizeStatusUpdateScheduleChanges(
+  experiment: ExperimentInterface,
+  changes: Changeset,
+): void {
+  if ("statusUpdateSchedule" in changes) {
+    const effectiveType = changes.type ?? experiment.type;
+    if (
+      effectiveType === "multi-armed-bandit" &&
+      !!changes.statusUpdateSchedule
+    ) {
+      throw new Error("Bandit experiments do not support scheduled starts.");
+    }
+    const incoming = changes.statusUpdateSchedule;
+    if (incoming === null) {
+      changes.statusUpdateSchedule = null;
+      changes.nextScheduledStatusUpdate = null;
+    } else {
+      const startAt = incoming?.startAt
+        ? getValidDate(incoming.startAt)
+        : undefined;
+      changes.statusUpdateSchedule = startAt ? { startAt } : null;
+      changes.nextScheduledStatusUpdate = null;
+    }
+  } else if (
+    changes.status &&
+    changes.status !== "draft" &&
+    experiment.nextScheduledStatusUpdate
+  ) {
+    changes.nextScheduledStatusUpdate = null;
+  }
+}
+
+/**
  * Converts the OpenAPI POST /experiment/:id payload to a {@link ExperimentInterface}
  * @param payload
  * @param organization
@@ -3883,6 +3974,7 @@ export function updateExperimentApiPayloadToInterface(
     decisionFrameworkSettings,
     postStratificationEnabled,
     defaultDashboardId,
+    statusUpdateSchedule,
   } = payload;
 
   let changes: ExperimentInterface = {
@@ -3940,7 +4032,15 @@ export function updateExperimentApiPayloadToInterface(
     ...(shareLevel !== undefined ? { shareLevel } : {}),
     ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
     ...(customFields !== undefined ? { customFields } : {}),
-    ...(autoRefresh !== undefined ? { autoSnapshots: !!autoRefresh } : {}),
+    ...(autoRefresh !== undefined
+      ? {
+          disableAutoSnapshots: !autoRefresh,
+          // An explicit user opt-in must also clear the system-managed flag,
+          // otherwise PUT autoRefresh:true can't recover from a cron failure
+          // or an org schedule of "never" (both set autoSnapshots:false).
+          ...(autoRefresh ? { autoSnapshots: true } : {}),
+        }
+      : {}),
     ...(banditScheduleValue !== undefined ? { banditScheduleValue } : {}),
     ...(banditScheduleUnit !== undefined ? { banditScheduleUnit } : {}),
     ...(banditBurnInValue !== undefined ? { banditBurnInValue } : {}),
@@ -3959,6 +4059,7 @@ export function updateExperimentApiPayloadToInterface(
       ? { postStratificationEnabled }
       : {}),
     ...(defaultDashboardId !== undefined ? { defaultDashboardId } : {}),
+    ...(statusUpdateSchedule !== undefined ? { statusUpdateSchedule } : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 
@@ -4309,7 +4410,7 @@ export function applyVariationWeightsToLatestPhase(
 }
 
 export async function getChangesToStartExperiment(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ) {
   const phases = [...experiment.phases];
