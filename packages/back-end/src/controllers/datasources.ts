@@ -27,6 +27,7 @@ import {
   GrowthbookClickhouseSettings,
 } from "shared/types/datasource";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
+import type { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { SQLExecutionError } from "back-end/src/util/errors";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -47,6 +48,8 @@ import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import {
   getQueriesByDatasource,
   getQueriesByIds,
+  getQueryById,
+  updateQueryIfRunning,
 } from "back-end/src/models/QueryModel";
 import { findDimensionsByDataSource } from "back-end/src/models/DimensionModel";
 import {
@@ -67,13 +70,13 @@ import {
 } from "back-end/src/models/DimensionSlicesModel";
 import { DimensionSlicesQueryRunner } from "back-end/src/queryRunners/DimensionSlicesQueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
-  _dangerousRecreateClickhouseTables,
-  createClickhouseUser,
   getReservedColumnNames,
   updateMaterializedColumns,
 } from "back-end/src/services/clickhouse";
+import { dangerousRecreateClickhouseTables } from "back-end/src/services/licenseServerManagedClickhouse";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
 
@@ -337,11 +340,16 @@ export async function postManagedWarehouse(
     },
   ];
 
-  const params = await createClickhouseUser(context, materializedColumns);
-  const datasourceSettings = getManagedWarehouseSettings(
-    materializedColumns,
-    {},
-  );
+  const params: ClickHouseConnectionParams = {
+    url: "https://managed-warehouse-placeholder.invalid",
+    port: 443,
+    username: "pending_provisioning",
+    password: "pending_provisioning",
+    database: "pending_provisioning",
+  };
+  const datasourceSettings = getManagedWarehouseSettings(materializedColumns, {
+    hasBeenProvisioned: false,
+  });
 
   const datasource = await createDataSource(
     context,
@@ -622,6 +630,8 @@ export async function postValidatePipelineSettings(
         tableFullName: fullTestTablePath,
         integration,
       }),
+      undefined,
+      "pipelineValidation",
     );
     results.create.result = "success";
   } catch (e) {
@@ -645,6 +655,8 @@ export async function postValidatePipelineSettings(
             tableFullName: fullTestTablePath,
             integration,
           }),
+          undefined,
+          "pipelineValidation",
         );
         results.insert = { result: "success" };
       } catch (e) {
@@ -674,6 +686,8 @@ export async function postValidatePipelineSettings(
             tableFullName: fullTestTablePath,
             integration,
           }),
+          undefined,
+          "pipelineValidation",
         );
         results.drop = { result: "success" };
       } catch (e) {
@@ -808,13 +822,15 @@ export async function testLimitedQuery(
     query: string;
     datasourceId: string;
     templateVariables?: TemplateVariables;
+    timestampColumn?: string;
     limit?: number;
   }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
 
-  const { query, datasourceId, templateVariables, limit } = req.body;
+  const { query, datasourceId, templateVariables, timestampColumn, limit } =
+    req.body;
 
   // Sanity check to prevent potential abuse
   if (limit && limit > SQL_ROW_LIMIT) {
@@ -840,6 +856,7 @@ export async function testLimitedQuery(
     query,
     templateVariables,
     maxLimit,
+    timestampColumn,
   );
 
   res.status(200).json({
@@ -1018,6 +1035,67 @@ export async function getDataSourceQueries(
     status: 200,
     queries,
   });
+}
+
+export async function cancelDataSourceQuery(
+  req: AuthRequest<null, { id: string; queryId: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id: datasourceId, queryId } = req.params;
+
+  const datasource = await getDataSourceById(context, datasourceId);
+  if (!datasource) {
+    throw new Error("Could not find datasource");
+  }
+
+  req.checkPermissions(
+    "runQueries",
+    datasource?.projects?.length ? datasource.projects : [],
+  );
+
+  const query = await getQueryById(context, queryId);
+  if (!query) {
+    throw new Error("Could not find query");
+  }
+  if (query.datasource !== datasourceId) {
+    throw new Error("Query does not belong to this datasource");
+  }
+  if (query.status !== "running") {
+    throw new Error("Only running queries can be cancelled");
+  }
+
+  const integration = await getIntegrationFromDatasourceId(
+    context,
+    datasourceId,
+    true,
+  );
+
+  if (integration.cancelQuery && query.externalId) {
+    try {
+      await integration.cancelQuery(query.externalId);
+    } catch (e: unknown) {
+      // Log but continue - we'll still mark the query as failed
+      const msg = e instanceof Error ? e.message : String(e);
+      logger.debug(e, `Failed to cancel query on warehouse: ${msg}`);
+    }
+  }
+
+  const cancelledBy =
+    req.email || req.currentUser?.email || req.userId || "unknown";
+
+  const updated = await updateQueryIfRunning(context, query, {
+    status: "failed",
+    finishedAt: new Date(),
+    error: `Query cancelled by user (${cancelledBy})`,
+  });
+  if (!updated) {
+    throw new Error(
+      "Query is no longer in running state and cannot be cancelled",
+    );
+  }
+
+  res.status(200).json({ status: 200 });
 }
 
 export async function getDimensionSlices(
@@ -1432,7 +1510,7 @@ export async function postRecreateManagedWarehouse(
     );
   }
 
-  await _dangerousRecreateClickhouseTables(context, datasource);
+  await dangerousRecreateClickhouseTables(context.org.id);
 
   res.status(200).json({
     status: 200,

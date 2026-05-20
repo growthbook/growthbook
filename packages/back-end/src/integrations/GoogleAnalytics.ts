@@ -37,12 +37,14 @@ import {
   InsertMetricSourceCovariateDataQueryParams,
   CreateMetricSourceCovariateTableQueryParams,
 } from "shared/types/integrations";
+import { parseIntWithDefault } from "shared/util";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
 import {
   DataSourceInterface,
   DataSourceProperties,
 } from "shared/types/datasource";
 import { MetricInterface } from "shared/types/metric";
+import { QueryMetadata } from "shared/types/query";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { ReqContext } from "back-end/types/request";
@@ -112,6 +114,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   runMetricAnalysisQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
   ): Promise<MetricAnalysisQueryResponse> {
     throw new Error("Method not implemented.");
   }
@@ -121,6 +124,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   runDropTableQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
   ): Promise<DropTableQueryResponse> {
     throw new Error("Method not implemented.");
   }
@@ -135,12 +139,14 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   runExperimentAggregateUnitsQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
   ): Promise<ExperimentAggregateUnitsQueryResponse> {
     throw new Error("Method not implemented.");
   }
   runExperimentMetricQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
   ): Promise<ExperimentMetricQueryResponse> {
     throw new Error("Method not implemented.");
   }
@@ -150,6 +156,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   runExperimentUnitsQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
   ): Promise<ExperimentUnitsQueryResponse> {
     throw new Error("Method not implemented.");
   }
@@ -159,6 +166,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   runPastExperimentQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
   ): Promise<PastExperimentQueryResponse> {
     throw new Error("Method not implemented.");
   }
@@ -168,6 +176,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   async runDimensionSlicesQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
   ): Promise<DimensionSlicesQueryResponse> {
     throw new Error("Method not implemented.");
   }
@@ -217,6 +226,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   runIncrementalWithNoOutputQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
   ): Promise<IncrementalWithNoOutputQueryResponse> {
     throw new Error("Method not implemented.");
   }
@@ -238,12 +248,14 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   runIncrementalRefreshStatisticsQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
   ): Promise<ExperimentFactMetricsQueryResponse> {
     throw new Error("Method not implemented.");
   }
   runMaxTimestampQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
   ): Promise<MaxTimestampQueryResponse> {
     throw new Error("Method not implemented.");
   }
@@ -291,6 +303,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   async runMetricValueQuery(
     query: string,
     _setExternalId?: ExternalIdCallback,
+    _queryMetadata?: QueryMetadata,
   ): Promise<MetricValueQueryResponse> {
     const { rows, metrics } = await this.runQuery(query);
     const dates: MetricValueQueryResponseRows = [];
@@ -310,7 +323,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
       rows.forEach((row) => {
         const date = convertDate(row.dimensions?.[0] || "");
         const value = parseFloat(row.metrics?.[0]?.values?.[0] || "") || 0;
-        const users = parseInt(row.metrics?.[0]?.values?.[1] || "") || 0;
+        const users = parseIntWithDefault(row.metrics?.[0]?.values?.[1], 0);
 
         let count: number;
         let mean: number;
@@ -468,12 +481,12 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
     }
 
     return rows.map((row) => {
-      const users = parseInt(row.metrics?.[0]?.values?.[0] || "");
+      const users = parseIntWithDefault(row.metrics?.[0]?.values?.[0], 0);
       return {
         dimension: "",
         variation:
           (row.dimensions?.[0] || "").split(this.getDelimiter(), 2)[1] || "",
-        users: users || 0,
+        users,
         metrics: metrics.map((metric, j) => {
           let value = parseFloat(row.metrics?.[0]?.values?.[j + 1] || "") || 0;
           if (metric.table === "ga:bounceRate") {

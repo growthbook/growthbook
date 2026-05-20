@@ -3,6 +3,7 @@ import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import React, { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight, FaArrowLeft } from "react-icons/fa";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { RampScheduleInterface } from "shared/validators";
 import {
   autoMerge,
   fillRevisionFromFeature,
@@ -12,12 +13,16 @@ import {
   mergeResultHasChanges,
 } from "shared/util";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { Flex } from "@radix-ui/themes";
+import { Flex, Box } from "@radix-ui/themes";
+import { format } from "date-fns";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import {
   getAffectedRevisionEnvs,
   useEnvironments,
   useFeatureExperimentChecklists,
 } from "@/services/features";
+import { getFutureScheduledStartDate } from "@/services/experiments";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
@@ -26,12 +31,19 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   useFeatureRevisionDiff,
   featureToFeatureRevisionDiffInput,
+  type FeatureRevisionDiff,
 } from "@/hooks/useFeatureRevisionDiff";
 import Badge from "@/ui/Badge";
-import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
+import {
+  logBadgeColor,
+  CreatedRampScheduleBody,
+  RampActionLabel,
+  formatSimpleWindow,
+} from "@/components/Features/FeatureDiffRenders";
+import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
-import { PreLaunchChecklistFeatureExpRule } from "@/components/Experiment/PreLaunchChecklist";
+import { PreLaunchChecklistForDraft } from "@/components/Experiment/PreLaunchChecklist";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 
 export interface Props {
@@ -42,6 +54,7 @@ export interface Props {
   mutate: () => void;
   onPublish?: () => void;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+  rampSchedules?: RampScheduleInterface[];
 }
 
 export function ExpandableDiff({
@@ -66,22 +79,28 @@ export function ExpandableDiff({
   if (a === b) return null;
 
   return (
-    <div className="diff-wrapper">
-      <div
-        className="list-group-item list-group-item-action d-flex"
+    <Box className="diff-wrapper appbox bg-light">
+      <Flex
+        align="center"
+        className=""
+        p="3"
+        style={{
+          cursor: "pointer",
+          borderBottom: open ? "1px solid var(--gray-5)" : undefined,
+        }}
         onClick={(e) => {
           e.preventDefault();
           setOpen(!open);
         }}
       >
-        <div className="text-muted mr-2">Changed:</div>
-        <strong>{title}</strong>
-        <div className="ml-auto">
+        <Text mr="2">Changed:</Text>
+        <Text weight="semibold">{title}</Text>
+        <Box style={{ marginLeft: "auto" }}>
           {open ? <FaAngleDown /> : <FaAngleRight />}
-        </div>
-      </div>
+        </Box>
+      </Flex>
       {open && (
-        <div className="list-group-item list-group-item-light">
+        <Box p="3" className="">
           <ReactDiffViewer
             oldValue={a}
             newValue={b}
@@ -90,9 +109,9 @@ export function ExpandableDiff({
             leftTitle={leftTitle}
             rightTitle={rightTitle}
           />
-        </div>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 }
 
@@ -104,6 +123,7 @@ export default function DraftModal({
   mutate,
   onPublish,
   experimentsMap,
+  rampSchedules,
 }: Props) {
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -117,6 +137,7 @@ export default function DraftModal({
   );
   const liveRevision = revisions.find((r) => r.version === feature.version);
   const envIds = environments.map((e) => e.id);
+  const { holdoutsMap } = useHoldouts();
 
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
@@ -131,16 +152,26 @@ export default function DraftModal({
 
   const [comment, setComment] = useState(revision?.comment || "");
 
-  const { experimentData } = useFeatureExperimentChecklists({
-    feature,
-    revision,
-    experimentsMap,
-  });
+  const { experiments, immediateStartExperiments, scheduledExperiments } =
+    useFeatureExperimentChecklists({
+      feature,
+      revision,
+      experimentsMap,
+    });
 
   const [selectedExperiments, setSelectedExperiments] = useState(
-    new Set(experimentData.map((e) => e.experiment.id)),
+    new Set(experiments.map((e) => e.id)),
   );
   const [experimentsStep, setExperimentsStep] = useState(false);
+
+  const selectedImmediateCount = immediateStartExperiments.filter((e) =>
+    selectedExperiments.has(e.id),
+  ).length;
+  const selectedScheduledCount = scheduledExperiments.filter((e) =>
+    selectedExperiments.has(e.id),
+  ).length;
+  const onlyScheduledSelected =
+    selectedImmediateCount === 0 && selectedScheduledCount > 0;
 
   const currentRevisionData = featureToFeatureRevisionDiffInput(feature);
   const resultDiffs = useFeatureRevisionDiff({
@@ -169,6 +200,9 @@ export default function DraftModal({
                 },
               }
             : {}),
+          // Pending ramp create/detach actions live on the draft revision —
+          // pass through so the rules diff annotates affected rules.
+          rampActions: revision?.rampActions ?? undefined,
         }
       : currentRevisionData,
   });
@@ -179,19 +213,166 @@ export default function DraftModal({
     [resultDiffs],
   );
 
+  // Activating ramps: pending ramps where this revision's publication triggers the start lifecycle.
+  const activatingRamps = (rampSchedules ?? []).filter(
+    (r) =>
+      r.status === "pending" &&
+      r.targets.some(
+        (t) =>
+          t.entityId === feature.id &&
+          t.activatingRevisionVersion === revision?.version,
+      ),
+  );
+
+  // 1-based rule indices for `Rule #N` refs. Holdout occupies #1 (Rule.tsx)
+  // only when it's enabled in some env — a feature may carry a disabled
+  // holdout reference, in which case the rules list shows no holdout row.
+  const draftRules = Array.isArray(revision?.rules) ? revision!.rules : [];
+  const draftRuleNumberOffset = holdoutOccupiesRuleSlot(
+    revision?.holdout,
+    holdoutsMap,
+  )
+    ? 2
+    : 1;
+  const draftRuleIndexById = new Map<string, number>(
+    draftRules.map((r, i) => [r.id, i + draftRuleNumberOffset]),
+  );
+  // Fall back to the raw ID for any rule we can't number (e.g. a detach
+  // action whose rule was deleted from the draft).
+  const ruleRef = (ruleId: string): string => {
+    const idx = draftRuleIndexById.get(ruleId);
+    return idx ? `Rule #${idx}` : `Rule ${ruleId}`;
+  };
+
+  // Build extra diff items so ramp changes appear in badges, custom renders, and JSON diffs.
+  const rampDiffs: FeatureRevisionDiff[] = [
+    ...activatingRamps.map((ramp) => {
+      const rampConfig = {
+        name: ramp.name,
+        targets: ramp.targets,
+        startDate: ramp.startDate,
+        steps: ramp.steps,
+        endCondition: ramp.endCondition,
+      };
+      const isSimple = ramp.steps.length === 0;
+      const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
+      const endAt =
+        ramp.endCondition?.trigger?.type === "scheduled"
+          ? ramp.endCondition.trigger.at
+          : undefined;
+      const detail = isSimple
+        ? (formatSimpleWindow(ramp.startDate, endAt) ?? "starts on publish")
+        : `${ramp.steps.length} step${ramp.steps.length !== 1 ? "s" : ""}${
+            ramp.startDate ? "" : " · starts on publish"
+          }`;
+      return {
+        title: `${kindLabel} – ${ramp.name}`,
+        titleSuffix: <RampActionLabel action="activate" />,
+        a: "",
+        b: JSON.stringify(rampConfig, null, 2),
+        customRender: detail ? (
+          <p className="mb-0 text-muted">{detail}.</p>
+        ) : null,
+        badges: [{ label: `Start ramp: ${ramp.name}`, action: "start ramp" }],
+      } as FeatureRevisionDiff;
+    }),
+    // Pending ramp actions: create/detach actions queued in the draft
+    ...(revision?.rampActions ?? [])
+      .map((action) => {
+        if (action.mode === "create") {
+          const rampConfig = {
+            name: action.name,
+            environment: action.environment,
+            ruleId: action.ruleId,
+            startDate: action.startDate,
+            steps: action.steps,
+            endCondition: action.endCondition,
+          };
+          const targetIdx = draftRuleIndexById.get(action.ruleId);
+          const isSimple = action.steps.length === 0;
+          const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
+          const displayName = action.name ?? "schedule";
+          return {
+            title: `${kindLabel} – ${displayName}`,
+            a: "",
+            b: JSON.stringify(rampConfig, null, 2),
+            customRender: (
+              <CreatedRampScheduleBody
+                action={action}
+                targetRuleIndices={targetIdx ? [targetIdx] : []}
+              />
+            ),
+            titleSuffix: <RampActionLabel action="create" />,
+            badges: [
+              {
+                label: action.name
+                  ? `Create ${isSimple ? "schedule" : "ramp"}: ${action.name}`
+                  : `Create ${isSimple ? "schedule" : "ramp schedule"}`,
+                action: isSimple ? "create schedule" : "create ramp",
+              },
+            ],
+          } as FeatureRevisionDiff;
+        } else if (action.mode === "detach") {
+          const targetSchedule = (rampSchedules ?? []).find(
+            (r) => r.id === action.rampScheduleId,
+          );
+          const isSimple =
+            !!targetSchedule && targetSchedule.steps.length === 0;
+          const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
+          const kindNoun = isSimple ? "schedule" : "ramp schedule";
+          const scheduleName = targetSchedule?.name;
+          return {
+            title: scheduleName ? `${kindLabel} – ${scheduleName}` : kindLabel,
+            titleSuffix: <RampActionLabel action="remove" />,
+            a: "",
+            b: JSON.stringify(
+              {
+                rampScheduleId: action.rampScheduleId,
+                ruleId: action.ruleId,
+              },
+              null,
+              2,
+            ),
+            customRender: (
+              <p className="mb-0 text-muted">
+                {ruleRef(action.ruleId)} will be removed from this {kindNoun}
+                {action.deleteScheduleWhenEmpty &&
+                  "; the schedule is deleted if no targets remain"}
+                .
+              </p>
+            ),
+            badges: [
+              {
+                label: `Remove from ${kindNoun}`,
+                action: isSimple ? "remove schedule" : "remove ramp",
+              },
+            ],
+          } as FeatureRevisionDiff;
+        }
+        return null as unknown as FeatureRevisionDiff;
+      })
+      .filter(Boolean),
+  ];
+
+  // Combined for rendering convenience
+  const linkedRamps = [
+    ...activatingRamps.map((ramp) => ({ ramp, role: "activating" as const })),
+  ];
+
   if (!revision || !mergeResult) return null;
+
+  const allDiffsWithChanges = [...resultDiffsWithChanges, ...rampDiffs];
 
   const hasPermission = permissionsUtil.canPublishFeature(
     feature,
     getAffectedRevisionEnvs(feature, revision, environments),
   );
 
-  const hasChanges = mergeResultHasChanges(mergeResult);
+  const hasChanges = mergeResultHasChanges(mergeResult) || rampDiffs.length > 0;
 
-  let submitEnabled = !!mergeResult.success && hasChanges;
-  if (experimentsStep && experimentData.some((d) => d.failedRequired)) {
-    submitEnabled = false;
-  }
+  // Users who reach DraftModal already have direct publish permission, so the
+  // checklist is advisory — it does not block publishing.
+  const submitEnabled = !!mergeResult.success && hasChanges;
 
   // If we're publishing experiments, next step is to review pre-launch checklists
   const hasNextStep =
@@ -240,6 +421,8 @@ export default function DraftModal({
           <>
             Next <FaAngleRight />
           </>
+        ) : onlyScheduledSelected ? (
+          "Schedule to Start"
         ) : (
           "Publish"
         )
@@ -269,6 +452,14 @@ export default function DraftModal({
         </Callout>
       )}
 
+      {linkedRamps.map(({ ramp }) => (
+        <Callout key={ramp.id} status="info" mb="3">
+          Publishing this draft will activate ramp schedule{" "}
+          <strong>{ramp.name}</strong>. The ramp will begin once this revision
+          is live.
+        </Callout>
+      ))}
+
       {!hasChanges && !mergeResult.conflicts.length && (
         <Callout status="info">
           There are no changes to publish. Either discard the draft or add
@@ -279,69 +470,124 @@ export default function DraftModal({
       {mergeResult.success &&
         hasChanges &&
         (experimentsStep ? (
-          <div>
-            <h3>Review &amp; Publish</h3>
-            <p>
-              Please review the <strong>Pre-Launch Checklists</strong> for the
-              experiments that will be published along with this draft.
-            </p>
-            {experimentData.map(({ experiment, checklist }) => {
+          <Box>
+            <Heading as="h3" size="medium" mb="3">
+              Review &amp; {onlyScheduledSelected ? "Schedule" : "Publish"}
+            </Heading>
+            <Text as="p" mb="3">
+              Please review the{" "}
+              <strong>
+                Pre-Launch Checklist
+                {selectedExperiments.size !== 1 ? "s" : ""}
+              </strong>{" "}
+              for the experiment
+              {selectedExperiments.size !== 1 ? "s" : ""} that will be{" "}
+              {onlyScheduledSelected ? "scheduled to start" : "published"} along
+              with this draft.
+            </Text>
+            {experiments.map((experiment) => {
               if (!selectedExperiments.has(experiment.id)) return null;
 
+              const scheduledStartDate =
+                getFutureScheduledStartDate(experiment);
+
               return (
-                <div key={experiment.id} className="mb-3">
-                  <PreLaunchChecklistFeatureExpRule
+                <Box key={experiment.id} mb="3">
+                  {scheduledStartDate && (
+                    <Callout status="info" mb="2">
+                      <strong>{experiment.name}</strong> will start on{" "}
+                      <strong>
+                        {format(scheduledStartDate, "MMM d, yyyy 'at' h:mm a")}
+                      </strong>
+                      .
+                    </Callout>
+                  )}
+                  <PreLaunchChecklistForDraft
                     experiment={experiment}
+                    feature={feature}
                     mutateExperiment={mutate}
-                    checklist={checklist}
                     envs={getAffectedEnvsForExperiment({
                       experiment,
                       orgEnvironments: allEnvironments,
                       linkedFeatures: [],
                     })}
                   />
-                </div>
+                </Box>
               );
             })}
-          </div>
+          </Box>
         ) : (
-          <div>
-            <h3>Review &amp; Publish</h3>
-            <p>
+          <Box>
+            <Heading as="h3" size="medium" mb="3">
+              Review &amp; Publish
+            </Heading>
+            <Text as="p" mb="3">
               The changes below will go live when this draft revision is
               published. You will be able to revert later if needed.
-            </p>
+            </Text>
 
-            {experimentData.length > 0 ? (
-              <div className="mb-3">
-                <h4>Start running experiments upon publishing:</h4>
-                {experimentData.map(({ experiment }) => (
-                  <div key={experiment.id}>
-                    <Checkbox
-                      value={selectedExperiments.has(experiment.id)}
-                      setValue={(e) => {
-                        const newValue = new Set(selectedExperiments);
-                        if (e === true) {
-                          newValue.add(experiment.id);
-                        } else {
-                          newValue.delete(experiment.id);
-                        }
-                        setSelectedExperiments(newValue);
-                      }}
-                      label={experiment.name}
-                    />
-                  </div>
-                ))}
-              </div>
+            {experiments.length > 0 ? (
+              <Box mb="3">
+                {immediateStartExperiments.length > 0 && (
+                  <Box mb={scheduledExperiments.length > 0 ? "3" : "0"}>
+                    <Heading as="h4" size="small" mb="2">
+                      Start running experiments upon publishing:
+                    </Heading>
+                    {immediateStartExperiments.map((experiment) => (
+                      <Box key={experiment.id}>
+                        <Checkbox
+                          value={selectedExperiments.has(experiment.id)}
+                          setValue={(e) => {
+                            const newValue = new Set(selectedExperiments);
+                            if (e === true) {
+                              newValue.add(experiment.id);
+                            } else {
+                              newValue.delete(experiment.id);
+                            }
+                            setSelectedExperiments(newValue);
+                          }}
+                          label={experiment.name}
+                        />
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+                {scheduledExperiments.length > 0 && (
+                  <Box>
+                    <Heading as="h4" size="small" mb="2">
+                      Approve scheduled start for experiments:
+                    </Heading>
+                    {scheduledExperiments.map((experiment) => (
+                      <Box key={experiment.id}>
+                        <Checkbox
+                          value={selectedExperiments.has(experiment.id)}
+                          setValue={(e) => {
+                            const newValue = new Set(selectedExperiments);
+                            if (e === true) {
+                              newValue.add(experiment.id);
+                            } else {
+                              newValue.delete(experiment.id);
+                            }
+                            setSelectedExperiments(newValue);
+                          }}
+                          label={experiment.name}
+                        />
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+              </Box>
             ) : null}
 
-            {resultDiffsWithChanges.length > 0 && (
+            {allDiffsWithChanges.length > 0 && (
               <>
-                <h4 className="mb-3">Summary of changes</h4>
-                {resultDiffsWithChanges.flatMap((d) => d.badges ?? []).length >
+                <Heading as="h4" size="small" mb="3">
+                  Summary of changes
+                </Heading>
+                {allDiffsWithChanges.flatMap((d) => d.badges ?? []).length >
                   0 && (
-                  <Flex wrap="wrap" gap="2" className="mb-3">
-                    {resultDiffsWithChanges
+                  <Flex wrap="wrap" gap="2" mb="3">
+                    {allDiffsWithChanges
                       .flatMap((d) => d.badges ?? [])
                       .map(({ label, action }) => (
                         <Badge
@@ -353,26 +599,50 @@ export default function DraftModal({
                       ))}
                   </Flex>
                 )}
-                {resultDiffsWithChanges.some((d) => d.customRender) && (
-                  <div className="list-group mb-4">
-                    {resultDiffsWithChanges
+                {allDiffsWithChanges.some((d) => d.customRender) && (
+                  <Box
+                    mb="4"
+                    className="appbox bg-light"
+                    style={{
+                      overflow: "hidden",
+                    }}
+                  >
+                    {allDiffsWithChanges
                       .filter((d) => d.customRender)
-                      .map((d) => (
-                        <div
+                      .map((d, i, arr) => (
+                        <Box
                           key={d.title}
-                          className="list-group-item list-group-item-light pb-3"
+                          p="3"
+                          style={{
+                            borderBottom:
+                              i === arr.length - 1
+                                ? undefined
+                                : "1px solid var(--gray-5)",
+                          }}
                         >
-                          <strong className="d-block mb-2">{d.title}</strong>
+                          <Flex align="center" gap="2" mb="2" wrap="wrap">
+                            <Text as="div" weight="semibold">
+                              {d.title}
+                            </Text>
+                            {d.titleSuffix}
+                          </Flex>
                           {d.customRender}
-                        </div>
+                        </Box>
                       ))}
-                  </div>
+                  </Box>
                 )}
               </>
             )}
-            <h4 className="mb-3">Change details</h4>
-            <div className="list-group mb-4">
-              {resultDiffsWithChanges.map((diff) => (
+            <Heading as="h4" size="medium" mb="3">
+              Change details
+            </Heading>
+            <Box
+              mb="4"
+              style={{
+                overflow: "hidden",
+              }}
+            >
+              {allDiffsWithChanges.map((diff) => (
                 <ExpandableDiff
                   key={diff.title}
                   title={diff.title}
@@ -381,7 +651,7 @@ export default function DraftModal({
                   styles={COMPACT_DIFF_STYLES}
                 />
               ))}
-            </div>
+            </Box>
             {hasPermission ? (
               <Field
                 label="Notes (optional)"
@@ -397,7 +667,7 @@ export default function DraftModal({
                 You do not have permission to publish this draft.
               </Callout>
             )}
-          </div>
+          </Box>
         ))}
     </Modal>
   );

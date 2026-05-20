@@ -4,6 +4,7 @@ import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import {
   DifferenceType,
   PValueCorrection,
+  SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
 import { ExperimentStatus, LookbackOverride } from "shared/types/experiment";
@@ -17,10 +18,12 @@ import Link from "@/ui/Link";
 import VariationStatsTable from "@/ui/VariationStatsTable";
 import { MetricDrilldownMetadata } from "./MetricDrilldownMetadata";
 import MetricDrilldownMetricCard from "./MetricDrilldownMetricCard";
+import { type DrilldownDimensionInfo } from "./useMetricDrilldownContext";
 
 interface MetricDrilldownOverviewProps {
   row: ExperimentTableRow;
   experimentId: string;
+  significanceThresholds: SignificanceThresholds;
   reportDate: Date;
   isLatestPhase: boolean;
   phase: number;
@@ -41,11 +44,13 @@ interface MetricDrilldownOverviewProps {
   sequentialTestingEnabled?: boolean;
   lookbackOverride?: LookbackOverride;
   timeSeriesMessage?: string;
+  dimensionInfo?: DrilldownDimensionInfo;
 }
 
 function MetricDrilldownOverview({
   row,
   experimentId,
+  significanceThresholds,
   reportDate,
   isLatestPhase,
   phase,
@@ -66,6 +71,7 @@ function MetricDrilldownOverview({
   sequentialTestingEnabled,
   lookbackOverride,
   timeSeriesMessage,
+  dimensionInfo,
 }: MetricDrilldownOverviewProps) {
   const [statsExpanded, setStatsExpanded] = useState(false);
   const { isAuthenticated } = useAuth();
@@ -102,6 +108,7 @@ function MetricDrilldownOverview({
     <Flex direction="column" gap="6">
       <ResultsTable
         experimentId={experimentId}
+        significanceThresholds={significanceThresholds}
         dateCreated={reportDate}
         isLatestPhase={isLatestPhase}
         phase={phase}
@@ -137,6 +144,8 @@ function MetricDrilldownOverview({
           isAuthenticated ? [`${tableId}-${metric.id}-0`] : []
         }
         timeSeriesMessage={timeSeriesMessage}
+        dimensionId={dimensionInfo?.id}
+        dimensionValue={dimensionInfo?.rawValue}
         snapshot={snapshot}
         analysis={analysis}
         setAnalysisSettings={setAnalysisSettings}

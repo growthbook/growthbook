@@ -1,6 +1,7 @@
 import { useRouter } from "next/router";
 import {
   ExperimentInterfaceStringDates,
+  LinkedChangeEnvStates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
@@ -46,6 +47,7 @@ const BanditExperimentPage = (): ReactElement => {
   const [checklistItemsRemaining, setChecklistItemsRemaining] = useState<
     number | null
   >(null);
+  const [checklistHardBlockerCount, setChecklistHardBlockerCount] = useState(0);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -54,6 +56,8 @@ const BanditExperimentPage = (): ReactElement => {
     linkedFeatures: LinkedFeatureInfo[];
     envs: string[];
     urlRedirects: URLRedirectInterface[];
+    visualChangesetEnvStates?: LinkedChangeEnvStates;
+    urlRedirectEnvStates?: LinkedChangeEnvStates;
   }>(`/experiment/${bid}`);
 
   useSwitchOrg(data?.experiment?.organization ?? null);
@@ -84,6 +88,8 @@ const BanditExperimentPage = (): ReactElement => {
     visualChangesets = [],
     linkedFeatures = [],
     urlRedirects = [],
+    visualChangesetEnvStates,
+    urlRedirectEnvStates,
   } = data;
 
   const canEditExperiment =
@@ -290,7 +296,11 @@ const BanditExperimentPage = (): ReactElement => {
           envs={data.envs}
           editTargeting={editTargeting}
           checklistItemsRemaining={checklistItemsRemaining}
+          checklistHardBlockerCount={checklistHardBlockerCount}
           setChecklistItemsRemaining={setChecklistItemsRemaining}
+          setChecklistHardBlockerCount={setChecklistHardBlockerCount}
+          visualChangesetEnvStates={visualChangesetEnvStates}
+          urlRedirectEnvStates={urlRedirectEnvStates}
         />
       </SnapshotProvider>
     </>

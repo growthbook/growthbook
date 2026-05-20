@@ -111,6 +111,33 @@ export default function ExperimentSettings({
               </Flex>
             </Box>
 
+            {/* Require unique experiment keys */}
+            <Box mb="6">
+              <Flex align="start" gap="3">
+                <Box>
+                  <Checkbox
+                    value={form.watch("requireUniqueExperimentTrackingKeys")}
+                    setValue={(v) =>
+                      form.setValue("requireUniqueExperimentTrackingKeys", v)
+                    }
+                    id="toggle-requireUniqueExperimentTrackingKeys"
+                    mt="1"
+                  />
+                </Box>
+                <Flex direction="column">
+                  <Text size="3" className="font-weight-semibold">
+                    <label htmlFor="toggle-requireUniqueExperimentTrackingKeys">
+                      Require Unique Experiment Keys
+                    </label>
+                  </Text>
+                  <Text>
+                    Prevent experimenters from setting an experiment tracking
+                    key to one already in use.
+                  </Text>
+                </Flex>
+              </Flex>
+            </Box>
+
             {/* import length */}
             <Box mb="6">
               <Flex mb="2">

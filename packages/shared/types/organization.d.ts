@@ -31,7 +31,6 @@ import {
   projectMemberRole,
 } from "shared/validators";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
-import { ApiKeyInterface } from "shared/types/apikey";
 import { TeamInterface } from "shared/types/team";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
@@ -70,6 +69,8 @@ export type RequireReview = {
   projects: string[];
   featureRequireEnvironmentReview?: boolean;
   featureRequireMetadataReview?: boolean;
+  // When true, co-authors (contributors[]) are also blocked from approving, not just the original author.
+  blockSelfApproval?: boolean;
 };
 
 export type OwnerJobTitle = keyof typeof OWNER_JOB_TITLES;
@@ -150,12 +151,26 @@ export interface MetricDefaults {
   targetMDE?: number;
 }
 
-export interface Namespaces {
+export type NamespaceFormat = NonNullable<Namespaces["format"]>;
+
+export interface NamespaceBase {
   name: string;
   label: string;
   description: string;
   status: "active" | "inactive";
 }
+
+export interface LegacyNamespace extends NamespaceBase {
+  format?: "legacy";
+}
+
+export interface MultiRangeNamespace extends NamespaceBase {
+  format: "multiRange";
+  hashAttribute: string;
+  seed: string;
+}
+
+export type Namespaces = LegacyNamespace | MultiRangeNamespace;
 
 export type SDKAttributeFormat = "" | "version" | "date" | "isoCountryCode";
 
@@ -183,6 +198,22 @@ export type ExperimentUpdateSchedule = {
 };
 
 export type Environment = z.infer<typeof environment>;
+
+export type ApprovalFlowConfiguration = {
+  requireMetadataReview: boolean;
+  required: boolean;
+  // When true, anyone listed in `revision.contributors` (including the author)
+  // is blocked from approving the revision. A separate, non-contributor
+  // reviewer is required.
+  blockSelfApproval?: boolean;
+  // TODO: Should we add support for these additional settings?
+  canBypassReview?: boolean;
+  resetReviewOnChange?: boolean;
+};
+
+export type ApprovalFlowConfigurations = {
+  savedGroups: ApprovalFlowConfiguration[];
+};
 
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;
@@ -252,6 +283,7 @@ export interface OrganizationSettings {
   banditBurnInValue?: number;
   banditBurnInUnit?: "hours" | "days";
   requireExperimentTemplates?: boolean;
+  requireUniqueExperimentTrackingKeys?: boolean;
   experimentMinLengthDays?: number;
   experimentMaxLengthDays?: number;
   decisionFrameworkEnabled?: boolean;
@@ -263,6 +295,7 @@ export interface OrganizationSettings {
   /** @deprecated Use postStratificationEnabled instead */
   postStratificationDisabled?: boolean;
   postStratificationEnabled?: boolean;
+  approvalFlows?: ApprovalFlowConfigurations;
 }
 
 export interface OrganizationConnections {
@@ -371,7 +404,6 @@ export type GetOrganizationResponse = {
   seatsInUse: number;
   roles: Role[];
   agreements: AgreementType[];
-  apiKeys: ApiKeyInterface[];
   enterpriseSSO: Partial<SSOConnectionInterface> | null;
   accountPlan: AccountPlan;
   effectiveAccountPlan: AccountPlan;

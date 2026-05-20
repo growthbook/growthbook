@@ -79,18 +79,19 @@ const resource = req.context.myResources.getById("abc123");
 
 ### MakeModelClass Config
 
-| Option                      | Type       | Required | Description                                                                                         |
-| --------------------------- | ---------- | -------- | --------------------------------------------------------------------------------------------------- |
-| `schema`                    | Zod schema | Yes      | Validator from `shared/validators`                                                                  |
-| `collectionName`            | string     | Yes      | MongoDB collection name                                                                             |
-| `pKey`                      | string[]   | No       | Primary key fields. Defaults to `["id"]`. Use e.g. `["userId", "organization"]` for composite keys. |
-| `idPrefix`                  | string     | No       | Prefix for auto-generated IDs (e.g., "prj\_"). Only applies when schema has an `id` field.          |
-| `auditLog`                  | object     | No       | Audit event configuration                                                                           |
-| `globallyUniquePrimaryKeys` | boolean    | No       | Create an additional unique index on the primary key alone (without `organization`)                 |
-| `defaultValues`             | object     | No       | Default values applied on creation                                                                  |
-| `readonlyFields`            | string[]   | No       | Fields that cannot be updated after creation                                                        |
-| `skipDateUpdatedFields`     | string[]   | No       | Fields that don't trigger `dateUpdated` when changed                                                |
-| `additionalIndexes`         | array      | No       | Extra MongoDB indexes to create                                                                     |
+| Option                      | Type       | Required | Description                                                                                                                                                                                      |
+| --------------------------- | ---------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `schema`                    | Zod schema | Yes      | Validator from `shared/validators`                                                                                                                                                               |
+| `collectionName`            | string     | Yes      | MongoDB collection name                                                                                                                                                                          |
+| `pKey`                      | string[]   | No       | Primary key fields. Defaults to `["id"]`. Use e.g. `["userId", "organization"] as const` for composite keys. Must use `as const` so TypeScript narrows the tuple for compile-time update safety. |
+| `idPrefix`                  | string     | No       | Prefix for auto-generated IDs (e.g., "prj\_"). Only applies when schema has an `id` field.                                                                                                       |
+| `auditLog`                  | object     | No       | Audit event configuration                                                                                                                                                                        |
+| `globallyUniquePrimaryKeys` | boolean    | No       | Create an additional unique index on the primary key alone (without `organization`)                                                                                                              |
+| `defaultValues`             | object     | No       | Default values applied on creation                                                                                                                                                               |
+| `readonlyFields`            | string[]   | No       | Fields that cannot be updated after creation                                                                                                                                                     |
+| `skipDateUpdatedFields`     | string[]   | No       | Fields that don't trigger `dateUpdated` when changed                                                                                                                                             |
+| `additionalIndexes`         | array      | No       | Extra MongoDB indexes to create                                                                                                                                                                  |
+| `apiConfig`                 | object     | No       | Exposes the model via the external REST API. Set `modelKey` and `openApiSpec`. Requires implementing `toApiInterface` in the model class. See `api-patterns.md` for the full spec-based pattern. |
 
 ### Audit Log Config
 
@@ -296,8 +297,9 @@ const mySchema = createBaseSchemaWithPrimaryKey({
 const BaseClass = MakeModelClass({
   schema: mySchema,
   collectionName: "myresources",
-  pKey: ["userId", "organization"],
+  pKey: ["userId", "organization"] as const,
   // No idPrefix — id is not auto-generated for composite-key models
+  // `as const` is required so TypeScript can forbid pKey fields in UpdateProps
 });
 ```
 

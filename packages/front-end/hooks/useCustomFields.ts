@@ -18,7 +18,7 @@ export function filterCustomFieldsForSectionAndProject(
   project: string | undefined,
 ) {
   const filteredCustomFields = customFields?.filter(
-    (v) => v.section === section,
+    (v) => v.active !== false && v.sections?.includes(section),
   );
   if (!filteredCustomFields || filteredCustomFields.length === 0) {
     return filteredCustomFields;

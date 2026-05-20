@@ -2,8 +2,12 @@ import {
   ExplorationConfig,
   explorationConfigValidator,
   ProductAnalyticsExploration,
+  ExplorationCacheQuery,
 } from "shared/validators";
-import { calculateProductAnalyticsDateRange } from "shared/enterprise";
+import {
+  calculateProductAnalyticsDateRange,
+  encodeExplorationConfig,
+} from "shared/enterprise";
 import {
   FactMetricInterface,
   FactTableInterface,
@@ -19,11 +23,29 @@ import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { ProductAnalyticsExplorationQueryRunner } from "back-end/src/queryRunners/ProductAnalyticsExplorationQueryRunner";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
+import { APP_ORIGIN } from "back-end/src/util/secrets";
+
+/**
+ * Cache lookup keys off query-defining fields (see AnalyticsExplorationModel.getConfigHashes)
+ * and omits chartType. Reuse the cached rows but surface the client's requested visualization.
+ */
+function withRequestedChartType(
+  existing: ProductAnalyticsExploration,
+  requested: ExplorationConfig,
+): ProductAnalyticsExploration {
+  if (existing.config.chartType === requested.chartType) {
+    return existing;
+  }
+  return {
+    ...existing,
+    config: { ...existing.config, chartType: requested.chartType },
+  };
+}
 
 export async function runProductAnalyticsExploration(
   context: ReqContext | ApiReqContext,
   config: ExplorationConfig,
-  options: { cache?: "preferred" | "required" | "never" },
+  options: ExplorationCacheQuery,
 ): Promise<ProductAnalyticsExploration | null> {
   config = explorationConfigValidator.parse(config);
 
@@ -31,7 +53,7 @@ export async function runProductAnalyticsExploration(
     const existing =
       await context.models.analyticsExplorations.findLatestByConfig(config);
     if (existing) {
-      return existing;
+      return withRequestedChartType(existing, config);
     }
   }
 
@@ -163,4 +185,16 @@ export async function runProductAnalyticsExploration(
   }
 
   return queryRunner.model;
+}
+
+const DATASET_TYPE_PATH: Record<ExplorationConfig["dataset"]["type"], string> =
+  {
+    metric: "metrics",
+    fact_table: "fact-table",
+    data_source: "data-source",
+  };
+
+export function getProductAnalyticsExplorationUrl(config: ExplorationConfig) {
+  const baseUrl = `${APP_ORIGIN}/product-analytics/explore/${DATASET_TYPE_PATH[config.dataset.type]}`;
+  return `${baseUrl}?config=${encodeURIComponent(encodeExplorationConfig(config))}`;
 }

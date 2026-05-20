@@ -5,10 +5,12 @@ import {
   getMetricLink,
   ExperimentMetricInterface,
   ExperimentSortBy,
+  isPrecomputedDimension,
 } from "shared/experiments";
 import {
   DifferenceType,
   PValueCorrection,
+  SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
 import {
@@ -16,6 +18,7 @@ import {
   LookbackOverride,
   MetricOverride,
 } from "shared/types/experiment";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -26,7 +29,6 @@ import { ExperimentTableRow } from "@/services/experiments";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Link from "@/ui/Link";
 import MetricName from "@/components/Metrics/MetricName";
-import { useKeydown } from "@/hooks/useKeydown";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useAuth } from "@/services/auth";
@@ -45,6 +47,7 @@ import MetricDrilldownDebug from "./MetricDrilldownDebug";
 import {
   MetricDrilldownContext,
   type MetricDrilldownTab,
+  type DrilldownDimensionInfo,
 } from "./useMetricDrilldownContext";
 
 export type { MetricDrilldownTab };
@@ -79,6 +82,7 @@ interface MetricDrilldownModalProps {
 
   // Experiment context props
   experimentId: string;
+  significanceThresholds: SignificanceThresholds;
   phase: number;
   experimentStatus?: ExperimentStatus;
   variations: ExperimentReportVariation[];
@@ -97,10 +101,15 @@ interface MetricDrilldownModalProps {
   initialSliceSearchTerm?: string;
 
   // Dimension info
-  dimensionInfo?: { name: string; value: string; index: number };
+  dimensionInfo?: DrilldownDimensionInfo;
 
   // When true, timeseries is unavailable and a message is shown instead
   isReportContext?: boolean;
+
+  // Snapshot for report context (no parent SnapshotProvider).
+  // When provided, a LocalSnapshotProvider is created so the modal can refresh
+  // when baseline/difference settings change.
+  snapshot?: ExperimentSnapshotInterface;
 }
 
 /**
@@ -133,6 +142,7 @@ interface MetricDrilldownContentProps {
   localDifferenceType: DifferenceType;
   setLocalDifferenceType: (type: DifferenceType) => void;
   experimentId: string;
+  significanceThresholds: SignificanceThresholds;
   phase: number;
   experimentStatus?: ExperimentStatus;
   variations: ExperimentReportVariation[];
@@ -146,7 +156,7 @@ interface MetricDrilldownContentProps {
   localSortDirection: "asc" | "desc" | null;
   initialSliceSearchTerm?: string;
   initialTab?: MetricDrilldownTab;
-  dimensionInfo?: { name: string; value: string; index: number };
+  dimensionInfo?: DrilldownDimensionInfo;
   isReportContext: boolean;
 }
 
@@ -170,6 +180,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   localDifferenceType,
   setLocalDifferenceType,
   experimentId,
+  significanceThresholds,
   phase,
   experimentStatus,
   variations,
@@ -189,11 +200,19 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   const { isAuthenticated } = useAuth();
   const { analysis } = useSnapshot();
 
-  // When dimensionInfo is provided (from BreakDownResults), use the passed initialResults
-  // which contains the correct dimension-specific data. Otherwise, use snapshot results.
-  const results = dimensionInfo
-    ? initialResults
-    : (analysis?.results?.[0] ?? initialResults);
+  const liveResults = useMemo(() => {
+    if (!dimensionInfo) {
+      return analysis?.results?.[0];
+    }
+    return analysis?.results?.find(
+      (result) => result.name === dimensionInfo.rawValue,
+    );
+  }, [analysis?.results, dimensionInfo]);
+
+  // Re-resolve the selected slice on every render against the latest
+  // analysis results. If the slice disappears after a refresh, keep showing
+  // the data captured at open-time and surface that staleness explicitly.
+  const results = liveResults ?? initialResults;
 
   // TODO: Check what we need here
   const [expandedMetrics] = useState<Record<string, boolean>>(() => {
@@ -218,6 +237,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
     shouldShowMetricSlices: true,
     enableExpansion: true,
     expandedMetrics,
+    pValueThreshold: significanceThresholds.pValueThreshold,
   });
 
   const mainMetricRow = useMemo(() => {
@@ -230,7 +250,9 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   const [sliceSearchTerm, setSliceSearchTerm] = useState(
     initialSliceSearchTerm || "",
   );
-  const hideTimeSeries = isReportContext || !!dimensionInfo;
+  const hideTimeSeries =
+    isReportContext ||
+    (!!dimensionInfo && !isPrecomputedDimension(dimensionInfo.id));
   const [visibleSliceTimeSeriesRowIds, setVisibleSliceTimeSeriesRowIds] =
     useState<string[]>(() => {
       if (
@@ -296,6 +318,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
         <MetricDrilldownOverview
           row={mainMetricRow}
           experimentId={experimentId}
+          significanceThresholds={significanceThresholds}
           reportDate={reportDate}
           isLatestPhase={isLatestPhase}
           phase={phase}
@@ -318,10 +341,11 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           timeSeriesMessage={
             isReportContext
               ? "Time series data is not available for custom reports."
-              : dimensionInfo
+              : dimensionInfo && !isPrecomputedDimension(dimensionInfo.id)
                 ? "Time series is not available for unit dimension breakdowns."
                 : undefined
           }
+          dimensionInfo={dimensionInfo}
         />
       </TabsContent>
       <TabsContent value="slices">
@@ -337,6 +361,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           variationFilter={localVariationFilter}
           setVariationFilter={setLocalVariationFilter}
           experimentId={experimentId}
+          significanceThresholds={significanceThresholds}
           phase={phase}
           variations={variations}
           startDate={startDate}
@@ -354,12 +379,14 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           setVisibleTimeSeriesRowIds={setVisibleSliceTimeSeriesRowIds}
           ssrPolyfills={ssrPolyfills}
           hideTimeSeries={hideTimeSeries}
+          dimensionInfo={dimensionInfo}
         />
       </TabsContent>
       <TabsContent value="debug">
         <MetricDrilldownDebug
           row={mainMetricRow}
           metric={metric}
+          significanceThresholds={significanceThresholds}
           statsEngine={statsEngine}
           differenceType={localDifferenceType}
           setDifferenceType={setLocalDifferenceType}
@@ -405,6 +432,7 @@ const MetricDrilldownModal = ({
   variationFilter,
   // Experiment context
   experimentId,
+  significanceThresholds,
   phase,
   experimentStatus,
   variations,
@@ -423,8 +451,9 @@ const MetricDrilldownModal = ({
   dimensionInfo,
   // Report context
   isReportContext: isReportContextProp,
+  // Snapshot for report context (no parent SnapshotProvider)
+  snapshot: snapshotProp,
 }: MetricDrilldownModalProps) => {
-  useKeydown("Escape", close);
   useBodyScrollLock(true);
   const { metric } = row;
   const { hasCommercialFeature } = useUser();
@@ -439,9 +468,17 @@ const MetricDrilldownModal = ({
     snapshot: parentSnapshot,
     experiment,
     phase: contextPhase,
-    dimension,
+    dimension: contextDimension,
     analysisSettings: parentAnalysisSettings,
   } = useSnapshot();
+
+  // Use prop values when parent context is empty (report context)
+  const effectiveSnapshot = parentSnapshot ?? snapshotProp;
+  // Prefer the context dimension, then fall back to the snapshot's own dimension
+  const effectiveDimension =
+    contextDimension || effectiveSnapshot?.dimension || "";
+  // Use contextPhase from snapshot context when available, otherwise use phase prop
+  const effectivePhase = parentSnapshot ? contextPhase : phase;
 
   const isReportContext = isReportContextProp ?? false;
 
@@ -475,6 +512,7 @@ const MetricDrilldownModal = ({
     localDifferenceType,
     setLocalDifferenceType,
     experimentId,
+    significanceThresholds,
     phase,
     experimentStatus,
     variations,
@@ -500,7 +538,7 @@ const MetricDrilldownModal = ({
         backgroundlessHeader={true}
         headerClassName={styles.metricDrilldownModalHeader}
         bodyClassName={styles.metricDrilldownModalBody}
-        onBackdropClick={close}
+        dismissible
         header={
           <Flex align="center" gap="0">
             <Text size="6" weight="bold">
@@ -578,12 +616,12 @@ const MetricDrilldownModal = ({
         autoFocusSelector=""
       >
         <MetricDrilldownContext.Provider value={null}>
-          {parentSnapshot && experiment ? (
+          {effectiveSnapshot ? (
             <LocalSnapshotProvider
               experiment={experiment}
-              snapshot={parentSnapshot}
-              phase={contextPhase}
-              dimension={dimension}
+              snapshot={effectiveSnapshot}
+              phase={effectivePhase}
+              dimension={effectiveDimension}
               initialAnalysisSettings={parentAnalysisSettings}
             >
               <MetricDrilldownContent {...contentProps} />

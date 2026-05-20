@@ -1,5 +1,6 @@
-import { ListFeaturesResponse } from "shared/types/openapi";
 import { listFeaturesValidator } from "shared/validators";
+import { stringToBoolean } from "shared/util";
+import type { ApiReqContext } from "back-end/types/api";
 import { getFeatureRevisionsByFeaturesCurrentVersion } from "back-end/src/models/FeatureRevisionModel";
 import { getAllPayloadExperiments } from "back-end/src/models/ExperimentModel";
 import {
@@ -11,6 +12,7 @@ import {
   getApiFeatureObj,
   getSavedGroupMap,
 } from "back-end/src/services/features";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
 import {
   applyPagination,
@@ -20,11 +22,8 @@ import {
 import { API_ALLOW_SKIP_PAGINATION } from "back-end/src/util/secrets";
 import { findSDKConnectionByKey } from "back-end/src/models/SdkConnectionModel";
 
-const emptyListResponse = (
-  limit: number,
-  offset: number,
-): ListFeaturesResponse => ({
-  features: [],
+export const emptyListResponse = (limit: number, offset: number) => ({
+  features: [] as never[],
   limit,
   offset,
   count: 0,
@@ -33,164 +32,222 @@ const emptyListResponse = (
   nextOffset: null,
 });
 
-export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
-  async (req): Promise<ListFeaturesResponse> => {
-    const projectId = req.query.projectId;
-    if (req.query.skipPagination && !API_ALLOW_SKIP_PAGINATION) {
-      throw new Error(
-        "skipPagination is not allowed. Set API_ALLOW_SKIP_PAGINATION=true in API environment variables. Self-hosted only.",
-      );
+/**
+ * Shared data-loading core for list-features. Builds the paginated feature
+ * slice + every lookup the serializers need. Callers differ only in which
+ * per-feature serializer (`getApiFeatureObj` vs `getApiFeatureObjV2`) they run
+ * over the resulting slice.
+ */
+export async function loadFeaturesPage(
+  context: ApiReqContext,
+  organizationId: string,
+  query: {
+    projectId?: string;
+    clientKey?: string;
+    skipPagination?: string | boolean;
+    limit?: number;
+    offset?: number;
+  },
+): Promise<
+  | { empty: true; response: ReturnType<typeof emptyListResponse> }
+  | {
+      empty: false;
+      filtered: Awaited<ReturnType<typeof getFeaturesPage>>;
+      groupMap: Awaited<ReturnType<typeof getSavedGroupMap>>;
+      experimentMap: Awaited<ReturnType<typeof getAllPayloadExperiments>>;
+      revisions: Awaited<
+        ReturnType<typeof getFeatureRevisionsByFeaturesCurrentVersion>
+      >;
+      safeRolloutMap: Awaited<
+        ReturnType<
+          ApiReqContext["models"]["safeRollout"]["getAllPayloadSafeRollouts"]
+        >
+      >;
+      outLimit: number;
+      outOffset: number;
+      total: number;
+      hasMore: boolean;
+      nextOffset: number | null;
     }
-    const skipPagination = !!req.query.skipPagination;
-    let limit: number;
-    let offset: number;
+> {
+  const projectId = query.projectId;
+  const skipPagination = stringToBoolean(query.skipPagination?.toString());
+  if (skipPagination && !API_ALLOW_SKIP_PAGINATION) {
+    throw new Error(
+      "skipPagination is not allowed. Set API_ALLOW_SKIP_PAGINATION=true in API environment variables. Self-hosted only.",
+    );
+  }
+  let limit: number;
+  let offset: number;
+  if (skipPagination) {
+    limit = query.limit ?? 10;
+    offset = query.offset ?? 0;
+  } else {
+    ({ limit, offset } = validatePagination(query));
+  }
+
+  // Resolve empty-result cases before loading groupMap/experimentMap
+  if (
+    projectId &&
+    !context.permissions.canReadSingleProjectResource(projectId)
+  ) {
+    return { empty: true, response: emptyListResponse(limit, offset) };
+  }
+  let projectIds: string[] | null = null;
+  if (!projectId) {
+    projectIds = context.permissions.getProjectsWithPermission("readData");
+    if (projectIds !== null && projectIds.length === 0) {
+      return { empty: true, response: emptyListResponse(limit, offset) };
+    }
+  }
+
+  const experimentScope = projectId ? [projectId] : (projectIds ?? undefined);
+  const [groupMap, experimentMap] = await Promise.all([
+    getSavedGroupMap(context),
+    getAllPayloadExperiments(context, experimentScope),
+  ]);
+
+  let filtered: Awaited<ReturnType<typeof getFeaturesPage>>;
+  let total: number;
+
+  if (query.clientKey) {
+    // clientKey: filter by SDK payload, then paginate in memory (or skip)
+    const features = await getAllFeatures(context, {
+      projects: projectId ? [projectId] : undefined,
+      includeArchived: true,
+    });
+    const sdkConnection = await findSDKConnectionByKey(query.clientKey);
+    if (!sdkConnection || sdkConnection.organization !== organizationId) {
+      throw new Error("Invalid SDK connection key");
+    }
+    const payload = await getFeatureDefinitionsWithCache({
+      context: context,
+      params: {
+        ...sdkConnection,
+        encryptPayload: false, // Force unencrypted for filtering
+        encryptionKey: "", // Ensure no encryption
+      },
+    });
+    const filteredFeatures = features
+      .filter((f) => f.id in payload.features)
+      .sort((a, b) => a.dateCreated.getTime() - b.dateCreated.getTime());
     if (skipPagination) {
-      limit = req.query.limit ?? 10;
-      offset = req.query.offset ?? 0;
+      filtered = filteredFeatures;
+      total = filteredFeatures.length;
     } else {
-      ({ limit, offset } = validatePagination(req.query));
+      const { filtered: page } = applyPagination(filteredFeatures, query);
+      filtered = page;
+      total = filteredFeatures.length;
     }
-
-    // Resolve empty-result cases before loading groupMap/experimentMap
-    if (
-      projectId &&
-      !req.context.permissions.canReadSingleProjectResource(projectId)
-    ) {
-      return emptyListResponse(limit, offset);
-    }
-    let projectIds: string[] | null = null;
-    if (!projectId) {
-      projectIds =
-        req.context.permissions.getProjectsWithPermission("readData");
-      if (projectIds !== null && projectIds.length === 0) {
-        return emptyListResponse(limit, offset);
-      }
-    }
-
-    const experimentScope = projectId ? [projectId] : (projectIds ?? undefined);
-    const [groupMap, experimentMap] = await Promise.all([
-      getSavedGroupMap(req.context),
-      getAllPayloadExperiments(req.context, experimentScope),
-    ]);
-
-    let filtered: Awaited<ReturnType<typeof getFeaturesPage>>;
-    let total: number;
-
-    if (req.query.clientKey) {
-      // clientKey: filter by SDK payload, then paginate in memory (or skip)
-      const features = await getAllFeatures(req.context, {
-        projects: projectId ? [projectId] : undefined,
+  } else if (projectId) {
+    if (skipPagination) {
+      const features = await getAllFeatures(context, {
+        projects: [projectId],
         includeArchived: true,
       });
-      const sdkConnection = await findSDKConnectionByKey(req.query.clientKey);
-      if (
-        !sdkConnection ||
-        sdkConnection.organization !== req.organization.id
-      ) {
-        throw new Error("Invalid SDK connection key");
-      }
-      const payload = await getFeatureDefinitionsWithCache({
-        context: req.context,
-        params: {
-          ...sdkConnection,
-          encryptPayload: false, // Force unencrypted for filtering
-          encryptionKey: "", // Ensure no encryption
-        },
-      });
-      const filteredFeatures = features
-        .filter((f) => f.id in payload.features)
-        .sort((a, b) => a.dateCreated.getTime() - b.dateCreated.getTime());
-      if (skipPagination) {
-        filtered = filteredFeatures;
-        total = filteredFeatures.length;
-      } else {
-        const { filtered: page } = applyPagination(filteredFeatures, req.query);
-        filtered = page;
-        total = filteredFeatures.length;
-      }
-    } else if (projectId) {
-      // projectId and can read
-      if (skipPagination) {
-        const features = await getAllFeatures(req.context, {
-          projects: [projectId],
-          includeArchived: true,
-        });
-        const sorted = features.sort(
-          (a, b) => a.dateCreated.getTime() - b.dateCreated.getTime(),
-        );
-        filtered = sorted;
-        total = sorted.length;
-      } else {
-        filtered = await getFeaturesPage(req.context, {
-          project: projectId,
-          includeArchived: true,
-          limit,
-          offset,
-        });
-        total = await countFeatures(req.context, {
-          project: projectId,
-          includeArchived: true,
-        });
-      }
+      const sorted = features.sort(
+        (a, b) => a.dateCreated.getTime() - b.dateCreated.getTime(),
+      );
+      filtered = sorted;
+      total = sorted.length;
     } else {
-      // no projectId: projectIds already resolved above (or undefined = all org when global read)
-      const projectsFilter = projectIds === null ? undefined : projectIds;
-      if (skipPagination) {
-        const features = await getAllFeatures(req.context, {
-          projects: projectsFilter,
-          includeArchived: true,
-        });
-        const sorted = features.sort(
-          (a, b) => a.dateCreated.getTime() - b.dateCreated.getTime(),
-        );
-        filtered = sorted;
-        total = sorted.length;
-      } else {
-        filtered = await getFeaturesPage(req.context, {
-          projectIds: projectsFilter,
-          includeArchived: true,
-          limit,
-          offset,
-        });
-        total = await countFeatures(req.context, {
-          projectIds: projectsFilter,
-          includeArchived: true,
-        });
-      }
+      filtered = await getFeaturesPage(context, {
+        project: projectId,
+        includeArchived: true,
+        limit,
+        offset,
+      });
+      total = await countFeatures(context, {
+        project: projectId,
+        includeArchived: true,
+      });
     }
+  } else {
+    const projectsFilter = projectIds === null ? undefined : projectIds;
+    if (skipPagination) {
+      const features = await getAllFeatures(context, {
+        projects: projectsFilter,
+        includeArchived: true,
+      });
+      const sorted = features.sort(
+        (a, b) => a.dateCreated.getTime() - b.dateCreated.getTime(),
+      );
+      filtered = sorted;
+      total = sorted.length;
+    } else {
+      filtered = await getFeaturesPage(context, {
+        projectIds: projectsFilter,
+        includeArchived: true,
+        limit,
+        offset,
+      });
+      total = await countFeatures(context, {
+        projectIds: projectsFilter,
+        includeArchived: true,
+      });
+    }
+  }
 
-    const revisions = await getFeatureRevisionsByFeaturesCurrentVersion(
+  const revisions = await getFeatureRevisionsByFeaturesCurrentVersion(
+    context,
+    filtered,
+  );
+  const safeRolloutMap =
+    await context.models.safeRollout.getAllPayloadSafeRollouts();
+
+  const hasMore = skipPagination ? false : offset + limit < total;
+  const nextOffset = hasMore ? offset + limit : null;
+  const outLimit = skipPagination ? total : limit;
+  const outOffset = skipPagination ? 0 : offset;
+
+  return {
+    empty: false,
+    filtered,
+    groupMap,
+    experimentMap,
+    revisions,
+    safeRolloutMap,
+    outLimit,
+    outOffset,
+    total,
+    hasMore,
+    nextOffset,
+  };
+}
+
+export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
+  async (req) => {
+    const r = await loadFeaturesPage(
       req.context,
-      filtered,
+      req.organization.id,
+      req.query,
     );
-    const safeRolloutMap =
-      await req.context.models.safeRollout.getAllPayloadSafeRollouts();
-
-    const hasMore = skipPagination ? false : offset + limit < total;
-    const nextOffset = hasMore ? offset + limit : null;
-    const outLimit = skipPagination ? total : limit;
-    const outOffset = skipPagination ? 0 : offset;
+    if (r.empty) return r.response;
     return {
-      features: filtered.map((feature) => {
-        const revision =
-          revisions?.find(
-            (r) => r.featureId === feature.id && r.version === feature.version,
-          ) || null;
-        return getApiFeatureObj({
-          feature,
-          organization: req.organization,
-          groupMap,
-          experimentMap,
-          revision,
-          safeRolloutMap,
-        });
-      }),
-      limit: outLimit,
-      offset: outOffset,
-      count: filtered.length,
-      total,
-      hasMore,
-      nextOffset,
+      features: await resolveOwnerEmails(
+        r.filtered.map((feature) => {
+          const revision =
+            r.revisions?.find(
+              (x) =>
+                x.featureId === feature.id && x.version === feature.version,
+            ) || null;
+          return getApiFeatureObj({
+            feature,
+            organization: req.organization,
+            groupMap: r.groupMap,
+            experimentMap: r.experimentMap,
+            revision,
+            safeRolloutMap: r.safeRolloutMap,
+          });
+        }),
+        req.context,
+      ),
+      limit: r.outLimit,
+      offset: r.outOffset,
+      count: r.filtered.length,
+      total: r.total,
+      hasMore: r.hasMore,
+      nextOffset: r.nextOffset,
     };
   },
 );

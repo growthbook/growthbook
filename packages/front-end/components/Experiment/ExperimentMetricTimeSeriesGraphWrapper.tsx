@@ -14,7 +14,6 @@ import {
   getExperimentMetricFormatter,
   formatPercent,
 } from "@/services/metrics";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useCurrency } from "@/hooks/useCurrency";
 import { GraphVariation } from "./ExperimentDateGraph";
 import ExperimentTimeSeriesGraph, {
@@ -23,6 +22,7 @@ import ExperimentTimeSeriesGraph, {
 
 interface ExperimentMetricTimeSeriesGraphWrapperProps {
   experimentId: string;
+  pValueThreshold: number;
   phase: number;
   metric: ExperimentMetricInterface;
   differenceType: DifferenceType;
@@ -34,6 +34,8 @@ interface ExperimentMetricTimeSeriesGraphWrapperProps {
   sliceId?: string;
   baselineRow?: number;
   unavailableMessage?: string;
+  dimensionId?: string;
+  dimensionValue?: string;
 }
 
 export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
@@ -55,6 +57,7 @@ export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
 
 function ExperimentMetricTimeSeriesGraphWrapper({
   experimentId,
+  pValueThreshold,
   phase,
   metric,
   differenceType,
@@ -66,9 +69,10 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   sliceId,
   baselineRow = 0,
   unavailableMessage,
+  dimensionId,
+  dimensionValue,
 }: ExperimentMetricTimeSeriesGraphWrapperProps) {
   const { getFactTableById } = useDefinitions();
-  const pValueThreshold = usePValueThreshold();
 
   const displayCurrency = useCurrency();
   const formatterOptions = { currency: displayCurrency };
@@ -78,14 +82,32 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   );
 
   const metricId = sliceId ?? metric.id;
+  const dimensionQuery =
+    dimensionId && dimensionValue !== undefined
+      ? `&dimensions[0][id]=${encodeURIComponent(
+          dimensionId,
+        )}&dimensions[0][value]=${encodeURIComponent(dimensionValue)}`
+      : dimensionId
+        ? `&dimensions[0][id]=${encodeURIComponent(dimensionId)}`
+        : "";
 
   const { data, isLoading, error } = useApi<{ timeSeries: MetricTimeSeries[] }>(
-    `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${encodeURIComponent(metricId)}`,
+    `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${encodeURIComponent(metricId)}${dimensionQuery}`,
   );
 
   const filteredMetricTimeSeries = useMemo(() => {
-    return filterInvalidMetricTimeSeries(data?.timeSeries || []);
-  }, [data]);
+    const all = filterInvalidMetricTimeSeries(data?.timeSeries || []);
+    if (!dimensionId) {
+      return all.filter((t) => !t.dimensionId);
+    }
+    if (dimensionValue === undefined) {
+      return all.filter((t) => t.dimensionId === dimensionId);
+    }
+    return all.filter(
+      (t) =>
+        t.dimensionId === dimensionId && t.dimensionValue === dimensionValue,
+    );
+  }, [data, dimensionId, dimensionValue]);
 
   if (unavailableMessage) {
     return <Message height="70px">{unavailableMessage}</Message>;

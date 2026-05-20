@@ -6,7 +6,7 @@ import {
 } from "shared/types/experiment";
 import React from "react";
 import { validateAndFixCondition } from "shared/util";
-import { Text } from "@radix-ui/themes";
+import { Text, Separator } from "@radix-ui/themes";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
@@ -19,7 +19,7 @@ import {
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import track from "@/services/track";
 import variationInputStyles from "@/components/Features/VariationsInput.module.scss";
@@ -70,7 +70,7 @@ export default function EditHoldoutTargetingModal({
   });
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       open={true}
       close={close}
@@ -84,7 +84,7 @@ export default function EditHoldoutTargetingModal({
         form={form}
         conditionKey={conditionKey}
       />
-    </Modal>
+    </ModalStandard>
   );
 }
 
@@ -131,7 +131,6 @@ function TargetingForm({
           withRadixThemedPortal
           containerClassName="flex-1"
           label="Assign variation based on attribute"
-          labelClassName="font-weight-bold"
           options={hashAttributeOptions}
           sort={false}
           value={form.watch("hashAttribute")}
@@ -191,7 +190,7 @@ function TargetingForm({
         setValue={(v) => form.setValue("savedGroups", v)}
         project={experiment.project || ""}
       />
-      <hr />
+      <Separator size="4" my="5" />
       <ConditionInput
         defaultValue={form.watch("condition")}
         onChange={(condition) => form.setValue("condition", condition)}

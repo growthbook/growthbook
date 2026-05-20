@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep, isEqual } from "lodash";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
+import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import {
   DataSourceInterface,
   DataSourceParams,
@@ -9,7 +10,7 @@ import {
   DataSourceType,
 } from "shared/types/datasource";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
-import { ApiDataSource } from "shared/types/openapi";
+import { ApiDataSource } from "shared/validators";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import {
   encryptParams,
@@ -27,17 +28,29 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
-import { deleteClickhouseUser } from "back-end/src/services/clickhouse";
+import { deleteClickhouseUser } from "back-end/src/services/licenseServerManagedClickhouse";
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { deleteFactTable, getFactTable } from "./FactTableModel";
 
-const audit = createModelAuditLogger({
+const dataSourceAuditConfig = {
   entity: "datasource",
   createEvent: "datasource.create",
   updateEvent: "datasource.update",
   deleteEvent: "datasource.delete",
-  omitDetails: true,
-});
+  detailsAllowlist: [
+    "id",
+    "name",
+    "description",
+    "organization",
+    "dateCreated",
+    "dateUpdated",
+    "type",
+    "projects",
+    "settings",
+  ],
+} as const;
+
+const audit = createModelAuditLogger(dataSourceAuditConfig);
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
@@ -56,7 +69,6 @@ const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
     index: true,
   },
   settings: {},
-  lockUntil: Date,
 });
 dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
 type DataSourceDocument = mongoose.Document & DataSourceInterface;
@@ -111,14 +123,6 @@ export async function _dangerourslyGetAllDatasourcesByOrganizations(
     organization: { $in: organizations },
   });
 
-  return docs.map(toInterface);
-}
-
-// WARNING: This does not restrict by organization
-export async function _dangerousGetAllGrowthbookClickhouseDataSources() {
-  const docs: DataSourceDocument[] = await DataSourceModel.find({
-    type: "growthbook_clickhouse",
-  });
   return docs.map(toInterface);
 }
 
@@ -203,7 +207,9 @@ export async function deleteDatasource(
     throw new Error("Cannot delete. Data sources managed by config.yml");
   }
   if (datasource.type === "growthbook_clickhouse") {
-    await deleteClickhouseUser(context.org.id);
+    if (!isManagedWarehouseAwaitingProvisioning(datasource)) {
+      await deleteClickhouseUser(context.org.id);
+    }
 
     // Also delete the main events fact table
     try {
@@ -286,7 +292,12 @@ export async function createDataSource(
     projects,
   };
 
-  await testDataSourceConnection(context, datasource);
+  const skipManagedWarehouseConnection =
+    isManagedWarehouseAwaitingProvisioning(datasource);
+
+  if (!skipManagedWarehouseConnection) {
+    await testDataSourceConnection(context, datasource);
+  }
 
   // Add any missing exposure query ids and check query validity
   settings = await validateExposureQueriesAndAddMissingIds(
@@ -302,6 +313,7 @@ export async function createDataSource(
 
   const integration = getSourceIntegrationObject(context, datasource);
   if (
+    !skipManagedWarehouseConnection &&
     integration.getInformationSchema &&
     integration.getSourceProperties().supportsInformationSchema
   ) {
@@ -325,6 +337,14 @@ export async function validateExposureQueriesAndAddMissingIds(
   if (updatesCopy.queries?.exposure) {
     await Promise.all(
       updatesCopy.queries.exposure.map(async (exposure) => {
+        if (isManagedWarehouseAwaitingProvisioning(datasource)) {
+          if (!exposure.id) {
+            exposure.id = uniqid("exq_");
+          }
+          exposure.error = undefined;
+          return;
+        }
+
         let checkValidity = forceCheckValidity;
         if (!exposure.id) {
           exposure.id = uniqid("exq_");
@@ -398,63 +418,6 @@ export async function updateDataSource(
   );
 
   await audit.logUpdate(context, datasource, { ...datasource, ...updates });
-}
-
-function isLocked(datasource: DataSourceInterface): boolean {
-  if (usingFileConfig() || !datasource.lockUntil) return false;
-  return datasource.lockUntil > new Date();
-}
-
-export async function lockDataSource(
-  context: ReqContext | ApiReqContext,
-  datasource: DataSourceInterface,
-  seconds: number,
-) {
-  if (usingFileConfig()) {
-    throw new Error("Cannot lock. Data sources managed by config.yml");
-  }
-  if (datasource.organization !== context.org.id) {
-    throw new Error("Cannot lock data source from another organization");
-  }
-
-  // Already locked, throw error
-  if (isLocked(datasource)) {
-    throw new Error(
-      "Data source is currently being modified. Please try again later.",
-    );
-  }
-
-  await DataSourceModel.updateOne(
-    {
-      id: datasource.id,
-      organization: context.org.id,
-    },
-    {
-      $set: { lockUntil: new Date(Date.now() + seconds * 1000) },
-    },
-  );
-}
-
-export async function unlockDataSource(
-  context: ReqContext | ApiReqContext,
-  datasource: DataSourceInterface,
-) {
-  if (usingFileConfig()) {
-    throw new Error("Cannot unlock. Data sources managed by config.yml");
-  }
-  if (datasource.organization !== context.org.id) {
-    throw new Error("Cannot unlock data source from another organization");
-  }
-
-  await DataSourceModel.updateOne(
-    {
-      id: datasource.id,
-      organization: context.org.id,
-    },
-    {
-      $set: { lockUntil: null },
-    },
-  );
 }
 
 // WARNING: This does not restrict by organization

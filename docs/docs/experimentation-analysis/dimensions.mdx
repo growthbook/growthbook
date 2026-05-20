@@ -81,34 +81,46 @@ These are attributes of your users that are relatively stable over time, and ide
 
 A user dimension is defined by a simple SQL query that returns two columns: an identifier and `value`. The name of the identifier column depends on which identifier type the dimension is using. Remember, when using these for analysis, we will pick the `MAX(value)` for each user, and therefore it is best to only have one value per user.
 
-Here's an example SQL:
+Here's an example SQL using an immutable attribute (the user's first country):
 
 ```sql
 -- Assumes identifier type is "user_id"
 SELECT
   user_id,
-  plan_type as value
+  first_country as value
 FROM
-  subscriptions
+  users
 ```
 
-It's best to keep the number of unique values for a dimension small if possible to avoid the False Positive issues discussed above. We automatically cap the number at 20, but you can do it yourself if you want more control. Here's an example for a "country" dimension:
+It's best to keep the number of unique values for a dimension small if possible to avoid the False Positive issues discussed above. We automatically cap the number at 20, but you can do it yourself if you want more control. Here's an example using the "first_country" dimension:
 
 ```sql
 SELECT
   user_id,
   (
-    CASE WHEN country = 'us' THEN 'US'
-    WHEN country = 'uk' THEN 'UK'
+    CASE WHEN first_country = 'us' THEN 'US'
+    WHEN first_country = 'uk' THEN 'UK'
     ELSE 'Other' END
   ) as value
 FROM
   users
 ```
 
+If you need to use a dimension that can change over time, you should use the `{{ startDate }}` template variable to pin it to the value the user had before the experiment started:
+
+```sql
+SELECT
+  user_id,
+  plan_type as value
+FROM
+  subscriptions
+WHERE
+  timestamp < '{{ startDate }}'
+```
+
 :::tip SQL template variables
 
-You can use SQL template variables in dimension queries just like you can with metrics. See the [SQL Templates](/app/sql-templates) page for more details.
+You can use `{{ startDate }}`, `{{ endDate }}`, and `{{ experimentId }}` in dimension queries to scope your data to the experiment's time window. See the [SQL Templates](/app/sql-templates) page for more details.
 
 :::
 

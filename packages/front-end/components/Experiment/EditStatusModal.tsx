@@ -8,11 +8,11 @@ import { HoldoutInterfaceStringDates } from "shared/validators";
 import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import SelectField from "@/components/Forms/SelectField";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -73,13 +73,12 @@ export default function EditStatusModal({
     },
   ];
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="edit-status-modal"
       trackingEventModalSource={source}
       header={
         isHoldout ? "Force Holdout Status Change" : "Change Experiment Status"
       }
-      bodyClassName="px-5"
       close={close}
       open={true}
       submit={form.handleSubmit(
@@ -120,11 +119,10 @@ export default function EditStatusModal({
         },
       )}
       cta="Update"
-      submitColor="danger"
-      useRadixButton={true}
+      ctaColor="red"
     >
       {isHoldout && (
-        <Box mb="5">
+        <Box mb="4">
           <Text size="medium" color="text-mid">
             <strong>Warning: </strong>Changing the status of a Holdout will
             delete the existing schedule and could change the behavior of
@@ -133,7 +131,7 @@ export default function EditStatusModal({
         </Box>
       )}
       {hasLinkedChanges && (
-        <Callout status="warning">
+        <Callout status="warning" mb="4">
           Changes you make here will immediately affect any linked Feature Flags
           or Visual Changes.
         </Callout>
@@ -166,6 +164,6 @@ export default function EditStatusModal({
             />
           </>
         )}
-    </Modal>
+    </ModalStandard>
   );
 }

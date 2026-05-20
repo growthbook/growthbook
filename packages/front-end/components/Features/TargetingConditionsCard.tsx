@@ -12,6 +12,7 @@ export function TargetingConditionsCard({
   addButton,
   advancedToggle,
   className,
+  slimMode,
 }: {
   targetingType: ConditionGroupTargetingType;
   total: number;
@@ -19,7 +20,50 @@ export function TargetingConditionsCard({
   addButton?: React.ReactNode;
   advancedToggle?: React.ReactNode;
   className?: string;
+  slimMode?: boolean;
 }) {
+  const content = (
+    <Flex
+      direction="column"
+      gap={slimMode ? "1" : "2"}
+      ml={slimMode ? "0" : "1"}
+    >
+      {!slimMode && (
+        <ConditionGroupHeader
+          targetingType={targetingType}
+          advancedToggle={advancedToggle}
+        />
+      )}
+      <Flex direction="column" gap="4">
+        {children}
+      </Flex>
+      {addButton != null && (
+        <Box
+          style={{ alignSelf: "flex-start" }}
+          pt={slimMode ? "1" : "2"}
+          pb="0"
+        >
+          {addButton}
+        </Box>
+      )}
+    </Flex>
+  );
+
+  if (slimMode) {
+    return (
+      <Box
+        className={clsx("gb-condition-group-card", className)}
+        p="2"
+        style={{
+          border: "1px solid var(--gray-a3)",
+          borderRadius: "var(--radius-2)",
+        }}
+      >
+        {content}
+      </Box>
+    );
+  }
+
   return (
     <Card
       className={clsx("gb-condition-group-card", className)}
@@ -35,20 +79,7 @@ export function TargetingConditionsCard({
           backgroundColor: "var(--slate-9)",
         }}
       ></div>
-      <Flex direction="column" gap="2" ml="1">
-        <ConditionGroupHeader
-          targetingType={targetingType}
-          advancedToggle={advancedToggle}
-        />
-        <Flex direction="column" gap="4">
-          {children}
-        </Flex>
-        {addButton != null && (
-          <Box style={{ alignSelf: "flex-start" }} pt="2" pb="0">
-            {addButton}
-          </Box>
-        )}
-      </Flex>
+      {content}
     </Card>
   );
 }
@@ -221,9 +252,14 @@ export function ConditionRowHeader({
   );
 }
 
-export function OrSeparator() {
+export function OrSeparator({ slimMode }: { slimMode?: boolean }) {
   return (
-    <Flex align="center" gap="3" my="5" className="gb-or-separator">
+    <Flex
+      align="center"
+      gap="3"
+      my={slimMode ? "2" : "5"}
+      className="gb-or-separator"
+    >
       <Separator style={{ flexGrow: 1 }} />
       <Text size="medium" weight="medium">
         OR
@@ -236,13 +272,30 @@ export function OrSeparator() {
 export function AddConditionButton({
   onClick,
   children,
+  slimMode,
+  disabled,
 }: {
   onClick: () => void;
   children?: React.ReactNode;
+  slimMode?: boolean;
+  disabled?: boolean;
 }) {
   return (
-    <Link onClick={onClick} className="and-button">
-      <Text weight="semibold">
+    <Link
+      onClick={() => {
+        if (disabled) return;
+        onClick();
+      }}
+      className="and-button"
+      style={{
+        opacity: disabled ? 0.5 : 1,
+        cursor: disabled ? "not-allowed" : "pointer",
+      }}
+    >
+      <Text
+        weight={slimMode ? "regular" : "semibold"}
+        size={slimMode ? "small" : "medium"}
+      >
         <PiPlusBold className="mr-1" />
         {children ?? "Add condition"}
       </Text>
@@ -250,11 +303,32 @@ export function AddConditionButton({
   );
 }
 
-export function AddOrGroupButton({ onClick }: { onClick: () => void }) {
+export function AddOrGroupButton({
+  onClick,
+  slimMode,
+  disabled,
+}: {
+  onClick: () => void;
+  slimMode?: boolean;
+  disabled?: boolean;
+}) {
   return (
-    <Box my="4">
-      <Link onClick={onClick} className="or-button">
-        <Text weight="semibold">
+    <Box my={slimMode ? "1" : "4"}>
+      <Link
+        onClick={() => {
+          if (disabled) return;
+          onClick();
+        }}
+        className="or-button"
+        style={{
+          opacity: disabled ? 0.5 : 1,
+          cursor: disabled ? "not-allowed" : "pointer",
+        }}
+      >
+        <Text
+          weight={slimMode ? "regular" : "semibold"}
+          size={slimMode ? "small" : "medium"}
+        >
           <PiPlusBold className="mr-1" />
           Add OR group
         </Text>

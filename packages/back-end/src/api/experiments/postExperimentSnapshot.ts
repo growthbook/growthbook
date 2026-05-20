@@ -1,19 +1,18 @@
 import { postExperimentSnapshotValidator } from "shared/validators";
-import { PostExperimentSnapshotResponse } from "shared/types/openapi";
-import { createExperimentSnapshot } from "back-end/src/controllers/experiments";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { auditDetailsCreate } from "back-end/src/services/audit";
+import { createExperimentSnapshot } from "back-end/src/services/experiments";
+import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
-// TODO update params (add phase, useCache)
 export const postExperimentSnapshot = createApiRequestHandler(
   postExperimentSnapshotValidator,
-)(async (req): Promise<PostExperimentSnapshotResponse> => {
+)(async (req) => {
   const context = req.context;
   const id = req.params.id;
 
-  const { triggeredBy } = req.body;
+  const { triggeredBy, dimension, phase } = req.body ?? {};
   const experiment = await getExperimentById(context, id);
 
   if (!experiment) {
@@ -44,10 +43,23 @@ export const postExperimentSnapshot = createApiRequestHandler(
     throw new Error(`Experiment has no phases`);
   }
 
+  const phaseIndex = phase ?? experiment.phases.length - 1;
+  if (!experiment.phases[phaseIndex]) {
+    throw new Error(`Phase ${phaseIndex} not found`);
+  }
+
+  if (dimension) {
+    await validateSnapshotDimension({
+      experiment,
+      datasource,
+      dimension,
+      organization: context.org.id,
+    });
+  }
+
   const createSnapshotPayload = {
-    // use last phase by default
-    phase: experiment.phases.length - 1,
-    dimension: undefined,
+    phase: phaseIndex,
+    dimension,
     useCache: true,
   };
 

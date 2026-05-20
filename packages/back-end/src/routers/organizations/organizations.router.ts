@@ -4,6 +4,7 @@ import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRe
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   postApiKeyValidator,
+  putApiKeyDisabledValidator,
   putDefaultRoleValidator,
   putMemberProjectRoleValidator,
 } from "./organizations.validators";
@@ -95,6 +96,13 @@ router.post(
 );
 router.delete("/keys", organizationsController.deleteApiKey);
 router.post("/keys/reveal", organizationsController.postApiKeyReveal);
+router.put(
+  "/keys/:id/disabled",
+  validateRequestMiddleware({
+    body: putApiKeyDisabledValidator,
+  }),
+  organizationsController.putApiKeyDisabled,
+);
 
 // Legacy Webhooks
 router.get("/legacy-sdk-webhooks", organizationsController.getLegacyWebhooks);

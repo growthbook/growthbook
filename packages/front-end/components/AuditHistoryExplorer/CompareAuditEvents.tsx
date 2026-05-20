@@ -12,6 +12,8 @@ import {
 } from "react-icons/pi";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { datetime } from "shared/dates";
+import EventUser from "@/components/Avatar/EventUser";
+import { auditUserInfoToEventUser } from "@/components/Avatar/auditUserToEventUser";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import {
   DropdownMenu,
@@ -40,14 +42,21 @@ import {
 import { useAuditComparison } from "./useAuditComparison";
 import styles from "./CompareAuditEvents.module.scss";
 
-function EntryUserName({
+function AuditEntryAuthor({
   user,
+  display = "avatar-name-email",
 }: {
   user: CoarsenedAuditEntry<unknown>["user"];
+  display?: "avatar-name" | "avatar-name-email";
 }) {
-  if (user.type === "system") return <>System</>;
-  if (user.type === "apikey") return <>API Key</>;
-  return <>{user.name || user.email || "Unknown user"}</>;
+  return (
+    <EventUser
+      user={auditUserInfoToEventUser(user)}
+      display={display}
+      size="sm"
+      wrap={true}
+    />
+  );
 }
 
 function AuditEntryCompareLabel({
@@ -70,7 +79,7 @@ function AuditEntryCompareLabel({
   mt?: "1" | "2" | "3" | "4";
 }) {
   return (
-    <Flex align="center" gap="4" wrap="nowrap" mb={mb} mt={mt}>
+    <Flex align="start" gap="4" wrap="nowrap" mb={mb} mt={mt}>
       <Flex direction="column">
         <Flex align="center" gap="1">
           {entryAFailed && (
@@ -78,17 +87,21 @@ function AuditEntryCompareLabel({
               <PiWarningBold style={{ color: "var(--red-9)", flexShrink: 0 }} />
             </Tooltip>
           )}
-          <Text weight="semibold" size="medium">
+          <Text weight="semibold" size="large">
             {labelA}
           </Text>
         </Flex>
         {entryA && (
-          <Text as="div" size="small" color="text-low">
-            {datetime(entryA.dateStart)} · <EntryUserName user={entryA.user} />
-          </Text>
+          <Box mt="2">
+            <AuditEntryAuthor user={entryA.user} />
+          </Box>
         )}
+        {entryA && <Text as="div">{datetime(entryA.dateStart)}</Text>}
       </Flex>
-      <PiArrowsLeftRightBold size={16} />
+      <PiArrowsLeftRightBold
+        size={16}
+        style={{ flexShrink: 0, marginTop: 4 }}
+      />
       <Flex direction="column">
         <Flex align="center" gap="1">
           {entryBFailed && (
@@ -96,15 +109,16 @@ function AuditEntryCompareLabel({
               <PiWarningBold style={{ color: "var(--red-9)", flexShrink: 0 }} />
             </Tooltip>
           )}
-          <Text weight="semibold" size="medium">
+          <Text weight="semibold" size="large">
             {labelB}
           </Text>
         </Flex>
         {entryB && (
-          <Text as="div" size="small" color="text-low">
-            {datetime(entryB.dateStart)} · <EntryUserName user={entryB.user} />
-          </Text>
+          <Box mt="2">
+            <AuditEntryAuthor user={entryB.user} />
+          </Box>
         )}
+        {entryB && <Text as="div">{datetime(entryB.dateStart)}</Text>}
       </Flex>
     </Flex>
   );
@@ -148,14 +162,7 @@ function RawAuditDetails({ entry }: { entry: CoarsenedAuditEntry<unknown> }) {
                   />,
                 ],
                 ["Date", datetime(entry.dateStart)],
-                [
-                  "Author",
-                  entry.user.type === "system"
-                    ? "System"
-                    : entry.user.type === "apikey"
-                      ? `API Key (${entry.user.apiKey ?? ""})`
-                      : entry.user.name || entry.user.email || "Unknown",
-                ],
+                ["Author", <AuditEntryAuthor key="author" user={entry.user} />],
                 ...(entry.count > 1
                   ? [["Merged events", String(entry.count)]]
                   : []),
@@ -381,7 +388,11 @@ export default function CompareAuditEvents<T>({
             {entry.count > 1
               ? datetime(entry.dateEnd)
               : datetime(entry.dateStart)}{" "}
-            · <EntryUserName user={entry.user} />
+            ·{" "}
+            <EventUser
+              user={auditUserInfoToEventUser(entry.user)}
+              display="name"
+            />
           </Text>
           {entry.count > 1 && (
             <Box mt="1">
@@ -819,7 +830,7 @@ export default function CompareAuditEvents<T>({
               mb="3"
               style={{ borderBottom: "1px solid var(--gray-5)" }}
             >
-              <Flex align="center" justify="between" gap="4" wrap="wrap">
+              <Flex align="start" justify="between" gap="4" wrap="wrap">
                 <Flex align="center" gap="4">
                   {diffViewMode === "steps" && (
                     <>
@@ -866,13 +877,15 @@ export default function CompareAuditEvents<T>({
                               />
                             </Tooltip>
                           )}
-                          <Text weight="semibold" size="medium">
+                          <Text weight="semibold" size="large">
                             {getEntryLabel(singleEntryFirst)}
                           </Text>
                         </Flex>
-                        <Text as="div" size="small" color="text-low">
-                          {datetime(singleEntryFirst.dateStart)} ·{" "}
-                          <EntryUserName user={singleEntryFirst.user} />
+                        <Box mt="2">
+                          <AuditEntryAuthor user={singleEntryFirst.user} />
+                        </Box>
+                        <Text as="div">
+                          {datetime(singleEntryFirst.dateStart)}
                         </Text>
                       </Flex>
                     ) : (

@@ -3,6 +3,7 @@ import {
   useMemo,
   ChangeEvent,
   FC,
+  MouseEvent,
   ReactNode,
   useCallback,
   useEffect,
@@ -32,6 +33,52 @@ export type SearchFields<T> = (
   | `${Exclude<keyof T, symbol>}^${number}`
 )[];
 
+// Builds a list-page URL with a pre-applied `q` syntax filter for useSearch.
+// Always quotes value so reserved chars are literal; strips inner quotes (parser has no escape).
+export function buildFilterUrl(
+  pathname: string,
+  field: string,
+  value: string,
+): string {
+  const params = new URLSearchParams();
+  params.set("q", `${field}:"${value.replace(/"/g, "")}"`);
+  return `${pathname}?${params.toString()}`;
+}
+
+// Props for <SortedTags> to link each tag to `/${entity}?q=tag:"..."`.
+export function tagLinkProps(
+  entity: "features" | "experiments" | "metrics" | "bandits",
+) {
+  return {
+    getTagHref: (tag: string) => buildFilterUrl(`/${entity}`, "tag", tag),
+    linkEntity: entity,
+  };
+}
+
+// Matches a `tag:` clause in a search value so we can replace just that portion.
+const tagFilterClauseRegex =
+  /(^|\s)tag:!?[><=^~]?(?:"[^"]*"|[^\s,]+)(?:,(?:"[^"]*"|[^\s,]+))*/gi;
+
+// Click handler for list pages: filter the current list in place instead of navigating.
+// Replaces only the tag clause in the current search value so other filters are preserved.
+// Modifier clicks (cmd/ctrl/shift/alt) fall through to the anchor's href so the browser
+// can open the filter page in a new tab/window as the user expects.
+export function tagFilterOnClick(
+  currentValue: string,
+  setSearchValue: (value: string) => void,
+): (tag: string, e: MouseEvent) => void {
+  return (tag, e) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    const safe = tag.replace(/"/g, "");
+    const stripped = currentValue
+      .replace(tagFilterClauseRegex, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    setSearchValue(stripped ? `${stripped} tag:"${safe}"` : `tag:"${safe}"`);
+  };
+}
+
 const searchTermOperators = [">", "<", "^", "=", "~", ""] as const;
 
 export type SyntaxFilter = {
@@ -47,6 +94,10 @@ export interface SearchProps<T extends { id: string }> {
   items: T[];
   searchFields: SearchFields<T>;
   localStorageKey: string;
+  // When false, the sort state is held in component state and reset each time
+  // the consumer remounts instead of being persisted to localStorage. Defaults
+  // to true to preserve existing behavior across the app.
+  persistSort?: boolean;
   defaultSortField: keyof T;
   defaultSortDir?: number;
   undefinedLast?: boolean;
@@ -66,6 +117,11 @@ export interface SearchProps<T extends { id: string }> {
   };
   filterResults?: (items: T[]) => T[];
   updateSearchQueryOnChange?: boolean;
+  // When true, the hook will not initialize its search term from the URL `q`
+  // param. Use this when an enclosing useSearch instance owns the `q` param
+  // (e.g. a sort-only inner table inside a search-filtered page) so the inner
+  // hook doesn't latch onto the outer hook's filter string.
+  disableUrlSearchTerm?: boolean;
   pageSize?: number;
 }
 
@@ -97,22 +153,31 @@ export function useSearch<T extends { id: string }>({
   searchFields,
   filterResults,
   localStorageKey,
+  persistSort = true,
   defaultSortField,
   defaultSortDir,
   undefinedLast,
   defaultMappings = {},
   searchTermFilters,
   updateSearchQueryOnChange,
+  disableUrlSearchTerm,
   pageSize,
 }: SearchProps<T>): SearchReturn<T> {
-  const [sort, setSort] = useLocalStorage(`${localStorageKey}:sort-dir`, {
-    field: defaultSortField,
-    dir: defaultSortDir || 1,
-  });
+  const defaultSort = { field: defaultSortField, dir: defaultSortDir || 1 };
+  const persistedSort = useLocalStorage(
+    `${localStorageKey}:sort-dir`,
+    defaultSort,
+  );
+  const ephemeralSort = useState(defaultSort);
+  const [sort, setSort] = persistSort ? persistedSort : ephemeralSort;
 
   const router = useRouter();
   const { q } = router.query;
-  const initialSearchTerm = Array.isArray(q) ? q.join(" ") : q;
+  const initialSearchTerm = disableUrlSearchTerm
+    ? ""
+    : Array.isArray(q)
+      ? q.join(" ")
+      : q;
   const [value, setValue] = useState(initialSearchTerm ?? "");
   const [disableRelevanceSort, setDisableRelevanceSort] = useState(false);
 

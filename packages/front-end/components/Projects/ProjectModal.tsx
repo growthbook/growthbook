@@ -1,8 +1,8 @@
 import { ProjectInterface } from "shared/types/project";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export default function ProjectModal({
   existing,
@@ -17,12 +17,13 @@ export default function ProjectModal({
     defaultValues: {
       name: existing.name || "",
       description: existing.description || "",
+      publicId: existing.publicId || "",
     },
   });
   const { apiCall } = useAuth();
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       open={true}
       close={close}
@@ -37,6 +38,14 @@ export default function ProjectModal({
     >
       <Field label="Name" maxLength={30} required {...form.register("name")} />
       <Field
+        label="Public ID"
+        maxLength={64}
+        pattern="^[a-z0-9-]+$"
+        placeholder="Auto-generated from name if left blank"
+        helpText="A URL-safe identifier that can be included in SDK payloads. Uses lowercase letters, numbers, and dashes only."
+        {...form.register("publicId")}
+      />
+      <Field
         label="Description"
         maxLength={100}
         minRows={3}
@@ -44,6 +53,6 @@ export default function ProjectModal({
         textarea={true}
         {...form.register("description")}
       />
-    </Modal>
+    </ModalStandard>
   );
 }

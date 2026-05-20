@@ -39,7 +39,6 @@ venv/
 docs/build
 .docusaurus
 .cache-loader
-packages/back-end/src/api/openapi/openapi.tmp.yaml
 
 # package lock files
 package-lock.json
@@ -50,3 +49,6 @@ charts/**/*.tgz
 preview/Dockerfile.generated
 
 next-env.d.ts
+
+# Private claude folders
+.claude/worktrees/

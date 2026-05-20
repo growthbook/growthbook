@@ -43,6 +43,7 @@ interface Props {
   featureProject: string;
   environments: string[];
   hasSDKWithPrerequisites: boolean;
+  disabled?: boolean;
 }
 
 export default function PrerequisiteFeatureSelector({
@@ -52,6 +53,7 @@ export default function PrerequisiteFeatureSelector({
   featureProject,
   environments,
   hasSDKWithPrerequisites,
+  disabled,
 }: Props) {
   const featureOptionsInProject = useMemo(
     () => featureOptions.filter((f) => (f.project || "") === featureProject),
@@ -97,6 +99,7 @@ export default function PrerequisiteFeatureSelector({
 
   return (
     <SelectField
+      disabled={disabled}
       placeholder="Select feature"
       options={groupedFeatureOptions}
       value={value}

@@ -1,4 +1,5 @@
 import { HoldoutInterface, holdoutValidator } from "shared/validators";
+import { UpdateProps } from "shared/types/base-model";
 import { ExperimentInterface } from "shared/types/experiment";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
@@ -17,6 +18,9 @@ const BaseClass = MakeModelClass({
     deleteEvent: "holdout.delete",
   },
   globallyUniquePrimaryKeys: false,
+  defaultValues: {
+    skipAsDefaultHoldout: false,
+  } as Partial<HoldoutInterface>,
   additionalIndexes: [
     {
       fields: { "nextScheduledStatusUpdate.date": 1 },
@@ -34,9 +38,10 @@ export class HoldoutModel extends BaseClass {
   }
   protected canUpdate(
     existing: HoldoutInterface,
-    updates: HoldoutInterface,
+    _updates: UpdateProps<HoldoutInterface>,
+    newDoc: HoldoutInterface,
   ): boolean {
-    return this.context.permissions.canUpdateHoldout(existing, updates);
+    return this.context.permissions.canUpdateHoldout(existing, newDoc);
   }
   protected canDelete(doc: HoldoutInterface): boolean {
     return this.context.permissions.canDeleteHoldout(doc);

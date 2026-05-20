@@ -50,6 +50,7 @@ export type ExperimentIncrementalRefreshExploratoryQueryParams = {
   factTableMap: FactTableMap;
   experimentId: string;
   experimentQueryMetadata: ExperimentQueryMetadata | null;
+  queryParentId: string;
   // Incremental Refresh specific
   incrementalRefreshStartTime: Date;
 };
@@ -116,6 +117,31 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       "Units table not found in incremental refresh model; required for exploratory analysis.",
     );
   }
+
+  const executionId = params.queryParentId;
+
+  // Wraps a `run` callback with an execution-fence check. The exploratory
+  // runner only reads the shared per-experiment pipeline tables, but it holds
+  // the same lock the incremental runner uses to DROP/CREATE/RENAME them. If
+  // the lock is taken over by another snapshot mid-run (stale heartbeat,
+  // cancel + restart), continuing to SELECT from those tables would observe a
+  // missing or half-rebuilt table and return empty/malformed results. Checked
+  // at execute time (not enqueue time) because queries run sequentially via
+  // dependencies — the lock can be lost between dependent queries.
+  const fenced =
+    <A extends unknown[], R>(run: (...args: A) => Promise<R>) =>
+    async (...args: A): Promise<R> => {
+      const current =
+        await context.models.incrementalRefresh.getCurrentExecutionSnapshotId(
+          experimentId,
+        );
+      if (current !== executionId) {
+        throw new Error(
+          "Incremental refresh lock was lost to another snapshot; aborting exploratory analysis to avoid reading half-rebuilt pipeline tables.",
+        );
+      }
+      return run(...args);
+    };
 
   // Metric Queries
   const existingSources = incrementalRefreshModel?.metricSources;
@@ -186,8 +212,13 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       displayTitle: `Compute Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery(metricParams),
       dependencies: [],
-      run: (query, setExternalId) =>
-        integration.runIncrementalRefreshStatisticsQuery(query, setExternalId),
+      run: fenced((query, setExternalId, queryMetadata) =>
+        integration.runIncrementalRefreshStatisticsQuery(
+          query,
+          setExternalId,
+          queryMetadata,
+        ),
+      ),
       queryType: "experimentIncrementalRefreshStatistics",
     });
     queries.push(statisticsQuery);
@@ -207,6 +238,17 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
     return this.context.permissions.canRunExperimentQueries(
       this.integration.datasource,
     );
+  }
+
+  protected override onHeartbeat(): void {
+    this.context.models.incrementalRefresh
+      .touchLockHeartbeat(this.model.experiment, this.model.id)
+      .catch((e) =>
+        this.context.logger.warn(
+          e,
+          "Failed to refresh incremental refresh lock heartbeat",
+        ),
+      );
   }
 
   async startQueries(
@@ -286,7 +328,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
   }
 
   async getLatestModel(): Promise<ExperimentSnapshotInterface> {
-    const obj = await findSnapshotById(this.model.organization, this.model.id);
+    const obj = await findSnapshotById(this.context, this.model.id);
     if (!obj)
       throw new Error("Could not load snapshot model: " + this.model.id);
     return obj;
@@ -318,10 +360,9 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
             : "success",
     };
     await updateSnapshot({
-      organization: this.model.organization,
+      context: this.context,
       id: this.model.id,
       updates,
-      context: this.context,
     });
     if (
       this.model.report &&
@@ -331,6 +372,21 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
         snapshot: this.model.id,
       });
     }
+
+    // Release the incremental refresh lock on any terminal status. This runner
+    // acquires the lock (see createSnapshotFromPlan) so that it does not read
+    // the shared pipeline tables while an incremental refresh is mutating them.
+    if (updates.status !== "running") {
+      await this.context.models.incrementalRefresh
+        .releaseLock(this.model.experiment, this.model.id)
+        .catch((e) =>
+          this.context.logger.warn(
+            e,
+            "Failed to release incremental refresh lock on terminal status",
+          ),
+        );
+    }
+
     return {
       ...this.model,
       ...updates,

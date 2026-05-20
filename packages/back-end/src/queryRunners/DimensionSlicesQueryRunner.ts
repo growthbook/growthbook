@@ -55,8 +55,12 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
           lookbackDays: params.lookbackDays,
         }),
         dependencies: [],
-        run: (query, setExternalId) =>
-          this.integration.runDimensionSlicesQuery(query, setExternalId),
+        run: (query, setExternalId, queryMetadata) =>
+          this.integration.runDimensionSlicesQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
         queryType: "dimensionSlices",
       }),
     ];

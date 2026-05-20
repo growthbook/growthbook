@@ -11,6 +11,7 @@ import globals from "globals";
 import * as tsParser from "@typescript-eslint/parser";
 import js from "@eslint/js";
 import { FlatCompat } from "@eslint/eslintrc";
+import noAlertClassname from "./eslint-rules/no-alert-classname.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -203,6 +204,7 @@ export default defineConfig([
                 "Callout",
                 "Checkbox",
                 "DataList",
+                "Dialog",
                 "DropdownMenu",
                 "Heading",
                 "Link",
@@ -215,6 +217,11 @@ export default defineConfig([
                 "Text",
               ],
             },
+            {
+              name: "@/components/Modal",
+              message:
+                "Use the new Modal from @/ui/Modal instead of the legacy Modal component.",
+            },
           ],
 
           patterns: [
@@ -225,6 +232,11 @@ export default defineConfig([
               group: ["*back-end*", "**/sdk-{js,react}*"],
               message: "front-end can only import from shared or itself.",
             },
+            {
+              group: ["shared/src", "shared/src/*", "shared/src/**"],
+              message:
+                "Import from the package (e.g., 'shared/validators') instead of 'shared/src/...'",
+            },
           ],
         },
       ],
@@ -232,6 +244,14 @@ export default defineConfig([
   },
   {
     files: ["./packages/front-end/**/*.ts*"],
+
+    plugins: {
+      local: {
+        rules: {
+          "no-alert-classname": noAlertClassname,
+        },
+      },
+    },
 
     rules: {
       "no-restricted-syntax": [
@@ -249,6 +269,7 @@ export default defineConfig([
             "Don't use window.history.replaceState directly. Use router.replace(url, undefined, { shallow: true }) from next/router instead.",
         },
       ],
+      "local/no-alert-classname": "error",
     },
   },
   {
@@ -337,6 +358,64 @@ export default defineConfig([
               group: ["*front-end*", "**/sdk-{js,react}*"],
               message: "back-end can only import from shared or itself.",
             },
+            {
+              group: ["shared/src", "shared/src/*", "shared/src/**"],
+              message:
+                "Import from the package (e.g., 'shared/validators') instead of 'shared/src/...'",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: [
+      "./packages/back-end/src/controllers/**/*.ts",
+      "./packages/back-end/src/routers/**/*.controller.ts",
+      "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+    ],
+
+    rules: {
+      "import/no-restricted-paths": [
+        "error",
+        {
+          zones: [
+            {
+              target: "./packages/back-end/src/controllers/**/*.ts",
+              from: "./packages/back-end/src/controllers",
+              message:
+                "Controllers must not import other controllers. Move shared logic into services/, models/, or util/.",
+            },
+            {
+              target: "./packages/back-end/src/controllers/**/*.ts",
+              from: [
+                "./packages/back-end/src/routers/**/*.controller.ts",
+                "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+              ],
+              message:
+                "Controllers must not import other controllers. Move shared logic into services/, models/, or util/.",
+            },
+            {
+              target: [
+                "./packages/back-end/src/routers/**/*.controller.ts",
+                "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+              ],
+              from: "./packages/back-end/src/controllers",
+              message:
+                "Controllers must not import other controllers. Move shared logic into services/, models/, or util/.",
+            },
+            {
+              target: [
+                "./packages/back-end/src/routers/**/*.controller.ts",
+                "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+              ],
+              from: [
+                "./packages/back-end/src/routers/**/*.controller.ts",
+                "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+              ],
+              message:
+                "Controllers must not import other controllers. Move shared logic into services/, models/, or util/.",
+            },
           ],
         },
       ],
@@ -353,6 +432,11 @@ export default defineConfig([
             {
               group: ["*back-end*", "*front-end*"],
               message: "shared cannot import from back-end or front-end.",
+            },
+            {
+              group: ["shared/src", "shared/src/*", "shared/src/**"],
+              message:
+                "Within shared, use relative paths or import from shared without /src/",
             },
           ],
         },
@@ -387,6 +471,12 @@ export default defineConfig([
             "CallExpression[callee.type='MemberExpression'][callee.property.name='default']",
           message:
             "Using .default() on Zod schemas is disallowed. Use the defaultValues option in the BaseModel config instead.",
+        },
+        {
+          selector:
+            "Property[key.name='owner'] CallExpression[callee.type='MemberExpression'][callee.object.name='z'][callee.property.name='string']",
+          message:
+            "Use ownerField or ownerInputField from 'shared/validators' instead of a bare z.string() for owner properties to ensure consistent API documentation.",
         },
       ],
     },

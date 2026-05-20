@@ -16,12 +16,12 @@ import {
   getExperimentMetricFormatter,
   getMetricFormatter,
 } from "@/services/metrics";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
 import styles from "./ExperimentResultTooltipContent.module.scss";
 
 interface ExperimentResultTooltipContentProps {
   stats: SnapshotMetric;
   metric: ExperimentMetricInterface;
+  pValueThreshold: number;
   significant: boolean;
   resultsStatus: RowResults["resultsStatus"];
   differenceType: DifferenceType;
@@ -49,6 +49,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 export default function ExperimentResultTooltipContent({
   stats,
   metric,
+  pValueThreshold,
   significant,
   resultsStatus,
   differenceType,
@@ -68,10 +69,6 @@ export default function ExperimentResultTooltipContent({
 
   const { getFactTableById: _getFactTableById } = useDefinitions();
   const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
-
-  const _pValueThreshold = usePValueThreshold();
-  const pValueThreshold =
-    ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
 
   const ci = stats?.ciAdjusted ?? stats?.ci;
 
@@ -95,13 +92,13 @@ export default function ExperimentResultTooltipContent({
     ? getColumnRefFormatter(metric.numerator, getFactTableById)
     : getMetricFormatter(metric.type === "binomial" ? "count" : metric.type);
 
-  const ciWidthDisplay =
+  const frequentistCIWidthDisplay =
     numberFormatter.format(100 * (1 - pValueThreshold)) + "%";
 
   const ciLabel =
     statsEngine === "bayesian"
       ? "95% CI"
-      : `${ciWidthDisplay} CI${pValueAdjustmentEnabled ? " (adj.)" : ""}`;
+      : `${frequentistCIWidthDisplay} CI${pValueAdjustmentEnabled ? " (adj.)" : ""}`;
 
   const isWon = significant && resultsStatus === "won";
   const isLost = significant && resultsStatus === "lost";
@@ -169,7 +166,8 @@ export default function ExperimentResultTooltipContent({
     if (resultsStatus !== "draw" || minPercentChange === undefined) return null;
     return (
       <Text as="div" size="1" style={{ color: "var(--color-text-mid)" }}>
-        <b>Draw:</b> this occurs when the % Change is smaller than the
+        <b>Draw:</b>
+        {" this occurs when the % Change is smaller than the "}
         metric&apos;s min change ({percentFormatter.format(minPercentChange)})
       </Text>
     );
@@ -179,7 +177,8 @@ export default function ExperimentResultTooltipContent({
     if (!suspiciousChange) return null;
     return (
       <Text as="div" size="1" style={{ color: "var(--color-text-mid)" }}>
-        <b>Suspicious:</b> this occurs when the % Change is above the
+        <b>Suspicious:</b>
+        {" this occurs when the % Change is above the "}
         metric&apos;s max change ({percentFormatter.format(suspiciousThreshold)}
         )
       </Text>

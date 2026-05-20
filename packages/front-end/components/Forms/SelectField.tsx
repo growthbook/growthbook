@@ -8,12 +8,14 @@ import {
 } from "react";
 import ReactSelect, {
   components,
+  ClearIndicatorProps,
   InputProps,
   FormatOptionLabelMeta,
   StylesConfig,
 } from "react-select";
 import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
+import { PiXBold } from "react-icons/pi";
 import CreatableSelect from "react-select/creatable";
 import { RadixTheme } from "@/services/RadixTheme";
 import Field, { FieldProps } from "./Field";
@@ -26,7 +28,12 @@ export const RadixThemeMenuPortal = (
   </RadixTheme>
 );
 
-export type SingleValue = { label: string; value: string; tooltip?: string };
+export type SingleValue = {
+  label: string;
+  value: string;
+  tooltip?: string;
+  isDisabled?: boolean;
+};
 export type GroupedValue = { label: string; options: SingleValue[] };
 export type Option = SingleValue | GroupedValue;
 export function isSingleValue(option: Option): option is SingleValue {
@@ -105,6 +112,14 @@ const Input = (props: InputProps) => {
   const { onPaste } = props.selectProps;
   return <components.Input onPaste={onPaste} {...props} />;
 };
+
+function CustomClearIndicator(props: ClearIndicatorProps<SingleValue, false>) {
+  return (
+    <components.ClearIndicator {...props}>
+      <PiXBold />
+    </components.ClearIndicator>
+  );
+}
 
 export const ReactSelectProps = {
   // See react-select.scss and apply styles with CSS
@@ -357,6 +372,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 components={{
                   Input,
                   IndicatorSeparator: () => null,
+                  ClearIndicator: CustomClearIndicator,
                   ...(withRadixThemedPortal && {
                     MenuPortal: RadixThemeMenuPortal,
                   }),
@@ -389,6 +405,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 components={{
                   Input,
                   IndicatorSeparator: () => null,
+                  ClearIndicator: CustomClearIndicator,
                   ...(withRadixThemedPortal && {
                     MenuPortal: RadixThemeMenuPortal,
                   }),

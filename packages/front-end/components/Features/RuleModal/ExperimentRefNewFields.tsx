@@ -7,7 +7,7 @@ import {
 } from "shared/types/feature";
 import React, { useMemo } from "react";
 import Collapsible from "react-collapsible";
-import { Flex, Tooltip } from "@radix-ui/themes";
+import { Flex, Tooltip, Separator } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { PiCaretRightFill } from "react-icons/pi";
@@ -33,7 +33,7 @@ import ConditionInput from "@/components/Features/ConditionInput";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
-import ScheduleInputs from "@/components/Features/ScheduleInputs";
+import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
 import Checkbox from "@/ui/Checkbox";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
@@ -53,6 +53,9 @@ import {
   useCustomFields,
 } from "@/hooks/useCustomFields";
 import HelperText from "@/ui/HelperText";
+import RuleEnvironmentScopeField, {
+  type EnvScopeProps,
+} from "@/components/Features/RuleModal/EnvironmentScopeField";
 import { getExposureQuery } from "@/services/datasources";
 import Text from "@/ui/Text";
 import {
@@ -93,6 +96,7 @@ export default function ExperimentRefNewFields({
   setCustomFields,
   isTemplate = false,
   holdoutHashAttribute,
+  envScope,
 }: {
   step: number;
   source: "rule" | "experiment";
@@ -126,6 +130,7 @@ export default function ExperimentRefNewFields({
   setCustomFields?: (customFields: Record<string, string>) => void;
   isTemplate?: boolean;
   holdoutHashAttribute?: string;
+  envScope?: EnvScopeProps;
 }) {
   const form = useFormContext();
 
@@ -354,6 +359,8 @@ export default function ExperimentRefNewFields({
             placeholder="Short human-readable description of the Experiment"
           />
 
+          {envScope && <RuleEnvironmentScopeField {...envScope} my="5" />}
+
           {hasCommercialFeature("custom-metadata") &&
             !!customFields?.length && (
               <CustomFieldInput
@@ -466,6 +473,8 @@ export default function ExperimentRefNewFields({
               formPrefix={namespaceFormPrefix}
               trackingKey={form.watch("trackingKey") || feature?.id}
               featureId={feature?.id || ""}
+              experimentHashAttribute={hashAttribute}
+              fallbackAttribute={form.watch("fallbackAttribute")}
             />
           )}
         </>
@@ -478,14 +487,14 @@ export default function ExperimentRefNewFields({
             setValue={setSavedGroupValue}
             project={project || ""}
           />
-          <hr />
+          <Separator size="4" my="5" />
           <ConditionInput
             defaultValue={defaultConditionValue}
             onChange={setConditionValue}
             key={conditionKey}
             project={project || ""}
           />
-          <hr />
+          <Separator size="4" my="5" />
           <PrerequisiteInput
             value={prerequisiteValue}
             setValue={setPrerequisiteValue}

@@ -8,9 +8,9 @@ import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
-import Modal from "@/components/Modal";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import DatePicker from "@/components/DatePicker";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export interface Props {
   close: () => void;
@@ -48,7 +48,7 @@ export default function EditPhaseModal({
   const isHoldout = experiment.type === "holdout";
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="edit-phase-modal"
       trackingEventModalSource={source}
       open={true}
@@ -64,7 +64,6 @@ export default function EditPhaseModal({
         mutate();
       })}
       size="lg"
-      bodyClassName="px-4 pt-4"
     >
       <Field label="Phase Name" {...form.register("name")} required />
       <DatePicker
@@ -158,6 +157,6 @@ export default function EditPhaseModal({
           </span>
         </>
       ) : null}
-    </Modal>
+    </ModalStandard>
   );
 }

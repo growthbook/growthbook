@@ -10,7 +10,8 @@
         "prerequisites",
         "semverTargeting",
         "bucketingV2",
-        "looseUnmarshalling"
+        "looseUnmarshalling",
+        "namespacesV2"
       ]
     }
   ]
