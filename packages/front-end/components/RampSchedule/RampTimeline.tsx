@@ -461,33 +461,49 @@ function NodePopoverContent({
           </Box>
         )
       ) : (
-        <Box mb="2">
-          <PopoverEffectRow
-            label={
-              monitored
-                ? "Min hold"
-                : holdConditions?.requiresApproval
-                  ? "Hold + approval"
-                  : "Hold"
-            }
-          >
-            <Text size="small">
-              {formatStepGateInline(interval, holdConditions)}
-            </Text>
-          </PopoverEffectRow>
-        </Box>
-      )}
-
-      {isActive && holdConditions?.requiresApproval && interval != null && (
-        <Box mb="2">
-          <PopoverEffectRow label="Approval">
-            <Text size="small">
-              {rs.stepApproval?.stepIndex === rs.currentStepIndex
-                ? "Approved"
-                : "Pending"}
-            </Text>
-          </PopoverEffectRow>
-        </Box>
+        <>
+          {interval != null && (
+            <Box mb="2">
+              <PopoverEffectRow label={monitored ? "Min hold" : "Hold"}>
+                <Text size="small">
+                  {formatStepGateInline(interval, undefined)}
+                </Text>
+              </PopoverEffectRow>
+            </Box>
+          )}
+          {interval == null &&
+            !holdConditions?.requiresApproval &&
+            !holdConditions?.minSampleSize && (
+              <Box mb="2">
+                <PopoverEffectRow label="Hold">
+                  <Text size="small">instant</Text>
+                </PopoverEffectRow>
+              </Box>
+            )}
+          {holdConditions?.requiresApproval && (
+            <Box mb="2">
+              <PopoverEffectRow label="Approval">
+                <Text size="small">
+                  {isActive &&
+                  rs.stepApproval?.stepIndex === rs.currentStepIndex
+                    ? "Approved"
+                    : isActive
+                      ? "Pending"
+                      : "Required"}
+                </Text>
+              </PopoverEffectRow>
+            </Box>
+          )}
+          {holdConditions?.minSampleSize != null && (
+            <Box mb="2">
+              <PopoverEffectRow label="Min. sample">
+                <Text size="small">
+                  {holdConditions.minSampleSize.toLocaleString()}
+                </Text>
+              </PopoverEffectRow>
+            </Box>
+          )}
+        </>
       )}
 
       {isActive &&
