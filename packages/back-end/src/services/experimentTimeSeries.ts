@@ -6,7 +6,6 @@ import {
   getLatestPhaseVariations,
   isPrecomputedDimension,
 } from "shared/experiments";
-import cloneDeep from "lodash/cloneDeep";
 import {
   CreateMetricTimeSeriesSingleDataPoint,
   MetricTimeSeriesDataPointTag,
@@ -442,6 +441,46 @@ export function getExperimentSettingsHashForIncrementalRefresh(
   });
 }
 
+type ComputedSettingsForSnapshot = NonNullable<
+  MetricForSnapshot["computedSettings"]
+>;
+
+// Fields of `MetricForSnapshot.computedSettings` whose values change the
+// queries we run or the data they return for incremental refresh. Any change
+// to one of these MUST invalidate the metric source and force a full refresh.
+const HASHED_COMPUTED_SETTINGS_FIELDS_FOR_INCREMENTAL_REFRESH = [
+  "regressionAdjustmentEnabled",
+  "regressionAdjustmentDays",
+] as const satisfies readonly (keyof ComputedSettingsForSnapshot)[];
+
+// Fields of `MetricForSnapshot.computedSettings` that are intentionally NOT
+// part of the incremental-refresh hash because they only affect analysis-time
+// interpretation, not the SQL we generate. Spurious changes to these (e.g.
+// `regressionAdjustmentReason` flipping between different free-text strings)
+// must not trigger a full refresh.
+type IgnoredComputedSettingsFieldForIncrementalRefresh =
+  | "regressionAdjustmentAvailable"
+  | "regressionAdjustmentReason"
+  | "properPrior"
+  | "properPriorMean"
+  | "properPriorStdDev"
+  | "windowSettings"
+  | "targetMDE";
+
+// Compile-time exhaustiveness guard. When a field is added to
+// `MetricForSnapshot.computedSettings`, this resolves to that field's literal
+// type instead of `never`, and the `AssertNever` constraint below fails to
+// compile. Classify the new field in the hashed array or ignored union above
+// to fix it.
+type AssertNever<T extends never> = T;
+type UnhandledComputedSettingsFieldForIncrementalRefresh = Exclude<
+  keyof ComputedSettingsForSnapshot,
+  | (typeof HASHED_COMPUTED_SETTINGS_FIELDS_FOR_INCREMENTAL_REFRESH)[number]
+  | IgnoredComputedSettingsFieldForIncrementalRefresh
+>;
+export type ComputedSettingsForIncrementalRefreshExhaustivenessCheck =
+  AssertNever<UnhandledComputedSettingsFieldForIncrementalRefresh>;
+
 export function getMetricSettingsHashForIncrementalRefresh({
   factMetric,
   factTableMap,
@@ -461,32 +500,18 @@ export function getMetricSettingsHashForIncrementalRefresh({
     ? factTableMap?.get(denominatorFactTableId)
     : undefined;
 
-  if (metricSettings) {
-    const trimmedMetricComputedSettings: Partial<
-      MetricForSnapshot["computedSettings"]
-    > = cloneDeep(metricSettings.computedSettings);
-    // strip fields we don't need for incremental refresh
-    if (trimmedMetricComputedSettings) {
-      delete trimmedMetricComputedSettings.properPrior;
-      delete trimmedMetricComputedSettings.properPriorMean;
-      delete trimmedMetricComputedSettings.properPriorStdDev;
-      delete trimmedMetricComputedSettings.regressionAdjustmentReason;
-      delete trimmedMetricComputedSettings.targetMDE;
-    }
-  }
+  const computedSettings = metricSettings?.computedSettings;
+  const hashedComputedSettings: Partial<ComputedSettingsForSnapshot> =
+    computedSettings
+      ? Object.fromEntries(
+          HASHED_COMPUTED_SETTINGS_FIELDS_FOR_INCREMENTAL_REFRESH.map(
+            (field) => [field, computedSettings[field]],
+          ),
+        )
+      : {};
 
   return hashObject({
-    ...(metricSettings?.computedSettings
-      ? {
-          regressionAdjustmentEnabled:
-            metricSettings.computedSettings.regressionAdjustmentEnabled,
-          regressionAdjustmentDays:
-            metricSettings.computedSettings.regressionAdjustmentDays,
-          regressionAdjustmentReason:
-            metricSettings.computedSettings.regressionAdjustmentReason,
-          // this drops unneeded analysis settings that don't affect the data
-        }
-      : {}),
+    ...hashedComputedSettings,
     metricType: factMetric.metricType,
     numerator: factMetric.numerator,
     denominator: factMetric.denominator,
