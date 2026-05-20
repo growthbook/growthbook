@@ -73,8 +73,8 @@ export default function DraftSelectorDropdown({
     activeDrafts.some((r) => r.version === ctx.currentVersion);
 
   // Visibility:
-  //  - "Apply now" is shown when canAutoPublish is true. Label gets "(bypass
-  //    approval)" in red when gatedEnvSet !== "none"; otherwise plain "Apply now".
+  //  - "Apply now" is shown when canAutoPublish is true. Label is "Apply now
+  //    (bypass approval)" when gatedEnvSet !== "none"; otherwise plain "Apply now".
   //  - "Save to this revision" is shown instead when !canAutoPublish AND the
   //    currently-viewed revision (from context) is an active draft. It binds
   //    to mode="existing" + selectedDraft=ctx.currentVersion.
@@ -306,7 +306,13 @@ function DraftRow({
 }) {
   const revDate = r.status === "published" ? r.datePublished : r.dateUpdated;
   return (
-    <Flex align="center" justify="between" gap="3" style={{ width: "452px" }}>
+    <Flex
+      align="center"
+      justify="between"
+      gap="3"
+      minWidth="300px"
+      width="100%"
+    >
       <Box style={{ flex: 1, minWidth: 0 }}>
         <Text weight="semibold">
           <span
@@ -334,7 +340,7 @@ function DraftRow({
       >
         {revDate && (
           <Text size="small" color="text-low" whiteSpace="nowrap">
-            {revDate && "Created " + date(revDate)}
+            {"Created " + date(revDate)}
           </Text>
         )}
       </Box>

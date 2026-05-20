@@ -27,7 +27,6 @@ export default function LinkedChanges({
   urlRedirects,
   experiment,
   canAddChanges,
-  canEditFeatureFlags,
   isPublic,
   mutate,
   canEditVisualChangesets,
@@ -44,7 +43,6 @@ export default function LinkedChanges({
   urlRedirects: URLRedirectInterface[];
   experiment: ExperimentInterfaceStringDates;
   canAddChanges: boolean;
-  canEditFeatureFlags?: boolean;
   isPublic?: boolean;
   mutate?: () => void;
   canEditVisualChangesets: boolean;
@@ -113,9 +111,9 @@ export default function LinkedChanges({
             <LinkedFeatureFlag
               info={info}
               experiment={experiment}
-              canEdit={canEditFeatureFlags}
               mutate={mutate}
               key={info.feature.id}
+              numLinkedChanges={numLinkedChanges}
               onReAdd={
                 setFeatureModal ? () => setFeatureModal(true) : undefined
               }
@@ -139,6 +137,7 @@ export default function LinkedChanges({
             />
           ))}
           {experiment.status === "draft" &&
+            !experiment.nextScheduledStatusUpdate &&
             !experiment.archived &&
             numLinkedChanges > 0 &&
             setFeatureModal &&

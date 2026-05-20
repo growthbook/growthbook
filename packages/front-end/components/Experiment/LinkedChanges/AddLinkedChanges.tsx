@@ -160,6 +160,7 @@ export default function AddLinkedChanges({
   setUrlRedirectModal: (state: boolean) => unknown;
 }) {
   if (experiment.status !== "draft") return null;
+  if (experiment.nextScheduledStatusUpdate) return null;
   if (experiment.archived) return null;
   // Already has linked changes
   if (numLinkedChanges && numLinkedChanges > 0) return null;

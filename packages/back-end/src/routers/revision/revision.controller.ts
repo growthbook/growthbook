@@ -486,6 +486,7 @@ export const postReview = async (
   // which means the existing author check above is the only effective guard.
   if (
     decision === "approve" &&
+    context.hasPremiumFeature("require-approvals") &&
     isUserBlockedFromApproving({
       approvalFlows: context.org.settings?.approvalFlows,
       entityType: existingRevision.target.type,

@@ -344,9 +344,6 @@
     }
   },
   "packages/front-end/components/Experiment/TabbedPage/ExperimentHeader.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -369,11 +366,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/StartExperimentModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/StoppedExperimentBanner.tsx": {
     "local/no-alert-classname": {
       "count": 1
@@ -390,9 +382,6 @@
     }
   },
   "packages/front-end/components/Experiment/TabbedPage/index.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 2
     }
@@ -509,11 +498,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/ExperimentRefSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/ExperimentSummary.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -530,11 +514,6 @@
     }
   },
   "packages/front-end/components/Features/FeatureModal/EnvironmentSelect.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/FeatureModal/FeatureFromExperimentModal.tsx": {
     "no-restricted-imports": {
       "count": 1
     }

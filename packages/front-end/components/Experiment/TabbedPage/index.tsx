@@ -91,7 +91,7 @@ export interface Props {
   editTraffic?: (() => void) | null;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
-  editHoldoutSchedule?: (() => void) | null;
+  editSchedule?: (() => void) | null;
   visualChangesetEnvStates?: LinkedChangeEnvStates;
   urlRedirectEnvStates?: LinkedChangeEnvStates;
 }
@@ -119,7 +119,7 @@ export default function TabbedPage({
   checklistHardBlockerCount,
   setChecklistItemsRemaining,
   setChecklistHardBlockerCount,
-  editHoldoutSchedule,
+  editSchedule,
   visualChangesetEnvStates,
   urlRedirectEnvStates,
 }: Props) {
@@ -536,7 +536,7 @@ export default function TabbedPage({
         linkedFeatures={linkedFeatures}
         showDashboardView={showDashboardView}
         safeToEdit={safeToEdit}
-        editHoldoutSchedule={editHoldoutSchedule}
+        editSchedule={editSchedule}
       />
 
       <div
@@ -547,7 +547,7 @@ export default function TabbedPage({
       >
         {experiment.project ===
           getDemoDatasourceProjectIdForOrganization(organization.id) && (
-          <div className="alert alert-info d-flex align-items-center mb-0 mt-2">
+          <Callout status="info" mb="0" mt="2">
             <div className="flex-1">
               This experiment is part of our sample dataset. You can safely
               delete this once you are done exploring.
@@ -558,7 +558,7 @@ export default function TabbedPage({
                 source="experiment"
               />
             </div>
-          </div>
+          </Callout>
         )}
         {experiment.type !== "holdout" &&
           tab !== "dashboards" &&
@@ -619,7 +619,11 @@ export default function TabbedPage({
             holdoutExperiments={holdoutExperiments}
             mutate={mutate}
             disableEditing={viewingOldPhase}
-            editHoldoutSchedule={editHoldoutSchedule}
+            checklistItemsRemaining={checklistItemsRemaining}
+            setChecklistItemsRemaining={setChecklistItemsRemaining}
+            setChecklistHardBlockerCount={setChecklistHardBlockerCount}
+            envs={envs}
+            editSchedule={editSchedule}
           />
           <Implementation
             experiment={experiment}

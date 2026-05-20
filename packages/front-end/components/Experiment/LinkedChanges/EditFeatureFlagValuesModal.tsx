@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
@@ -36,7 +36,11 @@ import {
   percentToDecimal,
   rebalance,
 } from "@/services/utils";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import { getDefaultVariationValue } from "@/services/features";
 
@@ -44,6 +48,7 @@ export interface Props {
   feature: FeatureInterface;
   experiment: ExperimentInterfaceStringDates;
   info: LinkedFeatureInfo;
+  numLinkedChanges: number;
   close: () => void;
   mutate: () => void;
 }
@@ -121,6 +126,7 @@ export default function EditFeatureFlagValuesModal({
   feature,
   experiment,
   info,
+  numLinkedChanges,
   close,
   mutate,
 }: Props) {
@@ -196,7 +202,7 @@ export default function EditFeatureFlagValuesModal({
     ? "existing"
     : defaultDraft != null
       ? "existing"
-      : canAutoPublish
+      : gatedEnvSet === "none"
         ? "publish"
         : "new";
   const initialSelectedDraft = ruleOnlyOnDraft
@@ -208,6 +214,19 @@ export default function EditFeatureFlagValuesModal({
     initialSelectedDraft,
   );
   const [isEditingVariations, setIsEditingVariations] = useState(false);
+
+  // On first render `useApi` hasn't resolved yet, so `revisionList` is empty
+  // and `defaultDraft` is null. Re-apply the correctly computed initial
+  // mode/selectedDraft once the feature revisions arrive, so the dropdown
+  // doesn't show a stale pre-selection (e.g. "publish" when there is an
+  // existing draft to default to).
+  const hasInitializedFromData = useRef(false);
+  useEffect(() => {
+    if (hasInitializedFromData.current || !data) return;
+    hasInitializedFromData.current = true;
+    setMode(initialMode);
+    setSelectedDraft(initialSelectedDraft);
+  }, [data, initialMode, initialSelectedDraft]);
 
   useEffect(() => {
     if (!canAutoPublish && mode === "publish") {
@@ -283,7 +302,7 @@ export default function EditFeatureFlagValuesModal({
           locked={ruleOnlyOnDraft}
           lockedTooltip={
             ruleOnlyOnDraft
-              ? "This experiment is added in this draft revision. Changes will be saved to it."
+              ? "This experiment rule is added in this draft revision. Changes will be saved to it."
               : undefined
           }
         />
@@ -377,9 +396,9 @@ export default function EditFeatureFlagValuesModal({
             {fields.map((field, i) => {
               const row = watchedVariations?.[i] ?? field;
               const rowWeight = Number(row?.weight) || 0;
+              const isNewVariation = !existingVariationIds.has(row.id);
 
               if (isEditingVariations) {
-                const isNewVariation = !existingVariationIds.has(row.id);
                 return (
                   <Box key={field.id}>
                     <Flex direction="row" gap="3" align="start">
@@ -432,6 +451,13 @@ export default function EditFeatureFlagValuesModal({
                             useCodeInput={true}
                             showFullscreenButton={true}
                           />
+                          {isNewVariation && numLinkedChanges > 1 && (
+                            <Callout status="warning" mt="2">
+                              <Text weight="semibold">Don&apos;t forget!</Text>{" "}
+                              Define values for this new variation in other
+                              implementations too.
+                            </Callout>
+                          )}
                         </Box>
                       </Flex>
                       <Box style={{ paddingTop: 24 }}>
@@ -454,6 +480,11 @@ export default function EditFeatureFlagValuesModal({
                           <DropdownMenuItem
                             color="red"
                             disabled={!isNewVariation}
+                            tooltip={
+                              !isNewVariation
+                                ? "Existing experiment variations cannot be deleted."
+                                : undefined
+                            }
                             onClick={() => {
                               if (!isNewVariation) return;
                               remove(i);
@@ -511,6 +542,22 @@ export default function EditFeatureFlagValuesModal({
                       >
                         Edit
                       </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        color="red"
+                        disabled={!isNewVariation}
+                        tooltip={
+                          !isNewVariation
+                            ? "Existing experiment variations cannot be deleted."
+                            : undefined
+                        }
+                        onClick={() => {
+                          if (!isNewVariation) return;
+                          remove(i);
+                        }}
+                      >
+                        Delete
+                      </DropdownMenuItem>
                     </DropdownMenu>
                   </Flex>
                   <FeatureValueField
@@ -525,6 +572,13 @@ export default function EditFeatureFlagValuesModal({
                     useCodeInput={true}
                     showFullscreenButton={true}
                   />
+                  {isNewVariation && numLinkedChanges > 1 && (
+                    <Callout status="warning" mt="2">
+                      <Text weight="semibold">Don&apos;t forget!</Text> Define
+                      values for this new variation in other implementations
+                      too.
+                    </Callout>
+                  )}
                   {i < fields.length - 1 && <Separator size="4" my="4" />}
                 </Box>
               );

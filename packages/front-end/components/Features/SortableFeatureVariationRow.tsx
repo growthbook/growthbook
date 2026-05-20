@@ -1,13 +1,14 @@
 import { forwardRef, useEffect, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { IconButton } from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { FaArrowsAlt } from "react-icons/fa";
 import {
   ExperimentValue,
   FeatureInterface,
   FeatureValueType,
 } from "shared/types/feature";
-import clsx from "clsx";
 import {
   decimalToPercent,
   distributeWeights,
@@ -18,10 +19,9 @@ import {
   getVariationColor,
   getVariationDefaultName,
 } from "@/services/features";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Field from "@/components/Forms/Field";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import FeatureValueField from "./FeatureValueField";
 import styles from "./VariationsInput.module.scss";
 
@@ -255,39 +255,48 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 className="col-auto"
                 style={{ position: "relative", top: 4 }}
               >
-                <MoreMenu zIndex={1000000}>
-                  <Tooltip
-                    body="Experiments must have at least two variations"
-                    shouldDisplay={variations.length <= 2}
-                  >
-                    <button
-                      disabled={variations.length <= 2}
-                      className={clsx(
-                        "dropdown-item",
-                        variations.length > 2 && "text-danger",
-                      )}
-                      onClick={(e) => {
-                        e.preventDefault();
-
-                        const newValues = [...variations];
-                        newValues.splice(i, 1);
-
-                        const newWeights = distributeWeights(
-                          newValues.map((v) => v.weight),
-                          customSplit,
-                        );
-
-                        newValues.forEach((v, j) => {
-                          v.weight = newWeights[j] || 0;
-                        });
-                        setVariations(newValues);
-                      }}
-                      type="button"
+                <DropdownMenu
+                  trigger={
+                    <IconButton
+                      variant="ghost"
+                      color="gray"
+                      radius="full"
+                      size="2"
+                      highContrast
+                      style={{ margin: 0 }}
                     >
-                      Remove
-                    </button>
-                  </Tooltip>
-                </MoreMenu>
+                      <BsThreeDotsVertical size={18} />
+                    </IconButton>
+                  }
+                  menuPlacement="end"
+                  variant="soft"
+                >
+                  <DropdownMenuItem
+                    disabled={variations.length <= 2}
+                    color={variations.length > 2 ? "red" : undefined}
+                    tooltip={
+                      variations.length <= 2
+                        ? "Experiments must have at least two variations"
+                        : undefined
+                    }
+                    onClick={() => {
+                      const newValues = [...variations];
+                      newValues.splice(i, 1);
+
+                      const newWeights = distributeWeights(
+                        newValues.map((v) => v.weight),
+                        customSplit,
+                      );
+
+                      newValues.forEach((v, j) => {
+                        v.weight = newWeights[j] || 0;
+                      });
+                      setVariations(newValues);
+                    }}
+                  >
+                    Remove
+                  </DropdownMenuItem>
+                </DropdownMenu>
               </div>
             )}
           </div>

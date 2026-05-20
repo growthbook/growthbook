@@ -17,6 +17,7 @@ import {
 } from "@/components/Features/RevisionStatusBadge";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -24,8 +25,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 type Props = {
   info: LinkedFeatureInfo;
   experiment: ExperimentInterfaceStringDates;
-  open?: boolean;
-  canEdit?: boolean;
+  numLinkedChanges: number;
   onReAdd?: () => void;
   mutate?: () => void;
 };
@@ -33,6 +33,7 @@ type Props = {
 export default function LinkedFeatureFlag({
   info,
   experiment,
+  numLinkedChanges,
   onReAdd,
   mutate,
 }: Props) {
@@ -41,14 +42,23 @@ export default function LinkedFeatureFlag({
   const [removing, setRemoving] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  // canViewExperimentModal is the permission gate for experiment mutations
-  // (covers update, not just view despite the name).
-  const canEdit =
-    !experiment.archived &&
-    permissionsUtil.canViewExperimentModal(experiment.project);
+  const canEditExperiment =
+    !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
 
-  // canAddLinkedChanges: same gate + experiment must still be in draft.
-  const canAddLinkedChanges = canEdit && experiment.status === "draft";
+  const canUpdateLinkedFeature =
+    canEditExperiment && permissionsUtil.canUpdateFeature(info.feature, {});
+
+  const canEditFeatureDraft =
+    canUpdateLinkedFeature &&
+    permissionsUtil.canManageFeatureDrafts(info.feature);
+
+  // Gates the "Re-add feature flag" link in the discarded callout: requires
+  // feature-draft perms AND the experiment to still be in draft status with no
+  // scheduled launch (post-launch, re-adding the rule isn't allowed).
+  const canAddLinkedChanges =
+    canEditFeatureDraft &&
+    experiment.status === "draft" &&
+    !experiment.nextScheduledStatusUpdate;
 
   const handleRemove = async () => {
     if (!confirm("Remove this feature flag from the experiment?")) return;
@@ -90,6 +100,7 @@ export default function LinkedFeatureFlag({
   );
 
   const variations = getLatestPhaseVariations(experiment);
+  const configuredVariationIds = new Set(info.values.map((v) => v.variationId));
   const orderedValues = variations.map((v) => {
     return info.values.find((v2) => v2.variationId === v.id)?.value || "";
   });
@@ -111,10 +122,12 @@ export default function LinkedFeatureFlag({
   );
 
   const showEditButton =
-    canEdit &&
+    canEditFeatureDraft &&
     experiment.status === "draft" &&
+    !experiment.nextScheduledStatusUpdate &&
     info.state !== "discarded" &&
-    info.state !== "locked";
+    info.state !== "locked" &&
+    info.state !== "archived";
 
   return (
     <>
@@ -123,6 +136,7 @@ export default function LinkedFeatureFlag({
           feature={info.feature}
           experiment={experiment}
           info={info}
+          numLinkedChanges={numLinkedChanges}
           close={() => setEditModalOpen(false)}
           mutate={() => mutate?.()}
         />
@@ -176,7 +190,7 @@ export default function LinkedFeatureFlag({
                 Go to feature page <PiArrowSquareOut className="ml-1" />
               </Link>
             )}
-            {canEdit && (
+            {canUpdateLinkedFeature && (
               <>
                 {" · "}
                 <Link
@@ -240,7 +254,7 @@ export default function LinkedFeatureFlag({
                   ) : (
                     <>
                       pending approval. Once approved and published, the values
-                      shown above will take effect.
+                      shown below will take effect.
                     </>
                   )}
                   <Box mt="1">
@@ -257,7 +271,7 @@ export default function LinkedFeatureFlag({
                 <>
                   A <strong>draft </strong> revision is updating this
                   feature&apos;s variation values for the experiment. The values
-                  shown above are from the draft and will take effect once
+                  shown below are from the draft and will take effect once
                   it&apos;s published.{" "}
                   <Link
                     href={`/features/${info.feature?.id}${info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""}`}
@@ -331,13 +345,19 @@ export default function LinkedFeatureFlag({
                     info.feature.valueType === "json" ? "start" : "center"
                   }
                   experiment={experiment}
-                  renderContent={(j) => (
-                    <ForceSummary
-                      value={orderedValues[j]}
-                      feature={info.feature}
-                      maxHeight={60}
-                    />
-                  )}
+                  renderContent={(j) =>
+                    !configuredVariationIds.has(variations[j].id) ? (
+                      <HelperText status="warning">
+                        Define missing values
+                      </HelperText>
+                    ) : (
+                      <ForceSummary
+                        value={orderedValues[j]}
+                        feature={info.feature}
+                        maxHeight={60}
+                      />
+                    )
+                  }
                 />
               </Box>
 
