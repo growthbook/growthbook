@@ -10,7 +10,7 @@ import {
   getLatestSnapshot,
   getLatestSnapshotMultipleExperiments,
 } from "../../src/models/ExperimentSnapshotModel";
-import { getMetricsByIds } from "../../src/models/MetricModel";
+import { getMetricMap } from "../../src/models/MetricModel";
 import { getDataSourceById } from "../../src/models/DataSourceModel";
 import { setupApp } from "./api.setup";
 
@@ -36,7 +36,6 @@ jest.mock("../../src/models/ExperimentSnapshotModel", () => ({
 
 jest.mock("../../src/models/MetricModel", () => ({
   getMetricMap: jest.fn().mockResolvedValue(new Map()),
-  getMetricsByIds: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock("../../src/models/DataSourceModel", () => ({
@@ -1955,9 +1954,9 @@ describe("experiments API", () => {
         ],
       };
       (getExperimentById as jest.Mock).mockResolvedValue(experimentWithResults);
-      (getMetricsByIds as jest.Mock).mockResolvedValue([
-        { id: "met_1", name: "Signups" },
-      ]);
+      (getMetricMap as jest.Mock).mockResolvedValue(
+        new Map([["met_1", { id: "met_1", name: "Signups" }]]),
+      );
       (getLatestSnapshot as jest.Mock).mockResolvedValue({
         id: "snap_123",
         organization: "org_1",
