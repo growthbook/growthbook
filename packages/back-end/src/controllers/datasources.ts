@@ -74,6 +74,7 @@ import {
   resumeEventForwarderThroughLicenseServer,
   updateEventForwarderCredentialsThroughLicenseServer,
 } from "back-end/src/services/eventForwarderProvisioning";
+import { syncEventForwarderStatusFromLicenseServer } from "back-end/src/services/eventForwarderConnectorStatusSync";
 import { deleteEventForwarderConfigForDatasource } from "back-end/src/services/eventForwarderDatasourceLifecycle";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
@@ -633,6 +634,12 @@ export async function putDataSource(
 
     if (eventForwarderConfig !== undefined) {
       // Explicit event forwarder config change in the request → full provision flow.
+      const existingEfBeforeSync = await getEventForwarderConfigForDatasource(
+        context,
+        updatedDatasource.id,
+      );
+      const restartAfterProvision =
+        !!existingEfBeforeSync?.connectorName?.trim();
       const syncedEventForwarderConfig =
         await syncEventForwarderConfigFromDatasource({
           context,
@@ -644,6 +651,7 @@ export async function putDataSource(
         context,
         syncedEventForwarderConfig,
         eventForwarderDatasourceParams,
+        { restartAfterProvision },
       );
     } else if (params) {
       // Only connection credentials changed — re-sync stored credentials then
@@ -749,6 +757,8 @@ export async function putEventForwarderForDataSource(
       updatedDatasource.type,
       integration.params as DataSourceParams,
     );
+    const restartAfterProvision =
+      !!existingEventForwarderConfig?.connectorName?.trim();
     const syncedEventForwarderConfig =
       await syncEventForwarderConfigFromDatasource({
         context,
@@ -760,6 +770,7 @@ export async function putEventForwarderForDataSource(
       context,
       syncedEventForwarderConfig,
       eventForwarderDatasourceParams,
+      { restartAfterProvision },
     );
 
     res.status(200).json({
@@ -771,6 +782,58 @@ export async function putEventForwarderForDataSource(
     });
   } catch (e) {
     req.log.error(e, "Failed to update event forwarder");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function getEventForwarderStatusForDataSource(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const datasource = await getDataSourceById(context, req.params.id);
+  if (!datasource) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+  }
+
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const eventForwarderConfig = await getEventForwarderConfigForDatasource(
+    context,
+    datasource.id,
+  );
+  if (!eventForwarderConfig) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find event forwarder config",
+    });
+  }
+
+  if (
+    !context.permissions.canUpdateEventForwarderConfig(eventForwarderConfig, {
+      ...eventForwarderConfig,
+      projects: datasource.projects ?? [],
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  try {
+    const statusResponse = await syncEventForwarderStatusFromLicenseServer(
+      context,
+      eventForwarderConfig,
+    );
+    res.status(200).json(statusResponse);
+  } catch (e) {
+    req.log.error(e, "Failed to get event forwarder status");
     res.status(400).json({
       status: 400,
       message: e.message || "An error occurred",

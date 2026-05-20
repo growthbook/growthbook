@@ -12,6 +12,7 @@ export default function EventForwarderTableNameField({
   tooltip,
   subTitle,
   helpText,
+  readOnly = false,
 }: {
   label?: string;
   name?: string;
@@ -21,6 +22,7 @@ export default function EventForwarderTableNameField({
   tooltip: string;
   subTitle?: ReactNode;
   helpText?: string;
+  readOnly?: boolean;
 }) {
   return (
     <Flex direction="column" gap="1">
@@ -45,10 +47,11 @@ export default function EventForwarderTableNameField({
         className="form-control"
         name={name}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={readOnly ? undefined : (e) => onChange(e.target.value)}
         placeholder={placeholder}
         helpText={helpText}
-        required
+        readOnly={readOnly}
+        required={!readOnly}
       />
     </Flex>
   );
