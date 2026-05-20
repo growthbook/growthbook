@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
@@ -214,6 +214,19 @@ export default function EditFeatureFlagValuesModal({
     initialSelectedDraft,
   );
   const [isEditingVariations, setIsEditingVariations] = useState(false);
+
+  // On first render `useApi` hasn't resolved yet, so `revisionList` is empty
+  // and `defaultDraft` is null. Re-apply the correctly computed initial
+  // mode/selectedDraft once the feature revisions arrive, so the dropdown
+  // doesn't show a stale pre-selection (e.g. "publish" when there is an
+  // existing draft to default to).
+  const hasInitializedFromData = useRef(false);
+  useEffect(() => {
+    if (hasInitializedFromData.current || !data) return;
+    hasInitializedFromData.current = true;
+    setMode(initialMode);
+    setSelectedDraft(initialSelectedDraft);
+  }, [data, initialMode, initialSelectedDraft]);
 
   useEffect(() => {
     if (!canAutoPublish && mode === "publish") {
