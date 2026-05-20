@@ -131,6 +131,45 @@ export const notifyAutoUpdate = ({
       }),
   });
 
+// Fires on every failed attempt of the scheduled-status-update job (not
+// memoized). Each event carries the attempt count and whether another retry
+// will follow, so downstream channels can choose to surface only the
+// terminal failure (`willRetry: false`) if desired.
+export const notifyScheduledStatusUpdateFailed = ({
+  context,
+  experiment,
+  scheduledStatusUpdateType,
+  attempts,
+  maxAttempts,
+  willRetry,
+  reason,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  scheduledStatusUpdateType: "start" | "stop";
+  attempts: number;
+  maxAttempts: number;
+  willRetry: boolean;
+  reason: string;
+}) =>
+  dispatchEvent({
+    context,
+    experiment,
+    event: "warning",
+    data: {
+      object: {
+        type: "scheduled-status-update-failed",
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+        scheduledStatusUpdateType,
+        attempts,
+        maxAttempts,
+        willRetry,
+        reason,
+      },
+    },
+  });
+
 export const notifyMultipleExposures = async ({
   context,
   experiment,
