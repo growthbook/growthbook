@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { CookieOptions } from "express";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   attributionCookieSchema,
@@ -15,12 +15,19 @@ import { CLOUD_SECRET, IS_CLOUD } from "back-end/src/util/secrets";
 const COOKIE_NAME = "gb_attr";
 const COOKIE_MAX_AGE_DAYS = 30;
 
+type RequestWithCookies = { cookies?: Record<string, string> };
+type ResponseWithSetCookie = {
+  cookie: (name: string, value: string, options: CookieOptions) => unknown;
+};
+
 export function classifyEmail(email: string): "free" | "business" {
   const domain = email.toLowerCase().split("@")[1] || "";
   return freeEmailDomains.includes(domain) ? "free" : "business";
 }
 
-export function parseAttributionCookie(req: Request): AttributionCookie {
+export function parseAttributionCookie(
+  req: RequestWithCookies,
+): AttributionCookie {
   const raw = req.cookies?.[COOKIE_NAME];
   if (!raw) return {};
   try {
@@ -37,7 +44,10 @@ export function parseAttributionCookie(req: Request): AttributionCookie {
  * Called from postOAuthCallback to harden the cookie for the gap between
  * completing OAuth and clicking "Create Organization."
  */
-export function reissueAttributionCookie(req: Request, res: Response) {
+export function reissueAttributionCookie(
+  req: RequestWithCookies,
+  res: ResponseWithSetCookie,
+) {
   const raw = req.cookies?.[COOKIE_NAME];
   if (!raw) return;
   res.cookie(COOKIE_NAME, raw, {
