@@ -8,13 +8,7 @@ const POLL_TIMEOUT_MS = 10 * 60 * 1000;
 export const PROVISIONING_TIMEOUT_MESSAGE =
   "Provisioning timed out. Try editing the Event Forwarder to retry.";
 
-type StatusPollResult = {
-  status: number;
-  phase: EventForwarderStatusResponse["phase"];
-  message?: EventForwarderStatusResponse["message"];
-  confluentState?: EventForwarderStatusResponse["confluentState"];
-  taskErrors?: EventForwarderStatusResponse["taskErrors"];
-};
+type StatusPollResult = EventForwarderStatusResponse;
 
 function isTerminalErrorStatus(status: string | undefined): boolean {
   return status === "error" || status === "schema_update_error";

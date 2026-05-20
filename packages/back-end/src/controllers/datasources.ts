@@ -827,11 +827,11 @@ export async function getEventForwarderStatusForDataSource(
   }
 
   try {
-    const status = await syncEventForwarderStatusFromLicenseServer(
+    const statusResponse = await syncEventForwarderStatusFromLicenseServer(
       context,
       eventForwarderConfig,
     );
-    res.status(200).json({ status: 200, ...status });
+    res.status(200).json(statusResponse);
   } catch (e) {
     req.log.error(e, "Failed to get event forwarder status");
     res.status(400).json({

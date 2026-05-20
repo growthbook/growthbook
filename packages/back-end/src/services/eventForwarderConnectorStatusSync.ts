@@ -63,31 +63,44 @@ export async function syncEventForwarderStatusFromLicenseServer(
 
   const response = buildEventForwarderStatusResponse(connectorStatus);
 
-  const updates: Partial<EventForwarderConfigInterface> = {};
   if (response.status === "ready") {
-    updates.status = "ready";
-    updates.lastProvisioningError = "";
+    const lastProvisioningError = "";
+    if (
+      eventForwarderConfig.status !== "ready" ||
+      eventForwarderConfig.lastProvisioningError !== lastProvisioningError
+    ) {
+      await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
+        status: "ready",
+        lastProvisioningError,
+      });
+    }
   } else if (response.status === "error") {
-    updates.status = "error";
-    updates.lastProvisioningError =
+    const lastProvisioningError =
       response.message || "Event forwarder connector failed";
+    if (
+      eventForwarderConfig.status !== "error" ||
+      eventForwarderConfig.lastProvisioningError !== lastProvisioningError
+    ) {
+      await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
+        status: "error",
+        lastProvisioningError,
+      });
+    }
   } else if (response.status === "paused") {
-    updates.status = "paused";
-    updates.lastProvisioningError = "";
-  } else {
-    updates.status = "pending";
-  }
-
-  if (
-    updates.status !== eventForwarderConfig.status ||
-    (updates.lastProvisioningError !== undefined &&
-      updates.lastProvisioningError !==
-        eventForwarderConfig.lastProvisioningError)
-  ) {
-    await context.models.eventForwarderConfigs.update(
-      eventForwarderConfig,
-      updates,
-    );
+    const lastProvisioningError = "";
+    if (
+      eventForwarderConfig.status !== "paused" ||
+      eventForwarderConfig.lastProvisioningError !== lastProvisioningError
+    ) {
+      await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
+        status: "paused",
+        lastProvisioningError,
+      });
+    }
+  } else if (eventForwarderConfig.status !== "pending") {
+    await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
+      status: "pending",
+    });
   }
 
   return response;

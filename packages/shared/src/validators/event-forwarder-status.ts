@@ -7,6 +7,10 @@ export const eventForwarderConnectorPhaseSchema = z.enum([
   "paused",
 ]);
 
+export type EventForwarderConnectorPhase = z.infer<
+  typeof eventForwarderConnectorPhaseSchema
+>;
+
 export const eventForwarderConnectorTaskErrorSchema = z.object({
   id: z.number(),
   state: z.string(),
