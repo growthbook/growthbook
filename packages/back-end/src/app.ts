@@ -794,6 +794,14 @@ app.post(
   "/contextual-bandit-queries",
   contextualBanditsController.postContextualBanditQuery,
 );
+app.put(
+  "/contextual-bandit-queries/:id",
+  contextualBanditsController.putContextualBanditQuery,
+);
+app.delete(
+  "/contextual-bandit-queries/:id",
+  contextualBanditsController.deleteContextualBanditQuery,
+);
 
 // Visual editor auth
 app.get(

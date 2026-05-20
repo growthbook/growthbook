@@ -66,9 +66,10 @@ export const contextualBanditQueryValidator = baseSchema.safeExtend({
   userIdType: z.string(),
   /**
    * Raw SQL the warehouse runs to produce per-user assignment rows. Output
-   * columns: the configured `userIdType`, `variation_id`, and one column
-   * per attribute in `attributes[]`. A3 wraps this query in the bucketing
-   * CTE chain — the contents of `query` are user-authored.
+   * columns: the configured `userIdType`, `variation_id`, and one column per
+   * attribute in `attributes[]`. The reward metric is sourced separately from
+   * the experiment's goal metric (fact table) and joined in by the A3 SQL
+   * generator — the contents of `query` are user-authored.
    */
   query: z.string(),
   attributes: z.array(contextualBanditQueryAttribute),

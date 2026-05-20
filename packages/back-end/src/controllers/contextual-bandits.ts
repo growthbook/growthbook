@@ -1,6 +1,7 @@
 import { Response } from "express";
 import {
   apiCreateContextualBanditQueryBody,
+  apiUpdateContextualBanditQueryBody,
   ContextualBanditEventInterface,
   ContextualBanditQueryInterface,
   ContextualBanditSnapshotInterface,
@@ -87,6 +88,62 @@ export async function postContextualBanditQuery(
     status: 200,
     contextualBanditQuery,
   });
+}
+
+export async function putContextualBanditQuery(
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response<{
+    status: 200;
+    contextualBanditQuery: ContextualBanditQueryInterface;
+  }>,
+) {
+  const context = getContextFromReq(req);
+  const existing = await context.models.contextualBanditQueries.getById(
+    req.params.id,
+  );
+  if (!existing) {
+    throw new Error("Contextual bandit query not found");
+  }
+  const payload = apiUpdateContextualBanditQueryBody.parse(req.body);
+  const updated = await context.models.contextualBanditQueries.updateById(
+    req.params.id,
+    {
+      ...(payload.name !== undefined && { name: payload.name }),
+      ...(payload.description !== undefined && {
+        description: payload.description,
+      }),
+      ...(payload.userIdType !== undefined && {
+        userIdType: payload.userIdType,
+      }),
+      ...(payload.query !== undefined && { query: payload.query }),
+      ...(payload.attributes !== undefined && {
+        attributes: payload.attributes,
+      }),
+      ...(payload.topValuesLookbackDays !== undefined && {
+        topValuesLookbackDays: payload.topValuesLookbackDays,
+      }),
+    },
+  );
+
+  res.status(200).json({
+    status: 200,
+    contextualBanditQuery: updated,
+  });
+}
+
+export async function deleteContextualBanditQuery(
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response<{ status: 200 }>,
+) {
+  const context = getContextFromReq(req);
+  const existing = await context.models.contextualBanditQueries.getById(
+    req.params.id,
+  );
+  if (!existing) {
+    throw new Error("Contextual bandit query not found");
+  }
+  await context.models.contextualBanditQueries.deleteById(req.params.id);
+  res.status(200).json({ status: 200 });
 }
 
 export async function getContextualBanditCurrent(

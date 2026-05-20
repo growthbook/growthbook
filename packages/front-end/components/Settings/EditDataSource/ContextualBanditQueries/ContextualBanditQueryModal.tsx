@@ -28,30 +28,44 @@ type FormValues = {
 type Props = {
   dataSource: DataSourceInterfaceWithParams;
   close: () => void;
-  onCreate: (query: ContextualBanditQueryInterface) => Promise<void>;
+  onSave: (query: ContextualBanditQueryInterface) => Promise<void>;
+  initialData?: ContextualBanditQueryInterface;
 };
 
 export const ContextualBanditQueryModal: FC<Props> = ({
   dataSource,
   close,
-  onCreate,
+  onSave,
+  initialData,
 }) => {
   const { apiCall } = useAuth();
+  const isEditing = !!initialData;
   const userIdTypes = dataSource.settings?.userIdTypes || [];
   const defaultUserIdType = userIdTypes[0]?.userIdType || "user_id";
   const form = useForm<FormValues>({
-    defaultValues: {
-      name: "",
-      userIdType: defaultUserIdType,
-      query: `SELECT\n  ${defaultUserIdType},\n  variation_id,\n  country\nFROM contextual_bandit_assignments`,
-      attributes: [
-        {
-          attribute: "country",
-          kind: "categorical",
-          maxLevels: 10,
+    defaultValues: initialData
+      ? {
+          name: initialData.name,
+          userIdType: initialData.userIdType,
+          query: initialData.query,
+          attributes: initialData.attributes.map((a) => ({
+            attribute: a.attribute,
+            kind: a.kind,
+            maxLevels: a.maxLevels,
+          })),
+        }
+      : {
+          name: "",
+          userIdType: defaultUserIdType,
+          query: `SELECT\n  ${defaultUserIdType},\n  variation_id,\n  country\nFROM contextual_bandit_assignments`,
+          attributes: [
+            {
+              attribute: "country",
+              kind: "categorical",
+              maxLevels: 10,
+            },
+          ],
         },
-      ],
-    },
   });
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -60,23 +74,35 @@ export const ContextualBanditQueryModal: FC<Props> = ({
   const attributes = form.watch("attributes");
 
   const submit = form.handleSubmit(async (value) => {
-    const response = await apiCall<{
-      contextualBanditQuery: ContextualBanditQueryInterface;
-    }>(`/contextual-bandit-queries`, {
-      method: "POST",
-      body: JSON.stringify({
-        name: value.name.trim(),
-        datasource: dataSource.id,
-        userIdType: value.userIdType,
-        query: value.query,
-        attributes: value.attributes.map((attribute) => ({
-          attribute: attribute.attribute.trim(),
-          kind: attribute.kind,
-          maxLevels: attribute.maxLevels,
-        })),
-      }),
-    });
-    await onCreate(response.contextualBanditQuery);
+    const body = {
+      name: value.name.trim(),
+      datasource: dataSource.id,
+      userIdType: value.userIdType,
+      query: value.query,
+      attributes: value.attributes.map((attribute) => ({
+        attribute: attribute.attribute.trim(),
+        kind: attribute.kind,
+        maxLevels: attribute.maxLevels,
+      })),
+    };
+
+    if (isEditing) {
+      const response = await apiCall<{
+        contextualBanditQuery: ContextualBanditQueryInterface;
+      }>(`/contextual-bandit-queries/${initialData.id}`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+      });
+      await onSave(response.contextualBanditQuery);
+    } else {
+      const response = await apiCall<{
+        contextualBanditQuery: ContextualBanditQueryInterface;
+      }>(`/contextual-bandit-queries`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      await onSave(response.contextualBanditQuery);
+    }
   });
 
   return (
@@ -86,8 +112,8 @@ export const ContextualBanditQueryModal: FC<Props> = ({
       submit={submit}
       close={close}
       size="lg"
-      header="Create Contextual Bandit Query"
-      cta="Create"
+      header={isEditing ? "Edit Contextual Bandit Query" : "Create Contextual Bandit Query"}
+      cta={isEditing ? "Save" : "Create"}
       ctaEnabled={
         !!form.watch("name") &&
         !!form.watch("query") &&
@@ -123,6 +149,7 @@ export const ContextualBanditQueryModal: FC<Props> = ({
           textarea
           minRows={8}
           required
+          helpText="The query must return one row per user assignment with columns: user ID (matching the User ID Type above), variation_id, and one column per attribute defined below. The reward metric is pulled automatically from the experiment's goal metric."
           {...form.register("query", { required: true })}
         />
 

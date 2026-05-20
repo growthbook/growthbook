@@ -3,9 +3,17 @@ import type { SqlDialect } from "shared/types/sql";
 import type {
   ContextualBanditDimensionSqlAttribute,
   ContextualBanditDimensionSqlParams,
+  ContextualBanditMetricSqlParams,
   ContextualBanditQuantileBucketEdgesSqlParams,
   ContextualBanditTopValuesSqlParams,
 } from "shared/types/integrations";
+import {
+  getColumnRefWhereClause,
+  getFactTableTemplateVariables,
+  isRatioMetric,
+} from "shared/experiments";
+import { compileSqlTemplate } from "back-end/src/util/sql";
+import { getFactMetricColumn } from "back-end/src/integrations/sql/columns/fact-metric-column";
 
 const DEFAULT_METRIC_VALUE_COLUMN = "main_metric";
 const DEFAULT_VARIATION_ID_COLUMN = "variation_id";
@@ -107,6 +115,7 @@ export function getContextualBanditDimensionSql(
     userIdColumn,
     variationIdColumn = DEFAULT_VARIATION_ID_COLUMN,
     metricValueColumn = DEFAULT_METRIC_VALUE_COLUMN,
+    metricQuery,
     attributes,
     maxContexts,
   }: ContextualBanditDimensionSqlParams,
@@ -120,7 +129,9 @@ export function getContextualBanditDimensionSql(
 
   assertSimpleIdentifier(userIdColumn);
   assertSimpleIdentifier(variationIdColumn);
-  assertSimpleIdentifier(metricValueColumn);
+  if (!metricQuery) {
+    assertSimpleIdentifier(metricValueColumn);
+  }
   attributes.forEach((attribute) =>
     assertSimpleIdentifier(attribute.attribute),
   );
@@ -140,11 +151,31 @@ export function getContextualBanditDimensionSql(
     .join(" AND ");
   const topContextId = contextLabelExpression(dialect, attributes, "ranked");
 
-  return format(
-    `
-WITH raw AS (
+  const userIdCast = dialect.castToString(`__cbaq.${userIdColumn}`);
+
+  const rawCte = metricQuery
+    ? `
+__cbaq AS (
+  ${query}
+),
+__metric AS (
+  ${metricQuery}
+),
+raw AS (
   SELECT
-    ${dialect.castToString(`__cbaq.${userIdColumn}`)} AS user_id,
+    ${userIdCast} AS user_id,
+    ${dialect.castToString(`__cbaq.${variationIdColumn}`)} AS variation_id,
+    ${dialect.castToFloat("__metric.main_metric")} AS main_metric,
+    ${contextSelect}
+  FROM __cbaq
+  LEFT JOIN __metric ON ${userIdCast} = __metric.user_id
+  WHERE __cbaq.${userIdColumn} IS NOT NULL
+    AND __cbaq.${variationIdColumn} IS NOT NULL
+),`
+    : `
+raw AS (
+  SELECT
+    ${userIdCast} AS user_id,
     ${dialect.castToString(`__cbaq.${variationIdColumn}`)} AS variation_id,
     ${dialect.castToFloat(`__cbaq.${metricValueColumn}`)} AS main_metric,
     ${contextSelect}
@@ -153,7 +184,11 @@ WITH raw AS (
   ) __cbaq
   WHERE __cbaq.${userIdColumn} IS NOT NULL
     AND __cbaq.${variationIdColumn} IS NOT NULL
-),
+),`;
+
+  return format(
+    `
+WITH ${rawCte}
 ctx_counts AS (
   SELECT
     ${contextGroupBy},
@@ -193,6 +228,11 @@ GROUP BY variation_id, context_id
 ORDER BY variation, context_id
 `,
     dialect.formatDialect,
+    ({ error }) => {
+      throw new Error(
+        `Contextual bandit query SQL has a syntax error. Please check the query for unclosed backtick identifiers or string literals. (${error.message})`,
+      );
+    },
   );
 }
 
@@ -223,6 +263,90 @@ ORDER BY count DESC, value
 LIMIT ${limit}
 `,
     dialect.formatDialect,
+    ({ error }) => {
+      throw new Error(
+        `Contextual bandit query SQL has a syntax error. Please check the query for unclosed backtick identifiers or string literals. (${error.message})`,
+      );
+    },
+  );
+}
+
+/**
+ * Generates a per-user metric subquery for use as the `metricQuery` parameter
+ * in `getContextualBanditDimensionSql`. Returns a SELECT that emits
+ * `(user_id VARCHAR, main_metric FLOAT)` — one row per user.
+ *
+ * Only non-ratio, non-sketch (no HLL/KLL) fact metrics are supported.
+ * The fact table must include `userIdColumn` in its `userIdTypes`.
+ */
+export function getContextualBanditMetricSql(
+  dialect: SqlDialect,
+  { metric, factTable, userIdColumn, startDate, endDate }: ContextualBanditMetricSqlParams,
+): string {
+  if (isRatioMetric(metric)) {
+    throw new Error(
+      `Ratio metric "${metric.name}" is not supported for contextual bandits. Use a sum, count, proportion, or mean metric instead.`,
+    );
+  }
+  const agg = metric.numerator?.aggregation;
+  if (agg === "hll merge" || agg === "kll merge") {
+    throw new Error(
+      `Metric "${metric.name}" uses ${agg} aggregation, which is not supported for contextual bandits.`,
+    );
+  }
+  if (!factTable.userIdTypes.includes(userIdColumn)) {
+    throw new Error(
+      `Fact table "${factTable.name}" does not support user ID type "${userIdColumn}". Available types: ${factTable.userIdTypes.join(", ")}`,
+    );
+  }
+
+  assertSimpleIdentifier(userIdColumn);
+
+  const { value: metricValueExpr } = getFactMetricColumn(
+    dialect,
+    metric,
+    metric.numerator,
+    factTable,
+  );
+
+  const rowFilters = getColumnRefWhereClause({
+    factTable,
+    columnRef: metric.numerator,
+    escapeStringLiteral: dialect.escapeStringLiteral,
+    jsonExtract: dialect.jsonExtract,
+    evalBoolean: dialect.evalBoolean,
+  });
+
+  let aggregationExpr: string;
+  if (agg === "count distinct") {
+    aggregationExpr = `COUNT(DISTINCT ${metricValueExpr})`;
+  } else if (agg === "max") {
+    aggregationExpr = `MAX(${metricValueExpr})`;
+  } else {
+    aggregationExpr = `SUM(${metricValueExpr})`;
+  }
+
+  const where = [
+    `m.timestamp >= ${dialect.toTimestamp(startDate)}`,
+    `m.timestamp <= ${dialect.toTimestamp(endDate)}`,
+    ...rowFilters,
+  ];
+
+  return compileSqlTemplate(
+    `SELECT
+  ${dialect.castToString(`m.${userIdColumn}`)} AS user_id,
+  ${aggregationExpr} AS main_metric
+FROM (
+  ${factTable.sql}
+) m
+WHERE ${where.join("\n  AND ")}
+GROUP BY m.${userIdColumn}`,
+    {
+      startDate,
+      endDate,
+      templateVariables: getFactTableTemplateVariables(factTable),
+    },
+    dialect,
   );
 }
 
@@ -253,5 +377,10 @@ FROM __cbaq
 WHERE ${attrColumn(attribute)} IS NOT NULL
 `,
     dialect.formatDialect,
+    ({ error }) => {
+      throw new Error(
+        `Contextual bandit query SQL has a syntax error. Please check the query for unclosed backtick identifiers or string literals. (${error.message})`,
+      );
+    },
   );
 }

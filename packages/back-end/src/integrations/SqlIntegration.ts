@@ -63,6 +63,7 @@ import {
   ColumnTopValuesResponse,
   ContextualBanditDimensionQueryResponse,
   ContextualBanditDimensionSqlParams,
+  ContextualBanditMetricSqlParams,
   ContextualBanditQuantileBucketEdgesResponse,
   ContextualBanditQuantileBucketEdgesSqlParams,
   ContextualBanditTopValuesResponse,
@@ -154,6 +155,7 @@ import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric
 import {
   getContextualBanditCaseWhen as getContextualBanditCaseWhenFromSql,
   getContextualBanditDimensionSql as getContextualBanditDimensionSqlFromSql,
+  getContextualBanditMetricSql as getContextualBanditMetricSqlFromSql,
   getContextualBanditQuantileBucketEdgesQuery,
   getContextualBanditTopValuesQuery,
 } from "back-end/src/integrations/sql/queries/contextual-bandit-dimension-query";
@@ -1508,6 +1510,12 @@ export default abstract class SqlIntegration
     params: ContextualBanditDimensionSqlParams,
   ) {
     return getContextualBanditDimensionSqlFromSql(this.getSqlDialect(), params);
+  }
+
+  public getContextualBanditMetricSql(
+    params: ContextualBanditMetricSqlParams,
+  ) {
+    return getContextualBanditMetricSqlFromSql(this.getSqlDialect(), params);
   }
 
   public async runContextualBanditDimensionQuery(

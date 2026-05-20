@@ -20,6 +20,7 @@ from gbstats.bayesian.bandits import (
     BanditsRatio,
     BanditsCuped,
     ContextualBandits,
+    RegressionTreeContextualBandits,
     BanditConfig,
     MockContextualBandits,
     get_error_bandit_result,
@@ -1353,11 +1354,12 @@ def process_contextual_bandit_results(
         if isinstance(settings, ContextualBanditSettingsForStatsEngine)
         else ContextualBanditSettingsForStatsEngine(**settings)
     )
-    fitter_cls = (
-        MockContextualBandits
-        if os.environ.get("GROWTHBOOK_CB_MOCK_STATS") == "1"
-        else ContextualBandits
-    )
+    if os.environ.get("GROWTHBOOK_CB_MOCK_STATS") == "1":
+        fitter_cls = MockContextualBandits
+    elif contextual_bandit_settings.tree_model == "linear_thompson":
+        fitter_cls = ContextualBandits  # still a stub — raises NotImplementedError
+    else:
+        fitter_cls = RegressionTreeContextualBandits
     return asdict(fitter_cls(rows, contextual_bandit_settings).compute_result())
 
 

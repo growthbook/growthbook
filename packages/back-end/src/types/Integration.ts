@@ -7,6 +7,7 @@ import {
   ColumnTopValuesResponse,
   ContextualBanditDimensionQueryResponse,
   ContextualBanditDimensionSqlParams,
+  ContextualBanditMetricSqlParams,
   ContextualBanditQuantileBucketEdgesResponse,
   ContextualBanditQuantileBucketEdgesSqlParams,
   ContextualBanditTopValuesResponse,
@@ -269,6 +270,9 @@ export interface SourceIntegrationInterface {
   ): string;
   getContextualBanditDimensionSql?(
     params: ContextualBanditDimensionSqlParams,
+  ): string;
+  getContextualBanditMetricSql?(
+    params: ContextualBanditMetricSqlParams,
   ): string;
   runContextualBanditDimensionQuery?(
     sql: string,

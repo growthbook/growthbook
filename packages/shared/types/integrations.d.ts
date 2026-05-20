@@ -718,8 +718,23 @@ export type ContextualBanditDimensionSqlParams = {
   userIdColumn: string;
   variationIdColumn?: string;
   metricValueColumn?: string;
+  /**
+   * Pre-built per-user metric subquery returning `(user_id VARCHAR, main_metric FLOAT)`.
+   * When provided the dimension SQL JOINs this against the CBAQ instead of reading
+   * `metricValueColumn` from the CBAQ itself.
+   */
+  metricQuery?: string;
   attributes: ContextualBanditDimensionSqlAttribute[];
   maxContexts: number;
+};
+
+export type ContextualBanditMetricSqlParams = {
+  metric: FactMetricInterface;
+  factTable: FactTableInterface;
+  /** User ID column name — must be present in `factTable.userIdTypes`. */
+  userIdColumn: string;
+  startDate: Date;
+  endDate: Date;
 };
 
 export type ContextualBanditDimensionQueryResponseRow = {

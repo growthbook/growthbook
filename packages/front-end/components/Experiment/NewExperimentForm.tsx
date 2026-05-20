@@ -682,12 +682,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const isContextualBandit = type === "contextual-bandit";
   const { data: contextualBanditQueryData } = useApi<{
     cbaqs: ContextualBanditQueryInterface[];
-  }>(
-    `/contextual-bandit-queries${
-      form.watch("datasource") ? `?datasource=${form.watch("datasource")}` : ""
-    }`,
-    { shouldRun: () => isContextualBandit },
-  );
+  }>(`/contextual-bandit-queries`, { shouldRun: () => isContextualBandit });
   const contextualBanditQueries = contextualBanditQueryData?.cbaqs ?? [];
   const contextualBanditConfig =
     form.watch("contextualBanditConfig") ??
@@ -1437,6 +1432,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                             "contextualBanditConfig.contextualAttributes",
                             cbaq?.attributes.map((a) => a.attribute) ?? [],
                           );
+                          if (
+                            cbaq?.datasource &&
+                            cbaq.datasource !== form.getValues("datasource")
+                          ) {
+                            form.setValue("datasource", cbaq.datasource);
+                            form.setValue("goalMetrics", []);
+                            form.setValue("secondaryMetrics", []);
+                            form.setValue("guardrailMetrics", []);
+                            form.setValue("activationMetric", "");
+                          }
                         }}
                         placeholder="Select a query"
                         mb="4"

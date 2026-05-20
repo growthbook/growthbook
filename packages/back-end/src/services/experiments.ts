@@ -177,6 +177,7 @@ import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/Experime
 import { QueryMap, getQueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
   FactTableMap,
+  getFactTable,
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
@@ -488,9 +489,33 @@ export async function runContextualBanditSnapshot(
     );
     assertContextualBanditDimensionSupport(integration);
 
+    // Build the per-user metric subquery from the experiment's goal metric
+    // (fact table query) so the CBAQ only needs to expose contextual attributes.
+    let metricQuery: string | undefined;
+    const goalMetricId = experiment.goalMetrics[0];
+    if (goalMetricId && integration.getContextualBanditMetricSql) {
+      const goalMetric = await getExperimentMetricById(context, goalMetricId);
+      if (goalMetric && isFactMetric(goalMetric)) {
+        const factTable = await getFactTable(
+          context,
+          goalMetric.numerator.factTableId,
+        );
+        if (factTable) {
+          metricQuery = integration.getContextualBanditMetricSql({
+            metric: goalMetric,
+            factTable,
+            userIdColumn: cbaq.userIdType,
+            startDate: settings.startDate ?? new Date(0),
+            endDate: settings.endDate,
+          });
+        }
+      }
+    }
+
     const sql = integration.getContextualBanditDimensionSql({
       query: cbaq.query,
       userIdColumn: cbaq.userIdType,
+      metricQuery,
       attributes: cbaq.attributes.filter((attribute) =>
         cb.contextualAttributes.includes(attribute.attribute),
       ),
