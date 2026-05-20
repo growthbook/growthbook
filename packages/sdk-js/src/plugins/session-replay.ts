@@ -137,6 +137,68 @@ function generateSessionId(): string {
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+/**
+ * sessionStorage payload owned by this plugin. The id field mirrors the
+ * shared session_id propagated through `gb.attributes` (typically by
+ * autoAttributesPlugin); chunkIndex and startedAt let this plugin resume
+ * across page reloads without overwriting prior chunks in S3.
+ *
+ * Format kept small so JSON.parse cost on every startRecording is trivial.
+ */
+type PersistedReplayState = {
+  sessionId: string;
+  sessionStartedAt: number;
+  lastChunkIndex: number;
+};
+
+const REPLAY_STORAGE_KEY = "gb_session_replay";
+
+function readPersistedReplayState(): PersistedReplayState | null {
+  if (typeof sessionStorage === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(REPLAY_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedReplayState;
+    if (
+      typeof parsed?.sessionId !== "string" ||
+      !parsed.sessionId ||
+      typeof parsed.sessionStartedAt !== "number" ||
+      typeof parsed.lastChunkIndex !== "number"
+    ) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writePersistedReplayState(state: PersistedReplayState): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem(REPLAY_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // sessionStorage disabled — accept the resume-across-reloads regression
+    // silently. Within a single page load the closure-level state still works.
+  }
+}
+
+/**
+ * Read the shared `session_id` from the SDK's attributes (set by
+ * autoAttributesPlugin). Returns "" if the SDK isn't ready, attributes
+ * aren't set, or the value isn't a usable string.
+ */
+function readSharedSessionId(gb: GrowthBook | null): string {
+  if (!gb) return "";
+  try {
+    const attrs = gb.getAttributes();
+    const id = (attrs as { session_id?: unknown })?.session_id;
+    return typeof id === "string" && id ? id : "";
+  } catch {
+    return "";
+  }
+}
+
 export function sessionReplayPlugin({
   trackingHost = "",
   autoRecord = true,
@@ -163,6 +225,8 @@ export function sessionReplayPlugin({
   let chunkIndex = 0;
   let hasUserInteraction = false;
   let sessionStartedAt = 0;
+  let viewportWidth = 0;
+  let viewportHeight = 0;
   let lastInteractionAt = 0;
   let logCursor = 0;
   // Re-entrancy guard for flushBuffer. The timer, size trigger, stopRecording,
@@ -342,6 +406,7 @@ export function sessionReplayPlugin({
         sessionId,
         chunkIndex: chunkIndexBeingSent,
         sessionStartedAt,
+        viewport: { width: viewportWidth, height: viewportHeight },
         events: scrubbedEvents,
         context,
       });
@@ -360,6 +425,11 @@ export function sessionReplayPlugin({
         // session has its own chunkIndex counter starting at 0.
         if (sessionId === sessionIdBeingSent) {
           chunkIndex = chunkIndexBeingSent + 1;
+          writePersistedReplayState({
+            sessionId,
+            sessionStartedAt,
+            lastChunkIndex: chunkIndexBeingSent,
+          });
         }
       } catch (e) {
         // Distinguish transient (5xx / network / no status) from permanent
@@ -398,9 +468,12 @@ export function sessionReplayPlugin({
           );
         } else {
           // Permanent failure (4xx) — chunk is unrecoverable. Advance
-          // past it so subsequent chunks aren't blocked. Log as error so
-          // it's visible above any warn-level filtering.
           chunkIndex = chunkIndexBeingSent + 1;
+          writePersistedReplayState({
+            sessionId,
+            sessionStartedAt,
+            lastChunkIndex: chunkIndexBeingSent,
+          });
           console.error(
             `session-replay: chunk ${chunkIndexBeingSent} permanently rejected (HTTP ${status}); skipping`,
             e,
@@ -424,11 +497,37 @@ export function sessionReplayPlugin({
     // bail BEFORE rrweb starts so no events are even generated.
     if (userOptedOutOfTracking()) return;
 
-    // Fresh session state for each start
-    sessionId = generateSessionId();
-    chunkIndex = 0;
+    const sharedSessionId = readSharedSessionId(gbRef);
+    const persisted = readPersistedReplayState();
+    const canResume =
+      sharedSessionId &&
+      persisted !== null &&
+      persisted.sessionId === sharedSessionId;
+
+    if (canResume) {
+      sessionId = persisted.sessionId;
+      sessionStartedAt = persisted.sessionStartedAt;
+      chunkIndex = persisted.lastChunkIndex + 1;
+    } else {
+      sessionId = sharedSessionId || generateSessionId();
+      chunkIndex = 0;
+      sessionStartedAt = Date.now();
+      writePersistedReplayState({
+        sessionId,
+        sessionStartedAt,
+        lastChunkIndex: -1,
+      });
+    }
+
+    // Snapshot viewport at start. window.innerWidth/Height excludes browser
+    // chrome (toolbar, devtools) — matches what rrweb uses as the recording
+    // canvas dimension. Re-reading every chunk would risk inconsistency if
+    // the user resizes mid-session and chunks land out of order.
+    viewportWidth = typeof window !== "undefined" ? window.innerWidth || 0 : 0;
+    viewportHeight =
+      typeof window !== "undefined" ? window.innerHeight || 0 : 0;
+
     hasUserInteraction = false;
-    sessionStartedAt = Date.now();
     lastInteractionAt = Date.now();
     logCursor = gbRef?.logs?.length ?? 0;
     window._gbReplayEvents = [];

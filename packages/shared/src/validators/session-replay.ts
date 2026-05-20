@@ -34,6 +34,9 @@ export const sessionReplayValidator = baseSchema.safeExtend({
   // Caller-supplied user identifier (from SDK hashAttribute), may be empty
   // for anonymous sessions
   userId: z.string(),
+  // Persistent device id from gbuuid cookie (autoAttributesPlugin). Distinct
+  // from userId — populated for anonymous sessions too.
+  deviceId: z.string(),
   // S3 prefix for this session's chunk objects
   storagePrefix: z.string(),
   startedAt: z.date(),
@@ -45,6 +48,14 @@ export const sessionReplayValidator = baseSchema.safeExtend({
   eventCount: z.number().int().nonnegative(),
   urlFirst: z.string(),
   urlsVisited: z.array(z.string()),
+  pageTitle: z.string(),
+  viewportWidth: z.number().int().nonnegative(),
+  viewportHeight: z.number().int().nonnegative(),
+  utmSource: z.string(),
+  utmMedium: z.string(),
+  utmCampaign: z.string(),
+  utmTerm: z.string(),
+  utmContent: z.string(),
   attributes: z.record(z.string(), z.string()),
   experiments: z.record(z.string(), z.string()),
   flags: z.record(z.string(), z.string()),

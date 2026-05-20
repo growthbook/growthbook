@@ -31,6 +31,15 @@ type SessionReplayRow = {
   eventCount: number;
   urlFirst: string;
   urlsVisited: string[];
+  deviceId?: string;
+  pageTitle?: string;
+  viewportWidth?: number;
+  viewportHeight?: number;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  utmTerm?: string;
+  utmContent?: string;
   attributes: Record<string, string>;
   experiments: Record<string, string>;
   flags: Record<string, string>;

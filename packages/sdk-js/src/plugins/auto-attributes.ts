@@ -9,6 +9,26 @@ export type AutoAttributeSettings = {
   uuidKey?: string;
   uuid?: string;
   uuidAutoPersist?: boolean;
+  /**
+   * Attribute key under which the per-browser-session id is exposed.
+   */
+  sessionIdKey?: string;
+  /**
+   * Customer-supplied session id. When provided, the plugin uses it
+   * verbatim and skips the sessionStorage / sliding-window logic — useful
+   * when an upstream system (your auth, an SSR layer) already issues
+   * session ids and you want them propagated through.
+   */
+  sessionId?: string;
+  /**
+   * Sliding-window idle timeout (ms) for the auto-generated session id.
+   */
+  sessionIdleTimeoutMs?: number;
+};
+
+type StoredSession = {
+  id: string;
+  lastTouchedAt: number;
 };
 
 function getBrowserDevice(ua: string): { browser: string; deviceType: string } {
@@ -44,7 +64,10 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
   }
 
   const COOKIE_NAME = settings.uuidCookieName || "gbuuid";
+  const SESSION_STORAGE_KEY = "gb_session";
   const uuidKey = settings.uuidKey || "id";
+  const sessionIdKey = settings.sessionIdKey || "session_id";
+  const sessionIdleTimeoutMs = settings.sessionIdleTimeoutMs ?? 30 * 60 * 1000;
   let uuid = settings.uuid || "";
   function persistUUID() {
     setCookie(COOKIE_NAME, uuid);
@@ -60,6 +83,57 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     // Generate a new UUID
     uuid = genUUID(window.crypto);
     return uuid;
+  }
+
+  /**
+   * Returns the current browser-session id, generating one and persisting
+   * to sessionStorage on first call. On each subsequent call, if the
+   * stored session's lastTouchedAt is within `sessionIdleTimeoutMs`, the
+   * timestamp is bumped to now() (sliding window) and the existing id is
+   * reused. Past the idle window, a fresh id is minted.
+   */
+  let inMemorySessionFallback: StoredSession | null = null;
+  function getOrCreateSessionId(): string {
+    if (settings.sessionId) return settings.sessionId;
+
+    const now = Date.now();
+    let stored: StoredSession | null = null;
+    try {
+      const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+      if (raw) stored = JSON.parse(raw) as StoredSession;
+    } catch {
+      // sessionStorage disabled — fall through to in-memory
+      stored = inMemorySessionFallback;
+    }
+
+    // Existing session still inside its sliding idle window — bump and reuse
+    if (
+      stored &&
+      typeof stored.id === "string" &&
+      stored.id &&
+      typeof stored.lastTouchedAt === "number" &&
+      now - stored.lastTouchedAt < sessionIdleTimeoutMs
+    ) {
+      stored.lastTouchedAt = now;
+      try {
+        sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(stored));
+      } catch {
+        inMemorySessionFallback = stored;
+      }
+      return stored.id;
+    }
+
+    // No valid session — generate and persist a fresh one
+    const fresh: StoredSession = {
+      id: genUUID(window.crypto),
+      lastTouchedAt: now,
+    };
+    try {
+      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(fresh));
+    } catch {
+      inMemorySessionFallback = fresh;
+    }
+    return fresh.id;
   }
 
   // Listen for a custom event to persist the UUID cookie
@@ -82,8 +156,11 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     return {
       ...getDataLayerVariables(),
       [uuidKey]: _uuid,
+      [sessionIdKey]: getOrCreateSessionId(),
       ...getURLAttributes(url),
       pageTitle: document.title,
+      viewportWidth: window.innerWidth || 0,
+      viewportHeight: window.innerHeight || 0,
       ...getBrowserDevice(ua),
       ...getUtmAttributes(url),
     };

@@ -789,6 +789,10 @@ export type SessionReplayRow = {
   org_id: string;
   client_key: string;
   user_id: string;
+  // Persistent device id from the autoAttributesPlugin gbuuid cookie.
+  // Separate from user_id (the logged-in identity) — lets sessions be
+  // grouped by browser across anonymous → authenticated transitions.
+  device_id: string;
   s3_key: string;
   started_at: string;
   ended_at: string;
@@ -798,6 +802,14 @@ export type SessionReplayRow = {
   error_count: number;
   url_first: string;
   urls_visited: string[];
+  page_title: string;
+  viewport_width: number;
+  viewport_height: number;
+  utm_source: string;
+  utm_medium: string;
+  utm_campaign: string;
+  utm_term: string;
+  utm_content: string;
   attributes: Record<string, string>;
   experiments: Record<string, string>;
   flags: Record<string, string>;
@@ -848,14 +860,18 @@ export async function listSessionReplays(
 
   const limit = Math.max(1, Math.min(100, Math.floor(options?.limit ?? 100)));
   const offset = Math.max(0, Math.floor(options?.offset ?? 0));
-  const where =
-    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  // Always exclude soft-deleted from the list; callers that explicitly want
+  // them must use a future bulk-list-by-id endpoint that doesn't go through
+  // this function. Add this BEFORE the user-supplied conditions so it can't
+  // be overridden by an empty filter.
+  const allConditions = ["deleted_at IS NULL", ...conditions];
+  const where = `WHERE ${allConditions.join(" AND ")}`;
 
   const { rows } = await integration.runQuery(`
     SELECT *, ingested_at AS created_at
-    FROM session_replay_metadata
+    FROM session_replay_sessions
     ${where}
-    ORDER BY ingested_at DESC
+    ORDER BY started_at DESC
     LIMIT ${limit}
     OFFSET ${offset}
   `);
@@ -886,8 +902,8 @@ export async function getSessionReplayBySessionId(
 
   const { rows } = await integration.runQuery(`
     SELECT *, ingested_at AS created_at
-    FROM session_replay_metadata
-    WHERE session_id = '${sanitizedSessionId}'
+    FROM session_replay_sessions
+    WHERE session_id = '${sanitizedSessionId}' AND deleted_at IS NULL
     LIMIT 1
   `);
 
