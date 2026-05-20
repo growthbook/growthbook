@@ -34,6 +34,8 @@ export function useEventForwarderProvisioningPoll({
   const [taskErrors, setTaskErrors] =
     useState<EventForwarderStatusResponse["taskErrors"]>();
   const refreshedTerminalErrorRef = useRef<string | null>(null);
+  const onRefreshRef = useRef(onRefresh);
+  onRefreshRef.current = onRefresh;
   const isPending = status === "pending";
   const isError = isTerminalErrorStatus(status) || pollTimedOut;
 
@@ -44,8 +46,8 @@ export function useEventForwarderProvisioningPoll({
     if (result.taskErrors?.length) {
       setTaskErrors(result.taskErrors);
     }
-    await onRefresh();
-  }, [apiCall, datasourceId, onRefresh]);
+    await onRefreshRef.current();
+  }, [apiCall, datasourceId]);
 
   useEffect(() => {
     if (!isPending) {
@@ -53,6 +55,7 @@ export function useEventForwarderProvisioningPoll({
     }
 
     setPollTimedOut(false);
+
     const startTime = Date.now();
 
     const poll = async () => {

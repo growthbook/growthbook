@@ -234,6 +234,35 @@ function getCanConfirmEventForwarder(
   return false;
 }
 
+function EventForwarderConfigField({
+  label,
+  value,
+  optional = false,
+}: {
+  label: string;
+  value: string | undefined;
+  optional?: boolean;
+}) {
+  const trimmed = value?.trim();
+
+  return (
+    <Box>
+      <Text size="small" weight="medium" color="text-mid" mb="1">
+        {optional ? `${label} (optional)` : label}
+      </Text>
+      {trimmed ? (
+        <Text as="div">
+          <code style={{ wordBreak: "break-all" }}>{trimmed}</code>
+        </Text>
+      ) : (
+        <Text color="text-low" size="small">
+          {optional ? "Not set" : "None"}
+        </Text>
+      )}
+    </Box>
+  );
+}
+
 function EventForwarderConfirmButton({
   canConfirmEventForwarder,
   usEventForwarderFlowConsent,
@@ -270,10 +299,12 @@ function EventForwarderModal({
   dataSource,
   onCancel,
   onRefresh,
+  onClearError,
 }: {
   dataSource: DataSourceInterfaceWithParams;
   onCancel: () => void;
   onRefresh: () => Promise<void>;
+  onClearError: () => void;
 }) {
   const { apiCall } = useAuth();
   const [datasourceDraft, setDatasourceDraft] =
@@ -345,6 +376,7 @@ function EventForwarderModal({
                   : {}),
               }),
             });
+            onClearError();
             await onRefresh();
             onCancel();
           } catch {
@@ -421,10 +453,6 @@ export default function EventForwarder({
     return null;
   }
 
-  const tableName =
-    eventForwarderConfig && "tableName" in eventForwarderConfig.config
-      ? eventForwarderConfig.config.tableName
-      : "";
   const isReady = eventForwarderConfig?.status === "ready";
   const isPaused = eventForwarderConfig?.status === "paused";
   const primaryConnectorErrorMessage = getPrimaryConnectorErrorMessage({
@@ -434,12 +462,13 @@ export default function EventForwarder({
     taskErrors,
   });
   const showProvisioningError =
-    !!error ||
-    (isError &&
-      (eventForwarderConfig?.status === "error" ||
-        eventForwarderConfig?.status === "schema_update_error" ||
-        pollTimedOut ||
-        !!primaryConnectorErrorMessage));
+    !isProvisioning &&
+    (!!error ||
+      (isError &&
+        (eventForwarderConfig?.status === "error" ||
+          eventForwarderConfig?.status === "schema_update_error" ||
+          pollTimedOut ||
+          !!primaryConnectorErrorMessage)));
   const canToggle = canEdit && (isReady || isPaused);
   const action = isReady ? "pause" : "resume";
 
@@ -542,14 +571,33 @@ export default function EventForwarder({
         <Card>
           <Flex direction="column" gap="3" p="2">
             <Flex direction="column" gap="4">
-              <Box>
-                <Text weight="medium">Destination table: </Text>
-                {tableName ? (
-                  <code>{tableName}</code>
-                ) : (
-                  <Text color="text-low">None</Text>
-                )}
-              </Box>
+              {eventForwarderConfig.sinkType === "bigquery" ? (
+                <EventForwarderConfigField
+                  label="Destination table"
+                  value={eventForwarderConfig.config.tableName}
+                />
+              ) : null}
+              {eventForwarderConfig.sinkType === "snowflake" ? (
+                <>
+                  <EventForwarderConfigField
+                    label="Snowflake URL"
+                    value={eventForwarderConfig.config.accessUrl}
+                  />
+                  <EventForwarderConfigField
+                    label="Destination table"
+                    value={eventForwarderConfig.config.tableName}
+                  />
+                  <EventForwarderConfigField
+                    label="Role"
+                    value={eventForwarderConfig.config.role}
+                  />
+                  <EventForwarderConfigField
+                    label="Warehouse"
+                    value={eventForwarderConfig.config.warehouse}
+                    optional
+                  />
+                </>
+              ) : null}
             </Flex>
 
             {isProvisioning ? (
@@ -572,6 +620,7 @@ export default function EventForwarder({
         <EventForwarderModal
           dataSource={dataSource}
           onCancel={() => setShowEditModal(false)}
+          onClearError={() => setError(null)}
           onRefresh={async () => {
             await onRefresh();
             setShowEditModal(false);
