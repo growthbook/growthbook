@@ -6,6 +6,7 @@ import {
 } from "shared/validators";
 import type { PopulationDataInterface } from "shared/types/population-data";
 import { QueryLanguage } from "./datasource";
+import { SnapshotTriggeredBy, SnapshotType } from "./experiment-snapshot";
 
 export type SqlResultChunkInterface = z.infer<typeof sqlResultChunkValidator>;
 
@@ -90,6 +91,8 @@ export type ExperimentQueryMetadata = {
   experimentProject?: string;
   experimentOwner?: string;
   experimentTags?: string[];
+  snapshotTriggeredBy?: SnapshotTriggeredBy;
+  snapshotType?: SnapshotType;
 };
 
 export type AdditionalQueryMetadata = ExperimentQueryMetadata;
