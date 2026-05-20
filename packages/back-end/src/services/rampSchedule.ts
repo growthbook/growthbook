@@ -1116,7 +1116,12 @@ export async function restartSchedule(
   schedule: RampScheduleInterface,
 ): Promise<RampScheduleInterface> {
   if (schedule.currentStepIndex >= 0) {
-    await rollbackToStep(ctx, schedule, -1, "Restart from terminal");
+    // Suppress the rolledBack webhook — this is a user-initiated restart, not
+    // an automated rollback. The started event fired by startSchedule below is
+    // the authoritative signal for external consumers.
+    await rollbackToStep(ctx, schedule, -1, "Restart from terminal", {
+      emitEvent: false,
+    });
   }
 
   const readied = await ctx.models.rampSchedules.updateById(schedule.id, {
