@@ -8,7 +8,7 @@ import { MetricSnapshotSettings } from "shared/types/report";
 import {
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
-  isAnalysisDimensionPrecomputed,
+  isDimensionPrecomputed,
 } from "shared/experiments";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -196,7 +196,7 @@ export default function ExperimentDimensionBlock({
         setDifferenceType={isEditing ? setDifferenceType : undefined}
         renderMetricName={(metric) => metric.name}
         showErrorsOnQuantileMetrics={analysis?.settings?.dimensions.some((d) =>
-          isAnalysisDimensionPrecomputed(d, honoredPrecomputedUnitDimensionIds),
+          isDimensionPrecomputed(d, honoredPrecomputedUnitDimensionIds),
         )}
         sortBy={blockSortBy ?? null}
         setSortBy={isEditing ? setSortBy : undefined}

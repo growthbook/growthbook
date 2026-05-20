@@ -1482,7 +1482,7 @@ Triggered when an experiment is created
             dateCreated: string;
             dateUpdated: string;
             name: string;
-            type: "standard" | "multi-armed-bandit";
+            type: "standard" | "multi-armed-bandit" | "holdout";
             project: string;
             hypothesis: string;
             description: string;
@@ -1738,7 +1738,7 @@ Triggered when an experiment is updated
             dateCreated: string;
             dateUpdated: string;
             name: string;
-            type: "standard" | "multi-armed-bandit";
+            type: "standard" | "multi-armed-bandit" | "holdout";
             project: string;
             hypothesis: string;
             description: string;
@@ -1955,7 +1955,7 @@ Triggered when an experiment is updated
             dateCreated?: string | undefined;
             dateUpdated?: string | undefined;
             name?: string | undefined;
-            type?: ("standard" | "multi-armed-bandit") | undefined;
+            type?: ("standard" | "multi-armed-bandit" | "holdout") | undefined;
             project?: string | undefined;
             hypothesis?: string | undefined;
             description?: string | undefined;
@@ -2216,7 +2216,7 @@ Triggered when an experiment is deleted
             dateCreated: string;
             dateUpdated: string;
             name: string;
-            type: "standard" | "multi-armed-bandit";
+            type: "standard" | "multi-armed-bandit" | "holdout";
             project: string;
             hypothesis: string;
             description: string;

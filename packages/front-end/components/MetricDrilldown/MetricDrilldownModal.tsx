@@ -5,7 +5,7 @@ import {
   getMetricLink,
   ExperimentMetricInterface,
   ExperimentSortBy,
-  isAnalysisDimensionPrecomputed,
+  isDimensionPrecomputed,
 } from "shared/experiments";
 import {
   DifferenceType,
@@ -258,7 +258,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   );
   const hasDimensionTimeSeries =
     !dimensionInfo ||
-    isAnalysisDimensionPrecomputed(
+    isDimensionPrecomputed(
       dimensionInfo.id,
       getHonoredPrecomputedUnitDimensionIds(
         experiment?.precomputedUnitDimensionIds,
@@ -550,10 +550,13 @@ const MetricDrilldownModal = ({
     <Tabs defaultValue={initialTab}>
       <Modal
         open={true}
+        close={close}
         borderlessHeader={true}
         backgroundlessHeader={true}
         headerClassName={styles.metricDrilldownModalHeader}
         bodyClassName={styles.metricDrilldownModalBody}
+        showHeaderCloseButton={false}
+        includeCloseCta={false}
         dismissible
         header={
           <Flex align="center" gap="0">

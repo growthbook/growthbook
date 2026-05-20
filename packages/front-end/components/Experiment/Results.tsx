@@ -12,7 +12,7 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import {
-  isAnalysisDimensionPrecomputed,
+  isDimensionPrecomputed,
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
 } from "shared/experiments";
@@ -208,7 +208,7 @@ const Results: FC<{
 
   // cannot re-aggregate quantile metrics across pre-computed dimensions
   const showErrorsOnQuantileMetrics = analysis?.settings?.dimensions.some((d) =>
-    isAnalysisDimensionPrecomputed(d, honoredPrecomputedUnitDimensionIds),
+    isDimensionPrecomputed(d, honoredPrecomputedUnitDimensionIds),
   );
 
   const datasource = experiment.datasource

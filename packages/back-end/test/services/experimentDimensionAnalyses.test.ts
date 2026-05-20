@@ -13,7 +13,7 @@ import { logger } from "back-end/src/util/logger";
 jest.mock("shared/experiments", () => ({
   getAllExpandedMetricIdsFromExperiment: jest.fn(() => ["met_1"]),
   isFactMetricId: jest.fn(() => false),
-  isAnalysisDimensionPrecomputed: jest.fn(
+  isDimensionPrecomputed: jest.fn(
     (id: string | undefined, precomputedUnitDimensionIds: string[]) =>
       id?.startsWith("precomputed:") ||
       (!!id && precomputedUnitDimensionIds.includes(id)),

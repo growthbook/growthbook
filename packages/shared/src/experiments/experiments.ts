@@ -1980,7 +1980,7 @@ export function expandAllSliceMetricsInMap({
 // argument is required so callers can't accidentally drop unit-dim support;
 // pass `[]` only when you know unit dimensions don't apply (e.g. parsing a raw
 // dimension string into a `Dimension` for query generation).
-export function isAnalysisDimensionPrecomputed(
+export function isDimensionPrecomputed(
   dimension: string | undefined,
   snapshotUnitDimensionIds: string[],
 ): boolean {

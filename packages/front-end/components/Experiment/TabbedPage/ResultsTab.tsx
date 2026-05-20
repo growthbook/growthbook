@@ -2,7 +2,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { getScopedSettings } from "shared/settings";
 import {
-  isAnalysisDimensionPrecomputed,
+  isDimensionPrecomputed,
   getEffectiveLookbackOverride,
 } from "shared/experiments";
 import React, { useState, useCallback } from "react";
@@ -174,7 +174,7 @@ export default function ResultsTab({
     setAnalysisSettings(null);
     setAnalysisBarSettings((prev) => ({
       ...prev,
-      dimension: isAnalysisDimensionPrecomputed(
+      dimension: isDimensionPrecomputed(
         prev.dimension,
         honoredPrecomputedUnitDimensionIds,
       )

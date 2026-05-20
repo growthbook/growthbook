@@ -740,7 +740,7 @@ const apiExperimentShape = z.object({
   dateCreated: z.string().meta({ format: "date-time" }),
   dateUpdated: z.string().meta({ format: "date-time" }),
   name: z.string(),
-  type: z.enum(["standard", "multi-armed-bandit"]),
+  type: z.enum(["standard", "multi-armed-bandit", "holdout"]),
   project: z.string(),
   hypothesis: z.string(),
   description: z.string(),
@@ -868,9 +868,11 @@ export const apiExperimentResultsValidator = namedSchema(
           metrics: z.array(
             z.object({
               metricId: z.string(),
+              metricName: z.string().optional(),
               variations: z.array(
                 z.object({
                   variationId: z.string(),
+                  variationName: z.string().optional(),
                   users: z.coerce.number().optional(),
                   analyses: z.array(
                     z.object({
@@ -1818,6 +1820,7 @@ export const getExperimentResultsValidator = {
   paramsSchema: idParams,
   responseSchema: z
     .object({
+      experiment: apiExperimentValidator,
       result: apiExperimentResultsValidator,
     })
     .strict(),

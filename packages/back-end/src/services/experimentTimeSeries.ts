@@ -4,7 +4,7 @@ import {
   isFactMetricId,
   expandAllSliceMetricsInMap,
   getLatestPhaseVariations,
-  isAnalysisDimensionPrecomputed,
+  isDimensionPrecomputed,
 } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import {
@@ -171,7 +171,7 @@ export async function updateExperimentAnalysisTimeSeries({
   const [dimensionId] = Array.from(dimensionIds);
   if (
     dimensionId &&
-    !isAnalysisDimensionPrecomputed(
+    !isDimensionPrecomputed(
       dimensionId,
       experimentSnapshot.settings.precomputedUnitDimensionIds ?? [],
     )
