@@ -245,8 +245,9 @@ function EventForwarderModal({
       projects: dataSource.projects,
       eventForwarderConfig: getEventForwarderDraft(dataSource),
     }));
+  const isEditingEventForwarder = !!dataSource.eventForwarderConfig;
   const [usEventForwarderFlowConsent, setUsEventForwarderFlowConsent] =
-    useState(false);
+    useState(isEditingEventForwarder);
 
   const setEventForwarderConfig = (
     eventForwarderConfig: EventForwarderConfigDraft | null,
@@ -258,7 +259,7 @@ function EventForwarderModal({
   };
 
   const eventForwarderConfig = datasourceDraft.eventForwarderConfig;
-  const modalTitle = dataSource.eventForwarderConfig
+  const modalTitle = isEditingEventForwarder
     ? "Edit Event Forwarder"
     : "Set Up Event Forwarder";
   const params = datasourceDraft.params || {};
@@ -332,6 +333,7 @@ function EventForwarderModal({
             <Checkbox
               value={usEventForwarderFlowConsent}
               setValue={setUsEventForwarderFlowConsent}
+              disabled={isEditingEventForwarder}
               label="I understand that event data will flow through GrowthBook's US servers and confirm I'm authorized to enable this for my organization."
               weight="regular"
             />

@@ -30,7 +30,7 @@ const SnowflakeEventForwarderForm: FC<{
   };
 
   return (
-    <Flex direction="column" gap="3">
+    <Flex direction="column">
       <div className="form-group col-md-12 px-0">
         <EventForwarderTableNameField
           label="Snowflake URL"
@@ -51,7 +51,7 @@ const SnowflakeEventForwarderForm: FC<{
           subTitle="The table segment is normalized to uppercase with underscores when saving."
         />
       </div>
-      <div className="form-group col-md-12 px-0">
+      <div className="col-md-12 px-0">
         <Field
           label="Role"
           type="text"
@@ -63,7 +63,7 @@ const SnowflakeEventForwarderForm: FC<{
           helpText="Snowflake role for the event forwarder connector. Defaults from the datasource connection."
         />
       </div>
-      <div className="form-group col-md-12 px-0">
+      <div className="col-md-12 px-0">
         <Field
           label={
             <>
