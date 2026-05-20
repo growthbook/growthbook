@@ -1,6 +1,6 @@
 ---
 title: Publishing & Approval Flows
-description: Learn about drafts, revisions, merge conflicts, and requiring approvals for feature flag changes
+description: Learn about drafts, revisions, merge conflicts, and requiring approvals for feature flag and saved group changes
 sidebar_label: Publishing & Approval Flows
 slug: /features/publishing-and-approval-flows
 ---
@@ -10,7 +10,9 @@ import CommercialFeature from '@site/src/components/CommercialFeature';
 
 # Publishing & Approval Flows
 
-When you make changes to a feature flag in GrowthBook, those changes go through a publishing workflow before they reach your users. This page covers the full lifecycle: drafts, publishing, revisions, merge conflicts, and optional approval flows.
+When you make changes to a feature flag or [saved group](/features/targeting#saved-groups) in GrowthBook, those changes go through a publishing workflow before they reach your users. This page covers the full lifecycle: drafts, publishing, revisions, merge conflicts, and optional approval flows.
+
+The same revision and approval model applies to both feature flags and saved groups. The sections below describe the flow for feature flags first; the [Saved Groups](#saved-groups) section at the end calls out where the saved group experience differs.
 
 ## Drafts and Publishing
 
@@ -117,3 +119,45 @@ Once published, a green "Live" badge confirms the version is published and activ
 Get a detailed diff of the changes between published and draft versions by clicking the **Compare Revisions** button.
 
 ![Compare Revisions button](/images/features/approval-flows/compare-revisions-diff.png)
+
+## Saved Groups
+
+Saved groups follow the same draft → review → publish lifecycle as feature flags. Every change you make to a saved group — editing values or conditions, updating metadata, or archiving it — is tracked as a revision so you can review, compare, and roll back changes over time.
+
+### Saved Group Revisions
+
+When you edit a saved group, GrowthBook creates a draft revision. Drafts are visible to everyone with access to the saved group, but they don't affect SDK evaluations until they're published — so you can stage and review your changes before they reach your users.
+
+From the saved group detail page you can:
+
+- **Switch revisions** — Use the revision dropdown to view the live revision or any open draft. The dropdown shows the author, last update date, and review status for each revision.
+- **Create a new draft** — Click **New Draft** from the live revision to start a new set of changes.
+- **Compare revisions** — Click **Compare revisions** to see a side-by-side diff of any two revisions.
+- **Revert to a previous revision** — Open an older merged revision and click **Revert to Previous** to apply its state as a new draft.
+- **Discard a draft** — Authors can discard their own draft if they no longer want to publish it.
+- **Fix merge conflicts** — If another user publishes changes while your draft is open, click **Fix conflicts** to resolve them before publishing. The conflict resolution flow works the same way it does for features.
+
+### Saved Group Approval Flows
+
+<CommercialFeature feature="require-approvals" />
+
+You can require approvals for saved group changes independently from feature flag approvals.
+
+#### Settings
+
+Enable saved group approvals from **Settings → General → Approval Flows**. The Saved Groups section has its own toggle, separate from the Features section:
+
+- **Require approval to modify Saved Groups** — When enabled, every change to a saved group must be reviewed and approved by someone else before it goes live.
+- **Require approval for** — Approval is always required for changes to values and conditions. Use the **Metadata changes** checkbox to also require approval for edits to the description, owner, project, or tags.
+- **Reset review on changes** — If a draft is modified after it has been approved, the approval is revoked and a new review is required before publishing.
+- **Require approval from a non-editor** — Anyone who edited the draft is blocked from approving it, ensuring a separate reviewer must approve before publishing.
+
+#### Requesting and Reviewing
+
+When approvals are enabled, the **Review & Publish** button on a saved group draft becomes **Request Approval to Publish**. After you submit, reviewers see the request in the saved group's revision list with a **Pending Review** status and can open the **View Approval Request** modal to view the diff, leave comments, and choose **Comment**, **Request Changes**, or **Approve**. As with features, anyone with permission to edit saved groups can review — except the user who created the request when **Require approval from a non-editor** is enabled.
+
+Once approved, anyone with permission to edit saved groups can publish the revision. Admins, and users with `bypassApprovalChecks` on every project the group belongs to, can publish without going through review.
+
+#### Archiving and Unarchiving
+
+Archiving (and unarchiving) a saved group always flows through the revision system. When approval flows are enabled, archive and unarchive actions create a revision that must be approved before it takes effect. Saved groups with active references in features, experiments, or other saved groups cannot be archived until those references are removed.

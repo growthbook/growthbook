@@ -184,6 +184,17 @@ const experimentSchema = new mongoose.Schema({
   attributionModel: String,
   archived: Boolean,
   status: String,
+  statusUpdateSchedule: {
+    _id: false,
+    startAt: Date,
+    stopAt: Date,
+  },
+  nextScheduledStatusUpdate: {
+    _id: false,
+    type: { type: String },
+    date: Date,
+    failedAttempts: Number,
+  },
   results: String,
   analysis: String,
   winner: Number,
@@ -368,6 +379,10 @@ const experimentSchema = new mongoose.Schema({
 experimentSchema.index({ organization: 1, datasource: 1 });
 experimentSchema.index({ organization: 1, project: 1 });
 experimentSchema.index({ organization: 1, trackingKey: 1 });
+experimentSchema.index(
+  { "nextScheduledStatusUpdate.date": 1 },
+  { sparse: true },
+);
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
 
@@ -772,6 +787,32 @@ export async function getExperimentsToUpdateLegacy(
     })
     .limit(100)
     .sort({ nextSnapshotAttempt: 1 })
+    .toArray();
+
+  return experiments.map((exp) => ({
+    id: exp.id,
+    organization: exp.organization,
+  }));
+}
+
+export async function getExperimentsWithScheduledStatusUpdate(): Promise<
+  Pick<ExperimentInterface, "id" | "organization">[]
+> {
+  const now = new Date();
+  const experiments = await getCollection(COLLECTION)
+    .find({
+      "nextScheduledStatusUpdate.date": {
+        $exists: true,
+        $ne: null,
+        $lte: now,
+      },
+    })
+    .project({
+      id: true,
+      organization: true,
+    })
+    .limit(100)
+    .sort({ "nextScheduledStatusUpdate.date": 1 })
     .toArray();
 
   return experiments.map((exp) => ({
