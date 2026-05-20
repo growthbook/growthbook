@@ -240,6 +240,9 @@ export interface ExperimentSnapshotInterface {
   // Results
   unknownVariations: string[];
   multipleExposures: number;
+  // Non-fatal warnings surfaced to the user (e.g., metrics skipped because
+  // they are incompatible with incremental refresh).
+  warnings?: string[];
   analyses: ExperimentSnapshotAnalysis[];
   hasChunkedAnalyses?: boolean;
   // Keyed by `ExperimentSnapshotAnalysis.analysisKey`
