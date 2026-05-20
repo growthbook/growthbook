@@ -3,8 +3,10 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
 import {
   FeatureRulePatch,
+  LockdownConfig,
   RampEvent,
   RampEventType,
+  RampMonitoringConfig,
   RampMonitoringMode,
   RampScheduleInterface,
   RampScheduleTemplateInterface,
@@ -1852,4 +1854,210 @@ export async function approveAndPublishStep(
   }
 
   return null;
+}
+
+export async function updateRampMonitoringConfig(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+  newConfig: RampMonitoringConfig,
+): Promise<RampScheduleInterface> {
+  // Datasource and exposureQuery are baked into the linked SafeRollout at
+  // creation and cannot be changed post-start. Reject early to avoid silent
+  // drift between the schedule config and what the SafeRollout actually queries.
+  if (schedule.safeRolloutId && schedule.monitoringConfig) {
+    const existing = schedule.monitoringConfig;
+    if (
+      newConfig.datasourceId !== existing.datasourceId ||
+      newConfig.exposureQueryId !== existing.exposureQueryId
+    ) {
+      throw new Error(
+        "Cannot change datasourceId or exposureQueryId while a SafeRollout is active. " +
+          "Stop the schedule and create a new one to change the data source.",
+      );
+    }
+  }
+
+  const nextConfig: RampMonitoringConfig = { ...newConfig };
+  const effective = getEffectiveRampAutoUpdateState({
+    ...schedule,
+    monitoringConfig: nextConfig,
+  });
+  const nextSnapshotAt = await getMirroredNextSnapshotAt(
+    ctx,
+    { ...schedule, monitoringConfig: nextConfig },
+    effective.enabled,
+  );
+
+  const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
+    monitoringConfig: nextConfig,
+    nextSnapshotAt,
+    nextProcessAt: computeNextProcessAt({
+      status: schedule.status,
+      nextStepAt: schedule.nextStepAt,
+      nextSnapshotAt,
+      cutoffDate: schedule.cutoffDate,
+      startDate: schedule.startDate,
+    }),
+    eventHistory: appendRampEvent(schedule, "config-edited", {
+      stepIndex: schedule.currentStepIndex,
+      status: schedule.status,
+      reason: "Monitoring config updated via API",
+    }),
+  });
+
+  // Sync guardrail metric IDs onto the linked SafeRollout so the next
+  // snapshot run evaluates the updated set.
+  if (updated.safeRolloutId) {
+    const sr = await ctx.models.safeRollout.getById(updated.safeRolloutId);
+    if (sr) {
+      const allMetricIds = [
+        ...newConfig.guardrailMetricIds,
+        ...(newConfig.signalMetricIds ?? []),
+      ];
+      await ctx.models.safeRollout.update(sr, {
+        guardrailMetricIds: allMetricIds,
+      });
+    }
+  } else {
+    // Lazily attach a SafeRollout if none exists and conditions are now met.
+    await ensureSafeRolloutForMonitoredRamp(ctx, updated);
+  }
+
+  await syncLinkedSafeRolloutForRampState(ctx, updated);
+  return updated;
+}
+
+export async function updateRampLockdownConfig(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+  lockdownConfig: LockdownConfig,
+): Promise<RampScheduleInterface> {
+  return ctx.models.rampSchedules.updateById(schedule.id, {
+    lockdownConfig,
+    eventHistory: appendRampEvent(schedule, "config-edited", {
+      stepIndex: schedule.currentStepIndex,
+      status: schedule.status,
+      reason: `Lockdown mode set to '${lockdownConfig.mode}' via API`,
+    }),
+  });
+}
+
+export type StepMergeResult = {
+  /** Future steps — all fields replaced from incoming. */
+  appliedIndices: number[];
+  /** Current step — only `holdConditions` and `approvalNotes` were applied; `interval`, `monitored`, and `actions` are preserved from the existing step. */
+  partialIndices: number[];
+  /** Past steps (index < currentStepIndex) — incoming changes were ignored entirely. */
+  skippedIndices: number[];
+};
+
+/**
+ * Merges an incoming steps array onto a running schedule with per-position guards:
+ *  - past steps  : frozen — incoming changes are dropped
+ *  - current step: only `holdConditions` and `approvalNotes` may change
+ *  - future steps: full replacement from incoming (preserving existing `actions`
+ *                  when the caller omits them, to avoid wiping coverage patches)
+ */
+export function mergeStepsForRunningSchedule(
+  schedule: RampScheduleInterface,
+  incomingSteps: RampScheduleInterface["steps"],
+): { steps: RampScheduleInterface["steps"]; result: StepMergeResult } {
+  const currentIdx = schedule.currentStepIndex;
+  const appliedIndices: number[] = [];
+  const partialIndices: number[] = [];
+  const skippedIndices: number[] = [];
+
+  const merged: RampScheduleInterface["steps"] = schedule.steps.map(
+    (existing, idx) => {
+      const incoming = incomingSteps[idx];
+
+      if (idx < currentIdx) {
+        if (incoming) skippedIndices.push(idx);
+        return existing;
+      }
+
+      if (idx === currentIdx) {
+        if (!incoming) return existing;
+        partialIndices.push(idx);
+        return {
+          ...existing,
+          holdConditions: incoming.holdConditions,
+          approvalNotes: incoming.approvalNotes,
+        };
+      }
+
+      // Future step — fully editable.
+      // Preserve existing actions when caller omits them (avoids accidentally
+      // clearing coverage patches that require a revision to change).
+      if (!incoming) {
+        skippedIndices.push(idx);
+        return existing;
+      }
+      appliedIndices.push(idx);
+      return {
+        ...incoming,
+        actions:
+          incoming.actions.length > 0 ? incoming.actions : existing.actions,
+      };
+    },
+  );
+
+  // Append genuinely new future steps (beyond the current steps.length).
+  for (let i = schedule.steps.length; i < incomingSteps.length; i++) {
+    merged.push(incomingSteps[i]);
+    appliedIndices.push(i);
+  }
+
+  return {
+    steps: merged,
+    result: { appliedIndices, partialIndices, skippedIndices },
+  };
+}
+
+export async function updateRampSteps(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+  incomingSteps: RampScheduleInterface["steps"],
+): Promise<{
+  schedule: RampScheduleInterface;
+  mergeResult: StepMergeResult | null;
+}> {
+  let finalSteps: RampScheduleInterface["steps"];
+  let mergeResult: StepMergeResult | null = null;
+
+  if (schedule.status === "running") {
+    const merged = mergeStepsForRunningSchedule(schedule, incomingSteps);
+    finalSteps = merged.steps;
+    mergeResult = merged.result;
+  } else {
+    finalSteps = incomingSteps;
+  }
+
+  // Q9: clamp currentStepIndex when editing a paused schedule whose step
+  // count shrank below the current index.
+  const clamp =
+    schedule.status === "paused" &&
+    schedule.currentStepIndex >= finalSteps.length
+      ? {
+          currentStepIndex: Math.max(finalSteps.length - 1, -1),
+          nextStepAt: null,
+        }
+      : {};
+
+  const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
+    steps: finalSteps,
+    ...clamp,
+    eventHistory: appendRampEvent(schedule, "config-edited", {
+      stepIndex: schedule.currentStepIndex,
+      status: schedule.status,
+      reason: "Steps updated via API",
+    }),
+  });
+
+  // Re-sync SafeRollout status/autoSnapshots in case monitored-step membership
+  // changed, and lazily attach a SafeRollout if conditions are now met.
+  const ensured = await ensureSafeRolloutForMonitoredRamp(ctx, updated);
+  await syncLinkedSafeRolloutForRampState(ctx, ensured);
+
+  return { schedule: ensured, mergeResult };
 }

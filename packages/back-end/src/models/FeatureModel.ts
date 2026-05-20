@@ -54,6 +54,7 @@ import {
   assertFeatureNotLockedByRamp,
   computeNextProcessAt,
   getStartActionsFromRules,
+  mergeStepsForRunningSchedule,
   remapTemplateActions,
   startReadyScheduleNow,
 } from "back-end/src/services/rampSchedule";
@@ -1956,12 +1957,17 @@ async function createRampSchedulesForRevision(
     // ready → running between when the user opened the modal and when this
     // revision was published. Since the UI prevents editing a running
     // schedule's steps/startDate, a stale draft update here is almost always
-    // an accidental race. We apply only the safe metadata fields (the same
-    // surface the direct-edit controller exposes for running schedules) and
-    // silently drop the structural changes (steps, startActions, startDate).
-    // This keeps publish from failing while avoiding mid-run step desyncs.
+    // an accidental race. We apply metadata updates normally and use
+    // mergeStepsForRunningSchedule for steps: past steps are frozen, the
+    // current step only accepts holdConditions/approvalNotes, and future steps
+    // are fully applied — keeping publish from failing while avoiding
+    // mid-run structural desyncs.
     if (existingSchedule?.status === "running") {
-      const safeUpdates: Record<string, unknown> = {};
+      const { steps: mergedSteps } = mergeStepsForRunningSchedule(
+        existingSchedule,
+        steps,
+      );
+      const safeUpdates: Record<string, unknown> = { steps: mergedSteps };
       if (updateAction.name !== undefined) safeUpdates.name = updateAction.name;
       if (updateAction.cutoffDate !== undefined)
         safeUpdates.cutoffDate = nextCutoffDate;
@@ -1969,7 +1975,6 @@ async function createRampSchedulesForRevision(
         safeUpdates.monitoringConfig = nextMonitoringConfig;
       if (updateAction.lockdownConfig !== undefined)
         safeUpdates.lockdownConfig = updateAction.lockdownConfig;
-      if (Object.keys(safeUpdates).length === 0) continue;
       await context.models.rampSchedules.updateById(
         updateAction.rampScheduleId,
         {

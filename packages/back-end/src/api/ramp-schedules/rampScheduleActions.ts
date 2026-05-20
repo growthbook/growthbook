@@ -1,7 +1,18 @@
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { PermissionError } from "shared/util";
-import { apiRampScheduleInterface } from "shared/validators";
+import {
+  apiRampScheduleInterface,
+  rampMonitoringConfig,
+  lockdownConfigSchema,
+  stepHoldConditions,
+} from "shared/validators";
+import {
+  DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+  DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+} from "shared/constants";
+import { getHealthSettings } from "shared/enterprise";
+import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import {
   advanceScheduleManually,
   approveAndPublishStep,
@@ -15,9 +26,14 @@ import {
   resumeSchedule,
   setRampMonitoringMode,
   startSchedule,
+  updateRampLockdownConfig,
+  updateRampMonitoringConfig,
+  updateRampSteps,
 } from "back-end/src/services/rampSchedule";
+import { evaluateCurrentStep } from "back-end/src/services/rampScheduleEvaluator";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
+import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   rampTargetsEquivalent,
@@ -461,6 +477,128 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
   return { rampSchedule: rampScheduleToApiInterface(current) };
 });
 
+const healthSummaryMetricSchema = z.object({
+  id: z.string().describe("Metric ID."),
+  name: z
+    .string()
+    .optional()
+    .describe(
+      "Human-readable metric name. Absent if the metric definition has been deleted.",
+    ),
+  status: z
+    .enum(["failing", "within-bounds", "not-enough-data"])
+    .describe(
+      "`failing` = statistically significant regression; `within-bounds` = no significant harm detected; `not-enough-data` = insufficient data to evaluate.",
+    ),
+  role: z
+    .enum(["guardrail", "signal"])
+    .describe(
+      "Whether this metric is a guardrail (triggers rollback on loss) or a signal (triggers hold on loss).",
+    ),
+  relativeLift: z
+    .number()
+    .optional()
+    .describe(
+      "Expected relative lift of the treatment vs control (e.g. 0.05 = +5%).",
+    ),
+  absoluteLift: z
+    .number()
+    .optional()
+    .describe(
+      "Absolute difference in conversion rate between treatment and control.",
+    ),
+  ciHarmBound: z
+    .number()
+    .optional()
+    .describe(
+      "One-tailed CI bound in the direction of potential harm. For normal metrics (higher is better) this is the lower CI bound; for inverse metrics (lower is better, e.g. errors, latency) this is the upper CI bound. Values further from zero in the harmful direction indicate greater potential regression.",
+    ),
+  pValue: z
+    .number()
+    .optional()
+    .describe(
+      "Two-sided p-value for the metric effect. Only present when the stats engine produces a frequentist result.",
+    ),
+});
+
+const healthSummarySchema = z.object({
+  safeToAdvance: z
+    .boolean()
+    .describe(
+      "True only when every hold condition is cleared: the step interval has elapsed, any required approval has been granted, min sample size is met, and all monitored metrics are within bounds. Equivalent to `decision === 'advance'`.",
+    ),
+  decision: z
+    .enum(["advance", "hold", "rollback", "pause", "no-data"])
+    .describe(
+      "Current evaluator decision for the active step. Incorporates all hold conditions (timing, approval, min sample, metric health). `no-data` means the SafeRollout or its analysis is not yet available.",
+    ),
+  decisionReason: z
+    .string()
+    .optional()
+    .describe("Human-readable reason for a hold, rollback, or pause decision."),
+  signals: z
+    .array(
+      z.enum([
+        "guardrail-failing",
+        "signal-regression",
+        "srm",
+        "multiple-exposures",
+        "no-traffic",
+        "below-min-sample",
+        "healthy",
+        "awaiting-data",
+      ]),
+    )
+    .describe(
+      "All active health signals, not just the top-priority one. Useful for surfacing multiple concurrent issues (e.g. SRM + guardrail failing simultaneously). `healthy` is the sole entry when no issues are detected.",
+    ),
+  snapshotAt: z
+    .string()
+    .optional()
+    .describe("ISO timestamp of the most recent successful analysis snapshot."),
+  traffic: z
+    .object({
+      totalUsers: z
+        .number()
+        .describe("Total unique users across all variations."),
+      variationUnits: z
+        .array(z.number())
+        .describe(
+          "Per-variation user counts. Index 0 = control, index 1 = treatment.",
+        ),
+      srm: z
+        .object({
+          pValue: z.number().describe("SRM p-value from the traffic query."),
+          status: z
+            .enum(["ok", "failing"])
+            .describe(
+              "`failing` when p-value is below the org SRM threshold, indicating a traffic imbalance.",
+            ),
+        })
+        .optional(),
+      multipleExposures: z
+        .object({
+          count: z
+            .number()
+            .describe("Number of users exposed to both variations."),
+          percent: z
+            .number()
+            .describe("Fraction of total users with multiple exposures (0–1)."),
+          status: z.enum(["ok", "warning"]),
+        })
+        .optional(),
+    })
+    .optional()
+    .describe(
+      "Traffic health from the latest snapshot. Absent when no snapshot has been taken yet.",
+    ),
+  metrics: z
+    .record(z.string(), healthSummaryMetricSchema)
+    .describe(
+      "Per-metric health keyed by metric ID. Only includes metrics configured as guardrails or signals on this schedule.",
+    ),
+});
+
 export const getRampScheduleStatus = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: z.never(),
@@ -485,6 +623,11 @@ export const getRampScheduleStatus = createApiRequestHandler({
         safeRolloutId: z.string().nullable().optional(),
       })
       .optional(),
+    healthSummary: healthSummarySchema
+      .optional()
+      .describe(
+        "Populated when monitoring is configured and a SafeRollout is linked. Contains the current evaluator decision, aggregate traffic health, and per-metric status with effect sizes.",
+      ),
   }),
   method: "get" as const,
   path: "/ramp-schedules/:id/status",
@@ -518,6 +661,223 @@ export const getRampScheduleStatus = createApiRequestHandler({
       })()
     : undefined;
 
+  let healthSummary: z.infer<typeof healthSummarySchema> | undefined;
+
+  if (schedule.safeRolloutId && schedule.monitoringConfig) {
+    const safeRollout = await req.context.models.safeRollout.getById(
+      schedule.safeRolloutId,
+    );
+
+    if (!safeRollout?.analysisSummary) {
+      const decision = await evaluateCurrentStep(
+        req.context,
+        schedule,
+        new Date(),
+      );
+      healthSummary = {
+        safeToAdvance: decision.action === "advance",
+        decision: decision.action,
+        decisionReason: "reason" in decision ? decision.reason : undefined,
+        signals: ["awaiting-data"],
+        metrics: {},
+      };
+    } else {
+      const summary = safeRollout.analysisSummary;
+
+      const snapshot = summary.snapshotId
+        ? await req.context.models.safeRolloutSnapshots.getById(
+            summary.snapshotId,
+          )
+        : null;
+
+      // Index per-metric deviation data from the first successful analysis,
+      // "All" dimension (results[0]), treatment variation (index 1).
+      const snapshotAnalysis = snapshot?.analyses?.find(
+        (a) => a.status === "success",
+      );
+      const allDimResult = snapshotAnalysis?.results?.[0];
+      const controlMetrics = allDimResult?.variations?.[0]?.metrics ?? {};
+      const treatmentMetrics = allDimResult?.variations?.[1]?.metrics ?? {};
+
+      // --- Traffic health ---
+      const trafficOverall = snapshot?.health?.traffic?.overall;
+      const variationUnits = trafficOverall?.variationUnits ?? [];
+      const totalUsers = variationUnits.reduce((a, b) => a + b, 0);
+
+      const healthSettings = getHealthSettings(req.context.org.settings);
+      const srmPValue = trafficOverall?.srm;
+
+      let trafficBlock:
+        | z.infer<typeof healthSummarySchema>["traffic"]
+        | undefined;
+      if (snapshot) {
+        const srmHealthStatus =
+          srmPValue !== undefined && totalUsers > 0
+            ? getSRMHealthData({
+                srm: srmPValue,
+                srmThreshold: healthSettings.srmThreshold,
+                numOfVariations: 2,
+                totalUsersCount: totalUsers,
+                minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+              })
+            : null;
+
+        const meCount = snapshot.multipleExposures ?? 0;
+        const meHealth =
+          totalUsers > 0
+            ? getMultipleExposureHealthData({
+                multipleExposuresCount: meCount,
+                totalUsersCount: totalUsers,
+                minCountThreshold:
+                  DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+                minPercentThreshold: healthSettings.multipleExposureMinPercent,
+              })
+            : null;
+
+        trafficBlock = {
+          totalUsers,
+          variationUnits,
+          srm:
+            srmPValue !== undefined
+              ? {
+                  pValue: srmPValue,
+                  status: srmHealthStatus === "unhealthy" ? "failing" : "ok",
+                }
+              : undefined,
+          multipleExposures: meHealth
+            ? {
+                count: meCount,
+                percent: totalUsers > 0 ? meCount / totalUsers : 0,
+                status: meHealth.status === "unhealthy" ? "warning" : "ok",
+              }
+            : undefined,
+        };
+      }
+
+      // --- Metric inverse map (load only the relevant IDs) ---
+      const allMetricIds = [
+        ...(schedule.monitoringConfig.guardrailMetricIds ?? []),
+        ...(schedule.monitoringConfig.signalMetricIds ?? []),
+      ];
+      const legacyMetrics = await getMetricsByIds(req.context, allMetricIds);
+      const inverseMap = new Map<string, boolean>();
+      const nameMap = new Map<string, string>();
+      for (const m of legacyMetrics) {
+        inverseMap.set(m.id, !!m.inverse);
+        nameMap.set(m.id, m.name);
+      }
+      const missingIds = allMetricIds.filter((id) => !inverseMap.has(id));
+      await Promise.all(
+        missingIds.map(async (id) => {
+          const fm = await req.context.models.factMetrics.getById(id);
+          if (fm) {
+            inverseMap.set(id, !!fm.inverse);
+            nameMap.set(id, fm.name);
+          }
+        }),
+      );
+
+      const guardrailIds = new Set(
+        schedule.monitoringConfig.guardrailMetricIds ?? [],
+      );
+      const signalIds = new Set(
+        schedule.monitoringConfig.signalMetricIds ?? [],
+      );
+
+      // --- Per-metric health ---
+      const metrics: z.infer<typeof healthSummarySchema>["metrics"] = {};
+      const variations = summary.resultsStatus?.variations ?? [];
+      const treatmentVar = variations[1] ?? variations[0];
+
+      for (const [metricId, gm] of Object.entries(
+        treatmentVar?.guardrailMetrics ?? {},
+      )) {
+        const tm = treatmentMetrics[metricId];
+        const cm = controlMetrics[metricId];
+        const isInverse = inverseMap.get(metricId) ?? false;
+        metrics[metricId] = {
+          id: metricId,
+          name: nameMap.get(metricId),
+          status:
+            gm.status === "lost"
+              ? "failing"
+              : gm.status === "safe"
+                ? "within-bounds"
+                : "not-enough-data",
+          role: guardrailIds.has(metricId) ? "guardrail" : "signal",
+          relativeLift: tm?.expected,
+          absoluteLift:
+            tm?.cr !== undefined && cm?.cr !== undefined
+              ? tm.cr - cm.cr
+              : undefined,
+          ciHarmBound:
+            tm?.ci !== undefined
+              ? isInverse
+                ? tm.ci[1]
+                : tm.ci[0]
+              : undefined,
+          pValue: tm?.pValue,
+        };
+      }
+
+      // --- Signals (mirrors frontend computeSignals, all issues at once) ---
+      const signals: z.infer<typeof healthSummarySchema>["signals"] = [];
+
+      if (!snapshot) {
+        signals.push("awaiting-data");
+      } else if (totalUsers === 0) {
+        const monitoringStart =
+          schedule.monitoringStartDate ??
+          schedule.currentStepEnteredAt ??
+          schedule.startedAt;
+        const inGrace =
+          !!monitoringStart &&
+          Date.now() - new Date(monitoringStart).getTime() <
+            24 * 60 * 60 * 1000;
+        signals.push(inGrace ? "awaiting-data" : "no-traffic");
+      } else {
+        if (trafficBlock?.srm?.status === "failing") signals.push("srm");
+
+        if (trafficBlock?.multipleExposures?.status === "warning")
+          signals.push("multiple-exposures");
+
+        const currentStep = schedule.steps[schedule.currentStepIndex];
+        const minSample = currentStep?.holdConditions?.minSampleSize;
+        if (minSample && totalUsers < minSample)
+          signals.push("below-min-sample");
+
+        let hasGuardrailFailing = false;
+        let hasSignalRegression = false;
+        for (const [metricId, entry] of Object.entries(metrics)) {
+          if (entry.status !== "failing") continue;
+          if (guardrailIds.has(metricId)) hasGuardrailFailing = true;
+          else if (signalIds.has(metricId)) hasSignalRegression = true;
+        }
+        if (hasGuardrailFailing) signals.push("guardrail-failing");
+        if (hasSignalRegression) signals.push("signal-regression");
+
+        if (signals.length === 0) signals.push("healthy");
+      }
+
+      // --- Evaluator decision (incorporates ALL hold conditions) ---
+      const decision = await evaluateCurrentStep(
+        req.context,
+        schedule,
+        new Date(),
+      );
+
+      healthSummary = {
+        safeToAdvance: decision.action === "advance",
+        decision: decision.action,
+        decisionReason: "reason" in decision ? decision.reason : undefined,
+        signals,
+        snapshotAt: snapshot?.dateCreated?.toISOString(),
+        traffic: trafficBlock,
+        metrics,
+      };
+    }
+  }
+
   return {
     id: schedule.id,
     status: schedule.status,
@@ -528,6 +888,7 @@ export const getRampScheduleStatus = createApiRequestHandler({
     lastRollbackAt: schedule.lastRollbackAt?.toISOString() ?? null,
     lastRollbackReason: schedule.lastRollbackReason ?? null,
     monitoring,
+    healthSummary,
   };
 });
 
@@ -589,4 +950,152 @@ export const setAutoUpdateRampSchedule = createApiRequestHandler({
     req.body.enabled ? "auto" : "manual",
   );
   return rampScheduleToApiInterface(updated);
+});
+
+export const updateMonitoringConfigRampSchedule = createApiRequestHandler({
+  paramsSchema: actionParamsSchema,
+  bodySchema: rampMonitoringConfig.describe(
+    "Full replacement of the monitoring configuration. `datasourceId` and `exposureQueryId` cannot be changed while a SafeRollout is active.",
+  ),
+  responseSchema: apiRampScheduleInterface,
+  method: "put" as const,
+  path: "/ramp-schedules/:id/monitoring",
+  operationId: "updateRampScheduleMonitoring",
+  summary: "Update ramp monitoring configuration",
+  description:
+    "Replaces the monitoring configuration for a ramp schedule. Metric IDs, snapshot cadence, and health-action thresholds (srmAction, noTrafficAction, etc.) can be changed at any time. `datasourceId` and `exposureQueryId` cannot be changed while a SafeRollout is active — stop the schedule first.\n\nChanges to guardrail/signal metric IDs are synced onto the linked SafeRollout immediately so the next snapshot evaluates the updated set.\n",
+  tags: ["ramp-schedules"],
+})(async (req) => {
+  const schedule = await req.context.models.rampSchedules.getById(
+    req.params.id,
+  );
+  if (!schedule) throw new Error("Ramp schedule not found");
+  const updated = await updateRampMonitoringConfig(
+    req.context,
+    schedule,
+    req.body,
+  );
+  return rampScheduleToApiInterface(updated);
+});
+
+export const updateLockdownConfigRampSchedule = createApiRequestHandler({
+  paramsSchema: actionParamsSchema,
+  bodySchema: lockdownConfigSchema,
+  responseSchema: apiRampScheduleInterface,
+  method: "put" as const,
+  path: "/ramp-schedules/:id/lockdown",
+  operationId: "updateRampScheduleLockdown",
+  summary: "Update ramp lockdown configuration",
+  description:
+    "Sets the lockdown mode for a ramp schedule. `locked` prevents the ramp from advancing past its current step without manual operator intervention regardless of metric health. `none` restores normal auto-advance behavior.\n",
+  tags: ["ramp-schedules"],
+})(async (req) => {
+  const schedule = await req.context.models.rampSchedules.getById(
+    req.params.id,
+  );
+  if (!schedule) throw new Error("Ramp schedule not found");
+  const updated = await updateRampLockdownConfig(
+    req.context,
+    schedule,
+    req.body,
+  );
+  return rampScheduleToApiInterface(updated);
+});
+
+const putStepSchema = z.object({
+  interval: z
+    .number()
+    .positive()
+    .nullable()
+    .describe(
+      "Hold duration in seconds before this step's gates are evaluated. `null` means no time gate.",
+    ),
+  monitored: z
+    .boolean()
+    .optional()
+    .describe(
+      "When true this step is backed by a SafeRollout experiment. Only applies to future steps — cannot be changed on the current running step.",
+    ),
+  holdConditions: stepHoldConditions
+    .optional()
+    .describe(
+      "Additional gates that must clear before the step advances: `minSampleSize` and/or `requiresApproval`.",
+    ),
+  approvalNotes: z
+    .string()
+    .nullish()
+    .describe(
+      "Optional notes shown to approvers when the step is awaiting approval.",
+    ),
+});
+
+export const updateStepsRampSchedule = createApiRequestHandler({
+  paramsSchema: actionParamsSchema,
+  bodySchema: z.object({
+    steps: z
+      .array(putStepSchema)
+      .describe(
+        "Full replacement of the steps array. Step-level coverage patches (`actions`) are intentionally excluded — those require a revision publish because they change the SDK payload. Use the revision flow to modify coverage/targeting; use this endpoint to update monitoring flags and hold conditions.",
+      ),
+  }),
+  responseSchema: z.object({
+    rampSchedule: apiRampScheduleInterface,
+    applied: z.object({
+      fullyApplied: z
+        .array(z.number())
+        .describe(
+          "Step indices where all incoming fields were applied (future steps).",
+        ),
+      partiallyApplied: z
+        .array(z.number())
+        .describe(
+          "Step indices where only `holdConditions` and `approvalNotes` were applied because the step is currently executing.",
+        ),
+      skipped: z
+        .array(z.number())
+        .describe(
+          "Step indices where incoming changes were ignored because the step has already executed (index < currentStepIndex).",
+        ),
+    }),
+  }),
+  method: "put" as const,
+  path: "/ramp-schedules/:id/steps",
+  operationId: "updateRampScheduleSteps",
+  summary: "Update ramp schedule steps",
+  description:
+    "Replaces the steps array for a ramp schedule.\n\n**Running schedules:** past steps are frozen; the current step accepts only `holdConditions` and `approvalNotes`; future steps are fully editable. The `applied` object in the response details exactly what was applied vs restricted.\n\n**Step actions** (coverage/targeting patches) are excluded from this endpoint — they require a feature revision publish to keep the SDK payload consistent. Use the revision draft flow (`PUT /v2/features/:id/revisions/:version/rules/:ruleId/ramp-schedule`) to change step actions.\n",
+  tags: ["ramp-schedules"],
+})(async (req) => {
+  const schedule = await req.context.models.rampSchedules.getById(
+    req.params.id,
+  );
+  if (!schedule) throw new Error("Ramp schedule not found");
+
+  // Normalize incoming steps to the internal shape, preserving existing step
+  // actions (coverage patches) since the PUT body intentionally omits them.
+  const incomingSteps: (typeof schedule)["steps"] = req.body.steps.map(
+    (s, idx) => ({
+      interval: s.interval,
+      monitored: s.monitored ?? false,
+      holdConditions: s.holdConditions,
+      approvalNotes: s.approvalNotes ?? undefined,
+      actions: schedule.steps[idx]?.actions ?? [],
+    }),
+  );
+
+  const { schedule: updated, mergeResult } = await updateRampSteps(
+    req.context,
+    schedule,
+    incomingSteps,
+  );
+
+  return {
+    rampSchedule: rampScheduleToApiInterface(updated),
+    applied: {
+      fullyApplied:
+        mergeResult?.appliedIndices ?? req.body.steps.map((_, i) => i),
+      partiallyApplied: mergeResult?.partialIndices ?? [],
+      skipped: mergeResult?.skippedIndices ?? [],
+    },
+  };
 });

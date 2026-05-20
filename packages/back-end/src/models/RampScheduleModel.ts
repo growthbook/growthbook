@@ -878,6 +878,16 @@ export class RampScheduleModel extends BaseClass {
     return this._find({ entityType: "feature", entityId: featureId });
   }
 
+  public async getAllByFeatureIds(
+    featureIds: string[],
+  ): Promise<RampScheduleInterface[]> {
+    if (featureIds.length === 0) return [];
+    return this._find({
+      entityType: "feature",
+      entityId: { $in: featureIds },
+    });
+  }
+
   public async findByTargetRule(
     ruleId: string,
     environment?: string | null,

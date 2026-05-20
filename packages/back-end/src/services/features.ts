@@ -27,6 +27,7 @@ import {
   checkIfRevisionNeedsReview,
   ruleAppliesToEnv,
   namespacesToMap,
+  stemRuleId,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -1922,6 +1923,7 @@ export function getApiFeatureObjV2({
   revision,
   revisions,
   safeRolloutMap,
+  rampScheduleMap,
 }: {
   feature: FeatureInterface;
   organization: OrganizationInterface;
@@ -1930,6 +1932,7 @@ export function getApiFeatureObjV2({
   revision: FeatureRevisionInterface | null;
   revisions?: FeatureRevisionInterface[];
   safeRolloutMap: Map<string, SafeRolloutInterface>;
+  rampScheduleMap?: Map<string, string>;
 }): ApiFeatureWithRevisionsV2 {
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironmentV2> = {};
@@ -1952,9 +1955,12 @@ export function getApiFeatureObjV2({
     }
   });
 
-  const apiRules: ApiFeatureRuleV2[] = (feature.rules ?? []).map(
-    normalizeRuleForApiV2,
-  );
+  const apiRules: ApiFeatureRuleV2[] = (feature.rules ?? []).map((rule) => {
+    const normalized = normalizeRuleForApiV2(rule);
+    const rampScheduleId =
+      rampScheduleMap?.get(stemRuleId(rule.id ?? "")) ?? undefined;
+    return rampScheduleId ? { ...normalized, rampScheduleId } : normalized;
+  });
 
   const revisionDefs = revisions?.map(revisionToApiInterfaceV2);
 

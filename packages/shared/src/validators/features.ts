@@ -555,6 +555,12 @@ export const apiFeatureBaseRuleValidator = namedSchema(
           "UI hint for which scheduling mode is active:\n- `none` \u2013 no schedule\n- `schedule` \u2013 simple time-based enable/disable via `scheduleRules`\n- `ramp` \u2013 multi-step ramp-up controlled by an associated RampSchedule document\n",
         )
         .optional(),
+      rampScheduleId: z
+        .string()
+        .describe(
+          "ID of the active RampSchedule document controlling this rule. Present when `scheduleType` is `ramp` and a live schedule exists.",
+        )
+        .optional(),
       savedGroupTargeting: z
         .array(
           z.object({

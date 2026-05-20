@@ -77,7 +77,7 @@ pnpm --filter back-end test path/to/test.ts
 ### Back-end: Two API Types
 
 1. **Internal API** (for front-end app): Controllers in `src/controllers/` + routers in `src/routers/`, session cookie auth, wrapped with `wrapController()`
-2. **External REST API** (for customers): Handlers in `src/api/`, mounted at `/api/v1/`, API key Bearer auth, uses `createApiRequestHandler()`
+2. **External REST API** (for customers): Handlers in `src/api/`, mounted at `/api/v2/` and `/api/v1/` (prefer supporting v2 endpoints instead of v1 when both exist), API key Bearer auth, uses `createApiRequestHandler()`
 
 New routers go in `src/routers/`, not in `src/app.ts` (legacy pattern).
 

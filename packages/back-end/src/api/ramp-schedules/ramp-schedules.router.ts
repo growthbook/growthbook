@@ -14,6 +14,9 @@ import {
   getRampScheduleStatus,
   setMonitoringModeRampSchedule,
   setAutoUpdateRampSchedule,
+  updateMonitoringConfigRampSchedule,
+  updateLockdownConfigRampSchedule,
+  updateStepsRampSchedule,
 } from "./rampScheduleActions";
 import { listRampSchedules } from "./listRampSchedules";
 import { postRampSchedule } from "./postRampSchedule";
@@ -37,4 +40,7 @@ export const rampSchedulesRoutes: OpenApiRoute[] = [
   getRampScheduleStatus,
   setMonitoringModeRampSchedule,
   setAutoUpdateRampSchedule,
+  updateMonitoringConfigRampSchedule,
+  updateLockdownConfigRampSchedule,
+  updateStepsRampSchedule,
 ];
