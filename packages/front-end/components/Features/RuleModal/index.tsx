@@ -753,31 +753,27 @@ export default function RuleModal({
             const withTargetingAttributes = queries.filter(
               (q) => (q.targetingAttributeColumns?.length ?? 0) > 0,
             );
-            if (queries.length === 0) {
-              setStep(3);
-              throw new Error(
-                "No Experiment Assignment Tables exist for this data source. Add a contextual bandit assignment query on the data source page, then try again.",
-              );
-            }
-            if (withTargetingAttributes.length === 0) {
-              setStep(3);
+            if (queries.length > 0 && withTargetingAttributes.length === 0) {
+              setStep(2);
               throw new Error(
                 "No Experiment Assignment Tables with targeting attributes exist for this data source. Add attributes to an experiment assignment table on the data source page, then try again.",
               );
             }
-            const selected = queries.find(
-              (q) => q.id === experimentValues.exposureQueryId,
-            );
-            if (
-              !selected?.targetingAttributeColumns?.length ||
-              !withTargetingAttributes.some(
+            if (withTargetingAttributes.length > 0) {
+              const selected = queries.find(
                 (q) => q.id === experimentValues.exposureQueryId,
-              )
-            ) {
-              setStep(3);
-              throw new Error(
-                "Select an Experiment Assignment Table that has targeting attribute columns configured.",
               );
+              if (
+                !selected?.targetingAttributeColumns?.length ||
+                !withTargetingAttributes.some(
+                  (q) => q.id === experimentValues.exposureQueryId,
+                )
+              ) {
+                setStep(2);
+                throw new Error(
+                  "Select an Experiment Assignment Table that has targeting attribute columns configured.",
+                );
+              }
             }
           }
           if ((experimentValues.goalMetrics?.length ?? 0) !== 1) {
@@ -1697,7 +1693,7 @@ export default function RuleModal({
           : null}
 
         {ruleType === "experiment-ref-new" && experimentType === "bandit"
-          ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => (
+          ? ["Overview", "Traffic", "Metrics"].map((p, i) => (
               <Page display={p} key={i}>
                 <BanditRefNewFields
                   step={i}
