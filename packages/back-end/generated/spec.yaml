@@ -192,6 +192,12 @@ tags:
   - name: segments
     x-displayName: Segments
     description: Segments used during experiment analysis
+  - name: reports
+    x-displayName: Experiment Reports
+    description: >-
+      Custom analysis reports built on top of experiment snapshots. Reports let
+      you re-run analysis with different metrics, date ranges, stats engines,
+      and other settings without modifying the underlying experiment.
   - name: sdk-connections
     x-displayName: SDK Connections
     description: Client keys and settings for connecting SDKs to a GrowthBook instance
@@ -440,6 +446,9 @@ tags:
   - name: RampScheduleTemplate_model
     x-displayName: RampScheduleTemplate
     description: <SchemaDefinition schemaRef="#/components/schemas/RampScheduleTemplate" />
+  - name: Report_model
+    x-displayName: Report
+    description: <SchemaDefinition schemaRef="#/components/schemas/Report" />
   - name: SavedGroup_model
     x-displayName: SavedGroup
     description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroup" />
@@ -17246,6 +17255,627 @@ paths:
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/eject-target'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/reports:
+    get:
+      operationId: listReports
+      summary: Get all reports
+      tags:
+        - reports
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - name: experimentId
+          in: query
+          description: Filter reports by experiment id
+          schema:
+            description: Filter reports by experiment id
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      reports:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Report'
+                    required:
+                      - reports
+                    additionalProperties: false
+                  - $ref: '#/components/schemas/PaginationFields'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/reports' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: postReport
+      summary: Create a new report
+      tags:
+        - reports
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                experimentId:
+                  description: The experiment to create a report for
+                  type: string
+                title:
+                  description: Report title (defaults to experiment name)
+                  type: string
+                description:
+                  description: Report description
+                  type: string
+                statsEngine:
+                  description: Stats engine override
+                  type: string
+                  enum:
+                    - bayesian
+                    - frequentist
+                goalMetrics:
+                  description: Goal metric IDs (defaults to experiment's goal metrics)
+                  type: array
+                  items:
+                    type: string
+                secondaryMetrics:
+                  description: >-
+                    Secondary metric IDs (defaults to experiment's secondary
+                    metrics)
+                  type: array
+                  items:
+                    type: string
+                guardrailMetrics:
+                  description: >-
+                    Guardrail metric IDs (defaults to experiment's guardrail
+                    metrics)
+                  type: array
+                  items:
+                    type: string
+                activationMetric:
+                  description: Activation metric ID
+                  type: string
+                dimension:
+                  description: Dimension to cut results by
+                  type: string
+                dateStarted:
+                  format: date-time
+                  description: Analysis start date (ISO 8601)
+                  type: string
+                dateEnded:
+                  format: date-time
+                  description: Analysis end date (ISO 8601)
+                  type: string
+                regressionAdjustmentEnabled:
+                  description: Enable CUPED regression adjustment
+                  type: boolean
+                sequentialTestingEnabled:
+                  description: Enable sequential testing
+                  type: boolean
+                sequentialTestingTuningParameter:
+                  description: Tuning parameter for sequential testing (frequentist only)
+                  type: number
+                differenceType:
+                  description: >-
+                    How lifts are expressed in results. Defaults to experiment
+                    setting.
+                  type: string
+                  enum:
+                    - relative
+                    - absolute
+                    - scaled
+                attributionModel:
+                  description: >-
+                    Metric conversion window attribution model. Defaults to
+                    experiment setting.
+                  type: string
+                  enum:
+                    - firstExposure
+                    - experimentDuration
+                    - lookbackOverride
+                lookbackOverride:
+                  description: >-
+                    Lookback window when `attributionModel` is
+                    `lookbackOverride`
+                  anyOf:
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: date
+                        value: {}
+                      required:
+                        - type
+                        - value
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: window
+                        value:
+                          type: number
+                          minimum: 0
+                        valueUnit:
+                          type: string
+                          enum:
+                            - minutes
+                            - hours
+                            - days
+                            - weeks
+                      required:
+                        - type
+                        - value
+                        - valueUnit
+                      additionalProperties: false
+                metricOverrides:
+                  description: Per-metric window, risk, and regression-adjustment overrides
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      windowType:
+                        type: string
+                        enum:
+                          - conversion
+                          - lookback
+                          - ''
+                      windowHours:
+                        type: number
+                      delayHours:
+                        type: number
+                      winRisk:
+                        type: number
+                      loseRisk:
+                        type: number
+                      properPriorOverride:
+                        type: boolean
+                      properPriorEnabled:
+                        type: boolean
+                      properPriorMean:
+                        type: number
+                      properPriorStdDev:
+                        type: number
+                      regressionAdjustmentOverride:
+                        type: boolean
+                      regressionAdjustmentEnabled:
+                        type: boolean
+                      regressionAdjustmentDays:
+                        type: number
+                    required:
+                      - id
+                    additionalProperties: false
+                customMetricSlices:
+                  description: Custom metric slice definitions
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      slices:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            column:
+                              type: string
+                            levels:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - column
+                            - levels
+                          additionalProperties: false
+                    required:
+                      - slices
+                    additionalProperties: false
+                segment:
+                  description: >-
+                    Segment ID to filter users by. Defaults to experiment
+                    setting.
+                  type: string
+                queryFilter:
+                  description: >-
+                    Raw SQL WHERE clause added to the exposure query. Defaults
+                    to experiment setting.
+                  type: string
+                skipPartialData:
+                  description: >-
+                    When true, exclude users who have not completed the full
+                    conversion window.
+                  type: boolean
+                shareLevel:
+                  description: >-
+                    Visibility of the created report. Defaults to `private`. Set
+                    to `public` to receive a shareable `shareUrl` in the
+                    response.
+                  type: string
+                  enum:
+                    - public
+                    - organization
+                    - private
+              required:
+                - experimentId
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report:
+                    $ref: '#/components/schemas/Report'
+                required:
+                  - report
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/reports' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/reports/{id}:
+    get:
+      operationId: getReport
+      summary: Get a single report
+      tags:
+        - reports
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report:
+                    $ref: '#/components/schemas/Report'
+                required:
+                  - report
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/reports/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/reports/{id}/refresh:
+    post:
+      operationId: postReportRefresh
+      summary: Refresh a report by re-running its analysis
+      tags:
+        - reports
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report:
+                    $ref: '#/components/schemas/Report'
+                required:
+                  - report
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST 'https://api.growthbook.io/api/v1/reports/{id}/refresh'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/reports/{id}/metadata:
+    put:
+      operationId: putReportMetadata
+      summary: Update report metadata (title, description, visibility)
+      tags:
+        - reports
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  description: Report title
+                  type: string
+                description:
+                  description: Report description
+                  type: string
+                status:
+                  description: UI lifecycle marker for the report
+                  type: string
+                  enum:
+                    - published
+                    - private
+                shareLevel:
+                  description: >-
+                    Visibility of the report. Setting to `public` enables a
+                    shareable `shareUrl`; setting back to `organization` or
+                    `private` revokes public access (the share token is
+                    preserved, so re-publishing exposes the same URL).
+                  type: string
+                  enum:
+                    - public
+                    - organization
+                    - private
+                editLevel:
+                  description: >-
+                    Who can edit the report in the GrowthBook UI. `organization`
+                    allows any org member with the `createAnalyses` permission;
+                    `private` restricts editing to the report owner.
+                  type: string
+                  enum:
+                    - organization
+                    - private
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report:
+                    $ref: '#/components/schemas/Report'
+                required:
+                  - report
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT 'https://api.growthbook.io/api/v1/reports/{id}/metadata'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/reports/{id}/settings:
+    put:
+      operationId: putReportSettings
+      summary: Update report analysis settings
+      description: >-
+        Updates the analysis settings for an existing report. Changes are staged
+        and do not take effect until you call `POST /reports/:id/refresh`.
+      tags:
+        - reports
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                statsEngine:
+                  description: Stats engine override
+                  type: string
+                  enum:
+                    - bayesian
+                    - frequentist
+                goalMetrics:
+                  description: Goal metric IDs
+                  type: array
+                  items:
+                    type: string
+                secondaryMetrics:
+                  description: Secondary metric IDs
+                  type: array
+                  items:
+                    type: string
+                guardrailMetrics:
+                  description: Guardrail metric IDs
+                  type: array
+                  items:
+                    type: string
+                activationMetric:
+                  description: Activation metric ID
+                  type: string
+                metricOverrides:
+                  description: Per-metric window, risk, and regression-adjustment overrides
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      windowType:
+                        type: string
+                        enum:
+                          - conversion
+                          - lookback
+                          - ''
+                      windowHours:
+                        type: number
+                      delayHours:
+                        type: number
+                      winRisk:
+                        type: number
+                      loseRisk:
+                        type: number
+                      properPriorOverride:
+                        type: boolean
+                      properPriorEnabled:
+                        type: boolean
+                      properPriorMean:
+                        type: number
+                      properPriorStdDev:
+                        type: number
+                      regressionAdjustmentOverride:
+                        type: boolean
+                      regressionAdjustmentEnabled:
+                        type: boolean
+                      regressionAdjustmentDays:
+                        type: number
+                    required:
+                      - id
+                    additionalProperties: false
+                customMetricSlices:
+                  description: Custom metric slice definitions
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      slices:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            column:
+                              type: string
+                            levels:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - column
+                            - levels
+                          additionalProperties: false
+                    required:
+                      - slices
+                    additionalProperties: false
+                dimension:
+                  description: Dimension to cut results by
+                  type: string
+                differenceType:
+                  description: How lifts are expressed in results
+                  type: string
+                  enum:
+                    - relative
+                    - absolute
+                    - scaled
+                dateStarted:
+                  format: date-time
+                  description: Analysis start date (ISO 8601)
+                  type: string
+                dateEnded:
+                  description: >-
+                    Analysis end date (ISO 8601). Pass `null` to clear the end
+                    date and analyze through today.
+                  anyOf:
+                    - format: date-time
+                      type: string
+                    - type: 'null'
+                regressionAdjustmentEnabled:
+                  description: Enable CUPED regression adjustment
+                  type: boolean
+                sequentialTestingEnabled:
+                  description: Enable sequential testing
+                  type: boolean
+                sequentialTestingTuningParameter:
+                  description: Tuning parameter for sequential testing (frequentist only)
+                  type: number
+                attributionModel:
+                  description: Metric conversion window attribution model
+                  type: string
+                  enum:
+                    - firstExposure
+                    - experimentDuration
+                    - lookbackOverride
+                lookbackOverride:
+                  description: >-
+                    Lookback window when `attributionModel` is
+                    `lookbackOverride`
+                  anyOf:
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: date
+                        value: {}
+                      required:
+                        - type
+                        - value
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: window
+                        value:
+                          type: number
+                          minimum: 0
+                        valueUnit:
+                          type: string
+                          enum:
+                            - minutes
+                            - hours
+                            - days
+                            - weeks
+                      required:
+                        - type
+                        - value
+                        - valueUnit
+                      additionalProperties: false
+                segment:
+                  description: Segment ID to filter users by
+                  type: string
+                queryFilter:
+                  description: Raw SQL WHERE clause added to the exposure query
+                  type: string
+                skipPartialData:
+                  description: >-
+                    When true, exclude users who have not completed the full
+                    conversion window
+                  type: boolean
+                variations:
+                  description: >-
+                    Override variation names, keys, or traffic weights used in
+                    this report. Weights are merged into the latest phase.
+                    Changes take effect on the next refresh.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      key:
+                        type: string
+                      weight:
+                        description: Traffic weight (0–1)
+                        type: number
+                        minimum: 0
+                        maximum: 1
+                    required:
+                      - id
+                    additionalProperties: false
+                coverage:
+                  description: >-
+                    Traffic coverage (0–1) for the latest phase. Used when
+                    computing scaled impact.
+                  type: number
+                  minimum: 0
+                  maximum: 1
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report:
+                    $ref: '#/components/schemas/Report'
+                required:
+                  - report
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT 'https://api.growthbook.io/api/v1/reports/{id}/settings'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/namespaces:
     get:
       operationId: listNamespaces
@@ -29493,6 +30123,301 @@ components:
         - currentStepIndex
         - nextStepAt
       additionalProperties: false
+    Report:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+        dateUpdated:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        type:
+          description: >-
+            Report type. `experiment-snapshot` is the current shape and is what
+            `POST /reports` always creates. `experiment` is a deprecated legacy
+            shape that is read-only through this API; it cannot be created or
+            refreshed and is preserved only for backward compatibility when
+            reading reports created before the new shape existed.
+          type: string
+          enum:
+            - experiment-snapshot
+            - experiment
+        status:
+          description: >-
+            UI lifecycle marker. Note: this does NOT control public shareability
+            — see `shareLevel` for visibility controls.
+          type: string
+          enum:
+            - published
+            - private
+        shareLevel:
+          description: >-
+            Visibility of the report. `private` (default) restricts access to
+            the API caller and admins. `organization` makes it visible to all
+            members of the organization in the GrowthBook UI. `public`
+            additionally exposes it via a shareable URL (returned as
+            `shareUrl`); anyone with the URL can view it without authentication.
+          type: string
+          enum:
+            - public
+            - organization
+            - private
+        shareUrl:
+          description: >-
+            Public URL for viewing the report. Only present when `shareLevel` is
+            `public`.
+          type: string
+        experimentId:
+          type: string
+        snapshotId:
+          description: Snapshot ID (experiment-snapshot type only)
+          type: string
+        snapshotStatus:
+          description: Status of the latest snapshot (poll this after refresh)
+          type: string
+          enum:
+            - running
+            - success
+            - error
+        snapshotError:
+          description: Error message if snapshot failed
+          type: string
+        analysisSettings:
+          type: object
+          properties:
+            statsEngine:
+              type: string
+              enum:
+                - bayesian
+                - frequentist
+            goalMetrics:
+              type: array
+              items:
+                type: string
+            secondaryMetrics:
+              type: array
+              items:
+                type: string
+            guardrailMetrics:
+              type: array
+              items:
+                type: string
+            activationMetric:
+              type: string
+            metricOverrides:
+              description: Per-metric window, risk, and regression-adjustment overrides
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  windowType:
+                    type: string
+                    enum:
+                      - conversion
+                      - lookback
+                      - ''
+                  windowHours:
+                    type: number
+                  delayHours:
+                    type: number
+                  winRisk:
+                    type: number
+                  loseRisk:
+                    type: number
+                  properPriorOverride:
+                    type: boolean
+                  properPriorEnabled:
+                    type: boolean
+                  properPriorMean:
+                    type: number
+                  properPriorStdDev:
+                    type: number
+                  regressionAdjustmentOverride:
+                    type: boolean
+                  regressionAdjustmentEnabled:
+                    type: boolean
+                  regressionAdjustmentDays:
+                    type: number
+                required:
+                  - id
+                additionalProperties: false
+            customMetricSlices:
+              description: Custom metric slice definitions
+              type: array
+              items:
+                type: object
+                properties:
+                  slices:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        column:
+                          type: string
+                        levels:
+                          type: array
+                          items:
+                            type: string
+                      required:
+                        - column
+                        - levels
+                      additionalProperties: false
+                required:
+                  - slices
+                additionalProperties: false
+            dimension:
+              type: string
+            differenceType:
+              description: >-
+                How lifts are expressed in results: `relative` (% change),
+                `absolute` (raw difference), or `scaled` (scaled impact)
+              type: string
+              enum:
+                - relative
+                - absolute
+                - scaled
+            dateStarted:
+              format: date-time
+              type: string
+            dateEnded:
+              format: date-time
+              type: string
+            regressionAdjustmentEnabled:
+              type: boolean
+            sequentialTestingEnabled:
+              type: boolean
+            sequentialTestingTuningParameter:
+              description: Tuning parameter for sequential testing (frequentist only)
+              type: number
+            attributionModel:
+              description: >-
+                Metric conversion window attribution model: `firstExposure`,
+                `experimentDuration`, or `lookbackOverride`
+              type: string
+              enum:
+                - firstExposure
+                - experimentDuration
+                - lookbackOverride
+            lookbackOverride:
+              description: >-
+                Lookback window used when `attributionModel` is
+                `lookbackOverride`
+              anyOf:
+                - type: object
+                  properties:
+                    type:
+                      type: string
+                      const: date
+                    value: {}
+                  required:
+                    - type
+                    - value
+                  additionalProperties: false
+                - type: object
+                  properties:
+                    type:
+                      type: string
+                      const: window
+                    value:
+                      type: number
+                      minimum: 0
+                    valueUnit:
+                      type: string
+                      enum:
+                        - minutes
+                        - hours
+                        - days
+                        - weeks
+                  required:
+                    - type
+                    - value
+                    - valueUnit
+                  additionalProperties: false
+            trackingKey:
+              description: Tracking key used to identify experiment exposures
+              type: string
+            exposureQueryId:
+              description: Datasource exposure query ID (Assignment Table)
+              type: string
+            segment:
+              description: Segment ID to filter users by
+              type: string
+            queryFilter:
+              description: Raw SQL WHERE clause added to the exposure query
+              type: string
+            skipPartialData:
+              description: >-
+                When true, exclude users who have not completed the full
+                conversion window
+              type: boolean
+          additionalProperties: false
+        experimentMetadata:
+          type: object
+          properties:
+            type:
+              description: Experiment type
+              type: string
+              enum:
+                - standard
+                - multi-armed-bandit
+                - holdout
+            variations:
+              description: >-
+                Variation metadata with current traffic weights — use to label
+                result columns
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  name:
+                    type: string
+                  key:
+                    type: string
+                  weight:
+                    description: Traffic weight (0–1)
+                    type: number
+                required:
+                  - id
+                  - name
+                  - key
+                  - weight
+                additionalProperties: false
+            phases:
+              description: Experiment phases
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  dateStarted:
+                    type: string
+                  dateEnded:
+                    type: string
+                  coverage:
+                    description: Traffic coverage (0–1)
+                    type: number
+                additionalProperties: false
+          additionalProperties: false
+        results:
+          $ref: '#/components/schemas/ExperimentResults'
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - title
+        - description
+        - type
+      additionalProperties: false
     Namespace:
       type: object
       properties:
@@ -33657,6 +34582,7 @@ x-tagGroups:
       - snapshots
       - dimensions
       - segments
+      - reports
       - sdk-connections
       - visual-changesets
       - saved-groups
@@ -33732,6 +34658,7 @@ x-tagGroups:
       - Query_model
       - RampSchedule_model
       - RampScheduleTemplate_model
+      - Report_model
       - SavedGroup_model
       - ScheduleRule_model
       - SdkConnection_model
