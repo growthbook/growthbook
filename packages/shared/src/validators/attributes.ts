@@ -2,13 +2,19 @@ import { z } from "zod";
 
 import { namedSchema } from "./openapi-helpers";
 
-const documentationUrlSchema = z
-  .string()
-  .url()
-  .refine((val) => val.startsWith("http://") || val.startsWith("https://"), {
-    message: "URL must use http or https scheme",
-  })
-  .optional();
+// Accepts a valid http/https URL, or an empty string / undefined to signal
+// "no URL" (used by clients to clear a previously-set value). Empty string is
+// normalized to undefined so the field is removed rather than stored as "".
+export const documentationUrlSchema = z.preprocess(
+  (val) => (val === "" ? undefined : val),
+  z
+    .string()
+    .url()
+    .refine((val) => val.startsWith("http://") || val.startsWith("https://"), {
+      message: "URL must use http or https scheme",
+    })
+    .optional(),
+);
 
 // Corresponds to schemas/Attribute.yaml
 export const apiAttributeValidator = namedSchema(

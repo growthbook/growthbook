@@ -35,6 +35,11 @@ export const postAttribute = async (
     ...attributeFields,
     ...(tags.length > 0 && { tags }),
   };
+  // Empty-string documentationUrl is normalized to undefined by the validator;
+  // omit the key so we don't persist a placeholder.
+  if (newAttribute.documentationUrl === undefined) {
+    delete newAttribute.documentationUrl;
+  }
 
   await updateOrganization(org.id, {
     settings: {
@@ -118,6 +123,15 @@ export const putAttribute = async (
     ...attributeFields,
     ...(tags !== undefined && { tags: tags.length > 0 ? tags : undefined }),
   };
+  // The validator normalizes a cleared documentationUrl (empty string) to
+  // undefined; delete the key so the field is removed instead of round-tripped
+  // through BSON as null.
+  if (
+    "documentationUrl" in attributeFields &&
+    attributeFields.documentationUrl === undefined
+  ) {
+    delete attributeSchema[index].documentationUrl;
+  }
 
   await updateOrganization(org.id, {
     settings: {

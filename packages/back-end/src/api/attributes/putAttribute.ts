@@ -23,6 +23,15 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
       ...rawUpdatedAttribute,
       ...(await validatePayload(req.context, rawUpdatedAttribute)),
     };
+    // The validator normalizes a cleared documentationUrl (empty string) to
+    // undefined; delete the key so the previous value is actually removed
+    // rather than round-tripped through BSON as null.
+    if (
+      "documentationUrl" in req.body &&
+      req.body.documentationUrl === undefined
+    ) {
+      delete updatedAttribute.documentationUrl;
+    }
 
     if (
       !req.context.permissions.canUpdateAttribute(attribute, updatedAttribute)

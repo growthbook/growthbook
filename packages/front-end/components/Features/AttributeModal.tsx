@@ -144,7 +144,9 @@ export default function AttributeModal({ close, attribute }: Props) {
           property: value.property,
           datatype: value.datatype,
           description: value.description,
-          documentationUrl: value.documentationUrl || undefined,
+          // Always include the key so an empty input clears any previously
+          // stored URL on the back-end (the validator normalizes "" to undefined).
+          documentationUrl: value.documentationUrl ?? "",
           projects: value.projects,
           format: value.format,
           enum: value.enum,
