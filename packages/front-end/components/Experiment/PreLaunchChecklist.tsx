@@ -32,6 +32,7 @@ import {
   revisionStatusLabel,
 } from "@/components/Features/RevisionStatusBadge";
 import styles from "./PreLaunchChecklist.module.scss";
+import EditScheduleModal from "./EditScheduleModal";
 
 export type CheckListItem = {
   display: string | ReactElement;
@@ -61,6 +62,7 @@ export function getChecklistItems({
   setShowSdkForm,
   checklist,
   checkLinkedChanges,
+  setShowScheduleModal,
 }: {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
@@ -73,6 +75,7 @@ export function getChecklistItems({
   setShowSdkForm?: (value: boolean) => void;
   checklist?: ExperimentLaunchChecklistInterface;
   checkLinkedChanges: boolean;
+  setShowScheduleModal?: (value: boolean) => void;
 }) {
   const isBandit = experiment.type === "multi-armed-bandit";
 
@@ -108,6 +111,8 @@ export function getChecklistItems({
             experiment.phases?.[experiment.phases.length - 1]?.prerequisites;
           return !!prerequisites && prerequisites.length > 0;
         }
+        case "schedule":
+          return !!experiment.statusUpdateSchedule?.startAt;
       }
     }
 
@@ -388,7 +393,25 @@ export function getChecklistItems({
           return;
         }
         items.push({
-          display: <>{item.task}</>,
+          display:
+            item.propertyKey === "schedule" ? (
+              <>
+                {setShowScheduleModal ? (
+                  <a
+                    className="a link-purple"
+                    role="button"
+                    onClick={() => setShowScheduleModal(true)}
+                  >
+                    Add scheduled start date
+                  </a>
+                ) : (
+                  "Add scheduled start date"
+                )}{" "}
+                to experiment.
+              </>
+            ) : (
+              <>{item.task}</>
+            ),
           status: isChecklistItemComplete(
             "auto",
             item.propertyKey,
@@ -805,6 +828,7 @@ export function PreLaunchChecklist({
   );
 
   const [showSdkForm, setShowSdkForm] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
 
   const [analysisModal, setAnalysisModal] = useState(false);
 
@@ -821,6 +845,9 @@ export function PreLaunchChecklist({
       checkLinkedChanges: true,
       connections,
       setShowSdkForm,
+      setShowScheduleModal: canEditExperiment
+        ? setShowScheduleModal
+        : undefined,
     });
   }, [
     data,
@@ -831,6 +858,7 @@ export function PreLaunchChecklist({
     visualChangesets,
     canEditExperiment,
     connections,
+    setShowScheduleModal,
   ]);
 
   return (
@@ -845,6 +873,13 @@ export function PreLaunchChecklist({
           }}
         />
       )}
+      {showScheduleModal ? (
+        <EditScheduleModal
+          experiment={experiment}
+          close={() => setShowScheduleModal(false)}
+          mutate={mutateExperiment}
+        />
+      ) : null}
       <PreLaunchChecklistUI
         {...{
           experiment,

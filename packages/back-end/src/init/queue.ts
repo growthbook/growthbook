@@ -20,6 +20,7 @@ import { logger } from "back-end/src/util/logger";
 import addSafeRolloutSnapshotJob from "back-end/src/jobs/addSafeRolloutSnapshotJob";
 import addDashboardUpdateJob from "back-end/src/jobs/updateDashboards";
 import addHoldoutUpdateJob from "back-end/src/jobs/updateHoldoutStatus";
+import addExperimentStatusUpdateJob from "back-end/src/jobs/updateExperimentStatus";
 import updateAutoSlicesJob from "back-end/src/jobs/updateAutoSlices";
 import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
 import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
@@ -43,6 +44,7 @@ export async function queueInit() {
   addSafeRolloutSnapshotJob(agenda);
   addDashboardUpdateJob(agenda);
   addHoldoutUpdateJob(agenda);
+  addExperimentStatusUpdateJob(agenda);
   updateAutoSlicesJob(agenda);
   addRampScheduleJob(agenda);
   initRampScheduleHooks();

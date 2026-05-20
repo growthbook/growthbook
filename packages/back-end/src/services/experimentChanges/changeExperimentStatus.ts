@@ -23,6 +23,7 @@ import {
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
 import {
   getChangesToStartExperiment,
   getLinkedFeatureInfo,
@@ -30,6 +31,7 @@ import {
 import {
   formatPendingDraftFailureMessage,
   PendingDraftFailure,
+  PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
 import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
@@ -163,6 +165,8 @@ function isCustomTaskComplete(
         experiment.phases?.[experiment.phases.length - 1]?.prerequisites;
       return !!prerequisites && prerequisites.length > 0;
     }
+    case "schedule":
+      return !!experiment.statusUpdateSchedule?.startAt;
     default:
       break;
   }
@@ -302,6 +306,79 @@ async function loadAndValidateExperimentForStatusChange(
   return experiment;
 }
 
+/**
+ * Core experiment start — no permission checks, works from any context
+ * (HTTP request or Agenda job). Publishes pending linked feature drafts
+ * atomically with the status transition and throws if any draft fails.
+ */
+export async function executeExperimentStart(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<{
+  updated: ExperimentInterface;
+  publishResult: PendingDraftPublishResult;
+}> {
+  const publishResult = await publishPendingFeatureDraftsForExperiment(
+    context,
+    experiment,
+  );
+  if (publishResult.failed.length > 0) {
+    const err = new Error(
+      formatPendingDraftFailureMessage(publishResult.failed),
+    ) as Error & { failedFeatureDrafts?: PendingDraftFailure[] };
+    err.failedFeatureDrafts = publishResult.failed;
+    throw err;
+  }
+
+  // Build a default phase if the experiment has none so getChangesToStartExperiment
+  // has valid phases to work with.
+  const allVariations = getAllVariations(experiment);
+  const defaultVariationWeight =
+    allVariations.length > 0 ? 1 / allVariations.length : 1;
+  const startExperimentTarget =
+    experiment.phases.length > 0
+      ? experiment
+      : {
+          ...experiment,
+          phases: [
+            {
+              coverage: 1,
+              dateStarted: new Date(),
+              name: "Main",
+              reason: "",
+              variationWeights: allVariations.map(() => defaultVariationWeight),
+              variations: allVariations.map((v) => ({
+                id: v.id,
+                status: "active" as const,
+              })),
+              condition: "",
+              savedGroups: [],
+              namespace: {
+                enabled: false,
+                name: "",
+                range: [0, 1] as [number, number],
+              },
+            },
+          ],
+        };
+
+  const changes = await getChangesToStartExperiment(
+    context,
+    startExperimentTarget,
+  );
+
+  if (!experiment.phases.length && !changes.phases) {
+    changes.phases = startExperimentTarget.phases;
+  }
+
+  const updated = await updateExperiment({
+    context,
+    experiment,
+    changes: { nextScheduledStatusUpdate: null, ...changes },
+  });
+  return { updated, publishResult };
+}
+
 export async function getExperimentStartChecklist({
   context,
   experiment,
@@ -369,68 +446,113 @@ export async function startExperiment({
     }
   }
 
-  const allVariations = getAllVariations(experiment);
-  const defaultVariationWeight =
-    allVariations.length > 0 ? 1 / allVariations.length : 1;
-  const startExperimentTarget =
-    experiment.phases.length > 0
-      ? experiment
-      : {
-          ...experiment,
-          phases: [
-            {
-              coverage: 1,
-              dateStarted: new Date(),
-              name: "Main",
-              reason: "",
-              variationWeights: allVariations.map(() => defaultVariationWeight),
-              variations: allVariations.map((v) => ({
-                id: v.id,
-                status: "active" as const,
-              })),
-              condition: "",
-              savedGroups: [],
-              namespace: {
-                enabled: false,
-                name: "",
-                range: [0, 1] as [number, number],
-              },
-            },
-          ],
-        };
+  const { updated } = await executeExperimentStart(context, experiment);
 
-  const changes = await getChangesToStartExperiment(
+  return { experiment, updated, checklistItems };
+}
+
+/**
+ * Approves the configured `statusUpdateSchedule.startAt` for a draft
+ * experiment by setting the internal `nextScheduledStatusUpdate` field. The
+ * agenda job will then auto-start the experiment when the scheduled time is
+ * reached. Throws if the experiment is not in draft status or does not have
+ * a valid future scheduled start.
+ */
+export async function approveScheduledExperimentStart({
+  context,
+  experimentId,
+  skipChecklist = false,
+}: {
+  context: ReqContext;
+  experimentId: string;
+  skipChecklist?: boolean;
+}) {
+  const experiment = await loadAndValidateExperimentForStatusChange(
     context,
-    startExperimentTarget,
+    experimentId,
   );
-  if (!experiment.phases.length && !changes.phases) {
-    changes.phases = startExperimentTarget.phases;
+
+  if (experiment.status !== "draft") {
+    throw new Error(
+      "invalid_status: Experiment must be in draft status to approve a scheduled start",
+    );
   }
 
-  // Publish linked feature drafts atomically with the status transition.
-  // If any draft cannot be published, abort the start.
-  const publishResult = await publishPendingFeatureDraftsForExperiment(
-    context,
-    experiment,
-    bypassLockdown,
-  );
-  if (publishResult.failed.length > 0) {
-    const err = new Error(
-      formatPendingDraftFailureMessage(publishResult.failed),
-    ) as Error & { failedFeatureDrafts?: PendingDraftFailure[] };
-    err.failedFeatureDrafts = publishResult.failed;
-    throw err;
+  const startAt = experiment.statusUpdateSchedule?.startAt
+    ? getValidDate(experiment.statusUpdateSchedule.startAt)
+    : null;
+  if (!startAt || startAt <= new Date()) {
+    throw new Error(
+      "no_valid_scheduled_start: No valid future scheduled start date to approve",
+    );
   }
 
-  changes.status = "running";
+  if (!skipChecklist) {
+    const checklistItems = await getExperimentStartChecklistStatus(
+      context,
+      experiment,
+    );
+    const incompleteRequired = checklistItems.filter(
+      (item) => item.required && item.status === "incomplete",
+    );
+    if (incompleteRequired.length > 0) {
+      throw new Error(
+        `checklist_incomplete: ${incompleteRequired.map((i) => i.key).join(", ")}`,
+      );
+    }
+  }
 
   const updated = await updateExperiment({
     context,
     experiment,
-    changes,
+    changes: {
+      nextScheduledStatusUpdate: {
+        type: "start",
+        date: startAt,
+      },
+    },
   });
 
-  return { experiment, updated, checklistItems };
+  return { experiment, updated };
+}
+
+/**
+ * Clears an existing `nextScheduledStatusUpdate` approval on a draft experiment
+ * so the agenda job will no longer auto-start it. The configured
+ * `statusUpdateSchedule` itself is preserved so the user can re-approve later.
+ * Throws if the experiment is not in draft status.
+ */
+export async function unapproveScheduledExperimentStart({
+  context,
+  experimentId,
+}: {
+  context: ReqContext;
+  experimentId: string;
+}) {
+  const experiment = await loadAndValidateExperimentForStatusChange(
+    context,
+    experimentId,
+  );
+
+  if (experiment.status !== "draft") {
+    throw new Error(
+      "invalid_status: Experiment must be in draft status to unschedule a scheduled start",
+    );
+  }
+
+  if (!experiment.nextScheduledStatusUpdate) {
+    return { experiment, updated: experiment };
+  }
+
+  const updated = await updateExperiment({
+    context,
+    experiment,
+    changes: {
+      nextScheduledStatusUpdate: null,
+    },
+  });
+
+  return { experiment, updated };
 }
 
 export async function stopExperiment({

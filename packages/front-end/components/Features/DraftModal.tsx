@@ -15,6 +15,7 @@ import {
 } from "shared/util";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Flex, Box } from "@radix-ui/themes";
+import { format } from "date-fns";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import {
@@ -22,6 +23,7 @@ import {
   useEnvironments,
   useFeatureExperimentChecklists,
 } from "@/services/features";
+import { getFutureScheduledStartDate } from "@/services/experiments";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
@@ -154,16 +156,26 @@ export default function DraftModal({
 
   const canAdminPublish = permissionsUtil.canBypassApprovalChecks(feature);
 
-  const { experiments } = useFeatureExperimentChecklists({
-    feature,
-    revision,
-    experimentsMap,
-  });
+  const { experiments, immediateStartExperiments, scheduledExperiments } =
+    useFeatureExperimentChecklists({
+      feature,
+      revision,
+      experimentsMap,
+    });
 
   const [selectedExperiments, setSelectedExperiments] = useState(
     new Set(experiments.map((e) => e.id)),
   );
   const [experimentsStep, setExperimentsStep] = useState(false);
+
+  const selectedImmediateCount = immediateStartExperiments.filter((e) =>
+    selectedExperiments.has(e.id),
+  ).length;
+  const selectedScheduledCount = scheduledExperiments.filter((e) =>
+    selectedExperiments.has(e.id),
+  ).length;
+  const onlyScheduledSelected =
+    selectedImmediateCount === 0 && selectedScheduledCount > 0;
 
   const currentRevisionData = featureToFeatureRevisionDiffInput(feature);
   const resultDiffs = useFeatureRevisionDiff({
@@ -455,6 +467,8 @@ export default function DraftModal({
           <>
             <PiLockSimple /> Publish
           </>
+        ) : onlyScheduledSelected ? (
+          "Schedule to Start"
         ) : (
           "Publish"
         )
@@ -523,7 +537,7 @@ export default function DraftModal({
         (experimentsStep ? (
           <Box>
             <Heading as="h3" size="medium" mb="3">
-              Review &amp; Publish
+              Review &amp; {onlyScheduledSelected ? "Schedule" : "Publish"}
             </Heading>
             <Text as="p" mb="3">
               Please review the{" "}
@@ -532,14 +546,27 @@ export default function DraftModal({
                 {selectedExperiments.size !== 1 ? "s" : ""}
               </strong>{" "}
               for the experiment
-              {selectedExperiments.size !== 1 ? "s" : ""} that will be published
-              along with this draft.
+              {selectedExperiments.size !== 1 ? "s" : ""} that will be{" "}
+              {onlyScheduledSelected ? "scheduled to start" : "published"} along
+              with this draft.
             </Text>
             {experiments.map((experiment) => {
               if (!selectedExperiments.has(experiment.id)) return null;
 
+              const scheduledStartDate =
+                getFutureScheduledStartDate(experiment);
+
               return (
                 <Box key={experiment.id} mb="3">
+                  {scheduledStartDate && (
+                    <Callout status="info" mb="2">
+                      <strong>{experiment.name}</strong> will start on{" "}
+                      <strong>
+                        {format(scheduledStartDate, "MMM d, yyyy 'at' h:mm a")}
+                      </strong>
+                      .
+                    </Callout>
+                  )}
                   <PreLaunchChecklistForDraft
                     experiment={experiment}
                     feature={feature}
@@ -566,26 +593,54 @@ export default function DraftModal({
 
             {experiments.length > 0 ? (
               <Box mb="3">
-                <Heading as="h4" size="small" mb="2">
-                  Start running experiments upon publishing:
-                </Heading>
-                {experiments.map((experiment) => (
-                  <Box key={experiment.id}>
-                    <Checkbox
-                      value={selectedExperiments.has(experiment.id)}
-                      setValue={(e) => {
-                        const newValue = new Set(selectedExperiments);
-                        if (e === true) {
-                          newValue.add(experiment.id);
-                        } else {
-                          newValue.delete(experiment.id);
-                        }
-                        setSelectedExperiments(newValue);
-                      }}
-                      label={experiment.name}
-                    />
+                {immediateStartExperiments.length > 0 && (
+                  <Box mb={scheduledExperiments.length > 0 ? "3" : "0"}>
+                    <Heading as="h4" size="small" mb="2">
+                      Start running experiments upon publishing:
+                    </Heading>
+                    {immediateStartExperiments.map((experiment) => (
+                      <Box key={experiment.id}>
+                        <Checkbox
+                          value={selectedExperiments.has(experiment.id)}
+                          setValue={(e) => {
+                            const newValue = new Set(selectedExperiments);
+                            if (e === true) {
+                              newValue.add(experiment.id);
+                            } else {
+                              newValue.delete(experiment.id);
+                            }
+                            setSelectedExperiments(newValue);
+                          }}
+                          label={experiment.name}
+                        />
+                      </Box>
+                    ))}
                   </Box>
-                ))}
+                )}
+                {scheduledExperiments.length > 0 && (
+                  <Box>
+                    <Heading as="h4" size="small" mb="2">
+                      Approve scheduled start for experiments:
+                    </Heading>
+                    {scheduledExperiments.map((experiment) => (
+                      <Box key={experiment.id}>
+                        <Checkbox
+                          value={selectedExperiments.has(experiment.id)}
+                          setValue={(e) => {
+                            const newValue = new Set(selectedExperiments);
+                            if (e === true) {
+                              newValue.add(experiment.id);
+                            } else {
+                              newValue.delete(experiment.id);
+                            }
+                            setSelectedExperiments(newValue);
+                          }}
+                          label={experiment.name}
+                        />
+                      </Box>
+                    ))}
+                  </Box>
+                )}
               </Box>
             ) : null}
 
