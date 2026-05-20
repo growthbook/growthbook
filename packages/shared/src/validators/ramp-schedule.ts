@@ -28,6 +28,11 @@ export type FeatureRulePatch = z.infer<typeof featureRulePatch>;
 export const lockdownModeArray = ["none", "locked"] as const;
 export type LockdownMode = (typeof lockdownModeArray)[number];
 
+// Lockdown gates external writes to the parent feature, not the ramp itself.
+// `locked` blocks publishRevision / startExperiment on the feature while the
+// ramp is in an active status (see LOCKDOWN_ACTIVE_STATUSES). The ramp's own
+// evaluation and auto-advancement are unaffected — use `pauseSchedule` to
+// halt the ramp's progression.
 export const lockdownConfigSchema = z.object({
   mode: z.enum(lockdownModeArray),
 });

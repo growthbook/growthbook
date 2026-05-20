@@ -1041,7 +1041,7 @@ export const updateLockdownConfigRampSchedule = createApiRequestHandler({
   operationId: "updateRampScheduleLockdown",
   summary: "Update ramp lockdown configuration",
   description:
-    "Sets the lockdown mode. `locked` prevents the schedule from auto-advancing past the current step regardless of metric health — useful when you need manual control during an incident. `none` restores normal auto-advance behavior.\n",
+    "Sets the lockdown mode. `locked` prevents other users from publishing unrelated changes to the parent feature while the ramp is running — useful when you want to ensure no external edits interfere with a live rollout. It does **not** affect the ramp's own auto-advancement or monitoring behavior; use `actions/pause` to halt the ramp itself. `none` removes the publishing restriction.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
