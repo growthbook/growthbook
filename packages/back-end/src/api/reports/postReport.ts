@@ -29,11 +29,21 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
     secondaryMetrics,
     guardrailMetrics,
     activationMetric,
+    metricOverrides,
+    customMetricSlices,
     dimension,
+    differenceType,
     dateStarted,
     dateEnded,
     regressionAdjustmentEnabled,
     sequentialTestingEnabled,
+    sequentialTestingTuningParameter,
+    attributionModel,
+    lookbackOverride,
+    segment,
+    queryFilter,
+    skipPartialData,
+    shareLevel,
   } = req.body;
 
   const experiment = await getExperimentById(req.context, experimentId);
@@ -58,51 +68,76 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
     );
   }
 
-  const _experimentAnalysisSettings: ExperimentReportAnalysisSettings = {
+  const analysisSettings: ExperimentReportAnalysisSettings = {
     ...pick(experiment, Object.keys(experimentAnalysisSettings.shape)),
     trackingKey: experiment.trackingKey || experiment.id,
   } as ExperimentReportAnalysisSettings;
 
   if (statsEngine) {
-    _experimentAnalysisSettings.statsEngine = statsEngine;
+    analysisSettings.statsEngine = statsEngine;
   }
   if (goalMetrics) {
-    _experimentAnalysisSettings.goalMetrics = goalMetrics;
+    analysisSettings.goalMetrics = goalMetrics;
   }
   if (secondaryMetrics) {
-    _experimentAnalysisSettings.secondaryMetrics = secondaryMetrics;
+    analysisSettings.secondaryMetrics = secondaryMetrics;
   }
   if (guardrailMetrics) {
-    _experimentAnalysisSettings.guardrailMetrics = guardrailMetrics;
+    analysisSettings.guardrailMetrics = guardrailMetrics;
   }
   if (activationMetric !== undefined) {
-    _experimentAnalysisSettings.activationMetric = activationMetric;
+    analysisSettings.activationMetric = activationMetric;
   }
   if (dimension) {
-    _experimentAnalysisSettings.dimension = dimension;
+    analysisSettings.dimension = dimension;
   }
   if (dateStarted) {
-    _experimentAnalysisSettings.dateStarted = getValidDate(dateStarted);
+    analysisSettings.dateStarted = getValidDate(dateStarted);
   } else {
-    _experimentAnalysisSettings.dateStarted =
+    analysisSettings.dateStarted =
       experiment.phases?.[phaseIndex]?.dateStarted ?? new Date();
   }
   if (dateEnded) {
-    _experimentAnalysisSettings.dateEnded = getValidDate(dateEnded);
+    analysisSettings.dateEnded = getValidDate(dateEnded);
   } else if (
     experiment?.status === "stopped" &&
     experiment.phases?.[phaseIndex]?.dateEnded
   ) {
-    _experimentAnalysisSettings.dateEnded =
-      experiment.phases?.[phaseIndex]?.dateEnded;
+    analysisSettings.dateEnded = experiment.phases?.[phaseIndex]?.dateEnded;
   }
   if (regressionAdjustmentEnabled !== undefined) {
-    _experimentAnalysisSettings.regressionAdjustmentEnabled =
-      regressionAdjustmentEnabled;
+    analysisSettings.regressionAdjustmentEnabled = regressionAdjustmentEnabled;
   }
   if (sequentialTestingEnabled !== undefined) {
-    _experimentAnalysisSettings.sequentialTestingEnabled =
-      sequentialTestingEnabled;
+    analysisSettings.sequentialTestingEnabled = sequentialTestingEnabled;
+  }
+  if (sequentialTestingTuningParameter !== undefined) {
+    analysisSettings.sequentialTestingTuningParameter =
+      sequentialTestingTuningParameter;
+  }
+  if (differenceType) {
+    analysisSettings.differenceType = differenceType;
+  }
+  if (attributionModel) {
+    analysisSettings.attributionModel = attributionModel;
+  }
+  if (lookbackOverride) {
+    analysisSettings.lookbackOverride = lookbackOverride;
+  }
+  if (metricOverrides) {
+    analysisSettings.metricOverrides = metricOverrides;
+  }
+  if (customMetricSlices) {
+    analysisSettings.customMetricSlices = customMetricSlices;
+  }
+  if (segment !== undefined) {
+    analysisSettings.segment = segment;
+  }
+  if (queryFilter !== undefined) {
+    analysisSettings.queryFilter = queryFilter;
+  }
+  if (skipPartialData !== undefined) {
+    analysisSettings.skipPartialData = skipPartialData;
   }
 
   const report = await createReport(org.id, {
@@ -110,6 +145,7 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
     title: title || `API Report - ${experiment.name}`,
     description: description || "",
     type: "experiment-snapshot",
+    shareLevel: shareLevel ?? "private",
     snapshot: latestSnapshot.id,
     experimentMetadata: {
       type: experiment.type || "standard",
@@ -128,7 +164,7 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
         omit(variation, ["description", "screenshots"]),
       ),
     },
-    experimentAnalysisSettings: _experimentAnalysisSettings,
+    experimentAnalysisSettings: analysisSettings,
   });
 
   await req.audit({

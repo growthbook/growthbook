@@ -3,10 +3,12 @@ import { listReports } from "./listReports";
 import { getReport } from "./getReport";
 import { postReport } from "./postReport";
 import { postReportRefresh } from "./postReportRefresh";
+import { putReport } from "./putReport";
 
 export const reportRoutes: OpenApiRoute[] = [
   listReports,
   getReport,
   postReport,
   postReportRefresh,
+  putReport,
 ];
