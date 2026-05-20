@@ -27,4 +27,16 @@ export const postgresDialect: SqlDialect = {
       metricTable,
       where,
     ),
+  unpivotLabeledPairs: (pairs) => {
+    const valueRows = pairs
+      .map((p) => `('${p.keyLiteral}', ${p.valueSql})`)
+      .join(", ");
+    return {
+      fromContinuation: `CROSS JOIN LATERAL (
+        VALUES ${valueRows}
+      ) AS __col(column_name, value)`,
+      keyExpr: "__col.column_name",
+      valueExpr: "__col.value",
+    };
+  },
 };

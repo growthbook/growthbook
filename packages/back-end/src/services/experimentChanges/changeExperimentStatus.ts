@@ -7,6 +7,10 @@ import {
   ExperimentResultsType,
 } from "shared/types/experiment";
 import {
+  ChecklistStatus,
+  ExperimentStartChecklistStatus,
+} from "shared/validators";
+import {
   getAffectedEnvsForExperiment,
   experimentHasLiveLinkedChanges,
 } from "shared/util";
@@ -19,6 +23,7 @@ import {
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
 import {
   getChangesToStartExperiment,
   getLinkedFeatureInfo,
@@ -26,17 +31,79 @@ import {
 import {
   formatPendingDraftFailureMessage,
   PendingDraftFailure,
+  PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
-
-type ChecklistStatus = "complete" | "incomplete";
 
 export type StartChecklistItemStatus = {
   key: string;
   required: boolean;
   status: ChecklistStatus;
+  manual: boolean;
   reason: string;
 };
+
+export type ExperimentStartChecklistResult = {
+  experiment: ExperimentInterface;
+  checklistItems: StartChecklistItemStatus[];
+  status: ExperimentStartChecklistStatus;
+};
+
+export async function completeExperimentStartChecklistItems({
+  context,
+  experiment,
+  keys,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  keys: string[];
+}): Promise<ExperimentInterface> {
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
+  if (experiment.type === "holdout") {
+    throw new Error("Holdouts are not supported through this endpoint");
+  }
+
+  const configuredChecklist =
+    (experiment.project &&
+      (await getExperimentLaunchChecklist(
+        context.org.id,
+        experiment.project,
+      ))) ||
+    (await getExperimentLaunchChecklist(context.org.id, ""));
+
+  const manualTaskKeys = new Set(
+    (configuredChecklist?.tasks || [])
+      .filter((task) => task.completionType === "manual")
+      .map((task) => task.task),
+  );
+
+  const invalidKeys = keys.filter((key) => !manualTaskKeys.has(key));
+  if (invalidKeys.length > 0) {
+    throw new Error(
+      `invalid_checklist_keys: ${invalidKeys.join(", ")} are not manual checklist items`,
+    );
+  }
+
+  const existing = new Map(
+    (experiment.manualLaunchChecklist || []).map((item) => [
+      item.key,
+      item.status,
+    ]),
+  );
+  keys.forEach((key) => existing.set(key, "complete"));
+
+  const manualLaunchChecklist = Array.from(existing.entries()).map(
+    ([key, status]) => ({ key, status }),
+  );
+
+  return await updateExperiment({
+    context,
+    experiment,
+    changes: { manualLaunchChecklist },
+  });
+}
 
 export type StopExperimentInput = {
   experimentId: string;
@@ -97,6 +164,8 @@ function isCustomTaskComplete(
         experiment.phases?.[experiment.phases.length - 1]?.prerequisites;
       return !!prerequisites && prerequisites.length > 0;
     }
+    case "schedule":
+      return !!experiment.statusUpdateSchedule?.startAt;
     default:
       break;
   }
@@ -123,6 +192,7 @@ export async function getExperimentStartChecklistStatus(
       (!isBandit && getHasLinkedChanges(experiment, linkedFeatures))
         ? "complete"
         : "incomplete",
+    manual: false,
     reason: isBandit
       ? "Add at least one live linked change before starting a bandit."
       : "Add at least one linked feature, visual changeset, or URL redirect before starting.",
@@ -133,6 +203,7 @@ export async function getExperimentStartChecklistStatus(
       key: "banditGoalMetric",
       required: true,
       status: experiment.goalMetrics?.[0] ? "complete" : "incomplete",
+      manual: false,
       reason: "Bandits require a goal metric before starting.",
     });
   }
@@ -141,6 +212,7 @@ export async function getExperimentStartChecklistStatus(
     key: "targeting",
     required: true,
     status: experiment.phases.length > 0 ? "complete" : "incomplete",
+    manual: false,
     reason: "Configure at least one phase with assignment/targeting settings.",
   });
 
@@ -148,6 +220,7 @@ export async function getExperimentStartChecklistStatus(
     key: "sdkConnection",
     required: true,
     status: sdkConnections.length > 0 ? "complete" : "incomplete",
+    manual: false,
     reason: "Add an SDK connection before starting.",
   });
 
@@ -173,6 +246,7 @@ export async function getExperimentStartChecklistStatus(
           )
             ? "complete"
             : "incomplete",
+          manual: false,
           reason: `Required custom launch checklist item is incomplete: ${task.task}`,
         });
       } else if (task.completionType === "manual") {
@@ -182,6 +256,7 @@ export async function getExperimentStartChecklistStatus(
           status: isCustomTaskComplete(experiment, task.task)
             ? "complete"
             : "incomplete",
+          manual: true,
           reason: `Required custom launch checklist item is incomplete: ${task.task}`,
         });
       }
@@ -230,39 +305,32 @@ async function loadAndValidateExperimentForStatusChange(
   return experiment;
 }
 
-export async function startExperiment({
-  context,
-  experimentId,
-  skipChecklist = false,
-}: {
-  context: ReqContext;
-  experimentId: string;
-  skipChecklist?: boolean;
-}) {
-  const experiment = await loadAndValidateExperimentForStatusChange(
-    context,
-    experimentId,
-  );
-
-  if (experiment.status !== "draft") {
-    throw new Error("invalid_status: Experiment must be in draft status");
-  }
-
-  const checklistItems = await getExperimentStartChecklistStatus(
+/**
+ * Core experiment start — no permission checks, works from any context
+ * (HTTP request or Agenda job). Publishes pending linked feature drafts
+ * atomically with the status transition and throws if any draft fails.
+ */
+export async function executeExperimentStart(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<{
+  updated: ExperimentInterface;
+  publishResult: PendingDraftPublishResult;
+}> {
+  const publishResult = await publishPendingFeatureDraftsForExperiment(
     context,
     experiment,
   );
-  const incompleteRequiredItems = checklistItems.filter(
-    (item) => item.required && item.status === "incomplete",
-  );
-  if (incompleteRequiredItems.length > 0 && !skipChecklist) {
-    throw new Error(
-      `checklist_incomplete: ${incompleteRequiredItems
-        .map((i) => i.key)
-        .join(", ")}`,
-    );
+  if (publishResult.failed.length > 0) {
+    const err = new Error(
+      formatPendingDraftFailureMessage(publishResult.failed),
+    ) as Error & { failedFeatureDrafts?: PendingDraftFailure[] };
+    err.failedFeatureDrafts = publishResult.failed;
+    throw err;
   }
 
+  // Build a default phase if the experiment has none so getChangesToStartExperiment
+  // has valid phases to work with.
   const allVariations = getAllVariations(experiment);
   const defaultVariationWeight =
     allVariations.length > 0 ? 1 / allVariations.length : 1;
@@ -297,33 +365,181 @@ export async function startExperiment({
     context,
     startExperimentTarget,
   );
+
   if (!experiment.phases.length && !changes.phases) {
     changes.phases = startExperimentTarget.phases;
   }
 
-  // Publish linked feature drafts atomically with the status transition.
-  // If any draft cannot be published, abort the start.
-  const publishResult = await publishPendingFeatureDraftsForExperiment(
+  const updated = await updateExperiment({
+    context,
+    experiment,
+    changes: { nextScheduledStatusUpdate: null, ...changes },
+  });
+  return { updated, publishResult };
+}
+
+export async function getExperimentStartChecklist({
+  context,
+  experiment,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+}): Promise<ExperimentStartChecklistResult> {
+  const checklistItems = await getExperimentStartChecklistStatus(
     context,
     experiment,
   );
-  if (publishResult.failed.length > 0) {
-    const err = new Error(
-      formatPendingDraftFailureMessage(publishResult.failed),
-    ) as Error & { failedFeatureDrafts?: PendingDraftFailure[] };
-    err.failedFeatureDrafts = publishResult.failed;
-    throw err;
+  const hasIncompleteRequiredItems = checklistItems.some(
+    (item) => item.required && item.status === "incomplete",
+  );
+
+  return {
+    experiment,
+    checklistItems,
+    status: hasIncompleteRequiredItems ? "notReady" : "ready",
+  };
+}
+
+export async function startExperiment({
+  context,
+  experimentId,
+  skipChecklist = false,
+}: {
+  context: ReqContext;
+  experimentId: string;
+  skipChecklist?: boolean;
+}) {
+  const experiment = await loadAndValidateExperimentForStatusChange(
+    context,
+    experimentId,
+  );
+
+  if (experiment.status !== "draft") {
+    throw new Error("invalid_status: Experiment must be in draft status");
   }
 
-  changes.status = "running";
+  const checklistItems = await getExperimentStartChecklistStatus(
+    context,
+    experiment,
+  );
+  const incompleteRequiredItems = checklistItems.filter(
+    (item) => item.required && item.status === "incomplete",
+  );
+  if (incompleteRequiredItems.length > 0 && !skipChecklist) {
+    throw new Error(
+      `checklist_incomplete: ${incompleteRequiredItems
+        .map((i) => i.key)
+        .join(", ")}`,
+    );
+  }
+
+  const { updated } = await executeExperimentStart(context, experiment);
+
+  return { experiment, updated, checklistItems };
+}
+
+/**
+ * Approves the configured `statusUpdateSchedule.startAt` for a draft
+ * experiment by setting the internal `nextScheduledStatusUpdate` field. The
+ * agenda job will then auto-start the experiment when the scheduled time is
+ * reached. Throws if the experiment is not in draft status or does not have
+ * a valid future scheduled start.
+ */
+export async function approveScheduledExperimentStart({
+  context,
+  experimentId,
+  skipChecklist = false,
+}: {
+  context: ReqContext;
+  experimentId: string;
+  skipChecklist?: boolean;
+}) {
+  const experiment = await loadAndValidateExperimentForStatusChange(
+    context,
+    experimentId,
+  );
+
+  if (experiment.status !== "draft") {
+    throw new Error(
+      "invalid_status: Experiment must be in draft status to approve a scheduled start",
+    );
+  }
+
+  const startAt = experiment.statusUpdateSchedule?.startAt
+    ? getValidDate(experiment.statusUpdateSchedule.startAt)
+    : null;
+  if (!startAt || startAt <= new Date()) {
+    throw new Error(
+      "no_valid_scheduled_start: No valid future scheduled start date to approve",
+    );
+  }
+
+  if (!skipChecklist) {
+    const checklistItems = await getExperimentStartChecklistStatus(
+      context,
+      experiment,
+    );
+    const incompleteRequired = checklistItems.filter(
+      (item) => item.required && item.status === "incomplete",
+    );
+    if (incompleteRequired.length > 0) {
+      throw new Error(
+        `checklist_incomplete: ${incompleteRequired.map((i) => i.key).join(", ")}`,
+      );
+    }
+  }
 
   const updated = await updateExperiment({
     context,
     experiment,
-    changes,
+    changes: {
+      nextScheduledStatusUpdate: {
+        type: "start",
+        date: startAt,
+      },
+    },
   });
 
-  return { experiment, updated, checklistItems };
+  return { experiment, updated };
+}
+
+/**
+ * Clears an existing `nextScheduledStatusUpdate` approval on a draft experiment
+ * so the agenda job will no longer auto-start it. The configured
+ * `statusUpdateSchedule` itself is preserved so the user can re-approve later.
+ * Throws if the experiment is not in draft status.
+ */
+export async function unapproveScheduledExperimentStart({
+  context,
+  experimentId,
+}: {
+  context: ReqContext;
+  experimentId: string;
+}) {
+  const experiment = await loadAndValidateExperimentForStatusChange(
+    context,
+    experimentId,
+  );
+
+  if (experiment.status !== "draft") {
+    throw new Error(
+      "invalid_status: Experiment must be in draft status to unschedule a scheduled start",
+    );
+  }
+
+  if (!experiment.nextScheduledStatusUpdate) {
+    return { experiment, updated: experiment };
+  }
+
+  const updated = await updateExperiment({
+    context,
+    experiment,
+    changes: {
+      nextScheduledStatusUpdate: null,
+    },
+  });
+
+  return { experiment, updated };
 }
 
 export async function stopExperiment({

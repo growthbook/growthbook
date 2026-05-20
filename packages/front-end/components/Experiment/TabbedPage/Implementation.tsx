@@ -81,7 +81,9 @@ export default function Implementation({
     canEditExperiment && permissionsUtil.canRunExperiment(experiment, []);
 
   const canAddLinkedChanges =
-    hasVisualEditorPermission && experiment.status === "draft";
+    hasVisualEditorPermission &&
+    experiment.status === "draft" &&
+    !experiment.nextScheduledStatusUpdate;
 
   const hasLinkedChanges =
     experiment.hasVisualChangesets ||
@@ -267,7 +269,10 @@ export default function Implementation({
             </Flex>
           </div>
         ) : null}
-        {experiment.status !== "draft" && !hasLinkedChanges && !isHoldout ? (
+        {(experiment.status !== "draft" ||
+          !!experiment.nextScheduledStatusUpdate) &&
+        !hasLinkedChanges &&
+        !isHoldout ? (
           <Callout status="info" mb="4">
             This experiment has no linked GrowthBook implementation (linked
             feature flag, visual editor changes, or URL redirect).{" "}
@@ -278,14 +283,16 @@ export default function Implementation({
         ) : null}
         <TrafficAndTargeting
           experiment={experiment}
-          editTargeting={editTargeting}
+          editTargeting={
+            experiment.nextScheduledStatusUpdate ? null : editTargeting
+          }
           phaseIndex={phases.length - 1}
         />
         <AnalysisSettings
           experiment={experiment}
           mutate={mutate}
           envs={envs}
-          canEdit={!!editTargeting}
+          canEdit={!!editTargeting && !experiment.nextScheduledStatusUpdate}
         />
       </div>
     </>

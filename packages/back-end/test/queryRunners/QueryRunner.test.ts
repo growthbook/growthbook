@@ -1,4 +1,4 @@
-import { QueryInterface, QueryStatus } from "shared/types/query";
+import { Queries, QueryInterface, QueryStatus } from "shared/types/query";
 import { ReqContext } from "back-end/types/request";
 import {
   QueryRunner,
@@ -6,7 +6,7 @@ import {
   InterfaceWithQueries,
 } from "back-end/src/queryRunners/QueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import { updateQuery } from "back-end/src/models/QueryModel";
+import { getQueriesByIds, updateQuery } from "back-end/src/models/QueryModel";
 
 jest.mock("back-end/src/models/QueryModel");
 
@@ -434,6 +434,303 @@ describe("QueryRunner", () => {
           onFailure: expect.any(Function),
         }),
       );
+    });
+  });
+
+  describe("startAnalysis", () => {
+    let mockContext: ReqContext;
+    let mockIntegration: SourceIntegrationInterface;
+
+    beforeEach(() => {
+      mockContext = createMockContext();
+      mockIntegration = createMockIntegration();
+      // getQueryMap() calls getQueriesByIds() to hydrate cached-query results.
+      // The auto-mock returns undefined; make it return an empty array so the
+      // cached path in startAnalysis() is exercisable without real DB access.
+      (getQueriesByIds as jest.Mock).mockResolvedValue([]);
+    });
+
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    // Simulates the Full Refresh race: a dependency-free query (e.g. a DROP
+    // TABLE) is executed fire-and-forget inside startQueries() and can finish
+    // — and fire its onQueryFinish follow-up timer — before startAnalysis()
+    // has persisted the full `queries` array to the model. The early timer
+    // reloads a model with no queued/running queries and gives up. Without a
+    // post-persist re-arm, nothing ever drives the rest of the DAG and every
+    // downstream query stays "queued" forever.
+    class RaceTestQueryRunner extends QueryRunner<
+      InterfaceWithQueries,
+      { pointers: Queries },
+      { success: boolean }
+    > {
+      public persistedQueries: Queries = [];
+      public updateModelSpy = jest.fn();
+      public onQueryFinishSpy = jest.fn();
+
+      checkPermissions() {
+        return true;
+      }
+
+      async startQueries(params: { pointers: Queries }) {
+        return params.pointers;
+      }
+
+      async runAnalysis() {
+        return { success: true };
+      }
+
+      // Simulates reading the model from the database: returns whatever has
+      // been persisted via updateModel(), not the in-memory copy.
+      async getLatestModel() {
+        return {
+          ...this.model,
+          queries: this.persistedQueries,
+        };
+      }
+
+      async updateModel(params: {
+        status: QueryStatus;
+        queries: Queries;
+      }): Promise<InterfaceWithQueries> {
+        this.updateModelSpy(params);
+        this.persistedQueries = params.queries;
+        return { ...this.model, queries: params.queries };
+      }
+
+      async onQueryFinish() {
+        this.onQueryFinishSpy(this.persistedQueries.length);
+        return super.onQueryFinish();
+      }
+    }
+
+    it("re-arms the follow-up timer after persisting the query DAG", async () => {
+      jest.useFakeTimers();
+      try {
+        const model: InterfaceWithQueries = {
+          id: "test-model",
+          organization: "test-org",
+          queries: [],
+          runStarted: new Date(),
+        };
+        const runner = new RaceTestQueryRunner(
+          mockContext,
+          model,
+          mockIntegration,
+        );
+
+        const pointers: Queries = [
+          { name: "drop_old", query: "qry_drop", status: "running" },
+          { name: "create", query: "qry_create", status: "queued" },
+        ];
+
+        await runner.startAnalysis({ pointers });
+
+        // updateModel must have been called with the full DAG...
+        expect(runner.updateModelSpy).toHaveBeenCalledWith(
+          expect.objectContaining({ status: "running", queries: pointers }),
+        );
+        // ...and onQueryFinish must have been called AFTER that persist, i.e.
+        // with the full DAG visible in the "database". This is what re-drives
+        // the DAG if a fast dependency-free query already finished and its
+        // follow-up timer already fired before the DAG was persisted.
+        expect(runner.onQueryFinishSpy).toHaveBeenCalledWith(pointers.length);
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
+    });
+
+    it("does not re-arm the timer when queries are already finished (cached)", async () => {
+      jest.useFakeTimers();
+      try {
+        const model: InterfaceWithQueries = {
+          id: "test-model",
+          organization: "test-org",
+          queries: [],
+          runStarted: new Date(),
+        };
+        const runner = new RaceTestQueryRunner(
+          mockContext,
+          model,
+          mockIntegration,
+        );
+
+        const pointers: Queries = [
+          { name: "a", query: "qry_a", status: "succeeded" },
+          { name: "b", query: "qry_b", status: "succeeded" },
+        ];
+
+        await runner.startAnalysis({ pointers });
+
+        // Runner should be finished (analysis ran synchronously on cached
+        // results) and no follow-up refresh should have been scheduled.
+        expect(runner.status).toBe("finished");
+        expect(runner.onQueryFinishSpy).not.toHaveBeenCalled();
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
+    });
+  });
+
+  describe("onHeartbeat lifecycle", () => {
+    let mockContext: ReqContext;
+    let mockIntegration: SourceIntegrationInterface;
+
+    beforeEach(() => {
+      mockContext = createMockContext();
+      mockIntegration = createMockIntegration();
+      (getQueriesByIds as jest.Mock).mockResolvedValue([]);
+    });
+
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    // Drives the runner into the "running" state with a DAG that still has
+    // queued/running queries, but never actually executes any query (no
+    // executeQuery, no per-query timers). onQueryFinish is neutralized so the
+    // only timer in play is the runner-level heartbeat interval. This isolates
+    // the guarantee in question: the lock heartbeat must keep firing for the
+    // whole time the runner is "running" — including the gaps between
+    // sequentially-dependent queries when no single query is executing.
+    class HeartbeatTestQueryRunner extends QueryRunner<
+      InterfaceWithQueries,
+      { pointers: Queries },
+      { success: boolean }
+    > {
+      public onHeartbeatSpy = jest.fn();
+
+      checkPermissions() {
+        return true;
+      }
+
+      async startQueries(params: { pointers: Queries }) {
+        return params.pointers;
+      }
+
+      async runAnalysis() {
+        return { success: true };
+      }
+
+      async getLatestModel() {
+        return this.model;
+      }
+
+      async updateModel(params: {
+        status: QueryStatus;
+        queries: Queries;
+      }): Promise<InterfaceWithQueries> {
+        return { ...this.model, queries: params.queries };
+      }
+
+      // Neutralize the per-query follow-up timer so the heartbeat interval is
+      // the only thing the fake clock advances.
+      async onQueryFinish() {}
+
+      protected override onHeartbeat(): void {
+        this.onHeartbeatSpy();
+      }
+    }
+
+    const runningPointers: Queries = [
+      { name: "drop_old", query: "qry_drop", status: "running" },
+      { name: "create", query: "qry_create", status: "queued" },
+    ];
+
+    it("fires onHeartbeat every ~30s while running even when no query is executing", async () => {
+      jest.useFakeTimers();
+      try {
+        const runner = new HeartbeatTestQueryRunner(
+          mockContext,
+          {
+            id: "test-model",
+            organization: "test-org",
+            queries: [],
+            runStarted: new Date(),
+          },
+          mockIntegration,
+        );
+
+        await runner.startAnalysis({ pointers: runningPointers });
+
+        expect(runner.status).toBe("running");
+        // Not yet — interval hasn't elapsed.
+        expect(runner.onHeartbeatSpy).toHaveBeenCalledTimes(0);
+
+        jest.advanceTimersByTime(30000);
+        expect(runner.onHeartbeatSpy).toHaveBeenCalledTimes(1);
+
+        // Spans the inter-query gap: still firing with zero query activity.
+        jest.advanceTimersByTime(60000);
+        expect(runner.onHeartbeatSpy).toHaveBeenCalledTimes(3);
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
+    });
+
+    it("stops firing onHeartbeat once the runner finishes", async () => {
+      jest.useFakeTimers();
+      try {
+        const runner = new HeartbeatTestQueryRunner(
+          mockContext,
+          {
+            id: "test-model",
+            organization: "test-org",
+            queries: [],
+            runStarted: new Date(),
+          },
+          mockIntegration,
+        );
+
+        await runner.startAnalysis({ pointers: runningPointers });
+        jest.advanceTimersByTime(30000);
+        expect(runner.onHeartbeatSpy).toHaveBeenCalledTimes(1);
+
+        await runner.cancelQueries();
+        expect(runner.status).toBe("finished");
+
+        // Interval must be cleared — no further beats no matter how long we wait.
+        jest.advanceTimersByTime(120000);
+        expect(runner.onHeartbeatSpy).toHaveBeenCalledTimes(1);
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
+    });
+
+    it("never starts the heartbeat when the runner finishes immediately (cached)", async () => {
+      jest.useFakeTimers();
+      try {
+        const runner = new HeartbeatTestQueryRunner(
+          mockContext,
+          {
+            id: "test-model",
+            organization: "test-org",
+            queries: [],
+            runStarted: new Date(),
+          },
+          mockIntegration,
+        );
+
+        await runner.startAnalysis({
+          pointers: [
+            { name: "a", query: "qry_a", status: "succeeded" },
+            { name: "b", query: "qry_b", status: "succeeded" },
+          ],
+        });
+
+        expect(runner.status).toBe("finished");
+        jest.advanceTimersByTime(120000);
+        expect(runner.onHeartbeatSpy).toHaveBeenCalledTimes(0);
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
     });
   });
 });

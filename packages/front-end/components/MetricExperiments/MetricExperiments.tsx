@@ -186,6 +186,11 @@ function MetricExperimentResultTab({
     defaultSortDir: -1,
     undefinedLast: true,
     searchFields: [],
+    // This is a sort-only table embedded inside pages that own the URL `q`
+    // param (e.g. MetricEffects). Without this, the hook would latch onto
+    // the page's filter string at mount, which combined with an empty
+    // searchFields collapses the table to zero rows.
+    disableUrlSearchTerm: true,
   });
 
   const expRows = items.slice(start, end).map((e) => {
@@ -324,7 +329,9 @@ const MetricExperiments: FC<MetricAnalysisProps> = ({
   }>(`/metrics/${metric.id}/experiments`, {
     shouldRun: dataWithSnapshot ? () => false : undefined,
   });
-  const loading = !data;
+  // When the parent passes in `dataWithSnapshot`, it owns the loading state
+  // and we should never block on the (disabled) SWR fetch.
+  const loading = dataWithSnapshot === undefined && !data;
 
   const metricExperiments = (dataWithSnapshot ?? data?.data ?? []).filter(
     (e) =>

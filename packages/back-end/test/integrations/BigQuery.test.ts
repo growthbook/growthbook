@@ -73,6 +73,109 @@ describe("BigQuery reservation job config", () => {
   });
 });
 
+describe("BigQuery percentileCapSelectClause (UNPIVOT reshape)", () => {
+  let integration: BigQuery;
+
+  beforeEach(() => {
+    // @ts-expect-error -- context/datasource not needed for this unit test
+    integration = new BigQuery("", {});
+  });
+
+  const norm = (s: string) => s.replace(/\s+/g, " ").trim();
+
+  it("falls back to wide APPROX_QUANTILES for a single capped column", () => {
+    const sql = integration.getSqlDialect().percentileCapSelectClause(
+      [
+        {
+          valueCol: "m0_value",
+          outputCol: "m0_value_cap",
+          percentile: 0.99,
+          ignoreZeros: false,
+          sourceIndex: 0,
+        },
+      ],
+      "__userMetricAgg",
+    );
+    expect(norm(sql)).toContain(
+      "APPROX_QUANTILES(m0_value, 10000 IGNORE NULLS)[OFFSET(CAST(9900 AS INT64))] AS m0_value_cap",
+    );
+    expect(sql).not.toContain("UNPIVOT");
+    expect(sql).not.toContain("PIVOT");
+  });
+
+  it("stays in wide form below the reshape threshold (a few capped columns)", () => {
+    const sql = norm(
+      integration.getSqlDialect().percentileCapSelectClause(
+        [
+          {
+            valueCol: "m0_value",
+            outputCol: "m0_value_cap",
+            percentile: 0.99,
+            ignoreZeros: false,
+            sourceIndex: 0,
+          },
+          {
+            valueCol: "m1_value",
+            outputCol: "m1_value_cap",
+            percentile: 0.999,
+            ignoreZeros: true,
+            sourceIndex: 0,
+          },
+        ],
+        "__userMetricAgg",
+      ),
+    );
+    expect(sql).not.toContain("UNPIVOT");
+    expect(sql).not.toContain("PIVOT");
+    expect(sql).toContain(
+      "APPROX_QUANTILES(m0_value, 10000 IGNORE NULLS)[OFFSET(CAST(9900 AS INT64))] AS m0_value_cap",
+    );
+  });
+
+  it("reshapes to UNPIVOT/GROUP BY/PIVOT once the column count crosses the threshold", () => {
+    const RESHAPE_THRESHOLD = 20;
+    const cols = Array.from({ length: RESHAPE_THRESHOLD }, (_, i) => ({
+      valueCol: `m${i}_value`,
+      outputCol: `m${i}_value_cap`,
+      percentile: i === 1 ? 0.999 : 0.99,
+      ignoreZeros: i === 1,
+      sourceIndex: 0,
+    }));
+    const sql = norm(
+      integration
+        .getSqlDialect()
+        .percentileCapSelectClause(cols, "__userMetricAgg"),
+    );
+    const unpivotList = cols.map((c) => c.valueCol).join(", ");
+    const pivotList = cols
+      .map((c) => `'${c.valueCol}' AS ${c.outputCol}`)
+      .join(", ");
+    expect(sql).toContain(`UNPIVOT (val FOR col_name IN (${unpivotList}))`);
+    expect(sql).toContain("GROUP BY col_name");
+    expect(sql).toContain(
+      `PIVOT (ANY_VALUE(cap) FOR col_name IN (${pivotList}))`,
+    );
+  });
+
+  it("omits the ignore-zero IF wrapper when no column opts in (reshape path)", () => {
+    const RESHAPE_THRESHOLD = 20;
+    const cols = Array.from({ length: RESHAPE_THRESHOLD }, (_, i) => ({
+      valueCol: `m${i}_value`,
+      outputCol: `m${i}_value_cap`,
+      percentile: 0.99,
+      ignoreZeros: false,
+      sourceIndex: 0,
+    }));
+    const sql = norm(
+      integration
+        .getSqlDialect()
+        .percentileCapSelectClause(cols, "__userMetricAgg"),
+    );
+    expect(sql).toContain("APPROX_QUANTILES(val, 10000 IGNORE NULLS)");
+    expect(sql).not.toContain("val = 0");
+  });
+});
+
 describe("BigQuery type mapping", () => {
   it("maps BYTES to binary fact table datatype", () => {
     expect(getFactTableTypeFromBigQueryType("BYTES")).toBe("binary");

@@ -15,6 +15,7 @@ import {
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
   DEFAULT_POST_STRATIFICATION_ENABLED,
+  DEFAULT_REVISION_CONFIGURATION,
 } from "shared/constants";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { OrganizationSettings } from "shared/types/organization";
@@ -65,6 +66,28 @@ function hasChanges(
   return !isEqual(value, existing);
 }
 
+function applyApprovalFlowEntitlements(
+  approvalFlows: OrganizationSettings["approvalFlows"],
+  hasRequireApprovals: boolean,
+): OrganizationSettings["approvalFlows"] {
+  if (hasRequireApprovals || !approvalFlows) return approvalFlows;
+
+  const savedGroupApprovalFlow =
+    approvalFlows?.savedGroups?.[0] ??
+    DEFAULT_REVISION_CONFIGURATION.savedGroups[0];
+
+  return {
+    ...approvalFlows,
+    savedGroups: [
+      {
+        ...savedGroupApprovalFlow,
+        required: false,
+      },
+      ...(approvalFlows.savedGroups?.slice(1) ?? []),
+    ],
+  };
+}
+
 const GeneralSettingsPage = (): React.ReactElement => {
   const { refreshOrganization, settings, organization, hasCommercialFeature } =
     useUser();
@@ -77,6 +100,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const displayCurrency = useCurrency();
 
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
+  const hasRequireApprovals = hasCommercialFeature("require-approvals");
 
   const promptForm = useForm();
 
@@ -192,7 +216,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
       postStratificationEnabled:
         settings.postStratificationEnabled ??
         DEFAULT_POST_STRATIFICATION_ENABLED,
-      approvalFlows: settings.approvalFlows,
+      approvalFlows: applyApprovalFlowEntitlements(
+        settings.approvalFlows,
+        hasRequireApprovals,
+      ),
     },
   });
   const { apiCall } = useAuth();
@@ -300,6 +327,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
             getRequireRegisteredAttributesSettings(
               settings?.requireRegisteredAttributes,
             );
+        } else if (k === "approvalFlows") {
+          newVal.approvalFlows = applyApprovalFlowEntitlements(
+            settings?.approvalFlows,
+            hasRequireApprovals,
+          );
         } else {
           newVal[k] = settings?.[k] || newVal[k];
         }
@@ -330,7 +362,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         );
       }
     }
-  }, [settings]);
+  }, [settings, hasRequireApprovals]);
 
   useEffect(() => {
     form.setValue(
@@ -371,6 +403,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
       multipleExposureMinPercent:
         (value.multipleExposureMinPercent ?? 0.01) / 100,
       preferredEnvironment: value.preferredEnvironment || null,
+      approvalFlows: applyApprovalFlowEntitlements(
+        value.approvalFlows,
+        hasRequireApprovals,
+      ),
     };
 
     // Make sure the feature key example is valid

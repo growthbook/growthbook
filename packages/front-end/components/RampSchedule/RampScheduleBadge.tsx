@@ -44,6 +44,10 @@ export default function RampScheduleBadge({
   const now = new Date();
   const startAt = rs.startDate ? new Date(rs.startDate) : null;
   const futureStart = startAt && startAt > now;
+  // Surface "Starts in …" only while the schedule is genuinely waiting to
+  // start (pending/ready). Once it's running/paused/completed the original
+  // startDate is stale UI noise.
+  const preStart = rs.status === "pending" || rs.status === "ready";
 
   // Simple schedule: show only timing, no status prefix, no tooltip.
   if (simpleSchedule) {
@@ -53,7 +57,7 @@ export default function RampScheduleBadge({
       label = "Schedule pending publish";
     } else if (rs.status === "running") {
       label = "Running";
-    } else if (futureStart) {
+    } else if (preStart && futureStart) {
       label = `Starts ${abbreviateAgo(startAt)}`;
     } else {
       label = "Active";
@@ -79,7 +83,7 @@ export default function RampScheduleBadge({
 
   let timingLabel: string | null = null;
   let timingTooltip: ReactNode = null;
-  if (futureStart) {
+  if (preStart && futureStart) {
     timingLabel = `Starts ${abbreviateAgo(startAt)}`;
     timingTooltip = dateRow("Starts", startAt);
   }
