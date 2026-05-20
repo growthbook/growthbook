@@ -36,7 +36,6 @@ import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
-import UITooltip from "@/ui/Tooltip";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import {
@@ -308,10 +307,6 @@ const AnalysisForm: FC<{
   const hasEligiblePrecomputedUnitDimensions =
     precomputedUnitDimensionOptions.length > 0 &&
     datasourceHasWritableEphemeralPipelineEnabled;
-  const precomputedUnitDimensionDisabledReason =
-    !datasourceHasWritableEphemeralPipelineEnabled
-      ? "Always-computed unit dimensions require a datasource with ephemeral Pipeline Mode enabled."
-      : "No eligible unit dimensions are available for the selected datasource and assignment table identifier type.";
   const hasAdvancedSettings = !isBandit && !isHoldout;
 
   const removeInvalidPrecomputedUnitDimensionIds = ({
@@ -965,28 +960,22 @@ const AnalysisForm: FC<{
                   lazyRender={true}
                 >
                   <div className="rounded px-3 pt-3 pb-1 bg-highlight">
-                    <div className="form-group mb-2">
-                      <UITooltip
-                        enabled={!hasEligiblePrecomputedUnitDimensions}
-                        content={precomputedUnitDimensionDisabledReason}
-                      >
-                        <div>
-                          <MultiSelectField
-                            label="Always-computed unit dimensions"
-                            labelClassName="font-weight-bold"
-                            helpText="These dimensions will be computed automatically on every refresh, similar to precomputed dimensions. Changes apply on the next refresh."
-                            value={
-                              form.watch("precomputedUnitDimensionIds") || []
-                            }
-                            options={precomputedUnitDimensionOptions}
-                            disabled={!hasEligiblePrecomputedUnitDimensions}
-                            onChange={(v) =>
-                              form.setValue("precomputedUnitDimensionIds", v)
-                            }
-                          />
-                        </div>
-                      </UITooltip>
-                    </div>
+                    {hasEligiblePrecomputedUnitDimensions && (
+                      <div className="form-group mb-2">
+                        <MultiSelectField
+                          label="Always-computed unit dimensions"
+                          labelClassName="font-weight-bold"
+                          helpText="These dimensions will be computed automatically on every refresh, similar to precomputed dimensions. Changes apply on the next refresh."
+                          value={
+                            form.watch("precomputedUnitDimensionIds") || []
+                          }
+                          options={precomputedUnitDimensionOptions}
+                          onChange={(v) =>
+                            form.setValue("precomputedUnitDimensionIds", v)
+                          }
+                        />
+                      </div>
+                    )}
                     {datasourceProperties?.experimentSegments &&
                       filteredSegments.length > 0 && (
                         <div className="form-group mb-2">

@@ -11,9 +11,9 @@ import { DimensionInterface } from "shared/types/dimension";
 import { ReqContext } from "back-end/types/request";
 import { findDimensionsByIds } from "back-end/src/models/DimensionModel";
 import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
-import { logger } from "back-end/src/util/logger";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import { logger } from "back-end/src/util/logger";
 
 // Gets all Dimensions from the exposure query
 export function getExposureQueryDimensions({
@@ -183,8 +183,10 @@ export const PRECOMPUTED_UNIT_DIMENSIONS_REQUIRE_PIPELINE_ERROR =
  * Resolves "always compute" unit dimensions into the subset still valid for
  * this experiment's datasource and exposure-query identifier type.
  *
- * @throws {Error} if any ids were requested but the datasource lacks a writable
- * ephemeral pipeline.
+ * Used when creating a snapshot from already-saved experiment configuration.
+ * Invalid saved ids are ignored so refreshes can continue, but saved configs
+ * with more than 5 ids still fail because create/update validation should make
+ * that impossible.
  */
 export async function getEligiblePrecomputedUnitDimensionIds({
   context,
@@ -201,8 +203,22 @@ export async function getEligiblePrecomputedUnitDimensionIds({
     return [];
   }
 
+  // Bounds the per-snapshot warehouse query fan-out: each id adds one
+  // isolated metric query per metric-group on every refresh.
+  if (dimensionIds.length > 5) {
+    throw new Error("A maximum of 5 precomputed unit dimensions are allowed");
+  }
+
   if (!datasourceHasWritableEphemeralPipeline({ context, datasource })) {
-    throw new Error(PRECOMPUTED_UNIT_DIMENSIONS_REQUIRE_PIPELINE_ERROR);
+    logger.info(
+      {
+        experimentId: experiment.id,
+        datasourceId: datasource.id,
+        dimensionIds,
+      },
+      "Ignoring precomputed unit dimensions because datasource cannot honor them",
+    );
+    return [];
   }
 
   const { dimensions, skipped } = await resolvePrecomputedUnitDimensions({
@@ -213,12 +229,12 @@ export async function getEligiblePrecomputedUnitDimensionIds({
   });
 
   if (skipped.length > 0) {
-    logger.warn(
+    logger.info(
       {
         experimentId: experiment.id,
         skipped,
       },
-      "Eager unit-dim skipped ineligible dimensions",
+      "Ignoring ineligible precomputed unit dimensions",
     );
   }
 
@@ -250,7 +266,9 @@ export function datasourceHasWritableEphemeralPipeline({
 }
 
 /**
- * Validates the precomputed unit dimension ids are valid for the experiment.
+ * Validates the precomputed unit dimension ids are valid for saving on the
+ * experiment. Used by experiment create/update paths to provide immediate API
+ * feedback.
  *
  * @throws {Error} if the precomputed unit dimension ids are not valid
  */
@@ -276,18 +294,7 @@ export async function assertExperimentPrecomputedUnitDimensionIdsAreValid({
     throw new Error("A maximum of 5 precomputed unit dimensions are allowed");
   }
 
-  const { skipped } = await resolvePrecomputedUnitDimensions({
-    context,
-    datasource,
-    exposureQueryId,
-    dimensionIds,
-  });
-
-  const missingDatasource = skipped.find(
-    (s) => s.reason === "missing-datasource",
-  );
-
-  if (missingDatasource || !datasource) {
+  if (!datasource) {
     throw new Error(
       "precomputedUnitDimensionIds requires the experiment to have a datasource",
     );
@@ -296,6 +303,13 @@ export async function assertExperimentPrecomputedUnitDimensionIdsAreValid({
   if (!datasourceHasWritableEphemeralPipeline({ context, datasource })) {
     throw new Error(PRECOMPUTED_UNIT_DIMENSIONS_REQUIRE_PIPELINE_ERROR);
   }
+
+  const { skipped } = await resolvePrecomputedUnitDimensions({
+    context,
+    datasource,
+    exposureQueryId,
+    dimensionIds,
+  });
 
   const missing = skipped.filter((s) => s.reason === "not-found");
   if (missing.length > 0) {

@@ -1,6 +1,7 @@
 import { DataSourceInterface } from "shared/types/datasource";
 import { ExperimentInterface } from "shared/validators";
 import {
+  assertExperimentPrecomputedUnitDimensionIdsAreValid,
   datasourceHasWritableEphemeralPipeline,
   getEligiblePrecomputedUnitDimensionIds,
 } from "back-end/src/services/dimensions";
@@ -130,7 +131,7 @@ describe("getEligiblePrecomputedUnitDimensionIds", () => {
     exposureQueryId: "exposure",
   } as ExperimentInterface;
 
-  it("throws when the datasource lacks a writable ephemeral pipeline", async () => {
+  it("ignores requested dimensions when the datasource lacks a writable ephemeral pipeline", async () => {
     await expect(
       getEligiblePrecomputedUnitDimensionIds({
         context,
@@ -140,6 +141,38 @@ describe("getEligiblePrecomputedUnitDimensionIds", () => {
           mode: "ephemeral",
           writeDataset: "gb",
         }),
+        dimensionIds: ["dim_country"],
+      }),
+    ).resolves.toEqual([]);
+  });
+
+  it("throws if a saved config has more than five requested dimensions", async () => {
+    await expect(
+      getEligiblePrecomputedUnitDimensionIds({
+        context,
+        experiment,
+        datasource: makeDatasource({
+          allowWriting: true,
+          mode: "ephemeral",
+          writeDataset: "gb",
+        }),
+        dimensionIds: ["dim_1", "dim_2", "dim_3", "dim_4", "dim_5", "dim_6"],
+      }),
+    ).rejects.toThrow("A maximum of 5 precomputed unit dimensions are allowed");
+  });
+});
+
+describe("assertExperimentPrecomputedUnitDimensionIdsAreValid", () => {
+  it("throws when saving dimensions the datasource cannot honor", async () => {
+    await expect(
+      assertExperimentPrecomputedUnitDimensionIdsAreValid({
+        context,
+        datasource: makeDatasource({
+          allowWriting: false,
+          mode: "ephemeral",
+          writeDataset: "gb",
+        }),
+        exposureQueryId: "exposure",
         dimensionIds: ["dim_country"],
       }),
     ).rejects.toThrow(

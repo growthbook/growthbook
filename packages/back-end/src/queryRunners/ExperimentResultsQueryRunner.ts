@@ -42,10 +42,7 @@ import {
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import {
-  getExposureQueryEligibleDimensions,
-  PRECOMPUTED_UNIT_DIMENSIONS_REQUIRE_PIPELINE_ERROR,
-} from "back-end/src/services/dimensions";
+import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import { getFactMetricGroups } from "back-end/src/services/experimentQueries/experimentQueries";
 import { parseDimension } from "back-end/src/services/experiments";
 import {
@@ -152,17 +149,13 @@ export const startExperimentResultQueries = async (
       hasPipelineModeFeature) ??
     false;
 
-  const configuredPrecomputedUnitDimensionIds =
-    snapshotSettings.precomputedUnitDimensionIds ?? [];
-  if (configuredPrecomputedUnitDimensionIds.length > 0 && !useUnitsTable) {
-    throw new Error(PRECOMPUTED_UNIT_DIMENSIONS_REQUIRE_PIPELINE_ERROR);
-  }
-
   // Configured "always-computed" unit dimensions. These are materialized as
   // extra dim_unit_<id> columns on the shared units table and get isolated
   // per-dimension metric queries; they are NOT added to the parent metric
   // queries' GROUP BY (which stays experiment-dims-only).
-  const precomputedUnitDimensionIds = configuredPrecomputedUnitDimensionIds;
+  const precomputedUnitDimensionIds = useUnitsTable
+    ? (snapshotSettings.precomputedUnitDimensionIds ?? [])
+    : [];
   const unitDimensions: Dimension[] = (
     await Promise.all(
       precomputedUnitDimensionIds.map((id) =>

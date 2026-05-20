@@ -1346,7 +1346,8 @@ const updateExperimentBody = z
       .describe(
         "A list of unit dimension ids that will be calculated every update and generate timeseries data. Requires the datasource to have pipeline mode enabled.",
       )
-      .max(5, "A maximum of 5 precomputed unit dimensions are allowed"),
+      .max(5, "A maximum of 5 precomputed unit dimensions are allowed")
+      .optional(),
   })
   .strict();
 

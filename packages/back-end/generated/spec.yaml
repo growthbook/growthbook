@@ -10079,8 +10079,6 @@ paths:
                   type: array
                   items:
                     type: string
-              required:
-                - precomputedUnitDimensionIds
               additionalProperties: false
       responses:
         '200':

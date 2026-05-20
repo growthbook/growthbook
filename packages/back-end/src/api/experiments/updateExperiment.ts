@@ -218,12 +218,15 @@ export const updateExperiment = createApiRequestHandler(
       req.body.precomputedUnitDimensionIds ??
       experiment.precomputedUnitDimensionIds ??
       [];
-    await assertExperimentPrecomputedUnitDimensionIdsAreValid({
-      context: req.context,
-      datasource,
-      exposureQueryId: req.body.assignmentQueryId ?? experiment.exposureQueryId,
-      dimensionIds: effectivePrecomputedUnitDimensionIds,
-    });
+    if (effectivePrecomputedUnitDimensionIds.length > 0) {
+      await assertExperimentPrecomputedUnitDimensionIdsAreValid({
+        context: req.context,
+        datasource,
+        exposureQueryId:
+          req.body.assignmentQueryId ?? experiment.exposureQueryId,
+        dimensionIds: effectivePrecomputedUnitDimensionIds,
+      });
+    }
   }
 
   if (
