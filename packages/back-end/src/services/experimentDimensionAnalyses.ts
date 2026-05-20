@@ -20,8 +20,8 @@ const EAGER_DIMENSION_CONCURRENCY = 3;
 
 /**
  * After a successful standard snapshot, runs gbstats analyses for every
- * precomputed experiment and unit dimension on the snapshot so we can persist
- * dimension time series.
+ * precomputed experiment and unit dimension on the snapshot, then persists
+ * their dimension time series.
  */
 export async function runEagerExperimentDimensionAnalyses({
   context,

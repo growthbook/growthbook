@@ -62,6 +62,7 @@ import {
   StartQueryParams,
 } from "./QueryRunner";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
+import { getUnitDimQueryName } from "./unitDimensionQueryNaming";
 export type SnapshotResult = {
   unknownVariations: string[];
   multipleExposures: number;
@@ -83,11 +84,6 @@ export type ExperimentResultsQueryParams = {
 export const TRAFFIC_QUERY_NAME = "traffic";
 
 export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
-
-import {
-  getUnitDimQueryName,
-  parseUnitDimQueryName,
-} from "./unitDimensionQueryNaming";
 
 export const startExperimentResultQueries = async (
   context: ApiReqContext,
@@ -513,20 +509,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
-    // Per-unit-dimension queries live on this snapshot's `queries` but must
-    // not feed the parent's own dimensionless analysis. Excluding them keeps
-    // parent results byte-for-byte identical to a snapshot with no configured
-    // unit dimensions.
-    const parentQueryMap: QueryMap = new Map();
-    queryMap.forEach((query, name) => {
-      if (!parseUnitDimQueryName(name)) {
-        parentQueryMap.set(name, query);
-      }
-    });
-
     const { results: analysesResults, banditResult } =
       await analyzeExperimentResults({
-        queryData: parentQueryMap,
+        queryData: queryMap,
         snapshotSettings: this.model.settings,
         analysisSettings: this.model.analyses.map((a) => a.settings),
         variationNames: this.variationNames,

@@ -11,13 +11,11 @@ import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";
 
 jest.mock("shared/experiments", () => ({
+  ...jest.requireActual<typeof import("shared/experiments")>(
+    "shared/experiments",
+  ),
   getAllExpandedMetricIdsFromExperiment: jest.fn(() => ["met_1"]),
   isFactMetricId: jest.fn(() => false),
-  isDimensionPrecomputed: jest.fn(
-    (id: string | undefined, precomputedUnitDimensionIds: string[]) =>
-      id?.startsWith("precomputed:") ||
-      (!!id && precomputedUnitDimensionIds.includes(id)),
-  ),
   expandAllSliceMetricsInMap: jest.fn(),
   getLatestPhaseVariations: jest.fn(() => [
     { id: "0", name: "Control" },

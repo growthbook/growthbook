@@ -404,7 +404,7 @@ export async function updateSnapshot({
   context: Context;
   id: string;
   updates: Partial<ExperimentSnapshotInterface>;
-}): Promise<ExperimentSnapshotInterface> {
+}) {
   const organization = context.org.id;
 
   const existingSnapshotModel = await ExperimentSnapshotModel.findOne({
@@ -416,7 +416,6 @@ export async function updateSnapshot({
   }
 
   const existingInterface = toInterface(existingSnapshotModel);
-
   const updatesForDb: Partial<ExperimentSnapshotInterface> = { ...updates };
   let deleteExistingChunksAfterUpdate = false;
   let chunkResult: Awaited<ReturnType<typeof chunkAndStripAnalyses>> = null;
@@ -604,8 +603,6 @@ export async function updateSnapshot({
       await updateDashboardWithSnapshot(dashboard);
     }
   }
-
-  return experimentSnapshot;
 }
 
 export type AddOrUpdateSnapshotAnalysisParams = {

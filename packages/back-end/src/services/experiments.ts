@@ -162,7 +162,10 @@ import { logger } from "back-end/src/util/logger";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "back-end/src/queryRunners/QueryRunner";
-import { buildUnitDimensionQueryMap } from "back-end/src/queryRunners/unitDimensionQueryNaming";
+import {
+  filterParentQueryMap,
+  getQueryMapForPrecomputedDimension,
+} from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import {
   FactTableMap,
   getFactTableMap,
@@ -2142,7 +2145,11 @@ async function getQueryMapForAnalysis(
     dimensionId &&
     snapshot.settings.precomputedUnitDimensionIds?.includes(dimensionId)
   ) {
-    const unitDimQueryMap = buildUnitDimensionQueryMap(queryMap, dimensionId);
+    const unitDimQueryMap = getQueryMapForPrecomputedDimension(
+      queryMap,
+      dimensionId,
+      snapshot.settings.precomputedUnitDimensionIds ?? [],
+    );
     if (unitDimQueryMap.size === 0) {
       // The parent snapshot lists this unit dimension in its settings but
       // has no `unitdim:<id>:` query results — either the snapshot predates
@@ -2154,7 +2161,7 @@ async function getQueryMapForAnalysis(
     }
     return unitDimQueryMap;
   }
-  return queryMap;
+  return filterParentQueryMap(queryMap);
 }
 
 export async function createSnapshotAnalyses(

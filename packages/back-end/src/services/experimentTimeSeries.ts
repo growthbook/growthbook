@@ -49,11 +49,9 @@ export async function updateExperimentTimeSeries({
   experimentSnapshot: ExperimentSnapshotInterface;
   notificationsTriggered: string[];
 }) {
-  // This function handles:
-  // - main experiment time series
-  //
-  // It does not handle precomputed dimension time series, as those are handled by
-  // runEagerExperimentDimensionAnalyses.
+  // This function handles the main (dimensionless) experiment time series.
+  // Precomputed dimension time series are written by
+  // runEagerExperimentDimensionAnalyses after their analyses are persisted.
   //
   // We treat the snapshot as dimensionless only when `dimension` is explicitly
   // null or "" (the values written for dimensionless snapshots); `undefined`

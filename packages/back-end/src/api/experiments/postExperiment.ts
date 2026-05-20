@@ -250,9 +250,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       await assertExperimentPrecomputedUnitDimensionIdsAreValid({
         context: req.context,
         datasource,
-        exposureQueryId:
-          payload.assignmentQueryId ??
-          datasource?.settings.queries?.exposure?.[0]?.id,
+        exposureQueryId: payload.assignmentQueryId,
         dimensionIds: payload.precomputedUnitDimensionIds,
       });
     }

@@ -194,7 +194,6 @@ export interface ExperimentSnapshotSettings {
    * Experiment-level always-computed unit dimensions.
    * We use this field to gather the required data in 1 pass, and then this is used
    * to create individual analyses for each unit dimension.
-   * Meaning those children analyses will have dimensions set to the unit dimension.
    */
   precomputedUnitDimensionIds?: string[];
   metricSettings: MetricForSnapshot[];

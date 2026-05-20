@@ -907,7 +907,7 @@ async function _getSnapshot({
     phase = String(experimentObj.phases.length - 1);
   }
 
-  const snapshot = await getLatestSnapshot({
+  return await getLatestSnapshot({
     context,
     experiment: experimentObj.id,
     phase: parseInt(phase),
@@ -915,8 +915,6 @@ async function _getSnapshot({
     withResults,
     type,
   });
-
-  return snapshot;
 }
 
 export async function getSnapshotWithDimension(

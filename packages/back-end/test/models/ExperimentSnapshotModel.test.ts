@@ -754,6 +754,50 @@ describe("ExperimentSnapshotModel", () => {
       return experiment;
     }
 
+    it("runs eager dimension analyses for latest standard success snapshots with populated analyses", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_eager_success");
+      snapshot.type = "standard";
+      snapshot.settings = {
+        ...snapshot.settings,
+        dimensions: [{ id: "precomputed:country" }],
+        precomputedUnitDimensionIds: ["dim_country"],
+      };
+      mockSuccessfulExperimentLoad(snapshot.experiment);
+
+      await createExperimentSnapshotModel({ data: snapshot, context });
+
+      const analysis = makeAnalysis({
+        settings: makeAnalysisSettings(),
+        value: 10,
+      });
+
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: {
+          status: "success",
+          analyses: [analysis],
+        },
+      });
+
+      expect(runEagerExperimentDimensionAnalyses).toHaveBeenCalledTimes(1);
+      expect(runEagerExperimentDimensionAnalyses).toHaveBeenCalledWith({
+        context,
+        experiment: expect.objectContaining({ id: snapshot.experiment }),
+        experimentSnapshot: expect.objectContaining({
+          id: snapshot.id,
+          analyses: expect.arrayContaining([
+            expect.objectContaining({
+              results: expect.arrayContaining([
+                expect.objectContaining({ variations: expect.any(Array) }),
+              ]),
+            }),
+          ]),
+        }),
+      });
+    });
+
     it("passes populated chunked analyses to post-success side effects", async () => {
       const context = getSnapshotUpdateContext();
       const experimentId = "exp_chunked_results";
@@ -857,49 +901,6 @@ describe("ExperimentSnapshotModel", () => {
       expect(populateChunkedAnalysesSpy).not.toHaveBeenCalled();
     });
 
-    it("runs eager dimension analyses for latest standard dimensionless success snapshots with populated analyses", async () => {
-      const context = getSnapshotUpdateContext();
-      const snapshot = makeSnapshotWithMetric("snp_eager_success");
-      snapshot.type = "standard";
-      snapshot.settings = {
-        ...snapshot.settings,
-        dimensions: [{ id: "precomputed:country" }],
-      };
-      mockSuccessfulExperimentLoad(snapshot.experiment);
-
-      await createExperimentSnapshotModel({ data: snapshot, context });
-
-      const analysis = makeAnalysis({
-        settings: makeAnalysisSettings(),
-        value: 10,
-      });
-
-      await updateSnapshot({
-        context,
-        id: snapshot.id,
-        updates: {
-          status: "success",
-          analyses: [analysis],
-        },
-      });
-
-      expect(runEagerExperimentDimensionAnalyses).toHaveBeenCalledTimes(1);
-      expect(runEagerExperimentDimensionAnalyses).toHaveBeenCalledWith({
-        context,
-        experiment: expect.objectContaining({ id: snapshot.experiment }),
-        experimentSnapshot: expect.objectContaining({
-          id: snapshot.id,
-          analyses: expect.arrayContaining([
-            expect.objectContaining({
-              results: expect.arrayContaining([
-                expect.objectContaining({ variations: expect.any(Array) }),
-              ]),
-            }),
-          ]),
-        }),
-      });
-    });
-
     it.each([
       {
         label: "non-success",
@@ -950,7 +951,7 @@ describe("ExperimentSnapshotModel", () => {
         phases: [{}],
       },
     ])(
-      "does not run eager dimension analyses for $label updates",
+      "does not run post-update dimension analysis backfill for $label updates",
       async (testCase) => {
         const context = getSnapshotUpdateContext();
         const snapshot = makeSnapshotWithMetric(`snp_eager_${testCase.label}`);
@@ -975,7 +976,7 @@ describe("ExperimentSnapshotModel", () => {
       },
     );
 
-    it("does not rerun eager dimension analyses for metadata-only updates", async () => {
+    it("does not rerun dimension analysis backfill for metadata-only updates", async () => {
       const context = getSnapshotUpdateContext();
       const snapshot = makeSnapshotWithMetric("snp_eager_metadata");
       snapshot.type = "standard";
