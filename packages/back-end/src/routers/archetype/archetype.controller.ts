@@ -196,6 +196,18 @@ export const postArchetype = async (
     context.permissions.throwPermissionError();
   }
 
+  if (environments?.length) {
+    const allEnvironments = org.settings?.environments || [];
+    const invalid = environments.filter(
+      (e) => !allEnvironments.some(({ id }) => e === id),
+    );
+    if (invalid.length) {
+      throw new Error(
+        `The following environments do not exist: ${invalid.join(", ")}`,
+      );
+    }
+  }
+
   const archetype = await createArchetype({
     attributes,
     name,
@@ -268,6 +280,18 @@ export const putArchetype = async (
       status: 403,
       message: "Organization does not have premium feature: sample users",
     });
+  }
+
+  if (environments?.length) {
+    const allEnvironments = org.settings?.environments || [];
+    const invalid = environments.filter(
+      (e) => !allEnvironments.some(({ id }) => e === id),
+    );
+    if (invalid.length) {
+      throw new Error(
+        `The following environments do not exist: ${invalid.join(", ")}`,
+      );
+    }
   }
 
   const updates = {
