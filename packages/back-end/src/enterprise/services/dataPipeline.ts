@@ -1,3 +1,4 @@
+import md5 from "md5";
 import {
   ExperimentMetricInterface,
   isFactMetric,
@@ -5,16 +6,20 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import { IncrementalRefreshInterface } from "shared/validators";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import {
+  ExperimentSnapshotSettings,
+  MetricForSnapshot,
+} from "shared/types/experiment-snapshot";
 import { OrganizationInterface } from "shared/types/organization";
 import { ExperimentInterface } from "shared/types/experiment";
+import {
+  FactMetricInterface,
+  FactTableInterface,
+} from "shared/types/fact-table";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import {
-  getExperimentSettingsHashForIncrementalRefresh,
-  getMetricSettingsHashForIncrementalRefresh,
-} from "./experimentTimeSeries";
+import { getFiltersForHash } from "back-end/src/services/experimentTimeSeries";
 
 // If the given settings / experiment is not compatible with incremental refresh, throw an error.
 // Otherwise, return void.
@@ -167,4 +172,116 @@ export async function validateIncrementalPipeline({
       });
     }
   }
+}
+
+const hashObject = (obj: object) => md5(JSON.stringify(obj));
+
+// TODO(incremental-refresh): Reconcile with getExperimentSettingsHash and getMetricSettingsHash
+export function getExperimentSettingsHashForIncrementalRefresh(
+  snapshotSettings: ExperimentSnapshotSettings,
+): string {
+  return hashObject({
+    // snapshotSettings
+    activationMetric: snapshotSettings.activationMetric,
+    attributionModel: snapshotSettings.attributionModel,
+    queryFilter: snapshotSettings.queryFilter,
+    segment: snapshotSettings.segment,
+    skipPartialData: snapshotSettings.skipPartialData,
+    datasourceId: snapshotSettings.datasourceId,
+    exposureQueryId: snapshotSettings.exposureQueryId,
+    startDate: snapshotSettings.startDate,
+    regressionAdjustmentEnabled: snapshotSettings.regressionAdjustmentEnabled,
+    experimentId: snapshotSettings.experimentId,
+  });
+}
+
+type ComputedSettingsForSnapshot = NonNullable<
+  MetricForSnapshot["computedSettings"]
+>;
+
+// Fields of `MetricForSnapshot.computedSettings` whose values change the
+// queries we run or the data they return for incremental refresh. Any change
+// to one of these MUST invalidate the metric source and force a full refresh.
+const HASHED_COMPUTED_SETTINGS_FIELDS_FOR_INCREMENTAL_REFRESH = [
+  "regressionAdjustmentEnabled",
+  "regressionAdjustmentDays",
+  "windowSettings",
+] as const satisfies readonly (keyof ComputedSettingsForSnapshot)[];
+
+// Fields of `MetricForSnapshot.computedSettings` that are intentionally NOT
+// part of the incremental-refresh hash because they only affect analysis-time
+// interpretation, not the SQL we generate. Spurious changes to these (e.g.
+// `regressionAdjustmentReason` flipping between different free-text strings)
+// must not trigger a full refresh.
+type IgnoredComputedSettingsFieldForIncrementalRefresh =
+  | "regressionAdjustmentAvailable"
+  | "regressionAdjustmentReason"
+  | "properPrior"
+  | "properPriorMean"
+  | "properPriorStdDev"
+  | "targetMDE";
+
+// Compile-time exhaustiveness guard. When a field is added to
+// `MetricForSnapshot.computedSettings`, this resolves to that field's literal
+// type instead of `never`, and the `AssertNever` constraint below fails to
+// compile. Classify the new field in the hashed array or ignored union above
+// to fix it.
+type AssertNever<T extends never> = T;
+type UnhandledComputedSettingsFieldForIncrementalRefresh = Exclude<
+  keyof ComputedSettingsForSnapshot,
+  | (typeof HASHED_COMPUTED_SETTINGS_FIELDS_FOR_INCREMENTAL_REFRESH)[number]
+  | IgnoredComputedSettingsFieldForIncrementalRefresh
+>;
+export type ComputedSettingsForIncrementalRefreshExhaustivenessCheck =
+  AssertNever<UnhandledComputedSettingsFieldForIncrementalRefresh>;
+
+export function getMetricSettingsHashForIncrementalRefresh({
+  factMetric,
+  factTableMap,
+  metricSettings,
+}: {
+  factMetric: FactMetricInterface;
+  factTableMap: Map<string, FactTableInterface>;
+  metricSettings?: MetricForSnapshot;
+}): string {
+  const numeratorFactTableId = factMetric.numerator.factTableId;
+  const numeratorFactTable = numeratorFactTableId
+    ? factTableMap?.get(numeratorFactTableId)
+    : undefined;
+
+  const denominatorFactTableId = factMetric.denominator?.factTableId;
+  const denominatorFactTable = denominatorFactTableId
+    ? factTableMap?.get(denominatorFactTableId)
+    : undefined;
+
+  const computedSettings = metricSettings?.computedSettings;
+  const hashedComputedSettings: Partial<ComputedSettingsForSnapshot> =
+    computedSettings
+      ? Object.fromEntries(
+          HASHED_COMPUTED_SETTINGS_FIELDS_FOR_INCREMENTAL_REFRESH.map(
+            (field) => [field, computedSettings[field]],
+          ),
+        )
+      : {};
+
+  return hashObject({
+    ...hashedComputedSettings,
+    metricType: factMetric.metricType,
+    numerator: factMetric.numerator,
+    denominator: factMetric.denominator,
+    cappingSettings: factMetric.cappingSettings,
+    quantileSettings: factMetric.quantileSettings,
+    numeratorFactTable: {
+      sql: numeratorFactTable?.sql,
+      eventName: numeratorFactTable?.eventName,
+      filters: getFiltersForHash(numeratorFactTable, factMetric.numerator),
+    },
+    denominatorFactTable: {
+      sql: denominatorFactTable?.sql,
+      eventName: denominatorFactTable?.eventName,
+      // filters should be added here as well in case it is a cross
+      // fact table ratio metric
+      filters: getFiltersForHash(denominatorFactTable, factMetric.denominator),
+    },
+  });
 }
