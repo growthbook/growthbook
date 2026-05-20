@@ -176,7 +176,6 @@ export async function validateIncrementalPipeline({
 
 const hashObject = (obj: object) => md5(JSON.stringify(obj));
 
-// TODO(incremental-refresh): Reconcile with getExperimentSettingsHash and getMetricSettingsHash
 export function getExperimentSettingsHashForIncrementalRefresh(
   snapshotSettings: ExperimentSnapshotSettings,
 ): string {
