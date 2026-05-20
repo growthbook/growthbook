@@ -526,11 +526,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/FeatureModal/FeatureFromExperimentModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/FeatureModal/index.tsx": {
     "no-restricted-imports": {
       "count": 1
