@@ -133,6 +133,7 @@ const Modal: FC<ModalProps> = ({
   const [isSuccess, setIsSuccess] = useState(false);
 
   const bodyRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   const scrollToTop = () => {
     setTimeout(() => {
@@ -409,8 +410,31 @@ const Modal: FC<ModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  useEffect(() => {
+    if (!onBackdropClick || !open) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+
+      // Only the top-most open modal handles Escape, so nested modals don't
+      // all close at once.
+      const openModals = Array.from(document.querySelectorAll(".modal.show"));
+      const topMostOpenModal = openModals[openModals.length - 1];
+      if (topMostOpenModal !== modalRef.current) return;
+
+      event.preventDefault();
+      onBackdropClick();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [onBackdropClick, open]);
+
   const modalHtml = (
     <div
+      ref={modalRef}
       className={clsx("modal", { show: open })}
       style={{
         display: open ? "block" : "none",
