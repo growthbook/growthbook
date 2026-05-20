@@ -793,7 +793,7 @@ export default function EditSavedGroupPage() {
               trackingEventModalType="saved-group-revision-changes"
               close={() => setShowChangesModal(false)}
               open={showChangesModal}
-              dismissible
+              onBackdropClick={() => setShowChangesModal(false)}
               size="max"
               hideCta={true}
               closeCta="Close"

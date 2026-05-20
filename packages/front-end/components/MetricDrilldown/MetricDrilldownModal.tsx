@@ -541,7 +541,7 @@ const MetricDrilldownModal = ({
         bodyClassName={styles.metricDrilldownModalBody}
         showHeaderCloseButton={false}
         includeCloseCta={false}
-        dismissible
+        onBackdropClick={close}
         header={
           <Flex align="center" gap="0">
             <Text size="6" weight="bold">

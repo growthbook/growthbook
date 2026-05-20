@@ -337,7 +337,7 @@ function RevisionDetail<T>({
           header="Reopen Revision"
           close={() => setConfirmReopen(false)}
           open={true}
-          dismissible
+          onBackdropClick={() => setConfirmReopen(false)}
           cta="Reopen"
           submitColor="primary"
           submit={async () => {
