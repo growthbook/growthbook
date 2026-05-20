@@ -5,6 +5,12 @@ function accountHasRegionOrCloudSegment(account: string): boolean {
   return account.includes(".");
 }
 
+/** Bare locator: alphanumeric only, or locator-style prefix with optional `_suffix`. */
+function looksLikeBareLocator(account: string): boolean {
+  if (/^[a-z0-9]+$/i.test(account)) return true;
+  return /^[a-z]{1,4}\d+(?:_[a-z0-9]+)?$/i.test(account);
+}
+
 /**
  * Optionally derives a Snowflake HTTPS URL from the datasource account identifier.
  * Never invents region/cloud — bare locators (e.g. `xy12345`) return null.
@@ -15,11 +21,11 @@ export function tryDeriveSnowflakeAccessUrlFromAccount(
   const trimmed = account.trim();
   if (!trimmed) return null;
 
-  if (!accountHasRegionOrCloudSegment(trimmed)) {
-    // Modern org-account style uses hyphens/underscores; bare locators have neither.
-    if (!trimmed.includes("-") && !trimmed.includes("_")) {
-      return null;
-    }
+  if (
+    !accountHasRegionOrCloudSegment(trimmed) &&
+    looksLikeBareLocator(trimmed)
+  ) {
+    return null;
   }
 
   const hostname = `${trimmed.replace(/_/g, "-")}${SNOWFLAKE_HOST_SUFFIX}`;
@@ -47,7 +53,7 @@ export function normalizeSnowflakeEventForwarderAccessUrl(
   }
 
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-    throw new Error("Snowflake URL must use https.");
+    throw new Error("Snowflake URL must use http or https.");
   }
 
   const hostname = parsed.hostname.toLowerCase();

@@ -82,8 +82,8 @@ export function parseSnowflakeEventForwarderDestination(
     );
   }
 
-  const database = assertNonEmptySegment(segments[0], "Database");
-  const schema = assertNonEmptySegment(segments[1], "Schema");
+  const database = assertNonEmptySegment(segments[0], "Database").toUpperCase();
+  const schema = assertNonEmptySegment(segments[1], "Schema").toUpperCase();
   const rawTable = assertNonEmptySegment(segments[2], "Table");
 
   return {

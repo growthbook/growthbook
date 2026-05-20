@@ -63,10 +63,10 @@ describe("formatBigQueryEventForwarderDestination", () => {
 });
 
 describe("parseSnowflakeEventForwarderDestination", () => {
-  it("parses DATABASE.SCHEMA.TABLE and normalizes table", () => {
+  it("parses DATABASE.SCHEMA.TABLE and normalizes identifiers", () => {
     expect(
       parseSnowflakeEventForwarderDestination(
-        "EVENT_FORWARDER_DB.PUBLIC.gb-events",
+        "event_forwarder_db.public.gb-events",
       ),
     ).toEqual({
       database: "EVENT_FORWARDER_DB",
@@ -112,6 +112,10 @@ describe("tryDeriveSnowflakeAccessUrlFromAccount", () => {
 
   it("does not derive from bare locator", () => {
     expect(tryDeriveSnowflakeAccessUrlFromAccount("xy12345")).toBeNull();
+  });
+
+  it("does not derive from bare locator with underscore suffix", () => {
+    expect(tryDeriveSnowflakeAccessUrlFromAccount("xy12345_extra")).toBeNull();
   });
 
   it("maps underscores to hyphens in hostname", () => {
