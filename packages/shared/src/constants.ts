@@ -1,5 +1,6 @@
 import { FactMetricType } from "shared/types/fact-table";
 import { EntityEvents } from "shared/types/audit";
+import { ApprovalFlowConfigurations } from "shared/types/organization";
 
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;
 export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
@@ -97,6 +98,15 @@ export const SAFE_ROLLOUT_TRACKING_KEY_PREFIX = "srk_";
 
 export const DEFAULT_REQUIRE_PROJECT_FOR_FEATURES = false;
 
+export const DEFAULT_REVISION_CONFIGURATION: ApprovalFlowConfigurations = {
+  savedGroups: [
+    {
+      required: false,
+      requireMetadataReview: true,
+    },
+  ],
+};
+
 // Default configuration for Safe Rollout
 export const SAFE_ROLLOUT_VARIATIONS = [
   {
@@ -163,6 +173,8 @@ export const attributeDataTypes = [
 // for audits
 export const entityEvents = {
   agreement: ["create", "update", "delete"],
+  approvalFlow: ["create", "update", "delete"],
+  revision: ["create", "update", "delete"],
   aiPrompt: ["create", "update", "delete"],
   attribute: ["create", "update", "delete"],
   experiment: [

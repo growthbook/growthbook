@@ -15,17 +15,7 @@ export const postAttribute = async (
   req: AuthRequest<SDKAttribute>,
   res: Response<{ status: number }>,
 ) => {
-  const {
-    property,
-    description,
-    datatype,
-    projects,
-    format,
-    enum: enumValue,
-    hashAttribute,
-    disableEqualityConditions,
-    tags = [],
-  } = req.body;
+  const { tags = [], ...attributeFields } = req.body;
   const context = getContextFromReq(req);
 
   if (!context.permissions.canCreateAttribute({ ...req.body })) {
@@ -35,7 +25,7 @@ export const postAttribute = async (
 
   const attributeSchema = org.settings?.attributeSchema || [];
 
-  if (attributeSchema.some((a) => a.property === property)) {
+  if (attributeSchema.some((a) => a.property === attributeFields.property)) {
     context.throwBadRequestError("An attribute with that name already exists");
   }
 
@@ -44,15 +34,8 @@ export const postAttribute = async (
   }
 
   const newAttribute: SDKAttribute = {
-    property,
-    description,
-    datatype,
-    projects,
-    format,
-    enum: enumValue,
-    hashAttribute,
-    disableEqualityConditions,
-    tags: tags.length > 0 ? tags : undefined,
+    ...attributeFields,
+    ...(tags.length > 0 && { tags }),
   };
 
   const updatedAttributeSchema = [...attributeSchema, newAttribute];
@@ -94,19 +77,7 @@ export const putAttribute = async (
   req: AuthRequest<SDKAttribute & { previousName?: string }>,
   res: Response<{ status: number }>,
 ) => {
-  const {
-    property,
-    description,
-    datatype,
-    projects,
-    format,
-    enum: enumValue,
-    hashAttribute,
-    archived,
-    disableEqualityConditions,
-    previousName,
-    tags,
-  } = req.body;
+  const { previousName, tags, ...attributeFields } = req.body;
   const context = getContextFromReq(req);
   const { org } = context;
 
@@ -114,7 +85,8 @@ export const putAttribute = async (
 
   // If the name is being changed, we need to access the attribute via its previous name
   const index = attributeSchema.findIndex(
-    (a) => a.property === (previousName ? previousName : property),
+    (a) =>
+      a.property === (previousName ? previousName : attributeFields.property),
   );
 
   if (index === -1) {
@@ -122,25 +94,37 @@ export const putAttribute = async (
   }
 
   const existing = attributeSchema[index];
+
   const hasEventForwarder = await hasAnyEventForwarderConfig(context);
   if (
     hasEventForwarder &&
-    (property !== existing.property ||
-      (datatype !== undefined && datatype !== existing.datatype))
+    (attributeFields.property !== existing.property ||
+      (attributeFields.datatype !== undefined &&
+        attributeFields.datatype !== existing.datatype))
   ) {
     context.throwBadRequestError(
       "Attribute name and data type can't be changed while an Event Forwarder is configured.",
     );
   }
 
-  if (!context.permissions.canUpdateAttribute(existing, { projects })) {
+  // Only pass `projects` when the client actually sent it — passing
+  // `{ projects: undefined }` would be interpreted as a request to scope the
+  // attribute globally and incorrectly deny project-scoped users.
+  if (
+    !context.permissions.canUpdateAttribute(
+      existing,
+      "projects" in attributeFields
+        ? { projects: attributeFields.projects }
+        : {},
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
 
   if (
     previousName &&
-    property !== previousName &&
-    attributeSchema.some((a) => a.property === property)
+    attributeFields.property !== previousName &&
+    attributeSchema.some((a) => a.property === attributeFields.property)
   ) {
     // If the name is being changed, check if the new name already exists
     context.throwBadRequestError("An attribute with that name already exists");
@@ -150,18 +134,11 @@ export const putAttribute = async (
     await addTagsDiff(org.id, existing.tags || [], tags);
   }
 
-  // Update the attribute
+  // Only merge fields the client actually sent — absent keys preserve the
+  // existing value, avoiding the BSON `undefined → null` round trip.
   attributeSchema[index] = {
     ...attributeSchema[index],
-    property,
-    description,
-    datatype,
-    projects,
-    format,
-    enum: enumValue,
-    hashAttribute,
-    archived,
-    disableEqualityConditions,
+    ...attributeFields,
     ...(tags !== undefined && { tags: tags.length > 0 ? tags : undefined }),
   };
 

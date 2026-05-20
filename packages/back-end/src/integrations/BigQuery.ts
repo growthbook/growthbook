@@ -16,6 +16,7 @@ import {
   MaxTimestampIncrementalUnitsQueryParams,
 } from "shared/types/integrations";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import { QueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
@@ -23,6 +24,7 @@ import { logger } from "back-end/src/util/logger";
 import {
   BigQueryDataType,
   getFactTableTypeFromBigQueryType,
+  sanitizeQueryMetadataForBigQueryLabels,
 } from "back-end/src/services/bigquery";
 import SqlIntegration from "./SqlIntegration";
 import { bigQueryDialect } from "./dialects/bigquery";
@@ -75,11 +77,17 @@ export default class BigQuery extends SqlIntegration {
   async runQuery(
     sql: string,
     setExternalId?: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<QueryResponse> {
     const client = this.getClient();
 
+    const labels = sanitizeQueryMetadataForBigQueryLabels(queryMetadata);
+
     const [job] = await client.createQueryJob({
-      labels: { integration: "growthbook" },
+      labels: {
+        ...labels,
+        integration: "growthbook",
+      },
       query: sql,
       useLegacySql: false,
       ...(this.params.reservation

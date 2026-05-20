@@ -123,14 +123,21 @@ router.use(
   }),
 );
 
-// Index health check route
-router.get("/", (req, res) => {
+// Index health check route. Registered at both `/` (mounted at `/api/`) and
+// `/v1/` (mounted at `/api/v1/`). Before #5690 the router was mounted at
+// `/api/v1` directly, so `router.get("/")` answered `/api/v1/`. #5690 moved
+// the mount to `/api` with the registration loop below self-prefixing `/v1/`
+// onto other routes, and #5804 hand-updated the openapi route similarly —
+// but this index handler was missed, leaving `/api/v1/` unrouted.
+const indexHandler: RequestHandler = (req, res) => {
   res.json({
     name: "GrowthBook API",
     apiVersion: 1,
     build: getBuild(),
   });
-});
+};
+router.get("/", indexHandler);
+router.get("/v1/", indexHandler);
 
 export const allRoutes = [
   ...featureRoutes,

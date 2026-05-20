@@ -373,6 +373,8 @@ export default function AttributeDetailPage() {
                   if (payload.projects === null) delete payload.projects;
                   if (payload.format === null) delete payload.format;
                   if (payload.enum === null) delete payload.enum;
+                  if (payload.disableEqualityConditions === null)
+                    delete payload.disableEqualityConditions;
                   await apiCall("/attribute", {
                     method: "PUT",
                     body: JSON.stringify(payload),

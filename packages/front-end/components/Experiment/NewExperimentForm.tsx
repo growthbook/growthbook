@@ -202,6 +202,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] =
     useState(false);
   const [autoRefreshResults, setAutoRefreshResults] = useState(true);
+  const [useSameSeedAsOriginal, setUseSameSeedAsOriginal] = useState(false);
 
   const { datasources, getDatasourceById, refreshTags, project, projects } =
     useDefinitions();
@@ -337,6 +338,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 variations:
                   initialValue.phases[lastPhase].variations ??
                   toPhaseVariations(initialExpVariations),
+                // Clear seed when duplicating to generate a fresh one on the backend
+                ...(duplicate ? { seed: undefined } : {}),
               },
             ]
           : [
@@ -539,6 +542,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       }
     }
 
+    if (duplicate && data.phases?.[0]) {
+      data.phases[0].seed = useSameSeedAsOriginal
+        ? initialValue?.phases?.[lastPhase]?.seed
+        : undefined;
+    }
+
     const body = JSON.stringify(data);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -548,6 +557,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
     if (duplicate && initialValue?.id) {
       params.originalId = initialValue.id;
+      if (useSameSeedAsOriginal) {
+        params.allowSameSeedAsOriginal = true;
+      }
     }
 
     if (autoRefreshResults && isImport) {
@@ -941,6 +953,21 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 setLinkNameWithTrackingKey(false);
               }}
             />
+            {duplicate && (
+              <Box mb="4">
+                <Checkbox
+                  label="Use same randomization seed as original experiment"
+                  value={useSameSeedAsOriginal}
+                  setValue={(v) => setUseSameSeedAsOriginal(v)}
+                  error={
+                    useSameSeedAsOriginal
+                      ? "Can introduce bias if the original experiment influenced user behavior."
+                      : undefined
+                  }
+                  errorLevel="warning"
+                />
+              </Box>
+            )}
             {!isBandit && (
               <Field
                 label="Hypothesis"

@@ -2,7 +2,7 @@ import type { DataType } from "shared/types/integrations";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 
-export const baseDialect: SqlDialect = {
+export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
   escapeStringLiteral: (value: string) => value.replace(/'/g, `''`),
 
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
@@ -138,4 +138,6 @@ export const baseDialect: SqlDialect = {
       "KLL rank approximation is not implemented for this data source.",
     );
   },
+
+  stringLength: (column: string) => `LENGTH(${column})`,
 };
