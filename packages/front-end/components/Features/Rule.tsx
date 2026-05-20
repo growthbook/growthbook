@@ -6,6 +6,7 @@ import {
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React, { forwardRef, ReactElement, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -381,6 +382,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rule.type === "experiment-ref" && experimentsMap.get(rule.experimentId);
 
     const permissionsUtil = usePermissionsUtil();
+    const router = useRouter();
+    const useDummyData = router.query["dummy"] === "true";
 
     const canEdit =
       permissionsUtil.canViewFeatureModal(feature.project) &&
@@ -452,6 +455,17 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           pendingDetach={!!hasPendingDetach}
           simpleSchedule={isSimpleSchedule}
           featureRuleContext
+        />,
+      );
+    }
+
+    if (useDummyData && hasMonitoringStatusRow) {
+      ruleTags.push(
+        <Badge
+          key="demo-badge"
+          label="Using dummy data"
+          color="cyan"
+          variant="soft"
         />,
       );
     }

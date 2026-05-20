@@ -6,6 +6,7 @@ import { getSafeRolloutSnapshotAnalysis } from "shared/util";
 import { SafeRolloutSnapshotInterface } from "shared/types/safe-rollout";
 import { PiCaretDownBold, PiLightning, PiLightningSlash } from "react-icons/pi";
 import Text from "@/ui/Text";
+import Badge from "@/ui/Badge";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -34,6 +35,7 @@ export function SafeRolloutStatusBar({
   detailsId,
   controlsExpanded,
   onToggleExpanded,
+  useDummyData,
 }: {
   rampSchedule: RampScheduleInterface;
   snapshot?: SafeRolloutSnapshotInterface;
@@ -41,6 +43,7 @@ export function SafeRolloutStatusBar({
   detailsId: string;
   controlsExpanded: boolean;
   onToggleExpanded: () => void;
+  useDummyData?: boolean;
 }) {
   const signalResult = useRampMonitoringSignals(rampSchedule, {
     snapshot,
@@ -121,6 +124,14 @@ export function SafeRolloutStatusBar({
           </Flex>
 
           <Flex align="center" gap="2" flexShrink="0">
+            {useDummyData && (
+              <Badge
+                label="Using dummy data"
+                color="cyan"
+                variant="soft"
+                size="sm"
+              />
+            )}
             {monitoringHasStarted && lastSnapshotAt && (
               <Text size="medium" color="text-mid" whiteSpace="nowrap">
                 {formatShortAgo(lastSnapshotAt)}

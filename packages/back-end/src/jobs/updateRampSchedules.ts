@@ -57,7 +57,11 @@ export default async function addRampScheduleJob(agenda: Agenda) {
         for (const id of dueIds) {
           await queueRampScheduleAdvance(agenda, { id, organization });
         }
-      } catch {
+      } catch (e) {
+        logger.error(
+          e,
+          `Error processing ramp schedules for org ${organization}`,
+        );
         // Skip this org so a single bad org can't block the rest of the tick.
       }
     }

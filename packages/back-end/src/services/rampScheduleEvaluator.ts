@@ -56,6 +56,16 @@ async function evaluateMonitoredStep(
   now: Date,
 ): Promise<EvalDecision> {
   if (!schedule.safeRolloutId) {
+    // No SafeRollout linked yet. If there are no metrics configured there is
+    // nothing to evaluate — advance immediately so the step doesn't strand.
+    // Otherwise hold until ensureSafeRolloutForMonitoredRamp attaches one.
+    const mc = schedule.monitoringConfig;
+    const hasMetrics =
+      (mc?.guardrailMetricIds?.length ?? 0) > 0 ||
+      (mc?.signalMetricIds?.length ?? 0) > 0;
+    if (!hasMetrics) {
+      return { action: "advance" };
+    }
     return {
       action: "hold",
       reason: "No linked SafeRollout — waiting for monitoring to be attached",

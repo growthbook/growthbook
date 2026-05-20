@@ -366,6 +366,7 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
             detailsId={detailsId}
             controlsExpanded={controlsExpanded}
             onToggleExpanded={() => setControlsExpanded((v) => !v)}
+            useDummyData={useDummyData}
           />
         )}
 
