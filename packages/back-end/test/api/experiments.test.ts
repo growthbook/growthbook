@@ -35,6 +35,7 @@ jest.mock("../../src/models/ExperimentSnapshotModel", () => ({
 }));
 
 jest.mock("../../src/models/MetricModel", () => ({
+  getMetricMap: jest.fn().mockResolvedValue(new Map()),
   getMetricsByIds: jest.fn().mockResolvedValue([]),
 }));
 
