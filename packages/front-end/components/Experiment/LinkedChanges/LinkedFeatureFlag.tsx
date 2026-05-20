@@ -43,12 +43,6 @@ export default function LinkedFeatureFlag({
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   // Mirrors what the back-end actually enforces for these row actions:
-  //   - DELETE /experiment/:id/linked-feature/:featureId requires
-  //     canUpdateExperiment + canUpdateFeature(feature).
-  //   - POST /experiment/:id/features requires the above plus
-  //     canManageFeatureDrafts(feature).
-  // Note: feature-side perms are scoped to the linked feature's project,
-  // which may differ from the experiment's project.
   const canEditExperiment =
     !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
 
