@@ -26493,6 +26493,8 @@ components:
                         properties:
                           variationId:
                             type: string
+                          variationName:
+                            type: string
                           users:
                             type: number
                           analyses:

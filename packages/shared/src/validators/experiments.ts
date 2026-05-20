@@ -813,6 +813,7 @@ export const apiExperimentResultsValidator = namedSchema(
               variations: z.array(
                 z.object({
                   variationId: z.string(),
+                  variationName: z.string().optional(),
                   users: z.coerce.number().optional(),
                   analyses: z.array(
                     z.object({

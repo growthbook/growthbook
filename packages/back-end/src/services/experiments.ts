@@ -2478,7 +2478,9 @@ export async function toSnapshotApiInterface(
   const activationMetric =
     snapshot.settings.activationMetric || experiment.activationMetric;
 
-  const variationIds = getLatestPhaseVariations(experiment).map((v) => v.id);
+  const phaseVariations = getLatestPhaseVariations(experiment);
+  const variationIds = phaseVariations.map((v) => v.id);
+  const variationNames = phaseVariations.map((v) => v.name);
 
   // Get the default analysis
   const analysis = getSnapshotAnalysis(snapshot);
@@ -2571,8 +2573,10 @@ export async function toSnapshotApiInterface(
             ...(metricName ? { metricName } : null),
             variations: s.variations.map((v, i) => {
               const data = v.metrics[m];
+              const variationName = variationNames[i];
               return {
                 variationId: variationIds[i],
+                ...(variationName ? { variationName } : null),
                 users: v.users,
                 analyses: [
                   {
