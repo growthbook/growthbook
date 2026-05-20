@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useState } from "react";
+import React, { FC, useCallback, useMemo, useState } from "react";
 import {
   UseFormReturn,
   useFieldArray,
@@ -274,6 +274,28 @@ const AnalysisForm: FC<{
       experiment.id,
     );
 
+  const watchedDatasource = form.watch("datasource");
+  const hasPipelineModeFeature = hasCommercialFeature("pipeline-mode");
+  const precomputedUnitDimensionOptions = useMemo(
+    () =>
+      dimensions
+        .filter(
+          (d) =>
+            d.datasource === watchedDatasource &&
+            (!exposureQuery || d.userIdType === exposureQuery.userIdType),
+        )
+        .map((d) => ({ label: d.name, value: d.id })),
+    [dimensions, watchedDatasource, exposureQuery],
+  );
+  const datasourceHasWritableEphemeralPipelineEnabled = useMemo(
+    () =>
+      datasourceHasWritableEphemeralPipeline(
+        datasource,
+        hasPipelineModeFeature,
+      ),
+    [datasource, hasPipelineModeFeature],
+  );
+
   if (upgradeModal) {
     return (
       <UpgradeModal
@@ -288,22 +310,6 @@ const AnalysisForm: FC<{
     form.watch("goalMetrics").length > 0 ||
     form.watch("guardrailMetrics").length > 0 ||
     form.watch("secondaryMetrics").length > 0;
-  const eligiblePrecomputedUnitDimensions = dimensions.filter(
-    (d) =>
-      d.datasource === form.watch("datasource") &&
-      (!exposureQuery || d.userIdType === exposureQuery.userIdType),
-  );
-  const precomputedUnitDimensionOptions = eligiblePrecomputedUnitDimensions.map(
-    (d) => ({
-      label: d.name,
-      value: d.id,
-    }),
-  );
-  const datasourceHasWritableEphemeralPipelineEnabled =
-    datasourceHasWritableEphemeralPipeline(
-      datasource,
-      hasCommercialFeature("pipeline-mode"),
-    );
   const hasEligiblePrecomputedUnitDimensions =
     precomputedUnitDimensionOptions.length > 0 &&
     datasourceHasWritableEphemeralPipelineEnabled;

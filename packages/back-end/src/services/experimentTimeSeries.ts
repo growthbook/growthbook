@@ -4,7 +4,7 @@ import {
   isFactMetricId,
   expandAllSliceMetricsInMap,
   getLatestPhaseVariations,
-  isPrecomputedDimension,
+  isAnalysisDimensionPrecomputed,
 } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import {
@@ -53,9 +53,16 @@ export async function updateExperimentTimeSeries({
   // - main experiment time series
   //
   // It does not handle precomputed dimension time series, as those are handled by
-  // runEagerExperimentDimensionAnalyses
-  const snapshotDimension = experimentSnapshot.dimension ?? "";
-  if (snapshotDimension !== "") {
+  // runEagerExperimentDimensionAnalyses.
+  //
+  // We treat the snapshot as dimensionless only when `dimension` is explicitly
+  // null or "" (the values written for dimensionless snapshots); `undefined`
+  // could indicate a legacy or partially-migrated document, so we skip it
+  // rather than retroactively writing a main series for it.
+  if (
+    experimentSnapshot.dimension !== null &&
+    experimentSnapshot.dimension !== ""
+  ) {
     return;
   }
 
@@ -164,7 +171,7 @@ export async function updateExperimentAnalysisTimeSeries({
   const [dimensionId] = Array.from(dimensionIds);
   if (
     dimensionId &&
-    !isPrecomputedDimension(
+    !isAnalysisDimensionPrecomputed(
       dimensionId,
       experimentSnapshot.settings.precomputedUnitDimensionIds ?? [],
     )

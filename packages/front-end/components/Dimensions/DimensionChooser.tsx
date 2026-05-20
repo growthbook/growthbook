@@ -104,11 +104,13 @@ export function getDimensionOptions({
     experimentPrecomputedUnitDimensionIds.has(d.value),
   );
 
-  const precomputedDimensionOptions = [
-    ...(precomputedDimensions?.map((d) => ({
+  const precomputedExperimentDimensionOptions =
+    precomputedDimensions?.map((d) => ({
       label: d.replace("precomputed:", ""),
       value: d,
-    })) ?? []),
+    })) ?? [];
+  const precomputedDimensionOptions = [
+    ...precomputedExperimentDimensionOptions,
     ...precomputedUnitDimensionOptions,
   ];
 
@@ -120,7 +122,7 @@ export function getDimensionOptions({
     if (exposureQuery.dimensions.length > 0) {
       exposureQuery.dimensions.forEach((d) => {
         // skip pre-computed dimensions
-        if (precomputedDimensionOptions.some((p) => p.label === d)) {
+        if (precomputedExperimentDimensionOptions.some((p) => p.label === d)) {
           return;
         }
         // skip experiment dimensions that are not in the incremental refresh model
@@ -299,8 +301,9 @@ export default function DimensionChooser({
             dimensions: [v],
           };
 
-          const analysisExistsInMainSnapshot =
-            getSnapshotAnalysis(standardSnapshot, newSettings) !== null;
+          const analysisExistsInMainSnapshot = standardSnapshot
+            ? getSnapshotAnalysis(standardSnapshot, newSettings) !== null
+            : false;
           const status = await triggerAnalysisUpdate(
             newSettings,
             defaultAnalysis,

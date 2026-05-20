@@ -1,8 +1,9 @@
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { isPrecomputedDimension } from "shared/experiments";
+import { isAnalysisDimensionPrecomputed } from "shared/experiments";
 import { ExperimentInterface } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
+import { promiseAllChunks } from "back-end/src/util/promise";
 import {
   getExperimentTimeSeriesContext,
   updateExperimentAnalysisTimeSeries,
@@ -11,6 +12,11 @@ import {
   getTimeSeriesBaseAnalysis,
   getOrCreatePrecomputedDimensionTimeSeriesAnalyses,
 } from "back-end/src/services/experimentDimensionTimeSeries";
+
+// Per-dimension analyses each spawn a gbstats Python pass. Warehouse cost is
+// already paid; this just bounds the Python wall-clock fan-out so an
+// experiment with many precomputed dimensions doesn't serialize end-to-end.
+const EAGER_DIMENSION_CONCURRENCY = 3;
 
 /**
  * After a successful standard snapshot, runs gbstats analyses for every
@@ -40,7 +46,12 @@ export async function runEagerExperimentDimensionAnalyses({
     const precomputedDimensionIds = new Set<string>();
 
     (experimentSnapshot.settings.dimensions ?? []).forEach((dimension) => {
-      if (isPrecomputedDimension(dimension.id, precomputedUnitDimensionIds)) {
+      if (
+        isAnalysisDimensionPrecomputed(
+          dimension.id,
+          precomputedUnitDimensionIds,
+        )
+      ) {
         precomputedDimensionIds.add(dimension.id);
       }
     });
@@ -69,37 +80,44 @@ export async function runEagerExperimentDimensionAnalyses({
       experimentSnapshot,
     });
 
-    // Iterate dimensions sequentially
-    for (const dimensionId of precomputedDimensionIds) {
-      try {
-        const newAnalyses =
-          await getOrCreatePrecomputedDimensionTimeSeriesAnalyses(context, {
-            experiment,
-            snapshot: experimentSnapshot,
-            dimensionId,
-          });
+    // Per-dimension work is independent — run in bounded-concurrency chunks
+    // so total wall-clock scales sub-linearly without overwhelming the
+    // gbstats Python pool. Each dim is wrapped in its own try/catch so one
+    // failure can't cancel siblings.
+    const dimensionTasks = Array.from(precomputedDimensionIds).map(
+      (dimensionId) => async () => {
+        try {
+          const newAnalyses =
+            await getOrCreatePrecomputedDimensionTimeSeriesAnalyses(context, {
+              experiment,
+              snapshot: experimentSnapshot,
+              dimensionId,
+            });
 
-        await updateExperimentAnalysisTimeSeries({
-          context,
-          experiment,
-          experimentSnapshot,
-          analyses: newAnalyses,
-          allMetricIds: timeSeriesContext.allMetricIds,
-          factMetrics: timeSeriesContext.factMetrics,
-          factTableMap: timeSeriesContext.factTableMap,
-        });
-      } catch (err) {
-        logger.error(
-          {
-            err,
-            experimentId: experiment.id,
-            snapshotId: experimentSnapshot.id,
-            dimensionId,
-          },
-          "Eager precomputed dimension analysis failed",
-        );
-      }
-    }
+          await updateExperimentAnalysisTimeSeries({
+            context,
+            experiment,
+            experimentSnapshot,
+            analyses: newAnalyses,
+            allMetricIds: timeSeriesContext.allMetricIds,
+            factMetrics: timeSeriesContext.factMetrics,
+            factTableMap: timeSeriesContext.factTableMap,
+          });
+        } catch (err) {
+          logger.error(
+            {
+              err,
+              experimentId: experiment.id,
+              snapshotId: experimentSnapshot.id,
+              dimensionId,
+            },
+            "Eager precomputed dimension analysis failed",
+          );
+        }
+      },
+    );
+
+    await promiseAllChunks(dimensionTasks, EAGER_DIMENSION_CONCURRENCY);
   } catch (err) {
     logger.error(
       {

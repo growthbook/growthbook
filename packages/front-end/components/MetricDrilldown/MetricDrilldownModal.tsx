@@ -5,7 +5,7 @@ import {
   getMetricLink,
   ExperimentMetricInterface,
   ExperimentSortBy,
-  isPrecomputedDimension,
+  isAnalysisDimensionPrecomputed,
 } from "shared/experiments";
 import {
   DifferenceType,
@@ -258,7 +258,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   );
   const hasDimensionTimeSeries =
     !dimensionInfo ||
-    isPrecomputedDimension(
+    isAnalysisDimensionPrecomputed(
       dimensionInfo.id,
       getHonoredPrecomputedUnitDimensionIds(
         experiment?.precomputedUnitDimensionIds,

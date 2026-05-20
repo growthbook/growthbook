@@ -333,6 +333,11 @@ export const startExperimentResultQueries = async (
       const dimensionId = unitDim.dimension.id;
 
       for (const m of legacyMetricSingles) {
+        // Only run overall quantile analysis for standard snapshots
+        // regardless of how many dimensions are requested
+        const runOverallQuantileAnalysis =
+          snapshotType === "standard" && quantileMetricType(m);
+
         const denominatorMetrics: MetricInterface[] = [];
         if (m.denominator) {
           denominatorMetrics.push(
@@ -348,7 +353,7 @@ export const startExperimentResultQueries = async (
         const queryParams: ExperimentMetricQueryParams = {
           activationMetric,
           denominatorMetrics,
-          dimensions: [unitDim],
+          dimensions: runOverallQuantileAnalysis ? [] : [unitDim],
           metric: m,
           segment: segmentObj,
           settings: snapshotSettings,
@@ -373,6 +378,11 @@ export const startExperimentResultQueries = async (
       }
 
       for (const [i, m] of factMetricGroups.entries()) {
+        // Only run overall quantile analysis for standard snapshots
+        // regardless of how many dimensions are requested
+        const runOverallQuantileAnalysis =
+          snapshotType === "standard" && m.some(quantileMetricType);
+
         if (
           !integration.getExperimentFactMetricsQuery ||
           !integration.runExperimentFactMetricsQuery
@@ -381,7 +391,7 @@ export const startExperimentResultQueries = async (
         }
         const queryParams: ExperimentFactMetricsQueryParams = {
           activationMetric,
-          dimensions: [unitDim],
+          dimensions: runOverallQuantileAnalysis ? [] : [unitDim],
           metrics: m,
           segment: segmentObj,
           settings: snapshotSettings,

@@ -1,7 +1,7 @@
 import { isEqual } from "lodash";
 import {
   expandAllSliceMetricsInMap,
-  isPrecomputedDimension,
+  isAnalysisDimensionPrecomputed,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import {
@@ -104,7 +104,7 @@ export async function getOrCreatePrecomputedDimensionTimeSeriesAnalyses(
   },
 ): Promise<ExperimentSnapshotAnalysis[]> {
   if (
-    !isPrecomputedDimension(
+    !isAnalysisDimensionPrecomputed(
       dimensionId,
       snapshot.settings.precomputedUnitDimensionIds ?? [],
     )

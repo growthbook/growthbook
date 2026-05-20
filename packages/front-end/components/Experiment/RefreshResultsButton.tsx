@@ -3,7 +3,7 @@ import { Queries } from "shared/types/query";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
 import { SafeRolloutInterface } from "shared/validators";
-import { isPrecomputedDimension } from "shared/experiments";
+import { isAnalysisDimensionPrecomputed } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -112,7 +112,7 @@ export default function RefreshResultsButton<
           onSubmit={async () => {
             // Precomputed dimensions are computed as part of a standard snapshot,
             // so we don't need to pass them to the backend for a new snapshot query
-            const snapshotDimension = isPrecomputedDimension(
+            const snapshotDimension = isAnalysisDimensionPrecomputed(
               dimension,
               getHonoredPrecomputedUnitDimensionIds(
                 experiment?.precomputedUnitDimensionIds,

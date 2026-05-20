@@ -42,9 +42,8 @@ describe("unitDimensionQueryNaming", () => {
     expect(result.get("group_0")).toBe(countryGroupQuery);
   });
 
-  it("throws when no queries match the unit dimension", () => {
-    expect(() => buildUnitDimensionQueryMap(new Map(), "dim_country")).toThrow(
-      "No queries found for unit dimension: dim_country",
-    );
+  it("returns an empty map when no queries match the unit dimension", () => {
+    const result = buildUnitDimensionQueryMap(new Map(), "dim_country");
+    expect(result.size).toBe(0);
   });
 });

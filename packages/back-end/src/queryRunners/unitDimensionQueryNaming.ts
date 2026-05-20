@@ -33,6 +33,10 @@ export function parseUnitDimQueryName(
   };
 }
 
+// Returns a queryMap rewritten to bare metric keys for the given unit
+// dimension. An empty map means no `unitdim:<id>:` queries existed on the
+// parent snapshot — callers must treat this as "stale snapshot, refresh
+// required" rather than feeding gbstats an empty query set.
 export function buildUnitDimensionQueryMap(
   queryMap: QueryMap,
   dimensionId: string,
@@ -45,10 +49,6 @@ export function buildUnitDimensionQueryMap(
       unitDimensionQueryMap.set(parsed.baseQueryName, query);
     }
   });
-
-  if (unitDimensionQueryMap.size === 0) {
-    throw new Error(`No queries found for unit dimension: ${dimensionId}`);
-  }
 
   return unitDimensionQueryMap;
 }

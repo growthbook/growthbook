@@ -1974,12 +1974,18 @@ export function expandAllSliceMetricsInMap({
   }
 }
 
-export function isPrecomputedDimension(
+// True when the analysis dimension is one of the dimensions a "standard"
+// snapshot already materialized (a `precomputed:*` experiment dimension OR a
+// unit dimension explicitly listed in `snapshotUnitDimensionIds`). The second
+// argument is required so callers can't accidentally drop unit-dim support;
+// pass `[]` only when you know unit dimensions don't apply (e.g. parsing a raw
+// dimension string into a `Dimension` for query generation).
+export function isAnalysisDimensionPrecomputed(
   dimension: string | undefined,
-  precomputedUnitDimensionIds: string[],
+  snapshotUnitDimensionIds: string[],
 ): boolean {
   if (dimension?.startsWith(PRECOMPUTED_DIMENSION_PREFIX)) return true;
-  return !!dimension && precomputedUnitDimensionIds.includes(dimension);
+  return !!dimension && snapshotUnitDimensionIds.includes(dimension);
 }
 
 /**

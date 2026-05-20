@@ -50,7 +50,7 @@ import {
   isFactMetric,
   isFactMetricId,
   isMetricJoinable,
-  isPrecomputedDimension,
+  isAnalysisDimensionPrecomputed,
   parseSliceMetricId,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
@@ -756,7 +756,7 @@ export async function parseDimension(
         id: dimension.substring(4),
         specifiedSlices: slices,
       };
-    } else if (isPrecomputedDimension(dimension, [])) {
+    } else if (isAnalysisDimensionPrecomputed(dimension, [])) {
       return {
         type: "experiment",
         id: dimension.substring(PRECOMPUTED_DIMENSION_PREFIX.length),
@@ -2124,7 +2124,17 @@ async function getQueryMapForAnalysis(
     dimensionId &&
     snapshot.settings.precomputedUnitDimensionIds?.includes(dimensionId)
   ) {
-    return buildUnitDimensionQueryMap(queryMap, dimensionId);
+    const unitDimQueryMap = buildUnitDimensionQueryMap(queryMap, dimensionId);
+    if (unitDimQueryMap.size === 0) {
+      // The parent snapshot lists this unit dimension in its settings but
+      // has no `unitdim:<id>:` query results — either the snapshot predates
+      // this feature or its unit-dim queries were pruned/failed. Refreshing
+      // the snapshot will repopulate them.
+      throw new Error(
+        `Snapshot is missing query results for unit dimension "${dimensionId}". Refresh the experiment results to recompute.`,
+      );
+    }
+    return unitDimQueryMap;
   }
   return queryMap;
 }
