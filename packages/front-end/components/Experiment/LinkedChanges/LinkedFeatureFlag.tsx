@@ -25,8 +25,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 type Props = {
   info: LinkedFeatureInfo;
   experiment: ExperimentInterfaceStringDates;
-  open?: boolean;
-  canEdit?: boolean;
   numLinkedChanges: number;
   onReAdd?: () => void;
   mutate?: () => void;

@@ -334,7 +334,7 @@ function DraftRow({
       >
         {revDate && (
           <Text size="small" color="text-low" whiteSpace="nowrap">
-            {revDate && "Created " + date(revDate)}
+            {"Created " + date(revDate)}
           </Text>
         )}
       </Box>

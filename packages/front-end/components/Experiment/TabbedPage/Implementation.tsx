@@ -161,7 +161,6 @@ export default function Implementation({
             linkedFeatures={linkedFeatures}
             experiment={experiment}
             canAddChanges={canAddLinkedChanges}
-            canEditFeatureFlags={canAddLinkedChanges}
             visualChangesets={visualChangesets}
             urlRedirects={urlRedirects}
             mutate={mutate}
