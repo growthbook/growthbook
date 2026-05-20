@@ -11217,9 +11217,12 @@ paths:
               schema:
                 type: object
                 properties:
+                  experiment:
+                    $ref: '#/components/schemas/Experiment'
                   result:
                     $ref: '#/components/schemas/ExperimentResults'
                 required:
+                  - experiment
                   - result
                 additionalProperties: false
       x-codeSamples:
@@ -32110,6 +32113,7 @@ components:
           enum:
             - standard
             - multi-armed-bandit
+            - holdout
         project:
           type: string
         hypothesis:
@@ -32700,12 +32704,16 @@ components:
                   properties:
                     metricId:
                       type: string
+                    metricName:
+                      type: string
                     variations:
                       type: array
                       items:
                         type: object
                         properties:
                           variationId:
+                            type: string
+                          variationName:
                             type: string
                           users:
                             type: number
@@ -32796,6 +32804,7 @@ components:
               enum:
                 - standard
                 - multi-armed-bandit
+                - holdout
             project:
               type: string
             hypothesis:
