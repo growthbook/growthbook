@@ -20,6 +20,7 @@ import { decryptEventForwarderConfigModel } from "back-end/src/services/eventFor
 import { resolveBigQueryEventForwarderTableName } from "back-end/src/services/eventForwarderBqTableResolution";
 import { testEventForwarderWriteAccess } from "back-end/src/services/eventForwarderWriteAccessValidation";
 import { initializeDatasourceUserIdTypesFromOrgAttributeSchema } from "back-end/src/services/eventForwarderUserIdTypes";
+import { ensureEventForwarderEventsFactTable } from "back-end/src/services/eventForwarderFactTable";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
@@ -166,6 +167,24 @@ export async function provisionEventForwarderThroughLicenseServer(
           error: message,
         },
         "Failed to sync userIdTypes after event forwarder provisioning",
+      );
+    }
+
+    try {
+      await ensureEventForwarderEventsFactTable(
+        context,
+        eventForwarderConfig,
+        datasourceParams,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      logger.error(
+        {
+          datasourceId: eventForwarderConfig.datasourceId,
+          organizationId: context.org.id,
+          error: message,
+        },
+        "Failed to create Events fact table after event forwarder provisioning",
       );
     }
 
