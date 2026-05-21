@@ -62,6 +62,7 @@ import {
   validateVariationIds,
   validateExperimentData,
 } from "back-end/src/services/experiments";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
   approveScheduledExperimentStart,
   startExperiment,
@@ -92,7 +93,8 @@ import {
 import {
   deleteSnapshotById,
   findSnapshotById,
-  getLatestSnapshot,
+  getLatestSuccessfulSnapshot,
+  getLatestSnapshotStatus,
   updateSnapshot,
   updateSnapshotsOnPhaseDelete,
 } from "back-end/src/models/ExperimentSnapshotModel";
@@ -255,7 +257,7 @@ export async function postAIExperimentAnalysis(
 
   const phase = experiment.phases.length - 1;
   const snapshot =
-    (await getLatestSnapshot({
+    (await getLatestSuccessfulSnapshot({
       context,
       experiment: experiment.id,
       phase,
@@ -840,7 +842,7 @@ export async function getExperimentPublic(
   const phase = experiment.phases.length - 1;
 
   const snapshot =
-    (await getLatestSnapshot({
+    (await getLatestSuccessfulSnapshot({
       context,
       experiment: experiment.id,
       phase,
@@ -876,21 +878,17 @@ export async function getExperimentPublic(
   });
 }
 
-async function _getSnapshot({
+async function _getSuccessfulSnapshot({
   context,
   experiment,
   phase,
   dimension,
-  withResults = true,
-  populateResults = true,
   type,
 }: {
   context: ReqContext | ApiReqContext;
   experiment: string;
   phase?: string;
   dimension?: string;
-  withResults?: boolean;
-  populateResults?: boolean;
   type?: SnapshotType;
 }) {
   const experimentObj = await getExperimentById(context, experiment);
@@ -908,13 +906,11 @@ async function _getSnapshot({
     phase = String(experimentObj.phases.length - 1);
   }
 
-  return await getLatestSnapshot({
+  return await getLatestSuccessfulSnapshot({
     context,
     experiment: experimentObj.id,
     phase: parseInt(phase),
     dimension,
-    withResults,
-    populateResults,
     type,
   });
 }
@@ -931,31 +927,17 @@ export async function getSnapshotWithDimension(
   const { id, phase, dimension } = req.params;
   const type = req.query?.type || undefined;
 
-  const snapshot = await _getSnapshot({
+  const snapshot = await _getSuccessfulSnapshot({
     context,
     experiment: id,
     phase,
     dimension,
-    type,
-  });
-  // The `latest` field is only used by the UI for refresh status and
-  // metadata (queries, status, error, dateCreated, id, health) — never for
-  // metric results. Skip the per-metric chunk load + decode, which for large
-  // experiments dominates the cost of this endpoint and would otherwise run
-  // twice per request.
-  const latest = await _getSnapshot({
-    context,
-    experiment: id,
-    phase,
-    dimension,
-    withResults: false,
-    populateResults: false,
     type,
   });
   const dimensionless =
     snapshot?.dimension === ""
       ? snapshot
-      : await _getSnapshot({
+      : await _getSuccessfulSnapshot({
           context,
           experiment: id,
           phase,
@@ -965,7 +947,6 @@ export async function getSnapshotWithDimension(
   res.status(200).json({
     status: 200,
     snapshot,
-    latest,
     dimensionless,
   });
 }
@@ -981,24 +962,56 @@ export async function getSnapshot(
   const { id, phase } = req.params;
   const type = req.query?.type || undefined;
 
-  const snapshot = await _getSnapshot({ context, experiment: id, phase, type });
-  // The `latest` field is only used by the UI for refresh status and
-  // metadata (queries, status, error, dateCreated, id, health) — never for
-  // metric results. Skip the per-metric chunk load + decode, which for large
-  // experiments dominates the cost of this endpoint and would otherwise run
-  // twice per request.
-  const latest = await _getSnapshot({
+  const snapshot = await _getSuccessfulSnapshot({
     context,
     experiment: id,
     phase,
-    withResults: false,
-    populateResults: false,
     type,
   });
 
   res.status(200).json({
     status: 200,
     snapshot,
+  });
+}
+
+// Refresh-status lookup used by the UI to render queries/error/status for
+// the most recent (success/running/error) snapshot. Returns only the
+// `SnapshotStatusSummary` fields, skipping the per-metric chunk decode that
+// dominates the full snapshot endpoint for experiments with many metrics.
+export async function getSnapshotSummary(
+  req: AuthRequest<
+    null,
+    { id: string; phase: string },
+    { dimension?: string; type?: SnapshotType }
+  >,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id, phase } = req.params;
+  const dimension = req.query?.dimension || undefined;
+  const type = req.query?.type || undefined;
+
+  const experimentObj = await getExperimentById(context, id);
+  if (!experimentObj) {
+    throw new Error("Experiment not found");
+  }
+  if (experimentObj.organization !== context.org.id) {
+    throw new Error("You do not have access to view this experiment");
+  }
+
+  const phaseNum = phase ? parseInt(phase) : experimentObj.phases.length - 1;
+
+  const latest = await getLatestSnapshotStatus({
+    context,
+    experiment: experimentObj.id,
+    phase: phaseNum,
+    dimension,
+    type,
+  });
+
+  res.status(200).json({
+    status: 200,
     latest,
   });
 }
@@ -1125,6 +1138,28 @@ export async function postExperiments(
   }
 
   const { metricIds, datasource, invalidMetricIds } = result;
+
+  // Opt-in attribute registration check (org-level setting). Applies before
+  // any DB writes so a typo'd attribute is rejected outright.
+  assertRegisteredAttributes(
+    context,
+    {
+      hashAttribute: data.hashAttribute,
+      fallbackAttribute: data.fallbackAttribute,
+    },
+    "experiment",
+    undefined,
+    data.project,
+  );
+  for (const phase of data.phases ?? []) {
+    assertRegisteredAttributes(
+      context,
+      { condition: phase.condition },
+      "experiment phase",
+      undefined,
+      data.project,
+    );
+  }
 
   const experimentType = data.type ?? "standard";
   const holdoutId = data.holdoutId;
@@ -1430,6 +1465,27 @@ export async function postExperiment(
 
   if (!context.permissions.canUpdateExperiment(experiment, req.body)) {
     context.permissions.throwPermissionError();
+  }
+
+  // Opt-in attribute registration check (org-level setting).
+  assertRegisteredAttributes(
+    context,
+    {
+      hashAttribute: data.hashAttribute,
+      fallbackAttribute: data.fallbackAttribute,
+    },
+    "experiment",
+    undefined,
+    experiment.project,
+  );
+  for (const phase of data.phases ?? []) {
+    assertRegisteredAttributes(
+      context,
+      { condition: phase.condition },
+      "experiment phase",
+      undefined,
+      experiment.project,
+    );
   }
 
   // FIXME: We skip validation because project is updated in a different place than where
@@ -2522,6 +2578,15 @@ export async function putExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
+  // Opt-in attribute registration check (org-level setting).
+  assertRegisteredAttributes(
+    context,
+    { condition: phase.condition },
+    "experiment phase",
+    undefined,
+    experiment.project,
+  );
+
   phase.dateStarted = phase.dateStarted
     ? getValidDate(phase.dateStarted + ":00Z")
     : new Date();
@@ -2632,6 +2697,19 @@ export async function postExperimentTargeting(
   ) {
     context.permissions.throwPermissionError();
   }
+
+  // Opt-in attribute registration check (org-level setting).
+  assertRegisteredAttributes(
+    context,
+    {
+      hashAttribute,
+      fallbackAttribute,
+      condition,
+    },
+    "experiment",
+    undefined,
+    experiment.project,
+  );
 
   const phases = [...experiment.phases];
 
@@ -2782,6 +2860,15 @@ export async function postExperimentPhase(
   ) {
     context.permissions.throwPermissionError();
   }
+
+  // Opt-in attribute registration check (org-level setting).
+  assertRegisteredAttributes(
+    context,
+    { condition: data.condition },
+    "experiment phase",
+    undefined,
+    experiment.project,
+  );
 
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
 

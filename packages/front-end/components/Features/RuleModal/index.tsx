@@ -149,6 +149,10 @@ export default function RuleModal({
   const { apiCall } = useAuth();
 
   const attributeSchema = useAttributeSchema(false, feature.project);
+  // Unfiltered org-wide schema lets validateFeatureRule distinguish between
+  // truly-unknown attributes and attributes that exist but aren't scoped to
+  // this project, so the client-side error wording matches the server.
+  const allAttributesSchema = useAttributeSchema(false);
 
   const flatRules = feature.rules ?? [];
   const rule: FeatureRule | undefined = ruleId
@@ -712,6 +716,10 @@ export default function RuleModal({
             type: "experiment",
           },
           feature,
+          {
+            attributeSchema: allAttributesSchema,
+            requireRegisteredAttributes: settings.requireRegisteredAttributes,
+          },
         );
         if (newRule) {
           form.reset({
@@ -982,7 +990,14 @@ export default function RuleModal({
         delete values.scheduleRules;
       }
 
-      const correctedRule = validateFeatureRule(values as FeatureRule, feature);
+      const correctedRule = validateFeatureRule(
+        values as FeatureRule,
+        feature,
+        {
+          attributeSchema: allAttributesSchema,
+          requireRegisteredAttributes: settings.requireRegisteredAttributes,
+        },
+      );
       if (correctedRule) {
         form.reset(correctedRule);
         throw new Error(

@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { SDKAttribute } from "shared/types/organization";
-import { recursiveWalk } from "shared/util";
+import { extractConditionAttributeKeys } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
@@ -257,7 +257,7 @@ export const getAttributeReferences = async (
     for (const rule of feature.rules ?? []) {
       try {
         const parsed = JSON.parse(rule.condition ?? "{}");
-        recursiveWalk(parsed, ([nodeKey]) => {
+        for (const nodeKey of extractConditionAttributeKeys(parsed)) {
           if (keySet.has(nodeKey)) {
             featureRefs.get(nodeKey)!.set(feature.id, {
               id: feature.id,
@@ -265,7 +265,7 @@ export const getAttributeReferences = async (
               project: feature.project,
             });
           }
-        });
+        }
       } catch {
         // ignore unparseable conditions
       }
@@ -288,7 +288,9 @@ export const getAttributeReferences = async (
     const phase = experiment.phases?.slice(-1)?.[0];
     try {
       const parsed = JSON.parse(phase?.condition ?? "{}");
-      recursiveWalk(parsed, ([nodeKey]) => addExp(nodeKey));
+      for (const nodeKey of extractConditionAttributeKeys(parsed)) {
+        addExp(nodeKey);
+      }
     } catch {
       // ignore
     }
@@ -298,7 +300,7 @@ export const getAttributeReferences = async (
     if (group.type !== "condition") continue;
     try {
       const parsed = JSON.parse(group.condition ?? "{}");
-      recursiveWalk(parsed, ([nodeKey]) => {
+      for (const nodeKey of extractConditionAttributeKeys(parsed)) {
         if (keySet.has(nodeKey)) {
           savedGroupRefs.get(nodeKey)!.set(group.id, {
             id: group.id,
@@ -306,7 +308,7 @@ export const getAttributeReferences = async (
             projects: group.projects,
           });
         }
-      });
+      }
     } catch {
       // ignore
     }

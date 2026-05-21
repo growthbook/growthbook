@@ -109,6 +109,7 @@ import {
   getDraftRevision,
   assertCanAutoPublish,
 } from "back-end/src/services/features";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
   moveFlatRule,
   stampRuleForEnvs,
@@ -1638,6 +1639,10 @@ export async function postFeatureRevert(
     context.permissions.throwPermissionError();
   }
 
+  // Intentionally no assertRegisteredAttributes() call here — reverting
+  // restores a previously-published state as-is, which may reference
+  // attributes that have since been archived or removed.
+
   // Heal pre-revert drift so the diff against `revision` reflects the true
   // live state. Without this, a feature stuck at an older version's rules
   // (e.g. via the legacy env.rules JIT-migration shadow) can make the
@@ -1654,6 +1659,7 @@ export async function postFeatureRevert(
     { throwOnFailure: true },
   );
 
+  // Compute the diff (what actually changes on the feature doc) and check publish permissions per-change.
   const mergeChanges: MergeResultChanges = {};
   const allEnabledEnvs = Array.from(
     getEnabledEnvironments(feature, environmentIds),
@@ -2104,6 +2110,21 @@ export async function postFeatureRule(
   ) {
     context.permissions.throwPermissionError();
   }
+
+  // Opt-in attribute registration check before any side effects (safe-rollout
+  // create, holdout linking, revision update).
+  assertRegisteredAttributes(
+    context,
+    {
+      hashAttribute: (rule as { hashAttribute?: string }).hashAttribute,
+      fallbackAttribute: (rule as { fallbackAttribute?: string })
+        .fallbackAttribute,
+      condition: rule.condition,
+    },
+    "rule",
+    undefined,
+    feature.project,
+  );
 
   if (rule.type === "safe-rollout") {
     const environment = selectedEnvironments[0];
@@ -3222,6 +3243,28 @@ export async function putFeatureRule(
     defaultValueChanged: false,
     settings: org?.settings,
   });
+
+  // Opt-in attribute registration check — only validate fields that actually
+  // changed from the revision so pre-existing violations don't block unrelated edits.
+  // v2 stores rules in a flat list keyed by id; `existingRule` (above) is the
+  // pre-edit baseline for the same rule we're now patching.
+  assertRegisteredAttributes(
+    context,
+    {
+      hashAttribute: (rule as { hashAttribute?: string }).hashAttribute,
+      fallbackAttribute: (rule as { fallbackAttribute?: string })
+        .fallbackAttribute,
+      condition: rule.condition,
+    },
+    "rule",
+    {
+      hashAttribute: (existingRule as { hashAttribute?: string }).hashAttribute,
+      fallbackAttribute: (existingRule as { fallbackAttribute?: string })
+        .fallbackAttribute,
+      condition: existingRule.condition,
+    },
+    feature.project,
+  );
 
   let rampActionsUpdate:
     | RevisionRampCreateAction
