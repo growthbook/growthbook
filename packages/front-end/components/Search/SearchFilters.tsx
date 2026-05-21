@@ -115,23 +115,14 @@ export const FilterDropdown: FC<{
     () => USE_SEARCH_BOX && items.length > 10,
     [items],
   );
-  const filteredItems = useMemo(
-    () =>
-      filterSearch
-        ? items.filter(
-            (i) =>
-              (typeof i.name === "string"
-                ? i.name.toLowerCase()
-                : i.searchValue.toLowerCase()
-              ).startsWith(filterSearch.toLowerCase()) ||
-              (typeof i.name === "string"
-                ? i.name.toLowerCase()
-                : i.searchValue.toLowerCase()
-              ).includes(filterSearch.toLowerCase()),
-          )
-        : items,
-    [items, filterSearch],
-  );
+  const filteredItems = useMemo(() => {
+    if (!filterSearch) return items;
+    const query = filterSearch.toLowerCase();
+    return items.filter((i) => {
+      const haystack = typeof i.name === "string" ? i.name : i.searchValue;
+      return haystack.toLowerCase().includes(query);
+    });
+  }, [items, filterSearch]);
 
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
