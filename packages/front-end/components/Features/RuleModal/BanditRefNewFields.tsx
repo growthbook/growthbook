@@ -58,6 +58,7 @@ export default function BanditRefNewFields({
   setDisableBanditConversionWindow,
   contextualBandit,
   setContextualBandit,
+  hideContextualBanditToggle,
   envScope,
 }: {
   step: number;
@@ -85,6 +86,7 @@ export default function BanditRefNewFields({
   setDisableBanditConversionWindow: (v: boolean) => void;
   contextualBandit: boolean;
   setContextualBandit: (v: boolean) => void;
+  hideContextualBanditToggle?: boolean;
   envScope?: EnvScopeProps;
 }) {
   const form = useFormContext();
@@ -178,12 +180,14 @@ export default function BanditRefNewFields({
 
           {envScope && <RuleEnvironmentScopeField {...envScope} my="5" />}
 
-          <Checkbox
-            mt="5"
-            value={contextualBandit}
-            setValue={setContextualBandit}
-            label="Make My Bandit Contextual"
-          />
+          {!hideContextualBanditToggle && (
+            <Checkbox
+              mt="5"
+              value={contextualBandit}
+              setValue={setContextualBandit}
+              label="Make My Bandit Contextual"
+            />
+          )}
         </>
       ) : null}
 

@@ -175,10 +175,27 @@ export type SingleVariationResult = {
   ci?: [number, number];
 };
 
+export type ContextualBanditResponseSnapshot = {
+  context: Record<string, unknown>;
+  sampleSizePerVariation?: number[] | null;
+  variationMeans?: number[] | null;
+  updatedWeights?: number[] | null;
+  bestArmProbabilities?: number[] | null;
+  updateMessage?: string | null;
+  error?: string | null;
+};
+
+/** Full contextual bandit output for a decision-metric run. */
+export type ContextualBanditSnapshot = {
+  attributes: string[];
+  responses: ContextualBanditResponseSnapshot[];
+};
+
 export type MultipleExperimentMetricAnalysis = {
   id: string;
   results: ExperimentMetricAnalysis;
   banditResult?: BanditResult;
+  contextualBanditResult?: ContextualBanditSnapshot | null;
   error?: string;
   traceback?: string;
 };

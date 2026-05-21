@@ -242,7 +242,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         initialValue?.banditConversionWindowUnit != null;
       return !hasOverride;
     });
-  const [contextualBandit, setContextualBandit] = useState(false);
   const canSubmit = !prerequisiteTargetingSdkIssues;
   const minWordsForSimilarityCheck = 4;
 
@@ -544,33 +543,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         if (!data.datasource) {
           throw new Error("You must select a datasource");
         }
-        if (contextualBandit) {
-          const ds = datasources.find((d) => d.id === data.datasource);
-          const queries = ds?.settings?.queries?.exposure ?? [];
-          const withTargetingAttributes = queries.filter(
-            (q) => (q.targetingAttributeColumns?.length ?? 0) > 0,
-          );
-          if (queries.length > 0 && withTargetingAttributes.length === 0) {
-            setStep(2);
-            throw new Error(
-              "No Experiment Assignment Tables with targeting attributes exist for this data source. Add attributes to an experiment assignment table on the data source page, then try again.",
-            );
-          }
-          if (withTargetingAttributes.length > 0) {
-            const selected = queries.find((q) => q.id === data.exposureQueryId);
-            if (
-              !selected?.targetingAttributeColumns?.length ||
-              !withTargetingAttributes.some(
-                (q) => q.id === data.exposureQueryId,
-              )
-            ) {
-              setStep(2);
-              throw new Error(
-                "Select an Experiment Assignment Table that has targeting attribute columns configured.",
-              );
-            }
-          }
-        }
         if ((data.goalMetrics?.length ?? 0) !== 1) {
           throw new Error("You must select 1 decision metric");
         }
@@ -589,7 +561,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             "Enter a conversion window override or disable the conversion window override",
           );
         }
-        data.banditIsContextual = contextualBandit;
       }
     }
 
@@ -1274,14 +1245,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   project={selectedProject}
                 />
               )}
-            {isBandit && (
-              <Checkbox
-                mt="5"
-                value={contextualBandit}
-                setValue={setContextualBandit}
-                label="Make My Bandit Contextual"
-              />
-            )}
           </div>
         </Page>
 
@@ -1385,8 +1348,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       setDisableBanditConversionWindow={
                         setDisableBanditConversionWindow
                       }
-                      contextualBandit={contextualBandit}
-                      setContextualBandit={setContextualBandit}
+                      contextualBandit={false}
+                      setContextualBandit={() => {}}
                     />
                   </div>
                 </Page>

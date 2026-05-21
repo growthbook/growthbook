@@ -39,6 +39,7 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
+import ContextualBanditResultsTable from "@/components/Experiment/ContextualBanditResultsTable";
 import Button from "@/ui/Button";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -239,7 +240,7 @@ export default function TabbedPage({
     setShowDashboardView(true);
   }, [experiment.defaultDashboardId, dashboards]);
 
-  const { phase, setPhase } = useSnapshot();
+  const { phase, setPhase, snapshot } = useSnapshot();
   const {
     metricGroups,
     getExperimentMetricById,
@@ -410,6 +411,7 @@ export default function TabbedPage({
   }, []);
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isContextualBandit = isBandit && Boolean(experiment.banditIsContextual);
   const trackSource = "tabbed-page";
 
   const safeToEdit =
@@ -656,7 +658,7 @@ export default function TabbedPage({
             </div>
           )}
         </div>
-        {isBandit && !showDashboardView ? (
+        {isBandit && !isContextualBandit && !showDashboardView ? (
           <div
             className={
               // todo: standardize explore & results tabs across experiment types
@@ -672,59 +674,76 @@ export default function TabbedPage({
             />
           </div>
         ) : null}
-      </div>
-      <div
-        className={
-          // todo: standardize explore & results tabs across experiment types
-          ((!isBandit && tab === "results") ||
-            (isBandit && tab === "explore")) &&
-          !showDashboardView
-            ? "container-fluid pagecontents d-block pt-0"
-            : "d-none d-print-block"
-        }
-      >
-        {showMetricGroupPromo() ? (
-          <PremiumCallout
-            commercialFeature="metric-groups"
-            dismissable={true}
-            id="metrics-list-metric-group-promo"
-            docSection="metricGroups"
-            mb="2"
+        {isContextualBandit && !showDashboardView ? (
+          <div
+            className={
+              tab === "results"
+                ? "container-fluid pagecontents d-block pt-0"
+                : "d-none d-print-block"
+            }
           >
-            <strong>Metric Groups</strong> help you organize and manage your
-            metrics at scale.
-          </PremiumCallout>
+            <ContextualBanditResultsTable
+              experiment={experiment}
+              contextualBanditSnapshot={snapshot?.contextualBanditSnapshot}
+              mutate={mutate}
+            />
+          </div>
         ) : null}
-        {/* TODO: Update ResultsTab props to include redirect and pipe through to StartExperimentBanner */}
-        <ResultsTab
-          experiment={experiment}
-          mutate={mutate}
-          editMetrics={editMetrics}
-          editResult={editResult}
-          newPhase={newPhase}
-          connections={connections}
-          envs={envs}
-          setTab={setTabAndScroll}
-          visualChangesets={visualChangesets}
-          editTargeting={editTargeting}
-          isTabActive={tab === "results"}
-          metricTagFilter={metricTagFilter}
-          metricsFilter={metricsFilter}
-          setMetricsFilter={setMetricsFilter}
-          availableMetricsFilters={availableMetricsFilters}
-          availableMetricTags={availableMetricTags}
-          availableSliceTags={availableSliceTags}
-          sliceTagsFilter={sliceTagsFilter}
-          setSliceTagsFilter={setSliceTagsFilter}
-          analysisBarSettings={analysisBarSettings}
-          setAnalysisBarSettings={setAnalysisBarSettings}
-          setMetricTagFilter={setMetricTagFilterWithPriority}
-          sortBy={sortBy}
-          setSortBy={setSortBy}
-          sortDirection={sortDirection}
-          setSortDirection={setSortDirection}
-        />
       </div>
+      {!isContextualBandit && (
+        <div
+          className={
+            // todo: standardize explore & results tabs across experiment types
+            ((!isBandit && tab === "results") ||
+              (isBandit && tab === "explore")) &&
+            !showDashboardView
+              ? "container-fluid pagecontents d-block pt-0"
+              : "d-none d-print-block"
+          }
+        >
+          {showMetricGroupPromo() ? (
+            <PremiumCallout
+              commercialFeature="metric-groups"
+              dismissable={true}
+              id="metrics-list-metric-group-promo"
+              docSection="metricGroups"
+              mb="2"
+            >
+              <strong>Metric Groups</strong> help you organize and manage your
+              metrics at scale.
+            </PremiumCallout>
+          ) : null}
+          {/* TODO: Update ResultsTab props to include redirect and pipe through to StartExperimentBanner */}
+          <ResultsTab
+            experiment={experiment}
+            mutate={mutate}
+            editMetrics={editMetrics}
+            editResult={editResult}
+            newPhase={newPhase}
+            connections={connections}
+            envs={envs}
+            setTab={setTabAndScroll}
+            visualChangesets={visualChangesets}
+            editTargeting={editTargeting}
+            isTabActive={tab === "results"}
+            metricTagFilter={metricTagFilter}
+            metricsFilter={metricsFilter}
+            setMetricsFilter={setMetricsFilter}
+            availableMetricsFilters={availableMetricsFilters}
+            availableMetricTags={availableMetricTags}
+            availableSliceTags={availableSliceTags}
+            sliceTagsFilter={sliceTagsFilter}
+            setSliceTagsFilter={setSliceTagsFilter}
+            analysisBarSettings={analysisBarSettings}
+            setAnalysisBarSettings={setAnalysisBarSettings}
+            setMetricTagFilter={setMetricTagFilterWithPriority}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            sortDirection={sortDirection}
+            setSortDirection={setSortDirection}
+          />
+        </div>
+      )}
       <div
         className={
           tab === "dashboards" && !showDashboardView

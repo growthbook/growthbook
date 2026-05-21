@@ -15,6 +15,7 @@ import {
   MetricPowerResponseFromStatsEngine,
   RealizedSettings,
   SupplementalResults,
+  ContextualBanditSnapshot,
 } from "shared/types/stats";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
@@ -245,6 +246,7 @@ export interface ExperimentSnapshotInterface {
   // Keyed by `ExperimentSnapshotAnalysis.analysisKey`
   chunkedAnalysesMeta?: Record<AnalysisKeyType, AnalysisMetaEntry>;
   banditResult?: BanditResult;
+  contextualBanditSnapshot?: ContextualBanditSnapshot;
 
   health?: ExperimentSnapshotHealth;
 }

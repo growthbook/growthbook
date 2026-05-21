@@ -26,7 +26,7 @@ import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/Experi
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
+import ContextualBanditForm from "@/components/ContextualBandit/ContextualBanditForm";
 import Button from "@/ui/Button";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LinkButton from "@/ui/LinkButton";
@@ -36,29 +36,32 @@ import Callout from "@/ui/Callout";
 
 const NUM_PER_PAGE = 20;
 
-const ExperimentsPage = (): React.ReactElement => {
+const ContextualBanditsPage = (): React.ReactElement => {
   const { ready, project, projects } = useDefinitions();
 
-  const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
+  const [tabs, setTabs] = useLocalStorage<string[]>(
+    "contextual_bandit_tabs",
+    [],
+  );
 
   const {
-    experiments: allBanditExperiments,
+    experiments: allBandits,
     error,
     loading,
     hasArchived,
   } = useExperiments(project, tabs.includes("archived"), "multi-armed-bandit");
 
   const allExperiments = useMemo(
-    () => allBanditExperiments.filter((e) => !e.banditIsContextual),
-    [allBanditExperiments],
+    () => allBandits.filter((e) => e.banditIsContextual),
+    [allBandits],
   );
 
-  const tagsFilter = useTagsFilter("experiments");
+  const tagsFilter = useTagsFilter("contextual-bandits");
   const [showMineOnly, setShowMineOnly] = useLocalStorage(
-    "showMyExperimentsOnly",
+    "showMyContextualBanditsOnly",
     false,
   );
-  const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
+  const [openNewModal, setOpenNewModal] = useState(false);
 
   const { userId, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -87,7 +90,7 @@ const ExperimentsPage = (): React.ReactElement => {
     useExperimentSearch({
       allExperiments,
       filterResults,
-      localStorageKey: "bandits-page",
+      localStorageKey: "contextual-bandits-page",
     });
 
   const tabCounts = useMemo(() => {
@@ -105,14 +108,12 @@ const ExperimentsPage = (): React.ReactElement => {
       : items;
   }, [tabs, items]);
 
-  // If "All Projects" is selected is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && items.some((e) => e.project);
 
   const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits",
   );
 
-  // Reset to page 1 when a filter is applied or tabs change
   useEffect(() => {
     setCurrentPage(1);
   }, [filtered.length]);
@@ -144,9 +145,9 @@ const ExperimentsPage = (): React.ReactElement => {
     return (
       <div className="contents container-fluid pagecontents">
         <PremiumEmptyState
-          h1="Bandits"
-          title="Run Adaptive Experiments with Bandits"
-          description="Bandits automatically guide more traffic to better variants."
+          h1="Contextual Bandits"
+          title="Run Context-Aware Adaptive Experiments with Contextual Bandits"
+          description="Contextual Bandits automatically guide more traffic to better variants based on user context."
           commercialFeature="multi-armed-bandits"
           learnMoreLink="https://docs.growthbook.io/bandits/overview"
         />
@@ -160,7 +161,7 @@ const ExperimentsPage = (): React.ReactElement => {
         <div className="mb-3 mt-2">
           <div className="filters md-form row mb-3 align-items-center">
             <div className="col d-flex align-items-center">
-              <h1>Bandits</h1>
+              <h1>Contextual Bandits</h1>
             </div>
             <div style={{ flex: 1 }} />
             {canAdd && (
@@ -171,11 +172,11 @@ const ExperimentsPage = (): React.ReactElement => {
                 >
                   <Button
                     onClick={() => {
-                      setOpenNewExperimentModal(true);
+                      setOpenNewModal(true);
                     }}
                     disabled={!hasMultiArmedBanditFeature}
                   >
-                    Add Bandit
+                    Add Contextual Bandit
                   </Button>
                 </PremiumTooltip>
               </div>
@@ -185,8 +186,11 @@ const ExperimentsPage = (): React.ReactElement => {
           {!hasExperiments ? (
             <div className="box py-5 text-center">
               <div className="mx-auto" style={{ maxWidth: 650 }}>
-                <h1>Adaptively experiment with bandits.</h1>
-                <p className="">Run adaptive experiments with Bandits.</p>
+                <h1>Adaptively experiment with contextual bandits.</h1>
+                <p className="">
+                  Run context-aware adaptive experiments with Contextual
+                  Bandits.
+                </p>
               </div>
               <div className="d-flex justify-content-center pt-2">
                 <LinkButton
@@ -204,11 +208,11 @@ const ExperimentsPage = (): React.ReactElement => {
                   >
                     <Button
                       onClick={() => {
-                        setOpenNewExperimentModal(true);
+                        setOpenNewModal(true);
                       }}
                       disabled={!hasMultiArmedBanditFeature}
                     >
-                      Add Bandit
+                      Add Contextual Bandit
                     </Button>
                   </PremiumTooltip>
                 )}
@@ -216,7 +220,7 @@ const ExperimentsPage = (): React.ReactElement => {
               <div className="mt-5">
                 <img
                   src="/images/empty-states/bandits.png"
-                  alt="Bandits"
+                  alt="Contextual Bandits"
                   style={{ width: "100%", maxWidth: "740px", height: "auto" }}
                 />
               </div>
@@ -254,12 +258,12 @@ const ExperimentsPage = (): React.ReactElement => {
                           }}
                           title={
                             active && tabs.length > 1
-                              ? `Hide ${tab} experiments`
+                              ? `Hide ${tab} contextual bandits`
                               : active
                                 ? `Remove filter`
                                 : tabs.length === 0
-                                  ? `View only ${tab} experiments`
-                                  : `Include ${tab} experiments`
+                                  ? `View only ${tab} contextual bandits`
+                                  : `Include ${tab} contextual bandits`
                           }
                         >
                           <span className="mr-1">
@@ -288,8 +292,8 @@ const ExperimentsPage = (): React.ReactElement => {
                 </div>
                 <div className="col-auto ml-auto">
                   <Switch
-                    id="my-experiments-toggle"
-                    label="My Bandits Only"
+                    id="my-contextual-bandits-toggle"
+                    label="My Contextual Bandits Only"
                     value={showMineOnly}
                     onChange={(value) => {
                       setShowMineOnly(value);
@@ -303,7 +307,7 @@ const ExperimentsPage = (): React.ReactElement => {
                   <tr>
                     <th></th>
                     <SortableTH field="name" className="w-100">
-                      Bandit
+                      Contextual Bandit
                     </SortableTH>
                     {showProjectColumn && (
                       <SortableTH field="projectName">Project</SortableTH>
@@ -325,9 +329,12 @@ const ExperimentsPage = (): React.ReactElement => {
                             type="icon"
                           />
                         </td>
-                        <td data-title="Bandit name:" className="p-0">
+                        <td
+                          data-title="Contextual Bandit name:"
+                          className="p-0"
+                        >
                           <Link
-                            href={`/bandit/${e.id}`}
+                            href={`/contextual-bandit/${e.id}`}
                             className="d-block p-2"
                           >
                             <div className="d-flex flex-column">
@@ -393,7 +400,7 @@ const ExperimentsPage = (): React.ReactElement => {
                           <SortedTags
                             tags={Object.values(e.tags)}
                             useFlex={true}
-                            {...tagLinkProps("bandits")}
+                            {...tagLinkProps("contextual-bandits")}
                             onTagClick={tagFilterOnClick(
                               searchInputProps.value,
                               setSearchValue,
@@ -435,19 +442,15 @@ const ExperimentsPage = (): React.ReactElement => {
           )}
         </div>
       </div>
-      {openNewExperimentModal && (
-        <NewExperimentForm
-          onClose={() => setOpenNewExperimentModal(false)}
-          source="bandits-list"
+      {openNewModal && (
+        <ContextualBanditForm
+          onClose={() => setOpenNewModal(false)}
+          source="contextual-bandits-list"
           isNewExperiment={true}
-          initialValue={{
-            type: "multi-armed-bandit",
-            statsEngine: "bayesian",
-          }}
         />
       )}
     </>
   );
 };
 
-export default ExperimentsPage;
+export default ContextualBanditsPage;
