@@ -3,24 +3,30 @@ import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { OrganizationSettings } from "shared/types/organization";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  isProjectListValidForProject,
+  isManagedWarehouseAwaitingProvisioning,
+} from "shared/util";
 import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
 import { QueryStatistics } from "shared/types/query";
 import { Box, Flex } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { format } from "date-fns";
 import { isNull } from "lodash";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import Button from "@/ui/Button";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
+import { AppFeatures } from "@/types/app-features";
 import LinkButton from "@/ui/LinkButton";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
 import EmptyState from "@/components/EmptyState";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/ui/Table";
 import Field from "@/components/Forms/Field";
 
@@ -57,13 +63,15 @@ function getDatasourceInitialFormValue(
 
   if (!validDatasources.length) return { datasourceId: "" };
 
-  // Default to the first datasource with a feature usage query
-  // If no datasource with a feature usage query is found, default to the default datasource
+  // Default to the first datasource with a feature usage query or managed warehouse.
+  // If none found, fall back to the org default datasource.
   const initialId =
     validDatasources.find(
       (d) =>
-        d.settings.queries?.featureUsage &&
-        d.settings.queries?.featureUsage.length > 0,
+        (d.type === "growthbook_clickhouse" &&
+          !isManagedWarehouseAwaitingProvisioning(d)) ||
+        (d.settings.queries?.featureUsage &&
+          d.settings.queries?.featureUsage.length > 0),
     )?.id || settings.defaultDataSource;
 
   const initialDatasource =
@@ -96,26 +104,47 @@ export default function FeatureDiagnostics({
   const { datasources, getDatasourceById } = useDefinitions();
   const settings = useOrgSettings();
   const { apiCall } = useAuth();
+  const growthbook = useGrowthBook<AppFeatures>();
+
+  const hasMWDiagnosticsFeature = growthbook?.isOn(
+    "managed-warehouse-diagnostics",
+  );
 
   const validDatasources = useMemo(() => {
-    return datasources.filter((d) =>
-      isProjectListValidForProject(d.projects, feature.project),
-    );
-  }, [datasources, feature.project]);
+    return datasources.filter((d) => {
+      if (!isProjectListValidForProject(d.projects, feature.project))
+        return false;
+      if (d.type === "growthbook_clickhouse" && !hasMWDiagnosticsFeature)
+        return false;
+      return true;
+    });
+  }, [datasources, feature.project, hasMWDiagnosticsFeature]);
 
   const form = useForm({
     defaultValues: {
-      ...getDatasourceInitialFormValue(datasources, settings, feature.project),
+      ...getDatasourceInitialFormValue(
+        validDatasources,
+        settings,
+        feature.project,
+      ),
     },
   });
 
   const datasourceId = form.watch("datasourceId");
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
 
+  const awaitingProvisioning = datasource
+    ? isManagedWarehouseAwaitingProvisioning(datasource)
+    : false;
+
+  // Managed warehouse natively supports diagnostics via its feature_usage table.
+  // Regular datasources need a configured featureUsage query.
   const datasourceHasFeatureUsageQuery =
     datasource &&
-    datasource.settings.queries?.featureUsage &&
-    datasource.settings.queries.featureUsage.length > 0;
+    !awaitingProvisioning &&
+    (datasource.type === "growthbook_clickhouse" ||
+      (datasource.settings.queries?.featureUsage &&
+        datasource.settings.queries.featureUsage.length > 0));
 
   // Extract all unique keys from results
   const columns = useMemo(() => {
@@ -242,15 +271,21 @@ export default function FeatureDiagnostics({
         />
       </Box>
 
-      {datasource && !datasourceHasFeatureUsageQuery && (
-        <Callout status="info" mb="4">
-          Feature Evaluation Diagnostics require setting up a feature usage
-          query in your data source.
-          <Link href={`/datasources/${datasource.id}`} ml="2">
-            Setup a Feature Usage Query
-          </Link>
-        </Callout>
+      {datasource && awaitingProvisioning && (
+        <ManagedWarehouseNoEventsCallout />
       )}
+
+      {datasource &&
+        !awaitingProvisioning &&
+        !datasourceHasFeatureUsageQuery && (
+          <Callout status="info" mb="4">
+            Feature Evaluation Diagnostics require setting up a feature usage
+            query in your data source.
+            <Link href={`/datasources/${datasource.id}`} ml="2">
+              Setup a Feature Usage Query
+            </Link>
+          </Callout>
+        )}
 
       {datasource && datasourceHasFeatureUsageQuery && (
         <Frame mt="4">
