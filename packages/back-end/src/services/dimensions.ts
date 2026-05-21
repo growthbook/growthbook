@@ -6,6 +6,7 @@ import {
   ExperimentInterface,
   IncrementalRefreshInterface,
 } from "shared/validators";
+import { MAX_PRECOMPUTED_UNIT_DIMENSIONS } from "shared/constants";
 import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
 import { DimensionInterface } from "shared/types/dimension";
 import { ReqContext } from "back-end/types/request";
@@ -202,8 +203,10 @@ export async function getEligiblePrecomputedUnitDimensionIds({
 
   // Bounds the per-snapshot warehouse query fan-out: each id adds one
   // isolated metric query per metric-group on every refresh.
-  if (dimensionIds.length > 5) {
-    throw new Error("A maximum of 5 precomputed unit dimensions are allowed");
+  if (dimensionIds.length > MAX_PRECOMPUTED_UNIT_DIMENSIONS) {
+    throw new Error(
+      `A maximum of ${MAX_PRECOMPUTED_UNIT_DIMENSIONS} precomputed unit dimensions are allowed`,
+    );
   }
 
   if (!datasourceHasWritableEphemeralPipeline({ context, datasource })) {
@@ -278,6 +281,12 @@ export async function assertExperimentPrecomputedUnitDimensionIdsAreValid({
     return;
   }
 
+  if (dimensionIds.length > MAX_PRECOMPUTED_UNIT_DIMENSIONS) {
+    throw new Error(
+      `A maximum of ${MAX_PRECOMPUTED_UNIT_DIMENSIONS} precomputed unit dimensions are allowed`,
+    );
+  }
+
   if (!datasource) {
     throw new Error(
       "precomputedUnitDimensionIds requires the experiment to have a datasource",
@@ -300,7 +309,7 @@ export async function assertExperimentPrecomputedUnitDimensionIdsAreValid({
   const missing = skipped.filter((s) => s.reason === "not-found");
   if (missing.length > 0) {
     throw new Error(
-      `Unknown dimensions for precomputedUnitDimensionIds: ${missing
+      `Unknown precomputedUnitDimensionIds: ${missing
         .map((s) => s.dimensionId)
         .join(", ")}`,
     );

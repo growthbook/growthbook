@@ -11,6 +11,7 @@ import { datetime, getValidDate } from "shared/dates";
 import {
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  MAX_PRECOMPUTED_UNIT_DIMENSIONS,
 } from "shared/constants";
 import { isProjectListValidForProject } from "shared/util";
 import { getScopedSettings } from "shared/settings";
@@ -314,6 +315,21 @@ const AnalysisForm: FC<{
     precomputedUnitDimensionOptions.length > 0 &&
     datasourceHasWritableEphemeralPipelineEnabled;
   const hasAdvancedSettings = !isBandit && !isHoldout;
+  const selectedPrecomputedUnitDimensionIds =
+    form.watch("precomputedUnitDimensionIds") || [];
+  const precomputedUnitDimensionLimitReached =
+    selectedPrecomputedUnitDimensionIds.length >=
+    MAX_PRECOMPUTED_UNIT_DIMENSIONS;
+  const precomputedUnitDimensionLimitTooltip = `You can select up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS} always-computed unit dimensions.`;
+  const precomputedUnitDimensionOptionsWithTooltips =
+    precomputedUnitDimensionOptions.map((option) => ({
+      ...option,
+      tooltip:
+        precomputedUnitDimensionLimitReached &&
+        !selectedPrecomputedUnitDimensionIds.includes(option.value)
+          ? precomputedUnitDimensionLimitTooltip
+          : undefined,
+    }));
 
   const removeInvalidPrecomputedUnitDimensionIds = ({
     datasourceId,
@@ -971,13 +987,23 @@ const AnalysisForm: FC<{
                         <MultiSelectField
                           label="Always-computed unit dimensions"
                           labelClassName="font-weight-bold"
-                          helpText="These dimensions will be computed automatically on every refresh, similar to precomputed dimensions. Changes apply on the next refresh."
-                          value={
-                            form.watch("precomputedUnitDimensionIds") || []
-                          }
-                          options={precomputedUnitDimensionOptions}
+                          helpText={`These dimensions will be computed automatically on every refresh, similar to precomputed dimensions. You can select up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS}. Changes apply on the next refresh.`}
+                          value={selectedPrecomputedUnitDimensionIds}
+                          options={precomputedUnitDimensionOptionsWithTooltips}
+                          isOptionDisabled={(option) => {
+                            if (!("value" in option)) return false;
+                            return (
+                              precomputedUnitDimensionLimitReached &&
+                              !selectedPrecomputedUnitDimensionIds.includes(
+                                option.value,
+                              )
+                            );
+                          }}
                           onChange={(v) =>
-                            form.setValue("precomputedUnitDimensionIds", v)
+                            form.setValue(
+                              "precomputedUnitDimensionIds",
+                              v.slice(0, MAX_PRECOMPUTED_UNIT_DIMENSIONS),
+                            )
                           }
                         />
                       </div>

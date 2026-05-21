@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { statsEngines } from "shared/constants";
+import {
+  statsEngines,
+  MAX_PRECOMPUTED_UNIT_DIMENSIONS,
+} from "shared/constants";
 import {
   namespaceValue,
   featurePrerequisite,
@@ -21,6 +24,8 @@ export const customMetricSlice = z.object({
   ),
 });
 export type CustomMetricSlice = z.infer<typeof customMetricSlice>;
+
+const maxPrecomputedUnitDimensionsError = `A maximum of ${MAX_PRECOMPUTED_UNIT_DIMENSIONS} precomputed unit dimensions are allowed`;
 
 export const experimentResultsType = [
   "dnf",
@@ -432,7 +437,7 @@ export const experimentInterface = z
       .nullable(),
     precomputedUnitDimensionIds: z
       .array(z.string())
-      .max(5, "A maximum of 5 precomputed unit dimensions are allowed")
+      .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),
   })
   .strict()
@@ -771,7 +776,7 @@ const apiExperimentShape = z.object({
   customMetricSlices: apiCustomMetricSlices.optional(),
   precomputedUnitDimensionIds: z
     .array(z.string())
-    .max(5, "A maximum of 5 precomputed unit dimensions are allowed")
+    .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
     .optional(),
   defaultDashboardId: z
     .string()
@@ -1141,7 +1146,7 @@ const postExperimentBody = z
       .describe(
         "A list of unit dimension ids that will be calculated every update and generate timeseries data. Requires the datasource to have pipeline mode enabled.",
       )
-      .max(5, "A maximum of 5 precomputed unit dimensions are allowed")
+      .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),
   })
   .strict();
@@ -1347,7 +1352,7 @@ const updateExperimentBody = z
       .describe(
         "A list of unit dimension ids that will be calculated every update and generate timeseries data. Requires the datasource to have pipeline mode enabled.",
       )
-      .max(5, "A maximum of 5 precomputed unit dimensions are allowed")
+      .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),
   })
   .strict();
