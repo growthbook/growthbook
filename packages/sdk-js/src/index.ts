@@ -104,9 +104,3 @@ export {
   EVENT_FEATURE_EVALUATED,
   EVENT_GROWTHBOOK_ERROR,
 } from "./core";
-
-export {
-  buildErrorEventProperties,
-  captureGrowthBookError,
-  growthbookErrorTrackingPlugin,
-} from "./plugins/growthbook-error-tracking";

@@ -1,16 +1,24 @@
 import { EVENT_GROWTHBOOK_ERROR } from "../core";
-import type { Attributes } from "../types/growthbook";
+import type { Attributes, UserContext } from "../types/growthbook";
 import { GrowthBook } from "../GrowthBook";
-import {
-  GrowthBookClient,
-  UserScopedGrowthBook,
-} from "../GrowthBookClient";
+import { GrowthBookClient, UserScopedGrowthBook } from "../GrowthBookClient";
 
 export type ErrorTrackingStackFrame = {
   filename?: string;
   function?: string;
   lineno?: number;
   colno?: number;
+};
+
+/** Optional metadata passed to {@link captureGrowthBookError} as `props` (like `logEvent`). */
+export type GrowthBookErrorEventProps = Record<string, unknown>;
+
+export type CaptureGrowthBookErrorOptions = {
+  gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient;
+  error: unknown;
+  props?: GrowthBookErrorEventProps;
+  /** Required when `gb` is a {@link GrowthBookClient}. */
+  userContext?: UserContext;
 };
 
 type PendingFingerprint =
@@ -90,13 +98,16 @@ function consumePendingFingerprint(
  * server-side (similar to Sentry's `setFingerprint` array form).
  *
  * @example
- * setFingerprint(gb, ["checkout", "payment-failed"]);
- * await captureGrowthBookError(gb, err);
+ * setFingerprint({ gb, fingerprint: ["checkout", "payment-failed"] });
+ * await captureGrowthBookError({ gb, error: err });
  */
-export function setFingerprint(
-  gb: GrowthBook | UserScopedGrowthBook,
-  fingerprint: string | readonly string[],
-): void {
+export function setFingerprint({
+  gb,
+  fingerprint,
+}: {
+  gb: GrowthBook | UserScopedGrowthBook;
+  fingerprint: string | readonly string[];
+}): void {
   if (typeof fingerprint === "string") {
     const value = fingerprint.trim();
     if (!value) return;
@@ -108,10 +119,13 @@ export function setFingerprint(
   pendingFingerprints.set(gb, { type: "parts", parts });
 }
 
-function dedupeKeyForError(error: unknown, extras?: Record<string, unknown>): string {
+function dedupeKeyForError(
+  error: unknown,
+  props?: GrowthBookErrorEventProps,
+): string {
   const pending =
-    extras && "_pendingFingerprint" in extras
-      ? (extras._pendingFingerprint as PendingFingerprint | undefined)
+    props && "_pendingFingerprint" in props
+      ? (props._pendingFingerprint as PendingFingerprint | undefined)
       : undefined;
   if (pending?.type === "value") {
     return pending.value;
@@ -120,7 +134,10 @@ function dedupeKeyForError(error: unknown, extras?: Record<string, unknown>): st
     return pending.parts.join("\n");
   }
   const { message, stack } = stringifyUnknown(error);
-  const frame = stack?.split("\n").map((line) => line.trim()).find(Boolean);
+  const frame = stack
+    ?.split("\n")
+    .map((line) => line.trim())
+    .find(Boolean);
   return `${message}\n${frame || ""}`;
 }
 
@@ -144,13 +161,15 @@ export type BuiltErrorEventProps = {
   handled?: boolean;
 };
 
-export function buildErrorEventProperties(
-  error: unknown,
-  extras?: Record<string, unknown>,
-  options?: {
-    gb?: GrowthBook | UserScopedGrowthBook | GrowthBookClient;
-  },
-): BuiltErrorEventProps & Record<string, unknown> {
+export function buildErrorEventProperties({
+  error,
+  props,
+  gb,
+}: {
+  error: unknown;
+  props?: GrowthBookErrorEventProps;
+  gb?: GrowthBook | UserScopedGrowthBook | GrowthBookClient;
+}): BuiltErrorEventProps & Record<string, unknown> {
   const { message, stack, name } = stringifyUnknown(error);
   const stackFrames = parseStackFrames(stack);
 
@@ -163,27 +182,26 @@ export function buildErrorEventProperties(
     contexts,
     breadcrumbs,
     handled,
-    fingerprint: extrasFingerprint,
-    fingerprintParts: extrasFingerprintParts,
-    title: _extrasTitle,
-    message: _extrasMessage,
+    fingerprint: propsFingerprint,
+    fingerprintParts: propsFingerprintParts,
+    title: _propsTitle,
+    message: _propsMessage,
     ...rest
-  } = extras || {};
+  } = props || {};
 
-  const pending = options?.gb ? consumePendingFingerprint(options.gb) : undefined;
+  const pending = gb ? consumePendingFingerprint(gb) : undefined;
 
   const displayMessage =
     message.length > 500 ? `${message.slice(0, 497)}...` : message;
 
-  const props: BuiltErrorEventProps & Record<string, unknown> = {
+  const built: BuiltErrorEventProps & Record<string, unknown> = {
     ...rest,
     title: displayMessage,
     message: displayMessage,
     errorType: typeof errorType === "string" ? errorType : name || "unknown",
     stack: stack?.slice(0, 50_000),
     stackFrames,
-    transaction:
-      typeof transaction === "string" ? transaction : undefined,
+    transaction: typeof transaction === "string" ? transaction : undefined,
     release: typeof release === "string" ? release : undefined,
     runtime:
       typeof runtime === "string"
@@ -191,56 +209,62 @@ export function buildErrorEventProperties(
         : typeof navigator !== "undefined"
           ? "browser"
           : "javascript",
-    tags: tags && typeof tags === "object" ? (tags as Record<string, string>) : undefined,
+    tags:
+      tags && typeof tags === "object"
+        ? (tags as Record<string, string>)
+        : undefined,
     contexts:
       contexts && typeof contexts === "object"
         ? (contexts as Record<string, unknown>)
         : undefined,
-    breadcrumbs: Array.isArray(breadcrumbs)
-      ? breadcrumbs
-      : undefined,
+    breadcrumbs: Array.isArray(breadcrumbs) ? breadcrumbs : undefined,
     handled: typeof handled === "boolean" ? handled : undefined,
   };
 
   if (pending?.type === "value") {
-    props.fingerprint = pending.value;
+    built.fingerprint = pending.value;
   } else if (pending?.type === "parts") {
-    props.fingerprintParts = pending.parts;
-  } else if (typeof extrasFingerprint === "string" && extrasFingerprint.trim()) {
-    props.fingerprint = extrasFingerprint.trim();
+    built.fingerprintParts = pending.parts;
+  } else if (typeof propsFingerprint === "string" && propsFingerprint.trim()) {
+    built.fingerprint = propsFingerprint.trim();
   } else if (
-    Array.isArray(extrasFingerprintParts) &&
-    extrasFingerprintParts.length > 0
+    Array.isArray(propsFingerprintParts) &&
+    propsFingerprintParts.length > 0
   ) {
-    props.fingerprintParts = extrasFingerprintParts.map((part) => String(part));
+    built.fingerprintParts = propsFingerprintParts.map((part) => String(part));
   }
 
-  return props;
+  return built;
 }
 
-async function logError(
-  gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient,
-  error: unknown,
-  extras?: Record<string, unknown>,
-) {
-  const props = buildErrorEventProperties(error, extras, { gb });
+async function logError({
+  gb,
+  error,
+  props,
+  userContext,
+}: CaptureGrowthBookErrorOptions): Promise<void> {
+  const eventProps = buildErrorEventProperties({ error, props, gb });
+
   if (gb instanceof GrowthBook || gb instanceof UserScopedGrowthBook) {
-    await gb.logEvent(EVENT_GROWTHBOOK_ERROR, props);
+    await gb.logEvent(EVENT_GROWTHBOOK_ERROR, eventProps);
     return;
   }
+
   if (gb instanceof GrowthBookClient) {
-    console.warn(
-      "growthbookErrorTrackingPlugin: use GrowthBook or a scoped UserScopedGrowthBook instance (not the root GrowthBookClient).",
-    );
+    if (!userContext) {
+      console.warn(
+        "captureGrowthBookError: pass userContext when gb is a GrowthBookClient.",
+      );
+      return;
+    }
+    gb.logEvent(EVENT_GROWTHBOOK_ERROR, eventProps, userContext);
   }
 }
 
 export async function captureGrowthBookError(
-  gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient,
-  error: unknown,
-  extras?: Record<string, unknown>,
+  options: CaptureGrowthBookErrorOptions,
 ): Promise<void> {
-  await logError(gb, error, extras);
+  await logError(options);
 }
 
 function defaultBrowserContexts(): Record<string, unknown> {
@@ -252,7 +276,8 @@ function defaultBrowserContexts(): Record<string, unknown> {
       cookieEnabled: navigator.cookieEnabled,
     },
     device: {
-      screen: typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "",
+      screen:
+        typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "",
       pixelRatio:
         typeof window !== "undefined" ? window.devicePixelRatio : undefined,
     },
@@ -261,10 +286,21 @@ function defaultBrowserContexts(): Record<string, unknown> {
 
 function readGrowthBookAttributes(
   gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient,
+  userContext?: UserContext,
 ): Attributes {
+  if (userContext?.attributes) {
+    return userContext.attributes;
+  }
+
   try {
+    if (gb instanceof UserScopedGrowthBook) {
+      return gb.getUserContext().attributes || {};
+    }
     if ("getAttributes" in gb && typeof gb.getAttributes === "function") {
       return gb.getAttributes() || {};
+    }
+    if (gb instanceof GrowthBookClient) {
+      return gb.getGlobalAttributes();
     }
   } catch {
     /* ignore */
@@ -306,9 +342,9 @@ export function growthbookErrorTrackingPlugin({
     }
 
     const recentDedupeKeys = new Map<string, number>();
-    const resolveRelease = (extras?: Record<string, unknown>) => {
-      if (typeof extras?.release === "string" && extras.release) {
-        return extras.release;
+    const resolveRelease = (props?: GrowthBookErrorEventProps) => {
+      if (typeof props?.release === "string" && props.release) {
+        return props.release;
       }
       const dynamicRelease = getRelease?.();
       if (typeof dynamicRelease === "string" && dynamicRelease) {
@@ -317,7 +353,10 @@ export function growthbookErrorTrackingPlugin({
       return typeof release === "string" ? release : undefined;
     };
 
-    const run = async (error: unknown, extras?: Record<string, unknown>) => {
+    const pluginUserContext =
+      gb instanceof UserScopedGrowthBook ? gb.getUserContext() : undefined;
+
+    const run = async (error: unknown, props?: GrowthBookErrorEventProps) => {
       if (!enable) return;
 
       const pending =
@@ -325,7 +364,7 @@ export function growthbookErrorTrackingPlugin({
           ? pendingFingerprints.get(gb)
           : undefined;
       const dedupeKey = dedupeKeyForError(error, {
-        ...extras,
+        ...props,
         _pendingFingerprint: pending,
       });
       const now = Date.now();
@@ -335,33 +374,43 @@ export function growthbookErrorTrackingPlugin({
       }
       recentDedupeKeys.set(dedupeKey, now);
 
-      const attrs = readGrowthBookAttributes(gb);
+      const attrs = readGrowthBookAttributes(gb, pluginUserContext);
       const envTag =
         typeof attrs.environment === "string"
           ? attrs.environment
           : typeof attrs.gbEnvironment === "string"
             ? attrs.gbEnvironment
             : undefined;
-      const resolvedRelease = resolveRelease(extras);
+      const resolvedRelease = resolveRelease(props);
 
       const tags: Record<string, string> = {
         ...(resolvedRelease ? { release: resolvedRelease } : {}),
         ...(envTag ? { environment: envTag } : {}),
       };
 
-      await logError(gb, error, {
-        ...extras,
-        release: resolvedRelease,
-        runtime: extras?.runtime ?? runtime ?? (browser ? "browser" : "javascript"),
-        tags: { ...tags, ...(extras?.tags as Record<string, string>) },
-        contexts: {
-          ...defaultBrowserContexts(),
-          ...(typeof extras?.contexts === "object" ? extras.contexts : {}),
+      await logError({
+        gb,
+        error,
+        userContext: pluginUserContext,
+        props: {
+          ...props,
+          release: resolvedRelease,
+          runtime:
+            props?.runtime ?? runtime ?? (browser ? "browser" : "javascript"),
+          tags: { ...tags, ...(props?.tags as Record<string, string>) },
+          contexts: {
+            ...defaultBrowserContexts(),
+            ...(typeof props?.contexts === "object" ? props.contexts : {}),
+          },
         },
       });
     };
 
     if (!browser || (!captureUnhandled && !captureUnhandledRejections)) {
+      return;
+    }
+
+    if (gb instanceof GrowthBookClient) {
       return;
     }
 

@@ -7,6 +7,12 @@ export {
   setFingerprint,
   parseStackFrames,
 } from "./growthbook-error-tracking";
+export type {
+  BuiltErrorEventProps,
+  CaptureGrowthBookErrorOptions,
+  ErrorTrackingStackFrame,
+  GrowthBookErrorEventProps,
+} from "./growthbook-error-tracking";
 export { thirdPartyTrackingPlugin } from "./third-party-tracking";
 export {
   devtoolsPlugin,
