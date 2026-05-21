@@ -2,9 +2,11 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
+import { URLRedirectInterface } from "shared/types/url-redirect";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { format } from "date-fns";
 import { ReactNode, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, type AvatarProps } from "@radix-ui/themes";
 import {
   PiInfoFill,
   PiArrowSquareOut,
@@ -24,7 +26,11 @@ import Avatar from "@/ui/Avatar";
 import { formatTrafficSplit } from "@/services/utils";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
-import { ICON_PROPERTIES } from "@/components/Experiment/LinkedChanges/constants";
+import {
+  ICON_PROPERTIES,
+  LINKED_CHANGE_CONTAINER_PROPERTIES,
+  type LinkedChange,
+} from "@/components/Experiment/LinkedChanges/constants";
 import { CheckListItem } from "@/components/Experiment/PreLaunchChecklist";
 
 export interface Props {
@@ -36,6 +42,8 @@ export interface Props {
   checklistHardBlockerCount?: number;
   isHoldout?: boolean;
   linkedFeatures?: LinkedFeatureInfo[];
+  visualChangesets?: VisualChangesetInterface[];
+  urlRedirects?: URLRedirectInterface[];
   incompleteChecklistItems?: CheckListItem[];
 }
 
@@ -67,6 +75,40 @@ function SummaryRow({
         {label}:
       </Text>
       <Box>{children}</Box>
+    </Flex>
+  );
+}
+
+function LinkedChangeSection({
+  type,
+  count,
+  countLabel,
+  children,
+}: {
+  type: LinkedChange;
+  count: number;
+  countLabel?: string;
+  children: ReactNode;
+}) {
+  const { component: Icon, radixColor } = ICON_PROPERTIES[type];
+  const header = LINKED_CHANGE_CONTAINER_PROPERTIES[type].header;
+  return (
+    <Flex direction="column" gap="2">
+      <Flex align="center" gap="2">
+        <Avatar
+          radius="small"
+          color={radixColor as AvatarProps["color"]}
+          size="md"
+          variant="soft"
+        >
+          <Icon />
+        </Avatar>
+        <Text weight="semibold" color="text-high">
+          {header}
+        </Text>
+        <Text color="text-mid">{countLabel ?? count}</Text>
+      </Flex>
+      <Box pl="7">{children}</Box>
     </Flex>
   );
 }
@@ -106,18 +148,22 @@ export default function StartExperimentModal({
   checklistHardBlockerCount = 0,
   isHoldout,
   linkedFeatures = [],
+  visualChangesets = [],
+  urlRedirects = [],
   incompleteChecklistItems = [],
 }: Props) {
   const checklistIncomplete = checklistItemsRemaining > 0;
   const phase = experiment.phases?.[experiment.phases.length - 1];
   const isBandit = experiment.type === "multi-armed-bandit";
-  const { component: FeatureFlagIcon, radixColor: featureFlagAvatarColor } =
-    ICON_PROPERTIES["feature-flag"];
   const hasAttributeTargeting = !!(
     phase?.condition && phase.condition !== "{}"
   );
   const hasSavedGroupTargeting = !!phase?.savedGroups?.length;
   const hasPrerequisites = !!phase?.prerequisites?.length && !isHoldout;
+  const hasLinkedChanges =
+    linkedFeatures.length > 0 ||
+    visualChangesets.length > 0 ||
+    urlRedirects.length > 0;
   const parsedScheduledDate = experiment.statusUpdateSchedule?.startAt
     ? new Date(experiment.statusUpdateSchedule.startAt)
     : null;
@@ -434,7 +480,7 @@ export default function StartExperimentModal({
               Once started, experiments and features can be added to the
               holdout.
             </Text>
-          ) : (
+          ) : hasLinkedChanges ? (
             <Box
               mt="3"
               style={{
@@ -443,38 +489,70 @@ export default function StartExperimentModal({
                 borderRadius: "var(--radius-3)",
               }}
             >
-              <Flex align="center" gap="2">
-                <Avatar
-                  radius="small"
-                  color={featureFlagAvatarColor}
-                  size="md"
-                  variant="soft"
-                >
-                  <FeatureFlagIcon />
-                </Avatar>
-                <Text weight="semibold" color="text-high">
-                  Linked changes will activate. Users will see experiment
-                  variations immediately.
-                </Text>
+              <Text weight="semibold" color="text-high">
+                Linked changes will activate. Users will see experiment
+                variations immediately.
+              </Text>
+              <Flex direction="column" gap="4" mt="3">
+                {linkedFeatures.length > 0 && (
+                  <LinkedChangeSection
+                    type="feature-flag"
+                    count={linkedFeatures.length}
+                  >
+                    <Flex wrap="wrap" gap="3">
+                      {linkedFeatures.map((info) =>
+                        info.feature?.id ? (
+                          <Link
+                            key={info.feature.id}
+                            href={`/features/${info.feature.id}`}
+                            target="_blank"
+                          >
+                            <Text weight="semibold">{info.feature.id}</Text>
+                            <PiArrowSquareOut className="ml-1" />
+                          </Link>
+                        ) : null,
+                      )}
+                    </Flex>
+                  </LinkedChangeSection>
+                )}
+                {visualChangesets.length > 0 && (
+                  <LinkedChangeSection
+                    type="visual-editor"
+                    count={visualChangesets.length}
+                    countLabel={`${visualChangesets.length} page${
+                      visualChangesets.length === 1 ? "" : "s"
+                    } targeted`}
+                  >
+                    <Flex wrap="wrap" gap="3">
+                      {visualChangesets.map((vc) =>
+                        vc.editorUrl ? (
+                          <Link key={vc.id} href={vc.editorUrl} target="_blank">
+                            <Text weight="semibold">{vc.editorUrl}</Text>
+                            <PiArrowSquareOut className="ml-1" />
+                          </Link>
+                        ) : null,
+                      )}
+                    </Flex>
+                  </LinkedChangeSection>
+                )}
+                {urlRedirects.length > 0 && (
+                  <LinkedChangeSection
+                    type="redirects"
+                    count={urlRedirects.length}
+                  >
+                    <Flex wrap="wrap" gap="3">
+                      {urlRedirects.map((r) => (
+                        <Link key={r.id} href={r.urlPattern} target="_blank">
+                          <Text weight="semibold">{r.urlPattern}</Text>
+                          <PiArrowSquareOut className="ml-1" />
+                        </Link>
+                      ))}
+                    </Flex>
+                  </LinkedChangeSection>
+                )}
               </Flex>
-              {linkedFeatures.length > 0 && (
-                <Flex direction="column" gap="1" mt="3">
-                  {linkedFeatures.map((info) =>
-                    info.feature?.id ? (
-                      <Link
-                        key={info.feature.id}
-                        href={`/features/${info.feature.id}`}
-                        target="_blank"
-                      >
-                        <Text weight="semibold">{info.feature.id}</Text>
-                        <PiArrowSquareOut className="ml-1" />
-                      </Link>
-                    ) : null,
-                  )}
-                </Flex>
-              )}
             </Box>
-          )}
+          ) : null}
         </Modal.Body>
         <Modal.Footer justify="between">
           <Modal.Close>

@@ -3,6 +3,8 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
+import { URLRedirectInterface } from "shared/types/url-redirect";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { FaAngleRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { experimentHasLiveLinkedChanges } from "shared/util";
@@ -93,6 +95,8 @@ export interface Props {
   editTags?: (() => void) | null;
   healthNotificationCount: number;
   linkedFeatures: LinkedFeatureInfo[];
+  visualChangesets: VisualChangesetInterface[];
+  urlRedirects: URLRedirectInterface[];
   holdout?: HoldoutInterfaceStringDates;
   showDashboardView: boolean;
   editSchedule?: (() => void) | null;
@@ -155,6 +159,8 @@ export default function ExperimentHeader({
   editTags,
   healthNotificationCount,
   linkedFeatures,
+  visualChangesets,
+  urlRedirects,
   holdout,
   showDashboardView,
   editSchedule,
@@ -678,6 +684,8 @@ export default function ExperimentHeader({
           incompleteChecklistItems={incompleteChecklistItems}
           isHoldout={isHoldout}
           linkedFeatures={linkedFeatures}
+          visualChangesets={visualChangesets}
+          urlRedirects={urlRedirects}
         />
       )}
       {showScheduleModal && !isHoldout ? (

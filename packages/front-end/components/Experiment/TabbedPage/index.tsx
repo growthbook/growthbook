@@ -539,6 +539,8 @@ export default function TabbedPage({
         checklistHardBlockerCount={checklistHardBlockerCount}
         incompleteChecklistItems={incompleteChecklistItems}
         linkedFeatures={linkedFeatures}
+        visualChangesets={visualChangesets}
+        urlRedirects={urlRedirects}
         showDashboardView={showDashboardView}
         safeToEdit={safeToEdit}
         editSchedule={editSchedule}
