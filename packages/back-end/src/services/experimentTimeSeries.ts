@@ -50,7 +50,7 @@ export async function updateExperimentTimeSeries({
 }) {
   // This function handles the main (dimensionless) experiment time series.
   // Precomputed dimension time series are written by
-  // runEagerExperimentDimensionAnalyses after their analyses are persisted.
+  // runEagerExperimentAndUnitDimensionsAnalyses after their analyses are persisted.
   if (
     experimentSnapshot.dimension !== null &&
     experimentSnapshot.dimension !== ""
