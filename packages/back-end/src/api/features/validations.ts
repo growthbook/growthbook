@@ -10,6 +10,7 @@ import { validateCondition } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { getSavedGroupMap } from "back-end/src/services/features";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   createRevision,
@@ -301,6 +302,31 @@ export function validateRuleConditions(
     }
   }
   validatePrerequisiteConditions(rule.prerequisites ?? []);
+}
+
+// Opt-in check (org setting `requireRegisteredAttributes`): rejects rules
+// whose hashAttribute, fallbackAttribute, or condition field names aren't
+// declared in the org's attributeSchema. Prevents typo'd attributes from
+// silently shipping dead targeting.
+export function validateRuleAttributes(
+  rule: Partial<Pick<FeatureRule, "condition">> & {
+    hashAttribute?: string;
+    fallbackAttribute?: string;
+  },
+  context: ApiReqContext,
+  project?: string,
+): void {
+  assertRegisteredAttributes(
+    context,
+    {
+      hashAttribute: rule.hashAttribute,
+      fallbackAttribute: rule.fallbackAttribute,
+      condition: rule.condition,
+    },
+    "rule",
+    undefined,
+    project,
+  );
 }
 
 export function validatePrerequisiteConditions(

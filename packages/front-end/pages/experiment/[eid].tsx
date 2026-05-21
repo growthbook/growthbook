@@ -28,6 +28,7 @@ import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import { useHoldouts } from "@/hooks/useHoldouts";
+import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 
 const ExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -47,6 +48,7 @@ const ExperimentPage = (): ReactElement => {
     number | null
   >(null);
   const [checklistHardBlockerCount, setChecklistHardBlockerCount] = useState(0);
+  const [editScheduleModalOpen, setEditScheduleModalOpen] = useState(false);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -134,6 +136,9 @@ const ExperimentPage = (): ReactElement => {
     : null;
   const editTargeting = canRunExperiment
     ? () => setTargetingModalOpen(true)
+    : null;
+  const editSchedule = canEditExperiment
+    ? () => setEditScheduleModalOpen(true)
     : null;
 
   const safeToEdit =
@@ -234,6 +239,13 @@ const ExperimentPage = (): ReactElement => {
           // source="eid"
         />
       )}
+      {editScheduleModalOpen && (
+        <EditScheduleModal
+          experiment={experiment}
+          close={() => setEditScheduleModalOpen(false)}
+          mutate={mutate}
+        />
+      )}
 
       <PageHead
         breadcrumb={[
@@ -268,6 +280,7 @@ const ExperimentPage = (): ReactElement => {
           setChecklistHardBlockerCount={setChecklistHardBlockerCount}
           visualChangesetEnvStates={visualChangesetEnvStates}
           urlRedirectEnvStates={urlRedirectEnvStates}
+          editSchedule={editSchedule}
         />
       </SnapshotProvider>
     </>

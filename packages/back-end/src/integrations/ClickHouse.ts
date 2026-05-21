@@ -1,5 +1,7 @@
+import { subDays } from "date-fns";
 import { createClient, ResponseJSON } from "@clickhouse/client";
 import {
+  FeatureEvalDiagnosticsQueryParams,
   FeatureUsageAggregateRow,
   FeatureUsageLookback,
   QueryResponse,
@@ -93,6 +95,31 @@ export default class ClickHouse extends SqlIntegration {
         : "";
 
     return `table_schema IN ('${this.params.database}')${extraWhere}`;
+  }
+
+  getFeatureEvalDiagnosticsQuery(
+    params: FeatureEvalDiagnosticsQueryParams,
+  ): string {
+    if (this.datasource.type === "growthbook_clickhouse") {
+      const featureKey = this.getSqlDialect().escapeStringLiteral(
+        params.feature,
+      );
+      const oneWeekAgo = subDays(new Date(), 7);
+      return `SELECT
+        timestamp,
+        feature AS feature_key,
+        environment,
+        value,
+        source,
+        ruleId,
+        variationId
+      FROM feature_usage
+      WHERE feature = '${featureKey}'
+        AND timestamp >= ${this.getSqlDialect().toTimestamp(oneWeekAgo)}
+      ORDER BY timestamp DESC
+      LIMIT 100`;
+    }
+    return super.getFeatureEvalDiagnosticsQuery(params);
   }
 
   async getFeatureUsage(

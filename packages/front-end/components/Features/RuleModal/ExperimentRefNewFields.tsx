@@ -30,7 +30,9 @@ import {
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
+import PrerequisiteInput, {
+  type RuleCyclicResult,
+} from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
@@ -97,6 +99,7 @@ export default function ExperimentRefNewFields({
   isTemplate = false,
   holdoutHashAttribute,
   envScope,
+  onRuleCyclicChange,
 }: {
   step: number;
   source: "rule" | "experiment";
@@ -131,6 +134,7 @@ export default function ExperimentRefNewFields({
   isTemplate?: boolean;
   holdoutHashAttribute?: string;
   envScope?: EnvScopeProps;
+  onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
 
@@ -503,6 +507,7 @@ export default function ExperimentRefNewFields({
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
+            onRuleCyclicChange={onRuleCyclicChange}
           />
           {isCyclic && (
             <Callout status="error">

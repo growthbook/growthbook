@@ -11,10 +11,12 @@ import {
   getExperimentByTrackingKey,
 } from "back-end/src/models/ExperimentModel";
 import {
+  normalizeStatusUpdateScheduleChanges,
   toExperimentApiInterface,
   updateExperimentApiPayloadToInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { startExperiment } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
@@ -237,6 +239,28 @@ export const updateExperiment = createApiRequestHandler(
     );
   }
 
+  // Opt-in attribute registration check (org-level setting). Covers the
+  // experiment-level hash/fallback attributes and every provided phase.
+  assertRegisteredAttributes(
+    req.context,
+    {
+      hashAttribute: req.body.hashAttribute,
+      fallbackAttribute: req.body.fallbackAttribute,
+    },
+    "experiment",
+    undefined,
+    experiment.project,
+  );
+  for (const phase of req.body.phases ?? []) {
+    assertRegisteredAttributes(
+      req.context,
+      { condition: phase.condition },
+      "experiment phase",
+      undefined,
+      experiment.project,
+    );
+  }
+
   const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
   const changes = updateExperimentApiPayloadToInterface(
     {
@@ -247,6 +271,8 @@ export const updateExperiment = createApiRequestHandler(
     map,
     req.organization,
   );
+
+  normalizeStatusUpdateScheduleChanges(experiment, changes);
 
   const isStartingFromDraft =
     experiment.status === "draft" && changes.status === "running";

@@ -47,8 +47,8 @@ import {
 import {
   getExperimentSettingsHashForIncrementalRefresh,
   getMetricSettingsHashForIncrementalRefresh,
-} from "back-end/src/services/experimentTimeSeries";
-import { validateIncrementalPipeline } from "back-end/src/services/dataPipeline";
+  validateIncrementalPipeline,
+} from "back-end/src/enterprise/services/data-pipeline";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import { chunkMetrics } from "back-end/src/services/experimentQueries/experimentQueries";
 import {
