@@ -16,6 +16,7 @@ import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
+import { CheckListItem } from "@/components/Experiment/PreLaunchChecklist";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import EditHoldoutTargetingModal from "@/components/Holdout/EditHoldoutTargetingModal";
@@ -45,6 +46,9 @@ const HoldoutPage = (): ReactElement => {
     number | null
   >(null);
   const [checklistHardBlockerCount, setChecklistHardBlockerCount] = useState(0);
+  const [incompleteChecklistItems, setIncompleteChecklistItems] = useState<
+    CheckListItem[]
+  >([]);
 
   const { data, error, mutate } = useApi<{
     holdout: HoldoutInterfaceStringDates;
@@ -259,10 +263,13 @@ const HoldoutPage = (): ReactElement => {
           editPhase={editPhase}
           envs={envs}
           editTargeting={editTargeting}
+          editTraffic={editTargeting}
           checklistItemsRemaining={checklistItemsRemaining}
           checklistHardBlockerCount={checklistHardBlockerCount}
+          incompleteChecklistItems={incompleteChecklistItems}
           setChecklistItemsRemaining={setChecklistItemsRemaining}
           setChecklistHardBlockerCount={setChecklistHardBlockerCount}
+          setIncompleteChecklistItems={setIncompleteChecklistItems}
           editSchedule={editHoldoutSchedule}
         />
       </SnapshotProvider>

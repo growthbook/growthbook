@@ -7,12 +7,14 @@ import { FeatureInterface } from "shared/types/feature";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { ReactElement, useCallback, useEffect, useMemo, useState } from "react";
-import { FaAngleRight, FaCheck } from "react-icons/fa";
+import { FaAngleRight, FaAngleUp, FaAngleDown, FaCheck } from "react-icons/fa";
 import { experimentHasLiveLinkedChanges, hasVisualChanges } from "shared/util";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { PiArrowSquareOut } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import clsx from "clsx";
+import { Theme } from "@radix-ui/themes";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Link from "@/ui/Link";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
@@ -464,11 +466,13 @@ export function PreLaunchChecklistUI({
   checklistItemsRemaining,
   setChecklistItemsRemaining,
   setChecklistHardBlockerCount,
+  setIncompleteChecklistItems,
   analysisModal,
   setAnalysisModal,
   allowEditChecklist,
   title = "Pre-Launch Checklist",
   collapsible = true,
+  showHeader = true,
   envs,
 }: {
   experiment: ExperimentInterfaceStringDates;
@@ -477,12 +481,14 @@ export function PreLaunchChecklistUI({
   checklist: CheckListItem[];
   setChecklistItemsRemaining: (value: number | null) => void;
   setChecklistHardBlockerCount?: (value: number) => void;
+  setIncompleteChecklistItems?: (value: CheckListItem[]) => void;
   className?: string;
   analysisModal?: boolean;
   setAnalysisModal?: (value: boolean) => void;
   allowEditChecklist?: boolean;
   title?: string;
   collapsible?: boolean;
+  showHeader?: boolean;
   envs: string[];
 }) {
   const { apiCall } = useAuth();
@@ -547,12 +553,14 @@ export function PreLaunchChecklistUI({
       setChecklistHardBlockerCount?.(
         incomplete.filter((item) => item.hardBlock).length,
       );
+      setIncompleteChecklistItems?.(incomplete);
     }
   }, [
     checklist,
     data,
     setChecklistItemsRemaining,
     setChecklistHardBlockerCount,
+    setIncompleteChecklistItems,
   ]);
 
   if (experiment.status !== "draft") return null;
@@ -675,7 +683,7 @@ export function PreLaunchChecklistUI({
         </Frame>
       ) : (
         <>
-          {header}
+          {showHeader && header}
           {contents}
         </>
       )}
@@ -822,6 +830,24 @@ export function PreLaunchChecklistForDraft({
   );
 }
 
+export type PreLaunchChecklistProps = {
+  experiment: ExperimentInterfaceStringDates;
+  linkedFeatures: LinkedFeatureInfo[];
+  visualChangesets: VisualChangesetInterface[];
+  connections: SDKConnectionInterface[];
+  mutateExperiment: () => unknown | Promise<unknown>;
+  checklistItemsRemaining: number | null;
+  setChecklistItemsRemaining: (value: number | null) => void;
+  setChecklistHardBlockerCount?: (value: number) => void;
+  setIncompleteChecklistItems?: (value: CheckListItem[]) => void;
+  editTargeting?: (() => void) | null;
+  openSetupTab?: () => void;
+  className?: string;
+  envs: string[];
+  showHeader?: boolean;
+  collapsible?: boolean;
+};
+
 export function PreLaunchChecklist({
   experiment,
   linkedFeatures,
@@ -831,23 +857,13 @@ export function PreLaunchChecklist({
   checklistItemsRemaining,
   setChecklistItemsRemaining,
   setChecklistHardBlockerCount,
+  setIncompleteChecklistItems,
   editTargeting,
   openSetupTab,
   envs,
-}: {
-  experiment: ExperimentInterfaceStringDates;
-  linkedFeatures: LinkedFeatureInfo[];
-  visualChangesets: VisualChangesetInterface[];
-  connections: SDKConnectionInterface[];
-  mutateExperiment: () => unknown | Promise<unknown>;
-  checklistItemsRemaining: number | null;
-  setChecklistItemsRemaining: (value: number | null) => void;
-  setChecklistHardBlockerCount?: (value: number) => void;
-  editTargeting?: (() => void) | null;
-  openSetupTab?: () => void;
-  className?: string;
-  envs: string[];
-}) {
+  showHeader,
+  collapsible,
+}: PreLaunchChecklistProps) {
   const permissionsUtil = usePermissionsUtil();
   const canEditExperiment =
     !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
@@ -917,12 +933,77 @@ export function PreLaunchChecklist({
           checklistItemsRemaining,
           setChecklistItemsRemaining,
           setChecklistHardBlockerCount,
+          setIncompleteChecklistItems,
           analysisModal,
           setAnalysisModal,
           allowEditChecklist: true,
+          showHeader,
+          collapsible,
           envs,
         }}
       />
     </>
+  );
+}
+
+export function PreLaunchChecklistDrawer(props: PreLaunchChecklistProps) {
+  const { experiment, checklistItemsRemaining } = props;
+
+  const [open, setOpen] = useLocalStorage<boolean>(
+    `prelaunchChecklistOpen__${experiment.id}`,
+    true,
+  );
+
+  useEffect(() => {
+    if (checklistItemsRemaining === 0) {
+      setOpen(false);
+    }
+  }, [checklistItemsRemaining, setOpen]);
+
+  return (
+    <div className="dark-theme">
+      <Theme appearance="dark">
+        <div className={styles.drawer}>
+          <div className={styles.drawerInner}>
+            <div
+              className={styles.drawerHeader}
+              onClick={() => setOpen(!open)}
+              role="button"
+            >
+              <div className="d-flex align-items-center">
+                <strong>Pre-Launch Checklist</strong>
+                {checklistItemsRemaining !== null && (
+                  <span
+                    className={`badge rounded-circle p-1 ${
+                      checklistItemsRemaining === 0
+                        ? "badge-success"
+                        : "badge-warning"
+                    } mx-2 my-0`}
+                    style={{ minWidth: 22 }}
+                  >
+                    {checklistItemsRemaining === 0 ? (
+                      <FaCheck size={10} />
+                    ) : (
+                      checklistItemsRemaining
+                    )}
+                  </span>
+                )}
+              </div>
+              {open ? <FaAngleDown size={14} /> : <FaAngleUp size={14} />}
+            </div>
+            <div
+              className={styles.drawerBody}
+              style={open ? undefined : { display: "none" }}
+            >
+              <PreLaunchChecklist
+                {...props}
+                collapsible={false}
+                showHeader={false}
+              />
+            </div>
+          </div>
+        </div>
+      </Theme>
+    </div>
   );
 }

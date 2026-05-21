@@ -47,6 +47,7 @@ import { useExperimentDashboards } from "@/hooks/useDashboards";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import CompareExperimentEventsModal from "@/components/Experiment/CompareExperimentEventsModal";
+import { CheckListItem } from "@/components/Experiment/PreLaunchChecklist";
 import ExperimentHeader from "./ExperimentHeader";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
@@ -77,9 +78,11 @@ export interface Props {
   editTags?: (() => void) | null;
   checklistItemsRemaining: number | null;
   checklistHardBlockerCount: number;
+  incompleteChecklistItems: CheckListItem[];
   envs: string[];
   setChecklistItemsRemaining: (value: number | null) => void;
   setChecklistHardBlockerCount: (value: number) => void;
+  setIncompleteChecklistItems: (value: CheckListItem[]) => void;
   editVariations?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
   urlRedirects: URLRedirectInterface[];
@@ -87,6 +90,7 @@ export interface Props {
   editPhase?: ((i: number | null) => void) | null;
   editPhases?: (() => void) | null;
   editTargeting?: (() => void) | null;
+  editTraffic?: (() => void) | null;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
   editSchedule?: (() => void) | null;
@@ -108,14 +112,17 @@ export default function TabbedPage({
   envs,
   urlRedirects,
   editTargeting,
+  editTraffic,
   newPhase,
   editPhases,
   editMetrics,
   editResult,
   checklistItemsRemaining,
   checklistHardBlockerCount,
+  incompleteChecklistItems,
   setChecklistItemsRemaining,
   setChecklistHardBlockerCount,
+  setIncompleteChecklistItems,
   editSchedule,
   visualChangesetEnvStates,
   urlRedirectEnvStates,
@@ -383,15 +390,15 @@ export default function TabbedPage({
   const { data: sdkConnectionsData } = useSDKConnections();
   const connections = sdkConnectionsData?.connections || [];
 
-  const projectConnections = connections.filter(
-    (connection) =>
-      !connection.projects.length ||
-      connection.projects.includes(experiment.project || ""),
-  );
-  const matchingConnections = projectConnections.filter(
-    (connection) =>
-      !visualChangesets.length || connection.includeVisualExperiments,
-  );
+  // const projectConnections = connections.filter(
+  //   (connection) =>
+  //     !connection.projects.length ||
+  //     connection.projects.includes(experiment.project || ""),
+  // );
+  // const matchingConnections = projectConnections.filter(
+  //   (connection) =>
+  //     !visualChangesets.length || connection.includeVisualExperiments,
+  // );
 
   const { data, mutate: mutateWatchers } = useApi<{
     userIds: string[];
@@ -530,7 +537,10 @@ export default function TabbedPage({
         healthNotificationCount={healthNotificationCount}
         checklistItemsRemaining={checklistItemsRemaining}
         checklistHardBlockerCount={checklistHardBlockerCount}
+        incompleteChecklistItems={incompleteChecklistItems}
         linkedFeatures={linkedFeatures}
+        visualChangesets={visualChangesets}
+        urlRedirects={urlRedirects}
         showDashboardView={showDashboardView}
         safeToEdit={safeToEdit}
         editSchedule={editSchedule}
@@ -544,7 +554,7 @@ export default function TabbedPage({
       >
         {experiment.project ===
           getDemoDatasourceProjectIdForOrganization(organization.id) && (
-          <div className="alert alert-info d-flex align-items-center mb-0 mt-2">
+          <Callout status="info" mb="0" mt="2">
             <div className="flex-1">
               This experiment is part of our sample dataset. You can safely
               delete this once you are done exploring.
@@ -555,7 +565,7 @@ export default function TabbedPage({
                 source="experiment"
               />
             </div>
-          </div>
+          </Callout>
         )}
         {experiment.type !== "holdout" &&
           tab !== "dashboards" &&
@@ -616,15 +626,16 @@ export default function TabbedPage({
             holdoutExperiments={holdoutExperiments}
             mutate={mutate}
             disableEditing={viewingOldPhase}
-            linkedFeatures={linkedFeatures}
-            visualChangesets={visualChangesets}
-            editTargeting={editTargeting}
-            matchingConnections={matchingConnections}
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
             setChecklistHardBlockerCount={setChecklistHardBlockerCount}
+            setIncompleteChecklistItems={setIncompleteChecklistItems}
             envs={envs}
             editSchedule={editSchedule}
+            linkedFeatures={linkedFeatures}
+            visualChangesets={visualChangesets}
+            connections={connections}
+            editTargeting={editTargeting}
           />
           <Implementation
             experiment={experiment}
@@ -639,6 +650,7 @@ export default function TabbedPage({
             visualChangesets={visualChangesets}
             urlRedirects={urlRedirects}
             editTargeting={editTargeting}
+            editTraffic={editTraffic}
             linkedFeatures={linkedFeatures}
             envs={envs}
             visualChangesetEnvStates={visualChangesetEnvStates}

@@ -3,6 +3,8 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
+import { URLRedirectInterface } from "shared/types/url-redirect";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { FaAngleRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { experimentHasLiveLinkedChanges } from "shared/util";
@@ -53,6 +55,7 @@ import HelperText from "@/ui/HelperText";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import StartExperimentModal from "@/components/Experiment/TabbedPage/StartExperimentModal";
+import { CheckListItem } from "@/components/Experiment/PreLaunchChecklist";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
@@ -85,12 +88,15 @@ export interface Props {
   usersWatching: (string | undefined)[];
   checklistItemsRemaining: number | null;
   checklistHardBlockerCount: number;
+  incompleteChecklistItems: CheckListItem[];
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
   editTags?: (() => void) | null;
   healthNotificationCount: number;
   linkedFeatures: LinkedFeatureInfo[];
+  visualChangesets: VisualChangesetInterface[];
+  urlRedirects: URLRedirectInterface[];
   holdout?: HoldoutInterfaceStringDates;
   showDashboardView: boolean;
   editSchedule?: (() => void) | null;
@@ -146,12 +152,15 @@ export default function ExperimentHeader({
   editResult,
   checklistItemsRemaining,
   checklistHardBlockerCount,
+  incompleteChecklistItems,
   editTargeting,
   newPhase,
   editPhases,
   editTags,
   healthNotificationCount,
   linkedFeatures,
+  visualChangesets,
+  urlRedirects,
   holdout,
   showDashboardView,
   editSchedule,
@@ -672,7 +681,11 @@ export default function ExperimentHeader({
           scheduleExperiment={approveScheduledExperimentStart}
           checklistItemsRemaining={checklistItemsRemaining || 0}
           checklistHardBlockerCount={checklistHardBlockerCount}
+          incompleteChecklistItems={incompleteChecklistItems}
           isHoldout={isHoldout}
+          linkedFeatures={linkedFeatures}
+          visualChangesets={visualChangesets}
+          urlRedirects={urlRedirects}
         />
       )}
       {showScheduleModal && !isHoldout ? (

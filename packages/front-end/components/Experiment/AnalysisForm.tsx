@@ -25,7 +25,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { GBCuped, GBSequential } from "@/components/Icons";
+import { GBSequential } from "@/components/Icons";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -33,6 +33,7 @@ import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import HelperText from "@/ui/HelperText";
+import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -400,114 +401,188 @@ const AnalysisForm: FC<{
           </FormProvider>
         )}
 
-        <SelectField
-          label="Data Source"
-          value={datasource?.id || ""}
-          disabled={isBandit && experiment.status !== "draft"}
-          onChange={(newDatasource) => {
-            form.setValue("datasource", newDatasource);
-
-            // If unsetting the datasource, leave all the other settings alone
-            // That way, it will be restored if the user switches back to the previous value
-            if (!newDatasource) {
-              return;
-            }
-
-            // If the exposure query is now invalid
-            const ds = getDatasourceById(newDatasource);
-            if (
-              !getExposureQuery(ds?.settings, form.watch("exposureQueryId"))
-            ) {
-              form.setValue("exposureQueryId", "");
-            }
-
-            // If the segment is now invalid
-            const segment = form.watch("segment");
-            if (
-              segment &&
-              getSegmentById(segment)?.datasource !== newDatasource
-            ) {
-              form.setValue("segment", "");
-            }
-
-            const isValidMetric = (id: string) =>
-              getExperimentMetricById(id)?.datasource === newDatasource;
-
-            // If the activationMetric is now invalid
-            const activationMetric = form.watch("activationMetric");
-            if (activationMetric && !isValidMetric(activationMetric)) {
-              form.setValue("activationMetric", "");
-            }
-
-            // Filter the selected metrics to only valid ones
-            const goals = form.watch("goalMetrics");
-            form.setValue("goalMetrics", goals.filter(isValidMetric));
-
-            const secondaryMetrics = form.watch("secondaryMetrics");
-            form.setValue(
-              "secondaryMetrics",
-              secondaryMetrics.filter(isValidMetric),
-            );
-
-            const guardrails = form.watch("guardrailMetrics");
-            form.setValue("guardrailMetrics", guardrails.filter(isValidMetric));
+        <Box
+          mb="5"
+          px="4"
+          pt="4"
+          pb="1"
+          style={{
+            backgroundColor: "var(--background-highlight)",
+            borderRadius: "var(--radius-3)",
           }}
-          options={datasources
-            .filter(
-              (ds) =>
-                ds.id === experiment.datasource ||
-                isProjectListValidForProject(ds.projects, experiment.project),
-            )
-            .map((d) => ({
-              value: d.id,
-              label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
-            }))}
-          className="portal-overflow-ellipsis"
-          helpText={
-            <>
-              <strong className="text-danger">Warning:</strong> Changing this
-              will remove all metrics and segments from the experiment.
-            </>
-          }
-        />
-        {datasource?.properties?.exposureQueries && (
+        >
           <SelectField
-            label={
-              <>
-                Experiment Assignment Table{" "}
-                <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
-              </>
-            }
-            value={form.watch("exposureQueryId") ?? ""}
-            onChange={(v) => form.setValue("exposureQueryId", v)}
-            required
+            label="Data Source"
+            value={datasource?.id || ""}
             disabled={isBandit && experiment.status !== "draft"}
-            initialOption="Choose..."
-            options={exposureQueries?.map((q) => {
-              return {
-                label: q.name,
-                value: q.id,
-              };
-            })}
-            formatOptionLabel={({ label, value }) => {
-              const userIdType = exposureQueries?.find(
-                (e) => e.id === value,
-              )?.userIdType;
-              return (
-                <>
-                  {label}
-                  {userIdType ? (
-                    <span
-                      className="text-muted small float-right position-relative"
-                      style={{ top: 3 }}
-                    >
-                      Identifier Type: <code>{userIdType}</code>
-                    </span>
-                  ) : null}
-                </>
+            onChange={(newDatasource) => {
+              form.setValue("datasource", newDatasource);
+
+              // If unsetting the datasource, leave all the other settings alone
+              // That way, it will be restored if the user switches back to the previous value
+              if (!newDatasource) {
+                return;
+              }
+
+              // If the exposure query is now invalid
+              const ds = getDatasourceById(newDatasource);
+              if (
+                !getExposureQuery(ds?.settings, form.watch("exposureQueryId"))
+              ) {
+                form.setValue("exposureQueryId", "");
+              }
+
+              // If the segment is now invalid
+              const segment = form.watch("segment");
+              if (
+                segment &&
+                getSegmentById(segment)?.datasource !== newDatasource
+              ) {
+                form.setValue("segment", "");
+              }
+
+              const isValidMetric = (id: string) =>
+                getExperimentMetricById(id)?.datasource === newDatasource;
+
+              // If the activationMetric is now invalid
+              const activationMetric = form.watch("activationMetric");
+              if (activationMetric && !isValidMetric(activationMetric)) {
+                form.setValue("activationMetric", "");
+              }
+
+              // Filter the selected metrics to only valid ones
+              const goals = form.watch("goalMetrics");
+              form.setValue("goalMetrics", goals.filter(isValidMetric));
+
+              const secondaryMetrics = form.watch("secondaryMetrics");
+              form.setValue(
+                "secondaryMetrics",
+                secondaryMetrics.filter(isValidMetric),
+              );
+
+              const guardrails = form.watch("guardrailMetrics");
+              form.setValue(
+                "guardrailMetrics",
+                guardrails.filter(isValidMetric),
               );
             }}
+            options={datasources
+              .filter(
+                (ds) =>
+                  ds.id === experiment.datasource ||
+                  isProjectListValidForProject(ds.projects, experiment.project),
+              )
+              .map((d) => ({
+                value: d.id,
+                label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
+              }))}
+            className="portal-overflow-ellipsis"
+            helpText={
+              <HelperText status="warning" size="sm">
+                Changing the data source will remove all metrics and segments
+                from the experiment.
+              </HelperText>
+            }
           />
+          {datasource?.properties?.exposureQueries && (
+            <SelectField
+              label={
+                <>
+                  Experiment Assignment Table{" "}
+                  <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
+                </>
+              }
+              value={form.watch("exposureQueryId") ?? ""}
+              onChange={(v) => form.setValue("exposureQueryId", v)}
+              required
+              disabled={isBandit && experiment.status !== "draft"}
+              initialOption="Choose..."
+              options={exposureQueries?.map((q) => {
+                return {
+                  label: q.name,
+                  value: q.id,
+                };
+              })}
+              formatOptionLabel={({ label, value }) => {
+                const userIdType = exposureQueries?.find(
+                  (e) => e.id === value,
+                )?.userIdType;
+                return (
+                  <>
+                    {label}
+                    {userIdType ? (
+                      <span
+                        className="text-muted small float-right position-relative"
+                        style={{ top: 3 }}
+                      >
+                        Identifier Type: <code>{userIdType}</code>
+                      </span>
+                    ) : null}
+                  </>
+                );
+              }}
+            />
+          )}
+        </Box>
+        {editMetrics && (
+          <>
+            {isBandit && (
+              <>
+                <FormProvider {...form}>
+                  <BanditDecisionMetricSettings
+                    disableBanditConversionWindow={
+                      disableBanditConversionWindow
+                    }
+                    setDisableBanditConversionWindow={
+                      setDisableBanditConversionWindow
+                    }
+                    project={experiment.project}
+                  />
+                </FormProvider>
+                {experiment.status !== "draft" && <Separator my="5" size="4" />}
+              </>
+            )}
+            <ExperimentMetricsSelector
+              noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
+              datasource={form.watch("datasource")}
+              exposureQueryId={exposureQueryId}
+              project={experiment.project}
+              goalMetrics={form.watch("goalMetrics")}
+              secondaryMetrics={form.watch("secondaryMetrics")}
+              guardrailMetrics={form.watch("guardrailMetrics")}
+              setGoalMetrics={
+                !isBandit
+                  ? (goalMetrics) => form.setValue("goalMetrics", goalMetrics)
+                  : undefined
+              }
+              setSecondaryMetrics={(secondaryMetrics) =>
+                form.setValue("secondaryMetrics", secondaryMetrics)
+              }
+              setGuardrailMetrics={
+                !isHoldout
+                  ? (guardrailMetrics) =>
+                      form.setValue("guardrailMetrics", guardrailMetrics)
+                  : undefined
+              }
+              forceSingleGoalMetric={isBandit}
+              noQuantileGoalMetrics={isBandit}
+              filterConversionWindowMetrics={isHoldout}
+              goalDisabled={isBandit && experiment.status !== "draft"}
+              experimentId={experiment.id}
+              collapseSecondary={true}
+              collapseGuardrail={true}
+            />
+            <CustomMetricSlicesSelector
+              goalMetrics={form.watch("goalMetrics")}
+              secondaryMetrics={form.watch("secondaryMetrics")}
+              guardrailMetrics={form.watch("guardrailMetrics")}
+              customMetricSlices={form.watch("customMetricSlices") || []}
+              setCustomMetricSlices={(slices) =>
+                form.setValue("customMetricSlices", slices)
+              }
+            />
+            <Separator my="5" size="4" />
+          </>
         )}
         {datasource && !isHoldout && (
           <Field
@@ -658,27 +733,16 @@ const AnalysisForm: FC<{
         />
         {!isHoldout && (
           <>
-            <SelectField
+            <Checkbox
               label={
                 <PremiumTooltip commercialFeature="regression-adjustment">
-                  <GBCuped /> Use CUPED
+                  Enable CUPED
                 </PremiumTooltip>
               }
-              style={{ width: 200 }}
-              value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
-              onChange={(v) => {
-                form.setValue("regressionAdjustmentEnabled", v === "on");
+              value={!!form.watch("regressionAdjustmentEnabled")}
+              setValue={(v) => {
+                form.setValue("regressionAdjustmentEnabled", v);
               }}
-              options={[
-                {
-                  label: "On",
-                  value: "on",
-                },
-                {
-                  label: "Off",
-                  value: "off",
-                },
-              ]}
               disabled={
                 !hasRegressionAdjustmentFeature ||
                 (isBandit && experiment.status !== "draft")
@@ -833,61 +897,6 @@ const AnalysisForm: FC<{
           )}
         {editMetrics && (
           <>
-            {isBandit && (
-              <>
-                <FormProvider {...form}>
-                  <BanditDecisionMetricSettings
-                    disableBanditConversionWindow={
-                      disableBanditConversionWindow
-                    }
-                    setDisableBanditConversionWindow={
-                      setDisableBanditConversionWindow
-                    }
-                    project={experiment.project}
-                  />
-                </FormProvider>
-                {experiment.status !== "draft" && <Separator my="5" size="4" />}
-              </>
-            )}
-            <ExperimentMetricsSelector
-              noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
-              datasource={form.watch("datasource")}
-              exposureQueryId={exposureQueryId}
-              project={experiment.project}
-              goalMetrics={form.watch("goalMetrics")}
-              secondaryMetrics={form.watch("secondaryMetrics")}
-              guardrailMetrics={form.watch("guardrailMetrics")}
-              setGoalMetrics={
-                !isBandit
-                  ? (goalMetrics) => form.setValue("goalMetrics", goalMetrics)
-                  : undefined
-              }
-              setSecondaryMetrics={(secondaryMetrics) =>
-                form.setValue("secondaryMetrics", secondaryMetrics)
-              }
-              setGuardrailMetrics={
-                !isHoldout
-                  ? (guardrailMetrics) =>
-                      form.setValue("guardrailMetrics", guardrailMetrics)
-                  : undefined
-              }
-              forceSingleGoalMetric={isBandit}
-              noQuantileGoalMetrics={isBandit}
-              filterConversionWindowMetrics={isHoldout}
-              goalDisabled={isBandit && experiment.status !== "draft"}
-              experimentId={experiment.id}
-            />
-
-            <CustomMetricSlicesSelector
-              goalMetrics={form.watch("goalMetrics")}
-              secondaryMetrics={form.watch("secondaryMetrics")}
-              guardrailMetrics={form.watch("guardrailMetrics")}
-              customMetricSlices={form.watch("customMetricSlices") || []}
-              setCustomMetricSlices={(slices) =>
-                form.setValue("customMetricSlices", slices)
-              }
-            />
-
             {hasAdvancedSettings && (
               <>
                 <hr className="mt-4" />

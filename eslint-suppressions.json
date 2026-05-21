@@ -227,11 +227,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/EditTargetingModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/ExperimentCarouselModal.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -381,15 +376,7 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/TrafficAndTargeting.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/index.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 2
     }
@@ -429,7 +416,7 @@
   },
   "packages/front-end/components/Experiment/VariationsTable.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Experiment/holdout/HoldoutTimeline.tsx": {

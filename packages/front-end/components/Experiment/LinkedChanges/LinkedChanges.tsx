@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import {
   ExperimentInterfaceStringDates,
   LinkedChangeEnvStates,
@@ -6,11 +7,14 @@ import {
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { Box, Flex, type AvatarProps } from "@radix-ui/themes";
+import { PiPlusCircleFill } from "react-icons/pi";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedChanges/LinkedFeatureFlag";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import Avatar from "@/ui/Avatar";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
+import Frame from "@/ui/Frame";
 import { RedirectLinkedChanges } from "./RedirectLinkedChanges";
 import AddLinkedChangeButton from "./AddLinkedChangeButton";
 import {
@@ -33,6 +37,8 @@ export default function LinkedChanges({
   setVisualEditorModal,
   setFeatureModal,
   setUrlRedirectModal,
+  variationsTable,
+  onAddVariation,
 }: {
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
@@ -47,6 +53,8 @@ export default function LinkedChanges({
   setVisualEditorModal?: (state: boolean) => void;
   setFeatureModal?: (state: boolean) => void;
   setUrlRedirectModal?: (state: boolean) => void;
+  variationsTable?: ReactNode;
+  onAddVariation?: () => void;
 }) {
   const numLinkedChanges =
     linkedFeatures.length + visualChangesets.length + urlRedirects.length;
@@ -57,15 +65,21 @@ export default function LinkedChanges({
     { id: "redirects", count: urlRedirects.length },
   ];
 
-  if (numLinkedChanges === 0) return null;
+  if (isPublic && numLinkedChanges === 0) return null;
 
   return (
-    <Box className="appbox" px="5" py="4">
-      <Box mb="2" mx="1" mt="2">
-        <Heading as="h4" size="small">
-          {isPublic ? "Linked Changes" : "Values"}
+    <Frame>
+      <Flex justify="between" align="center" mb="4" mx="1" gap="3">
+        <Heading color="text-high" as="h4" size="small" mb="0">
+          {isPublic ? "Linked Changes" : "Variations & Values"}
         </Heading>
-      </Box>
+        {!isPublic && onAddVariation ? (
+          <Link onClick={onAddVariation}>
+            <PiPlusCircleFill size={15} />{" "}
+            <Text weight="semibold">Add Variation</Text>
+          </Link>
+        ) : null}
+      </Flex>
       {isPublic ? (
         <Flex direction="column" gap="3" mx="1" mb="2" mt="4">
           {publicLinkedChangeSummary
@@ -95,6 +109,7 @@ export default function LinkedChanges({
         </Flex>
       ) : (
         <>
+          {variationsTable ? <Box mb="4">{variationsTable}</Box> : null}
           {linkedFeatures.map((info) => (
             <LinkedFeatureFlag
               info={info}
@@ -127,6 +142,7 @@ export default function LinkedChanges({
           {experiment.status === "draft" &&
             !experiment.nextScheduledStatusUpdate &&
             !experiment.archived &&
+            numLinkedChanges > 0 &&
             setFeatureModal &&
             setVisualEditorModal &&
             setUrlRedirectModal && (
@@ -147,6 +163,6 @@ export default function LinkedChanges({
             )}
         </>
       )}
-    </Box>
+    </Frame>
   );
 }
