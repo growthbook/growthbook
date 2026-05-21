@@ -52,6 +52,13 @@ function canEditSavedGroup(
   return context.permissions.canUpdateSavedGroup(snapshot, {});
 }
 
+function isSavedGroupApprovalRequired(context: Context): boolean {
+  return (
+    context.hasPremiumFeature("require-approvals") &&
+    !!context.org.settings?.approvalFlows?.savedGroups?.[0]?.required
+  );
+}
+
 export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
   getModel(context: Context) {
     return context.models.savedGroups as {
@@ -74,9 +81,7 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
   },
 
   isRevisionRequired(context: Context): boolean {
-    return (
-      context.org.settings?.approvalFlows?.savedGroups?.[0]?.required || false
-    );
+    return isSavedGroupApprovalRequired(context);
   },
 
   getUpdatableFields(): ReadonlySet<string> {
@@ -104,9 +109,7 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
   },
 
   isApprovalRequired(context: Context): boolean {
-    return (
-      context.org.settings?.approvalFlows?.savedGroups?.[0]?.required || false
-    );
+    return isSavedGroupApprovalRequired(context);
   },
 
   // Per-revision gate: when the org has approval enabled but disabled the
@@ -115,6 +118,8 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
   // metadata-only autoPublish shortcut in PUT /saved-groups/:id so the
   // generic /revision/:id/merge endpoint reaches the same conclusion.
   isApprovalRequiredForRevision(context: Context, revision: Revision): boolean {
+    if (!context.hasPremiumFeature("require-approvals")) return false;
+
     const settings = getApprovalFlowSettings(
       context.org.settings?.approvalFlows,
       "saved-group",
