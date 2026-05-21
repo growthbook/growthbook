@@ -5,6 +5,7 @@ import traceback
 import copy
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
+import numpy as np
 import pandas as pd
 
 from gbstats.bayesian.tests import (
@@ -79,6 +80,7 @@ from gbstats.models.statistics import (
     RegressionAdjustedRatioStatistic,
     RegressionAdjustedStatistic,
     SampleMeanStatistic,
+    SummableStatistic,
     TestStatistic,
     BanditStatistic,
 )
@@ -1128,6 +1130,125 @@ def get_var_id_map(var_ids: List[str]) -> VarIdMap:
     return {v: i for i, v in enumerate(var_ids)}
 
 
+def _numeric_cell_for_metric_series(value: Any) -> Any:
+    if isinstance(value, np.ndarray):
+        return float(value.flat[0])
+    if isinstance(value, (bool, np.bool_)):
+        return bool(value)
+    if isinstance(value, (int, np.integer)):
+        return int(value)
+    if isinstance(value, (float, np.floating)):
+        return float(value)
+    return value
+
+
+def _sum_aggregate_metric_field(values: List[Any]) -> Any:
+    if not values:
+        return 0
+    total = sum(float(np.asarray(x).flat[0]) for x in values)
+    v0 = values[0]
+    if isinstance(v0, np.ndarray):
+        return np.array([total])
+    if isinstance(v0, (bool, np.bool_)):
+        return bool(round(total))
+    if isinstance(v0, (int, np.integer)):
+        return int(round(total))
+    if isinstance(v0, (float, np.floating)):
+        return float(total)
+    return float(total)
+
+
+def _merge_summable_experiment_metric_rows(
+    rows: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    if not rows:
+        return {}
+    out: Dict[str, Any] = dict(rows[0])
+    for col in SUM_COLS:
+        vals = [r[col] for r in rows if col in r]
+        if vals:
+            out[col] = _sum_aggregate_metric_field(vals)
+        elif col not in out:
+            out[col] = 0
+    return out
+
+
+def _empty_prefixed_metric_series(prefix: str) -> pd.Series:
+    return pd.Series({f"{prefix}_{col}": 0 for col in ROW_COLS})
+
+
+def _narrow_experiment_metric_row_to_prefixed_series(
+    row: Dict[str, Any], prefix: str
+) -> pd.Series:
+    data: Dict[str, Any] = {f"{prefix}_{col}": 0 for col in ROW_COLS}
+    for col in ROW_COLS:
+        if col in row:
+            data[f"{prefix}_{col}"] = _numeric_cell_for_metric_series(row[col])
+    if "users" in row:
+        data[f"{prefix}_users"] = _numeric_cell_for_metric_series(row["users"])
+    if "count" in row:
+        data[f"{prefix}_count"] = _numeric_cell_for_metric_series(row["count"])
+    elif "users" in row:
+        data[f"{prefix}_count"] = data[f"{prefix}_users"]
+    return pd.Series(data)
+
+
+def summable_statistics_per_variation_from_experiment_metric_rows(
+    rows: ExperimentMetricQueryResponseRows,
+    metric: MetricSettingsForStatsEngine,
+    var_ids: List[str],
+) -> List[SummableStatistic]:
+    """Build one :class:`~gbstats.models.statistics.SummableStatistic` per variation index.
+
+    ``rows`` must be the SQL-style narrow rows for a **single** context (or any set where
+    each row's ``variation`` identifies an arm). Rows for the same ``variation`` are merged
+    by summing :data:`SUM_COLS` like :func:`get_metric_dfs`. The *k*th list entry is the
+    statistic for ``var_ids[k]`` (same order as :func:`get_var_id_map`).
+
+    Quantile metric types are not supported (they are not ``SummableStatistic``).
+    """
+    if metric.statistic_type in ("quantile_event", "quantile_unit"):
+        raise ValueError(
+            "summable_statistics_per_variation_from_experiment_metric_rows "
+            f"does not support statistic_type={metric.statistic_type!r}"
+        )
+    var_id_map = get_var_id_map(var_ids)
+    num_variations = len(var_ids)
+    by_idx: Dict[int, List[Dict[str, Any]]] = {}
+    for row in rows:
+        vid = row.get("variation")
+        if vid is None:
+            continue
+        idx = var_id_map.get(str(vid))
+        if idx is None:
+            continue
+        by_idx.setdefault(idx, []).append(row)
+
+    summable_types = (
+        ProportionStatistic,
+        SampleMeanStatistic,
+        RegressionAdjustedStatistic,
+        RatioStatistic,
+        RegressionAdjustedRatioStatistic,
+    )
+    out: List[SummableStatistic] = []
+    for k in range(num_variations):
+        grp = by_idx.get(k, [])
+        merged = _merge_summable_experiment_metric_rows(grp)
+        series = (
+            _narrow_experiment_metric_row_to_prefixed_series(merged, "baseline")
+            if merged
+            else _empty_prefixed_metric_series("baseline")
+        )
+        raw_stat = variation_statistic_from_metric_row(series, "baseline", metric)
+        if not isinstance(raw_stat, summable_types):
+            raise TypeError(
+                f"Expected SummableStatistic, got {type(raw_stat).__name__}"
+            )
+        out.append(raw_stat)
+    return out
+
+
 def process_single_metric(
     rows: ExperimentMetricQueryResponseRows,
     metric: MetricSettingsForStatsEngine,
@@ -1240,9 +1361,10 @@ def preprocess_bandits(
             metric_data[0].data.iloc[0], metric, len(bandit_settings.var_names)
         )
     bandit_prior = GaussianPrior(mean=0, variance=float(1e4), proper=True)
+    bandit_weights_rng = bandit_settings.bandit_weights_rng
     bandit_config = BanditConfig(
         prior_distribution=bandit_prior,
-        bandit_weights_seed=bandit_settings.bandit_weights_seed,
+        bandit_weights_rng=bandit_weights_rng,
         weight_by_period=bandit_settings.weight_by_period,
         top_two=bandit_settings.top_two,
         alpha=alpha,
@@ -1312,7 +1434,7 @@ def get_bandit_result(
                         else bandit_settings.current_weights
                     ),
                     bestArmProbabilities=bandit_result.best_arm_probabilities,
-                    seed=bandit_result.seed,
+                    seed=0,
                     updateMessage=bandit_result.bandit_update_message,
                     error="",
                     reweight=bandit_settings.reweight,
@@ -1355,6 +1477,27 @@ def filter_query_rows(
     ]
 
 
+def get_bandit_settings(data: Dict[str, Any]) -> Optional[BanditSettingsForStatsEngine]:
+    """Build :class:`BanditSettingsForStatsEngine` from the stats-engine payload.
+
+    Copies every field defined on :class:`BanditSettingsForStatsEngine` from
+    ``data["bandit_settings"]`` except ``bandit_weights_rng``, which is always set to
+    :func:`numpy.random.default_rng` using ``bandit_weights_seed`` from that dict
+    (default ``100`` if the seed is omitted). Extra keys in the payload (e.g.
+    ``historical_weights`` from the API) are ignored.
+    """
+    if "bandit_settings" not in data or data["bandit_settings"] is None:
+        return None
+    raw = dict(data["bandit_settings"])
+    allowed = {f.name for f in dataclasses.fields(BanditSettingsForStatsEngine)}
+    kwargs = {
+        k: v for k, v in raw.items() if k in allowed and k != "bandit_weights_rng"
+    }
+    seed = int(kwargs.get("bandit_weights_seed", 100))
+    kwargs["bandit_weights_rng"] = np.random.default_rng(seed)
+    return BanditSettingsForStatsEngine(**kwargs)
+
+
 def process_data_dict(data: Dict[str, Any]) -> DataForStatsEngine:
     return DataForStatsEngine(
         metrics={
@@ -1362,11 +1505,7 @@ def process_data_dict(data: Dict[str, Any]) -> DataForStatsEngine:
         },
         analyses=[AnalysisSettingsForStatsEngine(**a) for a in data["analyses"]],
         query_results=[QueryResultsForStatsEngine(**q) for q in data["query_results"]],
-        bandit_settings=(
-            BanditSettingsForStatsEngine(**data["bandit_settings"])
-            if "bandit_settings" in data
-            else None
-        ),
+        bandit_settings=get_bandit_settings(data),
     )
 
 
