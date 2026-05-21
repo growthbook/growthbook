@@ -35,7 +35,7 @@ import {
   MatchingRule,
   validateCondition,
 } from "shared/util";
-import { getSRMValue } from "shared/health";
+import { getBanditSRMValue, getExperimentSRMValue } from "shared/health";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
@@ -4615,7 +4615,10 @@ export async function getExperimentAnalysisSummary({
           )
         : null) ?? null;
 
-  const srm = getSRMValue(experiment.type ?? "standard", experimentSnapshot);
+  const srm =
+    experiment.type === "multi-armed-bandit"
+      ? getBanditSRMValue(experimentSnapshot)
+      : getExperimentSRMValue(experimentSnapshot);
 
   if (srm !== undefined) {
     analysisSummary.health = {
