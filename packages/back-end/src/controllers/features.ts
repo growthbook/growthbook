@@ -15,7 +15,6 @@ import {
   checkIfRevisionNeedsReview,
   resetReviewOnChange,
   getAffectedEnvsForExperiment,
-  buildReverseDependencyIndex,
   getDependentExperiments,
   getDependentFeatures,
   getRulesForEnvironment,
@@ -148,7 +147,10 @@ import {
   submitReviewAndComments,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { getEnabledEnvironments } from "back-end/src/util/features";
+import {
+  buildFeatureLookups,
+  getEnabledEnvironments,
+} from "back-end/src/util/features";
 import { ReqContext } from "back-end/types/request";
 import {
   findSDKConnectionByKey,
@@ -5682,12 +5684,7 @@ export async function getFeaturesStaleStates(
     ? allFeatures.filter((f) => featureIds.includes(f.id))
     : allFeatures;
 
-  const featuresMap = new Map(allFeatures.map((f) => [f.id, f]));
-  const typedExperiments = allExperiments as unknown as Parameters<
-    typeof isFeatureStale
-  >[0]["experiments"];
-  const experimentMap = new Map((typedExperiments ?? []).map((e) => [e.id, e]));
-  const reverseDependencyIndex = buildReverseDependencyIndex(allFeatures);
+  const lookups = buildFeatureLookups(allFeatures, allExperiments);
 
   const computedAt = new Date().toISOString();
   const result: Record<
@@ -5711,11 +5708,8 @@ export async function getFeaturesStaleStates(
     const staleResult = isFeatureStale({
       feature,
       features: allFeatures,
-      experiments: typedExperiments,
       environments: applicableEnvIds,
-      featuresMap,
-      experimentMap,
-      reverseDependencyIndex,
+      ...lookups,
       mostRecentDraftDate:
         mostRecentDraftDateByFeatureId.get(feature.id) ?? null,
     });
@@ -5790,8 +5784,8 @@ export async function getFeaturesDependents(
     getAllExperiments(context, { includeArchived: true }),
   ]);
 
-  const featuresMap = new Map(allFeatures.map((f) => [f.id, f]));
-  const reverseDependencyIndex = buildReverseDependencyIndex(allFeatures);
+  const { featuresMap, reverseDependencyIndex, experiments } =
+    buildFeatureLookups(allFeatures, allExperiments);
 
   const dependents: Record<
     string,
@@ -5812,13 +5806,12 @@ export async function getFeaturesDependents(
         allFeatures,
         allEnvIds,
         reverseDependencyIndex,
+        featuresMap,
       ),
-      experiments: getDependentExperiments(
-        feature,
-        allExperiments as unknown as Parameters<
-          typeof getDependentExperiments
-        >[1],
-      ).map((e) => ({ id: e.id, name: e.name })),
+      experiments: getDependentExperiments(feature, experiments).map((e) => ({
+        id: e.id,
+        name: e.name,
+      })),
     };
   }
 
