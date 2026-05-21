@@ -109,33 +109,159 @@ export function scrubUrl(
 }
 
 /**
+ * Set of DOM attribute names that carry URLs and must be scrubbed
+ * wherever they appear — inside FullSnapshot tree nodes, inside
+ * IncrementalSnapshot attribute mutations, anywhere rrweb captures
+ * element attributes. Lowercased keys; matched case-insensitively.
+ */
+const URL_ATTRS = new Set([
+  "href",
+  "src",
+  "action",
+  "formaction",
+  "data-href",
+  "data-url",
+  "poster",
+  "background",
+  "cite",
+  "longdesc",
+]);
+
+/**
+ * Scrub URL-shaped attribute values in an object whose keys are
+ * attribute names (rrweb's serialized `attributes` shape).
+ *
+ * Returns a NEW object with only the modified keys replaced, or the
+ * original by reference if nothing matched — keeps the hot-path
+ * allocations down for the common case of an event with no URL attrs.
+ */
+function scrubUrlAttrs<T extends Record<string, unknown>>(
+  attrs: T,
+  config: SessionReplayUrlScrubberConfig,
+): T {
+  let out: Record<string, unknown> | null = null;
+  for (const key in attrs) {
+    if (!URL_ATTRS.has(key.toLowerCase())) continue;
+    const value = attrs[key];
+    if (typeof value !== "string" || !value) continue;
+    const scrubbed = scrubUrl(value, config);
+    if (scrubbed === value) continue;
+    out = out ?? { ...attrs };
+    out[key] = scrubbed;
+  }
+  return (out as T) ?? attrs;
+}
+
+/**
+ * Recursively walk the serialized DOM tree inside a FullSnapshot and
+ * scrub URL attributes on every element. rrweb's serialized format
+ * stores attributes on element nodes as `{ attributes: { href: "..." } }`;
+ * we look for those, scrub URL-typed entries, and rebuild the tree only
+ * along the path that changed (structural sharing for everything else).
+ */
+function scrubTreeUrls(
+  node: unknown,
+  config: SessionReplayUrlScrubberConfig,
+): unknown {
+  if (!node || typeof node !== "object") return node;
+  const n = node as {
+    type?: number;
+    attributes?: Record<string, unknown>;
+    childNodes?: unknown[];
+  };
+
+  // Recurse into children first so any rebuilt subtree is in hand
+  // before we decide whether THIS node changed.
+  let newChildNodes: unknown[] | undefined;
+  if (Array.isArray(n.childNodes) && n.childNodes.length > 0) {
+    let childChanged = false;
+    const next: unknown[] = new Array(n.childNodes.length);
+    for (let i = 0; i < n.childNodes.length; i++) {
+      const original = n.childNodes[i];
+      const replaced = scrubTreeUrls(original, config);
+      if (replaced !== original) childChanged = true;
+      next[i] = replaced;
+    }
+    if (childChanged) newChildNodes = next;
+  }
+
+  // Attribute scrubbing applies only to Element nodes (rrweb-snapshot
+  // NodeType.Element === 2), but checking `typeof attributes === object`
+  // is sufficient and avoids a version-specific enum dependency.
+  let newAttributes: Record<string, unknown> | undefined;
+  if (n.attributes && typeof n.attributes === "object") {
+    const scrubbed = scrubUrlAttrs(n.attributes, config);
+    if (scrubbed !== n.attributes) newAttributes = scrubbed;
+  }
+
+  if (!newAttributes && !newChildNodes) return node;
+  return {
+    ...n,
+    ...(newAttributes ? { attributes: newAttributes } : {}),
+    ...(newChildNodes ? { childNodes: newChildNodes } : {}),
+  };
+}
+
+/**
  * Scrub URL fields embedded inside an rrweb event before it's persisted
- * or transmitted. Today this only touches Meta events (type 4 — the
- * recorder's URL snapshot at session start), since that's the explicit
- * URL field rrweb emits. Future work: walk DOM mutations to scrub
- * `<a href>` / `<form action>` / `<iframe src>` attributes captured in
- * FullSnapshot or IncrementalSnapshot mutation events.
+ * or transmitted. Handles three event surfaces per spec §7.4:
+ *
+ *   - type 4 (Meta): `data.href` (the recorder's URL snapshot)
+ *   - type 2 (FullSnapshot): URL attributes anywhere in the serialized
+ *     DOM tree
+ *   - type 3 source 0 (Mutation): URL attributes in `data.attributes`
+ *     attribute-change mutations
  *
  * Returns a NEW event object when modification is needed, or the
- * original event by reference when no scrubbing applies. Avoids
- * unnecessary object allocation for the common case (every type-3
- * incremental snapshot, which is most of the volume).
+ * original by reference when no scrubbing applies. Structural sharing
+ * inside FullSnapshot keeps allocations bounded.
  */
 export function scrubEventUrls<T extends { type: number; data?: unknown }>(
   event: T,
   config: SessionReplayUrlScrubberConfig = {},
 ): T {
-  // EventType.Meta = 4 (rrweb @rrweb/types). The Meta event is the only
-  // one that exposes a URL field we can scrub without parsing serialized
-  // DOM. Other URL surfaces (anchor tags, form actions) live inside
-  // FullSnapshot / mutation payloads — out of scope for MVP per §7.4.
-  if (event.type !== 4) return event;
+  // type 4 (Meta) — the recorder's session-start URL
+  if (event.type === 4) {
+    const data = event.data as { href?: string } | undefined;
+    if (!data || typeof data.href !== "string") return event;
+    const scrubbedHref = scrubUrl(data.href, config);
+    if (scrubbedHref === data.href) return event;
+    return { ...event, data: { ...data, href: scrubbedHref } };
+  }
 
-  const data = event.data as { href?: string } | undefined;
-  if (!data || typeof data.href !== "string") return event;
+  // type 2 (FullSnapshot) — serialized DOM tree
+  if (event.type === 2) {
+    const data = event.data as { node?: unknown } | undefined;
+    if (!data || !data.node) return event;
+    const scrubbedNode = scrubTreeUrls(data.node, config);
+    if (scrubbedNode === data.node) return event;
+    return { ...event, data: { ...data, node: scrubbedNode } };
+  }
 
-  const scrubbedHref = scrubUrl(data.href, config);
-  if (scrubbedHref === data.href) return event;
+  // type 3 (IncrementalSnapshot) — only the Mutation source (0) carries
+  // attribute changes. rrweb's mutation payload is
+  //   { source: 0, attributes: [ { id, attributes: {...} }, ... ], ... }
+  if (event.type === 3) {
+    const data = event.data as
+      | {
+          source?: number;
+          attributes?: Array<{ attributes?: Record<string, unknown> }>;
+        }
+      | undefined;
+    if (!data || data.source !== 0 || !Array.isArray(data.attributes)) {
+      return event;
+    }
+    let mutationsChanged = false;
+    const newMutations = data.attributes.map((m) => {
+      if (!m || typeof m !== "object" || !m.attributes) return m;
+      const scrubbed = scrubUrlAttrs(m.attributes, config);
+      if (scrubbed === m.attributes) return m;
+      mutationsChanged = true;
+      return { ...m, attributes: scrubbed };
+    });
+    if (!mutationsChanged) return event;
+    return { ...event, data: { ...data, attributes: newMutations } };
+  }
 
-  return { ...event, data: { ...data, href: scrubbedHref } };
+  return event;
 }
