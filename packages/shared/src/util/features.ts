@@ -1717,23 +1717,30 @@ export function getDependentFeatures(
   environments: string[],
   reverseDependencyIndex?: ReverseDependencyIndex,
 ): string[] {
+  const isDependent = (f: FeatureInterface) => {
+    if ((f.prerequisites || []).some((p) => p.id === feature.id)) return true;
+    return (
+      getMatchingRules(
+        f,
+        (r) =>
+          !!r.enabled &&
+          (r.prerequisites || []).some((p) => p.id === feature.id),
+        environments,
+      ).length > 0
+    );
+  };
+
   if (reverseDependencyIndex) {
     const candidates = reverseDependencyIndex.get(feature.id);
     if (!candidates || candidates.size === 0) return [];
-    return [...candidates];
+    const featuresById = new Map(features.map((f) => [f.id, f]));
+    return [...candidates].filter((id) => {
+      const f = featuresById.get(id);
+      return f && isDependent(f);
+    });
   }
 
-  const dependentFeatures = features.filter((f) => {
-    const prerequisites = f.prerequisites || [];
-    const rules = getMatchingRules(
-      f,
-      (r) =>
-        !!r.enabled && (r.prerequisites || []).some((p) => p.id === feature.id),
-      environments,
-    );
-    return prerequisites.some((p) => p.id === feature.id) || rules.length > 0;
-  });
-  return dependentFeatures.map((f) => f.id);
+  return features.filter(isDependent).map((f) => f.id);
 }
 
 export function getDependentExperiments(
