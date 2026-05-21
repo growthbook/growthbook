@@ -94,6 +94,10 @@ export interface SearchProps<T extends { id: string }> {
   items: T[];
   searchFields: SearchFields<T>;
   localStorageKey: string;
+  // When false, the sort state is held in component state and reset each time
+  // the consumer remounts instead of being persisted to localStorage. Defaults
+  // to true to preserve existing behavior across the app.
+  persistSort?: boolean;
   defaultSortField: keyof T;
   defaultSortDir?: number;
   undefinedLast?: boolean;
@@ -113,6 +117,11 @@ export interface SearchProps<T extends { id: string }> {
   };
   filterResults?: (items: T[]) => T[];
   updateSearchQueryOnChange?: boolean;
+  // When true, the hook will not initialize its search term from the URL `q`
+  // param. Use this when an enclosing useSearch instance owns the `q` param
+  // (e.g. a sort-only inner table inside a search-filtered page) so the inner
+  // hook doesn't latch onto the outer hook's filter string.
+  disableUrlSearchTerm?: boolean;
   pageSize?: number;
 }
 
@@ -144,22 +153,31 @@ export function useSearch<T extends { id: string }>({
   searchFields,
   filterResults,
   localStorageKey,
+  persistSort = true,
   defaultSortField,
   defaultSortDir,
   undefinedLast,
   defaultMappings = {},
   searchTermFilters,
   updateSearchQueryOnChange,
+  disableUrlSearchTerm,
   pageSize,
 }: SearchProps<T>): SearchReturn<T> {
-  const [sort, setSort] = useLocalStorage(`${localStorageKey}:sort-dir`, {
-    field: defaultSortField,
-    dir: defaultSortDir || 1,
-  });
+  const defaultSort = { field: defaultSortField, dir: defaultSortDir || 1 };
+  const persistedSort = useLocalStorage(
+    `${localStorageKey}:sort-dir`,
+    defaultSort,
+  );
+  const ephemeralSort = useState(defaultSort);
+  const [sort, setSort] = persistSort ? persistedSort : ephemeralSort;
 
   const router = useRouter();
   const { q } = router.query;
-  const initialSearchTerm = Array.isArray(q) ? q.join(" ") : q;
+  const initialSearchTerm = disableUrlSearchTerm
+    ? ""
+    : Array.isArray(q)
+      ? q.join(" ")
+      : q;
   const [value, setValue] = useState(initialSearchTerm ?? "");
   const [disableRelevanceSort, setDisableRelevanceSort] = useState(false);
 

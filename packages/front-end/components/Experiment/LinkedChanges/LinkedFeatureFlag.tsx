@@ -43,8 +43,12 @@ export default function LinkedFeatureFlag({
     !experiment.archived &&
     permissionsUtil.canViewExperimentModal(experiment.project);
 
-  // canAddLinkedChanges: same gate + experiment must still be in draft.
-  const canAddLinkedChanges = canEdit && experiment.status === "draft";
+  // canAddLinkedChanges: same gate + experiment must still be in draft and
+  // not have an approved scheduled start (which auto-locks the experiment).
+  const canAddLinkedChanges =
+    canEdit &&
+    experiment.status === "draft" &&
+    !experiment.nextScheduledStatusUpdate;
 
   const handleRemove = async () => {
     if (!confirm("Remove this feature flag from the experiment?")) return;

@@ -53,6 +53,7 @@ import {
   determineNextBanditSchedule,
   getLinkedChangeEnvironmentStates,
   getLinkedFeatureInfo,
+  normalizeStatusUpdateScheduleChanges,
   resetExperimentBanditSettings,
   SnapshotAnalysisParams,
   createExperimentSnapshot,
@@ -62,8 +63,10 @@ import {
   validateExperimentData,
 } from "back-end/src/services/experiments";
 import {
+  approveScheduledExperimentStart,
   startExperiment,
   stopExperiment,
+  unapproveScheduledExperimentStart,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import {
   createExperiment,
@@ -879,6 +882,7 @@ async function _getSnapshot({
   phase,
   dimension,
   withResults = true,
+  populateResults = true,
   type,
 }: {
   context: ReqContext | ApiReqContext;
@@ -886,6 +890,7 @@ async function _getSnapshot({
   phase?: string;
   dimension?: string;
   withResults?: boolean;
+  populateResults?: boolean;
   type?: SnapshotType;
 }) {
   const experimentObj = await getExperimentById(context, experiment);
@@ -909,6 +914,7 @@ async function _getSnapshot({
     phase: parseInt(phase),
     dimension,
     withResults,
+    populateResults,
     type,
   });
 }
@@ -932,12 +938,18 @@ export async function getSnapshotWithDimension(
     dimension,
     type,
   });
+  // The `latest` field is only used by the UI for refresh status and
+  // metadata (queries, status, error, dateCreated, id, health) — never for
+  // metric results. Skip the per-metric chunk load + decode, which for large
+  // experiments dominates the cost of this endpoint and would otherwise run
+  // twice per request.
   const latest = await _getSnapshot({
     context,
     experiment: id,
     phase,
     dimension,
     withResults: false,
+    populateResults: false,
     type,
   });
   const dimensionless =
@@ -970,11 +982,17 @@ export async function getSnapshot(
   const type = req.query?.type || undefined;
 
   const snapshot = await _getSnapshot({ context, experiment: id, phase, type });
+  // The `latest` field is only used by the UI for refresh status and
+  // metadata (queries, status, error, dateCreated, id, health) — never for
+  // metric results. Skip the per-metric chunk load + decode, which for large
+  // experiments dominates the cost of this endpoint and would otherwise run
+  // twice per request.
   const latest = await _getSnapshot({
     context,
     experiment: id,
     phase,
     withResults: false,
+    populateResults: false,
     type,
   });
 
@@ -1061,6 +1079,7 @@ export async function postExperiments(
       allowDuplicateTrackingKey?: boolean;
       originalId?: string;
       autoRefreshResults?: boolean;
+      allowSameSeedAsOriginal?: boolean;
     }
   >,
   res: Response<
@@ -1206,6 +1225,20 @@ export async function postExperiments(
     holdoutId: holdoutId || undefined,
     customMetricSlices: data.customMetricSlices,
   };
+
+  // When duplicating an experiment, always remove seed from phases so
+  // bucket assignment is independent from the source experiment.
+  // The NewExperimentForm should already have cleared the seed, but this
+  // ensures that the seed is always removed when duplicating an
+  // experiment.
+  if (req.query.originalId && !req.query.allowSameSeedAsOriginal) {
+    obj.phases = obj.phases.map((phase) => {
+      return {
+        ...phase,
+        seed: undefined,
+      };
+    });
+  }
   const { settings } = getScopedSettings({
     organization: org,
   });
@@ -1627,6 +1660,7 @@ export async function postExperiment(
     "decisionFrameworkSettings",
     "variations",
     "status",
+    "statusUpdateSchedule",
     "results",
     "analysis",
     "winner",
@@ -1637,6 +1671,7 @@ export async function postExperiment(
     "releasedVariationId",
     "excludeFromPayload",
     "autoSnapshots",
+    "disableAutoSnapshots",
     "project",
     "regressionAdjustmentEnabled",
     "postStratificationEnabled",
@@ -1678,6 +1713,7 @@ export async function postExperiment(
       key === "metricOverrides" ||
       key === "lookbackOverride" ||
       key === "variations" ||
+      key === "statusUpdateSchedule" ||
       key === "customFields" ||
       key === "customMetricSlices"
     ) {
@@ -1690,6 +1726,8 @@ export async function postExperiment(
       (changes as any)[key] = data[key];
     }
   });
+
+  normalizeStatusUpdateScheduleChanges(experiment, changes);
 
   // Coerce lookbackOverride date value when type is "date"
   if (changes.lookbackOverride?.type === "date") {
@@ -2185,6 +2223,12 @@ export async function postExperimentStatus(
 
   changes.status = status;
 
+  // Clear any pending scheduled status update when manually changing status so
+  // the Agenda job doesn't act on a stale approval.
+  if (experiment.nextScheduledStatusUpdate) {
+    changes.nextScheduledStatusUpdate = null;
+  }
+
   const updated = await updateExperiment({
     context,
     experiment,
@@ -2203,6 +2247,75 @@ export async function postExperimentStatus(
   res.status(200).json({
     status: 200,
   });
+}
+
+export async function postApproveScheduledExperimentStart(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  try {
+    const { experiment, updated } = await approveScheduledExperimentStart({
+      context,
+      experimentId: id,
+      skipChecklist: true,
+    });
+
+    await req.audit({
+      event: "experiment.update",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsUpdate(experiment, updated),
+    });
+
+    res.status(200).json({
+      status: 200,
+      experiment: updated,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message || "Failed to approve scheduled experiment start",
+    });
+  }
+}
+
+export async function postUnapproveScheduledExperimentStart(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  try {
+    const { experiment, updated } = await unapproveScheduledExperimentStart({
+      context,
+      experimentId: id,
+    });
+
+    await req.audit({
+      event: "experiment.update",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsUpdate(experiment, updated),
+    });
+
+    res.status(200).json({
+      status: 200,
+      experiment: updated,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message || "Failed to unschedule experiment start",
+    });
+  }
 }
 
 type PostExperimentStopBody = {

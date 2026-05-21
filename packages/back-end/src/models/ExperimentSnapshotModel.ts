@@ -924,6 +924,7 @@ export async function getLatestSnapshot({
   dimension,
   beforeSnapshot,
   withResults = true,
+  populateResults = true,
   type,
 }: {
   context: Context;
@@ -932,6 +933,16 @@ export async function getLatestSnapshot({
   dimension?: string;
   beforeSnapshot?: Pick<ExperimentSnapshotInterface, "dateCreated">;
   withResults?: boolean;
+  /**
+   * When false, skip loading and decoding the per-metric analysis chunk
+   * documents. For chunked snapshots the returned analyses keep their
+   * stored (stripped) form with empty `results`; legacy non-chunked
+   * snapshots are unaffected either way (their results are inline on the
+   * document). Use for callers that only need snapshot metadata (status,
+   * queries, error, health) — for large experiments the chunk decode is by
+   * far the most expensive part of this function.
+   */
+  populateResults?: boolean;
   type?: SnapshotType;
 }): Promise<ExperimentSnapshotInterface | null> {
   const query: FilterQuery<ExperimentSnapshotDocument> = {
@@ -1001,11 +1012,15 @@ export async function getLatestSnapshot({
       ).exec();
 
       if (runningSnapshot) {
-        return populateSnapshotAnalyses(context, toInterface(runningSnapshot));
+        const result = toInterface(runningSnapshot);
+        return populateResults
+          ? populateSnapshotAnalyses(context, result)
+          : result;
       }
     }
 
-    return populateSnapshotAnalyses(context, toInterface(mostRecentSnapshot));
+    const result = toInterface(mostRecentSnapshot);
+    return populateResults ? populateSnapshotAnalyses(context, result) : result;
   }
 
   // Otherwise, try getting old snapshot records
@@ -1018,7 +1033,9 @@ export async function getLatestSnapshot({
     limit: 1,
   }).exec();
 
-  return all[0] ? populateSnapshotAnalyses(context, toInterface(all[0])) : null;
+  if (!all[0]) return null;
+  const result = toInterface(all[0]);
+  return populateResults ? populateSnapshotAnalyses(context, result) : result;
 }
 
 // Gets latest snapshots per experiment-phase pair

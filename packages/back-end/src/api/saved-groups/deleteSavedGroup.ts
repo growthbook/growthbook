@@ -16,6 +16,13 @@ export const deleteSavedGroup = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
+  // Match the internal controller: archive-then-delete. Archive is reversible
+  // and flows through the approval system; delete bypasses approval but is
+  // gated on the archive having already been published.
+  if (!savedGroup.archived) {
+    throw new Error("Saved group must be archived before it can be deleted");
+  }
+
   await req.context.models.savedGroups.deleteById(req.params.id);
 
   return {

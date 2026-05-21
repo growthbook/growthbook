@@ -26,6 +26,7 @@ const openApiTags = [
   "snapshots",
   "dimensions",
   "segments",
+  "reports",
   "sdk-connections",
   "visual-changesets",
   "saved-groups",
@@ -116,6 +117,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   segments: {
     display: "Segments",
     description: "Segments used during experiment analysis",
+  },
+  reports: {
+    display: "Experiment Reports",
+    description:
+      "Custom analysis reports built on top of experiment snapshots. Reports let you re-run analysis with different metrics, date ranges, stats engines, and other settings without modifying the underlying experiment.",
   },
   "sdk-connections": {
     display: "SDK Connections",
