@@ -319,12 +319,13 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
         ],
       }),
       dependencies: [],
-      run: (query, setExternalId, queryMetadata) =>
+      run: fenced((query, setExternalId, queryMetadata) =>
         integration.runIncrementalRefreshStatisticsQuery(
           query,
           setExternalId,
           queryMetadata,
         ),
+      ),
       queryType: "experimentIncrementalRefreshStatistics",
     });
     queries.push(crossStatsQuery);

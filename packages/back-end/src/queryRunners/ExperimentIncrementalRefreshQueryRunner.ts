@@ -287,8 +287,11 @@ const startExperimentIncrementalRefreshQueries = async (
   const executionId = params.queryParentId;
 
   // Wraps a `run` callback with an execution-fence check so that DDL on the
-  // shared per-experiment pipeline tables (units / metric-source) is skipped if
-  // another snapshot has taken over the lock since this run started. Checked at
+  // shared per-experiment pipeline tables (units / metric-source / covariate)
+  // is skipped if another snapshot has taken over the lock since this run
+  // started. Data ops (INSERT/SELECT) are intentionally left unfenced — they
+  // either fail loudly against a missing table or no-op their model write via
+  // `updateByExperimentIdIfCurrentExecution`. Checked at
   // execute time (not enqueue time) because all queries are enqueued up-front
   // but executed sequentially via dependencies — the lock can be lost between
   // dependent queries. releaseLock() is fenced on snapshotId, so the eventual
@@ -732,8 +735,9 @@ const startExperimentIncrementalRefreshQueries = async (
             metricSourceCovariateTableFullName,
           }),
           dependencies: [updateUnitsTableQuery.query],
-          run: (query, setExternalId, queryMetadata) =>
+          run: fenced((query, setExternalId, queryMetadata) =>
             integration.runDropTableQuery(query, setExternalId, queryMetadata),
+          ),
           queryType: "experimentIncrementalRefreshDropMetricsCovariateTable",
         });
         queries.push(dropMetricCovariateTableQuery);
@@ -748,12 +752,13 @@ const startExperimentIncrementalRefreshQueries = async (
             metricSourceCovariateTableFullName,
           }),
           dependencies: [dropMetricCovariateTableQuery.query],
-          run: (query, setExternalId, queryMetadata) =>
+          run: fenced((query, setExternalId, queryMetadata) =>
             integration.runIncrementalWithNoOutputQuery(
               query,
               setExternalId,
               queryMetadata,
             ),
+          ),
           queryType: "experimentIncrementalRefreshCreateMetricsCovariateTable",
         });
         queries.push(createMetricCovariateTableQuery);
