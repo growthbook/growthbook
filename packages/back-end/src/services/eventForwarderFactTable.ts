@@ -43,17 +43,21 @@ export function findEventForwarderEventsFactTableForDatasource(
 async function resolveEventForwarderEventsFactTableId(
   context: ReqContext,
   datasource: DataSourceInterface,
-): Promise<string> {
+): Promise<{ factTableId: string; existing: FactTableInterface | null }> {
   const baseId = getEventForwarderEventsFactTableId(datasource.name);
   const existing = await getFactTable(context, baseId);
   if (!existing || existing.datasource === datasource.id) {
-    return baseId;
+    return { factTableId: baseId, existing };
   }
 
-  return getEventForwarderEventsFactTableIdWithCollisionSuffix(
+  const factTableId = getEventForwarderEventsFactTableIdWithCollisionSuffix(
     datasource.name,
     datasource.id,
   );
+  return {
+    factTableId,
+    existing: await getFactTable(context, factTableId),
+  };
 }
 
 export async function ensureEventForwarderEventsFactTable(
@@ -73,11 +77,8 @@ export async function ensureEventForwarderEventsFactTable(
     return;
   }
 
-  const factTableId = await resolveEventForwarderEventsFactTableId(
-    context,
-    datasource,
-  );
-  const existing = await getFactTable(context, factTableId);
+  const { factTableId, existing } =
+    await resolveEventForwarderEventsFactTableId(context, datasource);
   if (existing?.datasource === datasource.id) {
     return;
   }
