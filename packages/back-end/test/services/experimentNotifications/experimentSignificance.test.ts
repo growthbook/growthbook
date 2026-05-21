@@ -10,7 +10,7 @@ import {
   getMetricDefaultsForOrg,
   getSignificanceSettingsForProject,
 } from "back-end/src/services/organizations";
-import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
+import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { computeExperimentChanges } from "back-end/src/services/experimentNotifications";
 import {
   metrics,
@@ -19,7 +19,7 @@ import {
 } from "./experimentSignificance.mocks.json";
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
-  getLatestSnapshot: jest.fn(),
+  getLatestSuccessfulSnapshot: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/organizations", () => ({
@@ -154,7 +154,7 @@ describe("Experiment Significance notifications", () => {
     await BluebirdPromise.each(
       testCases,
       async ({ beforeSnapshot, currentSnapshot, expected, ...params }) => {
-        getLatestSnapshot.mockReturnValue(beforeSnapshot);
+        getLatestSuccessfulSnapshot.mockReturnValue(beforeSnapshot);
         getSignificanceSettingsForProject.mockResolvedValue({
           ...params.getConfidenceLevelsForOrg,
           pValueCorrection: params.getPValueCorrectionForOrg,
