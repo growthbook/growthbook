@@ -123,9 +123,7 @@ describe("event-forwarder-fact-table SQL", () => {
     expect(sql).toContain("device_id");
     expect(sql).toContain("event_name");
     expect(sql).toContain("FROM\n  MY_DB.PUBLIC.GB_EVENTS");
-    expect(sql).toContain(
-      `${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{endDate}}'`,
-    );
+    expect(sql).not.toContain("WHERE");
   });
 });
 

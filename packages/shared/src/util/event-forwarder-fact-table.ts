@@ -145,7 +145,7 @@ export function buildEventForwarderEventsFactTableSql(
   ];
   const selectCols = standardCols.map((col) => `${col}`).join(",\n  ");
 
-  return `SELECT\n  ${selectCols}\nFROM\n  ${tableRef}\nWHERE ${partitionFilter}`;
+  return `SELECT\n  ${selectCols}\nFROM\n  ${tableRef}`;
 }
 
 function defaultAvroFieldDatatype(fieldName: string): FactTableColumnType {
