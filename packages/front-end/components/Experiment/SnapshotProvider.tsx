@@ -88,16 +88,28 @@ export function getPrecomputedDimensions(
 // handles upgrading to the full snapshot on completion, on background
 // completion seen via focus revalidation, etc. The single id-mismatch check
 // covers both "no heavy snapshot yet" (undefined !== id) and "heavy is behind
-// a newer successful run" (X !== Y).
+// a newer successful run" (X !== Y). `heavyIsValidating` suppresses the
+// initial-mount redundant refetch: on first load the heavy fetch is already
+// in flight while the status fetch resolves, and without this guard a status
+// response that lands outside SWR's dedup window would trigger a second
+// round-trip for a request the provider is already making.
 function useRefetchHeavyOnStatusSuccess(
   statusLatest: SnapshotStatusSummary | undefined,
   snapshotId: string | undefined,
+  heavyIsValidating: boolean,
   refetchHeavy: () => Promise<unknown>,
 ): void {
   useEffect(() => {
     if (statusLatest?.status !== "success") return;
+    if (heavyIsValidating) return;
     if (statusLatest.id !== snapshotId) void refetchHeavy();
-  }, [statusLatest?.id, statusLatest?.status, snapshotId, refetchHeavy]);
+  }, [
+    statusLatest?.id,
+    statusLatest?.status,
+    snapshotId,
+    heavyIsValidating,
+    refetchHeavy,
+  ]);
 }
 
 // Surfaces the status endpoint's view atomically with the heavy snapshot.
@@ -187,7 +199,12 @@ export default function SnapshotProvider({
 
   const statusLatest = statusData?.latest ?? undefined;
   const snapshotId = data?.snapshot?.id;
-  useRefetchHeavyOnStatusSuccess(statusLatest, snapshotId, mutate);
+  useRefetchHeavyOnStatusSuccess(
+    statusLatest,
+    snapshotId,
+    isValidating,
+    mutate,
+  );
   const latest = useCoherentLatest(statusLatest, snapshotId);
 
   const defaultAnalysisSettings = data?.snapshot
