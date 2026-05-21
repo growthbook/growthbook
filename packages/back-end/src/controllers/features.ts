@@ -5337,27 +5337,24 @@ async function evaluateBatchPrerequisiteStates({
   baseFeature: FeatureInterface | null;
   res: Response;
 }) {
-  const optionFeatures = featureIds.length
-    ? await getFeaturesByIds(context, featureIds)
-    : [];
+  // Load all org features so the adjacency graph is complete for cycle
+  // detection (cross-project intermediaries, etc.). State evaluation is
+  // still bounded to the requested featureIds.
+  const allFeatures = await getAllFeatures(context, {});
   const featuresMap = new Map<string, FeatureInterface>(
-    optionFeatures.map((f) => [f.id, f]),
+    allFeatures.map((f) => [f.id, f]),
   );
 
   const stateCache = new Map<string, PrerequisiteStateResult>();
 
   let ancestorsOfBase: Set<string> | null = null;
   if (baseFeature) {
-    const allKnownFeatures = [...optionFeatures];
+    const graphFeatures = [...allFeatures];
     if (!featuresMap.has(baseFeature.id)) {
-      allKnownFeatures.push(baseFeature);
+      graphFeatures.push(baseFeature);
     }
 
-    const adjacency = buildPrerequisiteAdjacency(
-      allKnownFeatures,
-      environments,
-    );
-
+    const adjacency = buildPrerequisiteAdjacency(graphFeatures, environments);
     ancestorsOfBase = computeAncestors(baseFeature.id, adjacency);
   }
 
