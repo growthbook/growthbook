@@ -236,7 +236,7 @@ export interface BanditSettingsForStatsEngine {
   reweight: boolean;
   decision_metric: string;
   bandit_weights_seed: number;
-  /** SQL row column names (e.g. `gb_ctx_country`) for contextual bandit; gbstats only. */
+  /** SQL row column names (e.g. `attr_cb_country`) for contextual bandit; gbstats only. */
   is_contextual: boolean;
   contexts?: string[];
 }

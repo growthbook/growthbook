@@ -16,6 +16,7 @@ const RefreshSnapshotButton: FC<{
   experiment: ExperimentInterfaceStringDates;
   phase: number;
   dimension?: string;
+  reweight?: boolean;
   useRadixButton?: boolean;
   radixVariant?: "outline" | "solid" | "soft";
   setError: (e: string | undefined) => void;
@@ -24,6 +25,7 @@ const RefreshSnapshotButton: FC<{
   experiment,
   phase,
   dimension,
+  reweight,
   useRadixButton = false,
   radixVariant = "outline",
   setError,
@@ -49,6 +51,7 @@ const RefreshSnapshotButton: FC<{
       body: JSON.stringify({
         phase,
         dimension: snapshotDimension,
+        ...(reweight !== undefined ? { reweight } : {}),
       }),
     });
     trackSnapshot(

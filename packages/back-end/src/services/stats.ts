@@ -9,6 +9,7 @@ import {
 
 import { putBaselineVariationFirst } from "shared/util";
 import {
+  contextualBanditAttrCol,
   ExperimentMetricInterface,
   eligibleForUncappedMetric,
   isBinomialMetric,
@@ -67,7 +68,7 @@ import {
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { statsServerPool } from "back-end/src/services/python";
 import { metrics } from "back-end/src/util/metrics";
-import { getSafeTargetingSqlIdentifiers } from "back-end/src/integrations/sql/contextual-bandit/contextual-bandit-experiment-units-sql";
+import { getSafeTargetingSqlIdentifiers } from "back-end/src/integrations/sql/ctes/contextual-bandit-experiment-units-cte";
 
 export const MAX_DIMENSIONS = 20;
 
@@ -130,7 +131,7 @@ export function getBanditSettingsForStatsEngine(
     banditSettings.targetingAttributeColumns?.length
       ? getSafeTargetingSqlIdentifiers(
           banditSettings.targetingAttributeColumns,
-        ).map((col) => `gb_ctx_${col}`)
+        ).map((col) => contextualBanditAttrCol(col))
       : undefined;
 
   return {
@@ -164,7 +165,7 @@ export function getContextualBanditSettingsForStatsEngine(
   );
   const fromTargeting = getSafeTargetingSqlIdentifiers(
     banditSettings.targetingAttributeColumns ?? [],
-  ).map((col) => `gb_ctx_${col}`);
+  ).map((col) => contextualBanditAttrCol(col));
   const attributes = base.contexts?.length ? [...base.contexts] : fromTargeting;
   if (!attributes.length) {
     throw new Error(

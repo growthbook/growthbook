@@ -26,7 +26,7 @@ import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-
 import { getMetricData } from "back-end/src/integrations/sql/fact-metrics/metric-data";
 import { processActivationMetric } from "back-end/src/integrations/sql/processing/process-activation-metric";
 import { processDimensions } from "back-end/src/integrations/sql/processing/process-dimensions";
-import { appendContextualBanditTargetingDimensionCols } from "back-end/src/integrations/sql/contextual-bandit/contextual-bandit-experiment-units-sql";
+import { appendContextualBanditTargetingDimensionCols } from "back-end/src/integrations/sql/ctes/contextual-bandit-experiment-units-cte";
 import { getQuantileGridColumns } from "back-end/src/integrations/sql/columns/quantile-grid-columns";
 import { getKllQuantileGridColumns } from "back-end/src/integrations/sql/columns/kll-quantile-grid-columns";
 

@@ -1,10 +1,13 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { startCase } from "lodash";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import type {
   ContextualBanditResponseSnapshot,
   ContextualBanditSnapshot,
 } from "shared/types/stats";
+import { ATTR_CB_PREFIX } from "shared/constants";
 import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
@@ -20,12 +23,20 @@ import Table, {
 } from "@/ui/Table";
 import Switch from "@/ui/Switch";
 import Callout from "@/ui/Callout";
+import Metadata from "@/ui/Metadata";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import RefreshResultsButton from "@/components/Experiment/RefreshResultsButton";
+import QueriesLastRun from "@/components/Queries/QueriesLastRun";
+import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
+import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
+import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import { useAuth } from "@/services/auth";
 import { trackSnapshot } from "@/services/track";
 import styles from "./ContextualBanditResultsTable.module.scss";
+
+const numberFormatter = Intl.NumberFormat();
 
 const CONTEXT_COLUMN_WIDTH_PERCENT = 38;
 
@@ -48,11 +59,9 @@ function ContextualBanditColGroup({
   );
 }
 
-const GB_CTX_PREFIX = "gb_ctx_";
-
 function displayAttributeName(attr: string): string {
-  return attr.startsWith(GB_CTX_PREFIX)
-    ? attr.slice(GB_CTX_PREFIX.length)
+  return attr.startsWith(ATTR_CB_PREFIX)
+    ? attr.slice(ATTR_CB_PREFIX.length)
     : attr;
 }
 
@@ -262,7 +271,9 @@ export default function ContextualBanditResultsTable({
 }) {
   const [mode, setMode] = useState<"weights" | "means">("weights");
   const [refreshError, setRefreshError] = useState("");
+  const [queriesModalOpen, setQueriesModalOpen] = useState(false);
   const {
+    snapshot,
     latest,
     mutateSnapshot,
     setSnapshotType,
@@ -272,10 +283,21 @@ export default function ContextualBanditResultsTable({
   } = useSnapshot();
   const { getDatasourceById, metricGroups } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
+  const { apiCall } = useAuth();
 
   const datasource = experiment.datasource
     ? getDatasourceById(experiment.datasource)
     : null;
+
+  const datasourceSettings = datasource?.settings;
+  const userIdType = datasourceSettings?.queries?.exposure?.find(
+    (e) => e.id === experiment.exposureQueryId,
+  )?.userIdType;
+  const unitDisplayName = userIdType
+    ? startCase(userIdType.split("_").join(" ")) + "s"
+    : "Units";
+
+  const { status } = getQueryStatus(latest?.queries || [], latest?.error);
 
   const allExpandedMetrics = useMemo(
     () =>
@@ -321,6 +343,21 @@ export default function ContextualBanditResultsTable({
     [responses, numVariations],
   );
 
+  const totalUnits = useMemo(() => {
+    const healthVariationUnits =
+      snapshot?.health?.traffic?.overall?.variationUnits;
+    if (healthVariationUnits && healthVariationUnits.length > 0) {
+      return healthVariationUnits.reduce((acc, a) => acc + a, 0);
+    }
+    if (responses.length > 0) {
+      return responses.reduce(
+        (sum, row) => sum + contextTotalSampleSize(row),
+        0,
+      );
+    }
+    return 0;
+  }, [snapshot?.health?.traffic?.overall?.variationUnits, responses]);
+
   const runResultsControl =
     canRunQueries && phase !== undefined ? (
       <RefreshResultsButton
@@ -328,6 +365,7 @@ export default function ContextualBanditResultsTable({
         entityId={experiment.id}
         datasourceId={experiment.datasource}
         latest={latest}
+        reweight={true}
         onSubmitSuccess={(snapshot) => {
           trackSnapshot(
             "create",
@@ -349,22 +387,85 @@ export default function ContextualBanditResultsTable({
 
   return (
     <Box>
-      <Flex justify="end" align="center" mb="3" gap="3" wrap="wrap">
+      <Flex justify="end" align="center" mb="3" gap="4" wrap="wrap">
+        {snapshot ? (
+          <Metadata
+            label={unitDisplayName}
+            value={numberFormatter.format(totalUnits)}
+            style={{ whiteSpace: "nowrap" }}
+          />
+        ) : null}
+        <Flex align="center" gap="2">
+          <QueriesLastRun
+            status={status}
+            dateCreated={snapshot?.dateCreated}
+            latestQueryDate={latest?.dateCreated}
+            nextUpdate={experiment.nextSnapshotAttempt}
+            autoUpdateEnabled={
+              experiment.autoSnapshots && !experiment.disableAutoSnapshots
+            }
+            showAutoUpdateWidget={true}
+            failedString={
+              latest && !latest.queries.length && latest.error
+                ? `Snapshot update failed: ${latest.error}`
+                : undefined
+            }
+            queries={
+              latest &&
+              (status === "failed" || status === "partially-succeeded")
+                ? latest.queries.map((q) => q.query)
+                : undefined
+            }
+            onViewQueries={
+              latest &&
+              (status === "failed" || status === "partially-succeeded")
+                ? () => setQueriesModalOpen(true)
+                : undefined
+            }
+          />
+        </Flex>
         {runResultsControl}
-        {hasTableData ? (
-          <Flex align="center" gap="2">
-            <Text size="medium" color="text-low">
-              Weights
-            </Text>
-            <Switch
-              value={mode === "means"}
-              onChange={(checked) => setMode(checked ? "means" : "weights")}
-              aria-label="Toggle variation means versus weights"
-            />
-            <Text size="medium" color="text-low">
-              Means
-            </Text>
-          </Flex>
+        {datasource ? (
+          <ResultMoreMenu
+            experiment={experiment}
+            datasource={datasource}
+            forceRefresh={
+              canRunQueries
+                ? async () => {
+                    await apiCall<{
+                      snapshot: ExperimentSnapshotInterface;
+                    }>(`/experiment/${experiment.id}/snapshot?force=true`, {
+                      method: "POST",
+                      body: JSON.stringify({
+                        phase,
+                        dimension,
+                        reweight: true,
+                      }),
+                    })
+                      .then((res) => {
+                        trackSnapshot(
+                          "create",
+                          "ForceRerunQueriesButton",
+                          datasource?.type || null,
+                          res.snapshot,
+                        );
+                        mutateSnapshot();
+                        mutate();
+                        setRefreshError("");
+                      })
+                      .catch((e) => {
+                        console.error(e);
+                        setRefreshError(e.message);
+                      });
+                  }
+                : undefined
+            }
+            notebookUrl={`/experiments/notebook/${snapshot?.id}`}
+            notebookFilename={experiment.trackingKey}
+            supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
+            hasData={hasTableData}
+            project={experiment.project}
+          />
         ) : null}
       </Flex>
       {refreshError ? (
@@ -416,6 +517,19 @@ export default function ContextualBanditResultsTable({
               </TableRow>
             </TableBody>
           </Table>
+          <Flex justify="end" align="center" mb="2" gap="2">
+            <Text size="medium" color="text-low">
+              Weights
+            </Text>
+            <Switch
+              value={mode === "means"}
+              onChange={(checked) => setMode(checked ? "means" : "weights")}
+              aria-label="Toggle variation means versus weights"
+            />
+            <Text size="medium" color="text-low">
+              Means
+            </Text>
+          </Flex>
           <Table
             variant="list"
             stickyHeader
@@ -470,6 +584,16 @@ export default function ContextualBanditResultsTable({
           </Table>
         </>
       )}
+      {queriesModalOpen &&
+        latest &&
+        (status === "failed" || status === "partially-succeeded") && (
+          <AsyncQueriesModal
+            close={() => setQueriesModalOpen(false)}
+            queries={latest.queries.map((q) => q.query)}
+            savedQueries={[]}
+            error={latest.error}
+          />
+        )}
     </Box>
   );
 }

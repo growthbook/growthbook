@@ -30,6 +30,8 @@ export interface RefreshResultsButtonProps<
   experiment?: ExperimentInterfaceStringDates;
   phase?: number;
   dimension?: string;
+  /** When true, passed to bandit snapshot settings so gbstats recomputes variation weights. */
+  reweight?: boolean;
   setAnalysisSettings?: (
     settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
@@ -55,6 +57,7 @@ export default function RefreshResultsButton<
   experiment,
   phase,
   dimension,
+  reweight,
   safeRollout,
 }: RefreshResultsButtonProps<T>) {
   const { apiCall } = useAuth();
@@ -115,6 +118,7 @@ export default function RefreshResultsButton<
                 ? JSON.stringify({
                     phase: phase ?? 0,
                     dimension: snapshotDimension,
+                    ...(reweight !== undefined ? { reweight } : {}),
                   })
                 : undefined;
 
@@ -144,6 +148,7 @@ export default function RefreshResultsButton<
           phase={phase}
           experiment={experiment}
           dimension={dimension}
+          reweight={reweight}
           setError={(error) => setRefreshError(error ?? "")}
           useRadixButton={true}
           radixVariant="outline"

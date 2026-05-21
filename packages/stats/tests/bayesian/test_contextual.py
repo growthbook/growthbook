@@ -8,6 +8,7 @@ import copy
 from gbstats.gbstats import (
     AnalysisSettingsForStatsEngine,
     BanditSettingsForStatsEngine,
+    ContextualBanditWeightsLookup,
     MetricSettingsForStatsEngine,
     UpdateWeightsContextualBandit,
     detect_unknown_variations,
@@ -27,7 +28,7 @@ from gbstats.models.settings import (
     ContextualBanditSettingsForStatsEngine,
 )
 
-from gbstats.contextual_weights_lookup import ContextualBanditWeightsLookup
+from gbstats.models.results import ContextualBanditResponse
 
 from gbstats.models.settings import BanditWeightsSinglePeriod
 from gbstats.models.statistics import (
@@ -559,3 +560,60 @@ class TestSummableStatisticsPerVariation(TestCase):
         if r is None:
             self.fail("No contextual response for context ('all',)")
         self.assertEqual(r.updatedWeights, [0.5, 0.5])
+
+
+class TestContextualBanditWeightsLookup(TestCase):
+    def test_index_responses_by_leaf_id(self):
+        responses = [
+            ContextualBanditResponse(
+                context={"leaf_id": {"$in": ["0"]}},
+                sampleSizePerVariation=None,
+                variationMeans=None,
+                updatedWeights=[0.7, 0.3],
+                bestArmProbabilities=None,
+                updateMessage="ok",
+                error=None,
+            ),
+            ContextualBanditResponse(
+                context={"leaf_id": {"$in": ["1"]}},
+                sampleSizePerVariation=None,
+                variationMeans=None,
+                updatedWeights=[0.4, 0.6],
+                bestArmProbabilities=None,
+                updateMessage="ok",
+                error=None,
+            ),
+        ]
+        by_leaf = ContextualBanditWeightsLookup.index_responses_by_attribute_singleton(
+            responses, "leaf_id"
+        )
+        self.assertEqual(by_leaf["0"].updatedWeights, [0.7, 0.3])
+        self.assertEqual(by_leaf["1"].updatedWeights, [0.4, 0.6])
+
+    def test_find_matching_skips_empty_context(self):
+        responses = [
+            ContextualBanditResponse(
+                context={},
+                sampleSizePerVariation=None,
+                variationMeans=None,
+                updatedWeights=[0.9, 0.1],
+                bestArmProbabilities=None,
+                updateMessage="fallback",
+                error=None,
+            ),
+            ContextualBanditResponse(
+                context={"leaf_id": {"$in": ["1"]}},
+                sampleSizePerVariation=None,
+                variationMeans=None,
+                updatedWeights=[0.4, 0.6],
+                bestArmProbabilities=None,
+                updateMessage="ok",
+                error=None,
+            ),
+        ]
+        r = ContextualBanditWeightsLookup.find_matching_contextual_response(
+            responses, {"leaf_id": "1"}
+        )
+        self.assertIsNotNone(r)
+        assert r is not None
+        self.assertEqual(r.updatedWeights, [0.4, 0.6])

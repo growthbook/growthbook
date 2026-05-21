@@ -2903,6 +2903,7 @@ export async function postSnapshot(
       dimension?: string;
       users?: number[];
       metrics?: { [key: string]: MetricStats[] };
+      reweight?: boolean;
     },
     { id: string },
     { force?: string }
@@ -2911,7 +2912,7 @@ export async function postSnapshot(
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { phase, dimension } = req.body;
+  const { phase, dimension, reweight } = req.body;
 
   const experiment = await getExperimentById(context, id);
   if (!experiment) {
@@ -2947,6 +2948,7 @@ export async function postSnapshot(
       useCache,
       type:
         experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
+      reweight,
     });
 
     await req.audit({

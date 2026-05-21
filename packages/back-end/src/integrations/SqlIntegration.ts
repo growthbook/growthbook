@@ -12,6 +12,7 @@ import {
   DEFAULT_TEST_QUERY_DAYS,
   DEFAULT_METRIC_HISTOGRAM_BINS,
 } from "shared/constants";
+import { isContextualBanditAttrColumn } from "shared/experiments";
 import {
   generateProductAnalyticsSQL,
   calculateProductAnalyticsDateRange,
@@ -546,7 +547,7 @@ export default abstract class SqlIntegration
           });
         const attributeData: Record<string, string> = {};
         Object.entries(row)
-          .filter(([key, _]) => key.startsWith("gb_ctx_"))
+          .filter(([key, _]) => isContextualBanditAttrColumn(key))
           .forEach(([key, value]) => {
             attributeData[key] = value;
           });

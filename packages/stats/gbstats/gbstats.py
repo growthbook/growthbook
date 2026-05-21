@@ -1,3 +1,4 @@
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 import dataclasses
 import re
@@ -9,7 +10,6 @@ import numpy as np
 import pandas as pd
 
 from gbstats.bayesian.contextual import BuildClassificationTree
-from gbstats.contextual_weights_lookup import ContextualBanditWeightsLookup
 from gbstats.bayesian.tests import (
     BayesianTestResult,
     EffectBayesianABTest,
@@ -1473,6 +1473,135 @@ def get_bandit_result(
     )
 
 
+class ContextualBanditWeightsLookup:
+    """Match ``ContextualBanditResponse.context`` conditions to observed attributes and return ``updatedWeights``."""
+
+    @staticmethod
+    def _clause_matches(actual: Any, spec: Any) -> bool:
+        if isinstance(spec, dict) and "$in" in spec:
+            allowed = spec["$in"]
+            if not isinstance(allowed, (list, tuple, set)):
+                return False
+            return actual in allowed
+        if isinstance(spec, dict) and "$nin" in spec:
+            forbidden = spec["$nin"]
+            if not isinstance(forbidden, (list, tuple, set)):
+                return False
+            return actual not in forbidden
+        return actual == spec
+
+    @staticmethod
+    def attributes_match_condition(
+        observed: Mapping[str, Any], condition: dict[str, Any]
+    ) -> bool:
+        """True if every key in ``condition`` is present in ``observed`` and the clause matches."""
+        if not condition:
+            return True
+        for key, spec in condition.items():
+            if key not in observed:
+                return False
+            if not ContextualBanditWeightsLookup._clause_matches(observed[key], spec):
+                return False
+        return True
+
+    @staticmethod
+    def observed_from_tuple(
+        attributes: Sequence[str], context_tuple: tuple[str, ...]
+    ) -> dict[str, str]:
+        """Zip SQL-style context tuple with attribute names (same order as bandit ``attributes``)."""
+        if len(attributes) != len(context_tuple):
+            raise ValueError(
+                f"attributes length {len(attributes)} != context tuple length {len(context_tuple)}"
+            )
+        return {str(a): str(v) for a, v in zip(attributes, context_tuple)}
+
+    @staticmethod
+    def _singleton_condition_value(spec: Any) -> Optional[str]:
+        """Extract a single allowed value from a ``$in`` clause or scalar condition."""
+        if isinstance(spec, dict) and "$in" in spec:
+            allowed = spec["$in"]
+            if isinstance(allowed, (list, tuple)) and len(allowed) == 1:
+                return str(allowed[0])
+            return None
+        if isinstance(spec, dict):
+            return None
+        return str(spec)
+
+    @staticmethod
+    def index_responses_by_attribute_singleton(
+        responses: Sequence[ContextualBanditResponse],
+        attribute: str,
+    ) -> dict[str, ContextualBanditResponse]:
+        """Map one response per distinct single-value condition on ``attribute`` (e.g. ``leaf_id``)."""
+        out: dict[str, ContextualBanditResponse] = {}
+        for r in responses:
+            if attribute not in r.context:
+                continue
+            value = ContextualBanditWeightsLookup._singleton_condition_value(
+                r.context[attribute]
+            )
+            if value is not None:
+                out[value] = r
+        return out
+
+    @staticmethod
+    def copy_response_weights(
+        weights: Optional[list[float]],
+    ) -> Optional[list[float]]:
+        if weights is None:
+            return None
+        return [float(x) for x in weights]
+
+    @staticmethod
+    def find_matching_contextual_response(
+        responses: Sequence[ContextualBanditResponse],
+        observed: Mapping[str, Any],
+    ) -> Optional[ContextualBanditResponse]:
+        """First response whose ``context`` (condition) matches ``observed``."""
+        for r in responses:
+            if not r.context:
+                continue
+            if ContextualBanditWeightsLookup.attributes_match_condition(
+                observed, r.context
+            ):
+                return r
+        return None
+
+    @staticmethod
+    def weights_for_observed_attributes(
+        responses: Sequence[ContextualBanditResponse],
+        observed: Mapping[str, Any],
+    ) -> list[float]:
+        """Return ``updatedWeights`` from the first matching response; raise if none or weights missing."""
+        r = ContextualBanditWeightsLookup.find_matching_contextual_response(
+            responses, observed
+        )
+        if r is None:
+            raise KeyError(
+                f"No ContextualBanditResponse matched observed={dict(observed)!r}"
+            )
+        w = r.updatedWeights
+        if w is None:
+            raise ValueError(
+                "Matching ContextualBanditResponse has updatedWeights=None"
+            )
+        return [float(x) for x in w]
+
+    @staticmethod
+    def weights_for_context_tuple(
+        responses: Sequence[ContextualBanditResponse],
+        attributes: Sequence[str],
+        context_tuple: tuple[str, ...],
+    ) -> list[float]:
+        """Map ``context_tuple`` to a dict, then :meth:`weights_for_observed_attributes`."""
+        observed = ContextualBanditWeightsLookup.observed_from_tuple(
+            attributes, context_tuple
+        )
+        return ContextualBanditWeightsLookup.weights_for_observed_attributes(
+            responses, observed
+        )
+
+
 class UpdateWeightsContextualBandit:
     """Updates variation weights per context. rows (ExperimentMetricQueryResponseRows) is an input; contexts are derived from analysis_settings.dimension. Call compute_result() to get per-context BanditResults (optionally pass rows to override, and current_weights_by_context for priors)."""
 
@@ -1630,7 +1759,6 @@ class UpdateWeightsContextualBandit:
                     if r.singleVariationResults
                     else None
                 )
-
                 context_rule = {
                     attr: {"$in": [ctx[i]]}
                     for i, attr in enumerate(self.contextual_bandit_settings.attributes)
@@ -1838,13 +1966,10 @@ class UpdateWeightsContextualTree:
         by_leaf_cumulative = self._build_by_leaf_cumulative(rows_by_context)
 
         rows_all: ExperimentMetricQueryResponseRows = []
-        leaf_weight_keys: dict[int, tuple[str, ...]] = {}
         for leaf_id in self.leaf_ids:
             rows_leaf = by_leaf_cumulative.get(leaf_id) or []
             if not rows_leaf:
                 raise ValueError(f"No rows for leaf {leaf_id}")
-            leaf_key = (str(leaf_id),)
-            leaf_weight_keys[leaf_id] = leaf_key
             rows_all.extend(
                 self._aggregate_leaf_rows_for_bandit(rows_leaf, leaf_id=leaf_id)
             )
@@ -1859,7 +1984,11 @@ class UpdateWeightsContextualTree:
             bandit_settings_for_tree,
         )
         leaf_response = leaf_bandit.compute_result()
-
+        leaf_responses_by_id = (
+            ContextualBanditWeightsLookup.index_responses_by_attribute_singleton(
+                leaf_response.responses, LEAF_ID_COLUMN
+            )
+        )
         attrs = self.contextual_bandit_settings.attributes
         responses: list[ContextualBanditResponse] = []
         for ctx in self.contexts:
@@ -1876,23 +2005,11 @@ class UpdateWeightsContextualTree:
                     )
                 )
                 continue
-            lkey = leaf_weight_keys.get(leaf_id)
-            if lkey is None:
-                responses.append(
-                    UpdateWeightsContextualBandit.no_update_response(
-                        context=context_rule,
-                        num_variations=self.num_variations,
-                        update_message="no leaf weight key",
-                    )
-                )
-                continue
-            observed_leaf = ContextualBanditWeightsLookup.observed_from_tuple(
-                bandit_settings_for_tree.attributes, lkey
-            )
-            r = ContextualBanditWeightsLookup.find_matching_contextual_response(
-                leaf_response.responses, observed_leaf
-            )
+            r = leaf_responses_by_id.get(str(leaf_id))
             if r is not None:
+                updated_weights = ContextualBanditWeightsLookup.copy_response_weights(
+                    r.updatedWeights
+                )
                 responses.append(
                     ContextualBanditResponse(
                         context=context_rule,
@@ -1904,8 +2021,8 @@ class UpdateWeightsContextualTree:
                         error=r.error,
                     )
                 )
-                if r.updatedWeights is not None:
-                    wlist = list(r.updatedWeights)
+                if updated_weights is not None:
+                    wlist = updated_weights
                     ccw = getattr(
                         self.contextual_bandit_settings,
                         "current_contextual_weights",
