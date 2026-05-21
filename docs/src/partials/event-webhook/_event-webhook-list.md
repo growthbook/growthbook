@@ -1482,7 +1482,7 @@ Triggered when an experiment is created
             dateCreated: string;
             dateUpdated: string;
             name: string;
-            type: "standard" | "multi-armed-bandit";
+            type: "standard" | "multi-armed-bandit" | "holdout";
             project: string;
             hypothesis: string;
             description: string;
@@ -1670,6 +1670,7 @@ Triggered when an experiment is created
             banditBurnInUnit?: ("days" | "hours") | undefined;
             banditConversionWindowValue?: number | undefined;
             banditConversionWindowUnit?: ("days" | "hours") | undefined;
+            banditIsContextual?: boolean | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
@@ -1684,6 +1685,13 @@ Triggered when an experiment is created
             /** ID of the default dashboard for this experiment. */
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
+            statusUpdateSchedule?: ({
+                startAt?: string | undefined;
+            } | null) | undefined;
+            nextScheduledStatusUpdate?: ({
+                type: "start";
+                date: string;
+            } | null) | undefined;
         };
     };
     user: {
@@ -1730,7 +1738,7 @@ Triggered when an experiment is updated
             dateCreated: string;
             dateUpdated: string;
             name: string;
-            type: "standard" | "multi-armed-bandit";
+            type: "standard" | "multi-armed-bandit" | "holdout";
             project: string;
             hypothesis: string;
             description: string;
@@ -1918,6 +1926,7 @@ Triggered when an experiment is updated
             banditBurnInUnit?: ("days" | "hours") | undefined;
             banditConversionWindowValue?: number | undefined;
             banditConversionWindowUnit?: ("days" | "hours") | undefined;
+            banditIsContextual?: boolean | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
@@ -1932,6 +1941,13 @@ Triggered when an experiment is updated
             /** ID of the default dashboard for this experiment. */
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
+            statusUpdateSchedule?: ({
+                startAt?: string | undefined;
+            } | null) | undefined;
+            nextScheduledStatusUpdate?: ({
+                type: "start";
+                date: string;
+            } | null) | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
@@ -1939,7 +1955,7 @@ Triggered when an experiment is updated
             dateCreated?: string | undefined;
             dateUpdated?: string | undefined;
             name?: string | undefined;
-            type?: ("standard" | "multi-armed-bandit") | undefined;
+            type?: ("standard" | "multi-armed-bandit" | "holdout") | undefined;
             project?: string | undefined;
             hypothesis?: string | undefined;
             description?: string | undefined;
@@ -2127,6 +2143,7 @@ Triggered when an experiment is updated
             banditBurnInUnit?: ("days" | "hours") | undefined;
             banditConversionWindowValue?: number | undefined;
             banditConversionWindowUnit?: ("days" | "hours") | undefined;
+            banditIsContextual?: boolean | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
@@ -2141,6 +2158,13 @@ Triggered when an experiment is updated
             /** ID of the default dashboard for this experiment. */
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
+            statusUpdateSchedule?: ({
+                startAt?: string | undefined;
+            } | null) | undefined;
+            nextScheduledStatusUpdate?: ({
+                type: "start";
+                date: string;
+            } | null) | undefined;
         };
         changes?: {
             added: Record<string, unknown>;
@@ -2192,7 +2216,7 @@ Triggered when an experiment is deleted
             dateCreated: string;
             dateUpdated: string;
             name: string;
-            type: "standard" | "multi-armed-bandit";
+            type: "standard" | "multi-armed-bandit" | "holdout";
             project: string;
             hypothesis: string;
             description: string;
@@ -2380,6 +2404,7 @@ Triggered when an experiment is deleted
             banditBurnInUnit?: ("days" | "hours") | undefined;
             banditConversionWindowValue?: number | undefined;
             banditConversionWindowUnit?: ("days" | "hours") | undefined;
+            banditIsContextual?: boolean | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
@@ -2394,6 +2419,13 @@ Triggered when an experiment is deleted
             /** ID of the default dashboard for this experiment. */
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
+            statusUpdateSchedule?: ({
+                startAt?: string | undefined;
+            } | null) | undefined;
+            nextScheduledStatusUpdate?: ({
+                type: "start";
+                date: string;
+            } | null) | undefined;
         };
     };
     user: {
@@ -2450,6 +2482,15 @@ Triggered when a warning condition is detected on an experiment
             experimentName: string;
             experimentId: string;
             threshold: number;
+        } | {
+            type: "scheduled-status-update-failed";
+            experimentName: string;
+            experimentId: string;
+            scheduledStatusUpdateType: "start" | "stop";
+            attempts: number;
+            maxAttempts: number;
+            willRetry: boolean;
+            reason: string;
         };
     };
     user: {

@@ -38,6 +38,7 @@ import {
   generateVariationId,
   useAttributeSchema,
   useEnvironments,
+  validateUnregisteredAttributes,
 } from "@/services/features";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import { hasOpenAIKey, hasMistralKey, hasGoogleAIKey } from "@/services/env";
@@ -264,6 +265,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [conditionKey, forceConditionRender] = useIncrementer();
 
   const attributeSchema = useAttributeSchema(false, project);
+  // Unfiltered schema for client-side validation — lets us tell apart
+  // truly-unknown attributes from attributes that exist but are scoped to
+  // other projects, matching the back-end's project-scope-aware check.
+  const allAttributesSchema = useAttributeSchema(false);
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
     [];
@@ -509,6 +514,23 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       if (prerequisiteTargetingSdkIssues) {
         throw new Error("Prerequisite targeting issues must be resolved");
       }
+
+      // Opt-in client-side pre-flight — catches typo'd experiment attributes
+      // before the network round-trip, same wording as the back-end error.
+      validateUnregisteredAttributes(
+        {
+          hashAttribute: (data as { hashAttribute?: string }).hashAttribute,
+          fallbackAttribute: (data as { fallbackAttribute?: string })
+            .fallbackAttribute,
+          condition: data.phases[0].condition,
+        },
+        "experiment",
+        {
+          attributeSchema: allAttributesSchema,
+          requireRegisteredAttributes: settings.requireRegisteredAttributes,
+          project: data.project || project || undefined,
+        },
+      );
 
       // bandits
       if (

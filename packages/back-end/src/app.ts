@@ -648,6 +648,10 @@ app.get(
   "/experiment/:id/snapshot/:phase/:dimension",
   experimentsController.getSnapshotWithDimension,
 );
+app.get(
+  "/experiment/:id/snapshot-summary/:phase",
+  experimentsController.getSnapshotSummary,
+);
 app.post("/experiment/:id/snapshot", experimentsController.postSnapshot);
 app.post(
   "/experiment/:id/banditSnapshot",
@@ -681,6 +685,14 @@ app.post(
   experimentsController.postExperimentFeatureValues,
 );
 app.post("/experiment/:id/status", experimentsController.postExperimentStatus);
+app.post(
+  "/experiment/:id/approve-scheduled-start",
+  experimentsController.postApproveScheduledExperimentStart,
+);
+app.post(
+  "/experiment/:id/unschedule-start",
+  experimentsController.postUnapproveScheduledExperimentStart,
+);
 app.put(
   "/experiment/:id/phase/:phase",
   experimentsController.putExperimentPhase,
