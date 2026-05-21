@@ -719,11 +719,7 @@ const MetricsList = (): React.ReactElement => {
                 </TableCell>
                 <TableCell style={{ color: "var(--gray-11)" }}>
                   {metric.archived && (
-                    <Tooltip
-                      body={"Archived"}
-                      innerClassName="p-2"
-                      tipMinWidth="auto"
-                    >
+                    <Tooltip content="Archived">
                       <FaArchive />
                     </Tooltip>
                   )}
