@@ -92,7 +92,7 @@ export default function ScheduleInputs({ state, setState }: Props) {
     } else {
       const d = new Date();
       d.setSeconds(0, 0);
-      patchState({ startDate: d.toISOString().slice(0, 16) });
+      patchState({ startDate: d.toISOString() });
     }
   }
 
@@ -103,7 +103,7 @@ export default function ScheduleInputs({ state, setState }: Props) {
       const d = new Date();
       d.setSeconds(0, 0);
       patchState({
-        endScheduleAt: d.toISOString().slice(0, 16),
+        endScheduleAt: d.toISOString(),
       });
     }
   }

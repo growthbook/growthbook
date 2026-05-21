@@ -3392,7 +3392,7 @@ export default function RampScheduleSection({
             const d = new Date();
             d.setDate(d.getDate() + 14);
             d.setSeconds(0, 0);
-            patchState({ cutoffDate: d.toISOString().slice(0, 16) });
+            patchState({ cutoffDate: d.toISOString() });
           }
         }}
         containerClassName="mb-0"
@@ -3452,7 +3452,7 @@ export default function RampScheduleSection({
           } else {
             const d = new Date();
             d.setSeconds(0, 0);
-            patchState({ startDate: d.toISOString().slice(0, 16) });
+            patchState({ startDate: d.toISOString() });
           }
         }}
         containerClassName="mb-0"
