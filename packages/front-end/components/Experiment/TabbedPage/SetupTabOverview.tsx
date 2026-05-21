@@ -1,4 +1,7 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "shared/types/experiment";
 import { useState } from "react";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
@@ -10,7 +13,12 @@ import {
   PiWarningFill,
 } from "react-icons/pi";
 import { format } from "date-fns";
-import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import {
+  CheckListItem,
+  PreLaunchChecklistDrawer,
+} from "@/components/Experiment/PreLaunchChecklist";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Markdown from "@/components/Markdown/Markdown";
@@ -42,8 +50,13 @@ export interface Props {
   checklistItemsRemaining: number | null;
   setChecklistItemsRemaining: (value: number | null) => void;
   setChecklistHardBlockerCount?: (value: number) => void;
+  setIncompleteChecklistItems?: (value: CheckListItem[]) => void;
   envs: string[];
   editSchedule?: (() => void) | null;
+  linkedFeatures: LinkedFeatureInfo[];
+  visualChangesets: VisualChangesetInterface[];
+  connections: SDKConnectionInterface[];
+  editTargeting?: (() => void) | null;
 }
 
 export default function SetupTabOverview({
@@ -55,8 +68,13 @@ export default function SetupTabOverview({
   checklistItemsRemaining,
   setChecklistItemsRemaining,
   setChecklistHardBlockerCount,
+  setIncompleteChecklistItems,
   envs,
   editSchedule,
+  linkedFeatures,
+  visualChangesets,
+  connections,
+  editTargeting,
 }: Props) {
   const { aiEnabled, aiAgreedTo } = useAISettings();
   const [showOptInModal, setShowOptInModal] = useState(false);
@@ -187,7 +205,7 @@ export default function SetupTabOverview({
             </Tooltip>
           ) : null}
         </Flex>
-        {experiment.status === "draft" && experiment.type !== "holdout" ? (
+        {/* {experiment.status === "draft" && experiment.type !== "holdout" ? (
           <PreLaunchChecklist
             experiment={experiment}
             envs={envs}
@@ -200,7 +218,7 @@ export default function SetupTabOverview({
             setChecklistItemsRemaining={setChecklistItemsRemaining}
             setChecklistHardBlockerCount={setChecklistHardBlockerCount}
           />
-        ) : null}
+        ) : null} */}
         {isHoldout && holdout && holdoutHasSchedule && editSchedule ? (
           <Frame id="holdout-schedule" style={{ scrollMarginTop: "100px" }}>
             <Flex align="center" justify="between" className="text-dark">
@@ -421,6 +439,21 @@ export default function SetupTabOverview({
           section="experiment"
         />
       </div>
+      {experiment.status === "draft" && experiment.type !== "holdout" && (
+        <PreLaunchChecklistDrawer
+          experiment={experiment}
+          linkedFeatures={linkedFeatures}
+          visualChangesets={visualChangesets}
+          connections={connections}
+          mutateExperiment={mutate}
+          checklistItemsRemaining={checklistItemsRemaining}
+          setChecklistItemsRemaining={setChecklistItemsRemaining}
+          setChecklistHardBlockerCount={setChecklistHardBlockerCount}
+          setIncompleteChecklistItems={setIncompleteChecklistItems}
+          editTargeting={editTargeting}
+          envs={envs}
+        />
+      )}
     </>
   );
 }

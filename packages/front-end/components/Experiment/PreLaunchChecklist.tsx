@@ -466,6 +466,7 @@ export function PreLaunchChecklistUI({
   checklistItemsRemaining,
   setChecklistItemsRemaining,
   setChecklistHardBlockerCount,
+  setIncompleteChecklistItems,
   analysisModal,
   setAnalysisModal,
   allowEditChecklist,
@@ -480,6 +481,7 @@ export function PreLaunchChecklistUI({
   checklist: CheckListItem[];
   setChecklistItemsRemaining: (value: number | null) => void;
   setChecklistHardBlockerCount?: (value: number) => void;
+  setIncompleteChecklistItems?: (value: CheckListItem[]) => void;
   className?: string;
   analysisModal?: boolean;
   setAnalysisModal?: (value: boolean) => void;
@@ -551,12 +553,14 @@ export function PreLaunchChecklistUI({
       setChecklistHardBlockerCount?.(
         incomplete.filter((item) => item.hardBlock).length,
       );
+      setIncompleteChecklistItems?.(incomplete);
     }
   }, [
     checklist,
     data,
     setChecklistItemsRemaining,
     setChecklistHardBlockerCount,
+    setIncompleteChecklistItems,
   ]);
 
   if (experiment.status !== "draft") return null;
@@ -835,6 +839,7 @@ export type PreLaunchChecklistProps = {
   checklistItemsRemaining: number | null;
   setChecklistItemsRemaining: (value: number | null) => void;
   setChecklistHardBlockerCount?: (value: number) => void;
+  setIncompleteChecklistItems?: (value: CheckListItem[]) => void;
   editTargeting?: (() => void) | null;
   openSetupTab?: () => void;
   className?: string;
@@ -852,6 +857,7 @@ export function PreLaunchChecklist({
   checklistItemsRemaining,
   setChecklistItemsRemaining,
   setChecklistHardBlockerCount,
+  setIncompleteChecklistItems,
   editTargeting,
   openSetupTab,
   envs,
@@ -927,6 +933,7 @@ export function PreLaunchChecklist({
           checklistItemsRemaining,
           setChecklistItemsRemaining,
           setChecklistHardBlockerCount,
+          setIncompleteChecklistItems,
           analysisModal,
           setAnalysisModal,
           allowEditChecklist: true,
@@ -957,41 +964,44 @@ export function PreLaunchChecklistDrawer(props: PreLaunchChecklistProps) {
     <div className="dark-theme">
       <Theme appearance="dark">
         <div className={styles.drawer}>
-          <div
-            className={styles.drawerHeader}
-            onClick={() => setOpen(!open)}
-            role="button"
-          >
-            <div className="d-flex align-items-center">
-              <strong>Pre-Launch Checklist</strong>
-              {checklistItemsRemaining !== null && (
-                <span
-                  className={`badge rounded-circle p-1 ${
-                    checklistItemsRemaining === 0
-                      ? "badge-success"
-                      : "badge-warning"
-                  } mx-2 my-0`}
-                  style={{ minWidth: 22 }}
-                >
-                  {checklistItemsRemaining === 0 ? (
-                    <FaCheck size={10} />
-                  ) : (
-                    checklistItemsRemaining
-                  )}
-                </span>
-              )}
+          <div className={styles.drawerInner}>
+            <div
+              className={styles.drawerHeader}
+              onClick={() => setOpen(!open)}
+              role="button"
+            >
+              <div className="d-flex align-items-center">
+                <strong>Pre-Launch Checklist</strong>
+                {checklistItemsRemaining !== null && (
+                  <span
+                    className={`badge rounded-circle p-1 ${
+                      checklistItemsRemaining === 0
+                        ? "badge-success"
+                        : "badge-warning"
+                    } mx-2 my-0`}
+                    style={{ minWidth: 22 }}
+                  >
+                    {checklistItemsRemaining === 0 ? (
+                      <FaCheck size={10} />
+                    ) : (
+                      checklistItemsRemaining
+                    )}
+                  </span>
+                )}
+              </div>
+              {open ? <FaAngleDown size={14} /> : <FaAngleUp size={14} />}
             </div>
-            {open ? <FaAngleDown size={14} /> : <FaAngleUp size={14} />}
-          </div>
-          {open && (
-            <div className={styles.drawerBody}>
+            <div
+              className={styles.drawerBody}
+              style={open ? undefined : { display: "none" }}
+            >
               <PreLaunchChecklist
                 {...props}
                 collapsible={false}
                 showHeader={false}
               />
             </div>
-          )}
+          </div>
         </div>
       </Theme>
     </div>

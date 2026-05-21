@@ -1,7 +1,16 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "shared/types/experiment";
 import { format } from "date-fns";
-import { useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import { ReactNode, useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
+import {
+  PiInfoFill,
+  PiArrowSquareOut,
+  PiWarningFill,
+  PiWarningOctagonFill,
+} from "react-icons/pi";
 import Modal, { useModalContext } from "@/ui/Modal";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
 import { useUser } from "@/services/UserContext";
@@ -10,6 +19,13 @@ import PremiumCallout from "@/ui/PremiumCallout";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
+import Avatar from "@/ui/Avatar";
+import { formatTrafficSplit } from "@/services/utils";
+import ConditionDisplay from "@/components/Features/ConditionDisplay";
+import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
+import { ICON_PROPERTIES } from "@/components/Experiment/LinkedChanges/constants";
+import { CheckListItem } from "@/components/Experiment/PreLaunchChecklist";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -19,6 +35,8 @@ export interface Props {
   checklistItemsRemaining: number;
   checklistHardBlockerCount?: number;
   isHoldout?: boolean;
+  linkedFeatures?: LinkedFeatureInfo[];
+  incompleteChecklistItems?: CheckListItem[];
 }
 
 function SubmitButton({ cta, disabled }: { cta: string; disabled: boolean }) {
@@ -27,6 +45,29 @@ function SubmitButton({ cta, disabled }: { cta: string; disabled: boolean }) {
     <Button type="submit" disabled={disabled} loading={loading}>
       {cta}
     </Button>
+  );
+}
+
+function SummaryRow({
+  label,
+  children,
+  inline = false,
+}: {
+  label: string;
+  children: ReactNode;
+  inline?: boolean;
+}) {
+  return (
+    <Flex
+      direction={inline ? "row" : "column"}
+      gap={inline ? "2" : "1"}
+      align={inline ? "baseline" : "stretch"}
+    >
+      <Text size="medium" weight="semibold" color="text-high">
+        {label}:
+      </Text>
+      <Box>{children}</Box>
+    </Flex>
   );
 }
 
@@ -64,8 +105,19 @@ export default function StartExperimentModal({
   checklistItemsRemaining,
   checklistHardBlockerCount = 0,
   isHoldout,
+  linkedFeatures = [],
+  incompleteChecklistItems = [],
 }: Props) {
   const checklistIncomplete = checklistItemsRemaining > 0;
+  const phase = experiment.phases?.[experiment.phases.length - 1];
+  const isBandit = experiment.type === "multi-armed-bandit";
+  const { component: FeatureFlagIcon, radixColor: featureFlagAvatarColor } =
+    ICON_PROPERTIES["feature-flag"];
+  const hasAttributeTargeting = !!(
+    phase?.condition && phase.condition !== "{}"
+  );
+  const hasSavedGroupTargeting = !!phase?.savedGroups?.length;
+  const hasPrerequisites = !!phase?.prerequisites?.length && !isHoldout;
   const parsedScheduledDate = experiment.statusUpdateSchedule?.startAt
     ? new Date(experiment.statusUpdateSchedule.startAt)
     : null;
@@ -81,6 +133,15 @@ export default function StartExperimentModal({
   // can't be bypassed via "Start Anyway" — the auto-publish at start either
   // rejects them outright or would silently publish unreviewed changes.
   const hasHardBlockers = checklistHardBlockerCount > 0;
+  const hardBlockerItems = incompleteChecklistItems.filter(
+    (item) => item.hardBlock,
+  );
+  const softBlockerItems = incompleteChecklistItems.filter(
+    (item) => !item.hardBlock,
+  );
+  // Only group when we actually have hard-blocker items in the rendered list,
+  // not just a non-zero count from props, so we never render an empty section.
+  const shouldGroupBlockers = hardBlockerItems.length > 0;
 
   const [upgradeModal, setUpgradeModal] = useState(false);
 
@@ -174,19 +235,6 @@ export default function StartExperimentModal({
         </Modal.Header>
         {subHeader && <Modal.Description>{subHeader}</Modal.Description>}
         <Modal.Body>
-          {checklistIncomplete && (
-            <Callout status={hasHardBlockers ? "error" : "warning"} mb="3">
-              You have{" "}
-              <Text weight="semibold">
-                {checklistItemsRemaining} task
-                {checklistItemsRemaining > 1 ? "s" : ""}
-              </Text>{" "}
-              left to complete.{" "}
-              {hasHardBlockers
-                ? "Some can't be bypassed — resolve them in the Pre-Launch Checklist before this experiment can start."
-                : "Review the Pre-Launch Checklist before starting this experiment."}
-            </Callout>
-          )}
           {scheduledStartDateIsInThePast && parsedScheduledDate && (
             <Callout status="warning" mb="3">
               The scheduled start date{" "}
@@ -199,6 +247,171 @@ export default function StartExperimentModal({
             </Callout>
           )}
 
+          {checklistIncomplete && (
+            <Box mb="3">
+              <Flex align="center" gap="1">
+                {hasHardBlockers ? (
+                  <PiWarningOctagonFill
+                    color="var(--red-11)"
+                    size={15}
+                    aria-label="error"
+                  />
+                ) : (
+                  <PiWarningFill
+                    color="var(--amber-11)"
+                    size={15}
+                    aria-label="warning"
+                  />
+                )}
+                <Text size="large" weight="semibold" color="text-high">
+                  Tasks to Complete
+                </Text>
+              </Flex>
+              {incompleteChecklistItems.length > 0 && (
+                <Box
+                  mt="3"
+                  style={{
+                    backgroundColor: "var(--color-panel-translucent)",
+                    padding: "20px",
+                    borderRadius: "var(--radius-3)",
+                  }}
+                >
+                  {shouldGroupBlockers ? (
+                    <Flex direction="column" gap="4">
+                      <Box>
+                        <Text size="small" weight="semibold" color="text-high">
+                          Must resolve before starting
+                        </Text>
+                        <Box mt="2">
+                          <Flex direction="column" gap="2">
+                            {hardBlockerItems.map((item, i) => (
+                              <Flex
+                                key={item.key ?? `hard-${i}`}
+                                gap="2"
+                                align="baseline"
+                              >
+                                <Text color="text-mid">•</Text>
+                                <Box>{item.display}</Box>
+                              </Flex>
+                            ))}
+                          </Flex>
+                        </Box>
+                      </Box>
+                      {softBlockerItems.length > 0 && (
+                        <Box>
+                          <Text
+                            size="small"
+                            weight="semibold"
+                            color="text-high"
+                          >
+                            Recommended
+                          </Text>
+                          <Box mt="2">
+                            <Flex direction="column" gap="2">
+                              {softBlockerItems.map((item, i) => (
+                                <Flex
+                                  key={item.key ?? `soft-${i}`}
+                                  gap="2"
+                                  align="baseline"
+                                >
+                                  <Text color="text-mid">•</Text>
+                                  <Box>{item.display}</Box>
+                                </Flex>
+                              ))}
+                            </Flex>
+                          </Box>
+                        </Box>
+                      )}
+                    </Flex>
+                  ) : (
+                    <Flex direction="column" gap="2">
+                      {incompleteChecklistItems.map((item, i) => (
+                        <Flex key={item.key ?? i} gap="2" align="baseline">
+                          <Text color="text-mid">•</Text>
+                          <Box>{item.display}</Box>
+                        </Flex>
+                      ))}
+                    </Flex>
+                  )}
+                </Box>
+              )}
+            </Box>
+          )}
+
+          {phase && (
+            <Box>
+              <Flex align="center" gap="1">
+                <PiInfoFill color="var(--indigo-11)" size={15} />
+                <Text size="large" weight="semibold" color="text-high">
+                  Summary
+                </Text>
+              </Flex>
+              <Box
+                mt="3"
+                style={{
+                  backgroundColor: "var(--color-panel-translucent)",
+                  padding: "20px",
+                  borderRadius: "var(--radius-3)",
+                }}
+              >
+                <Flex direction="column" gap="4">
+                  <SummaryRow label="Traffic" inline={!isHoldout}>
+                    {isHoldout ? (
+                      <Flex direction="column" gap="1">
+                        <Text>
+                          {Math.floor(
+                            phase.coverage * phase.variationWeights[0] * 100,
+                          )}
+                          % in holdout
+                        </Text>
+                        <Text>
+                          {Math.floor(
+                            phase.coverage * phase.variationWeights[0] * 100,
+                          )}
+                          % not in holdout (for measurement)
+                        </Text>
+                        <Text>
+                          {Math.floor(
+                            (1 -
+                              phase.coverage * phase.variationWeights[0] * 2) *
+                              100,
+                          )}
+                          % not in holdout (not for measurement)
+                        </Text>
+                      </Flex>
+                    ) : (
+                      <Text>
+                        {Math.floor(phase.coverage * 100)}% included
+                        {!isBandit && (
+                          <>
+                            , {formatTrafficSplit(phase.variationWeights, 2)}{" "}
+                            split
+                          </>
+                        )}
+                      </Text>
+                    )}
+                  </SummaryRow>
+                  {hasAttributeTargeting && (
+                    <SummaryRow label="Attribute Targeting">
+                      <ConditionDisplay condition={phase.condition} />
+                    </SummaryRow>
+                  )}
+                  {hasSavedGroupTargeting && (
+                    <SummaryRow label="Saved Group Targeting">
+                      <SavedGroupTargetingDisplay
+                        savedGroups={phase.savedGroups}
+                      />
+                    </SummaryRow>
+                  )}
+                  {hasPrerequisites && (
+                    <SummaryRow label="Prerequisites">
+                      <ConditionDisplay prerequisites={phase.prerequisites} />
+                    </SummaryRow>
+                  )}
+                </Flex>
+              </Box>
+            </Box>
+          )}
           {needsVisualEditorUpgrade ? (
             <PremiumCallout
               commercialFeature="visual-editor"
@@ -222,11 +435,45 @@ export default function StartExperimentModal({
               holdout.
             </Text>
           ) : (
-            <Text>
-              Once started, linked changes will be activated and users will
-              begin to see your experiment variations{" "}
-              <Text weight="semibold">immediately</Text>.
-            </Text>
+            <Box
+              mt="3"
+              style={{
+                backgroundColor: "var(--color-panel-translucent)",
+                padding: "20px",
+                borderRadius: "var(--radius-3)",
+              }}
+            >
+              <Flex align="center" gap="2">
+                <Avatar
+                  radius="small"
+                  color={featureFlagAvatarColor}
+                  size="md"
+                  variant="soft"
+                >
+                  <FeatureFlagIcon />
+                </Avatar>
+                <Text weight="semibold" color="text-high">
+                  Linked changes will activate. Users will see experiment
+                  variations immediately.
+                </Text>
+              </Flex>
+              {linkedFeatures.length > 0 && (
+                <Flex direction="column" gap="1" mt="3">
+                  {linkedFeatures.map((info) =>
+                    info.feature?.id ? (
+                      <Link
+                        key={info.feature.id}
+                        href={`/features/${info.feature.id}`}
+                        target="_blank"
+                      >
+                        <Text weight="semibold">{info.feature.id}</Text>
+                        <PiArrowSquareOut className="ml-1" />
+                      </Link>
+                    ) : null,
+                  )}
+                </Flex>
+              )}
+            </Box>
           )}
         </Modal.Body>
         <Modal.Footer justify="between">

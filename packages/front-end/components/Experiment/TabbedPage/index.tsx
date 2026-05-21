@@ -47,7 +47,7 @@ import { useExperimentDashboards } from "@/hooks/useDashboards";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import CompareExperimentEventsModal from "@/components/Experiment/CompareExperimentEventsModal";
-import { PreLaunchChecklistDrawer } from "@/components/Experiment/PreLaunchChecklist";
+import { CheckListItem } from "@/components/Experiment/PreLaunchChecklist";
 import ExperimentHeader from "./ExperimentHeader";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
@@ -78,9 +78,11 @@ export interface Props {
   editTags?: (() => void) | null;
   checklistItemsRemaining: number | null;
   checklistHardBlockerCount: number;
+  incompleteChecklistItems: CheckListItem[];
   envs: string[];
   setChecklistItemsRemaining: (value: number | null) => void;
   setChecklistHardBlockerCount: (value: number) => void;
+  setIncompleteChecklistItems: (value: CheckListItem[]) => void;
   editVariations?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
   urlRedirects: URLRedirectInterface[];
@@ -117,8 +119,10 @@ export default function TabbedPage({
   editResult,
   checklistItemsRemaining,
   checklistHardBlockerCount,
+  incompleteChecklistItems,
   setChecklistItemsRemaining,
   setChecklistHardBlockerCount,
+  setIncompleteChecklistItems,
   editSchedule,
   visualChangesetEnvStates,
   urlRedirectEnvStates,
@@ -533,6 +537,7 @@ export default function TabbedPage({
         healthNotificationCount={healthNotificationCount}
         checklistItemsRemaining={checklistItemsRemaining}
         checklistHardBlockerCount={checklistHardBlockerCount}
+        incompleteChecklistItems={incompleteChecklistItems}
         linkedFeatures={linkedFeatures}
         showDashboardView={showDashboardView}
         safeToEdit={safeToEdit}
@@ -622,8 +627,13 @@ export default function TabbedPage({
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
             setChecklistHardBlockerCount={setChecklistHardBlockerCount}
+            setIncompleteChecklistItems={setIncompleteChecklistItems}
             envs={envs}
             editSchedule={editSchedule}
+            linkedFeatures={linkedFeatures}
+            visualChangesets={visualChangesets}
+            connections={connections}
+            editTargeting={editTargeting}
           />
           <Implementation
             experiment={experiment}
@@ -775,24 +785,6 @@ export default function TabbedPage({
           </div>
         </div>
       )}
-
-      {tab === "overview" &&
-        !showDashboardView &&
-        experiment.status === "draft" &&
-        experiment.type !== "holdout" && (
-          <PreLaunchChecklistDrawer
-            experiment={experiment}
-            linkedFeatures={linkedFeatures}
-            visualChangesets={visualChangesets}
-            connections={connections}
-            mutateExperiment={mutate}
-            checklistItemsRemaining={checklistItemsRemaining}
-            setChecklistItemsRemaining={setChecklistItemsRemaining}
-            setChecklistHardBlockerCount={setChecklistHardBlockerCount}
-            editTargeting={editTargeting}
-            envs={envs}
-          />
-        )}
     </>
   );
 }

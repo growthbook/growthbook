@@ -53,6 +53,7 @@ import HelperText from "@/ui/HelperText";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import StartExperimentModal from "@/components/Experiment/TabbedPage/StartExperimentModal";
+import { CheckListItem } from "@/components/Experiment/PreLaunchChecklist";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
@@ -85,6 +86,7 @@ export interface Props {
   usersWatching: (string | undefined)[];
   checklistItemsRemaining: number | null;
   checklistHardBlockerCount: number;
+  incompleteChecklistItems: CheckListItem[];
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
@@ -146,6 +148,7 @@ export default function ExperimentHeader({
   editResult,
   checklistItemsRemaining,
   checklistHardBlockerCount,
+  incompleteChecklistItems,
   editTargeting,
   newPhase,
   editPhases,
@@ -672,7 +675,9 @@ export default function ExperimentHeader({
           scheduleExperiment={approveScheduledExperimentStart}
           checklistItemsRemaining={checklistItemsRemaining || 0}
           checklistHardBlockerCount={checklistHardBlockerCount}
+          incompleteChecklistItems={incompleteChecklistItems}
           isHoldout={isHoldout}
+          linkedFeatures={linkedFeatures}
         />
       )}
       {showScheduleModal && !isHoldout ? (

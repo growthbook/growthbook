@@ -26,6 +26,7 @@ import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import EditTrafficModal from "@/components/Experiment/EditTrafficModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
+import { CheckListItem } from "@/components/Experiment/PreLaunchChecklist";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -50,6 +51,9 @@ const BanditExperimentPage = (): ReactElement => {
     number | null
   >(null);
   const [checklistHardBlockerCount, setChecklistHardBlockerCount] = useState(0);
+  const [incompleteChecklistItems, setIncompleteChecklistItems] = useState<
+    CheckListItem[]
+  >([]);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -309,8 +313,10 @@ const BanditExperimentPage = (): ReactElement => {
           editTraffic={editTraffic}
           checklistItemsRemaining={checklistItemsRemaining}
           checklistHardBlockerCount={checklistHardBlockerCount}
+          incompleteChecklistItems={incompleteChecklistItems}
           setChecklistItemsRemaining={setChecklistItemsRemaining}
           setChecklistHardBlockerCount={setChecklistHardBlockerCount}
+          setIncompleteChecklistItems={setIncompleteChecklistItems}
           visualChangesetEnvStates={visualChangesetEnvStates}
           urlRedirectEnvStates={urlRedirectEnvStates}
         />
