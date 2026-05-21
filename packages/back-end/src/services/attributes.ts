@@ -1,6 +1,7 @@
 import { SDKAttribute } from "shared/types/organization";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import type { MaterializedColumn } from "shared/types/datasource";
+import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import type { ColumnInterface } from "shared/types/fact-table";
 import { dangerouslyGetGrowthbookDatasourceBypassPermission } from "back-end/src/models/DataSourceModel";
 import {
@@ -78,7 +79,13 @@ export async function updateAttributeSchema(
   const managedWarehouse =
     await dangerouslyGetGrowthbookDatasourceBypassPermission(org.id);
 
-  if (!managedWarehouse) {
+  // Skip the LS sync when the warehouse exists but ClickHouse isn't ready yet.
+  // The async provisioning job picks up the saved attributeSchema once it
+  // runs, so all we need to do here is persist the org write.
+  if (
+    !managedWarehouse ||
+    isManagedWarehouseAwaitingProvisioning(managedWarehouse)
+  ) {
     await updateOrganization(org.id, {
       settings: { ...org.settings, attributeSchema: newAttributeSchema },
     });

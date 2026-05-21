@@ -126,8 +126,14 @@ export const putAttribute = async (
     i === index ? updatedAttribute : attr,
   );
 
+  // Only construct a rename when the client actually changed `property`.
+  // A stale `previousName` sent alongside a body that omits `property`
+  // would otherwise produce `{ from, to: undefined }`, fail LS schema
+  // validation, and trigger a full rollback of the (otherwise valid) update.
   const renames: { from: string; to: string }[] =
-    previousName && previousName !== attributeFields.property
+    previousName &&
+    attributeFields.property &&
+    previousName !== attributeFields.property
       ? [{ from: previousName, to: attributeFields.property }]
       : [];
 
@@ -175,7 +181,7 @@ export const deleteAttribute = async (
 
   const newAttributeSchema = attributeSchema.filter((a) => a.property !== id);
 
-  await updateAttributeSchema(context, {
+  const { persistedAttributeSchema } = await updateAttributeSchema(context, {
     newAttributeSchema,
   });
 
@@ -189,7 +195,7 @@ export const deleteAttribute = async (
       { settings: { attributeSchema: org.settings?.attributeSchema || [] } },
       {
         settings: {
-          attributeSchema: newAttributeSchema,
+          attributeSchema: persistedAttributeSchema,
         },
       },
     ),
