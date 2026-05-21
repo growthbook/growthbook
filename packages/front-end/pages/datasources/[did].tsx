@@ -7,6 +7,7 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
+import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
@@ -429,7 +430,13 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                       Managed Warehouse columns are now driven by your{" "}
                       <Link href="/attributes">organization attributes</Link>.
                       Add or edit attributes there and they will automatically
-                      be available as identifiers and dimensions here.
+                      be available as identifiers and dimensions in your{" "}
+                      <Link
+                        href={`/fact-tables/${MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID}`}
+                      >
+                        events fact table
+                      </Link>
+                      .
                     </Text>
                   </Frame>
                 </>
