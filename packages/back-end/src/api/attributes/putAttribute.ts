@@ -5,6 +5,7 @@ import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { hasAnyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
+import { syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema } from "back-end/src/services/eventForwarderUserIdTypes";
 import { validatePayload } from "./validations";
 
 export const putAttribute = createApiRequestHandler(putAttributeValidator)(
@@ -55,6 +56,18 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
     };
 
     await updateOrganization(org.id, updates);
+
+    const updatedAttributeSchema = updates.settings?.attributeSchema ?? [];
+    if (
+      hasEventForwarder &&
+      req.body.hashAttribute === true &&
+      !attribute.hashAttribute
+    ) {
+      await syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema(
+        req.context,
+        updatedAttributeSchema,
+      );
+    }
 
     await req.audit({
       event: "attribute.update",

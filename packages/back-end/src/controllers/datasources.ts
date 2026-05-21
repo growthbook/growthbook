@@ -1,7 +1,9 @@
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
+import isEqual from "lodash/isEqual";
 import * as bq from "@google-cloud/bigquery";
 import { SQL_ROW_LIMIT } from "shared/sql";
+import { isEventForwarderAllowedUserIdTypesChange } from "shared/util";
 import {
   PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
   getPipelineValidationCreateTableQuery,
@@ -89,6 +91,7 @@ import {
   createDataSource,
   getDataSourcesByOrganization,
   getDataSourceById,
+  getRawDataSourceById,
   deleteDatasource,
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
@@ -591,6 +594,30 @@ export async function putDataSource(
     }
 
     if (settings) {
+      const eventForwarderConfig = await getEventForwarderConfigForDatasource(
+        context,
+        datasource.id,
+      );
+      if (eventForwarderConfig && settings.userIdTypes !== undefined) {
+        const rawDatasource = await getRawDataSourceById(context, id);
+        const existingUserIdTypes = rawDatasource?.settings?.userIdTypes ?? [];
+        if (
+          !isEqual(settings.userIdTypes, existingUserIdTypes) &&
+          !isEventForwarderAllowedUserIdTypesChange(
+            existingUserIdTypes,
+            settings.userIdTypes,
+            org.settings?.attributeSchema ?? [],
+            datasource.projects,
+          )
+        ) {
+          res.status(400).json({
+            status: 400,
+            message:
+              "Identifier types cannot be changed while an Event Forwarder is configured for this data source.",
+          });
+          return;
+        }
+      }
       updates.settings = settings;
     }
 
