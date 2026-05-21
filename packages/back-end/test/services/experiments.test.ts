@@ -10,6 +10,7 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { OrganizationInterface } from "shared/types/organization";
 import {
   applyVariationWeightsToLatestPhase,
+  normalizeStatusUpdateScheduleChanges,
   postExperimentApiPayloadToInterface,
   postMetricApiPayloadIsValid,
   postMetricApiPayloadToMetricInterface,
@@ -1519,5 +1520,179 @@ describe("putMetricApiPayloadToMetricInterface", () => {
         (changes as { assignmentQueryId?: string }).assignmentQueryId,
       ).toBe(undefined);
     });
+  });
+});
+
+describe("normalizeStatusUpdateScheduleChanges", () => {
+  function makeExperiment(
+    overrides: Partial<ExperimentInterface> = {},
+  ): ExperimentInterface {
+    return {
+      id: "exp_123",
+      organization: "org_123",
+      trackingKey: "exp_123",
+      name: "Test",
+      type: "standard",
+      status: "draft",
+      owner: "",
+      tags: [],
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      archived: false,
+      autoSnapshots: false,
+      hashAttribute: "id",
+      hashVersion: 2,
+      disableStickyBucketing: false,
+      variations: [],
+      phases: [],
+      goalMetrics: [],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      regressionAdjustmentEnabled: false,
+      sequentialTestingEnabled: false,
+      shareLevel: "organization",
+      linkedFeatures: [],
+      hasVisualChangesets: false,
+      hasURLRedirects: false,
+      nextScheduledStatusUpdate: null,
+      statusUpdateSchedule: null,
+      ...overrides,
+    } as unknown as ExperimentInterface;
+  }
+
+  it("null clears both schedule and staged start", () => {
+    const experiment = makeExperiment({
+      statusUpdateSchedule: { startAt: new Date("2099-01-01") },
+      nextScheduledStatusUpdate: {
+        type: "start",
+        date: new Date("2099-01-01"),
+      },
+    });
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: null,
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes.statusUpdateSchedule).toBeNull();
+    expect(changes.nextScheduledStatusUpdate).toBeNull();
+  });
+
+  it("valid future startAt sets schedule and clears any staged start", () => {
+    const future = new Date("2099-06-01T12:00:00Z");
+    const experiment = makeExperiment({
+      nextScheduledStatusUpdate: {
+        type: "start",
+        date: new Date("2099-01-01"),
+      },
+    });
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: { startAt: future },
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect((changes.statusUpdateSchedule as { startAt: Date }).startAt).toEqual(
+      future,
+    );
+    expect(changes.nextScheduledStatusUpdate).toBeNull();
+  });
+
+  it("object with no startAt clears both schedule and staged start", () => {
+    const experiment = makeExperiment({
+      statusUpdateSchedule: { startAt: new Date("2099-01-01") },
+      nextScheduledStatusUpdate: {
+        type: "start",
+        date: new Date("2099-01-01"),
+      },
+    });
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: {} as { startAt: Date },
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes.statusUpdateSchedule).toBeNull();
+    expect(changes.nextScheduledStatusUpdate).toBeNull();
+  });
+
+  it("throws for bandit experiments when a schedule is provided", () => {
+    const experiment = makeExperiment({ type: "multi-armed-bandit" });
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: { startAt: new Date("2099-01-01") },
+    };
+
+    expect(() =>
+      normalizeStatusUpdateScheduleChanges(experiment, changes),
+    ).toThrow("Bandit experiments do not support scheduled starts.");
+  });
+
+  it("does not throw for bandit experiments when schedule is explicitly cleared", () => {
+    const experiment = makeExperiment({ type: "multi-armed-bandit" });
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: null,
+    };
+
+    expect(() =>
+      normalizeStatusUpdateScheduleChanges(experiment, changes),
+    ).not.toThrow();
+    expect(changes.statusUpdateSchedule).toBeNull();
+    expect(changes.nextScheduledStatusUpdate).toBeNull();
+  });
+
+  it("type changing to bandit with a schedule throws", () => {
+    const experiment = makeExperiment({ type: "standard" });
+    const changes: Partial<ExperimentInterface> = {
+      type: "multi-armed-bandit",
+      statusUpdateSchedule: { startAt: new Date("2099-01-01") },
+    };
+
+    expect(() =>
+      normalizeStatusUpdateScheduleChanges(experiment, changes),
+    ).toThrow("Bandit experiments do not support scheduled starts.");
+  });
+
+  it("status moving out of draft clears a pending staged start when no schedule key is present", () => {
+    const experiment = makeExperiment({
+      status: "draft",
+      nextScheduledStatusUpdate: {
+        type: "start",
+        date: new Date("2099-01-01"),
+      },
+    });
+    const changes: Partial<ExperimentInterface> = { status: "running" };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes.nextScheduledStatusUpdate).toBeNull();
+  });
+
+  it("status staying draft does not clear a pending staged start", () => {
+    const experiment = makeExperiment({
+      status: "draft",
+      nextScheduledStatusUpdate: {
+        type: "start",
+        date: new Date("2099-01-01"),
+      },
+    });
+    const changes: Partial<ExperimentInterface> = { status: "draft" };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes.nextScheduledStatusUpdate).toBeUndefined();
+  });
+
+  it("no schedule key and no status change leaves changes untouched", () => {
+    const experiment = makeExperiment({
+      nextScheduledStatusUpdate: {
+        type: "start",
+        date: new Date("2099-01-01"),
+      },
+    });
+    const changes: Partial<ExperimentInterface> = { name: "renamed" };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes.nextScheduledStatusUpdate).toBeUndefined();
   });
 });

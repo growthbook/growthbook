@@ -1,4 +1,5 @@
 import type { SqlDialect } from "shared/types/sql";
+import { indicesTableUnpivot } from "back-end/src/integrations/sql/clauses/indices-table-unpivot";
 import { baseDialect } from "./base";
 
 export const redshiftDialect: SqlDialect = {
@@ -42,4 +43,9 @@ export const redshiftDialect: SqlDialect = {
           })
           .join(",\n        ")}
       `,
+
+  // Redshift's LATERAL keyword only applies to nested SUPER data, not regular
+  // relational subqueries — both `CROSS JOIN LATERAL (VALUES ...)` and
+  // `CROSS JOIN LATERAL (SELECT ... UNION ALL ...)` are syntax errors.
+  unpivotLabeledPairs: indicesTableUnpivot,
 };

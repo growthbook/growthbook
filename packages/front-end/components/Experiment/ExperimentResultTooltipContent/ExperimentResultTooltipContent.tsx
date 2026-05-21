@@ -166,7 +166,8 @@ export default function ExperimentResultTooltipContent({
     if (resultsStatus !== "draw" || minPercentChange === undefined) return null;
     return (
       <Text as="div" size="1" style={{ color: "var(--color-text-mid)" }}>
-        <b>Draw:</b> this occurs when the % Change is smaller than the
+        <b>Draw:</b>
+        {" this occurs when the % Change is smaller than the "}
         metric&apos;s min change ({percentFormatter.format(minPercentChange)})
       </Text>
     );
@@ -176,7 +177,8 @@ export default function ExperimentResultTooltipContent({
     if (!suspiciousChange) return null;
     return (
       <Text as="div" size="1" style={{ color: "var(--color-text-mid)" }}>
-        <b>Suspicious:</b> this occurs when the % Change is above the
+        <b>Suspicious:</b>
+        {" this occurs when the % Change is above the "}
         metric&apos;s max change ({percentFormatter.format(suspiciousThreshold)}
         )
       </Text>

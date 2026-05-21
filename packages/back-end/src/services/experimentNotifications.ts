@@ -32,7 +32,7 @@ import { Context } from "back-end/src/models/BaseModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
-import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
+import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
 import {
   getEnvironmentIdsFromOrg,
@@ -129,6 +129,45 @@ export const notifyAutoUpdate = ({
           },
         },
       }),
+  });
+
+// Fires on every failed attempt of the scheduled-status-update job (not
+// memoized). Each event carries the attempt count and whether another retry
+// will follow, so downstream channels can choose to surface only the
+// terminal failure (`willRetry: false`) if desired.
+export const notifyScheduledStatusUpdateFailed = ({
+  context,
+  experiment,
+  scheduledStatusUpdateType,
+  attempts,
+  maxAttempts,
+  willRetry,
+  reason,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  scheduledStatusUpdateType: "start" | "stop";
+  attempts: number;
+  maxAttempts: number;
+  willRetry: boolean;
+  reason: string;
+}) =>
+  dispatchEvent({
+    context,
+    experiment,
+    event: "warning",
+    data: {
+      object: {
+        type: "scheduled-status-update-failed",
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+        scheduledStatusUpdateType,
+        attempts,
+        maxAttempts,
+        willRetry,
+        reason,
+      },
+    },
   });
 
 export const notifyMultipleExposures = async ({
@@ -279,7 +318,7 @@ export const computeExperimentChanges = async ({
     return [];
   }
 
-  const lastSnapshot = await getLatestSnapshot({
+  const lastSnapshot = await getLatestSuccessfulSnapshot({
     context,
     experiment: experiment.id,
     phase: experiment.phases.length - 1,

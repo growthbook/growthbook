@@ -69,6 +69,7 @@ import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTempl
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
+import { RevisionModel } from "back-end/src/models/RevisionModel";
 import { AIConversationModel } from "back-end/src/models/AIConversationModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
@@ -115,6 +116,7 @@ export type ModelName =
   | "teams"
   | "analyticsExplorations"
   | "presentationThemes"
+  | "revisions"
   | "watch"
   | "apiKeys"
   | "rampSchedules"
@@ -152,6 +154,7 @@ export const modelClasses = {
   savedGroups: SavedGroupModel,
   teams: TeamModel,
   analyticsExplorations: AnalyticsExplorationModel,
+  revisions: RevisionModel,
   presentationThemes: PresentationThemeModel,
   watch: WatchModel,
   apiKeys: ApiKeyModel,
@@ -200,6 +203,7 @@ export class ReqContextClass {
       savedGroups: new SavedGroupModel(this),
       teams: new TeamModel(this),
       analyticsExplorations: new AnalyticsExplorationModel(this),
+      revisions: new RevisionModel(this),
       presentationThemes: new PresentationThemeModel(this),
       watch: new WatchModel(this),
       apiKeys: new ApiKeyModel(this),

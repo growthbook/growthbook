@@ -623,8 +623,9 @@ export async function putMember(
   }
 
   try {
+    const reqEmailLower = req.email.toLowerCase();
     const invite: Invite | undefined = organization.invites.find(
-      (inv) => inv.email === req.email,
+      (inv) => inv.email.toLowerCase() === reqEmailLower,
     );
     if (invite) {
       // if user already invited, accept invite
@@ -1602,6 +1603,13 @@ export async function putOrganization(
     const updates: Partial<OrganizationInterface> = {};
 
     const orig: Partial<OrganizationInterface> = {};
+    if (!context.hasPremiumFeature("require-approvals")) {
+      if (settings?.approvalFlows?.savedGroups?.some((sg) => sg?.required)) {
+        throw new Error(
+          "Saved Groups approval flows require the Require Approvals enterprise feature.",
+        );
+      }
+    }
 
     if (name) {
       updates.name = name;

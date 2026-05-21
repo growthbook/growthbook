@@ -257,14 +257,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                     const updatedAttribute: SDKAttribute = {
                       property: v.property,
                       datatype: v.datatype,
-                      projects: v.projects,
-                      format: v.format,
-                      enum: v.enum,
-                      hashAttribute: v.hashAttribute,
                       archived: !v.archived,
-                      tags: v.tags,
-                      description: v.description,
-                      disableEqualityConditions: v.disableEqualityConditions,
                     };
                     await apiCall<{
                       res: number;

@@ -9,7 +9,6 @@ import {
 import { getFactTable } from "back-end/src/models/FactTableModel";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { validateAggregationSpecification } from "back-end/src/api/fact-metrics/postFactMetric";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 
 function expectsDenominator(metricType: FactMetricType) {
@@ -20,6 +19,7 @@ function expectsDenominator(metricType: FactMetricType) {
     case "proportion":
     case "quantile":
     case "retention":
+    case "dailyParticipation":
       return false;
   }
 }
@@ -46,24 +46,33 @@ export async function getUpdateFactMetricPropsFromBody(
     loseRisk: riskThresholdDanger,
   };
 
-  const metricType = updates.metricType;
+  const metricType = updates.metricType ?? factMetric.metricType;
   if (numerator) {
+    // Set the correct column based on metric type
+    let column: string;
+    if (metricType === "proportion" || metricType === "retention") {
+      column = "$$distinctUsers";
+    } else if (metricType === "dailyParticipation") {
+      column = "$$distinctDates";
+    } else {
+      column = numerator.column || "$$distinctUsers";
+    }
+
     updates.numerator = FactMetricModel.migrateColumnRef({
       ...numerator,
-      column:
-        metricType === "proportion" || metricType === "retention"
-          ? "$$distinctUsers"
-          : numerator.column || "$$distinctUsers",
+      column,
+      // Clear aggregation for metric types that use special columns
+      aggregation:
+        metricType === "proportion" ||
+        metricType === "retention" ||
+        metricType === "dailyParticipation"
+          ? undefined
+          : numerator.aggregation,
     });
     const factTable = await getFactTable(updates.numerator.factTableId);
     if (!factTable) {
       throw new Error("Could not find numerator fact table");
     }
-    validateAggregationSpecification({
-      errorPrefix: "Numerator misspecified. ",
-      column: updates.numerator,
-      factTable: factTable,
-    });
   }
   // remove denominator for non-ratio metrics where existing
   // metric is a ratio metric
@@ -83,11 +92,6 @@ export async function getUpdateFactMetricPropsFromBody(
     if (!factTable) {
       throw new Error("Could not find denominator fact table");
     }
-    validateAggregationSpecification({
-      errorPrefix: "Denominator misspecified. ",
-      column: updates.denominator,
-      factTable: factTable,
-    });
   }
   if (cappingSettings) {
     updates.cappingSettings = {

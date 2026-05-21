@@ -38,6 +38,7 @@ import {
   SafeRolloutRule,
   ACTIVE_DRAFT_STATUSES,
   RevisionMetadata,
+  RevisionRampAction,
   RevisionRampCreateAction,
   RevisionRampDetachAction,
 } from "shared/validators";
@@ -67,6 +68,7 @@ import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
 } from "shared/types/feature-rule";
+import { getValidDate } from "shared/dates";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getContextForAgendaJobByOrgId,
@@ -181,6 +183,7 @@ import { getAllCodeRefsForFeature } from "back-end/src/models/FeatureCodeRefs";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import { getChangesToStartExperiment } from "back-end/src/services/experiments";
+import { approveScheduledExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import {
   formatPendingDraftFailureMessage,
   PendingDraftPublishResult,
@@ -194,6 +197,11 @@ import {
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
 import { getInitialFeatureJsonSchema } from "back-end/src/util/feature-json-schema";
+import {
+  advanceUntilBlocked,
+  applyRampStartActions,
+  computeNextProcessAt,
+} from "back-end/src/services/rampSchedule";
 
 /**
  * Routes an envelope change through the revision system.
@@ -1359,11 +1367,14 @@ export async function postFeaturePublish(
     context.permissions.throwPermissionError();
   }
 
-  // If publishing experiments along with this draft, ensure they are valid
+  // If publishing experiments along with this draft, ensure they are valid.
+  // Experiments with a future statusUpdateSchedule.startAt are routed through
+  // approveScheduledExperimentStart instead of starting immediately.
   const experimentsToUpdate: {
     experiment: ExperimentInterface;
     changes: Changeset;
   }[] = [];
+  const experimentsToApproveSchedule: ExperimentInterface[] = [];
   if (publishExperimentIds && publishExperimentIds.length) {
     const experiments = await getExperimentsByIds(
       context,
@@ -1392,7 +1403,20 @@ export async function postFeaturePublish(
       context.permissions.throwPermissionError();
     }
 
-    for (const experiment of experiments) {
+    const now = new Date();
+    const startNowExperiments: ExperimentInterface[] = [];
+    for (const exp of experiments) {
+      const startAt = exp.statusUpdateSchedule?.startAt
+        ? getValidDate(exp.statusUpdateSchedule.startAt)
+        : null;
+      if (startAt && startAt > now) {
+        experimentsToApproveSchedule.push(exp);
+      } else {
+        startNowExperiments.push(exp);
+      }
+    }
+
+    for (const experiment of startNowExperiments) {
       try {
         const changes = await getChangesToStartExperiment(context, experiment);
 
@@ -1406,10 +1430,35 @@ export async function postFeaturePublish(
       }
     }
 
+    // Permission gate for scheduled-approval bucket — mirrors the check in
+    // approveScheduledExperimentStart so the request fails before we publish
+    // the feature revision instead of after.
+    for (const experiment of experimentsToApproveSchedule) {
+      if (!context.permissions.canUpdateExperiment(experiment, {})) {
+        context.permissions.throwPermissionError();
+      }
+      const linkedFeatures = await getFeaturesByIds(
+        context,
+        experiment.linkedFeatures || [],
+      );
+      const schedEnvs = getAffectedEnvsForExperiment({
+        experiment,
+        orgEnvironments: context.org.settings?.environments || [],
+        linkedFeatures,
+      });
+      if (
+        schedEnvs.length > 0 &&
+        !context.permissions.canRunExperiment(experiment, schedEnvs)
+      ) {
+        context.permissions.throwPermissionError();
+      }
+    }
+
     // Pre-flight: check for merge conflicts in OTHER pending feature drafts
-    // for each experiment being started. The current feature's conflict is
-    // already guarded above by the mergeResult.success check.
-    for (const experiment of experiments) {
+    // for each experiment being started immediately. Scheduled-approval
+    // experiments defer the pending-draft publish to the agenda job, which
+    // runs its own merge check at start time.
+    for (const experiment of startNowExperiments) {
       const otherDrafts = (experiment.pendingFeatureDrafts ?? []).filter(
         (d) => d.featureId !== feature.id,
       );
@@ -1514,6 +1563,28 @@ export async function postFeaturePublish(
 
     await req.audit({
       event: "experiment.status",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsUpdate(experiment, updated),
+    });
+  }
+
+  // Approve scheduled starts for experiments whose `statusUpdateSchedule.startAt`
+  // is in the future. The agenda job will publish their other pending feature
+  // drafts and transition the experiment to running when the scheduled time
+  // is reached, so we intentionally don't call publishPendingFeatureDraftsForExperiment
+  // here.
+  for (const experiment of experimentsToApproveSchedule) {
+    const { updated } = await approveScheduledExperimentStart({
+      context,
+      experimentId: experiment.id,
+      skipChecklist: true,
+    });
+
+    await req.audit({
+      event: "experiment.update",
       entity: {
         object: "experiment",
         id: experiment.id,
@@ -3118,7 +3189,22 @@ export async function putFeatureRule(
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
   const existingRules = cloneDeep(revision.rules ?? []);
-  const existingRule = existingRules.find((r) => r.id === ruleId);
+  let existingRule = existingRules.find((r) => r.id === ruleId);
+
+  // Stale-draft case: the rule was published to live after this draft was
+  // created (draft.baseVersion < the version where the rule was added), so
+  // the draft never picked it up. The modal still surfaces the rule (it's in
+  // feature.rules), so failing here surprises the user. Pull the live rule
+  // into the draft so the edit applies; autoMerge will reconcile cleanly at
+  // publish (live already has the rule with the same id).
+  if (!existingRule) {
+    const liveRule = (feature.rules ?? []).find((r) => r.id === ruleId);
+    if (liveRule) {
+      existingRules.push(cloneDeep(liveRule));
+      existingRule = existingRules[existingRules.length - 1];
+    }
+  }
+
   if (!existingRule) throw new Error("Unknown rule");
 
   // Audit/review scope is the rule's own env scope.
@@ -3256,11 +3342,10 @@ export async function putFeatureRule(
           actions: (step.actions ?? []).map(remapT1),
         }));
       }
-      if ("startDate" in rampSchedulePayload) {
-        updates.startDate = rampSchedulePayload.startDate
-          ? new Date(rampSchedulePayload.startDate)
-          : null;
-      }
+      // Process endCondition/endActions before startDate so the "start now"
+      // path below (clear startDate while status is "ready") carries any
+      // simultaneously-submitted end fields through `...updates` instead of
+      // silently dropping them.
       if (rampSchedulePayload.endCondition !== undefined) {
         const ec = rampSchedulePayload.endCondition;
         if (!ec) {
@@ -3276,6 +3361,63 @@ export async function putFeatureRule(
       if (rampSchedulePayload.endActions !== undefined) {
         updates.endActions = rampSchedulePayload.endActions.map(remapT1);
       }
+      if ("startDate" in rampSchedulePayload) {
+        const nextStartDate = rampSchedulePayload.startDate
+          ? new Date(rampSchedulePayload.startDate)
+          : null;
+        // Clearing startDate on a "ready" schedule means "start now" —
+        // transition to running and apply start actions so the rule enables.
+        if (nextStartDate === null && existing.status === "ready") {
+          const now = new Date();
+          const initialNextStepAt = existing.steps.length > 0 ? now : null;
+          await context.models.rampSchedules.updateById(existing.id, {
+            ...updates,
+            startDate: null,
+            status: "running",
+            startedAt: now,
+            phaseStartedAt: now,
+            nextStepAt: initialNextStepAt,
+            nextProcessAt: computeNextProcessAt({
+              status: "running",
+              nextStepAt: initialNextStepAt,
+              endCondition:
+                updates.endCondition !== undefined
+                  ? (updates.endCondition as typeof existing.endCondition)
+                  : existing.endCondition,
+            }),
+          });
+          const refreshed = await context.models.rampSchedules.getById(
+            existing.id,
+          );
+          if (refreshed) {
+            // For simple schedules this enables the rule. For ramps with steps
+            // it's a no-op — advanceUntilBlocked will fire step 0 (which folds
+            // enabled:true into the same revision as the step's patches).
+            await applyRampStartActions(context, refreshed);
+            await advanceUntilBlocked(context, refreshed, now);
+          }
+          // The "start now" path is a live operation on the schedule, not a
+          // draft edit — skip the rest of the update block (which would
+          // overwrite our status/startedAt updates) and return the current
+          // draft version directly so the frontend stays in sync.
+          res.status(200).json({
+            status: 200,
+            version: revision.version,
+          });
+          return;
+        }
+        updates.startDate = nextStartDate;
+      }
+      updates.nextProcessAt = computeNextProcessAt({
+        status: existing.status,
+        nextStepAt: existing.nextStepAt,
+        endCondition: (updates.endCondition !== undefined
+          ? updates.endCondition
+          : existing.endCondition) as typeof existing.endCondition,
+        startDate: (updates.startDate !== undefined
+          ? updates.startDate
+          : existing.startDate) as typeof existing.startDate,
+      });
       await context.models.rampSchedules.updateById(existing.id, updates);
     }
   }
@@ -3682,7 +3824,18 @@ export async function deleteFeatureRule(
       ? environmentIds
       : (rule.environments ?? []);
 
-  const changes = { rules: nextRules };
+  // Strip any pending ramp actions for the deleted rule so publish doesn't
+  // create a schedule doc that would be immediately cleaned up as orphaned.
+  // Mirrors the REST handler's behavior.
+  const changes: { rules: FeatureRule[]; rampActions?: RevisionRampAction[] } =
+    { rules: nextRules };
+  const existingRampActions = revision.rampActions ?? [];
+  const filteredRampActions = existingRampActions.filter(
+    (a) => a.ruleId !== ruleId,
+  );
+  if (filteredRampActions.length !== existingRampActions.length) {
+    changes.rampActions = filteredRampActions;
+  }
 
   const resetReview = resetReviewOnChange({
     feature,

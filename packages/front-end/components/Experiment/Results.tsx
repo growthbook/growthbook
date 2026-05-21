@@ -106,14 +106,20 @@ const Results: FC<{
     error,
     snapshot,
     analysis,
-    latest,
+    latestSummary: latest,
     phase,
     setPhase,
     dimension,
     setAnalysisSettings,
-    mutateSnapshot: mutate,
+    mutate,
     loading: snapshotLoading,
   } = useSnapshot();
+
+  // Child tables (BreakdownResults/CompactResults → BaselineChooserColumnLabel)
+  // append analyses to the **current** snapshot in place, so the heavy
+  // fetch needs to be re-issued when they call back. Bind `inPlace: true`
+  // here so the children stay decoupled from the option name.
+  const mutateInPlace = () => mutate({ inPlace: true });
 
   const queryStatusData = getQueryStatus(latest?.queries || [], latest?.error);
   const { status } = queryStatusData;
@@ -417,7 +423,7 @@ const Results: FC<{
               snapshot={snapshot}
               analysis={analysis}
               setAnalysisSettings={setAnalysisSettings}
-              mutate={mutate}
+              mutate={mutateInPlace}
               goalMetrics={experiment.goalMetrics}
               secondaryMetrics={experiment.secondaryMetrics}
               guardrailMetrics={experiment.guardrailMetrics}
@@ -478,7 +484,7 @@ const Results: FC<{
               snapshot={snapshot}
               analysis={analysis}
               setAnalysisSettings={setAnalysisSettings}
-              mutate={mutate}
+              mutate={mutateInPlace}
               multipleExposures={snapshot.multipleExposures || 0}
               results={analysis.results[0]}
               queryStatusData={queryStatusData}

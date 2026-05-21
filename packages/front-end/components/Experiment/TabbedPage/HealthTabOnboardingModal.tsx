@@ -33,7 +33,7 @@ export type HealthTabConfigParams = {
   experiment: ExperimentInterfaceStringDates;
   phase: number;
   refreshOrganization: () => void;
-  mutateSnapshot: () => void;
+  mutate: (opts?: { inPlace?: boolean }) => Promise<unknown>;
   setAnalysisSettings: (
     analysisSettings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
@@ -56,7 +56,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
     experiment,
     phase,
     refreshOrganization,
-    mutateSnapshot,
+    mutate,
     setAnalysisSettings,
     setLoading,
     resetResultsSettings,
@@ -93,7 +93,11 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
   const exposureQueryId = exposureQuery.id;
 
   const [id, setId] = useState<string | null>(metadataId || null);
-  const { data, error, mutate } = useApi<{
+  const {
+    data,
+    error,
+    mutate: mutateDimensionSlices,
+  } = useApi<{
     dimensionSlices: DimensionSlicesInterface;
   }>(`/dimension-slices/${id}`);
 
@@ -164,7 +168,10 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
 
           setAnalysisSettings(null);
           resetResultsSettings();
-          mutateSnapshot();
+          // POSTing /snapshot creates a brand-new snapshot id; the
+          // provider auto-upgrades the heavy fetch when status reports the
+          // new successful id, so the default cheap mutate is sufficient.
+          mutate();
         })
         .catch((e) => {
           console.error(e);
@@ -272,7 +279,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
                 customDimensionMetadata={customDimensionMetadata}
                 setCustomDimensionMetadata={setCustomDimensionMetadata}
                 dimensionSlices={data?.dimensionSlices}
-                mutateDimensionSlices={mutate}
+                mutateDimensionSlices={mutateDimensionSlices}
                 setDimensionSlicesId={setId}
               />
             </div>

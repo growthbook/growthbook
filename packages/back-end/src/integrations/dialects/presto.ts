@@ -28,4 +28,20 @@ export const prestoDialect: SqlDialect = {
   hllCardinality: (col: string) => `CARDINALITY(${col})`,
   percentileCapSelectClause: (values, metricTable, where = "") =>
     defaultPercentileCapSelectClause(prestoDialect, values, metricTable, where),
+
+  // UNNEST with parallel arrays (rather than ARRAY[ROW(...)]) works on both
+  // older Presto and newer Trino, where the row-expansion behavior of
+  // UNNEST(ARRAY[ROW(...)]) AS t(a, b) is not consistent across versions.
+  unpivotLabeledPairs: (pairs) => {
+    const namesArr = pairs.map((p) => `'${p.keyLiteral}'`).join(", ");
+    const valsArr = pairs.map((p) => p.valueSql).join(", ");
+    return {
+      fromContinuation: `CROSS JOIN UNNEST(
+        ARRAY[${namesArr}],
+        ARRAY[${valsArr}]
+      ) AS __col(column_name, value)`,
+      keyExpr: "__col.column_name",
+      valueExpr: "__col.value",
+    };
+  },
 };

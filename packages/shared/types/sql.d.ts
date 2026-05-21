@@ -1,6 +1,22 @@
 import type { SqlLanguage } from "sql-formatter";
 import { DataType } from "./integrations";
 
+/** One labeled column expanded per base row by {@link SqlDialect.unpivotLabeledPairs}. */
+export type UnpivotLabeledPair = {
+  /** Logical name (unescaped); dialect may quote as a SQL string literal. */
+  keyLiteral: string;
+  /** SQL expression evaluated per base row (e.g. cast of a column). */
+  valueSql: string;
+};
+
+/** Join SQL and output expressions for static labeled-pair unpivot (engine-specific syntax). */
+export type UnpivotLabeledPairsResult = {
+  /** Placed after `FROM __factTable` (includes leading newline/CROSS JOIN/comma as needed). */
+  fromContinuation: string;
+  keyExpr: string;
+  valueExpr: string;
+};
+
 export type TemplateVariables = {
   eventName?: string;
   valueColumn?: string;
@@ -82,4 +98,8 @@ export interface SqlDialect {
     nEventsCol: string,
     numQuantiles: number,
   ) => string;
+  unpivotLabeledPairs: (
+    pairs: UnpivotLabeledPair[],
+  ) => UnpivotLabeledPairsResult;
+  stringLength: (column: string) => string;
 }
