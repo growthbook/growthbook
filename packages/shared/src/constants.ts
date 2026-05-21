@@ -1,6 +1,5 @@
 import { FactMetricType } from "shared/types/fact-table";
 import { EntityEvents } from "shared/types/audit";
-import { ApprovalFlowConfigurations } from "shared/types/organization";
 
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;
 export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
@@ -98,15 +97,6 @@ export const SAFE_ROLLOUT_TRACKING_KEY_PREFIX = "srk_";
 
 export const DEFAULT_REQUIRE_PROJECT_FOR_FEATURES = false;
 
-export const DEFAULT_REVISION_CONFIGURATION: ApprovalFlowConfigurations = {
-  savedGroups: [
-    {
-      required: false,
-      requireMetadataReview: true,
-    },
-  ],
-};
-
 // Default configuration for Safe Rollout
 export const SAFE_ROLLOUT_VARIATIONS = [
   {
@@ -130,7 +120,7 @@ export const UNSUPPORTED_METRIC_EXPLORER_TYPES: readonly FactMetricType[] = [
 export const MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID = "ch_events";
 export const MANAGED_WAREHOUSE_ERRORS_FACT_TABLE_ID = "ch_errors";
 
-/** Ingest event name for managed warehouse `errors` table — keep in sync with sdk-js `EVENT_GROWTHBOOK_ERROR`. */
+/** Ingest event name for managed warehouse `errors` table — keep in sync with sdk-js `EVENT_GROWTHBOOK_ERROR` and ingestor fingerprinting. */
 export const EVENT_GROWTHBOOK_ERROR = "GrowthBook Error";
 
 export const sdkLanguages = [
@@ -177,8 +167,6 @@ export const attributeDataTypes = [
 // for audits
 export const entityEvents = {
   agreement: ["create", "update", "delete"],
-  approvalFlow: ["create", "update", "delete"],
-  revision: ["create", "update", "delete"],
   aiPrompt: ["create", "update", "delete"],
   attribute: ["create", "update", "delete"],
   experiment: [

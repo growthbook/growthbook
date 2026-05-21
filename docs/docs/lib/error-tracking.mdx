@@ -57,7 +57,7 @@ await gb.init();
 
 ### Manual capture
 
-Use `captureGrowthBookError` when you handle an error yourself but still want it in GrowthBook.
+Use `captureGrowthBookError` when you handle an error yourself but still want it in GrowthBook Error Tracker.
 
 ```js
 import { captureGrowthBookError } from "@growthbook/growthbook/plugins";
@@ -72,6 +72,34 @@ try {
 }
 ```
 
+The full `Error.message` is stored for display.
+
+### Custom grouping
+
+Grouping of messages happens automatically based on the stack frames and Error thrown. When the error message varies widely, Growthbook Error tracker may count it as separate errors. To avoid the chance of that happening you can call `setFingerprint`.
+
+For instance, when you know the logical issue bucket (for example checkout failures with different order ids in the message), set a fingerprint before the next error on that `GrowthBook` instance:
+
+```js
+import {
+  captureGrowthBookError,
+  setFingerprint,
+} from "@growthbook/growthbook/plugins";
+
+setFingerprint(gb, ["checkout", "payment", "failed"]);
+await captureGrowthBookError(gb, error, {
+  errorType: "manual",
+  release: process.env.NEXT_PUBLIC_RELEASE,
+});
+```
+
+You can pass either:
+
+- A **string** — used as the issue fingerprint as-is.
+- An **array of strings** — hashed together server-side.
+
+If `setFingerprint` is not called, Growthbook derives a fingerprint automatically.
+
 ### Plugin options
 
 `growthbookErrorTrackingPlugin` accepts:
@@ -79,7 +107,7 @@ try {
 - `enable` — turn reporting on or off.
 - `captureUnhandled` — listen for `window.onerror`.
 - `captureUnhandledRejections` — listen for unhandled promise rejections.
-- `dedupeWindowMs` — suppress duplicate fingerprints within a short window.
+- `dedupeWindowMs` — suppress duplicate reports within a short window (by message/stack or custom fingerprint).
 - `release` or `getRelease()` — attach a release tag to each error.
 - `runtime` — override the runtime label (defaults to `browser` in the browser).
 - `getTransaction()` — optional transaction name, such as a route id.
