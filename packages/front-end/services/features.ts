@@ -1471,11 +1471,9 @@ export function getExperimentDefinitionFromFeature(
 export function useRealtimeData(
   features: FeatureInterface[] = [],
   mock = false,
-  enabled = true,
 ): { usage: FeatureUsageRecords; usageDomain: [number, number] } {
   const { data, mutate } = useApi<{ usage: FeatureUsageRecords }>(
     `/usage/features`,
-    { shouldRun: () => enabled },
   );
 
   // Mock data
@@ -1502,7 +1500,6 @@ export function useRealtimeData(
 
   // Update usage data every 10 seconds
   useEffect(() => {
-    if (!enabled) return;
     let timer = 0;
     const cb = async () => {
       await mutate();
@@ -1512,7 +1509,7 @@ export function useRealtimeData(
     return () => {
       window.clearTimeout(timer);
     };
-  }, [enabled, mutate]);
+  }, []);
 
   const max = useMemo(() => {
     return Math.max(

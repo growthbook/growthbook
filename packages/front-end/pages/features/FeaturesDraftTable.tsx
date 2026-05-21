@@ -130,7 +130,7 @@ export default function FeaturesDraftTable() {
               <SortableTableColumnHeader field="featureKey">
                 Feature Key
               </SortableTableColumnHeader>
-              <TableColumnHeader>Comment</TableColumnHeader>
+              <TableColumnHeader>Notes</TableColumnHeader>
               <TableColumnHeader>Project</TableColumnHeader>
               <TableColumnHeader>Creator</TableColumnHeader>
               <SortableTableColumnHeader field="dateUpdated">
@@ -185,9 +185,7 @@ export default function FeaturesDraftTable() {
                         resourceType="feature"
                         projectIds={[featureAndRevision.project]}
                       />
-                    ) : (
-                      "—"
-                    )}
+                    ) : null}
                   </TableCell>
                   <TableCell>{featureAndRevision.creator}</TableCell>
                   <TableCell title={datetime(featureAndRevision.dateUpdated)}>

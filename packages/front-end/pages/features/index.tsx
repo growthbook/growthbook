@@ -109,7 +109,6 @@ export default function FeaturesPage() {
   const { usage, usageDomain } = useRealtimeData(
     allFeatures as unknown as FeatureInterface[],
     !!router?.query?.mockdata,
-    showGraphs,
   );
 
   const statusHook = useFeaturesStatus();
