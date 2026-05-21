@@ -649,8 +649,8 @@ app.get(
   experimentsController.getSnapshotWithDimension,
 );
 app.get(
-  "/experiment/:id/snapshot-status/:phase",
-  experimentsController.getSnapshotStatus,
+  "/experiment/:id/snapshot-summary/:phase",
+  experimentsController.getSnapshotSummary,
 );
 app.post("/experiment/:id/snapshot", experimentsController.postSnapshot);
 app.post(

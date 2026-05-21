@@ -978,7 +978,7 @@ export async function getSnapshot(
 // the most recent (success/running/error) snapshot. Returns only the
 // `SnapshotStatusSummary` fields, skipping the per-metric chunk decode that
 // dominates the full snapshot endpoint for experiments with many metrics.
-export async function getSnapshotStatus(
+export async function getSnapshotSummary(
   req: AuthRequest<
     null,
     { id: string; phase: string },

@@ -255,7 +255,7 @@ export interface ExperimentWithSnapshot extends ExperimentInterfaceStringDates {
 
 /**
  * Subset of `ExperimentSnapshotInterface` returned by the dedicated
- * `GET /experiment/:id/snapshot-status/:phase` endpoint. The endpoint only
+ * `GET /experiment/:id/snapshot-summary/:phase` endpoint. The endpoint only
  * fetches top-level snapshot fields (no per-metric analysis chunks), so
  * `analyses[].results` are not available here — only fields needed to
  * render refresh status, queries, errors, and other top-level snapshot

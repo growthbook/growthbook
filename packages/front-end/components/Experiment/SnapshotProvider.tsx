@@ -192,7 +192,7 @@ export default function SnapshotProvider({
   const { data: statusData, mutate: mutateStatus } = useApi<{
     latest: SnapshotStatusSummary | null;
   }>(
-    `/experiment/${experiment.id}/snapshot-status/${phase}` +
+    `/experiment/${experiment.id}/snapshot-summary/${phase}` +
       (statusQuery ? `?${statusQuery}` : ""),
   );
 
