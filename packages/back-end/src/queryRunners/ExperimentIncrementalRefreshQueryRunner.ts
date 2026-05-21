@@ -575,16 +575,16 @@ const startExperimentIncrementalRefreshQueries = async (
 
   // Track per-group state we need from the per-FT pass for the cross-FT
   // pair pass below: each pipeline's cache table name (so the stats query
-  // can build its `metricSourceTables` map keyed by factTableId) and the
-  // insert query (so the stats query can declare it as a dependency).
+  // can build its `metricSources` array) and the insert query (so the
+  // stats query can declare it as a dependency).
   interface SourcePipeline {
     group: MetricSourceGroups;
     tableFullName: string;
     insertQuery: QueryPointer;
     // Optional covariate cache + insert query for this group, populated
     // only when at least one metric in the group is regression-adjusted.
-    // The cross-FT pair pass below stitches both pipelines' covariate
-    // caches into a single `metricSourceCovariateTables` map.
+    // The cross-FT pair pass below pairs both pipelines' covariate caches
+    // into the `metricSources` entries it passes to the stats query.
     covariateTableFullName?: string;
     covariateInsertQuery?: QueryPointer;
   }
@@ -950,13 +950,15 @@ const startExperimentIncrementalRefreshQueries = async (
           lastMaxTimestamp: existingSource?.maxTimestamp || null,
           dimensionsForPrecomputation,
           dimensionsForAnalysis: [],
-          metricSourceTables: {
-            [group.factTableId]: metricSourceTableFullName,
-          },
-          metricSourceCovariateTables:
-            anyMetricHasCuped && metricSourceCovariateTableFullName
-              ? { [group.factTableId]: metricSourceCovariateTableFullName }
-              : {},
+          metricSources: [
+            {
+              factTableId: group.factTableId,
+              tableFullName: metricSourceTableFullName,
+              ...(anyMetricHasCuped && metricSourceCovariateTableFullName
+                ? { covariateTableFullName: metricSourceCovariateTableFullName }
+                : {}),
+            },
+          ],
         }),
         dependencies: [
           insertMetricsSourceDataQuery.query,
@@ -1020,28 +1022,28 @@ const startExperimentIncrementalRefreshQueries = async (
         lastMaxTimestamp: null,
         dimensionsForPrecomputation,
         dimensionsForAnalysis: [],
-        metricSourceTables: {
-          [pipelineA.group.factTableId]: pipelineA.tableFullName,
-          [pipelineB.group.factTableId]: pipelineB.tableFullName,
-        },
         // Cross-FT CUPED uses one covariate cache per pipeline — the
         // numerator FT's cache carries `_value` covariates, the
         // denominator FT's cache carries `_denominator_value` covariates,
         // and the per-source covariate LEFT JOIN inside each
         // `__joinedData{i}` picks the right side from each side's cache.
-        // FTs with no RA metrics are omitted from this map.
-        metricSourceCovariateTables: {
-          ...(pipelineA.covariateTableFullName
-            ? {
-                [pipelineA.group.factTableId]: pipelineA.covariateTableFullName,
-              }
-            : {}),
-          ...(pipelineB.covariateTableFullName
-            ? {
-                [pipelineB.group.factTableId]: pipelineB.covariateTableFullName,
-              }
-            : {}),
-        },
+        // Pipelines with no RA metrics omit `covariateTableFullName`.
+        metricSources: [
+          {
+            factTableId: pipelineA.group.factTableId,
+            tableFullName: pipelineA.tableFullName,
+            ...(pipelineA.covariateTableFullName
+              ? { covariateTableFullName: pipelineA.covariateTableFullName }
+              : {}),
+          },
+          {
+            factTableId: pipelineB.group.factTableId,
+            tableFullName: pipelineB.tableFullName,
+            ...(pipelineB.covariateTableFullName
+              ? { covariateTableFullName: pipelineB.covariateTableFullName }
+              : {}),
+          },
+        ],
       }),
       dependencies: [
         pipelineA.insertQuery.query,

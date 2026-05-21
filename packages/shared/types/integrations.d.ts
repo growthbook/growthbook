@@ -147,19 +147,20 @@ export type FactMetricData = {
   aggregatedValueTransformation: AggregatedValueTransformation;
 };
 
-export type FactMetricSourceData = {
+// Identity and per-source temporal scoping for one fact-table cache. Metric-
+// level lists (metricData / percentileData / eventQuantileData /
+// regressionAdjustedMetrics) live at the result level — each entry there
+// already self-identifies its source(s) via `numeratorSourceIndex` /
+// `denominatorSourceIndex` (and `sourceIndex` on percentileData), so per-
+// source duplication of those arrays would be redundant.
+export type FactMetricSource = {
   factTable: FactTableInterface;
   index: number;
-  metricData: FactMetricData[];
-  percentileData: FactMetricPercentileData[];
-  eventQuantileData: FactMetricQuantileData[];
-  regressionAdjustedMetrics: FactMetricData[];
   minCovariateStartDate: Date;
   maxCovariateEndDate: Date;
   metricStart: Date;
   metricEnd: Date;
   maxHoursToConvert: number;
-  activationMetric: ExperimentMetricInterface | null;
   bindingLastMaxTimestamp: boolean;
 };
 
@@ -406,21 +407,22 @@ export interface IncrementalRefreshStatisticsQueryParams {
   dimensionsForPrecomputation: ExperimentDimensionWithSpecifiedSlices[];
   dimensionsForAnalysis: Dimension[];
   factTableMap: FactTableMap;
-  // Cache tables that hold the metric columns this query needs, keyed by
-  // fact-table id. Single-fact-table queries pass exactly one entry;
-  // cross-fact-table ratio queries pass two. The SQL layer derives source
-  // ordering and `m{i}` aliases on the fly from the metrics' fact-table
-  // first-appearance order — callers don't have to (and shouldn't try to)
-  // impose a specific ordering. The map must contain a `tableFullName` for
-  // every fact table referenced by `metrics` (numerator and denominator).
-  metricSourceTables: Record<string, string>;
-  // Covariate (CUPED) cache tables, keyed by fact-table id. Same fan-out as
-  // `metricSourceTables` — for cross-FT ratio CUPED, the numerator FT's
-  // entry holds `_value` (numerator covariate) and the denominator FT's
-  // entry holds `_denominator_value` (denominator covariate). Every FT that
-  // hosts at least one side of a regression-adjusted metric must have an
-  // entry; omit FTs with no RA metrics on either side.
-  metricSourceCovariateTables?: Record<string, string>;
+  // Cache tables for this query, one entry per fact table referenced by
+  // `metrics`. Single-fact-table queries pass exactly one entry; cross-fact-
+  // table ratio queries pass two. Each entry carries the cache table name
+  // (`tableFullName`) and, when the FT hosts a regression-adjusted metric,
+  // the matching covariate cache (`covariateTableFullName`). The SQL layer
+  // derives source ordering and `m{i}` aliases on the fly from the metrics'
+  // fact-table first-appearance order; the caller-supplied entry order is
+  // not significant, but every FT referenced by `metrics` (numerator and
+  // denominator) must have a matching entry. For cross-FT ratio CUPED, the
+  // numerator FT's covariate cache holds `_value` covariates and the
+  // denominator FT's holds `_denominator_value` covariates.
+  metricSources: {
+    factTableId: string;
+    tableFullName: string;
+    covariateTableFullName?: string;
+  }[];
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;

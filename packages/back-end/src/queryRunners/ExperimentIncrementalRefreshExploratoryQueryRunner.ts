@@ -238,13 +238,17 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
         dimensionsForPrecomputation: [],
         dimensionsForAnalysis: dimensionObjs,
         factTableMap: params.factTableMap,
-        metricSourceTables: {
-          [group.factTableId]: existingSource.tableFullName,
-        },
-        metricSourceCovariateTables:
-          anyMetricHasCuped && existingCovariateSource
-            ? { [group.factTableId]: existingCovariateSource.tableFullName }
-            : {},
+        metricSources: [
+          {
+            factTableId: group.factTableId,
+            tableFullName: existingSource.tableFullName,
+            ...(anyMetricHasCuped && existingCovariateSource
+              ? {
+                  covariateTableFullName: existingCovariateSource.tableFullName,
+                }
+              : {}),
+          },
+        ],
         unitsSourceTableFullName: unitsTableFullName,
         metrics: sameFtMetrics,
         lastMaxTimestamp: existingSource?.maxTimestamp || null,
@@ -294,25 +298,25 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
         unitsSourceTableFullName: unitsTableFullName,
         metrics: subGroup.metrics.map((m) => m.metric),
         lastMaxTimestamp: null,
-        metricSourceTables: {
-          [pipelineA.group.factTableId]: pipelineA.tableFullName,
-          [pipelineB.group.factTableId]: pipelineB.tableFullName,
-        },
         // Cross-FT CUPED reads each side's covariate cache. Either
         // pipeline may have none (if its metrics aren't RA), and we omit
-        // it from the map in that case.
-        metricSourceCovariateTables: {
-          ...(pipelineA.covariateTableFullName
-            ? {
-                [pipelineA.group.factTableId]: pipelineA.covariateTableFullName,
-              }
-            : {}),
-          ...(pipelineB.covariateTableFullName
-            ? {
-                [pipelineB.group.factTableId]: pipelineB.covariateTableFullName,
-              }
-            : {}),
-        },
+        // `covariateTableFullName` in that case.
+        metricSources: [
+          {
+            factTableId: pipelineA.group.factTableId,
+            tableFullName: pipelineA.tableFullName,
+            ...(pipelineA.covariateTableFullName
+              ? { covariateTableFullName: pipelineA.covariateTableFullName }
+              : {}),
+          },
+          {
+            factTableId: pipelineB.group.factTableId,
+            tableFullName: pipelineB.tableFullName,
+            ...(pipelineB.covariateTableFullName
+              ? { covariateTableFullName: pipelineB.covariateTableFullName }
+              : {}),
+          },
+        ],
       }),
       dependencies: [],
       run: (query, setExternalId, queryMetadata) =>

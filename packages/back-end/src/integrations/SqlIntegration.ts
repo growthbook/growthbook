@@ -1907,27 +1907,24 @@ export default abstract class SqlIntegration
     // doesn't trip the 2-FT cap inside `getFactTablesForMetrics` when we
     // try to populate the hub's covariate cache. The other FTs' covariate
     // data is populated by separate calls scoped to their own FT.
-    const { factTablesWithMetricData } = parseExperimentFactMetricsParams(
+    const { sources, metricData } = parseExperimentFactMetricsParams(
       this.getSqlDialect(),
       { ...paramsMetricsSorted, targetFactTableId: params.factTableId },
     );
 
-    // With `targetFactTableId` set above, `factTablesWithMetricData` is
-    // already scoped to a single FT. Defend against an empty result (e.g.
-    // caller passed metrics that don't touch params.factTableId) — the
-    // per-metric projection below then gates each side on
+    // With `targetFactTableId` set above, `sources` is already scoped to
+    // a single FT. Defend against an empty result (e.g. caller passed
+    // metrics that don't touch params.factTableId) — the per-metric
+    // projection below then gates each side on
     // `metric.numerator?.factTableId === params.factTableId` (and
     // likewise for denominator), so it will emit only the side(s) this
     // FT hosts.
-    const factTableWithMetricData = factTablesWithMetricData.find(
-      (f) => f.factTable.id === params.factTableId,
-    );
-    if (!factTableWithMetricData) {
+    const source = sources.find((s) => s.factTable.id === params.factTableId);
+    if (!source) {
       throw new Error(
         `getInsertMetricSourceCovariateDataQuery: no metric data found for fact table "${params.factTableId}".`,
       );
     }
-    const metricData = factTableWithMetricData.metricData;
 
     const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
       this.getSqlDialect(),
@@ -1935,7 +1932,7 @@ export default abstract class SqlIntegration
       {
         objects: [
           [exposureQuery.userIdType],
-          factTableWithMetricData.factTable?.userIdTypes || [],
+          source.factTable?.userIdTypes || [],
         ],
         // TODO(incremental-refresh): this gets all identities from history
         // of experiment, which we think is right, but could be improved
@@ -1962,9 +1959,9 @@ export default abstract class SqlIntegration
         __factTable AS (${getFactMetricCTE(this.getSqlDialect(), {
           baseIdType,
           idJoinMap,
-          factTable: factTableWithMetricData.factTable,
-          startDate: factTableWithMetricData.minCovariateStartDate,
-          endDate: factTableWithMetricData.maxCovariateEndDate,
+          factTable: source.factTable,
+          startDate: source.minCovariateStartDate,
+          endDate: source.maxCovariateEndDate,
           experimentId: params.settings.experimentId,
           phase: params.settings.phase,
           customFields: params.settings.customFields,
@@ -2297,30 +2294,26 @@ export default abstract class SqlIntegration
     // doesn't trip the 2-FT cap inside `getFactTablesForMetrics` when we
     // try to populate the hub's data cache. The other FTs' data is
     // populated by separate calls scoped to their own FT.
-    const { factTablesWithMetricData } = parseExperimentFactMetricsParams(
-      this.getSqlDialect(),
-      {
+    const { sources, metricData: globalMetricData } =
+      parseExperimentFactMetricsParams(this.getSqlDialect(), {
         ...params,
         metrics: sortedMetrics,
         covariateTableAlias: "c",
         targetFactTableId: params.factTableId,
-      },
-    );
+      });
 
     // Each insert query targets one cache table, which holds rows from a
     // single fact table. With `targetFactTableId` set above we only get the
     // bucket for this FT — but a metric that doesn't touch the target FT
     // would yield an empty result, so we still defend against that.
-    const factTableWithMetricData = factTablesWithMetricData.find(
-      (f) => f.factTable.id === params.factTableId,
-    );
-    if (!factTableWithMetricData) {
+    const source = sources.find((s) => s.factTable.id === params.factTableId);
+    if (!source) {
       throw new Error(
         `getInsertMetricSourceDataQuery: no metric data found for fact table "${params.factTableId}".`,
       );
     }
     const knownMetricIds = new Set(sortedMetrics.map((m) => m.id));
-    const metricData = factTableWithMetricData.metricData.filter((m) =>
+    const metricData = globalMetricData.filter((m) =>
       knownMetricIds.has(m.metric.id),
     );
 
@@ -2353,13 +2346,13 @@ export default abstract class SqlIntegration
         __factTable AS (${getFactMetricCTE(this.getSqlDialect(), {
           baseIdType,
           idJoinMap,
-          metricsWithIndices: factTableWithMetricData.metricData.map((m) => ({
+          metricsWithIndices: metricData.map((m) => ({
             metric: m.metric,
             index: m.metricIndex,
           })),
-          factTable: factTableWithMetricData.factTable,
-          startDate: factTableWithMetricData.metricStart,
-          endDate: factTableWithMetricData.metricEnd,
+          factTable: source.factTable,
+          startDate: source.metricStart,
+          endDate: source.metricEnd,
           experimentId: params.settings.experimentId,
           phase: params.settings.phase,
           customFields: params.settings.customFields,
@@ -2368,8 +2361,7 @@ export default abstract class SqlIntegration
           // if last max timestamp is later than metric start and thus the start
           // date, we need to get data strictly greater than, not just greater than
           // or equal to the start date
-          exclusiveStartDateFilter:
-            factTableWithMetricData.bindingLastMaxTimestamp,
+          exclusiveStartDateFilter: source.bindingLastMaxTimestamp,
         })})
         , __maxTimestamp AS (
           SELECT ${castToTimestamp("MAX(timestamp)")} AS max_timestamp FROM __factTable
@@ -2509,19 +2501,19 @@ export default abstract class SqlIntegration
   }
 
   // Generates the statistics query for one slice of an incremental refresh
-  // run. `metricSourceTables` maps each cache's fact-table id to its physical
-  // table name:
+  // run. `metricSources` carries one entry per fact table referenced by
+  // `metrics`:
   //   - 1 entry: same-fact-table metrics (the original incremental refresh
   //     shape — one cache, one stats query).
   //   - 2 entries: cross-fact-table ratio metrics. The two cache tables are
   //     joined on baseIdType and per-metric SQL reads each side from the
   //     cache whose factTableId matches the metric's numerator /
-  //     denominator column ref. Source ordering and `m{i}` aliases are
-  //     derived internally from the metrics' first-appearance order, so the
-  //     caller doesn't have to (and shouldn't try to) impose a specific
-  //     orientation.
-  // Adding entries beyond 2 is rejected upstream by getFactTablesForMetrics
-  // (it caps at 2 to match the inline experiment query path).
+  //     denominator column ref.
+  // Source ordering and `m{i}` aliases are derived internally from the
+  // metrics' first-appearance order, so the caller-supplied entry order is
+  // not significant. Adding entries beyond 2 is rejected upstream by
+  // getFactTablesForMetrics (it caps at 2 to match the inline experiment
+  // query path).
   getIncrementalRefreshStatisticsQuery(
     params: IncrementalRefreshStatisticsQueryParams,
   ): string {
@@ -2531,121 +2523,91 @@ export default abstract class SqlIntegration
       undefined,
     );
 
-    if (Object.keys(params.metricSourceTables).length === 0) {
+    if (params.metricSources.length === 0) {
       throw new Error(
         "getIncrementalRefreshStatisticsQuery requires at least one metric source.",
       );
     }
 
-    const { factTablesWithMetricData } = parseExperimentFactMetricsParams(
-      this.getSqlDialect(),
-      {
-        ...params,
-        // Covariate data joined to single table with `m` alias before columns are extracted
-        covariateTableAlias: "m",
-      },
-    );
+    const {
+      sources,
+      metricData,
+      percentileData,
+      eventQuantileData,
+      regressionAdjustedMetrics,
+    } = parseExperimentFactMetricsParams(this.getSqlDialect(), {
+      ...params,
+      // Covariate data joined to single table with `m` alias before columns are extracted
+      covariateTableAlias: "m",
+    });
 
-    // Validate that the caller-supplied map covers every fact table the
-    // metrics touch. The reverse direction (extra entries) is also worth
-    // catching, since a stray entry would silently never appear in any
-    // alias / CTE.
-    const expectedFactTableIds = new Set(
-      factTablesWithMetricData.map((f) => f.factTable.id),
+    // Index the caller-supplied entries by factTableId so source-ordering
+    // (which is decided here by the SQL layer, not the caller) drives lookup.
+    const sourceTableByFactTableId = new Map(
+      params.metricSources.map((s) => [s.factTableId, s]),
     );
-    for (const ftId of expectedFactTableIds) {
-      if (!(ftId in params.metricSourceTables)) {
+    // Bidirectional validation: every FT discovered from the metrics must
+    // have a caller-supplied table name, and every caller-supplied entry
+    // must correspond to a discovered FT (a stray entry would silently
+    // never appear in any alias / CTE).
+    for (const s of sources) {
+      if (!sourceTableByFactTableId.has(s.factTable.id)) {
         throw new Error(
-          `getIncrementalRefreshStatisticsQuery: metricSourceTables is missing an entry for fact table "${ftId}".`,
+          `getIncrementalRefreshStatisticsQuery: metricSources is missing an entry for fact table "${s.factTable.id}".`,
         );
       }
     }
-    for (const ftId of Object.keys(params.metricSourceTables)) {
-      if (!expectedFactTableIds.has(ftId)) {
+    const expectedFactTableIds = new Set(sources.map((s) => s.factTable.id));
+    for (const s of params.metricSources) {
+      if (!expectedFactTableIds.has(s.factTableId)) {
         throw new Error(
-          `getIncrementalRefreshStatisticsQuery: metricSourceTables has an entry for fact table "${ftId}" that no metric references.`,
+          `getIncrementalRefreshStatisticsQuery: metricSources has an entry for fact table "${s.factTableId}" that no metric references.`,
         );
       }
     }
 
-    // `factTablesWithMetricData[i]` is the canonical source-i for this
-    // query — its `factTable.id` resolves to a `tableFullName` via the
-    // caller's map. All downstream loops iterate this array (not the
-    // caller's map) so source order is purely an internal SQL detail.
-    const tableFullNameForSource = (i: number): string =>
-      params.metricSourceTables[factTablesWithMetricData[i].factTable.id];
-    // Each FT can have its own covariate cache (only the side(s) it hosts
-    // get materialized in it). Cross-FT ratio CUPED is supported by pairing
-    // the numerator FT's covariate cache for `_value` and the denominator
-    // FT's for `_denominator_value`. Returns undefined when the caller did
-    // not pass a covariate cache for this source — we'll then skip the
-    // covariate join for source i (and validate below that no RA metric
-    // expects it).
-    const covariateTableForSource = (i: number): string | undefined =>
-      params.metricSourceCovariateTables?.[
-        factTablesWithMetricData[i].factTable.id
-      ];
-
-    // metricData across all sources, with the per-metric alias already
-    // reflecting the forced index (`m0.<col>` for source 0, `m1.<col>` for
-    // source 1, etc.).
-    const metricData = factTablesWithMetricData.flatMap((f) => f.metricData);
-    // De-duplicate by metric id — cross-FT ratio metrics appear in both
-    // source entries, but the downstream stats CTE handles a single row per
-    // metric.
-    const dedupedMetricData = Array.from(
-      new Map(metricData.map((m) => [m.metric.id, m])).values(),
-    );
-
-    // Each cross-FT ratio metric is mentioned in both fact tables' entries,
-    // so flatMapping these arrays double-counts it. De-dupe by the column
-    // names the entries actually pivot on — the percentile cap output column
-    // and the regression-adjusted entry's alias are unique per metric/side.
-    const percentileData = Array.from(
-      new Map(
-        factTablesWithMetricData
-          .flatMap((f) => f.percentileData)
-          .map((p) => [p.outputCol, p] as const),
-      ).values(),
-    );
-    const eventQuantileData = Array.from(
-      new Map(
-        factTablesWithMetricData
-          .flatMap((f) => f.eventQuantileData)
-          .map((q) => [q.alias, q] as const),
-      ).values(),
-    );
-    const regressionAdjustedMetrics = Array.from(
-      new Map(
-        factTablesWithMetricData
-          .flatMap((f) => f.regressionAdjustedMetrics)
-          .map((m) => [m.metric.id, m] as const),
-      ).values(),
-    );
-
-    // Every FT that hosts at least one side of an RA metric must have a
-    // covariate cache. The metric-data layer unconditionally references
+    // Every FT that hosts at least one side of an RA metric must also have
+    // a covariate cache. The metric-data layer unconditionally references
     // `c.<alias>_covariate_value` (and `_covariate_denominator` for ratio
     // metrics) for every RA metric, so a missing covariate cache would
     // generate SQL that references a column the source CTE never projects.
     if (regressionAdjustedMetrics.length > 0) {
-      for (const f of factTablesWithMetricData) {
+      for (const s of sources) {
         const needsCovariateCache = regressionAdjustedMetrics.some(
           (data) =>
-            data.metric.numerator.factTableId === f.factTable.id ||
+            data.metric.numerator.factTableId === s.factTable.id ||
             (data.ratioMetric &&
-              data.metric.denominator?.factTableId === f.factTable.id),
+              data.metric.denominator?.factTableId === s.factTable.id),
         );
         if (
           needsCovariateCache &&
-          !params.metricSourceCovariateTables?.[f.factTable.id]
+          !sourceTableByFactTableId.get(s.factTable.id)?.covariateTableFullName
         ) {
           throw new Error(
-            `getIncrementalRefreshStatisticsQuery: metricSourceCovariateTables is missing fact table "${f.factTable.id}" which hosts regression-adjusted metrics.`,
+            `getIncrementalRefreshStatisticsQuery: metricSources is missing a covariateTableFullName for fact table "${s.factTable.id}" which hosts regression-adjusted metrics.`,
           );
         }
       }
     }
+
+    // `sources[i]` is the canonical source-i for this query — its
+    // `factTable.id` resolves to a `tableFullName` (and optional covariate
+    // cache) via the caller's array. All downstream loops iterate `sources`
+    // (not the caller's array) so source order is purely an internal SQL
+    // detail.
+    const tableFullNameForSource = (i: number): string =>
+      // Validated above that this entry exists.
+      sourceTableByFactTableId.get(sources[i].factTable.id)!.tableFullName;
+    // Each FT can have its own covariate cache (only the side(s) it hosts
+    // get materialized in it). Cross-FT ratio CUPED is supported by pairing
+    // the numerator FT's covariate cache for `_value` and the denominator
+    // FT's for `_denominator_value`. Returns undefined when the caller did
+    // not pass a covariate cache for this source — the covariate join for
+    // source i is then skipped (and the validation above guarantees no RA
+    // metric expects it).
+    const covariateTableForSource = (i: number): string | undefined =>
+      sourceTableByFactTableId.get(sources[i].factTable.id)
+        ?.covariateTableFullName;
 
     const percentileTableIndices = new Set<number>(
       percentileData.map((p) => p.sourceIndex),
@@ -2719,25 +2681,22 @@ export default abstract class SqlIntegration
     const sourceSuffix = (i: number) => (i === 0 ? "" : String(i));
     const tableAliasForSource = (i: number) => `m${sourceSuffix(i)}`;
 
-    // For each metric in this source, decide which columns this source's
-    // aggregated CTE actually materializes. Cross-FT ratio metrics that
-    // appear in this source contribute only their numerator OR denominator
-    // side; same-FT metrics contribute everything.
+    // For each metric anchored in this source, decide which columns this
+    // source's aggregated CTE materializes. Source membership is read off
+    // each metric's pre-baked `numeratorSourceIndex` / `denominatorSourceIndex`
+    // — a cross-FT ratio metric contributes only one side per source;
+    // same-FT metrics carry both sides in one source.
     const aggregateColumnsForSource = (i: number) =>
-      factTablesWithMetricData[i].metricData
+      metricData
+        .filter(
+          (data) =>
+            data.numeratorSourceIndex === i ||
+            (data.ratioMetric && data.denominatorSourceIndex === i),
+        )
         .map((data) => {
-          const factTableId = factTablesWithMetricData[i].factTable.id;
-          const isNumeratorSide =
-            data.metric.numerator.factTableId === factTableId;
+          const isNumeratorSide = data.numeratorSourceIndex === i;
           const isDenominatorSide =
-            data.ratioMetric &&
-            data.metric.denominator?.factTableId === factTableId;
-          if (!isNumeratorSide && !isDenominatorSide) {
-            // Defensive: getFactTablesForMetrics should not return a metric
-            // for a source it doesn't touch, but if it does, skip it rather
-            // than emit a column referencing a non-existent cache column.
-            return "";
-          }
+            data.ratioMetric && data.denominatorSourceIndex === i;
           const reAggFunction = data.numeratorAggFns.reAggregationFunction;
           const denomReAggFunction =
             data.denominatorAggFns.reAggregationFunction;
@@ -2763,7 +2722,7 @@ export default abstract class SqlIntegration
       `
       WITH 
       ${idJoinSQL}
-      ${factTablesWithMetricData
+      ${sources
         .map(
           (_, i) =>
             `${i === 0 ? "" : ", "}__metricSourceData${sourceSuffix(i)} AS (
@@ -2809,7 +2768,7 @@ export default abstract class SqlIntegration
           ${nonUnitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
         FROM ${params.unitsSourceTableFullName} e`
       })
-      ${factTablesWithMetricData
+      ${sources
         .map(
           (_, i) => `, __metricDataAggregated${sourceSuffix(i)} AS (
         SELECT
@@ -2837,7 +2796,7 @@ export default abstract class SqlIntegration
         SELECT
           u.variation AS variation
           ${allDimensionCols.map((c) => `, u.${c.alias} AS ${c.alias}`).join("")}
-          ${dedupedMetricData
+          ${metricData
             .filter((d) => d.quantileMetric === "event")
             .map(
               (d) =>
@@ -2845,7 +2804,7 @@ export default abstract class SqlIntegration
             )
             .join("\n")}
         FROM __experimentUnits u
-        ${factTablesWithMetricData
+        ${sources
           .map(
             (_, i) =>
               `INNER JOIN __metricDataAggregated${sourceSuffix(i)} ${tableAliasForSource(i)} ON u.${baseIdType} = ${tableAliasForSource(i)}.${baseIdType}`,
@@ -2859,7 +2818,7 @@ export default abstract class SqlIntegration
         SELECT
           variation
           ${allDimensionCols.map((c) => `, ${c.alias}`).join("")}
-          ${dedupedMetricData
+          ${metricData
             .filter((d) => d.quantileMetric === "event")
             .map((d) =>
               this.getKllQuantileGridColumns(
@@ -2874,7 +2833,7 @@ export default abstract class SqlIntegration
       `
           : ""
       }
-      ${factTablesWithMetricData
+      ${sources
         .map((_, i) => {
           // Emit one __joinedData{i} CTE per source so the downstream stats
           // CTE can LEFT JOIN multiple `m`/`m1`/... aliases — mirroring the
@@ -2888,7 +2847,7 @@ export default abstract class SqlIntegration
           const localAlias = tableAliasForSource(i);
           const aggregatedTable = `__metricDataAggregated${sourceSuffix(i)}`;
           const isSource0 = i === 0;
-          const metricColumns = dedupedMetricData
+          const metricColumns = metricData
             .map((data) => {
               const numeratorHere = data.numeratorSourceIndex === i;
               const denominatorHere =
@@ -2964,7 +2923,7 @@ export default abstract class SqlIntegration
           // the metric-data layer's column refs (`m{numeratorIdx}.`,
           // `m{denominatorIdx}.`) already point at the right alias.
           const covariateTable = covariateTableForSource(i);
-          const sourceFactTableId = factTablesWithMetricData[i].factTable.id;
+          const sourceFactTableId = sources[i].factTable.id;
           const localCovariatePairs = regressionAdjustedMetrics
             .map((data) => {
               const numeratorHere =
@@ -3039,14 +2998,14 @@ export default abstract class SqlIntegration
         )`;
         })
         .join("\n")}
-      ${factTablesWithMetricData
-        .filter((f) => percentileTableIndices.has(f.index))
+      ${sources
+        .filter((s) => percentileTableIndices.has(s.index))
         .map(
-          (f) => `
-        , __capValue${sourceSuffix(f.index)} AS (
+          (s) => `
+        , __capValue${sourceSuffix(s.index)} AS (
             ${this.getSqlDialect().percentileCapSelectClause(
-              percentileData.filter((p) => p.sourceIndex === f.index),
-              `__joinedData${sourceSuffix(f.index)}`,
+              percentileData.filter((p) => p.sourceIndex === s.index),
+              `__joinedData${sourceSuffix(s.index)}`,
             )}
         )
         `,
@@ -3054,15 +3013,15 @@ export default abstract class SqlIntegration
         .join("")}
       ${getExperimentFactMetricStatisticsCTE(this.getSqlDialect(), {
         dimensionCols: allDimensionCols,
-        metricData: dedupedMetricData,
+        metricData,
         eventQuantileData,
         baseIdType,
         joinedMetricTableName: "__joinedData",
         eventQuantileTableName: "__eventQuantileMetric",
         capValueTableName: "__capValue",
-        factTablesWithIndices: factTablesWithMetricData.map((f) => ({
-          factTable: f.factTable,
-          index: f.index,
+        factTablesWithIndices: sources.map((s) => ({
+          factTable: s.factTable,
+          index: s.index,
         })),
         percentileTableIndices,
       })}

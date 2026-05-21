@@ -581,10 +581,9 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       dimensionsForPrecomputation: [],
       dimensionsForAnalysis: [],
       factTableMap,
-      metricSourceTables: {
-        ft_events: "proj.ds.metric_source",
-      },
-      metricSourceCovariateTables: {},
+      metricSources: [
+        { factTableId: "ft_events", tableFullName: "proj.ds.metric_source" },
+      ],
       unitsSourceTableFullName: "proj.ds.units",
       metrics: [eventQuantileMetric],
       lastMaxTimestamp: null,
@@ -787,11 +786,16 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
         dimensionsForPrecomputation: [],
         dimensionsForAnalysis: [],
         factTableMap: crossFactTableMap,
-        metricSourceTables: {
-          ft_events: "proj.ds.metric_source_num",
-          ft_subscriptions: "proj.ds.metric_source_denom",
-        },
-        metricSourceCovariateTables: {},
+        metricSources: [
+          {
+            factTableId: "ft_events",
+            tableFullName: "proj.ds.metric_source_num",
+          },
+          {
+            factTableId: "ft_subscriptions",
+            tableFullName: "proj.ds.metric_source_denom",
+          },
+        ],
         unitsSourceTableFullName: "proj.ds.units",
         metrics: [crossFtMetric],
         lastMaxTimestamp: null,
@@ -854,11 +858,13 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
         dimensionsForPrecomputation: [],
         dimensionsForAnalysis: [],
         factTableMap: crossFactTableMap,
-        metricSourceTables: {
-          ft_events: "proj.ds.cache_events",
-          ft_subscriptions: "proj.ds.cache_subs",
-        },
-        metricSourceCovariateTables: {},
+        metricSources: [
+          { factTableId: "ft_events", tableFullName: "proj.ds.cache_events" },
+          {
+            factTableId: "ft_subscriptions",
+            tableFullName: "proj.ds.cache_subs",
+          },
+        ],
         unitsSourceTableFullName: "proj.ds.units",
         metrics: [aOverB, bOverA],
         lastMaxTimestamp: null,
@@ -985,16 +991,20 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
         dimensionsForPrecomputation: [],
         dimensionsForAnalysis: [],
         factTableMap: crossFactTableMap,
-        metricSourceTables: {
-          ft_events: "proj.ds.metric_source_num",
-          ft_subscriptions: "proj.ds.metric_source_denom",
-        },
         // Both pipelines have covariate caches; numerator covariate
         // lives in events, denominator covariate lives in subscriptions.
-        metricSourceCovariateTables: {
-          ft_events: "proj.ds.cov_events",
-          ft_subscriptions: "proj.ds.cov_subs",
-        },
+        metricSources: [
+          {
+            factTableId: "ft_events",
+            tableFullName: "proj.ds.metric_source_num",
+            covariateTableFullName: "proj.ds.cov_events",
+          },
+          {
+            factTableId: "ft_subscriptions",
+            tableFullName: "proj.ds.metric_source_denom",
+            covariateTableFullName: "proj.ds.cov_subs",
+          },
+        ],
         unitsSourceTableFullName: "proj.ds.units",
         metrics: [raCrossFt],
         lastMaxTimestamp: null,
@@ -1058,12 +1068,13 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
         dimensionsForPrecomputation: [],
         dimensionsForAnalysis: [],
         factTableMap: crossFactTableMap,
-        metricSourceTables: {
-          ft_events: "proj.ds.metric_source_events",
-        },
-        metricSourceCovariateTables: {
-          ft_events: "proj.ds.cov_events",
-        },
+        metricSources: [
+          {
+            factTableId: "ft_events",
+            tableFullName: "proj.ds.metric_source_events",
+            covariateTableFullName: "proj.ds.cov_events",
+          },
+        ],
         unitsSourceTableFullName: "proj.ds.units",
         metrics: [sameFtRa],
         lastMaxTimestamp: null,
@@ -1086,14 +1097,18 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
         dimensionsForPrecomputation: [],
         dimensionsForAnalysis: [],
         factTableMap: crossFactTableMap,
-        metricSourceTables: {
-          ft_events: "proj.ds.metric_source_events",
-          ft_subscriptions: "proj.ds.metric_source_denom",
-        },
-        metricSourceCovariateTables: {
-          ft_events: "proj.ds.cov_events",
-          ft_subscriptions: "proj.ds.cov_subs",
-        },
+        metricSources: [
+          {
+            factTableId: "ft_events",
+            tableFullName: "proj.ds.metric_source_events",
+            covariateTableFullName: "proj.ds.cov_events",
+          },
+          {
+            factTableId: "ft_subscriptions",
+            tableFullName: "proj.ds.metric_source_denom",
+            covariateTableFullName: "proj.ds.cov_subs",
+          },
+        ],
         unitsSourceTableFullName: "proj.ds.units",
         metrics: [crossFtRa],
         lastMaxTimestamp: null,
@@ -1132,16 +1147,20 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
           dimensionsForPrecomputation: [],
           dimensionsForAnalysis: [],
           factTableMap: crossFactTableMap,
-          metricSourceTables: {
-            ft_events: "proj.ds.metric_source_num",
-            ft_subscriptions: "proj.ds.metric_source_denom",
-          },
           // Only the numerator FT got a covariate cache. The denominator
           // side has nowhere to read `_covariate_denominator` from, which
           // would silently emit invalid SQL — so we fail loudly instead.
-          metricSourceCovariateTables: {
-            ft_events: "proj.ds.cov_events",
-          },
+          metricSources: [
+            {
+              factTableId: "ft_events",
+              tableFullName: "proj.ds.metric_source_num",
+              covariateTableFullName: "proj.ds.cov_events",
+            },
+            {
+              factTableId: "ft_subscriptions",
+              tableFullName: "proj.ds.metric_source_denom",
+            },
+          ],
           unitsSourceTableFullName: "proj.ds.units",
           metrics: [raCrossFt],
           lastMaxTimestamp: null,
