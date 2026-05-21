@@ -128,7 +128,10 @@ describe("sdk-connections validations", () => {
 
     it("allows orgs without the setting enabled", () => {
       expect(() => {
-        validateRequireProjectForSdkConnections({ id: "org", settings: {} }, []);
+        validateRequireProjectForSdkConnections(
+          { id: "org", settings: {} },
+          [],
+        );
       }).not.toThrow();
     });
   });
