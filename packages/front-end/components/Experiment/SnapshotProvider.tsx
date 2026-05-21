@@ -14,7 +14,6 @@ const snapshotContext = React.createContext<{
   experiment?: ExperimentInterfaceStringDates;
   snapshot?: ExperimentSnapshotInterface;
   analysis?: ExperimentSnapshotAnalysis | undefined;
-  latestAnalysis?: ExperimentSnapshotAnalysis | undefined;
   latest?: ExperimentSnapshotInterface;
   dimensionless?: ExperimentSnapshotInterface;
   mutateSnapshot: () => Promise<unknown>;
@@ -105,12 +104,6 @@ export default function SnapshotProvider({
         analysis: data?.snapshot
           ? ((getSnapshotAnalysis(
               data?.snapshot,
-              analysisSettings,
-            ) as ExperimentSnapshotAnalysis) ?? undefined)
-          : undefined,
-        latestAnalysis: data?.latest
-          ? ((getSnapshotAnalysis(
-              data?.latest,
               analysisSettings,
             ) as ExperimentSnapshotAnalysis) ?? undefined)
           : undefined,
@@ -214,7 +207,6 @@ export function LocalSnapshotProvider({
         dimensionless: localSnapshot,
         latest: localSnapshot,
         analysis,
-        latestAnalysis: analysis,
         mutateSnapshot,
         phase,
         dimension,
