@@ -140,7 +140,6 @@ export async function ensureEventForwarderEventsFactTable(
       database: decrypted.database.trim(),
       schema: decrypted.schema.trim(),
       tableName: decrypted.tableName.trim(),
-      userIdTypes,
     });
   } else {
     return;
