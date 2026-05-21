@@ -8,6 +8,8 @@ import type {
 export const EVENT_FORWARDER_AVRO_RECORD_NAME =
   "GrowthBookForwardedEvent" as const;
 export const EVENT_FORWARDER_AVRO_NAMESPACE = "io.growthbook.events" as const;
+/** BigQuery daily partition column for BigQueryStorageSink (timestamp-millis). */
+export const EVENT_FORWARDER_AVRO_PARTITION_FIELD = "received_at" as const;
 
 /** Avro field definitions matching the ingestor payload in kafka.ts (minus dynamic org columns). */
 export const EVENT_FORWARDER_AVRO_DEFAULT_FIELDS = [
