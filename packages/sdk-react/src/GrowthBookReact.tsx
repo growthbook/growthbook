@@ -9,13 +9,7 @@ import type {
   Context,
   WidenPrimitives,
 } from "@growthbook/growthbook";
-import {
-  GrowthBook,
-  EVENT_GROWTHBOOK_ERROR,
-  buildErrorEventProperties,
-} from "@growthbook/growthbook";
-
-const GROWTHBOOK_MANAGED_ERROR_EVENT = EVENT_GROWTHBOOK_ERROR;
+import { GrowthBook, captureGrowthBookError } from "@growthbook/growthbook";
 
 export type GrowthBookContextValue = {
   growthbook: GrowthBook;
@@ -201,9 +195,10 @@ export class GrowthBookErrorBoundary extends React.Component<
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     const gb = this.context?.growthbook;
     if (gb) {
-      void gb.logEvent(
-        GROWTHBOOK_MANAGED_ERROR_EVENT,
-        buildErrorEventProperties(error, {
+      void captureGrowthBookError({
+        gb,
+        error,
+        props: {
           errorType: "react",
           handled: false,
           contexts: {
@@ -211,8 +206,8 @@ export class GrowthBookErrorBoundary extends React.Component<
               componentStack: info.componentStack,
             },
           },
-        }),
-      );
+        },
+      });
     }
     this.setState({ error });
   }

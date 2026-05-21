@@ -65,11 +65,26 @@ import { captureGrowthBookError } from "@growthbook/growthbook/plugins";
 try {
   await riskyOperation();
 } catch (error) {
-  await captureGrowthBookError(gb, error, {
-    errorType: "manual",
-    release: process.env.NEXT_PUBLIC_RELEASE,
+  await captureGrowthBookError({
+    gb,
+    error,
+    props: {
+      errorType: "manual",
+      release: process.env.NEXT_PUBLIC_RELEASE,
+    },
   });
 }
+```
+
+On a multi-user `GrowthBookClient`, pass `userContext` (same shape as feature evaluation):
+
+```js
+await captureGrowthBookError({
+  gb: client,
+  error,
+  userContext: { attributes: { id: userId } },
+  props: { errorType: "manual" },
+});
 ```
 
 The full `Error.message` is stored for display.
@@ -86,10 +101,14 @@ import {
   setFingerprint,
 } from "@growthbook/growthbook/plugins";
 
-setFingerprint(gb, ["checkout", "payment", "failed"]);
-await captureGrowthBookError(gb, error, {
-  errorType: "manual",
-  release: process.env.NEXT_PUBLIC_RELEASE,
+setFingerprint({ gb, fingerprint: ["checkout", "payment", "failed"] });
+await captureGrowthBookError({
+  gb,
+  error,
+  props: {
+    errorType: "manual",
+    release: process.env.NEXT_PUBLIC_RELEASE,
+  },
 });
 ```
 
