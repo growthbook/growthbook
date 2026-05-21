@@ -186,8 +186,8 @@ import {
   getExposureQueryEligibleDimensions,
 } from "back-end/src/services/dimensions";
 import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
+import { validateIncrementalPipeline } from "back-end/src/enterprise/services/data-pipeline";
 import { getMetricForSnapshot } from "./reports";
-import { validateIncrementalPipeline } from "./dataPipeline";
 import {
   getIntegrationFromDatasourceId,
   getSourceIntegrationObject,
