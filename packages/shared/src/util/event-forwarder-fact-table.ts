@@ -114,7 +114,6 @@ export type BuildEventForwarderEventsFactTableSqlParams =
       database: string;
       schema: string;
       tableName: string;
-      userIdTypes: string[];
     };
 
 export function buildEventForwarderEventsFactTableSql(
@@ -137,15 +136,7 @@ export function buildEventForwarderEventsFactTableSql(
     params.tableName,
   );
 
-  const standardCols = [
-    ...params.userIdTypes,
-    "event_name",
-    "timestamp",
-    EVENT_FORWARDER_AVRO_PARTITION_FIELD,
-  ];
-  const selectCols = standardCols.map((col) => `${col}`).join(",\n  ");
-
-  return `SELECT\n  ${selectCols}\nFROM\n  ${tableRef}`;
+  return `SELECT *\nFROM ${tableRef}`;
 }
 
 function defaultAvroFieldDatatype(fieldName: string): FactTableColumnType {
