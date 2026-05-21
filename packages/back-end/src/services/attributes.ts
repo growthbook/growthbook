@@ -7,7 +7,7 @@ import type {
 import type { ColumnInterface } from "shared/types/fact-table";
 import { dangerouslyGetGrowthbookDatasourceBypassPermission } from "back-end/src/models/DataSourceModel";
 import {
-  getFactTablesForDatasource,
+  dangerouslyGetFactTableByIdBypassPermission,
   updateFactTableColumns,
 } from "back-end/src/models/FactTableModel";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
@@ -33,8 +33,12 @@ export async function removeTagInAttribute(
     tags: (attr.tags || []).filter((t) => t !== tag),
   }));
 
-  await updateAttributeSchema(context, {
-    newAttributeSchema: updatedAttributeSchema,
+  // Tag changes don't affect materialized columns, so skip the license-server
+  // sync. Going through `updateAttributeSchema` would couple a metadata-only
+  // operation to warehouse availability — a 423 lock or LS outage would cause
+  // the tag removal to roll back.
+  await updateOrganization(org.id, {
+    settings: { ...org.settings, attributeSchema: updatedAttributeSchema },
   });
 }
 
@@ -247,9 +251,13 @@ async function syncManagedWarehouseEventsFactTable(
     renames: { from: string; to: string }[];
   },
 ): Promise<void> {
-  const factTables = await getFactTablesForDatasource(context, datasource.id);
-  const ft = factTables.find(
-    (f) => f.id === MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+  // Bypass project-read permission here for the same reason the datasource
+  // lookup does: an attribute admin who lacks read on the warehouse fact
+  // table's project would otherwise silently skip this reconciliation and
+  // leave the fact table out of step with materialized columns.
+  const ft = await dangerouslyGetFactTableByIdBypassPermission(
+    context.org.id,
+    MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
   );
   if (!ft) return;
 

@@ -206,6 +206,26 @@ export async function getFactTable(
   return factTable;
 }
 
+/**
+ * Look up a fact table by id without applying the caller's project read
+ * permission. Use only for system-driven reconciliation (e.g. Managed
+ * Warehouse attribute sync) where the calling user may legitimately lack
+ * read access to the fact table's project but still needs the write to
+ * land. Caller is responsible for ensuring the operation is otherwise
+ * authorized.
+ */
+export async function dangerouslyGetFactTableByIdBypassPermission(
+  organizationId: string,
+  id: string,
+): Promise<FactTableInterface | null> {
+  const doc = await FactTableModel.findOne({
+    organization: organizationId,
+    id,
+  });
+  if (!doc) return null;
+  return toInterface(doc);
+}
+
 export async function getFactTablesByIds(
   context: ReqContext | ApiReqContext,
   ids: string[],
