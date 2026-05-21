@@ -234,8 +234,16 @@ export function getWarehouseMaterializedColumns(
       continue;
     }
     const isArray = !!matColType.arrayElementType;
+    // `enum` materializes as a string column, so an enum attribute with
+    // `hashAttribute: true` should be treated as an identifier — same as
+    // `string`. Without this, the seed would write the attribute as a
+    // dimension and produce an empty `userIdTypes` entry until the first
+    // LS sync reconciles it.
     const canBeIdentifier =
-      !isArray && (attr.datatype === "string" || attr.datatype === "number");
+      !isArray &&
+      (attr.datatype === "string" ||
+        attr.datatype === "number" ||
+        attr.datatype === "enum");
     const isIdentifier = canBeIdentifier && attr.hashAttribute === true;
     attributeColumns.push({
       columnName: attr.property,

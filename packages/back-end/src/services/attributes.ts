@@ -204,7 +204,7 @@ type MaterializedColumnDiff = {
  * the destination isn't already a different existing column. Other renames
  * fall through to natural add/delete.
  */
-function diffMaterializedColumnsForFactTable(
+export function diffMaterializedColumnsForFactTable(
   previous: MaterializedColumn[],
   final: MaterializedColumn[],
   renames: { from: string; to: string }[],
