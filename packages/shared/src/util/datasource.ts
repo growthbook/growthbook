@@ -5,6 +5,9 @@ export function attributeMatchesDatasourceProjects(
   attribute: SDKAttribute,
   datasourceProjects: string[] | undefined,
 ): boolean {
+  // A project-scoped attribute only matches a project-scoped datasource when
+  // they share at least one project. A global datasource (no projects) or a
+  // global attribute (no projects) always matches.
   if (datasourceProjects?.length && attribute.projects?.length) {
     return attribute.projects.some((project) =>
       datasourceProjects.includes(project),
@@ -25,6 +28,54 @@ export function buildUserIdTypesFromAttributeSchema(
       description: a.description ?? "",
       attributes: [a.property],
     }));
+}
+
+export function isHashAttributeUserIdType(
+  userIdType: string,
+  attributeSchema: SDKAttributeSchema,
+  datasourceProjects?: string[],
+): boolean {
+  return attributeSchema.some(
+    (attribute) =>
+      attribute.hashAttribute &&
+      !attribute.archived &&
+      attribute.property.toLowerCase() === userIdType.toLowerCase() &&
+      attributeMatchesDatasourceProjects(attribute, datasourceProjects),
+  );
+}
+
+export function isEventForwarderAllowedUserIdTypesChange(
+  existing: UserIdType[],
+  updated: UserIdType[],
+  attributeSchema: SDKAttributeSchema,
+  datasourceProjects?: string[],
+): boolean {
+  const lockedExisting = existing.filter((item) =>
+    isHashAttributeUserIdType(
+      item.userIdType,
+      attributeSchema,
+      datasourceProjects,
+    ),
+  );
+
+  return lockedExisting.every((locked) => {
+    const match = updated.find(
+      (item) =>
+        item.userIdType.toLowerCase() === locked.userIdType.toLowerCase(),
+    );
+    if (!match || match.userIdType !== locked.userIdType) {
+      return false;
+    }
+
+    const lockedAttributes = locked.attributes ?? [];
+    const updatedAttributes = match.attributes ?? [];
+    return (
+      lockedAttributes.length === updatedAttributes.length &&
+      lockedAttributes.every(
+        (attribute, index) => attribute === updatedAttributes[index],
+      )
+    );
+  });
 }
 
 export function mergeUserIdTypes(

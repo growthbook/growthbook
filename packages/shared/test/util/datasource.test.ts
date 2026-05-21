@@ -1,6 +1,8 @@
 import {
   attributeMatchesDatasourceProjects,
   buildUserIdTypesFromAttributeSchema,
+  isEventForwarderAllowedUserIdTypesChange,
+  isHashAttributeUserIdType,
   mergeUserIdTypes,
 } from "../../src/util/datasource";
 
@@ -19,6 +21,15 @@ describe("attributeMatchesDatasourceProjects", () => {
       attributeMatchesDatasourceProjects(
         { property: "id", datatype: "string" },
         ["proj_a"],
+      ),
+    ).toBe(true);
+  });
+
+  it("returns true when datasource has no projects", () => {
+    expect(
+      attributeMatchesDatasourceProjects(
+        { property: "id", datatype: "string", projects: ["proj_a"] },
+        [],
       ),
     ).toBe(true);
   });
@@ -98,6 +109,137 @@ describe("buildUserIdTypesFromAttributeSchema", () => {
     ]);
 
     expect(result[0]?.description).toBe("Logged-in user");
+  });
+});
+
+describe("isHashAttributeUserIdType", () => {
+  const schema = [
+    { property: "user_id", datatype: "string" as const, hashAttribute: true },
+    { property: "id", datatype: "string" as const, hashAttribute: true },
+  ];
+
+  it("returns true when userIdType matches a hash attribute", () => {
+    expect(isHashAttributeUserIdType("user_id", schema)).toBe(true);
+    expect(isHashAttributeUserIdType("USER_ID", schema)).toBe(true);
+  });
+
+  it("returns false for non-hash or unknown identifier types", () => {
+    expect(isHashAttributeUserIdType("device_id", schema)).toBe(false);
+    expect(isHashAttributeUserIdType("session_id", schema)).toBe(false);
+  });
+});
+
+describe("isEventForwarderAllowedUserIdTypesChange", () => {
+  const schema = [
+    { property: "user_id", datatype: "string" as const, hashAttribute: true },
+  ];
+  const existing = [
+    {
+      userIdType: "user_id",
+      description: "Logged-in user",
+      attributes: ["user_id"],
+    },
+    {
+      userIdType: "device_id",
+      description: "",
+      attributes: ["device_id", "session_id"],
+    },
+  ];
+
+  it("allows description-only changes to hash-attribute identifier types", () => {
+    expect(
+      isEventForwarderAllowedUserIdTypesChange(
+        existing,
+        [
+          {
+            userIdType: "user_id",
+            description: "Updated description",
+            attributes: ["user_id"],
+          },
+          existing[1],
+        ],
+        schema,
+      ),
+    ).toBe(true);
+  });
+
+  it("allows editing non-hash-attribute identifier types", () => {
+    expect(
+      isEventForwarderAllowedUserIdTypesChange(
+        existing,
+        [
+          {
+            userIdType: "user_id",
+            description: "Logged-in user",
+            attributes: ["user_id"],
+          },
+          {
+            userIdType: "account_id",
+            description: "Renamed",
+            attributes: ["account_id"],
+          },
+        ],
+        schema,
+      ),
+    ).toBe(true);
+  });
+
+  it("allows deleting non-hash-attribute identifier types", () => {
+    expect(
+      isEventForwarderAllowedUserIdTypesChange(existing, [existing[0]], schema),
+    ).toBe(true);
+  });
+
+  it("rejects deleting hash-attribute identifier types", () => {
+    expect(
+      isEventForwarderAllowedUserIdTypesChange(existing, [existing[1]], schema),
+    ).toBe(false);
+  });
+
+  it("allows adding new identifier types", () => {
+    expect(
+      isEventForwarderAllowedUserIdTypesChange(
+        existing,
+        [...existing, { userIdType: "session_id", description: "Session" }],
+        schema,
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects structural changes to hash-attribute identifier types", () => {
+    expect(
+      isEventForwarderAllowedUserIdTypesChange(
+        existing,
+        [
+          {
+            userIdType: "account_id",
+            description: "Logged-in user",
+            attributes: ["user_id"],
+          },
+          existing[1],
+        ],
+        schema,
+      ),
+    ).toBe(false);
+
+    expect(
+      isEventForwarderAllowedUserIdTypesChange(
+        existing,
+        [
+          {
+            userIdType: "user_id",
+            description: "",
+            attributes: ["device_id"],
+          },
+          existing[1],
+        ],
+        schema,
+      ),
+    ).toBe(false);
+
+    expect(
+      isEventForwarderAllowedUserIdTypesChange(existing, [existing[1]], schema),
+    ).toBe(false);
   });
 });
 

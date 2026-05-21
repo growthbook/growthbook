@@ -484,9 +484,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     onSave={updateDataSourceSettings}
                     onCancel={() => undefined}
                     dataSource={d}
-                    canEdit={
-                      canUpdateDataSourceSettings && !d.eventForwarderConfig
-                    }
+                    canEdit={canUpdateDataSourceSettings}
                   />
                 </Frame>
 
