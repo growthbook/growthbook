@@ -174,7 +174,9 @@ export default function SetupTabOverview({
       ) : null}
       <div>
         <Flex justify="between" align="baseline" mb="3">
-          <h2>Overview</h2>
+          <Heading color="text-high" as="h2" size="large" mb="0">
+            Overview
+          </Heading>
           {showAddHoldoutSchedule || showAddExperimentSchedule ? (
             <Button variant="ghost" onClick={() => editSchedule()}>
               + Add Schedule
@@ -205,20 +207,6 @@ export default function SetupTabOverview({
             </Tooltip>
           ) : null}
         </Flex>
-        {/* {experiment.status === "draft" && experiment.type !== "holdout" ? (
-          <PreLaunchChecklist
-            experiment={experiment}
-            envs={envs}
-            mutateExperiment={mutate}
-            linkedFeatures={linkedFeatures}
-            visualChangesets={visualChangesets}
-            editTargeting={editTargeting}
-            connections={matchingConnections}
-            checklistItemsRemaining={checklistItemsRemaining}
-            setChecklistItemsRemaining={setChecklistItemsRemaining}
-            setChecklistHardBlockerCount={setChecklistHardBlockerCount}
-          />
-        ) : null} */}
         {isHoldout && holdout && holdoutHasSchedule && editSchedule ? (
           <Frame id="holdout-schedule" style={{ scrollMarginTop: "100px" }}>
             <Flex align="center" justify="between" className="text-dark">
@@ -284,16 +272,9 @@ export default function SetupTabOverview({
                   </Heading>
                   <Flex align="center" gap="2">
                     {canEditExperiment ? (
-                      <Button
-                        variant="ghost"
-                        stopPropagation={true}
-                        mr={experiment.description ? "3" : "0"}
-                        onClick={() => {
-                          setShowDescriptionModal(true);
-                        }}
-                      >
+                      <Link onClick={() => setShowDescriptionModal(true)}>
                         Edit
-                      </Button>
+                      </Link>
                     ) : null}
                     {experiment.description ? (
                       <FaAngleRight className="chevron" />
@@ -356,12 +337,7 @@ export default function SetupTabOverview({
                 Hypothesis
               </Heading>
               {canEditExperiment && (
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowHypothesisModal(true)}
-                >
-                  Edit
-                </Button>
+                <Link onClick={() => setShowHypothesisModal(true)}>Edit</Link>
               )}
             </Flex>
             {experiment.hypothesis ? (

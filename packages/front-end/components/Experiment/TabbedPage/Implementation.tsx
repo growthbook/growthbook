@@ -17,6 +17,7 @@ import VariationsTable from "@/components/Experiment/VariationsTable";
 import EditVariationMetadataModal from "@/components/Experiment/EditVariationMetadataModal";
 import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
+import DecisionMakingSettings from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import Callout from "@/ui/Callout";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import LinkedExperimentsTable from "@/components/Holdout/LinkedExperimentsTable";
@@ -146,6 +147,16 @@ export default function Implementation({
       )}
       <div className="my-4">
         <h2>Implementation</h2>
+        <TrafficAndTargeting
+          experiment={experiment}
+          editTraffic={
+            experiment.nextScheduledStatusUpdate ? null : editTraffic
+          }
+          editTargeting={
+            experiment.nextScheduledStatusUpdate ? null : editTargeting
+          }
+          phaseIndex={phases.length - 1}
+        />
         {!isHoldout ? (
           <LinkedChanges
             linkedFeatures={linkedFeatures}
@@ -285,17 +296,13 @@ export default function Implementation({
               : "The implementation, traffic, and targeting may be managed by an external system."}
           </Callout>
         ) : null}
-        <TrafficAndTargeting
-          experiment={experiment}
-          editTraffic={
-            experiment.nextScheduledStatusUpdate ? null : editTraffic
-          }
-          editTargeting={
-            experiment.nextScheduledStatusUpdate ? null : editTargeting
-          }
-          phaseIndex={phases.length - 1}
-        />
         <AnalysisSettings
+          experiment={experiment}
+          mutate={mutate}
+          envs={envs}
+          canEdit={!!editTargeting && !experiment.nextScheduledStatusUpdate}
+        />
+        <DecisionMakingSettings
           experiment={experiment}
           mutate={mutate}
           envs={envs}

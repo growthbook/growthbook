@@ -1,5 +1,4 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { FaExclamationTriangle } from "react-icons/fa";
 import { calculateNamespaceCoverage } from "shared/util";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
@@ -10,6 +9,9 @@ import { HashVersionTooltip } from "@/components/Experiment/HashVersionSelector"
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { GBInfo } from "@/components/Icons";
 import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
+import Callout from "@/ui/Callout";
+import Frame from "@/ui/Frame";
 
 export interface Props {
   phaseIndex?: number | null;
@@ -57,9 +59,11 @@ export default function TrafficAndTargeting({
     <>
       {phase ? (
         <>
-          <div className="box p-4 my-4">
+          <Frame>
             <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
-              <h4 className="m-0">Traffic Allocation</h4>
+              <Heading color="text-high" as="h4" size="small" mb="0">
+                Traffic Allocation
+              </Heading>
               <div className="flex-1" />
               {editTraffic && !(isBandit && experiment.status === "running") ? (
                 <button className="btn p-0 link-purple" onClick={editTraffic}>
@@ -179,11 +183,13 @@ export default function TrafficAndTargeting({
                 </div>
               )}
             </div>
-          </div>
+          </Frame>
 
-          <div className="box p-4 my-4">
+          <Frame>
             <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
-              <h4 className="m-0">Targeting</h4>
+              <Heading color="text-high" as="h4" size="small" mb="0">
+                Targeting
+              </Heading>
               <div className="flex-1" />
               {editTargeting &&
               !(isBandit && experiment.status === "running") ? (
@@ -236,14 +242,13 @@ export default function TrafficAndTargeting({
                 No targeting (experiment will include all traffic)
               </Text>
             )}
-          </div>
+          </Frame>
         </>
       ) : (
-        <div className="alert alert-warning my-4">
-          <FaExclamationTriangle className="mr-1" />
+        <Callout status="warning" mb="4">
           No traffic allocation or targeting configured yet. Add a phase to this
           experiment.
-        </div>
+        </Callout>
       )}
     </>
   );

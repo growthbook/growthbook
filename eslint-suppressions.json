@@ -376,11 +376,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/TrafficAndTargeting.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/index.tsx": {
     "no-restricted-imports": {
       "count": 2
