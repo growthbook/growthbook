@@ -30,9 +30,7 @@ import {
 } from "shared/experiments";
 import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { SDKAttributeSchema } from "shared/types/organization";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAttributeSchema } from "@/services/features";
 import {
   formatNumber,
   getDefaultFactMetricProps,
@@ -171,7 +169,6 @@ function getNumericColumns(
 function getColumnOptions({
   factTable,
   datasource,
-  attributeSchema = [],
   includeCount = true,
   includeCountDistinct = false,
   includeDistinctDates = false,
@@ -185,7 +182,6 @@ function getColumnOptions({
 }: {
   factTable: FactTableInterface | null;
   datasource: DataSourceInterfaceWithParams | null;
-  attributeSchema?: SDKAttributeSchema;
   includeCount?: boolean;
   includeCountDistinct?: boolean;
   includeDistinctDates?: boolean;
@@ -252,12 +248,22 @@ function getColumnOptions({
 
   // Add JSON fields
   if (includeJSONFields && factTable?.columns) {
-    // When an attribute has been materialized to the top-level,
-    // we want people to use the top-level column and not a JSON field
-    const excludedAttributeFields =
-      datasource?.type === "growthbook_clickhouse"
-        ? new Set(attributeSchema.map((attr) => attr.property))
-        : new Set<string>();
+    // When an attribute has been materialized to the top-level, point
+    // people at the top-level column instead of the JSON field. We exclude
+    // only fields that actually have a materialized column — using the
+    // full attributeSchema would also hide JSON access to unmaterialized
+    // attributes (e.g. `secureString`, `$groups`), which is the only way
+    // to reach those values in a metric.
+    const excludedAttributeFields = new Set<string>();
+    if (datasource?.type === "growthbook_clickhouse") {
+      const materialized =
+        datasource.settings.syncedMaterializedColumns ??
+        datasource.settings.materializedColumns ??
+        [];
+      for (const col of materialized) {
+        excludedAttributeFields.add(col.sourceField);
+      }
+    }
 
     const jsonColumns = factTable.columns.filter(
       (col) => col.datatype === "json" && !col.deleted,
@@ -426,7 +432,6 @@ function ColumnRefSelector({
   allowChangingDatasource?: boolean;
 }) {
   const { getFactTableById, factTables } = useDefinitions();
-  const attributeSchema = useAttributeSchema();
 
   let factTable = getFactTableById(value.factTableId);
   if (factTable?.datasource !== datasource.id) factTable = null;
@@ -434,7 +439,6 @@ function ColumnRefSelector({
   const columnOptions = getColumnOptions({
     factTable,
     datasource,
-    attributeSchema,
     includeCountDistinct: includeCountDistinct && aggregationType === "unit",
     includeDistinctDates: includeDistinctDates && aggregationType === "unit",
     includeCount: aggregationType === "unit",
