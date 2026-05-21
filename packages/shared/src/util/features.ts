@@ -26,6 +26,7 @@ import {
   OrganizationSettings,
   RequireReview,
   Environment,
+  SDKAttributeSchema,
 } from "shared/types/organization";
 import { ProjectInterface } from "shared/types/project";
 import { GroupMap } from "shared/types/saved-group";
@@ -1477,6 +1478,142 @@ export function validateAndFixCondition(
     );
   }
   throw new Error("Invalid targeting condition JSON: " + res.error);
+}
+
+// MongoDB-style logical operators whose values wrap nested sub-conditions
+// rather than attribute keys. $and/$or/$nor take arrays; $not takes a single
+// object (or inline operators).
+const LOGICAL_CONDITION_OPS = new Set(["$and", "$or", "$nor", "$not"]);
+
+// Walks a parsed targeting condition and returns the set of attribute field
+// names referenced at the root (e.g. "userId" in { userId: { $eq: "x" } }).
+// - Skips any $-prefixed operator keys (values are either nested conditions
+//   or literal comparators, never attribute names).
+// - Recurses into $and/$or/$nor/$not so nested targeting still surfaces its
+//   attribute keys.
+// - Dot-notation keys (e.g. "user.id") are reported as the full key; callers
+//   that check against attributeSchema should compare against the root segment.
+export function extractConditionAttributeKeys(condition: unknown): string[] {
+  const found = new Set<string>();
+
+  const walk = (node: unknown): void => {
+    if (!node || typeof node !== "object") return;
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item);
+      return;
+    }
+    for (const [key, value] of Object.entries(
+      node as Record<string, unknown>,
+    )) {
+      if (LOGICAL_CONDITION_OPS.has(key)) {
+        walk(value);
+        continue;
+      }
+      if (key.startsWith("$")) {
+        // Non-logical operators ($eq, $in, $elemMatch, $inGroup, ...) — their
+        // values are comparison operands / nested conditions, not attribute keys.
+        continue;
+      }
+      found.add(key);
+    }
+  };
+
+  walk(condition);
+  return Array.from(found);
+}
+
+// Canonical shape for the opt-in attribute registration check. The org
+// setting is stored as either a legacy boolean (older orgs) or this object
+// (new orgs / orgs that have toggled the new project-scoping switch). All
+// readers should funnel through `getRequireRegisteredAttributesSettings`
+// rather than poking at the raw setting so they handle both shapes.
+export type RequireRegisteredAttributesSettings = {
+  // Master switch — when false, all checks are skipped.
+  isOn: boolean;
+  // When true, attributes that exist but aren't scoped to the current
+  // project are also rejected. When false, project-scope mismatches are
+  // ignored and only truly-unknown attribute keys fail.
+  requireProjectScoping: boolean;
+};
+
+// Normalizes the raw org setting into `{ isOn, requireProjectScoping }`.
+// Legacy boolean `true` maps to `{ isOn: true, requireProjectScoping: true }`
+// to preserve the strict behavior orgs were already getting before the
+// project-scoping toggle existed. `false` / undefined / null map to off.
+export function getRequireRegisteredAttributesSettings(
+  raw: boolean | RequireRegisteredAttributesSettings | undefined | null,
+): RequireRegisteredAttributesSettings {
+  if (!raw) return { isOn: false, requireProjectScoping: false };
+  if (typeof raw === "boolean") {
+    return { isOn: true, requireProjectScoping: true };
+  }
+  return {
+    isOn: !!raw.isOn,
+    // Default to `true` when the object is missing the field — keeps strict
+    // behavior the default for newly-created objects too.
+    requireProjectScoping: raw.requireProjectScoping !== false,
+  };
+}
+
+// Splits `keys` into two buckets so callers can write a precise error:
+//   - `unknown`: not declared in the schema at all (or archived) — typical typo.
+//   - `outOfProject`: declared and active, but scoped to a different project
+//     than the rule/experiment lives in. Catches the "attribute exists but
+//     this project isn't on its scope list" case, which the user otherwise
+//     reads as "Unknown attribute" and tries to re-create.
+// Dot-notation keys are checked against their root segment, matching how
+// attribute schema is declared.
+export function categorizeUnregisteredAttributes(
+  keys: string[],
+  attributeSchema: SDKAttributeSchema | undefined,
+  project?: string | string[],
+): { unknown: string[]; outOfProject: string[] } {
+  const projects = Array.isArray(project) ? project : project ? [project] : [];
+  // root segment -> projects[] declared on the (active) attribute. Missing
+  // entries mean the attribute isn't declared (or is archived).
+  const declared = new Map<string, string[] | undefined>();
+  for (const attr of attributeSchema ?? []) {
+    if (attr.archived) continue;
+    declared.set(attr.property, attr.projects);
+  }
+
+  const unknown: string[] = [];
+  const outOfProject: string[] = [];
+  const seen = new Set<string>();
+  for (const key of keys) {
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const root = key.split(".")[0];
+    if (!declared.has(root)) {
+      unknown.push(key);
+      continue;
+    }
+    const attrProjects = declared.get(root);
+    // No project context, or the attribute is org-wide: registered.
+    if (!projects.length || !attrProjects?.length) continue;
+    if (!projects.some((p) => attrProjects.includes(p))) {
+      outOfProject.push(key);
+    }
+  }
+  return { unknown, outOfProject };
+}
+
+// Returns the subset of `keys` that are NOT declared as active attributes in
+// `attributeSchema`, including those scoped to other projects. Equivalent to
+// `unknown ∪ outOfProject` from `categorizeUnregisteredAttributes`. Kept for
+// backward compatibility; new callers that need a richer error should use
+// `categorizeUnregisteredAttributes` directly.
+export function findUnregisteredAttributes(
+  keys: string[],
+  attributeSchema: SDKAttributeSchema | undefined,
+  project?: string | string[],
+): string[] {
+  const { unknown, outOfProject } = categorizeUnregisteredAttributes(
+    keys,
+    attributeSchema,
+    project,
+  );
+  return [...unknown, ...outOfProject];
 }
 
 export function getDefaultPrerequisiteCondition(parentFeature?: {

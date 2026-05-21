@@ -23,6 +23,7 @@ import {
   isDraftStatus,
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
+  validateRuleAttributes,
   validateRuleConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
@@ -153,6 +154,25 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       prerequisites:
         basePatch.prerequisites !== undefined ? updatedRule.prerequisites : [],
     });
+    // Opt-in registered-attribute check, only on fields the patch actually
+    // touches. Validate `changedAttributes` (not `updatedRule`) so an
+    // unchanged condition referencing a now-archived attribute doesn't
+    // block an unrelated edit. Mirrors the v1 controller's per-field gating.
+    const attrPatch = basePatch as {
+      condition?: string;
+      hashAttribute?: string;
+      fallbackAttribute?: string;
+    };
+    const changedAttributes: Parameters<typeof validateRuleAttributes>[0] = {};
+    if (attrPatch.condition !== undefined)
+      changedAttributes.condition = attrPatch.condition;
+    if (attrPatch.hashAttribute !== undefined)
+      changedAttributes.hashAttribute = attrPatch.hashAttribute;
+    if (attrPatch.fallbackAttribute !== undefined)
+      changedAttributes.fallbackAttribute = attrPatch.fallbackAttribute;
+    if (Object.keys(changedAttributes).length > 0) {
+      validateRuleAttributes(changedAttributes, req.context, feature.project);
+    }
     if (
       basePatch.condition !== undefined ||
       basePatch.savedGroups !== undefined ||
