@@ -143,11 +143,11 @@ export async function getGrowthbookDatasource(context: ReqContext) {
     : null;
 }
 
-export async function getDataSourceById(
+/** Returns persisted datasource fields without upgradeDatasourceObject defaults. */
+export async function getRawDataSourceById(
   context: ReqContext | ApiReqContext,
   id: string,
-) {
-  // If using config.yml, immediately return the from there
+): Promise<DataSourceInterface | null> {
   if (usingFileConfig()) {
     return (
       getConfigDatasources(context.org.id).filter((d) => d.id === id)[0] || null
@@ -161,11 +161,20 @@ export async function getDataSourceById(
 
   if (!doc) return null;
 
-  const datasource = toInterface(doc);
+  const datasource = doc.toJSON() as DataSourceInterface;
 
   return context.permissions.canReadMultiProjectResource(datasource.projects)
     ? datasource
     : null;
+}
+
+export async function getDataSourceById(
+  context: ReqContext | ApiReqContext,
+  id: string,
+) {
+  const datasource = await getRawDataSourceById(context, id);
+  if (!datasource) return null;
+  return upgradeDatasourceObject(datasource);
 }
 
 export async function getDataSourcesByIds(
