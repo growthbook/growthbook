@@ -14,7 +14,7 @@ export const attributionCookieSchema = z
     landing_page: z.string().optional(),
     touch_at: z.string().optional(),
   })
-  .strict();
+  .passthrough(); // Prevents new keys from breaking the cookie
 
 export type AttributionCookie = z.infer<typeof attributionCookieSchema>;
 

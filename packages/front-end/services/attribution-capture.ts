@@ -38,6 +38,24 @@ function setCookie(name: string, value: string): void {
   ].join("; ");
 }
 
+/**
+ * Keeps only known attribution keys and strips other params, including reset hashes, etc
+ */
+function sanitizedLandingPage(): string {
+  try {
+    const url = new URL(window.location.href);
+    const sanitized = new URL(url.origin + url.pathname);
+    for (const k of ATTRIB_KEYS) {
+      const v = url.searchParams.get(k);
+      if (v) sanitized.searchParams.set(k, v);
+    }
+    return sanitized.toString();
+  } catch {
+    // Fall back to origin+pathname if URL parsing fails for any reason.
+    return window.location.origin + window.location.pathname;
+  }
+}
+
 export function captureAttribution(): void {
   if (typeof window === "undefined") return;
 
@@ -57,7 +75,7 @@ export function captureAttribution(): void {
 
   if (hasNewTouch) {
     touch.referrer = document.referrer || "";
-    touch.landing_page = window.location.href;
+    touch.landing_page = sanitizedLandingPage();
     touch.touch_at = new Date().toISOString();
     setCookie(COOKIE, JSON.stringify(touch));
   } else if (!existing) {
@@ -65,7 +83,7 @@ export function captureAttribution(): void {
       COOKIE,
       JSON.stringify({
         referrer: document.referrer || "",
-        landing_page: window.location.href,
+        landing_page: sanitizedLandingPage(),
         touch_at: new Date().toISOString(),
       }),
     );

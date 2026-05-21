@@ -120,9 +120,11 @@ export async function postOAuthCallback(req: Request, res: Response) {
     setIdTokenCookie(idToken, req, res);
 
     // Harden gb_attr against Safari ITP's 7-day JS-cookie cap by re-issuing
-    // it server-side. The cookie carries marketing attribution from the
-    // Webflow site through OAuth and into org creation.
-    reissueAttributionCookie(req, res);
+    // it server-side. Cloud-only since the cookie domain (.growthbook.io)
+    // and the downstream attribution forwarding are both Cloud concerns.
+    if (IS_CLOUD) {
+      reissueAttributionCookie(req, res);
+    }
 
     return res.status(200).json({
       status: 200,
