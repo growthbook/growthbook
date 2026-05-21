@@ -32,6 +32,7 @@ import { logger } from "back-end/src/util/logger";
 import { deleteClickhouseUser } from "back-end/src/services/licenseServerManagedClickhouse";
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { syncEventForwarderAfterDatasourceDeleted } from "back-end/src/services/eventForwarderDatasourceLifecycle";
+import { deleteEventForwarderEventsFactTableForDatasource } from "back-end/src/services/eventForwarderFactTable";
 import { deleteFactTable, getFactTable } from "./FactTableModel";
 
 const dataSourceAuditConfig = {
@@ -218,6 +219,12 @@ export async function deleteDatasource(
     throw new Error("Cannot delete. Data sources managed by config.yml");
   }
   await syncEventForwarderAfterDatasourceDeleted(context, datasource);
+
+  try {
+    await deleteEventForwarderEventsFactTableForDatasource(context, datasource);
+  } catch (e) {
+    logger.error(e, "Error deleting event forwarder Events fact table");
+  }
 
   if (datasource.type === "growthbook_clickhouse") {
     if (!isManagedWarehouseAwaitingProvisioning(datasource)) {
