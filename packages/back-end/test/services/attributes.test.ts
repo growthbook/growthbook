@@ -1,5 +1,38 @@
 import type { MaterializedColumn } from "shared/types/datasource";
-import { diffMaterializedColumnsForFactTable } from "back-end/src/services/attributes";
+import type { SDKAttribute } from "shared/types/organization";
+import { dangerouslyGetGrowthbookDatasourceBypassPermission } from "back-end/src/models/DataSourceModel";
+import {
+  dangerouslyGetFactTableByIdBypassPermission,
+  updateFactTableColumns,
+} from "back-end/src/models/FactTableModel";
+import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import {
+  prepareManagedWarehouseAttributeMigrationViaLicenseServer,
+  syncManagedWarehouseAttributesViaLicenseServer,
+} from "back-end/src/services/licenseServerManagedClickhouse";
+import {
+  diffMaterializedColumnsForFactTable,
+  updateAttributeSchema,
+} from "back-end/src/services/attributes";
+import type { ReqContext } from "back-end/types/request";
+
+jest.mock("back-end/src/models/DataSourceModel", () => ({
+  dangerouslyGetGrowthbookDatasourceBypassPermission: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/FactTableModel", () => ({
+  dangerouslyGetFactTableByIdBypassPermission: jest.fn(),
+  updateFactTableColumns: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/OrganizationModel", () => ({
+  updateOrganization: jest.fn(),
+}));
+
+jest.mock("back-end/src/services/licenseServerManagedClickhouse", () => ({
+  prepareManagedWarehouseAttributeMigrationViaLicenseServer: jest.fn(),
+  syncManagedWarehouseAttributesViaLicenseServer: jest.fn(),
+}));
 
 const col = (
   name: string,
@@ -10,6 +43,39 @@ const col = (
   datatype: "string",
   type: "dimension",
   ...overrides,
+});
+
+const attr = (
+  overrides: Partial<SDKAttribute> &
+    Pick<SDKAttribute, "property" | "datatype">,
+): SDKAttribute => ({
+  ...overrides,
+});
+
+const mockDangerouslyGetDatasource =
+  dangerouslyGetGrowthbookDatasourceBypassPermission as jest.MockedFunction<
+    typeof dangerouslyGetGrowthbookDatasourceBypassPermission
+  >;
+const mockDangerouslyGetFactTable =
+  dangerouslyGetFactTableByIdBypassPermission as jest.MockedFunction<
+    typeof dangerouslyGetFactTableByIdBypassPermission
+  >;
+const mockUpdateFactTableColumns =
+  updateFactTableColumns as jest.MockedFunction<typeof updateFactTableColumns>;
+const mockUpdateOrganization = updateOrganization as jest.MockedFunction<
+  typeof updateOrganization
+>;
+const mockPrepareMigration =
+  prepareManagedWarehouseAttributeMigrationViaLicenseServer as jest.MockedFunction<
+    typeof prepareManagedWarehouseAttributeMigrationViaLicenseServer
+  >;
+const mockSyncAttributes =
+  syncManagedWarehouseAttributesViaLicenseServer as jest.MockedFunction<
+    typeof syncManagedWarehouseAttributesViaLicenseServer
+  >;
+
+afterEach(() => {
+  jest.clearAllMocks();
 });
 
 describe("diffMaterializedColumnsForFactTable", () => {
@@ -137,5 +203,90 @@ describe("diffMaterializedColumnsForFactTable", () => {
     expect(diff.columnsToRename).toEqual([{ from: "tags", to: "user_tags" }]);
     expect(diff.columnsToAdd).toEqual([]);
     expect(diff.columnsToDelete).toEqual([]);
+  });
+});
+
+describe("updateAttributeSchema", () => {
+  it("plans first-time migration from the pre-edit schema and only merges returned backfill", async () => {
+    const currentAttributeSchema = [
+      attr({
+        property: "device_id",
+        datatype: "string",
+        hashAttribute: true,
+      }),
+      attr({ property: "old_dimension", datatype: "string" }),
+      attr({ property: "kept", datatype: "number" }),
+    ];
+    const renamedAttribute = attr({
+      property: "deviceId",
+      datatype: "string",
+      hashAttribute: true,
+    });
+    const keptAttribute = currentAttributeSchema[2];
+    const legacyOnlyBackfill = attr({
+      property: "legacy_only",
+      datatype: "boolean",
+    });
+    const newAttributeSchema = [renamedAttribute, keptAttribute];
+    const finalAttributeSchema = [
+      renamedAttribute,
+      keptAttribute,
+      legacyOnlyBackfill,
+    ];
+    const postMigrationCurrentSchema = [
+      ...currentAttributeSchema,
+      legacyOnlyBackfill,
+    ];
+
+    mockDangerouslyGetDatasource.mockResolvedValue({
+      id: "ds1",
+      type: "growthbook_clickhouse",
+      settings: {
+        syncedMaterializedColumns: undefined,
+        materializedColumns: [],
+      },
+    } as Awaited<
+      ReturnType<typeof dangerouslyGetGrowthbookDatasourceBypassPermission>
+    >);
+    mockPrepareMigration.mockResolvedValue({
+      firstTimeMigration: true,
+      attributeBackfill: [legacyOnlyBackfill],
+    });
+    mockSyncAttributes.mockResolvedValue({
+      syncedMaterializedColumns: [],
+      shouldRegenerateDerivedSettings: false,
+      userIdTypes: [],
+      exposureQueries: [],
+    });
+    mockDangerouslyGetFactTable.mockResolvedValue(null);
+
+    await updateAttributeSchema(
+      {
+        org: {
+          id: "org1",
+          settings: { attributeSchema: currentAttributeSchema },
+        },
+      } as unknown as ReqContext,
+      {
+        newAttributeSchema,
+        renames: [{ from: "device_id", to: "deviceId" }],
+      },
+    );
+
+    expect(mockPrepareMigration).toHaveBeenCalledWith({
+      orgId: "org1",
+      currentAttributeSchema,
+    });
+    expect(mockUpdateOrganization).toHaveBeenCalledWith("org1", {
+      settings: { attributeSchema: finalAttributeSchema },
+    });
+    expect(mockSyncAttributes).toHaveBeenCalledWith({
+      orgId: "org1",
+      attributeSchema: finalAttributeSchema,
+      previousAttributeSchema: postMigrationCurrentSchema,
+      renames: [{ from: "device_id", to: "deviceId" }],
+      skipNameValidation: false,
+    });
+    expect(mockUpdateFactTableColumns).not.toHaveBeenCalled();
   });
 });
