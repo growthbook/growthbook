@@ -1090,17 +1090,7 @@ export async function getLatestSnapshotStatus({
     }
     return toSnapshotStatusSummary(mostRecent);
   }
-
-  // Legacy fallback: very old snapshots without a top-level `status` field.
-  // These need migration to infer status from `error`/`analyses.length`, so
-  // do a full fetch through `toInterface` for this rare path and Pick the
-  // summary fields off the migrated result.
-  const legacyDoc = await ExperimentSnapshotModel.findOne(query, null, {
-    sort: { dateCreated: -1 },
-  }).exec();
-
-  if (!legacyDoc) return null;
-  return toSnapshotStatusSummary(toInterface(legacyDoc));
+  return null;
 }
 
 // Gets latest snapshots per experiment-phase pair

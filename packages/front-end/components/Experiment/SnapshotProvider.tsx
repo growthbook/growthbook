@@ -21,8 +21,9 @@ const snapshotContext = React.createContext<{
   experiment?: ExperimentInterfaceStringDates;
   snapshot?: ExperimentSnapshotInterface;
   analysis?: ExperimentSnapshotAnalysis | undefined;
-  latest?: SnapshotStatusSummary;
   dimensionless?: ExperimentSnapshotInterface;
+
+  latest?: SnapshotStatusSummary;
   // Refreshes both fetches. Use when the operation mutates fields on the
   // current snapshot in place without changing its id (e.g., appending an
   // analysis). For operations that create a new snapshot, prefer
