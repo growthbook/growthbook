@@ -21,10 +21,10 @@ const ArchetypesPage = (): React.ReactElement => {
   return (
     <>
       <div className="container-fluid pagecontents pt-4">
-        <Tabs defaultValue="archetypes" persistInURL={true}>
+        <Tabs defaultValue="simulate" persistInURL={true}>
           <TabsList>
-            <TabsTrigger value="archetypes">Archetypes</TabsTrigger>
             <TabsTrigger value="simulate">Simulate</TabsTrigger>
+            <TabsTrigger value="archetypes">Archetypes</TabsTrigger>
           </TabsList>
           <Box pt="4">
             <TabsContent value="archetypes">
