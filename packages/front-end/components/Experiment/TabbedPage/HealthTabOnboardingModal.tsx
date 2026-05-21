@@ -33,7 +33,7 @@ export type HealthTabConfigParams = {
   experiment: ExperimentInterfaceStringDates;
   phase: number;
   refreshOrganization: () => void;
-  mutateSnapshot: () => void;
+  mutateLatest: () => void;
   setAnalysisSettings: (
     analysisSettings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
@@ -56,7 +56,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
     experiment,
     phase,
     refreshOrganization,
-    mutateSnapshot,
+    mutateLatest,
     setAnalysisSettings,
     setLoading,
     resetResultsSettings,
@@ -164,7 +164,10 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
 
           setAnalysisSettings(null);
           resetResultsSettings();
-          mutateSnapshot();
+          // POSTing /snapshot creates a brand-new snapshot id; the provider
+          // auto-upgrades the heavy fetch when status reports the new
+          // successful id, so only refresh the cheap status here.
+          mutateLatest();
         })
         .catch((e) => {
           console.error(e);

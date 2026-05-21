@@ -95,9 +95,20 @@ export function getSRMHealthData({
   }
 }
 
+// `getSRMValue` only reads top-level snapshot fields for bandits; the
+// `standard`/`holdout` branch additionally falls back to the first analysis'
+// first result. Both `analyses` and the standard-only `type` field are kept
+// optional so callers that pass a narrowed snapshot summary (e.g.
+// `SnapshotStatusSummary`) can use the bandit branch safely.
 export function getSRMValue(
   experimentType: ExperimentType,
-  snapshot: ExperimentSnapshotInterface,
+  snapshot: Pick<
+    ExperimentSnapshotInterface,
+    "id" | "banditResult" | "health"
+  > & {
+    type?: ExperimentSnapshotInterface["type"];
+    analyses?: ExperimentSnapshotInterface["analyses"];
+  },
 ): number | undefined {
   switch (experimentType) {
     case "multi-armed-bandit":

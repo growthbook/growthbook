@@ -1,10 +1,17 @@
-import React, { useState, ReactNode, useContext, useCallback } from "react";
+import React, {
+  useState,
+  ReactNode,
+  useContext,
+  useCallback,
+  useEffect,
+} from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
+  SnapshotStatusSummary,
 } from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import useApi from "@/hooks/useApi";
@@ -14,9 +21,17 @@ const snapshotContext = React.createContext<{
   experiment?: ExperimentInterfaceStringDates;
   snapshot?: ExperimentSnapshotInterface;
   analysis?: ExperimentSnapshotAnalysis | undefined;
-  latest?: ExperimentSnapshotInterface;
+  latest?: SnapshotStatusSummary;
   dimensionless?: ExperimentSnapshotInterface;
+  // Refreshes both fetches. Use when the operation mutates fields on the
+  // current snapshot in place without changing its id (e.g., appending an
+  // analysis). For operations that create a new snapshot, prefer
+  // mutateLatest and let the provider auto-upgrade.
   mutateSnapshot: () => Promise<unknown>;
+  // Refreshes only the cheap status fetch. Use for poll loops; the provider
+  // automatically refreshes the heavy snapshot when status indicates a
+  // newer successful snapshot is available.
+  mutateLatest: () => Promise<unknown>;
   phase: number;
   dimension: string;
   precomputedDimensions: string[];
@@ -46,6 +61,7 @@ const snapshotContext = React.createContext<{
     // do nothing
   },
   mutateSnapshot: () => Promise.resolve(),
+  mutateLatest: () => Promise.resolve(),
 });
 
 export function getPrecomputedDimensions(
@@ -65,6 +81,58 @@ export function getPrecomputedDimensions(
   return [];
 }
 
+// When the cheap status endpoint reports a newer successful snapshot than the
+// one currently held by the heavy fetch, pull the fresh analyses exactly
+// once. This is what lets poll loops use a status-only mutator: the provider
+// handles upgrading to the full snapshot on completion, on background
+// completion seen via focus revalidation, etc. The single id-mismatch check
+// covers both "no heavy snapshot yet" (undefined !== id) and "heavy is behind
+// a newer successful run" (X !== Y).
+function useRefetchHeavyOnStatusSuccess(
+  statusLatest: SnapshotStatusSummary | undefined,
+  snapshotId: string | undefined,
+  refetchHeavy: () => Promise<unknown>,
+): void {
+  useEffect(() => {
+    if (statusLatest?.status !== "success") return;
+    if (statusLatest.id !== snapshotId) void refetchHeavy();
+  }, [statusLatest?.id, statusLatest?.status, snapshotId, refetchHeavy]);
+}
+
+// Surfaces the status endpoint's view atomically with the heavy snapshot.
+// While the status endpoint reports a newer successful snapshot than the
+// heavy fetch has caught up to, hold back the visible value so consumers
+// don't see "queries done" alongside stale analyses for the duration of the
+// heavy refetch. Running / errored / progress updates pass through
+// immediately — only the final success flip is gated on heavy-fetch
+// agreement. Trade-off: completion indicators (e.g. "Running…") stay up for
+// the extra ~1-3s of the heavy fetch, in exchange for an atomic results
+// transition.
+function useCoherentLatest(
+  statusLatest: SnapshotStatusSummary | undefined,
+  snapshotId: string | undefined,
+): SnapshotStatusSummary | undefined {
+  const heavyAgrees =
+    !statusLatest ||
+    statusLatest.status !== "success" ||
+    statusLatest.id === snapshotId;
+  const [held, setHeld] = useState<SnapshotStatusSummary | undefined>(
+    undefined,
+  );
+  useEffect(() => {
+    if (!heavyAgrees) return;
+    // Bail out when only the SWR reference changed (id + status are what the
+    // gate keys on; equal id + status means the held value is interchangeable
+    // with the live one and we'd just be triggering an extra re-render).
+    setHeld((prev) =>
+      prev?.id === statusLatest?.id && prev?.status === statusLatest?.status
+        ? prev
+        : statusLatest,
+    );
+  }, [heavyAgrees, statusLatest]);
+  return heavyAgrees ? statusLatest : held;
+}
+
 export default function SnapshotProvider({
   experiment,
   children,
@@ -78,15 +146,48 @@ export default function SnapshotProvider({
     undefined,
   );
 
+  // The heavy snapshot fetch opts out of focus/reconnect revalidation. The
+  // cheap status fetch below still revalidates on focus/reconnect and is the
+  // signal the provider uses to decide when a new heavy refetch is warranted
+  // (see the transition effect after the status fetch).
   const { data, error, isValidating, mutate } = useApi<{
     snapshot: ExperimentSnapshotInterface;
-    latest?: ExperimentSnapshotInterface;
     dimensionless?: ExperimentSnapshotInterface;
   }>(
     `/experiment/${experiment.id}/snapshot/${phase}` +
       (dimension ? "/" + dimension : "") +
       (snapshotType ? `?type=${snapshotType}` : ""),
+    { autoRevalidate: false },
   );
+
+  // `latest` is sourced from a dedicated status endpoint that skips loading
+  // and decoding the per-metric analysis chunks. Keyed by the same
+  // phase/dimension/type tuple as the main snapshot fetch.
+  const statusQuery = [
+    dimension ? `dimension=${encodeURIComponent(dimension)}` : "",
+    snapshotType ? `type=${snapshotType}` : "",
+  ]
+    .filter(Boolean)
+    .join("&");
+  const { data: statusData, mutate: mutateStatus } = useApi<{
+    latest: SnapshotStatusSummary | null;
+  }>(
+    `/experiment/${experiment.id}/snapshot-status/${phase}` +
+      (statusQuery ? `?${statusQuery}` : ""),
+  );
+
+  const mutateSnapshot = useCallback(async () => {
+    await Promise.all([mutate(), mutateStatus()]);
+  }, [mutate, mutateStatus]);
+
+  const mutateLatest = useCallback(async () => {
+    await mutateStatus();
+  }, [mutateStatus]);
+
+  const statusLatest = statusData?.latest ?? undefined;
+  const snapshotId = data?.snapshot?.id;
+  useRefetchHeavyOnStatusSuccess(statusLatest, snapshotId, mutate);
+  const latest = useCoherentLatest(statusLatest, snapshotId);
 
   const defaultAnalysisSettings = data?.snapshot
     ? getSnapshotAnalysis(data?.snapshot)?.settings
@@ -100,14 +201,15 @@ export default function SnapshotProvider({
         experiment,
         snapshot: data?.snapshot,
         dimensionless: data?.dimensionless ?? data?.snapshot,
-        latest: data?.latest,
+        latest,
         analysis: data?.snapshot
           ? ((getSnapshotAnalysis(
               data?.snapshot,
               analysisSettings,
             ) as ExperimentSnapshotAnalysis) ?? undefined)
           : undefined,
-        mutateSnapshot: mutate,
+        mutateSnapshot,
+        mutateLatest,
         phase,
         dimension,
         analysisSettings,
@@ -208,6 +310,10 @@ export function LocalSnapshotProvider({
         latest: localSnapshot,
         analysis,
         mutateSnapshot,
+        // LocalSnapshotProvider has no separate status fetch — there's a
+        // single snapshot fetched by id. Status refreshes are equivalent to
+        // a full refresh here.
+        mutateLatest: mutateSnapshot,
         phase,
         dimension,
         analysisSettings,

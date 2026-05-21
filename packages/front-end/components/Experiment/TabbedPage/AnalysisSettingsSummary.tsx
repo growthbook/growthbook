@@ -142,6 +142,7 @@ export default function AnalysisSettingsSummary({
     dimension: _snapshotDimension,
     precomputedDimensions,
     mutateSnapshot,
+    mutateLatest,
     setAnalysisSettings,
     setSnapshotType,
     setDimension: setSnapshotDimension,
@@ -695,20 +696,21 @@ export default function AnalysisSettingsSummary({
                 entityId={experiment.id}
                 datasourceId={experiment.datasource}
                 latest={latest}
-                onSubmitSuccess={(snapshot) => {
-                  trackSnapshot(
-                    "create",
-                    "RunQueriesButton",
-                    datasource?.type || null,
-                    snapshot,
-                  );
+                experimentSnapshotTrackingProps={{
+                  trackingSource: "RunQueriesButton",
+                  datasourceType: datasource?.type || null,
+                }}
+                onSuccess={() => {
                   if (experiment.type === "multi-armed-bandit") {
                     setSnapshotType?.("exploratory");
                   } else {
                     setSnapshotType?.(undefined);
                   }
                 }}
-                mutate={mutateSnapshot}
+                // Poll loop + post-submit refresh only need the cheap status
+                // endpoint. The provider auto-upgrades to a full snapshot
+                // fetch when status reports a newer successful run.
+                mutate={mutateLatest}
                 mutateAdditional={mutate}
                 setRefreshError={setRefreshError}
                 experiment={experiment}
@@ -740,7 +742,11 @@ export default function AnalysisSettingsSummary({
                             datasource?.type || null,
                             res.snapshot,
                           );
-                          mutateSnapshot();
+                          // POST creates a brand-new snapshot id, so the
+                          // provider will auto-upgrade the heavy fetch once
+                          // status reports the new successful id — only the
+                          // cheap status mutator is needed here.
+                          mutateLatest();
                           mutate();
                           setRefreshError("");
                         })

@@ -45,7 +45,7 @@ export default function HealthTab({
     error,
     dimensionless: snapshot,
     phase,
-    mutateSnapshot,
+    mutateLatest,
     setAnalysisSettings,
   } = useSnapshot();
 
@@ -85,7 +85,7 @@ export default function HealthTab({
     experiment,
     phase,
     refreshOrganization,
-    mutateSnapshot,
+    mutateLatest,
     setAnalysisSettings,
     setLoading,
     resetResultsSettings,

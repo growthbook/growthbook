@@ -31,7 +31,7 @@ const RefreshBanditButton: FC<{
   const [reweight, setReweight] = useState(false);
   const [open, setOpen] = useState(false);
 
-  const { setSnapshotType, mutateSnapshot } = useSnapshot();
+  const { setSnapshotType, mutateLatest } = useSnapshot();
 
   const { getDatasourceById } = useDefinitions();
 
@@ -129,7 +129,10 @@ const RefreshBanditButton: FC<{
                 throw e;
               }
               setSnapshotType("standard");
-              mutateSnapshot();
+              // POSTing /banditSnapshot creates a new snapshot id; the
+              // provider auto-upgrades the heavy fetch when status reports
+              // the new successful id, so only refresh the cheap status.
+              mutateLatest();
             }}
           >
             <BsArrowRepeat /> {reweight ? "Update Weights" : "Check Results"}
