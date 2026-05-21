@@ -45,6 +45,7 @@ import {
   type RevisionRampUpdateAction,
   type StepHoldConditions,
   isAwaitingApproval,
+  DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
 } from "shared/validators";
 import { date as formatDate } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -153,7 +154,7 @@ export interface RampMonitoringState {
   updateScheduleMinutes: number | null;
   srmAction?: "warn" | "hold" | "rollback";
   noTrafficAction?: "warn" | "hold" | "rollback";
-  noTrafficGracePeriodHours?: number;
+  noTrafficGracePeriodHours: number | null;
   multipleExposureAction?: "warn" | "hold" | "rollback";
 }
 
@@ -185,6 +186,7 @@ const DEFAULT_MONITORING: RampMonitoringState = {
   guardrailMetricIds: [],
   signalMetricIds: [],
   updateScheduleMinutes: null,
+  noTrafficGracePeriodHours: null,
 };
 
 const UNIT_MULT: Record<IntervalUnit, number> = {
@@ -351,8 +353,8 @@ const COL = {
 } as const;
 
 function isEmptyConditionValue(value: string | null | undefined): boolean {
-  if (value == null) return true;
-  const trimmed = value.trim();
+  if ((value ?? null) === null) return true;
+  const trimmed = (value as string).trim();
   return trimmed === "" || trimmed === "{}";
 }
 
@@ -447,7 +449,7 @@ export function buildMonitoringConfig(
       updateScheduleMinutes?: number | null;
       srmAction?: "warn" | "hold" | "rollback";
       noTrafficAction?: "warn" | "hold" | "rollback";
-      noTrafficGracePeriodHours?: number;
+      noTrafficGracePeriodHours: number | null;
       multipleExposureAction?: "warn" | "hold" | "rollback";
     }
   | undefined {
@@ -658,7 +660,7 @@ function formatReadonlyDurationFromSchedule(rs: RampScheduleInterface): string {
   let approvals = 0;
   let hasMonitored = false;
   for (const step of rs.steps) {
-    if (step.interval != null) {
+    if (step.interval !== null) {
       totalSeconds += step.interval;
     }
     if (step.holdConditions?.requiresApproval) {
@@ -687,72 +689,61 @@ function formatUserUnitLabel(userIdType?: string): string | null {
   return `${words} users`;
 }
 
-function NoTrafficGraceDialog({
+function NoTrafficGracePopoverContent({
   initialValue,
   onSave,
-  onCancel,
+  onClose,
 }: {
-  initialValue?: number;
-  onSave: (value: number | undefined) => void;
-  onCancel: () => void;
+  initialValue?: number | null;
+  onSave: (value: number | null) => void;
+  onClose: () => void;
 }) {
   const [draft, setDraft] = useState(
-    initialValue != null ? String(initialValue) : "",
+    (initialValue ?? null) !== null ? String(initialValue) : "",
   );
 
   const save = () => {
     const val = parseFloat(draft);
-    onSave(val && val > 0 ? val : undefined);
+    onSave(val && val > 0 ? val : null);
+    onClose();
   };
 
   return (
-    <AlertDialog.Root open>
-      <AlertDialog.Content maxWidth="320px">
-        <Flex direction="column" gap="3">
-          <AlertDialog.Title>
-            <Text weight="medium" size="medium">
-              No-traffic grace period
-            </Text>
-          </AlertDialog.Title>
-          <AlertDialog.Description>
-            <Text as="span" size="small" color="text-mid">
-              How long to wait for traffic before applying the no-traffic
-              action. Leave empty to use the default (24 h).
-            </Text>
-          </AlertDialog.Description>
-          <Field
-            type="number"
-            min="0.1"
-            step="0.5"
-            placeholder="24"
-            autoFocus
-            append="h"
-            onFocus={(e) => e.target.select()}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                save();
-              }
-            }}
-            containerClassName="mb-0"
-          />
-          <Flex justify="end" gap="2">
-            <AlertDialog.Cancel>
-              <Button variant="ghost" size="sm" onClick={onCancel}>
-                Cancel
-              </Button>
-            </AlertDialog.Cancel>
-            <AlertDialog.Action>
-              <Button size="sm" onClick={save}>
-                Done
-              </Button>
-            </AlertDialog.Action>
-          </Flex>
-        </Flex>
-      </AlertDialog.Content>
-    </AlertDialog.Root>
+    <Flex direction="column" gap="3" style={{ width: 210 }}>
+      <Text weight="medium" size="medium">
+        No-traffic grace period
+      </Text>
+      <Text as="span" size="small" color="text-mid">
+        Wait before checking for no traffic. Empty defaults to{" "}
+        {DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS}h.
+      </Text>
+      <Field
+        type="number"
+        min="0.1"
+        step="0.5"
+        placeholder={`${DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS} (default)`}
+        autoFocus
+        append="hours"
+        onFocus={(e) => e.target.select()}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            save();
+          }
+        }}
+        containerClassName="mb-0"
+      />
+      <Flex justify="end" gap="2">
+        <Button variant="ghost" size="sm" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button size="sm" onClick={save}>
+          Done
+        </Button>
+      </Flex>
+    </Flex>
   );
 }
 
@@ -766,7 +757,7 @@ function MinSampleDialog({
   onCancel: () => void;
 }) {
   const [draft, setDraft] = useState(
-    initialValue != null ? String(initialValue) : "",
+    (initialValue ?? null) !== null ? String(initialValue) : "",
   );
 
   const save = () => {
@@ -1447,7 +1438,7 @@ export default function RampScheduleSection({
       }
 
       const hasHoldConditions =
-        step?.holdConditions?.minSampleSize != null ||
+        (step?.holdConditions?.minSampleSize ?? null) !== null ||
         // requiresApproval is only a secondary "Then:" condition when there's
         // also an interval — when triggerType === "approval" it IS the primary
         // action and is already shown as the step label.
@@ -1478,13 +1469,13 @@ export default function RampScheduleSection({
                         )}
                       </Flex>
                     )}
-                  {step?.holdConditions?.minSampleSize != null && (
+                  {(step?.holdConditions?.minSampleSize ?? null) !== null && (
                     <Flex wrap="wrap" gap="2" align="baseline">
                       <Text size="small" weight="medium">
                         Hold for min. sample
                       </Text>
                       <Text size="small" color="text-low">
-                        {step.holdConditions.minSampleSize.toLocaleString()}
+                        {step!.holdConditions!.minSampleSize!.toLocaleString()}
                       </Text>
                     </Flex>
                   )}
@@ -2153,10 +2144,9 @@ export default function RampScheduleSection({
                                               asChild
                                             >
                                               <span>
-                                                {step.holdConditions
-                                                  ?.minSampleSize != null && (
-                                                  <PiCheck size={16} />
-                                                )}
+                                                {(step.holdConditions
+                                                  ?.minSampleSize ?? null) !==
+                                                  null && <PiCheck size={16} />}
                                                 Minimum sample size
                                               </span>
                                             </Flex>
@@ -2301,7 +2291,7 @@ export default function RampScheduleSection({
 
                 {!isReadOnlyView &&
                   (step.holdConditions?.requiresApproval ||
-                    step.holdConditions?.minSampleSize != null) && (
+                    (step.holdConditions?.minSampleSize ?? null) !== null) && (
                     <Flex
                       direction="column"
                       gap="1"
@@ -2387,7 +2377,8 @@ export default function RampScheduleSection({
                           </Flex>
                         )}
 
-                      {step.holdConditions?.minSampleSize != null && (
+                      {(step.holdConditions?.minSampleSize ?? null) !==
+                        null && (
                         <Flex
                           align="center"
                           gap="3"
@@ -2402,7 +2393,7 @@ export default function RampScheduleSection({
                             style={{ flexShrink: 0 }}
                             onClick={() => setMinSamplePopoverIndex(i)}
                           >
-                            {step.holdConditions.minSampleSize.toLocaleString()}
+                            {step.holdConditions!.minSampleSize!.toLocaleString()}
                           </Link>
                           <Box flexGrow="1" />
                           <Tooltip body="Remove condition" tipMinWidth="50px">
@@ -2470,8 +2461,7 @@ export default function RampScheduleSection({
           </Box>
         )}
 
-        {!isReadOnlyView &&
-          minSamplePopoverIndex != null &&
+        {minSamplePopoverIndex !== null &&
           state.steps[minSamplePopoverIndex] && (
             <MinSampleDialog
               initialValue={
@@ -2491,17 +2481,6 @@ export default function RampScheduleSection({
               onCancel={() => setMinSamplePopoverIndex(null)}
             />
           )}
-
-        {!isReadOnlyView && noTrafficGraceOpen && (
-          <NoTrafficGraceDialog
-            initialValue={state.monitoring.noTrafficGracePeriodHours}
-            onSave={(val) => {
-              patchMonitoring({ noTrafficGracePeriodHours: val });
-              setNoTrafficGraceOpen(false);
-            }}
-            onCancel={() => setNoTrafficGraceOpen(false)}
-          />
-        )}
 
         {endRow}
       </Box>
@@ -2597,8 +2576,8 @@ export default function RampScheduleSection({
           if (o) setTemplateName(state.name || "");
           setSaveTemplateOpen(o);
         }}
-        align="end"
-        side="bottom"
+        align="start"
+        side="top"
         showArrow={false}
         contentStyle={{ width: 280, padding: "16px 20px" }}
         trigger={
@@ -2709,7 +2688,7 @@ export default function RampScheduleSection({
   const effectiveCadenceSeconds = useMemo(() => {
     if (!state.steps.some((s) => s.monitored)) return null;
     if (
-      state.monitoring.updateScheduleMinutes != null &&
+      state.monitoring.updateScheduleMinutes !== null &&
       state.monitoring.updateScheduleMinutes > 0
     ) {
       return state.monitoring.updateScheduleMinutes * 60;
@@ -2763,7 +2742,7 @@ export default function RampScheduleSection({
       ?.name ?? (exposureQueries.length > 0 ? "Select" : "—");
 
   const hasAdvancedOverrides =
-    (state.monitoring.updateScheduleMinutes != null &&
+    (state.monitoring.updateScheduleMinutes !== null &&
       state.monitoring.updateScheduleMinutes > 0) ||
     !!state.monitoring.srmAction ||
     !!state.monitoring.noTrafficAction ||
@@ -2937,7 +2916,7 @@ export default function RampScheduleSection({
                 min={0.25}
                 max={168}
                 value={
-                  state.monitoring.updateScheduleMinutes != null
+                  state.monitoring.updateScheduleMinutes !== null
                     ? String(state.monitoring.updateScheduleMinutes / 60)
                     : ""
                 }
@@ -3008,18 +2987,34 @@ export default function RampScheduleSection({
               </DropdownMenu>
             </Flex>
             <Flex align="center" gap="1">
-              <Text as="label" weight="medium" mb="0">
-                If no traffic (
-                <Link
-                  type="button"
-                  className="no-underline hover-underline"
-                  onClick={() => setNoTrafficGraceOpen(true)}
-                >
-                  {state.monitoring.noTrafficGracePeriodHours != null
-                    ? `${state.monitoring.noTrafficGracePeriodHours}h`
-                    : "24h"}
-                </Link>
-                ):
+              <Text as="span" weight="medium">
+                {"If no traffic ("}
+                <Popover
+                  open={noTrafficGraceOpen}
+                  onOpenChange={setNoTrafficGraceOpen}
+                  triggerAsChild
+                  showArrow={false}
+                  align="center"
+                  side="top"
+                  trigger={
+                    <Link type="button" className="hover-underline">
+                      {state.monitoring.noTrafficGracePeriodHours !== null
+                        ? `${state.monitoring.noTrafficGracePeriodHours}h`
+                        : `${DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS}h`}
+                    </Link>
+                  }
+                  content={
+                    <NoTrafficGracePopoverContent
+                      initialValue={state.monitoring.noTrafficGracePeriodHours}
+                      onSave={(val) =>
+                        patchMonitoring({ noTrafficGracePeriodHours: val })
+                      }
+                      onClose={() => setNoTrafficGraceOpen(false)}
+                    />
+                  }
+                  contentStyle={{ padding: "12px 16px" }}
+                />
+                {"):"}
               </Text>
               <DropdownMenu
                 trigger={
@@ -3786,14 +3781,14 @@ export function reconstructUIPatch(
 ): UIStepPatch {
   if (!patch) return {};
   const p: UIStepPatch = {};
-  if (patch.coverage != null)
+  if ((patch.coverage ?? null) !== null)
     p.coverage = Math.round(
-      monitored ? (patch.coverage * 100) / 2 : patch.coverage * 100,
+      monitored ? (patch.coverage! * 100) / 2 : patch.coverage! * 100,
     );
   if ("condition" in patch) {
     const condition = patch.condition;
     p.condition =
-      condition == null || isEmptyConditionValue(condition) ? null : condition;
+      condition === null || isEmptyConditionValue(condition) ? null : condition;
   }
   if ("savedGroups" in patch) {
     const savedGroups = patch.savedGroups as SavedGroupTargeting[] | null;
@@ -3804,8 +3799,9 @@ export function reconstructUIPatch(
     p.prerequisites =
       prerequisites && prerequisites.length > 0 ? prerequisites : null;
   }
-  if (patch.allEnvironments != null) p.allEnvironments = patch.allEnvironments;
-  if (patch.environments != null)
+  if ((patch.allEnvironments ?? null) !== null)
+    p.allEnvironments = patch.allEnvironments ?? undefined;
+  if ((patch.environments ?? null) !== null)
     p.environments = patch.environments as string[];
   if (patch.force !== undefined) {
     p.force =
@@ -3825,7 +3821,7 @@ export function reconstructUIStep(step: RampStep): UIStep {
   // "approval" with default placeholder timing. interval>0 is "interval"
   // mode; if it also has requiresApproval, the composite UI surfaces it
   // through holdConditions.
-  if (step.interval == null) {
+  if (step.interval === null) {
     const approvalNotes = step.approvalNotes ?? "";
     return {
       patch,
@@ -3905,7 +3901,7 @@ export function rampScheduleToSectionState(
           srmAction: rs.monitoringConfig.srmAction,
           noTrafficAction: rs.monitoringConfig.noTrafficAction,
           noTrafficGracePeriodHours:
-            rs.monitoringConfig.noTrafficGracePeriodHours,
+            rs.monitoringConfig.noTrafficGracePeriodHours ?? null,
           multipleExposureAction: rs.monitoringConfig.multipleExposureAction,
         }
       : { ...DEFAULT_MONITORING },
@@ -3976,6 +3972,8 @@ export function createActionToSectionState(
             action.monitoringConfig.updateScheduleMinutes ?? null,
           srmAction: action.monitoringConfig.srmAction,
           noTrafficAction: action.monitoringConfig.noTrafficAction,
+          noTrafficGracePeriodHours:
+            action.monitoringConfig.noTrafficGracePeriodHours ?? null,
           multipleExposureAction:
             action.monitoringConfig.multipleExposureAction,
         }
@@ -4057,6 +4055,7 @@ export function templateToSectionState(
           updateScheduleMinutes: mc.updateScheduleMinutes ?? null,
           srmAction: mc.srmAction,
           noTrafficAction: mc.noTrafficAction,
+          noTrafficGracePeriodHours: mc.noTrafficGracePeriodHours ?? null,
           multipleExposureAction: mc.multipleExposureAction,
         }
       : { ...DEFAULT_MONITORING },

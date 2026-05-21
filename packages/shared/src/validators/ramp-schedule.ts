@@ -4,6 +4,8 @@ import { apiBaseSchema, baseSchema } from "./base-model";
 
 import { namedSchema } from "./openapi-helpers";
 
+export const DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS = 24;
+
 // Sparse rule patch applied by ramp steps; absent fields inherit prior state.
 export const featureRulePatch = z.object({
   ruleId: z.string(),
@@ -63,9 +65,9 @@ export const rampMonitoringConfig = z.object({
   noTrafficGracePeriodHours: z
     .number()
     .positive()
-    .optional()
+    .nullish()
     .describe(
-      "How long to wait for traffic before applying `noTrafficAction`. Defaults to 24 hours when not set.",
+      "How long to wait for traffic before applying `noTrafficAction`. Defaults to 24 hours when null or not set.",
     ),
   multipleExposureAction: experimentHealthAction.optional(),
 });

@@ -2,6 +2,7 @@ import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
 import {
+  DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
   FeatureRulePatch,
   LockdownConfig,
   RampEvent,
@@ -34,7 +35,8 @@ import { logger } from "back-end/src/util/logger";
 const LOCKDOWN_ACTIVE_STATUSES = ["running"] as const;
 
 const MAX_EVENT_HISTORY = 500;
-export const MONITORING_NO_TRAFFIC_GRACE_PERIOD_MS = 24 * 60 * 60 * 1000;
+export const MONITORING_NO_TRAFFIC_GRACE_PERIOD_MS =
+  DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS * 60 * 60 * 1000;
 
 export function getFirstMonitoredStepIndex(
   schedule: Pick<RampScheduleInterface, "steps">,

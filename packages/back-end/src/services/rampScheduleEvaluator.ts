@@ -87,7 +87,7 @@ async function evaluateMonitoredStep(
 
   const stepEnteredAt = schedule.currentStepEnteredAt;
   const stepIntervalSeconds = step?.interval ?? null;
-  if (stepEnteredAt && stepIntervalSeconds != null) {
+  if (stepEnteredAt && stepIntervalSeconds !== null) {
     const stepElapsedMs = now.getTime() - stepEnteredAt.getTime();
     const stepDurationMs = stepIntervalSeconds * 1000;
     if (stepElapsedMs < stepDurationMs) {
@@ -101,7 +101,7 @@ async function evaluateMonitoredStep(
   }
 
   const intervalEndAt =
-    stepEnteredAt && stepIntervalSeconds != null
+    stepEnteredAt && stepIntervalSeconds !== null
       ? new Date(stepEnteredAt.getTime() + stepIntervalSeconds * 1000)
       : null;
   const requiredSnapshotAt =
@@ -169,11 +169,8 @@ async function evaluateMonitoredStep(
       schedule.startedAt;
     if (monitoringStartDate) {
       const gracePeriodMs =
-        (schedule.monitoringConfig?.noTrafficGracePeriodHours ?? null) != null
-          ? schedule.monitoringConfig!.noTrafficGracePeriodHours! *
-            60 *
-            60 *
-            1000
+        (schedule.monitoringConfig?.noTrafficGracePeriodHours ?? null) !== null
+          ? schedule.monitoringConfig.noTrafficGracePeriodHours * 60 * 60 * 1000
           : MONITORING_NO_TRAFFIC_GRACE_PERIOD_MS;
       const elapsedMs = now.getTime() - monitoringStartDate.getTime();
       if (elapsedMs < gracePeriodMs) {

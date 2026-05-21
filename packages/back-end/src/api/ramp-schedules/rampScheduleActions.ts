@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import { PermissionError } from "shared/util";
 import {
   apiRampScheduleInterface,
+  DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
   rampMonitoringConfig,
   lockdownConfigSchema,
   stepHoldConditions,
@@ -884,7 +885,8 @@ export const getRampScheduleStatus = createApiRequestHandler({
         const inGrace =
           !!monitoringStart &&
           Date.now() - new Date(monitoringStart).getTime() <
-            (schedule.monitoringConfig?.noTrafficGracePeriodHours ?? 24) *
+            (schedule.monitoringConfig?.noTrafficGracePeriodHours ??
+              DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS) *
               60 *
               60 *
               1000;
