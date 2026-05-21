@@ -62,6 +62,7 @@ import {
   validateVariationIds,
   validateExperimentData,
 } from "back-end/src/services/experiments";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
   approveScheduledExperimentStart,
   startExperiment,
@@ -1138,6 +1139,28 @@ export async function postExperiments(
 
   const { metricIds, datasource, invalidMetricIds } = result;
 
+  // Opt-in attribute registration check (org-level setting). Applies before
+  // any DB writes so a typo'd attribute is rejected outright.
+  assertRegisteredAttributes(
+    context,
+    {
+      hashAttribute: data.hashAttribute,
+      fallbackAttribute: data.fallbackAttribute,
+    },
+    "experiment",
+    undefined,
+    data.project,
+  );
+  for (const phase of data.phases ?? []) {
+    assertRegisteredAttributes(
+      context,
+      { condition: phase.condition },
+      "experiment phase",
+      undefined,
+      data.project,
+    );
+  }
+
   const experimentType = data.type ?? "standard";
   const holdoutId = data.holdoutId;
 
@@ -1442,6 +1465,27 @@ export async function postExperiment(
 
   if (!context.permissions.canUpdateExperiment(experiment, req.body)) {
     context.permissions.throwPermissionError();
+  }
+
+  // Opt-in attribute registration check (org-level setting).
+  assertRegisteredAttributes(
+    context,
+    {
+      hashAttribute: data.hashAttribute,
+      fallbackAttribute: data.fallbackAttribute,
+    },
+    "experiment",
+    undefined,
+    experiment.project,
+  );
+  for (const phase of data.phases ?? []) {
+    assertRegisteredAttributes(
+      context,
+      { condition: phase.condition },
+      "experiment phase",
+      undefined,
+      experiment.project,
+    );
   }
 
   // FIXME: We skip validation because project is updated in a different place than where
@@ -2534,6 +2578,15 @@ export async function putExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
+  // Opt-in attribute registration check (org-level setting).
+  assertRegisteredAttributes(
+    context,
+    { condition: phase.condition },
+    "experiment phase",
+    undefined,
+    experiment.project,
+  );
+
   phase.dateStarted = phase.dateStarted
     ? getValidDate(phase.dateStarted + ":00Z")
     : new Date();
@@ -2644,6 +2697,19 @@ export async function postExperimentTargeting(
   ) {
     context.permissions.throwPermissionError();
   }
+
+  // Opt-in attribute registration check (org-level setting).
+  assertRegisteredAttributes(
+    context,
+    {
+      hashAttribute,
+      fallbackAttribute,
+      condition,
+    },
+    "experiment",
+    undefined,
+    experiment.project,
+  );
 
   const phases = [...experiment.phases];
 
@@ -2794,6 +2860,15 @@ export async function postExperimentPhase(
   ) {
     context.permissions.throwPermissionError();
   }
+
+  // Opt-in attribute registration check (org-level setting).
+  assertRegisteredAttributes(
+    context,
+    { condition: data.condition },
+    "experiment phase",
+    undefined,
+    experiment.project,
+  );
 
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
 

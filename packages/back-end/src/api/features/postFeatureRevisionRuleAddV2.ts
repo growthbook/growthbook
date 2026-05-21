@@ -35,6 +35,7 @@ import {
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
   resolveOrCreateRevision,
+  validateRuleAttributes,
   validateRuleConditions,
   validateRuleReferences,
 } from "./validations";
@@ -154,6 +155,10 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     const rule = buildRuleFromInput(baseRuleInput as RuleCreateInput, uuidv4());
 
     validateRuleConditions(rule);
+    // Opt-in registered-attribute check before any side effects (safe-rollout
+    // create, revision update). New rules have no baseline, so this validates
+    // every attribute-bearing field on the incoming rule.
+    validateRuleAttributes(rule, req.context, feature.project);
     await validateRuleReferences(rule, req.context);
 
     if (ruleInput.type === "safe-rollout" && rule.type === "safe-rollout") {
