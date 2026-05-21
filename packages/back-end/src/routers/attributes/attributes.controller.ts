@@ -110,11 +110,19 @@ export const putAttribute = async (
 
   // Only merge fields the client actually sent — absent keys preserve the
   // existing value, avoiding the BSON `undefined → null` round trip.
-  attributeSchema[index] = {
-    ...attributeSchema[index],
+  // Build a new array (rather than mutating `attributeSchema[index]` in
+  // place) so the pre-edit reference stays intact. `updateAttributeSchema`
+  // re-reads `org.settings.attributeSchema` to compute the rollback
+  // baseline; mutating the shared reference would have it roll back to the
+  // post-edit state on failure.
+  const updatedAttribute: SDKAttribute = {
+    ...existing,
     ...attributeFields,
     ...(tags !== undefined && { tags: tags.length > 0 ? tags : undefined }),
   };
+  const newAttributeSchema = attributeSchema.map((attr, i) =>
+    i === index ? updatedAttribute : attr,
+  );
 
   const renames: { from: string; to: string }[] =
     previousName && previousName !== attributeFields.property
@@ -122,7 +130,7 @@ export const putAttribute = async (
       : [];
 
   await updateAttributeSchema(context, {
-    newAttributeSchema: attributeSchema,
+    newAttributeSchema,
     renames,
   });
 
@@ -133,12 +141,8 @@ export const putAttribute = async (
       id: org.id,
     },
     details: auditDetailsUpdate(
-      { settings: { attributeSchema: org.settings?.attributeSchema || [] } },
-      {
-        settings: {
-          attributeSchema,
-        },
-      },
+      { settings: { attributeSchema } },
+      { settings: { attributeSchema: newAttributeSchema } },
     ),
   });
   return res.status(200).json({

@@ -275,7 +275,10 @@ async function syncManagedWarehouseEventsFactTable(
       newColumns.push({
         column: col.columnName,
         name: col.columnName,
-        datatype: col.datatype,
+        // FactTableColumnType has no array variant — `other` is the closest
+        // fit for `string[]` / `number[]` materialized columns so the picker
+        // doesn't mis-classify them as plain strings.
+        datatype: col.arrayElementType ? "other" : col.datatype,
         dateCreated: new Date(),
         dateUpdated: new Date(),
         deleted: false,
