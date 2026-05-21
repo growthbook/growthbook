@@ -38,7 +38,9 @@ export const postAttribute = async (
 
   const newAttributeSchema = [...attributeSchema, newAttribute];
 
-  await updateAttributeSchema(context, { newAttributeSchema });
+  const { persistedAttributeSchema } = await updateAttributeSchema(context, {
+    newAttributeSchema,
+  });
 
   await req.audit({
     event: "attribute.create",
@@ -50,7 +52,7 @@ export const postAttribute = async (
       { settings: { attributeSchema } },
       {
         settings: {
-          attributeSchema: newAttributeSchema,
+          attributeSchema: persistedAttributeSchema,
         },
       },
     ),
@@ -129,7 +131,7 @@ export const putAttribute = async (
       ? [{ from: previousName, to: attributeFields.property }]
       : [];
 
-  await updateAttributeSchema(context, {
+  const { persistedAttributeSchema } = await updateAttributeSchema(context, {
     newAttributeSchema,
     renames,
   });
@@ -142,7 +144,7 @@ export const putAttribute = async (
     },
     details: auditDetailsUpdate(
       { settings: { attributeSchema } },
-      { settings: { attributeSchema: newAttributeSchema } },
+      { settings: { attributeSchema: persistedAttributeSchema } },
     ),
   });
   return res.status(200).json({

@@ -1,9 +1,6 @@
 import { SDKAttribute } from "shared/types/organization";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
-import type {
-  GrowthbookClickhouseDataSource,
-  MaterializedColumn,
-} from "shared/types/datasource";
+import type { MaterializedColumn } from "shared/types/datasource";
 import type { ColumnInterface } from "shared/types/fact-table";
 import { dangerouslyGetGrowthbookDatasourceBypassPermission } from "back-end/src/models/DataSourceModel";
 import {
@@ -73,7 +70,7 @@ export async function updateAttributeSchema(
      */
     skipManagedWarehouseNameValidation?: boolean;
   },
-): Promise<void> {
+): Promise<{ persistedAttributeSchema: SDKAttribute[] }> {
   const { org } = context;
   // Bypass the read-permission gate here. An admin who can manage attributes
   // but lacks read on the warehouse datasource project would otherwise silently
@@ -85,7 +82,7 @@ export async function updateAttributeSchema(
     await updateOrganization(org.id, {
       settings: { ...org.settings, attributeSchema: newAttributeSchema },
     });
-    return;
+    return { persistedAttributeSchema: newAttributeSchema };
   }
 
   const currentAttributeSchema = org.settings?.attributeSchema || [];
@@ -171,7 +168,7 @@ export async function updateAttributeSchema(
   // refresh, so we don't fail the request or roll the org back if it
   // doesn't go through.
   try {
-    await syncManagedWarehouseEventsFactTable(context, managedWarehouse, {
+    await syncManagedWarehouseEventsFactTable(context, {
       previousColumns: previousMaterializedColumns,
       finalColumns: syncResult.syncedMaterializedColumns,
       renames,
@@ -182,6 +179,8 @@ export async function updateAttributeSchema(
       "Failed to sync managed warehouse events fact table after attribute change",
     );
   }
+
+  return { persistedAttributeSchema: finalAttributeSchema };
 }
 
 type MaterializedColumnDiff = {
@@ -240,7 +239,6 @@ function diffMaterializedColumnsForFactTable(
  */
 async function syncManagedWarehouseEventsFactTable(
   context: ReqContext,
-  datasource: GrowthbookClickhouseDataSource,
   {
     previousColumns,
     finalColumns,
