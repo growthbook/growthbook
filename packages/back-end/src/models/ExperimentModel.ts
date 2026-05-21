@@ -62,6 +62,7 @@ import {
   VisualChangesetModel,
 } from "./VisualChangesetModel";
 import { getFeaturesByIds } from "./FeatureModel";
+import { ContextualBanditModel } from "./ContextualBanditModel";
 
 const COLLECTION = "experiments";
 
@@ -319,6 +320,7 @@ const experimentSchema = new mongoose.Schema({
   banditConversionWindowValue: Number,
   banditConversionWindowUnit: String,
   banditIsContextual: { type: Boolean, default: false },
+  contextualBanditId: String,
   customFields: {},
   templateId: String,
   shareLevel: String,
@@ -2006,6 +2008,34 @@ const onExperimentCreate = async ({
       experiment,
       organization: context.org,
     });
+
+  if (
+    experiment.banditIsContextual &&
+    experiment.type === "multi-armed-bandit" &&
+    experiment.datasource &&
+    experiment.exposureQueryId &&
+    !experiment.contextualBanditId
+  ) {
+    const cbModel = new ContextualBanditModel(context);
+    const cb = await cbModel.create({
+      experiment: experiment.id,
+      datasourceId: experiment.datasource,
+      exposureQueryId: experiment.exposureQueryId,
+      contextualAttributes: [],
+      maxContexts: 100,
+      treeModel: "linear_tree",
+      minUsersPerLeaf: 100,
+      maxLeaves: 10,
+      holdoutPercent: 0,
+      stickyBucketing: false,
+      canonicalFormVersion: 1,
+      phases: [],
+    });
+    await ExperimentModel.updateOne(
+      { id: experiment.id, organization: context.org.id },
+      { $set: { contextualBanditId: cb.id } },
+    );
+  }
 };
 
 const onExperimentUpdate = async ({
@@ -2098,6 +2128,15 @@ const onExperimentDelete = async (
       experiment,
       organization: context.org,
     });
+
+  if (experiment.contextualBanditId) {
+    try {
+      const cbModel = new ContextualBanditModel(context);
+      await cbModel.deleteForExperiment(experiment.id);
+    } catch (e) {
+      logger.error(e, "Failed to cascade-delete contextual bandit doc");
+    }
+  }
 };
 
 export async function hasNonDemoExperiment(

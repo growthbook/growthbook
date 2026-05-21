@@ -69,3 +69,6 @@ export * from "./exposure-query-targeting-attribute-columns";
 export * from "./data-sources";
 export * from "./reports";
 export * from "./openapi-helpers";
+export * from "./contextual-bandit";
+export * from "./contextual-bandit-snapshot";
+export * from "./contextual-bandit-event";

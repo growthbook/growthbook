@@ -108,8 +108,25 @@ const experimentValue = z
 
 export type ExperimentValue = z.infer<typeof experimentValue>;
 
-const experimentType = ["standard", "multi-armed-bandit"] as const;
+const experimentType = [
+  "standard",
+  "multi-armed-bandit",
+  "contextual-bandit",
+] as const;
 const banditStageType = ["explore", "exploit", "paused"] as const;
+
+/**
+ * One context entry for a contextual-bandit experiment rule.
+ * Each entry maps a contextId (derived from attribute values) to per-arm weights.
+ */
+export const contextsEntryValidator = z
+  .object({
+    contextId: z.string(),
+    condition: z.record(z.string(), z.unknown()),
+    weights: z.array(z.number()),
+  })
+  .strict();
+export type ContextsEntry = z.infer<typeof contextsEntryValidator>;
 
 const experimentRule = baseRule
   .extend({
@@ -148,6 +165,12 @@ const experimentRule = baseRule
     banditConversionWindowUnit: z.enum(["hours", "days"]).optional().nullable(),
     templateId: z.string().optional(),
     customFields: z.record(z.string(), z.any()).optional(),
+    /** Per-context arm-weight entries for contextual-bandit experiments. */
+    contexts: z.array(contextsEntryValidator).optional(),
+    /** True when this rule drives a contextual-bandit experiment. */
+    isContextualBandit: z.boolean().optional(),
+    /** Attribute names that must be present for the rule to evaluate. */
+    attributesRequired: z.array(z.string()).optional(),
   })
   .strict();
 

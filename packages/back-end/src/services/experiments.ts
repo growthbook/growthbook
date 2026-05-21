@@ -708,10 +708,6 @@ export function getSnapshotSettings({
                   windowUnit: experiment.banditConversionWindowUnit,
                 }
               : undefined,
-          banditIsContextual: experiment.banditIsContextual ?? false,
-          targetingAttributeColumns: [
-            ...(exposureQuery?.targetingAttributeColumns ?? []),
-          ],
         }
       : undefined;
 
@@ -4781,11 +4777,35 @@ export async function validateContextualBanditExperimentForSave(
     datasourceId?: string;
     exposureQueryId?: string;
     datasource?: DataSourceInterface | null;
+    /** If provided, the function will block datasource/EAQ changes for this existing experiment. */
+    existingExperiment?: ExperimentInterface;
   },
 ): Promise<void> {
   if (!params.banditIsContextual) {
     return;
   }
+
+  // Block datasource / exposureQueryId changes for existing contextual-bandit experiments
+  if (params.existingExperiment?.contextualBanditId) {
+    const existing = params.existingExperiment;
+    if (
+      params.datasourceId !== undefined &&
+      params.datasourceId !== existing.datasource
+    ) {
+      throw new Error(
+        "Cannot change datasource on a contextual bandit experiment after it has been created.",
+      );
+    }
+    if (
+      params.exposureQueryId !== undefined &&
+      params.exposureQueryId !== existing.exposureQueryId
+    ) {
+      throw new Error(
+        "Cannot change exposure query on a contextual bandit experiment after it has been created.",
+      );
+    }
+  }
+
   const datasource =
     params.datasource ??
     (params.datasourceId

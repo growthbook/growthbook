@@ -183,24 +183,6 @@ export interface SnapshotBanditSettings {
   }[];
   useFirstExposure?: boolean;
   windowSettings?: MetricWindowSettings;
-  banditIsContextual?: boolean;
-  targetingAttributeColumns?: string[];
-}
-
-/** Per-context bandit update from the stats engine (contextual multi-armed bandit). */
-export interface ContextualBanditResponse {
-  context: Record<string, unknown>;
-  sampleSizePerVariation?: number[] | null;
-  variationMeans?: number[] | null;
-  updatedWeights?: number[] | null;
-  bestArmProbabilities?: number[] | null;
-  updateMessage?: string | null;
-  error?: string | null;
-}
-
-export interface ContextualBanditSnapshot {
-  attributes: string[];
-  responses: ContextualBanditResponse[];
 }
 
 // Settings that control which queries are run
@@ -263,7 +245,6 @@ export interface ExperimentSnapshotInterface {
   // Keyed by `ExperimentSnapshotAnalysis.analysisKey`
   chunkedAnalysesMeta?: Record<AnalysisKeyType, AnalysisMetaEntry>;
   banditResult?: BanditResult;
-  contextualBanditSnapshot?: ContextualBanditSnapshot;
 
   health?: ExperimentSnapshotHealth;
 }

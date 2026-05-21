@@ -419,6 +419,7 @@ export const experimentInterface = z
     banditConversionWindowValue: z.number().optional().nullable(),
     banditConversionWindowUnit: z.enum(["hours", "days"]).optional().nullable(),
     banditIsContextual: z.boolean().optional(),
+    contextualBanditId: z.string().optional(),
     customFields: z.record(z.string(), z.any()).optional(),
     templateId: z.string().optional(),
     shareLevel: z.enum(["public", "organization"]).optional(),

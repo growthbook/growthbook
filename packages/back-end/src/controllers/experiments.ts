@@ -3312,7 +3312,7 @@ export async function postBanditSnapshot(
     await queryRunner.waitForResults();
     snapshot = queryRunner.model;
 
-    if (!snapshot?.banditResult && !snapshot?.contextualBanditSnapshot) {
+    if (!snapshot?.banditResult) {
       return res.status(400).json({
         status: 400,
         message: "Unable to update bandit.",
