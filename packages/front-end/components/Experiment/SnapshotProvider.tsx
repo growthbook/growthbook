@@ -23,16 +23,21 @@ const snapshotContext = React.createContext<{
   analysis?: ExperimentSnapshotAnalysis | undefined;
   dimensionless?: ExperimentSnapshotInterface;
 
-  latest?: SnapshotStatusSummary;
-  // Refreshes both fetches. Use when the operation mutates fields on the
-  // current snapshot in place without changing its id (e.g., appending an
-  // analysis). For operations that create a new snapshot, prefer
-  // mutateLatest and let the provider auto-upgrade.
-  mutateSnapshot: () => Promise<unknown>;
-  // Refreshes only the cheap status fetch. Use for poll loops; the provider
-  // automatically refreshes the heavy snapshot when status indicates a
-  // newer successful snapshot is available.
-  mutateLatest: () => Promise<unknown>;
+  latestSummary?: SnapshotStatusSummary;
+  // Refreshes the snapshot data exposed by this provider.
+  //
+  // Default (no options) refreshes only the cheap status endpoint. The
+  // provider then auto-upgrades the heavy snapshot fetch when status
+  // reports a newer successful snapshot id. This is the right choice for
+  // poll loops and for any mutation that creates a new snapshot (POST
+  // `/snapshot`, force refresh, bandit refresh, etc.).
+  //
+  // Pass `{ inPlace: true }` only when the mutation alters the **current**
+  // snapshot without changing its id (e.g., appending an analysis to the
+  // existing snapshot). The auto-upgrade keys on id changes, so an in-place
+  // edit needs an explicit heavy refetch — otherwise consumers will see
+  // stale analyses until the next unrelated update.
+  mutate: (opts?: { inPlace?: boolean }) => Promise<unknown>;
   phase: number;
   dimension: string;
   precomputedDimensions: string[];
@@ -61,8 +66,7 @@ const snapshotContext = React.createContext<{
   setSnapshotType: () => {
     // do nothing
   },
-  mutateSnapshot: () => Promise.resolve(),
-  mutateLatest: () => Promise.resolve(),
+  mutate: () => Promise.resolve(),
 });
 
 export function getPrecomputedDimensions(
@@ -163,7 +167,12 @@ export default function SnapshotProvider({
   // cheap status fetch below still revalidates on focus/reconnect and is the
   // signal the provider uses to decide when a new heavy refetch is warranted
   // (see the transition effect after the status fetch).
-  const { data, error, isValidating, mutate } = useApi<{
+  const {
+    data,
+    error,
+    isValidating,
+    mutate: mutateHeavy,
+  } = useApi<{
     snapshot: ExperimentSnapshotInterface;
     dimensionless?: ExperimentSnapshotInterface;
   }>(
@@ -176,12 +185,10 @@ export default function SnapshotProvider({
   // `latest` is sourced from a dedicated status endpoint that skips loading
   // and decoding the per-metric analysis chunks. Keyed by the same
   // phase/dimension/type tuple as the main snapshot fetch.
-  const statusQuery = [
-    dimension ? `dimension=${encodeURIComponent(dimension)}` : "",
-    snapshotType ? `type=${snapshotType}` : "",
-  ]
-    .filter(Boolean)
-    .join("&");
+  const statusQuery = new URLSearchParams({
+    ...(dimension && { dimension }),
+    ...(snapshotType && { type: snapshotType }),
+  }).toString();
   const { data: statusData, mutate: mutateStatus } = useApi<{
     latest: SnapshotStatusSummary | null;
   }>(
@@ -189,13 +196,16 @@ export default function SnapshotProvider({
       (statusQuery ? `?${statusQuery}` : ""),
   );
 
-  const mutateSnapshot = useCallback(async () => {
-    await Promise.all([mutate(), mutateStatus()]);
-  }, [mutate, mutateStatus]);
-
-  const mutateLatest = useCallback(async () => {
-    await mutateStatus();
-  }, [mutateStatus]);
+  const mutate = useCallback(
+    async (opts?: { inPlace?: boolean }) => {
+      if (opts?.inPlace) {
+        await Promise.all([mutateHeavy(), mutateStatus()]);
+      } else {
+        await mutateStatus();
+      }
+    },
+    [mutateHeavy, mutateStatus],
+  );
 
   const statusLatest = statusData?.latest ?? undefined;
   const snapshotId = data?.snapshot?.id;
@@ -203,7 +213,7 @@ export default function SnapshotProvider({
     statusLatest,
     snapshotId,
     isValidating,
-    mutate,
+    mutateHeavy,
   );
   const latest = useCoherentLatest(statusLatest, snapshotId);
 
@@ -219,15 +229,14 @@ export default function SnapshotProvider({
         experiment,
         snapshot: data?.snapshot,
         dimensionless: data?.dimensionless ?? data?.snapshot,
-        latest,
+        latestSummary: latest,
         analysis: data?.snapshot
           ? ((getSnapshotAnalysis(
               data?.snapshot,
               analysisSettings,
             ) as ExperimentSnapshotAnalysis) ?? undefined)
           : undefined,
-        mutateSnapshot,
-        mutateLatest,
+        mutate,
         phase,
         dimension,
         analysisSettings,
@@ -300,7 +309,10 @@ export function LocalSnapshotProvider({
   // may differ from the experiment's current latest snapshot, and we want to
   // pick up newly-added analyses on this exact snapshot.
   const snapshotId = localSnapshot.id;
-  const mutateSnapshot = useCallback(async () => {
+  // LocalSnapshotProvider has no separate status fetch — a single
+  // by-id GET refreshes everything. The unified `mutate` ignores the
+  // `inPlace` flag here because there's nothing else to refetch.
+  const mutate = useCallback(async () => {
     setLoading(true);
     try {
       const response = await apiCall<{
@@ -325,13 +337,9 @@ export function LocalSnapshotProvider({
         experiment,
         snapshot: localSnapshot,
         dimensionless: localSnapshot,
-        latest: localSnapshot,
+        latestSummary: localSnapshot,
         analysis,
-        mutateSnapshot,
-        // LocalSnapshotProvider has no separate status fetch — there's a
-        // single snapshot fetched by id. Status refreshes are equivalent to
-        // a full refresh here.
-        mutateLatest: mutateSnapshot,
+        mutate,
         phase,
         dimension,
         analysisSettings,

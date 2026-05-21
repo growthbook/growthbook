@@ -67,7 +67,7 @@ export default function BanditSummaryResultsTab({
     ssrPolyfills?.getExperimentMetricById?.(mid) ||
     getExperimentMetricById(mid ?? "");
 
-  const { latest: _latest } = useSnapshot();
+  const { latestSummary: _latest } = useSnapshot();
   const latest = _latest ?? ssrSnapshot;
   const multipleExposures = latest?.multipleExposures;
 

@@ -83,7 +83,7 @@ const numberFormatter = Intl.NumberFormat();
 
 export default function AnalysisSettingsSummary({
   experiment,
-  mutate,
+  mutate: mutateExperiment,
   statsEngine,
   editMetrics,
   variationFilter,
@@ -137,12 +137,11 @@ export default function AnalysisSettingsSummary({
 
   const {
     snapshot,
-    latest,
+    latestSummary: latest,
     analysis,
     dimension: _snapshotDimension,
     precomputedDimensions,
-    mutateSnapshot,
-    mutateLatest,
+    mutate,
     setAnalysisSettings,
     setSnapshotType,
     setDimension: setSnapshotDimension,
@@ -707,11 +706,12 @@ export default function AnalysisSettingsSummary({
                     setSnapshotType?.(undefined);
                   }
                 }}
-                // Poll loop + post-submit refresh only need the cheap status
-                // endpoint. The provider auto-upgrades to a full snapshot
-                // fetch when status reports a newer successful run.
-                mutate={mutateLatest}
-                mutateAdditional={mutate}
+                // Poll loop + post-submit refresh hit the default
+                // status-only `mutate()` — the provider auto-upgrades to a
+                // full snapshot fetch when status reports a newer successful
+                // run, so a heavy refetch here would be redundant.
+                mutate={mutate}
+                mutateAdditional={mutateExperiment}
                 setRefreshError={setRefreshError}
                 experiment={experiment}
                 phase={phase}
@@ -744,10 +744,10 @@ export default function AnalysisSettingsSummary({
                           );
                           // POST creates a brand-new snapshot id, so the
                           // provider will auto-upgrade the heavy fetch once
-                          // status reports the new successful id — only the
-                          // cheap status mutator is needed here.
-                          mutateLatest();
+                          // status reports the new successful id — the
+                          // default cheap mutate is sufficient here.
                           mutate();
+                          mutateExperiment();
                           setRefreshError("");
                         })
                         .catch((e) => {
@@ -810,7 +810,10 @@ export default function AnalysisSettingsSummary({
                 userIdType={userIdType as "user" | "anonymous" | undefined}
                 analysis={analysis}
                 snapshot={snapshot}
-                mutate={mutateSnapshot}
+                // DimensionChooser appends a new analysis to the existing
+                // snapshot in place — pass `inPlace: true` so the heavy
+                // fetch refreshes (the id-keyed auto-upgrade won't fire).
+                mutate={() => mutate({ inPlace: true })}
                 setAnalysisSettings={setAnalysisSettings}
                 setSnapshotDimension={setSnapshotDimension}
               />
