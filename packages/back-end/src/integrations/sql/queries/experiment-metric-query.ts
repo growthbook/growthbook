@@ -265,8 +265,12 @@ export function getExperimentMetricQuery(
     );
   }
 
+  const dimensionLabel = unitDimensions.length
+    ? `Dimension: ${unitDimensions.map((d) => d.dimension.name).join(", ")}; `
+    : "";
+
   return format(
-    `-- ${metric.name} (${metric.type})
+    `-- ${dimensionLabel}${metric.name} (${metric.type})
 WITH
   ${idJoinSQL}
   ${
