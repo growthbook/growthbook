@@ -17,18 +17,11 @@ export type CaptureGrowthBookErrorOptions = {
   gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient;
   error: unknown;
   props?: GrowthBookErrorEventProps;
+  /** Override issue grouping for this error. A string is used as-is; an array is hashed server-side. */
+  fingerprint?: string | readonly string[];
   /** Required when `gb` is a {@link GrowthBookClient}. */
   userContext?: UserContext;
 };
-
-type PendingFingerprint =
-  | { type: "value"; value: string }
-  | { type: "parts"; parts: string[] };
-
-const pendingFingerprints = new WeakMap<
-  GrowthBook | UserScopedGrowthBook,
-  PendingFingerprint
->();
 
 function stringifyUnknown(err: unknown): {
   message: string;
@@ -79,59 +72,18 @@ export function parseStackFrames(stack?: string): ErrorTrackingStackFrame[] {
   return frames;
 }
 
-function consumePendingFingerprint(
-  gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient,
-): PendingFingerprint | undefined {
-  if (gb instanceof GrowthBook || gb instanceof UserScopedGrowthBook) {
-    const pending = pendingFingerprints.get(gb);
-    if (pending) {
-      pendingFingerprints.delete(gb);
-    }
-    return pending;
-  }
-  return undefined;
-}
-
-/**
- * Override issue grouping for the next error reported on this GrowthBook
- * instance. The ingestor uses `fingerprint` as-is; `fingerprintParts` is hashed
- * server-side (similar to Sentry's `setFingerprint` array form).
- *
- * @example
- * setFingerprint({ gb, fingerprint: ["checkout", "payment-failed"] });
- * await captureGrowthBookError({ gb, error: err });
- */
-export function setFingerprint({
-  gb,
-  fingerprint,
-}: {
-  gb: GrowthBook | UserScopedGrowthBook;
-  fingerprint: string | readonly string[];
-}): void {
-  if (typeof fingerprint === "string") {
-    const value = fingerprint.trim();
-    if (!value) return;
-    pendingFingerprints.set(gb, { type: "value", value });
-    return;
-  }
-  const parts = fingerprint.map((part) => String(part)).filter(Boolean);
-  if (!parts.length) return;
-  pendingFingerprints.set(gb, { type: "parts", parts });
-}
-
 function dedupeKeyForError(
   error: unknown,
   props?: GrowthBookErrorEventProps,
 ): string {
-  const pending =
-    props && "_pendingFingerprint" in props
-      ? (props._pendingFingerprint as PendingFingerprint | undefined)
-      : undefined;
-  if (pending?.type === "value") {
-    return pending.value;
+  if (typeof props?.fingerprint === "string" && props.fingerprint.trim()) {
+    return props.fingerprint.trim();
   }
-  if (pending?.type === "parts") {
-    return pending.parts.join("\n");
+  if (
+    Array.isArray(props?.fingerprintParts) &&
+    (props.fingerprintParts as string[]).length > 0
+  ) {
+    return (props.fingerprintParts as string[]).join("\n");
   }
   const { message, stack } = stringifyUnknown(error);
   const frame = stack
@@ -142,7 +94,7 @@ function dedupeKeyForError(
 }
 
 export type BuiltErrorEventProps = {
-  /** Set via {@link setFingerprint}; otherwise computed in the ingestor. */
+  /** Override issue grouping; otherwise computed in the ingestor. */
   fingerprint?: string;
   fingerprintParts?: string[];
   /** Human-readable issue line; same as {@link BuiltErrorEventProps.message}. */
@@ -164,11 +116,9 @@ export type BuiltErrorEventProps = {
 export function buildErrorEventProperties({
   error,
   props,
-  gb,
 }: {
   error: unknown;
   props?: GrowthBookErrorEventProps;
-  gb?: GrowthBook | UserScopedGrowthBook | GrowthBookClient;
 }): BuiltErrorEventProps & Record<string, unknown> {
   const { message, stack, name } = stringifyUnknown(error);
   const stackFrames = parseStackFrames(stack);
@@ -188,8 +138,6 @@ export function buildErrorEventProperties({
     message: _propsMessage,
     ...rest
   } = props || {};
-
-  const pending = gb ? consumePendingFingerprint(gb) : undefined;
 
   const displayMessage =
     message.length > 500 ? `${message.slice(0, 497)}...` : message;
@@ -221,11 +169,7 @@ export function buildErrorEventProperties({
     handled: typeof handled === "boolean" ? handled : undefined,
   };
 
-  if (pending?.type === "value") {
-    built.fingerprint = pending.value;
-  } else if (pending?.type === "parts") {
-    built.fingerprintParts = pending.parts;
-  } else if (typeof propsFingerprint === "string" && propsFingerprint.trim()) {
+  if (typeof propsFingerprint === "string" && propsFingerprint.trim()) {
     built.fingerprint = propsFingerprint.trim();
   } else if (
     Array.isArray(propsFingerprintParts) &&
@@ -241,9 +185,19 @@ async function logError({
   gb,
   error,
   props,
+  fingerprint,
   userContext,
 }: CaptureGrowthBookErrorOptions): Promise<void> {
-  const eventProps = buildErrorEventProperties({ error, props, gb });
+  const fingerprintProps: GrowthBookErrorEventProps =
+    fingerprint !== undefined
+      ? typeof fingerprint === "string"
+        ? { fingerprint }
+        : { fingerprintParts: [...fingerprint] }
+      : {};
+  const eventProps = buildErrorEventProperties({
+    error,
+    props: { ...fingerprintProps, ...props },
+  });
 
   if (gb instanceof GrowthBook || gb instanceof UserScopedGrowthBook) {
     await gb.logEvent(EVENT_GROWTHBOOK_ERROR, eventProps);
@@ -359,14 +313,7 @@ export function growthbookErrorTrackingPlugin({
     const run = async (error: unknown, props?: GrowthBookErrorEventProps) => {
       if (!enable) return;
 
-      const pending =
-        gb instanceof GrowthBook || gb instanceof UserScopedGrowthBook
-          ? pendingFingerprints.get(gb)
-          : undefined;
-      const dedupeKey = dedupeKeyForError(error, {
-        ...props,
-        _pendingFingerprint: pending,
-      });
+      const dedupeKey = dedupeKeyForError(error, props);
       const now = Date.now();
       const last = recentDedupeKeys.get(dedupeKey);
       if (last !== undefined && now - last < dedupeWindowMs) {

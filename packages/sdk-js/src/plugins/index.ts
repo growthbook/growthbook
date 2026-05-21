@@ -4,7 +4,6 @@ export {
   growthbookErrorTrackingPlugin,
   captureGrowthBookError,
   buildErrorEventProperties,
-  setFingerprint,
   parseStackFrames,
 } from "./growthbook-error-tracking";
 export type {
