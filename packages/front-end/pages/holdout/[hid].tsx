@@ -263,7 +263,7 @@ const HoldoutPage = (): ReactElement => {
           checklistHardBlockerCount={checklistHardBlockerCount}
           setChecklistItemsRemaining={setChecklistItemsRemaining}
           setChecklistHardBlockerCount={setChecklistHardBlockerCount}
-          editHoldoutSchedule={editHoldoutSchedule}
+          editSchedule={editHoldoutSchedule}
         />
       </SnapshotProvider>
     </>
