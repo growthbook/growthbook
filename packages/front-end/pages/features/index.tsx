@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
-import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import { featureHasEnvironment } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -27,7 +27,6 @@ import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
-import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
@@ -86,9 +85,6 @@ export default function FeaturesPage() {
   const [featureToDuplicate, setFeatureToDuplicate] =
     useState<FeatureInterface | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [featureToToggleStaleDetection, setFeatureToToggleStaleDetection] =
-    useState<FeatureMetaInfo | null>(null);
-
   const { apiCall } = useAuth();
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
@@ -461,11 +457,6 @@ export default function FeaturesPage() {
                             staleHook.invalidate([feature.id]);
                             await staleHook.fetchSome([feature.id]);
                           }}
-                          onDisable={
-                            permissionsUtil.canViewFeatureModal(feature.project)
-                              ? () => setFeatureToToggleStaleDetection(feature)
-                              : undefined
-                          }
                         />
                       )}
                     </TableCell>
@@ -603,22 +594,6 @@ export default function FeaturesPage() {
             router.push(url);
             mutate();
             setFeatureToDuplicate(null);
-          }}
-        />
-      )}
-      {featureToToggleStaleDetection && (
-        <StaleDetectionModal
-          close={() => setFeatureToToggleStaleDetection(null)}
-          feature={featureToToggleStaleDetection as FeatureInterface}
-          revisionList={[]}
-          mutate={async () => {
-            mutate();
-          }}
-          setVersion={() => {}}
-          onEnable={async () => {
-            const id = featureToToggleStaleDetection.id;
-            staleHook.invalidate([id]);
-            await staleHook.fetchSome([id]);
           }}
         />
       )}
