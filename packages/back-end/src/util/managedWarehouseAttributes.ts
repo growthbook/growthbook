@@ -58,6 +58,7 @@ function clickhouseTypeToFactTableType(
 ): FactTableColumnType {
   switch (type) {
     case "Float64":
+    case "Array(Float64)":
       return "number";
     case "Boolean":
       return "boolean";
@@ -66,7 +67,6 @@ function clickhouseTypeToFactTableType(
     case "String":
     case "LowCardinality(String)":
     case "Array(String)":
-    case "Array(Float64)":
       return "string";
   }
 }
