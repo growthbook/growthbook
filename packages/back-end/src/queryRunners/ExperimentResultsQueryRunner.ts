@@ -152,7 +152,7 @@ export const startExperimentResultQueries = async (
   const precomputedUnitDimensionIds = useUnitsTable
     ? (snapshotSettings.precomputedUnitDimensionIds ?? [])
     : [];
-  const unitDimensions: Dimension[] = (
+  const unitDimensionsToPrecompute: Dimension[] = (
     await Promise.all(
       precomputedUnitDimensionIds.map((id) =>
         parseDimension(id, undefined, org.id),
@@ -213,7 +213,10 @@ export const startExperimentResultQueries = async (
       // the isolated per-dim metric queries can read it.
       query: integration.getExperimentUnitsTableQuery({
         ...unitQueryParams,
-        dimensions: [...unitQueryParams.dimensions, ...unitDimensions],
+        dimensions: [
+          ...unitQueryParams.dimensions,
+          ...unitDimensionsToPrecompute,
+        ],
       }),
       dependencies: [],
       run: (query, setExternalId, queryMetadata) =>
@@ -318,15 +321,50 @@ export const startExperimentResultQueries = async (
     );
   }
 
-  // Per-unit-dimension metric queries. They read the SAME shared units table
-  // (one already-materialized dim_unit_<id> column each) and are grouped by a
-  // single unit dimension. They are namespaced so the parent's own analysis
-  // ignores them; a post-success hook writes per-dimension analyses to the
-  // parent from these already-executed results (zero extra warehouse queries).
-  if (unitQuery && unitDimensions.length > 0) {
-    for (const unitDim of unitDimensions) {
+  // Per-unit-dimension metric queries (unitdim:<id>:…). Parent gbstats skips
+  // them; a post-success hook runs per-dimension analyses from these results.
+  if (unitQuery && unitDimensionsToPrecompute.length > 0) {
+    for (const unitDim of unitDimensionsToPrecompute) {
       if (unitDim.type !== "user") continue;
       const dimensionId = unitDim.dimension.id;
+
+      for (const [i, m] of factMetricGroups.entries()) {
+        // Only run overall quantile analysis for standard snapshots
+        // regardless of how many dimensions are requested
+        const runOverallQuantileAnalysis =
+          snapshotType === "standard" && m.some(quantileMetricType);
+
+        if (
+          !integration.getExperimentFactMetricsQuery ||
+          !integration.runExperimentFactMetricsQuery
+        ) {
+          throw new Error("Integration does not support multi-metric queries");
+        }
+        const queryParams: ExperimentFactMetricsQueryParams = {
+          activationMetric,
+          dimensions: runOverallQuantileAnalysis ? [] : [unitDim],
+          metrics: m,
+          segment: segmentObj,
+          settings: snapshotSettings,
+          unitsSource: "exposureTable",
+          unitsTableFullName: unitsTableFullName,
+          factTableMap: params.factTableMap,
+        };
+        queries.push(
+          await startQuery({
+            name: getUnitDimQueryName(dimensionId, `group_${i}`),
+            query: integration.getExperimentFactMetricsQuery(queryParams),
+            dependencies: [unitQuery.query],
+            run: (query, setExternalId, queryMetadata) =>
+              (integration as SqlIntegration).runExperimentFactMetricsQuery(
+                query,
+                setExternalId,
+                queryMetadata,
+              ),
+            queryType: "experimentMultiMetric",
+          }),
+        );
+      }
 
       for (const m of legacyMetricSingles) {
         // Only run overall quantile analysis for standard snapshots
@@ -369,44 +407,6 @@ export const startExperimentResultQueries = async (
                 queryMetadata,
               ),
             queryType: "experimentMetric",
-          }),
-        );
-      }
-
-      for (const [i, m] of factMetricGroups.entries()) {
-        // Only run overall quantile analysis for standard snapshots
-        // regardless of how many dimensions are requested
-        const runOverallQuantileAnalysis =
-          snapshotType === "standard" && m.some(quantileMetricType);
-
-        if (
-          !integration.getExperimentFactMetricsQuery ||
-          !integration.runExperimentFactMetricsQuery
-        ) {
-          throw new Error("Integration does not support multi-metric queries");
-        }
-        const queryParams: ExperimentFactMetricsQueryParams = {
-          activationMetric,
-          dimensions: runOverallQuantileAnalysis ? [] : [unitDim],
-          metrics: m,
-          segment: segmentObj,
-          settings: snapshotSettings,
-          unitsSource: "exposureTable",
-          unitsTableFullName: unitsTableFullName,
-          factTableMap: params.factTableMap,
-        };
-        queries.push(
-          await startQuery({
-            name: getUnitDimQueryName(dimensionId, `group_${i}`),
-            query: integration.getExperimentFactMetricsQuery(queryParams),
-            dependencies: [unitQuery.query],
-            run: (query, setExternalId, queryMetadata) =>
-              (integration as SqlIntegration).runExperimentFactMetricsQuery(
-                query,
-                setExternalId,
-                queryMetadata,
-              ),
-            queryType: "experimentMultiMetric",
           }),
         );
       }

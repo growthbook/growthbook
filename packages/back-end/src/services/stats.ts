@@ -399,6 +399,8 @@ export function getMetricsAndQueryDataForStatsEngine(
   // One query for each metric (or group of metrics)
   else {
     queryData.forEach((query, key) => {
+      // Skip precomputed unit dimension queries
+      // while they are executed here, they are used by per–unit-dimension analyses
       if (parseUnitDimQueryName(key)) {
         return;
       }

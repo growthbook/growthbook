@@ -358,7 +358,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
             isReportContext
               ? "Time series data is not available for custom reports."
               : !hasDimensionTimeSeries
-                ? "Enable unit-dimension time series in Analysis settings to update with each results refresh."
+                ? "Configure 'Always computed unit-dimensions' in Analysis Settings to generate time series for this dimension."
                 : undefined
           }
           dimensionInfo={dimensionInfo}

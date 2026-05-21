@@ -275,18 +275,18 @@ const AnalysisForm: FC<{
       experiment.id,
     );
 
-  const watchedDatasource = form.watch("datasource");
+  const datasourceField = form.watch("datasource");
   const hasPipelineModeFeature = hasCommercialFeature("pipeline-mode");
   const precomputedUnitDimensionOptions = useMemo(
     () =>
       dimensions
         .filter(
           (d) =>
-            d.datasource === watchedDatasource &&
+            d.datasource === datasourceField &&
             (!exposureQuery || d.userIdType === exposureQuery.userIdType),
         )
         .map((d) => ({ label: d.name, value: d.id })),
-    [dimensions, watchedDatasource, exposureQuery],
+    [dimensions, datasourceField, exposureQuery],
   );
   const datasourceHasWritableEphemeralPipelineEnabled = useMemo(
     () =>
@@ -320,14 +320,13 @@ const AnalysisForm: FC<{
   const precomputedUnitDimensionLimitReached =
     selectedPrecomputedUnitDimensionIds.length >=
     MAX_PRECOMPUTED_UNIT_DIMENSIONS;
-  const precomputedUnitDimensionLimitTooltip = `You can select up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS} always-computed unit dimensions.`;
   const precomputedUnitDimensionOptionsWithTooltips =
     precomputedUnitDimensionOptions.map((option) => ({
       ...option,
       tooltip:
         precomputedUnitDimensionLimitReached &&
         !selectedPrecomputedUnitDimensionIds.includes(option.value)
-          ? precomputedUnitDimensionLimitTooltip
+          ? `You can select up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS} always-computed unit dimensions.`
           : undefined,
     }));
 

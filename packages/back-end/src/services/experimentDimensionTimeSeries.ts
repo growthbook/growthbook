@@ -86,11 +86,10 @@ export function getTimeSeriesAnalyses({
     .filter(isDefined);
 }
 
-// Returns the relative/absolute/scaled time series analyses for `dimensionId`,
-// creating any that don't already exist on the snapshot. Handles both
-// `precomputed:*` experiment dimensions and unit dimensions (whose queries
-// the parent snapshot stored under a `unitdim:<dim>:` prefix); the queryMap
-// rewrite for unit dimensions lives in `createSnapshotAnalysesBatched`.
+/**
+ * Returns the relative/absolute/scaled time series analyses for `dimensionId`,
+ * handling both precomputed dimensions and precomputed unit dimensions.
+ */
 export async function getOrCreatePrecomputedDimensionTimeSeriesAnalyses(
   context: ReqContext | ApiReqContext,
   {

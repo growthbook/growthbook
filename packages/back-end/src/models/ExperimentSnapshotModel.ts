@@ -24,7 +24,7 @@ import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
-import { runEagerExperimentDimensionAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
+import { runEagerExperimentAndUnitDimensionsAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { queriesSchema } from "./QueryModel";
@@ -549,7 +549,7 @@ export async function updateSnapshot({
       }
 
       if (shouldRunEagerDimensionAnalyses) {
-        runEagerExperimentDimensionAnalyses({
+        runEagerExperimentAndUnitDimensionsAnalyses({
           context,
           experiment: updatedExperimentModel,
           experimentSnapshot,

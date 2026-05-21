@@ -13,9 +13,8 @@ import {
   getOrCreatePrecomputedDimensionTimeSeriesAnalyses,
 } from "back-end/src/services/experimentDimensionTimeSeries";
 
-// Per-dimension analyses each spawn a gbstats Python pass. Warehouse cost is
-// already paid; this just bounds the Python wall-clock fan-out so an
-// experiment with many precomputed dimensions doesn't serialize end-to-end.
+// Optimize some concurrency for the analyses, as the query cost is already
+// paid, we don't want to process them via gbstats serially.
 const EAGER_DIMENSION_CONCURRENCY = 3;
 
 /**
@@ -23,7 +22,7 @@ const EAGER_DIMENSION_CONCURRENCY = 3;
  * precomputed experiment and unit dimension on the snapshot, then persists
  * their dimension time series.
  */
-export async function runEagerExperimentDimensionAnalyses({
+export async function runEagerExperimentAndUnitDimensionsAnalyses({
   context,
   experiment,
   experimentSnapshot,
@@ -75,10 +74,6 @@ export async function runEagerExperimentDimensionAnalyses({
       experimentSnapshot,
     });
 
-    // Per-dimension work is independent — run in bounded-concurrency chunks
-    // so total wall-clock scales sub-linearly without overwhelming the
-    // gbstats Python pool. Each dim is wrapped in its own try/catch so one
-    // failure can't cancel siblings.
     const dimensionTasks = Array.from(precomputedDimensionIds).map(
       (dimensionId) => async () => {
         try {
