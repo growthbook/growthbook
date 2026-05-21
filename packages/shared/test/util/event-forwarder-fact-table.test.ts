@@ -110,20 +110,15 @@ describe("event-forwarder-fact-table SQL", () => {
     ).toBe("MY_DB.PUBLIC.GB_EVENTS");
   });
 
-  it("builds Snowflake fact table SQL with dynamic userIdTypes", () => {
+  it("builds Snowflake fact table SQL with select all", () => {
     const sql = buildEventForwarderEventsFactTableSql({
       sinkType: "snowflake",
       database: "MY_DB",
       schema: "PUBLIC",
       tableName: "GB_EVENTS",
-      userIdTypes: ["user_id", "device_id"],
     });
 
-    expect(sql).toContain("user_id");
-    expect(sql).toContain("device_id");
-    expect(sql).toContain("event_name");
-    expect(sql).toContain("FROM\n  MY_DB.PUBLIC.GB_EVENTS");
-    expect(sql).not.toContain("WHERE");
+    expect(sql).toBe("SELECT *\nFROM MY_DB.PUBLIC.GB_EVENTS");
   });
 });
 
