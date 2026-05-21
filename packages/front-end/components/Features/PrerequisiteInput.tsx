@@ -514,12 +514,11 @@ export default function PrerequisiteInput({
                               const meta = featureNames.find(
                                 (f) => f.id === featureId,
                               );
-                              const condition =
-                                getDefaultPrerequisiteCondition(
-                                  meta
-                                    ? { valueType: meta.valueType }
-                                    : undefined,
-                                );
+                              const condition = getDefaultPrerequisiteCondition(
+                                meta
+                                  ? { valueType: meta.valueType }
+                                  : undefined,
+                              );
                               setValue([
                                 ...value.slice(0, i),
                                 { id: featureId, condition },
@@ -852,12 +851,11 @@ export default function PrerequisiteInput({
                               const meta = featureNames.find(
                                 (f) => f.id === featureId,
                               );
-                              const condition =
-                                getDefaultPrerequisiteCondition(
-                                  meta
-                                    ? { valueType: meta.valueType }
-                                    : undefined,
-                                );
+                              const condition = getDefaultPrerequisiteCondition(
+                                meta
+                                  ? { valueType: meta.valueType }
+                                  : undefined,
+                              );
                               setValue([
                                 ...value.slice(0, i),
                                 { id: featureId, condition },

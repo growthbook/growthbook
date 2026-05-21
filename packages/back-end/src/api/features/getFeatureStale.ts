@@ -41,9 +41,7 @@ export async function computeFeatureStale(
   const typedExperiments = allExperiments as unknown as Parameters<
     typeof isFeatureStale
   >[0]["experiments"];
-  const experimentMap = new Map(
-    (typedExperiments ?? []).map((e) => [e.id, e]),
-  );
+  const experimentMap = new Map((typedExperiments ?? []).map((e) => [e.id, e]));
   const reverseDependencyIndex = buildReverseDependencyIndex(allFeatures);
 
   const result: Record<string, FeatureStaleEntry> = {};
