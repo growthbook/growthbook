@@ -6,7 +6,6 @@ import {
   buildRrwebPrivacyOptions,
 } from "./session-replay-privacy";
 import { scrubEventUrls } from "./session-replay-url-scrub";
-import { scrubEventsPayload } from "./session-replay-regex-scrub";
 
 export type {
   SessionReplayPrivacyConfig,
@@ -149,9 +148,28 @@ type PersistedReplayState = {
   sessionId: string;
   sessionStartedAt: number;
   lastChunkIndex: number;
+  // Epoch ms of the most recent successful chunk send. The resume check
+  // in startRecording refuses to resume into a session whose last chunk
+  // was more than RESUME_STALENESS_MS ago — that limits a session's
+  // recorded duration to actual periods of activity instead of total
+  // wall-clock span (a tab left open for an hour with one keystroke
+  // every 50 min would otherwise become one 1-hour session with mostly
+  // dead air).
+  lastChunkAt: number;
 };
 
 const REPLAY_STORAGE_KEY = "gb_session_replay";
+
+/**
+ * Maximum idle gap between chunks before a resume is rejected and a
+ * fresh session is minted. Roughly aligned with the plugin's own idle
+ * rotation threshold (idleTimeoutMs default 15 min) plus a buffer for
+ * the gap between rotation and the next interaction that restarts
+ * recording. Sessions that span longer than this between chunks are
+ * almost certainly logical session boundaries, not "the same user
+ * continuing the same task."
+ */
+const RESUME_STALENESS_MS = 15 * 60 * 1000;
 
 function readPersistedReplayState(): PersistedReplayState | null {
   if (typeof sessionStorage === "undefined") return null;
@@ -166,6 +184,13 @@ function readPersistedReplayState(): PersistedReplayState | null {
       typeof parsed.lastChunkIndex !== "number"
     ) {
       return null;
+    }
+    // Older persisted states (before the staleness guard was added)
+    // don't carry lastChunkAt. Treat those as "unknown timestamp" and
+    // let the caller decide — typically by falling back to
+    // sessionStartedAt as a conservative substitute.
+    if (typeof parsed.lastChunkAt !== "number") {
+      parsed.lastChunkAt = parsed.sessionStartedAt;
     }
     return parsed;
   } catch {
@@ -396,10 +421,27 @@ export function sessionReplayPlugin({
       // even fields rrweb's masking doesn't know about (custom event data,
       // tooltip text, error messages, etc.). Pass `regex: false` in the
       // privacy config to opt out — not recommended.
-      const scrubbedEvents =
-        privacy?.regex === false
-          ? events
-          : scrubEventsPayload(events, privacy?.regex ?? {});
+      // Regex / retroactive-prefix scrubbing is currently DISABLED while we
+      // diagnose a replay-side leak that the type-aware refactor and prefix
+      // sweep didn't resolve. Buffer inspection showed only one Input event
+      // per typing burst (rrweb's `input: "last"` sampling) and zero text /
+      // attribute mutations carrying the partial typed value — yet the
+      // replay player was still showing character-by-character typing,
+      // which means the leak surface isn't where the scrubber dispatches.
+      //
+      // For now we lean entirely on rrweb-native privacy controls exposed
+      // via `SessionReplayPrivacyConfig` / `buildRrwebPrivacyOptions`:
+      //   - maskAllInputs (default true)
+      //   - blockClass / blockSelector / .gb-block / [data-gb-block]
+      //   - maskTextClass / maskTextSelector / .gb-mask / [data-gb-mask]
+      //   - ignoreClass / ignoreSelector / .gb-ignore / [data-gb-ignore]
+      //   - data-gb-allow opt-back-in
+      //   - maskInputFn / maskTextFn customer hooks
+      //
+      // Re-enable + fix the regex scrubber once we've identified the
+      // actual replay leak surface. The scrubEventsPayload function is
+      // still exported for tests and for the eventual re-enable.
+      const scrubbedEvents = events;
 
       const payload = JSON.stringify({
         clientKey,
@@ -429,6 +471,7 @@ export function sessionReplayPlugin({
             sessionId,
             sessionStartedAt,
             lastChunkIndex: chunkIndexBeingSent,
+            lastChunkAt: Date.now(),
           });
         }
       } catch (e) {
@@ -440,11 +483,22 @@ export function sessionReplayPlugin({
         // unrecoverably lost: advance chunkIndex so the next chunk gets a
         // fresh number, log loudly, and move on.
         const status = (e as { status?: number })?.status;
-        const isTransient =
-          typeof status !== "number" ||
-          status >= 500 ||
-          status === 408 ||
-          status === 429;
+        // Distinguish PER-CHUNK failures from SESSION-LEVEL failures.
+        //   - Per-chunk (400 / 413 / 422): the specific payload is
+        //     unrecoverable — malformed JSON, too large, fails Zod
+        //     validation. Retrying produces the same error, so we
+        //     advance chunkIndex past it and continue.
+        //   - Session-level (401 / 403 / 429 / 5xx / network): every
+        //     chunk hits the same problem (auth wrong, org disabled,
+        //     rate limited, server down). Advancing chunkIndex here
+        //     would burn through indexes without any chunk landing —
+        //     producing phantom counts like "9 chunks" in CH with
+        //     only 2 actual files in S3. Treat as transient: revert,
+        //     retry the same chunk on next flush.
+        const PER_CHUNK_FAILURE_CODES = new Set([400, 413, 422]);
+        const isPermanent =
+          typeof status === "number" && PER_CHUNK_FAILURE_CODES.has(status);
+        const isTransient = !isPermanent;
 
         if (sessionId !== sessionIdBeingSent) {
           // Session rotated mid-flight — re-prepending into the new
@@ -473,6 +527,7 @@ export function sessionReplayPlugin({
             sessionId,
             sessionStartedAt,
             lastChunkIndex: chunkIndexBeingSent,
+            lastChunkAt: Date.now(),
           });
           console.error(
             `session-replay: chunk ${chunkIndexBeingSent} permanently rejected (HTTP ${status}); skipping`,
@@ -499,10 +554,20 @@ export function sessionReplayPlugin({
 
     const sharedSessionId = readSharedSessionId(gbRef);
     const persisted = readPersistedReplayState();
+    // Resume only when (a) the shared session id from auto-attributes
+    // matches the persisted one AND (b) the persisted state's most
+    // recent chunk is recent enough to count as the same logical
+    // session. Without the staleness check, a tab left open between
+    // bursts of activity would accumulate a single session_id whose
+    // wall-clock duration far exceeds its actual recorded content —
+    // the list UI shows a 1-hour session that plays back in 2 minutes
+    // of activity scattered across long dead-air gaps.
+    const now = Date.now();
     const canResume =
       sharedSessionId &&
       persisted !== null &&
-      persisted.sessionId === sharedSessionId;
+      persisted.sessionId === sharedSessionId &&
+      now - persisted.lastChunkAt < RESUME_STALENESS_MS;
 
     if (canResume) {
       sessionId = persisted.sessionId;
@@ -511,11 +576,12 @@ export function sessionReplayPlugin({
     } else {
       sessionId = sharedSessionId || generateSessionId();
       chunkIndex = 0;
-      sessionStartedAt = Date.now();
+      sessionStartedAt = now;
       writePersistedReplayState({
         sessionId,
         sessionStartedAt,
         lastChunkIndex: -1,
+        lastChunkAt: now,
       });
     }
 
