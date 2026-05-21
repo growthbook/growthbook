@@ -3,13 +3,14 @@ import {
   ACTIVE_DRAFT_STATUSES,
   FeatureStaleEntry,
 } from "shared/validators";
-import { isFeatureStale } from "shared/util";
+import { buildReverseDependencyIndex, isFeatureStale } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { yieldEventLoop } from "back-end/src/util/yield";
 import { ReqContext } from "back-end/types/request";
 
 export async function computeFeatureStale(
@@ -36,10 +37,22 @@ export async function computeFeatureStale(
 
   const features = allFeatures.filter((f) => idSet.has(f.id));
 
+  const featuresMap = new Map(allFeatures.map((f) => [f.id, f]));
+  const typedExperiments = allExperiments as unknown as Parameters<
+    typeof isFeatureStale
+  >[0]["experiments"];
+  const experimentMap = new Map(
+    (typedExperiments ?? []).map((e) => [e.id, e]),
+  );
+  const reverseDependencyIndex = buildReverseDependencyIndex(allFeatures);
+
   const result: Record<string, FeatureStaleEntry> = {};
   const orgEnvs = getEnvironments(context.org);
 
-  for (const feature of features) {
+  for (let i = 0; i < features.length; i++) {
+    await yieldEventLoop(i);
+    const feature = features[i];
+
     if (feature.neverStale) {
       result[feature.id] = {
         featureId: feature.id,
@@ -69,10 +82,11 @@ export async function computeFeatureStale(
     const { stale, reason, envResults } = isFeatureStale({
       feature,
       features: allFeatures,
-      experiments: allExperiments as unknown as Parameters<
-        typeof isFeatureStale
-      >[0]["experiments"],
+      experiments: typedExperiments,
       environments: applicableEnvIds,
+      featuresMap,
+      experimentMap,
+      reverseDependencyIndex,
       mostRecentDraftDate,
     });
 

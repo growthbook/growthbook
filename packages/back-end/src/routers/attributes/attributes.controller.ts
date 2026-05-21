@@ -8,6 +8,7 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import { yieldEventLoop } from "back-end/src/util/yield";
 
 export const postAttribute = async (
   req: AuthRequest<SDKAttribute>,
@@ -250,9 +251,9 @@ export const getAttributeReferences = async (
     savedGroupRefs.set(key, new Map());
   }
 
-  for (const feature of allFeatures) {
-    // v2: rules live on feature.rules (flat). We don't need to project per-env
-    // here — attribute usage is feature-scoped for this panel.
+  for (let i = 0; i < allFeatures.length; i++) {
+    await yieldEventLoop(i);
+    const feature = allFeatures[i];
     for (const rule of feature.rules ?? []) {
       try {
         const parsed = JSON.parse(rule.condition ?? "{}");

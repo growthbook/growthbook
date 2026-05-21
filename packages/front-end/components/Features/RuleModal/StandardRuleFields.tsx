@@ -12,7 +12,9 @@ import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
 import LegacyScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
+import PrerequisiteInput, {
+  type RuleCyclicResult,
+} from "@/components/Features/PrerequisiteInput";
 import RadioGroup from "@/ui/RadioGroup";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useUser } from "@/services/UserContext";
@@ -79,6 +81,7 @@ export default function StandardRuleFields({
   pendingDetach,
   envScope,
   isLiveRule,
+  onRuleCyclicChange,
 }: {
   ruleType: "force" | "rollout";
   feature: FeatureInterface;
@@ -98,6 +101,7 @@ export default function StandardRuleFields({
   pendingDetach?: boolean;
   envScope: EnvScopeProps;
   isLiveRule?: boolean;
+  onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
   const [advancedOptionsOpen, setadvancedOptionsOpen] = useState(
@@ -434,6 +438,7 @@ export default function StandardRuleFields({
                 setPrerequisiteTargetingSdkIssues
               }
               label="Target by Prerequisite Features"
+              onRuleCyclicChange={onRuleCyclicChange}
             />
           )}
         </>

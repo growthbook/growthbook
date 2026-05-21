@@ -5,7 +5,7 @@ import {
   FeatureRule,
   ScheduleRule,
 } from "shared/types/feature";
-import { useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
@@ -73,7 +73,6 @@ import DraftSelectorForChanges, {
 } from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import { useTemplates } from "@/hooks/useTemplates";
-import { useBatchPrerequisiteStates } from "@/hooks/usePrerequisiteStates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
 import {
   type RampSectionState,
@@ -467,28 +466,19 @@ export default function RuleModal({
     settings.requireExperimentTemplates &&
     availableTemplates.length >= 1;
 
-  const prerequisites = form.watch("prerequisites") || [];
-
-  const { checkRulePrerequisitesCyclic } = useBatchPrerequisiteStates({
-    baseFeatureId: feature.id,
-    featureIds: [],
-    environments: [environment],
-    enabled: prerequisites.length > 0,
-    checkRulePrerequisites:
-      prerequisites.length > 0
-        ? {
-            environment,
-            ruleId: rule?.id,
-            prerequisites: prerequisites.map((p) => ({
-              id: p.id,
-              condition: p.condition,
-            })),
-          }
-        : undefined,
+  const [ruleCyclicResult, setRuleCyclicResult] = useState({
+    wouldBeCyclic: false,
+    cyclicFeatureId: null as string | null,
   });
+  const isCyclic = ruleCyclicResult.wouldBeCyclic;
+  const cyclicFeatureId = ruleCyclicResult.cyclicFeatureId;
 
-  const isCyclic = checkRulePrerequisitesCyclic?.wouldBeCyclic ?? false;
-  const cyclicFeatureId = checkRulePrerequisitesCyclic?.cyclicFeatureId ?? null;
+  const onRuleCyclicChange = useCallback(
+    (result: { wouldBeCyclic: boolean; cyclicFeatureId: string | null }) => {
+      setRuleCyclicResult(result);
+    },
+    [],
+  );
 
   const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
     useState(false);
@@ -1590,6 +1580,7 @@ export default function RuleModal({
             pendingDetach={hasPendingDetach}
             envScope={envScopeProps!}
             isLiveRule={isLiveRule}
+            onRuleCyclicChange={onRuleCyclicChange}
           />
         )}
 
@@ -1609,6 +1600,7 @@ export default function RuleModal({
             mode={mode}
             isDraft={!safeRollout?.startedAt}
             envScope={envScopeProps}
+            onRuleCyclicChange={onRuleCyclicChange}
           />
         )}
 
@@ -1698,6 +1690,7 @@ export default function RuleModal({
                     form.setValue("customFields", customFields)
                   }
                   envScope={i === 0 ? envScopeProps : undefined}
+                  onRuleCyclicChange={onRuleCyclicChange}
                 />
               </Page>
             ))
@@ -1757,6 +1750,7 @@ export default function RuleModal({
                     setDisableBanditConversionWindow
                   }
                   envScope={i === 0 ? envScopeProps : undefined}
+                  onRuleCyclicChange={onRuleCyclicChange}
                 />
               </Page>
             ))

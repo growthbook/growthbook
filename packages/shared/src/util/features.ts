@@ -431,6 +431,7 @@ interface IsFeatureStaleInterface {
   environments?: string[];
   featuresMap?: Map<string, FeatureInterface>;
   experimentMap?: Map<string, ExperimentInterfaceStringDates>;
+  reverseDependencyIndex?: ReverseDependencyIndex;
   // Most recent dateUpdated among active drafts; null = no active drafts.
   mostRecentDraftDate?: Date | null;
 }
@@ -583,6 +584,7 @@ export function isFeatureStale({
   environments = [],
   featuresMap: prebuiltFeaturesMap,
   experimentMap: prebuiltExperimentMap,
+  reverseDependencyIndex,
   mostRecentDraftDate,
 }: IsFeatureStaleInterface): IsFeatureStaleResult {
   const featuresMap =
@@ -613,7 +615,12 @@ export function isFeatureStale({
       // Compute dependents before buildEnvResults so per-env results can use them.
       const dependentFeatureIds =
         features && features.length > 1
-          ? getDependentFeatures(feature, features, environments)
+          ? getDependentFeatures(
+              feature,
+              features,
+              environments,
+              reverseDependencyIndex,
+            )
           : [];
       // Only non-stale dependents protect an env from being marked stale.
       const nonStaleDependentFeatureIds = dependentFeatureIds.filter((id) => {
@@ -1671,11 +1678,51 @@ export function evalDeterministicPrereqValue(
   return pass ? "pass" : "fail";
 }
 
+/** Maps each feature ID to the set of features that depend on it as a prerequisite. */
+export type ReverseDependencyIndex = Map<string, Set<string>>;
+
+export function buildReverseDependencyIndex(
+  features: FeatureInterface[],
+): ReverseDependencyIndex {
+  const index: ReverseDependencyIndex = new Map();
+
+  for (const f of features) {
+    for (const p of f.prerequisites || []) {
+      let set = index.get(p.id);
+      if (!set) {
+        set = new Set();
+        index.set(p.id, set);
+      }
+      set.add(f.id);
+    }
+    for (const rule of f.rules ?? []) {
+      if (!rule?.prerequisites?.length) continue;
+      for (const p of rule.prerequisites) {
+        let set = index.get(p.id);
+        if (!set) {
+          set = new Set();
+          index.set(p.id, set);
+        }
+        set.add(f.id);
+      }
+    }
+  }
+
+  return index;
+}
+
 export function getDependentFeatures(
   feature: FeatureInterface,
   features: FeatureInterface[],
   environments: string[],
+  reverseDependencyIndex?: ReverseDependencyIndex,
 ): string[] {
+  if (reverseDependencyIndex) {
+    const candidates = reverseDependencyIndex.get(feature.id);
+    if (!candidates || candidates.size === 0) return [];
+    return [...candidates];
+  }
+
   const dependentFeatures = features.filter((f) => {
     const prerequisites = f.prerequisites || [];
     const rules = getMatchingRules(
