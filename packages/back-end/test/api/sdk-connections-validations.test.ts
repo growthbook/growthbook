@@ -5,6 +5,7 @@ import {
   validateName,
   validatePremiumFeatures,
   validateProjects,
+  validateRequireProjectForSdkConnections,
   validateSdkCapabilities,
   validateSdkVersion,
 } from "back-end/src/api/sdk-connections/validations";
@@ -87,6 +88,48 @@ describe("sdk-connections validations", () => {
       await expect(
         validateProjects(context, ["project_1", "project_2"]),
       ).resolves.not.toThrow();
+    });
+  });
+
+  describe("require project for sdk connections validation", () => {
+    const orgWithRequiredProjects = {
+      id: "org",
+      settings: { requireProjectForSdkConnections: true },
+    };
+
+    it("fails when creating a new SDK Connection without a project", () => {
+      expect(() => {
+        validateRequireProjectForSdkConnections(
+          orgWithRequiredProjects,
+          undefined,
+        );
+      }).toThrow("Must specify a project for new SDK Connections");
+    });
+
+    it("fails when removing projects from an existing scoped SDK Connection", () => {
+      expect(() => {
+        validateRequireProjectForSdkConnections(
+          orgWithRequiredProjects,
+          [],
+          ["project-1"],
+        );
+      }).toThrow("Must specify a project");
+    });
+
+    it("allows updating existing project-less SDK Connections", () => {
+      expect(() => {
+        validateRequireProjectForSdkConnections(
+          orgWithRequiredProjects,
+          [],
+          [],
+        );
+      }).not.toThrow();
+    });
+
+    it("allows orgs without the setting enabled", () => {
+      expect(() => {
+        validateRequireProjectForSdkConnections({ id: "org", settings: {} }, []);
+      }).not.toThrow();
     });
   });
 

@@ -103,6 +103,25 @@ export async function validateProjects(
     );
 }
 
+export function validateRequireProjectForSdkConnections(
+  org: OrganizationInterface,
+  projects: string[] | undefined,
+  existingProjects?: string[],
+) {
+  if (!org.settings?.requireProjectForSdkConnections) return;
+
+  if (!existingProjects) {
+    if (!projects?.length) {
+      throw new Error("Must specify a project for new SDK Connections");
+    }
+    return;
+  }
+
+  if (existingProjects.length > 0 && projects?.length === 0) {
+    throw new Error("Must specify a project");
+  }
+}
+
 export function validateLanguage(reqLanguage: string): SDKLanguage {
   const language = sdkLanguages.find((l) => l === reqLanguage);
   if (!language) throw new Error(`Language ${reqLanguage} is not supported!`);
@@ -178,6 +197,7 @@ export async function validatePostPayload(
   validateName(name);
 
   validateEnvironment(context.org, environment);
+  validateRequireProjectForSdkConnections(context.org, projects);
 
   if (projects && projects.length) {
     await validateProjects(context, projects);
@@ -246,6 +266,11 @@ export async function validatePutPayload(
   if (name) validateName(name);
 
   if (environment) validateEnvironment(context.org, environment);
+  validateRequireProjectForSdkConnections(
+    context.org,
+    projects,
+    sdkConnection.projects,
+  );
 
   if (projects && projects.length) {
     await validateProjects(context, projects);
