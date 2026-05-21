@@ -35,7 +35,7 @@ import {
   MatchingRule,
   validateCondition,
 } from "shared/util";
-import { getSRMValue } from "shared/health";
+import { getBanditSRMValue, getExperimentSRMValue } from "shared/health";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
@@ -56,6 +56,7 @@ import {
   setAdjustedPValuesOnResults,
   getAllVariations,
   getLatestPhaseVariations,
+  getPhaseVariations,
 } from "shared/experiments";
 import { getValidDate, hoursBetween } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
@@ -69,7 +70,6 @@ import {
   ExperimentAnalysisSummary,
   ExperimentAnalysisSummaryResultsStatus,
   GoalMetricResult,
-  ExperimentInterfaceExcludingHoldouts,
   SafeRolloutInterface,
   postExperimentValidator,
   postMetricValidator,
@@ -179,8 +179,8 @@ import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
+import { validateIncrementalPipeline } from "back-end/src/enterprise/services/data-pipeline";
 import { getMetricForSnapshot } from "./reports";
-import { validateIncrementalPipeline } from "./dataPipeline";
 import {
   getIntegrationFromDatasourceId,
   getSourceIntegrationObject,
@@ -249,6 +249,24 @@ export async function getExperimentMetricsByIds(
   const factMetrics = await context.models.factMetrics.getByIds(factMetricIds);
   const metrics = await getMetricsByIds(context, nonFactMetricIds);
   return [...factMetrics, ...metrics];
+}
+
+// Resolve every goal/secondary/guardrail/activation metric attached to an
+// experiment (expanding metric groups) into an id-keyed lookup map. Intended
+// for callers that need to render or inspect an experiment's metric set
+// without fetching the entire org's metrics.
+export async function getMetricMapForExperiment(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<Map<string, ExperimentMetricInterface>> {
+  const metricGroups = await context.models.metricGroups.getAll();
+  const metricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    true,
+    metricGroups,
+  );
+  const metrics = await getExperimentMetricsByIds(context, metricIds);
+  return new Map(metrics.map((m) => [m.id, m]));
 }
 
 export async function refreshMetric(
@@ -2287,7 +2305,7 @@ function getExperimentMetric(
 
 export async function toExperimentApiInterface(
   context: ReqContext | ApiReqContext,
-  experiment: ExperimentInterfaceExcludingHoldouts,
+  experiment: ExperimentInterface,
   projectMap?: Map<string, ProjectInterface>,
 ): Promise<ApiExperiment> {
   const appOrigin = (APP_ORIGIN ?? "").replace(/\/$/, "");
@@ -2498,6 +2516,7 @@ function safeFloat(n: number | undefined, fallback = 0): number {
 export function toSnapshotApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
+  metricsById: Map<string, ExperimentMetricInterface>,
 ): ApiExperimentResults {
   const dimension = !snapshot.dimension
     ? {
@@ -2522,7 +2541,11 @@ export function toSnapshotApiInterface(
   const activationMetric =
     snapshot.settings.activationMetric || experiment.activationMetric;
 
-  const variationIds = getLatestPhaseVariations(experiment).map((v) => v.id);
+  // Get all variations from the experiment, even if looking at old
+  // phase since we don't allow variation names to vary between phases
+  const phaseVariations = getPhaseVariations(experiment, snapshot.phase);
+  const variationIds = phaseVariations.map((v) => v.id);
+  const variationNames = phaseVariations.map((v) => v.name);
 
   // Get the default analysis
   const analysis = getSnapshotAnalysis(snapshot);
@@ -2534,6 +2557,34 @@ export function toSnapshotApiInterface(
       Object.keys(v.metrics).forEach((m) => metricIds.add(m));
     });
   });
+
+  // Resolve display names for every metric that appears in the results, using
+  // the canonical "Parent (col: val, ...)" format for slice metrics so the
+  // payload is self-describing.
+  const baseMetricIds = Array.from(
+    new Set(
+      Array.from(metricIds).map((id) => parseSliceMetricId(id).baseMetricId),
+    ),
+  );
+  const baseMetricsById = new Map(
+    baseMetricIds.flatMap((id) => {
+      const m = metricsById.get(id);
+      return m ? [[id, m]] : [];
+    }),
+  );
+  const getMetricName = (id: string): string | undefined => {
+    const { baseMetricId, sliceLevels } = parseSliceMetricId(id);
+    const baseName = baseMetricsById.get(baseMetricId)?.name;
+    if (!baseName) return undefined;
+    if (!sliceLevels.length) return baseName;
+    const sliceContext = sliceLevels
+      .map(
+        (s) =>
+          `${s.column}: ${s.levels.length ? s.levels.join(" OR ") : "other"}`,
+      )
+      .join(", ");
+    return `${baseName} (${sliceContext})`;
+  };
 
   return {
     id: snapshot.id,
@@ -2580,32 +2631,38 @@ export function toSnapshotApiInterface(
         checks: {
           srm: s.srm,
         },
-        metrics: Array.from(metricIds).map((m) => ({
-          metricId: m,
-          variations: s.variations.map((v, i) => {
-            const data = v.metrics[m];
-            return {
-              variationId: variationIds[i],
-              users: v.users,
-              analyses: [
-                {
-                  engine:
-                    analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
-                  numerator: safeFloat(data?.value),
-                  denominator: safeFloat(data?.denominator ?? data?.users),
-                  mean: safeFloat(data?.stats?.mean),
-                  stddev: safeFloat(data?.stats?.stddev),
-                  percentChange: safeFloat(data?.expected),
-                  ciLow: safeFloat(data?.ci?.[0]),
-                  ciHigh: safeFloat(data?.ci?.[1]),
-                  pValue: safeFloat(data?.pValue),
-                  risk: safeFloat(data?.risk?.[1]),
-                  chanceToBeatControl: safeFloat(data?.chanceToWin),
-                },
-              ],
-            };
-          }),
-        })),
+        metrics: Array.from(metricIds).map((m) => {
+          const metricName = getMetricName(m);
+          return {
+            metricId: m,
+            ...(metricName ? { metricName } : null),
+            variations: s.variations.map((v, i) => {
+              const data = v.metrics[m];
+              const variationName = variationNames[i];
+              return {
+                variationId: variationIds[i],
+                ...(variationName ? { variationName } : null),
+                users: v.users,
+                analyses: [
+                  {
+                    engine:
+                      analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
+                    numerator: safeFloat(data?.value),
+                    denominator: safeFloat(data?.denominator ?? data?.users),
+                    mean: safeFloat(data?.stats?.mean),
+                    stddev: safeFloat(data?.stats?.stddev),
+                    percentChange: safeFloat(data?.expected),
+                    ciLow: safeFloat(data?.ci?.[0]),
+                    ciHigh: safeFloat(data?.ci?.[1]),
+                    pValue: safeFloat(data?.pValue),
+                    risk: safeFloat(data?.risk?.[1]),
+                    chanceToBeatControl: safeFloat(data?.chanceToWin),
+                  },
+                ],
+              };
+            }),
+          };
+        }),
       };
     }),
   };
@@ -4480,7 +4537,10 @@ export async function getExperimentAnalysisSummary({
           )
         : null) ?? null;
 
-  const srm = getSRMValue(experiment.type ?? "standard", experimentSnapshot);
+  const srm =
+    experiment.type === "multi-armed-bandit"
+      ? getBanditSRMValue(experimentSnapshot)
+      : getExperimentSRMValue(experimentSnapshot);
 
   if (srm !== undefined) {
     analysisSummary.health = {
