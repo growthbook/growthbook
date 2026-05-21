@@ -757,6 +757,10 @@ export function upgradeExperimentDoc(
     experiment.uid = uuidv4().replace(/-/g, "");
   }
 
+  if (!("banditIsContextual" in experiment)) {
+    experiment.banditIsContextual = false;
+  }
+
   return experiment as ExperimentInterface;
 }
 

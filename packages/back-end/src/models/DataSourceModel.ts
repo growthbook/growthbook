@@ -10,7 +10,10 @@ import {
   DataSourceType,
 } from "shared/types/datasource";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
-import { ApiDataSource } from "shared/validators";
+import {
+  ApiDataSource,
+  assertExposureQueriesTargetingAttributeColumnsValid,
+} from "shared/validators";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import {
   encryptParams,
@@ -299,6 +302,11 @@ export async function createDataSource(
     await testDataSourceConnection(context, datasource);
   }
 
+  assertExposureQueriesTargetingAttributeColumnsValid(
+    context.org.settings?.attributeSchema,
+    settings.queries?.exposure,
+  );
+
   // Add any missing exposure query ids and check query validity
   settings = await validateExposureQueriesAndAddMissingIds(
     context,
@@ -397,6 +405,16 @@ export async function updateDataSource(
   }
 
   if (updates.settings) {
+    // Validate exposure from updates when provided; lodash.merge would keep stale
+    // targetingAttributeColumns when the client sends [] to clear them.
+    const exposureQueries =
+      updates.settings.queries?.exposure !== undefined
+        ? updates.settings.queries.exposure
+        : datasource.settings?.queries?.exposure;
+    assertExposureQueriesTargetingAttributeColumnsValid(
+      context.org.settings?.attributeSchema,
+      exposureQueries,
+    );
     updates.settings = await validateExposureQueriesAndAddMissingIds(
       context,
       datasource,
@@ -453,6 +471,9 @@ export function toDataSourceApiInterface(
       sql: q.query,
       includesNameColumns: !!q.hasNameCol,
       dimensionColumns: q.dimensions,
+      ...(q.targetingAttributeColumns?.length
+        ? { targetingAttributeColumns: q.targetingAttributeColumns }
+        : {}),
       error: q.error,
     })),
     identifierJoinQueries: (settings?.queries?.identityJoins || []).map(

@@ -14,6 +14,7 @@ import {
   normalizeStatusUpdateScheduleChanges,
   toExperimentApiInterface,
   updateExperimentApiPayloadToInterface,
+  validateContextualBanditExperimentForSave,
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
@@ -238,6 +239,15 @@ export const updateExperiment = createApiRequestHandler(
       "lookbackOverride is only allowed when attributionModel is 'lookbackOverride'",
     );
   }
+
+  await validateContextualBanditExperimentForSave(req.context, {
+    type: req.body.type ?? experiment.type,
+    banditIsContextual:
+      req.body.banditIsContextual ?? experiment.banditIsContextual,
+    datasourceId: datasourceId || undefined,
+    exposureQueryId: req.body.assignmentQueryId ?? experiment.exposureQueryId,
+    datasource,
+  });
 
   // Opt-in attribute registration check (org-level setting). Covers the
   // experiment-level hash/fallback attributes and every provided phase.

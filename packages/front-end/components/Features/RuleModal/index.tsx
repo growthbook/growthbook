@@ -232,6 +232,7 @@ export default function RuleModal({
     useState(false);
   const [disableBanditConversionWindow, setDisableBanditConversionWindow] =
     useState(false);
+  const [contextualBandit, setContextualBandit] = useState(false);
 
   const settings = useOrgSettings();
   const { settings: scopedSettings } = getScopedSettings({ organization });
@@ -713,8 +714,9 @@ export default function RuleModal({
     let safeRolloutFields: Partial<CreateSafeRolloutInterface> | undefined;
     try {
       if (values.type === "experiment-ref-new") {
+        const experimentValues = values as NewExperimentRefRule;
         // Make sure there's an experiment name
-        if ((values.name?.length ?? 0) < 1) {
+        if ((experimentValues.name?.length ?? 0) < 1) {
           setStep(0);
           throw new Error("Name must not be empty");
         }
@@ -752,24 +754,56 @@ export default function RuleModal({
         }
 
         const shouldIncludeConversionWindow =
-          values.experimentType === "multi-armed-bandit" &&
+          experimentValues.experimentType === "multi-armed-bandit" &&
           !disableBanditConversionWindow &&
-          (!settings.useStickyBucketing || values.disableStickyBucketing);
-        if (values.experimentType === "multi-armed-bandit") {
+          (!settings.useStickyBucketing ||
+            experimentValues.disableStickyBucketing);
+        if (experimentValues.experimentType === "multi-armed-bandit") {
           if (!hasCommercialFeature("multi-armed-bandits")) {
             throw new Error("Bandits are a premium feature");
           }
-          values.statsEngine = "bayesian";
-          if (!values.datasource) {
+          experimentValues.statsEngine = "bayesian";
+          if (!experimentValues.datasource) {
             throw new Error("You must select a datasource");
           }
-          if ((values.goalMetrics?.length ?? 0) !== 1) {
+          if (contextualBandit) {
+            const ds = datasources.find(
+              (d) => d.id === experimentValues.datasource,
+            );
+            const queries = ds?.settings?.queries?.exposure ?? [];
+            const withTargetingAttributes = queries.filter(
+              (q) => (q.targetingAttributeColumns?.length ?? 0) > 0,
+            );
+            if (queries.length > 0 && withTargetingAttributes.length === 0) {
+              setStep(2);
+              throw new Error(
+                "No Experiment Assignment Tables with targeting attributes exist for this data source. Add attributes to an experiment assignment table on the data source page, then try again.",
+              );
+            }
+            if (withTargetingAttributes.length > 0) {
+              const selected = queries.find(
+                (q) => q.id === experimentValues.exposureQueryId,
+              );
+              if (
+                !selected?.targetingAttributeColumns?.length ||
+                !withTargetingAttributes.some(
+                  (q) => q.id === experimentValues.exposureQueryId,
+                )
+              ) {
+                setStep(2);
+                throw new Error(
+                  "Select an Experiment Assignment Table that has targeting attribute columns configured.",
+                );
+              }
+            }
+          }
+          if ((experimentValues.goalMetrics?.length ?? 0) !== 1) {
             throw new Error("You must select 1 decision metric");
           }
           if (
             shouldIncludeConversionWindow &&
-            (!values.banditConversionWindowValue ||
-              !values.banditConversionWindowUnit)
+            (!experimentValues.banditConversionWindowValue ||
+              !experimentValues.banditConversionWindowUnit)
           ) {
             throw new Error(
               "Enter a conversion window override or disable the conversion window override",
@@ -827,11 +861,11 @@ export default function RuleModal({
           hashAttribute: values.hashAttribute,
           fallbackAttribute: values.fallbackAttribute || "",
           disableStickyBucketing: values.disableStickyBucketing ?? false,
-          datasource: values.datasource || undefined,
-          exposureQueryId: values.exposureQueryId || "",
-          goalMetrics: values.goalMetrics || [],
-          secondaryMetrics: values.secondaryMetrics || [],
-          guardrailMetrics: values.guardrailMetrics || [],
+          datasource: experimentValues.datasource || undefined,
+          exposureQueryId: experimentValues.exposureQueryId || "",
+          goalMetrics: experimentValues.goalMetrics || [],
+          secondaryMetrics: experimentValues.secondaryMetrics || [],
+          guardrailMetrics: experimentValues.guardrailMetrics || [],
           activationMetric: values.activationMetric || "",
           segment: values.segment || "",
           skipPartialData: values.skipPartialData,
@@ -879,6 +913,7 @@ export default function RuleModal({
             banditScheduleUnit: values.banditScheduleUnit ?? "days",
             banditBurnInValue: values.banditBurnInValue ?? 1,
             banditBurnInUnit: values.banditBurnInUnit ?? "days",
+            banditIsContextual: contextualBandit,
             ...(shouldIncludeConversionWindow && {
               banditConversionWindowValue: values.banditConversionWindowValue,
               banditConversionWindowUnit: values.banditConversionWindowUnit,
@@ -1719,7 +1754,7 @@ export default function RuleModal({
           : null}
 
         {ruleType === "experiment-ref-new" && experimentType === "bandit"
-          ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => (
+          ? ["Overview", "Traffic", "Metrics"].map((p, i) => (
               <Page display={p} key={i}>
                 <BanditRefNewFields
                   step={i}
@@ -1771,6 +1806,8 @@ export default function RuleModal({
                   setDisableBanditConversionWindow={
                     setDisableBanditConversionWindow
                   }
+                  contextualBandit={contextualBandit}
+                  setContextualBandit={setContextualBandit}
                   envScope={i === 0 ? envScopeProps : undefined}
                 />
               </Page>

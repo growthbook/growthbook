@@ -61,6 +61,7 @@ import {
   updateExperimentAndSync,
   validateVariationIds,
   validateExperimentData,
+  validateContextualBanditExperimentForSave,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
@@ -1253,6 +1254,7 @@ export async function postExperiments(
     banditBurnInUnit: data.banditBurnInUnit ?? "days",
     banditConversionWindowValue: data.banditConversionWindowValue,
     banditConversionWindowUnit: data.banditConversionWindowUnit,
+    banditIsContextual: data.banditIsContextual ?? false,
     customFields: data.customFields || undefined,
     templateId: data.templateId || undefined,
     shareLevel: data.shareLevel || "organization",
@@ -1744,6 +1746,7 @@ export async function postExperiment(
     "banditBurnInUnit",
     "banditConversionWindowValue",
     "banditConversionWindowUnit",
+    "banditIsContextual",
     "customFields",
     "shareLevel",
     "uid",
@@ -1932,6 +1935,22 @@ export async function postExperiment(
         }
       });
     }
+  }
+
+  try {
+    await validateContextualBanditExperimentForSave(context, {
+      type: changes.type ?? experiment.type,
+      banditIsContextual:
+        changes.banditIsContextual ?? experiment.banditIsContextual,
+      datasourceId: changes.datasource ?? experiment.datasource,
+      exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e instanceof Error ? e.message : String(e),
+    });
+    return;
   }
 
   const updated = await updateExperimentAndSync({
@@ -3293,7 +3312,7 @@ export async function postBanditSnapshot(
     await queryRunner.waitForResults();
     snapshot = queryRunner.model;
 
-    if (!snapshot?.banditResult) {
+    if (!snapshot?.banditResult && !snapshot?.contextualBanditSnapshot) {
       return res.status(400).json({
         status: 400,
         message: "Unable to update bandit.",
