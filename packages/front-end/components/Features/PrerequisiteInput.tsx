@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useState, type ReactNode } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
 import { getDefaultPrerequisiteCondition } from "shared/util";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
@@ -215,15 +221,33 @@ export default function PrerequisiteInput({
   }, [batchStates]);
 
   // Derive rule-level cyclic state from the batch wouldBeCyclic flags.
+  const prevCyclicRef = useRef<{
+    wouldBeCyclic: boolean;
+    cyclicFeatureId: string | null;
+  }>({
+    wouldBeCyclic: false,
+    cyclicFeatureId: null,
+  });
   useEffect(() => {
     if (!onRuleCyclicChange) return;
+    let result: { wouldBeCyclic: boolean; cyclicFeatureId: string | null } = {
+      wouldBeCyclic: false,
+      cyclicFeatureId: null,
+    };
     for (const v of value) {
       if (v.id && wouldBeCyclicStates[v.id]) {
-        onRuleCyclicChange({ wouldBeCyclic: true, cyclicFeatureId: v.id });
-        return;
+        result = { wouldBeCyclic: true, cyclicFeatureId: v.id };
+        break;
       }
     }
-    onRuleCyclicChange({ wouldBeCyclic: false, cyclicFeatureId: null });
+    const prev = prevCyclicRef.current;
+    if (
+      prev.wouldBeCyclic !== result.wouldBeCyclic ||
+      prev.cyclicFeatureId !== result.cyclicFeatureId
+    ) {
+      prevCyclicRef.current = result;
+      onRuleCyclicChange(result);
+    }
   }, [onRuleCyclicChange, value, wouldBeCyclicStates]);
 
   const prereqStatesArr = useMemo(

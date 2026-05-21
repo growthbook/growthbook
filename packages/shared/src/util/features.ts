@@ -1696,7 +1696,7 @@ export function buildReverseDependencyIndex(
       set.add(f.id);
     }
     for (const rule of f.rules ?? []) {
-      if (!rule?.prerequisites?.length) continue;
+      if (!rule?.enabled || !rule.prerequisites?.length) continue;
       for (const p of rule.prerequisites) {
         let set = index.get(p.id);
         if (!set) {

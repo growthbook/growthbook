@@ -5242,6 +5242,18 @@ export async function postBatchPrerequisiteStates(
     if (!baseFeature) {
       throw new Error("Could not find base feature");
     }
+
+    // Overlay active draft rules so cycle detection sees draft prerequisites.
+    const revision = await getRevision({
+      context,
+      organization: context.org.id,
+      featureId: baseFeatureId,
+      feature: baseFeature,
+      version: baseFeature.version,
+    });
+    if (revision?.rules) {
+      baseFeature = { ...baseFeature, rules: revision.rules };
+    }
   }
 
   return await evaluateBatchPrerequisiteStates({
