@@ -1046,8 +1046,8 @@ export async function getLatestSnapshotStatus({
     query.type = { $ne: "report" };
   }
 
-  // Same tiebreaker as `getLatestSnapshot` when callers don't pin a type:
-  // avoid surfacing an error from a scheduled run over an in-progress one.
+  // Wen callers don't pin a type, avoid surfacing an error from a
+  // scheduled run over an in-progress one.
   const shouldPreferRunningOverScheduledError = !type;
 
   const mostRecent = await ExperimentSnapshotModel.findOne(
