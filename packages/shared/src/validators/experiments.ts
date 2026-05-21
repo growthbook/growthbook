@@ -257,10 +257,6 @@ export const experimentAnalysisSettings = z
     sequentialTestingTuningParameter: z.number().optional(),
     statsEngine: z.enum(statsEngines).optional(),
     customMetricSlices: z.array(customMetricSlice).optional(),
-    precomputedUnitDimensionIds: z
-      .array(z.string())
-      .max(5, "A maximum of 5 precomputed unit dimensions are allowed")
-      .optional(),
   })
   .strict();
 export type ExperimentAnalysisSettings = z.infer<

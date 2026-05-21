@@ -63,27 +63,3 @@ export function filterParentQueryMap(queryMap: QueryMap): QueryMap {
   });
   return parentQueryMap;
 }
-
-/** Unit dimension ids that have at least one namespaced query on the snapshot. */
-export function getUnitDimensionIdsFromQueryMap(queryMap: QueryMap): string[] {
-  const ids = new Set<string>();
-  queryMap.forEach((_, name) => {
-    const parsed = parseUnitDimQueryName(name);
-    if (parsed) {
-      ids.add(parsed.dimensionId);
-    }
-  });
-  return Array.from(ids);
-}
-
-/** Query data for a precomputed dimension analysis (unit-dim or experiment-dim). */
-export function getQueryMapForPrecomputedDimension(
-  queryMap: QueryMap,
-  dimensionId: string,
-  precomputedUnitDimensionIds: string[],
-): QueryMap {
-  if (precomputedUnitDimensionIds.includes(dimensionId)) {
-    return buildUnitDimensionQueryMap(queryMap, dimensionId);
-  }
-  return filterParentQueryMap(queryMap);
-}
