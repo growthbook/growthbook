@@ -35,6 +35,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import isEqual from "lodash/isEqual";
 import { SafeRolloutRule } from "shared/validators";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { getFutureScheduledStartDate } from "@/services/experiments";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
@@ -1470,9 +1471,11 @@ export function getExperimentDefinitionFromFeature(
 export function useRealtimeData(
   features: FeatureInterface[] = [],
   mock = false,
+  enabled = true,
 ): { usage: FeatureUsageRecords; usageDomain: [number, number] } {
   const { data, mutate } = useApi<{ usage: FeatureUsageRecords }>(
     `/usage/features`,
+    { shouldRun: () => enabled },
   );
 
   // Mock data
@@ -1499,6 +1502,7 @@ export function useRealtimeData(
 
   // Update usage data every 10 seconds
   useEffect(() => {
+    if (!enabled) return;
     let timer = 0;
     const cb = async () => {
       await mutate();
@@ -1508,7 +1512,7 @@ export function useRealtimeData(
     return () => {
       window.clearTimeout(timer);
     };
-  }, []);
+  }, [enabled, mutate]);
 
   const max = useMemo(() => {
     return Math.max(
@@ -1664,7 +1668,23 @@ export function useFeatureExperimentChecklists({
     [feature, revision, allEnvironments, experimentsMap],
   );
 
-  return { experiments };
+  const { immediateStartExperiments, scheduledExperiments } = useMemo(() => {
+    const immediate: ExperimentInterfaceStringDates[] = [];
+    const scheduled: ExperimentInterfaceStringDates[] = [];
+    for (const exp of experiments) {
+      if (getFutureScheduledStartDate(exp)) {
+        scheduled.push(exp);
+      } else {
+        immediate.push(exp);
+      }
+    }
+    return {
+      immediateStartExperiments: immediate,
+      scheduledExperiments: scheduled,
+    };
+  }, [experiments]);
+
+  return { experiments, immediateStartExperiments, scheduledExperiments };
 }
 
 export function parseDefaultValue(

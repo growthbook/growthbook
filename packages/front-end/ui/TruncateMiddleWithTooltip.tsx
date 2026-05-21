@@ -1,6 +1,6 @@
 import React from "react";
 import clsx from "clsx";
-import Tooltip from "@/ui/Tooltip";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 function truncateMiddle(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text;
