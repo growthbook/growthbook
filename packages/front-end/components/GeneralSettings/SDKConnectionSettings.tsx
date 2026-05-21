@@ -1,17 +1,10 @@
 import { Box, Flex } from "@radix-ui/themes";
 import { ConnectSettingsForm } from "@/pages/settings";
-import { useUser } from "@/services/UserContext";
 import Checkbox from "@/ui/Checkbox";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 
 export default function SDKConnectionSettings() {
-  const { hasCommercialFeature } = useUser();
-
-  if (!hasCommercialFeature("require-project-for-features-setting")) {
-    return null;
-  }
-
   return (
     <ConnectSettingsForm>
       {({ watch, setValue }) => (
