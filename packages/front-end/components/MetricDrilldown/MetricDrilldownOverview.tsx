@@ -75,8 +75,7 @@ function MetricDrilldownOverview({
 }: MetricDrilldownOverviewProps) {
   const [statsExpanded, setStatsExpanded] = useState(false);
   const { isAuthenticated } = useAuth();
-  const { snapshot, analysis, setAnalysisSettings, mutateSnapshot } =
-    useSnapshot();
+  const { snapshot, analysis, setAnalysisSettings, mutate } = useSnapshot();
 
   const { metric } = row;
   const tableId = `${experimentId}_${metric.id}_modal`;
@@ -149,7 +148,10 @@ function MetricDrilldownOverview({
         snapshot={snapshot}
         analysis={analysis}
         setAnalysisSettings={setAnalysisSettings}
-        mutate={mutateSnapshot}
+        // Forwarded to BaselineChooserColumnLabel, which appends analyses
+        // to the current snapshot in place — need `inPlace: true` so the
+        // heavy fetch refreshes (id-keyed auto-upgrade won't fire here).
+        mutate={() => mutate({ inPlace: true })}
       />
 
       <Box>

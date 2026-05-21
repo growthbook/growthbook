@@ -1,10 +1,17 @@
 import React from "react";
 import { Queries } from "shared/types/query";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
-import { SafeRolloutInterface } from "shared/validators";
+import {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+} from "shared/types/experiment-snapshot";
+import {
+  SafeRolloutInterface,
+  SafeRolloutSnapshotInterface,
+} from "shared/validators";
 import { isPrecomputedDimension } from "shared/experiments";
 import { useAuth } from "@/services/auth";
+import { trackSnapshot } from "@/services/track";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import ExperimentRefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton";
 import SafeRolloutRefreshSnapshotButton from "@/components/SafeRollout/RefreshSnapshotButton";
@@ -22,10 +29,14 @@ export interface RefreshResultsButtonProps<
   entityId: string;
   datasourceId?: string | null;
   latest?: T;
-  onSubmitSuccess?: (snapshot: T) => void;
   mutate: () => void;
   mutateAdditional?: () => void;
   setRefreshError: (error: string) => void;
+  experimentSnapshotTrackingProps?: {
+    trackingSource: string;
+    datasourceType: string | null;
+  };
+  onSuccess?: () => void;
   // Experiment/holdout-specific props
   experiment?: ExperimentInterfaceStringDates;
   phase?: number;
@@ -48,10 +59,11 @@ export default function RefreshResultsButton<
   entityId,
   datasourceId,
   latest,
-  onSubmitSuccess,
   mutate,
   mutateAdditional,
   setRefreshError,
+  experimentSnapshotTrackingProps,
+  onSuccess,
   experiment,
   phase,
   dimension,
@@ -119,11 +131,28 @@ export default function RefreshResultsButton<
                 : undefined;
 
             try {
-              const res = await apiCall<{ snapshot: T }>(snapshotEndpoint, {
-                method: "POST",
-                ...(body && { body }),
-              });
-              onSubmitSuccess?.(res.snapshot);
+              if (entityType === "safe-rollout") {
+                await apiCall<{ snapshot: SafeRolloutSnapshotInterface }>(
+                  snapshotEndpoint,
+                  { method: "POST" },
+                );
+              } else {
+                const res = await apiCall<{
+                  snapshot: ExperimentSnapshotInterface;
+                }>(snapshotEndpoint, {
+                  method: "POST",
+                  ...(body && { body }),
+                });
+                if (experimentSnapshotTrackingProps) {
+                  trackSnapshot(
+                    "create",
+                    experimentSnapshotTrackingProps.trackingSource,
+                    experimentSnapshotTrackingProps.datasourceType,
+                    res.snapshot,
+                  );
+                }
+              }
+              onSuccess?.();
               setRefreshError("");
             } catch (e) {
               setRefreshError(e.message);
