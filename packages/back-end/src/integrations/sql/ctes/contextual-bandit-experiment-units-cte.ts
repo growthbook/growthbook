@@ -47,7 +47,7 @@ export function getContextualBanditUnitsSqlConfig(
     return null;
   }
   const k = Math.max(1, settings.variations?.length ?? 1);
-  const maxRankedContexts = Math.max(1, Math.floor(3000 / k));
+  const maxRankedContexts = Math.max(1, Math.floor(3000 / k) - 1);
   return { aliases, maxRankedContexts };
 }
 
