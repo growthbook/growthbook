@@ -1,182 +1,72 @@
 import {
   buildErrorEventProperties,
-  collapseBraceSegments,
-  fingerprintForError,
-  growthbookComposedError,
-  normalizeErrorMessageForFingerprint,
-  normalizeFilenameForFingerprint,
+  captureGrowthBookError,
+  setFingerprint,
 } from "../../src/plugins/growthbook-error-tracking";
+import { GrowthBook } from "../../src/GrowthBook";
 import { EVENT_GROWTHBOOK_ERROR } from "../../src/core";
 
 describe("growthbookErrorTracking helpers", () => {
-  it("uses stable fingerprint for same message and stack", () => {
-    const err = new Error("boom");
-    err.stack = "Error: boom\n  at foo (file.js:1:2)";
-    const a = fingerprintForError(err.message, err.stack, err.name);
-    const b = fingerprintForError(err.message, err.stack, err.name);
-    expect(a).toEqual(b);
-    expect(a.length).toBeGreaterThan(4);
-  });
-
-  it("ignores line and column changes in the same frame", () => {
-    const stackA =
-      "Error: boom\n  at onClick (src/app/errors-demo/page.tsx:120:11)";
-    const stackB =
-      "Error: boom\n  at onClick (src/app/errors-demo/page.tsx:188:7)";
-    expect(fingerprintForError("boom", stackA, "Error")).toEqual(
-      fingerprintForError("boom", stackB, "Error"),
-    );
-  });
-
-  it("ignores bundled path prefixes for the same source file", () => {
-    const stackA =
-      "Error: boom\n  at onClick (src/app/errors-demo/page.tsx:10:1)";
-    const stackB =
-      "Error: boom\n  at onClick (webpack-internal:///(app-pages-browser)/./src/app/errors-demo/page.tsx:10:1)";
-    expect(fingerprintForError("boom", stackA, "Error")).toEqual(
-      fingerprintForError("boom", stackB, "Error"),
-    );
-  });
-
-  it("groups dynamic message values with the same template", () => {
-    const stack = "Error: boom\n  at loadUser (src/services/users.ts:40:5)";
-    expect(fingerprintForError("User 123 not found", stack, "Error")).toEqual(
-      fingerprintForError("User 456 not found", stack, "Error"),
-    );
-  });
-
-  it("separates different static messages at the same stack location", () => {
-    const stack = "Error: boom\n  at loadUser (src/services/users.ts:40:5)";
-    expect(fingerprintForError("User not found", stack, "Error")).not.toEqual(
-      fingerprintForError("Order not found", stack, "Error"),
-    );
-  });
-
-  it("separates different error types with the same message and stack", () => {
-    const stack = "Error: boom\n  at loadUser (src/services/users.ts:40:5)";
-    expect(fingerprintForError("boom", stack, "Error")).not.toEqual(
-      fingerprintForError("boom", stack, "TypeError"),
-    );
-  });
-
-  it("normalizes volatile message values", () => {
-    expect(normalizeErrorMessageForFingerprint("User 123 failed")).toEqual(
-      "User {n} failed",
-    );
-    expect(
-      normalizeErrorMessageForFingerprint(
-        "Request failed for https://example.com/a",
-      ),
-    ).toEqual("Request failed for {url}");
-  });
-
-  it("collapses JSON and nested brace segments", () => {
-    expect(
-      collapseBraceSegments('API failed {"code":404,"user":"alice"}'),
-    ).toEqual("API failed {}");
-    expect(collapseBraceSegments("outer { a: { b: 1 } } tail")).toEqual(
-      "outer {} tail",
-    );
-  });
-
-  it("normalizes emails, hashes, and quoted strings", () => {
-    const sha1 = "a".repeat(40);
-    expect(
-      normalizeErrorMessageForFingerprint(
-        `Notify admin@example.com about ${sha1}`,
-      ),
-    ).toEqual("Notify {email} about {sha1}");
-    expect(
-      normalizeErrorMessageForFingerprint('Validation: "field x is invalid"'),
-    ).toEqual("Validation: {str}");
-  });
-
-  it("groups errors whose messages differ only by JSON payloads", () => {
-    const stack = "Error: boom\n  at save (src/api/client.ts:40:5)";
-    expect(
-      fingerprintForError('Save failed {"id":1,"name":"a"}', stack, "Error"),
-    ).toEqual(
-      fingerprintForError('Save failed {"id":99,"name":"zzz"}', stack, "Error"),
-    );
-  });
-
-  it("groups errors with different opaque alphanumeric ids", () => {
-    const stack = "Error: boom\n  at run (src/job.ts:10:1)";
-    expect(
-      fingerprintForError("Job abc12xyz99 failed", stack, "Error"),
-    ).toEqual(fingerprintForError("Job qwerty9999 failed", stack, "Error"));
-  });
-
-  it("normalizes bundled filenames to app-relative labels", () => {
-    expect(
-      normalizeFilenameForFingerprint(
-        "webpack-internal:///(app-pages-browser)/./src/app/errors-demo/page.tsx:10:1",
-      ),
-    ).toEqual("errors-demo/page.tsx");
-  });
-
-  it("builds GrowthBook Error payload shape", () => {
-    const props = buildErrorEventProperties(new Error("x"), {
+  it("builds GrowthBook Error payload without client fingerprint", () => {
+    const err = new Error("something broke");
+    err.stack = "Error: something broke\n  at foo (file.js:1:2)";
+    const props = buildErrorEventProperties(err, {
       errorType: "manual",
     });
-    expect(props.title).toContain("x");
+    expect(props.title).toContain("something broke");
     expect(props.message).toEqual(props.title);
-    expect(props.fingerprint).toBeTruthy();
+    expect(props.fingerprint).toBeUndefined();
     expect(props.errorType).toEqual("manual");
     expect(Array.isArray(props.stackFrames)).toBe(true);
   });
 
-  it("groups composed / template-literal tails when tagged with growthbookComposedError", () => {
-    const stack = "Error: x\n  at demo (src/app/errors-demo/page.tsx:99:11)";
-    const a = fingerprintForError(
-      "Demo: hello abc12xyz suffix",
-      stack,
-      "Error",
-      "Demo: hello {} suffix",
+  it("setFingerprint applies a string fingerprint on the next capture", async () => {
+    const gb = new GrowthBook({ clientKey: "sdk-test" });
+    const logEvent = jest.fn();
+    gb.logEvent = logEvent;
+
+    setFingerprint(gb, "my-custom-group");
+    await captureGrowthBookError(gb, new Error("volatile 123"), {
+      errorType: "manual",
+    });
+
+    expect(logEvent).toHaveBeenCalledWith(
+      EVENT_GROWTHBOOK_ERROR,
+      expect.objectContaining({
+        fingerprint: "my-custom-group",
+        message: "volatile 123",
+      }),
     );
-    const b = fingerprintForError(
-      "Demo: hello def99zzz suffix",
-      stack,
-      "Error",
-      "Demo: hello {} suffix",
-    );
-    expect(a).toEqual(b);
-    expect(
-      fingerprintForError(
-        "Demo: hello abc12xyz suffix",
-        stack,
-        "Error",
-        "Different static {} suffix",
-      ),
-    ).not.toEqual(a);
   });
 
-  it("growthbookComposedError fingerprints ignore interpolated random segments", () => {
-    const errA = growthbookComposedError`Demo test (${"rand-a-9x2z"}) tail`;
-    errA.stack = "Error\n  at t (demo.tsx:1:2)";
-    const errB = growthbookComposedError`Demo test (${"DIFFERENT-ID"}) tail`;
-    errB.stack = errA.stack;
-    expect(buildErrorEventProperties(errA).fingerprint).toEqual(
-      buildErrorEventProperties(errB).fingerprint,
+  it("setFingerprint applies fingerprintParts on the next capture", async () => {
+    const gb = new GrowthBook({ clientKey: "sdk-test" });
+    const logEvent = jest.fn();
+    gb.logEvent = logEvent;
+
+    setFingerprint(gb, ["checkout", "failed"]);
+    await captureGrowthBookError(gb, new Error("order 999"), {
+      errorType: "manual",
+    });
+
+    expect(logEvent).toHaveBeenCalledWith(
+      EVENT_GROWTHBOOK_ERROR,
+      expect.objectContaining({
+        fingerprintParts: ["checkout", "failed"],
+      }),
     );
-    const propsA = buildErrorEventProperties(errA);
-    expect(propsA.title).toContain("rand-a-9x2z");
-    expect(propsA.message).toContain("rand-a-9x2z");
-    expect(propsA.title).not.toContain("{}");
+    const props = logEvent.mock.calls[0][1];
+    expect(props.fingerprint).toBeUndefined();
   });
 
-  it("extras cannot override fingerprint, title, or message", () => {
+  it("extras cannot override title or message", () => {
     const err = new Error("real message");
     const props = buildErrorEventProperties(err, {
       title: "wrong title",
-      fingerprint: "deadbeef",
       message: "wrong message",
     } as Record<string, unknown>);
     expect(props.title).toEqual("real message");
     expect(props.message).toEqual("real message");
-    expect(props.fingerprint).toEqual(
-      buildErrorEventProperties(err).fingerprint,
-    );
   });
 
   it("EVENT_GROWTHBOOK_ERROR matches warehouse filter string", () => {
