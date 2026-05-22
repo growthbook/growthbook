@@ -174,6 +174,8 @@ export interface ExposureQuery {
   query: string;
   hasNameCol?: boolean;
   dimensions: string[];
+  /** Columns on the exposure query used for contextual bandit targeting attributes. */
+  targetingAttributeColumns?: string[];
   dimensionSlicesId?: string;
   dimensionMetadata?: ExperimentDimensionMetadata[];
   error?: string;

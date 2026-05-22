@@ -200,6 +200,10 @@ export type ExperimentUpdateSchedule = {
 
 export type Environment = z.infer<typeof environment>;
 
+export type ApprovalFlowConfigurations = {
+  savedGroups: ApprovalFlowConfiguration[];
+};
+
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;
   confidenceLevel?: number;

@@ -1,5 +1,6 @@
 import { FactMetricType } from "shared/types/fact-table";
 import { EntityEvents } from "shared/types/audit";
+import { ApprovalFlowConfigurations } from "shared/types/organization";
 
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;
 export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
@@ -50,10 +51,17 @@ export const DEFAULT_USE_STICKY_BUCKETING = false;
 export const EXPOSURE_DATE_DIMENSION_NAME = "dim_exposure_date";
 export const BANDIT_SRM_DIMENSION_NAME = "gb_internal_bandit_srm";
 export const AUTOMATIC_DIMENSION_OTHER_NAME = "__Other__";
+export const NULL_ATTRIBUTE_VALUE = "__NULL_ATTRIBUTE";
 export const NULL_DIMENSION_VALUE = "__NULL_DIMENSION";
 export const NULL_VARIATION_VALUE = "__NULL_VARIATION";
 export const NULL_DIMENSION_DISPLAY = "NULL (unset)";
 export const PRECOMPUTED_DIMENSION_PREFIX = "precomputed:";
+
+/** SQL column prefix for bucketed contextual bandit targeting attributes. */
+export const ATTR_CB_PREFIX = "attr_cb_";
+/** SQL column prefix for first-exposure raw contextual bandit attributes (pre-bucketing). */
+export const ATTR_CB_RAW_PREFIX = "attr_cb_raw_";
+
 // Colors:
 // export const variant_null = "#999";
 // export const variant_0 = "#4f69ff";
@@ -96,6 +104,15 @@ export const FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS = 180;
 export const SAFE_ROLLOUT_TRACKING_KEY_PREFIX = "srk_";
 
 export const DEFAULT_REQUIRE_PROJECT_FOR_FEATURES = false;
+
+export const DEFAULT_REVISION_CONFIGURATION: ApprovalFlowConfigurations = {
+  savedGroups: [
+    {
+      required: false,
+      requireMetadataReview: true,
+    },
+  ],
+};
 
 // Default configuration for Safe Rollout
 export const SAFE_ROLLOUT_VARIATIONS = [
@@ -163,6 +180,8 @@ export const attributeDataTypes = [
 // for audits
 export const entityEvents = {
   agreement: ["create", "update", "delete"],
+  approvalFlow: ["create", "update", "delete"],
+  revision: ["create", "update", "delete"],
   aiPrompt: ["create", "update", "delete"],
   attribute: ["create", "update", "delete"],
   experiment: [

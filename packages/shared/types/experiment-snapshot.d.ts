@@ -15,6 +15,7 @@ import {
   MetricPowerResponseFromStatsEngine,
   RealizedSettings,
   SupplementalResults,
+  ContextualBanditSnapshot,
 } from "shared/types/stats";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
@@ -183,6 +184,10 @@ export interface SnapshotBanditSettings {
   }[];
   useFirstExposure?: boolean;
   windowSettings?: MetricWindowSettings;
+  /** From `ExperimentInterface.banditIsContextual` at snapshot time. */
+  banditIsContextual?: boolean;
+  /** From the experiment's exposure query `targetingAttributeColumns` at snapshot time. */
+  targetingAttributeColumns?: string[];
 }
 
 // Settings that control which queries are run
@@ -245,6 +250,8 @@ export interface ExperimentSnapshotInterface {
   // Keyed by `ExperimentSnapshotAnalysis.analysisKey`
   chunkedAnalysesMeta?: Record<AnalysisKeyType, AnalysisMetaEntry>;
   banditResult?: BanditResult;
+  /** Contextual multi-armed bandit weight/mean table (gbstats contextual path); null clears on non-contextual refresh. */
+  contextualBanditSnapshot?: ContextualBanditSnapshot | null;
 
   health?: ExperimentSnapshotHealth;
 }
