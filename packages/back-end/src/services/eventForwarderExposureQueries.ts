@@ -133,6 +133,14 @@ export async function ensureEventForwarderExposureQueries(
   }
 
   if (!datasource) {
+    logger.warn(
+      {
+        datasourceId: raw.id,
+        organizationId: context.org.id,
+        sinkType: eventForwarderConfig.sinkType,
+      },
+      "Skipping event forwarder exposure queries: datasource unavailable for update",
+    );
     return;
   }
 
