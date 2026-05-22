@@ -3,17 +3,39 @@ import {
   mergeUserIdTypes,
 } from "shared/util";
 import { SDKAttributeSchema } from "shared/types/organization";
+import { EventForwarderConfigInterface } from "shared/validators";
 import {
   getDataSourceById,
   getRawDataSourceById,
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
+import { ensureEventForwarderExposureQueries } from "back-end/src/services/eventForwarderExposureQueries";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
+
+async function ensureExposureQueriesAfterUserIdTypesSync(
+  context: ReqContext,
+  eventForwarderConfig: EventForwarderConfigInterface,
+): Promise<void> {
+  try {
+    await ensureEventForwarderExposureQueries(context, eventForwarderConfig);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    logger.error(
+      {
+        datasourceId: eventForwarderConfig.datasourceId,
+        organizationId: context.org.id,
+        error: message,
+      },
+      "Failed to create exposure queries after event forwarder userIdTypes sync",
+    );
+  }
+}
 
 export async function initializeDatasourceUserIdTypesFromOrgAttributeSchema(
   context: ReqContext,
   datasourceId: string,
+  eventForwarderConfig?: EventForwarderConfigInterface,
 ): Promise<void> {
   const raw = await getRawDataSourceById(context, datasourceId);
   if (!raw) {
@@ -43,6 +65,13 @@ export async function initializeDatasourceUserIdTypesFromOrgAttributeSchema(
       userIdTypes: merged,
     },
   });
+
+  if (eventForwarderConfig) {
+    await ensureExposureQueriesAfterUserIdTypesSync(
+      context,
+      eventForwarderConfig,
+    );
+  }
 }
 
 export async function syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema(
@@ -87,6 +116,8 @@ export async function syncAllEventForwarderDatasourceUserIdTypesFromAttributeSch
             userIdTypes: merged,
           },
         });
+
+        await ensureExposureQueriesAfterUserIdTypesSync(context, config);
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Unknown error";
