@@ -68,7 +68,10 @@ export default function DraftSelectorForChanges({
 
   // When there is only one mode available it must be "new"; keep the form in
   // sync in case the parent initialised with a stale value.
-  if (singleOption && mode !== "new") setSelectedDraft(null), setMode("new");
+  if (singleOption && mode !== "new") {
+    setSelectedDraft(null);
+    setMode("new");
+  }
 
   // Use context revisions if available; fetch only when rendered outside FeaturesOverview.
   const ctx = useFeatureRevisionsContext();
