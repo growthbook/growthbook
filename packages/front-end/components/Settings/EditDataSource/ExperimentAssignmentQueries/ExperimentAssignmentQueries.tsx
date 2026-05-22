@@ -210,7 +210,7 @@ export const ExperimentAssignmentQueries: FC<
                     )}
                   </Box>
                 </Flex>
-                {query.error && (
+                {query.error && !isManaged && (
                   <Callout status="error" mt="3">
                     <Box>
                       This query had an error with it the last time it ran:{" "}

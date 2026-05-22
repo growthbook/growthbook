@@ -47,7 +47,7 @@ export function buildEventForwarderExposureQuerySql({
   userIdType: string;
 }): string {
   const select = `SELECT
-  event_uuid AS ${userIdType},
+  ${userIdType} AS ${userIdType},
   timestamp AS timestamp,
   experiment_id AS experiment_id,
   variation_id AS variation_id
