@@ -361,6 +361,10 @@ export interface InsertMetricSourceDataQueryParams {
   lastMaxTimestamp: Date | null;
 }
 
+export interface DropMetricSourceTableQueryParams {
+  metricSourceTableFullName: string;
+}
+
 export interface DropMetricSourceCovariateTableQueryParams {
   metricSourceCovariateTableFullName: string;
 }

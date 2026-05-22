@@ -66,6 +66,7 @@ export type QueryType =
   | "experimentIncrementalRefreshAlterUnitsTable"
   | "experimentIncrementalRefreshMaxTimestampUnitsTable"
   | "experimentIncrementalRefreshCreateMetricsSourceTable"
+  | "experimentIncrementalRefreshDropMetricsSourceTable"
   | "experimentIncrementalRefreshInsertMetricsSourceData"
   | "experimentIncrementalRefreshMaxTimestampMetricsSource"
   | "experimentIncrementalRefreshDropMetricsCovariateTable"
