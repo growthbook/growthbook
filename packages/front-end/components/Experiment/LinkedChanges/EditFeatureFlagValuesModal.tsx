@@ -19,7 +19,6 @@ import { PiPlusCircleFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DraftSelectorDropdown, {
   DraftMode,
 } from "@/components/Features/DraftSelectorDropdown";
@@ -132,8 +131,6 @@ export default function EditFeatureFlagValuesModal({
 }: Props) {
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
-  const permissionsUtil = usePermissionsUtil();
-
   const { data, error } = useApi<FeatureRevisionResponse>(
     `/feature/${feature.id}`,
   );
@@ -183,9 +180,6 @@ export default function EditFeatureFlagValuesModal({
     return envList.length === 0 ? "all" : new Set(envList);
   }, [settings?.requireReviews, feature]);
 
-  const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
-  const canAutoPublish = isAdmin || gatedEnvSet === "none";
-
   const defaultDraft = useDefaultDraft(revisionList);
 
   // The linking flow always creates a pending draft that adds the
@@ -198,13 +192,8 @@ export default function EditFeatureFlagValuesModal({
     !info.liveHasMatchingRule &&
     info.draftRevisionVersion != null;
 
-  const initialMode: DraftMode = ruleOnlyOnDraft
-    ? "existing"
-    : defaultDraft != null
-      ? "existing"
-      : gatedEnvSet === "none"
-        ? "publish"
-        : "new";
+  const initialMode: DraftMode =
+    ruleOnlyOnDraft || defaultDraft != null ? "existing" : "new";
   const initialSelectedDraft = ruleOnlyOnDraft
     ? (info.draftRevisionVersion ?? null)
     : defaultDraft;
@@ -218,7 +207,7 @@ export default function EditFeatureFlagValuesModal({
   // On first render `useApi` hasn't resolved yet, so `revisionList` is empty
   // and `defaultDraft` is null. Re-apply the correctly computed initial
   // mode/selectedDraft once the feature revisions arrive, so the dropdown
-  // doesn't show a stale pre-selection (e.g. "publish" when there is an
+  // doesn't show a stale pre-selection (e.g. "new" when there is an
   // existing draft to default to).
   const hasInitializedFromData = useRef(false);
   useEffect(() => {
@@ -227,12 +216,6 @@ export default function EditFeatureFlagValuesModal({
     setMode(initialMode);
     setSelectedDraft(initialSelectedDraft);
   }, [data, initialMode, initialSelectedDraft]);
-
-  useEffect(() => {
-    if (!canAutoPublish && mode === "publish") {
-      setMode("new");
-    }
-  }, [canAutoPublish, mode]);
 
   const watchedVariations = form.watch("variations");
 
@@ -309,7 +292,7 @@ export default function EditFeatureFlagValuesModal({
           setMode={setMode}
           selectedDraft={selectedDraft}
           setSelectedDraft={setSelectedDraft}
-          canAutoPublish={ruleOnlyOnDraft ? false : canAutoPublish}
+          canAutoPublish={false}
           gatedEnvSet={gatedEnvSet}
           locked={ruleOnlyOnDraft}
           lockedTooltip={
@@ -359,11 +342,9 @@ export default function EditFeatureFlagValuesModal({
         }));
 
         const revisionOptions =
-          mode === "publish"
-            ? { autoPublish: true }
-            : mode === "existing" && selectedDraft != null
-              ? { targetVersion: selectedDraft }
-              : { forceNewDraft: true };
+          mode === "existing" && selectedDraft != null
+            ? { targetVersion: selectedDraft }
+            : { forceNewDraft: true };
 
         await apiCall<{ status: number }>(
           `/experiment/${experiment.id}/features`,
@@ -384,7 +365,7 @@ export default function EditFeatureFlagValuesModal({
 
         await mutate();
       })}
-      cta={mode === "publish" ? "Publish now" : "Save to draft"}
+      cta="Save to draft"
       close={close}
       open={true}
       size={"lg"}
