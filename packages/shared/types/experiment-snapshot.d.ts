@@ -226,6 +226,9 @@ export interface ExperimentSnapshotInterface {
 
   // Status and meta info about the snapshot run
   error?: string;
+  // Non-fatal warnings surfaced to the user (e.g., metrics skipped during an
+  // exploratory analysis because their sources have not been materialized yet).
+  warnings?: string[];
   dateCreated: Date;
   runStarted: Date | null;
   status: "running" | "success" | "error";

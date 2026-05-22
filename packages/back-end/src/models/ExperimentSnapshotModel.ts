@@ -78,6 +78,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
   query: String,
   queryLanguage: String,
   error: String,
+  warnings: [String],
   queries: queriesSchema,
   dimension: String,
   unknownVariations: [String],
