@@ -707,7 +707,7 @@ function NoTrafficGracePopoverContent({
 
   const save = () => {
     const val = parseFloat(draft);
-    onSave(val && val > 0 ? val : null);
+    onSave(val && val > 0 ? Math.floor(val * 100) / 100 : null);
     onClose();
   };
 
@@ -722,8 +722,7 @@ function NoTrafficGracePopoverContent({
       </Text>
       <Field
         type="number"
-        min="0.1"
-        step="0.5"
+        step="any"
         placeholder={`${DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS} (default)`}
         autoFocus
         append="hours"
@@ -1008,7 +1007,7 @@ export default function RampScheduleSection({
       steps: newSteps,
       monitoring: {
         ...state.monitoring,
-        updateScheduleMinutes: deriveAutoUpdateCadenceMinutes(newSteps),
+        ...deriveMonitoringOverrides(newSteps),
       },
     });
   }
@@ -2689,12 +2688,17 @@ export default function RampScheduleSection({
     patchState({ monitoring: merged });
   }
 
-  function deriveAutoUpdateCadenceMinutes(steps: UIStep[]): number | null {
+  function deriveMonitoringOverrides(steps: UIStep[]): {
+    updateScheduleMinutes: number | null;
+    noTrafficGracePeriodHours: number | null;
+  } {
     const intervalSteps = steps.filter(
       (s) => s.monitored && s.triggerType === "interval",
     );
-    if (intervalSteps.length === 0) return null;
-    const minSeconds = Math.min(
+    if (intervalSteps.length === 0) {
+      return { updateScheduleMinutes: null, noTrafficGracePeriodHours: null };
+    }
+    const minStepSeconds = Math.min(
       ...intervalSteps.map(
         (s) => Math.max(1, s.intervalValue) * UNIT_MULT[s.intervalUnit],
       ),
@@ -2702,10 +2706,29 @@ export default function RampScheduleSection({
     const s = settings?.updateSchedule;
     const orgCadenceSeconds =
       s?.type === "stale" && s.hours ? s.hours * 3600 : 6 * 3600;
-    if (minSeconds >= orgCadenceSeconds) return null;
-    const derived = Math.max(1, Math.floor(minSeconds / 60));
-    setShowAdvancedMonitoring(true);
-    return derived;
+
+    const updateScheduleMinutes =
+      minStepSeconds < orgCadenceSeconds
+        ? Math.max(1, Math.floor(minStepSeconds / 60))
+        : null;
+
+    const effectiveCadenceHours =
+      updateScheduleMinutes !== null
+        ? updateScheduleMinutes / 60
+        : orgCadenceSeconds / 3600;
+    const gracePeriodHours = Math.max(
+      Math.min(24, minStepSeconds / 7200),
+      effectiveCadenceHours,
+    );
+    // Only override if different from default 24h — avoids a no-op override.
+    const noTrafficGracePeriodHours =
+      gracePeriodHours < 24 ? Math.floor(gracePeriodHours * 100) / 100 : null;
+
+    if (updateScheduleMinutes !== null || noTrafficGracePeriodHours !== null) {
+      setShowAdvancedMonitoring(true);
+    }
+
+    return { updateScheduleMinutes, noTrafficGracePeriodHours };
   }
 
   function handleSimpleDurationChange(duration: number, unit?: IntervalUnit) {
@@ -2722,7 +2745,7 @@ export default function RampScheduleSection({
       steps,
       monitoring: {
         ...state.monitoring,
-        updateScheduleMinutes: deriveAutoUpdateCadenceMinutes(steps),
+        ...deriveMonitoringOverrides(steps),
       },
     });
   }
@@ -3227,7 +3250,7 @@ export default function RampScheduleSection({
       steps: newSteps,
       monitoring: {
         ...state.monitoring,
-        updateScheduleMinutes: deriveAutoUpdateCadenceMinutes(newSteps),
+        ...deriveMonitoringOverrides(newSteps),
       },
     });
   }
