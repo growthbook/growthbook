@@ -46,8 +46,10 @@ export function buildEventForwarderExposureQuerySql({
   tableRef: string;
   userIdType: string;
 }): string {
+  const quotedId =
+    sinkType === "bigquery" ? `\`${userIdType}\`` : `"${userIdType}"`;
   const select = `SELECT
-  event_uuid AS ${userIdType},
+  ${quotedId} AS ${quotedId},
   timestamp AS timestamp,
   experiment_id AS experiment_id,
   variation_id AS variation_id
