@@ -48,7 +48,7 @@ export default class Snowflake extends SqlIntegration {
   supportsLimitZeroColumnValidation(): boolean {
     return true;
   }
-  hasQuantileKLL(): boolean {
+  hasQuantileSketch(): boolean {
     return true;
   }
   getInformationSchemaWhereClause(): string {

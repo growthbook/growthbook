@@ -37,7 +37,7 @@ export type DataType =
   | "date"
   | "timestamp"
   | "hll"
-  | "kll";
+  | "quantileSketch";
 
 export type MetricAggregationType = "pre" | "post" | "noWindow";
 
