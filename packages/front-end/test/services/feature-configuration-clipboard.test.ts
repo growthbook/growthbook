@@ -136,6 +136,39 @@ describe("feature configuration clipboard payloads", () => {
       ),
     ).toBeNull();
   });
+
+  it("throws when a safe-rollout rule references a safeRolloutId missing from the lookup", () => {
+    // Building a clipboard envelope with safe-rollout rules but without the
+    // matching SafeRollout settings would produce a payload the destination
+    // import-draft endpoint can't satisfy. Failing the copy up front (with
+    // a descriptive error) is the only signal the user gets before the
+    // missing settings cause a partial import + cleanup downstream.
+    const featureWithSafeRollout: FeatureInterface = {
+      ...feature,
+      rules: [
+        {
+          id: "fr_sr",
+          type: "safe-rollout",
+          description: "",
+          allEnvironments: true,
+          safeRolloutId: "sr_missing",
+          controlValue: "false",
+          variationValue: "true",
+          status: "running",
+          hashAttribute: "id",
+          seed: "x",
+          trackingKey: "tk",
+        },
+      ],
+    };
+
+    expect(() =>
+      buildFeatureConfigurationClipboardPayload(featureWithSafeRollout, {
+        // Empty safeRollouts lookup — sr_missing isn't there.
+        safeRollouts: new Map(),
+      }),
+    ).toThrow(/sr_missing/);
+  });
 });
 
 describe("feature reference extraction and mapping", () => {

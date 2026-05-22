@@ -96,7 +96,7 @@ export default function FeaturesHeader({
   const [archiveModal, setArchiveModal] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
   const [copyFeatureConfigMessage, setCopyFeatureConfigMessage] = useState<
-    "success" | "error" | null
+    { kind: "success" } | { kind: "error"; message: string } | null
   >(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [staleStatusOpen, setStaleStatusOpen] = useState(false);
@@ -134,11 +134,13 @@ export default function FeaturesHeader({
   } = useDefinitions();
   const { holdouts } = useHoldouts(feature.project);
   const holdoutsEnabled = hasCommercialFeature("holdouts");
-  // Loaded so the "Copy feature configuration" action can attach descriptions
-  // for any prerequisite-feature references in the clipboard payload.
-  const { features: projectFeatures } = useFeatureMetaInfo({
-    project: feature.project,
-  });
+  // Loaded so the "Copy feature configuration" action can attach
+  // descriptions for any prerequisite-feature references in the clipboard
+  // payload. Deliberately unfiltered by project — prerequisites can be
+  // cross-project (see getPrerequisiteStates' JIT load comment in
+  // features.ts), and filtering here would silently drop those names from
+  // the import-side mapping context.
+  const { features: allFeaturesForCopy } = useFeatureMetaInfo();
 
   const staleHook = useFeatureStaleStates();
   const staleData = staleHook.getStaleState(feature.id);
@@ -256,7 +258,7 @@ export default function FeaturesHeader({
         ]),
       );
       const featuresLookup = new Map(
-        projectFeatures.map((f) => [f.id, { description: f.description }]),
+        allFeaturesForCopy.map((f) => [f.id, { description: f.description }]),
       );
 
       // Always serialize the LIVE feature (`baseFeature`) — when viewing a
@@ -272,9 +274,16 @@ export default function FeaturesHeader({
           environments: environmentsLookup,
         }),
       );
-      setCopyFeatureConfigMessage("success");
-    } catch {
-      setCopyFeatureConfigMessage("error");
+      setCopyFeatureConfigMessage({ kind: "success" });
+    } catch (err) {
+      // Surface the specific build error (e.g. missing safe-rollout
+      // settings) so the user knows whether to retry or report a bug,
+      // rather than the previous opaque "unable to copy" toast.
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : "Unable to copy feature configuration to clipboard.";
+      setCopyFeatureConfigMessage({ kind: "error", message });
     }
   };
 
@@ -496,14 +505,14 @@ export default function FeaturesHeader({
               </Flex>
             </Callout>
           )}
-          {copyFeatureConfigMessage === "success" && (
+          {copyFeatureConfigMessage?.kind === "success" && (
             <Callout status="success" mb="3">
               Feature configuration copied to clipboard.
             </Callout>
           )}
-          {copyFeatureConfigMessage === "error" && (
+          {copyFeatureConfigMessage?.kind === "error" && (
             <Callout status="error" mb="3">
-              Unable to copy feature configuration to clipboard.
+              {copyFeatureConfigMessage.message}
             </Callout>
           )}
 

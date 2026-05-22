@@ -3599,7 +3599,14 @@ export async function postFeatureImportDraft(
   const result = featureImportDraftBodySchema.safeParse(req.body);
 
   if (!result.success) {
-    throw new Error("Invalid feature import draft payload");
+    // Surface the first Zod issue so a structural mismatch (unknown rule
+    // shape, missing required field, etc.) is diagnosable from the client
+    // error and server logs instead of a bare "invalid payload".
+    const firstIssue = result.error.issues[0];
+    const issueDetail = firstIssue
+      ? `${firstIssue.path.join(".") || "<root>"}: ${firstIssue.message}`
+      : "unknown";
+    throw new Error(`Invalid feature import draft payload — ${issueDetail}`);
   }
 
   const { rules, environmentsEnabled, safeRolloutSettings, title, comment } =
@@ -3670,6 +3677,24 @@ export async function postFeatureImportDraft(
   // rule.safeRolloutId to point at them. Destination-specific refs
   // (datasource, exposure query, guardrails) are carried as-is and may need
   // user fix-up post-import.
+  //
+  // Gate on the destination org's safe-rollout entitlement (the same gate
+  // postFeatureRule enforces on single-rule add) so importing a feature
+  // with safe-rollout rules into a non-premium org fails cleanly instead
+  // of silently bypassing entitlement. We deliberately skip
+  // validateCreateSafeRolloutFields here: it asserts that datasourceId /
+  // exposureQueryId / guardrailMetricIds exist in the destination, which
+  // would always fail for cross-org imports. The user fixes those refs on
+  // the auto-created SafeRollout via the destination's safe-rollout UI
+  // post-import.
+  const hasAnySafeRolloutRule = importedRules.some(
+    (r) => r.type === "safe-rollout",
+  );
+  if (hasAnySafeRolloutRule && !context.hasPremiumFeature("safe-rollout")) {
+    throw new Error(
+      "This feature contains a Safe Rollout rule, which requires a paid plan in the destination organization.",
+    );
+  }
   const createdSafeRolloutIds: string[] = [];
   try {
     for (const r of importedRules) {
@@ -3683,15 +3708,27 @@ export async function postFeatureImportDraft(
           `Safe-rollout rule references safeRolloutId "${sourceId}" but no matching safeRolloutSettings were provided in the import payload. Re-export from the source instance.`,
         );
       }
-      // Safe rollouts are single-env. The rule's environments[] is the
-      // source of truth; allEnvironments doesn't translate.
-      const ruleEnv =
-        !r.allEnvironments && r.environments?.length === 1
-          ? r.environments[0]
-          : undefined;
-      if (!ruleEnv) {
+      // SafeRollout docs are single-env, but the rule itself can apply to
+      // all envs (allEnvironments: true) or a list. Pick the env the
+      // destination SafeRollout doc lives in:
+      //   - rule.environments.length === 1 → that env (faithful to source)
+      //   - allEnvironments: true → first applicable env (the rule still
+      //     evaluates in all envs at SDK runtime; only analysis is scoped)
+      // Anything else (multi-env list) is a configuration the standard
+      // create flow forbids; refuse import rather than silently picking.
+      let ruleEnv: string | undefined;
+      if (r.allEnvironments) {
+        ruleEnv = environmentIds[0];
+        if (!ruleEnv) {
+          throw new Error(
+            "Cannot import an allEnvironments safe-rollout rule because this feature's project has no environments.",
+          );
+        }
+      } else if (r.environments?.length === 1) {
+        ruleEnv = r.environments[0];
+      } else {
         throw new Error(
-          "Safe-rollout rules must be scoped to a single environment to be imported.",
+          "Safe-rollout rules must be scoped to all environments or to a single environment to be imported.",
         );
       }
       if (!environmentIds.includes(ruleEnv)) {
@@ -3798,13 +3835,12 @@ export async function postFeatureImportDraft(
   // already no-ops for missing experiments but `addLinkedExperiment` does
   // not, so they have to be gated together.
   //
-  // Linkage failures are caught per-experiment and logged rather than
-  // surfaced as a request error: the feature, draft, and SafeRollouts have
-  // all been persisted successfully at this point, and the frontend
-  // rollback path (archive + delete the feature) does NOT cascade to
-  // SafeRollouts — so throwing here would leave orphan SafeRollout docs in
-  // the DB. Broken linkage is recoverable (user can re-link from the
-  // experiment page); orphan rollouts are not.
+  // If linkage fails, we surface the failure as a hard error so the UI
+  // doesn't show "success" while bookkeeping is partly broken. We also
+  // delete any SafeRollouts we created here, because the frontend rollback
+  // (archive + delete the feature) cascades to revisions and audit but
+  // does NOT touch SafeRollouts — without manual cleanup they'd orphan in
+  // the DB. The frontend then handles feature/draft cleanup as usual.
   const experimentRefIds = new Set<string>();
   for (const r of importedRules) {
     if (r.type === "experiment-ref" && r.experimentId) {
@@ -3817,10 +3853,10 @@ export async function postFeatureImportDraft(
   const presentExperimentById = new Map(
     presentExperiments.map((e) => [e.id, e]),
   );
-  for (const experimentId of experimentRefIds) {
-    const experiment = presentExperimentById.get(experimentId);
-    if (!experiment) continue;
-    try {
+  try {
+    for (const experimentId of experimentRefIds) {
+      const experiment = presentExperimentById.get(experimentId);
+      if (!experiment) continue;
       await addLinkedFeatureToExperiment(
         context,
         experimentId,
@@ -3834,12 +3870,19 @@ export async function postFeatureImportDraft(
         feature.id,
         newDraft.version,
       );
-    } catch (linkErr) {
-      logger.warn(
-        linkErr,
-        `Failed to link experiment ${experimentId} to imported feature ${feature.id}; feature and draft were created successfully`,
-      );
     }
+  } catch (linkErr) {
+    for (const srId of createdSafeRolloutIds) {
+      try {
+        await context.models.safeRollout.deleteById(srId);
+      } catch (delErr) {
+        logger.warn(
+          delErr,
+          `Failed to clean up safe rollout ${srId} after linkage error`,
+        );
+      }
+    }
+    throw linkErr;
   }
 
   void req

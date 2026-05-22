@@ -201,8 +201,13 @@ function buildReferenceManifest(
 
 // Builds the per-source-id map of portable SafeRollout settings that the
 // importer uses to spin up fresh SafeRollouts in the destination. We only
-// emit entries for SafeRollouts that the feature's rules actually reference
-// — other safe rollouts in the lookup are ignored.
+// emit entries for SafeRollouts that the feature's rules actually reference.
+//
+// Throws if any referenced safe-rollout is missing from the lookup —
+// emitting an envelope without settings for a referenced id would cause
+// the destination's import-draft endpoint to fail AFTER the live feature is
+// created, leaving the user to clean up a broken orphan. Failing the copy
+// up front surfaces a clear error before any state is mutated anywhere.
 function buildSafeRolloutSettings(
   feature: GrowthBookClipboardFeature,
   lookups: FeatureReferenceLookups,
@@ -211,9 +216,13 @@ function buildSafeRolloutSettings(
   if (!ids.size) return undefined;
 
   const out: Record<string, ClipboardSafeRolloutSettings> = {};
+  const missing: string[] = [];
   ids.forEach((id) => {
     const sr = lookups.safeRollouts?.get(id);
-    if (!sr) return;
+    if (!sr) {
+      missing.push(id);
+      return;
+    }
     out[id] = {
       datasourceId: sr.datasourceId,
       exposureQueryId: sr.exposureQueryId,
@@ -234,7 +243,12 @@ function buildSafeRolloutSettings(
         : undefined,
     };
   });
-  return Object.keys(out).length ? out : undefined;
+  if (missing.length) {
+    throw new Error(
+      `Cannot copy feature configuration: missing safe rollout settings for ${missing.join(", ")}. Reload the feature page and try again.`,
+    );
+  }
+  return out;
 }
 
 export function buildFeatureConfigurationClipboardPayload(
