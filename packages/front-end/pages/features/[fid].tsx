@@ -144,6 +144,7 @@ export default function FeaturePage() {
         />
         <FeaturesHeader
           feature={feature}
+          baseFeature={baseFeature}
           mutate={refreshData}
           setVersion={setVersion}
           version={version}

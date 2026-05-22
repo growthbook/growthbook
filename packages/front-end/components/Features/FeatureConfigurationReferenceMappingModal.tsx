@@ -4,7 +4,6 @@ import { PiArrowRight } from "react-icons/pi";
 import {
   GrowthBookClipboardReferenceContext,
   GrowthBookClipboardPayload,
-  SafeRolloutInterface,
 } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -14,7 +13,6 @@ import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
-import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useEnvironments, useFeaturesList } from "@/services/features";
@@ -31,6 +29,11 @@ type CategoryDescriptor = {
   emptyMessage: string;
 };
 
+// Safe rollouts are intentionally NOT user-mappable: they're per-feature, so
+// pointing an imported rule at a destination safe rollout that belongs to a
+// different feature would be incoherent. The backend creates fresh
+// SafeRollouts during import using the source settings carried in the
+// envelope and rewrites rule.safeRolloutId.
 const CATEGORIES: CategoryDescriptor[] = [
   {
     category: "experiments",
@@ -43,12 +46,6 @@ const CATEGORIES: CategoryDescriptor[] = [
     title: "Saved Groups",
     emptyMessage:
       "No saved groups in this organization. Mapping not available — these references will be left as-is.",
-  },
-  {
-    category: "safeRollouts",
-    title: "Safe Rollouts",
-    emptyMessage:
-      "No safe rollouts in this organization. Mapping not available — these rules will be created with their original (broken) reference.",
   },
   {
     category: "features",
@@ -76,7 +73,9 @@ function buildReferenceRows(
   return {
     experiments: payload.references.experiments,
     savedGroups: payload.references.savedGroups,
-    safeRollouts: payload.references.safeRollouts,
+    // safeRollouts intentionally excluded — backend auto-creates these,
+    // they don't need (and can't sensibly receive) user mapping.
+    safeRollouts: [],
     features: payload.references.features,
     environments: payload.references.environments,
   };
@@ -105,10 +104,6 @@ export default function FeatureConfigurationReferenceMappingModal({
     /* includeArchived */ true,
   );
   const { savedGroups } = useDefinitions();
-  const { data: safeRolloutsData, error: safeRolloutsError } = useApi<{
-    status: 200;
-    safeRollouts: SafeRolloutInterface[];
-  }>("/safe-rollout");
   const { features, loading: featuresLoading } = useFeaturesList({
     useCurrentProject: false,
     includeArchived: true,
@@ -120,10 +115,7 @@ export default function FeatureConfigurationReferenceMappingModal({
   // window options.length === 0 for not-yet-loaded categories, which would
   // (a) make Continue look ready and (b) cause it to flip to disabled once
   // data arrives — and the user's auto-populated rows would be missing.
-  const loading =
-    experimentsLoading ||
-    featuresLoading ||
-    (!safeRolloutsData && !safeRolloutsError);
+  const loading = experimentsLoading || featuresLoading;
 
   const optionsByCategory: Record<FeatureReferenceCategory, Option[]> = useMemo(
     () => ({
@@ -139,14 +131,9 @@ export default function FeatureConfigurationReferenceMappingModal({
           value: sg.id,
         }),
       ),
-      safeRollouts: (safeRolloutsData?.safeRollouts ?? []).map(
-        (sr): Option => ({
-          label: sr.featureId
-            ? `${sr.featureId} / ${sr.environment} (${sr.id})`
-            : sr.id,
-          value: sr.id,
-        }),
-      ),
+      // No options — backend auto-creates SafeRollouts; rows for this
+      // category are always empty (see buildReferenceRows).
+      safeRollouts: [],
       features: (features ?? []).map(
         (f: FeatureInterface): Option => ({
           label: f.description ? `${f.id} — ${f.description}` : f.id,
@@ -160,13 +147,7 @@ export default function FeatureConfigurationReferenceMappingModal({
         }),
       ),
     }),
-    [
-      experiments,
-      savedGroups,
-      safeRolloutsData,
-      features,
-      destinationEnvironments,
-    ],
+    [experiments, savedGroups, features, destinationEnvironments],
   );
 
   // Mappings start empty and get pre-populated once the async option sources
@@ -405,7 +386,9 @@ export default function FeatureConfigurationReferenceMappingModal({
 
 // Helper used by the parent to decide whether to render the modal at all.
 // Returns true if the payload's references manifest contains at least one
-// cross-org reference that the importer needs to resolve.
+// USER-MAPPABLE cross-org reference. Safe rollouts are intentionally
+// excluded — the backend auto-creates them — so a payload whose only refs
+// are safe rollouts skips straight to the FeatureModal.
 export function payloadHasReferences(
   payload: GrowthBookClipboardPayload,
 ): boolean {
@@ -413,7 +396,6 @@ export function payloadHasReferences(
   return (
     r.experiments.length > 0 ||
     r.savedGroups.length > 0 ||
-    r.safeRollouts.length > 0 ||
     r.features.length > 0 ||
     r.environments.length > 0
   );

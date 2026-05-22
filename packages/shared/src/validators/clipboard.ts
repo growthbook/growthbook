@@ -1,6 +1,37 @@
 import { z } from "zod";
 import { featureRule, featureValueType, JSONSchemaDef } from "./features";
 
+// Subset of SafeRolloutInterface that ports cleanly across orgs. Runtime
+// state (startedAt, snapshot timestamps, analysisSummary, pastNotifications,
+// rampUpSchedule step/completion timestamps) is intentionally excluded —
+// the destination starts fresh. Destination-specific refs (datasourceId,
+// exposureQueryId, guardrailMetricIds) are carried as-is and are likely to
+// be broken in the destination; the user fixes them post-import on the
+// auto-created safe rollout.
+export const clipboardSafeRolloutSettings = z
+  .object({
+    datasourceId: z.string(),
+    exposureQueryId: z.string(),
+    guardrailMetricIds: z.array(z.string()),
+    maxDuration: z.object({
+      amount: z.number(),
+      unit: z.enum(["weeks", "days", "hours", "minutes"]),
+    }),
+    autoRollback: z.boolean(),
+    autoSnapshots: z.boolean(),
+    rampUpSchedule: z
+      .object({
+        enabled: z.boolean(),
+        steps: z.array(z.object({ percent: z.number() }).loose()),
+      })
+      .loose()
+      .optional(),
+  })
+  .loose();
+export type ClipboardSafeRolloutSettings = z.infer<
+  typeof clipboardSafeRolloutSettings
+>;
+
 const clipboardJSONSchemaDef = JSONSchemaDef.extend({
   date: z.preprocess(
     (value) => (typeof value === "string" ? new Date(value) : value),
@@ -110,6 +141,16 @@ export const growthbookClipboardFeaturePayload = z
     growthbook: growthbookClipboardMetadata,
     feature: growthbookClipboardFeature,
     references: growthbookFeatureClipboardReferences,
+    // Source-org safe-rollout settings, keyed by the source safeRolloutId
+    // referenced from the rules. The importer creates a fresh SafeRollout
+    // per safe-rollout rule in the destination using these settings and
+    // rewrites rule.safeRolloutId accordingly; mapping by the user isn't
+    // required because safe rollouts are per-feature and cross-mapping
+    // would be incoherent. Optional for backward compat with older
+    // payloads (rules will fail import without it).
+    safeRolloutSettings: z
+      .record(z.string(), clipboardSafeRolloutSettings)
+      .optional(),
   })
   .loose();
 

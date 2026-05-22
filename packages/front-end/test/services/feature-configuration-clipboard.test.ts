@@ -212,9 +212,12 @@ describe("feature reference extraction and mapping", () => {
     ).toBe("exp_new");
     expect(expRef?.prerequisites?.[0].id).toBe("feat_new");
 
+    // safe-rollout safeRolloutId is intentionally NOT remapped on the
+    // frontend; the backend mints a fresh SafeRollout during import and
+    // rewrites the id server-side. The source id should pass through here.
     const sr = mapped.rules.find((r) => r.type === "safe-rollout");
     expect(sr && "safeRolloutId" in sr ? sr.safeRolloutId : null).toBe(
-      "sr_new",
+      "sr_old",
     );
 
     const force = mapped.rules.find((r) => r.type === "force");

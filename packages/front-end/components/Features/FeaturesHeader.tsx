@@ -54,6 +54,7 @@ import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
 export default function FeaturesHeader({
   feature,
+  baseFeature,
   mutate,
   setVersion,
   version,
@@ -67,6 +68,11 @@ export default function FeaturesHeader({
   safeRollouts,
 }: {
   feature: FeatureInterface;
+  // The live (published) feature, separate from `feature` which is the
+  // mergeRevision output for the currently-viewed revision. Used by "Copy
+  // feature configuration" so the clipboard always reflects the live config
+  // rather than whichever draft the user happens to be inspecting.
+  baseFeature: FeatureInterface;
   mutate: () => Promise<unknown>;
   setVersion: (version: number) => void;
   version: number | null;
@@ -235,11 +241,13 @@ export default function FeaturesHeader({
           },
         ]),
       );
+      // Pass the full SafeRolloutInterface so the importer has the source
+      // settings (datasource, exposure query, guardrails, max duration,
+      // rollback config, ramp schedule) to seed fresh destination
+      // SafeRollouts. Runtime state is dropped on the way out by the
+      // clipboard service.
       const safeRolloutsLookup = new Map(
-        (safeRollouts ?? []).map((sr) => [
-          sr.id,
-          { featureId: sr.featureId, environment: sr.environment },
-        ]),
+        (safeRollouts ?? []).map((sr) => [sr.id, sr]),
       );
       const environmentsLookup = new Map(
         allEnvironments.map((env) => [
@@ -251,8 +259,12 @@ export default function FeaturesHeader({
         projectFeatures.map((f) => [f.id, { description: f.description }]),
       );
 
+      // Always serialize the LIVE feature (`baseFeature`) — when viewing a
+      // non-live revision, the `feature` prop is `mergeRevision(baseFeature,
+      // revision)` output, which would export draft/historical rules instead
+      // of what's currently published.
       await navigator.clipboard.writeText(
-        buildFeatureConfigurationClipboardPayload(feature, {
+        buildFeatureConfigurationClipboardPayload(baseFeature, {
           experiments: experimentsLookup,
           savedGroups: savedGroupsLookup,
           safeRollouts: safeRolloutsLookup,
@@ -328,9 +340,11 @@ export default function FeaturesHeader({
           >
             Audit history
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={copyFeatureConfiguration}>
-            Copy feature configuration
-          </DropdownMenuItem>
+          {canEdit && (
+            <DropdownMenuItem onClick={copyFeatureConfiguration}>
+              Copy feature configuration
+            </DropdownMenuItem>
+          )}
           <DropdownSubMenu
             trigger={
               <Flex

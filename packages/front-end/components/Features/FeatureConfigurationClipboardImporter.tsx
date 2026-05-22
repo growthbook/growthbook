@@ -52,6 +52,12 @@ export default function FeatureConfigurationClipboardImporter() {
     null,
   );
   const [step, setStep] = useState<ImportStep>("creating");
+  // Bumped on every fresh paste. Used as the FeatureModal `key` so that a
+  // second paste while the modal is already open remounts the form — useForm
+  // only honors `defaultValues` at mount, so without a remount the second
+  // payload's id/rules/project would be ignored and the modal would submit
+  // the first payload's values.
+  const [pasteSequence, setPasteSequence] = useState(0);
 
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
@@ -68,6 +74,7 @@ export default function FeatureConfigurationClipboardImporter() {
       event.preventDefault();
       setPayload(parsed);
       setStep(payloadHasReferences(parsed) ? "mapping" : "creating");
+      setPasteSequence((n) => n + 1);
     };
 
     document.addEventListener("paste", handlePaste);
@@ -91,6 +98,7 @@ export default function FeatureConfigurationClipboardImporter() {
 
   return (
     <FeatureModal
+      key={pasteSequence}
       cta="Import"
       close={() => setPayload(null)}
       onSuccess={async (feature, options) => {

@@ -1,9 +1,11 @@
 import {
+  ClipboardSafeRolloutSettings,
   GrowthBookClipboardReferenceContext,
   GrowthBookClipboardFeature,
   GrowthBookClipboardPayload,
   GrowthBookFeatureClipboardReferences,
   growthbookClipboardPayload,
+  SafeRolloutInterface,
 } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 
@@ -32,13 +34,18 @@ export const EMPTY_FEATURE_REFERENCE_MAPPINGS: FeatureReferenceMappings = {
 // Lookup context the exporter uses to enrich each referenced id with a
 // human-readable name. The caller passes whatever it has — anything missing
 // just leaves `name` undefined on that reference.
+//
+// `safeRollouts` is a full SafeRolloutInterface map (not just display
+// context) because the importer auto-creates fresh SafeRollouts in the
+// destination and needs the source settings — datasource, exposure query,
+// guardrails, max duration, rollback, ramp schedule — to seed them.
 export type FeatureReferenceLookups = {
   experiments?: Map<string, { name?: string; hypothesis?: string }>;
   savedGroups?: Map<
     string,
     { groupName?: string; type?: string; attributeKey?: string }
   >;
-  safeRollouts?: Map<string, { featureId?: string; environment?: string }>;
+  safeRollouts?: Map<string, SafeRolloutInterface>;
   features?: Map<string, { description?: string }>;
   environments?: Map<string, { description?: string }>;
 };
@@ -172,6 +179,9 @@ function buildReferenceManifest(
     });
   });
 
+  // Kept in the manifest for inspection but no longer mapped by the user;
+  // see safeRolloutSettings below for the data the importer actually uses.
+
   const features: GrowthBookClipboardReferenceContext[] = [];
   ids.features.forEach((id) => {
     const feat = lookups.features?.get(id);
@@ -189,6 +199,44 @@ function buildReferenceManifest(
   return { experiments, savedGroups, safeRollouts, features, environments };
 }
 
+// Builds the per-source-id map of portable SafeRollout settings that the
+// importer uses to spin up fresh SafeRollouts in the destination. We only
+// emit entries for SafeRollouts that the feature's rules actually reference
+// — other safe rollouts in the lookup are ignored.
+function buildSafeRolloutSettings(
+  feature: GrowthBookClipboardFeature,
+  lookups: FeatureReferenceLookups,
+): Record<string, ClipboardSafeRolloutSettings> | undefined {
+  const ids = extractFeatureReferenceIds(feature).safeRollouts;
+  if (!ids.size) return undefined;
+
+  const out: Record<string, ClipboardSafeRolloutSettings> = {};
+  ids.forEach((id) => {
+    const sr = lookups.safeRollouts?.get(id);
+    if (!sr) return;
+    out[id] = {
+      datasourceId: sr.datasourceId,
+      exposureQueryId: sr.exposureQueryId,
+      guardrailMetricIds: sr.guardrailMetricIds,
+      maxDuration: sr.maxDuration,
+      autoRollback: sr.autoRollback,
+      autoSnapshots: sr.autoSnapshots,
+      // Preserve user-configured ramp structure (percentages + enabled flag);
+      // drop runtime progress fields (step / dateRampedUp / next-last update
+      // / rampUpCompleted) so the destination starts fresh.
+      rampUpSchedule: sr.rampUpSchedule
+        ? {
+            enabled: sr.rampUpSchedule.enabled,
+            steps: (sr.rampUpSchedule.steps ?? []).map((s) => ({
+              percent: s.percent,
+            })),
+          }
+        : undefined,
+    };
+  });
+  return Object.keys(out).length ? out : undefined;
+}
+
 export function buildFeatureConfigurationClipboardPayload(
   feature: FeatureInterface,
   lookups: FeatureReferenceLookups = {},
@@ -203,6 +251,7 @@ export function buildFeatureConfigurationClipboardPayload(
     },
     feature: featureConfig,
     references: buildReferenceManifest(featureConfig, lookups),
+    safeRolloutSettings: buildSafeRolloutSettings(featureConfig, lookups),
   };
 
   return JSON.stringify(payload, null, 2);
@@ -236,10 +285,10 @@ function applyMappingsToRule(
     const mapped = mappings.experiments[next.experimentId];
     if (mapped) next.experimentId = mapped;
   }
-  if (next.type === "safe-rollout" && next.safeRolloutId) {
-    const mapped = mappings.safeRollouts[next.safeRolloutId];
-    if (mapped) next.safeRolloutId = mapped;
-  }
+  // safe-rollout safeRolloutId is intentionally NOT mapped here. Safe
+  // rollouts are per-feature, so cross-org mapping doesn't make sense; the
+  // backend creates fresh SafeRollouts during import and rewrites the rule's
+  // safeRolloutId there. We carry the source id through unchanged.
 
   if (next.savedGroups?.length) {
     next.savedGroups = next.savedGroups.map((sg) => ({

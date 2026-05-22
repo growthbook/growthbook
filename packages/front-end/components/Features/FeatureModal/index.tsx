@@ -258,16 +258,21 @@ export default function FeatureModal({
   let ctaEnabled = true;
   let disabledMessage: string | undefined;
 
+  // Duplicate locks the project to the source feature; create / import follow
+  // whatever the user picked in the selector.
+  const projectForPermissionCheck =
+    featureToDuplicate?.project ?? selectedProject;
   if (
     !permissionsUtil.canManageFeatureDrafts({
-      project: featureToDuplicate?.project ?? selectedProject,
-    })
+      project: projectForPermissionCheck,
+    }) ||
+    !permissionsUtil.canCreateFeature({ project: projectForPermissionCheck })
   ) {
     ctaEnabled = false;
     disabledMessage =
       !selectedProject && projectOptions.length > 0
         ? "Select a project to continue."
-        : "You don't have permission to create feature flag drafts.";
+        : "You don't have permission to create features in this project.";
   }
 
   // We want to show a warning when someone tries to create a feature under the demo project
@@ -457,7 +462,7 @@ export default function FeatureModal({
           formType="feature"
         />
 
-        {!featureToDuplicate && (
+        {!featureToDuplicate && !featureToImport && (
           <ValueTypeField
             value={valueType}
             onChange={(val) => {
