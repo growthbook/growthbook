@@ -1004,7 +1004,13 @@ export default function RampScheduleSection({
     const newSteps = state.steps.map((s, idx) =>
       idx === i ? { ...s, ...update } : s,
     );
-    patchState({ steps: newSteps });
+    patchState({
+      steps: newSteps,
+      monitoring: {
+        ...state.monitoring,
+        updateScheduleMinutes: deriveAutoUpdateCadenceMinutes(newSteps),
+      },
+    });
   }
 
   function updateStepPatch(i: number, field: StepField, value: unknown) {
@@ -2683,6 +2689,25 @@ export default function RampScheduleSection({
     patchState({ monitoring: merged });
   }
 
+  function deriveAutoUpdateCadenceMinutes(steps: UIStep[]): number | null {
+    const intervalSteps = steps.filter(
+      (s) => s.monitored && s.triggerType === "interval",
+    );
+    if (intervalSteps.length === 0) return null;
+    const minSeconds = Math.min(
+      ...intervalSteps.map(
+        (s) => Math.max(1, s.intervalValue) * UNIT_MULT[s.intervalUnit],
+      ),
+    );
+    const s = settings?.updateSchedule;
+    const orgCadenceSeconds =
+      s?.type === "stale" && s.hours ? s.hours * 3600 : 6 * 3600;
+    if (minSeconds >= orgCadenceSeconds) return null;
+    const derived = Math.max(1, Math.floor(minSeconds / 60));
+    setShowAdvancedMonitoring(true);
+    return derived;
+  }
+
   function handleSimpleDurationChange(duration: number, unit?: IntervalUnit) {
     const d = Math.max(1, duration);
     const u = unit ?? state.simpleDurationUnit ?? "days";
@@ -2695,6 +2720,10 @@ export default function RampScheduleSection({
       simpleDurationDays: d,
       simpleDurationUnit: u,
       steps,
+      monitoring: {
+        ...state.monitoring,
+        updateScheduleMinutes: deriveAutoUpdateCadenceMinutes(steps),
+      },
     });
   }
 
@@ -2936,11 +2965,14 @@ export default function RampScheduleSection({
                 append="hours"
                 type="number"
                 step="any"
-                min={0.25}
                 max={168}
                 value={
                   state.monitoring.updateScheduleMinutes !== null
-                    ? String(state.monitoring.updateScheduleMinutes / 60)
+                    ? String(
+                        Math.floor(
+                          (state.monitoring.updateScheduleMinutes / 60) * 100,
+                        ) / 100,
+                      )
                     : ""
                 }
                 placeholder="org default"
@@ -2957,7 +2989,7 @@ export default function RampScheduleSection({
                   if (!v || v <= 0) {
                     patchMonitoring({ updateScheduleMinutes: null });
                   } else {
-                    const clamped = Math.min(168, Math.max(0.25, v));
+                    const clamped = Math.min(168, v);
                     patchMonitoring({
                       updateScheduleMinutes: Math.round(clamped * 60),
                     });
@@ -3184,14 +3216,19 @@ export default function RampScheduleSection({
   const showMonitoringConfig = !noneMonitored;
 
   function handleMonitorToggle(checked: boolean) {
+    const newSteps = state.steps.map((s) => {
+      const updated = { ...s, monitored: checked };
+      if (checked && (s.patch.coverage ?? 0) === 0) {
+        updated.patch = { ...s.patch, coverage: 1 };
+      }
+      return updated;
+    });
     patchState({
-      steps: state.steps.map((s) => {
-        const updated = { ...s, monitored: checked };
-        if (checked && (s.patch.coverage ?? 0) === 0) {
-          updated.patch = { ...s.patch, coverage: 1 };
-        }
-        return updated;
-      }),
+      steps: newSteps,
+      monitoring: {
+        ...state.monitoring,
+        updateScheduleMinutes: deriveAutoUpdateCadenceMinutes(newSteps),
+      },
     });
   }
 
@@ -3856,14 +3893,6 @@ export default function RampScheduleSection({
       {customizeLink}
 
       {simplifyLink}
-
-      {anyCadenceWarning && effectiveCadenceSeconds && (
-        <HelperText status="warning" mb="3">
-          Monitored steps shorter than the update cadence (
-          {formatRemainingDuration(effectiveCadenceSeconds)}) will hold until a
-          fresh analysis completes, taking longer than configured.
-        </HelperText>
-      )}
 
       {showAdvancedEditor && (
         <>

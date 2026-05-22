@@ -104,20 +104,6 @@ export const postSafeRolloutSnapshot = async (
     customFields: feature.customFields,
   });
 
-  logger.info(
-    {
-      safeRolloutId: id,
-      snapshotId: snapshot.id,
-      hasHealth: !!snapshot.health,
-      totalUsers:
-        snapshot.health?.traffic?.overall?.variationUnits?.reduce(
-          (a: number, b: number) => a + b,
-          0,
-        ) ?? 0,
-    },
-    "POST /safe-rollout/:id/snapshot — snapshot created",
-  );
-
   res.status(200).json({
     status: 200,
     snapshot,
