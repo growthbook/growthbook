@@ -15,6 +15,7 @@ import {
   postExperimentApiPayloadToInterface,
   toExperimentApiInterface,
   validateVariationIds,
+  maybeCreateContextualBanditDoc,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -303,6 +304,8 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       data: newExperiment,
       context: req.context,
     });
+
+    await maybeCreateContextualBanditDoc(req.context, experiment);
 
     if (ownerId) {
       // add owner as watcher

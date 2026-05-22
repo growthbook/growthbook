@@ -27,7 +27,7 @@ import {
   FeatureMetadata,
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
-import { HoldoutInterface } from "shared/validators";
+import { HoldoutInterface, ContextualBanditInterface } from "shared/validators";
 import {
   expandNestedSavedGroups,
   getJSONValue,
@@ -493,6 +493,7 @@ export function getFeatureDefinition({
   namespaces,
   metadataOptions,
   projectsMap,
+  cbMap,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -518,6 +519,8 @@ export function getFeatureDefinition({
   >;
   metadataOptions?: MetadataOptions;
   projectsMap?: Map<string, ProjectInterface>;
+  /** Optional map of experimentId → CB doc, used to inject CB payload fields. */
+  cbMap?: Map<string, ContextualBanditInterface>;
 }): FeatureDefinition | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -746,6 +749,22 @@ export function getFeatureDefinition({
                 : null;
             });
             rule.weights = phase.variationWeights;
+
+            // Inject contextual-bandit payload fields when a CB doc is available
+            if (exp.banditIsContextual && cbMap) {
+              const cb = cbMap.get(exp.id);
+              if (cb) {
+                const cbPhase = cb.phases[cb.phases.length - 1];
+                rule.isContextualBandit = true;
+                rule.attributesRequired = cb.contextualAttributes;
+                rule.contexts = cbPhase?.currentLeafWeights.map((lw) => ({
+                  contextId: lw.contextId,
+                  condition: {},
+                  weights: lw.weights,
+                }));
+              }
+            }
+
             rule.key = exp.trackingKey;
             const phaseVariations = getLatestPhaseVariations(exp);
             rule.meta = includeExperimentNames

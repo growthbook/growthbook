@@ -1,0 +1,35 @@
+import { getContextualBanditEventsValidator } from "shared/validators";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+
+export const getContextualBanditEvents = createApiRequestHandler(
+  getContextualBanditEventsValidator,
+)(async (req) => {
+  const experiment = await getExperimentById(req.context, req.params.id);
+  if (!experiment) {
+    throw new Error("Could not find experiment with that id");
+  }
+  if (!experiment.banditIsContextual) {
+    throw new Error("Experiment is not a contextual bandit");
+  }
+
+  const phase = experiment.phases.length - 1;
+  const limit = req.query?.limit ?? 20;
+
+  const events = await req.context.contextualBanditEvents.listForExperiment(
+    experiment.id,
+    phase,
+    limit,
+  );
+
+  return {
+    events: events.map((e) => ({
+      id: e.id,
+      experiment: e.experiment,
+      phase: e.phase,
+      snapshotId: e.snapshotId,
+      weightsWereUpdated: e.weightsWereUpdated,
+      dateCreated: e.dateCreated.toISOString(),
+    })),
+  };
+});

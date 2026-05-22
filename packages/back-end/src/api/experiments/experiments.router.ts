@@ -16,6 +16,12 @@ import { postVariationImageUpload } from "./postVariationImageUpload";
 import { deleteVariationScreenshot } from "./deleteVariationScreenshot";
 import { getExperimentNames } from "./getExperimentNames";
 import { getExperimentStartChecklist } from "./getExperimentStartChecklist";
+import { postContextualBanditRefresh } from "./contextual-bandit/postRefresh";
+import { getContextualBanditCurrent } from "./contextual-bandit/getCurrent";
+import { getContextualBanditSnapshots } from "./contextual-bandit/getSnapshots";
+import { getContextualBanditSnapshot } from "./contextual-bandit/getSnapshot";
+import { getContextualBanditEvents } from "./contextual-bandit/getEvents";
+import { getContextualBanditEvent } from "./contextual-bandit/getEvent";
 
 export const experimentsRoutes: OpenApiRoute[] = [
   // Experiment Endpoints
@@ -36,6 +42,14 @@ export const experimentsRoutes: OpenApiRoute[] = [
   postVariationImageUpload,
   deleteVariationScreenshot,
   getExperimentNames,
+  // Contextual Bandit Endpoints (mounted under /experiments)
+  postContextualBanditRefresh,
+  getContextualBanditCurrent,
+  // Snapshot sub-endpoints must be ordered: list before single (avoids :snapshotId swallowing "snapshots")
+  getContextualBanditSnapshots,
+  getContextualBanditSnapshot,
+  getContextualBanditEvents,
+  getContextualBanditEvent,
   // VisualChangeset Endpoints (mounted under /experiments)
   listVisualChangesets,
   postVisualChangesets,

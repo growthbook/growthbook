@@ -240,6 +240,9 @@ tags:
   - name: usage
     x-displayName: Usage
     description: Usage information for metrics in experiments.
+  - name: contextual-bandit
+    x-displayName: contextual-bandit
+    description: ''
   - name: Dashboards
     x-displayName: Dashboards
     description: ''
@@ -10591,6 +10594,259 @@ paths:
         - lang: cURL
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/experiment-names' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/contextual-bandit/refresh:
+    post:
+      operationId: postContextualBanditRefresh
+      summary: Trigger a contextual bandit snapshot refresh
+      tags:
+        - experiments
+        - contextual-bandit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The experiment id
+          schema:
+            description: The experiment id
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  snapshotId:
+                    type: string
+                  cbeId:
+                    type: string
+                required:
+                  - snapshotId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/contextual-bandit/refresh'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/contextual-bandit/current:
+    get:
+      operationId: getContextualBanditCurrent
+      summary: Get current contextual bandit phase weights and latest event
+      tags:
+        - experiments
+        - contextual-bandit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The experiment id
+          schema:
+            description: The experiment id
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  phaseWeights:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/phaseWeights'
+                  latestEvent:
+                    anyOf:
+                      - type: object
+                        properties:
+                          id:
+                            type: string
+                          experiment:
+                            type: string
+                          phase:
+                            type: number
+                          snapshotId:
+                            type: string
+                          weightsWereUpdated:
+                            type: boolean
+                          dateCreated:
+                            type: string
+                        required:
+                          - id
+                          - experiment
+                          - phase
+                          - snapshotId
+                          - weightsWereUpdated
+                          - dateCreated
+                        additionalProperties: false
+                      - type: 'null'
+                required:
+                  - latestEvent
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/experiments/{id}/contextual-bandit/current'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/contextual-bandit/snapshots:
+    get:
+      operationId: getContextualBanditSnapshots
+      summary: List contextual bandit snapshots
+      tags:
+        - experiments
+        - contextual-bandit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The experiment id
+          schema:
+            description: The experiment id
+            type: string
+        - name: limit
+          in: query
+          description: ''
+          schema:
+            type: integer
+            exclusiveMinimum: 0
+            maximum: 100
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  snapshots:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/snapshots'
+                required:
+                  - snapshots
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/experiments/{id}/contextual-bandit/snapshots'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/contextual-bandit/snapshots/{snapshotId}:
+    get:
+      operationId: getContextualBanditSnapshot
+      summary: Get a single contextual bandit snapshot
+      tags:
+        - experiments
+        - contextual-bandit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The experiment id
+          schema:
+            description: The experiment id
+            type: string
+        - $ref: '#/components/parameters/snapshotId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  snapshot:
+                    $ref: '#/components/schemas/snapshots'
+                required:
+                  - snapshot
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/experiments/{id}/contextual-bandit/snapshots/{snapshotId}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/contextual-bandit/events:
+    get:
+      operationId: getContextualBanditEvents
+      summary: List contextual bandit events
+      tags:
+        - experiments
+        - contextual-bandit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The experiment id
+          schema:
+            description: The experiment id
+            type: string
+        - name: limit
+          in: query
+          description: ''
+          schema:
+            type: integer
+            exclusiveMinimum: 0
+            maximum: 100
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/events'
+                required:
+                  - events
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/experiments/{id}/contextual-bandit/events'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/contextual-bandit/events/{eventId}:
+    get:
+      operationId: getContextualBanditEvent
+      summary: Get a single contextual bandit event
+      tags:
+        - experiments
+        - contextual-bandit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The experiment id
+          schema:
+            description: The experiment id
+            type: string
+        - $ref: '#/components/parameters/eventId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  event:
+                    $ref: '#/components/schemas/events'
+                required:
+                  - event
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/experiments/{id}/contextual-bandit/events/{eventId}'
+            \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/visual-changesets:
     get:
@@ -25259,6 +25515,22 @@ components:
       description: ''
       schema:
         type: string
+    snapshotId:
+      name: snapshotId
+      in: path
+      required: true
+      description: The snapshot id
+      schema:
+        description: The snapshot id
+        type: string
+    eventId:
+      name: eventId
+      in: path
+      required: true
+      description: The event id
+      schema:
+        description: The event id
+        type: string
     property:
       name: property
       in: path
@@ -34545,6 +34817,76 @@ components:
         - id
         - name
       additionalProperties: false
+    phaseWeights:
+      type: object
+      properties:
+        contextId:
+          type: string
+        weights:
+          type: array
+          items:
+            type: number
+      required:
+        - contextId
+        - weights
+      additionalProperties: false
+    snapshots:
+      type: object
+      properties:
+        id:
+          type: string
+        experiment:
+          type: string
+        phase:
+          type: number
+        status:
+          type: string
+          enum:
+            - pending
+            - running
+            - success
+            - error
+            - partial
+        weightsWereUpdated:
+          type: boolean
+        contextualBanditEventId:
+          anyOf:
+            - type: string
+            - type: 'null'
+        error:
+          type: string
+        dateCreated:
+          type: string
+      required:
+        - id
+        - experiment
+        - phase
+        - status
+        - dateCreated
+      additionalProperties: false
+    events:
+      type: object
+      properties:
+        id:
+          type: string
+        experiment:
+          type: string
+        phase:
+          type: number
+        snapshotId:
+          type: string
+        weightsWereUpdated:
+          type: boolean
+        dateCreated:
+          type: string
+      required:
+        - id
+        - experiment
+        - phase
+        - snapshotId
+        - weightsWereUpdated
+        - dateCreated
+      additionalProperties: false
     updatedMember:
       type: object
       properties:
@@ -34643,6 +34985,7 @@ x-tagGroups:
       - settings
       - attributes
       - usage
+      - contextual-bandit
       - Dashboards
       - CustomFields
       - MetricGroups

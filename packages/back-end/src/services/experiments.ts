@@ -4822,6 +4822,49 @@ export async function validateContextualBanditExperimentForSave(
   });
 }
 
+/**
+ * Creates the linked ContextualBandit doc when a new contextual bandit
+ * experiment is saved, and patches the experiment with `contextualBanditId`.
+ *
+ * Idempotent: if a CB doc already exists for the experiment it is a no-op.
+ */
+export async function maybeCreateContextualBanditDoc(
+  context: ReqContext,
+  experiment: ExperimentInterface,
+): Promise<void> {
+  if (!experiment.banditIsContextual) return;
+  if (experiment.contextualBanditId) return;
+
+  const datasource = experiment.datasource
+    ? await getDataSourceById(context, experiment.datasource)
+    : null;
+  const eaq = datasource?.settings?.queries?.exposure?.find(
+    (q) => q.id === experiment.exposureQueryId,
+  );
+
+  const cb = await context.contextualBandits.create({
+    experiment: experiment.id,
+    datasourceId: experiment.datasource ?? "",
+    exposureQueryId: experiment.exposureQueryId ?? "",
+    contextualAttributes: eaq?.targetingAttributeColumns ?? [],
+    maxContexts: 300,
+    treeModel: "regression_tree",
+    minUsersPerLeaf: 100,
+    maxLeaves: 12,
+    holdoutPercent: 0,
+    stickyBucketing: false,
+    canonicalFormVersion: 1,
+    phases: [{ dateStarted: new Date(), currentLeafWeights: [] }],
+  });
+
+  // Back-patch the experiment doc so callers can discover the CB doc
+  await updateExperiment({
+    context,
+    experiment,
+    changes: { contextualBanditId: cb.id },
+  });
+}
+
 export async function validateExperimentData(
   context: ReqContext,
   data: Partial<ExperimentInterfaceStringDates>,

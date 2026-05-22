@@ -147,6 +147,7 @@ export function generateFeaturesPayload({
   savedGroupsMap,
   includeRuleIds,
   includeExperimentNames,
+  cbMap,
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
@@ -169,6 +170,8 @@ export function generateFeaturesPayload({
   savedGroupsMap?: Record<string, SavedGroupInterface>;
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
+  /** Optional map of experimentId → CB doc for contextual-bandit payload injection. */
+  cbMap?: Map<string, import("shared/validators").ContextualBanditInterface>;
 }): Record<string, FeatureDefinition> {
   const defs: Record<string, FeatureDefinition> = {};
   const newFeatures = reduceFeaturesWithPrerequisites(
@@ -198,6 +201,7 @@ export function generateFeaturesPayload({
         includeTagsInMetadata,
       },
       projectsMap,
+      cbMap,
     });
     if (def) {
       defs[feature.id] = def;
@@ -1128,6 +1132,30 @@ export async function buildSDKPayloadForConnection(
     projectsMap = new Map(allProjects.map((p) => [p.id, p]));
   }
 
+  // Pre-fetch CB docs for any contextual-bandit experiments so payload builder
+  // can inject per-context weights without additional async calls per rule.
+  let cbMap:
+    | Map<string, import("shared/validators").ContextualBanditInterface>
+    | undefined;
+  const cbExperimentIds = [...filteredExperimentMap.values()]
+    .filter((exp) => exp.banditIsContextual)
+    .map((exp) => exp.id);
+  if (cbExperimentIds.length > 0) {
+    const cbDocs = await Promise.all(
+      cbExperimentIds.map((id) =>
+        context.contextualBandits.getByExperimentId(id),
+      ),
+    );
+    cbMap = new Map(
+      cbDocs
+        .filter(
+          (cb): cb is import("shared/validators").ContextualBanditInterface =>
+            cb !== null,
+        )
+        .map((cb) => [cb.experiment, cb]),
+    );
+  }
+
   const featureDefinitions = generateFeaturesPayload({
     features: filteredFeatures,
     environment,
@@ -1149,6 +1177,7 @@ export async function buildSDKPayloadForConnection(
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
     projectsMap,
+    cbMap,
   });
 
   const holdoutFeatureDefinitions = generateHoldoutsPayload({

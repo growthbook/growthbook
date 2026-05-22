@@ -682,3 +682,5 @@ export function parseProcessLogBase() {
 export function capitalizeFirstCharacter(s: string) {
   return s.charAt(0).toLocaleUpperCase() + s.slice(1);
 }
+
+export { canonicalize, deriveContextId } from "./canonicalize-condition";

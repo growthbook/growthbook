@@ -3037,6 +3037,14 @@ export async function deleteExperiment(
     }
   }
 
+  if (experiment.banditIsContextual) {
+    try {
+      await context.contextualBandits.deleteForExperiment(experiment.id);
+    } catch (e) {
+      logger.warn(e, "Error cascade-deleting CB doc for experiment");
+    }
+  }
+
   await req.audit({
     event: "experiment.delete",
     entity: {

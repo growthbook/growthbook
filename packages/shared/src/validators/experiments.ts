@@ -1875,3 +1875,141 @@ export const getExperimentSnapshotValidator = {
   method: "get" as const,
   path: "/snapshots/:id",
 };
+
+// ---------------------------------------------------------------------------
+// Contextual Bandit endpoints
+// ---------------------------------------------------------------------------
+
+const cbIdParam = z
+  .object({ id: z.string().describe("The experiment id") })
+  .strict();
+
+const cbSnapshotShape = z.object({
+  id: z.string(),
+  experiment: z.string(),
+  phase: z.number(),
+  status: z.enum(["pending", "running", "success", "error", "partial"]),
+  weightsWereUpdated: z.boolean().optional(),
+  contextualBanditEventId: z.string().nullable().optional(),
+  error: z.string().optional(),
+  dateCreated: z.string(),
+});
+
+const cbEventShape = z.object({
+  id: z.string(),
+  experiment: z.string(),
+  phase: z.number(),
+  snapshotId: z.string(),
+  weightsWereUpdated: z.boolean(),
+  dateCreated: z.string(),
+});
+
+export const postContextualBanditRefreshValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: cbIdParam,
+  responseSchema: z
+    .object({
+      snapshotId: z.string(),
+      cbeId: z.string().optional(),
+    })
+    .strict(),
+  summary: "Trigger a contextual bandit snapshot refresh",
+  operationId: "postContextualBanditRefresh",
+  tags: ["experiments", "contextual-bandit"],
+  method: "post" as const,
+  path: "/experiments/:id/contextual-bandit/refresh",
+};
+
+export const getContextualBanditCurrentValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: cbIdParam,
+  responseSchema: z
+    .object({
+      phaseWeights: z
+        .array(
+          z.object({ contextId: z.string(), weights: z.array(z.number()) }),
+        )
+        .optional(),
+      latestEvent: cbEventShape.nullable(),
+    })
+    .strict(),
+  summary: "Get current contextual bandit phase weights and latest event",
+  operationId: "getContextualBanditCurrent",
+  tags: ["experiments", "contextual-bandit"],
+  method: "get" as const,
+  path: "/experiments/:id/contextual-bandit/current",
+};
+
+export const getContextualBanditSnapshotsValidator = {
+  bodySchema: z.never(),
+  querySchema: z
+    .object({
+      limit: z.coerce.number().int().positive().max(100).optional(),
+    })
+    .strict()
+    .optional(),
+  paramsSchema: cbIdParam,
+  responseSchema: z
+    .object({
+      snapshots: z.array(cbSnapshotShape),
+    })
+    .strict(),
+  summary: "List contextual bandit snapshots",
+  operationId: "getContextualBanditSnapshots",
+  tags: ["experiments", "contextual-bandit"],
+  method: "get" as const,
+  path: "/experiments/:id/contextual-bandit/snapshots",
+};
+
+export const getContextualBanditSnapshotValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z
+    .object({
+      id: z.string().describe("The experiment id"),
+      snapshotId: z.string().describe("The snapshot id"),
+    })
+    .strict(),
+  responseSchema: z.object({ snapshot: cbSnapshotShape }).strict(),
+  summary: "Get a single contextual bandit snapshot",
+  operationId: "getContextualBanditSnapshot",
+  tags: ["experiments", "contextual-bandit"],
+  method: "get" as const,
+  path: "/experiments/:id/contextual-bandit/snapshots/:snapshotId",
+};
+
+export const getContextualBanditEventsValidator = {
+  bodySchema: z.never(),
+  querySchema: z
+    .object({
+      limit: z.coerce.number().int().positive().max(100).optional(),
+    })
+    .strict()
+    .optional(),
+  paramsSchema: cbIdParam,
+  responseSchema: z.object({ events: z.array(cbEventShape) }).strict(),
+  summary: "List contextual bandit events",
+  operationId: "getContextualBanditEvents",
+  tags: ["experiments", "contextual-bandit"],
+  method: "get" as const,
+  path: "/experiments/:id/contextual-bandit/events",
+};
+
+export const getContextualBanditEventValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z
+    .object({
+      id: z.string().describe("The experiment id"),
+      eventId: z.string().describe("The event id"),
+    })
+    .strict(),
+  responseSchema: z.object({ event: cbEventShape }).strict(),
+  summary: "Get a single contextual bandit event",
+  operationId: "getContextualBanditEvent",
+  tags: ["experiments", "contextual-bandit"],
+  method: "get" as const,
+  path: "/experiments/:id/contextual-bandit/events/:eventId",
+};
