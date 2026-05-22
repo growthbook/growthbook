@@ -456,6 +456,38 @@ export class Permissions {
     );
   };
 
+  // Power calculations are single-project resources. We wrap the single project
+  // into a one-element array so we can reuse the existing project-filter
+  // permission helpers, mirroring how `canCreateHoldout` etc. work.
+  public canCreatePowerCalculation = (powerCalculation: {
+    project: string;
+  }): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: [powerCalculation.project] },
+      "createAnalyses",
+    );
+  };
+
+  public canUpdatePowerCalculation = (
+    existing: { project: string },
+    updated: { project: string },
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: [existing.project] },
+      { projects: [updated.project] },
+      "createAnalyses",
+    );
+  };
+
+  public canDeletePowerCalculation = (powerCalculation: {
+    project: string;
+  }): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: [powerCalculation.project] },
+      "createAnalyses",
+    );
+  };
+
   // Frontend helper to gate "Create Experiment Template" UI.
   // Pass allProjects on list pages where "All Projects" may be selected;
   // omit it when checking a specific resource's project or global-only access.

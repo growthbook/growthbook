@@ -361,6 +361,7 @@ const experimentSchema = new mongoose.Schema({
   dismissedWarnings: [String],
   holdoutId: String,
   defaultDashboardId: String,
+  powerCalculationId: String,
   customMetricSlices: [
     {
       _id: false,

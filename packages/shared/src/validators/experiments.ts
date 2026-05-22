@@ -425,6 +425,7 @@ export const experimentInterface = z
     dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
     holdoutId: z.string().optional(),
     defaultDashboardId: z.string().optional(),
+    powerCalculationId: z.string().optional(),
     customMetricSlices: z.array(customMetricSlice).optional(),
     statusUpdateSchedule: statusUpdateScheduleValidator.optional().nullable(),
     nextScheduledStatusUpdate: nextScheduledStatusUpdateValidator

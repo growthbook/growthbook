@@ -244,6 +244,7 @@ export const entityEvents = {
   decisionCriteria: ["create", "update", "delete"],
   execReport: ["create", "update", "delete"],
   holdout: ["create", "update", "delete"],
+  powerCalculation: ["create", "update", "delete"],
   savedQuery: ["create", "update", "delete"],
   dashboard: ["create", "update", "delete"],
   dashboardTemplate: ["create", "update", "delete"],
