@@ -246,6 +246,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   dismissedWarnings: false,
   holdoutId: false,
   defaultDashboardId: false,
+  powerCalculationId: false,
 };
 
 function sectionKeys(

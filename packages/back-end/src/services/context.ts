@@ -54,6 +54,7 @@ import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCr
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
+import { PowerCalculationModel } from "back-end/src/models/PowerCalculationModel";
 import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
 import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
 import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
@@ -94,6 +95,7 @@ export type ModelName =
   | "urlRedirects"
   | "metricAnalysis"
   | "populationData"
+  | "powerCalculations"
   | "savedQueries"
   | "metricGroups"
   | "segments"
@@ -133,6 +135,7 @@ export const modelClasses = {
   urlRedirects: UrlRedirectModel,
   metricAnalysis: MetricAnalysisModel,
   populationData: PopulationDataModel,
+  powerCalculations: PowerCalculationModel,
   savedQueries: SavedQueryDataModel,
   metricGroups: MetricGroupModel,
   segments: SegmentModel,
@@ -181,6 +184,7 @@ export class ReqContextClass {
       urlRedirects: new UrlRedirectModel(this),
       metricAnalysis: new MetricAnalysisModel(this),
       populationData: new PopulationDataModel(this),
+      powerCalculations: new PowerCalculationModel(this),
       savedQueries: new SavedQueryDataModel(this),
       metricGroups: new MetricGroupModel(this),
       segments: new SegmentModel(this),
