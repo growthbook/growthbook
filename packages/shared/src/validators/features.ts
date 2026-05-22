@@ -423,8 +423,9 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     // are NOT stored here — they operate directly on live ramp schedule documents.
     rampActions: z.array(revisionRampAction).optional(),
     log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
-    // User IDs who have made edits to this draft (always includes the author).
-    // Populated incrementally via updateRevision; used for the self-approval block.
+    // User IDs who have made edits to this draft. Populated incrementally via
+    // updateRevision's $addToSet; may be empty if no content edits have been made.
+    // Note: the revision author (createdBy) is NOT automatically seeded here.
     contributors: z.array(z.string()).optional(),
   })
   .strict();

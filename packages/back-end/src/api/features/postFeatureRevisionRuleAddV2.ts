@@ -59,6 +59,12 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
   const inlineRampSchedule = req.body.rampSchedule;
   const ruleInput = req.body.rule as RuleCreateInputV2;
 
+  if (inlineRampSchedule && (schedule?.startDate || schedule?.endDate)) {
+    throw new BadRequestError(
+      "rampSchedule and schedule are mutually exclusive. Provide one or the other, not both.",
+    );
+  }
+
   const { revision, created } = await resolveOrCreateRevision(
     req.context,
     req.organization.id,
