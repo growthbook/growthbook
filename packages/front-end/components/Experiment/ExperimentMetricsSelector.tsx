@@ -128,7 +128,7 @@ export default function ExperimentMetricsSelector({
         if (
           metric &&
           quantileMetricType(metric) === "event" &&
-          !datasourceObj?.properties?.hasQuantileKLL
+          !datasourceObj?.properties?.hasQuantileSketch
         ) {
           return {
             disabled: true,
