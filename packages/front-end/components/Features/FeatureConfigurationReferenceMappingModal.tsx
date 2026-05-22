@@ -182,6 +182,22 @@ export default function FeatureConfigurationReferenceMappingModal({
   }));
 
   const prepopulatedRef = useRef(false);
+  // If the user pastes a second envelope while the modal is still mounted,
+  // `payload` swaps under us. Clear the prepop guard and any selections from
+  // the previous payload so the prepop effect below re-runs against the new
+  // reference rows instead of leaving stale mappings pointing at ids the
+  // new payload doesn't contain.
+  useEffect(() => {
+    prepopulatedRef.current = false;
+    setMappings({
+      experiments: { ...EMPTY_FEATURE_REFERENCE_MAPPINGS.experiments },
+      savedGroups: { ...EMPTY_FEATURE_REFERENCE_MAPPINGS.savedGroups },
+      safeRollouts: { ...EMPTY_FEATURE_REFERENCE_MAPPINGS.safeRollouts },
+      features: { ...EMPTY_FEATURE_REFERENCE_MAPPINGS.features },
+      environments: { ...EMPTY_FEATURE_REFERENCE_MAPPINGS.environments },
+    });
+  }, [payload]);
+
   useEffect(() => {
     if (loading || prepopulatedRef.current) return;
     prepopulatedRef.current = true;

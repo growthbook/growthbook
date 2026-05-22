@@ -181,10 +181,6 @@ describe("feature reference extraction and mapping", () => {
     valueType: "boolean" as const,
     defaultValue: "false",
     rules,
-    environmentSettings: {
-      dev: { enabled: true },
-      staging: { enabled: false },
-    },
   };
 
   it("extracts every cross-org reference id by category", () => {
@@ -227,20 +223,12 @@ describe("feature reference extraction and mapping", () => {
     const parsedCondition = JSON.parse(force?.condition ?? "{}");
     expect(parsedCondition.$or[0].id.$inGroup).toBe("grp_A2");
     expect(parsedCondition.$or[1].id.$notInGroup).toBe("grp_B2");
-
-    // environmentSettings keys are NOT remapped — the importer regenerates
-    // env settings from the destination org, so any mapping here would be
-    // dropped downstream. Leaving them untouched keeps the source manifest
-    // free of phantom env references that would force the mapping modal.
-    expect(Object.keys(mapped.environmentSettings ?? {}).sort()).toEqual([
-      "dev",
-      "staging",
-    ]);
   });
 
   it("does not collect environmentSettings keys as references", () => {
     // A feature with only allEnvironments-true rules has no cross-org env
-    // refs — its envSettings keys must not pollute the reference manifest.
+    // refs — env-scoped rule fields are the only source of environment
+    // references in the clipboard manifest.
     const ids = extractFeatureReferenceIds({
       id: "f",
       valueType: "boolean",
@@ -254,10 +242,6 @@ describe("feature reference extraction and mapping", () => {
           value: "true",
         },
       ],
-      environmentSettings: {
-        dev: { enabled: true },
-        production: { enabled: false },
-      },
     });
     expect(Array.from(ids.environments)).toEqual([]);
   });

@@ -3620,21 +3620,12 @@ export async function postFeatureImportDraft(
     ),
   );
 
-  // Publish permission is only required for environments whose enabled state
-  // differs from the live feature — those are the ones a future publish of
-  // this draft would actually flip.
-  const envsRequiringPublish = Object.entries(filteredEnvironmentsEnabled)
-    .filter(
-      ([env, enabled]) =>
-        (feature.environmentSettings?.[env]?.enabled ?? false) !== enabled,
-    )
-    .map(([env]) => env);
-
+  // Mirrors postFeatureCreateDraft — this endpoint only ever creates an
+  // unpublished draft. Publish-permission is enforced when the draft is
+  // actually published, not at draft-creation time.
   if (
     !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature) ||
-    (envsRequiringPublish.length > 0 &&
-      !context.permissions.canPublishFeature(feature, envsRequiringPublish))
+    !context.permissions.canManageFeatureDrafts(feature)
   ) {
     context.permissions.throwPermissionError();
   }

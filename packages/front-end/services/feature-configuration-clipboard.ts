@@ -39,7 +39,7 @@ export type FeatureReferenceLookups = {
     { groupName?: string; type?: string; attributeKey?: string }
   >;
   safeRollouts?: Map<string, { featureId?: string; environment?: string }>;
-  features?: Map<string, { id: string; description?: string }>;
+  features?: Map<string, { description?: string }>;
   environments?: Map<string, { description?: string }>;
 };
 
@@ -53,7 +53,6 @@ export function featureToClipboardConfiguration(
     valueType: feature.valueType,
     defaultValue: feature.defaultValue,
     tags: feature.tags,
-    environmentSettings: feature.environmentSettings,
     rules: feature.rules ?? [],
     customFields: feature.customFields,
     jsonSchema: feature.jsonSchema,
@@ -176,7 +175,9 @@ function buildReferenceManifest(
   const features: GrowthBookClipboardReferenceContext[] = [];
   ids.features.forEach((id) => {
     const feat = lookups.features?.get(id);
-    features.push({ id, name: feat?.id, details: feat?.description });
+    // Features have no separate human-readable name distinct from their id;
+    // use the id itself so the mapping modal shows a consistent label.
+    features.push({ id, name: id, details: feat?.description });
   });
 
   const environments: GrowthBookClipboardReferenceContext[] = [];
@@ -302,10 +303,10 @@ export function applyFeatureReferenceMappings(
   feature: GrowthBookClipboardFeature,
   mappings: FeatureReferenceMappings,
 ): GrowthBookClipboardFeature {
-  // `environmentSettings` is deliberately not remapped: the importer
-  // regenerates env settings from the destination org (see FeatureModal's
-  // `genEnvironmentSettings`), so any mapping applied here would be silently
-  // discarded downstream. Env mappings only matter for rule-level scoping.
+  // Env mappings only matter for rule-level scoping; `environmentSettings`
+  // is not part of the clipboard payload because the importer regenerates
+  // those from the destination org (see FeatureModal's
+  // `genEnvironmentSettings`).
   return {
     ...feature,
     rules: feature.rules.map((rule) => applyMappingsToRule(rule, mappings)),

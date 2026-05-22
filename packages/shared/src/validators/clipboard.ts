@@ -1,10 +1,5 @@
 import { z } from "zod";
-import {
-  featureEnvironment,
-  featureRule,
-  featureValueType,
-  JSONSchemaDef,
-} from "./features";
+import { featureRule, featureValueType, JSONSchemaDef } from "./features";
 
 const clipboardJSONSchemaDef = JSONSchemaDef.extend({
   date: z.preprocess(
@@ -99,7 +94,10 @@ export const growthbookClipboardFeature = z
     valueType: z.enum(featureValueType),
     defaultValue: z.string(),
     tags: z.array(z.string()).optional(),
-    environmentSettings: z.record(z.string(), featureEnvironment).optional(),
+    // environmentSettings is intentionally not part of the clipboard: the
+    // importer regenerates env settings from the destination org (see
+    // FeatureModal's `genEnvironmentSettings`), so any value carried here
+    // would be silently discarded downstream.
     rules: z.array(clipboardFeatureRule),
     customFields: z.record(z.string(), z.any()).optional(),
     jsonSchema: clipboardJSONSchemaDef.optional(),
@@ -115,6 +113,9 @@ export const growthbookClipboardFeaturePayload = z
   })
   .loose();
 
+// Single-member union today; modeled this way so additional clipboard object
+// types (e.g. experiments) can be added as new union members without
+// reshaping callers.
 export const growthbookClipboardPayload = z.union([
   growthbookClipboardFeaturePayload,
 ]);

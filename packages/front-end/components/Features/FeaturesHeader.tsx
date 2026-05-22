@@ -46,6 +46,7 @@ import {
   DropdownSubMenu,
 } from "@/ui/DropdownMenu";
 import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
+import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
 import { buildFeatureConfigurationClipboardPayload } from "@/services/feature-configuration-clipboard";
 import FeatureArchiveModal from "./FeatureArchiveModal";
@@ -127,6 +128,11 @@ export default function FeaturesHeader({
   } = useDefinitions();
   const { holdouts } = useHoldouts(feature.project);
   const holdoutsEnabled = hasCommercialFeature("holdouts");
+  // Loaded so the "Copy feature configuration" action can attach descriptions
+  // for any prerequisite-feature references in the clipboard payload.
+  const { features: projectFeatures } = useFeatureMetaInfo({
+    project: feature.project,
+  });
 
   const staleHook = useFeatureStaleStates();
   const staleData = staleHook.getStaleState(feature.id);
@@ -241,12 +247,16 @@ export default function FeaturesHeader({
           { description: env.description },
         ]),
       );
+      const featuresLookup = new Map(
+        projectFeatures.map((f) => [f.id, { description: f.description }]),
+      );
 
       await navigator.clipboard.writeText(
         buildFeatureConfigurationClipboardPayload(feature, {
           experiments: experimentsLookup,
           savedGroups: savedGroupsLookup,
           safeRollouts: safeRolloutsLookup,
+          features: featuresLookup,
           environments: environmentsLookup,
         }),
       );
