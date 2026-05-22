@@ -193,10 +193,14 @@ export default function EditFeatureFlagValuesModal({
     info.draftRevisionVersion != null;
 
   const initialMode: DraftMode =
-    ruleOnlyOnDraft || defaultDraft != null ? "existing" : "new";
+    info.draftRevisionVersion != null || defaultDraft != null
+      ? "existing"
+      : "new";
   const initialSelectedDraft = ruleOnlyOnDraft
     ? (info.draftRevisionVersion ?? null)
-    : defaultDraft;
+    : info.draftRevisionVersion != null
+      ? info.draftRevisionVersion
+      : defaultDraft;
 
   const [mode, setMode] = useState<DraftMode>(initialMode);
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
