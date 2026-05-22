@@ -66,7 +66,6 @@ const router = Router();
 router.use(bodyParser.json({ limit: "2mb" }));
 router.use(bodyParser.urlencoded({ limit: "2mb", extended: true }));
 
-
 // Public route for OpenAPI spec - must be registered BEFORE authentication middleware
 let openapiSpec: string;
 router.get("/v1/openapi.yaml", (req, res) => {

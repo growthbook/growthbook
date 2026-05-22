@@ -31,17 +31,17 @@ type InlineRampScheduleInput = z.infer<typeof inlineRampScheduleInput>;
 function normalizeRevisionRampCreateAction(
   input: z.infer<typeof apiRevisionRampCreateAction>,
 ): RevisionRampCreateAction {
-  const endCondition: RevisionRampCreateAction["endCondition"] =
-    input.endCondition?.trigger
-      ? {
-          trigger: {
-            ...input.endCondition.trigger,
-            at: new Date(input.endCondition.trigger.at),
-          },
-        }
-      : input.endCondition
-        ? { trigger: undefined }
-        : undefined;
+  const endCondition: RevisionRampCreateAction["endCondition"] = input
+    .endCondition?.trigger
+    ? {
+        trigger: {
+          ...input.endCondition.trigger,
+          at: new Date(input.endCondition.trigger.at),
+        },
+      }
+    : input.endCondition
+      ? { trigger: undefined }
+      : undefined;
 
   return {
     ...input,
