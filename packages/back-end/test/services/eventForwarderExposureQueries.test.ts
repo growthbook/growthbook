@@ -1,7 +1,9 @@
 import type { DataSourceInterface } from "shared/types/datasource";
+import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { ensureEventForwarderExposureQueries } from "back-end/src/services/eventForwarderExposureQueries";
 import * as DataSourceModel from "back-end/src/models/DataSourceModel";
 import * as EventForwarderConfig from "back-end/src/services/eventForwarderConfig";
+import { encryptParams } from "back-end/src/services/datasource";
 
 jest.mock("back-end/src/models/DataSourceModel");
 jest.mock("back-end/src/services/eventForwarderConfig");
@@ -64,6 +66,49 @@ function context() {
 describe("ensureEventForwarderExposureQueries", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it("creates BigQuery exposure queries using decrypted params when datasourceParams is omitted", async () => {
+    const bigqueryParams: BigQueryConnectionParams = {
+      projectId: "my-project",
+      clientEmail: "test@example.com",
+      privateKey: "key",
+    };
+    const raw = ds({
+      userIdTypes: [{ userIdType: "device_id", description: "" }],
+      queries: { exposure: [] },
+    });
+    raw.params = encryptParams(bigqueryParams);
+    mockedGetRaw.mockResolvedValue(raw);
+    mockedGetById.mockResolvedValue(raw);
+    mockedDecrypt.mockReturnValue({
+      dataset: "analytics_123",
+      tableName: "gb_events",
+      serviceAccountKey: "{}",
+    });
+
+    await ensureEventForwarderExposureQueries(
+      context() as never,
+      efConfig("bigquery"),
+    );
+
+    expect(mockedUpdate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      {
+        settings: expect.objectContaining({
+          queries: {
+            exposure: [
+              expect.objectContaining({
+                userIdType: "device_id",
+                id: "device_id",
+                managedBy: "api",
+              }),
+            ],
+          },
+        }),
+      },
+    );
   });
 
   it("creates one exposure query per userIdType for BigQuery", async () => {

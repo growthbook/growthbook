@@ -4,7 +4,6 @@ import {
   BigQueryEventForwarderStoredConfig,
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
-import type { DataSourceInterface } from "shared/types/datasource";
 import { EventForwarderConfigInterface } from "shared/validators";
 import {
   GenerateEventForwarderExposureQueriesParams,
@@ -16,28 +15,15 @@ import {
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
 import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarderConfig";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
-function resolveDatasourceParams(
-  datasourceParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
-  integrationParams?: DataSourceInterface["params"],
-): BigQueryConnectionParams | SnowflakeConnectionParams | undefined {
-  if (datasourceParams) {
-    return datasourceParams;
-  }
-  return integrationParams as
-    | BigQueryConnectionParams
-    | SnowflakeConnectionParams
-    | undefined;
-}
-
 function buildExposureQueryParams(
   eventForwarderConfig: EventForwarderConfigInterface,
-  integrationParams?: DataSourceInterface["params"],
-  datasourceParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
+  connectionParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
 ): GenerateEventForwarderExposureQueriesParams | null {
-  const params = resolveDatasourceParams(datasourceParams, integrationParams);
+  const params = connectionParams;
 
   if (eventForwarderConfig.sinkType === "bigquery") {
     const bigqueryParams = params as BigQueryConnectionParams | undefined;
@@ -111,10 +97,17 @@ export async function ensureEventForwarderExposureQueries(
     eventForwarderConfig.datasourceId,
   );
 
+  const connectionParams =
+    datasourceParams ??
+    (datasource
+      ? (getSourceIntegrationObject(context, datasource).params as
+          | BigQueryConnectionParams
+          | SnowflakeConnectionParams)
+      : undefined);
+
   const sqlParams = buildExposureQueryParams(
     eventForwarderConfig,
-    datasource?.params,
-    datasourceParams,
+    connectionParams,
   );
   if (!sqlParams) {
     logger.warn(

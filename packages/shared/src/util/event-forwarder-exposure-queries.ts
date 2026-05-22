@@ -40,12 +40,14 @@ export function buildEventForwarderExperimentViewedTableReference(
 export function buildEventForwarderExposureQuerySql({
   sinkType,
   tableRef,
+  userIdType,
 }: {
   sinkType: "bigquery" | "snowflake";
   tableRef: string;
+  userIdType: string;
 }): string {
   const select = `SELECT
-  event_uuid AS id,
+  event_uuid AS ${userIdType},
   timestamp AS timestamp,
   experiment_id AS experiment_id,
   variation_id AS variation_id
@@ -78,6 +80,7 @@ export function generateEventForwarderExposureQueries(
     query: buildEventForwarderExposureQuerySql({
       sinkType: params.sinkType,
       tableRef,
+      userIdType,
     }),
   }));
 }
