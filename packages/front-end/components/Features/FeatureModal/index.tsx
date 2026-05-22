@@ -368,13 +368,21 @@ export default function FeatureModal({
           } catch (e) {
             // The live feature was created but the draft with the imported
             // rules failed — clean up so the user isn't left with an empty,
-            // permanently-disabled feature. Surface the original error.
+            // permanently-disabled feature. DELETE /feature/:id only accepts
+            // archived features, so archive first.  Surface the original
+            // error regardless of cleanup outcome.
             try {
+              await apiCall(`/feature/${res.feature.id}/archive`, {
+                method: "POST",
+                body: JSON.stringify({ archived: true }),
+              });
               await apiCall(`/feature/${res.feature.id}`, {
                 method: "DELETE",
               });
             } catch {
-              // If cleanup fails, fall through and surface the original error.
+              // If cleanup fails (archive or delete), fall through and
+              // surface the original error. The orphan feature can be cleaned
+              // up manually from the Features list.
             }
             throw e;
           }

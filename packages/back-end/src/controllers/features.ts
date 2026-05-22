@@ -3633,6 +3633,26 @@ export async function postFeatureImportDraft(
   const importedRules = cloneDeep(rules);
   addIdsToFlatRules(importedRules, feature.id);
 
+  // Enforce the destination org's opt-in attribute-registration policy on
+  // every imported rule. Mirrors postFeatureRule's call so a clipboard
+  // import can't smuggle in attributes the single-rule add path would
+  // reject. Per-rule loop because each rule has its own hash/fallback/
+  // condition tuple.
+  for (const r of importedRules) {
+    assertRegisteredAttributes(
+      context,
+      {
+        hashAttribute: (r as { hashAttribute?: string }).hashAttribute,
+        fallbackAttribute: (r as { fallbackAttribute?: string })
+          .fallbackAttribute,
+        condition: r.condition,
+      },
+      "rule",
+      undefined,
+      feature.project,
+    );
+  }
+
   const newDraft = await createRevision({
     context,
     feature,
@@ -3649,6 +3669,27 @@ export async function postFeatureImportDraft(
     org,
     canBypassApprovalChecks: false,
   });
+
+  // Reconcile experiment linkage for any experiment-ref rules in the
+  // imported draft — mirrors the bookkeeping that postFeatureRule does on
+  // single-rule add. Without this, experiments don't list the feature as a
+  // linked implementation and the draft isn't queued for auto-publish.
+  const experimentRefIds = new Set<string>();
+  for (const r of importedRules) {
+    if (r.type === "experiment-ref" && r.experimentId) {
+      experimentRefIds.add(r.experimentId);
+    }
+  }
+  for (const experimentId of experimentRefIds) {
+    await addLinkedFeatureToExperiment(context, experimentId, feature.id);
+    await addLinkedExperiment(feature, experimentId);
+    await addPendingFeatureDraftToExperiment(
+      context,
+      experimentId,
+      feature.id,
+      newDraft.version,
+    );
+  }
 
   void req
     .audit({
