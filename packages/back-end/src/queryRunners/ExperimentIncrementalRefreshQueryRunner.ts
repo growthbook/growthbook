@@ -126,19 +126,21 @@ export function getIncrementalRefreshMetricSources({
     metric: FactMetricInterface,
   ) => `${factTableId}${quantileMetricType(metric) ? "_qtile" : ""}`;
 
-  // Buckets are either "use this existing source" (alreadyExists=true) or
-  // "start a new chunkable bucket" (alreadyExists=false). Matching against
-  // existing sources is done by (factTableId, metric id) — a cross-FT ratio
-  // metric appears in two groups (one per FT), and each FT's existing
-  // source only collides on its own side.
-  const buckets: Record<
+  // Metrics that map to a pre-existing cache table — keyed by that source's
+  // groupId. Matching is done by (factTableId, metric id): a cross-FT ratio
+  // metric appears in two groups (one per FT), and each FT's existing source
+  // only collides on its own side.
+  const existingBuckets = new Map<
     string,
-    {
-      alreadyExists: boolean;
-      factTableId: string;
-      metrics: FactMetricInterface[];
-    }
-  > = {};
+    { factTableId: string; metrics: FactMetricInterface[] }
+  >();
+
+  // Metrics that need a new cache table — keyed by the canonical group key
+  // (factTableId [+ "_qtile"]) so all compatible metrics land in one chunk list.
+  const newBuckets = new Map<
+    string,
+    { factTableId: string; metrics: FactMetricInterface[] }
+  >();
 
   fanOut.perFt.forEach(({ factTableId, metrics: ftMetrics }) => {
     ftMetrics.forEach((metric) => {
@@ -149,37 +151,33 @@ export function getIncrementalRefreshMetricSources({
       );
 
       if (existingGroup) {
-        const bucketKey = `__existing__${existingGroup.groupId}`;
-        buckets[bucketKey] = buckets[bucketKey] ?? {
-          alreadyExists: true,
+        const bucket = existingBuckets.get(existingGroup.groupId) ?? {
           factTableId,
           metrics: [],
         };
-        buckets[bucketKey].metrics.push(metric);
+        bucket.metrics.push(metric);
+        existingBuckets.set(existingGroup.groupId, bucket);
         return;
       }
 
-      const bucketKey = `__new__${getMetricGroupKey(factTableId, metric)}`;
-      buckets[bucketKey] = buckets[bucketKey] ?? {
-        alreadyExists: false,
-        factTableId,
-        metrics: [],
-      };
-      buckets[bucketKey].metrics.push(metric);
+      const key = getMetricGroupKey(factTableId, metric);
+      const bucket = newBuckets.get(key) ?? { factTableId, metrics: [] };
+      bucket.metrics.push(metric);
+      newBuckets.set(key, bucket);
     });
   });
 
   const finalGroups: MetricSourceGroups[] = [];
-  Object.entries(buckets).forEach(([bucketKey, bucket]) => {
-    if (bucket.alreadyExists) {
-      finalGroups.push({
-        groupId: bucketKey.slice("__existing__".length),
-        factTableId: bucket.factTableId,
-        metrics: bucket.metrics,
-      });
-      return;
-    }
 
+  existingBuckets.forEach((bucket, groupId) => {
+    finalGroups.push({
+      groupId,
+      factTableId: bucket.factTableId,
+      metrics: bucket.metrics,
+    });
+  });
+
+  newBuckets.forEach((bucket, baseGroupId) => {
     const chunks = chunkMetrics({
       metrics: bucket.metrics.map((m) => {
         const metric = cloneDeep(m);
@@ -195,7 +193,6 @@ export function getIncrementalRefreshMetricSources({
       maxColumnsPerQuery: integration.getSourceProperties().maxColumns,
       isBandit: !!snapshotSettings.banditSettings,
     });
-    const baseGroupId = bucketKey.slice("__new__".length);
     chunks.forEach((chunk, i) => {
       const randomId = Math.random().toString(36).substring(2, 15);
       finalGroups.push({

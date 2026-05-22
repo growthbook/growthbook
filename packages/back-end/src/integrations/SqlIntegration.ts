@@ -2294,13 +2294,15 @@ export default abstract class SqlIntegration
     // doesn't trip the 2-FT cap inside `getFactTablesForMetrics` when we
     // try to populate the hub's data cache. The other FTs' data is
     // populated by separate calls scoped to their own FT.
-    const { sources, metricData: globalMetricData } =
-      parseExperimentFactMetricsParams(this.getSqlDialect(), {
+    const { sources, metricData } = parseExperimentFactMetricsParams(
+      this.getSqlDialect(),
+      {
         ...params,
         metrics: sortedMetrics,
         covariateTableAlias: "c",
         targetFactTableId: params.factTableId,
-      });
+      },
+    );
 
     // Each insert query targets one cache table, which holds rows from a
     // single fact table. With `targetFactTableId` set above we only get the
@@ -2312,10 +2314,6 @@ export default abstract class SqlIntegration
         `getInsertMetricSourceDataQuery: no metric data found for fact table "${params.factTableId}".`,
       );
     }
-    const knownMetricIds = new Set(sortedMetrics.map((m) => m.id));
-    const metricData = globalMetricData.filter((m) =>
-      knownMetricIds.has(m.metric.id),
-    );
 
     // Get consistent column names using the helper. The schema must match the
     // CREATE TABLE we already issued, so we thread the same factTableId

@@ -122,7 +122,6 @@ export default function ExperimentMetricsSelector({
           };
         }
       } else {
-        // Check if individual metric is a cross fact-table ratio metric
         const metric = getExperimentMetricById(metricId);
 
         // Event quantile metrics require KLL support for incremental refresh.
