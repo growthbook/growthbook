@@ -22,7 +22,6 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import DraftSelectorDropdown, {
   DraftMode,
 } from "@/components/Features/DraftSelectorDropdown";
-import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -180,8 +179,6 @@ export default function EditFeatureFlagValuesModal({
     return envList.length === 0 ? "all" : new Set(envList);
   }, [settings?.requireReviews, feature]);
 
-  const defaultDraft = useDefaultDraft(revisionList);
-
   // The linking flow always creates a pending draft that adds the
   // experiment-ref rule, so live doesn't have the rule yet. In that state,
   // "Apply now" (publish to live) would fail on the back-end because there's
@@ -193,14 +190,8 @@ export default function EditFeatureFlagValuesModal({
     info.draftRevisionVersion != null;
 
   const initialMode: DraftMode =
-    info.draftRevisionVersion != null || defaultDraft != null
-      ? "existing"
-      : "new";
-  const initialSelectedDraft = ruleOnlyOnDraft
-    ? (info.draftRevisionVersion ?? null)
-    : info.draftRevisionVersion != null
-      ? info.draftRevisionVersion
-      : defaultDraft;
+    info.draftRevisionVersion != null ? "existing" : "new";
+  const initialSelectedDraft = info.draftRevisionVersion ?? null;
 
   const [mode, setMode] = useState<DraftMode>(initialMode);
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
@@ -209,10 +200,9 @@ export default function EditFeatureFlagValuesModal({
   const [isEditingVariations, setIsEditingVariations] = useState(false);
 
   // On first render `useApi` hasn't resolved yet, so `revisionList` is empty
-  // and `defaultDraft` is null. Re-apply the correctly computed initial
-  // mode/selectedDraft once the feature revisions arrive, so the dropdown
-  // doesn't show a stale pre-selection (e.g. "new" when there is an
-  // existing draft to default to).
+  // and the dropdown can't render revision labels. Re-apply the
+  // info-derived initial mode/selectedDraft once feature data arrives so the
+  // dropdown reflects the linkedFeatureInfo defaults.
   const hasInitializedFromData = useRef(false);
   useEffect(() => {
     if (hasInitializedFromData.current || !data) return;
