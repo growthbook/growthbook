@@ -499,6 +499,7 @@ export function buildRampSteps(
         ...base,
         ...(approvalRequired ? { requiresApproval: true } : {}),
       };
+      if (!s.monitored) delete merged.minSampleSize;
       return Object.keys(merged).length > 0 ? merged : undefined;
     })();
     return {
@@ -907,6 +908,7 @@ export default function RampScheduleSection({
   const [presetOpen, setPresetOpen] = useState(false);
   const hasAutoSelected = useRef(false);
 
+  // Keep the local display string in sync when simpleDurationDays is changed
   // On first template load, match the existing state or apply the first default.
   useEffect(() => {
     if (hasAutoSelected.current || templates.length === 0) return;
@@ -1454,7 +1456,8 @@ export default function RampScheduleSection({
       }
 
       const hasHoldConditions =
-        (step?.holdConditions?.minSampleSize ?? null) !== null ||
+        (step?.monitored &&
+          (step?.holdConditions?.minSampleSize ?? null) !== null) ||
         // requiresApproval is only a secondary "Then:" condition when there's
         // also an interval — when triggerType === "approval" it IS the primary
         // action and is already shown as the step label.
@@ -1485,16 +1488,17 @@ export default function RampScheduleSection({
                         )}
                       </Flex>
                     )}
-                  {(step?.holdConditions?.minSampleSize ?? null) !== null && (
-                    <Flex wrap="wrap" gap="2" align="baseline">
-                      <Text size="small" weight="medium">
-                        Hold for min. sample
-                      </Text>
-                      <Text size="small" color="text-low">
-                        {step!.holdConditions!.minSampleSize!.toLocaleString()}
-                      </Text>
-                    </Flex>
-                  )}
+                  {step?.monitored &&
+                    (step?.holdConditions?.minSampleSize ?? null) !== null && (
+                      <Flex wrap="wrap" gap="2" align="baseline">
+                        <Text size="small" weight="medium">
+                          Hold for min. sample
+                        </Text>
+                        <Text size="small" color="text-low">
+                          {step!.holdConditions!.minSampleSize!.toLocaleString()}
+                        </Text>
+                      </Flex>
+                    )}
                 </Flex>
               </Flex>
             )}
@@ -2307,7 +2311,9 @@ export default function RampScheduleSection({
 
                 {!isReadOnlyView &&
                   (step.holdConditions?.requiresApproval ||
-                    (step.holdConditions?.minSampleSize ?? null) !== null) && (
+                    (step.monitored &&
+                      (step.holdConditions?.minSampleSize ?? null) !==
+                        null)) && (
                     <Flex
                       direction="column"
                       gap="1"
@@ -2393,47 +2399,48 @@ export default function RampScheduleSection({
                           </Flex>
                         )}
 
-                      {(step.holdConditions?.minSampleSize ?? null) !==
-                        null && (
-                        <Flex
-                          align="center"
-                          gap="3"
-                          style={{ paddingLeft: 16, minHeight: 32 }}
-                        >
-                          <Box style={{ flexShrink: 0 }}>
-                            <Text weight="medium">Hold for min. sample</Text>
-                          </Box>
-                          <Link
-                            size="2"
-                            color="gray"
-                            style={{ flexShrink: 0 }}
-                            onClick={() => setMinSamplePopoverIndex(i)}
+                      {step.monitored &&
+                        (step.holdConditions?.minSampleSize ?? null) !==
+                          null && (
+                          <Flex
+                            align="center"
+                            gap="3"
+                            style={{ paddingLeft: 16, minHeight: 32 }}
                           >
-                            {step.holdConditions!.minSampleSize!.toLocaleString()}
-                          </Link>
-                          <Box flexGrow="1" />
-                          <Tooltip body="Remove condition" tipMinWidth="50px">
-                            <IconButton
-                              type="button"
-                              variant="ghost"
-                              color="red"
+                            <Box style={{ flexShrink: 0 }}>
+                              <Text weight="medium">Hold for min. sample</Text>
+                            </Box>
+                            <Link
                               size="2"
-                              radius="full"
-                              style={{ marginRight: 4 }}
-                              onClick={() =>
-                                updateStep(i, {
-                                  holdConditions: {
-                                    ...step.holdConditions,
-                                    minSampleSize: undefined,
-                                  },
-                                })
-                              }
+                              color="gray"
+                              style={{ flexShrink: 0 }}
+                              onClick={() => setMinSamplePopoverIndex(i)}
                             >
-                              <PiTrash />
-                            </IconButton>
-                          </Tooltip>
-                        </Flex>
-                      )}
+                              {step.holdConditions!.minSampleSize!.toLocaleString()}
+                            </Link>
+                            <Box flexGrow="1" />
+                            <Tooltip body="Remove condition" tipMinWidth="50px">
+                              <IconButton
+                                type="button"
+                                variant="ghost"
+                                color="red"
+                                size="2"
+                                radius="full"
+                                style={{ marginRight: 4 }}
+                                onClick={() =>
+                                  updateStep(i, {
+                                    holdConditions: {
+                                      ...step.holdConditions,
+                                      minSampleSize: undefined,
+                                    },
+                                  })
+                                }
+                              >
+                                <PiTrash />
+                              </IconButton>
+                            </Tooltip>
+                          </Flex>
+                        )}
                     </Flex>
                   )}
 
@@ -2722,7 +2729,7 @@ export default function RampScheduleSection({
     if (!effectiveCadenceSeconds || !step.monitored) return false;
     if (step.triggerType !== "interval") return false;
     return (
-      Math.max(1, step.intervalValue) * UNIT_MULT[step.intervalUnit] <=
+      Math.max(1, step.intervalValue) * UNIT_MULT[step.intervalUnit] <
       effectiveCadenceSeconds
     );
   }
@@ -2733,13 +2740,13 @@ export default function RampScheduleSection({
       const unit = state.simpleDurationUnit ?? "days";
       const totalSeconds = state.simpleDurationDays * UNIT_MULT[unit];
       const perStepSeconds = totalSeconds / SIMPLE_COVERAGES.length;
-      return perStepSeconds <= effectiveCadenceSeconds;
+      return perStepSeconds < effectiveCadenceSeconds;
     }
     return state.steps.some(
       (s) =>
         s.monitored &&
         s.triggerType === "interval" &&
-        Math.max(1, s.intervalValue) * UNIT_MULT[s.intervalUnit] <=
+        Math.max(1, s.intervalValue) * UNIT_MULT[s.intervalUnit] <
           effectiveCadenceSeconds,
     );
   }, [
@@ -3132,6 +3139,24 @@ export default function RampScheduleSection({
   const hasTemplate = !!selectedTemplateId;
   const showAdvancedEditor = !isSimpleMode || hasTemplate;
 
+  const hasCustomizedSteps = useMemo(() => {
+    const { steps } = state;
+    if (steps.length !== SIMPLE_COVERAGES.length) return true;
+    const firstInterval = steps[0]?.intervalValue;
+    const firstUnit = steps[0]?.intervalUnit;
+    return steps.some((s, i) => {
+      if (s.triggerType !== "interval") return true;
+      if (s.approvalNotes) return true;
+      if (s.holdConditions && Object.keys(s.holdConditions).length > 0)
+        return true;
+      if (s.patch.coverage !== SIMPLE_COVERAGES[i]) return true;
+      if (Object.keys(s.patch).some((k) => k !== "coverage")) return true;
+      if (s.intervalValue !== firstInterval) return true;
+      if (s.intervalUnit !== firstUnit) return true;
+      return false;
+    });
+  }, [state.steps]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const hasSafeRolloutFeature = hasCommercialFeature("safe-rollout");
 
   const allMonitored =
@@ -3324,16 +3349,14 @@ export default function RampScheduleSection({
         <Flex align="center" justify="between" style={{ width: 150 }}>
           <Field
             type="number"
-            min="1"
-            value={String(state.simpleDurationDays)}
+            min="0"
+            value={state.simpleDurationDays}
             onFocus={(e) => e.target.select()}
             onChange={(e) =>
-              patchState({ simpleDurationDays: parseInt(e.target.value) || 1 })
+              handleSimpleDurationChange(parseInt(e.target.value) || 0)
             }
-            onBlur={(e) =>
-              handleSimpleDurationChange(
-                Math.max(1, parseInt(e.target.value) || 1),
-              )
+            onBlur={() =>
+              handleSimpleDurationChange(Math.max(1, state.simpleDurationDays))
             }
             containerClassName="mb-0"
             style={{ width: 60, minHeight: 38 }}
@@ -3443,23 +3466,63 @@ export default function RampScheduleSection({
   const customizeLink =
     !hasTemplate && isSimpleMode ? (
       <Box mb="4">
-        <Button
-          variant="ghost"
-          onClick={() => {
-            const unit = state.simpleDurationUnit ?? "days";
-            const dur = state.simpleDurationDays;
-            const monitored = state.steps.some((s) => s.monitored);
-            const steps = generateSimpleSteps(dur, unit).map((s) => ({
-              ...s,
-              monitored,
-            }));
-            patchState({ builderMode: "advanced", steps });
-            setSelectedTemplateId("");
-          }}
-          icon={<PiCalendarBlank />}
-        >
-          Edit Schedule
-        </Button>
+        {(() => {
+          const coverageSteps = state.steps
+            .map((s) => s.patch.coverage)
+            .filter((c): c is number => c !== undefined);
+          const finalCoverage = state.endPatch.coverage ?? 100;
+          const progression =
+            coverageSteps.length > 0
+              ? [
+                  "0%",
+                  ...coverageSteps.map((c) => `${c}%`),
+                  `${finalCoverage}%`,
+                ].join(" → ")
+              : null;
+          return (
+            <>
+              {progression && (
+                <Flex align="center" justify="between" mb="2">
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      patchState({ builderMode: "advanced" });
+                      setSelectedTemplateId("");
+                    }}
+                    icon={<PiCalendarBlank />}
+                  >
+                    Edit Ramp-up Steps
+                  </Button>
+                  <Text color="text-low">
+                    Steps:{" "}
+                    <Text as="span" weight="semibold" color="text-mid">
+                      {progression}
+                    </Text>
+                  </Text>
+                </Flex>
+              )}
+              {!progression && (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    const unit = state.simpleDurationUnit ?? "days";
+                    const dur = state.simpleDurationDays;
+                    const monitored = state.steps.some((s) => s.monitored);
+                    const steps = generateSimpleSteps(dur, unit).map((s) => ({
+                      ...s,
+                      monitored,
+                    }));
+                    patchState({ builderMode: "advanced", steps });
+                    setSelectedTemplateId("");
+                  }}
+                  icon={<PiCalendarBlank />}
+                >
+                  Edit Ramp-up Steps
+                </Button>
+              )}
+            </>
+          );
+        })()}
       </Box>
     ) : null;
 
@@ -3486,7 +3549,7 @@ export default function RampScheduleSection({
           }
         }}
         containerClassName="mb-0"
-        containerStyle={{ minHeight: 38, width: 130 }}
+        containerStyle={{ minHeight: 38, width: 150 }}
       />
       {state.startDate && (
         <DatePicker
@@ -3502,23 +3565,42 @@ export default function RampScheduleSection({
   const simplifyLink =
     showAdvancedEditor && !hasTemplate ? (
       <Box mb="3">
-        <Button
-          variant="ghost"
-          onClick={() => {
-            const unit = state.simpleDurationUnit ?? "days";
-            const dur = state.simpleDurationDays;
-            const monitored = state.steps.some((s) => s.monitored);
-            const steps = generateSimpleSteps(dur, unit).map((s) => ({
-              ...s,
-              monitored,
-            }));
-            patchState({ builderMode: "simple", steps });
-            setSelectedTemplateId("");
-          }}
-          icon={<PiArrowCounterClockwise />}
+        <Tooltip
+          body="Will erase any customizations you have made"
+          shouldDisplay={hasCustomizedSteps}
+          tipPosition="top"
         >
-          Simple Schedule
-        </Button>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              const unit = state.simpleDurationUnit ?? "days";
+              const dur = state.simpleDurationDays;
+              const monitored = state.steps.some((s) => s.monitored);
+              const steps = generateSimpleSteps(dur, unit).map((s) => ({
+                ...s,
+                monitored,
+              }));
+              patchState({ builderMode: "simple", steps });
+              setSelectedTemplateId("");
+            }}
+            icon={<PiArrowCounterClockwise />}
+          >
+            <Flex align="center" gap="1">
+              Simple View
+              {hasCustomizedSteps && (
+                <Box
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    backgroundColor: "var(--amber-9)",
+                    flexShrink: 0,
+                  }}
+                />
+              )}
+            </Flex>
+          </Button>
+        </Tooltip>
       </Box>
     ) : null;
 

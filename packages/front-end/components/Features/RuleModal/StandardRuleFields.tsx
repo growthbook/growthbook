@@ -288,7 +288,8 @@ export default function StandardRuleFields({
                   )}
                 </Flex>
               ),
-              description: "Enable or disable the rule on specific dates",
+              description:
+                "Turn the rule on or off on specific dates, no gradual rollout",
               disabled: !canScheduleFeatureFlags,
             },
             {
@@ -307,7 +308,8 @@ export default function StandardRuleFields({
                     )}
                 </Flex>
               ),
-              description: "Increase traffic over multiple steps",
+              description:
+                "Gradually increase traffic over time, with optional scheduling",
               disabled: !canUseRampSchedules,
             },
             {
@@ -329,7 +331,8 @@ export default function StandardRuleFields({
                     )}
                 </Flex>
               ),
-              description: "Guardrail monitoring and auto-rollback",
+              description:
+                "Ramp-up with guardrail monitoring and auto-rollback",
               disabled: !canUseRampSchedules,
             },
           ]}
