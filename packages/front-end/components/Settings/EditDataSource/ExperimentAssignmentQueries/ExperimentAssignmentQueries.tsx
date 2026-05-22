@@ -5,6 +5,7 @@ import {
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPlus } from "react-icons/fa";
+import { isEventForwarderManagedExposureQuery } from "shared/util";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
 import { DimensionSlicesInterface } from "shared/types/dimension";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
@@ -17,6 +18,7 @@ import { UpdateDimensionMetadataModal } from "@/components/Settings/EditDataSour
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { CustomDimensionMetadata } from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
@@ -73,6 +75,11 @@ export const ExperimentAssignmentQueries: FC<
 
   const handleActionDeleteClicked = useCallback(
     (idx: number) => async () => {
+      const query = dataSource.settings?.queries?.exposure?.[idx];
+      if (query && isEventForwarderManagedExposureQuery(query)) {
+        return;
+      }
+
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
 
       // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
@@ -150,20 +157,34 @@ export const ExperimentAssignmentQueries: FC<
 
       {experimentExposureQueries.map((query, idx) => {
         const isOpen = openIndexes[idx] || false;
+        const isManaged = isEventForwarderManagedExposureQuery(query);
+        const deleteButton = (
+          <DeleteButton
+            onClick={handleActionDeleteClicked(idx)}
+            className="dropdown-item text-danger py-2"
+            iconClassName="mr-2"
+            style={{ borderRadius: 0 }}
+            useIcon={false}
+            displayName={query.name}
+            deleteMessage={`Are you sure you want to delete experiment assignment query ${query.name}?`}
+            title="Delete"
+            text="Delete"
+            outline={false}
+            disabled={isManaged}
+          />
+        );
 
         return (
           <Card mt="3" key={query.id}>
             <Flex align="start" justify="between" py="2" px="3" gap="3">
               {/* region Title Bar */}
               <Box width="100%">
-                <Flex>
-                  <Heading as="h4" size="3" mb="1">
-                    {query.name}
-                  </Heading>
-                  {query.description && (
-                    <p className="ml-3 text-muted">{query.description}</p>
-                  )}
-                </Flex>
+                <Heading as="h4" size="3" mb="0">
+                  {query.name}
+                </Heading>
+                {query.description && (
+                  <p className="text-muted mb-0 mt-1">{query.description}</p>
+                )}
 
                 <Flex gap="4">
                   <Box>
@@ -236,20 +257,17 @@ export const ExperimentAssignmentQueries: FC<
                         Edit Dimensions
                       </button>
                     ) : null}
-
                     <hr className="dropdown-divider" />
-                    <DeleteButton
-                      onClick={handleActionDeleteClicked(idx)}
-                      className="dropdown-item text-danger py-2"
-                      iconClassName="mr-2"
-                      style={{ borderRadius: 0 }}
-                      useIcon={false}
-                      displayName={query.name}
-                      deleteMessage={`Are you sure you want to delete experiment assignment query ${query.name}?`}
-                      title="Delete"
-                      text="Delete"
-                      outline={false}
-                    />
+                    {isManaged ? (
+                      <Tooltip
+                        body="This query was created automatically when Event Forwarder was connected. It cannot be deleted; it is removed when the linked identifier type is no longer used."
+                        usePortal
+                      >
+                        <span className="d-block">{deleteButton}</span>
+                      </Tooltip>
+                    ) : (
+                      deleteButton
+                    )}
                   </MoreMenu>
                 )}
 

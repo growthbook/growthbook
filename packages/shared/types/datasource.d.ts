@@ -180,6 +180,8 @@ export interface ExposureQuery {
   dimensionSlicesId?: string;
   dimensionMetadata?: ExperimentDimensionMetadata[];
   error?: string;
+  /** Set to "api" for queries auto-created by Event Forwarder (not deletable in UI). */
+  managedBy?: "" | "api";
 }
 
 export interface FeatureUsageQuery {
