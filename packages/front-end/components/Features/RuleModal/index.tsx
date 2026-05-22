@@ -20,7 +20,7 @@ import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
 import { kebabCase } from "lodash";
-import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   CreateSafeRolloutInterface,
   SafeRolloutInterface,
@@ -80,7 +80,6 @@ import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useBatchPrerequisiteStates } from "@/hooks/usePrerequisiteStates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
-import SelectField from "@/components/Forms/SelectField";
 import RampScheduleSection from "@/components/Features/RuleModal/RampScheduleSection";
 import {
   type RampSectionState,
@@ -1781,27 +1780,6 @@ export default function RuleModal({
 
         {hasRampPage && (
           <Page display="Ramp-up Schedule">
-            {(() => {
-              const watchedHash = form.watch("hashAttribute") as string;
-              const hashAttrs = attributeSchema.filter((s) => s.hashAttribute);
-              const needsHash = !watchedHash && hashAttrs.length > 0;
-              return needsHash ? (
-                <Box mb="5">
-                  <SelectField
-                    label="Sample using attribute"
-                    value={watchedHash ?? ""}
-                    options={hashAttrs.map((attr) => ({
-                      label: attr.property,
-                      value: attr.property,
-                    }))}
-                    onChange={(v) => form.setValue("hashAttribute", v)}
-                    helpText="Required for coverage-based ramp steps"
-                    required
-                  />
-                  <Separator size="4" my="5" />
-                </Box>
-              ) : null;
-            })()}
             <RampScheduleSection
               ruleRampSchedule={ruleRampSchedule}
               state={rampSectionState}
@@ -1812,6 +1790,12 @@ export default function RuleModal({
               hideNameField={true}
               feature={feature}
               environments={environments.map((e) => e.id)}
+              hashAttribute={form.watch("hashAttribute") as string}
+              setHashAttribute={(v) => form.setValue("hashAttribute", v)}
+              seed={form.watch("seed") as string}
+              setSeed={(v) => form.setValue("seed", v)}
+              attributeSchema={attributeSchema}
+              featureId={feature.id}
             />
           </Page>
         )}

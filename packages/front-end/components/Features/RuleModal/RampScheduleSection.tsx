@@ -32,6 +32,7 @@ import type {
   SavedGroupTargeting,
   FeaturePrerequisite,
 } from "shared/types/feature";
+import type { SDKAttributeSchema } from "shared/types/organization";
 import {
   RampScheduleInterface,
   RampScheduleTemplateInterface,
@@ -832,6 +833,13 @@ interface Props {
   hideTemplateSave?: boolean;
   // Shows pending removal before the draft is saved.
   pendingDetach?: boolean;
+  // Hash attribute + seed — shown below date controls when ramp has coverage steps.
+  hashAttribute?: string;
+  setHashAttribute?: (v: string) => void;
+  seed?: string;
+  setSeed?: (v: string) => void;
+  attributeSchema?: SDKAttributeSchema;
+  featureId?: string;
 }
 
 export default function RampScheduleSection({
@@ -846,8 +854,15 @@ export default function RampScheduleSection({
   hideNameField = false,
   hideTemplateSave = false,
   pendingDetach = false,
+  hashAttribute,
+  setHashAttribute,
+  seed,
+  setSeed,
+  attributeSchema,
+  featureId,
 }: Props) {
   const [open, setOpen] = useState(embedded || state.mode !== "off");
+  const [seedOpen, setSeedOpen] = useState(!!(seed));
 
   const [openMenuIndex, setOpenMenuIndex] = useState<number | "end" | null>(
     null,
@@ -3622,6 +3637,82 @@ export default function RampScheduleSection({
         {startInput}
         {durationInput}
         {!hideTemplateSave && cutoffInput}
+
+        {setHashAttribute && attributeSchema && state.steps.some(
+          (s) => s.patch.coverage !== undefined,
+        ) && (
+          <Box pt="3">
+            <Flex direction="column" gap="2">
+              <Flex align="center" gap="1">
+                <Text as="label" weight="medium" mb="0">
+                  Sample users by:
+                </Text>
+                <DropdownMenu
+                  trigger={
+                    <Link type="button" style={{ color: "var(--color-text-high)" }}>
+                      <Text mr="1">{hashAttribute || "Select attribute"}</Text>
+                      <PiCaretDownFill />
+                    </Link>
+                  }
+                  menuPlacement="start"
+                  variant="soft"
+                >
+                  <DropdownMenuGroup>
+                    {attributeSchema
+                      .filter((a) => a.hashAttribute)
+                      .map((a) => (
+                        <DropdownMenuItem
+                          key={a.property}
+                          onClick={() => setHashAttribute(a.property)}
+                        >
+                          {a.property}
+                        </DropdownMenuItem>
+                      ))}
+                  </DropdownMenuGroup>
+                </DropdownMenu>
+              </Flex>
+            </Flex>
+            {setSeed && (
+              <>
+                {!seedOpen && (
+                  <Link
+                    type="button"
+                    className="hover-underline"
+                    onClick={() => setSeedOpen(true)}
+                  >
+                    <PiPlusBold className="mr-1" />
+                    edit seed
+                  </Link>
+                )}
+                {seedOpen && (
+                  <>
+                    <Flex align="center" gap="3" py="1" style={{ minHeight: 42 }}>
+                      <Box style={{ width: 70 }}>
+                        <Text as="label" weight="medium" ml="2" mb="0">
+                          Seed
+                        </Text>
+                      </Box>
+                      <Box style={{ width: 150 }}>
+                        <Field
+                          type="input"
+                          value={seed ?? ""}
+                          onChange={(e) => setSeed(e.target.value)}
+                          placeholder={featureId}
+                          containerClassName="mb-0"
+                        />
+                      </Box>
+                    </Flex>
+                    {ruleRampSchedule && (
+                      <HelperText status="warning" size="sm" mb="0">
+                        Changing this re-randomizes rollout traffic.
+                      </HelperText>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          </Box>
+        )}
 
         <Flex align="center" my="2">
           <Checkbox

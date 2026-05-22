@@ -384,21 +384,25 @@ export default function StandardRuleFields({
         </HelperText>
       ) : (
         <Box my="4">
-          <RolloutPercentInput
-            value={form.watch("coverage") ?? 1}
-            setValue={(coverage) => form.setValue("coverage", coverage)}
-            lockedByRamp={rampControlsCoverage}
-            rampSchedule={ruleRampSchedule}
-            hashAttribute={form.watch("hashAttribute")}
-            setHashAttribute={(v: string) => form.setValue("hashAttribute", v)}
-            attributeSchema={attributeSchema}
-            hasHashAttributes={hasHashAttributes}
-            seed={form.watch("seed")}
-            setSeed={(v: string) => form.setValue("seed", v)}
-            featureId={feature.id}
-            advancedOpen={advancedOptionsOpen}
-            setAdvancedOpen={setadvancedOptionsOpen}
-          />
+          {rampControlsCoverage ? null : (
+            <RolloutPercentInput
+              value={form.watch("coverage") ?? 1}
+              setValue={(coverage) => form.setValue("coverage", coverage)}
+              rampSchedule={ruleRampSchedule}
+              hashAttribute={form.watch("hashAttribute")}
+              setHashAttribute={(v: string) =>
+                form.setValue("hashAttribute", v)
+              }
+              attributeSchema={attributeSchema}
+              hasHashAttributes={hasHashAttributes}
+              seed={form.watch("seed")}
+              setSeed={(v: string) => form.setValue("seed", v)}
+              featureId={feature.id}
+              advancedOpen={advancedOptionsOpen}
+              setAdvancedOpen={setadvancedOptionsOpen}
+            />
+          )}
+
           <Box mt="7">
             <SavedGroupTargetingField
               value={form.watch("savedGroups") || []}

@@ -1,6 +1,6 @@
 import { Slider, Flex, Box } from "@radix-ui/themes";
 import { ReactNode } from "react";
-import { PiCaretRightFill, PiLockSimple } from "react-icons/pi";
+import { PiCaretRightFill } from "react-icons/pi";
 import { SDKAttributeSchema } from "shared/types/organization";
 import { RampScheduleInterface } from "shared/validators";
 import Collapsible from "react-collapsible";
@@ -17,7 +17,6 @@ export interface Props {
   label?: string;
   labelActions?: ReactNode;
   locked?: boolean;
-  lockedByRamp?: boolean;
   // Hash attribute selection
   hashAttribute?: string;
   setHashAttribute?: (v: string) => void;
@@ -39,7 +38,6 @@ export default function RolloutPercentInput({
   label = "Rollout Percentage",
   labelActions,
   locked,
-  lockedByRamp,
   hashAttribute,
   setHashAttribute,
   attributeSchema,
@@ -79,57 +77,38 @@ export default function RolloutPercentInput({
           {labelActions}
         </Flex>
       )}
-      {lockedByRamp ? (
-        <Flex align="center" gap="3" mb="3">
-          <Box position="relative" className={styles.percentInputWrap}>
-            <Field
-              style={{ width: 95 }}
-              readOnly
-              value={isNaN(value ?? 0) ? "" : decimalToPercent(value ?? 0)}
-              type="number"
-            />
-            <span>%</span>
-          </Box>
-          <HelperText status="info" icon={<PiLockSimple />}>
-            Locked by ramp schedule
-          </HelperText>
-        </Flex>
-      ) : (
-        <Flex align="center" gap="3" mb="1">
-          <Box flexGrow="1">
-            <Slider
-              value={[value]}
-              min={0}
-              max={1}
-              step={0.01}
-              disabled={locked}
-              onValueChange={(e) => {
-                setValue(e[0]);
-              }}
-            />
-          </Box>
-          <Box position="relative" className={styles.percentInputWrap}>
-            <Field
-              style={{ width: 95 }}
-              disabled={locked}
-              value={isNaN(value ?? 0) ? "" : decimalToPercent(value ?? 0)}
-              step={1}
-              onChange={(e) => {
-                let decimal = percentToDecimal(e.target.value);
-                if (decimal > 1) decimal = 1;
-                if (decimal < 0) decimal = 0;
-                setValue(decimal);
-              }}
-              type="number"
-            />
-            <span>%</span>
-          </Box>
-        </Flex>
-      )}
+      <Flex align="center" gap="3" mb="1">
+        <Box flexGrow="1">
+          <Slider
+            value={[value]}
+            min={0}
+            max={1}
+            step={0.01}
+            disabled={locked}
+            onValueChange={(e) => {
+              setValue(e[0]);
+            }}
+          />
+        </Box>
+        <Box position="relative" className={styles.percentInputWrap}>
+          <Field
+            style={{ width: 95 }}
+            disabled={locked}
+            value={isNaN(value ?? 0) ? "" : decimalToPercent(value ?? 0)}
+            step={1}
+            onChange={(e) => {
+              let decimal = percentToDecimal(e.target.value);
+              if (decimal > 1) decimal = 1;
+              if (decimal < 0) decimal = 0;
+              setValue(decimal);
+            }}
+            type="number"
+          />
+          <span>%</span>
+        </Box>
+      </Flex>
 
-      {showAdvancedSection &&
-      ((setHashAttribute && attributeSchema) ||
-        (setSeed && setAdvancedOpen !== undefined)) ? (
+      {showAdvancedSection ? (
         <Box px="4" py="2" mt="2" className="bg-highlight rounded">
           {setHashAttribute && attributeSchema && (
             <SelectField
