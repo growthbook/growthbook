@@ -4281,7 +4281,7 @@ export async function getLinkedFeatureInfo(
       //   1. (preferred) a draft whose experiment-ref rule slice DIFFERS from
       //      live — i.e. the draft is making changes to this experiment's
       //      rule. Used to flip state to "draft" even when live already has
-      //      a matching rule (running-experiment edit case).
+      //      a matching rule.
       //   2. (fallback) the first draft with any experiment-ref match for
       //      this experiment, even if unchanged from live. Preserves the
       //      legacy path where a draft is introducing the rule for the first
