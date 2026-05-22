@@ -236,13 +236,6 @@ export default function EditFeatureFlagValuesModal({
 
   const watchedVariations = form.watch("variations");
 
-  const weightSum = (watchedVariations ?? []).reduce(
-    (acc, v) => acc + (Number(v?.weight) || 0),
-    0,
-  );
-  const weightSumPct = decimalToPercent(weightSum);
-  const weightsOutOfBalance = Math.abs(weightSum - 1) > 1e-4;
-
   const rebalanceWeights = (i: number, newDecimal: number) => {
     const currentWeights = (form.getValues("variations") ?? []).map(
       (v) => Number(v?.weight) || 0,
@@ -252,6 +245,25 @@ export default function EditFeatureFlagValuesModal({
       if (w !== currentWeights[j]) {
         form.setValue(`variations.${j}.weight`, w);
       }
+    });
+  };
+
+  const handleRemoveVariation = (i: number) => {
+    const currentRows = form.getValues("variations") ?? [];
+    const currentWeights = currentRows.map((v) => Number(v?.weight) || 0);
+    const wasEqualWeights =
+      currentWeights.length > 0 &&
+      currentWeights.every((w) => Math.abs(w - currentWeights[0]) < 0.0001);
+
+    remove(i);
+
+    const remainingWeights = currentWeights.filter((_, j) => j !== i);
+    const newWeights = wasEqualWeights
+      ? getEqualWeights(remainingWeights.length)
+      : distributeWeights(remainingWeights, true);
+
+    newWeights.forEach((w, j) => {
+      form.setValue(`variations.${j}.weight`, w);
     });
   };
 
@@ -387,11 +399,6 @@ export default function EditFeatureFlagValuesModal({
         </Box>
       ) : (
         <>
-          {isEditingVariations && weightsOutOfBalance && (
-            <Callout status="warning" my="2">
-              Variation splits must sum to 100% — currently {weightSumPct}%.
-            </Callout>
-          )}
           <Flex direction="column" gap="3" pt="2">
             {fields.map((field, i) => {
               const row = watchedVariations?.[i] ?? field;
@@ -487,7 +494,7 @@ export default function EditFeatureFlagValuesModal({
                             }
                             onClick={() => {
                               if (!isNewVariation) return;
-                              remove(i);
+                              handleRemoveVariation(i);
                             }}
                           >
                             Delete
@@ -553,7 +560,7 @@ export default function EditFeatureFlagValuesModal({
                         }
                         onClick={() => {
                           if (!isNewVariation) return;
-                          remove(i);
+                          handleRemoveVariation(i);
                         }}
                       >
                         Delete
