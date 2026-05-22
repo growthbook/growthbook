@@ -973,14 +973,6 @@ const apiPhaseInput = z.object({
   reasonForStopping: z.string().optional(),
   seed: z.string().optional(),
   coverage: z.number().optional(),
-  trafficSplit: z
-    .array(
-      z.object({
-        variationId: z.string(),
-        weight: z.number(),
-      }),
-    )
-    .optional(),
   namespace: z
     .object({
       namespaceId: z.string(),
@@ -990,7 +982,6 @@ const apiPhaseInput = z.object({
       ranges: z.array(z.tuple([z.number(), z.number()])).optional(),
     })
     .optional(),
-  targetingCondition: z.string().optional(),
   prerequisites: z
     .array(
       z.object({
@@ -1234,16 +1225,6 @@ const updateExperimentBody = z
           reasonForStopping: z.string().optional(),
           seed: z.string().optional(),
           coverage: z.number().optional(),
-          trafficSplit: z
-            .array(
-              z.object({
-                variationId: z.string(),
-                weight: z.number(),
-              }),
-            )
-            .describe("Deprecated and unused. Use variationWeights instead.")
-            .optional()
-            .meta({ deprecated: true }),
           namespace: z
             .object({
               namespaceId: z.string(),
@@ -1251,7 +1232,6 @@ const updateExperimentBody = z
               enabled: z.boolean().optional(),
             })
             .optional(),
-          targetingCondition: z.string().optional(),
           prerequisites: z
             .array(
               z.object({

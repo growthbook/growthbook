@@ -32,7 +32,7 @@ import { Context } from "back-end/src/models/BaseModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
-import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
+import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
 import {
   getEnvironmentIdsFromOrg,
@@ -318,7 +318,7 @@ export const computeExperimentChanges = async ({
     return [];
   }
 
-  const lastSnapshot = await getLatestSnapshot({
+  const lastSnapshot = await getLatestSuccessfulSnapshot({
     context,
     experiment: experiment.id,
     phase: experiment.phases.length - 1,

@@ -138,6 +138,7 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
     context: Context,
     entity: SavedGroupInterface,
     changes: Record<string, unknown>,
+    options?: { isRevert?: boolean },
   ): Promise<void> {
     // Filter to updatable fields and only include fields that actually differ
     const filteredChanges: Record<string, unknown> = {};
@@ -152,11 +153,15 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
 
     if (Object.keys(filteredChanges).length === 0) return;
 
+    // Reverts restore a previously-published condition as-is; skip the
+    // registered-attributes check so an attribute removed/archived since the
+    // snapshot was taken doesn't block the revert.
     await context.models.savedGroups.update(
       entity,
       filteredChanges as Parameters<
         typeof context.models.savedGroups.update
       >[1],
+      options?.isRevert ? { skipAttributeValidation: true } : undefined,
     );
   },
 };

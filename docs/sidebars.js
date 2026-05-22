@@ -480,10 +480,26 @@ export default {
       label: "Insights",
     },
     {
-      type: "doc",
-      id: "product-analytics",
+      type: "category",
       label: "Product Analytics",
       className: "pill-new",
+      collapsed: true,
+      link: {
+        type: "doc",
+        id: "product-analytics/index",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "product-analytics/explorer",
+          label: "Explorer",
+        },
+        {
+          type: "doc",
+          id: "product-analytics/dashboards",
+          label: "Dashboards",
+        },
+      ],
     },
     {
       type: "category",

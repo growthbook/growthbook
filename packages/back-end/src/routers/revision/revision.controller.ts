@@ -1001,6 +1001,7 @@ export const postMerge = async (
     context,
     entity as Record<string, unknown>,
     desiredState,
+    { isRevert: !!revision.revertedFrom },
   );
 
   const mergedRevision = await revisionModel.merge(id, userId, {

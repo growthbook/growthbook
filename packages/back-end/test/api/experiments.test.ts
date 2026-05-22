@@ -7,7 +7,7 @@ import {
   updateExperiment,
 } from "../../src/models/ExperimentModel";
 import {
-  getLatestSnapshot,
+  getLatestSuccessfulSnapshot,
   getLatestSnapshotMultipleExperiments,
 } from "../../src/models/ExperimentSnapshotModel";
 import { getMetricsByIds } from "../../src/models/MetricModel";
@@ -30,7 +30,7 @@ jest.mock("../../src/models/ExperimentModel", () => ({
 }));
 
 jest.mock("../../src/models/ExperimentSnapshotModel", () => ({
-  getLatestSnapshot: jest.fn(),
+  getLatestSuccessfulSnapshot: jest.fn(),
   getLatestSnapshotMultipleExperiments: jest.fn(),
 }));
 
@@ -1872,7 +1872,7 @@ describe("experiments API", () => {
         ],
       };
       (getExperimentById as jest.Mock).mockResolvedValue(experimentWithPhases);
-      (getLatestSnapshot as jest.Mock).mockResolvedValue({
+      (getLatestSuccessfulSnapshot as jest.Mock).mockResolvedValue({
         id: "snap_123",
         organization: "org_1",
         experiment: "exp_123",
@@ -1958,7 +1958,7 @@ describe("experiments API", () => {
       (getMetricsByIds as jest.Mock).mockResolvedValue([
         { id: "met_1", name: "Signups" },
       ]);
-      (getLatestSnapshot as jest.Mock).mockResolvedValue({
+      (getLatestSuccessfulSnapshot as jest.Mock).mockResolvedValue({
         id: "snap_123",
         organization: "org_1",
         experiment: "exp_123",
@@ -2034,7 +2034,7 @@ describe("experiments API", () => {
 
     it("returns 400 when no results found", async () => {
       (getExperimentById as jest.Mock).mockResolvedValue(experiment);
-      (getLatestSnapshot as jest.Mock).mockResolvedValue(null);
+      (getLatestSuccessfulSnapshot as jest.Mock).mockResolvedValue(null);
 
       const res = await request(app)
         .get("/api/v1/experiments/exp_123/results")

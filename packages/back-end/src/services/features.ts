@@ -88,6 +88,7 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ApiReqContext } from "back-end/types/api";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import {
   getAllPayloadExperiments,
@@ -2382,8 +2383,10 @@ export function sha256(str: string, salt: string): string {
 }
 
 export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
+  context: ReqContext,
   feature: FeatureInterface,
   rules: ApiFeatureEnvSettingsRules,
+  existingRules?: FeatureRule[],
 ): FeatureRule[] =>
   rules.map((r) => {
     const conditionRes = validateCondition(r.condition);
@@ -2392,6 +2395,36 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         "Invalid targeting condition JSON: " + conditionRes.error,
       );
     }
+
+    // Opt-in attribute registration check (org-level setting). Only validate
+    // fields that changed so pre-existing violations don't block unrelated edits.
+    const ruleWithAttrs = r as {
+      hashAttribute?: string;
+      fallbackAttribute?: string;
+      condition?: string;
+    };
+    const existingRule = r.id
+      ? existingRules?.find((er) => er.id === r.id)
+      : undefined;
+    assertRegisteredAttributes(
+      context,
+      {
+        hashAttribute: ruleWithAttrs.hashAttribute,
+        fallbackAttribute: ruleWithAttrs.fallbackAttribute,
+        condition: ruleWithAttrs.condition,
+      },
+      "rule",
+      existingRule
+        ? {
+            hashAttribute: (existingRule as { hashAttribute?: string })
+              .hashAttribute,
+            fallbackAttribute: (existingRule as { fallbackAttribute?: string })
+              .fallbackAttribute,
+            condition: existingRule.condition,
+          }
+        : undefined,
+      feature.project,
+    );
 
     switch (r.type) {
       case "experiment-ref": {
@@ -2483,6 +2516,10 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
     }
   });
 
+// In v2, rules live exclusively on `feature.rules` (flat). The env-settings
+// reducer only emits `{ enabled }`; rule construction (and the registered-
+// attribute check) happens in `buildFeatureRulesFromApiEnvSettings` /
+// `mapV2ApiRuleToFeatureRule` callers.
 export const createInterfaceEnvSettingsFromApiEnvSettings = (
   feature: FeatureInterface,
   baseEnvs: Environment[],
@@ -2524,6 +2561,7 @@ export const updateInterfaceEnvSettingsFromApiEnvSettings = (
 // Rules without an id are stamped here (per env) before flattening, since
 // `flattenV1ToV2Rules` skips id-less rules (they have no group key).
 export const buildFeatureRulesFromApiEnvSettings = (
+  context: ReqContext,
   feature: FeatureInterface,
   baseEnvs: Environment[],
   incomingEnvs: ApiFeatureEnvSettings,
@@ -2533,6 +2571,7 @@ export const buildFeatureRulesFromApiEnvSettings = (
     const apiRules = incomingEnvs?.[e.id]?.rules;
     if (!apiRules) return;
     const converted = fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
+      context,
       feature,
       apiRules,
     );
