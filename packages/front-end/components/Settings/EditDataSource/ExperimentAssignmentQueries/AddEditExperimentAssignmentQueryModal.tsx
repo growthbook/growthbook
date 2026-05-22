@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
+import { isEventForwarderManagedExposureQuery } from "shared/util";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
 import StringArrayField from "@/components/Forms/StringArrayField";
@@ -37,6 +38,11 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       : `Edit ${
           exposureQuery ? exposureQuery.name : "Experiment Assignment"
         } query`;
+
+  const isManaged =
+    mode === "edit" &&
+    !!exposureQuery &&
+    isEventForwarderManagedExposureQuery(exposureQuery);
 
   const userIdTypeOptions = dataSource?.settings?.userIdTypes?.map(
     ({ userIdType }) => ({
@@ -71,6 +77,10 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const userEnteredHasNameCol = form.watch("hasNameCol");
 
   const handleSubmit = form.handleSubmit(async (value) => {
+    if (isManaged && exposureQuery) {
+      value.userIdType = exposureQuery.userIdType;
+      value.managedBy = exposureQuery.managedBy;
+    }
     await onSave(value);
 
     form.reset({
@@ -253,9 +263,22 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                 {...form.register("description")}
               />
               <Field
-                label="Identifier Type"
+                label={
+                  <>
+                    Identifier Type
+                    {isManaged ? (
+                      <Tooltip body="Identifier type is fixed for queries created by Event Forwarder and cannot be changed." />
+                    ) : null}
+                  </>
+                }
                 options={identityTypes.map((i) => i.userIdType)}
                 required
+                disabled={isManaged}
+                helpText={
+                  isManaged
+                    ? "Managed by Event Forwarder for this identifier."
+                    : undefined
+                }
                 {...form.register("userIdType")}
               />
               <div className="form-group">

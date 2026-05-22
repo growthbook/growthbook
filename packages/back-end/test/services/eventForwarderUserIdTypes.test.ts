@@ -4,8 +4,15 @@ import {
   syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema,
 } from "back-end/src/services/eventForwarderUserIdTypes";
 import * as DataSourceModel from "back-end/src/models/DataSourceModel";
+import * as EventForwarderExposureQueries from "back-end/src/services/eventForwarderExposureQueries";
 
 jest.mock("back-end/src/models/DataSourceModel");
+jest.mock("back-end/src/services/eventForwarderExposureQueries");
+
+const mockedEnsureExposure =
+  EventForwarderExposureQueries.ensureEventForwarderExposureQueries as jest.MockedFunction<
+    typeof EventForwarderExposureQueries.ensureEventForwarderExposureQueries
+  >;
 
 const mockedGetRaw =
   DataSourceModel.getRawDataSourceById as jest.MockedFunction<
@@ -55,6 +62,7 @@ function contextWithSchema(
 describe("initializeDatasourceUserIdTypesFromOrgAttributeSchema", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedEnsureExposure.mockResolvedValue(undefined);
   });
 
   it("merges hash attributes without overriding existing names (case insensitive)", async () => {
@@ -119,11 +127,42 @@ describe("initializeDatasourceUserIdTypesFromOrgAttributeSchema", () => {
       },
     );
   });
+
+  it("ensures exposure queries when event forwarder config is provided", async () => {
+    const raw = ds("ds_1", {});
+    mockedGetRaw.mockResolvedValue(raw);
+    mockedGetById.mockResolvedValue(raw);
+
+    const config = {
+      id: "efc_1",
+      datasourceId: "ds_1",
+      sinkType: "bigquery" as const,
+      config: "encrypted",
+      status: "pending" as const,
+      organization: "org1",
+      projects: [],
+      topic: "topic",
+    };
+
+    await initializeDatasourceUserIdTypesFromOrgAttributeSchema(
+      contextWithSchema([
+        { property: "id", datatype: "string", hashAttribute: true },
+      ]) as never,
+      "ds_1",
+      config,
+    );
+
+    expect(mockedEnsureExposure).toHaveBeenCalledWith(
+      expect.anything(),
+      config,
+    );
+  });
 });
 
 describe("syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedEnsureExposure.mockResolvedValue(undefined);
   });
 
   it("merges new hash attributes into all event forwarder datasources", async () => {
@@ -163,6 +202,7 @@ describe("syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema", () => 
     );
 
     expect(mockedUpdate).toHaveBeenCalledTimes(2);
+    expect(mockedEnsureExposure).toHaveBeenCalledTimes(2);
     expect(mockedUpdate).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ id: "ds_a" }),
