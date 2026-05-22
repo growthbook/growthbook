@@ -43,7 +43,7 @@ describe("buildEventForwarderExposureQuerySql", () => {
       userIdType: "user_id",
     });
 
-    expect(sql).toContain("user_id AS user_id");
+    expect(sql).toContain("event_uuid AS user_id");
     expect(sql).toContain("experiment_id AS experiment_id");
     expect(sql).toContain(`FROM ${tableRef}`);
     expect(sql).toContain(
@@ -60,7 +60,7 @@ describe("buildEventForwarderExposureQuerySql", () => {
       userIdType: "device_id",
     });
 
-    expect(sql).toContain("device_id AS device_id");
+    expect(sql).toContain("event_uuid AS device_id");
     expect(sql).toContain("FROM MY_DB.PUBLIC.experiment_viewed");
     expect(sql).not.toContain("WHERE");
   });
