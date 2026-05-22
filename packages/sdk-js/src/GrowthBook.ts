@@ -658,6 +658,9 @@ export class GrowthBook<
           }
         : this._options.attributes,
       enableDevMode: this._options.enableDevMode,
+      // This is temporarily getting feature evals for session replays
+      // open to other solutions here.
+      captureLogs: this._options.captureLogs,
       blockedChangeIds: this._options.blockedChangeIds,
       stickyBucketAssignmentDocs: this._options.stickyBucketAssignmentDocs,
       url: this._getContextUrl(),

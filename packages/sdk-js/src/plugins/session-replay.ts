@@ -171,6 +171,19 @@ const REPLAY_STORAGE_KEY = "gb_session_replay";
  */
 const RESUME_STALENESS_MS = 15 * 60 * 1000;
 
+/**
+ * Circuit breaker for auth failures. When the ingest endpoint returns
+ * 401 (bad clientKey) or 403 (org/key forbidden), retrying produces the
+ * same failure forever — and because flushes are also triggered by the
+ * pre-push size cap, a misconfigured key turns into a hot loop: emit →
+ * over cap → flush → 401 → revert + re-buffer → over cap again → flush
+ * again, multiple requests per second. After this many consecutive
+ * auth failures we stop the recorder entirely, on the assumption that
+ * the configuration is wrong and won't fix itself within a page load.
+ * Tab refresh resets the counter (fresh plugin instance, fresh roll).
+ */
+const AUTH_FAILURE_LIMIT = 3;
+
 function readPersistedReplayState(): PersistedReplayState | null {
   if (typeof sessionStorage === "undefined") return null;
   try {
@@ -268,6 +281,11 @@ export function sessionReplayPlugin({
   // JSON.stringify per emitted event) and good enough to keep payloads
   // under the ingest endpoint's body-size limit.
   let bufferedBytes = 0;
+  // Consecutive 401/403 count. Incremented on every auth failure, reset
+  // on any successful send (or non-auth failure). When it hits
+  // AUTH_FAILURE_LIMIT the recorder stops to break the hot loop a bad
+  // clientKey would otherwise create against the ingest endpoint.
+  let consecutiveAuthFailures = 0;
 
   /**
    * Gzip a string body via the browser's native CompressionStream API and
@@ -474,6 +492,9 @@ export function sessionReplayPlugin({
             lastChunkAt: Date.now(),
           });
         }
+        // Whatever transient hiccup we'd been counting against the
+        // circuit breaker, we just succeeded — clear it.
+        consecutiveAuthFailures = 0;
       } catch (e) {
         // Distinguish transient (5xx / network / no status) from permanent
         // (4xx) failures. Retrying a permanent failure produces an
@@ -499,6 +520,13 @@ export function sessionReplayPlugin({
         const isPermanent =
           typeof status === "number" && PER_CHUNK_FAILURE_CODES.has(status);
         const isTransient = !isPermanent;
+        // Auth failures (401/403) are transient from a retry-class
+        // perspective (the chunk itself is fine; the credentials are
+        // wrong), but unlike a 5xx they won't fix themselves — every
+        // retry produces the same failure. Without a circuit breaker
+        // the pre-push size flush turns this into a hot loop pumping
+        // multiple requests per second at the ingestor.
+        const isAuthFailure = status === 401 || status === 403;
 
         if (sessionId !== sessionIdBeingSent) {
           // Session rotated mid-flight — re-prepending into the new
@@ -516,12 +544,43 @@ export function sessionReplayPlugin({
           window._gbReplayEvents.unshift(...eventsBeingSent);
           bufferedBytes += bufferedBytesBeingSent;
           logCursor = logCursorBeingSent;
-          console.warn(
-            `session-replay: chunk ${chunkIndexBeingSent} send failed, will retry on next flush`,
-            e,
-          );
+
+          if (isAuthFailure) {
+            consecutiveAuthFailures += 1;
+            console.warn(
+              `session-replay: chunk ${chunkIndexBeingSent} auth failure ` +
+                `(${consecutiveAuthFailures}/${AUTH_FAILURE_LIMIT}) HTTP ${status}`,
+              e,
+            );
+            if (consecutiveAuthFailures >= AUTH_FAILURE_LIMIT) {
+              console.error(
+                "session-replay: stopping recorder after " +
+                  `${AUTH_FAILURE_LIMIT} consecutive auth failures. ` +
+                  "Verify your GrowthBook clientKey and that the org has " +
+                  "session replay enabled on the ingestor.",
+              );
+              // Drop the re-buffered events on the floor — there's no
+              // point holding them in memory when we're not going to
+              // try again, and pagehide could otherwise still fire one
+              // last keepalive POST against the same bad key.
+              window._gbReplayEvents.length = 0;
+              bufferedBytes = 0;
+              stopRecording();
+              return;
+            }
+          } else {
+            // Non-auth transient (5xx / 429 / network) — likely to
+            // recover on its own, don't trip the circuit breaker.
+            consecutiveAuthFailures = 0;
+            console.warn(
+              `session-replay: chunk ${chunkIndexBeingSent} send failed, will retry on next flush`,
+              e,
+            );
+          }
         } else {
-          // Permanent failure (4xx) — chunk is unrecoverable. Advance
+          // Permanent per-chunk failure (400/413/422) — chunk is
+          // unrecoverable but auth is fine; reset the auth counter.
+          consecutiveAuthFailures = 0;
           chunkIndex = chunkIndexBeingSent + 1;
           writePersistedReplayState({
             sessionId,
@@ -744,6 +803,42 @@ export function sessionReplayPlugin({
 
   return (gb: GrowthBook) => {
     gbRef = gb;
+    // -----------------------------------------------------------------
+    // Production telemetry note — known-flawed; tracked for replacement.
+    // -----------------------------------------------------------------
+    // The plugin needs to observe every feature evaluation and every
+    // experiment assignment in order to populate `context.flags` /
+    // `context.experiments` on each chunk and to synthesize the rrweb
+    // custom events that drive the evaluations panel in the replay UI.
+    //
+    // The SDK's documented production telemetry hooks
+    // (`trackingCallback`, `onFeatureUsage`, `eventLogger`) are
+    // single-callback-per-instance — installing ours would stomp on the
+    // customer's own callback. We can't safely wrap, because
+    // setTrackingCallback() called later in app code would replace our
+    // wrapper and silently break replay telemetry.
+    //
+    // The only multi-subscriber-friendly mechanism the SDK exposes today
+    // is `captureLogs` + polling `gb.logs`, which is what we use here.
+    // This is structurally undesirable for two reasons:
+    //
+    //   1. `gb.logs` grows unboundedly for the SDK's lifetime. Our
+    //      `logCursor` advances so we don't re-process entries, but the
+    //      array itself never shrinks. In long-running SPAs that's a
+    //      slow memory leak proportional to evaluation volume.
+    //
+    //   2. We depend on undocumented log shape (`logType: "feature"`,
+    //      `featureKey`, `result.value`, etc.). That's a contract the
+    //      SDK doesn't promise. The captureLogs propagation bug
+    //      (fixed by adding the field to GrowthBook._getUserContext)
+    //      is exactly the class of breakage this dependency invites.
+    //
+    // The cleaner architecture is event-emitter style listeners on the
+    // SDK: `gb.on("feature-evaluated", handler)` etc. Multiple
+    // subscribers, no conflict with customer callbacks, plugin owns
+    // its own buffer that clears on flush. Tracked as a separate
+    // follow-up — until that lands, this is what we have.
+    // -----------------------------------------------------------------
     gb.setCaptureLogs(true);
 
     const [apiHost, key] = gb.getApiInfo();

@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import "rrweb-player/dist/style.css";
 import type { eventWithTime } from "@rrweb/types";
-import Player from "rrweb-player";
 import { Box, Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "@/types/app-features";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
@@ -11,12 +11,11 @@ import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
+import RrwebPlayer, {
+  RrwebPlayerHandle,
+} from "@/components/SessionReplay/RrwebPlayer";
+import Custom404 from "@/pages/404";
 
-// JSON-serialized shape of SessionReplayInterface coming from the back-end
-// (Date fields arrive as ISO strings over the wire). The canonical type
-// lives in `shared/validators/session-replay.ts`; we intentionally re-shape
-// it here rather than importing it because front-end can't import `shared`
-// types that contain Date instances when they cross the JSON boundary.
 type SessionReplayRow = {
   id: string;
   organization: string;
@@ -108,8 +107,14 @@ function avatarInitial(userId: string): string {
 }
 
 /**
- * See `getReplayBlockReason` in pages/session-replay/[sessionId].tsx for
- * the rationale. Mirrored here to keep the two playback surfaces in sync.
+ * Returns null if the events are playable, or a string explaining what's
+ * missing. The distinction matters operationally:
+ *   - "fewer than 2 events": the recording is just too short.
+ *   - "no FullSnapshot": chunk 0 is missing from S3 (lost in transport) or
+ *     the SDK never captured one (initialized after the page was already
+ *     mutating). Without a FullSnapshot rrweb cannot render any DOM.
+ *   - "no IncrementalSnapshot": something captured the initial DOM but
+ *     no subsequent activity — effectively nothing to play.
  */
 function getReplayBlockReason(events: eventWithTime[]): string | null {
   if (events.length < 2) {
@@ -124,36 +129,6 @@ function getReplayBlockReason(events: eventWithTime[]): string | null {
     return "Session has the initial DOM but no subsequent activity to replay.";
   }
   return null;
-}
-
-/**
- * Pick a player size that always leaves the controller above the fold.
- *
- * rrweb-player renders at fixed pixel dimensions passed in props (CSS on
- * the container is ignored). The controller bar adds ~80 px below the
- * canvas, so we measure the actual available space in the center column
- * (which is a 3-column layout: session list | player | evaluations) and
- * size the player to fit. Falls back to viewport-based defaults if the
- * container isn't measurable yet.
- */
-const PLAYER_CONTROLLER_PX = 80;
-const PLAYER_MIN_HEIGHT = 320;
-const PLAYER_MAX_HEIGHT = 560;
-
-function computePlayerDims(container: HTMLElement | null): {
-  width: number;
-  height: number;
-} {
-  const containerEl = container?.parentElement ?? container;
-  const containerW = containerEl?.clientWidth ?? 900;
-  const containerH = containerEl?.clientHeight ?? 600;
-  const availableH = containerH - PLAYER_CONTROLLER_PX;
-  const height = Math.max(
-    PLAYER_MIN_HEIGHT,
-    Math.min(PLAYER_MAX_HEIGHT, availableH),
-  );
-  const width = Math.min(containerW, Math.round((height * 16) / 9));
-  return { width, height };
 }
 
 function formatCustomEvent(data: {
@@ -181,6 +156,9 @@ function formatCustomEvent(data: {
 }
 
 export default function SessionReplayPage() {
+  const gb = useGrowthBook<AppFeatures>();
+  const sessionReplayEnabled = !!gb?.isOn("session-replays");
+
   const router = useRouter();
   const { apiCall } = useAuth();
 
@@ -409,35 +387,33 @@ export default function SessionReplayPage() {
   const [evaluations, setEvaluations] = useState<EvaluationEntry[]>([]);
   const [evalTab, setEvalTab] = useState<"all" | "flags" | "exp">("all");
 
-  const playerRef = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const playerInstance = useRef<any>(null);
-
-  useEffect(() => {
-    return () => {
-      playerInstance.current = null;
-    };
-  }, []);
+  const playerHandle = useRef<RrwebPlayerHandle>(null);
 
   useEffect(() => {
     if (!selectedSessionId) {
       setEvents(null);
       setMetadata(null);
       setEvaluations([]);
+      setFirstEvent(null);
       setPlayerError(null);
-      if (playerRef.current) playerRef.current.innerHTML = "";
-      playerInstance.current = null;
       return;
     }
+    // Clear previous session's state synchronously before the new fetch
+    // returns. Setting events=null unmounts the keyed RrwebPlayer
+    // immediately, tearing down the old rrweb Replayer before B's data
+    // arrives. Without this clear, the parent re-renders with OLD events
+    // but a NEW key and briefly constructs a player around the wrong
+    // session.
+    setEvents(null);
+    setMetadata(null);
+    setEvaluations([]);
+    setFirstEvent(null);
     let cancelled = false;
     setPlayerLoading(true);
     setPlayerError(null);
 
     const load = async () => {
       try {
-        // Back-end proxies the S3 reads + gzip decompression. See
-        // `pages/session-replay/[sessionId].tsx` for the same pattern in
-        // the standalone detail page.
         const response = await apiCall<
           SessionResponse | { status?: number; message?: string }
         >(`/session-replay/${selectedSessionId}`, { method: "GET" });
@@ -481,41 +457,21 @@ export default function SessionReplayPage() {
   }, [apiCall, selectedSessionId]);
 
   useEffect(() => {
-    if (!events || !playerRef.current) {
+    if (!events) {
       setFirstEvent(null);
+      setEvaluations([]);
       return;
     }
     const blockReason = getReplayBlockReason(events);
     if (blockReason) {
       setPlayerError(blockReason);
       setFirstEvent(null);
+      setEvaluations([]);
       return;
     }
 
     setPlayerError(null);
     setFirstEvent(events[0]);
-
-    if (playerInstance.current) {
-      playerInstance.current = null;
-    }
-    playerRef.current.innerHTML = "";
-
-    // Size the player to fit the center column so the controller bar always
-    // stays above the fold. See `computePlayerDims` for the math.
-    const { width: playerWidth, height: playerHeight } = computePlayerDims(
-      playerRef.current,
-    );
-
-    const player = new Player({
-      target: playerRef.current,
-      props: {
-        events,
-        showController: true,
-        width: playerWidth,
-        height: playerHeight,
-      },
-    });
-    playerInstance.current = player;
 
     const evals: EvaluationEntry[] = events
       .filter((e) => e.type === 5)
@@ -536,9 +492,7 @@ export default function SessionReplayPage() {
 
   const jumpToEvent = (timestamp: number) => {
     const offset = firstEvent?.timestamp || 0;
-    if (playerInstance.current) {
-      playerInstance.current.goto(timestamp - offset);
-    }
+    playerHandle.current?.goto(timestamp - offset);
   };
 
   const visibleEvaluations = useMemo(() => {
@@ -548,7 +502,10 @@ export default function SessionReplayPage() {
     return evaluations.filter((e) => e.kind === "exp");
   }, [evaluations, evalTab]);
 
-  // ---- render --------------------------------------------------------------
+  if (!sessionReplayEnabled) {
+    return <Custom404 />;
+  }
+
   return (
     <div className="pagecontents">
       <Flex align="center" gap="2" mb="3">
@@ -863,7 +820,13 @@ export default function SessionReplayPage() {
                   overflow: "auto",
                 }}
               >
-                <div ref={playerRef} />
+                {events && (
+                  <RrwebPlayer
+                    key={selectedSessionId}
+                    events={events}
+                    ref={playerHandle}
+                  />
+                )}
               </Box>
             </>
           )}

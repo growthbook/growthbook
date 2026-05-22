@@ -71,7 +71,9 @@ export const navlinks: SidebarLinkProps[] = [
   {
     name: "Product Analytics",
     href: "/product-analytics/explore",
-    path: /^(product-analytics|sql-explorer)/,
+    // Include `session-replay` so the parent stays highlighted/expanded
+    // when the user is on a replay page.
+    path: /^(product-analytics|sql-explorer|session-replay)/,
     Icon: GBProductAnalytics,
     subLinks: [
       {
@@ -84,6 +86,18 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Dashboards",
         href: "/product-analytics/dashboards",
         path: /^product-analytics\/dashboards/,
+      },
+      {
+        name: "Session Replay",
+        href: "/session-replay",
+        path: /^session-replay/,
+        beta: true,
+        // Closed-beta gate: only orgs with the `session-replays` flag on
+        // see the nav entry. The /session-replay page itself runs the
+        // same check and returns Custom404 when the flag is off, so a
+        // user who somehow types the URL directly still gets a 404
+        // rather than a partially-rendered viewer.
+        filter: ({ gb }) => !!gb?.isOn("session-replays"),
       },
     ],
   },
