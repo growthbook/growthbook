@@ -122,7 +122,11 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       Boolean(inlineRampSchedule) ||
       (!inlineRampSchedule &&
         (Boolean(schedule?.startDate) || Boolean(schedule?.endDate)));
-    if (wantsNewSchedule) {
+    if (
+      wantsNewSchedule &&
+      oldRule.type !== "experiment-ref" &&
+      oldRule.type !== "safe-rollout"
+    ) {
       const liveSchedules =
         await req.context.models.rampSchedules.findByTargetRule(
           req.params.ruleId,
