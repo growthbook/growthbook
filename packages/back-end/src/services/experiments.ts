@@ -4439,10 +4439,11 @@ export async function getLinkedFeatureInfo(
         inconsistentValues: uniqueValues.size > 1,
         liveHasMatchingRule: liveMatches.length > 0,
         ...(pendingApproval !== undefined && { pendingApproval }),
-        ...(matchedDraftRevision && {
-          draftRevisionVersion: matchedDraftRevision.version,
-          draftRevisionStatus: matchedDraftRevision.status,
-        }),
+        ...(matchedDraftRevision &&
+          state === "draft" && {
+            draftRevisionVersion: matchedDraftRevision.version,
+            draftRevisionStatus: matchedDraftRevision.status,
+          }),
         ...(hasMergeConflict !== undefined && { hasMergeConflict }),
         ...(hasUnrelatedDraftChanges !== undefined && {
           hasUnrelatedDraftChanges,
