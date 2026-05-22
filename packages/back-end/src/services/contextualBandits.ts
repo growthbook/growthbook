@@ -1,6 +1,10 @@
 import { ExperimentInterface } from "shared/types/experiment";
-import { ContextualBanditInterface } from "shared/validators";
+import {
+  ContextualBanditInterface,
+  ContextualBanditSnapshotSettings,
+} from "shared/validators";
 import { deriveContextId } from "shared/util";
+import { ExposureQuery } from "shared/types/datasource";
 import { ReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getPayloadKeys } from "back-end/src/models/ExperimentModel";
@@ -47,7 +51,21 @@ export async function runContextualBanditSnapshot(
         phase,
       );
 
-    const settings = getContextualBanditSettingsForStatsEngine(
+    // Freeze the snapshot config first (reproducibility — survives later CB doc mutations)
+    const snapshotSettings = buildContextualBanditSnapshotSettings(
+      cb,
+      experiment,
+      phase,
+      eaq,
+    );
+
+    await context.contextualBanditSnapshots.updateById(cbs.id, {
+      frozenSettings: snapshotSettings,
+      queries: [{ query: "contextual-bandit-sql", status: "running" }],
+    });
+
+    // Stats-engine input — derived from CB doc + latest CBE weights
+    const statsSettings = getContextualBanditSettingsForStatsEngine(
       cb,
       phase,
       experiment,
@@ -57,11 +75,6 @@ export async function runContextualBanditSnapshot(
           )
         : {},
     );
-
-    await context.contextualBanditSnapshots.updateById(cbs.id, {
-      frozenSettings: settings as Record<string, unknown>,
-      queries: [{ query: "contextual-bandit-sql", status: "running" }],
-    });
 
     // 4. Run SQL (STUB — Luke replaces with real SQL gen + execution)
     const rows = await runContextualBanditQuery(context, cb, ds, eaq);
@@ -92,7 +105,7 @@ export async function runContextualBanditSnapshot(
     );
 
     // 7. Call stats engine (STUB — Luke replaces with real Python call)
-    const result = await runContextualStatsEngine(settings, trimmed);
+    const result = await runContextualStatsEngine(statsSettings, trimmed);
 
     // 8. Persist CBE
     const cbe = await context.contextualBanditEvents.create({
@@ -159,6 +172,70 @@ export function attributesToCondition(
     }
   }
   return result;
+}
+
+/**
+ * Pure transform: builds the frozen snapshot settings persisted on the CBS doc.
+ *
+ * Mirrors the *shape* of `ExperimentSnapshotSettings` for the fields that
+ * apply, but is intentionally a separate type. Notably: no `guardrailMetrics`
+ * (CB has a single decision metric in MVP, and the validator's `.strict()`
+ * rejects it anyway).
+ *
+ * The output is what gets stored in `CBS.frozenSettings` so a run is
+ * reproducible even if the parent CB doc mutates later.
+ */
+export function buildContextualBanditSnapshotSettings(
+  cb: ContextualBanditInterface,
+  experiment: ExperimentInterface,
+  phase: number,
+  exposureQuery: ExposureQuery,
+): ContextualBanditSnapshotSettings {
+  const cbPhase = cb.phases[phase];
+  const expPhase = experiment.phases?.[phase];
+  const numVariations = experiment.variations?.length || 1;
+
+  return {
+    experimentId: experiment.id,
+    contextualBanditId: cb.id,
+    phase,
+
+    datasourceId: cb.datasourceId,
+    exposureQueryId: cb.exposureQueryId,
+    contextualAttributes:
+      exposureQuery.targetingAttributeColumns ?? cb.contextualAttributes,
+
+    goalMetrics: experiment.goalMetrics ?? [],
+    secondaryMetrics: experiment.secondaryMetrics ?? [],
+    // TODO(D1.1): mirror `getMetricForSnapshot` from services/experiments.ts
+    // and produce a typed MetricForSnapshot[]. For now we key the raw
+    // overrides by metric id to satisfy `z.record(z.string(), z.unknown())`.
+    metricSettings: Object.fromEntries(
+      (experiment.metricOverrides ?? []).map((m) => [m.id, m]),
+    ),
+
+    variations: (experiment.variations ?? []).map((v, i) => ({
+      id: v.id,
+      weight: expPhase?.variationWeights?.[i] ?? 1 / numVariations,
+    })),
+
+    maxContexts: cb.maxContexts,
+    // `cb.treeModel` is typed as `z.string()` on the CB validator; narrow
+    // defensively so the strict snapshot validator never trips on a stray
+    // legacy/free-form value.
+    treeModel:
+      cb.treeModel === "linear_thompson"
+        ? "linear_thompson"
+        : "regression_tree",
+    minUsersPerLeaf: cb.minUsersPerLeaf,
+    maxLeaves: cb.maxLeaves,
+    canonicalFormVersion: cb.canonicalFormVersion,
+
+    startDate: cbPhase?.dateStarted ?? new Date(),
+    endDate: cbPhase?.dateEnded ?? null,
+    reweight: true,
+    banditWeightsSeed: phase,
+  };
 }
 
 /**
