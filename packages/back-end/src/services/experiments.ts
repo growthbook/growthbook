@@ -1720,6 +1720,39 @@ export async function createSnapshot({
   });
 }
 
+// Assigns a monotonic, non-colliding numeric `key` to any variation arriving
+// with an empty key. Existing (non-empty) keys are left untouched.
+// `existingKeys` is the set of keys already in use on the experiment.
+export function fillEmptyVariationKeys(
+  variations: Variation[],
+  existingKeys: Iterable<string>,
+): void {
+  if (!variations.some((v) => !v.key)) return;
+
+  const usedKeys = new Set(existingKeys);
+  let largestNumeric = -1;
+  for (const k of usedKeys) {
+    const n = Number(k);
+    if (
+      Number.isInteger(n) &&
+      n >= 0 &&
+      String(n) === k &&
+      n > largestNumeric
+    ) {
+      largestNumeric = n;
+    }
+  }
+  let nextKey = largestNumeric + 1;
+  for (const v of variations) {
+    if (!v.key) {
+      while (usedKeys.has(String(nextKey))) nextKey++;
+      v.key = String(nextKey);
+      usedKeys.add(v.key);
+      nextKey++;
+    }
+  }
+}
+
 export function validateVariationIds(variations: Variation[]) {
   variations.forEach((variation, i) => {
     if (!variation.id) {

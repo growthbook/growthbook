@@ -266,7 +266,7 @@ export default function EditFeatureFlagValuesModal({
       id: generateVariationId(),
       name: `Variation ${fields.length}`,
       description: "",
-      key: String(fields.length),
+      key: "",
       screenshots: [],
       weight: 0,
       value: getDefaultVariationValue(feature.defaultValue ?? ""),

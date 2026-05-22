@@ -61,6 +61,7 @@ import {
   updateExperimentAndSync,
   validateVariationIds,
   validateExperimentData,
+  fillEmptyVariationKeys,
 } from "back-end/src/services/experiments";
 import {
   approveScheduledExperimentStart,
@@ -3885,6 +3886,10 @@ export async function postExperimentFeatureValues(
     return;
   }
 
+  fillEmptyVariationKeys(
+    variations,
+    experiment.variations.map((v) => v.key),
+  );
   validateVariationIds(variations);
   validateExperimentFeatureVariations({
     variations,
