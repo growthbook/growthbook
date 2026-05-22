@@ -86,7 +86,7 @@ export default function RequestReviewModal({
 
   const { apiCall } = useAuth();
   const user = getCurrentUser();
-  const { organization } = useUser();
+  const { organization, users } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const canAdminPublish = permissionsUtil.canBypassApprovalChecks(feature);
   const revision = revisions.find((r) => r.version === version);
@@ -103,9 +103,7 @@ export default function RequestReviewModal({
     : undefined;
   const isBlockedContributor =
     reviewSetting?.blockSelfApproval &&
-    (revision?.contributors ?? []).some(
-      (c) => c != null && "id" in c && c.id === user?.id,
-    );
+    (revision?.contributors ?? []).some((id) => id === user?.id);
   const canReview =
     isPendingReview &&
     createdBy?.id !== user?.id &&
@@ -492,41 +490,47 @@ export default function RequestReviewModal({
         {mergeResult.success && hasChanges && (
           <div>
             <div className="mb-2">{showRevisionStatus()}</div>
-            {revision.contributors && revision.contributors.length > 0 && (
-              <div className="mb-3">
-                <strong style={{ fontSize: "0.85rem" }}>Contributors</strong>
-                <Flex align="center" gap="2" wrap="wrap" mt="1">
-                  {[revision.createdBy, ...revision.contributors]
-                    .filter(
-                      (u): u is EventUserLoggedIn | EventUserApiKey =>
-                        u != null &&
-                        (u.type === "dashboard" || u.type === "api_key"),
-                    )
-                    .filter(
-                      (u, idx, arr) =>
-                        arr.findIndex(
-                          (x) => "id" in x && "id" in u && x.id === u.id,
-                        ) === idx,
-                    )
-                    .map((lu) => {
-                      return (
-                        <Flex
-                          key={"id" in lu ? lu.id : lu.apiKey}
-                          align="center"
-                          gap="1"
-                          wrap="wrap"
-                        >
-                          <EventUser
-                            user={lu}
-                            display="avatar-name-email"
-                            size="sm"
-                          />
-                        </Flex>
-                      );
-                    })}
-                </Flex>
-              </div>
-            )}
+            {(() => {
+              const authorId =
+                revision.createdBy &&
+                "id" in revision.createdBy &&
+                revision.createdBy.id
+                  ? revision.createdBy.id
+                  : undefined;
+              const contribIds = revision.contributors ?? [];
+              const allIds =
+                authorId && !contribIds.includes(authorId)
+                  ? [authorId, ...contribIds]
+                  : contribIds;
+              return (
+                allIds.length > 0 && (
+                  <div className="mb-3">
+                    <strong style={{ fontSize: "0.85rem" }}>
+                      Contributors
+                    </strong>
+                    <Flex align="center" gap="2" wrap="wrap" mt="1">
+                      {allIds.map((id) => {
+                        const u = users.get(id);
+                        return (
+                          <Flex key={id} align="center" gap="1" wrap="wrap">
+                            <EventUser
+                              user={{
+                                type: "dashboard",
+                                id,
+                                name: u?.name || "",
+                                email: u?.email || "",
+                              }}
+                              display="avatar-name-email"
+                              size="sm"
+                            />
+                          </Flex>
+                        );
+                      })}
+                    </Flex>
+                  </div>
+                )
+              );
+            })()}
             {canAdminPublish && (
               <div className="mt-3 mb-4 ml-1">
                 <Checkbox

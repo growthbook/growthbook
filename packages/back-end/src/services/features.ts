@@ -1846,8 +1846,19 @@ export function normalizeRuleForApiV2(rule: FeatureRule): ApiFeatureRuleV2 {
 export function revisionToApiInterfaceV2(
   rev: FeatureRevisionInterface,
 ): z.infer<typeof apiFeatureRevisionV2Validator> {
+  const rampActionsByRuleId = new Map<string, "create" | "detach">();
+  for (const a of rev.rampActions ?? []) {
+    if (a.mode === "create" || a.mode === "detach") {
+      rampActionsByRuleId.set(a.ruleId, a.mode);
+    }
+  }
+
   const rules: ApiFeatureRuleV2[] = Array.isArray(rev.rules)
-    ? rev.rules.map(normalizeRuleForApiV2)
+    ? rev.rules.map((rule) => {
+        const base = normalizeRuleForApiV2(rule);
+        const pendingRamp = rampActionsByRuleId.get(rule.id);
+        return pendingRamp ? { ...base, pendingRamp } : base;
+      })
     : [];
 
   return {
