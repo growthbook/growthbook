@@ -62,6 +62,14 @@ export default function DraftSelectorForChanges({
     [revisionList],
   );
 
+  const singleOption = hideExisting
+    ? !canAutoPublish
+    : activeDrafts.length === 0 && !canAutoPublish;
+
+  // When there is only one mode available it must be "new"; keep the form in
+  // sync in case the parent initialised with a stale value.
+  if (singleOption && mode !== "new") setSelectedDraft(null), setMode("new");
+
   // Use context revisions if available; fetch only when rendered outside FeaturesOverview.
   const ctx = useFeatureRevisionsContext();
   const draftVersionForFetch =
@@ -176,6 +184,7 @@ export default function DraftSelectorForChanges({
       triggerPrefix={triggerPrefix}
       existingDraftLabel={existingDraftLabel}
       revisionDropdown={revisionDropdown}
+      singleOption={singleOption}
     />
   );
 }

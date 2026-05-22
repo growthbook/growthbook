@@ -1541,7 +1541,7 @@ export default function RuleModal({
         />
         <div className="bg-highlight rounded p-3 mb-3">
           <Text size="x-large" weight="semibold" as="div" mb="4">
-            Select Implementation
+            Rule Type
           </Text>
           <RadioCards
             mt="4"
@@ -1552,7 +1552,7 @@ export default function RuleModal({
                 value: "force",
                 label: "Targeting rule",
                 description:
-                  "Roll out to specific users or percentages, with optional scheduling and safety monitoring",
+                  "Release a feature value with optional targeting, schedule, ramp-up, and monitoring",
               },
               {
                 value: "experiment",

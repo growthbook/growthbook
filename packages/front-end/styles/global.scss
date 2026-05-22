@@ -1481,6 +1481,9 @@ main.main {
   &:hover {
     background-color: var(--violet-a4);
   }
+  &.no-hover:hover {
+    background-color: var(--violet-a3);
+  }
 }
 
 .draft-selector-collapsible-content {
