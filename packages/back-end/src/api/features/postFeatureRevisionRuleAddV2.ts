@@ -215,16 +215,33 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       (rule as SafeRolloutRule).safeRolloutId = safeRollout.id;
     }
 
+    const usesLegacyScheduling =
+      ruleInput.type === "experiment-ref" || ruleInput.type === "safe-rollout";
+
+    if (usesLegacyScheduling && inlineRampSchedule) {
+      throw new BadRequestError(
+        `rampSchedule is not supported for ${ruleInput.type} rules. Use "schedule" instead.`,
+      );
+    }
+
     let resolvedRampAction = inlineRampSchedule
       ? normalizeInlineRampSchedule(inlineRampSchedule, rule.id)
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
-      if (schedule.startDate) rule.enabled = false;
-      resolvedRampAction = buildScheduleRampAction(
-        rule.id,
-        schedule.startDate,
-        schedule.endDate,
-      );
+      if (usesLegacyScheduling) {
+        rule.scheduleRules = [
+          { enabled: true, timestamp: schedule.startDate ?? null },
+          { enabled: false, timestamp: schedule.endDate ?? null },
+        ];
+        rule.scheduleType = "schedule";
+      } else {
+        if (schedule.startDate) rule.enabled = false;
+        resolvedRampAction = buildScheduleRampAction(
+          rule.id,
+          schedule.startDate,
+          schedule.endDate,
+        );
+      }
     }
 
     // V2: stamp scope from the rule's own allEnvironments/environments fields.

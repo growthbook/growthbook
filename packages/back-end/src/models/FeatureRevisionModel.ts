@@ -45,6 +45,27 @@ import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
+// Read-time migration: old docs stored contributors as EventUser objects;
+// new docs store plain user-ID strings. Normalize to string[] so callers
+// always see the current schema.
+function migrateContributors(
+  raw: unknown[] | undefined,
+): string[] | undefined {
+  if (!raw?.length) return raw as undefined;
+
+  const ids = new Set<string>();
+  for (const entry of raw) {
+    if (entry == null) continue;
+    if (typeof entry === "string") {
+      if (entry) ids.add(entry);
+    } else if (typeof entry === "object" && "id" in entry) {
+      const id = (entry as { id?: string }).id;
+      if (id) ids.add(id);
+    }
+  }
+  return ids.size > 0 ? [...ids] : undefined;
+}
+
 const featureRevisionSchema = new mongoose.Schema({
   organization: String,
   featureId: String,
@@ -183,6 +204,11 @@ export function buildFeatureRevisionInterface(
       applicableEnvs,
     });
   }
+
+  revision.contributors = migrateContributors(
+    revision.contributors as unknown as unknown[],
+  );
+
   return revision;
 }
 
@@ -279,7 +305,13 @@ export async function getMinimalRevisions(
     status: m.status,
     comment: m.comment || "",
     ...(m.title ? { title: m.title } : {}),
-    ...(m.contributors?.length ? { contributors: m.contributors } : {}),
+    ...(m.contributors?.length
+      ? {
+          contributors: migrateContributors(
+            m.contributors as unknown as unknown[],
+          ),
+        }
+      : {}),
   }));
 }
 
@@ -930,11 +962,13 @@ export async function updateRevision(
     original: revision,
   });
 
-  // Track contributors atomically using $addToSet (deep equality dedup).
-  // Using a separate operator from $set avoids the race condition where two
-  // concurrent edits both read the same stale contributors array.
+  // Track contributors as user ID strings via atomic $addToSet.
+  const contributorId =
+    log.user != null && "id" in log.user && log.user.id
+      ? log.user.id
+      : null;
   const contributorUpdate =
-    log.user != null ? { $addToSet: { contributors: log.user } } : {};
+    contributorId != null ? { $addToSet: { contributors: contributorId } } : {};
 
   const doc = await FeatureRevisionModel.findOneAndUpdate(
     {

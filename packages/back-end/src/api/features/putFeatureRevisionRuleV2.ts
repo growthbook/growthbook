@@ -125,7 +125,7 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       if (liveSchedules.length > 0) {
         throw new BadRequestError(
           `Rule "${req.params.ruleId}" already has a live ramp schedule.` +
-            ` Update it via PUT /api/v2/ramp-schedules/${liveSchedules[0].id}.`,
+            ` Update it via PUT /api/v1/ramp-schedules/${liveSchedules[0].id}.`,
         );
       }
     }
@@ -199,15 +199,20 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
     const newRules = flatRules.map((r, i) => (i === idx ? updatedRule : r));
     const changes: RevisionChanges = { rules: newRules };
 
+    const usesLegacyScheduling =
+      oldRule.type === "experiment-ref" || oldRule.type === "safe-rollout";
+
+    if (usesLegacyScheduling && inlineRampSchedule) {
+      throw new BadRequestError(
+        `rampSchedule is not supported for ${oldRule.type} rules. Use "schedule" instead.`,
+      );
+    }
+
     let resolvedRampAction = inlineRampSchedule
       ? normalizeInlineRampSchedule(inlineRampSchedule, updatedRule.id)
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
-      const hasLegacySchedule =
-        oldRule.scheduleType === "schedule" ||
-        (oldRule.scheduleRules?.some((r) => r.timestamp) &&
-          oldRule.scheduleType !== "ramp");
-      if (hasLegacySchedule) {
+      if (usesLegacyScheduling) {
         updatedRule.scheduleRules = [
           { enabled: true, timestamp: schedule.startDate ?? null },
           { enabled: false, timestamp: schedule.endDate ?? null },

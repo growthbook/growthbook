@@ -1119,7 +1119,7 @@ export async function postFeatureReviewOrComment(
       : undefined;
     if (reviewSetting?.blockSelfApproval) {
       const isSelfApproval = (revision.contributors ?? []).some(
-        (c) => c != null && "id" in c && c.id === context.userId,
+        (id) => id === context.userId,
       );
       if (isSelfApproval) {
         throw new Error("You cannot approve a draft you contributed to.");

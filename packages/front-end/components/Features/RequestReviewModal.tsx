@@ -86,7 +86,7 @@ export default function RequestReviewModal({
 
   const { apiCall } = useAuth();
   const user = getCurrentUser();
-  const { organization } = useUser();
+  const { organization, users } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const canAdminPublish = permissionsUtil.canBypassApprovalChecks(feature);
   const revision = revisions.find((r) => r.version === version);
@@ -103,9 +103,7 @@ export default function RequestReviewModal({
     : undefined;
   const isBlockedContributor =
     reviewSetting?.blockSelfApproval &&
-    (revision?.contributors ?? []).some(
-      (c) => c != null && "id" in c && c.id === user?.id,
-    );
+    (revision?.contributors ?? []).some((id) => id === user?.id);
   const canReview =
     isPendingReview &&
     createdBy?.id !== user?.id &&
@@ -496,34 +494,23 @@ export default function RequestReviewModal({
               <div className="mb-3">
                 <strong style={{ fontSize: "0.85rem" }}>Contributors</strong>
                 <Flex align="center" gap="2" wrap="wrap" mt="1">
-                  {[revision.createdBy, ...revision.contributors]
-                    .filter(
-                      (u): u is EventUserLoggedIn | EventUserApiKey =>
-                        u != null &&
-                        (u.type === "dashboard" || u.type === "api_key"),
-                    )
-                    .filter(
-                      (u, idx, arr) =>
-                        arr.findIndex(
-                          (x) => "id" in x && "id" in u && x.id === u.id,
-                        ) === idx,
-                    )
-                    .map((lu) => {
-                      return (
-                        <Flex
-                          key={"id" in lu ? lu.id : lu.apiKey}
-                          align="center"
-                          gap="1"
-                          wrap="wrap"
-                        >
-                          <EventUser
-                            user={lu}
-                            display="avatar-name-email"
-                            size="sm"
-                          />
-                        </Flex>
-                      );
-                    })}
+                  {revision.contributors.map((id) => {
+                    const u = users.get(id);
+                    return (
+                      <Flex key={id} align="center" gap="1" wrap="wrap">
+                        <EventUser
+                          user={{
+                            type: "dashboard",
+                            id,
+                            name: u?.name || "",
+                            email: u?.email || "",
+                          }}
+                          display="avatar-name-email"
+                          size="sm"
+                        />
+                      </Flex>
+                    );
+                  })}
                 </Flex>
               </div>
             )}
