@@ -145,6 +145,7 @@ import {
   getRevisionsByVersions,
   getFeaturePageRevisions,
   getRevisionsByStatus,
+  hardDeleteRevision,
   markRevisionAsReviewRequested,
   normalizeRulesInputToV2,
   ReviewSubmittedType,
@@ -3872,6 +3873,42 @@ export async function postFeatureImportDraft(
       );
     }
   } catch (linkErr) {
+    // Hard-delete the just-created draft so its rules — which reference
+    // the SafeRollouts we're about to remove — can't be applied even if
+    // the frontend's archive+delete rollback never runs (browser crash,
+    // lost connectivity, etc.). We use hard-delete (not discardRevision)
+    // because this revision was created seconds ago and has no audit
+    // history worth keeping, and a discarded revision would still carry
+    // the dangling safeRolloutId references the bot flagged.
+    //
+    // Order matters: drop the revision first so it can't reference the
+    // SafeRollouts at the moment we're deleting them. Then we explicitly
+    // clear any pendingFeatureDrafts that partial linkage may have
+    // written for this version, since hard-delete doesn't trigger
+    // syncFeatureExperimentLinkages the way discardRevision does.
+    try {
+      await hardDeleteRevision(context.org.id, feature.id, newDraft.version);
+    } catch (delErr) {
+      logger.warn(
+        delErr,
+        `Failed to delete import draft for ${feature.id} after linkage error`,
+      );
+    }
+    for (const experimentId of experimentRefIds) {
+      try {
+        await removePendingFeatureDraftFromExperiment(
+          context,
+          experimentId,
+          feature.id,
+          newDraft.version,
+        );
+      } catch (pdrErr) {
+        logger.warn(
+          pdrErr,
+          `Failed to clear pending draft link from experiment ${experimentId} after linkage error`,
+        );
+      }
+    }
     for (const srId of createdSafeRolloutIds) {
       try {
         await context.models.safeRollout.deleteById(srId);

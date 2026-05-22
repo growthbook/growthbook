@@ -1286,6 +1286,22 @@ export async function deleteAllRevisionsForFeature(
   });
 }
 
+// Hard-deletes a single revision. Use this only for rollback of a revision
+// that was just created (no published history, no external references).
+// Normal "remove this draft" flows should use `discardRevision` instead —
+// discarded revisions are kept for audit history.
+export async function hardDeleteRevision(
+  organization: string,
+  featureId: string,
+  version: number,
+) {
+  await FeatureRevisionModel.deleteOne({
+    organization,
+    featureId,
+    version,
+  });
+}
+
 export async function cleanUpPreviousRevisions(
   organization: string,
   featureId: string,
