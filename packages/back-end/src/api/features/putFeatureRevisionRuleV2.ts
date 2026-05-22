@@ -208,9 +208,17 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       );
     }
 
-    let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(inlineRampSchedule, updatedRule.id)
-      : undefined;
+    let resolvedRampAction:
+      | ReturnType<typeof normalizeInlineRampSchedule>
+      | undefined;
+    if (inlineRampSchedule) {
+      resolvedRampAction = normalizeInlineRampSchedule(
+        inlineRampSchedule,
+        updatedRule.id,
+      );
+      updatedRule.scheduleRules = [];
+      updatedRule.scheduleType = "none";
+    }
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
       if (usesLegacyScheduling) {
         updatedRule.scheduleRules = [
@@ -220,6 +228,8 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
         updatedRule.scheduleType = "schedule";
       } else {
         if (schedule.startDate) updatedRule.enabled = false;
+        updatedRule.scheduleRules = [];
+        updatedRule.scheduleType = "none";
         resolvedRampAction = buildScheduleRampAction(
           updatedRule.id,
           schedule.startDate,
