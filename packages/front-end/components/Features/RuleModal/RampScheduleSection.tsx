@@ -1700,7 +1700,6 @@ export default function RampScheduleSection({
           )}
           <ColHeader width={COL.trigger}>Action</ColHeader>
           <Box flexGrow="1" />
-          {!isReadOnlyView && saveTemplateButton}
         </Flex>
 
         {stepsForDisplay.map((step, i) => {
@@ -2610,7 +2609,7 @@ export default function RampScheduleSection({
         contentStyle={{ width: 280, padding: "16px 20px" }}
         trigger={
           <Button
-            variant="ghost"
+            variant="outline"
             size="xs"
             disabled={isIdenticalToExistingTemplate}
             title={
@@ -3300,9 +3299,6 @@ export default function RampScheduleSection({
   const templateDropdown =
     templates.length > 0 && hasRampSchedulesFeature && !hideTemplateSave ? (
       <Box mb="4">
-        <Text as="div" weight="semibold" mb="1">
-          Template
-        </Text>
         <DropdownMenu
           variant="soft"
           open={presetOpen}
@@ -3368,6 +3364,7 @@ export default function RampScheduleSection({
               </React.Fragment>
             ))}
         </DropdownMenu>
+        <Separator size="4" mt="5" />
       </Box>
     ) : null;
 
@@ -3793,6 +3790,27 @@ export default function RampScheduleSection({
 
   const createContent = (
     <>
+      {templates.length > 0 && hasRampSchedulesFeature && !hideTemplateSave && (
+        <>
+          <Text as="div" weight="semibold" mb="1">
+            Template
+          </Text>
+          {!isReadOnlyView && (
+            <div
+              style={{
+                float: "right",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                background: "var(--color-panel-solid)",
+                borderRadius: "var(--radius-3)",
+              }}
+            >
+              {saveTemplateButton}
+            </div>
+          )}
+        </>
+      )}
       {templateDropdown}
 
       <Flex direction="column" gap="1" mb="4">
