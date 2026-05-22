@@ -2900,8 +2900,8 @@ export default function RampScheduleSection({
             Guardrail Metrics
           </Text>
           <Text as="div" size="small" mb="2">
-            Automatically roll back the entire schedule if any of these metrics
-            show a significant regression
+            Automatically roll back and disable the rule if any of these metrics
+            show a significant regression.
           </Text>
           <MetricsSelector
             datasource={state.monitoring.datasourceId}
@@ -2921,8 +2921,9 @@ export default function RampScheduleSection({
             Signal Metrics
           </Text>
           <Text as="div" size="small" mb="2">
-            If any of these metrics show a significant regression, hold at the
-            current step until they recover or until manually advanced
+            Pause at the current step while any of these metrics show a
+            significant regression. Can be resumed manually or automatically
+            when recovered.
           </Text>
           <MetricsSelector
             datasource={state.monitoring.datasourceId}
