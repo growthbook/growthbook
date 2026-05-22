@@ -9228,19 +9228,6 @@ paths:
                         type: string
                       coverage:
                         type: number
-                      trafficSplit:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            variationId:
-                              type: string
-                            weight:
-                              type: number
-                          required:
-                            - variationId
-                            - weight
-                          additionalProperties: false
                       namespace:
                         type: object
                         properties:
@@ -9264,8 +9251,6 @@ paths:
                         required:
                           - namespaceId
                         additionalProperties: false
-                      targetingCondition:
-                        type: string
                       prerequisites:
                         type: array
                         items:
@@ -9825,21 +9810,6 @@ paths:
                         type: string
                       coverage:
                         type: number
-                      trafficSplit:
-                        deprecated: true
-                        description: Deprecated and unused. Use variationWeights instead.
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            variationId:
-                              type: string
-                            weight:
-                              type: number
-                          required:
-                            - variationId
-                            - weight
-                          additionalProperties: false
                       namespace:
                         type: object
                         properties:
@@ -9857,8 +9827,6 @@ paths:
                           - namespaceId
                           - range
                         additionalProperties: false
-                      targetingCondition:
-                        type: string
                       prerequisites:
                         type: array
                         items:

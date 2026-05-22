@@ -15,6 +15,8 @@ import {
   getNamespaceRanges,
   getNamespaceHashAttribute,
   NamespaceValue,
+  buildReverseDependencyIndex,
+  ReverseDependencyIndex,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
@@ -41,13 +43,36 @@ import {
   FeatureRule,
   SavedGroupTargeting,
 } from "shared/types/feature";
-import { ExperimentInterface } from "shared/types/experiment";
+import {
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+} from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { logger } from "back-end/src/util/logger";
 import { getApplicableEnvIds } from "./flattenRules";
 import { getCurrentEnabledState } from "./scheduleRules";
+
+export interface FeatureLookups {
+  featuresMap: Map<string, FeatureInterface>;
+  reverseDependencyIndex: ReverseDependencyIndex;
+  experiments: ExperimentInterfaceStringDates[];
+  experimentMap: Map<string, ExperimentInterfaceStringDates>;
+}
+
+/** Builds the shared lookup structures used by stale detection and dependents. */
+export function buildFeatureLookups(
+  allFeatures: FeatureInterface[],
+  allExperiments?: ExperimentInterface[],
+): FeatureLookups {
+  const featuresMap = new Map(allFeatures.map((f) => [f.id, f]));
+  const reverseDependencyIndex = buildReverseDependencyIndex(allFeatures);
+  const experiments =
+    (allExperiments as unknown as ExperimentInterfaceStringDates[]) ?? [];
+  const experimentMap = new Map(experiments.map((e) => [e.id, e]));
+  return { featuresMap, reverseDependencyIndex, experiments, experimentMap };
+}
 
 export type MetadataOptions = {
   includeProjectIdInMetadata?: boolean;
