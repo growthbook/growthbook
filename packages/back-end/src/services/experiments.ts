@@ -4263,7 +4263,7 @@ export async function getLinkedFeatureInfo(
 
       let matchedDraftRevision: (typeof revisions)[0] | undefined;
       let draftMatches: MatchingRule[] = [];
-      let draftModifiesLiveRule = false;
+      let draftDiffersFromLive = false;
 
       for (const r of activeDrafts) {
         const m = getMatchingRules(feature, filter, environments, r);
@@ -4272,7 +4272,7 @@ export async function getLinkedFeatureInfo(
         if (liveRefRules.length > 0 && !isEqual(draftRefRules, liveRefRules)) {
           matchedDraftRevision = r;
           draftMatches = m;
-          draftModifiesLiveRule = true;
+          draftDiffersFromLive = true;
           break;
         }
         // Remember the first draft with matches as a fallback if no draft
@@ -4296,10 +4296,10 @@ export async function getLinkedFeatureInfo(
       let matches: MatchingRule[] = [];
       if (feature.archived) {
         state = "archived";
-      } else if (draftModifiesLiveRule) {
-        // A draft is changing this experiment's rule — surface the pending
-        // change even if the rule is already live. Render uses draft values
-        // so the user sees what publishing will produce.
+      } else if (draftDiffersFromLive && experiment.status === "draft") {
+        // A draft is changing this experiment's rule and the experiment is
+        // still in draft — surface the pending change even if the rule is already live.
+        // Render uses draft values so the user sees what publishing will produce.
         state = "draft";
         matches = draftMatches;
       } else if (liveMatches.length > 0) {
@@ -4414,7 +4414,6 @@ export async function getLinkedFeatureInfo(
         ...(hasUnrelatedDraftChanges !== undefined && {
           hasUnrelatedDraftChanges,
         }),
-        ...(draftModifiesLiveRule && { draftModifiesLiveRule }),
       };
 
       return info;

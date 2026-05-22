@@ -294,13 +294,6 @@ export interface LinkedFeatureInfo {
    * switches and metadata are excluded (auto-toggled / typically no SDK impact).
    */
   hasUnrelatedDraftChanges?: boolean;
-  /**
-   * True when the feature has a published experiment-ref rule for this
-   * experiment AND a draft revision is modifying that rule. UI uses this to
-   * show "a draft is changing live values" copy instead of the "will
-   * auto-publish when experiment starts" copy.
-   */
-  draftModifiesLiveRule?: boolean;
 }
 
 export type LinkedChangeEnvState = "active" | "no-sdk-connection";
