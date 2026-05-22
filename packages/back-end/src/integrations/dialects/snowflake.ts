@@ -18,6 +18,59 @@ export const snowflakeDialect: SqlDialect = {
   hllAggregate: (col: string) => `HLL_ACCUMULATE(${col})`,
   hllReaggregate: (col: string) => `HLL_COMBINE(${col})`,
   hllCardinality: (col: string) => `HLL_ESTIMATE(${col})`,
+  // Snowflake has no native KLL; we approximate via the t-digest family
+  // (APPROX_PERCENTILE_ACCUMULATE/COMBINE/ESTIMATE). t-digest state is
+  // returned as an OBJECT (JSON), so storage columns for `kll` use OBJECT
+  // (not BINARY like HLL — see getDataType below). Quantile results will
+  // differ slightly from BigQuery's KLL_QUANTILES for the same input.
+  //
+  // kllExtractQuantiles is intentionally NOT overridden here: the only
+  // consumer is kllRankApprox, and the obvious implementation
+  // (ARRAY_CONSTRUCT of per-grid-point APPROX_PERCENTILE_ESTIMATE calls)
+  // can't be used inside a scalar subquery whose FROM is TABLE(FLATTEN(...))
+  // when the array depends on outer-row columns — Snowflake's optimizer
+  // refuses to decorrelate ("Unsupported subquery type cannot be
+  // evaluated"). We work around that in kllRankApprox below; falling
+  // through to baseDialect.kllExtractQuantiles (which throws) signals
+  // clearly that the primitive isn't safely usable outside that path.
+  kllInit: (col: string) => `APPROX_PERCENTILE_ACCUMULATE(${col})`,
+  kllMergePartial: (col: string) => `APPROX_PERCENTILE_COMBINE(${col})`,
+  kllExtractPoint: (col: string, quantile: number) =>
+    `APPROX_PERCENTILE_ESTIMATE(${col}, ${quantile})`,
+  kllRankApprox: (
+    sketchCol: string,
+    thresholdCol: string,
+    nEventsCol: string,
+    numQuantiles: number,
+  ) => {
+    // The BigQuery shape — SELECT COUNT(*) FROM UNNEST(cdf_array) WHERE p <
+    // threshold — doesn't translate to Snowflake. Both `sketchCol` (per-user
+    // sketch) and `thresholdCol` (per-variation/dimension quantile) are
+    // outer-row references, and Snowflake can't decorrelate a scalar
+    // subquery whose FROM clause is TABLE(FLATTEN(input => <expr referencing
+    // outer columns>)). Same family of restriction as the
+    // unpivotLabeledPairs failures noted further down.
+    //
+    // Instead of materializing the (n+1)-point CDF array and counting below
+    // the threshold via a subquery, unroll the count into a sum of CASE
+    // WHEN expressions evaluated entirely in the outer row's scope — no
+    // subquery, no correlation. Each grid point becomes a single
+    // APPROX_PERCENTILE_ESTIMATE call directly in the SELECT list, costing
+    // numQuantiles+1 t-digest evaluations per row (vs BigQuery's single
+    // batch call), but row-level cost is still linear in numQuantiles.
+    //
+    // NULL-handling matches BigQuery: if the sketch is NULL, every
+    // APPROX_PERCENTILE_ESTIMATE returns NULL, the sum collapses to NULL,
+    // and the outer COALESCE produces 0.
+    const sumBelow = Array.from(
+      { length: numQuantiles + 1 },
+      (_, i) =>
+        `CASE WHEN APPROX_PERCENTILE_ESTIMATE(${sketchCol}, ${(
+          i / numQuantiles
+        ).toFixed(6)}) < ${thresholdCol} THEN 1 ELSE 0 END`,
+    ).join(" + ");
+    return `COALESCE((${sumBelow}) * ${nEventsCol} / ${numQuantiles}.0, 0)`;
+  },
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) =>
     `PARSE_JSON(${jsonCol}):${path}::${isNumeric ? "float" : "string"}`,
   evalBoolean: (col: string, value: boolean) =>
@@ -39,7 +92,10 @@ export const snowflakeDialect: SqlDialect = {
       case "hll":
         return "BINARY";
       case "kll":
-        return "BINARY";
+        // t-digest state is an OBJECT, not BINARY (unlike HLL_ACCUMULATE).
+        // The round-trip via INSERT/SELECT preserves the OBJECT shape that
+        // APPROX_PERCENTILE_COMBINE/ESTIMATE expect.
+        return "OBJECT";
       default: {
         const _: never = dataType;
         throw new Error(`Unsupported data type: ${dataType}`);
