@@ -3797,6 +3797,14 @@ export async function postFeatureImportDraft(
   // `linkedExperiments` with dangling ids — `addLinkedFeatureToExperiment`
   // already no-ops for missing experiments but `addLinkedExperiment` does
   // not, so they have to be gated together.
+  //
+  // Linkage failures are caught per-experiment and logged rather than
+  // surfaced as a request error: the feature, draft, and SafeRollouts have
+  // all been persisted successfully at this point, and the frontend
+  // rollback path (archive + delete the feature) does NOT cascade to
+  // SafeRollouts — so throwing here would leave orphan SafeRollout docs in
+  // the DB. Broken linkage is recoverable (user can re-link from the
+  // experiment page); orphan rollouts are not.
   const experimentRefIds = new Set<string>();
   for (const r of importedRules) {
     if (r.type === "experiment-ref" && r.experimentId) {
@@ -3812,19 +3820,26 @@ export async function postFeatureImportDraft(
   for (const experimentId of experimentRefIds) {
     const experiment = presentExperimentById.get(experimentId);
     if (!experiment) continue;
-    await addLinkedFeatureToExperiment(
-      context,
-      experimentId,
-      feature.id,
-      experiment,
-    );
-    await addLinkedExperiment(feature, experimentId);
-    await addPendingFeatureDraftToExperiment(
-      context,
-      experimentId,
-      feature.id,
-      newDraft.version,
-    );
+    try {
+      await addLinkedFeatureToExperiment(
+        context,
+        experimentId,
+        feature.id,
+        experiment,
+      );
+      await addLinkedExperiment(feature, experimentId);
+      await addPendingFeatureDraftToExperiment(
+        context,
+        experimentId,
+        feature.id,
+        newDraft.version,
+      );
+    } catch (linkErr) {
+      logger.warn(
+        linkErr,
+        `Failed to link experiment ${experimentId} to imported feature ${feature.id}; feature and draft were created successfully`,
+      );
+    }
   }
 
   void req

@@ -109,6 +109,7 @@ export default function FeatureConfigurationClipboardImporter() {
         });
       }}
       featureToImport={payload.feature}
+      safeRolloutImportSettings={payload.safeRolloutSettings}
     />
   );
 }

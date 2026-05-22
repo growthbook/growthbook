@@ -4,7 +4,10 @@ import {
   FeatureInterface,
   FeatureValueType,
 } from "shared/types/feature";
-import { GrowthBookClipboardFeature } from "shared/validators";
+import {
+  ClipboardSafeRolloutSettings,
+  GrowthBookClipboardFeature,
+} from "shared/validators";
 import React, { ReactElement } from "react";
 import { validateFeatureValue } from "shared/util";
 import { PiInfo } from "react-icons/pi";
@@ -52,6 +55,11 @@ export type Props = {
   secondaryCTA?: ReactElement;
   featureToDuplicate?: FeatureInterface;
   featureToImport?: GrowthBookClipboardFeature;
+  // Source-org safe-rollout settings indexed by source safeRolloutId — the
+  // backend needs these to mint fresh SafeRollouts in the destination during
+  // import. Lives one level up on the clipboard payload (not inside
+  // `featureToImport`), so the importer forwards it as a separate prop.
+  safeRolloutImportSettings?: Record<string, ClipboardSafeRolloutSettings>;
   features?: FeatureInterface[];
 };
 
@@ -199,6 +207,7 @@ export default function FeatureModal({
   secondaryCTA,
   featureToDuplicate,
   featureToImport,
+  safeRolloutImportSettings,
 }: Props) {
   const { project, refreshTags } = useDefinitions();
   const environments = useEnvironments();
@@ -364,6 +373,11 @@ export default function FeatureModal({
                     true,
                   ]),
                 ),
+                // Source-org SafeRollout settings; the backend mints fresh
+                // destination SafeRollouts from these and rewrites
+                // rule.safeRolloutId. Omitting this would cause the
+                // import-draft endpoint to throw for any safe-rollout rule.
+                safeRolloutSettings: safeRolloutImportSettings,
                 title: "Imported feature configuration",
                 comment:
                   "Imported from a copied GrowthBook feature configuration.",
