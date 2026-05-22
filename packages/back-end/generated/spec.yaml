@@ -26570,8 +26570,9 @@ components:
         type:
           description: >-
             Use "force" for a standard targeting rule, or "rollout" for a
-            percentage rollout (coverage < 1). Both are functionally equivalent;
-            a force rule with coverage < 1 behaves as a rollout.
+            percentage rollout (coverage < 1). Defaults to "force". Both are
+            functionally equivalent; a force rule with coverage < 1 behaves as a
+            rollout.
           type: string
           enum:
             - force
@@ -26594,7 +26595,6 @@ components:
         seed:
           type: string
       required:
-        - type
         - value
       additionalProperties: false
     Experiment Rule:

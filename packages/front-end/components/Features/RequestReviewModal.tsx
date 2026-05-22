@@ -490,30 +490,47 @@ export default function RequestReviewModal({
         {mergeResult.success && hasChanges && (
           <div>
             <div className="mb-2">{showRevisionStatus()}</div>
-            {revision.contributors && revision.contributors.length > 0 && (
-              <div className="mb-3">
-                <strong style={{ fontSize: "0.85rem" }}>Contributors</strong>
-                <Flex align="center" gap="2" wrap="wrap" mt="1">
-                  {revision.contributors.map((id) => {
-                    const u = users.get(id);
-                    return (
-                      <Flex key={id} align="center" gap="1" wrap="wrap">
-                        <EventUser
-                          user={{
-                            type: "dashboard",
-                            id,
-                            name: u?.name || "",
-                            email: u?.email || "",
-                          }}
-                          display="avatar-name-email"
-                          size="sm"
-                        />
-                      </Flex>
-                    );
-                  })}
-                </Flex>
-              </div>
-            )}
+            {(() => {
+              const authorId =
+                revision.createdBy &&
+                "id" in revision.createdBy &&
+                revision.createdBy.id
+                  ? revision.createdBy.id
+                  : undefined;
+              const contribIds = revision.contributors ?? [];
+              const allIds =
+                authorId && !contribIds.includes(authorId)
+                  ? [authorId, ...contribIds]
+                  : contribIds;
+              return (
+                allIds.length > 0 && (
+                  <div className="mb-3">
+                    <strong style={{ fontSize: "0.85rem" }}>
+                      Contributors
+                    </strong>
+                    <Flex align="center" gap="2" wrap="wrap" mt="1">
+                      {allIds.map((id) => {
+                        const u = users.get(id);
+                        return (
+                          <Flex key={id} align="center" gap="1" wrap="wrap">
+                            <EventUser
+                              user={{
+                                type: "dashboard",
+                                id,
+                                name: u?.name || "",
+                                email: u?.email || "",
+                              }}
+                              display="avatar-name-email"
+                              size="sm"
+                            />
+                          </Flex>
+                        );
+                      })}
+                    </Flex>
+                  </div>
+                )
+              );
+            })()}
             {canAdminPublish && (
               <div className="mt-3 mb-4 ml-1">
                 <Checkbox

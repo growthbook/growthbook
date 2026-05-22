@@ -33,13 +33,13 @@ const newDraftMetadataFields = {
     .string()
     .optional()
     .describe(
-      "Title for a newly created draft. Only used when version is \"new\"; ignored for existing revisions.",
+      'Title for a newly created draft. Only used when version is "new"; ignored for existing revisions.',
     ),
   revisionComment: z
     .string()
     .optional()
     .describe(
-      "Comment for a newly created draft. Only used when version is \"new\"; ignored for existing revisions.",
+      'Comment for a newly created draft. Only used when version is "new"; ignored for existing revisions.',
     ),
 };
 
@@ -99,13 +99,17 @@ const scheduleShorthand = z
       .datetime({ offset: true })
       .optional()
       .nullable()
-      .describe('ISO 8601 date-time, e.g. "2025-06-01T00:00:00Z". Rule is enabled at this time.'),
+      .describe(
+        'ISO 8601 date-time, e.g. "2025-06-01T00:00:00Z". Rule is enabled at this time.',
+      ),
     endDate: z
       .string()
       .datetime({ offset: true })
       .optional()
       .nullable()
-      .describe('ISO 8601 date-time, e.g. "2025-07-01T00:00:00Z". Rule is disabled at this time.'),
+      .describe(
+        'ISO 8601 date-time, e.g. "2025-07-01T00:00:00Z". Rule is disabled at this time.',
+      ),
   })
   .strict();
 
@@ -141,8 +145,9 @@ const targetingRuleCreateInputV2 = namedSchema(
       ...ruleScopeInput,
       type: z
         .enum(["force", "rollout"])
+        .optional()
         .describe(
-          "Use \"force\" for a standard targeting rule, or \"rollout\" for a percentage rollout (coverage < 1). Both are functionally equivalent; a force rule with coverage < 1 behaves as a rollout.",
+          'Use "force" for a standard targeting rule, or "rollout" for a percentage rollout (coverage < 1). Defaults to "force". Both are functionally equivalent; a force rule with coverage < 1 behaves as a rollout.',
         ),
       value: z.string().describe("The value to serve when this rule matches."),
       coverage: z
@@ -156,7 +161,9 @@ const targetingRuleCreateInputV2 = namedSchema(
       hashAttribute: z
         .string()
         .optional()
-        .describe("Attribute to hash on for consistent assignment. Required when coverage < 1."),
+        .describe(
+          "Attribute to hash on for consistent assignment. Required when coverage < 1.",
+        ),
       seed: z.string().optional(),
     })
     .strict()
@@ -173,7 +180,7 @@ const experimentRefCreateInputV2 = namedSchema(
       ...ruleScopeInput,
       type: z
         .literal("experiment-ref")
-        .describe("Must be \"experiment-ref\" for an experiment rule."),
+        .describe('Must be "experiment-ref" for an experiment rule.'),
       experimentId: z.string().describe("ID of the linked experiment."),
       variations: z.array(
         z
@@ -195,7 +202,7 @@ const safeRolloutCreateInputV2 = namedSchema(
       ...ruleScopeInput,
       type: z
         .literal("safe-rollout")
-        .describe("Must be \"safe-rollout\" for a safe rollout rule."),
+        .describe('Must be "safe-rollout" for a safe rollout rule.'),
       controlValue: z.string(),
       variationValue: z.string(),
       hashAttribute: z.string(),
@@ -217,9 +224,7 @@ const safeRolloutCreateInputV2 = namedSchema(
             .object({
               enabled: z.boolean(),
               steps: z
-                .array(
-                  z.object({ percent: z.number().min(0).max(1) }).strict(),
-                )
+                .array(z.object({ percent: z.number().min(0).max(1) }).strict())
                 .min(1)
                 .optional(),
             })
@@ -564,7 +569,7 @@ export const postFeatureRevisionRuleAddV2Validator = {
   operationId: "postFeatureRevisionRuleAddV2",
   summary: "Add a rule to a draft revision",
   description:
-    "Appends a new rule to the revision's rule list. Supply `allEnvironments: true` on the rule to target all environments, or `environments: [...]` to scope to specific ones.\n\n**Scheduling:** For `force` and `rollout` rules, attach a schedule via `rampSchedule` (multi-step ramp) or `schedule` (simple start/end window) — these create standalone ramp actions and set `pendingRamp: \"create\"` on the rule. For `experiment-ref` and `safe-rollout` rules, only `schedule` is supported and is stored as legacy schedule fields on the rule itself (`rampSchedule` is not available for these rule types).",
+    'Appends a new rule to the revision\'s rule list. Supply `allEnvironments: true` on the rule to target all environments, or `environments: [...]` to scope to specific ones.\n\n**Scheduling:** For `force` and `rollout` rules, attach a schedule via `rampSchedule` (multi-step ramp) or `schedule` (simple start/end window) — these create standalone ramp actions and set `pendingRamp: "create"` on the rule. For `experiment-ref` and `safe-rollout` rules, only `schedule` is supported and is stored as legacy schedule fields on the rule itself (`rampSchedule` is not available for these rule types).',
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParams,
   bodySchema: z
@@ -614,7 +619,7 @@ export const putFeatureRevisionRuleV2Validator = {
   operationId: "putFeatureRevisionRuleV2",
   summary: "Update a rule in a draft revision",
   description:
-    "Patches fields on an existing rule (identified by `ruleId`). The rule `type` cannot be changed. Scope can be updated via `allEnvironments` / `environments` patch fields.\n\n**Scheduling:** For `force` and `rollout` rules, update the schedule via `rampSchedule` (multi-step ramp) or `schedule` (simple start/end window) — these manage standalone ramp actions and set `pendingRamp: \"create\"` on the rule. For `experiment-ref` and `safe-rollout` rules, only `schedule` is supported and updates legacy schedule fields on the rule itself (`rampSchedule` is not available for these rule types).",
+    'Patches fields on an existing rule (identified by `ruleId`). The rule `type` cannot be changed. Scope can be updated via `allEnvironments` / `environments` patch fields.\n\n**Scheduling:** For `force` and `rollout` rules, update the schedule via `rampSchedule` (multi-step ramp) or `schedule` (simple start/end window) — these manage standalone ramp actions and set `pendingRamp: "create"` on the rule. For `experiment-ref` and `safe-rollout` rules, only `schedule` is supported and updates legacy schedule fields on the rule itself (`rampSchedule` is not available for these rule types).',
   tags: ["feature-revisions-v2"],
   paramsSchema: ruleParams,
   bodySchema: z
@@ -659,7 +664,7 @@ export const putFeatureRevisionRuleRampScheduleV2Validator = {
   operationId: "putFeatureRevisionRuleRampScheduleV2",
   summary: "Set ramp schedule for a rule",
   description:
-    "Creates or replaces the pending ramp schedule for a rule. The rule will show `pendingRamp: \"create\"` in subsequent GET responses. The ramp is created when the revision is published. If the rule already has a live ramp schedule, this endpoint returns an error — update the live schedule via `PUT /api/v1/ramp-schedules/{id}` instead.",
+    'Creates or replaces the pending ramp schedule for a rule. The rule will show `pendingRamp: "create"` in subsequent GET responses. The ramp is created when the revision is published. If the rule already has a live ramp schedule, this endpoint returns an error — update the live schedule via `PUT /api/v1/ramp-schedules/{id}` instead.',
   tags: ["feature-revisions-v2"],
   paramsSchema: ruleParams,
   bodySchema: standaloneRampScheduleInput.extend(newDraftMetadataFields),
@@ -674,7 +679,7 @@ export const deleteFeatureRevisionRuleRampScheduleV2Validator = {
   operationId: "deleteFeatureRevisionRuleRampScheduleV2",
   summary: "Remove ramp schedule from a rule",
   description:
-    "Clears any pending ramp action for this rule. If a live ramp schedule exists, queues a detach that removes it on publish — the rule will show `pendingRamp: \"detach\"`. If only a pending create exists, it is removed and `pendingRamp` is cleared.",
+    'Clears any pending ramp action for this rule. If a live ramp schedule exists, queues a detach that removes it on publish — the rule will show `pendingRamp: "detach"`. If only a pending create exists, it is removed and `pendingRamp` is cleared.',
   tags: ["feature-revisions-v2"],
   paramsSchema: ruleParams,
   bodySchema: z

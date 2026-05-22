@@ -48,9 +48,7 @@ export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 // Read-time migration: old docs stored contributors as EventUser objects;
 // new docs store plain user-ID strings. Normalize to string[] so callers
 // always see the current schema.
-function migrateContributors(
-  raw: unknown[] | undefined,
-): string[] | undefined {
+function migrateContributors(raw: unknown[] | undefined): string[] | undefined {
   if (!raw?.length) return raw as undefined;
 
   const ids = new Set<string>();
@@ -257,6 +255,7 @@ export async function countDocuments(
   if (involvedUserId) {
     filter.$or = [
       { "createdBy.id": involvedUserId },
+      { contributors: involvedUserId },
       { "contributors.id": involvedUserId },
     ];
   }
@@ -444,6 +443,7 @@ export async function getFeatureRevisionsByStatus({
   if (involvedUserId) {
     filter.$or = [
       { "createdBy.id": involvedUserId },
+      { contributors: involvedUserId },
       { "contributors.id": involvedUserId },
     ];
   }
@@ -476,6 +476,7 @@ export async function getLatestActiveDraftForFeature(
   if (involvedUserId) {
     filter.$or = [
       { "createdBy.id": involvedUserId },
+      { contributors: involvedUserId },
       { "contributors.id": involvedUserId },
     ];
   }
@@ -964,9 +965,7 @@ export async function updateRevision(
 
   // Track contributors as user ID strings via atomic $addToSet.
   const contributorId =
-    log.user != null && "id" in log.user && log.user.id
-      ? log.user.id
-      : null;
+    log.user != null && "id" in log.user && log.user.id ? log.user.id : null;
   const contributorUpdate =
     contributorId != null ? { $addToSet: { contributors: contributorId } } : {};
 
