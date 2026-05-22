@@ -220,6 +220,13 @@ function toOpenApiSchema(schema: z.ZodType): z.core.JSONSchema.BaseSchema {
       if (jsonSchema.maximum === 9007199254740991) {
         delete jsonSchema.maximum;
       }
+      // format: "date-time" is sufficient for docs; strip the verbose regex pattern
+      if (
+        (jsonSchema as Record<string, unknown>).format === "date-time" &&
+        (jsonSchema as Record<string, unknown>).pattern
+      ) {
+        delete (jsonSchema as Record<string, unknown>).pattern;
+      }
     },
   }) as Record<string, unknown>;
   if ($defs && typeof $defs === "object") {
@@ -753,9 +760,10 @@ curl https://api.growthbook.io/api/v1/features \
   for (const name of Object.keys(componentSchemas).sort()) {
     const tagName = `${name}_model`;
     modelTags.push(tagName);
+    const modelDisplayName = name.replace(/([a-z])([A-Z])/g, "$1 $2");
     openapiSpec.tags.push({
       name: tagName,
-      "x-displayName": name,
+      "x-displayName": modelDisplayName,
       description: `<SchemaDefinition schemaRef="#/components/schemas/${name}" />`,
     });
   }

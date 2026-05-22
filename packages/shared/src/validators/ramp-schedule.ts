@@ -190,12 +190,28 @@ export type RampScheduleTemplateInterface = z.infer<
   typeof rampScheduleTemplateValidator
 >;
 
-// API-facing step schema — identical to the DB variant except scheduled trigger uses
-// an ISO string instead of a Date object (the API serializes dates as strings).
-const apiRampTrigger = z.union([
-  z.object({ type: z.literal("interval"), seconds: z.number().positive() }),
-  z.object({ type: z.literal("approval") }),
-  z.object({ type: z.literal("scheduled"), at: z.iso.datetime() }),
+// API-facing trigger schemas — use ISO strings instead of Date objects.
+export const apiRampTrigger = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("interval"),
+      seconds: z
+        .number()
+        .positive()
+        .describe("Seconds to wait before this step fires."),
+    })
+    .describe("Fires automatically after a fixed delay."),
+  z
+    .object({ type: z.literal("approval") })
+    .describe("Pauses the ramp until manually approved."),
+  z
+    .object({
+      type: z.literal("scheduled"),
+      at: z.iso
+        .datetime()
+        .describe('ISO 8601 date-time, e.g. "2025-06-01T00:00:00Z".'),
+    })
+    .describe("Fires at a specific date and time."),
 ]);
 
 // Template step action for the API — same as the DB variant (no date fields in actions).
@@ -218,8 +234,15 @@ export const apiRampScheduleTemplateValidator = namedSchema(
 );
 
 // API-facing ramp end trigger — uses ISO string instead of Date.
-const apiRampEndTrigger = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("scheduled"), at: z.iso.datetime() }),
+export const apiRampEndTrigger = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("scheduled"),
+      at: z.iso
+        .datetime()
+        .describe('ISO 8601 date-time, e.g. "2025-07-01T00:00:00Z".'),
+    })
+    .describe("End the ramp at a specific date and time."),
 ]);
 
 // API-facing ramp step — uses ISO strings for scheduled trigger dates.
