@@ -7,9 +7,9 @@ import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { getFeatureDefaultValue } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import DraftSelectorDropdown, {
+import DraftSelectorForChanges, {
   DraftMode,
-} from "@/components/Features/DraftSelectorDropdown";
+} from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import FeatureValueField from "./FeatureValueField";
@@ -65,18 +65,6 @@ export default function EditDefaultValueModal({
     <ModalStandard
       trackingEventModalType=""
       header="Edit Default Value"
-      headerAction={
-        <DraftSelectorDropdown
-          feature={feature}
-          revisionList={revisionList}
-          mode={mode}
-          setMode={setMode}
-          selectedDraft={selectedDraft}
-          setSelectedDraft={setSelectedDraft}
-          canAutoPublish={false}
-          gatedEnvSet={gatedEnvSet}
-        />
-      }
       cta="Save to draft"
       submit={form.handleSubmit(async (value) => {
         const newDefaultValue = validateFeatureValue(
@@ -106,6 +94,16 @@ export default function EditDefaultValueModal({
       open={true}
       size={feature.valueType === "json" ? "lg" : "md"}
     >
+      <DraftSelectorForChanges
+        feature={feature}
+        revisionList={revisionList}
+        mode={mode}
+        setMode={setMode}
+        selectedDraft={selectedDraft}
+        setSelectedDraft={setSelectedDraft}
+        canAutoPublish={false}
+        gatedEnvSet={gatedEnvSet}
+      />
       <Box>
         <FeatureValueField
           label="Value When Enabled"

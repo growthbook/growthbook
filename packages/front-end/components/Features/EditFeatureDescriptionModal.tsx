@@ -12,9 +12,9 @@ import Link from "@/ui/Link";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import DraftSelectorDropdown, {
+import DraftSelectorForChanges, {
   DraftMode,
-} from "@/components/Features/DraftSelectorDropdown";
+} from "@/components/Features/DraftSelectorForChanges";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 interface Props {
@@ -68,18 +68,6 @@ export default function EditFeatureDescriptionModal({
     <ModalStandard
       trackingEventModalType="edit-feature-description-modal"
       header="Edit Description"
-      headerAction={
-        <DraftSelectorDropdown
-          feature={feature}
-          revisionList={revisionList}
-          mode={mode}
-          setMode={setMode}
-          selectedDraft={selectedDraft}
-          setSelectedDraft={setSelectedDraft}
-          canAutoPublish={canAutoPublish}
-          gatedEnvSet={metadataGated ? "all" : "none"}
-        />
-      }
       open={true}
       size="lg"
       close={close}
@@ -106,6 +94,16 @@ export default function EditFeatureDescriptionModal({
       cta={mode === "publish" ? "Save" : "Save to draft"}
       ctaEnabled={form.formState.isDirty}
     >
+      <DraftSelectorForChanges
+        feature={feature}
+        revisionList={revisionList}
+        mode={mode}
+        setMode={setMode}
+        selectedDraft={selectedDraft}
+        setSelectedDraft={setSelectedDraft}
+        canAutoPublish={canAutoPublish}
+        gatedEnvSet={metadataGated ? "all" : "none"}
+      />
       <Flex align="center" wrap="wrap" width="auto" mb="2">
         <Box as="div">
           <span className="pr-1">
