@@ -318,13 +318,7 @@ const SafeRolloutRuleDashboard: FC<SafeRolloutRuleDashboardProps> = ({
     () => getRampHealthOverview(rampSchedule, monitoringSignals),
     [rampSchedule, monitoringSignals],
   );
-  const hasNonHealthyMonitoringSignal = monitoringSignals.signals.some(
-    (s) => s !== "healthy",
-  );
-  const shouldAutoExpand =
-    hasNonHealthyMonitoringSignal ||
-    monitoringOverview.autoExpand ||
-    hasQueryIssue;
+  const shouldAutoExpand = monitoringOverview.autoExpand || hasQueryIssue;
 
   const [controlsExpanded, setControlsExpanded] = useState(false);
   const hasAutoExpanded = useRef(false);
