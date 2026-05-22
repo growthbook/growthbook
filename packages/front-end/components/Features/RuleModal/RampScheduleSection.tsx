@@ -25,6 +25,7 @@ import {
   PiCalendarBlank,
   PiArrowCounterClockwise,
   PiTrash,
+  PiXBold,
   PiCheck,
 } from "react-icons/pi";
 import type {
@@ -862,7 +863,7 @@ export default function RampScheduleSection({
   featureId,
 }: Props) {
   const [open, setOpen] = useState(embedded || state.mode !== "off");
-  const [seedOpen, setSeedOpen] = useState(!!(seed));
+  const [seedOpen, setSeedOpen] = useState(!!seed);
 
   const [openMenuIndex, setOpenMenuIndex] = useState<number | "end" | null>(
     null,
@@ -2564,7 +2565,7 @@ export default function RampScheduleSection({
       align="center"
       justify="between"
       gap="2"
-      style={{ width: 420, overflow: "hidden" }}
+      style={{ width: 430, overflow: "hidden" }}
     >
       <span
         style={{
@@ -3365,7 +3366,38 @@ export default function RampScheduleSection({
     </Flex>
   );
 
-  const cutoffInput = (
+  const cutoffInput = !state.cutoffDate ? (
+    <Box display="inline-block">
+      <Link
+        type="button"
+        className="hover-underline"
+        onClick={() => {
+          const d = new Date();
+          d.setDate(d.getDate() + 14);
+          d.setSeconds(0, 0);
+          patchState({ cutoffDate: d.toISOString() });
+        }}
+      >
+        <PiPlusBold className="mr-1" />
+        Disable on date
+        <Tooltip
+          body={
+            <>
+              <Text as="div" mb="2">
+                Automatically disables the rule on this date.
+              </Text>
+              <Text as="div">
+                If the ramp-up is incomplete, it is automatically completed on
+                this date.
+              </Text>
+            </>
+          }
+        >
+          <PiInfo color="var(--color-text-low)" className="ml-1" />
+        </Tooltip>
+      </Link>
+    </Box>
+  ) : (
     <Flex align="center" gap="3" py="1" style={{ minHeight: 42 }}>
       <Box style={{ width: 70 }}>
         <Flex align="center" gap="1">
@@ -3378,8 +3410,8 @@ export default function RampScheduleSection({
                 <Text as="div" mb="2">
                   Automatically disables the rule on this date.
                 </Text>
-                <Text as="div" mb="2">
-                  Note: If incomplete, the Ramp-up is automatically completed on
+                <Text as="div">
+                  If the ramp-up is incomplete, it is automatically completed on
                   this date.
                 </Text>
               </>
@@ -3389,34 +3421,22 @@ export default function RampScheduleSection({
           </Tooltip>
         </Flex>
       </Box>
-      <SelectField
-        value={state.cutoffDate ? "on-date" : "none"}
-        options={[
-          { value: "none", label: "Never" },
-          { value: "on-date", label: "On date" },
-        ]}
-        onChange={(v) => {
-          if (v === "none") {
-            patchState({ cutoffDate: "" });
-          } else {
-            const d = new Date();
-            d.setDate(d.getDate() + 14);
-            d.setSeconds(0, 0);
-            patchState({ cutoffDate: d.toISOString() });
-          }
-        }}
+      <DatePicker
+        date={state.cutoffDate}
+        setDate={(d) => patchState({ cutoffDate: d ? d.toISOString() : "" })}
+        precision="datetime"
         containerClassName="mb-0"
-        containerStyle={{ minHeight: 38, width: 150 }}
+        disableBefore={new Date().toISOString()}
       />
-      {state.cutoffDate && (
-        <DatePicker
-          date={state.cutoffDate || undefined}
-          setDate={(d) => patchState({ cutoffDate: d ? d.toISOString() : "" })}
-          precision="datetime"
-          containerClassName="mb-0"
-          disableBefore={new Date().toISOString()}
-        />
-      )}
+      <IconButton
+        variant="ghost"
+        color="gray"
+        size="2"
+        radius="full"
+        onClick={() => patchState({ cutoffDate: "" })}
+      >
+        <PiXBold />
+      </IconButton>
     </Flex>
   );
 
@@ -3466,7 +3486,7 @@ export default function RampScheduleSection({
           }
         }}
         containerClassName="mb-0"
-        containerStyle={{ minHeight: 38, width: 150 }}
+        containerStyle={{ minHeight: 38, width: 130 }}
       />
       {state.startDate && (
         <DatePicker
@@ -3638,81 +3658,91 @@ export default function RampScheduleSection({
         {durationInput}
         {!hideTemplateSave && cutoffInput}
 
-        {setHashAttribute && attributeSchema && state.steps.some(
-          (s) => s.patch.coverage !== undefined,
-        ) && (
-          <Box pt="3">
-            <Flex direction="column" gap="2">
-              <Flex align="center" gap="1">
-                <Text as="label" weight="medium" mb="0">
-                  Sample users by:
-                </Text>
-                <DropdownMenu
-                  trigger={
-                    <Link type="button" style={{ color: "var(--color-text-high)" }}>
-                      <Text mr="1">{hashAttribute || "Select attribute"}</Text>
-                      <PiCaretDownFill />
-                    </Link>
-                  }
-                  menuPlacement="start"
-                  variant="soft"
-                >
-                  <DropdownMenuGroup>
-                    {attributeSchema
-                      .filter((a) => a.hashAttribute)
-                      .map((a) => (
-                        <DropdownMenuItem
-                          key={a.property}
-                          onClick={() => setHashAttribute(a.property)}
-                        >
-                          {a.property}
-                        </DropdownMenuItem>
-                      ))}
-                  </DropdownMenuGroup>
-                </DropdownMenu>
-              </Flex>
-            </Flex>
-            {setSeed && (
-              <>
-                {!seedOpen && (
-                  <Link
-                    type="button"
-                    className="hover-underline"
-                    onClick={() => setSeedOpen(true)}
-                  >
-                    <PiPlusBold className="mr-1" />
-                    edit seed
-                  </Link>
-                )}
-                {seedOpen && (
-                  <>
-                    <Flex align="center" gap="3" py="1" style={{ minHeight: 42 }}>
-                      <Box style={{ width: 70 }}>
-                        <Text as="label" weight="medium" ml="2" mb="0">
-                          Seed
+        {setHashAttribute &&
+          attributeSchema &&
+          state.steps.some((s) => s.patch.coverage !== undefined) && (
+            <Box mt="2" mb="4">
+              <Flex direction="column" gap="2">
+                <Flex align="center" gap="1">
+                  <Text as="label" weight="medium" mb="0">
+                    Sample users by:
+                  </Text>
+                  <DropdownMenu
+                    trigger={
+                      <Link
+                        type="button"
+                        style={{ color: "var(--color-text-high)" }}
+                      >
+                        <Text mr="1">
+                          {hashAttribute || "Select attribute"}
                         </Text>
-                      </Box>
-                      <Box style={{ width: 150 }}>
-                        <Field
-                          type="input"
-                          value={seed ?? ""}
-                          onChange={(e) => setSeed(e.target.value)}
-                          placeholder={featureId}
-                          containerClassName="mb-0"
-                        />
-                      </Box>
-                    </Flex>
-                    {ruleRampSchedule && (
-                      <HelperText status="warning" size="sm" mb="0">
-                        Changing this re-randomizes rollout traffic.
-                      </HelperText>
-                    )}
-                  </>
-                )}
-              </>
-            )}
-          </Box>
-        )}
+                        <PiCaretDownFill />
+                      </Link>
+                    }
+                    menuPlacement="start"
+                    variant="soft"
+                  >
+                    <DropdownMenuGroup>
+                      {attributeSchema
+                        .filter((a) => a.hashAttribute)
+                        .map((a) => (
+                          <DropdownMenuItem
+                            key={a.property}
+                            onClick={() => setHashAttribute(a.property)}
+                          >
+                            {a.property}
+                          </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuGroup>
+                  </DropdownMenu>
+                </Flex>
+              </Flex>
+              {setSeed && (
+                <>
+                  {!seedOpen && (
+                    <Link
+                      type="button"
+                      className="hover-underline"
+                      onClick={() => setSeedOpen(true)}
+                    >
+                      <PiPlusBold className="mr-1" />
+                      edit seed
+                    </Link>
+                  )}
+                  {seedOpen && (
+                    <>
+                      <Flex
+                        align="center"
+                        gap="3"
+                        py="1"
+                        style={{ minHeight: 42 }}
+                      >
+                        <Box style={{ width: 70 }}>
+                          <Text as="label" weight="medium" ml="2" mb="0">
+                            Seed
+                          </Text>
+                        </Box>
+                        <Box style={{ width: 150 }}>
+                          <Field
+                            type="input"
+                            value={seed ?? ""}
+                            onChange={(e) => setSeed(e.target.value)}
+                            placeholder={featureId}
+                            containerClassName="mb-0"
+                          />
+                        </Box>
+                      </Flex>
+                      {ruleRampSchedule && (
+                        <HelperText status="warning" size="sm" mb="0">
+                          Changing this re-randomizes rollout traffic.
+                        </HelperText>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </Box>
+          )}
 
         <Flex align="center" my="2">
           <Checkbox
