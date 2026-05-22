@@ -301,7 +301,7 @@ type RequestBody = {
 };
 
 type Response = {
-  description?: string;
+  description: string;
   content: {
     "application/json": {
       schema: z.core.JSONSchema.BaseSchema;
@@ -309,11 +309,24 @@ type Response = {
   };
 };
 
+function defaultResponseDescription(method: string): string {
+  switch (method.toLowerCase()) {
+    case "post":
+      return "Resource created";
+    case "put":
+    case "patch":
+      return "Resource updated";
+    case "delete":
+      return "Resource deleted";
+    default:
+      return "Successful response";
+  }
+}
+
 type Path = {
   operationId: string;
   summary?: string;
   description?: string;
-  deprecated?: boolean;
   tags?: string[];
   parameters?: (Parameter | Ref)[];
   requestBody?: RequestBody;
@@ -335,6 +348,10 @@ async function run() {
     servers: {
       url: string;
       description: string;
+      variables?: Record<
+        string,
+        { default: string; description?: string; enum?: string[] }
+      >;
     }[];
     tags: {
       name: string;
@@ -423,6 +440,13 @@ The response body will be a JSON object with the following properties:
       {
         url: "https://{domain}/api",
         description: "Self-hosted GrowthBook",
+        variables: {
+          domain: {
+            default: "localhost:3100",
+            description:
+              "The host (and optional port) of your self-hosted GrowthBook API server, e.g. `growthbook.example.com` or `localhost:3100`.",
+          },
+        },
       },
     ],
     tags: openApiTags.map((id) => ({
@@ -467,8 +491,14 @@ curl https://api.growthbook.io/api/v1/features \
   // Be able to look up a schema by its JSON stringified schema
   const schemaHashMap: Record<string, string> = {};
 
+  // Tags actually referenced by an emitted operation. Used at the end to prune
+  // entries from openapiSpec.tags and the Endpoints tag group so the generated
+  // docs don't show empty sections (e.g. when every route under a tag is
+  // `deprecated: true` and skipped).
+  const usedTags = new Set<string>();
+
   for (const route of allRoutes) {
-    if (route.excludeFromSpec) {
+    if (route.excludeFromSpec || route.deprecated) {
       continue;
     }
 
@@ -482,7 +512,6 @@ curl https://api.growthbook.io/api/v1/features \
       path,
       exampleRequest,
       version,
-      deprecated,
     } = route;
 
     if (!path || !method || !operationId) {
@@ -663,7 +692,7 @@ curl https://api.growthbook.io/api/v1/features \
 
     const responses: Record<string, Response> = {
       "200": {
-        ...(responseDescription && { description: responseDescription }),
+        description: responseDescription || defaultResponseDescription(method),
         content: {
           "application/json": {
             schema: responseSchema,
@@ -689,20 +718,23 @@ curl https://api.growthbook.io/api/v1/features \
       operationId,
       summary,
       ...(description !== undefined && { description }),
-      ...(deprecated && { deprecated: true }),
       tags,
       ...(parameters.length > 0 && { parameters }),
       ...(requestBody !== undefined && { requestBody }),
       responses,
       "x-codeSamples": codeSamples,
     };
+    // Track tags used by emitted operations so we can prune empty endpoint
+    // sections from the spec below. Deprecated routes are already filtered
+    // out at the top of this loop, so anything reaching here is live.
+    tags?.forEach((t) => usedTags.add(t));
   }
 
   // Auto-discover tags from routes that aren't in the hardcoded openApiTags list
   const knownTags = new Set<string>(openApiTags);
   const discoveredTags = new Set<string>();
   for (const route of allRoutes) {
-    if (route.excludeFromSpec || !route.tags) continue;
+    if (route.excludeFromSpec || route.deprecated || !route.tags) continue;
     for (const tag of route.tags) {
       if (!knownTags.has(tag)) {
         discoveredTags.add(tag);
@@ -760,11 +792,22 @@ curl https://api.growthbook.io/api/v1/features \
     });
   }
 
-  // Build x-tagGroups for docs navigation
+  // Build x-tagGroups for docs navigation. Only include tags that actually
+  // have an emitted operation, so the docs don't render empty sidebar groups.
   const endpointTags: string[] = [
-    ...openApiTags,
-    ...Array.from(discoveredTags),
+    ...openApiTags.filter((t) => usedTags.has(t)),
+    ...Array.from(discoveredTags).filter((t) => usedTags.has(t)),
   ];
+  // Prune the top-level tags array to match — drop any endpoint tag that's
+  // unused. (Model `_model` tags are kept regardless; they belong to the
+  // Models section and aren't operation-bound.)
+  const allEndpointTagNames = new Set<string>([
+    ...openApiTags,
+    ...discoveredTags,
+  ]);
+  openapiSpec.tags = openapiSpec.tags.filter(
+    (t) => !allEndpointTagNames.has(t.name) || usedTags.has(t.name),
+  );
   (openapiSpec as Record<string, unknown>)["x-tagGroups"] = [
     { name: "Endpoints", tags: endpointTags },
     { name: "Models", tags: modelTags },
