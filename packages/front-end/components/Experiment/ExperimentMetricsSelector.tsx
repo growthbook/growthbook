@@ -97,7 +97,7 @@ export default function ExperimentMetricsSelector({
           return (
             metric &&
             quantileMetricType(metric) === "event" &&
-            !datasourceObj?.properties?.hasQuantileKLL
+            !datasourceObj?.properties?.hasQuantileSketch
           );
         });
 
