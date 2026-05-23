@@ -65,6 +65,12 @@ const BaseClass = MakeModelClass({
     updateEvent: "rampSchedule.update",
     deleteEvent: "rampSchedule.delete",
   },
+  additionalIndexes: [
+    // Agenda poller queries by nextProcessAt on every tick — must be indexed.
+    // Intentionally omits the organization prefix because
+    // dangerouslyFindAllDueSchedules is a cross-tenant query.
+    { fields: { nextProcessAt: 1 } },
+  ],
   globallyUniquePrimaryKeys: true,
   defaultValues: {
     status: "pending" as const,
@@ -1005,7 +1011,7 @@ export class RampScheduleModel extends BaseClass {
     now: Date,
   ): Promise<{ id: string; organization: string }[]> {
     const collection = mongoose.connection.db.collection(COLLECTION_NAME);
-    const docs = await collection
+    const docs = (await collection
       .find(
         {
           $or: [
@@ -1018,12 +1024,11 @@ export class RampScheduleModel extends BaseClass {
         },
         { projection: { id: 1, organization: 1, _id: 0 } },
       )
-      .toArray() as unknown as Array<Record<string, unknown>>;
-    return docs
-      .filter(
-        (d): d is { id: string; organization: string } =>
-          typeof d.id === "string" && typeof d.organization === "string",
-      );
+      .toArray()) as unknown as Array<Record<string, unknown>>;
+    return docs.filter(
+      (d): d is { id: string; organization: string } =>
+        typeof d.id === "string" && typeof d.organization === "string",
+    );
   }
 }
 
