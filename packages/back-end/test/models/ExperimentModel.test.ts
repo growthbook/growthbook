@@ -1,5 +1,8 @@
 import { ExperimentInterface } from "shared/types/experiment";
-import { hasActualChanges } from "back-end/src/models/ExperimentModel";
+import {
+  applyExperimentTypeQuery,
+  hasActualChanges,
+} from "back-end/src/models/ExperimentModel";
 
 describe("ExperimentModel", () => {
   const experiment: ExperimentInterface = {
@@ -89,6 +92,50 @@ describe("ExperimentModel", () => {
         ],
       };
       expect(hasActualChanges(experiment, updates)).toEqual(true);
+    });
+  });
+
+  describe("applyExperimentTypeQuery", () => {
+    it("filters contextual bandits across current and legacy persisted shapes", () => {
+      const query = {};
+
+      applyExperimentTypeQuery(query, "contextual-bandit");
+
+      expect(query).toEqual({
+        $or: [
+          { type: "contextual-bandit" },
+          { type: "multi-armed-bandit", banditIsContextual: true },
+          { contextualBanditId: { $exists: true, $ne: "" } },
+        ],
+      });
+    });
+
+    it("filters regular bandits without legacy contextual bandits", () => {
+      const query = {};
+
+      applyExperimentTypeQuery(query, "multi-armed-bandit");
+
+      expect(query).toEqual({
+        type: "multi-armed-bandit",
+        banditIsContextual: { $ne: true },
+        contextualBanditId: { $in: [null, ""] },
+      });
+    });
+
+    it("filters standard experiments including legacy missing type values", () => {
+      const query = {};
+
+      applyExperimentTypeQuery(query, "standard");
+
+      expect(query).toEqual({ type: { $in: ["standard", null] } });
+    });
+
+    it("excludes holdouts when no type is specified", () => {
+      const query = {};
+
+      applyExperimentTypeQuery(query);
+
+      expect(query).toEqual({ type: { $ne: "holdout" } });
     });
   });
 });
