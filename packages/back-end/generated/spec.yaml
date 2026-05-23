@@ -34204,6 +34204,8 @@ components:
                           format:
                             type: string
                             const: legacy
+                          displayName:
+                            type: string
                         required:
                           - enabled
                           - name
@@ -34229,6 +34231,8 @@ components:
                           format:
                             type: string
                             const: multiRange
+                          displayName:
+                            type: string
                         required:
                           - enabled
                           - name

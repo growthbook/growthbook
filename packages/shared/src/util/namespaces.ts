@@ -8,6 +8,7 @@ type LegacyNamespaceValue = {
   name: string;
   range: [number, number];
   format?: "legacy"; // optional — matches legacyNamespaceValue Zod schema
+  displayName?: string;
 };
 
 type MultiRangeNamespaceValue = {
@@ -17,6 +18,7 @@ type MultiRangeNamespaceValue = {
   hashAttribute?: string;
   hashVersion?: number;
   format: "multiRange";
+  displayName?: string;
 };
 
 export type NamespaceValue = LegacyNamespaceValue | MultiRangeNamespaceValue;

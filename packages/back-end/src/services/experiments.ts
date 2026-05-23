@@ -3518,6 +3518,7 @@ function toPhaseNamespaceValue(
     enabled,
     name,
     range: toNamespaceRange(apiNs.range ?? apiNs.ranges?.[0]),
+    displayName: orgNs?.label,
   };
 }
 

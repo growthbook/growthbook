@@ -1159,7 +1159,8 @@ export async function postNamespaces(
 export async function putNamespaces(
   req: AuthRequest<
     {
-      label: string;
+      label?: string;
+      displayName?: string;
       description: string;
       status: "active" | "inactive";
       hashAttribute?: string;
@@ -1169,7 +1170,13 @@ export async function putNamespaces(
   >,
   res: Response,
 ) {
-  const { label, description, status, hashAttribute } = req.body;
+  const {
+    label: labelFromBody,
+    displayName: displayNameFromBody,
+    description,
+    status,
+    hashAttribute,
+  } = req.body;
   const { name } = req.params;
 
   const context = getContextFromReq(req);
@@ -1186,6 +1193,9 @@ export async function putNamespaces(
   if (namespaces.filter((n) => n.name === name).length === 0) {
     throw new Error("Namespace not found.");
   }
+
+  // Support both 'label' (legacy) and 'displayName' (new, matches external API)
+  const label = displayNameFromBody || labelFromBody;
 
   const updatedNamespaces = namespaces.map((n) => {
     if (n.name !== name) return n;

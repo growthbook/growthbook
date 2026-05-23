@@ -106,6 +106,13 @@ function MultiRangeNamespaceModal({
       cta={existing ? "Update" : "Create"}
       header={existing ? "Edit Namespace" : "Create Namespace"}
       submit={form.handleSubmit(async (value) => {
+        // Validate hash attribute for multiRange format
+        if (!useLegacyFormat && !value.hashAttribute) {
+          throw new Error(
+            "Hash attribute is required for multi-range namespaces",
+          );
+        }
+
         const body = {
           label: value.label,
           description: value.description,
