@@ -69,7 +69,8 @@ const BaseClass = MakeModelClass({
     // Agenda poller queries by nextProcessAt on every tick — must be indexed.
     // Intentionally omits the organization prefix because
     // dangerouslyFindAllDueSchedules is a cross-tenant query.
-    { fields: { nextProcessAt: 1 } },
+    // sparse: true matches the existing index (most documents have nextProcessAt: null).
+    { fields: { nextProcessAt: 1 }, sparse: true },
   ],
   globallyUniquePrimaryKeys: true,
   defaultValues: {
