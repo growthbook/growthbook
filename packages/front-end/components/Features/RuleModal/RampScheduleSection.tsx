@@ -211,7 +211,7 @@ function bestUnitFromSeconds(seconds: number): {
   return { value: round2(seconds / 60), unit: "minutes" };
 }
 
-const SIMPLE_COVERAGES = [5, 10, 50];
+const SIMPLE_COVERAGES = [1, 5, 10, 25, 50];
 // Each ramp step (non-last) gets this fraction of total duration; last step gets the rest.
 const SIMPLE_RAMP_FRACTION = 0.1;
 
@@ -954,9 +954,11 @@ export default function RampScheduleSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templates]);
 
-  // Auto-derive monitoring cadence from step durations on initial mount.
+  // Auto-derive monitoring cadence from step durations on initial mount,
+  // but only if no explicit cadence override was already saved.
   useEffect(() => {
     if (state.builderMode !== "simple") return;
+    if (state.monitoring.updateScheduleMinutes !== null) return;
     const overrides = deriveMonitoringOverrides(state.steps);
     if (
       overrides.updateScheduleMinutes === null &&
@@ -2834,7 +2836,7 @@ export default function RampScheduleSection({
   const anyCadenceWarning = useMemo(() => {
     if (!effectiveCadenceSeconds) return false;
     if (state.builderMode === "simple") {
-      const unit = state.simpleDurationUnit ?? "hours";
+      const unit = state.simpleDurationUnit ?? "days";
       const simpleSteps = generateSimpleSteps(state.simpleDurationDays, unit);
       const minStepSeconds = Math.min(
         ...simpleSteps.map((s) => s.intervalValue * UNIT_MULT[s.intervalUnit]),
