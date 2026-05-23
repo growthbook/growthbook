@@ -143,7 +143,7 @@ function computeRemainingTime(
 
   const currentIsApproval =
     rs.currentStepIndex >= 0 &&
-    rs.steps[rs.currentStepIndex]?.trigger.type === "approval";
+    rs.steps[rs.currentStepIndex]?.trigger?.type === "approval";
   const nextIdx =
     rs.status === "pending-approval" ||
     (rs.status === "paused" && currentIsApproval)
@@ -151,11 +151,11 @@ function computeRemainingTime(
       : rs.currentStepIndex + 1; // works for -1 → 0
   for (let i = nextIdx; i < rs.steps.length; i++) {
     const trigger = rs.steps[i].trigger;
-    if (trigger.type === "interval") {
+    if (trigger?.type === "interval") {
       seconds += trigger.seconds;
-    } else if (trigger.type === "approval") {
+    } else if (trigger?.type === "approval") {
       manualApprovals++;
-    } else if (trigger.type === "scheduled") {
+    } else if (trigger?.type === "scheduled") {
       seconds += Math.max(0, (new Date(trigger.at).getTime() - now) / 1000);
     }
   }

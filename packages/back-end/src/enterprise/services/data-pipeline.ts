@@ -2,7 +2,6 @@ import md5 from "md5";
 import {
   ExperimentMetricInterface,
   isFactMetric,
-  isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
 import { IncrementalRefreshInterface } from "shared/validators";
@@ -105,15 +104,6 @@ export async function validateIncrementalPipeline({
   }
 
   selectedMetrics.filter(isFactMetric).forEach((metric) => {
-    if (
-      isRatioMetric(metric) &&
-      metric.numerator.factTableId !== metric.denominator?.factTableId
-    ) {
-      throw new Error(
-        "Ratio metrics must have the same numerator and denominator fact table with incremental refresh.",
-      );
-    }
-
     // Unit quantiles store a float and re-aggregate via SUM, so they work on
     // any incremental-capable warehouse. Only event quantiles need KLL (the
     // quantile must be computed over raw event values, which requires a
