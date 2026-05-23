@@ -5,6 +5,7 @@ import {
   findEventForwarderEventsFactTableForDatasource,
   deleteEventForwarderEventsFactTableForDatasource,
   queueEventForwarderEventsFactTablesColumnsRefresh,
+  queueDelayedFactTableColumnsRefreshForEventForwarderDatasources,
 } from "back-end/src/services/eventForwarderFactTable";
 import * as DataSourceModel from "back-end/src/models/DataSourceModel";
 import * as FactTableModel from "back-end/src/models/FactTableModel";
@@ -46,6 +47,10 @@ const mockedGetSinkType =
 const mockedQueueFactTableColumnsRefresh =
   RefreshFactTableColumns.queueFactTableColumnsRefresh as jest.MockedFunction<
     typeof RefreshFactTableColumns.queueFactTableColumnsRefresh
+  >;
+const mockedQueueFactTableColumnsRefreshAt =
+  RefreshFactTableColumns.queueFactTableColumnsRefreshAt as jest.MockedFunction<
+    typeof RefreshFactTableColumns.queueFactTableColumnsRefreshAt
   >;
 
 function datasource(
@@ -314,6 +319,50 @@ describe("queueEventForwarderEventsFactTablesColumnsRefresh", () => {
 
     await queueEventForwarderEventsFactTablesColumnsRefresh(ctx as never);
 
+    expect(mockedQueueFactTableColumnsRefresh).not.toHaveBeenCalled();
+  });
+});
+
+describe("queueDelayedFactTableColumnsRefreshForEventForwarderDatasources", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("queues refreshAt for all fact tables on event forwarder datasources", async () => {
+    const ctx = context();
+    ctx.models.eventForwarderConfigs.getAll.mockResolvedValue([
+      { datasourceId: "ds_1", sinkType: "bigquery" },
+    ]);
+
+    const ft1 = eventsFactTable({ id: "ft_events", datasource: "ds_1" });
+    const ft2 = eventsFactTable({
+      id: "ft_custom",
+      datasource: "ds_1",
+      name: "Custom Events",
+    });
+
+    mockedGetFactTablesForDatasource.mockResolvedValue([ft1, ft2]);
+
+    await queueDelayedFactTableColumnsRefreshForEventForwarderDatasources(
+      ctx as never,
+    );
+
+    const expectedRunAt = new Date("2026-01-01T00:05:00.000Z");
+    expect(mockedQueueFactTableColumnsRefreshAt).toHaveBeenCalledTimes(2);
+    expect(mockedQueueFactTableColumnsRefreshAt).toHaveBeenCalledWith(
+      ft1,
+      expectedRunAt,
+    );
+    expect(mockedQueueFactTableColumnsRefreshAt).toHaveBeenCalledWith(
+      ft2,
+      expectedRunAt,
+    );
     expect(mockedQueueFactTableColumnsRefresh).not.toHaveBeenCalled();
   });
 });

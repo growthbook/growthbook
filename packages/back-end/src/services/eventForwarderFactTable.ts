@@ -26,7 +26,10 @@ import {
   decryptEventForwarderConfigModel,
   getEventForwarderSinkTypeForDatasource,
 } from "back-end/src/services/eventForwarderConfig";
-import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
+import {
+  queueFactTableColumnsRefresh,
+  queueFactTableColumnsRefreshAt,
+} from "back-end/src/jobs/refreshFactTableColumns";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
@@ -103,6 +106,24 @@ export async function queueEventForwarderEventsFactTablesColumnsRefresh(
     }
 
     await queueFactTableColumnsRefresh(factTable);
+  }
+}
+
+const EVENT_FORWARDER_FACT_TABLE_REFRESH_DELAY_MS = 5 * 60 * 1000;
+
+export async function queueDelayedFactTableColumnsRefreshForEventForwarderDatasources(
+  context: ReqContext,
+  delayMs = EVENT_FORWARDER_FACT_TABLE_REFRESH_DELAY_MS,
+): Promise<void> {
+  const configs = await context.models.eventForwarderConfigs.getAll();
+  const datasourceIds = new Set(configs.map((config) => config.datasourceId));
+  const runAt = new Date(Date.now() + delayMs);
+
+  for (const datasourceId of datasourceIds) {
+    const factTables = await getFactTablesForDatasource(context, datasourceId);
+    for (const factTable of factTables) {
+      await queueFactTableColumnsRefreshAt(factTable, runAt);
+    }
   }
 }
 

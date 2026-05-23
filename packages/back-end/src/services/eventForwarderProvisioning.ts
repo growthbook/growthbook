@@ -22,7 +22,7 @@ import { testEventForwarderWriteAccess } from "back-end/src/services/eventForwar
 import { initializeDatasourceUserIdTypesFromOrgAttributeSchema } from "back-end/src/services/eventForwarderUserIdTypes";
 import {
   ensureEventForwarderEventsFactTable,
-  queueEventForwarderEventsFactTablesColumnsRefresh,
+  queueDelayedFactTableColumnsRefreshForEventForwarderDatasources,
 } from "back-end/src/services/eventForwarderFactTable";
 import { ensureEventForwarderExposureQueries } from "back-end/src/services/eventForwarderExposureQueries";
 import { logger } from "back-end/src/util/logger";
@@ -462,7 +462,7 @@ export async function syncEventForwarderSchemasAfterAttributeSchemaChange(
   if (configs.length === 0) {
     return;
   }
-  await Promise.all(
+  const schemaChangedResults = await Promise.all(
     configs.map((config) =>
       updateEventForwarderSchemaThroughLicenseServer(
         context,
@@ -472,7 +472,11 @@ export async function syncEventForwarderSchemasAfterAttributeSchemaChange(
     ),
   );
 
-  await queueEventForwarderEventsFactTablesColumnsRefresh(context);
+  if (schemaChangedResults.some(Boolean)) {
+    await queueDelayedFactTableColumnsRefreshForEventForwarderDatasources(
+      context,
+    );
+  }
 }
 
 /**
@@ -486,9 +490,9 @@ export async function updateEventForwarderSchemaThroughLicenseServer(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface,
   attributeSchema: SDKAttributeSchema,
-): Promise<void> {
+): Promise<boolean> {
   if (eventForwarderConfig.status !== "ready") {
-    return;
+    return false;
   }
 
   try {
@@ -507,6 +511,8 @@ export async function updateEventForwarderSchemaThroughLicenseServer(
       schemaId: result.schemaId,
       lastProvisioningError: "",
     });
+
+    return result.schemaChanged;
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown schema update error";
@@ -523,6 +529,8 @@ export async function updateEventForwarderSchemaThroughLicenseServer(
       lastProvisioningError: message,
     });
   }
+
+  return false;
 }
 
 /**
