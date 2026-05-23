@@ -45,7 +45,7 @@ import { getDefaultVariationValue } from "@/services/features";
 export interface Props {
   feature: FeatureInterface;
   experiment: ExperimentInterfaceStringDates;
-  info: LinkedFeatureInfo;
+  linkedFeatureInfo: LinkedFeatureInfo;
   numLinkedChanges: number;
   close: () => void;
   mutate: () => void;
@@ -123,7 +123,7 @@ function SplitField({
 export default function EditFeatureFlagValuesModal({
   feature,
   experiment,
-  info,
+  linkedFeatureInfo,
   numLinkedChanges,
   close,
   mutate,
@@ -151,9 +151,11 @@ export default function EditFeatureFlagValuesModal({
         key: v.key,
         screenshots: v.screenshots ?? [],
         weight: latestPhase?.variationWeights?.[i] ?? 0,
-        value: info.values.find((x) => x.variationId === v.id)?.value ?? "",
+        value:
+          linkedFeatureInfo.values.find((x) => x.variationId === v.id)?.value ??
+          "",
       })),
-    [phaseVariations, latestPhase?.variationWeights, info.values],
+    [phaseVariations, latestPhase?.variationWeights, linkedFeatureInfo.values],
   );
 
   const form = useForm<FormValues>({
@@ -184,13 +186,13 @@ export default function EditFeatureFlagValuesModal({
   // draft or a different existing draft would fail because those revisions
   // don't contain the rule. Lock the dropdown to the one draft that does.
   const ruleOnlyOnDraft =
-    info.state === "draft" &&
-    !info.liveHasMatchingRule &&
-    info.draftRevisionVersion != null;
+    linkedFeatureInfo.state === "draft" &&
+    !linkedFeatureInfo.liveHasMatchingRule &&
+    linkedFeatureInfo.draftRevisionVersion != null;
 
   const initialMode: DraftMode =
-    info.draftRevisionVersion != null ? "existing" : "new";
-  const initialSelectedDraft = info.draftRevisionVersion ?? null;
+    linkedFeatureInfo.draftRevisionVersion != null ? "existing" : "new";
+  const initialSelectedDraft = linkedFeatureInfo.draftRevisionVersion ?? null;
 
   const [mode, setMode] = useState<DraftMode>(initialMode);
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
@@ -200,7 +202,7 @@ export default function EditFeatureFlagValuesModal({
 
   // On first render `useApi` hasn't resolved yet, so `revisionList` is empty
   // and the dropdown can't render revision labels. Re-apply the
-  // info-derived initial mode/selectedDraft once feature data arrives so the
+  // linkedFeatureInfo-derived initial mode/selectedDraft once feature data arrives so the
   // dropdown reflects the linkedFeatureInfo defaults.
   const hasInitializedFromData = useRef(false);
   useEffect(() => {

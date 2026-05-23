@@ -135,7 +135,7 @@ export default function LinkedFeatureFlag({
         <EditFeatureFlagValuesModal
           feature={info.feature}
           experiment={experiment}
-          info={info}
+          linkedFeatureInfo={info}
           numLinkedChanges={numLinkedChanges}
           close={() => setEditModalOpen(false)}
           mutate={() => mutate?.()}
