@@ -11,6 +11,7 @@ import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { syncEventForwarderSchemasAfterAttributeSchemaChange } from "back-end/src/services/eventForwarderProvisioning";
 import { hasAnyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
 import { syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema } from "back-end/src/services/eventForwarderUserIdTypes";
+import { queueEventForwarderEventsFactTablesColumnsRefresh } from "back-end/src/services/eventForwarderFactTable";
 
 export const postAttribute = async (
   req: AuthRequest<SDKAttribute>,
@@ -165,6 +166,10 @@ export const putAttribute = async (
       context,
       attributeSchema,
     );
+  }
+
+  if (hasEventForwarder) {
+    await queueEventForwarderEventsFactTablesColumnsRefresh(context);
   }
 
   await req.audit({

@@ -1,11 +1,7 @@
 import { z } from "zod";
 import { baseSchema } from "./base-model";
 
-const eventForwarderSinkTypeValidator = z.enum([
-  "bigquery",
-  "snowflake",
-  "databricks",
-]);
+const eventForwarderSinkTypeValidator = z.enum(["bigquery", "snowflake"]);
 const eventForwarderStatusValidator = z.enum([
   "pending",
   "ready",

@@ -10,4 +10,3 @@ export * as power from "./power";
 export * as health from "./health";
 export * as sql from "./sql";
 export * as validators from "./validators";
-export * as eventForwarderAvro from "./event-forwarder-avro";

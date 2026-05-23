@@ -7,7 +7,7 @@ import {
   isEventForwarderManagedExposureQuery,
   mergeEventForwarderExposureQueries,
 } from "../../src/util/event-forwarder-exposure-queries";
-import { EVENT_FORWARDER_AVRO_PARTITION_FIELD } from "../../src/event-forwarder-avro";
+import { EVENT_FORWARDER_AVRO_PARTITION_FIELD } from "../../src/util/event-forwarder-fact-table";
 
 describe("event-forwarder-exposure-queries table reference", () => {
   it("builds BigQuery experiment_viewed table reference", () => {

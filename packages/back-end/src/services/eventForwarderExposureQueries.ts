@@ -25,42 +25,43 @@ function buildExposureQueryParams(
 ): GenerateEventForwarderExposureQueriesParams | null {
   const params = connectionParams;
 
-  if (eventForwarderConfig.sinkType === "bigquery") {
-    const bigqueryParams = params as BigQueryConnectionParams | undefined;
-    const projectId =
-      bigqueryParams?.defaultProject?.trim() ||
-      bigqueryParams?.projectId?.trim() ||
-      "";
-    if (!projectId) {
-      return null;
+  switch (eventForwarderConfig.sinkType) {
+    case "bigquery": {
+      const bigqueryParams = params as BigQueryConnectionParams | undefined;
+      const projectId =
+        bigqueryParams?.defaultProject?.trim() ||
+        bigqueryParams?.projectId?.trim() ||
+        "";
+      if (!projectId) {
+        return null;
+      }
+
+      const decrypted =
+        decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
+          eventForwarderConfig,
+        );
+
+      return {
+        sinkType: "bigquery",
+        projectId,
+        dataset: decrypted.dataset.trim(),
+      };
     }
+    case "snowflake": {
+      const decrypted =
+        decryptEventForwarderConfigModel<SnowflakeEventForwarderStoredConfig>(
+          eventForwarderConfig,
+        );
 
-    const decrypted =
-      decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
-        eventForwarderConfig,
-      );
-
-    return {
-      sinkType: "bigquery",
-      projectId,
-      dataset: decrypted.dataset.trim(),
-    };
+      return {
+        sinkType: "snowflake",
+        database: decrypted.database.trim(),
+        schema: decrypted.schema.trim(),
+      };
+    }
+    default:
+      return null;
   }
-
-  if (eventForwarderConfig.sinkType === "snowflake") {
-    const decrypted =
-      decryptEventForwarderConfigModel<SnowflakeEventForwarderStoredConfig>(
-        eventForwarderConfig,
-      );
-
-    return {
-      sinkType: "snowflake",
-      database: decrypted.database.trim(),
-      schema: decrypted.schema.trim(),
-    };
-  }
-
-  return null;
 }
 
 export async function ensureEventForwarderExposureQueries(
@@ -68,10 +69,6 @@ export async function ensureEventForwarderExposureQueries(
   eventForwarderConfig: EventForwarderConfigInterface,
   datasourceParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
 ): Promise<void> {
-  if (eventForwarderConfig.sinkType === "databricks") {
-    return;
-  }
-
   const raw = await getRawDataSourceById(
     context,
     eventForwarderConfig.datasourceId,

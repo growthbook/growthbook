@@ -1065,7 +1065,7 @@ export async function postProvisionEventForwarderToLicenseServer(
 export async function postTeardownEventForwarderToLicenseServer(params: {
   organizationId: string;
   datasourceId: string;
-  sinkType: "bigquery" | "snowflake" | "databricks";
+  sinkType: "bigquery" | "snowflake";
   topic?: string;
   connectorName?: string;
   connectorId?: string;
@@ -1157,7 +1157,7 @@ export type EventForwarderSchemaUpdateParams = {
   organizationId: string;
   datasourceId: string;
   topic: string;
-  sinkType: "bigquery" | "snowflake" | "databricks";
+  sinkType: "bigquery" | "snowflake";
   /** The schemaId currently stored on the EventForwarderConfig record. May be 0 if unknown; the license server will fall back to the latest registered schema. */
   schemaId: number;
   attributeSchema: SDKAttributeSchema;

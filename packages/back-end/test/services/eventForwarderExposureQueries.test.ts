@@ -278,20 +278,4 @@ describe("ensureEventForwarderExposureQueries", () => {
     expect(mockedUpdate).not.toHaveBeenCalled();
     expect(mockedGetById).not.toHaveBeenCalled();
   });
-
-  it("skips databricks sink", async () => {
-    mockedGetRaw.mockResolvedValue(
-      ds({
-        userIdTypes: [{ userIdType: "user_id", description: "" }],
-      }),
-    );
-
-    await ensureEventForwarderExposureQueries(context() as never, {
-      ...efConfig("bigquery"),
-      sinkType: "databricks",
-    });
-
-    expect(mockedUpdate).not.toHaveBeenCalled();
-    expect(mockedGetRaw).not.toHaveBeenCalled();
-  });
 });

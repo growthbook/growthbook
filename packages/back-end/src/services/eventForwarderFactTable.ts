@@ -26,6 +26,7 @@ import {
   decryptEventForwarderConfigModel,
   getEventForwarderSinkTypeForDatasource,
 } from "back-end/src/services/eventForwarderConfig";
+import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
@@ -60,15 +61,56 @@ async function resolveEventForwarderEventsFactTableId(
   };
 }
 
+async function findEventForwarderEventsFactTableForDatasourceId(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+): Promise<FactTableInterface | null> {
+  const factTables = await getFactTablesForDatasource(context, datasource.id);
+  let factTable = findEventForwarderEventsFactTableForDatasource(
+    factTables,
+    datasource.name,
+  );
+
+  if (!factTable) {
+    const fallbackId = getEventForwarderEventsFactTableId(datasource.name);
+    factTable = await getFactTable(context, fallbackId);
+    if (factTable?.datasource !== datasource.id) {
+      factTable = null;
+    }
+  }
+
+  return factTable;
+}
+
+export async function queueEventForwarderEventsFactTablesColumnsRefresh(
+  context: ReqContext,
+): Promise<void> {
+  const configs = await context.models.eventForwarderConfigs.getAll();
+  const datasourceIds = new Set(configs.map((config) => config.datasourceId));
+
+  for (const datasourceId of datasourceIds) {
+    const datasource = await getDataSourceById(context, datasourceId);
+    if (!datasource) {
+      continue;
+    }
+
+    const factTable = await findEventForwarderEventsFactTableForDatasourceId(
+      context,
+      datasource,
+    );
+    if (!factTable) {
+      continue;
+    }
+
+    await queueFactTableColumnsRefresh(factTable);
+  }
+}
+
 export async function ensureEventForwarderEventsFactTable(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface,
   datasourceParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
 ): Promise<void> {
-  if (eventForwarderConfig.sinkType === "databricks") {
-    return;
-  }
-
   const datasource = await getDataSourceById(
     context,
     eventForwarderConfig.datasourceId,
@@ -96,62 +138,63 @@ export async function ensureEventForwarderEventsFactTable(
     return;
   }
 
-  const attributeSchema = context.org.settings?.attributeSchema ?? [];
-
   let sql: string;
-  if (eventForwarderConfig.sinkType === "bigquery") {
-    const bigqueryParams = datasourceParams as
-      | BigQueryConnectionParams
-      | undefined;
-    const projectId =
-      bigqueryParams?.defaultProject?.trim() ||
-      bigqueryParams?.projectId?.trim() ||
-      "";
-    if (!projectId) {
-      logger.warn(
-        {
-          datasourceId: datasource.id,
-          organizationId: context.org.id,
-        },
-        "Skipping event forwarder Events fact table: missing BigQuery project id",
-      );
-      return;
+  switch (eventForwarderConfig.sinkType) {
+    case "bigquery": {
+      const bigqueryParams = datasourceParams as
+        | BigQueryConnectionParams
+        | undefined;
+      const projectId =
+        bigqueryParams?.defaultProject?.trim() ||
+        bigqueryParams?.projectId?.trim() ||
+        "";
+      if (!projectId) {
+        logger.warn(
+          {
+            datasourceId: datasource.id,
+            organizationId: context.org.id,
+          },
+          "Skipping event forwarder Events fact table: missing BigQuery project id",
+        );
+        return;
+      }
+
+      const decrypted =
+        decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
+          eventForwarderConfig,
+        );
+
+      sql = buildEventForwarderEventsFactTableSql({
+        sinkType: "bigquery",
+        projectId,
+        dataset: decrypted.dataset.trim(),
+        tableName: decrypted.tableName.trim(),
+      });
+      break;
     }
+    case "snowflake": {
+      const decrypted =
+        decryptEventForwarderConfigModel<SnowflakeEventForwarderStoredConfig>(
+          eventForwarderConfig,
+        );
 
-    const decrypted =
-      decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
-        eventForwarderConfig,
+      sql = buildEventForwarderEventsFactTableSql({
+        sinkType: "snowflake",
+        database: decrypted.database.trim(),
+        schema: decrypted.schema.trim(),
+        tableName: decrypted.tableName.trim(),
+      });
+      break;
+    }
+    default:
+      throw new Error(
+        `Unsupported event forwarder sink type for Events fact table: ${String(eventForwarderConfig.sinkType)}`,
       );
-
-    sql = buildEventForwarderEventsFactTableSql({
-      sinkType: "bigquery",
-      projectId,
-      dataset: decrypted.dataset.trim(),
-      tableName: decrypted.tableName.trim(),
-    });
-  } else if (eventForwarderConfig.sinkType === "snowflake") {
-    const decrypted =
-      decryptEventForwarderConfigModel<SnowflakeEventForwarderStoredConfig>(
-        eventForwarderConfig,
-      );
-
-    sql = buildEventForwarderEventsFactTableSql({
-      sinkType: "snowflake",
-      database: decrypted.database.trim(),
-      schema: decrypted.schema.trim(),
-      tableName: decrypted.tableName.trim(),
-    });
-  } else {
-    return;
   }
 
-  const columns = buildEventForwarderEventsFactTableColumns(
-    userIdTypes,
-    attributeSchema,
-    datasource.projects,
-  );
+  const columns = buildEventForwarderEventsFactTableColumns(userIdTypes);
 
-  await createFactTable(context, {
+  const factTable = await createFactTable(context, {
     id: factTableId,
     name: getEventForwarderEventsFactTableName(datasource.name),
     description: "",
@@ -165,6 +208,8 @@ export async function ensureEventForwarderEventsFactTable(
     columns,
     managedBy: "api",
   });
+
+  await queueFactTableColumnsRefresh(factTable);
 }
 
 export async function deleteEventForwarderEventsFactTableForDatasource(
@@ -176,19 +221,10 @@ export async function deleteEventForwarderEventsFactTableForDatasource(
     return;
   }
 
-  const factTables = await getFactTablesForDatasource(context, datasource.id);
-  let factTable = findEventForwarderEventsFactTableForDatasource(
-    factTables,
-    datasource.name,
+  const factTable = await findEventForwarderEventsFactTableForDatasourceId(
+    context,
+    datasource,
   );
-
-  if (!factTable) {
-    const fallbackId = getEventForwarderEventsFactTableId(datasource.name);
-    factTable = await getFactTable(context, fallbackId);
-    if (factTable?.datasource !== datasource.id) {
-      factTable = null;
-    }
-  }
 
   if (!factTable) {
     return;
