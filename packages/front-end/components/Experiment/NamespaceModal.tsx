@@ -7,11 +7,12 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import Callout from "@/ui/Callout";
+import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 
 type NamespaceFormValue = {
   label: string;
@@ -64,9 +65,11 @@ function MultiRangeNamespaceModal({
     [sdkConnectionsData],
   );
   const [useLegacyFormat, setUseLegacyFormat] = useState(
-    () => existingNamespace?.format === "legacy" || false,
+    () =>
+      existingNamespace?.format === "legacy" ||
+      (isNewNamespace && hasIncompatibleConnections) ||
+      false,
   );
-  // Auto-select legacy format for new namespaces when any SDK connection lacks namespacesV2 support
   useEffect(() => {
     if (isNewNamespace && hasIncompatibleConnections) setUseLegacyFormat(true);
   }, [isNewNamespace, hasIncompatibleConnections]);
@@ -106,12 +109,13 @@ function MultiRangeNamespaceModal({
       cta={existing ? "Update" : "Create"}
       header={existing ? "Edit Namespace" : "Create Namespace"}
       submit={form.handleSubmit(async (value) => {
+        const isMultiRange = !useLegacyFormat && !!value.hashAttribute;
         const body = {
           label: value.label,
           description: value.description,
           status: value.status,
-          format: useLegacyFormat ? "legacy" : "multiRange",
-          ...(!useLegacyFormat && { hashAttribute: value.hashAttribute }),
+          format: isMultiRange ? "multiRange" : "legacy",
+          ...(isMultiRange && { hashAttribute: value.hashAttribute }),
         };
 
         if (existing) {
@@ -150,18 +154,13 @@ function MultiRangeNamespaceModal({
             setValue={setUseLegacyFormat}
             mb="3"
           />
-          {hasIncompatibleConnections &&
-            (!useLegacyFormat ? (
-              <Callout status="warning" size="sm" mb="3">
-                Some of your SDK Connections may not support multi-range
-                namespaces.
-              </Callout>
-            ) : (
-              <HelperText status="warning" size="sm" mb="3">
-                Some of your SDK Connections may not support multi-range
-                namespaces.
-              </HelperText>
-            ))}
+          <SDKCapabilityWarning
+            as={useLegacyFormat ? "helperText" : "callout"}
+            capability="namespacesV2"
+            someMessage="Some of your SDK Connections may not support multi-range namespaces."
+            noneMessage="None of your SDK Connections support multi-range namespaces."
+            mb="3"
+          />
         </>
       )}
 

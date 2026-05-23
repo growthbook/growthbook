@@ -17,13 +17,14 @@ import {
 import { getScopedSettings } from "shared/settings";
 import { generateTrackingKey, getEqualWeights } from "shared/experiments";
 import { kebabCase, debounce } from "lodash";
-import { Box, Flex, Text, Heading, Separator } from "@radix-ui/themes";
+import { Box, Flex, Heading, Separator } from "@radix-ui/themes";
 import {
   FaCheckCircle,
   FaExclamationCircle,
   FaExternalLinkAlt,
 } from "react-icons/fa";
 import { PiCaretDownFill } from "react-icons/pi";
+import Text from "@/ui/Text";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
@@ -892,7 +893,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       return (
                         <Flex as="div" align="baseline">
                           <Text>{value.label}</Text>
-                          <Text size="1" className="text-muted" ml="auto">
+                          <Text size="small" color="text-mid" ml="auto">
                             Created {date(t.dateCreated)}
                           </Text>
                         </Flex>
@@ -964,17 +965,23 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               }}
             />
 
-            <Field
-              label="Tracking Key"
-              helpText={`Unique identifier for this ${
-                isBandit ? "Bandit" : "Experiment"
-              }, used to track impressions and analyze results`}
-              {...trackingKeyFieldHandlers}
-              onChange={(e) => {
-                trackingKeyFieldHandlers.onChange(e);
-                setLinkNameWithTrackingKey(false);
-              }}
-            />
+            <div className="form-group">
+              <Text as="label" weight="semibold" mb="1">
+                Tracking Key
+              </Text>
+              <Text as="div" color="text-mid" mb="2">
+                {`Unique identifier for this ${
+                  isBandit ? "Bandit" : "Experiment"
+                }, used to track impressions and analyze results`}
+              </Text>
+              <Field
+                {...trackingKeyFieldHandlers}
+                onChange={(e) => {
+                  trackingKeyFieldHandlers.onChange(e);
+                  setLinkNameWithTrackingKey(false);
+                }}
+              />
+            </div>
             {duplicate && (
               <Box mb="4">
                 <Checkbox
@@ -1042,7 +1049,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 <Box my="4">
                   <Flex gap="2" className="text-muted" align="center">
                     <FaExclamationCircle />
-                    <Text size="2" weight="light">
+                    <Text weight="regular">
                       Enter more details to check for similar experiments
                     </Text>
                   </Flex>
@@ -1053,51 +1060,47 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     <Box my="4">
                       <Flex gap="2" className="text-muted">
                         <LoadingSpinner />
-                        <Text size="2">
-                          Checking for similar experiments...
-                        </Text>
+                        <Text>Checking for similar experiments...</Text>
                       </Flex>
                     </Box>
                   ) : (
                     <>
                       <Box my="4">
-                        <Text size="2" color="violet">
-                          {similarExperiments.length > 0 ? (
-                            <Flex
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setExpandSimilarResults(!expandSimilarResults);
-                              }}
-                              gap="2"
-                              align="center"
-                            >
-                              <PiCaretDownFill
-                                style={{
-                                  transition: "transform 0.3s ease",
-                                  transform: expandSimilarResults
-                                    ? "none"
-                                    : "rotate(-90deg)",
+                        <span style={{ color: "var(--violet-11)" }}>
+                          <Text>
+                            {similarExperiments.length > 0 ? (
+                              <Flex
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setExpandSimilarResults(
+                                    !expandSimilarResults,
+                                  );
                                 }}
-                              />
-                              <Text
-                                weight="medium"
-                                style={{
-                                  cursor: "pointer",
-                                  color: "violet-11",
-                                }}
+                                gap="2"
+                                align="center"
                               >
-                                Similar experiment
-                                {similarExperiments.length === 1 ? "" : "s"} (
-                                {similarExperiments.length})
-                              </Text>
-                            </Flex>
-                          ) : (
-                            <Flex gap="2" align="center">
-                              <FaCheckCircle />
-                              No similar experiments found
-                            </Flex>
-                          )}
-                        </Text>
+                                <PiCaretDownFill
+                                  style={{
+                                    transition: "transform 0.3s ease",
+                                    transform: expandSimilarResults
+                                      ? "none"
+                                      : "rotate(-90deg)",
+                                  }}
+                                />
+                                <Text weight="medium" as="span">
+                                  Similar experiment
+                                  {similarExperiments.length === 1 ? "" : "s"} (
+                                  {similarExperiments.length})
+                                </Text>
+                              </Flex>
+                            ) : (
+                              <Flex gap="2" align="center">
+                                <FaCheckCircle />
+                                No similar experiments found
+                              </Flex>
+                            )}
+                          </Text>
+                        </span>
                         {expandSimilarResults && (
                           <Flex
                             gap="3"
@@ -1143,7 +1146,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                                       </span>
                                     </Flex>
                                     <Flex gap="3" align="center">
-                                      <Text size="1" className="text-muted">
+                                      <Text size="small" color="text-mid">
                                         {date(s.experiment.dateCreated)}
                                       </Text>
                                       <ExperimentStatusIndicator
@@ -1357,40 +1360,43 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               {isNewExperiment && (
                 <>
                   <div className="d-flex" style={{ gap: "2rem" }}>
-                    <SelectField
-                      withRadixThemedPortal
-                      containerClassName="flex-1"
-                      label="Assign variation based on attribute"
-                      labelClassName="font-weight-bold"
-                      options={attributeSchema
-                        .filter((s) => !hasHashAttributes || s.hashAttribute)
-                        .map((s) => ({
-                          label: s.property,
-                          value: s.property,
-                          description: s.description,
-                          tags: s.tags,
-                          datatype: s.datatype,
-                          hashAttribute: s.hashAttribute,
-                        }))}
-                      sort={false}
-                      value={form.watch("hashAttribute") || ""}
-                      onChange={(v) => {
-                        form.setValue("hashAttribute", v);
-                      }}
-                      formatOptionLabel={(o, meta) => {
-                        return (
-                          <AttributeOptionWithTooltip
-                            option={o as AttributeOptionForTooltip}
-                            context={meta.context}
-                          >
-                            {o.label}
-                          </AttributeOptionWithTooltip>
-                        );
-                      }}
-                      helpText={
-                        "Will be hashed together with the seed (UUID) to determine which variation to assign"
-                      }
-                    />
+                    <div className="flex-1">
+                      <Text as="label" weight="semibold" mb="1">
+                        Assign variation based on attribute
+                      </Text>
+                      <Text as="div" color="text-mid" mb="2">
+                        Will be hashed together with the seed (UUID) to
+                        determine which variation to assign
+                      </Text>
+                      <SelectField
+                        withRadixThemedPortal
+                        options={attributeSchema
+                          .filter((s) => !hasHashAttributes || s.hashAttribute)
+                          .map((s) => ({
+                            label: s.property,
+                            value: s.property,
+                            description: s.description,
+                            tags: s.tags,
+                            datatype: s.datatype,
+                            hashAttribute: s.hashAttribute,
+                          }))}
+                        sort={false}
+                        value={form.watch("hashAttribute") || ""}
+                        onChange={(v) => {
+                          form.setValue("hashAttribute", v);
+                        }}
+                        formatOptionLabel={(o, meta) => {
+                          return (
+                            <AttributeOptionWithTooltip
+                              option={o as AttributeOptionForTooltip}
+                              context={meta.context}
+                            >
+                              {o.label}
+                            </AttributeOptionWithTooltip>
+                          );
+                        }}
+                      />
+                    </div>
                     <FallbackAttributeSelector
                       form={form}
                       attributeSchema={attributeSchema}

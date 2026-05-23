@@ -9,6 +9,7 @@ import { FaExclamationTriangle } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import { Box, Separator } from "@radix-ui/themes";
+import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
@@ -170,9 +171,15 @@ export default function BanditRefNewFields({
       {step === 1 ? (
         <>
           <div className="mb-4">
+            <Text as="label" weight="semibold" mb="1">
+              Assign Variation by Attribute
+            </Text>
+            <Text as="div" color="text-mid" mb="2">
+              Will be hashed together with the Tracking Key to determine which
+              variation to assign
+            </Text>
             <SelectField
               withRadixThemedPortal
-              label="Assign Variation by Attribute"
               containerClassName="flex-1"
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
@@ -198,9 +205,6 @@ export default function BanditRefNewFields({
                   </AttributeOptionWithTooltip>
                 );
               }}
-              helpText={
-                "Will be hashed together with the Tracking Key to determine which variation to assign"
-              }
             />
             <FallbackAttributeSelector
               form={form}

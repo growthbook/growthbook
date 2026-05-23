@@ -1,17 +1,17 @@
+import { FaExternalLinkAlt } from "react-icons/fa";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import {
-  StickyBucketingToggleWarning,
-  StickyBucketingTooltip,
-} from "@/components/Features/FallbackAttributeSelector";
+import { StickyBucketingTooltip } from "@/components/Features/FallbackAttributeSelector";
+import { DocLink } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ConnectSettingsForm } from "@/pages/settings";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import { GBInfo } from "@/components/Icons";
+import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 
 export default function StickyBucketingSettings() {
   const { hasCommercialFeature } = useUser();
@@ -101,11 +101,17 @@ export default function StickyBucketingSettings() {
           )}
           <Callout status="info" mt="3" contentsAs="div">
             <Text size="2">
-              <StickyBucketingToggleWarning
-                showIcon={false}
-                skipMargin={true}
-                hasSDKWithStickyBucketing={hasSDKWithStickyBucketing}
-              />
+              <div>
+                Ensure that Sticky Bucketing is correctly integrated with your
+                SDK in your app codebase before using.
+                <SDKCapabilityWarning
+                  as="popover"
+                  capability="stickyBucketing"
+                />
+              </div>
+              <DocLink docSection="stickyBucketing" className="d-block mt-1">
+                Sticky Bucketing Documentation <FaExternalLinkAlt />
+              </DocLink>
             </Text>
           </Callout>
         </>
