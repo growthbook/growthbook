@@ -3850,7 +3850,7 @@ export default function RampScheduleSection({
 
   const createContent = (
     <>
-      {templates.length > 0 && hasRampSchedulesFeature && !hideTemplateSave && (
+      {hasRampSchedulesFeature && !hideTemplateSave && (
         <>
           <Text as="div" weight="semibold" mb="1">
             Template
