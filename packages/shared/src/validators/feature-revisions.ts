@@ -700,7 +700,7 @@ export const listRevisionsValidator = {
   operationId: "listRevisions",
   summary: "List feature revisions",
   description:
-    "**Deprecated.** Use [GET /v2/revisions](#operation/listRevisionsV2) instead.\n\nReturns a paginated list of feature revisions across all features in the organization. Optionally filtered by feature, status, author, and/or the calling user's involvement. Results are sorted newest-first.",
+    "**Deprecated.** Use [GET /v2/feature-revisions](#operation/listRevisionsV2) instead.\n\nReturns a paginated list of feature revisions across all features in the organization. Optionally filtered by feature, status, author, and/or the calling user's involvement. Results are sorted newest-first.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],

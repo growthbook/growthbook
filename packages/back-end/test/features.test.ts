@@ -2120,12 +2120,18 @@ describe("buildFeatureRulesFromApiEnvSettings", () => {
     environmentSettings: {},
     rules: [],
   } as unknown as FeatureInterface;
+  // requireRegisteredAttributes is opt-in; an empty settings object skips the
+  // registered-attribute check so these tests focus on rule-shape concerns.
+  const mockContext = {
+    org: { settings: {} },
+  } as unknown as Parameters<typeof buildFeatureRulesFromApiEnvSettings>[0];
 
   it("preserves rule-level prerequisites across rule types", () => {
     const prerequisites = [
       { id: "parent-feature", condition: '{"value": true}' },
     ];
     const rules = buildFeatureRulesFromApiEnvSettings(
+      mockContext,
       baseFeature,
       [{ id: "production" }, { id: "dev" }],
       {
@@ -2171,6 +2177,7 @@ describe("buildFeatureRulesFromApiEnvSettings", () => {
 
   it("omits prerequisites when not provided", () => {
     const rules = buildFeatureRulesFromApiEnvSettings(
+      mockContext,
       baseFeature,
       [{ id: "production" }, { id: "dev" }],
       {
@@ -2198,6 +2205,7 @@ describe("buildFeatureRulesFromApiEnvSettings", () => {
       description: "shared across envs",
     };
     const rules = buildFeatureRulesFromApiEnvSettings(
+      mockContext,
       baseFeature,
       [{ id: "production" }, { id: "dev" }, { id: "staging" }],
       {
@@ -2218,6 +2226,7 @@ describe("buildFeatureRulesFromApiEnvSettings", () => {
       value: "true",
     };
     const rules = buildFeatureRulesFromApiEnvSettings(
+      mockContext,
       baseFeature,
       [{ id: "production" }, { id: "dev" }],
       {
@@ -2233,6 +2242,7 @@ describe("buildFeatureRulesFromApiEnvSettings", () => {
 
   it("does not merge when only content (not id) matches — matching is by id, distinct ids stay split", () => {
     const rules = buildFeatureRulesFromApiEnvSettings(
+      mockContext,
       baseFeature,
       [{ id: "production" }, { id: "dev" }],
       {

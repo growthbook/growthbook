@@ -101,7 +101,6 @@ export async function setRuleRampSchedule(
       canonicalRuleId,
       environment ?? undefined,
     );
-
     const action = normalizeInlineRampSchedule(
       scheduleInput as Parameters<typeof normalizeInlineRampSchedule>[0],
       canonicalRuleId,

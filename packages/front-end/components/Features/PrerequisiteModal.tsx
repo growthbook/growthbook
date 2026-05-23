@@ -104,7 +104,6 @@ export default function PrerequisiteModal({
   });
 
   const selectedFeatureId = form.watch("id");
-  const selectedPrerequisite = form.getValues();
   const parentFeatureMeta = featureNames.find(
     (f) => f.id === selectedFeatureId,
   );
@@ -123,23 +122,12 @@ export default function PrerequisiteModal({
     [featureNames, feature?.id],
   );
 
-  const { results: batchStates, checkPrerequisiteCyclic } =
-    useBatchPrerequisiteStates({
-      baseFeatureId: feature.id,
-      featureIds,
-      environments: envs,
-      enabled: featureIds.length > 0 && envs.length > 0,
-      checkPrerequisite: selectedPrerequisite.id
-        ? {
-            id: selectedPrerequisite.id,
-            condition: selectedPrerequisite.condition,
-            prerequisiteIndex: i,
-          }
-        : undefined,
-    });
-
-  const isCyclic = checkPrerequisiteCyclic?.wouldBeCyclic ?? false;
-  const cyclicFeatureId = checkPrerequisiteCyclic?.cyclicFeatureId ?? null;
+  const { results: batchStates } = useBatchPrerequisiteStates({
+    baseFeatureId: feature.id,
+    featureIds,
+    environments: envs,
+    enabled: featureIds.length > 0 && envs.length > 0,
+  });
 
   const featuresStates: Record<
     string,
@@ -161,6 +149,12 @@ export default function PrerequisiteModal({
     }
     return states;
   }, [batchStates]);
+
+  const isCyclic = selectedFeatureId
+    ? (wouldBeCyclicStates[selectedFeatureId] ?? false)
+    : false;
+  const cyclicFeatureId = isCyclic ? selectedFeatureId : null;
+
   const { states: prereqStates, loading: prereqStatesLoading } =
     usePrerequisiteStates({
       featureId: selectedFeatureId,
@@ -209,9 +203,7 @@ export default function PrerequisiteModal({
       const cyclic = targetEnv
         ? featureStates[targetEnv]?.state === "cyclic"
         : false;
-      const wouldBeCyclic = targetEnv
-        ? wouldBeCyclicStates[f.id] || false
-        : false;
+      const wouldBeCyclic = wouldBeCyclicStates[f.id] || false;
 
       const states = targetEnv
         ? [featureStates[targetEnv]].filter(Boolean)

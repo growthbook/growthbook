@@ -299,7 +299,7 @@ const minimalFeatureRevisionInterface = z
     status: revisionStatusSchema,
     comment: z.string(),
     title: z.string().optional(),
-    contributors: z.array(eventUser).optional(),
+    contributors: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -361,6 +361,22 @@ export const apiRevisionRampCreateAction = revisionRampCreateAction.extend({
   steps: z.array(revisionApiRampStep).optional(),
   startActions: z.array(revisionApiRampStepAction).optional(),
   endActions: z.array(revisionApiRampStepAction).optional(),
+  startDate: z
+    .string()
+    .datetime({ offset: true })
+    .optional()
+    .nullable()
+    .describe(
+      'ISO 8601 date-time, e.g. "2025-06-01T00:00:00Z". Absent or null means start immediately on publish.',
+    ),
+  cutoffDate: z
+    .string()
+    .datetime({ offset: true })
+    .optional()
+    .nullable()
+    .describe(
+      'ISO 8601 date-time, e.g. "2025-07-01T00:00:00Z". The ramp ends at this time.',
+    ),
 });
 
 export const revisionRampDetachAction = z.object({
@@ -431,9 +447,10 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     // are NOT stored here — they operate directly on live ramp schedule documents.
     rampActions: z.array(revisionRampAction).optional(),
     log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
-    // Users (beyond the original author) who have made edits to this draft.
-    // Populated incrementally via updateRevision; used for the self-approval block.
-    contributors: z.array(eventUser).optional(),
+    // User IDs who have made edits to this draft. Populated incrementally via
+    // updateRevision's $addToSet; may be empty if no content edits have been made.
+    // Note: the revision author (createdBy) is NOT automatically seeded here.
+    contributors: z.array(z.string()).optional(),
   })
   .strict();
 

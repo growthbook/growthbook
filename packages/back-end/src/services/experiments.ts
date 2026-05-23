@@ -35,7 +35,7 @@ import {
   MatchingRule,
   validateCondition,
 } from "shared/util";
-import { getSRMValue } from "shared/health";
+import { getBanditSRMValue, getExperimentSRMValue } from "shared/health";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
@@ -179,8 +179,8 @@ import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
+import { validateIncrementalPipeline } from "back-end/src/enterprise/services/data-pipeline";
 import { getMetricForSnapshot } from "./reports";
-import { validateIncrementalPipeline } from "./dataPipeline";
 import {
   getIntegrationFromDatasourceId,
   getSourceIntegrationObject,
@@ -4537,7 +4537,10 @@ export async function getExperimentAnalysisSummary({
           )
         : null) ?? null;
 
-  const srm = getSRMValue(experiment.type ?? "standard", experimentSnapshot);
+  const srm =
+    experiment.type === "multi-armed-bandit"
+      ? getBanditSRMValue(experimentSnapshot)
+      : getExperimentSRMValue(experimentSnapshot);
 
   if (srm !== undefined) {
     analysisSummary.health = {

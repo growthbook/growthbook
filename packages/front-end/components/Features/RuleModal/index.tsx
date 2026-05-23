@@ -5,7 +5,7 @@ import {
   FeatureRule,
   ScheduleRule,
 } from "shared/types/feature";
-import { useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
@@ -78,7 +78,6 @@ import DraftSelectorForChanges, {
 } from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import { useTemplates } from "@/hooks/useTemplates";
-import { useBatchPrerequisiteStates } from "@/hooks/usePrerequisiteStates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
 import RampScheduleSection from "@/components/Features/RuleModal/RampScheduleSection";
 import {
@@ -193,6 +192,10 @@ export default function RuleModal({
   const { apiCall } = useAuth();
 
   const attributeSchema = useAttributeSchema(false, feature.project);
+  // Unfiltered org-wide schema lets validateFeatureRule distinguish between
+  // truly-unknown attributes and attributes that exist but aren't scoped to
+  // this project, so the client-side error wording matches the server.
+  const allAttributesSchema = useAttributeSchema(false);
 
   const flatRules = feature.rules ?? [];
   const rule: FeatureRule | undefined = ruleId
@@ -546,28 +549,19 @@ export default function RuleModal({
     settings.requireExperimentTemplates &&
     availableTemplates.length >= 1;
 
-  const prerequisites = form.watch("prerequisites") || [];
-
-  const { checkRulePrerequisitesCyclic } = useBatchPrerequisiteStates({
-    baseFeatureId: feature.id,
-    featureIds: [],
-    environments: [environment],
-    enabled: prerequisites.length > 0,
-    checkRulePrerequisites:
-      prerequisites.length > 0
-        ? {
-            environment,
-            ruleId: rule?.id,
-            prerequisites: prerequisites.map((p) => ({
-              id: p.id,
-              condition: p.condition,
-            })),
-          }
-        : undefined,
+  const [ruleCyclicResult, setRuleCyclicResult] = useState({
+    wouldBeCyclic: false,
+    cyclicFeatureId: null as string | null,
   });
+  const isCyclic = ruleCyclicResult.wouldBeCyclic;
+  const cyclicFeatureId = ruleCyclicResult.cyclicFeatureId;
 
-  const isCyclic = checkRulePrerequisitesCyclic?.wouldBeCyclic ?? false;
-  const cyclicFeatureId = checkRulePrerequisitesCyclic?.cyclicFeatureId ?? null;
+  const onRuleCyclicChange = useCallback(
+    (result: { wouldBeCyclic: boolean; cyclicFeatureId: string | null }) => {
+      setRuleCyclicResult(result);
+    },
+    [],
+  );
 
   const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
     useState(false);
@@ -828,6 +822,10 @@ export default function RuleModal({
             type: "experiment",
           },
           feature,
+          {
+            attributeSchema: allAttributesSchema,
+            requireRegisteredAttributes: settings.requireRegisteredAttributes,
+          },
         );
         if (newRule) {
           form.reset({
@@ -1098,7 +1096,14 @@ export default function RuleModal({
         delete values.scheduleRules;
       }
 
-      const correctedRule = validateFeatureRule(values as FeatureRule, feature);
+      const correctedRule = validateFeatureRule(
+        values as FeatureRule,
+        feature,
+        {
+          attributeSchema: allAttributesSchema,
+          requireRegisteredAttributes: settings.requireRegisteredAttributes,
+        },
+      );
       if (correctedRule) {
         form.reset(correctedRule);
         throw new Error(
@@ -1792,6 +1797,7 @@ export default function RuleModal({
               setScheduleType={setScheduleType}
               envScope={envScopeProps!}
               isLiveRule={isLiveRule}
+              onRuleCyclicChange={onRuleCyclicChange}
             />
           </Page>
         )}
@@ -1838,6 +1844,7 @@ export default function RuleModal({
             mode={mode}
             isDraft={!safeRollout?.startedAt}
             envScope={envScopeProps}
+            onRuleCyclicChange={onRuleCyclicChange}
           />
         )}
 
@@ -1927,6 +1934,7 @@ export default function RuleModal({
                     form.setValue("customFields", customFields)
                   }
                   envScope={i === 0 ? envScopeProps : undefined}
+                  onRuleCyclicChange={onRuleCyclicChange}
                 />
               </Page>
             ))
@@ -1986,6 +1994,7 @@ export default function RuleModal({
                     setDisableBanditConversionWindow
                   }
                   envScope={i === 0 ? envScopeProps : undefined}
+                  onRuleCyclicChange={onRuleCyclicChange}
                 />
               </Page>
             ))
