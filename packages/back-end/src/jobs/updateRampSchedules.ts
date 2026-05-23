@@ -15,8 +15,35 @@ import {
   applyRampEvaluationDecision,
   evaluateCurrentStep,
 } from "back-end/src/services/rampScheduleEvaluator";
+import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
+
+/**
+ * Transient errors should be silently retried on the next scheduler tick.
+ * Structural / programming errors still pause the schedule so they surface
+ * in the UI.
+ */
+function isTransientRampError(e: unknown): boolean {
+  if (e instanceof ConcurrentIncrementalRefreshError) return true;
+  // Mongo network / topology errors surface as generic Errors whose name or
+  // message contains well-known driver strings.
+  if (e instanceof Error) {
+    const name = e.name ?? "";
+    const msg = e.message ?? "";
+    if (
+      name.includes("MongoNetwork") ||
+      name.includes("MongoTopology") ||
+      name.includes("MongoServerSelection") ||
+      msg.includes("ECONNRESET") ||
+      msg.includes("ETIMEDOUT") ||
+      msg.includes("connection timed out")
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
 
 type AdvanceSingleRampScheduleJob = Job<{
   rampScheduleId: string;
@@ -52,7 +79,10 @@ export default async function addRampScheduleJob(agenda: Agenda) {
       try {
         await queueRampScheduleAdvance(agenda, { id, organization });
       } catch (e) {
-        logger.error(e, `Error queuing ramp schedule ${id} for org ${organization}`);
+        logger.error(
+          e,
+          `Error queuing ramp schedule ${id} for org ${organization}`,
+        );
       }
     }
   });
@@ -150,10 +180,18 @@ export const advanceSingleRampSchedule = async (
 
     await advanceUntilBlocked(context, current, now);
   } catch (e) {
+    // Transient errors (lock contention, network blips) — log and let the
+    // next scheduler tick retry.
+    if (isTransientRampError(e)) {
+      logger.info(
+        { rampScheduleId },
+        `Transient error advancing ramp schedule — will retry next tick: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return;
+    }
+
     logger.error(e, `Error advancing ramp schedule ${rampScheduleId}`);
-    // Persist the failure as a schedule-level event so the UI/history shows
-    // why we paused; agenda's own error path handles the throw if any
-    // recovery step itself fails.
+    // Structural / unrecoverable error — pause and surface in UI event history.
     const errorSchedule =
       await context.models.rampSchedules.getById(rampScheduleId);
     const updated = await context.models.rampSchedules.updateById(
