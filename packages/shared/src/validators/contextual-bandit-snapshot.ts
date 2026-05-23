@@ -1,15 +1,6 @@
 import { z } from "zod";
 import { baseSchema } from "./base-model";
-
-/** Pointer to a single query that ran as part of a CBS. */
-export const cbsQueryEntryValidator = z.object({
-  query: z.string(),
-  status: z.enum(["running", "succeeded", "failed"]),
-  /** Wall-clock ms from start to finish (null while running). */
-  durationMs: z.number().nullable().optional(),
-  error: z.string().optional(),
-});
-export type CbsQueryEntry = z.infer<typeof cbsQueryEntryValidator>;
+import { queryPointerValidator } from "./queries";
 
 /**
  * Frozen, self-contained settings for a single contextual-bandit snapshot run.
@@ -78,7 +69,19 @@ export const contextualBanditSnapshotValidator = baseSchema
     phase: z.number(),
     status: z.enum(["pending", "running", "success", "error", "partial"]),
     error: z.string().optional(),
-    queries: z.array(cbsQueryEntryValidator),
+    /**
+     * Wall-clock timestamp of when the runner kicked off the SQL pass. Null
+     * until `ContextualBanditResultsQueryRunner.startAnalysis` writes it. Kept
+     * nullable (rather than optional) so the doc shape satisfies
+     * `InterfaceWithQueries` for the abstract `QueryRunner` base class.
+     */
+    runStarted: z.date().nullable(),
+    /**
+     * Query pointers managed by `ContextualBanditResultsQueryRunner`. Uses the
+     * shared `queryPointerValidator` shape so the CBS doc plugs into the
+     * abstract `QueryRunner<Model, ...>` machinery without a custom adapter.
+     */
+    queries: z.array(queryPointerValidator),
     /**
      * Frozen copy of the CB settings at the time the snapshot was created so
      * the snapshot remains self-contained even if the parent CB doc mutates.

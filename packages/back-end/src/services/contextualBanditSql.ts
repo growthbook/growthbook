@@ -1,3 +1,12 @@
+// SMITH: this module is the SQL-side integration seam for the contextual
+// bandit pipeline. `runContextualBanditQuery` is invoked by the
+// `ContextualBanditResultsQueryRunner` and its signature MUST stay stable —
+// the runner caches the (context, cb, datasource, exposureQuery) tuple and
+// dispatches to this function. The current body is a stub that returns
+// fabricated rows; Luke's A3 branch replaces it with real SQL generation +
+// execution. The accompanying `mockRows` helper exists only to keep the
+// orchestrator end-to-end runnable while A3 is in flight and should be
+// deleted at integration time.
 import { ContextualBanditInterface } from "shared/validators";
 import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
 import { ReqContext } from "back-end/types/api";
@@ -10,6 +19,12 @@ export type ContextualBanditRow = {
   main_sum_squares: number;
 };
 
+// SMITH: replace this body with the real SQL generation + execution.
+//   Input shape:  (context, cb, dataSource, exposureQuery)
+//   Output shape: ContextualBanditRow[] — one row per (variation, attribute
+//                 bucket) combination, with aggregate metric stats.
+// Keep the function signature stable; `ContextualBanditResultsQueryRunner`
+// awaits this exact tuple from inside its `startQueries.run` callback.
 export async function runContextualBanditQuery(
   _context: ReqContext,
   cb: ContextualBanditInterface,
@@ -23,6 +38,9 @@ export async function runContextualBanditQuery(
   throw new Error("Real contextual bandit SQL not yet implemented");
 }
 
+// SMITH: delete this whole function once `runContextualBanditQuery` is wired
+// to the real SQL pipeline. It exists purely so the orchestrator + query
+// runner can be exercised end-to-end against a deterministic row set.
 function mockRows(
   cb: ContextualBanditInterface,
   eaq: ExposureQuery,

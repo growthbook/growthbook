@@ -1,3 +1,13 @@
+// SMITH: this module is the Python-stats integration seam for the contextual
+// bandit pipeline. `runContextualStatsEngine` is the *only* function the
+// query runner calls into here; its signature must stay stable so Luke's A5
+// can swap the body for a real Python invocation without touching callers.
+// Any growth in the `ContextualBanditResult` shape MUST also be reflected in
+// `contextResultValidator` / `cbTreeValidator` in
+// shared/src/validators/contextual-bandit-event.ts — otherwise the CBE
+// create in `persistContextualBanditEvent` will fail schema validation.
+// `mockFit` exists only to make orchestrator + runner tests deterministic
+// while A5 is in flight and should be deleted at integration time.
 import { ContextResult } from "shared/validators";
 import { ContextualBanditRow } from "./contextualBanditSql";
 
@@ -25,6 +35,13 @@ export type ContextualBanditResult = {
   error?: string;
 };
 
+// SMITH: replace this body with the real Python stats-engine invocation.
+//   Input shape:  (ContextualBanditSettingsForStatsEngine, ContextualBanditRow[])
+//   Output shape: ContextualBanditResult — tree + per-context results +
+//                 updatedWeights. New output fields require a paired update
+//                 to the validators in shared/src/validators/contextual-bandit-event.ts.
+// Keep the function signature stable; `ContextualBanditResultsQueryRunner`
+// awaits this exact tuple from inside its `runAnalysis` method.
 export async function runContextualStatsEngine(
   settings: ContextualBanditSettingsForStatsEngine,
   rows: ContextualBanditRow[],
@@ -36,6 +53,11 @@ export async function runContextualStatsEngine(
   throw new Error("Real contextual stats engine not yet implemented");
 }
 
+// SMITH: delete this whole function once `runContextualStatsEngine` calls
+// the real Python stats engine. The single-leaf catch-all fit it produces
+// is intentionally not representative of any real tree; it's only here so
+// downstream code paths (CBE persistence, payload refresh, SDK threading)
+// can be exercised against deterministic output.
 function mockFit(
   settings: ContextualBanditSettingsForStatsEngine,
   rows: ContextualBanditRow[],

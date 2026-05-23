@@ -757,6 +757,11 @@ export function getFeatureDefinition({
                 const cbPhase = cb.phases[cb.phases.length - 1];
                 rule.isContextualBandit = true;
                 rule.attributesRequired = cb.contextualAttributes;
+                // SMITH: `condition: {}` is a placeholder until the real
+                // decision tree emits per-leaf splits. Once the Python stats
+                // engine returns split predicates per leaf, thread them
+                // through `patchPhaseWeights` → `currentLeafWeights[i]` and
+                // surface them here as the rule's per-context condition.
                 rule.contexts = cbPhase?.currentLeafWeights.map((lw) => ({
                   contextId: lw.contextId,
                   condition: {},

@@ -1,160 +1,215 @@
+// SMITH: When the real Python stats engine grows new output fields, those
+// fields must be plumbed through in BOTH places:
+//   1. `persistContextualBanditEvent` below (mapping result → CBE create payload), and
+//   2. the validators in shared/src/validators/contextual-bandit-event.ts
+//      (`contextResultValidator` / `cbTreeValidator`).
+// Skipping either side will either drop the field on the floor or fail
+// schema validation on write.
+
 import { ExperimentInterface } from "shared/types/experiment";
 import {
+  ContextualBanditEventInterface,
   ContextualBanditInterface,
+  ContextualBanditSnapshotInterface,
   ContextualBanditSnapshotSettings,
 } from "shared/validators";
 import { deriveContextId } from "shared/util";
 import { ExposureQuery } from "shared/types/datasource";
 import { ReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { getPayloadKeys } from "back-end/src/models/ExperimentModel";
-import { queueSDKPayloadRefresh } from "back-end/src/services/features";
-import { runContextualBanditQuery } from "./contextualBanditSql";
 import {
-  runContextualStatsEngine,
+  getExperimentById,
+  getPayloadKeys,
+} from "back-end/src/models/ExperimentModel";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import { ContextualBanditResultsQueryRunner } from "back-end/src/queryRunners/ContextualBanditResultsQueryRunner";
+import {
+  ContextualBanditResult,
   ContextualBanditSettingsForStatsEngine,
 } from "./contextualBanditStats";
 
+/**
+ * Orchestrates one contextual-bandit snapshot run end-to-end.
+ *
+ * High-level flow:
+ *   1. Resolve CB doc + datasource + integration + exposure-assignment query.
+ *   2. Freeze a typed `ContextualBanditSnapshotSettings` so the run is
+ *      reproducible even if the parent CB doc mutates afterward.
+ *   3. Open the CBS doc (`status: "running"`, `runStarted: null`, with the
+ *      frozen settings already persisted as `frozenSettings`).
+ *   4. Hand control to `ContextualBanditResultsQueryRunner`, which owns the
+ *      SQL query lifecycle, the stats-engine call, and (on success) the
+ *      side effects in `persistContextualBanditEvent`.
+ *   5. Re-read the CBS to surface the final status + the CBE id back to the
+ *      caller. Throws if the runner left the CBS in `"error"`.
+ */
 export async function runContextualBanditSnapshot(
   context: ReqContext,
   experiment: ExperimentInterface,
   phase: number,
   opts: { triggeredBy: "manual" | "scheduled"; triggeredByUser?: string },
 ): Promise<{ snapshotId: string; cbeId?: string }> {
-  // 1. Load CB doc
+  // 1. CB doc + datasource + integration + EAQ.
   const cb = await context.contextualBandits.getByExperimentId(experiment.id);
   if (!cb) throw new Error(`No CB doc for experiment ${experiment.id}`);
 
-  // 2. Open CBS in "running"
+  const ds = await getDataSourceById(context, cb.datasourceId);
+  if (!ds) throw new Error(`Datasource missing: ${cb.datasourceId}`);
+
+  const integration = getSourceIntegrationObject(context, ds, true);
+
+  const eaq = ds.settings?.queries?.exposure?.find(
+    (q) => q.id === cb.exposureQueryId,
+  );
+  if (!eaq) throw new Error(`EAQ missing: ${cb.exposureQueryId}`);
+
+  // 2. Build the typed, frozen snapshot settings.
+  const snapshotSettings = buildContextualBanditSnapshotSettings(
+    cb,
+    experiment,
+    phase,
+    eaq,
+  );
+
+  // 3. Open the CBS in "running" with the frozen settings already attached.
+  //    `runStarted: null` because the runner's first updateModel call will
+  //    stamp it once `startQueries` returns.
   const cbs = await context.contextualBanditSnapshots.create({
     experiment: experiment.id,
     phase,
     status: "running",
     queries: [],
+    runStarted: null,
+    frozenSettings: snapshotSettings,
     triggeredBy: opts.triggeredBy === "manual" ? "manual" : "schedule",
     weightsWereUpdated: false,
   });
 
+  // 4. Hand off to the runner.
+  // `useCache: false` because the SQL is a per-snapshot stub today (and even
+  // once it's real, two snapshots in quick succession should each re-execute
+  // so the Python stats engine sees fresh exposures).
+  const runner = new ContextualBanditResultsQueryRunner(
+    context,
+    cbs,
+    integration,
+    false,
+  );
+
   try {
-    // 3. Resolve datasource + EAQ + build settings
-    const ds = await getDataSourceById(context, cb.datasourceId);
-    if (!ds) throw new Error(`Datasource missing: ${cb.datasourceId}`);
-
-    const eaq = ds.settings?.queries?.exposure?.find(
-      (q) => q.id === cb.exposureQueryId,
-    );
-    if (!eaq) throw new Error(`EAQ missing: ${cb.exposureQueryId}`);
-
-    const latestCBE =
-      await context.contextualBanditEvents.getLatestForExperiment(
-        experiment.id,
-        phase,
-      );
-
-    // Freeze the snapshot config first (reproducibility — survives later CB doc mutations)
-    const snapshotSettings = buildContextualBanditSnapshotSettings(
-      cb,
-      experiment,
-      phase,
-      eaq,
-    );
-
-    await context.contextualBanditSnapshots.updateById(cbs.id, {
-      frozenSettings: snapshotSettings,
-      queries: [{ query: "contextual-bandit-sql", status: "running" }],
+    await runner.startAnalysis({
+      snapshotSettings,
+      variationNames: experiment.variations?.map((v) => v.name) ?? [],
     });
-
-    // Stats-engine input — derived from CB doc + latest CBE weights
-    const statsSettings = getContextualBanditSettingsForStatsEngine(
-      cb,
-      phase,
-      experiment,
-      latestCBE
-        ? Object.fromEntries(
-            latestCBE.tree?.leaves.map((l) => [l.contextId, l.weights]) ?? [],
-          )
-        : {},
+    await runner.waitForResults();
+  } catch (e) {
+    // Belt-and-suspenders: if `startQueries` threw before the runner could
+    // call `updateModel`, the CBS is still in "running" status. Stamp it as
+    // "error" here so observability isn't lying about a stuck snapshot.
+    const errorMessage = e instanceof Error ? e.message : String(e);
+    const latest = await context.contextualBanditSnapshots.getBySnapshotIdInOrg(
+      cbs.id,
     );
-
-    // 4. Run SQL (STUB — Luke replaces with real SQL gen + execution)
-    const rows = await runContextualBanditQuery(context, cb, ds, eaq);
-    await context.contextualBanditSnapshots.updateById(cbs.id, {
-      queries: [
-        {
-          query: "contextual-bandit-sql",
-          status: "succeeded",
-          durationMs: 0,
-        },
-      ],
-    });
-
-    // 5. Tag rows with contextIds
-    const tagged = rows.map((r) => ({
-      ...r,
-      contextId: deriveContextId(
-        experiment.id,
-        attributesToCondition(r.attributes),
-      ),
-    }));
-
-    // 6. Enforce Mongo cap (contexts × variations ≤ 3000)
-    const { rows: trimmed } = enforceContextCap(
-      tagged,
-      cb.maxContexts,
-      experiment.variations?.length ?? 2,
-    );
-
-    // 7. Call stats engine (STUB — Luke replaces with real Python call)
-    const result = await runContextualStatsEngine(statsSettings, trimmed);
-
-    // 8. Persist CBE
-    const cbe = await context.contextualBanditEvents.create({
-      experiment: experiment.id,
-      phase,
-      snapshotId: cbs.id,
-      contextResults: result.contextResults,
-      tree: result.tree,
-      weightsWereUpdated: result.weightsWereUpdated,
-    });
-
-    // 9. Update CB doc's phase weights
-    await context.contextualBandits.patchPhaseWeights(
-      cb.id,
-      phase,
-      result.tree.leaves.map((l) => ({
-        contextId: l.contextId,
-        weights: l.weights,
-      })),
-    );
-
-    // 10. Refresh SDK payload + close CBS
-    const payloadKeys = getPayloadKeys(context, experiment);
-    if (payloadKeys.length > 0) {
-      queueSDKPayloadRefresh({
-        context,
-        payloadKeys,
-        auditContext: {
-          event: "contextual-bandit.refresh",
-          model: "experiment",
-          id: experiment.id,
-        },
+    if (latest && latest.status === "running") {
+      await context.contextualBanditSnapshots.updateById(cbs.id, {
+        status: "error",
+        error: errorMessage,
       });
     }
-
-    await context.contextualBanditSnapshots.updateById(cbs.id, {
-      status: "success",
-      contextualBanditEventId: cbe.id,
-      weightsWereUpdated: result.weightsWereUpdated,
-    });
-
-    return { snapshotId: cbs.id, cbeId: cbe.id };
-  } catch (e) {
-    await context.contextualBanditSnapshots.updateById(cbs.id, {
-      status: "error",
-      error: e instanceof Error ? e.message : String(e),
-    });
     throw e;
   }
+
+  // 5. Re-read the CBS to pick up the runner's final writes
+  //    (status, contextualBanditEventId, weightsWereUpdated).
+  const finalCbs = await context.contextualBanditSnapshots.getBySnapshotIdInOrg(
+    cbs.id,
+  );
+  if (!finalCbs) {
+    throw new Error(`CBS disappeared during run: ${cbs.id}`);
+  }
+  if (finalCbs.status === "error") {
+    throw new Error(
+      finalCbs.error ??
+        "Contextual bandit snapshot failed with no error message",
+    );
+  }
+
+  return {
+    snapshotId: finalCbs.id,
+    cbeId: finalCbs.contextualBanditEventId ?? undefined,
+  };
+}
+
+/**
+ * Persists the result of one CB run to Mongo and fans out the side effects.
+ *
+ * Called from `ContextualBanditResultsQueryRunner.updateModel` on the
+ * `succeeded` transition. The runner owns the CBS status / `queries` /
+ * `runStarted` / `contextualBanditEventId` writes; this function only owns
+ * the artifacts that aren't part of the CBS doc itself (CBE create, parent
+ * CB patch, SDK payload refresh).
+ *
+ * Responsibilities (in order):
+ *   1. Create a new ContextualBanditEvent doc with the stats engine output.
+ *   2. Patch the parent CB doc's `phases[phase].currentLeafWeights`.
+ *   3. Fire SDK payload refresh so live SDKs pick up the new weights.
+ *
+ * SMITH: every new Python output field needs two synchronized updates:
+ *   - the CBE create payload below, AND
+ *   - the validators in shared/src/validators/contextual-bandit-event.ts.
+ * Keep the function signature stable — the query runner depends on it.
+ */
+export async function persistContextualBanditEvent(
+  context: ReqContext,
+  cbs: ContextualBanditSnapshotInterface,
+  result: ContextualBanditResult,
+): Promise<ContextualBanditEventInterface> {
+  const cb = await context.contextualBandits.getByExperimentId(cbs.experiment);
+  if (!cb) {
+    throw new Error(`No CB doc for experiment ${cbs.experiment}`);
+  }
+
+  const experiment = await getExperimentById(context, cbs.experiment);
+  if (!experiment) {
+    throw new Error(`No experiment doc for ${cbs.experiment}`);
+  }
+
+  // 1. Create CBE doc
+  const cbe = await context.contextualBanditEvents.create({
+    experiment: cbs.experiment,
+    phase: cbs.phase,
+    snapshotId: cbs.id,
+    contextResults: result.contextResults,
+    tree: result.tree,
+    weightsWereUpdated: result.weightsWereUpdated,
+  });
+
+  // 2. Patch parent CB doc's per-phase weights
+  await context.contextualBandits.patchPhaseWeights(
+    cb.id,
+    cbs.phase,
+    result.tree.leaves.map((l) => ({
+      contextId: l.contextId,
+      weights: l.weights,
+    })),
+  );
+
+  // 3. Refresh SDK payload so live clients pick up the new weights
+  const payloadKeys = getPayloadKeys(context, experiment);
+  if (payloadKeys.length > 0) {
+    queueSDKPayloadRefresh({
+      context,
+      payloadKeys,
+      auditContext: {
+        event: "contextual-bandit.refresh",
+        model: "experiment",
+        id: cbs.experiment,
+      },
+    });
+  }
+
+  return cbe;
 }
 
 /**
@@ -240,19 +295,20 @@ export function buildContextualBanditSnapshotSettings(
 
 /**
  * Builds the settings object passed to the stats engine.
+ *
+ * SMITH: the `tree_model` enum and the dataclass fields here must stay in
+ * lockstep with the Python `ContextualBanditSettings` dataclass; growing
+ * either side without the other will surface as a Python serialization error.
  */
 export function getContextualBanditSettingsForStatsEngine(
   cb: ContextualBanditInterface,
   phase: number,
-  experiment: ExperimentInterface,
+  variations: { id: string; name: string }[],
   currentWeightsByContext: Record<string, number[]>,
 ): ContextualBanditSettingsForStatsEngine {
-  const varNames = experiment.variations?.map((v) => v.name) ?? [];
-  const varIds = experiment.variations?.map((v) => v.id) ?? [];
-
   return {
-    var_names: varNames,
-    var_ids: varIds,
+    var_names: variations.map((v) => v.name),
+    var_ids: variations.map((v) => v.id),
     reweight: true,
     bandit_weights_seed: phase,
     contextual_attributes: cb.contextualAttributes,
@@ -271,6 +327,13 @@ export function getContextualBanditSettingsForStatsEngine(
  * smallest contexts into the "other" catch-all bucket (empty attributes).
  *
  * Returns the trimmed row array and a flag indicating whether trimming occurred.
+ *
+ * SMITH: this is the TS-side cap heuristic. Once the real SQL applies its own
+ * top-N truncation in-warehouse, this function and the warehouse-side `LIMIT`
+ * must agree on (a) the ordering (currently ascending row-count → drop the
+ * smallest) and (b) the catch-all sentinel (empty attribute map →
+ * `deriveContextId("", {})`). Otherwise the TS path will silently re-trim
+ * rows the SQL has already dropped, double-counting them into "other".
  */
 export function enforceContextCap<
   T extends { contextId: string; attributes: Record<string, unknown> },
