@@ -4,6 +4,7 @@ import {
   isFactMetric,
   quantileMetricType,
 } from "shared/experiments";
+import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { IncrementalRefreshInterface } from "shared/validators";
 import {
   ExperimentSnapshotSettings,
@@ -62,30 +63,22 @@ export async function validateIncrementalPipeline({
     );
   }
 
-  // Check if pipeline mode is set to incremental
+  // Check if this experiment is enabled for incremental refresh on the
+  // data source. This covers both the default `mode === "incremental"`
+  // case (with include/exclude scoping) and the per-experiment
+  // `incrementalOptInExperimentIds` case.
   const settings = integration.datasource.settings;
-  const canRunIncrementalRefreshQueries =
-    settings.pipelineSettings?.mode === "incremental";
-  if (!canRunIncrementalRefreshQueries) {
-    throw new Error("Integration does not have Pipeline Incremental enabled");
+  if (
+    !isExperimentIncrementalEnabled(settings.pipelineSettings, experiment.id)
+  ) {
+    throw new Error(
+      "This experiment is not enabled for incremental refresh on this data source.",
+    );
   }
 
   if (experiment.activationMetric) {
     throw new Error(
       "Activation metrics are not supported for incremental refresh while in beta.",
-    );
-  }
-
-  if (
-    (settings.pipelineSettings?.includedExperimentIds !== undefined &&
-      !settings.pipelineSettings?.includedExperimentIds.includes(
-        experiment.id,
-      )) ||
-    (settings.pipelineSettings?.excludedExperimentIds !== undefined &&
-      settings.pipelineSettings?.excludedExperimentIds.includes(experiment.id))
-  ) {
-    throw new Error(
-      "Experiment is not included in the Pipeline Incremental scope",
     );
   }
 

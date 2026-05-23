@@ -237,6 +237,18 @@ export type DataSourcePipelineSettings = {
    * even when mode is "incremental". They will fall back to standard queries.
    */
   excludedExperimentIds?: string[];
+  /**
+   * Experiments explicitly opted into incremental refresh, independent of `mode`.
+   * These run with incremental refresh even when `mode === "ephemeral"`.
+   * If incremental fails for them at run time, they fall back to whatever
+   * `mode` says (ephemeral or inline).
+   *
+   * The incremental write configuration (writeDataset, etc.) and warehouse
+   * permissions must still be valid for these experiments to succeed; the
+   * UI enforces this by running the same incremental validation probes
+   * whenever this list is non-empty.
+   */
+  incrementalOptInExperimentIds?: string[];
 };
 
 export type MaterializedColumnType = "" | "identifier" | "dimension";

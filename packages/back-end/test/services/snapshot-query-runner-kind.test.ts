@@ -13,6 +13,7 @@ function makeDatasource(
     settings: {
       queries: {},
       pipelineSettings: {
+        allowWriting: true,
         mode: "incremental",
         ...pipelineOverrides,
       },
@@ -222,5 +223,97 @@ describe("getSnapshotQueryRunnerKind", () => {
         hasMaterializedUnitsTable: true,
       }),
     ).toBe("incremental");
+  });
+
+  it("returns 'incremental' for an opted-in experiment when default mode is ephemeral", () => {
+    const datasource = makeDatasource({
+      mode: "ephemeral",
+      incrementalOptInExperimentIds: ["exp_123"],
+    });
+    expect(
+      getSnapshotQueryRunnerKind({
+        allowIncrementalRefresh: true,
+        isExperimentCompatibleWithIncrementalRefresh: true,
+        datasource,
+        experiment: makeExperiment(),
+        snapshotType: "standard",
+        hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
+      }),
+    ).toBe("incremental");
+  });
+
+  it("returns 'results' (ephemeral fallback) for an opted-in experiment when incremental is not compatible", () => {
+    const datasource = makeDatasource({
+      mode: "ephemeral",
+      incrementalOptInExperimentIds: ["exp_123"],
+    });
+    expect(
+      getSnapshotQueryRunnerKind({
+        allowIncrementalRefresh: true,
+        isExperimentCompatibleWithIncrementalRefresh: false,
+        datasource,
+        experiment: makeExperiment(),
+        snapshotType: "standard",
+        hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: false,
+      }),
+    ).toBe("results");
+  });
+
+  it("returns 'results' for an experiment that is not in the opt-in list when default mode is ephemeral", () => {
+    const datasource = makeDatasource({
+      mode: "ephemeral",
+      incrementalOptInExperimentIds: ["exp_other"],
+    });
+    expect(
+      getSnapshotQueryRunnerKind({
+        allowIncrementalRefresh: true,
+        isExperimentCompatibleWithIncrementalRefresh: true,
+        datasource,
+        experiment: makeExperiment(),
+        snapshotType: "standard",
+        hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
+      }),
+    ).toBe("results");
+  });
+
+  it("opt-in wins over excludedExperimentIds (explicit opt-in takes precedence)", () => {
+    const datasource = makeDatasource({
+      mode: "incremental",
+      excludedExperimentIds: ["exp_123"],
+      incrementalOptInExperimentIds: ["exp_123"],
+    });
+    expect(
+      getSnapshotQueryRunnerKind({
+        allowIncrementalRefresh: true,
+        isExperimentCompatibleWithIncrementalRefresh: true,
+        datasource,
+        experiment: makeExperiment(),
+        snapshotType: "standard",
+        hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
+      }),
+    ).toBe("incremental");
+  });
+
+  it("returns 'results' when allowWriting is false even with opt-in", () => {
+    const datasource = makeDatasource({
+      allowWriting: false,
+      mode: "ephemeral",
+      incrementalOptInExperimentIds: ["exp_123"],
+    });
+    expect(
+      getSnapshotQueryRunnerKind({
+        allowIncrementalRefresh: true,
+        isExperimentCompatibleWithIncrementalRefresh: true,
+        datasource,
+        experiment: makeExperiment(),
+        snapshotType: "standard",
+        hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
+      }),
+    ).toBe("results");
   });
 });

@@ -15,6 +15,7 @@ import {
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { getValidDate } from "shared/dates";
+import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { isNil, omit } from "lodash";
 import {
   FactTableInterface,
@@ -858,28 +859,23 @@ export function getIsExperimentIncludedInIncrementalRefresh(
   datasource: DataSourceInterfaceWithParams | undefined,
   experimentId: string | undefined,
 ): boolean {
-  const isPipelineIncrementalEnabled =
-    datasource?.settings.pipelineSettings?.mode === "incremental";
-  if (!isPipelineIncrementalEnabled) {
-    return false;
+  const pipelineSettings = datasource?.settings.pipelineSettings;
+  if (!pipelineSettings) return false;
+
+  // For the New Experiment form (no experimentId yet) we want to know
+  // whether any experiment created on this datasource would default into
+  // incremental refresh. That's true when `mode === "incremental"` and
+  // there's no include-list scoping it down. Per-experiment opt-in lists
+  // do not affect new (unsaved) experiments.
+  if (!experimentId) {
+    return (
+      pipelineSettings.allowWriting === true &&
+      pipelineSettings.mode === "incremental" &&
+      pipelineSettings.includedExperimentIds === undefined
+    );
   }
 
-  const includedExperimentIds =
-    datasource?.settings.pipelineSettings?.includedExperimentIds;
-  const excludedExperimentIds =
-    datasource?.settings.pipelineSettings?.excludedExperimentIds;
-
-  if (experimentId && excludedExperimentIds?.includes(experimentId)) {
-    return false;
-  }
-
-  // If no specific experiment IDs are set, all experiments are included
-  // If experimentId is not provided, consider it included for the New Experiment form
-  if (includedExperimentIds === undefined || !experimentId) {
-    return true;
-  }
-
-  return includedExperimentIds.includes(experimentId);
+  return isExperimentIncrementalEnabled(pipelineSettings, experimentId);
 }
 
 // Extracts available metrics and groups (for result filtering) from experiment metrics
