@@ -180,10 +180,9 @@ export default function EditFeatureFlagValuesModal({
   }, [settings?.requireReviews, feature]);
 
   // The linking flow always creates a pending draft that adds the
-  // experiment-ref rule, so live doesn't have the rule yet. In that state,
-  // "Apply now" (publish to live) would fail on the back-end because there's
-  // no rule on live to update. Force the modal into the only path that works:
-  // save the change to the existing draft that already adds the rule.
+  // experiment-ref rule, so live doesn't have the rule yet. Saving to a new
+  // draft or a different existing draft would fail because those revisions
+  // don't contain the rule. Lock the dropdown to the one draft that does.
   const ruleOnlyOnDraft =
     info.state === "draft" &&
     !info.liveHasMatchingRule &&

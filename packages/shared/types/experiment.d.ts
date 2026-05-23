@@ -272,10 +272,7 @@ export interface LinkedFeatureInfo {
   environmentStates: Record<string, LinkedFeatureEnvState>;
   /**
    * True when the live revision has at least one experiment-ref rule for this
-   * experiment. Used by the edit-values modal to gate "Apply now": when this
-   * is false but a draft has the rule, publishing to live would fail because
-   * live has nothing to update, so the modal locks the user into saving to
-   * the existing pending draft.
+   * experiment.
    */
   liveHasMatchingRule?: boolean;
   /** True when the matching draft revision requires approval (regardless of whether it's been approved yet). */
