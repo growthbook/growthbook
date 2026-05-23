@@ -25,9 +25,7 @@ export default function PrerequisiteAlerts({
       <span className="text-warning-orange font-weight-bold">
         Schrödinger state
       </span>{" "}
-      {environments.length > 1
-        ? "in some environments"
-        : "in this environment"}{" "}
+      {environments.length > 1 ? "in some environments" : "in this environment"}{" "}
       and {type === "feature" && "its prerequisites "}must be evaluated at
       runtime.{" "}
     </>

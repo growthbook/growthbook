@@ -106,13 +106,13 @@ export default function FallbackAttributeSelector({
 
   return (
     <div className="flex-1" style={{ marginTop: "var(--space-6)" }}>
-        <Text as="label" weight="semibold" mb="1">
-          Fallback Attribute
-        </Text>
-        <Text as="div" color="text-mid" mb="2">
-          If the user&apos;s assignment attribute is not available the fallback
-          attribute may be used instead.
-        </Text>
+      <Text as="label" weight="semibold" mb="1">
+        Fallback Attribute
+      </Text>
+      <Text as="div" color="text-mid" mb="2">
+        If the user&apos;s assignment attribute is not available the fallback
+        attribute may be used instead.
+      </Text>
       <SelectField
         withRadixThemedPortal
         options={fallbackAttributeOptions}
@@ -241,4 +241,3 @@ export function StickyBucketingTooltip() {
     </>
   );
 }
-
