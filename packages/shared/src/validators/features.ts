@@ -94,6 +94,7 @@ export const rolloutRule = baseRule
     coverage: z.number(),
     hashAttribute: z.string(),
     seed: z.string().optional(),
+    hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
   })
   .strict();
 

@@ -398,9 +398,15 @@ export default function StandardRuleFields({
               }
               attributeSchema={attributeSchema}
               hasHashAttributes={hasHashAttributes}
+              hashVersion={
+                (form.watch("hashVersion") as 1 | 2 | undefined) ?? 1
+              }
+              setHashVersion={(v: 1 | 2) => form.setValue("hashVersion", v)}
+              project={feature.project}
               seed={form.watch("seed")}
               setSeed={(v: string) => form.setValue("seed", v)}
               featureId={feature.id}
+              existingRule={!!defaultValues.id}
               advancedOpen={advancedOptionsOpen}
               setAdvancedOpen={setadvancedOptionsOpen}
             />

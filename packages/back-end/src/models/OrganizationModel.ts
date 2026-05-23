@@ -249,12 +249,6 @@ export async function createOrganization({
   return toInterface(doc);
 }
 
-/** Every org id — used by Agenda pollers that run org-scoped work per tenant. */
-export async function listAllOrganizationIds(): Promise<string[]> {
-  const docs = await OrganizationModel.find({}, { id: 1, _id: 0 }).lean();
-  return docs.map((d) => d.id).filter((id): id is string => Boolean(id));
-}
-
 export async function findAllOrganizations(
   page: number,
   search: string,

@@ -112,6 +112,7 @@ export function buildRuleFromInput(
       coverage: input.coverage ?? 1,
       hashAttribute: input.hashAttribute,
       ...(input.seed !== undefined && { seed: input.seed }),
+      hashVersion: (input.hashVersion as 1 | 2 | undefined) ?? 2,
     };
     return rule;
   }

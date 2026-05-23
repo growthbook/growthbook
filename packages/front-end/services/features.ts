@@ -759,6 +759,7 @@ export function getDefaultRuleValue({
   settings,
   datasources,
   isSafeRolloutAutoRollbackEnabled = false,
+  defaultHashVersion = 1,
 }: {
   defaultValue: string;
   attributeSchema?: SDKAttributeSchema;
@@ -766,6 +767,8 @@ export function getDefaultRuleValue({
   settings?: OrganizationSettings;
   datasources?: DataSourceInterfaceWithParams[];
   isSafeRolloutAutoRollbackEnabled?: boolean;
+  /** Safe default hash version for new rules — pass `hasSDKWithNoBucketingV2 ? 1 : 2` at the call site. Defaults to 1 (safest). */
+  defaultHashVersion?: 1 | 2;
 }): FeatureRule | NewExperimentRefRule | safeRolloutFields {
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
@@ -790,6 +793,7 @@ export function getDefaultRuleValue({
       condition: "",
       enabled: true,
       hashAttribute,
+      hashVersion: defaultHashVersion,
       scheduleRules: [
         {
           enabled: true,

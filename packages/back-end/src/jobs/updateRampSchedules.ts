@@ -1,5 +1,4 @@
 import Agenda, { Job } from "agenda";
-import { listAllOrganizationIds } from "back-end/src/models/OrganizationModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -17,6 +16,7 @@ import {
   evaluateCurrentStep,
 } from "back-end/src/services/rampScheduleEvaluator";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
 
 type AdvanceSingleRampScheduleJob = Job<{
   rampScheduleId: string;
@@ -47,22 +47,12 @@ async function queueRampScheduleAdvance(
 export default async function addRampScheduleJob(agenda: Agenda) {
   agenda.define(QUEUE_RAMP_SCHEDULE_ADVANCES, async () => {
     const now = new Date();
-    const orgIds = await listAllOrganizationIds();
-
-    for (const organization of orgIds) {
+    const due = await RampScheduleModel.dangerouslyFindAllDueSchedules(now);
+    for (const { id, organization } of due) {
       try {
-        const context = await getContextForAgendaJobByOrgId(organization);
-        const dueIds =
-          await context.models.rampSchedules.agendaFindDueScheduleIds(now);
-        for (const id of dueIds) {
-          await queueRampScheduleAdvance(agenda, { id, organization });
-        }
+        await queueRampScheduleAdvance(agenda, { id, organization });
       } catch (e) {
-        logger.error(
-          e,
-          `Error processing ramp schedules for org ${organization}`,
-        );
-        // Skip this org so a single bad org can't block the rest of the tick.
+        logger.error(e, `Error queuing ramp schedule ${id} for org ${organization}`);
       }
     }
   });

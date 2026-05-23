@@ -1,5 +1,6 @@
 import escapeRegExp from "lodash/escapeRegExp";
 import { v4 as uuidv4 } from "uuid";
+import mongoose from "mongoose";
 import { UpdateProps } from "shared/types/base-model";
 import type { FeatureInterface } from "shared/types/feature";
 import {
@@ -994,6 +995,35 @@ export class RampScheduleModel extends BaseClass {
       { bypassReadPermissionChecks: true, projection: { id: 1 } },
     );
     return docs.map((d) => d.id);
+  }
+
+  /**
+   * Cross-tenant query: finds all due ramp schedules across every org in one
+   * Mongo round-trip. Only called from the Agenda poller — do not use elsewhere.
+   */
+  public static async dangerouslyFindAllDueSchedules(
+    now: Date,
+  ): Promise<{ id: string; organization: string }[]> {
+    const collection = mongoose.connection.db.collection(COLLECTION_NAME);
+    const docs = await collection
+      .find(
+        {
+          $or: [
+            { nextProcessAt: { $ne: null, $lte: now } },
+            {
+              status: "pending",
+              "targets.activatingRevisionVersion": { $exists: true, $ne: null },
+            },
+          ],
+        },
+        { projection: { id: 1, organization: 1, _id: 0 } },
+      )
+      .toArray() as unknown as Array<Record<string, unknown>>;
+    return docs
+      .filter(
+        (d): d is { id: string; organization: string } =>
+          typeof d.id === "string" && typeof d.organization === "string",
+      );
   }
 }
 

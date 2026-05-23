@@ -879,21 +879,38 @@ export function getFeatureDefinition({
               getJSONValue(feature.valueType, defaultValue),
             ];
             rule.weights = [0.5, 0.5];
+            // coverage is in STRICT_FEATURE_RULE_KEYS so it reaches all SDKs,
+            // including those that don't support bucketingV2 and therefore never
+            // receive `ranges`. For bucketingV2 SDKs, `ranges` takes precedence
+            // (the SDK uses experiment.ranges || getBucketRanges(...)). For older
+            // SDKs, `coverage` at least gates enrollment to ~coverage% of users
+            // (via getBucketRanges non-contiguous buckets) rather than enrolling
+            // 100% with no gate at all.
             rule.coverage = clampedCoverage;
 
+            // Use explicit contiguous ranges so that:
+            //   variation 0 (treatment) = [0, coverage)      — full rollout population
+            //   variation 1 (control)   = [coverage, 2*coverage) capped at 1.0
+            // This maximises statistical power: all rollout users are in treatment,
+            // and an equal-sized (or as large as possible) outside group serves as
+            // control via passthrough. Using explicit ranges rather than
+            // coverage+weights avoids the non-contiguous buckets that getBucketRanges
+            // would generate, which caused users in the rollout to lose the feature
+            // when monitoring activated.
+            const controlEnd = Math.min(1, clampedCoverage * 2);
             if (clampedCoverage < 1) {
-              rule.filters = [
-                {
-                  seed: monitoredSeed,
-                  attribute: r.hashAttribute,
-                  hashVersion: 1,
-                  ranges: [[0, clampedCoverage] as [number, number]],
-                },
+              rule.ranges = [
+                [0, clampedCoverage] as [number, number],
+                [clampedCoverage, controlEnd] as [number, number],
               ];
             }
 
             rule.hashAttribute = r.hashAttribute;
             rule.seed = monitoredSeed;
+            // Match the rollout rule's hash version exactly to prevent variation
+            // hopping between monitored/unmonitored steps. New rules store hashVersion
+            // explicitly (defaulting to 2); old rules without the field stay on 1.
+            rule.hashVersion = r.hashVersion ?? 1;
             rule.key = `ramp_${monitorInfo.rampScheduleId}`;
             rule.meta = includeExperimentNames
               ? [
@@ -925,6 +942,9 @@ export function getFeatureDefinition({
               }
               if (r.seed) {
                 rule.seed = r.seed;
+              }
+              if (r.hashVersion) {
+                rule.hashVersion = r.hashVersion;
               }
             }
           }

@@ -271,6 +271,7 @@ const v2RuleRolloutBase = z.object({
   value: z.string(),
   coverage: z.number(),
   hashAttribute: z.string(),
+  hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
 });
 
 const v2RuleExperimentRefBase = z.object({

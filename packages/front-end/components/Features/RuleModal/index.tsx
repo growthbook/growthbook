@@ -295,6 +295,12 @@ export default function RuleModal({
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
 
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
+    sdkConnectionsData?.connections,
+    feature.project,
+  );
+
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] =
     useState(false);
   const [disableBanditConversionWindow, setDisableBanditConversionWindow] =
@@ -333,6 +339,7 @@ export default function RuleModal({
     ruleType: defaultType,
     attributeSchema,
     isSafeRolloutAutoRollbackEnabled: true,
+    defaultHashVersion: hasSDKWithNoBucketingV2 ? 1 : 2,
   });
 
   const convertRuleToFormValues = (rule: FeatureRule | undefined) => {
@@ -341,6 +348,14 @@ export default function RuleModal({
       return {
         ...rule,
         safeRolloutFields: safeRollout,
+      };
+    }
+    if (rule.type === "rollout") {
+      return {
+        ...rule,
+        // Existing rules without an explicit hashVersion have always used v1 implicitly.
+        // Default to 1 here so a re-save never silently rebuckets existing traffic.
+        hashVersion: (rule.hashVersion as 1 | 2 | undefined) ?? 1,
       };
     }
     return rule;
@@ -516,11 +531,6 @@ export default function RuleModal({
     [headerText],
   );
 
-  const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
-    sdkConnectionsData?.connections,
-    feature.project,
-  );
   const availableTemplates = currentProject
     ? allTemplates.filter((t) =>
         isProjectListValidForProject(
@@ -576,9 +586,16 @@ export default function RuleModal({
     !ruleRampSchedule || ruleRampSchedule.status !== "running";
 
   // Reset to page 1 when the ramp page disappears (user switched away from ramp).
+  // Only applies to rollout/force rules — experiment rules have their own valid pages.
   useEffect(() => {
-    if (!hasRampPage && step > 0) setStep(0);
-  }, [hasRampPage, step]);
+    if (
+      !hasRampPage &&
+      step > 0 &&
+      (ruleType === "force" || ruleType === "rollout")
+    ) {
+      setStep(0);
+    }
+  }, [hasRampPage, step, ruleType]);
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
@@ -669,6 +686,7 @@ export default function RuleModal({
         settings,
         datasources,
         isSafeRolloutAutoRollbackEnabled: true,
+        defaultHashVersion: hasSDKWithNoBucketingV2 ? 1 : 2,
       }),
       description: form.watch("description"),
     };
@@ -1709,7 +1727,7 @@ export default function RuleModal({
             "Save to Draft"
           )
         }
-        forceCtaText
+        forceCtaText={hasRampPage && step === 0}
         ctaEnabled={
           newRuleOverviewPage
             ? ruleType !== undefined
@@ -1794,6 +1812,10 @@ export default function RuleModal({
               setHashAttribute={(v) => form.setValue("hashAttribute", v)}
               seed={form.watch("seed") as string}
               setSeed={(v) => form.setValue("seed", v)}
+              hashVersion={
+                (form.watch("hashVersion") as 1 | 2 | undefined) ?? 1
+              }
+              setHashVersion={(v: 1 | 2) => form.setValue("hashVersion", v)}
               attributeSchema={attributeSchema}
               featureId={feature.id}
             />

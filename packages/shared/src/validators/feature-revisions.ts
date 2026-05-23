@@ -344,6 +344,7 @@ const forceRolloutCreateInput = z
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
     seed: z.string().optional(),
+    hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
   })
   .strict();
 
@@ -468,6 +469,7 @@ const rulePatchSchema = z
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
     seed: z.string().optional(),
+    hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     experimentId: z.string().optional(),
     variations: z
       .array(z.object({ variationId: z.string(), value: z.string() }).strict())

@@ -90,6 +90,8 @@ import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
+import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVersionSelector";
+import useSDKConnections from "@/hooks/useSDKConnections";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { formatRemainingDuration } from "@/components/Features/Rule";
 import { Popover } from "@/ui/Popover";
@@ -867,6 +869,8 @@ interface Props {
   setHashAttribute?: (v: string) => void;
   seed?: string;
   setSeed?: (v: string) => void;
+  hashVersion?: 1 | 2;
+  setHashVersion?: (v: 1 | 2) => void;
   attributeSchema?: SDKAttributeSchema;
   featureId?: string;
 }
@@ -887,11 +891,27 @@ export default function RampScheduleSection({
   setHashAttribute,
   seed,
   setSeed,
+  hashVersion,
+  setHashVersion,
   attributeSchema,
   featureId,
 }: Props) {
   const [open, setOpen] = useState(embedded || state.mode !== "off");
-  const [seedOpen, setSeedOpen] = useState(!!seed);
+  const [seedOpen, setSeedOpen] = useState(
+    !!seed || (hashVersion !== undefined && hashVersion !== 2),
+  );
+
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const hashVersionSdkWarning =
+    hashVersion === 2 &&
+    !allConnectionsSupportBucketingV2(
+      sdkConnectionsData?.connections,
+      feature?.project,
+    );
+
+  useEffect(() => {
+    if (hashVersionSdkWarning) setSeedOpen(true);
+  }, [hashVersionSdkWarning]);
 
   const [openMenuIndex, setOpenMenuIndex] = useState<number | "end" | null>(
     null,
@@ -3861,7 +3881,7 @@ export default function RampScheduleSection({
         {setHashAttribute &&
           attributeSchema &&
           state.steps.some((s) => s.patch.coverage !== undefined) && (
-            <Box mt="2" mb="4">
+            <Box mt="5" mb="4">
               <Flex direction="column" gap="2">
                 <Flex align="center" gap="1">
                   <Text as="label" weight="medium" mb="0">
@@ -3904,9 +3924,10 @@ export default function RampScheduleSection({
                       type="button"
                       className="hover-underline"
                       onClick={() => setSeedOpen(true)}
+                      style={{ marginTop: 4, display: "inline-block" }}
                     >
                       <PiPlusBold className="mr-1" />
-                      edit seed
+                      Hashing &amp; seed options
                     </Link>
                   )}
                   {seedOpen && (
@@ -3936,6 +3957,66 @@ export default function RampScheduleSection({
                         <HelperText status="warning" size="sm" mb="0">
                           Changing this re-randomizes rollout traffic.
                         </HelperText>
+                      )}
+                      {setHashVersion && (
+                        <>
+                          <Flex
+                            align="center"
+                            gap="3"
+                            py="1"
+                            style={{ minHeight: 42 }}
+                          >
+                            <Box style={{ width: 70 }}>
+                              <Text as="label" weight="medium" ml="2" mb="0">
+                                Hashing:
+                              </Text>
+                            </Box>
+                            <Box>
+                              <DropdownMenu
+                                trigger={
+                                  <Link
+                                    type="button"
+                                    style={{ color: "var(--color-text-high)" }}
+                                  >
+                                    <Text mr="1">
+                                      {hashVersion === 2
+                                        ? "V2 (Preferred)"
+                                        : "V1 (Legacy)"}
+                                    </Text>
+                                    <PiCaretDownFill />
+                                  </Link>
+                                }
+                                menuPlacement="start"
+                                variant="soft"
+                              >
+                                <DropdownMenuGroup>
+                                  <DropdownMenuItem
+                                    onClick={() => setHashVersion(2)}
+                                  >
+                                    V2 (Preferred)
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => setHashVersion(1)}
+                                  >
+                                    V1 (Legacy)
+                                  </DropdownMenuItem>
+                                </DropdownMenuGroup>
+                              </DropdownMenu>
+                            </Box>
+                          </Flex>
+                          {hashVersionSdkWarning && (
+                            <HelperText
+                              status="warning"
+                              size="sm"
+                              mb="0"
+                              mt="1"
+                            >
+                              Some SDK connections may not support V2 hashing.
+                              Unsupported SDKs will fall back to V1
+                              automatically.
+                            </HelperText>
+                          )}
+                        </>
                       )}
                     </>
                   )}
