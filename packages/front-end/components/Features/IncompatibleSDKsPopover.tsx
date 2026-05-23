@@ -11,14 +11,17 @@ import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
 
 export default function IncompatibleSDKsPopover({
   connections,
+  incompatibleConnections: incompatibleProp,
   capability,
   project,
 }: {
   connections: SDKConnectionInterface[];
+  incompatibleConnections?: SDKConnectionInterface[];
   capability: SDKCapability;
   project?: string;
 }) {
   const incompatible = useMemo(() => {
+    if (incompatibleProp) return incompatibleProp;
     const filtered =
       project !== undefined
         ? connections.filter(
@@ -29,7 +32,7 @@ export default function IncompatibleSDKsPopover({
     return filtered.filter(
       (c) => !getConnectionSDKCapabilities(c).includes(capability),
     );
-  }, [connections, capability, project]);
+  }, [incompatibleProp, connections, capability, project]);
 
   if (!incompatible.length) return null;
 

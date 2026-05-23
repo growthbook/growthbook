@@ -53,7 +53,7 @@ export default function SDKCapabilityWarning({
     [connectionsProp, sdkConnectionsData?.connections],
   );
 
-  const { hasSome, hasNone } = useMemo(() => {
+  const { hasSome, hasSomeIncompatible } = useMemo(() => {
     const filtered =
       project !== undefined
         ? connections.filter(
@@ -68,11 +68,11 @@ export default function SDKCapabilityWarning({
 
     return {
       hasSome: supportingCount > 0,
-      hasNone: supportingCount < filtered.length,
+      hasSomeIncompatible: supportingCount < filtered.length,
     };
   }, [connections, capability, project]);
 
-  if (!hasNone) return null;
+  if (!hasSomeIncompatible) return null;
 
   const popover = (
     <IncompatibleSDKsPopover

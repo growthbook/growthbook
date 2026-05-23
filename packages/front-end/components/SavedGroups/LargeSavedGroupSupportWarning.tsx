@@ -81,6 +81,7 @@ export default function LargeSavedGroupPerformanceWarning({
         Connections to improve performance.
         <IncompatibleSDKsPopover
           connections={connections}
+          incompatibleConnections={unsupportedConnections}
           capability="savedGroupReferences"
         />
       </span>
