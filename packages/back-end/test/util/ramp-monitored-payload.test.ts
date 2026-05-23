@@ -730,5 +730,67 @@ describe("ramp-monitored SDK payload", () => {
       expect(treatmentInMonitored).toBeGreaterThan(0);
       expect(lostTreatment).toBe(0);
     });
+
+    it("users in rollout treatment stay in treatment during monitored step with hashVersion: 2", () => {
+      const userIds = Array.from({ length: 200 }, (_, i) => `user_v2_${i}`);
+      const rolloutCoverage = 0.4;
+      const monitoredCoverage = 0.8;
+      const controlEnd = Math.min(1, monitoredCoverage * 2);
+
+      const rolloutPayload: FeatureDefinition = {
+        defaultValue: CONTROL,
+        rules: [
+          {
+            force: TREATMENT,
+            coverage: rolloutCoverage,
+            hashAttribute: "id",
+            seed: SEED,
+            hashVersion: 2,
+          },
+        ],
+      };
+
+      const monitoredPayload: FeatureDefinition = {
+        defaultValue: CONTROL,
+        rules: [
+          {
+            variations: [TREATMENT, CONTROL],
+            weights: [0.5, 0.5],
+            hashAttribute: "id",
+            seed: SEED,
+            key: "ramp_test_v2",
+            meta: [{ key: "0" }, { key: "1", passthrough: true }],
+            phase: "0",
+            hashVersion: 2,
+            ranges: [
+              [0, monitoredCoverage],
+              [monitoredCoverage, controlEnd],
+            ],
+          },
+        ],
+      };
+
+      let treatmentUsersWhoHopped = 0;
+      let treatmentCount = 0;
+
+      for (const userId of userIds) {
+        const rolloutResult = evaluateForUser(userId, {
+          [FEATURE_ID]: rolloutPayload,
+        });
+
+        if (rolloutResult.value === TREATMENT) {
+          treatmentCount++;
+          const monitoredResult = evaluateForUser(userId, {
+            [FEATURE_ID]: monitoredPayload,
+          });
+          if (monitoredResult.value !== TREATMENT) {
+            treatmentUsersWhoHopped++;
+          }
+        }
+      }
+
+      expect(treatmentCount).toBeGreaterThan(0);
+      expect(treatmentUsersWhoHopped).toBe(0);
+    });
   });
 });
