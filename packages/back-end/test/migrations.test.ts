@@ -1963,6 +1963,47 @@ describe("Experiment Migration", () => {
       ],
     });
   });
+
+  describe("banditIsContextual → experimentType: contextual-bandit", () => {
+    it("upgrades multi-armed-bandit + banditIsContextual=true to type=contextual-bandit", () => {
+      const result = upgradeExperimentDoc({
+        ...exp,
+        type: "multi-armed-bandit",
+        banditIsContextual: true,
+      } as unknown as Parameters<typeof upgradeExperimentDoc>[0]);
+      expect(result.type).toBe("contextual-bandit");
+      expect(
+        (result as { banditIsContextual?: boolean }).banditIsContextual,
+      ).toBeUndefined();
+    });
+
+    it("leaves multi-armed-bandit + banditIsContextual=false alone (and unsets the flag)", () => {
+      const result = upgradeExperimentDoc({
+        ...exp,
+        type: "multi-armed-bandit",
+        banditIsContextual: false,
+      } as unknown as Parameters<typeof upgradeExperimentDoc>[0]);
+      expect(result.type).toBe("multi-armed-bandit");
+      expect(
+        (result as { banditIsContextual?: boolean }).banditIsContextual,
+      ).toBeUndefined();
+    });
+
+    it("is idempotent on already-migrated docs", () => {
+      const once = upgradeExperimentDoc({
+        ...exp,
+        type: "multi-armed-bandit",
+        banditIsContextual: true,
+      } as unknown as Parameters<typeof upgradeExperimentDoc>[0]);
+      const twice = upgradeExperimentDoc(
+        once as unknown as Parameters<typeof upgradeExperimentDoc>[0],
+      );
+      expect(twice.type).toBe("contextual-bandit");
+      expect(
+        (twice as { banditIsContextual?: boolean }).banditIsContextual,
+      ).toBeUndefined();
+    });
+  });
 });
 
 describe("Organization Migration", () => {

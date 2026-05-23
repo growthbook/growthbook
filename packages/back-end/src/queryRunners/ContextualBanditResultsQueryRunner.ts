@@ -103,6 +103,12 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
   async runAnalysis(
     queryMap: QueryMap,
   ): Promise<ContextualBanditQueryRunResult> {
+    // TODO(holdout-v1.5): for holdout support, `runAnalysis` will need to
+    // receive both the holdout sample and the bandit sample (currently the
+    // single `contextual-bandit-rows` query) and compute the lift comparison
+    // alongside the per-leaf weights. The result shape change must be paired
+    // with validator updates per the SMITH rule in contextualBanditStats.ts.
+    // See contextual-bandit-fix-prompt.md.
     if (!this.snapshotSettings) {
       throw new Error(
         "ContextualBanditResultsQueryRunner: snapshotSettings missing in runAnalysis",

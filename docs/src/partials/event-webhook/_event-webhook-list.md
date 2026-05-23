@@ -1482,7 +1482,7 @@ Triggered when an experiment is created
             dateCreated: string;
             dateUpdated: string;
             name: string;
-            type: "standard" | "multi-armed-bandit" | "holdout";
+            type: "standard" | "multi-armed-bandit" | "contextual-bandit" | "holdout";
             project: string;
             hypothesis: string;
             description: string;
@@ -1670,7 +1670,6 @@ Triggered when an experiment is created
             banditBurnInUnit?: ("days" | "hours") | undefined;
             banditConversionWindowValue?: number | undefined;
             banditConversionWindowUnit?: ("days" | "hours") | undefined;
-            banditIsContextual?: boolean | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
@@ -1738,7 +1737,7 @@ Triggered when an experiment is updated
             dateCreated: string;
             dateUpdated: string;
             name: string;
-            type: "standard" | "multi-armed-bandit" | "holdout";
+            type: "standard" | "multi-armed-bandit" | "contextual-bandit" | "holdout";
             project: string;
             hypothesis: string;
             description: string;
@@ -1926,7 +1925,6 @@ Triggered when an experiment is updated
             banditBurnInUnit?: ("days" | "hours") | undefined;
             banditConversionWindowValue?: number | undefined;
             banditConversionWindowUnit?: ("days" | "hours") | undefined;
-            banditIsContextual?: boolean | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
@@ -1955,7 +1953,7 @@ Triggered when an experiment is updated
             dateCreated?: string | undefined;
             dateUpdated?: string | undefined;
             name?: string | undefined;
-            type?: ("standard" | "multi-armed-bandit" | "holdout") | undefined;
+            type?: ("standard" | "multi-armed-bandit" | "contextual-bandit" | "holdout") | undefined;
             project?: string | undefined;
             hypothesis?: string | undefined;
             description?: string | undefined;
@@ -2143,7 +2141,6 @@ Triggered when an experiment is updated
             banditBurnInUnit?: ("days" | "hours") | undefined;
             banditConversionWindowValue?: number | undefined;
             banditConversionWindowUnit?: ("days" | "hours") | undefined;
-            banditIsContextual?: boolean | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
@@ -2216,7 +2213,7 @@ Triggered when an experiment is deleted
             dateCreated: string;
             dateUpdated: string;
             name: string;
-            type: "standard" | "multi-armed-bandit" | "holdout";
+            type: "standard" | "multi-armed-bandit" | "contextual-bandit" | "holdout";
             project: string;
             hypothesis: string;
             description: string;
@@ -2404,7 +2401,6 @@ Triggered when an experiment is deleted
             banditBurnInUnit?: ("days" | "hours") | undefined;
             banditConversionWindowValue?: number | undefined;
             banditConversionWindowUnit?: ("days" | "hours") | undefined;
-            banditIsContextual?: boolean | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;

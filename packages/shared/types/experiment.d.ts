@@ -187,6 +187,11 @@ export interface LegacyExperimentInterface
   secondaryMetrics?: string[];
   guardrailMetrics?: string[];
   decisionFrameworkSettings?: ExperimentDecisionFrameworkSettings;
+  /**
+   * @deprecated Replaced by `type === "contextual-bandit"` in the
+   * `experimentType` enum. Migration upgrades legacy docs and unsets the field.
+   */
+  banditIsContextual?: boolean;
 }
 
 export type ExperimentInterfaceStringDates = Omit<

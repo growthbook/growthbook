@@ -1,3 +1,5 @@
+// See contextual-bandit-fix-prompt.md for the v1 scope and the v1.5 holdout TODOs.
+//
 // SMITH: this module is the Python-stats integration seam for the contextual
 // bandit pipeline. `runContextualStatsEngine` is the *only* function the
 // query runner calls into here; its signature must stay stable so Luke's A5
@@ -5,7 +7,10 @@
 // Any growth in the `ContextualBanditResult` shape MUST also be reflected in
 // `contextResultValidator` / `cbTreeValidator` in
 // shared/src/validators/contextual-bandit-event.ts — otherwise the CBE
-// create in `persistContextualBanditEvent` will fail schema validation.
+// create in `persistContextualBanditEvent` will fail schema validation. This
+// validator-coupling rule was originally written against the legacy
+// `banditIsContextual` flag; under the new `experimentType ===
+// "contextual-bandit"` discriminator the rule is unchanged.
 // `mockFit` exists only to make orchestrator + runner tests deterministic
 // while A5 is in flight and should be deleted at integration time.
 import { ContextResult } from "shared/validators";
@@ -42,6 +47,13 @@ export type ContextualBanditResult = {
 //                 to the validators in shared/src/validators/contextual-bandit-event.ts.
 // Keep the function signature stable; `ContextualBanditResultsQueryRunner`
 // awaits this exact tuple from inside its `runAnalysis` method.
+//
+// TODO(holdout-v1.5): when the holdout pipeline ships, ContextualBanditResult
+// needs a `holdoutComparison` field — probably a struct with sample sizes,
+// effect estimate, and an EDF-style decision flag — and the validators in
+// shared/src/validators/contextual-bandit-event.ts must mirror the new shape
+// in lockstep (per the SMITH rule above) so `persistContextualBanditEvent`
+// doesn't fail Zod validation. See contextual-bandit-fix-prompt.md.
 export async function runContextualStatsEngine(
   settings: ContextualBanditSettingsForStatsEngine,
   rows: ContextualBanditRow[],

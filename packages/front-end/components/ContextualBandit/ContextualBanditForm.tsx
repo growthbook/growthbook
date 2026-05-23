@@ -142,6 +142,11 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     }));
   const toEqualWeights = (vars: Variation[]) => getEqualWeights(vars.length);
 
+  // TODO(holdout-v1.5): holdout configuration UI (toggle + percentage) is
+  // intentionally omitted from this form in v1. Wire it up here when the
+  // back-end `holdoutPercent` field is plumbed through the snapshot
+  // orchestrator, SQL runner, and stats engine. See
+  // contextual-bandit-fix-prompt.md.
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       project: initialValue?.project || project || "",
@@ -154,8 +159,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
         initialHashAttribute,
       }),
       name: initialValue?.name || "",
-      type: "multi-armed-bandit",
-      banditIsContextual: true,
+      type: "contextual-bandit",
       disableStickyBucketing: true,
       activationMetric: initialValue?.activationMetric || "",
       hashAttribute: initialHashAttribute,
@@ -365,7 +369,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       }
 
       data.statsEngine = "bayesian";
-      data.banditIsContextual = true;
+      data.type = "contextual-bandit";
 
       const ds = datasources.find((d) => d.id === data.datasource);
       const queries = ds?.settings?.queries?.exposure ?? [];

@@ -26,7 +26,7 @@ describe("POST /experiments/:id/contextual-bandit/refresh", () => {
   it("returns the snapshot + cbe ids from the orchestrator", async () => {
     getExperimentById.mockResolvedValueOnce({
       id: "exp_cb",
-      banditIsContextual: true,
+      type: "contextual-bandit",
       phases: [{ dateStarted: new Date() }],
     });
     runContextualBanditSnapshot.mockResolvedValueOnce({
@@ -67,7 +67,7 @@ describe("POST /experiments/:id/contextual-bandit/refresh", () => {
   it("rejects experiments that are not contextual bandits", async () => {
     getExperimentById.mockResolvedValueOnce({
       id: "exp_std",
-      banditIsContextual: false,
+      type: "multi-armed-bandit",
       phases: [{ dateStarted: new Date() }],
     });
 
@@ -83,7 +83,7 @@ describe("POST /experiments/:id/contextual-bandit/refresh", () => {
   it("rejects experiments with no phases", async () => {
     getExperimentById.mockResolvedValueOnce({
       id: "exp_cb_no_phase",
-      banditIsContextual: true,
+      type: "contextual-bandit",
       phases: [],
     });
 
@@ -99,7 +99,7 @@ describe("POST /experiments/:id/contextual-bandit/refresh", () => {
   it("passes the last phase index when the experiment has multiple phases", async () => {
     getExperimentById.mockResolvedValueOnce({
       id: "exp_cb_multi",
-      banditIsContextual: true,
+      type: "contextual-bandit",
       phases: [{}, {}, {}],
     });
     runContextualBanditSnapshot.mockResolvedValueOnce({

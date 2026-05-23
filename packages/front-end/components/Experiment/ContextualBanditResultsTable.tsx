@@ -1,3 +1,7 @@
+// TODO(holdout-v1.5): the holdout-vs-bandit comparison view (the "Is the CB
+// leading to higher reward?" panel from the original engineering plan)
+// attaches in this component. EDF integration for end-of-experiment
+// recommendations also lives here. See contextual-bandit-fix-prompt.md.
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { startCase } from "lodash";

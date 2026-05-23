@@ -81,22 +81,15 @@ export function assertExposureQueriesTargetingAttributeColumnsValid(
  */
 export function assertContextualBanditExperimentFieldsValid({
   experimentType,
-  banditIsContextual,
   exposureQueryId,
   exposureQueries,
 }: {
   experimentType: string | undefined;
-  banditIsContextual: boolean | undefined;
   exposureQueryId: string | undefined;
   exposureQueries: ExposureQuery[] | undefined;
 }): void {
-  if (!banditIsContextual) {
+  if (experimentType !== "contextual-bandit") {
     return;
-  }
-  if (experimentType !== "multi-armed-bandit") {
-    throw new Error(
-      "banditIsContextual is only valid for multi-armed-bandit experiments",
-    );
   }
   if (!exposureQueryId) {
     throw new Error(

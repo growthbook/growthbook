@@ -32,6 +32,14 @@ const cbTreeValidator = z.object({
 });
 export type CbTree = z.infer<typeof cbTreeValidator>;
 
+// TODO(holdout-v1.5): the holdout pipeline will introduce new output fields
+// from the stats engine (e.g. `holdoutComparison` with sample sizes, effect
+// estimate, and an EDF-style decision flag). Those fields must be added BOTH
+// here (so `persistContextualBanditEvent` doesn't fail strict validation)
+// AND in the matching `ContextualBanditResult` type in
+// back-end/src/services/contextualBanditStats.ts, AND consumed by the
+// results UI. See contextual-bandit-fix-prompt.md.
+
 export const contextualBanditEventValidator = baseSchema
   .extend({
     experiment: z.string(),

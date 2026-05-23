@@ -751,7 +751,7 @@ export function getFeatureDefinition({
             rule.weights = phase.variationWeights;
 
             // Inject contextual-bandit payload fields when a CB doc is available
-            if (exp.banditIsContextual && cbMap) {
+            if (exp.type === "contextual-bandit" && cbMap) {
               const cb = cbMap.get(exp.id);
               if (cb) {
                 const cbPhase = cb.phases[cb.phases.length - 1];

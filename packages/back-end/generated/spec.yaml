@@ -9039,6 +9039,7 @@ paths:
                   enum:
                     - standard
                     - multi-armed-bandit
+                    - contextual-bandit
                 project:
                   description: Project ID which the experiment belongs to
                   type: string
@@ -9350,8 +9351,6 @@ paths:
                   enum:
                     - days
                     - hours
-                banditIsContextual:
-                  type: boolean
                 postStratificationEnabled:
                   description: When null, the organization default is used.
                   anyOf:
@@ -9619,6 +9618,7 @@ paths:
                   enum:
                     - standard
                     - multi-armed-bandit
+                    - contextual-bandit
                 project:
                   description: Project ID which the experiment belongs to
                   type: string
@@ -9945,8 +9945,6 @@ paths:
                   enum:
                     - days
                     - hours
-                banditIsContextual:
-                  type: boolean
                 postStratificationEnabled:
                   description: When null, the organization default is used.
                   anyOf:
@@ -26937,6 +26935,7 @@ components:
           enum:
             - standard
             - multi-armed-bandit
+            - contextual-bandit
             - holdout
         project:
           type: string
@@ -27149,8 +27148,6 @@ components:
           enum:
             - days
             - hours
-        banditIsContextual:
-          type: boolean
         linkedFeatures:
           type: array
           items:
@@ -27630,6 +27627,7 @@ components:
               enum:
                 - standard
                 - multi-armed-bandit
+                - contextual-bandit
                 - holdout
             project:
               type: string
@@ -27844,8 +27842,6 @@ components:
               enum:
                 - days
                 - hours
-            banditIsContextual:
-              type: boolean
             linkedFeatures:
               type: array
               items:
@@ -30660,6 +30656,7 @@ components:
               enum:
                 - standard
                 - multi-armed-bandit
+                - contextual-bandit
                 - holdout
             variations:
               description: >-

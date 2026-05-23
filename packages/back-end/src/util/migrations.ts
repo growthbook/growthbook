@@ -757,8 +757,20 @@ export function upgradeExperimentDoc(
     experiment.uid = uuidv4().replace(/-/g, "");
   }
 
-  if (!("banditIsContextual" in experiment)) {
-    experiment.banditIsContextual = false;
+  // Forward-migrate the deprecated `banditIsContextual` boolean to the
+  // first-class `experimentType` enum value `"contextual-bandit"`. Old docs
+  // had `type: "multi-armed-bandit", banditIsContextual: true`; new docs use
+  // `type: "contextual-bandit"` and don't carry the boolean. Idempotent: if
+  // the field is already absent or already `contextual-bandit`-typed, this
+  // is a no-op.
+  const legacyExperiment = experiment as LegacyExperimentInterface;
+  if (legacyExperiment.banditIsContextual === true) {
+    if (experiment.type === "multi-armed-bandit") {
+      experiment.type = "contextual-bandit";
+    }
+  }
+  if ("banditIsContextual" in legacyExperiment) {
+    delete legacyExperiment.banditIsContextual;
   }
 
   return experiment as ExperimentInterface;

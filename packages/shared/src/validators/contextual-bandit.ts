@@ -39,11 +39,20 @@ export const contextualBanditValidator = baseSchema
     /** Maximum number of tree leaves (contexts) to fit. */
     maxLeaves: z.number().int().positive(),
 
-    /** Must always be 0 — contextual bandits do not support holdouts. */
-    holdoutPercent: z.literal(0),
+    // TODO(holdout-v1.5): holdouts are deferred to v1.5. The field is preserved
+    // here so future docs can carry a non-zero value without a breaking schema
+    // change, but it is *not yet wired through* — the snapshot orchestrator,
+    // SQL runner, stats engine, SDK callback, and results UI all still ignore
+    // a non-zero `holdoutPercent`. Operationally callers should keep this at 0
+    // until the holdout pipeline ships. See contextual-bandit-fix-prompt.md.
+    holdoutPercent: z.number().min(0).max(0.5),
 
-    /** Must always be false — contextual bandits do not support sticky bucketing. */
-    stickyBucketing: z.literal(false),
+    // TODO(holdout-v1.5): sticky bucketing is intentionally unsupported per
+    // the original CB design decision. The field is preserved for forward
+    // compatibility with the holdout pipeline (which may need stickiness for
+    // the holdout bucket) but consumers should treat any non-default value as
+    // a no-op until v1.5.
+    stickyBucketing: z.boolean(),
 
     /** Version of the canonicalization algorithm used to derive context IDs. */
     canonicalFormVersion: z.number().int().nonnegative(),

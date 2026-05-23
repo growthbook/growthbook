@@ -78,6 +78,11 @@ const ExperimentPage = (): ReactElement => {
     if (data?.experiment?.type === "multi-armed-bandit") {
       router.replace(window.location.href.replace("experiment/", "bandit/"));
     }
+    if (data?.experiment?.type === "contextual-bandit") {
+      router.replace(
+        window.location.href.replace("experiment/", "contextual-bandit/"),
+      );
+    }
     if (data?.experiment?.type === "holdout") {
       const holdoutId = experimentToHoldoutsMap.get(data?.experiment?.id)?.id;
       let url = window.location.href.replace(

@@ -2463,7 +2463,8 @@ export async function toExperimentApiInterface(
           publicUrl: `${appOrigin}/public/e/${experiment.uid}`,
         }
       : null),
-    ...(experimentType === "multi-armed-bandit"
+    ...(experimentType === "multi-armed-bandit" ||
+    experimentType === "contextual-bandit"
       ? {
           banditScheduleValue: experiment.banditScheduleValue ?? 1,
           banditScheduleUnit: experiment.banditScheduleUnit ?? "days",
@@ -2473,7 +2474,6 @@ export async function toExperimentApiInterface(
             experiment.banditConversionWindowValue ?? undefined,
           banditConversionWindowUnit:
             experiment.banditConversionWindowUnit ?? undefined,
-          banditIsContextual: experiment.banditIsContextual ?? false,
         }
       : null),
     linkedFeatures: experiment.linkedFeatures || [],
@@ -3728,7 +3728,10 @@ export function postExperimentApiPayloadToInterface(
     organization,
   });
 
-  if (payload.type === "multi-armed-bandit") {
+  if (
+    payload.type === "multi-armed-bandit" ||
+    payload.type === "contextual-bandit"
+  ) {
     Object.assign(
       obj,
       resetExperimentBanditSettings({
@@ -3747,10 +3750,8 @@ export function postExperimentApiPayloadToInterface(
       obj.banditConversionWindowValue = payload.banditConversionWindowValue;
       obj.banditConversionWindowUnit = payload.banditConversionWindowUnit;
     }
-    obj.banditIsContextual = payload.banditIsContextual ?? false;
     assertContextualBanditExperimentFieldsValid({
       experimentType: obj.type,
-      banditIsContextual: obj.banditIsContextual,
       exposureQueryId: obj.exposureQueryId,
       exposureQueries: datasource?.settings?.queries?.exposure,
     });
@@ -4004,7 +4005,6 @@ export function updateExperimentApiPayloadToInterface(
     decisionFrameworkSettings,
     postStratificationEnabled,
     defaultDashboardId,
-    banditIsContextual,
     statusUpdateSchedule,
   } = payload;
 
@@ -4082,7 +4082,6 @@ export function updateExperimentApiPayloadToInterface(
     ...(payload.banditConversionWindowUnit !== undefined
       ? { banditConversionWindowUnit: payload.banditConversionWindowUnit }
       : {}),
-    ...(banditIsContextual !== undefined ? { banditIsContextual } : {}),
     ...(metricOverrides !== undefined ? { metricOverrides } : {}),
     ...(decisionFrameworkSettings !== undefined
       ? { decisionFrameworkSettings }
@@ -4773,7 +4772,6 @@ export async function validateContextualBanditExperimentForSave(
   context: ReqContext,
   params: {
     type?: string;
-    banditIsContextual?: boolean;
     datasourceId?: string;
     exposureQueryId?: string;
     datasource?: DataSourceInterface | null;
@@ -4781,7 +4779,7 @@ export async function validateContextualBanditExperimentForSave(
     existingExperiment?: ExperimentInterface;
   },
 ): Promise<void> {
-  if (!params.banditIsContextual) {
+  if (params.type !== "contextual-bandit") {
     return;
   }
 
@@ -4816,7 +4814,6 @@ export async function validateContextualBanditExperimentForSave(
   }
   assertContextualBanditExperimentFieldsValid({
     experimentType: params.type,
-    banditIsContextual: true,
     exposureQueryId: params.exposureQueryId,
     exposureQueries: datasource?.settings?.queries?.exposure,
   });
@@ -4832,7 +4829,11 @@ export async function maybeCreateContextualBanditDoc(
   context: ReqContext,
   experiment: ExperimentInterface,
 ): Promise<void> {
-  if (!experiment.banditIsContextual) return;
+  // TODO(holdout-v1.5): when holdout ships,
+  // `createContextualExperimentInterface` (per the original engineering plan)
+  // will need a sibling holdout-experiment doc, and the bandit creation flow
+  // will create both. See contextual-bandit-fix-prompt.md.
+  if (experiment.type !== "contextual-bandit") return;
   if (experiment.contextualBanditId) return;
 
   const datasource = experiment.datasource
@@ -4923,7 +4924,6 @@ export async function validateExperimentData(
 
   await validateContextualBanditExperimentForSave(context, {
     type: data.type,
-    banditIsContextual: data.banditIsContextual,
     datasourceId: data.datasource,
     exposureQueryId: data.exposureQueryId,
     datasource,

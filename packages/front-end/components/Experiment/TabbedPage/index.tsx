@@ -410,8 +410,9 @@ export default function TabbedPage({
     return getBrowserDevice(ua);
   }, []);
 
-  const isBandit = experiment.type === "multi-armed-bandit";
-  const isContextualBandit = isBandit && Boolean(experiment.banditIsContextual);
+  const isContextualBandit = experiment.type === "contextual-bandit";
+  const isBandit =
+    experiment.type === "multi-armed-bandit" || isContextualBandit;
   const trackSource = "tabbed-page";
 
   const safeToEdit =

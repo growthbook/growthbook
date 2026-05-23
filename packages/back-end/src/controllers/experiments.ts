@@ -1236,7 +1236,8 @@ export async function postExperiments(
     ideaSource: data.ideaSource || "",
     // todo: revisit this logic for project level settings, as well as "override stats settings" toggle:
     sequentialTestingEnabled:
-      experimentType === "multi-armed-bandit"
+      experimentType === "multi-armed-bandit" ||
+      experimentType === "contextual-bandit"
         ? false
         : (data.sequentialTestingEnabled ??
           !!org?.settings?.sequentialTestingEnabled),
@@ -1246,7 +1247,10 @@ export async function postExperiments(
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     regressionAdjustmentEnabled: data.regressionAdjustmentEnabled ?? undefined,
     statsEngine:
-      experimentType === "multi-armed-bandit" ? "bayesian" : data.statsEngine,
+      experimentType === "multi-armed-bandit" ||
+      experimentType === "contextual-bandit"
+        ? "bayesian"
+        : data.statsEngine,
     type: experimentType,
     banditScheduleValue: data.banditScheduleValue ?? 1,
     banditScheduleUnit: data.banditScheduleUnit ?? "days",
@@ -1254,7 +1258,6 @@ export async function postExperiments(
     banditBurnInUnit: data.banditBurnInUnit ?? "days",
     banditConversionWindowValue: data.banditConversionWindowValue,
     banditConversionWindowUnit: data.banditConversionWindowUnit,
-    banditIsContextual: data.banditIsContextual ?? false,
     customFields: data.customFields || undefined,
     templateId: data.templateId || undefined,
     shareLevel: data.shareLevel || "organization",
@@ -1746,7 +1749,6 @@ export async function postExperiment(
     "banditBurnInUnit",
     "banditConversionWindowValue",
     "banditConversionWindowUnit",
-    "banditIsContextual",
     "customFields",
     "shareLevel",
     "uid",
@@ -1940,8 +1942,6 @@ export async function postExperiment(
   try {
     await validateContextualBanditExperimentForSave(context, {
       type: changes.type ?? experiment.type,
-      banditIsContextual:
-        changes.banditIsContextual ?? experiment.banditIsContextual,
       datasourceId: changes.datasource ?? experiment.datasource,
       exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
     });
@@ -3037,7 +3037,7 @@ export async function deleteExperiment(
     }
   }
 
-  if (experiment.banditIsContextual) {
+  if (experiment.type === "contextual-bandit") {
     try {
       await context.contextualBandits.deleteForExperiment(experiment.id);
     } catch (e) {

@@ -1138,7 +1138,7 @@ export async function buildSDKPayloadForConnection(
     | Map<string, import("shared/validators").ContextualBanditInterface>
     | undefined;
   const cbExperimentIds = [...filteredExperimentMap.values()]
-    .filter((exp) => exp.banditIsContextual)
+    .filter((exp) => exp.type === "contextual-bandit")
     .map((exp) => exp.id);
   if (cbExperimentIds.length > 0) {
     const cbDocs = await Promise.all(

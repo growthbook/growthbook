@@ -80,10 +80,7 @@ const ContextualBanditExperimentPage = (): ReactElement => {
       url += data?.experiment?.holdoutId;
       router.replace(url);
     }
-    if (
-      data.experiment.type === "multi-armed-bandit" &&
-      !data.experiment.banditIsContextual
-    ) {
+    if (data.experiment.type === "multi-armed-bandit") {
       router.replace(
         window.location.href.replace("contextual-bandit/", "bandit/"),
       );

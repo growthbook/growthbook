@@ -97,7 +97,7 @@ export default function RefreshResultsButton<
   const snapshotEndpoint =
     entityType === "safe-rollout"
       ? `/safe-rollout/${entityId}/snapshot`
-      : experiment?.banditIsContextual
+      : experiment?.type === "contextual-bandit"
         ? `/api/v1/experiments/${entityId}/contextual-bandit/refresh`
         : `/experiment/${entityId}/snapshot`;
 
@@ -138,7 +138,7 @@ export default function RefreshResultsButton<
                   snapshotEndpoint,
                   { method: "POST" },
                 );
-              } else if (experiment?.banditIsContextual) {
+              } else if (experiment?.type === "contextual-bandit") {
                 await apiCall<{ snapshotId: string; cbeId?: string }>(
                   snapshotEndpoint,
                   { method: "POST" },

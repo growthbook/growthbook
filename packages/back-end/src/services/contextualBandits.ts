@@ -1,3 +1,5 @@
+// See contextual-bandit-fix-prompt.md for the v1 scope and the v1.5 holdout TODOs.
+//
 // SMITH: When the real Python stats engine grows new output fields, those
 // fields must be plumbed through in BOTH places:
 //   1. `persistContextualBanditEvent` below (mapping result → CBE create payload), and
@@ -5,6 +7,13 @@
 //      (`contextResultValidator` / `cbTreeValidator`).
 // Skipping either side will either drop the field on the floor or fail
 // schema validation on write.
+//
+// TODO(holdout-v1.5): SDK tracking callback for holdout-bucket users is
+// deferred. When holdout ships, the orchestrator must emit (or the SDK must
+// receive) per-user assignment events that distinguish holdout vs bandit
+// buckets. See sdk-callback-design-summary.md for the Option A (combined
+// callback with a `train_id` column) vs Option B (separate callbacks)
+// decision.
 
 import { ExperimentInterface } from "shared/types/experiment";
 import {
@@ -290,6 +299,13 @@ export function buildContextualBanditSnapshotSettings(
     endDate: cbPhase?.dateEnded ?? null,
     reweight: true,
     banditWeightsSeed: phase,
+
+    // TODO(holdout-v1.5): `holdoutPercent` (and likely a holdout seed) will
+    // need to be threaded into the frozen snapshot settings so the SQL runner
+    // can split traffic into train_id=0 (holdout) and train_id=1 (bandit)
+    // buckets, and the stats engine can compute a holdout-vs-bandit lift
+    // comparison alongside the per-leaf weights. See
+    // contextual-bandit-fix-prompt.md for the full plug-in list.
   };
 }
 

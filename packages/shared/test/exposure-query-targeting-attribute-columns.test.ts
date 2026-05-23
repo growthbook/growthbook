@@ -78,11 +78,10 @@ describe("exposure query targeting attribute columns", () => {
     ).toThrow(/nope is not a saved targeting attribute/);
   });
 
-  it("assertContextualBanditExperimentFieldsValid rejects non-bandit type", () => {
+  it("assertContextualBanditExperimentFieldsValid is a no-op for non-CB types", () => {
     expect(() =>
       assertContextualBanditExperimentFieldsValid({
         experimentType: "standard",
-        banditIsContextual: true,
         exposureQueryId: "q1",
         exposureQueries: [
           {
@@ -95,14 +94,28 @@ describe("exposure query targeting attribute columns", () => {
           },
         ],
       }),
-    ).toThrow(/only valid for multi-armed-bandit/);
+    ).not.toThrow();
+    expect(() =>
+      assertContextualBanditExperimentFieldsValid({
+        experimentType: "multi-armed-bandit",
+        exposureQueryId: "q1",
+        exposureQueries: [
+          {
+            id: "q1",
+            name: "Q",
+            userIdType: "user_id",
+            query: "SELECT 1",
+            dimensions: [],
+          },
+        ],
+      }),
+    ).not.toThrow();
   });
 
   it("assertContextualBanditExperimentFieldsValid rejects EAQ without targeting columns", () => {
     expect(() =>
       assertContextualBanditExperimentFieldsValid({
-        experimentType: "multi-armed-bandit",
-        banditIsContextual: true,
+        experimentType: "contextual-bandit",
         exposureQueryId: "q1",
         exposureQueries: [
           {

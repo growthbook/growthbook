@@ -467,7 +467,8 @@ export function getExperimentResultStatus({
       totalUsersCount: healthSummary.totalUsers,
       numOfVariations: getLatestPhaseVariations(experimentData).length,
       minUsersPerVariation:
-        experimentData.type === "multi-armed-bandit"
+        experimentData.type === "multi-armed-bandit" ||
+        experimentData.type === "contextual-bandit"
           ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
           : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
     });

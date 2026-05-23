@@ -187,6 +187,7 @@ export type MetricOverride = z.infer<typeof metricOverride>;
 export const experimentType = [
   "standard",
   "multi-armed-bandit",
+  "contextual-bandit",
   "holdout",
 ] as const;
 export type ExperimentType = (typeof experimentType)[number];
@@ -418,7 +419,6 @@ export const experimentInterface = z
     banditBurnInUnit: z.enum(["hours", "days"]).optional(),
     banditConversionWindowValue: z.number().optional().nullable(),
     banditConversionWindowUnit: z.enum(["hours", "days"]).optional().nullable(),
-    banditIsContextual: z.boolean().optional(),
     contextualBanditId: z.string().optional(),
     customFields: z.record(z.string(), z.any()).optional(),
     templateId: z.string().optional(),
@@ -734,7 +734,12 @@ const apiExperimentShape = z.object({
   dateCreated: z.string().meta({ format: "date-time" }),
   dateUpdated: z.string().meta({ format: "date-time" }),
   name: z.string(),
-  type: z.enum(["standard", "multi-armed-bandit", "holdout"]),
+  type: z.enum([
+    "standard",
+    "multi-armed-bandit",
+    "contextual-bandit",
+    "holdout",
+  ]),
   project: z.string(),
   hypothesis: z.string(),
   description: z.string(),
@@ -762,7 +767,6 @@ const apiExperimentShape = z.object({
   banditBurnInUnit: z.enum(["days", "hours"]).optional(),
   banditConversionWindowValue: z.coerce.number().optional(),
   banditConversionWindowUnit: z.enum(["days", "hours"]).optional(),
-  banditIsContextual: z.boolean().optional(),
   linkedFeatures: z.array(z.string()).optional(),
   hasVisualChangesets: z.boolean().optional(),
   hasURLRedirects: z.boolean().optional(),
@@ -1038,7 +1042,9 @@ const postExperimentBody = z
       )
       .optional(),
     name: z.string().describe("Name of the experiment"),
-    type: z.enum(["standard", "multi-armed-bandit"]).optional(),
+    type: z
+      .enum(["standard", "multi-armed-bandit", "contextual-bandit"])
+      .optional(),
     project: z
       .string()
       .describe("Project ID which the experiment belongs to")
@@ -1111,7 +1117,6 @@ const postExperimentBody = z
     banditBurnInUnit: z.enum(["days", "hours"]).optional(),
     banditConversionWindowValue: z.number().optional(),
     banditConversionWindowUnit: z.enum(["days", "hours"]).optional(),
-    banditIsContextual: z.boolean().optional(),
     postStratificationEnabled: z
       .union([
         z.boolean().describe("When null, the organization default is used."),
@@ -1153,7 +1158,9 @@ const updateExperimentBody = z
       )
       .optional(),
     name: z.string().describe("Name of the experiment").optional(),
-    type: z.enum(["standard", "multi-armed-bandit"]).optional(),
+    type: z
+      .enum(["standard", "multi-armed-bandit", "contextual-bandit"])
+      .optional(),
     project: z
       .string()
       .describe("Project ID which the experiment belongs to")
@@ -1296,7 +1303,6 @@ const updateExperimentBody = z
     banditBurnInUnit: z.enum(["days", "hours"]).optional(),
     banditConversionWindowValue: z.number().optional(),
     banditConversionWindowUnit: z.enum(["days", "hours"]).optional(),
-    banditIsContextual: z.boolean().optional(),
     postStratificationEnabled: z
       .union([
         z.boolean().describe("When null, the organization default is used."),

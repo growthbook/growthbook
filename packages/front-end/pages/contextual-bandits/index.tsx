@@ -45,16 +45,11 @@ const ContextualBanditsPage = (): React.ReactElement => {
   );
 
   const {
-    experiments: allBandits,
+    experiments: allExperiments,
     error,
     loading,
     hasArchived,
-  } = useExperiments(project, tabs.includes("archived"), "multi-armed-bandit");
-
-  const allExperiments = useMemo(
-    () => allBandits.filter((e) => e.banditIsContextual),
-    [allBandits],
-  );
+  } = useExperiments(project, tabs.includes("archived"), "contextual-bandit");
 
   const tagsFilter = useTagsFilter("contextual-bandits");
   const [showMineOnly, setShowMineOnly] = useLocalStorage(

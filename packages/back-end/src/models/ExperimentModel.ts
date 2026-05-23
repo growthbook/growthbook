@@ -319,7 +319,6 @@ const experimentSchema = new mongoose.Schema({
   banditBurnInUnit: String,
   banditConversionWindowValue: Number,
   banditConversionWindowUnit: String,
-  banditIsContextual: { type: Boolean, default: false },
   contextualBanditId: String,
   customFields: {},
   templateId: String,
@@ -2010,8 +2009,7 @@ const onExperimentCreate = async ({
     });
 
   if (
-    experiment.banditIsContextual &&
-    experiment.type === "multi-armed-bandit" &&
+    experiment.type === "contextual-bandit" &&
     experiment.datasource &&
     experiment.exposureQueryId &&
     !experiment.contextualBanditId

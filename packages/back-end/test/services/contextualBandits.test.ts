@@ -85,7 +85,7 @@ function makeExperiment(
     // CB must IGNORE this field — verified explicitly below.
     guardrailMetrics: ["met_guard"],
     metricOverrides: [],
-    banditIsContextual: true,
+    type: "contextual-bandit",
     ...overrides,
   } as unknown as ExperimentInterface;
 }

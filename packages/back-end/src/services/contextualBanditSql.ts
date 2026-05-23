@@ -1,3 +1,5 @@
+// See contextual-bandit-fix-prompt.md for the v1 scope and the v1.5 holdout TODOs.
+//
 // SMITH: this module is the SQL-side integration seam for the contextual
 // bandit pipeline. `runContextualBanditQuery` is invoked by the
 // `ContextualBanditResultsQueryRunner` and its signature MUST stay stable —
@@ -6,7 +8,9 @@
 // fabricated rows; Luke's A3 branch replaces it with real SQL generation +
 // execution. The accompanying `mockRows` helper exists only to keep the
 // orchestrator end-to-end runnable while A3 is in flight and should be
-// deleted at integration time.
+// deleted at integration time. The experiment.type check upstream now uses
+// `experimentType === "contextual-bandit"` rather than the legacy
+// `banditIsContextual` flag.
 import { ContextualBanditInterface } from "shared/validators";
 import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
 import { ReqContext } from "back-end/types/api";
@@ -25,6 +29,13 @@ export type ContextualBanditRow = {
 //                 bucket) combination, with aggregate metric stats.
 // Keep the function signature stable; `ContextualBanditResultsQueryRunner`
 // awaits this exact tuple from inside its `startQueries.run` callback.
+//
+// TODO(holdout-v1.5): when the holdout pipeline ships, this query must split
+// rows into a holdout bucket (train_id=0) and a bandit bucket (train_id=1)
+// and emit BOTH buckets in the row set. The aggregation grain becomes
+// (variation, context, train_id, bandit_period); downstream the stats engine
+// computes the holdout-vs-bandit lift comparison. See
+// contextual-bandit-fix-prompt.md.
 export async function runContextualBanditQuery(
   _context: ReqContext,
   cb: ContextualBanditInterface,

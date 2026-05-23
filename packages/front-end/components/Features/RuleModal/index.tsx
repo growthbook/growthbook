@@ -897,7 +897,10 @@ export default function RuleModal({
           regressionAdjustmentEnabled:
             values.regressionAdjustmentEnabled ?? undefined,
           statsEngine: values.statsEngine ?? undefined,
-          type: values.experimentType,
+          type:
+            values.experimentType === "multi-armed-bandit" && contextualBandit
+              ? "contextual-bandit"
+              : values.experimentType,
           holdoutId:
             values.experimentType === "standard"
               ? feature.holdout?.id
@@ -913,7 +916,6 @@ export default function RuleModal({
             banditScheduleUnit: values.banditScheduleUnit ?? "days",
             banditBurnInValue: values.banditBurnInValue ?? 1,
             banditBurnInUnit: values.banditBurnInUnit ?? "days",
-            banditIsContextual: contextualBandit,
             ...(shouldIncludeConversionWindow && {
               banditConversionWindowValue: values.banditConversionWindowValue,
               banditConversionWindowUnit: values.banditConversionWindowUnit,

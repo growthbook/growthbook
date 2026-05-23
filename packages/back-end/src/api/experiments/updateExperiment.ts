@@ -242,8 +242,6 @@ export const updateExperiment = createApiRequestHandler(
 
   await validateContextualBanditExperimentForSave(req.context, {
     type: req.body.type ?? experiment.type,
-    banditIsContextual:
-      req.body.banditIsContextual ?? experiment.banditIsContextual,
     datasourceId: datasourceId || undefined,
     exposureQueryId: req.body.assignmentQueryId ?? experiment.exposureQueryId,
     datasource,

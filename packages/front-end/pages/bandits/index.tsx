@@ -42,16 +42,11 @@ const ExperimentsPage = (): React.ReactElement => {
   const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
 
   const {
-    experiments: allBanditExperiments,
+    experiments: allExperiments,
     error,
     loading,
     hasArchived,
   } = useExperiments(project, tabs.includes("archived"), "multi-armed-bandit");
-
-  const allExperiments = useMemo(
-    () => allBanditExperiments.filter((e) => !e.banditIsContextual),
-    [allBanditExperiments],
-  );
 
   const tagsFilter = useTagsFilter("experiments");
   const [showMineOnly, setShowMineOnly] = useLocalStorage(
