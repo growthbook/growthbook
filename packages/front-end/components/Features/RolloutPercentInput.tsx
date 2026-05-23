@@ -1,15 +1,20 @@
 import { Slider, Flex, Box } from "@radix-ui/themes";
 import { ReactNode, useEffect } from "react";
-import { PiCaretRightFill } from "react-icons/pi";
+import { PiCaretRightFill, PiCaretDownFill } from "react-icons/pi";
 import { SDKAttributeSchema } from "shared/types/organization";
 import { RampScheduleInterface } from "shared/validators";
 import Collapsible from "react-collapsible";
 import styles from "@/components/Features/VariationsInput.module.scss";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
 import { decimalToPercent, percentToDecimal } from "@/services/utils";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
+import Link from "@/ui/Link";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+} from "@/ui/DropdownMenu";
 import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVersionSelector";
 import useSDKConnections from "@/hooks/useSDKConnections";
 
@@ -34,7 +39,7 @@ export interface Props {
   featureId?: string;
   advancedOpen?: boolean;
   setAdvancedOpen?: (v: boolean) => void;
-  existingRule?: boolean;
+  isLiveRule?: boolean;
   /** When provided, the advanced section is also shown if any ramp step or end action has coverage < 100%. */
   rampSchedule?: RampScheduleInterface;
 }
@@ -57,7 +62,7 @@ export default function RolloutPercentInput({
   featureId,
   advancedOpen,
   setAdvancedOpen,
-  existingRule,
+  isLiveRule,
   rampSchedule,
 }: Props) {
   const filteredAttributes = attributeSchema?.filter(
@@ -134,24 +139,44 @@ export default function RolloutPercentInput({
       {showAdvancedSection ? (
         <Box px="4" py="2" mt="2" className="bg-highlight rounded">
           {setHashAttribute && attributeSchema && (
-            <SelectField
-              label="Sample using attribute"
-              value={hashAttribute ?? ""}
-              options={
-                filteredAttributes?.map((attr) => ({
-                  label: attr.property,
-                  value: attr.property,
-                })) ?? []
-              }
-              onChange={(v) => setHashAttribute(v)}
-              containerClassName="mb-1"
-            />
+            <Flex align="center" gap="1" mb="1">
+              <Text as="label" weight="medium" mb="0">
+                Sample users by:
+              </Text>
+              <DropdownMenu
+                trigger={
+                  <Link
+                    type="button"
+                    style={{ color: "var(--color-text-high)" }}
+                  >
+                    <Text mr="1">{hashAttribute || "—"}</Text>
+                    <PiCaretDownFill />
+                  </Link>
+                }
+                menuPlacement="start"
+                variant="soft"
+              >
+                <DropdownMenuGroup>
+                  {(filteredAttributes ?? []).map((attr) => (
+                    <DropdownMenuItem
+                      key={attr.property}
+                      onClick={() => setHashAttribute(attr.property)}
+                    >
+                      {attr.property}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
+              </DropdownMenu>
+            </Flex>
           )}
 
           {setSeed && setAdvancedOpen !== undefined && (
             <Collapsible
               trigger={
-                <div className="link-purple" style={{ marginTop: 4 }}>
+                <div
+                  className="link-purple"
+                  style={{ marginTop: 4, display: "inline-block" }}
+                >
                   <PiCaretRightFill className="chevron mr-1" />
                   Hashing &amp; seed options
                 </div>
@@ -161,48 +186,79 @@ export default function RolloutPercentInput({
               onTriggerClosing={() => setAdvancedOpen(false)}
               transitionTime={100}
             >
-              <Box mt="1">
-                <Field
-                  label="Seed"
-                  type="input"
-                  value={seed}
-                  onChange={(e) => setSeed(e.target.value)}
-                  placeholder={featureId}
-                  helpText={
-                    existingRule ? (
-                      <HelperText status="warning" size="sm">
-                        Changing this will re-randomize rollout traffic.
-                      </HelperText>
-                    ) : undefined
-                  }
-                />
+              <>
+                <Flex align="center" gap="3" py="1" style={{ minHeight: 42 }}>
+                  <Box style={{ width: 70 }}>
+                    <Text as="label" weight="medium" ml="2" mb="0">
+                      Seed
+                    </Text>
+                  </Box>
+                  <Box style={{ width: 150 }}>
+                    <Field
+                      type="input"
+                      value={seed ?? ""}
+                      onChange={(e) => setSeed(e.target.value)}
+                      placeholder={featureId}
+                      containerClassName="mb-0"
+                    />
+                  </Box>
+                </Flex>
+                {isLiveRule && (
+                  <HelperText status="warning" size="sm" mb="0">
+                    Changing this re-randomizes rollout traffic.
+                  </HelperText>
+                )}
                 {setHashVersion && (
                   <>
-                    <Flex align="center" gap="1" mt="1">
-                      <Text as="label" weight="medium" mb="0">
-                        Hashing:
-                      </Text>
-                      <select
-                        className="form-control form-control-sm d-inline-block w-auto"
-                        value={hashVersion ?? 1}
-                        onChange={(e) =>
-                          setHashVersion(Number(e.target.value) as 1 | 2)
-                        }
-                        style={{ fontSize: 13 }}
-                      >
-                        <option value={2}>V2 (Preferred)</option>
-                        <option value={1}>V1 (Legacy)</option>
-                      </select>
+                    <Flex
+                      align="center"
+                      gap="3"
+                      py="1"
+                      style={{ minHeight: 42 }}
+                    >
+                      <Box style={{ width: 70 }}>
+                        <Text as="label" weight="medium" ml="2" mb="0">
+                          Hashing
+                        </Text>
+                      </Box>
+                      <Box>
+                        <DropdownMenu
+                          trigger={
+                            <Link
+                              type="button"
+                              style={{ color: "var(--color-text-high)" }}
+                            >
+                              <Text mr="1">
+                                {hashVersion === 2
+                                  ? "V2 (Preferred)"
+                                  : "V1 (Legacy)"}
+                              </Text>
+                              <PiCaretDownFill />
+                            </Link>
+                          }
+                          menuPlacement="start"
+                          variant="soft"
+                        >
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem onClick={() => setHashVersion(2)}>
+                              V2 (Preferred)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setHashVersion(1)}>
+                              V1 (Legacy)
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
+                        </DropdownMenu>
+                      </Box>
                     </Flex>
                     {hashVersionSdkWarning && (
-                      <HelperText status="warning" size="sm" mt="1">
+                      <HelperText status="warning" size="sm" mb="0" mt="1">
                         Some SDK connections may not support V2 hashing.
                         Unsupported SDKs will fall back to V1 automatically.
                       </HelperText>
                     )}
                   </>
                 )}
-              </Box>
+              </>
             </Collapsible>
           )}
         </Box>

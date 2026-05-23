@@ -152,6 +152,9 @@ export function applyPatch(
         coverage: effectiveCoverage,
         hashAttribute: effectiveHashAttr,
         ...(patch.seed !== undefined && { seed: patch.seed }),
+        ...(patch.hashVersion !== undefined && {
+          hashVersion: patch.hashVersion,
+        }),
       };
       return updated;
     } else {

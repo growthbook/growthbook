@@ -716,6 +716,18 @@ paths:
                                   type: number
                                 hashAttribute:
                                   type: string
+                                seed:
+                                  type: string
+                                hashVersion:
+                                  description: >-
+                                    Hash algorithm version for bucketing.
+                                    Defaults to 2 (preferred) when not
+                                    specified.
+                                  anyOf:
+                                    - type: number
+                                      const: 1
+                                    - type: number
+                                      const: 2
                               required:
                                 - type
                                 - value
@@ -1031,6 +1043,18 @@ paths:
                                       type: number
                                     hashAttribute:
                                       type: string
+                                    seed:
+                                      type: string
+                                    hashVersion:
+                                      description: >-
+                                        Hash algorithm version for bucketing.
+                                        Defaults to 2 (preferred) when not
+                                        specified.
+                                      anyOf:
+                                        - type: number
+                                          const: 1
+                                        - type: number
+                                          const: 2
                                   required:
                                     - type
                                     - value
@@ -1479,6 +1503,18 @@ paths:
                                   type: number
                                 hashAttribute:
                                   type: string
+                                seed:
+                                  type: string
+                                hashVersion:
+                                  description: >-
+                                    Hash algorithm version for bucketing.
+                                    Defaults to 2 (preferred) when not
+                                    specified.
+                                  anyOf:
+                                    - type: number
+                                      const: 1
+                                    - type: number
+                                      const: 2
                               required:
                                 - type
                                 - value
@@ -1794,6 +1830,18 @@ paths:
                                       type: number
                                     hashAttribute:
                                       type: string
+                                    seed:
+                                      type: string
+                                    hashVersion:
+                                      description: >-
+                                        Hash algorithm version for bucketing.
+                                        Defaults to 2 (preferred) when not
+                                        specified.
+                                      anyOf:
+                                        - type: number
+                                          const: 1
+                                        - type: number
+                                          const: 2
                                   required:
                                     - type
                                     - value
@@ -7875,6 +7923,15 @@ paths:
                           type: string
                         seed:
                           type: string
+                        hashVersion:
+                          description: >-
+                            Hash algorithm version for bucketing. Defaults to 2
+                            (preferred) when not specified.
+                          anyOf:
+                            - type: number
+                              const: 1
+                            - type: number
+                              const: 2
                       required:
                         - value
                       additionalProperties: false
@@ -8427,6 +8484,12 @@ paths:
                       type: string
                     seed:
                       type: string
+                    hashVersion:
+                      anyOf:
+                        - type: number
+                          const: 1
+                        - type: number
+                          const: 2
                     experimentId:
                       type: string
                     variations:
@@ -29601,6 +29664,15 @@ components:
             seed:
               description: Optional seed for the hash function; defaults to the rule id
               type: string
+            hashVersion:
+              description: >-
+                Hash algorithm version for bucketing. Defaults to 2 (preferred)
+                when not specified.
+              anyOf:
+                - type: number
+                  const: 1
+                - type: number
+                  const: 2
           required:
             - type
             - value

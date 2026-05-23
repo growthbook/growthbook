@@ -90,7 +90,9 @@ export default function StandardRuleFields({
 }) {
   const form = useFormContext();
   const [advancedOptionsOpen, setadvancedOptionsOpen] = useState(
-    !!form.watch("seed"),
+    !!form.watch("seed") ||
+      (form.watch("hashVersion") !== undefined &&
+        form.watch("hashVersion") !== 2),
   );
   const attributeSchema = useAttributeSchema(false, feature.project);
   const hasHashAttributes =
@@ -406,7 +408,7 @@ export default function StandardRuleFields({
               seed={form.watch("seed")}
               setSeed={(v: string) => form.setValue("seed", v)}
               featureId={feature.id}
-              existingRule={!!defaultValues.id}
+              isLiveRule={isLiveRule}
               advancedOpen={advancedOptionsOpen}
               setAdvancedOpen={setadvancedOptionsOpen}
             />

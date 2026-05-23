@@ -621,6 +621,12 @@ export const apiFeatureRolloutRuleValidator = namedSchema(
           "Optional seed for the hash function; defaults to the rule id",
         )
         .optional(),
+      hashVersion: z
+        .union([z.literal(1), z.literal(2)])
+        .describe(
+          "Hash algorithm version for bucketing. Defaults to 2 (preferred) when not specified.",
+        )
+        .optional(),
     }),
   ),
 );
@@ -1004,6 +1010,13 @@ const postFeatureRolloutRule = z.object({
       "Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.",
     ),
   hashAttribute: z.string(),
+  seed: z.string().optional(),
+  hashVersion: z
+    .union([z.literal(1), z.literal(2)])
+    .describe(
+      "Hash algorithm version for bucketing. Defaults to 2 (preferred) when not specified.",
+    )
+    .optional(),
 });
 
 const postFeatureExperimentRefRule = z.object({

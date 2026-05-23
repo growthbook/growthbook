@@ -8,6 +8,7 @@ import React, {
 import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
 import pick from "lodash/pick";
+import Collapsible from "react-collapsible";
 import {
   AlertDialog,
   Box,
@@ -3918,109 +3919,107 @@ export default function RampScheduleSection({
                 </Flex>
               </Flex>
               {setSeed && (
-                <>
-                  {!seedOpen && (
-                    <Link
-                      type="button"
-                      className="hover-underline"
-                      onClick={() => setSeedOpen(true)}
-                      style={{ marginTop: 4, display: "inline-block" }}
-                    >
-                      <PiPlusBold className="mr-1" />
+                <Collapsible
+                  trigger={
+                    <div className="link-purple" style={{ marginTop: 4, display: "inline-block" }}>
+                      <PiCaretRightFill className="chevron mr-1" />
                       Hashing &amp; seed options
-                    </Link>
-                  )}
-                  {seedOpen && (
-                    <>
-                      <Flex
-                        align="center"
-                        gap="3"
-                        py="1"
-                        style={{ minHeight: 42 }}
-                      >
-                        <Box style={{ width: 70 }}>
-                          <Text as="label" weight="medium" ml="2" mb="0">
-                            Seed
-                          </Text>
-                        </Box>
-                        <Box style={{ width: 150 }}>
-                          <Field
-                            type="input"
-                            value={seed ?? ""}
-                            onChange={(e) => setSeed(e.target.value)}
-                            placeholder={featureId}
-                            containerClassName="mb-0"
-                          />
-                        </Box>
-                      </Flex>
-                      {ruleRampSchedule && (
-                        <HelperText status="warning" size="sm" mb="0">
-                          Changing this re-randomizes rollout traffic.
-                        </HelperText>
-                      )}
-                      {setHashVersion && (
-                        <>
-                          <Flex
-                            align="center"
-                            gap="3"
-                            py="1"
-                            style={{ minHeight: 42 }}
-                          >
-                            <Box style={{ width: 70 }}>
-                              <Text as="label" weight="medium" ml="2" mb="0">
-                                Hashing:
-                              </Text>
-                            </Box>
-                            <Box>
-                              <DropdownMenu
-                                trigger={
-                                  <Link
-                                    type="button"
-                                    style={{ color: "var(--color-text-high)" }}
-                                  >
-                                    <Text mr="1">
-                                      {hashVersion === 2
-                                        ? "V2 (Preferred)"
-                                        : "V1 (Legacy)"}
-                                    </Text>
-                                    <PiCaretDownFill />
-                                  </Link>
-                                }
-                                menuPlacement="start"
-                                variant="soft"
-                              >
-                                <DropdownMenuGroup>
-                                  <DropdownMenuItem
-                                    onClick={() => setHashVersion(2)}
-                                  >
-                                    V2 (Preferred)
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => setHashVersion(1)}
-                                  >
-                                    V1 (Legacy)
-                                  </DropdownMenuItem>
-                                </DropdownMenuGroup>
-                              </DropdownMenu>
-                            </Box>
-                          </Flex>
-                          {hashVersionSdkWarning && (
-                            <HelperText
-                              status="warning"
-                              size="sm"
-                              mb="0"
-                              mt="1"
+                    </div>
+                  }
+                  open={seedOpen}
+                  onTriggerOpening={() => setSeedOpen(true)}
+                  onTriggerClosing={() => setSeedOpen(false)}
+                  transitionTime={100}
+                >
+                  <>
+                    <Flex
+                      align="center"
+                      gap="3"
+                      py="1"
+                      style={{ minHeight: 42 }}
+                    >
+                      <Box style={{ width: 70 }}>
+                        <Text as="label" weight="medium" ml="2" mb="0">
+                          Seed
+                        </Text>
+                      </Box>
+                      <Box style={{ width: 150 }}>
+                        <Field
+                          type="input"
+                          value={seed ?? ""}
+                          onChange={(e) => setSeed(e.target.value)}
+                          placeholder={featureId}
+                          containerClassName="mb-0"
+                        />
+                      </Box>
+                    </Flex>
+                    {ruleRampSchedule && (
+                      <HelperText status="warning" size="sm" mb="0">
+                        Changing this re-randomizes rollout traffic.
+                      </HelperText>
+                    )}
+                    {setHashVersion && (
+                      <>
+                        <Flex
+                          align="center"
+                          gap="3"
+                          py="1"
+                          style={{ minHeight: 42 }}
+                        >
+                          <Box style={{ width: 70 }}>
+                            <Text as="label" weight="medium" ml="2" mb="0">
+                              Hashing
+                            </Text>
+                          </Box>
+                          <Box>
+                            <DropdownMenu
+                              trigger={
+                                <Link
+                                  type="button"
+                                  style={{ color: "var(--color-text-high)" }}
+                                >
+                                  <Text mr="1">
+                                    {hashVersion === 2
+                                      ? "V2 (Preferred)"
+                                      : "V1 (Legacy)"}
+                                  </Text>
+                                  <PiCaretDownFill />
+                                </Link>
+                              }
+                              menuPlacement="start"
+                              variant="soft"
                             >
-                              Some SDK connections may not support V2 hashing.
-                              Unsupported SDKs will fall back to V1
-                              automatically.
-                            </HelperText>
-                          )}
-                        </>
-                      )}
-                    </>
-                  )}
-                </>
+                              <DropdownMenuGroup>
+                                <DropdownMenuItem
+                                  onClick={() => setHashVersion(2)}
+                                >
+                                  V2 (Preferred)
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => setHashVersion(1)}
+                                >
+                                  V1 (Legacy)
+                                </DropdownMenuItem>
+                              </DropdownMenuGroup>
+                            </DropdownMenu>
+                          </Box>
+                        </Flex>
+                        {hashVersionSdkWarning && (
+                          <HelperText
+                            status="warning"
+                            size="sm"
+                            mb="0"
+                            mt="1"
+                          >
+                            Some SDK connections may not support V2 hashing.
+                            Unsupported SDKs will fall back to V1
+                            automatically.
+                          </HelperText>
+                        )}
+                      </>
+                    )}
+                  </>
+                </Collapsible>
               )}
             </Box>
           )}
