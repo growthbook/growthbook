@@ -197,27 +197,53 @@ const UNIT_MULT: Record<IntervalUnit, number> = {
   days: 86400,
 };
 
-const SIMPLE_COVERAGES = [1, 5, 10, 25, 50];
+function bestUnitFromSeconds(seconds: number): {
+  value: number;
+  unit: IntervalUnit;
+} {
+  const round2 = (v: number) => Math.round(v * 100) / 100;
+  if (seconds >= 96 * 3600) {
+    return { value: round2(seconds / 86400), unit: "days" };
+  }
+  if (seconds >= 3600) {
+    return { value: round2(seconds / 3600), unit: "hours" };
+  }
+  return { value: round2(seconds / 60), unit: "minutes" };
+}
+
+const SIMPLE_COVERAGES = [5, 10, 50];
+// Each ramp step (non-last) gets this fraction of total duration; last step gets the rest.
+const SIMPLE_RAMP_FRACTION = 0.1;
 
 export function generateSimpleSteps(
   duration: number,
-  unit: IntervalUnit = "days",
+  unit: IntervalUnit = "hours",
 ): UIStep[] {
-  const intervalValue = Math.max(
-    1,
-    Math.round(duration / SIMPLE_COVERAGES.length),
-  );
+  return generateSimpleStepsFromSeconds(duration * UNIT_MULT[unit]);
+}
 
-  return SIMPLE_COVERAGES.map((cov) => ({
-    patch: { coverage: cov },
-    triggerType: "interval" as const,
-    intervalValue,
-    intervalUnit: unit,
-    approvalNotes: "",
-    notesOpen: false,
-    additionalEffectsOpen: false,
-    monitored: false,
-  }));
+function generateSimpleStepsFromSeconds(totalSeconds: number): UIStep[] {
+  const rampCount = SIMPLE_COVERAGES.length - 1;
+  const rampSeconds = Math.max(
+    60,
+    Math.round(totalSeconds * SIMPLE_RAMP_FRACTION),
+  );
+  const holdSeconds = Math.max(60, totalSeconds - rampCount * rampSeconds);
+
+  return SIMPLE_COVERAGES.map((cov, i) => {
+    const secs = i < rampCount ? rampSeconds : holdSeconds;
+    const { value, unit: stepUnit } = bestUnitFromSeconds(secs);
+    return {
+      patch: { coverage: cov },
+      triggerType: "interval" as const,
+      intervalValue: value,
+      intervalUnit: stepUnit,
+      approvalNotes: "",
+      notesOpen: false,
+      additionalEffectsOpen: false,
+      monitored: false,
+    };
+  });
 }
 
 export function stepsMatchSimplePattern(
@@ -240,18 +266,20 @@ export function stepsMatchSimplePattern(
   if (steps.length !== SIMPLE_COVERAGES.length) return false;
   const firstStep = steps[0];
   if (!firstStep) return false;
-  const expectedSimpleSteps = generateSimpleSteps(
-    firstStep.intervalValue * SIMPLE_COVERAGES.length,
-    firstStep.intervalUnit,
-  ).map((s) => ({
-    ...s,
-    monitored: firstStep.monitored,
-    holdConditions: firstStep.holdConditions,
-  }));
+  const totalSeconds = steps.reduce(
+    (sum, s) => sum + s.intervalValue * UNIT_MULT[s.intervalUnit],
+    0,
+  );
+  const expectedSimpleSteps = generateSimpleStepsFromSeconds(totalSeconds).map(
+    (s) => ({
+      ...s,
+      monitored: firstStep.monitored,
+      holdConditions: firstStep.holdConditions,
+    }),
+  );
   const normalizeSimpleStep = (s: UIStep) => ({
     triggerType: s.triggerType,
-    intervalValue: s.intervalValue,
-    intervalUnit: s.intervalUnit,
+    intervalSeconds: s.intervalValue * UNIT_MULT[s.intervalUnit],
     coverage: s.patch.coverage ?? 0,
     monitored: !!s.monitored,
     holdConditions: s.holdConditions ?? undefined,
@@ -925,6 +953,21 @@ export default function RampScheduleSection({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templates]);
+
+  // Auto-derive monitoring cadence from step durations on initial mount.
+  useEffect(() => {
+    if (state.builderMode !== "simple") return;
+    const overrides = deriveMonitoringOverrides(state.steps);
+    if (
+      overrides.updateScheduleMinutes === null &&
+      overrides.noTrafficGracePeriodHours === null
+    )
+      return;
+    patchState({
+      monitoring: { ...state.monitoring, ...overrides },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [templateName, setTemplateName] = useState("");
@@ -1928,19 +1971,24 @@ export default function RampScheduleSection({
                             <Field
                               style={{ minHeight: 38 }}
                               type="number"
-                              min="1"
+                              min="0"
+                              step="any"
                               onFocus={(e) => e.target.select()}
                               value={String(step.intervalValue)}
                               onChange={(e) =>
                                 updateStep(i, {
-                                  intervalValue: parseInt(e.target.value) || 0,
+                                  intervalValue:
+                                    parseFloat(e.target.value) || 0,
                                 })
                               }
                               onBlur={(e) =>
                                 updateStep(i, {
                                   intervalValue: Math.max(
-                                    1,
-                                    parseInt(e.target.value) || 1,
+                                    0.01,
+                                    Math.floor(
+                                      (parseFloat(e.target.value) || 0.01) *
+                                        100,
+                                    ) / 100,
                                   ),
                                 })
                               }
@@ -2691,9 +2739,7 @@ export default function RampScheduleSection({
     updateScheduleMinutes: number | null;
     noTrafficGracePeriodHours: number | null;
   } {
-    const intervalSteps = steps.filter(
-      (s) => s.monitored && s.triggerType === "interval",
-    );
+    const intervalSteps = steps.filter((s) => s.triggerType === "interval");
     if (intervalSteps.length === 0) {
       return { updateScheduleMinutes: null, noTrafficGracePeriodHours: null };
     }
@@ -2723,7 +2769,7 @@ export default function RampScheduleSection({
     const noTrafficGracePeriodHours =
       gracePeriodHours < 24 ? Math.floor(gracePeriodHours * 100) / 100 : null;
 
-    if (updateScheduleMinutes !== null || noTrafficGracePeriodHours !== null) {
+    if (updateScheduleMinutes !== null) {
       setShowAdvancedMonitoring(true);
     }
 
@@ -2731,7 +2777,7 @@ export default function RampScheduleSection({
   }
 
   function handleSimpleDurationChange(duration: number, unit?: IntervalUnit) {
-    const d = Math.max(1, duration);
+    const d = Math.max(0.01, duration);
     const u = unit ?? state.simpleDurationUnit ?? "days";
     const monitored = state.steps.some((s) => s.monitored);
     const steps = generateSimpleSteps(d, u).map((s) => ({
@@ -2788,10 +2834,12 @@ export default function RampScheduleSection({
   const anyCadenceWarning = useMemo(() => {
     if (!effectiveCadenceSeconds) return false;
     if (state.builderMode === "simple") {
-      const unit = state.simpleDurationUnit ?? "days";
-      const totalSeconds = state.simpleDurationDays * UNIT_MULT[unit];
-      const perStepSeconds = totalSeconds / SIMPLE_COVERAGES.length;
-      return perStepSeconds < effectiveCadenceSeconds;
+      const unit = state.simpleDurationUnit ?? "hours";
+      const simpleSteps = generateSimpleSteps(state.simpleDurationDays, unit);
+      const minStepSeconds = Math.min(
+        ...simpleSteps.map((s) => s.intervalValue * UNIT_MULT[s.intervalUnit]),
+      );
+      return minStepSeconds < effectiveCadenceSeconds;
     }
     return state.steps.some(
       (s) =>
@@ -3195,22 +3243,8 @@ export default function RampScheduleSection({
   const showAdvancedEditor = !isSimpleMode || hasTemplate;
 
   const hasCustomizedSteps = useMemo(() => {
-    const { steps } = state;
-    if (steps.length !== SIMPLE_COVERAGES.length) return true;
-    const firstInterval = steps[0]?.intervalValue;
-    const firstUnit = steps[0]?.intervalUnit;
-    return steps.some((s, i) => {
-      if (s.triggerType !== "interval") return true;
-      if (s.approvalNotes) return true;
-      if (s.holdConditions && Object.keys(s.holdConditions).length > 0)
-        return true;
-      if (s.patch.coverage !== SIMPLE_COVERAGES[i]) return true;
-      if (Object.keys(s.patch).some((k) => k !== "coverage")) return true;
-      if (s.intervalValue !== firstInterval) return true;
-      if (s.intervalUnit !== firstUnit) return true;
-      return false;
-    });
-  }, [state.steps]); // eslint-disable-line react-hooks/exhaustive-deps
+    return !stepsMatchSimplePattern(state.steps, state.endPatch);
+  }, [state.steps, state.endPatch]);
 
   const hasSafeRolloutFeature = hasCommercialFeature("safe-rollout");
 
@@ -3408,13 +3442,16 @@ export default function RampScheduleSection({
           <Field
             type="number"
             min="0"
+            step="any"
             value={state.simpleDurationDays}
             onFocus={(e) => e.target.select()}
             onChange={(e) =>
-              handleSimpleDurationChange(parseInt(e.target.value) || 0)
+              handleSimpleDurationChange(parseFloat(e.target.value) || 0)
             }
             onBlur={() =>
-              handleSimpleDurationChange(Math.max(1, state.simpleDurationDays))
+              handleSimpleDurationChange(
+                Math.max(0.01, state.simpleDurationDays),
+              )
             }
             containerClassName="mb-0"
             style={{ width: 60, minHeight: 38 }}
@@ -4179,11 +4216,24 @@ export function rampScheduleToSectionState(
           multipleExposureAction: rs.monitoringConfig.multipleExposureAction,
         }
       : { ...DEFAULT_MONITORING },
-    simpleDurationUnit: isSimple && firstStep ? firstStep.intervalUnit : "days",
+    simpleDurationUnit:
+      isSimple && firstStep
+        ? bestUnitFromSeconds(
+            uiSteps.reduce(
+              (sum, s) => sum + s.intervalValue * UNIT_MULT[s.intervalUnit],
+              0,
+            ),
+          ).unit
+        : "hours",
     simpleDurationDays:
       isSimple && firstStep
-        ? firstStep.intervalValue * SIMPLE_COVERAGES.length
-        : 7,
+        ? bestUnitFromSeconds(
+            uiSteps.reduce(
+              (sum, s) => sum + s.intervalValue * UNIT_MULT[s.intervalUnit],
+              0,
+            ),
+          ).value
+        : 120,
   };
 }
 
@@ -4252,11 +4302,24 @@ export function createActionToSectionState(
             action.monitoringConfig.multipleExposureAction,
         }
       : { ...DEFAULT_MONITORING },
-    simpleDurationUnit: isSimple && firstStep ? firstStep.intervalUnit : "days",
+    simpleDurationUnit:
+      isSimple && firstStep
+        ? bestUnitFromSeconds(
+            uiSteps.reduce(
+              (sum, s) => sum + s.intervalValue * UNIT_MULT[s.intervalUnit],
+              0,
+            ),
+          ).unit
+        : "hours",
     simpleDurationDays:
       isSimple && firstStep
-        ? firstStep.intervalValue * SIMPLE_COVERAGES.length
-        : 7,
+        ? bestUnitFromSeconds(
+            uiSteps.reduce(
+              (sum, s) => sum + s.intervalValue * UNIT_MULT[s.intervalUnit],
+              0,
+            ),
+          ).value
+        : 120,
   };
 }
 
