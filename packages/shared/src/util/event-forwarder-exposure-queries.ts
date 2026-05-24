@@ -4,6 +4,7 @@ import {
   buildSnowflakeEventForwarderTableReference,
   EVENT_FORWARDER_AVRO_PARTITION_FIELD,
 } from "./event-forwarder-fact-table";
+import { normalizeSnowflakeTableNameForEventForwarder } from "./snowflake-table-name";
 
 export const EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE = "experiment_viewed";
 
@@ -33,7 +34,9 @@ export function buildEventForwarderExperimentViewedTableReference(
   return buildSnowflakeEventForwarderTableReference(
     params.database,
     params.schema,
-    EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE,
+    normalizeSnowflakeTableNameForEventForwarder(
+      EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE,
+    ),
   );
 }
 

@@ -25,6 +25,8 @@ export const eventForwarderConfigValidator = baseSchema
     connectorName: z.string().optional(),
     connectorId: z.string().optional(),
     lastProvisioningError: z.string().optional(),
+    /** Set after the first successful gb-update schematization ping on initial setup. */
+    initialGbUpdatePingSent: z.boolean().optional(),
   })
   .strict();
 

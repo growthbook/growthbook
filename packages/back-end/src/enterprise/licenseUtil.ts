@@ -1178,6 +1178,22 @@ export async function postUpdateEventForwarderSchemaToLicenseServer(
   });
 }
 
+export async function postInitialEventForwarderSchematizationPingToLicenseServer(params: {
+  organizationId: string;
+  datasourceId: string;
+  topic: string;
+  schemaId: number;
+}): Promise<{ ok: true }> {
+  const url = `${LICENSE_SERVER_URL}event-forwarder/initial-schematization-ping`;
+  return callLicenseServer({
+    url,
+    body: JSON.stringify({
+      ...params,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
+}
+
 /** Payload for central-license-server `POST .../event-forwarder/update-credentials`. */
 export type EventForwarderLicenseUpdateCredentialsParams =
   | {

@@ -22,6 +22,7 @@ import { testEventForwarderWriteAccess } from "back-end/src/services/eventForwar
 import { initializeDatasourceUserIdTypesFromOrgAttributeSchema } from "back-end/src/services/eventForwarderUserIdTypes";
 import {
   ensureEventForwarderEventsFactTable,
+  queueDelayedFactTableColumnsRefreshForDatasource,
   queueDelayedFactTableColumnsRefreshForEventForwarderDatasources,
 } from "back-end/src/services/eventForwarderFactTable";
 import { ensureEventForwarderExposureQueries } from "back-end/src/services/eventForwarderExposureQueries";
@@ -428,6 +429,20 @@ export async function resumeEventForwarderThroughLicenseServer(
       status: "ready",
       lastProvisioningError: "",
     });
+
+    const attributeSchema = context.org.settings?.attributeSchema ?? [];
+    const schemaChanged = await updateEventForwarderSchemaThroughLicenseServer(
+      context,
+      { ...eventForwarderConfig, status: "ready" },
+      attributeSchema,
+    );
+
+    if (schemaChanged) {
+      await queueDelayedFactTableColumnsRefreshForDatasource(
+        context,
+        eventForwarderConfig.datasourceId,
+      );
+    }
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown resume error";

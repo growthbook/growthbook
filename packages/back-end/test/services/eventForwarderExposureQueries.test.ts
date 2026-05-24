@@ -191,7 +191,7 @@ describe("ensureEventForwarderExposureQueries", () => {
     const exposure =
       mockedUpdate.mock.calls[0][2].settings?.queries?.exposure ?? [];
     expect(exposure).toHaveLength(1);
-    expect(exposure[0].query).toContain("MY_DB.PUBLIC.experiment_viewed");
+    expect(exposure[0].query).toContain("MY_DB.PUBLIC.EXPERIMENT_VIEWED");
     expect(exposure[0].query).not.toContain("WHERE");
   });
 

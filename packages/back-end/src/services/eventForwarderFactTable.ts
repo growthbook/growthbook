@@ -111,6 +111,19 @@ export async function queueEventForwarderEventsFactTablesColumnsRefresh(
 
 const EVENT_FORWARDER_FACT_TABLE_REFRESH_DELAY_MS = 5 * 60 * 1000;
 
+export async function queueDelayedFactTableColumnsRefreshForDatasource(
+  context: ReqContext,
+  datasourceId: string,
+  delayMs = EVENT_FORWARDER_FACT_TABLE_REFRESH_DELAY_MS,
+): Promise<void> {
+  const factTables = await getFactTablesForDatasource(context, datasourceId);
+  const runAt = new Date(Date.now() + delayMs);
+
+  for (const factTable of factTables) {
+    await queueFactTableColumnsRefreshAt(factTable, runAt);
+  }
+}
+
 export async function queueDelayedFactTableColumnsRefreshForEventForwarderDatasources(
   context: ReqContext,
   delayMs = EVENT_FORWARDER_FACT_TABLE_REFRESH_DELAY_MS,

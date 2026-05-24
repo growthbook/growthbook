@@ -8,7 +8,9 @@ import {
   EventForwarderLicenseConnectorPhase,
   EventForwarderLicenseConnectorStatus,
   postEventForwarderStatusToLicenseServer,
+  postInitialEventForwarderSchematizationPingToLicenseServer,
 } from "back-end/src/enterprise/licenseUtil";
+import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
 export function mapLicenseConnectorPhaseToEventForwarderStatus(
@@ -40,6 +42,44 @@ export function buildEventForwarderStatusResponse(
     confluentState: connectorStatus.confluentState,
     taskErrors: connectorStatus.taskErrors,
   };
+}
+
+async function sendInitialSchematizationPingIfNeeded(
+  context: ReqContext,
+  eventForwarderConfig: EventForwarderConfigInterface,
+): Promise<void> {
+  if (eventForwarderConfig.initialGbUpdatePingSent) {
+    return;
+  }
+
+  const topic = eventForwarderConfig.topic?.trim();
+  const schemaId = eventForwarderConfig.schemaId;
+  if (!topic || schemaId <= 0) {
+    return;
+  }
+
+  try {
+    await postInitialEventForwarderSchematizationPingToLicenseServer({
+      organizationId: context.org.id,
+      datasourceId: eventForwarderConfig.datasourceId,
+      topic,
+      schemaId,
+    });
+    await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
+      initialGbUpdatePingSent: true,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    logger.error(
+      {
+        eventForwarderConfigId: eventForwarderConfig.id,
+        organizationId: context.org.id,
+        datasourceId: eventForwarderConfig.datasourceId,
+        error: message,
+      },
+      "Failed to publish initial event forwarder schematization ping",
+    );
+  }
 }
 
 export async function syncEventForwarderStatusFromLicenseServer(
@@ -74,6 +114,8 @@ export async function syncEventForwarderStatusFromLicenseServer(
         lastProvisioningError,
       });
     }
+
+    await sendInitialSchematizationPingIfNeeded(context, eventForwarderConfig);
   } else if (response.status === "error") {
     const lastProvisioningError =
       response.message || "Event forwarder connector failed";

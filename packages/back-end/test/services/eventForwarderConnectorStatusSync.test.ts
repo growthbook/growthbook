@@ -1,7 +1,48 @@
 import {
   buildEventForwarderStatusResponse,
   mapLicenseConnectorPhaseToEventForwarderStatus,
+  syncEventForwarderStatusFromLicenseServer,
 } from "back-end/src/services/eventForwarderConnectorStatusSync";
+import {
+  postEventForwarderStatusToLicenseServer,
+  postInitialEventForwarderSchematizationPingToLicenseServer,
+} from "back-end/src/enterprise/licenseUtil";
+
+jest.mock("back-end/src/enterprise/licenseUtil", () => ({
+  postEventForwarderStatusToLicenseServer: jest.fn(),
+  postInitialEventForwarderSchematizationPingToLicenseServer: jest.fn(),
+}));
+
+const statusMock =
+  postEventForwarderStatusToLicenseServer as jest.MockedFunction<
+    typeof postEventForwarderStatusToLicenseServer
+  >;
+const initialPingMock =
+  postInitialEventForwarderSchematizationPingToLicenseServer as jest.MockedFunction<
+    typeof postInitialEventForwarderSchematizationPingToLicenseServer
+  >;
+
+function efConfig(
+  overrides: Partial<{
+    status: string;
+    initialGbUpdatePingSent: boolean;
+  }> = {},
+) {
+  return {
+    id: "efc_1",
+    organization: "org1",
+    datasourceId: "ds_1",
+    sinkType: "bigquery" as const,
+    config: "encrypted",
+    status: "pending" as const,
+    projects: [],
+    topic: "gb-events-org1-ds1",
+    schemaId: 10,
+    connectorName: "connector_1",
+    initialGbUpdatePingSent: undefined,
+    ...overrides,
+  };
+}
 
 describe("mapLicenseConnectorPhaseToEventForwarderStatus", () => {
   it("maps provisioning to pending", () => {
@@ -42,5 +83,72 @@ describe("buildEventForwarderStatusResponse", () => {
     expect(response.message).toBe("Task failed");
     expect(response.confluentState).toBe("FAILED");
     expect(response.taskErrors).toHaveLength(1);
+  });
+});
+
+describe("syncEventForwarderStatusFromLicenseServer", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    statusMock.mockResolvedValue({
+      confluentState: "RUNNING",
+      phase: "ready",
+    });
+    initialPingMock.mockResolvedValue({ ok: true });
+  });
+
+  it("sends initial schematization ping when connector becomes ready", async () => {
+    const update = jest.fn().mockResolvedValue(undefined);
+    const context = {
+      org: { id: "org1" },
+      models: { eventForwarderConfigs: { update } },
+    } as never;
+    const config = efConfig();
+
+    await syncEventForwarderStatusFromLicenseServer(context, config as never);
+
+    expect(initialPingMock).toHaveBeenCalledWith({
+      organizationId: "org1",
+      datasourceId: "ds_1",
+      topic: "gb-events-org1-ds1",
+      schemaId: 10,
+    });
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "efc_1" }),
+      expect.objectContaining({ initialGbUpdatePingSent: true }),
+    );
+  });
+
+  it("skips initial ping when already sent", async () => {
+    const update = jest.fn().mockResolvedValue(undefined);
+    const context = {
+      org: { id: "org1" },
+      models: { eventForwarderConfigs: { update } },
+    } as never;
+
+    await syncEventForwarderStatusFromLicenseServer(
+      context,
+      efConfig({ status: "ready", initialGbUpdatePingSent: true }) as never,
+    );
+
+    expect(initialPingMock).not.toHaveBeenCalled();
+  });
+
+  it("does not set initialGbUpdatePingSent when ping fails", async () => {
+    initialPingMock.mockRejectedValue(new Error("kafka down"));
+    const update = jest.fn().mockResolvedValue(undefined);
+    const context = {
+      org: { id: "org1" },
+      models: { eventForwarderConfigs: { update } },
+    } as never;
+
+    await syncEventForwarderStatusFromLicenseServer(
+      context,
+      efConfig() as never,
+    );
+
+    expect(update).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ initialGbUpdatePingSent: true }),
+    );
   });
 });
