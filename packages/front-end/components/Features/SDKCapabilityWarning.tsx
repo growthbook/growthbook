@@ -153,9 +153,20 @@ export default function SDKCapabilityWarning({
 
   if (variant === "popover") return popover;
 
-  const { someMessage, noneMessage, status: statusProp, size: sizeProp = "small", ...marginProps } = rest as Omit<
+  const {
+    someMessage,
+    noneMessage,
+    status: statusProp,
+    size: sizeProp = "small",
+    ...marginProps
+  } = rest as Omit<
     CalloutProps | HelperTextProps,
-    "as" | "capability" | "project" | "connections" | "icon" | "popoverTriggerText"
+    | "as"
+    | "capability"
+    | "project"
+    | "connections"
+    | "icon"
+    | "popoverTriggerText"
   >;
   const status = statusProp ?? (hasSome ? "warning" : "error");
   const size = sizeProp === "small" ? "sm" : "md";
