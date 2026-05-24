@@ -6,7 +6,7 @@ interface Props {
   environments: string[];
   type?: "feature" | "prerequisite";
   project: string;
-  size?: "sm" | "md";
+  size?: "small" | "medium";
   mt?: string;
   mb?: string;
 }
