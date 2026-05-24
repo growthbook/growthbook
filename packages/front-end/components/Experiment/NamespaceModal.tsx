@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { Namespaces } from "shared/types/organization";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
+import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -165,9 +166,14 @@ function MultiRangeNamespaceModal({
       )}
 
       {!useLegacyFormat && (
-        <>
+        <Box mt="4">
+          <Text as="label" weight="semibold" mb="1">
+            Hash Attribute
+          </Text>
+          <Text as="div" color="text-mid" mb="2">
+            The user attribute used for namespace allocation.
+          </Text>
           <SelectField
-            label="Hash Attribute"
             required
             disabled={hasExperiments}
             options={hashAttributeOptions}
@@ -176,16 +182,12 @@ function MultiRangeNamespaceModal({
               form.setValue("hashAttribute", value);
             }}
           />
-          {hasExperiments ? (
+          {hasExperiments && (
             <HelperText status="info" mt="1">
               Cannot be changed while experiments are using this namespace.
             </HelperText>
-          ) : (
-            <HelperText status="info" mt="1">
-              The user attribute used for namespace allocation.
-            </HelperText>
           )}
-        </>
+        </Box>
       )}
     </ModalStandard>
   );

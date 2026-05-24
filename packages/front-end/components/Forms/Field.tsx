@@ -219,7 +219,6 @@ const Field = forwardRef(
         className={clsx(
           "form-group",
           containerClassName,
-          { "mb-0": !label },
           render ? customClassName : "",
         )}
         style={containerStyle}
