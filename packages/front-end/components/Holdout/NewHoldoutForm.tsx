@@ -171,10 +171,6 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
   const permissionsUtils = usePermissionsUtil();
 
   const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithPrerequisites = getConnectionsSDKCapabilities({
-    connections: sdkConnectionsData?.connections ?? [],
-    project,
-  }).includes("prerequisites");
 
   const hasSDKWithRemoteEval = (sdkConnectionsData?.connections || []).some(
     (c) => c.remoteEvalEnabled,
@@ -238,6 +234,12 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         }),
     },
   });
+
+  const selectedProjects = form.watch("projects") ?? [];
+  const hasSDKWithPrerequisites = getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+    project: selectedProjects[0] || "",
+  }).includes("prerequisites");
 
   // TODO: add custom fields back in when we have a way to filter them by multiple projects
   // const customFields = filterCustomFieldsForSectionAndProject(
@@ -319,7 +321,6 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
     .filter((p) => permissionsUtils.canCreateHoldout({ projects: [p.id] }))
     .map((p) => ({ value: p.id, label: p.name }));
 
-  const selectedProjects = form.watch("projects") ?? [];
   const canCreateWithoutProject = permissionsUtils.canCreateHoldout({
     projects: [],
   });
@@ -357,7 +358,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
   const prerequisiteAlert = (
     <SDKCapabilityWarning
       capability="prerequisites"
-      project={project}
+      project={selectedProjects[0] || ""}
       someMessage="Some of your SDK Connections in this project may not support Prerequisite evaluation, which is mandatory for Holdouts."
       noneMessage="None of your SDK Connections in this project support Prerequisite evaluation, which is mandatory for Holdouts. Either upgrade your SDKs or add a supported SDK."
       mb="4"

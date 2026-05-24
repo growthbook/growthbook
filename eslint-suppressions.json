@@ -741,7 +741,7 @@
   },
   "packages/front-end/components/GeneralSettings/ExperimentSettings/StickyBucketingSettings.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/GeneralSettings/ExperimentSettings/index.tsx": {

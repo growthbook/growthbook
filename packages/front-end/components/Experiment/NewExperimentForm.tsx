@@ -257,7 +257,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const { refreshWatching } = useWatching();
 
   const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
+  const initialHasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
     project,
   );
@@ -307,7 +307,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       activationMetric: initialValue?.activationMetric || "",
       hashAttribute: initialHashAttribute,
       hashVersion:
-        initialValue?.hashVersion || (hasSDKWithNoBucketingV2 ? 1 : 2),
+        initialValue?.hashVersion || (initialHasSDKWithNoBucketingV2 ? 1 : 2),
       disableStickyBucketing: initialValue?.disableStickyBucketing ?? false,
       attributionModel:
         initialValue?.attributionModel ??
@@ -379,6 +379,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   });
 
   const selectedProject = form.watch("project");
+  const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
+    sdkConnectionsData?.connections,
+    selectedProject,
+  );
+
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
     "experiment",
@@ -1257,7 +1262,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     <ExperimentRefNewFields
                       step={i}
                       source="experiment"
-                      project={project}
+                      project={selectedProject}
                       environments={envs}
                       noSchedule={true}
                       prerequisiteValue={
@@ -1310,7 +1315,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     <BanditRefNewFields
                       step={i}
                       source="experiment"
-                      project={project}
+                      project={selectedProject}
                       environments={envs}
                       prerequisiteValue={
                         form.watch("phases.0.prerequisites") || []
@@ -1407,7 +1412,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     <HashVersionSelector
                       value={(form.watch("hashVersion") || 1) as 1 | 2}
                       onChange={(v) => form.setValue("hashVersion", v)}
-                      project={project}
+                      project={selectedProject}
                     />
                   )}
 

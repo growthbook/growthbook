@@ -4,6 +4,7 @@ import { FaInfoCircle, FaQuestionCircle } from "react-icons/fa";
 import { FaGear } from "react-icons/fa6";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { SDKAttribute } from "shared/types/organization";
+import { Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -18,7 +19,6 @@ import {
   type AttributeOptionForTooltip,
 } from "@/components/Features/AttributeOptionTooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import SDKCapabilityWarning from "./SDKCapabilityWarning";
 
 export interface Props {
@@ -52,11 +52,19 @@ export default function FallbackAttributeSelector({
 
   const hashAttribute = form.watch("hashAttribute");
   const fallbackAttribute = form.watch("fallbackAttribute");
+  const disableStickyBucketing = !!form.watch("disableStickyBucketing");
+
   useEffect(() => {
     if (hashAttribute && hashAttribute === fallbackAttribute) {
       form.setValue("fallbackAttribute", "");
     }
   }, [hashAttribute, fallbackAttribute, form]);
+
+  useEffect(() => {
+    if (disableStickyBucketing && fallbackAttribute) {
+      form.setValue("fallbackAttribute", "");
+    }
+  }, [disableStickyBucketing, fallbackAttribute, form]);
 
   const setOrgStickyBucketingToggle = async (v: boolean) => {
     await apiCall(`/organization`, {
@@ -105,7 +113,7 @@ export default function FallbackAttributeSelector({
   }
 
   return (
-    <div className="flex-1" style={{ marginTop: "var(--space-6)" }}>
+    <Flex direction="column" flexGrow="1" mt="4">
       <Text as="label" weight="semibold" mb="1">
         Fallback Attribute
       </Text>
@@ -130,11 +138,15 @@ export default function FallbackAttributeSelector({
           );
         }}
         sort={false}
-        value={orgStickyBucketing ? form.watch("fallbackAttribute") || "" : ""}
+        value={
+          orgStickyBucketing && !disableStickyBucketing
+            ? form.watch("fallbackAttribute") || ""
+            : ""
+        }
         onChange={(v) => {
           form.setValue("fallbackAttribute", v);
         }}
-        disabled={!orgStickyBucketing}
+        disabled={!orgStickyBucketing || disableStickyBucketing}
         helpText={
           <>
             {/* todo: so long as `settings.useFallbackAttributes` gates this field, we should never see these embedded controls. Keeping them here for now in case we stop gating this field.*/}
@@ -200,44 +212,48 @@ export default function FallbackAttributeSelector({
           </>
         }
       />
-      {(orgStickyBucketing || showSBInformation) && (
-        <SDKCapabilityWarning
-          as={fallbackAttribute ? "callout" : "helperText"}
-          capability="stickyBucketing"
-          icon={fallbackAttribute ? undefined : null}
-          someMessage={
-            fallbackAttribute ? (
-              "Some of your SDK Connections do not support Sticky Bucketing."
-            ) : (
-              <>
-                Ensure that Sticky Bucketing is correctly integrated (
-                <DocLink docSection="stickyBucketing">docs</DocLink>) with your
-                SDK.
-              </>
-            )
-          }
-          noneMessage="None of your SDK Connections support Sticky Bucketing."
-          mt="1"
-        />
+      {disableStickyBucketing ? (
+        <Text as="div" color="text-mid" size="small" mt="1">
+          Fallback attributes require Sticky Bucketing, which is disabled for
+          this experiment.
+        </Text>
+      ) : (
+        (orgStickyBucketing || showSBInformation) && (
+          <SDKCapabilityWarning
+            as={fallbackAttribute ? "callout" : "helperText"}
+            capability="stickyBucketing"
+            icon={fallbackAttribute ? undefined : null}
+            popoverTriggerText={
+              fallbackAttribute ? undefined : "Show incompatible SDKs"
+            }
+            someMessage={
+              fallbackAttribute ? (
+                "Some of your SDK Connections do not support Sticky Bucketing."
+              ) : (
+                <>
+                  Ensure that Sticky Bucketing is correctly integrated (
+                  <DocLink docSection="stickyBucketing" className="underline">
+                    see docs
+                  </DocLink>
+                  ) with your SDK.
+                </>
+              )
+            }
+            noneMessage="None of your SDK Connections support Sticky Bucketing."
+            mt="1"
+          />
+        )
       )}
-    </div>
+    </Flex>
   );
 }
 
 export function StickyBucketingTooltip() {
   return (
     <>
-      <div className="mb-2">
-        Sticky Bucketing prevents users from flipping between variations when
-        you make changes to a running experiment. It does this by persisting the
-        first variation each user is exposed to.
-      </div>
-
-      <div className="mb-2">
-        Sticky Bucketing requires changes to your SDK implementation and is only
-        supported in the following SDKs and versions:
-        <MinSDKVersionsList capability="stickyBucketing" />
-      </div>
+      Sticky Bucketing prevents users from flipping between variations when you
+      make changes to a running experiment. It does this by persisting the first
+      variation each user is exposed to.
     </>
   );
 }

@@ -4,7 +4,7 @@ import React from "react";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
-import IncompatibleSDKsPopover from "@/components/Features/IncompatibleSDKsPopover";
+import { IncompatibleSDKsPopover } from "@/components/Features/SDKCapabilityWarning";
 
 interface LargeSavedGroupSupport {
   hasLargeSavedGroupFeature: boolean;
