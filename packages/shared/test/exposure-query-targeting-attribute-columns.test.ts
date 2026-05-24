@@ -1,11 +1,11 @@
 import type { ExposureQuery } from "shared/types/datasource";
 import type { SDKAttributeSchema } from "shared/types/organization";
 import {
+  assertContextualBanditExperimentFieldsValid,
   assertExposureQueriesTargetingAttributeColumnsValid,
   formatInvalidTargetingAttributeColumnMessages,
   getAllowedTargetingAttributePropertyNames,
   getInvalidTargetingAttributeColumnsForExposureQueries,
-  assertContextualBanditExperimentFieldsValid,
 } from "../src/validators/exposure-query-targeting-attribute-columns";
 
 const schema: SDKAttributeSchema = [

@@ -5,11 +5,17 @@ import {
   ContextualBanditSnapshotInterface,
   contextualBanditSnapshotSettingsValidator,
 } from "shared/validators";
+import { deriveContextId } from "shared/util";
+import { CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE } from "shared/constants";
+import { contextualBanditAttrCol } from "shared/experiments";
 import { ReqContext } from "back-end/types/api";
 import {
   buildContextualBanditSnapshotSettings,
   enforceContextCap,
+  getContextualBanditResultsForUi,
+  leafWeightsFromContextualBanditResult,
   persistContextualBanditEvent,
+  toContextualBanditSnapshotStatusSummary,
 } from "back-end/src/services/contextualBandits";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
@@ -128,17 +134,10 @@ function makeResult(
   overrides: Partial<ContextualBanditResult> = {},
 ): ContextualBanditResult {
   return {
-    tree: {
-      model: "mock_tree",
-      splitFeatures: ["country"],
-      leaves: [
-        { contextId: "ctx_a", weights: [0.3, 0.7] },
-        { contextId: "ctx_b", weights: [0.55, 0.45] },
-      ],
-    },
-    contextResults: [
+    attributes: ["country", "device"],
+    responses: [
       {
-        contextId: "ctx_a",
+        context: { country: "US" },
         sampleSizePerVariation: [50, 50],
         variationMeans: [0.1, 0.2],
         updatedWeights: [0.3, 0.7],
@@ -146,7 +145,7 @@ function makeResult(
         updateMessage: "ok",
       },
       {
-        contextId: "ctx_b",
+        context: { country: "CA" },
         sampleSizePerVariation: [30, 70],
         variationMeans: [0.05, 0.07],
         updatedWeights: [0.55, 0.45],
@@ -154,8 +153,10 @@ function makeResult(
         updateMessage: "ok",
       },
     ],
-    weightsWereUpdated: true,
-    updateMessage: "test",
+    leaf_map: [
+      { context: { country: "US", device: "mobile" }, leafId: 0 },
+      { context: { country: "CA", device: "desktop" }, leafId: 1 },
+    ],
     ...overrides,
   };
 }
@@ -243,11 +244,13 @@ describe("buildContextualBanditSnapshotSettings", () => {
 });
 
 describe("enforceContextCap", () => {
+  const catchAllContextId = "ctx_catchall";
+
   it("is a no-op when distinct contexts already fit under the cap", () => {
     const rows = [
-      { contextId: "a", attributes: { x: 1 } },
-      { contextId: "a", attributes: { x: 1 } },
-      { contextId: "b", attributes: { x: 2 } },
+      { contextId: "a", x: 1 },
+      { contextId: "a", x: 1 },
+      { contextId: "b", x: 2 },
     ];
     const out = enforceContextCap(rows, 2, 2);
     expect(out.trimmed).toBe(false);
@@ -255,29 +258,30 @@ describe("enforceContextCap", () => {
   });
 
   it("merges the smallest contexts into the catch-all when above the cap", () => {
-    // Three distinct contexts; cap = 2 → the smallest (by row count) is merged.
     const rows = [
-      { contextId: "a", attributes: { x: 1 } },
-      { contextId: "a", attributes: { x: 1 } },
-      { contextId: "a", attributes: { x: 1 } },
-      { contextId: "b", attributes: { x: 2 } },
-      { contextId: "b", attributes: { x: 2 } },
-      { contextId: "c", attributes: { x: 3 } }, // singleton — should be merged
+      { contextId: "a", x: 1 },
+      { contextId: "a", x: 1 },
+      { contextId: "a", x: 1 },
+      { contextId: "b", x: 2 },
+      { contextId: "b", x: 2 },
+      { contextId: "c", x: 3 },
     ];
-    const out = enforceContextCap(rows, 2, 2);
+    const out = enforceContextCap(rows, 2, 2, catchAllContextId, ["x"]);
     expect(out.trimmed).toBe(true);
-    // The 'c' rows should now have empty attributes (the catch-all sentinel).
-    const cMerged = out.rows.filter(
-      (r) => r.attributes && !Object.keys(r.attributes).length,
-    );
+    const cMerged = out.rows.filter((r) => r.contextId === catchAllContextId);
     expect(cMerged.length).toBeGreaterThanOrEqual(1);
-    // 'a' and 'b' should still have their original (non-empty) attributes.
-    const aSurvivors = out.rows.filter(
-      (r) => (r.attributes as { x?: number }).x === 1,
-    );
-    const bSurvivors = out.rows.filter(
-      (r) => (r.attributes as { x?: number }).x === 2,
-    );
+    expect(
+      cMerged.every((r) => r.x === CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE),
+    ).toBe(true);
+    expect(
+      cMerged.every(
+        (r) =>
+          r[contextualBanditAttrCol("x")] ===
+          CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE,
+      ),
+    ).toBe(true);
+    const aSurvivors = out.rows.filter((r) => r.x === 1);
+    const bSurvivors = out.rows.filter((r) => r.x === 2);
     expect(aSurvivors).toHaveLength(3);
     expect(bSurvivors).toHaveLength(2);
   });
@@ -299,9 +303,9 @@ describe("persistContextualBanditEvent", () => {
       experiment: cbs.experiment,
       phase: cbs.phase,
       snapshotId: cbs.id,
-      contextResults: result.contextResults,
-      tree: result.tree,
-      weightsWereUpdated: result.weightsWereUpdated,
+      attributes: result.attributes,
+      responses: result.responses,
+      weightsWereUpdated: true,
       dateCreated: new Date(),
       dateUpdated: new Date(),
     });
@@ -310,12 +314,14 @@ describe("persistContextualBanditEvent", () => {
 
     const context = {
       org: { id: "org_1" },
-      contextualBandits: {
-        getByExperimentId: getByExperimentIdMock,
-        patchPhaseWeights: patchPhaseWeightsMock,
-      },
-      contextualBanditEvents: {
-        create: createCbeMock,
+      models: {
+        contextualBandits: {
+          getByExperimentId: getByExperimentIdMock,
+          patchPhaseWeights: patchPhaseWeightsMock,
+        },
+        contextualBanditEvents: {
+          create: createCbeMock,
+        },
       },
     } as unknown as ReqContext;
 
@@ -333,22 +339,27 @@ describe("persistContextualBanditEvent", () => {
       experiment: cbs.experiment,
       phase: cbs.phase,
       snapshotId: cbs.id,
-      contextResults: result.contextResults,
-      tree: result.tree,
+      attributes: result.attributes,
+      responses: result.responses,
+      leaf_map: result.leaf_map,
       weightsWereUpdated: true,
     });
 
-    // CB doc's phase weights get the per-leaf weights — same cardinality as the tree.
+    // CB doc's phase weights get the per-leaf weights — same cardinality as responses.
     expect(patchPhaseWeightsMock).toHaveBeenCalledTimes(1);
     const [cbIdArg, phaseArg, leafWeightsArg] =
       patchPhaseWeightsMock.mock.calls[0];
     expect(cbIdArg).toBe(cb.id);
     expect(phaseArg).toBe(cbs.phase);
     expect(leafWeightsArg).toHaveLength(2);
-    expect(leafWeightsArg).toEqual([
-      { contextId: "ctx_a", weights: [0.3, 0.7] },
-      { contextId: "ctx_b", weights: [0.55, 0.45] },
-    ]);
+    const expectedLeafWeights = leafWeightsFromContextualBanditResult(
+      cbs.experiment,
+      result,
+    );
+    expect(leafWeightsArg).toEqual(expectedLeafWeights);
+    expect(leafWeightsArg[0].contextId).toBe(
+      deriveContextId(cbs.experiment, { country: "US" }),
+    );
 
     // SDK payload refresh fired with the CB-specific audit event.
     expect(queueSDKPayloadRefreshMock).toHaveBeenCalledWith(
@@ -366,11 +377,13 @@ describe("persistContextualBanditEvent", () => {
   it("throws when the CB doc is missing", async () => {
     const context = {
       org: { id: "org_1" },
-      contextualBandits: {
-        getByExperimentId: jest.fn().mockResolvedValue(null),
-        patchPhaseWeights: jest.fn(),
+      models: {
+        contextualBandits: {
+          getByExperimentId: jest.fn().mockResolvedValue(null),
+          patchPhaseWeights: jest.fn(),
+        },
+        contextualBanditEvents: { create: jest.fn() },
       },
-      contextualBanditEvents: { create: jest.fn() },
     } as unknown as ReqContext;
 
     await expect(
@@ -382,11 +395,13 @@ describe("persistContextualBanditEvent", () => {
     const cb = makeCb();
     const context = {
       org: { id: "org_1" },
-      contextualBandits: {
-        getByExperimentId: jest.fn().mockResolvedValue(cb),
-        patchPhaseWeights: jest.fn(),
+      models: {
+        contextualBandits: {
+          getByExperimentId: jest.fn().mockResolvedValue(cb),
+          patchPhaseWeights: jest.fn(),
+        },
+        contextualBanditEvents: { create: jest.fn() },
       },
-      contextualBanditEvents: { create: jest.fn() },
     } as unknown as ReqContext;
 
     getExperimentByIdMock.mockResolvedValueOnce(null);
@@ -394,5 +409,55 @@ describe("persistContextualBanditEvent", () => {
     await expect(
       persistContextualBanditEvent(context, makeCbs(), makeResult()),
     ).rejects.toThrow(/No experiment doc/);
+  });
+});
+
+describe("getContextualBanditResultsForUi", () => {
+  it("returns latest CBE payload and CBS status summary", async () => {
+    const experiment = makeExperiment();
+    const cbs = {
+      id: "cbs_1",
+      status: "running",
+      error: "",
+      queries: [
+        { name: "contextual-bandit-rows", query: "q_1", status: "running" },
+      ],
+      runStarted: new Date("2025-01-03T00:00:00Z"),
+      dateCreated: new Date("2025-01-03T00:00:00Z"),
+      triggeredBy: "manual",
+    } as ContextualBanditSnapshotInterface;
+    const cbe = {
+      id: "cbe_1",
+      attributes: ["country"],
+      responses: [
+        {
+          context: { country: "US" },
+          updatedWeights: [0.4, 0.6],
+        },
+      ],
+      leaf_map: [{ context: { country: "US" }, leafId: 0 }],
+    };
+
+    const context = {
+      models: {
+        contextualBanditSnapshots: {
+          getLatestForExperiment: jest.fn().mockResolvedValue(cbs),
+        },
+        contextualBanditEvents: {
+          getLatestForExperiment: jest.fn().mockResolvedValue(cbe),
+        },
+      },
+    } as unknown as ReqContext;
+
+    const results = await getContextualBanditResultsForUi(context, experiment);
+
+    expect(results.contextualBanditSnapshot).toEqual({
+      attributes: ["country"],
+      responses: cbe.responses,
+      leaf_map: cbe.leaf_map,
+    });
+    expect(results.latest).toEqual(
+      toContextualBanditSnapshotStatusSummary(cbs),
+    );
   });
 });

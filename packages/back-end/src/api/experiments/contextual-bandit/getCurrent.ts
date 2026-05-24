@@ -13,13 +13,13 @@ export const getContextualBanditCurrent = createApiRequestHandler(
     throw new Error("Experiment is not a contextual bandit");
   }
 
-  const cb = await req.context.contextualBandits.getByExperimentId(
+  const cb = await req.context.models.contextualBandits.getByExperimentId(
     experiment.id,
   );
 
   const phase = experiment.phases.length - 1;
   const latestCBE =
-    await req.context.contextualBanditEvents.getLatestForExperiment(
+    await req.context.models.contextualBanditEvents.getLatestForExperiment(
       experiment.id,
       phase,
     );

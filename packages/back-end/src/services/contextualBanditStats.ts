@@ -1,20 +1,23 @@
 // See contextual-bandit-fix-prompt.md for the v1 scope and the v1.5 holdout TODOs.
-//
-// SMITH: this module is the Python-stats integration seam for the contextual
-// bandit pipeline. `runContextualStatsEngine` is the *only* function the
-// query runner calls into here; its signature must stay stable so Luke's A5
-// can swap the body for a real Python invocation without touching callers.
-// Any growth in the `ContextualBanditResult` shape MUST also be reflected in
-// `contextResultValidator` / `cbTreeValidator` in
-// shared/src/validators/contextual-bandit-event.ts — otherwise the CBE
-// create in `persistContextualBanditEvent` will fail schema validation. This
-// validator-coupling rule was originally written against the legacy
-// `banditIsContextual` flag; under the new `experimentType ===
-// "contextual-bandit"` discriminator the rule is unchanged.
-// `mockFit` exists only to make orchestrator + runner tests deterministic
-// while A5 is in flight and should be deleted at integration time.
-import { ContextResult } from "shared/validators";
-import { ContextualBanditRow } from "./contextualBanditSql";
+import {
+  contextualBanditAttrCol,
+  ExperimentMetricInterface,
+} from "shared/experiments";
+import { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
+import {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotSettings,
+} from "shared/types/experiment-snapshot";
+import type {
+  ContextualBanditSettingsForStatsEngine as PythonContextualBanditSettings,
+  ContextualBanditSnapshot,
+} from "shared/types/stats";
+import { logger } from "back-end/src/util/logger";
+import {
+  getAnalysisSettingsForStatsEngine,
+  getMetricSettingsForStatsEngine,
+  runStatsEngine,
+} from "back-end/src/services/stats";
 
 export type ContextualBanditSettingsForStatsEngine = {
   var_names: string[];
@@ -25,44 +28,251 @@ export type ContextualBanditSettingsForStatsEngine = {
   current_weights_by_context: Record<string, number[]>;
   max_leaves: number;
   min_users_per_leaf: number;
-  tree_model: "regression_tree" | "linear_thompson";
 };
 
-export type ContextualBanditResult = {
-  tree: {
-    model: string;
-    splitFeatures: string[];
-    leaves: { contextId: string; weights: number[] }[];
-  };
-  contextResults: ContextResult[];
-  weightsWereUpdated: boolean;
-  updateMessage: string;
-  error?: string;
+/** Mirrors gbstats `ContextualBanditResult` (per-context responses + optional tree leaf_map). */
+export type ContextualBanditResult = ContextualBanditSnapshot;
+
+export type RunContextualStatsEngineOptions = {
+  snapshotId: string;
+  sql?: string;
+  decisionMetricId: string;
+  snapshotSettings: ExperimentSnapshotSettings;
+  analysisSettings: ExperimentSnapshotAnalysisSettings;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  variations: { id: string; name: string; weight: number }[];
+  coverage: number;
+  phaseLengthDays: number;
 };
 
-// SMITH: replace this body with the real Python stats-engine invocation.
-//   Input shape:  (ContextualBanditSettingsForStatsEngine, ContextualBanditRow[])
-//   Output shape: ContextualBanditResult — tree + per-context results +
-//                 updatedWeights. New output fields require a paired update
-//                 to the validators in shared/src/validators/contextual-bandit-event.ts.
-// Keep the function signature stable; `ContextualBanditResultsQueryRunner`
-// awaits this exact tuple from inside its `runAnalysis` method.
-//
-// TODO(holdout-v1.5): when the holdout pipeline ships, ContextualBanditResult
-// needs a `holdoutComparison` field — probably a struct with sample sizes,
-// effect estimate, and an EDF-style decision flag — and the validators in
-// shared/src/validators/contextual-bandit-event.ts must mirror the new shape
-// in lockstep (per the SMITH rule above) so `persistContextualBanditEvent`
-// doesn't fail Zod validation. See contextual-bandit-fix-prompt.md.
+/** SQL rows often use variation keys (`"0"`, `"1"`); gbstats expects variation ids. */
+export function canonicalizeVariationIdsInRows(
+  rows: ExperimentMetricQueryResponseRows,
+  varIds: string[],
+): ExperimentMetricQueryResponseRows {
+  return rows.map((row) => {
+    const idx = variationIndexFromRow(row, varIds);
+    if (idx === null) {
+      return row;
+    }
+    return { ...row, variation: varIds[idx] };
+  });
+}
+
 export async function runContextualStatsEngine(
   settings: ContextualBanditSettingsForStatsEngine,
-  rows: ContextualBanditRow[],
+  rows: ExperimentMetricQueryResponseRows,
+  runParams?: RunContextualStatsEngineOptions,
 ): Promise<ContextualBanditResult> {
-  if (process.env.GROWTHBOOK_CB_MOCK_STATS !== "0") {
-    return mockFit(settings, rows);
+  const normalizedRows = canonicalizeVariationIdsInRows(
+    prepareRowsForContextualStats(rows),
+    settings.var_ids,
+  );
+  // Mock is opt-in only (tests / dev without the stats engine). Default path
+  // calls the Python contextual tree bandit in gbstats.
+  if (process.env.GROWTHBOOK_CB_MOCK_STATS === "1") {
+    return mockFit(settings, normalizedRows);
   }
-  // Luke's branch swaps this body for the real Python-call invocation
-  throw new Error("Real contextual stats engine not yet implemented");
+  if (!runParams) {
+    throw new Error(
+      "Contextual stats engine requires runParams when mock stats are disabled",
+    );
+  }
+  return runContextualStatsEngineWithPython(
+    settings,
+    normalizedRows,
+    runParams,
+  );
+}
+
+function stripInternalRowFields(
+  rows: ExperimentMetricQueryResponseRows,
+): ExperimentMetricQueryResponseRows {
+  return rows.map((row) => {
+    const { contextId, ...rest } = row as typeof row & { contextId?: string };
+    void contextId;
+    return rest;
+  });
+}
+
+/** Mirrors gbstats `filter_query_rows` — strips `m0_*` fact-metric columns to `main_sum`, etc. */
+export function filterMetricQueryRowsForStatsEngine(
+  rows: ExperimentMetricQueryResponseRows,
+  metricIndex = 0,
+): ExperimentMetricQueryResponseRows {
+  const prefix = `m${metricIndex}_`;
+  const otherMetricPrefix = /^m\d+_/;
+  return rows.map((row) => {
+    const out: Record<string, string | number> = {};
+    for (const [k, v] of Object.entries(row)) {
+      if (k.startsWith(prefix)) {
+        out[k.slice(prefix.length)] = v as string | number;
+      } else if (!otherMetricPrefix.test(k)) {
+        out[k] = v as string | number;
+      }
+    }
+    return out as ExperimentMetricQueryResponseRows[number];
+  });
+}
+
+function isFactMetricQueryRow(
+  row: ExperimentMetricQueryResponseRows[number],
+): boolean {
+  return `m0_id` in row;
+}
+
+export function prepareRowsForContextualStats(
+  rows: ExperimentMetricQueryResponseRows,
+): ExperimentMetricQueryResponseRows {
+  const withoutInternal = stripInternalRowFields(rows);
+  if (withoutInternal.length > 0 && isFactMetricQueryRow(withoutInternal[0])) {
+    return filterMetricQueryRowsForStatsEngine(withoutInternal, 0);
+  }
+  return withoutInternal;
+}
+
+function variationIndexFromRow(
+  row: ExperimentMetricQueryResponseRows[number],
+  varIds: string[],
+): number | null {
+  const key = String(row.variation ?? "");
+  const byId = varIds.indexOf(key);
+  if (byId >= 0) {
+    return byId;
+  }
+  const asNum = Number(key);
+  if (Number.isInteger(asNum) && asNum >= 0 && asNum < varIds.length) {
+    return asNum;
+  }
+  return null;
+}
+
+function buildPythonContextualBanditSettings(
+  settings: ContextualBanditSettingsForStatsEngine,
+  decisionMetricId: string,
+  analysisWeights: number[],
+): PythonContextualBanditSettings & { max_leaves: number } {
+  const numVariations = settings.var_ids.length;
+  const fallbackWeights =
+    analysisWeights.length === numVariations
+      ? analysisWeights
+      : Array(numVariations).fill(1 / numVariations);
+  const firstContextWeights = Object.values(
+    settings.current_weights_by_context,
+  )[0];
+  const currentWeights =
+    firstContextWeights?.length === numVariations
+      ? firstContextWeights
+      : fallbackWeights;
+
+  return {
+    var_names: settings.var_names,
+    var_ids: settings.var_ids,
+    current_weights: currentWeights,
+    reweight: settings.reweight,
+    decision_metric: decisionMetricId,
+    bandit_weights_seed: settings.bandit_weights_seed,
+    is_contextual: true,
+    attributes: settings.contextual_attributes.map(contextualBanditAttrCol),
+    current_contextual_weights: settings.current_weights_by_context,
+    max_leaves: settings.max_leaves,
+  };
+}
+
+async function runContextualStatsEngineWithPython(
+  settings: ContextualBanditSettingsForStatsEngine,
+  rows: ExperimentMetricQueryResponseRows,
+  runParams: RunContextualStatsEngineOptions,
+): Promise<ContextualBanditResult> {
+  const {
+    snapshotId,
+    sql,
+    decisionMetricId,
+    snapshotSettings,
+    analysisSettings,
+    metricMap,
+    variations,
+    coverage,
+    phaseLengthDays,
+  } = runParams;
+
+  const decisionMetric = metricMap.get(decisionMetricId);
+  if (!decisionMetric) {
+    throw new Error(`Decision metric not found: ${decisionMetricId}`);
+  }
+
+  const reportVariations = variations.map((v, index) => ({
+    id: v.id,
+    name: v.name,
+    weight: v.weight,
+    index,
+  }));
+
+  const analysisForEngine = getAnalysisSettingsForStatsEngine(
+    analysisSettings,
+    reportVariations,
+    coverage,
+    phaseLengthDays,
+  );
+
+  const contextualBanditSettings = buildPythonContextualBanditSettings(
+    settings,
+    decisionMetricId,
+    analysisForEngine.weights,
+  );
+
+  const statsRows = rows;
+
+  const analysis = (
+    await runStatsEngine([
+      {
+        id: snapshotId,
+        data: {
+          metrics: {
+            [decisionMetricId]: getMetricSettingsForStatsEngine(
+              decisionMetric,
+              metricMap,
+              snapshotSettings,
+            ),
+          },
+          analyses: [analysisForEngine],
+          query_results: [
+            {
+              rows: statsRows,
+              metrics: [decisionMetricId],
+              sql,
+            },
+          ],
+          contextual_bandit_settings: contextualBanditSettings,
+        },
+      },
+    ])
+  )?.[0];
+
+  if (!analysis) {
+    throw new Error("Error in stats engine: no rows returned");
+  }
+  if (analysis.error) {
+    let errorMsg =
+      "Failed to run contextual bandit stats model:\n" + analysis.error;
+    logger.error(analysis.error, errorMsg);
+    if (analysis.traceback) {
+      logger.error("Traceback:\n" + analysis.traceback);
+      errorMsg += "\n\n" + analysis.traceback;
+    }
+    throw new Error(errorMsg);
+  }
+  if (!analysis.contextualBanditResult) {
+    throw new Error(
+      "Error in stats engine: contextual bandit result missing from response",
+    );
+  }
+
+  return {
+    attributes: settings.contextual_attributes,
+    responses: analysis.contextualBanditResult.responses,
+    leaf_map: analysis.contextualBanditResult.leaf_map,
+  };
 }
 
 // SMITH: delete this whole function once `runContextualStatsEngine` calls
@@ -72,7 +282,7 @@ export async function runContextualStatsEngine(
 // can be exercised against deterministic output.
 function mockFit(
   settings: ContextualBanditSettingsForStatsEngine,
-  rows: ContextualBanditRow[],
+  rows: ExperimentMetricQueryResponseRows,
 ): ContextualBanditResult {
   // Bucket all rows into a single "catch-all" leaf and compute simple
   // posterior-mean weights (Thompson on aggregate).
@@ -81,11 +291,13 @@ function mockFit(
   const nByVar = Array(numVar).fill(0) as number[];
 
   rows.forEach((r) => {
-    const v = Number(r.variation);
-    if (v >= 0 && v < numVar) {
-      sumByVar[v] += r.main_sum;
-      nByVar[v] += r.n;
+    const v = variationIndexFromRow(r, settings.var_ids);
+    if (v === null) {
+      return;
     }
+    const mainSum = Number(r.main_sum ?? 0);
+    sumByVar[v] += Number.isFinite(mainSum) ? mainSum : 0;
+    nByVar[v] += r.users ?? r.count ?? 0;
   });
 
   const means = sumByVar.map((s, i) => (nByVar[i] ? s / nByVar[i] : 0));
@@ -93,16 +305,11 @@ function mockFit(
   const total = expMeans.reduce((a, b) => a + b, 0) || 1;
   const weights = expMeans.map((e) => e / total);
 
-  const leafContextId = "ctx_catchall";
   return {
-    tree: {
-      model: "mock_catch_all",
-      splitFeatures: [],
-      leaves: [{ contextId: leafContextId, weights }],
-    },
-    contextResults: [
+    attributes: settings.contextual_attributes,
+    responses: [
       {
-        contextId: leafContextId,
+        context: {},
         sampleSizePerVariation: nByVar,
         variationMeans: means,
         updatedWeights: weights,
@@ -110,7 +317,5 @@ function mockFit(
         updateMessage: "Mock fitter: single catch-all leaf",
       },
     ],
-    weightsWereUpdated: true,
-    updateMessage: "Mock fitter ran on stub rows",
   };
 }

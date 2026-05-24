@@ -4,7 +4,7 @@
 // fields must be plumbed through in BOTH places:
 //   1. `persistContextualBanditEvent` below (mapping result → CBE create payload), and
 //   2. the validators in shared/src/validators/contextual-bandit-event.ts
-//      (`contextResultValidator` / `cbTreeValidator`).
+//      (`contextualBanditResponseValidator`).
 // Skipping either side will either drop the field on the floor or fail
 // schema validation on write.
 //
@@ -16,6 +16,9 @@
 // decision.
 
 import { ExperimentInterface } from "shared/types/experiment";
+import { SnapshotStatusSummary } from "shared/types/experiment-snapshot";
+import type { ContextualBanditSnapshot } from "shared/types/stats";
+import { ExposureQuery } from "shared/types/datasource";
 import {
   ContextualBanditEventInterface,
   ContextualBanditInterface,
@@ -23,8 +26,10 @@ import {
   ContextualBanditSnapshotSettings,
 } from "shared/validators";
 import { deriveContextId } from "shared/util";
-import { ExposureQuery } from "shared/types/datasource";
-import { ReqContext } from "back-end/types/api";
+import { contextualBanditAttrCol } from "shared/experiments";
+import { CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE } from "shared/constants";
+import { ApiReqContext } from "back-end/types/api";
+import { ReqContext } from "back-end/types/request";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   getExperimentById,
@@ -53,27 +58,90 @@ import {
  *   5. Re-read the CBS to surface the final status + the CBE id back to the
  *      caller. Throws if the runner left the CBS in `"error"`.
  */
-export async function runContextualBanditSnapshot(
+export type ContextualBanditResultsForUi = {
+  contextualBanditSnapshot: ContextualBanditSnapshot | null;
+  latest: SnapshotStatusSummary | null;
+};
+
+function mapCbsStatusToSnapshotStatus(
+  status: ContextualBanditSnapshotInterface["status"],
+): SnapshotStatusSummary["status"] {
+  if (status === "success" || status === "partial") {
+    return "success";
+  }
+  if (status === "error") {
+    return "error";
+  }
+  return "running";
+}
+
+export function toContextualBanditSnapshotStatusSummary(
+  cbs: ContextualBanditSnapshotInterface,
+): SnapshotStatusSummary {
+  return {
+    id: cbs.id,
+    status: mapCbsStatusToSnapshotStatus(cbs.status),
+    error: cbs.error ?? "",
+    queries: cbs.queries,
+    runStarted: cbs.runStarted,
+    dateCreated: cbs.dateCreated,
+    multipleExposures: 0,
+    type: "standard",
+    triggeredBy: cbs.triggeredBy,
+  };
+}
+
+/** Latest CBS run status + CBE stats payload for the experiment results UI. */
+export async function getContextualBanditResultsForUi(
   context: ReqContext,
+  experiment: ExperimentInterface,
+): Promise<ContextualBanditResultsForUi> {
+  const phase = Math.max(0, experiment.phases.length - 1);
+  const [latestCbs, latestCbe] = await Promise.all([
+    context.models.contextualBanditSnapshots.getLatestForExperiment(
+      experiment.id,
+      phase,
+    ),
+    context.models.contextualBanditEvents.getLatestForExperiment(
+      experiment.id,
+      phase,
+    ),
+  ]);
+
+  const contextualBanditSnapshot: ContextualBanditSnapshot | null = latestCbe
+    ? {
+        attributes: latestCbe.attributes,
+        responses: latestCbe.responses,
+        leaf_map: latestCbe.leaf_map,
+      }
+    : null;
+
+  const latest = latestCbs
+    ? toContextualBanditSnapshotStatusSummary(latestCbs)
+    : null;
+
+  return { contextualBanditSnapshot, latest };
+}
+
+export async function runContextualBanditSnapshot(
+  context: ApiReqContext,
   experiment: ExperimentInterface,
   phase: number,
   opts: { triggeredBy: "manual" | "scheduled"; triggeredByUser?: string },
 ): Promise<{ snapshotId: string; cbeId?: string }> {
-  // 1. CB doc + datasource + integration + EAQ.
-  const cb = await context.contextualBandits.getByExperimentId(experiment.id);
+  const cb = await context.models.contextualBandits.getByExperimentId(
+    experiment.id,
+  );
   if (!cb) throw new Error(`No CB doc for experiment ${experiment.id}`);
 
   const ds = await getDataSourceById(context, cb.datasourceId);
   if (!ds) throw new Error(`Datasource missing: ${cb.datasourceId}`);
-
-  const integration = getSourceIntegrationObject(context, ds, true);
 
   const eaq = ds.settings?.queries?.exposure?.find(
     (q) => q.id === cb.exposureQueryId,
   );
   if (!eaq) throw new Error(`EAQ missing: ${cb.exposureQueryId}`);
 
-  // 2. Build the typed, frozen snapshot settings.
   const snapshotSettings = buildContextualBanditSnapshotSettings(
     cb,
     experiment,
@@ -81,10 +149,7 @@ export async function runContextualBanditSnapshot(
     eaq,
   );
 
-  // 3. Open the CBS in "running" with the frozen settings already attached.
-  //    `runStarted: null` because the runner's first updateModel call will
-  //    stamp it once `startQueries` returns.
-  const cbs = await context.contextualBanditSnapshots.create({
+  const cbs = await context.models.contextualBanditSnapshots.create({
     experiment: experiment.id,
     phase,
     status: "running",
@@ -95,10 +160,7 @@ export async function runContextualBanditSnapshot(
     weightsWereUpdated: false,
   });
 
-  // 4. Hand off to the runner.
-  // `useCache: false` because the SQL is a per-snapshot stub today (and even
-  // once it's real, two snapshots in quick succession should each re-execute
-  // so the Python stats engine sees fresh exposures).
+  const integration = getSourceIntegrationObject(context, ds, true);
   const runner = new ContextualBanditResultsQueryRunner(
     context,
     cbs,
@@ -106,34 +168,16 @@ export async function runContextualBanditSnapshot(
     false,
   );
 
-  try {
-    await runner.startAnalysis({
-      snapshotSettings,
-      variationNames: experiment.variations?.map((v) => v.name) ?? [],
-    });
-    await runner.waitForResults();
-  } catch (e) {
-    // Belt-and-suspenders: if `startQueries` threw before the runner could
-    // call `updateModel`, the CBS is still in "running" status. Stamp it as
-    // "error" here so observability isn't lying about a stuck snapshot.
-    const errorMessage = e instanceof Error ? e.message : String(e);
-    const latest = await context.contextualBanditSnapshots.getBySnapshotIdInOrg(
-      cbs.id,
-    );
-    if (latest && latest.status === "running") {
-      await context.contextualBanditSnapshots.updateById(cbs.id, {
-        status: "error",
-        error: errorMessage,
-      });
-    }
-    throw e;
-  }
+  const variationNames = (experiment.variations ?? []).map((v) => v.name);
 
-  // 5. Re-read the CBS to pick up the runner's final writes
-  //    (status, contextualBanditEventId, weightsWereUpdated).
-  const finalCbs = await context.contextualBanditSnapshots.getBySnapshotIdInOrg(
-    cbs.id,
-  );
+  await runner.startAnalysis({
+    snapshotSettings,
+    variationNames,
+  });
+  await runner.waitForResults();
+
+  const finalCbs =
+    await context.models.contextualBanditSnapshots.getBySnapshotIdInOrg(cbs.id);
   if (!finalCbs) {
     throw new Error(`CBS disappeared during run: ${cbs.id}`);
   }
@@ -148,6 +192,42 @@ export async function runContextualBanditSnapshot(
     snapshotId: finalCbs.id,
     cbeId: finalCbs.contextualBanditEventId ?? undefined,
   };
+}
+
+/** Derives stable leaf ids from per-leaf targeting conditions. */
+export function leafWeightsFromContextualBanditResult(
+  experimentId: string,
+  result: ContextualBanditResult,
+): { contextId: string; weights: number[] }[] {
+  return result.responses
+    .filter((r) => r.updatedWeights != null && r.updatedWeights.length > 0)
+    .map((r) => ({
+      contextId: deriveContextId(experimentId, r.context),
+      weights: r.updatedWeights!,
+    }));
+}
+
+/** True when any leaf's updated weights differ from the current phase weights. */
+export function contextualBanditWeightsWereUpdated(
+  result: ContextualBanditResult,
+  experimentId: string,
+  currentLeafWeights: { contextId: string; weights: number[] }[],
+): boolean {
+  const currentByContext = Object.fromEntries(
+    currentLeafWeights.map((lw) => [lw.contextId, lw.weights]),
+  );
+
+  return result.responses.some((r) => {
+    if (r.error || !r.updatedWeights?.length) {
+      return false;
+    }
+    const contextId = deriveContextId(experimentId, r.context);
+    const current = currentByContext[contextId];
+    if (!current) {
+      return true;
+    }
+    return JSON.stringify(current) !== JSON.stringify(r.updatedWeights);
+  });
 }
 
 /**
@@ -174,7 +254,9 @@ export async function persistContextualBanditEvent(
   cbs: ContextualBanditSnapshotInterface,
   result: ContextualBanditResult,
 ): Promise<ContextualBanditEventInterface> {
-  const cb = await context.contextualBandits.getByExperimentId(cbs.experiment);
+  const cb = await context.models.contextualBandits.getByExperimentId(
+    cbs.experiment,
+  );
   if (!cb) {
     throw new Error(`No CB doc for experiment ${cbs.experiment}`);
   }
@@ -184,25 +266,36 @@ export async function persistContextualBanditEvent(
     throw new Error(`No experiment doc for ${cbs.experiment}`);
   }
 
+  const currentLeafWeights = cb.phases[cbs.phase]?.currentLeafWeights ?? [];
+  const weightsWereUpdated = contextualBanditWeightsWereUpdated(
+    result,
+    cbs.experiment,
+    currentLeafWeights,
+  );
+  const leafWeights = leafWeightsFromContextualBanditResult(
+    cbs.experiment,
+    result,
+  );
+
   // 1. Create CBE doc
-  const cbe = await context.contextualBanditEvents.create({
+  const cbe = await context.models.contextualBanditEvents.create({
     experiment: cbs.experiment,
     phase: cbs.phase,
     snapshotId: cbs.id,
-    contextResults: result.contextResults,
-    tree: result.tree,
-    weightsWereUpdated: result.weightsWereUpdated,
+    attributes: result.attributes,
+    responses: result.responses,
+    leaf_map: result.leaf_map,
+    weightsWereUpdated,
   });
 
   // 2. Patch parent CB doc's per-phase weights
-  await context.contextualBandits.patchPhaseWeights(
-    cb.id,
-    cbs.phase,
-    result.tree.leaves.map((l) => ({
-      contextId: l.contextId,
-      weights: l.weights,
-    })),
-  );
+  if (leafWeights.length > 0) {
+    await context.models.contextualBandits.patchPhaseWeights(
+      cb.id,
+      cbs.phase,
+      leafWeights,
+    );
+  }
 
   // 3. Refresh SDK payload so live clients pick up the new weights
   const payloadKeys = getPayloadKeys(context, experiment);
@@ -331,10 +424,6 @@ export function getContextualBanditSettingsForStatsEngine(
     current_weights_by_context: currentWeightsByContext,
     max_leaves: cb.maxLeaves,
     min_users_per_leaf: cb.minUsersPerLeaf,
-    tree_model:
-      cb.treeModel === "regression_tree"
-        ? "regression_tree"
-        : "linear_thompson",
   };
 }
 
@@ -352,11 +441,13 @@ export function getContextualBanditSettingsForStatsEngine(
  * rows the SQL has already dropped, double-counting them into "other".
  */
 export function enforceContextCap<
-  T extends { contextId: string; attributes: Record<string, unknown> },
+  T extends { contextId: string } & Record<string, unknown>,
 >(
   rows: T[],
   maxContexts: number,
   numVariations: number,
+  catchAllContextId?: string,
+  attributeColumns?: string[],
 ): { rows: T[]; trimmed: boolean } {
   const contextIds = [...new Set(rows.map((r) => r.contextId))];
   if (contextIds.length <= maxContexts) {
@@ -378,15 +469,21 @@ export function enforceContextCap<
     sorted.slice(0, sorted.length - maxContexts).map(([id]) => id),
   );
 
-  const merged = rows.map((r) =>
-    toMerge.has(r.contextId)
-      ? {
-          ...r,
-          attributes: {},
-          contextId: deriveContextId(/* experimentId */ "", {}),
-        }
-      : r,
-  );
+  const catchAll = catchAllContextId ?? deriveContextId("", {});
+  const merged = rows.map((r) => {
+    if (!toMerge.has(r.contextId)) {
+      return r;
+    }
+    const row = { ...r, contextId: catchAll };
+    if (attributeColumns?.length) {
+      for (const attr of attributeColumns) {
+        row[contextualBanditAttrCol(attr)] =
+          CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE;
+        row[attr] = CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE;
+      }
+    }
+    return row;
+  });
 
   return { rows: merged, trimmed: true };
 }

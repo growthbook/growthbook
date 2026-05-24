@@ -653,6 +653,14 @@ app.get(
   experimentsController.getSnapshotSummary,
 );
 app.post("/experiment/:id/snapshot", experimentsController.postSnapshot);
+app.get(
+  "/experiment/:id/contextual-bandit/results",
+  experimentsController.getContextualBanditResults,
+);
+app.post(
+  "/experiment/:id/contextual-bandit/refresh",
+  experimentsController.postContextualBanditRefresh,
+);
 app.post(
   "/experiment/:id/banditSnapshot",
   experimentsController.postBanditSnapshot,

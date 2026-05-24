@@ -175,6 +175,7 @@ export type SingleVariationResult = {
   ci?: [number, number];
 };
 
+/** One contextual slice from gbstats; stored on snapshots as `contextualBanditSnapshot`. */
 export type ContextualBanditResponseSnapshot = {
   context: Record<string, unknown>;
   sampleSizePerVariation?: number[] | null;
@@ -185,10 +186,17 @@ export type ContextualBanditResponseSnapshot = {
   error?: string | null;
 };
 
-/** Full contextual bandit output for a decision-metric run. */
+/** Maps observed context attribute values to a regression-tree leaf id. */
+export type ContextualLeafMapEntry = {
+  context: Record<string, string>;
+  leafId: number;
+};
+
+/** Full contextual bandit output for a decision-metric run (mirrors gbstats `ContextualBanditResult`). */
 export type ContextualBanditSnapshot = {
   attributes: string[];
   responses: ContextualBanditResponseSnapshot[];
+  leaf_map?: ContextualLeafMapEntry[];
 };
 
 export type MultipleExperimentMetricAnalysis = {
@@ -235,6 +243,15 @@ export interface BanditSettingsForStatsEngine {
   reweight: boolean;
   decision_metric: string;
   bandit_weights_seed: number;
+  /** SQL row column names (e.g. `attr_cb_country`) for contextual bandit; gbstats only. */
+  is_contextual: boolean;
+  contexts?: string[];
+}
+
+export interface ContextualBanditSettingsForStatsEngine
+  extends BanditSettingsForStatsEngine {
+  current_contextual_weights: Record<string, number[]>;
+  attributes: string[];
 }
 
 export type BusinessMetricTypeForStatsEngine =
@@ -279,6 +296,7 @@ export interface DataForStatsEngine {
   metrics: Record<string, MetricSettingsForStatsEngine>;
   query_results: QueryResultsForStatsEngine[];
   bandit_settings?: BanditSettingsForStatsEngine;
+  contextual_bandit_settings?: ContextualBanditSettingsForStatsEngine;
 }
 
 export interface ExperimentDataForStatsEngine {

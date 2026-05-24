@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 from pydantic.dataclasses import dataclass
 import pandas as pd
@@ -78,6 +78,38 @@ class BanditResult:
     error: Optional[str]
     reweight: bool
     weightsWereUpdated: bool
+
+
+# examplecontext: { country: { $in: ["UK", "CA", "DE"] } },
+Context = dict[str, Any]
+
+
+@dataclass
+class ContextualBanditResponse:
+    context: Context
+    sampleSizePerVariation: Optional[List[float]]
+    variationMeans: Optional[List[float]]
+    updatedWeights: Optional[List[float]]
+    bestArmProbabilities: Optional[List[float]]
+    updateMessage: Optional[str]
+    error: Optional[str]
+
+
+@dataclass
+class ContextualLeafMapEntry:
+    """JSON-serializable mapping from observed context attribute values to tree leaf id."""
+
+    context: Dict[str, str]
+    leafId: int
+
+
+@dataclass
+class ContextualBanditResult:
+    """Container for per-context bandit results. responses maps context (str or tuple) to BanditResult."""
+
+    attributes: List[str]
+    responses: List[ContextualBanditResponse]
+    leaf_map: Optional[List[ContextualLeafMapEntry]] = None
 
 
 @dataclass
@@ -212,5 +244,6 @@ class MultipleExperimentMetricAnalysis:
     id: str
     results: List[ExperimentMetricAnalysis]
     banditResult: Optional[BanditResult]
+    contextualBanditResult: Optional[ContextualBanditResult]
     error: Optional[str]
     traceback: Optional[str]

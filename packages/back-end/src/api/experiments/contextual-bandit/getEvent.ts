@@ -10,11 +10,12 @@ export const getContextualBanditEvent = createApiRequestHandler(
     throw new Error("Could not find experiment with that id");
   }
 
-  const events = await req.context.contextualBanditEvents.listForExperiment(
-    experiment.id,
-    experiment.phases.length - 1,
-    100,
-  );
+  const events =
+    await req.context.models.contextualBanditEvents.listForExperiment(
+      experiment.id,
+      experiment.phases.length - 1,
+      100,
+    );
 
   const event = events.find((e) => e.id === req.params.eventId);
   if (!event || event.experiment !== experiment.id) {

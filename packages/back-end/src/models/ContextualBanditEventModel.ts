@@ -1,3 +1,4 @@
+import { deriveContextId } from "shared/util";
 import {
   ContextualBanditEventInterface,
   contextualBanditEventValidator,
@@ -65,13 +66,11 @@ export class ContextualBanditEventModel extends BaseClass {
     phase: number,
     contextId: string,
   ): Promise<ContextualBanditEventInterface[]> {
-    return this._find(
-      {
-        experiment,
-        phase,
-        "contextResults.contextId": contextId,
-      },
-      { sort: { dateCreated: -1 } },
+    const events = await this.listForExperiment(experiment, phase, 100);
+    return events.filter((e) =>
+      e.responses.some(
+        (r) => deriveContextId(experiment, r.context) === contextId,
+      ),
     );
   }
 

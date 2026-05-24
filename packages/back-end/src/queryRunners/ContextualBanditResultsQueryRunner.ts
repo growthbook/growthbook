@@ -1,8 +1,5 @@
 // SMITH: this runner is the single integration seam between the CB orchestrator
-// and Luke's real SQL + Python stats engine. The mock `runContextualBanditQuery`
-// and `runContextualStatsEngine` are wired up below; replacing them with the
-// real implementations should not require touching this file as long as their
-// signatures stay stable.
+// and the contextual bandit SQL + Python stats engine.
 import { Queries, QueryStatus } from "shared/types/query";
 import { UpdateProps } from "shared/types/base-model";
 import {
@@ -11,6 +8,8 @@ import {
   ContextualBanditSnapshotSettings,
 } from "shared/validators";
 import { deriveContextId } from "shared/util";
+import { attributeConditionFromMetricRow } from "shared/experiments";
+import { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
 import { ExposureQuery } from "shared/types/datasource";
 import {
   attributesToCondition,
@@ -19,9 +18,14 @@ import {
   persistContextualBanditEvent,
 } from "back-end/src/services/contextualBandits";
 import {
-  ContextualBanditRow,
-  runContextualBanditQuery,
+  executeContextualBanditQuery,
+  getContextualBanditQuerySql,
 } from "back-end/src/services/contextualBanditSql";
+import {
+  loadContextualBanditSnapshotContext,
+  type ContextualBanditSnapshotContext,
+} from "back-end/src/services/contextualBanditQueries";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   ContextualBanditResult,
   runContextualStatsEngine,
@@ -57,6 +61,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
   private variationNames: string[] = [];
   private cachedCb?: ContextualBanditInterface;
   private cachedExposureQuery?: ExposureQuery;
+  private cachedQueryContext?: ContextualBanditSnapshotContext;
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
@@ -72,22 +77,25 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
 
     const cb = await this.loadCbDoc();
     const eaq = this.loadExposureQuery();
+    const sql = await getContextualBanditQuerySql(
+      this.context,
+      cb,
+      this.integration.datasource,
+      eaq,
+    );
 
     return [
       await this.startQuery({
         name: CONTEXTUAL_BANDIT_ROWS_QUERY_NAME,
-        // The query body is generated inside `runContextualBanditQuery` (a
-        // STUB today); the placeholder gets persisted on the QueryDoc and
-        // surfaced in the UI. Including the CBS id keeps the cache key
-        // unique-per-snapshot so back-to-back runs don't reuse stale rows.
-        query: `-- contextual-bandit rows stub for ${this.model.id}`,
+        query: sql,
         dependencies: [],
-        run: async () => {
-          const rows = await runContextualBanditQuery(
+        run: async (query) => {
+          const { rows } = await executeContextualBanditQuery(
             this.context,
             cb,
             this.integration.datasource,
             eaq,
+            query,
           );
           return { rows };
         },
@@ -127,7 +135,13 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     // to the row type known to the stats engine.
     const rows = (queryDoc.result ??
       queryDoc.rawResult ??
-      []) as ContextualBanditRow[];
+      []) as ExperimentMetricQueryResponseRows;
+
+    const attributeColumns = this.snapshotSettings.contextualAttributes;
+    const catchAllContextId = deriveContextId(
+      this.snapshotSettings.experimentId,
+      {},
+    );
 
     // 1. Tag rows with derived contextIds (stable hash of experimentId + the
     //    surviving attribute map).
@@ -135,7 +149,9 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       ...r,
       contextId: deriveContextId(
         this.snapshotSettings!.experimentId,
-        attributesToCondition(r.attributes),
+        attributesToCondition(
+          attributeConditionFromMetricRow(r, attributeColumns),
+        ),
       ),
     }));
 
@@ -146,26 +162,19 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       tagged,
       this.snapshotSettings.maxContexts,
       numVariations,
+      catchAllContextId,
+      attributeColumns,
     );
 
     // 3. Build the stats-engine settings from the frozen snapshot + latest
     //    CBE weights for this (experiment, phase).
     const cb = await this.loadCbDoc();
-    const latestCBE =
-      await this.context.contextualBanditEvents.getLatestForExperiment(
-        this.snapshotSettings.experimentId,
-        this.snapshotSettings.phase,
+    const currentWeightsByContext: Record<string, number[]> =
+      Object.fromEntries(
+        (cb.phases[this.snapshotSettings.phase]?.currentLeafWeights ?? []).map(
+          (lw) => [lw.contextId, lw.weights],
+        ),
       );
-    const currentWeightsByContext: Record<string, number[]> = latestCBE
-      ? Object.fromEntries(
-          (latestCBE.tree?.leaves ?? []).map(
-            (l: { contextId: string; weights: number[] }) => [
-              l.contextId,
-              l.weights,
-            ],
-          ),
-        )
-      : {};
 
     const variationsForStats = this.snapshotSettings.variations.map((v, i) => ({
       id: v.id,
@@ -179,13 +188,44 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       currentWeightsByContext,
     );
 
-    // 4. Hand the tagged + capped rows + settings to the (stub) stats engine.
-    return runContextualStatsEngine(statsSettings, trimmed);
+    const queryContext = await this.ensureQueryContext();
+    const coverage = this.snapshotSettings.variations.reduce(
+      (sum, v) => sum + v.weight,
+      0,
+    );
+    const phaseStart = new Date(this.snapshotSettings.startDate).getTime();
+    const phaseEnd = this.snapshotSettings.endDate
+      ? new Date(this.snapshotSettings.endDate).getTime()
+      : Date.now();
+    const phaseLengthDays = Math.max(
+      (phaseEnd - phaseStart) / (1000 * 60 * 60 * 24),
+      1 / 24,
+    );
+    const decisionMetricId = this.snapshotSettings.goalMetrics[0];
+    if (!decisionMetricId) {
+      throw new Error("Contextual bandit snapshot is missing a goal metric");
+    }
+
+    return runContextualStatsEngine(statsSettings, trimmed, {
+      snapshotId: this.model.id,
+      sql: queryDoc.query,
+      decisionMetricId,
+      snapshotSettings: queryContext.snapshotSettings,
+      analysisSettings: queryContext.analysisSettings,
+      metricMap: queryContext.metricMap,
+      variations: this.snapshotSettings.variations.map((v, i) => ({
+        id: v.id,
+        name: this.variationNames[i] ?? v.id,
+        weight: v.weight,
+      })),
+      coverage,
+      phaseLengthDays,
+    });
   }
 
   async getLatestModel(): Promise<ContextualBanditSnapshotInterface> {
     const obj =
-      await this.context.contextualBanditSnapshots.getBySnapshotIdInOrg(
+      await this.context.models.contextualBanditSnapshots.getBySnapshotIdInOrg(
         this.model.id,
       );
     if (!obj) {
@@ -232,10 +272,10 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         result,
       );
       updates.contextualBanditEventId = cbe.id;
-      updates.weightsWereUpdated = result.weightsWereUpdated;
+      updates.weightsWereUpdated = cbe.weightsWereUpdated;
     }
 
-    await this.context.contextualBanditSnapshots.updateById(
+    await this.context.models.contextualBanditSnapshots.updateById(
       this.model.id,
       updates,
     );
@@ -258,7 +298,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         "ContextualBanditResultsQueryRunner: snapshotSettings missing in loadCbDoc",
       );
     }
-    const cb = await this.context.contextualBandits.getByExperimentId(
+    const cb = await this.context.models.contextualBandits.getByExperimentId(
       this.snapshotSettings.experimentId,
     );
     if (!cb) {
@@ -291,5 +331,38 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     }
     this.cachedExposureQuery = eaq;
     return eaq;
+  }
+
+  private async loadQueryContext(
+    cb: ContextualBanditInterface,
+    eaq: ExposureQuery,
+  ): Promise<ContextualBanditSnapshotContext> {
+    const experiment = await getExperimentById(
+      this.context,
+      this.snapshotSettings!.experimentId,
+    );
+    if (!experiment) {
+      throw new Error(
+        `Experiment not found: ${this.snapshotSettings!.experimentId}`,
+      );
+    }
+    return loadContextualBanditSnapshotContext(
+      this.context,
+      experiment,
+      this.snapshotSettings!.phase,
+      cb,
+      this.integration.datasource,
+      eaq,
+    );
+  }
+
+  private async ensureQueryContext(): Promise<ContextualBanditSnapshotContext> {
+    if (this.cachedQueryContext) {
+      return this.cachedQueryContext;
+    }
+    const cb = await this.loadCbDoc();
+    const eaq = this.loadExposureQuery();
+    this.cachedQueryContext = await this.loadQueryContext(cb, eaq);
+    return this.cachedQueryContext;
   }
 }

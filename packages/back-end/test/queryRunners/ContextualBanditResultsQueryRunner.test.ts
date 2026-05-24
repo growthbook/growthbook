@@ -1,24 +1,24 @@
+import { contextualBanditAttrCol } from "shared/experiments";
+import { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
 import { QueryInterface } from "shared/types/query";
 import {
   ContextualBanditInterface,
   ContextualBanditSnapshotInterface,
   ContextualBanditSnapshotSettings,
 } from "shared/validators";
-import { ReqContext } from "back-end/types/api";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
   CONTEXTUAL_BANDIT_ROWS_QUERY_NAME,
   ContextualBanditResultsQueryRunner,
 } from "back-end/src/queryRunners/ContextualBanditResultsQueryRunner";
 import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
-import {
-  ContextualBanditRow,
-  runContextualBanditQuery,
-} from "back-end/src/services/contextualBanditSql";
+import { loadContextualBanditSnapshotContext } from "back-end/src/services/contextualBanditQueries";
+import { getContextualBanditQuerySql } from "back-end/src/services/contextualBanditSql";
 import {
   ContextualBanditResult,
   runContextualStatsEngine,
 } from "back-end/src/services/contextualBanditStats";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import { ReqContext } from "back-end/types/api";
 
 // Swap the runner's two stub seams (SQL + Python stats) for jest.fn so we can
 // exercise the row-tagging / context-cap / settings-building glue without
@@ -27,8 +27,18 @@ import {
 // getContextualBanditSettingsForStatsEngine) real and intercepts only the
 // side-effecting `persistContextualBanditEvent`.
 jest.mock("back-end/src/services/contextualBanditSql", () => ({
-  runContextualBanditQuery: jest.fn(),
+  getContextualBanditQuerySql: jest.fn(),
+  executeContextualBanditQuery: jest.fn(),
 }));
+jest.mock("back-end/src/services/contextualBanditQueries", () => {
+  const actual = jest.requireActual(
+    "back-end/src/services/contextualBanditQueries",
+  );
+  return {
+    ...actual,
+    loadContextualBanditSnapshotContext: jest.fn(),
+  };
+});
 jest.mock("back-end/src/services/contextualBanditStats", () => ({
   runContextualStatsEngine: jest.fn(),
 }));
@@ -42,9 +52,13 @@ jest.mock("back-end/src/services/contextualBandits", () => {
 
 import { persistContextualBanditEvent } from "back-end/src/services/contextualBandits";
 
-const runContextualBanditQueryMock =
-  runContextualBanditQuery as jest.MockedFunction<
-    typeof runContextualBanditQuery
+const getContextualBanditQuerySqlMock =
+  getContextualBanditQuerySql as jest.MockedFunction<
+    typeof getContextualBanditQuerySql
+  >;
+const loadContextualBanditSnapshotContextMock =
+  loadContextualBanditSnapshotContext as jest.MockedFunction<
+    typeof loadContextualBanditSnapshotContext
   >;
 const runContextualStatsEngineMock =
   runContextualStatsEngine as jest.MockedFunction<
@@ -165,12 +179,7 @@ function makeIntegration(): SourceIntegrationInterface {
   } as unknown as SourceIntegrationInterface;
 }
 
-function makeContext(
-  cb: ContextualBanditInterface,
-  latestCbe: {
-    tree: { leaves: { contextId: string; weights: number[] }[] };
-  } | null = null,
-): ReqContext {
+function makeContext(cb: ContextualBanditInterface): ReqContext {
   return {
     org: { id: "org_1" },
     permissions: {
@@ -179,23 +188,27 @@ function makeContext(
         throw new Error("Permission denied");
       },
     },
-    contextualBandits: {
-      getByExperimentId: jest.fn().mockResolvedValue(cb),
-      patchPhaseWeights: jest.fn().mockResolvedValue(cb),
-    },
-    contextualBanditEvents: {
-      getLatestForExperiment: jest.fn().mockResolvedValue(latestCbe),
-      create: jest.fn().mockImplementation(async (payload) => ({
-        id: "cbe_new",
-        organization: "org_1",
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
-        ...payload,
-      })),
-    },
-    contextualBanditSnapshots: {
-      getBySnapshotIdInOrg: jest.fn().mockResolvedValue(null),
-      updateById: jest.fn().mockImplementation(async (_id, updates) => updates),
+    models: {
+      contextualBandits: {
+        getByExperimentId: jest.fn().mockResolvedValue(cb),
+        patchPhaseWeights: jest.fn().mockResolvedValue(cb),
+      },
+      contextualBanditEvents: {
+        getLatestForExperiment: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockImplementation(async (payload) => ({
+          id: "cbe_new",
+          organization: "org_1",
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+          ...payload,
+        })),
+      },
+      contextualBanditSnapshots: {
+        getBySnapshotIdInOrg: jest.fn().mockResolvedValue(null),
+        updateById: jest
+          .fn()
+          .mockImplementation(async (_id, updates) => updates),
+      },
     },
   } as unknown as ReqContext;
 }
@@ -230,20 +243,22 @@ describe("ContextualBanditResultsQueryRunner", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (runner as any).variationNames = ["Control", "Treatment"];
 
-      const rows: ContextualBanditRow[] = [
+      const rows: ExperimentMetricQueryResponseRows = [
         {
           variation: "0",
-          attributes: { country: "US" },
-          n: 100,
+          users: 100,
+          count: 100,
           main_sum: 5,
           main_sum_squares: 0.5,
+          [contextualBanditAttrCol("country")]: "US",
         },
         {
           variation: "1",
-          attributes: { country: "US" },
-          n: 100,
+          users: 100,
+          count: 100,
           main_sum: 6,
           main_sum_squares: 0.6,
+          [contextualBanditAttrCol("country")]: "US",
         },
       ];
 
@@ -255,14 +270,10 @@ describe("ContextualBanditResultsQueryRunner", () => {
       ]);
 
       const fitted: ContextualBanditResult = {
-        tree: {
-          model: "mock",
-          splitFeatures: [],
-          leaves: [{ contextId: "ctx_a", weights: [0.4, 0.6] }],
-        },
-        contextResults: [
+        attributes: ["country"],
+        responses: [
           {
-            contextId: "ctx_a",
+            context: { country: "US" },
             sampleSizePerVariation: [100, 100],
             variationMeans: [0.05, 0.06],
             updatedWeights: [0.4, 0.6],
@@ -270,21 +281,43 @@ describe("ContextualBanditResultsQueryRunner", () => {
             updateMessage: "ok",
           },
         ],
-        weightsWereUpdated: true,
-        updateMessage: "ok",
       };
       runContextualStatsEngineMock.mockResolvedValueOnce(fitted);
+
+      const queryContext = {
+        snapshotSettings: {
+          goalMetrics: ["met_g1"],
+          metricSettings: [],
+          regressionAdjustmentEnabled: false,
+        } as never,
+        analysisSettings: {
+          statsEngine: "bayesian",
+          dimensions: [],
+          baselineVariationIndex: 0,
+          numGoalMetrics: 1,
+        } as never,
+        metricMap: new Map(),
+        factTableMap: new Map(),
+        decisionMetric: { id: "met_g1", name: "Goal" } as never,
+      };
+      loadContextualBanditSnapshotContextMock.mockResolvedValueOnce(
+        queryContext,
+      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (runner as any).cachedQueryContext = queryContext;
 
       const result = await runner.runAnalysis(queryMap);
 
       expect(result).toEqual(fitted);
       expect(runContextualStatsEngineMock).toHaveBeenCalledTimes(1);
 
-      const [statsSettings, taggedRows] =
+      const [statsSettings, taggedRows, runParams] =
         runContextualStatsEngineMock.mock.calls[0];
       expect(statsSettings.var_names).toEqual(["Control", "Treatment"]);
       expect(statsSettings.var_ids).toEqual(["v0", "v1"]);
-      expect(statsSettings.tree_model).toBe("regression_tree");
+      expect(statsSettings.contextual_attributes).toEqual(["country"]);
+      expect(runParams?.snapshotId).toBe("cbs_1");
+      expect(runParams?.decisionMetricId).toBe("met_g1");
       // Every row passed to the stats engine has a derived contextId.
       expect(
         taggedRows.every(
@@ -326,32 +359,27 @@ describe("ContextualBanditResultsQueryRunner", () => {
         experiment: "exp_1",
         phase: 0,
         snapshotId: "cbs_1",
-        contextResults: [],
-        tree: {
-          model: "mock",
-          splitFeatures: [],
-          leaves: [
-            { contextId: "ctx_a", weights: [0.4, 0.6] },
-            { contextId: "ctx_b", weights: [0.55, 0.45] },
-          ],
-        },
+        attributes: ["country"],
+        responses: [],
         weightsWereUpdated: true,
         dateCreated: new Date(),
         dateUpdated: new Date(),
       });
 
       const result: ContextualBanditResult = {
-        tree: {
-          model: "mock",
-          splitFeatures: [],
-          leaves: [
-            { contextId: "ctx_a", weights: [0.4, 0.6] },
-            { contextId: "ctx_b", weights: [0.55, 0.45] },
-          ],
-        },
-        contextResults: [],
-        weightsWereUpdated: true,
-        updateMessage: "ok",
+        attributes: ["country"],
+        responses: [
+          {
+            context: { country: "US" },
+            updatedWeights: [0.4, 0.6],
+            updateMessage: "ok",
+          },
+          {
+            context: { country: "CA" },
+            updatedWeights: [0.55, 0.45],
+            updateMessage: "ok",
+          },
+        ],
       };
 
       const updated = await runner.updateModel({
@@ -363,7 +391,9 @@ describe("ContextualBanditResultsQueryRunner", () => {
 
       expect(persistContextualBanditEventMock).toHaveBeenCalledTimes(1);
       // updateById persists the CBE pointer and weightsWereUpdated flag.
-      expect(context.contextualBanditSnapshots.updateById).toHaveBeenCalledWith(
+      expect(
+        context.models.contextualBanditSnapshots.updateById,
+      ).toHaveBeenCalledWith(
         "cbs_1",
         expect.objectContaining({
           status: "success",
@@ -389,7 +419,9 @@ describe("ContextualBanditResultsQueryRunner", () => {
       });
 
       expect(persistContextualBanditEventMock).not.toHaveBeenCalled();
-      expect(context.contextualBanditSnapshots.updateById).toHaveBeenCalledWith(
+      expect(
+        context.models.contextualBanditSnapshots.updateById,
+      ).toHaveBeenCalledWith(
         "cbs_1",
         expect.objectContaining({
           status: "error",
@@ -403,34 +435,24 @@ describe("ContextualBanditResultsQueryRunner", () => {
   });
 
   describe("startQueries seam", () => {
-    it("wires `runContextualBanditQuery` for the single sub-query (called by run() callback only)", async () => {
-      // We don't drive startQueries() end-to-end here (it threads through the
-      // QueryRunner base class's createNewQuery + DB writes), but we *do*
-      // verify that the runner imports and invokes the SMITH-tagged stub
-      // when the run() callback is triggered. Building a runner is enough
-      // to assert the seam wires up; the callback itself is exercised in the
-      // integration test downstream.
+    it("generates SQL via getContextualBanditQuerySql for persistence on the QueryDoc", async () => {
       const cb = makeCb();
-      const runner = newRunner(makeContext(cb));
-      expect(typeof runner.runAnalysis).toBe("function");
-      expect(typeof runner.updateModel).toBe("function");
+      const context = makeContext(cb);
+      const integration = makeIntegration();
 
-      runContextualBanditQueryMock.mockResolvedValueOnce([
-        {
-          variation: "0",
-          attributes: { country: "US" },
-          n: 1,
-          main_sum: 0,
-          main_sum_squares: 0,
-        },
-      ]);
-      const rows = await runContextualBanditQueryMock(
-        makeContext(cb),
-        cb,
-        {} as never,
-        {} as never,
+      getContextualBanditQuerySqlMock.mockResolvedValueOnce(
+        "-- contextual-bandit mock rows for cbs_1",
       );
-      expect(rows).toHaveLength(1);
+
+      const sql = await getContextualBanditQuerySqlMock(
+        context,
+        cb,
+        integration.datasource,
+        integration.datasource.settings.queries.exposure[0],
+        "cbs_1",
+      );
+
+      expect(sql).toBe("-- contextual-bandit mock rows for cbs_1");
     });
   });
 });

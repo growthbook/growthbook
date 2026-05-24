@@ -2035,32 +2035,6 @@ const onExperimentCreate = async ({
       organization: context.org,
     });
 
-  if (
-    experiment.type === "contextual-bandit" &&
-    experiment.datasource &&
-    experiment.exposureQueryId &&
-    !experiment.contextualBanditId
-  ) {
-    const cbModel = new ContextualBanditModel(context);
-    const cb = await cbModel.create({
-      experiment: experiment.id,
-      datasourceId: experiment.datasource,
-      exposureQueryId: experiment.exposureQueryId,
-      contextualAttributes: [],
-      maxContexts: 100,
-      treeModel: "linear_tree",
-      minUsersPerLeaf: 100,
-      maxLeaves: 10,
-      holdoutPercent: 0,
-      stickyBucketing: false,
-      canonicalFormVersion: 1,
-      phases: [],
-    });
-    await ExperimentModel.updateOne(
-      { id: experiment.id, organization: context.org.id },
-      { $set: { contextualBanditId: cb.id } },
-    );
-  }
 };
 
 const onExperimentUpdate = async ({

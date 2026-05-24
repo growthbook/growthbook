@@ -16,11 +16,12 @@ export const getContextualBanditEvents = createApiRequestHandler(
   const phase = experiment.phases.length - 1;
   const limit = req.query?.limit ?? 20;
 
-  const events = await req.context.contextualBanditEvents.listForExperiment(
-    experiment.id,
-    phase,
-    limit,
-  );
+  const events =
+    await req.context.models.contextualBanditEvents.listForExperiment(
+      experiment.id,
+      phase,
+      limit,
+    );
 
   return {
     events: events.map((e) => ({

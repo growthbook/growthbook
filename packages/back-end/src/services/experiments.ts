@@ -4834,6 +4834,20 @@ export async function maybeCreateContextualBanditDoc(
   // will need a sibling holdout-experiment doc, and the bandit creation flow
   // will create both. See contextual-bandit-fix-prompt.md.
   if (experiment.type !== "contextual-bandit") return;
+
+  const existing = await context.models.contextualBandits.getByExperimentId(
+    experiment.id,
+  );
+  if (existing) {
+    if (!experiment.contextualBanditId) {
+      await updateExperiment({
+        context,
+        experiment,
+        changes: { contextualBanditId: existing.id },
+      });
+    }
+    return;
+  }
   if (experiment.contextualBanditId) return;
 
   const datasource = experiment.datasource
@@ -4843,7 +4857,7 @@ export async function maybeCreateContextualBanditDoc(
     (q) => q.id === experiment.exposureQueryId,
   );
 
-  const cb = await context.contextualBandits.create({
+  const cb = await context.models.contextualBandits.create({
     experiment: experiment.id,
     datasourceId: experiment.datasource ?? "",
     exposureQueryId: experiment.exposureQueryId ?? "",

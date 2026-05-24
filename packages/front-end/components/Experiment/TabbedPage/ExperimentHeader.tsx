@@ -247,6 +247,7 @@ export default function ExperimentHeader({
   const disableHealthTab = isUsingHealthUnsupportDatasource;
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isContextualBandit = experiment.type === "contextual-bandit";
   const isHoldout = experiment.type === "holdout";
 
   const hasResults = !!analysis?.results?.[0];
@@ -1225,33 +1226,34 @@ export default function ExperimentHeader({
                     <Flex align="center" className="flex-1">
                       <TabsTrigger value="overview">Overview</TabsTrigger>
                       <TabsTrigger value="results">Results</TabsTrigger>
-                      {isBandit ? (
+                      {isBandit && !isContextualBandit ? (
                         <TabsTrigger value="explore">Explore</TabsTrigger>
                       ) : null}
-                      {!isBandit && !isHoldout && (
+                      {!isBandit && !isHoldout && !isContextualBandit && (
                         <TabsTrigger value="dashboards">Dashboards</TabsTrigger>
                       )}
-                      {disableHealthTab ? (
-                        <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
-                          <TabsTrigger disabled value="health">
+                      {!isContextualBandit &&
+                        (disableHealthTab ? (
+                          <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
+                            <TabsTrigger disabled value="health">
+                              Health
+                            </TabsTrigger>
+                          </DisabledHealthTabTooltip>
+                        ) : (
+                          <TabsTrigger
+                            value="health"
+                            onClick={() => {
+                              track("Open health tab", { source: "tab-click" });
+                            }}
+                          >
                             Health
+                            {healthNotificationCount > 0 ? (
+                              <Avatar size="sm" ml="2" color="red">
+                                {healthNotificationCount}
+                              </Avatar>
+                            ) : null}
                           </TabsTrigger>
-                        </DisabledHealthTabTooltip>
-                      ) : (
-                        <TabsTrigger
-                          value="health"
-                          onClick={() => {
-                            track("Open health tab", { source: "tab-click" });
-                          }}
-                        >
-                          Health
-                          {healthNotificationCount > 0 ? (
-                            <Avatar size="sm" ml="2" color="red">
-                              {healthNotificationCount}
-                            </Avatar>
-                          ) : null}
-                        </TabsTrigger>
-                      )}
+                        ))}
                       {hasMultiplePhases ? (
                         <>
                           <div className="flex-1" />

@@ -226,6 +226,10 @@ export default function TabbedPage({
 
   // If experiment now has a default dashboard, show the dashboard view
   useEffect(() => {
+    if (experiment.type === "contextual-bandit") {
+      setShowDashboardView(false);
+      return;
+    }
     if (!experiment.defaultDashboardId) {
       setShowDashboardView(false);
       return;
@@ -238,9 +242,9 @@ export default function TabbedPage({
       return;
     }
     setShowDashboardView(true);
-  }, [experiment.defaultDashboardId, dashboards]);
+  }, [experiment.defaultDashboardId, experiment.type, dashboards]);
 
-  const { phase, setPhase, snapshot } = useSnapshot();
+  const { phase, setPhase } = useSnapshot();
   const {
     metricGroups,
     getExperimentMetricById,
@@ -320,35 +324,38 @@ export default function TabbedPage({
   const viewingOldPhase =
     experiment.phases.length > 0 && phase < experiment.phases.length - 1;
 
-  const setTabAndScroll = (tab: ExperimentTab, scrollToId?: string) => {
-    setTab(tab);
-    setTabPath("");
-    const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
-    if (newUrl !== window.location.href) {
-      router.push(newUrl, undefined, { shallow: true }).catch((e) => {
-        // HACK: Workaround for https://github.com/vercel/next.js/issues/37362#issuecomment-1283671326
-        // This navigation gets cancelled by persistTabPath with the default dashboard id
-        if (!e.cancelled) {
-          throw e;
-        }
-      });
-    }
-    if (scrollToId) {
-      requestAnimationFrame(() => {
-        const el = document.getElementById(scrollToId);
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "start" });
-        } else {
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        }
-      });
-    } else if (newUrl !== window.location.href) {
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-    }
-  };
+  const setTabAndScroll = useCallback(
+    (tab: ExperimentTab, scrollToId?: string) => {
+      setTab(tab);
+      setTabPath("");
+      const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
+      if (newUrl !== window.location.href) {
+        router.push(newUrl, undefined, { shallow: true }).catch((e) => {
+          // HACK: Workaround for https://github.com/vercel/next.js/issues/37362#issuecomment-1283671326
+          // This navigation gets cancelled by persistTabPath with the default dashboard id
+          if (!e.cancelled) {
+            throw e;
+          }
+        });
+      }
+      if (scrollToId) {
+        requestAnimationFrame(() => {
+          const el = document.getElementById(scrollToId);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+          } else {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
+        });
+      } else if (newUrl !== window.location.href) {
+        window.scrollTo({
+          top: 0,
+          behavior: "smooth",
+        });
+      }
+    },
+    [router, setTab],
+  );
 
   const persistTabPath = useCallback(
     (path: string) => {
@@ -414,6 +421,13 @@ export default function TabbedPage({
   const isBandit =
     experiment.type === "multi-armed-bandit" || isContextualBandit;
   const trackSource = "tabbed-page";
+
+  useEffect(() => {
+    if (!isContextualBandit) return;
+    if (tab === "explore" || tab === "health" || tab === "dashboards") {
+      setTabAndScroll("results");
+    }
+  }, [isContextualBandit, tab, setTabAndScroll]);
 
   const safeToEdit =
     experiment.status !== "running" ||
@@ -577,7 +591,8 @@ export default function TabbedPage({
         )}
         {viewingOldPhase &&
           ((!isBandit && tab === "results") ||
-            (isBandit && tab === "explore")) && (
+            (isBandit && !isContextualBandit && tab === "explore") ||
+            (isContextualBandit && tab === "results")) && (
             <Callout status="info">
               <Text>
                 {isHoldout
@@ -595,7 +610,7 @@ export default function TabbedPage({
             </Callout>
           )}
 
-        {showDashboardView && (
+        {showDashboardView && experiment.type !== "contextual-bandit" && (
           <DashboardsTab
             experiment={experiment}
             initialDashboardId={experiment.defaultDashboardId ?? ""}
@@ -685,102 +700,106 @@ export default function TabbedPage({
           >
             <ContextualBanditResultsTable
               experiment={experiment}
-              contextualBanditSnapshot={snapshot?.contextualBanditSnapshot}
               mutate={mutate}
             />
           </div>
         ) : null}
       </div>
       {!isContextualBandit && (
-        <div
-          className={
-            // todo: standardize explore & results tabs across experiment types
-            ((!isBandit && tab === "results") ||
-              (isBandit && tab === "explore")) &&
-            !showDashboardView
-              ? "container-fluid pagecontents d-block pt-0"
-              : "d-none d-print-block"
-          }
-        >
-          {showMetricGroupPromo() ? (
-            <PremiumCallout
-              commercialFeature="metric-groups"
-              dismissable={true}
-              id="metrics-list-metric-group-promo"
-              docSection="metricGroups"
-              mb="2"
-            >
-              <strong>Metric Groups</strong> help you organize and manage your
-              metrics at scale.
-            </PremiumCallout>
-          ) : null}
-          {/* TODO: Update ResultsTab props to include redirect and pipe through to StartExperimentBanner */}
-          <ResultsTab
-            experiment={experiment}
-            mutate={mutate}
-            editMetrics={editMetrics}
-            editResult={editResult}
-            newPhase={newPhase}
-            connections={connections}
-            envs={envs}
-            setTab={setTabAndScroll}
-            visualChangesets={visualChangesets}
-            editTargeting={editTargeting}
-            isTabActive={tab === "results"}
-            metricTagFilter={metricTagFilter}
-            metricsFilter={metricsFilter}
-            setMetricsFilter={setMetricsFilter}
-            availableMetricsFilters={availableMetricsFilters}
-            availableMetricTags={availableMetricTags}
-            availableSliceTags={availableSliceTags}
-            sliceTagsFilter={sliceTagsFilter}
-            setSliceTagsFilter={setSliceTagsFilter}
-            analysisBarSettings={analysisBarSettings}
-            setAnalysisBarSettings={setAnalysisBarSettings}
-            setMetricTagFilter={setMetricTagFilterWithPriority}
-            sortBy={sortBy}
-            setSortBy={setSortBy}
-            sortDirection={sortDirection}
-            setSortDirection={setSortDirection}
-          />
-        </div>
+        <>
+          <div
+            className={
+              // todo: standardize explore & results tabs across experiment types
+              ((!isBandit && tab === "results") ||
+                (isBandit && tab === "explore")) &&
+              !showDashboardView
+                ? "container-fluid pagecontents d-block pt-0"
+                : "d-none d-print-block"
+            }
+          >
+            {showMetricGroupPromo() ? (
+              <PremiumCallout
+                commercialFeature="metric-groups"
+                dismissable={true}
+                id="metrics-list-metric-group-promo"
+                docSection="metricGroups"
+                mb="2"
+              >
+                <strong>Metric Groups</strong> help you organize and manage your
+                metrics at scale.
+              </PremiumCallout>
+            ) : null}
+            {/* TODO: Update ResultsTab props to include redirect and pipe through to StartExperimentBanner */}
+            <ResultsTab
+              experiment={experiment}
+              mutate={mutate}
+              editMetrics={editMetrics}
+              editResult={editResult}
+              newPhase={newPhase}
+              connections={connections}
+              envs={envs}
+              setTab={setTabAndScroll}
+              visualChangesets={visualChangesets}
+              editTargeting={editTargeting}
+              isTabActive={
+                (!isBandit && tab === "results") ||
+                (isBandit && tab === "explore")
+              }
+              metricTagFilter={metricTagFilter}
+              metricsFilter={metricsFilter}
+              setMetricsFilter={setMetricsFilter}
+              availableMetricsFilters={availableMetricsFilters}
+              availableMetricTags={availableMetricTags}
+              availableSliceTags={availableSliceTags}
+              sliceTagsFilter={sliceTagsFilter}
+              setSliceTagsFilter={setSliceTagsFilter}
+              analysisBarSettings={analysisBarSettings}
+              setAnalysisBarSettings={setAnalysisBarSettings}
+              setMetricTagFilter={setMetricTagFilterWithPriority}
+              sortBy={sortBy}
+              setSortBy={setSortBy}
+              sortDirection={sortDirection}
+              setSortDirection={setSortDirection}
+            />
+          </div>
+          <div
+            className={
+              tab === "dashboards" && !showDashboardView
+                ? "container-fluid pagecontents d-block pt-0"
+                : "d-none d-print-block"
+            }
+          >
+            <DashboardsTab
+              experiment={experiment}
+              initialDashboardId={tabPath}
+              isTabActive={tab === "dashboards"}
+              mutateExperiment={mutate}
+              updateTabPath={persistTabPath}
+            />
+          </div>
+          <div
+            className={
+              tab === "health" && !showDashboardView
+                ? "container-fluid pagecontents d-block pt-0"
+                : "d-none d-print-block"
+            }
+          >
+            <HealthTab
+              experiment={experiment}
+              onHealthNotify={handleIncrementHealthNotifications}
+              onSnapshotUpdate={handleSnapshotChange}
+              resetResultsSettings={() => {
+                setAnalysisBarSettings({
+                  ...analysisBarSettings,
+                  baselineRow: 0,
+                  differenceType: "relative",
+                  variationFilter: [],
+                });
+              }}
+            />
+          </div>
+        </>
       )}
-      <div
-        className={
-          tab === "dashboards" && !showDashboardView
-            ? "container-fluid pagecontents d-block pt-0"
-            : "d-none d-print-block"
-        }
-      >
-        <DashboardsTab
-          experiment={experiment}
-          initialDashboardId={tabPath}
-          isTabActive={tab === "dashboards"}
-          mutateExperiment={mutate}
-          updateTabPath={persistTabPath}
-        />
-      </div>
-      <div
-        className={
-          tab === "health" && !showDashboardView
-            ? "container-fluid pagecontents d-block pt-0"
-            : "d-none d-print-block"
-        }
-      >
-        <HealthTab
-          experiment={experiment}
-          onHealthNotify={handleIncrementHealthNotifications}
-          onSnapshotUpdate={handleSnapshotChange}
-          resetResultsSettings={() => {
-            setAnalysisBarSettings({
-              ...analysisBarSettings,
-              baselineRow: 0,
-              differenceType: "relative",
-              variationFilter: [],
-            });
-          }}
-        />
-      </div>
 
       {tab !== "dashboards" && !showDashboardView && (
         <div className="mt-4 px-4 border-top pb-3">

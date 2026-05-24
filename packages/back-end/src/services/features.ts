@@ -1143,7 +1143,7 @@ export async function buildSDKPayloadForConnection(
   if (cbExperimentIds.length > 0) {
     const cbDocs = await Promise.all(
       cbExperimentIds.map((id) =>
-        context.contextualBandits.getByExperimentId(id),
+        context.models.contextualBandits.getByExperimentId(id),
       ),
     );
     cbMap = new Map(

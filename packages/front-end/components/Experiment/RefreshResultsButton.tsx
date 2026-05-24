@@ -18,6 +18,16 @@ import SafeRolloutRefreshSnapshotButton from "@/components/SafeRollout/RefreshSn
 
 export type EntityType = "experiment" | "holdout" | "safe-rollout";
 
+function formatRefreshError(e: unknown): string {
+  if (e instanceof Error && e.message) {
+    return e.message;
+  }
+  if (typeof e === "string" && e) {
+    return e;
+  }
+  return "There was an error updating results";
+}
+
 export interface RefreshResultsButtonProps<
   T extends {
     id: string;
@@ -98,7 +108,7 @@ export default function RefreshResultsButton<
     entityType === "safe-rollout"
       ? `/safe-rollout/${entityId}/snapshot`
       : experiment?.type === "contextual-bandit"
-        ? `/api/v1/experiments/${entityId}/contextual-bandit/refresh`
+        ? `/experiment/${entityId}/contextual-bandit/refresh`
         : `/experiment/${entityId}/snapshot`;
 
   return (
@@ -162,7 +172,7 @@ export default function RefreshResultsButton<
               onSuccess?.();
               setRefreshError("");
             } catch (e) {
-              setRefreshError(e.message);
+              setRefreshError(formatRefreshError(e));
             } finally {
               // Always refresh, regardless of success or failure
               // to give the UI a chance to catch up

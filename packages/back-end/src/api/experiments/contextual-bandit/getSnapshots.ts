@@ -17,7 +17,7 @@ export const getContextualBanditSnapshots = createApiRequestHandler(
   const limit = req.query?.limit ?? 20;
 
   const snapshots =
-    await req.context.contextualBanditSnapshots.listForExperiment(
+    await req.context.models.contextualBanditSnapshots.listForExperiment(
       experiment.id,
       phase,
       limit,

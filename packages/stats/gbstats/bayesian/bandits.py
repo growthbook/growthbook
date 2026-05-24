@@ -17,15 +17,19 @@ from gbstats.utils import (
     gaussian_credible_interval,
 )
 from gbstats.bayesian.tests import BayesianConfig, GaussianPrior
+from pydantic import ConfigDict
 
 
-@dataclass
+@dataclass(config=ConfigDict(arbitrary_types_allowed=True))
 class BanditConfig(BayesianConfig):
     bandit_weights_seed: int = 0
     top_two: bool = True
     prior_distribution: GaussianPrior = field(default_factory=GaussianPrior)
     min_variation_weight: float = 0.01
     weight_by_period: bool = True
+    bandit_weights_rng: np.random.Generator = field(
+        default_factory=lambda: np.random.default_rng()
+    )
 
 
 @dataclass

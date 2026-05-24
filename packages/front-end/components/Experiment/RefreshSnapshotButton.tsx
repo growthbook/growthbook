@@ -35,6 +35,17 @@ const RefreshSnapshotButton: FC<{
   const { apiCall } = useAuth();
 
   const refreshSnapshot = async () => {
+    if (experiment.type === "contextual-bandit") {
+      await apiCall<{
+        status: number;
+        snapshotId: string;
+        cbeId?: string;
+      }>(`/experiment/${experiment.id}/contextual-bandit/refresh`, {
+        method: "POST",
+      });
+      return;
+    }
+
     // Precomputed dimensions are computed as part of a standard snapshot,
     // so we don't need to pass them to the backend for a new snapshot query
     const snapshotDimension = isPrecomputedDimension(dimension)
@@ -72,7 +83,9 @@ const RefreshSnapshotButton: FC<{
             variant={radixVariant}
             size="sm"
             disabled={loading}
-            setError={(error) => setError(error ?? undefined)}
+            setError={(error) =>
+              setError(typeof error === "string" ? error : undefined)
+            }
             onClick={async () => {
               setLoading(true);
               setLongResult(false);

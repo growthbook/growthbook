@@ -11,7 +11,7 @@ export const getContextualBanditSnapshot = createApiRequestHandler(
   }
 
   const snapshot =
-    await req.context.contextualBanditSnapshots.getBySnapshotIdInOrg(
+    await req.context.models.contextualBanditSnapshots.getBySnapshotIdInOrg(
       req.params.snapshotId,
     );
   if (!snapshot || snapshot.experiment !== experiment.id) {

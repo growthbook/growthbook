@@ -1,4 +1,5 @@
 import dataclasses
+import json
 from functools import partial
 from unittest import TestCase, main as unittest_main
 import numpy as np
@@ -18,7 +19,14 @@ from gbstats.gbstats import (
     get_bandit_result,
     create_bandit_statistics,
     preprocess_bandits,
+    get_var_id_map,
+    variation_index_from_row,
+    contextual_bandit_result_for_serialization,
+    context_tuple_from_row,
+    COMBINED_CONTEXT_ATTRIBUTE_VALUE,
+    ContextualTreeBanditResult,
 )
+from gbstats.models.results import ContextualBanditResponse
 from gbstats.bayesian.bandits import BanditsSimple
 
 from gbstats.models.settings import BanditWeightsSinglePeriod
@@ -378,7 +386,7 @@ BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     current_weights=[1 / 4] * 4,
     reweight=True,
     decision_metric="count_metric",
-    bandit_weights_seed=int(100),
+    bandit_weights_rng=np.random.default_rng(100),
     weight_by_period=True,
     top_two=True,
 )
@@ -1507,6 +1515,51 @@ class TestThreeArmedCuped(TestCase):
             round_(baseline_stats_three_armed.stddev),
             round_(baseline_stats_02.stddev),
             "Baseline stddev should be the same, implying theta from 0 vs 2 comparison is used",
+        )
+
+
+class TestVariationIndexFromRow(TestCase):
+    def test_maps_variation_id_and_numeric_index(self):
+        var_id_map = get_var_id_map(["var_a", "var_b"])
+        self.assertEqual(variation_index_from_row("var_a", var_id_map, 2), 0)
+        self.assertEqual(variation_index_from_row("0", var_id_map, 2), 0)
+        self.assertEqual(variation_index_from_row("1", var_id_map, 2), 1)
+        self.assertIsNone(variation_index_from_row("missing", var_id_map, 2))
+
+
+class TestContextTupleFromRow(TestCase):
+    def test_missing_attribute_columns_default_to_combined(self):
+        ctx = context_tuple_from_row(
+            {"variation": "0", "users": 1},
+            ["attr_cb_region_id"],
+        )
+        self.assertEqual(ctx, (COMBINED_CONTEXT_ATTRIBUTE_VALUE,))
+
+
+class TestContextualBanditResultSerialization(TestCase):
+    def test_tree_result_serializes_leaf_map_for_json(self):
+        tree_result = ContextualTreeBanditResult(
+            attributes=["attr_cb_region_id"],
+            responses=[
+                ContextualBanditResponse(
+                    context={"attr_cb_region_id": {"$in": ["US"]}},
+                    sampleSizePerVariation=[100.0, 100.0],
+                    variationMeans=[0.1, 0.2],
+                    updatedWeights=[0.4, 0.6],
+                    bestArmProbabilities=[0.4, 0.6],
+                    updateMessage="successfully updated",
+                    error=None,
+                )
+            ],
+            leaf_map={("US",): 0},
+        )
+        serializable = contextual_bandit_result_for_serialization(tree_result)
+        assert serializable is not None
+        payload = dataclasses.asdict(serializable)
+        json.dumps(payload)
+        self.assertEqual(
+            payload["leaf_map"],
+            [{"context": {"attr_cb_region_id": "US"}, "leafId": 0}],
         )
 
 
