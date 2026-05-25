@@ -273,9 +273,15 @@ export async function updateFactTable(
   context: ReqContext | ApiReqContext,
   factTable: FactTableInterface,
   changes: UpdateFactTableProps,
+  {
+    bypassManagedByCheck,
+  }: {
+    bypassManagedByCheck?: boolean;
+  } = {},
 ) {
   // Allow changing columns even for API-managed fact tables
   if (
+    !bypassManagedByCheck &&
     factTable.managedBy === "api" &&
     context.auditUser?.type !== "api_key" &&
     Object.keys(changes).some((k) => k !== "columns")

@@ -5,70 +5,48 @@ import {
   buildSnowflakeEventForwarderTableReference,
   EVENT_FORWARDER_AVRO_PARTITION_FIELD,
   getEventForwarderEventsFactTableId,
-  getEventForwarderEventsFactTableIdWithCollisionSuffix,
   getEventForwarderEventsFactTableName,
-  isEventForwarderEventsFactTableCandidate,
-  sanitizeDatasourceNameForFactTableId,
+  isEventForwarderEventsFactTable,
 } from "../../src/util/event-forwarder-fact-table";
 
 describe("event-forwarder-fact-table identity", () => {
-  it("sanitizes datasource names for fact table ids", () => {
-    expect(sanitizeDatasourceNameForFactTableId("Production Analytics")).toBe(
-      "production_analytics",
-    );
-    expect(sanitizeDatasourceNameForFactTableId("  ")).toBe("datasource");
-    expect(sanitizeDatasourceNameForFactTableId("123-abc")).toBe("_123-abc");
-  });
-
-  it("derives id and display name from datasource name", () => {
-    expect(getEventForwarderEventsFactTableId("Production Analytics")).toBe(
-      "production_analytics_events",
+  it("derives id from datasource id and display name from datasource name", () => {
+    expect(getEventForwarderEventsFactTableId("ds_abc123")).toBe(
+      "ds_abc123_events",
     );
     expect(getEventForwarderEventsFactTableName("Production Analytics")).toBe(
       "Production Analytics Events",
     );
   });
 
-  it("appends collision suffix from datasource id", () => {
+  it("matches event forwarder fact tables by datasource id", () => {
     expect(
-      getEventForwarderEventsFactTableIdWithCollisionSuffix(
-        "Analytics",
-        "ds_abc123xyz",
+      isEventForwarderEventsFactTable(
+        {
+          id: "ds_abc123_events",
+          managedBy: "api",
+        },
+        "ds_abc123",
       ),
-    ).toBe("analytics_123xyz_events");
-  });
+    ).toBe(true);
 
-  it("matches event forwarder fact table candidates", () => {
     expect(
-      isEventForwarderEventsFactTableCandidate(
+      isEventForwarderEventsFactTable(
         {
           id: "production_analytics_events",
-          name: "Production Analytics Events",
           managedBy: "api",
         },
-        "Production Analytics",
+        "ds_abc123",
       ),
-    ).toBe(true);
+    ).toBe(false);
 
     expect(
-      isEventForwarderEventsFactTableCandidate(
+      isEventForwarderEventsFactTable(
         {
-          id: "production_analytics_a1b2c3_events",
-          name: "Old Name Events",
-          managedBy: "api",
-        },
-        "Production Analytics",
-      ),
-    ).toBe(true);
-
-    expect(
-      isEventForwarderEventsFactTableCandidate(
-        {
-          id: "other_events",
-          name: "Other Events",
+          id: "ds_abc123_events",
           managedBy: "",
         },
-        "Production Analytics",
+        "ds_abc123",
       ),
     ).toBe(false);
   });
