@@ -280,11 +280,23 @@ async function syncManagedWarehouseEventsFactTable(
   const newSql = buildManagedWarehouseFactTableSQL(finalColumns);
   const sqlChanged = newSql !== ft.sql;
 
+  // Identifier set can change even when columns and SQL don't — e.g. toggling
+  // `hashAttribute` on an existing attribute, or an SDK-alias edit that
+  // promotes a built-in to identifier. Compute and compare so we still
+  // reconcile `userIdTypes` in those cases.
+  const newIdentifierTypes = finalColumns
+    .filter((c) => c.type === "identifier")
+    .map((c) => c.columnName);
+  const userIdTypesChanged =
+    newIdentifierTypes.length !== (ft.userIdTypes?.length ?? 0) ||
+    newIdentifierTypes.some((t) => !(ft.userIdTypes ?? []).includes(t));
+
   if (
     columnsToAdd.length === 0 &&
     columnsToDelete.length === 0 &&
     columnsToRename.length === 0 &&
-    !sqlChanged
+    !sqlChanged &&
+    !userIdTypesChanged
   ) {
     return;
   }
@@ -343,10 +355,6 @@ async function syncManagedWarehouseEventsFactTable(
       col.dateUpdated = new Date();
     }
   }
-
-  const newIdentifierTypes = finalColumns
-    .filter((c) => c.type === "identifier")
-    .map((c) => c.columnName);
 
   await updateFactTableColumns(
     ft,
