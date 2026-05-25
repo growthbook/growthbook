@@ -71,9 +71,9 @@ describe("buildEventForwarderExposureQuerySql", () => {
     });
 
     expect(sql).toContain("DEVICE_ID AS device_id");
-    expect(sql).toContain("TIMESTAMP AS TIMESTAMP");
-    expect(sql).toContain("EXPERIMENT_ID AS EXPERIMENT_ID");
-    expect(sql).toContain("VARIATION_ID AS VARIATION_ID");
+    expect(sql).toContain("TIMESTAMP AS timestamp");
+    expect(sql).toContain("EXPERIMENT_ID AS experiment_id");
+    expect(sql).toContain("VARIATION_ID AS variation_id");
     expect(sql).toContain("FROM MY_DB.PUBLIC.EXPERIMENT_VIEWED");
     expect(sql).not.toContain("WHERE");
   });

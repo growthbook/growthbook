@@ -1,4 +1,5 @@
 import { AES, enc } from "crypto-js";
+import isEqual from "lodash/isEqual";
 import { DataSourceInterface } from "shared/types/datasource";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
@@ -407,6 +408,48 @@ export function toEventForwarderConfigDraft(
   }
 }
 
+export function stripEventForwarderConfigMetadata(
+  draft:
+    | EventForwarderConfigDraft
+    | EventForwarderConfigWithMetadata
+    | null
+    | undefined,
+): EventForwarderConfigDraft | null | undefined {
+  if (draft === undefined || draft === null) {
+    return draft;
+  }
+  return {
+    sinkType: draft.sinkType,
+    config: draft.config,
+  };
+}
+
+/**
+ * Returns true when the incoming draft matches the stored config (ignoring
+ * read-only metadata such as status and connector ids). Used to skip accidental
+ * re-provision on generic datasource PUT requests that echo EF config.
+ */
+export function isEventForwarderDraftUnchanged(
+  incoming:
+    | EventForwarderConfigDraft
+    | EventForwarderConfigWithMetadata
+    | null
+    | undefined,
+  existing: EventForwarderConfigInterface | null,
+): boolean {
+  if (incoming === undefined || incoming === null || !existing) {
+    return false;
+  }
+  const existingDraft = toEventForwarderConfigDraft(existing);
+  if (!existingDraft) {
+    return false;
+  }
+  return isEqual(
+    stripEventForwarderConfigMetadata(incoming),
+    stripEventForwarderConfigMetadata(existingDraft),
+  );
+}
+
 export async function getEventForwarderConfigDraftForDatasource(
   context: ReqContext,
   datasource: Pick<DataSourceInterface, "type" | "id">,
@@ -473,7 +516,9 @@ export async function syncEventForwarderConfigFromDatasource({
 
   if (draft === null) {
     if (existing) {
-      await context.models.eventForwarderConfigs.delete(existing);
+      throw new Error(
+        "Cannot remove an Event Forwarder via datasource update. Use DELETE /datasource/:id/event-forwarder instead.",
+      );
     }
     return null;
   }

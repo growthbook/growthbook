@@ -43,8 +43,6 @@ async function deleteEventForwarderAndTeardown({
     eventForwarderConfigId: existing.id,
   };
 
-  await deleteExisting();
-
   switch (sinkType) {
     case "bigquery":
     case "snowflake": {
@@ -81,7 +79,7 @@ async function deleteEventForwarderAndTeardown({
             eventForwarderConfigId: snapshot.eventForwarderConfigId,
             snapshot,
           },
-          "Event forwarder teardown via license server failed after Mongo row was deleted",
+          "Event forwarder teardown via license server failed; Mongo row retained for retry",
         );
         try {
           await context.auditLog({
@@ -98,7 +96,7 @@ async function deleteEventForwarderAndTeardown({
               connectorName: snapshot.connectorName,
               connectorId: snapshot.connectorId,
               manualHint:
-                "Confluent connector and Kafka topics may still exist; use Confluent Cloud console or API with these names.",
+                "Event forwarder config was not removed. Retry disconnect from GrowthBook, or remove Confluent connector and Kafka topics manually using the names above.",
             }),
           });
         } catch (auditErr) {
@@ -108,7 +106,7 @@ async function deleteEventForwarderAndTeardown({
           );
         }
         throw new Error(
-          `Event forwarder Confluent teardown failed: ${message}. An audit entry was recorded with resource names for manual cleanup.`,
+          `Event forwarder Confluent teardown failed: ${message}. Config was not removed — retry disconnect or clean up manually in Confluent.`,
         );
       }
       break;
@@ -124,6 +122,8 @@ async function deleteEventForwarderAndTeardown({
       );
     }
   }
+
+  await deleteExisting();
 }
 
 export async function deleteEventForwarderConfigForDatasource(
@@ -145,7 +145,7 @@ export async function deleteEventForwarderConfigForDatasource(
 
 /**
  * After removing a datasource: if a per-datasource event forwarder row exists for this id,
- * delete the Mongo row first, then tear down Confluent resources via the license server.
+ * tear down Confluent resources via the license server first, then delete the Mongo row.
  */
 export async function syncEventForwarderAfterDatasourceDeleted(
   context: ReqContext | ApiReqContext,
@@ -207,7 +207,7 @@ export async function syncEventForwarderAfterDatasourceDeleted(
       sinkType,
       eventForwarderConfigId: existing.id,
     },
-    "Event forwarder sync after datasource delete: removing event forwarder row before license-server teardown",
+    "Event forwarder sync after datasource delete: tearing down Confluent resources before removing event forwarder row",
   );
 
   await deleteEventForwarderAndTeardown({

@@ -112,11 +112,14 @@ const DataSourceForm: FC<{
 
       // Update
       if (id) {
+        const putBody = { ...datasource };
+        // Event Forwarder uses dedicated endpoints; omit from generic datasource PUT.
+        delete putBody.eventForwarderConfig;
         const res = await apiCall<{ status: number; message: string }>(
           `/datasource/${data.id}`,
           {
             method: "PUT",
-            body: JSON.stringify(datasource),
+            body: JSON.stringify(putBody),
           },
         );
         if (res.status > 200) {

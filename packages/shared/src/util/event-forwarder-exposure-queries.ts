@@ -60,12 +60,11 @@ FROM ${tableRef}
 WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{endDate}}'`;
   }
 
-  const snowflakeUserIdColumn = userIdType.toUpperCase();
   return `SELECT
-  ${snowflakeUserIdColumn} AS ${userIdType},
-  TIMESTAMP AS TIMESTAMP,
-  EXPERIMENT_ID AS EXPERIMENT_ID,
-  VARIATION_ID AS VARIATION_ID
+  ${userIdType.toUpperCase()} AS ${userIdType},
+  TIMESTAMP AS timestamp,
+  EXPERIMENT_ID AS experiment_id,
+  VARIATION_ID AS variation_id
 FROM ${tableRef}`;
 }
 
