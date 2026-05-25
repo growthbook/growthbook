@@ -986,7 +986,7 @@ export default function PrerequisiteInput({
                       <Callout
                         status="warning"
                         mb="2"
-                        size="small"
+                        size="sm"
                         id="prerequisite-project-mismatch--field"
                         dismissible={true}
                       >
