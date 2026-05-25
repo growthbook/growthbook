@@ -78,14 +78,19 @@ export function isEventForwarderAllowedUserIdTypesChange(
   });
 }
 
-export function mergeUserIdTypes(
+export function getUserIdTypesToAdd(
   existing: UserIdType[],
   built: UserIdType[],
 ): UserIdType[] {
   const existingIds = new Set(existing.map((u) => u.userIdType.toLowerCase()));
-  const toAdd = built.filter(
-    (u) => !existingIds.has(u.userIdType.toLowerCase()),
-  );
+  return built.filter((u) => !existingIds.has(u.userIdType.toLowerCase()));
+}
+
+export function mergeUserIdTypes(
+  existing: UserIdType[],
+  built: UserIdType[],
+): UserIdType[] {
+  const toAdd = getUserIdTypesToAdd(existing, built);
   if (toAdd.length === 0) {
     return existing;
   }

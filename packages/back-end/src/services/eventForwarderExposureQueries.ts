@@ -7,6 +7,7 @@ import {
 import { EventForwarderConfigInterface } from "shared/validators";
 import {
   GenerateEventForwarderExposureQueriesParams,
+  isHashAttributeUserIdType,
   mergeEventForwarderExposureQueries,
 } from "shared/util";
 import {
@@ -67,8 +68,13 @@ function buildExposureQueryParams(
 export async function ensureEventForwarderExposureQueries(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface,
+  userIdTypes: string[],
   datasourceParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
 ): Promise<void> {
+  if (userIdTypes.length === 0) {
+    return;
+  }
+
   const raw = await getRawDataSourceById(
     context,
     eventForwarderConfig.datasourceId,
@@ -77,15 +83,11 @@ export async function ensureEventForwarderExposureQueries(
     return;
   }
 
-  const userIdTypes = raw.settings?.userIdTypes?.map((u) => u.userIdType) ?? [];
-  if (userIdTypes.length === 0) {
-    logger.warn(
-      {
-        datasourceId: raw.id,
-        organizationId: context.org.id,
-      },
-      "Skipping event forwarder exposure queries: no userIdTypes on datasource",
-    );
+  const attributeSchema = context.org.settings?.attributeSchema ?? [];
+  const syncedUserIdTypes = userIdTypes.filter((userIdType) =>
+    isHashAttributeUserIdType(userIdType, attributeSchema, raw.projects),
+  );
+  if (syncedUserIdTypes.length === 0) {
     return;
   }
 
@@ -121,7 +123,7 @@ export async function ensureEventForwarderExposureQueries(
   const existing = raw.settings?.queries?.exposure ?? [];
   const merged = mergeEventForwarderExposureQueries(
     existing,
-    userIdTypes,
+    syncedUserIdTypes,
     sqlParams,
   );
 

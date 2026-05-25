@@ -26,7 +26,6 @@ import {
   queueDelayedFactTableColumnsRefreshForDatasource,
   queueDelayedFactTableColumnsRefreshForEventForwarderDatasources,
 } from "back-end/src/services/eventForwarderFactTable";
-import { ensureEventForwarderExposureQueries } from "back-end/src/services/eventForwarderExposureQueries";
 import { ensureEventForwarderFeatureUsageQuery } from "back-end/src/services/eventForwarderFeatureUsageQueries";
 import { queueDelayedEventForwarderWarehouseSyncForDatasource } from "back-end/src/services/eventForwarderWarehouseSync";
 import { logger } from "back-end/src/util/logger";
@@ -179,24 +178,6 @@ export async function provisionEventForwarderThroughLicenseServer(
           error: message,
         },
         "Failed to sync userIdTypes after event forwarder provisioning",
-      );
-    }
-
-    try {
-      await ensureEventForwarderExposureQueries(
-        context,
-        eventForwarderConfig,
-        datasourceParams,
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      logger.error(
-        {
-          datasourceId: eventForwarderConfig.datasourceId,
-          organizationId: context.org.id,
-          error: message,
-        },
-        "Failed to create exposure queries after event forwarder provisioning",
       );
     }
 
