@@ -43,6 +43,8 @@ router.post(
     body: z.object({
       type: aiPromptTypeValidator,
       text: z.string(),
+      action: z.enum(["reformat", "check"]).optional(),
+      temperature: z.number().optional(),
     }),
   }),
   AIController.postReformat,

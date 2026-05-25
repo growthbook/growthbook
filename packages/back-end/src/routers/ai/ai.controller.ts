@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { z } from "zod";
 import { AIModel, AIPromptInterface, AIPromptType } from "shared/ai";
 import {
   getAISettingsForOrg,
@@ -83,8 +84,31 @@ export async function postAIPrompts(
   });
 }
 
+const checkResponseSchema = z.object({
+  isCompliant: z
+    .boolean()
+    .describe(
+      "True if the input already adheres to the format/criteria with no meaningful improvements needed.",
+    ),
+  feedback: z
+    .string()
+    .describe(
+      "If not compliant, a short (1-2 sentence) plain-language explanation of what is missing or could be improved. Empty string if compliant.",
+    ),
+  suggestion: z
+    .string()
+    .describe(
+      "If not compliant, a rewritten version that fully adheres to the criteria. Empty string if compliant.",
+    ),
+});
+
 export async function postReformat(
-  req: AuthRequest<{ type: AIPromptType; text: string; temperature?: number }>,
+  req: AuthRequest<{
+    type: AIPromptType;
+    text: string;
+    temperature?: number;
+    action?: "reformat" | "check";
+  }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -125,7 +149,53 @@ export async function postReformat(
     });
   }
 
-  const { text } = req.body;
+  const { text, action = "reformat" } = req.body;
+
+  if (action === "check") {
+    const checkPrompt =
+      `Evaluate whether the following text adheres to the criteria below.\n\n` +
+      `Text:\n"${text}"\n\n` +
+      `Criteria:\n${prompt}\n\n` +
+      `If the text already adheres to the criteria with no meaningful improvements needed, ` +
+      `set isCompliant to true and leave feedback and suggestion as empty strings. ` +
+      `Otherwise, set isCompliant to false, provide brief feedback explaining what is missing or could be improved, ` +
+      `and provide a rewritten suggestion that fully adheres to the criteria.`;
+
+    const aiResults = await simpleCompletion({
+      context,
+      prompt: checkPrompt,
+      temperature,
+      type: req.body.type,
+      isDefaultPrompt,
+      overrideModel,
+      returnType: "json",
+      jsonSchema: checkResponseSchema,
+    });
+
+    let rawCheck: unknown;
+    try {
+      rawCheck = JSON.parse(aiResults);
+    } catch {
+      return res.status(500).json({
+        status: 500,
+        message: "Failed to parse AI response",
+      });
+    }
+    const parsedCheck = checkResponseSchema.safeParse(rawCheck);
+    if (!parsedCheck.success) {
+      return res.status(500).json({
+        status: 500,
+        message: "AI response did not match expected shape",
+      });
+    }
+    return res.status(200).json({
+      status: 200,
+      data: {
+        check: parsedCheck.data,
+      },
+    });
+  }
+
   const reformatPrompt = `Given the text: \n"${text}"\n\nReformat it according to the following format: ${prompt}`;
   const aiResults = await simpleCompletion({
     context,

@@ -203,6 +203,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.requireRegisteredAttributes,
       ),
       aiEnabled: settings.aiEnabled ?? false,
+      disableAutoHypothesisCheck: settings.disableAutoHypothesisCheck ?? false,
       defaultAIModel: settings.defaultAIModel || "gpt-4o-mini",
       embeddingModel: settings.embeddingModel || "text-embedding-ada-002",
       disableLegacyMetricCreation:
@@ -265,6 +266,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     codeRefsBranchesToFilter: form.watch("codeRefsBranchesToFilter"),
     codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
     aiEnabled: form.watch("aiEnabled"),
+    disableAutoHypothesisCheck: form.watch("disableAutoHypothesisCheck"),
     defaultAIModel: form.watch("defaultAIModel"),
     embeddingModel: form.watch("embeddingModel"),
     disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
