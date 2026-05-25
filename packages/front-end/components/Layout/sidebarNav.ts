@@ -278,14 +278,6 @@ export const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canManageIntegrations(),
       },
       {
-        name: "GitHub",
-        href: "/integrations/github",
-        path: /^integrations\/github/,
-        filter: ({ permissionsUtils, gb }) =>
-          permissionsUtils.canManageIntegrations() &&
-          !!gb?.isOn("github-integration"),
-      },
-      {
         name: "Import your data",
         href: "/importing",
         path: /^importing/,
