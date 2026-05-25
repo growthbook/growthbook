@@ -14,44 +14,10 @@ export const EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS = 1 * 60 * 1000;
 export const EVENT_FORWARDER_EVENTS_FACT_TABLE_ID_SUFFIX = "_events";
 export const EVENT_FORWARDER_EVENTS_FACT_TABLE_NAME_SUFFIX = " Events";
 
-export function sanitizeDatasourceNameForFactTableId(name: string): string {
-  const sanitized = name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, "_")
-    .replace(/_+/g, "_")
-    .replace(/^_|_$/g, "");
-
-  if (!sanitized) {
-    return "datasource";
-  }
-
-  if (!/^[a-z_]/.test(sanitized)) {
-    return `_${sanitized}`;
-  }
-
-  return sanitized;
-}
-
 export function getEventForwarderEventsFactTableId(
-  datasourceName: string,
-): string {
-  return `${sanitizeDatasourceNameForFactTableId(datasourceName)}${EVENT_FORWARDER_EVENTS_FACT_TABLE_ID_SUFFIX}`;
-}
-
-export function getEventForwarderEventsFactTableIdWithCollisionSuffix(
-  datasourceName: string,
   datasourceId: string,
 ): string {
-  const prefix = sanitizeDatasourceNameForFactTableId(datasourceName);
-  const idSuffix = datasourceId
-    .replace(/[^a-zA-Z0-9]/g, "")
-    .slice(-6)
-    .toLowerCase();
-  if (!idSuffix) {
-    return `${prefix}${EVENT_FORWARDER_EVENTS_FACT_TABLE_ID_SUFFIX}`;
-  }
-  return `${prefix}_${idSuffix}${EVENT_FORWARDER_EVENTS_FACT_TABLE_ID_SUFFIX}`;
+  return `${datasourceId}${EVENT_FORWARDER_EVENTS_FACT_TABLE_ID_SUFFIX}`;
 }
 
 export function getEventForwarderEventsFactTableName(
@@ -60,24 +26,13 @@ export function getEventForwarderEventsFactTableName(
   return `${datasourceName.trim()}${EVENT_FORWARDER_EVENTS_FACT_TABLE_NAME_SUFFIX}`;
 }
 
-export function isEventForwarderEventsFactTableCandidate(
-  factTable: { id: string; name: string; managedBy?: string },
-  datasourceName: string,
+export function isEventForwarderEventsFactTable(
+  factTable: { id: string; managedBy?: string },
+  datasourceId: string,
 ): boolean {
-  if (factTable.managedBy !== "api") {
-    return false;
-  }
-
-  const expectedName = getEventForwarderEventsFactTableName(datasourceName);
-  if (factTable.name === expectedName) {
-    return true;
-  }
-
-  const prefix = sanitizeDatasourceNameForFactTableId(datasourceName);
   return (
-    factTable.id === getEventForwarderEventsFactTableId(datasourceName) ||
-    (factTable.id.startsWith(`${prefix}_`) &&
-      factTable.id.endsWith(EVENT_FORWARDER_EVENTS_FACT_TABLE_ID_SUFFIX))
+    factTable.managedBy === "api" &&
+    factTable.id === getEventForwarderEventsFactTableId(datasourceId)
   );
 }
 

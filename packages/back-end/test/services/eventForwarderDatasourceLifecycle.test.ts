@@ -4,6 +4,7 @@ import {
   deleteEventForwarderConfigForDatasource,
   syncEventForwarderAfterDatasourceDeleted,
 } from "back-end/src/services/eventForwarderDatasourceLifecycle";
+import { syncEventForwarderConfigFromDatasource } from "back-end/src/services/eventForwarderConfig";
 import * as configInit from "back-end/src/init/config";
 import * as provisioning from "back-end/src/services/eventForwarderProvisioning";
 
@@ -40,7 +41,7 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
     mockedTeardownRemote.mockResolvedValue(undefined);
   });
 
-  it("cascade-deletes the row before license-server BigQuery teardown", async () => {
+  it("tears down Confluent before cascade-deleting the row for BigQuery", async () => {
     const existing: EventForwarderConfigInterface = {
       id: "efc_1",
       organization: "org1",
@@ -55,7 +56,15 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
       dateUpdated: new Date(),
     };
 
-    const deleteForDatasourceCascade = jest.fn().mockResolvedValue(undefined);
+    const callOrder: string[] = [];
+    const deleteForDatasourceCascade = jest
+      .fn()
+      .mockImplementation(async () => {
+        callOrder.push("delete");
+      });
+    mockedTeardownRemote.mockImplementation(async () => {
+      callOrder.push("teardown");
+    });
     const dangerousGetByDatasourceIdBypassPermission = jest
       .fn()
       .mockResolvedValue(existing);
@@ -88,6 +97,7 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
       connectorName: undefined,
       connectorId: undefined,
     });
+    expect(callOrder).toEqual(["teardown", "delete"]);
   });
 
   it("does nothing when no event forwarder exists for that datasource", async () => {
@@ -116,7 +126,7 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
     expect(deleteForDatasourceCascade).not.toHaveBeenCalled();
   });
 
-  it("cascade-deletes the row before license-server Snowflake teardown", async () => {
+  it("tears down Confluent before cascade-deleting the row for Snowflake", async () => {
     const existing: EventForwarderConfigInterface = {
       id: "efc_s",
       organization: "org1",
@@ -131,7 +141,15 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
       dateUpdated: new Date(),
     };
 
-    const deleteForDatasourceCascade = jest.fn().mockResolvedValue(undefined);
+    const callOrder: string[] = [];
+    const deleteForDatasourceCascade = jest
+      .fn()
+      .mockImplementation(async () => {
+        callOrder.push("delete");
+      });
+    mockedTeardownRemote.mockImplementation(async () => {
+      callOrder.push("teardown");
+    });
     const dangerousGetByDatasourceIdBypassPermission = jest
       .fn()
       .mockResolvedValue(existing);
@@ -166,6 +184,7 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
       connectorName: undefined,
       connectorId: undefined,
     });
+    expect(callOrder).toEqual(["teardown", "delete"]);
   });
 
   it("invokes teardown only for the forwarder tied to the deleted datasource id", async () => {
@@ -243,7 +262,7 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
     });
   });
 
-  it("audits and throws when license-server teardown fails", async () => {
+  it("audits and throws when license-server teardown fails without deleting Mongo row", async () => {
     const existing: EventForwarderConfigInterface = {
       id: "efc_err",
       organization: "org1",
@@ -285,7 +304,7 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
       ),
     ).rejects.toThrow(/Event forwarder Confluent teardown failed/);
 
-    expect(deleteForDatasourceCascade).toHaveBeenCalledWith(existing);
+    expect(deleteForDatasourceCascade).not.toHaveBeenCalled();
     expect(auditLog).toHaveBeenCalledWith(
       expect.objectContaining({
         event: "eventForwarderConfig.teardownFailure",
@@ -304,7 +323,7 @@ describe("deleteEventForwarderConfigForDatasource", () => {
     mockedTeardownRemote.mockResolvedValue(undefined);
   });
 
-  it("permission-deletes the row before license-server teardown", async () => {
+  it("tears down Confluent before permission-deleting the row", async () => {
     const existing: EventForwarderConfigInterface = {
       id: "efc_delete",
       organization: "org1",
@@ -321,7 +340,13 @@ describe("deleteEventForwarderConfigForDatasource", () => {
       dateUpdated: new Date(),
     };
 
-    const deleteConfig = jest.fn().mockResolvedValue(undefined);
+    const callOrder: string[] = [];
+    const deleteConfig = jest.fn().mockImplementation(async () => {
+      callOrder.push("delete");
+    });
+    mockedTeardownRemote.mockImplementation(async () => {
+      callOrder.push("teardown");
+    });
     const context = {
       org: { id: "org1" },
       auditLog: jest.fn().mockResolvedValue(undefined),
@@ -347,9 +372,10 @@ describe("deleteEventForwarderConfigForDatasource", () => {
       connectorName: "connector-delete",
       connectorId: "lcc-delete",
     });
+    expect(callOrder).toEqual(["teardown", "delete"]);
   });
 
-  it("still deletes and tears down when datasource type no longer maps to a sink", async () => {
+  it("still tears down and deletes when datasource type no longer maps to a sink", async () => {
     const existing: EventForwarderConfigInterface = {
       id: "efc_orphan",
       organization: "org1",
@@ -364,7 +390,13 @@ describe("deleteEventForwarderConfigForDatasource", () => {
       dateUpdated: new Date(),
     };
 
-    const deleteConfig = jest.fn().mockResolvedValue(undefined);
+    const callOrder: string[] = [];
+    const deleteConfig = jest.fn().mockImplementation(async () => {
+      callOrder.push("delete");
+    });
+    mockedTeardownRemote.mockImplementation(async () => {
+      callOrder.push("teardown");
+    });
     const context = {
       org: { id: "org1" },
       auditLog: jest.fn().mockResolvedValue(undefined),
@@ -393,5 +425,68 @@ describe("deleteEventForwarderConfigForDatasource", () => {
       connectorName: undefined,
       connectorId: undefined,
     });
+    expect(callOrder).toEqual(["teardown", "delete"]);
+  });
+});
+
+describe("syncEventForwarderConfigFromDatasource draft null", () => {
+  it("returns null on create when draft is null and no existing config", async () => {
+    const getAll = jest.fn().mockResolvedValue([]);
+    const deleteConfig = jest.fn();
+    const context = {
+      org: { id: "org1" },
+      models: {
+        eventForwarderConfigs: {
+          getAll,
+          delete: deleteConfig,
+        },
+      },
+    };
+
+    const result = await syncEventForwarderConfigFromDatasource({
+      context: context as never,
+      datasource: bqDatasource("ds_new"),
+      draft: null,
+    });
+
+    expect(result).toBeNull();
+    expect(deleteConfig).not.toHaveBeenCalled();
+  });
+
+  it("throws when draft is null and an existing config would be removed", async () => {
+    const existing: EventForwarderConfigInterface = {
+      id: "efc_existing",
+      organization: "org1",
+      datasourceId: "ds_existing",
+      projects: ["p1"],
+      topic: "topic-existing",
+      schemaId: 1,
+      sinkType: "bigquery",
+      config: "{}",
+      status: "ready",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+    const getAll = jest.fn().mockResolvedValue([existing]);
+    const deleteConfig = jest.fn();
+    const context = {
+      org: { id: "org1" },
+      models: {
+        eventForwarderConfigs: {
+          getAll,
+          delete: deleteConfig,
+        },
+      },
+    };
+
+    await expect(
+      syncEventForwarderConfigFromDatasource({
+        context: context as never,
+        datasource: bqDatasource("ds_existing"),
+        draft: null,
+      }),
+    ).rejects.toThrow(/Cannot remove an Event Forwarder via datasource update/);
+
+    expect(deleteConfig).not.toHaveBeenCalled();
   });
 });

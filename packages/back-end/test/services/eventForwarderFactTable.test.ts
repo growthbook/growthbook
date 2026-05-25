@@ -3,7 +3,6 @@ import type { FactTableInterface } from "shared/types/fact-table";
 import { EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS } from "shared/util";
 import {
   ensureEventForwarderEventsFactTable,
-  findEventForwarderEventsFactTableForDatasource,
   deleteEventForwarderEventsFactTableForDatasource,
   queueEventForwarderEventsFactTablesColumnsRefresh,
   queueDelayedFactTableColumnsRefreshForEventForwarderDatasources,
@@ -28,10 +27,6 @@ const mockedGetFactTable = FactTableModel.getFactTable as jest.MockedFunction<
 const mockedCreateFactTable =
   FactTableModel.createFactTable as jest.MockedFunction<
     typeof FactTableModel.createFactTable
-  >;
-const mockedGetFactTablesForDatasource =
-  FactTableModel.getFactTablesForDatasource as jest.MockedFunction<
-    typeof FactTableModel.getFactTablesForDatasource
   >;
 const mockedDeleteFactTable =
   FactTableModel.deleteFactTable as jest.MockedFunction<
@@ -93,7 +88,7 @@ function eventsFactTable(
   overrides: Partial<FactTableInterface> = {},
 ): FactTableInterface {
   return {
-    id: "production_analytics_events",
+    id: "ds_1_events",
     name: "Production Analytics Events",
     managedBy: "api",
     organization: "org1",
@@ -113,25 +108,12 @@ function eventsFactTable(
   };
 }
 
-describe("findEventForwarderEventsFactTableForDatasource", () => {
-  it("finds api-managed Events fact table by name", () => {
-    const ft = eventsFactTable();
-
-    expect(
-      findEventForwarderEventsFactTableForDatasource(
-        [ft],
-        "Production Analytics",
-      ),
-    ).toBe(ft);
-  });
-});
-
 describe("ensureEventForwarderEventsFactTable", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("creates fact table with per-datasource id and name", async () => {
+  it("creates fact table with datasource id and display name", async () => {
     mockedGetDataSourceById.mockResolvedValue(datasource());
     mockedGetFactTable.mockResolvedValue(null);
     mockedDecrypt.mockReturnValue({
@@ -163,7 +145,7 @@ describe("ensureEventForwarderEventsFactTable", () => {
     expect(mockedCreateFactTable).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        id: "production_analytics_events",
+        id: "ds_1_events",
         name: "Production Analytics Events",
         managedBy: "api",
         datasource: "ds_1",
@@ -193,7 +175,7 @@ describe("ensureEventForwarderEventsFactTable", () => {
   it("skips when fact table already exists for datasource", async () => {
     mockedGetDataSourceById.mockResolvedValue(datasource());
     mockedGetFactTable.mockResolvedValue({
-      id: "production_analytics_events",
+      id: "ds_1_events",
       datasource: "ds_1",
     } as never);
 
@@ -215,42 +197,6 @@ describe("ensureEventForwarderEventsFactTable", () => {
     expect(mockedCreateFactTable).not.toHaveBeenCalled();
     expect(mockedQueueFactTableColumnsRefresh).not.toHaveBeenCalled();
   });
-
-  it("uses collision suffix when base id is taken by another datasource", async () => {
-    mockedGetDataSourceById.mockResolvedValue(datasource({ id: "ds_2" }));
-    mockedGetFactTable.mockResolvedValue({
-      id: "production_analytics_events",
-      datasource: "ds_other",
-    } as never);
-    mockedDecrypt.mockReturnValue({
-      dataset: "analytics_123",
-      tableName: "gb_events",
-      serviceAccountKey: "{}",
-    });
-    mockedCreateFactTable.mockResolvedValue(eventsFactTable() as never);
-
-    await ensureEventForwarderEventsFactTable(
-      context() as never,
-      {
-        id: "efc_1",
-        datasourceId: "ds_2",
-        sinkType: "bigquery",
-        config: "encrypted",
-        status: "pending",
-        organization: "org1",
-        projects: [],
-        topic: "topic",
-      },
-      { defaultProject: "my-project" } as never,
-    );
-
-    expect(mockedCreateFactTable).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        id: "production_analytics_ds2_events",
-      }),
-    );
-  });
 });
 
 describe("queueEventForwarderEventsFactTablesColumnsRefresh", () => {
@@ -271,9 +217,9 @@ describe("queueEventForwarderEventsFactTablesColumnsRefresh", () => {
       },
     ]);
 
-    const ft1 = eventsFactTable({ id: "ft_1", datasource: "ds_1" });
+    const ft1 = eventsFactTable({ id: "ds_1_events", datasource: "ds_1" });
     const ft2 = eventsFactTable({
-      id: "ft_2",
+      id: "ds_2_events",
       datasource: "ds_2",
       name: "Other Events",
     });
@@ -287,16 +233,15 @@ describe("queueEventForwarderEventsFactTablesColumnsRefresh", () => {
       }
       return datasource({ id: id as string });
     });
-    mockedGetFactTablesForDatasource.mockImplementation(async (_ctx, id) => {
-      if (id === "ds_1") {
-        return [ft1];
+    mockedGetFactTable.mockImplementation(async (_ctx, factTableId) => {
+      if (factTableId === "ds_1_events") {
+        return ft1;
       }
-      if (id === "ds_2") {
-        return [ft2];
+      if (factTableId === "ds_2_events") {
+        return ft2;
       }
-      return [];
+      return null;
     });
-    mockedGetFactTable.mockResolvedValue(null);
 
     await queueEventForwarderEventsFactTablesColumnsRefresh(ctx as never);
 
@@ -315,7 +260,6 @@ describe("queueEventForwarderEventsFactTablesColumnsRefresh", () => {
     ]);
 
     mockedGetDataSourceById.mockResolvedValue(datasource());
-    mockedGetFactTablesForDatasource.mockResolvedValue([]);
     mockedGetFactTable.mockResolvedValue(null);
 
     await queueEventForwarderEventsFactTablesColumnsRefresh(ctx as never);
@@ -335,20 +279,16 @@ describe("queueDelayedFactTableColumnsRefreshForEventForwarderDatasources", () =
     jest.useRealTimers();
   });
 
-  it("queues refreshAt for all fact tables on event forwarder datasources", async () => {
+  it("queues refreshAt for event forwarder fact tables only", async () => {
     const ctx = context();
     ctx.models.eventForwarderConfigs.getAll.mockResolvedValue([
       { datasourceId: "ds_1", sinkType: "bigquery" },
     ]);
 
-    const ft1 = eventsFactTable({ id: "ft_events", datasource: "ds_1" });
-    const ft2 = eventsFactTable({
-      id: "ft_custom",
-      datasource: "ds_1",
-      name: "Custom Events",
-    });
+    const ft = eventsFactTable({ id: "ds_1_events", datasource: "ds_1" });
 
-    mockedGetFactTablesForDatasource.mockResolvedValue([ft1, ft2]);
+    mockedGetDataSourceById.mockResolvedValue(datasource());
+    mockedGetFactTable.mockResolvedValue(ft);
 
     await queueDelayedFactTableColumnsRefreshForEventForwarderDatasources(
       ctx as never,
@@ -357,13 +297,9 @@ describe("queueDelayedFactTableColumnsRefreshForEventForwarderDatasources", () =
     const expectedRunAt = new Date(
       Date.now() + EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
     );
-    expect(mockedQueueFactTableColumnsRefreshAt).toHaveBeenCalledTimes(2);
+    expect(mockedQueueFactTableColumnsRefreshAt).toHaveBeenCalledTimes(1);
     expect(mockedQueueFactTableColumnsRefreshAt).toHaveBeenCalledWith(
-      ft1,
-      expectedRunAt,
-    );
-    expect(mockedQueueFactTableColumnsRefreshAt).toHaveBeenCalledWith(
-      ft2,
+      ft,
       expectedRunAt,
     );
     expect(mockedQueueFactTableColumnsRefresh).not.toHaveBeenCalled();
@@ -379,7 +315,7 @@ describe("deleteEventForwarderEventsFactTableForDatasource", () => {
     const ft = eventsFactTable();
 
     mockedGetSinkType.mockReturnValue("bigquery");
-    mockedGetFactTablesForDatasource.mockResolvedValue([ft]);
+    mockedGetFactTable.mockResolvedValue(ft);
     mockedDeleteFactTable.mockResolvedValue(undefined as never);
 
     await deleteEventForwarderEventsFactTableForDatasource(
