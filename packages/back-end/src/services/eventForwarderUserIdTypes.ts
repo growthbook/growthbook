@@ -1,5 +1,6 @@
 import {
   buildUserIdTypesFromAttributeSchema,
+  getUserIdTypesToAdd,
   mergeUserIdTypes,
 } from "shared/util";
 import { SDKAttributeSchema } from "shared/types/organization";
@@ -16,9 +17,14 @@ import { ReqContext } from "back-end/types/request";
 async function ensureExposureQueriesAfterUserIdTypesSync(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface,
+  syncedUserIdTypes: string[],
 ): Promise<void> {
   try {
-    await ensureEventForwarderExposureQueries(context, eventForwarderConfig);
+    await ensureEventForwarderExposureQueries(
+      context,
+      eventForwarderConfig,
+      syncedUserIdTypes,
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     logger.error(
@@ -48,6 +54,7 @@ export async function initializeDatasourceUserIdTypesFromOrgAttributeSchema(
   );
 
   const existing = raw.settings?.userIdTypes ?? [];
+  const toAdd = getUserIdTypesToAdd(existing, built);
   const merged = mergeUserIdTypes(existing, built);
 
   if (merged.length === existing.length) {
@@ -70,6 +77,7 @@ export async function initializeDatasourceUserIdTypesFromOrgAttributeSchema(
     await ensureExposureQueriesAfterUserIdTypesSync(
       context,
       eventForwarderConfig,
+      toAdd.map((userIdType) => userIdType.userIdType),
     );
   }
 }
@@ -96,6 +104,7 @@ export async function syncAllEventForwarderDatasourceUserIdTypesFromAttributeSch
           raw.projects,
         );
         const existing = raw.settings?.userIdTypes ?? [];
+        const toAdd = getUserIdTypesToAdd(existing, built);
         const merged = mergeUserIdTypes(existing, built);
 
         if (merged.length === existing.length) {
@@ -117,7 +126,11 @@ export async function syncAllEventForwarderDatasourceUserIdTypesFromAttributeSch
           },
         });
 
-        await ensureExposureQueriesAfterUserIdTypesSync(context, config);
+        await ensureExposureQueriesAfterUserIdTypesSync(
+          context,
+          config,
+          toAdd.map((userIdType) => userIdType.userIdType),
+        );
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Unknown error";

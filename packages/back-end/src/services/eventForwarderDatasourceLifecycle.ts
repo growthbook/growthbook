@@ -45,79 +45,84 @@ async function deleteEventForwarderAndTeardown({
 
   await deleteExisting();
 
-  if (sinkType === "bigquery" || sinkType === "snowflake") {
-    logger.info(
-      {
-        organizationId: context.org.id,
-        eventForwarderConfigId: snapshot.eventForwarderConfigId,
-      },
-      "Event forwarder sync: invoking Confluent teardown via license server",
-    );
-    try {
-      await teardownBigQueryEventForwarderInfrastructureRemote({
-        organizationId: snapshot.organizationId,
-        datasourceId: snapshot.datasourceId,
-        sinkType: snapshot.sinkType,
-        topic: snapshot.topic,
-        connectorName: snapshot.connectorName,
-        connectorId: snapshot.connectorId,
-      });
+  switch (sinkType) {
+    case "bigquery":
+    case "snowflake": {
       logger.info(
         {
           organizationId: context.org.id,
           eventForwarderConfigId: snapshot.eventForwarderConfigId,
         },
-        "Event forwarder sync: license-server teardown completed",
-      );
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unknown teardown error";
-      logger.error(
-        {
-          err: error,
-          organizationId: context.org.id,
-          eventForwarderConfigId: snapshot.eventForwarderConfigId,
-          snapshot,
-        },
-        "Event forwarder teardown via license server failed after Mongo row was deleted",
+        "Event forwarder sync: invoking Confluent teardown via license server",
       );
       try {
-        await context.auditLog({
-          entity: {
-            object: "eventForwarderConfig",
-            id: snapshot.eventForwarderConfigId,
-            name: "",
-          },
-          event: "eventForwarderConfig.teardownFailure",
-          details: JSON.stringify({
-            error: message,
-            datasourceId: snapshot.datasourceId,
-            topic: snapshot.topic,
-            connectorName: snapshot.connectorName,
-            connectorId: snapshot.connectorId,
-            manualHint:
-              "Confluent connector and Kafka topics may still exist; use Confluent Cloud console or API with these names.",
-          }),
+        await teardownBigQueryEventForwarderInfrastructureRemote({
+          organizationId: snapshot.organizationId,
+          datasourceId: snapshot.datasourceId,
+          sinkType: snapshot.sinkType,
+          topic: snapshot.topic,
+          connectorName: snapshot.connectorName,
+          connectorId: snapshot.connectorId,
         });
-      } catch (auditErr) {
+        logger.info(
+          {
+            organizationId: context.org.id,
+            eventForwarderConfigId: snapshot.eventForwarderConfigId,
+          },
+          "Event forwarder sync: license-server teardown completed",
+        );
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Unknown teardown error";
         logger.error(
-          auditErr,
-          "Failed to write audit log for event forwarder teardown failure",
+          {
+            err: error,
+            organizationId: context.org.id,
+            eventForwarderConfigId: snapshot.eventForwarderConfigId,
+            snapshot,
+          },
+          "Event forwarder teardown via license server failed after Mongo row was deleted",
+        );
+        try {
+          await context.auditLog({
+            entity: {
+              object: "eventForwarderConfig",
+              id: snapshot.eventForwarderConfigId,
+              name: "",
+            },
+            event: "eventForwarderConfig.teardownFailure",
+            details: JSON.stringify({
+              error: message,
+              datasourceId: snapshot.datasourceId,
+              topic: snapshot.topic,
+              connectorName: snapshot.connectorName,
+              connectorId: snapshot.connectorId,
+              manualHint:
+                "Confluent connector and Kafka topics may still exist; use Confluent Cloud console or API with these names.",
+            }),
+          });
+        } catch (auditErr) {
+          logger.error(
+            auditErr,
+            "Failed to write audit log for event forwarder teardown failure",
+          );
+        }
+        throw new Error(
+          `Event forwarder Confluent teardown failed: ${message}. An audit entry was recorded with resource names for manual cleanup.`,
         );
       }
-      throw new Error(
-        `Event forwarder Confluent teardown failed: ${message}. An audit entry was recorded with resource names for manual cleanup.`,
+      break;
+    }
+    default: {
+      logger.info(
+        {
+          organizationId: context.org.id,
+          sinkType,
+          eventForwarderConfigId: snapshot.eventForwarderConfigId,
+        },
+        "Event forwarder sync: skipping Confluent teardown for sink type",
       );
     }
-  } else {
-    logger.info(
-      {
-        organizationId: context.org.id,
-        sinkType,
-        eventForwarderConfigId: snapshot.eventForwarderConfigId,
-      },
-      "Event forwarder sync: skipping Confluent teardown for sink type",
-    );
   }
 }
 
@@ -126,6 +131,8 @@ export async function deleteEventForwarderConfigForDatasource(
   datasource: DataSourceInterface,
   existing: EventForwarderConfigInterface,
 ): Promise<void> {
+  // Does not delete the Events fact table, exposure queries, or feature usage
+  // queries — those remain on the datasource until it is deleted.
   await deleteEventForwarderAndTeardown({
     context,
     datasource,
