@@ -156,6 +156,8 @@ describe("initializeDatasourceUserIdTypesFromOrgAttributeSchema", () => {
       expect.anything(),
       config,
       ["id"],
+      undefined,
+      [{ property: "id", datatype: "string", hashAttribute: true }],
     );
   });
 });
@@ -208,11 +210,15 @@ describe("syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema", () => 
       expect.anything(),
       { datasourceId: "ds_a" },
       ["device_id"],
+      undefined,
+      attributeSchema,
     );
     expect(mockedEnsureExposure).toHaveBeenCalledWith(
       expect.anything(),
       { datasourceId: "ds_b" },
       ["id", "device_id"],
+      undefined,
+      attributeSchema,
     );
     expect(mockedUpdate).toHaveBeenCalledWith(
       expect.anything(),

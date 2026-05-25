@@ -6,7 +6,6 @@ import {
 import cloneDeep from "lodash/cloneDeep";
 import { FaPlus } from "react-icons/fa";
 import {
-  EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
   getActiveFeatureUsageQuery,
   isEventForwarderManagedFeatureUsageQuery,
 } from "shared/util";
@@ -17,9 +16,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useAuth } from "@/services/auth";
 import { FeatureEvaluationQueryModal } from "./FeatureEvaluationQueryModal";
 
 type FeatureEvaluationQueriesProps = Omit<
@@ -27,7 +24,6 @@ type FeatureEvaluationQueriesProps = Omit<
   "onCancel"
 >;
 type UIMode = "view" | "edit" | "add" | "dimension";
-type SyncState = "idle" | "syncing" | "done" | "error";
 
 export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
   dataSource,
@@ -38,7 +34,6 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
 
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
-  const { apiCall } = useAuth();
 
   const featureUsageQuery = useMemo(
     () =>
@@ -53,14 +48,6 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
         : false,
     [featureUsageQuery],
   );
-
-  const showSyncWarehouseSchemaButton =
-    canEdit &&
-    dataSource.eventForwarderConfig?.status === "ready" &&
-    isManagedQuery;
-
-  const [syncState, setSyncState] = useState<SyncState>("idle");
-  const [syncError, setSyncError] = useState<string | null>(null);
 
   const handleActionDeleteClicked = useCallback(
     () => async () => {
@@ -106,27 +93,6 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
     [dataSource, onSave],
   );
 
-  const handleSyncWarehouseSchema = useCallback(async () => {
-    setSyncState("syncing");
-    setSyncError(null);
-    try {
-      await apiCall(
-        `/datasource/${dataSource.id}/event-forwarder/schematization-sync`,
-        { method: "POST" },
-      );
-      await new Promise((resolve) =>
-        setTimeout(resolve, EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS),
-      );
-      await onSave(cloneDeep<DataSourceInterfaceWithParams>(dataSource));
-      setSyncState("done");
-    } catch (e) {
-      setSyncError(e instanceof Error ? e.message : "Sync failed");
-      setSyncState("error");
-    } finally {
-      window.setTimeout(() => setSyncState("idle"), 3000);
-    }
-  }, [apiCall, dataSource, onSave]);
-
   if (!dataSource) {
     console.error("ImplementationError: dataSource cannot be null");
     return null;
@@ -145,17 +111,6 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
 
         {canEdit && (
           <Flex gap="2">
-            {showSyncWarehouseSchemaButton ? (
-              <Tooltip body="Pushes the latest Event Forwarder schema to your warehouse and re-validates the feature usage query.">
-                <Button
-                  variant="outline"
-                  loading={syncState === "syncing"}
-                  onClick={handleSyncWarehouseSchema}
-                >
-                  Sync warehouse schema
-                </Button>
-              </Tooltip>
-            ) : null}
             {!featureUsageQuery && (
               <Button onClick={() => setUiMode("add")}>
                 <FaPlus className="mr-1" /> Add
@@ -192,17 +147,6 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
         Returns a list of feature evaluation events for feature evaluation
         diagnostics.
       </p>
-
-      {syncState === "done" ? (
-        <Callout status="success" mt="3">
-          Warehouse schema sync completed. Feature usage query was re-validated.
-        </Callout>
-      ) : null}
-      {syncState === "error" && syncError ? (
-        <Callout status="error" mt="3">
-          {syncError}
-        </Callout>
-      ) : null}
 
       {!featureUsageQuery ? (
         <Callout status="info">
