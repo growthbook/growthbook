@@ -986,7 +986,7 @@ export default function PrerequisiteInput({
                       <Callout
                         status="warning"
                         mb="2"
-                        size="sm"
+                        size="small"
                         id="prerequisite-project-mismatch--field"
                         dismissible={true}
                       >
@@ -999,7 +999,7 @@ export default function PrerequisiteInput({
                     <PrerequisiteAlerts
                       environments={environments}
                       project={parentFeature.project || ""}
-                      size="sm"
+                      size="small"
                       mb="0"
                     />
                   )}
