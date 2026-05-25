@@ -131,6 +131,8 @@ export async function deleteEventForwarderConfigForDatasource(
   datasource: DataSourceInterface,
   existing: EventForwarderConfigInterface,
 ): Promise<void> {
+  // Does not delete the Events fact table, exposure queries, or feature usage
+  // queries — those remain on the datasource until it is deleted.
   await deleteEventForwarderAndTeardown({
     context,
     datasource,

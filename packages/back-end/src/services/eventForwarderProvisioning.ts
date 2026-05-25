@@ -13,6 +13,7 @@ import {
   postRestartEventForwarderToLicenseServer,
   postResumeEventForwarderToLicenseServer,
   postTeardownEventForwarderToLicenseServer,
+  postInitialEventForwarderSchematizationPingToLicenseServer,
   postUpdateEventForwarderCredentialsToLicenseServer,
   postUpdateEventForwarderSchemaToLicenseServer,
 } from "back-end/src/enterprise/licenseUtil";
@@ -26,6 +27,8 @@ import {
   queueDelayedFactTableColumnsRefreshForEventForwarderDatasources,
 } from "back-end/src/services/eventForwarderFactTable";
 import { ensureEventForwarderExposureQueries } from "back-end/src/services/eventForwarderExposureQueries";
+import { ensureEventForwarderFeatureUsageQuery } from "back-end/src/services/eventForwarderFeatureUsageQueries";
+import { queueDelayedEventForwarderWarehouseSyncForDatasource } from "back-end/src/services/eventForwarderWarehouseSync";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
@@ -194,6 +197,24 @@ export async function provisionEventForwarderThroughLicenseServer(
           error: message,
         },
         "Failed to create exposure queries after event forwarder provisioning",
+      );
+    }
+
+    try {
+      await ensureEventForwarderFeatureUsageQuery(
+        context,
+        eventForwarderConfig,
+        datasourceParams,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      logger.error(
+        {
+          datasourceId: eventForwarderConfig.datasourceId,
+          organizationId: context.org.id,
+          error: message,
+        },
+        "Failed to create feature usage query after event forwarder provisioning",
       );
     }
 
@@ -461,6 +482,54 @@ export async function resumeEventForwarderThroughLicenseServer(
 
     throw new Error(message);
   }
+}
+
+/**
+ * Manually evolves the forwarder schema (if needed) and always sends a gb-update
+ * ping so Confluent sinks re-schematize warehouse tables.
+ */
+export async function syncEventForwarderSchematizationThroughLicenseServer(
+  context: ReqContext,
+  eventForwarderConfig: EventForwarderConfigInterface,
+): Promise<{ schemaChanged: boolean; pingSent: boolean }> {
+  if (eventForwarderConfig.status !== "ready") {
+    throw new Error("Only ready event forwarders can sync schematization");
+  }
+
+  const topic = eventForwarderConfig.topic?.trim();
+  if (!topic) {
+    throw new Error("Cannot sync schematization without a forwarder topic");
+  }
+
+  const attributeSchema = context.org.settings?.attributeSchema ?? [];
+  const schemaChanged = await updateEventForwarderSchemaThroughLicenseServer(
+    context,
+    eventForwarderConfig,
+    attributeSchema,
+  );
+
+  const refreshed =
+    await context.models.eventForwarderConfigs.dangerousGetByDatasourceIdBypassPermission(
+      eventForwarderConfig.datasourceId,
+    );
+  const schemaId = refreshed?.schemaId ?? eventForwarderConfig.schemaId;
+  if (schemaId <= 0) {
+    throw new Error("Cannot sync schematization without a valid schema id");
+  }
+
+  await postInitialEventForwarderSchematizationPingToLicenseServer({
+    organizationId: context.org.id,
+    datasourceId: eventForwarderConfig.datasourceId,
+    topic,
+    schemaId,
+  });
+
+  await queueDelayedEventForwarderWarehouseSyncForDatasource(
+    context,
+    eventForwarderConfig.datasourceId,
+  );
+
+  return { schemaChanged, pingSent: true };
 }
 
 /**

@@ -12,6 +12,7 @@ import {
 } from "back-end/src/enterprise/licenseUtil";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
+import { queueDelayedEventForwarderWarehouseSyncForDatasource } from "back-end/src/services/eventForwarderWarehouseSync";
 
 export function mapLicenseConnectorPhaseToEventForwarderStatus(
   phase: EventForwarderLicenseConnectorPhase,
@@ -47,15 +48,15 @@ export function buildEventForwarderStatusResponse(
 async function sendInitialSchematizationPingIfNeeded(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface,
-): Promise<void> {
+): Promise<boolean> {
   if (eventForwarderConfig.initialGbUpdatePingSent) {
-    return;
+    return false;
   }
 
   const topic = eventForwarderConfig.topic?.trim();
   const schemaId = eventForwarderConfig.schemaId;
   if (!topic || schemaId <= 0) {
-    return;
+    return false;
   }
 
   try {
@@ -68,6 +69,11 @@ async function sendInitialSchematizationPingIfNeeded(
     await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
       initialGbUpdatePingSent: true,
     });
+    await queueDelayedEventForwarderWarehouseSyncForDatasource(
+      context,
+      eventForwarderConfig.datasourceId,
+    );
+    return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     logger.error(
@@ -79,6 +85,7 @@ async function sendInitialSchematizationPingIfNeeded(
       },
       "Failed to publish initial event forwarder schematization ping",
     );
+    return false;
   }
 }
 

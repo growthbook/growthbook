@@ -962,6 +962,10 @@ app.post(
   "/datasource/:id/event-forwarder/resume",
   datasourcesController.postResumeEventForwarder,
 );
+app.post(
+  "/datasource/:id/event-forwarder/schematization-sync",
+  datasourcesController.postEventForwarderSchematizationSync,
+);
 app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
 app.get("/datasource/:id/queries", datasourcesController.getDataSourceQueries);
 app.post(

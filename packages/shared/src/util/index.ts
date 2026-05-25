@@ -44,6 +44,7 @@ export * from "./custom-fields";
 export * from "./datasource";
 export * from "./event-forwarder-fact-table";
 export * from "./event-forwarder-exposure-queries";
+export * from "./event-forwarder-feature-usage-queries";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
 

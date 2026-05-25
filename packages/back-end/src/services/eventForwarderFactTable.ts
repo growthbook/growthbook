@@ -250,6 +250,9 @@ export async function deleteEventForwarderEventsFactTableForDatasource(
   context: ReqContext,
   datasource: DataSourceInterface,
 ): Promise<void> {
+  // Only invoked from deleteDatasource — not from event forwarder teardown.
+  // TODO(event-forwarder): if we ever delete managed exposure/featureUsage
+  // queries on forwarder disconnect, keep fact table cleanup aligned with that policy.
   const sinkType = getEventForwarderSinkTypeForDatasource(datasource);
   if (sinkType !== "bigquery" && sinkType !== "snowflake") {
     return;

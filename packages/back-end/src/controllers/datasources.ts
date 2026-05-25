@@ -73,6 +73,7 @@ import {
   pauseEventForwarderThroughLicenseServer,
   provisionEventForwarderThroughLicenseServer,
   resumeEventForwarderThroughLicenseServer,
+  syncEventForwarderSchematizationThroughLicenseServer,
   updateEventForwarderCredentialsThroughLicenseServer,
 } from "back-end/src/services/eventForwarderProvisioning";
 import { syncEventForwarderStatusFromLicenseServer } from "back-end/src/services/eventForwarderConnectorStatusSync";
@@ -1203,6 +1204,70 @@ export async function postResumeEventForwarder(
     res.status(200).json({ status: 200 });
   } catch (e) {
     req.log.error(e, "Failed to resume event forwarder");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function postEventForwarderSchematizationSync(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<
+    | { status: 200; schemaChanged: boolean; pingSent: boolean }
+    | {
+        status: 400 | 403 | 404;
+        message: string;
+      }
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const datasource = await getDataSourceById(context, id);
+  if (!datasource) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+    return;
+  }
+
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const eventForwarderConfig = await getEventForwarderConfigForDatasource(
+    context,
+    datasource.id,
+  );
+  if (!eventForwarderConfig) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find event forwarder config",
+    });
+    return;
+  }
+
+  if (eventForwarderConfig.status !== "ready") {
+    res.status(400).json({
+      status: 400,
+      message: "Only ready event forwarders can sync schematization",
+    });
+    return;
+  }
+
+  try {
+    const result = await syncEventForwarderSchematizationThroughLicenseServer(
+      context,
+      eventForwarderConfig,
+    );
+    res.status(200).json({
+      status: 200,
+      schemaChanged: result.schemaChanged,
+      pingSent: result.pingSent,
+    });
+  } catch (e) {
+    req.log.error(e, "Failed to sync event forwarder schematization");
     res.status(400).json({
       status: 400,
       message: e.message || "An error occurred",

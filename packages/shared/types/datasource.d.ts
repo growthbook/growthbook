@@ -186,6 +186,9 @@ export interface ExposureQuery {
 export interface FeatureUsageQuery {
   id: string;
   query: string;
+  error?: string;
+  /** Set to "api" for queries auto-created by Event Forwarder (not deletable in UI). */
+  managedBy?: "" | "api";
 }
 
 export interface UserIdType {
