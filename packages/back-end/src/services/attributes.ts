@@ -180,7 +180,22 @@ export async function updateAttributeSchema(
       },
       "Managed Warehouse sync failed; rolling back attributeSchema",
     );
-    await rollbackAttributeSchema(context, postMigrationCurrentSchema);
+    const { rolledBack } = await rollbackAttributeSchema(
+      context,
+      postMigrationCurrentSchema,
+    );
+    if (!rolledBack) {
+      // Mongo still holds the user's edit while LS / ClickHouse may be in a
+      // different state. Surface a partial-state error instead of the
+      // original sync error so the user doesn't naively retry against a
+      // mutated baseline — manual reconciliation is needed. Chain the
+      // original sync error as `cause` so Sentry / debuggers can still
+      // see the underlying failure that triggered the rollback attempt.
+      throw new Error(
+        "Managed warehouse sync failed and we couldn't undo the partial change. Your attribute edit may be partially applied. Please contact support before retrying.",
+        { cause: e },
+      );
+    }
     // Preserve `ManagedClickhouseClientError` so the API layer can use its
     // `status` (e.g. 404, 400) instead of falling back to a generic 400.
     throw e;
@@ -395,12 +410,14 @@ async function syncManagedWarehouseEventsFactTable(
 /**
  * Restore the org's attributeSchema after a failed Managed Warehouse sync,
  * landing on the post-migration / pre-edit state so the migration backfill
- * (if any) is preserved across retries.
+ * (if any) is preserved across retries. Returns whether the rollback write
+ * itself succeeded so the caller can surface a partial-state error when it
+ * didn't.
  */
 async function rollbackAttributeSchema(
   context: ReqContext,
   postMigrationCurrentSchema: SDKAttribute[],
-): Promise<void> {
+): Promise<{ rolledBack: boolean }> {
   try {
     await updateOrganization(context.org.id, {
       settings: {
@@ -408,11 +425,13 @@ async function rollbackAttributeSchema(
         attributeSchema: postMigrationCurrentSchema,
       },
     });
+    return { rolledBack: true };
   } catch (rollbackError) {
     logger.error(
       rollbackError,
       "Failed to roll back attributeSchema after Managed Warehouse sync failure",
     );
+    return { rolledBack: false };
   }
 }
 
