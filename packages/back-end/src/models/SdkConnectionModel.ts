@@ -255,7 +255,7 @@ export async function createSDKConnection(
 
   if (connection.proxy.enabled) {
     if (connection.proxy.host) {
-      const res = await testProxyConnection(connection, false);
+      const res = await testProxyConnection(context, connection, false);
       if (res) {
         connection.proxy.connected = !res.error;
         connection.proxy.version = res.version || "";
@@ -349,6 +349,7 @@ export async function editSDKConnection(
 
     if (addEnvProxySettings(newProxy).host) {
       const res = await testProxyConnection(
+        context,
         {
           ...connection,
           proxy: addEnvProxySettings(newProxy),
@@ -517,9 +518,9 @@ export async function clearProxyError(
 }
 
 export async function testProxyConnection(
+  context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,
   updateDB: boolean = true,
-  context?: ReqContext | ApiReqContext,
 ): Promise<ProxyTestResult | undefined> {
   const proxy = connection.proxy;
   if (!proxy) {
