@@ -49,21 +49,23 @@ export function buildEventForwarderExposureQuerySql({
   tableRef: string;
   userIdType: string;
 }): string {
-  const quotedId =
-    sinkType === "bigquery" ? `\`${userIdType}\`` : `"${userIdType}"`;
-  const select = `SELECT
+  if (sinkType === "bigquery") {
+    const quotedId = `\`${userIdType}\``;
+    return `SELECT
   ${quotedId} AS ${quotedId},
   timestamp AS timestamp,
   experiment_id AS experiment_id,
   variation_id AS variation_id
-FROM ${tableRef}`;
-
-  if (sinkType === "bigquery") {
-    return `${select}
+FROM ${tableRef}
 WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{endDate}}'`;
   }
 
-  return select;
+  return `SELECT
+  ${userIdType.toUpperCase()} AS ${userIdType},
+  TIMESTAMP AS timestamp,
+  EXPERIMENT_ID AS experiment_id,
+  VARIATION_ID AS variation_id
+FROM ${tableRef}`;
 }
 
 export type GenerateEventForwarderExposureQueriesParams =

@@ -1,7 +1,9 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
   DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
+  EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
   formatBigQueryEventForwarderDestination,
   formatSnowflakeEventForwarderDestination,
   parseBigQueryEventForwarderDestination,
@@ -20,7 +22,8 @@ import {
 } from "shared/types/datasource";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
-import { Box, Card, Flex } from "@radix-ui/themes";
+import { Box, Card, Flex, IconButton } from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import BigQueryEventForwarderForm from "@/components/Settings/BigQueryEventForwarderForm";
 import SnowflakeEventForwarderForm from "@/components/Settings/SnowflakeEventForwarderForm";
@@ -32,6 +35,12 @@ import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import Modal from "@/ui/Modal";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -44,7 +53,10 @@ type Props = {
   dataSource: DataSourceInterfaceWithParams;
   canEdit?: boolean;
   onRefresh: () => Promise<void>;
+  onSave: (dataSource: DataSourceInterfaceWithParams) => Promise<void>;
 };
+
+type SyncState = "idle" | "syncing" | "done" | "error";
 
 type EventForwarderDatasourceDraft = {
   type: "bigquery" | "snowflake";
@@ -263,6 +275,16 @@ function EventForwarderConfigField({
   );
 }
 
+function SyncSubmittingRef({
+  submittingRef,
+}: {
+  submittingRef: React.MutableRefObject<boolean>;
+}) {
+  const { loading } = useModalForm();
+  submittingRef.current = loading;
+  return null;
+}
+
 function EventForwarderConfirmButton({
   canConfirmEventForwarder,
   usEventForwarderFlowConsent,
@@ -307,6 +329,8 @@ function EventForwarderModal({
   onClearError: () => void;
 }) {
   const { apiCall } = useAuth();
+  const isSubmittingRef = useRef(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [datasourceDraft, setDatasourceDraft] =
     useState<EventForwarderDatasourceDraft>(() => ({
       type: dataSource.type as "bigquery" | "snowflake",
@@ -353,78 +377,100 @@ function EventForwarderModal({
 
   const canConfirmEventForwarder = getCanConfirmEventForwarder(datasourceDraft);
 
+  const attemptClose = useCallback(() => {
+    if (isSubmittingRef.current) {
+      setShowCloseConfirm(true);
+      return;
+    }
+    onCancel();
+  }, [onCancel]);
+
   return (
-    <Modal.Root
-      open={true}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) onCancel();
-      }}
-      size="md"
-      trackingEventModalType=""
-    >
-      <ModalForm
-        onSubmit={async () => {
-          if (!eventForwarderConfig) return;
-          try {
-            await testEventForwarderAccess();
-            await apiCall(`/datasource/${dataSource.id}/event-forwarder`, {
-              method: "PUT",
-              body: JSON.stringify({
-                eventForwarderConfig,
-                ...(eventForwarderParamsForSubmit
-                  ? { params: eventForwarderParamsForSubmit }
-                  : {}),
-              }),
-            });
-            onClearError();
-            await onRefresh();
-            onCancel();
-          } catch {
-            throw new Error(EVENT_FORWARDER_MODAL_FAILURE_MESSAGE);
-          }
+    <>
+      <Modal.Root
+        open={true}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) attemptClose();
         }}
+        size="md"
+        trackingEventModalType=""
       >
-        <Modal.Header>
-          <Modal.Title>{modalTitle}</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {eventForwarderConfig?.sinkType === "bigquery" ? (
-            <BigQueryEventForwarderForm
-              eventForwarderConfig={eventForwarderConfig}
-              setEventForwarderConfig={setEventForwarderConfig}
-              className="form-group col-md-12 px-0"
-            />
-          ) : null}
-          {eventForwarderConfig?.sinkType === "snowflake" ? (
-            <SnowflakeEventForwarderForm
-              eventForwarderConfig={eventForwarderConfig}
-              setEventForwarderConfig={setEventForwarderConfig}
-            />
-          ) : null}
-          <Callout status="info" mb="0" mt="3" icon={null}>
-            <Checkbox
-              value={usEventForwarderFlowConsent}
-              setValue={setUsEventForwarderFlowConsent}
-              disabled={isEditingEventForwarder}
-              label="I understand that event data will flow through GrowthBook's US servers and confirm I'm authorized to enable this for my organization."
-              weight="regular"
-            />
-          </Callout>
-        </Modal.Body>
-        <Modal.Footer>
-          <Modal.Close>
-            <Button variant="ghost" onClick={onCancel}>
+        <ModalForm
+          onSubmit={async () => {
+            if (!eventForwarderConfig) return;
+            try {
+              await testEventForwarderAccess();
+              await apiCall(`/datasource/${dataSource.id}/event-forwarder`, {
+                method: "PUT",
+                body: JSON.stringify({
+                  eventForwarderConfig,
+                  ...(eventForwarderParamsForSubmit
+                    ? { params: eventForwarderParamsForSubmit }
+                    : {}),
+                }),
+              });
+              onClearError();
+              await onRefresh();
+              onCancel();
+            } catch {
+              throw new Error(EVENT_FORWARDER_MODAL_FAILURE_MESSAGE);
+            }
+          }}
+        >
+          <SyncSubmittingRef submittingRef={isSubmittingRef} />
+          <Modal.Header>
+            <Modal.Title>{modalTitle}</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            {eventForwarderConfig?.sinkType === "bigquery" ? (
+              <BigQueryEventForwarderForm
+                eventForwarderConfig={eventForwarderConfig}
+                setEventForwarderConfig={setEventForwarderConfig}
+                className="form-group col-md-12 px-0"
+              />
+            ) : null}
+            {eventForwarderConfig?.sinkType === "snowflake" ? (
+              <SnowflakeEventForwarderForm
+                eventForwarderConfig={eventForwarderConfig}
+                setEventForwarderConfig={setEventForwarderConfig}
+              />
+            ) : null}
+            <Callout status="info" mb="0" mt="3" icon={null}>
+              <Checkbox
+                value={usEventForwarderFlowConsent}
+                setValue={setUsEventForwarderFlowConsent}
+                disabled={isEditingEventForwarder}
+                label="I understand that event data will flow through GrowthBook's US servers and confirm I'm authorized to enable this for my organization."
+                weight="regular"
+              />
+            </Callout>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="ghost" onClick={attemptClose}>
               Cancel
             </Button>
-          </Modal.Close>
-          <EventForwarderConfirmButton
-            canConfirmEventForwarder={canConfirmEventForwarder}
-            usEventForwarderFlowConsent={usEventForwarderFlowConsent}
-            datasourceDraft={datasourceDraft}
-          />
-        </Modal.Footer>
-      </ModalForm>
-    </Modal.Root>
+            <EventForwarderConfirmButton
+              canConfirmEventForwarder={canConfirmEventForwarder}
+              usEventForwarderFlowConsent={usEventForwarderFlowConsent}
+              datasourceDraft={datasourceDraft}
+            />
+          </Modal.Footer>
+        </ModalForm>
+      </Modal.Root>
+      {showCloseConfirm ? (
+        <ConfirmDialog
+          title="Cancel event forwarder setup?"
+          content="Event forwarder setup is still in progress. Closing this dialog won't cancel the in-flight request. Are you sure you want to close?"
+          yesText="Close anyway"
+          noText="Keep setup open"
+          onConfirm={() => {
+            setShowCloseConfirm(false);
+            onCancel();
+          }}
+          onCancel={() => setShowCloseConfirm(false)}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -432,15 +478,40 @@ export default function EventForwarder({
   dataSource,
   canEdit = true,
   onRefresh,
+  onSave,
 }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [syncState, setSyncState] = useState<SyncState>("idle");
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const { apiCall } = useAuth();
   const eventForwarderConfig = dataSource.eventForwarderConfig;
 
   const handleRefresh = useCallback(async () => {
     await onRefresh();
   }, [onRefresh]);
+
+  const handleSyncWarehouseSchema = useCallback(async () => {
+    setSyncState("syncing");
+    setSyncError(null);
+    try {
+      await apiCall(
+        `/datasource/${dataSource.id}/event-forwarder/schematization-sync`,
+        { method: "POST" },
+      );
+      await new Promise((resolve) =>
+        setTimeout(resolve, EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS),
+      );
+      await onSave(cloneDeep<DataSourceInterfaceWithParams>(dataSource));
+      setSyncState("done");
+    } catch (e) {
+      setSyncError(e instanceof Error ? e.message : "Sync failed");
+      setSyncState("error");
+    } finally {
+      window.setTimeout(() => setSyncState("idle"), 3000);
+    }
+  }, [apiCall, dataSource, onSave]);
 
   const { isProvisioning, isError, pollTimedOut, taskErrors } =
     useEventForwarderProvisioningPoll({
@@ -491,64 +562,102 @@ export default function EventForwarder({
           ) : null}
         </Flex>
 
-        <Flex align="center" gap="4">
-          {canEdit && eventForwarderConfig ? (
-            <>
-              <Button variant="outline" onClick={() => setShowEditModal(true)}>
-                Edit Event Forwarder
-              </Button>
-              {/* TEMP: remove once self-serve delete ships */}
-              <Button
-                variant="outline"
-                color="red"
-                setError={setError}
-                onClick={async () => {
-                  if (
-                    !window.confirm(
-                      "Delete this Event Forwarder configuration? This cannot be undone from the UI.",
-                    )
-                  ) {
-                    return;
-                  }
-                  await apiCall(
-                    `/datasource/${dataSource.id}/event-forwarder`,
-                    { method: "DELETE" },
-                  );
-                  await onRefresh();
-                }}
-              >
-                Delete Event Forwarder (temp)
-              </Button>
-            </>
-          ) : null}
-          {eventForwarderConfig && canToggle && (
+        {canEdit && eventForwarderConfig ? (
+          <Flex align="center" gap="2">
+            <Button variant="outline" onClick={() => setShowEditModal(true)}>
+              Edit Event Forwarder
+            </Button>
+            {/* TEMP: remove once self-serve delete ships */}
             <Button
               variant="outline"
-              color={isReady ? "red" : "gray"}
+              color="red"
               setError={setError}
-              style={{
-                alignItems: "center",
-              }}
               onClick={async () => {
-                await apiCall(
-                  `/datasource/${dataSource.id}/event-forwarder/${action}`,
-                  {
-                    method: "POST",
-                  },
-                );
+                if (
+                  !window.confirm(
+                    "Delete this Event Forwarder configuration? This cannot be undone from the UI.",
+                  )
+                ) {
+                  return;
+                }
+                await apiCall(`/datasource/${dataSource.id}/event-forwarder`, {
+                  method: "DELETE",
+                });
                 await onRefresh();
               }}
             >
-              {isReady ? "Pause" : "Resume"}
+              Delete Event Forwarder (temp)
             </Button>
-          )}
-        </Flex>
+            {canToggle ? (
+              <DropdownMenu
+                trigger={
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    radius="full"
+                    size="2"
+                    highContrast
+                  >
+                    <BsThreeDotsVertical size={16} />
+                  </IconButton>
+                }
+                menuPlacement="end"
+                open={menuOpen}
+                onOpenChange={setMenuOpen}
+              >
+                {isReady ? (
+                  <DropdownMenuItem
+                    disabled={syncState === "syncing"}
+                    onClick={async () => {
+                      setMenuOpen(false);
+                      await handleSyncWarehouseSchema();
+                    }}
+                  >
+                    Sync warehouse schema
+                  </DropdownMenuItem>
+                ) : null}
+                {isReady ? <DropdownMenuSeparator /> : null}
+                <DropdownMenuItem
+                  color={isReady ? "red" : undefined}
+                  onClick={async () => {
+                    setMenuOpen(false);
+                    try {
+                      await apiCall(
+                        `/datasource/${dataSource.id}/event-forwarder/${action}`,
+                        { method: "POST" },
+                      );
+                      await onRefresh();
+                    } catch (e) {
+                      setError(
+                        e instanceof Error ? e.message : "Action failed",
+                      );
+                    }
+                  }}
+                >
+                  {isReady ? "Pause" : "Resume"}
+                </DropdownMenuItem>
+              </DropdownMenu>
+            ) : null}
+          </Flex>
+        ) : null}
       </Flex>
 
       <p>
         Forward SDK event data from GrowthBook to this datasource for downstream
         analysis and diagnostics.
       </p>
+
+      {syncState === "done" ? (
+        <Callout status="success" mt="3">
+          Warehouse schema sync completed. Event Forwarder queries were
+          re-validated.
+        </Callout>
+      ) : null}
+      {syncState === "error" && syncError ? (
+        <Callout status="error" mt="3">
+          {syncError}
+        </Callout>
+      ) : null}
 
       {!eventForwarderConfig ? (
         <Callout status="info">
