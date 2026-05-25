@@ -66,17 +66,9 @@ export async function updateAttributeSchema(
   {
     newAttributeSchema,
     renames = [],
-    skipManagedWarehouseNameValidation = false,
   }: {
     newAttributeSchema: SDKAttribute[];
     renames?: { from: string; to: string }[];
-    /**
-     * Bypass the Managed Warehouse column-name validation. Intended for
-     * system-triggered paths (e.g. `$groups` auto-add) where we accept that
-     * the attribute won't materialize — the license server silently skips
-     * invalid names during column derivation.
-     */
-    skipManagedWarehouseNameValidation?: boolean;
   },
 ): Promise<{ persistedAttributeSchema: SDKAttribute[] }> {
   const { org } = context;
@@ -162,7 +154,6 @@ export async function updateAttributeSchema(
       attributeSchema: finalAttributeSchema,
       previousAttributeSchema: postMigrationCurrentSchema,
       renames,
-      skipNameValidation: skipManagedWarehouseNameValidation,
     });
   } catch (e) {
     logger.error(
@@ -191,10 +182,13 @@ export async function updateAttributeSchema(
       // mutated baseline — manual reconciliation is needed. Chain the
       // original sync error as `cause` so Sentry / debuggers can still
       // see the underlying failure that triggered the rollback attempt.
-      throw new Error(
+      const wrapped: Error & { cause?: unknown } = new Error(
         "Managed warehouse sync failed and we couldn't undo the partial change. Your attribute edit may be partially applied. Please contact support before retrying.",
-        { cause: e },
       );
+      // Set `cause` manually — back-end tsconfig targets es2020 which doesn't
+      // include the ES2022 `ErrorOptions` constructor arg.
+      wrapped.cause = e;
+      throw wrapped;
     }
     // Preserve `ManagedClickhouseClientError` so the API layer can use its
     // `status` (e.g. 404, 400) instead of falling back to a generic 400.
@@ -246,34 +240,60 @@ type MaterializedColumnDiff = {
  * source column exists in `previous`, the destination exists in `final`, and
  * the destination isn't already a different existing column. Other renames
  * fall through to natural add/delete.
+ *
+ * Renames are passed as SDK attribute property values, which map to the
+ * materialized column's `sourceField`. Add/delete detection and the rename
+ * result are keyed by `columnName` (the fact-table column field). For most
+ * attributes `columnName === sourceField`, but a legacy key-attributes row
+ * can have a custom `columnName` distinct from its `sourceField` — those
+ * are matched via `sourceField` so the rename still resolves.
  */
 export function diffMaterializedColumnsForFactTable(
   previous: MaterializedColumn[],
   final: MaterializedColumn[],
   renames: { from: string; to: string }[],
 ): MaterializedColumnDiff {
-  const previousByName = new Map(previous.map((c) => [c.columnName, c]));
-  const finalByName = new Map(final.map((c) => [c.columnName, c]));
+  const previousByColumnName = new Map(previous.map((c) => [c.columnName, c]));
+  const finalByColumnName = new Map(final.map((c) => [c.columnName, c]));
+  // sourceField-keyed maps drive the rename match (UI/API renames are SDK
+  // property values, which align with sourceField — not columnName).
+  const previousBySourceField = new Map(
+    previous.map((c) => [c.sourceField, c]),
+  );
+  const finalBySourceField = new Map(final.map((c) => [c.sourceField, c]));
 
   const appliedRenames: { from: string; to: string }[] = [];
   for (const { from, to } of renames) {
     if (from === to) continue;
-    const prev = previousByName.get(from);
-    if (!prev || !finalByName.has(to)) continue;
-    if (previousByName.has(to)) continue;
-    previousByName.delete(from);
-    previousByName.set(to, { ...prev, columnName: to, sourceField: to });
-    appliedRenames.push({ from, to });
+    const prev = previousBySourceField.get(from);
+    const next = finalBySourceField.get(to);
+    if (!prev || !next) continue;
+    // Translate the SDK-property rename into a fact-table column rename.
+    // When the legacy override path keeps `columnName` unchanged across the
+    // rename (e.g. customer-customized "custom_utm" stays "custom_utm"),
+    // there's nothing to do on the fact-table column itself.
+    if (prev.columnName === next.columnName) continue;
+    // Bail if the destination columnName is already occupied by a different
+    // column in `previous` — falling through to natural add/delete is safer
+    // than overwriting an unrelated entry.
+    if (previousByColumnName.has(next.columnName)) continue;
+    previousByColumnName.delete(prev.columnName);
+    previousByColumnName.set(next.columnName, {
+      ...prev,
+      columnName: next.columnName,
+      sourceField: next.sourceField,
+    });
+    appliedRenames.push({ from: prev.columnName, to: next.columnName });
   }
 
   const columnsToAdd: MaterializedColumn[] = [];
-  for (const [name, col] of finalByName) {
-    if (!previousByName.has(name)) columnsToAdd.push(col);
+  for (const [name, col] of finalByColumnName) {
+    if (!previousByColumnName.has(name)) columnsToAdd.push(col);
   }
 
   const columnsToDelete: string[] = [];
-  for (const name of previousByName.keys()) {
-    if (!finalByName.has(name)) columnsToDelete.push(name);
+  for (const name of previousByColumnName.keys()) {
+    if (!finalByColumnName.has(name)) columnsToDelete.push(name);
   }
 
   return { columnsToAdd, columnsToDelete, columnsToRename: appliedRenames };

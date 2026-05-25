@@ -101,7 +101,6 @@ import {
   activateRoleById,
   addGetStartedChecklistItem,
 } from "back-end/src/models/OrganizationModel";
-import { updateAttributeSchema } from "back-end/src/services/attributes";
 import { ConfigFile } from "back-end/src/init/config";
 import { usingOpenId } from "back-end/src/services/auth";
 import { getSSOConnectionSummary } from "back-end/src/models/SSOConnectionModel";
@@ -1729,26 +1728,24 @@ export const autoAddGroupsAttribute = async (
       },
     };
 
-    added = true;
-
-    const { persistedAttributeSchema } = await updateAttributeSchema(context, {
-      newAttributeSchema,
-      // `$groups` isn't a valid ClickHouse identifier; skip the Managed
-      // Warehouse name check so system-triggered auto-add always succeeds.
-      // The attribute is still created for SDK / saved-group purposes,
-      // and the sync layer silently skips it from materialization.
-      skipManagedWarehouseNameValidation: true,
-    });
-
-    // Use `persistedAttributeSchema` (not `newAttributeSchema`) so the audit
-    // entry reflects any first-time-migration backfill that `updateAttributeSchema`
-    // folded in alongside the `$groups` add.
     const updates = {
       settings: {
         ...org.settings,
-        attributeSchema: persistedAttributeSchema,
+        attributeSchema: newAttributeSchema,
       },
     };
+
+    added = true;
+
+    // Persist via `updateOrganization` instead of `updateAttributeSchema` so
+    // a Managed Warehouse LS outage (423 lock, transient failure) doesn't
+    // block adding `$groups`. The saved-groups page swallows errors, so a
+    // sync-driven rollback here would leave targeting silently broken with
+    // no `$groups` in the schema. `$groups` isn't a valid ClickHouse
+    // identifier anyway, so it can't be materialized — skipping the LS
+    // round-trip costs nothing. The next user-initiated attribute edit
+    // will run sync and pick up `$groups` as part of the normal flow.
+    await updateOrganization(org.id, updates);
 
     await req.audit({
       event: "organization.update",

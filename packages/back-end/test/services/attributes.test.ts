@@ -184,6 +184,36 @@ describe("diffMaterializedColumnsForFactTable", () => {
     expect(diff.columnsToDelete).toEqual(["legacy"]);
   });
 
+  it("resolves the rename for legacy rows where columnName differs from sourceField", () => {
+    // Legacy key-attributes UI let customers pick a custom CH columnName
+    // (sourceField is the SDK property). When the SDK property is later
+    // renamed, the rename map carries the property value — which matches
+    // sourceField, not columnName. The diff must still resolve.
+    const diff = diffMaterializedColumnsForFactTable(
+      [col("custom_utm", { sourceField: "utmSource" }), col("user_id")],
+      [col("renamed_utm", { sourceField: "utmCampaign" }), col("user_id")],
+      [{ from: "utmSource", to: "utmCampaign" }],
+    );
+    expect(diff.columnsToRename).toEqual([
+      { from: "custom_utm", to: "renamed_utm" },
+    ]);
+    expect(diff.columnsToAdd).toEqual([]);
+    expect(diff.columnsToDelete).toEqual([]);
+  });
+
+  it("is a no-op when the legacy override keeps columnName unchanged across a rename", () => {
+    // If LS preserves the custom columnName across an SDK property rename,
+    // there's no fact-table column rename to apply.
+    const diff = diffMaterializedColumnsForFactTable(
+      [col("custom_utm", { sourceField: "utmSource" })],
+      [col("custom_utm", { sourceField: "utmCampaign" })],
+      [{ from: "utmSource", to: "utmCampaign" }],
+    );
+    expect(diff.columnsToRename).toEqual([]);
+    expect(diff.columnsToAdd).toEqual([]);
+    expect(diff.columnsToDelete).toEqual([]);
+  });
+
   it("preserves the column's datatype and arrayElementType when renaming", () => {
     const diff = diffMaterializedColumnsForFactTable(
       [
@@ -287,7 +317,6 @@ describe("updateAttributeSchema", () => {
       attributeSchema: finalAttributeSchema,
       previousAttributeSchema: postMigrationCurrentSchema,
       renames: [{ from: "device_id", to: "deviceId" }],
-      skipNameValidation: false,
     });
     expect(mockUpdateFactTableColumns).not.toHaveBeenCalled();
   });

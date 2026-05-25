@@ -137,10 +137,11 @@ function getBuiltInWarehouseResources(
             ...baseColumns,
             ...materializedFactColumns,
           }),
-          // userIdTypes mirror the materialized identifier columns. Empty
-          // is fine — the LS's first sync after creation will populate it
-          // if the org has any identifier attributes.
-          userIdTypes: userIdTypes.length > 0 ? userIdTypes : ["user_id"],
+          // userIdTypes mirrors the materialized identifier columns — and
+          // stays empty when there are none, matching the datasource's
+          // derived `userIdTypes` so the two never disagree on assignment
+          // units for an org without identifier attributes configured yet.
+          userIdTypes,
           eventName: "",
         },
         filters: [],
