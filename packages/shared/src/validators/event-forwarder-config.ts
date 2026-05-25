@@ -1,11 +1,7 @@
 import { z } from "zod";
 import { baseSchema } from "./base-model";
 
-const eventForwarderSinkTypeValidator = z.enum([
-  "bigquery",
-  "snowflake",
-  "databricks",
-]);
+const eventForwarderSinkTypeValidator = z.enum(["bigquery", "snowflake"]);
 const eventForwarderStatusValidator = z.enum([
   "pending",
   "ready",
@@ -29,6 +25,8 @@ export const eventForwarderConfigValidator = baseSchema
     connectorName: z.string().optional(),
     connectorId: z.string().optional(),
     lastProvisioningError: z.string().optional(),
+    /** Set after the first successful gb-update schematization ping on initial setup. */
+    initialGbUpdatePingSent: z.boolean().optional(),
   })
   .strict();
 

@@ -1,4 +1,9 @@
-export type EventForwarderSinkType = "bigquery" | "snowflake" | "databricks";
+/**
+ * Event forwarder sink types backed by Confluent Cloud managed connectors.
+ * Reference implementations: bigquery, snowflake.
+ * To add a sink: .cursor/skills/add-event-forwarder-sink/SKILL.md
+ */
+export type EventForwarderSinkType = "bigquery" | "snowflake";
 
 export type EventForwarderStatus =
   | "pending"
@@ -58,10 +63,6 @@ export type EventForwarderConfigDraft =
   | {
       sinkType: "snowflake";
       config: SnowflakeEventForwarderConfigDraft;
-    }
-  | {
-      sinkType: "databricks";
-      config: Record<string, string>;
     };
 
 export type EventForwarderConfigWithMetadata = EventForwarderConfigDraft & {

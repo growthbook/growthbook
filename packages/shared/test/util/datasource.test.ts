@@ -1,10 +1,61 @@
 import {
   attributeMatchesDatasourceProjects,
+  attributeUpdateAffectsEventForwarderFactTableColumns,
   buildUserIdTypesFromAttributeSchema,
+  getUserIdTypesToAdd,
   isEventForwarderAllowedUserIdTypesChange,
   isHashAttributeUserIdType,
   mergeUserIdTypes,
 } from "../../src/util/datasource";
+
+describe("attributeUpdateAffectsEventForwarderFactTableColumns", () => {
+  const base = { property: "id", datatype: "string" as const };
+
+  it("returns false for description-only changes", () => {
+    expect(
+      attributeUpdateAffectsEventForwarderFactTableColumns(base, {
+        ...base,
+        description: "updated",
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false for tag-only changes", () => {
+    expect(
+      attributeUpdateAffectsEventForwarderFactTableColumns(base, {
+        ...base,
+        tags: ["tag-a"],
+      }),
+    ).toBe(false);
+  });
+
+  it("returns true when hashAttribute changes", () => {
+    expect(
+      attributeUpdateAffectsEventForwarderFactTableColumns(base, {
+        ...base,
+        hashAttribute: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("returns true when datatype changes", () => {
+    expect(
+      attributeUpdateAffectsEventForwarderFactTableColumns(base, {
+        ...base,
+        datatype: "number",
+      }),
+    ).toBe(true);
+  });
+
+  it("returns true when property changes", () => {
+    expect(
+      attributeUpdateAffectsEventForwarderFactTableColumns(base, {
+        ...base,
+        property: "user_id",
+      }),
+    ).toBe(true);
+  });
+});
 
 describe("attributeMatchesDatasourceProjects", () => {
   it("returns true when neither has projects", () => {
@@ -240,6 +291,44 @@ describe("isEventForwarderAllowedUserIdTypesChange", () => {
     expect(
       isEventForwarderAllowedUserIdTypesChange(existing, [existing[1]], schema),
     ).toBe(false);
+  });
+});
+
+describe("getUserIdTypesToAdd", () => {
+  it("returns only built userIdTypes not already present", () => {
+    const existing = [
+      { userIdType: "user_id", description: "Existing", attributes: ["id"] },
+    ];
+    const built = [
+      { userIdType: "user_id", description: "Dup", attributes: ["id"] },
+      { userIdType: "device_id", description: "", attributes: ["device_id"] },
+    ];
+
+    expect(getUserIdTypesToAdd(existing, built)).toEqual([
+      { userIdType: "device_id", description: "", attributes: ["device_id"] },
+    ]);
+  });
+
+  it("returns empty array when nothing to add", () => {
+    const existing = [{ userIdType: "id", description: "" }];
+    expect(getUserIdTypesToAdd(existing, [])).toEqual([]);
+    expect(
+      getUserIdTypesToAdd(existing, [{ userIdType: "id", description: "x" }]),
+    ).toEqual([]);
+  });
+
+  it("treats userIdType names as case insensitive", () => {
+    const existing = [
+      { userIdType: "User_ID", description: "Existing", attributes: ["id"] },
+    ];
+    const built = [
+      { userIdType: "user_id", description: "Dup", attributes: ["id"] },
+      { userIdType: "device_id", description: "", attributes: ["device_id"] },
+    ];
+
+    expect(getUserIdTypesToAdd(existing, built)).toEqual([
+      { userIdType: "device_id", description: "", attributes: ["device_id"] },
+    ]);
   });
 });
 

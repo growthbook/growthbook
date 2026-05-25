@@ -20,22 +20,13 @@ const snowflakeEventForwarderConfigSchema = z.object({
   }),
 });
 
-const databricksEventForwarderConfigSchema = z.object({
-  sinkType: z.literal("databricks"),
-  config: z.record(z.string(), z.string()),
-});
-
 export const eventForwarderAccessTestConfigSchema = z.discriminatedUnion(
   "sinkType",
-  [
-    bigQueryEventForwarderConfigSchema,
-    snowflakeEventForwarderConfigSchema,
-    databricksEventForwarderConfigSchema,
-  ],
+  [bigQueryEventForwarderConfigSchema, snowflakeEventForwarderConfigSchema],
 );
 
 export const eventForwarderAccessTestCreateBodySchema = z.object({
-  type: z.enum(["bigquery", "snowflake", "databricks"]),
+  type: z.enum(["bigquery", "snowflake"]),
   params: datasourceParamsSchema,
   projects: z.array(z.string()).optional(),
   eventForwarderConfig: eventForwarderAccessTestConfigSchema,
