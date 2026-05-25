@@ -575,9 +575,6 @@ export async function testProxyConnection(
     const version = res.data.proxyVersion;
 
     if (updateDB) {
-      if (!context) {
-        throw new Error("Context is required to update SDK connection status");
-      }
       await SDKConnectionModel.updateOne(
         {
           organization: context.org.id,
