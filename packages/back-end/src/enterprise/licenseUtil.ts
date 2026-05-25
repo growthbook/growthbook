@@ -1167,7 +1167,11 @@ export type EventForwarderSchemaUpdateParams = {
 
 export async function postUpdateEventForwarderSchemaToLicenseServer(
   params: EventForwarderSchemaUpdateParams,
-): Promise<{ schemaId: number; schemaChanged: boolean }> {
+): Promise<{
+  schemaId: number;
+  schemaChanged: boolean;
+  newFieldNames: string[];
+}> {
   const url = `${LICENSE_SERVER_URL}event-forwarder/update-schema`;
   return callLicenseServer({
     url,

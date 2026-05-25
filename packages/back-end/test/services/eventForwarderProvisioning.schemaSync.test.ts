@@ -1,6 +1,6 @@
 import { syncEventForwarderSchemasAfterAttributeSchemaChange } from "back-end/src/services/eventForwarderProvisioning";
 import { postUpdateEventForwarderSchemaToLicenseServer } from "back-end/src/enterprise/licenseUtil";
-import { queueDelayedFactTableColumnsRefreshForEventForwarderDatasources } from "back-end/src/services/eventForwarderFactTable";
+import { queueEventForwarderWarehouseSync } from "back-end/src/jobs/pollEventForwarderWarehouseSync";
 
 jest.mock("back-end/src/enterprise/licenseUtil", () => ({
   postPauseEventForwarderToLicenseServer: jest.fn(),
@@ -11,10 +11,8 @@ jest.mock("back-end/src/enterprise/licenseUtil", () => ({
   postUpdateEventForwarderSchemaToLicenseServer: jest.fn(),
 }));
 
-jest.mock("back-end/src/services/eventForwarderFactTable", () => ({
-  ensureEventForwarderEventsFactTable: jest.fn(),
-  queueDelayedFactTableColumnsRefreshForEventForwarderDatasources: jest.fn(),
-  queueEventForwarderEventsFactTablesColumnsRefresh: jest.fn(),
+jest.mock("back-end/src/jobs/pollEventForwarderWarehouseSync", () => ({
+  queueEventForwarderWarehouseSync: jest.fn(),
 }));
 
 describe("syncEventForwarderSchemasAfterAttributeSchemaChange", () => {
@@ -22,18 +20,21 @@ describe("syncEventForwarderSchemasAfterAttributeSchemaChange", () => {
     postUpdateEventForwarderSchemaToLicenseServer as jest.MockedFunction<
       typeof postUpdateEventForwarderSchemaToLicenseServer
     >;
-  const queueDelayedMock =
-    queueDelayedFactTableColumnsRefreshForEventForwarderDatasources as jest.MockedFunction<
-      typeof queueDelayedFactTableColumnsRefreshForEventForwarderDatasources
+  const warehouseSyncMock =
+    queueEventForwarderWarehouseSync as jest.MockedFunction<
+      typeof queueEventForwarderWarehouseSync
     >;
-
   beforeEach(() => {
     jest.clearAllMocks();
-    updateSchemaMock.mockResolvedValue({ schemaId: 99, schemaChanged: true });
-    queueDelayedMock.mockResolvedValue(undefined);
+    updateSchemaMock.mockResolvedValue({
+      schemaId: 99,
+      schemaChanged: true,
+      newFieldNames: ["country"],
+    });
+    warehouseSyncMock.mockResolvedValue(undefined);
   });
 
-  it("queues delayed refresh when any forwarder schema changed", async () => {
+  it("queues warehouse sync poll when any forwarder schema changed", async () => {
     const update = jest.fn().mockResolvedValue(undefined);
     const context = {
       org: { id: "org1", settings: { attributeSchema: [] } },
@@ -60,11 +61,19 @@ describe("syncEventForwarderSchemasAfterAttributeSchemaChange", () => {
     ]);
 
     expect(updateSchemaMock).toHaveBeenCalled();
-    expect(queueDelayedMock).toHaveBeenCalledWith(context);
+    expect(warehouseSyncMock).toHaveBeenCalledWith(context, "ds_1", {
+      pingKind: "manual",
+      schemaChanged: true,
+      newColumnNames: ["country"],
+    });
   });
 
-  it("skips delayed refresh when no forwarder schema changed", async () => {
-    updateSchemaMock.mockResolvedValue({ schemaId: 1, schemaChanged: false });
+  it("skips warehouse sync when no forwarder schema changed", async () => {
+    updateSchemaMock.mockResolvedValue({
+      schemaId: 1,
+      schemaChanged: false,
+      newFieldNames: [],
+    });
     const context = {
       org: { id: "org1", settings: { attributeSchema: [] } },
       models: {
@@ -89,6 +98,6 @@ describe("syncEventForwarderSchemasAfterAttributeSchemaChange", () => {
       { property: "country", datatype: "string" },
     ]);
 
-    expect(queueDelayedMock).not.toHaveBeenCalled();
+    expect(warehouseSyncMock).not.toHaveBeenCalled();
   });
 });

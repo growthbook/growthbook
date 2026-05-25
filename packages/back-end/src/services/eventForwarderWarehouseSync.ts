@@ -1,7 +1,4 @@
-import {
-  EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
-  isEventForwarderManagedExposureQuery,
-} from "shared/util";
+import { isEventForwarderManagedExposureQuery } from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import {
   getDataSourceById,
@@ -9,11 +6,9 @@ import {
   updateDataSource,
   validateExposureQueriesAndAddMissingIds,
 } from "back-end/src/models/DataSourceModel";
-import { queueDelayedFactTableColumnsRefreshForDatasource } from "back-end/src/services/eventForwarderFactTable";
-import { queueRevalidateEventForwarderDataSourceQueriesAt } from "back-end/src/jobs/revalidateEventForwarderDataSourceQueries";
+import { getEventForwarderEventsFactTableForDatasource } from "back-end/src/services/eventForwarderFactTable";
+import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import { logger } from "back-end/src/util/logger";
-
-export { EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS };
 
 export async function revalidateManagedEventForwarderDataSourceQueries(
   context: ReqContext,
@@ -61,34 +56,39 @@ export async function revalidateManagedEventForwarderDataSourceQueries(
   });
 }
 
-export async function queueDelayedEventForwarderWarehouseSyncForDatasource(
+export async function runEventForwarderWarehouseRefreshes(
   context: ReqContext,
   datasourceId: string,
-  delayMs = EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
 ): Promise<void> {
-  try {
-    await queueDelayedFactTableColumnsRefreshForDatasource(
-      context,
-      datasourceId,
-      delayMs,
-    );
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    logger.error(
-      {
-        datasourceId,
-        organizationId: context.org.id,
-        error: message,
-      },
-      "Failed to queue delayed fact table columns refresh after event forwarder warehouse sync",
-    );
+  const datasource = await getDataSourceById(context, datasourceId);
+  if (!datasource) {
+    return;
+  }
+
+  const factTable = await getEventForwarderEventsFactTableForDatasource(
+    context,
+    datasource,
+  );
+  if (factTable) {
+    try {
+      await queueFactTableColumnsRefresh(factTable);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      logger.error(
+        {
+          datasourceId,
+          organizationId: context.org.id,
+          error: message,
+        },
+        "Failed to queue fact table columns refresh after event forwarder warehouse sync",
+      );
+    }
   }
 
   try {
-    await queueRevalidateEventForwarderDataSourceQueriesAt(
-      context.org.id,
+    await revalidateManagedEventForwarderDataSourceQueries(
+      context,
       datasourceId,
-      new Date(Date.now() + delayMs),
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -98,7 +98,7 @@ export async function queueDelayedEventForwarderWarehouseSyncForDatasource(
         organizationId: context.org.id,
         error: message,
       },
-      "Failed to queue delayed event forwarder query revalidation",
+      "Failed to revalidate event forwarder datasource queries after warehouse sync",
     );
   }
 }

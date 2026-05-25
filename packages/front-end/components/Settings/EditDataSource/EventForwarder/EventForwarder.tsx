@@ -3,7 +3,6 @@ import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
   DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
-  EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
   formatBigQueryEventForwarderDestination,
   formatSnowflakeEventForwarderDestination,
   parseBigQueryEventForwarderDestination,
@@ -500,9 +499,7 @@ export default function EventForwarder({
         `/datasource/${dataSource.id}/event-forwarder/schematization-sync`,
         { method: "POST" },
       );
-      await new Promise((resolve) =>
-        setTimeout(resolve, EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS),
-      );
+      await onRefresh();
       await onSave(cloneDeep<DataSourceInterfaceWithParams>(dataSource));
       setSyncState("done");
     } catch (e) {
@@ -511,7 +508,7 @@ export default function EventForwarder({
     } finally {
       window.setTimeout(() => setSyncState("idle"), 3000);
     }
-  }, [apiCall, dataSource, onSave]);
+  }, [apiCall, dataSource, onRefresh, onSave]);
 
   const { isProvisioning, isError, pollTimedOut, taskErrors } =
     useEventForwarderProvisioningPoll({
@@ -649,8 +646,8 @@ export default function EventForwarder({
 
       {syncState === "done" ? (
         <Callout status="success" mt="3">
-          Warehouse schema sync completed. Event Forwarder queries were
-          re-validated.
+          Warehouse schema sync started. Queries and fact table columns will
+          refresh once the warehouse is ready.
         </Callout>
       ) : null}
       {syncState === "error" && syncError ? (

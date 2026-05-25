@@ -7,15 +7,15 @@ import {
   postEventForwarderStatusToLicenseServer,
   postInitialEventForwarderSchematizationPingToLicenseServer,
 } from "back-end/src/enterprise/licenseUtil";
-import { queueDelayedEventForwarderWarehouseSyncForDatasource } from "back-end/src/services/eventForwarderWarehouseSync";
+import { queueEventForwarderWarehouseSync } from "back-end/src/jobs/pollEventForwarderWarehouseSync";
 
 jest.mock("back-end/src/enterprise/licenseUtil", () => ({
   postEventForwarderStatusToLicenseServer: jest.fn(),
   postInitialEventForwarderSchematizationPingToLicenseServer: jest.fn(),
 }));
 
-jest.mock("back-end/src/services/eventForwarderWarehouseSync", () => ({
-  queueDelayedEventForwarderWarehouseSyncForDatasource: jest.fn(),
+jest.mock("back-end/src/jobs/pollEventForwarderWarehouseSync", () => ({
+  queueEventForwarderWarehouseSync: jest.fn(),
 }));
 
 const statusMock =
@@ -27,8 +27,8 @@ const initialPingMock =
     typeof postInitialEventForwarderSchematizationPingToLicenseServer
   >;
 const warehouseSyncMock =
-  queueDelayedEventForwarderWarehouseSyncForDatasource as jest.MockedFunction<
-    typeof queueDelayedEventForwarderWarehouseSyncForDatasource
+  queueEventForwarderWarehouseSync as jest.MockedFunction<
+    typeof queueEventForwarderWarehouseSync
   >;
 
 function efConfig(
@@ -130,6 +130,7 @@ describe("syncEventForwarderStatusFromLicenseServer", () => {
         org: expect.objectContaining({ id: "org1" }),
       }),
       "ds_1",
+      { pingKind: "initial", schemaChanged: false },
     );
   });
 

@@ -3,7 +3,7 @@ import {
   postInitialEventForwarderSchematizationPingToLicenseServer,
   postUpdateEventForwarderSchemaToLicenseServer,
 } from "back-end/src/enterprise/licenseUtil";
-import { queueDelayedEventForwarderWarehouseSyncForDatasource } from "back-end/src/services/eventForwarderWarehouseSync";
+import { queueEventForwarderWarehouseSync } from "back-end/src/jobs/pollEventForwarderWarehouseSync";
 
 jest.mock("back-end/src/enterprise/licenseUtil", () => ({
   postPauseEventForwarderToLicenseServer: jest.fn(),
@@ -15,8 +15,8 @@ jest.mock("back-end/src/enterprise/licenseUtil", () => ({
   postInitialEventForwarderSchematizationPingToLicenseServer: jest.fn(),
 }));
 
-jest.mock("back-end/src/services/eventForwarderWarehouseSync", () => ({
-  queueDelayedEventForwarderWarehouseSyncForDatasource: jest.fn(),
+jest.mock("back-end/src/jobs/pollEventForwarderWarehouseSync", () => ({
+  queueEventForwarderWarehouseSync: jest.fn(),
 }));
 
 const updateSchemaMock =
@@ -28,14 +28,17 @@ const initialPingMock =
     typeof postInitialEventForwarderSchematizationPingToLicenseServer
   >;
 const warehouseSyncMock =
-  queueDelayedEventForwarderWarehouseSyncForDatasource as jest.MockedFunction<
-    typeof queueDelayedEventForwarderWarehouseSyncForDatasource
+  queueEventForwarderWarehouseSync as jest.MockedFunction<
+    typeof queueEventForwarderWarehouseSync
   >;
-
 describe("syncEventForwarderSchematizationThroughLicenseServer", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    updateSchemaMock.mockResolvedValue({ schemaId: 10, schemaChanged: false });
+    updateSchemaMock.mockResolvedValue({
+      schemaId: 10,
+      schemaChanged: false,
+      newFieldNames: [],
+    });
     initialPingMock.mockResolvedValue({ ok: true });
   });
 
@@ -53,7 +56,11 @@ describe("syncEventForwarderSchematizationThroughLicenseServer", () => {
   };
 
   it("evolves schema and always sends initial schematization ping", async () => {
-    updateSchemaMock.mockResolvedValue({ schemaId: 11, schemaChanged: true });
+    updateSchemaMock.mockResolvedValue({
+      schemaId: 11,
+      schemaChanged: true,
+      newFieldNames: ["country"],
+    });
     const update = jest.fn().mockResolvedValue(undefined);
     const context = {
       org: { id: "org1", settings: { attributeSchema: [] } },
@@ -85,6 +92,11 @@ describe("syncEventForwarderSchematizationThroughLicenseServer", () => {
         org: expect.objectContaining({ id: "org1" }),
       }),
       "ds_1",
+      {
+        pingKind: "manual",
+        schemaChanged: true,
+        newColumnNames: ["country"],
+      },
     );
   });
 
@@ -109,6 +121,11 @@ describe("syncEventForwarderSchematizationThroughLicenseServer", () => {
 
     expect(result).toEqual({ schemaChanged: false, pingSent: true });
     expect(initialPingMock).toHaveBeenCalled();
+    expect(warehouseSyncMock).toHaveBeenCalledWith(expect.anything(), "ds_1", {
+      pingKind: "manual",
+      schemaChanged: false,
+      newColumnNames: undefined,
+    });
   });
 
   it("throws when forwarder is not ready", async () => {

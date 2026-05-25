@@ -12,7 +12,7 @@ import {
 } from "back-end/src/enterprise/licenseUtil";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
-import { queueDelayedEventForwarderWarehouseSyncForDatasource } from "back-end/src/services/eventForwarderWarehouseSync";
+import { queueEventForwarderWarehouseSync } from "back-end/src/jobs/pollEventForwarderWarehouseSync";
 
 export function mapLicenseConnectorPhaseToEventForwarderStatus(
   phase: EventForwarderLicenseConnectorPhase,
@@ -69,9 +69,10 @@ async function sendInitialSchematizationPingIfNeeded(
     await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
       initialGbUpdatePingSent: true,
     });
-    await queueDelayedEventForwarderWarehouseSyncForDatasource(
+    await queueEventForwarderWarehouseSync(
       context,
       eventForwarderConfig.datasourceId,
+      { pingKind: "initial", schemaChanged: false },
     );
     return true;
   } catch (error) {

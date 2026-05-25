@@ -3,13 +3,18 @@ import type { CreateColumnProps } from "shared/types/fact-table";
 /** BigQuery daily partition column for BigQueryStorageSink (timestamp-millis). */
 export const EVENT_FORWARDER_AVRO_PARTITION_FIELD = "received_at" as const;
 
-/**
- * EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY — delay after schematization ping before
- * refreshing fact table columns and re-validating managed exposure / feature usage
- * queries. Increase here if warehouse tables need longer to materialize
- * (currently 1 min; was 5 min).
- */
-export const EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS = 1 * 60 * 1000;
+/** When schema is unchanged, still ping sinks then refresh after this delay. */
+export const EVENT_FORWARDER_WAREHOUSE_SYNC_NO_CHANGE_DELAY_MS = 5 * 1000;
+
+/** Interval between warehouse readiness polls after schema evolution or initial ping. */
+export const EVENT_FORWARDER_WAREHOUSE_POLL_INTERVAL_MS = 5 * 1000;
+
+/** Max time to poll before best-effort refresh (matches provisioning poll timeout). */
+export const EVENT_FORWARDER_WAREHOUSE_POLL_TIMEOUT_MS = 10 * 60 * 1000;
+
+export type EventForwarderWarehouseSyncExpectation =
+  | { kind: "initial" }
+  | { kind: "columnsAdded"; columnNames: string[] };
 
 export const EVENT_FORWARDER_EVENTS_FACT_TABLE_ID_SUFFIX = "_events";
 export const EVENT_FORWARDER_EVENTS_FACT_TABLE_NAME_SUFFIX = " Events";

@@ -185,6 +185,50 @@ export function populateAutoSlices(
   return autoSlices;
 }
 
+export async function probeFactTableColumnNames(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  factTable: Pick<FactTableInterface, "sql" | "eventName">,
+): Promise<Set<string>> {
+  if (!context.permissions.canRunFactQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource, true);
+
+  if (!integration.getTestQuery || !integration.runTestQuery) {
+    throw new Error("Testing not supported on this data source");
+  }
+
+  const timestampColumn = "timestamp";
+
+  const sql = integration.getTestQuery({
+    query: factTable.sql,
+    templateVariables: {
+      eventName: factTable.eventName,
+    },
+    testDays: context.org.settings?.testQueryDays,
+    limit: 20,
+    timestampColumn,
+  });
+
+  const result = await integration.runTestQuery(
+    sql,
+    [timestampColumn],
+    "factTableValidation",
+  );
+
+  if (result.columns?.length) {
+    return new Set(result.columns.map((col) => col.name));
+  }
+
+  if (result.results.length === 0) {
+    return new Set();
+  }
+
+  return new Set(Object.keys(result.results[0]));
+}
+
 export async function runRefreshColumnsQuery(
   context: ReqContext,
   datasource: DataSourceInterface,

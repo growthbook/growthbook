@@ -21,13 +21,9 @@ import { decryptEventForwarderConfigModel } from "back-end/src/services/eventFor
 import { resolveBigQueryEventForwarderTableName } from "back-end/src/services/eventForwarderBqTableResolution";
 import { testEventForwarderWriteAccess } from "back-end/src/services/eventForwarderWriteAccessValidation";
 import { initializeDatasourceUserIdTypesFromOrgAttributeSchema } from "back-end/src/services/eventForwarderUserIdTypes";
-import {
-  ensureEventForwarderEventsFactTable,
-  queueDelayedFactTableColumnsRefreshForDatasource,
-  queueDelayedFactTableColumnsRefreshForEventForwarderDatasources,
-} from "back-end/src/services/eventForwarderFactTable";
+import { ensureEventForwarderEventsFactTable } from "back-end/src/services/eventForwarderFactTable";
 import { ensureEventForwarderFeatureUsageQuery } from "back-end/src/services/eventForwarderFeatureUsageQueries";
-import { queueDelayedEventForwarderWarehouseSyncForDatasource } from "back-end/src/services/eventForwarderWarehouseSync";
+import { queueEventForwarderWarehouseSync } from "back-end/src/jobs/pollEventForwarderWarehouseSync";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
@@ -433,16 +429,21 @@ export async function resumeEventForwarderThroughLicenseServer(
     });
 
     const attributeSchema = context.org.settings?.attributeSchema ?? [];
-    const schemaChanged = await updateEventForwarderSchemaThroughLicenseServer(
+    const schemaUpdate = await updateEventForwarderSchemaThroughLicenseServer(
       context,
       { ...eventForwarderConfig, status: "ready" },
       attributeSchema,
     );
 
-    if (schemaChanged) {
-      await queueDelayedFactTableColumnsRefreshForDatasource(
+    if (schemaUpdate.schemaChanged) {
+      await queueEventForwarderWarehouseSync(
         context,
         eventForwarderConfig.datasourceId,
+        {
+          pingKind: "manual",
+          schemaChanged: true,
+          newColumnNames: schemaUpdate.newFieldNames,
+        },
       );
     }
   } catch (error) {
@@ -483,7 +484,7 @@ export async function syncEventForwarderSchematizationThroughLicenseServer(
   }
 
   const attributeSchema = context.org.settings?.attributeSchema ?? [];
-  const schemaChanged = await updateEventForwarderSchemaThroughLicenseServer(
+  const schemaUpdate = await updateEventForwarderSchemaThroughLicenseServer(
     context,
     eventForwarderConfig,
     attributeSchema,
@@ -505,12 +506,19 @@ export async function syncEventForwarderSchematizationThroughLicenseServer(
     schemaId,
   });
 
-  await queueDelayedEventForwarderWarehouseSyncForDatasource(
+  await queueEventForwarderWarehouseSync(
     context,
     eventForwarderConfig.datasourceId,
+    {
+      pingKind: "manual",
+      schemaChanged: schemaUpdate.schemaChanged,
+      newColumnNames: schemaUpdate.schemaChanged
+        ? schemaUpdate.newFieldNames
+        : undefined,
+    },
   );
 
-  return { schemaChanged, pingSent: true };
+  return { schemaChanged: schemaUpdate.schemaChanged, pingSent: true };
 }
 
 /**
@@ -527,7 +535,7 @@ export async function syncEventForwarderSchemasAfterAttributeSchemaChange(
   if (configs.length === 0) {
     return;
   }
-  const schemaChangedResults = await Promise.all(
+  const schemaUpdateResults = await Promise.all(
     configs.map((config) =>
       updateEventForwarderSchemaThroughLicenseServer(
         context,
@@ -537,11 +545,19 @@ export async function syncEventForwarderSchemasAfterAttributeSchemaChange(
     ),
   );
 
-  if (schemaChangedResults.some(Boolean)) {
-    await queueDelayedFactTableColumnsRefreshForEventForwarderDatasources(
-      context,
-    );
-  }
+  await Promise.all(
+    configs.map(async (config, index) => {
+      const schemaUpdate = schemaUpdateResults[index];
+      if (!schemaUpdate.schemaChanged) {
+        return;
+      }
+      await queueEventForwarderWarehouseSync(context, config.datasourceId, {
+        pingKind: "manual",
+        schemaChanged: true,
+        newColumnNames: schemaUpdate.newFieldNames,
+      });
+    }),
+  );
 }
 
 /**
@@ -551,13 +567,18 @@ export async function syncEventForwarderSchemasAfterAttributeSchemaChange(
  * Records a "schema_update_error" status on failure but does not throw, so the
  * caller's operation (attribute save) is never rolled back.
  */
+export type EventForwarderSchemaUpdateResult = {
+  schemaChanged: boolean;
+  newFieldNames: string[];
+};
+
 export async function updateEventForwarderSchemaThroughLicenseServer(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface,
   attributeSchema: SDKAttributeSchema,
-): Promise<boolean> {
+): Promise<EventForwarderSchemaUpdateResult> {
   if (eventForwarderConfig.status !== "ready") {
-    return false;
+    return { schemaChanged: false, newFieldNames: [] };
   }
 
   try {
@@ -577,7 +598,10 @@ export async function updateEventForwarderSchemaThroughLicenseServer(
       lastProvisioningError: "",
     });
 
-    return result.schemaChanged;
+    return {
+      schemaChanged: result.schemaChanged,
+      newFieldNames: result.newFieldNames,
+    };
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown schema update error";
@@ -595,7 +619,7 @@ export async function updateEventForwarderSchemaThroughLicenseServer(
     });
   }
 
-  return false;
+  return { schemaChanged: false, newFieldNames: [] };
 }
 
 /**
