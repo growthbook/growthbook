@@ -1,4 +1,5 @@
 import { putAttributeValidator } from "shared/validators";
+import { attributeUpdateAffectsEventForwarderFactTableColumns } from "shared/util";
 import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
@@ -60,7 +61,14 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
 
     const updatedAttributeSchema = updates.settings?.attributeSchema ?? [];
     if (hasEventForwarder) {
-      await queueEventForwarderEventsFactTablesColumnsRefresh(req.context);
+      if (
+        attributeUpdateAffectsEventForwarderFactTableColumns(
+          attribute,
+          updatedAttribute,
+        )
+      ) {
+        await queueEventForwarderEventsFactTablesColumnsRefresh(req.context);
+      }
       if (req.body.hashAttribute === true && !attribute.hashAttribute) {
         await syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema(
           req.context,

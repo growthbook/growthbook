@@ -92,22 +92,24 @@ export async function queueEventForwarderEventsFactTablesColumnsRefresh(
   const configs = await context.models.eventForwarderConfigs.getAll();
   const datasourceIds = new Set(configs.map((config) => config.datasourceId));
 
-  for (const datasourceId of datasourceIds) {
-    const datasource = await getDataSourceById(context, datasourceId);
-    if (!datasource) {
-      continue;
-    }
+  await Promise.all(
+    [...datasourceIds].map(async (datasourceId) => {
+      const datasource = await getDataSourceById(context, datasourceId);
+      if (!datasource) {
+        return;
+      }
 
-    const factTable = await findEventForwarderEventsFactTableForDatasourceId(
-      context,
-      datasource,
-    );
-    if (!factTable) {
-      continue;
-    }
+      const factTable = await findEventForwarderEventsFactTableForDatasourceId(
+        context,
+        datasource,
+      );
+      if (!factTable) {
+        return;
+      }
 
-    await queueFactTableColumnsRefresh(factTable);
-  }
+      await queueFactTableColumnsRefresh(factTable);
+    }),
+  );
 }
 
 export async function queueDelayedFactTableColumnsRefreshForDatasource(

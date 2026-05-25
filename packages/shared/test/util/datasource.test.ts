@@ -1,11 +1,61 @@
 import {
   attributeMatchesDatasourceProjects,
+  attributeUpdateAffectsEventForwarderFactTableColumns,
   buildUserIdTypesFromAttributeSchema,
   getUserIdTypesToAdd,
   isEventForwarderAllowedUserIdTypesChange,
   isHashAttributeUserIdType,
   mergeUserIdTypes,
 } from "../../src/util/datasource";
+
+describe("attributeUpdateAffectsEventForwarderFactTableColumns", () => {
+  const base = { property: "id", datatype: "string" as const };
+
+  it("returns false for description-only changes", () => {
+    expect(
+      attributeUpdateAffectsEventForwarderFactTableColumns(base, {
+        ...base,
+        description: "updated",
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false for tag-only changes", () => {
+    expect(
+      attributeUpdateAffectsEventForwarderFactTableColumns(base, {
+        ...base,
+        tags: ["tag-a"],
+      }),
+    ).toBe(false);
+  });
+
+  it("returns true when hashAttribute changes", () => {
+    expect(
+      attributeUpdateAffectsEventForwarderFactTableColumns(base, {
+        ...base,
+        hashAttribute: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("returns true when datatype changes", () => {
+    expect(
+      attributeUpdateAffectsEventForwarderFactTableColumns(base, {
+        ...base,
+        datatype: "number",
+      }),
+    ).toBe(true);
+  });
+
+  it("returns true when property changes", () => {
+    expect(
+      attributeUpdateAffectsEventForwarderFactTableColumns(base, {
+        ...base,
+        property: "user_id",
+      }),
+    ).toBe(true);
+  });
+});
 
 describe("attributeMatchesDatasourceProjects", () => {
   it("returns true when neither has projects", () => {

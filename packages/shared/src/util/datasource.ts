@@ -1,6 +1,21 @@
 import { UserIdType } from "shared/types/datasource";
 import { SDKAttribute, SDKAttributeSchema } from "shared/types/organization";
 
+const EVENT_FORWARDER_FACT_TABLE_COLUMN_FIELDS = [
+  "property",
+  "datatype",
+  "hashAttribute",
+] as const satisfies readonly (keyof SDKAttribute)[];
+
+export function attributeUpdateAffectsEventForwarderFactTableColumns(
+  before: SDKAttribute,
+  after: SDKAttribute,
+): boolean {
+  return EVENT_FORWARDER_FACT_TABLE_COLUMN_FIELDS.some(
+    (field) => before[field] !== after[field],
+  );
+}
+
 export function attributeMatchesDatasourceProjects(
   attribute: SDKAttribute,
   datasourceProjects: string[] | undefined,

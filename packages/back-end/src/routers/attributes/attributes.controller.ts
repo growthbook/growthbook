@@ -1,6 +1,9 @@
 import type { Response } from "express";
 import { SDKAttribute } from "shared/types/organization";
-import { recursiveWalk } from "shared/util";
+import {
+  attributeUpdateAffectsEventForwarderFactTableColumns,
+  recursiveWalk,
+} from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
@@ -168,7 +171,13 @@ export const putAttribute = async (
     );
   }
 
-  if (hasEventForwarder) {
+  if (
+    hasEventForwarder &&
+    attributeUpdateAffectsEventForwarderFactTableColumns(
+      existing,
+      attributeSchema[index],
+    )
+  ) {
     await queueEventForwarderEventsFactTablesColumnsRefresh(context);
   }
 
