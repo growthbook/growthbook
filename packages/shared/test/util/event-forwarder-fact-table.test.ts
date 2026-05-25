@@ -123,31 +123,27 @@ describe("event-forwarder-fact-table SQL", () => {
 });
 
 describe("buildEventForwarderEventsFactTableColumns", () => {
-  it("includes user id types, default avro fields, and hash attributes", () => {
-    const columns = buildEventForwarderEventsFactTableColumns(
-      ["user_id"],
-      [
-        {
-          property: "device_id",
-          datatype: "string",
-          hashAttribute: true,
-        },
-        {
-          property: "event_name",
-          datatype: "string",
-          hashAttribute: true,
-        },
-      ],
-    );
+  it("includes user id types only", () => {
+    const columns = buildEventForwarderEventsFactTableColumns(["user_id"]);
 
-    const columnNames = columns.map((c) => c.column);
-    expect(columnNames).toContain("user_id");
-    expect(columnNames).toContain("device_id");
-    expect(columnNames).toContain("event_name");
-    expect(columnNames).toContain("received_at");
-    expect(columnNames).toContain("properties");
+    expect(columns).toEqual([
+      {
+        column: "user_id",
+        name: "user_id",
+        description: "",
+        numberFormat: "",
+        datatype: "string",
+      },
+    ]);
+  });
 
-    const eventNameCol = columns.find((c) => c.column === "event_name");
-    expect(eventNameCol?.alwaysInlineFilter).toBe(true);
+  it("deduplicates user id types case-insensitively", () => {
+    const columns = buildEventForwarderEventsFactTableColumns([
+      "user_id",
+      "User_ID",
+    ]);
+
+    expect(columns).toHaveLength(1);
+    expect(columns[0].column).toBe("user_id");
   });
 });

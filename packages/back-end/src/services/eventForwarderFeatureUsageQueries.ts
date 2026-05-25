@@ -6,10 +6,11 @@ import {
 } from "shared/types/event-forwarder";
 import { EventForwarderConfigInterface } from "shared/validators";
 import {
-  GenerateEventForwarderExposureQueriesParams,
-  isHashAttributeUserIdType,
-  mergeEventForwarderExposureQueries,
+  GenerateEventForwarderFeatureUsageQueryParams,
+  buildEventForwarderFeatureUsageQuery,
+  eventForwarderManagedFeatureUsageQueryExists,
 } from "shared/util";
+import uniqid from "uniqid";
 import {
   getDataSourceById,
   getRawDataSourceById,
@@ -20,10 +21,10 @@ import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
-function buildExposureQueryParams(
+export function buildFeatureUsageQueryParams(
   eventForwarderConfig: EventForwarderConfigInterface,
   connectionParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
-): GenerateEventForwarderExposureQueriesParams | null {
+): GenerateEventForwarderFeatureUsageQueryParams | null {
   const params = connectionParams;
 
   switch (eventForwarderConfig.sinkType) {
@@ -65,16 +66,11 @@ function buildExposureQueryParams(
   }
 }
 
-export async function ensureEventForwarderExposureQueries(
+export async function ensureEventForwarderFeatureUsageQuery(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface,
-  userIdTypes: string[],
   datasourceParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
 ): Promise<void> {
-  if (userIdTypes.length === 0) {
-    return;
-  }
-
   const raw = await getRawDataSourceById(
     context,
     eventForwarderConfig.datasourceId,
@@ -83,11 +79,8 @@ export async function ensureEventForwarderExposureQueries(
     return;
   }
 
-  const attributeSchema = context.org.settings?.attributeSchema ?? [];
-  const syncedUserIdTypes = userIdTypes.filter((userIdType) =>
-    isHashAttributeUserIdType(userIdType, attributeSchema, raw.projects),
-  );
-  if (syncedUserIdTypes.length === 0) {
+  const existing = raw.settings?.queries?.featureUsage ?? [];
+  if (eventForwarderManagedFeatureUsageQueryExists(existing)) {
     return;
   }
 
@@ -104,7 +97,7 @@ export async function ensureEventForwarderExposureQueries(
           | SnowflakeConnectionParams)
       : undefined);
 
-  const sqlParams = buildExposureQueryParams(
+  const sqlParams = buildFeatureUsageQueryParams(
     eventForwarderConfig,
     connectionParams,
   );
@@ -115,19 +108,8 @@ export async function ensureEventForwarderExposureQueries(
         organizationId: context.org.id,
         sinkType: eventForwarderConfig.sinkType,
       },
-      "Skipping event forwarder exposure queries: missing sink connection params",
+      "Skipping event forwarder feature usage query: missing sink connection params",
     );
-    return;
-  }
-
-  const existing = raw.settings?.queries?.exposure ?? [];
-  const merged = mergeEventForwarderExposureQueries(
-    existing,
-    syncedUserIdTypes,
-    sqlParams,
-  );
-
-  if (merged.length === existing.length) {
     return;
   }
 
@@ -138,17 +120,22 @@ export async function ensureEventForwarderExposureQueries(
         organizationId: context.org.id,
         sinkType: eventForwarderConfig.sinkType,
       },
-      "Skipping event forwarder exposure queries: datasource unavailable for update",
+      "Skipping event forwarder feature usage query: datasource unavailable for update",
     );
     return;
   }
+
+  const managedQuery = {
+    id: uniqid("fuq_"),
+    ...buildEventForwarderFeatureUsageQuery(sqlParams),
+  };
 
   await updateDataSource(context, datasource, {
     settings: {
       ...raw.settings,
       queries: {
         ...raw.settings?.queries,
-        exposure: merged,
+        featureUsage: [...existing, managedQuery],
       },
     },
   });

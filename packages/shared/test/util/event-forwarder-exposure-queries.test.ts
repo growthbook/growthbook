@@ -7,7 +7,7 @@ import {
   isEventForwarderManagedExposureQuery,
   mergeEventForwarderExposureQueries,
 } from "../../src/util/event-forwarder-exposure-queries";
-import { EVENT_FORWARDER_AVRO_PARTITION_FIELD } from "../../src/event-forwarder-avro";
+import { EVENT_FORWARDER_AVRO_PARTITION_FIELD } from "../../src/util/event-forwarder-fact-table";
 
 describe("event-forwarder-exposure-queries table reference", () => {
   it("builds BigQuery experiment_viewed table reference", () => {
@@ -29,7 +29,7 @@ describe("event-forwarder-exposure-queries table reference", () => {
         database: "MY_DB",
         schema: "PUBLIC",
       }),
-    ).toBe(`MY_DB.PUBLIC.${EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE}`);
+    ).toBe("MY_DB.PUBLIC.EXPERIMENT_VIEWED");
   });
 });
 
@@ -66,12 +66,12 @@ describe("buildEventForwarderExposureQuerySql", () => {
   it("has no WHERE clause for Snowflake", () => {
     const sql = buildEventForwarderExposureQuerySql({
       sinkType: "snowflake",
-      tableRef: "MY_DB.PUBLIC.experiment_viewed",
+      tableRef: "MY_DB.PUBLIC.EXPERIMENT_VIEWED",
       userIdType: "device_id",
     });
 
     expect(sql).toContain('"device_id" AS "device_id"');
-    expect(sql).toContain("FROM MY_DB.PUBLIC.experiment_viewed");
+    expect(sql).toContain("FROM MY_DB.PUBLIC.EXPERIMENT_VIEWED");
     expect(sql).not.toContain("WHERE");
   });
 });
