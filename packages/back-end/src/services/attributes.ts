@@ -1,7 +1,10 @@
 import { SDKAttribute } from "shared/types/organization";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import type { MaterializedColumn } from "shared/types/datasource";
-import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
+import {
+  buildManagedWarehouseFactTableSQL,
+  isManagedWarehouseAwaitingProvisioning,
+} from "shared/util";
 import type { ColumnInterface } from "shared/types/fact-table";
 import { dangerouslyGetGrowthbookDatasourceBypassPermission } from "back-end/src/models/DataSourceModel";
 import {
@@ -269,10 +272,19 @@ async function syncManagedWarehouseEventsFactTable(
   const { columnsToAdd, columnsToDelete, columnsToRename } =
     diffMaterializedColumnsForFactTable(previousColumns, finalColumns, renames);
 
+  // The generated SQL changes whenever the materialized-column set or its
+  // physical names change — adds/deletes/renames all flip the projection
+  // list, and the prefix rollout flips physical names for unchanged logical
+  // ones. Compute the new SQL up front so the no-op short-circuit below can
+  // also short-circuit on identical SQL.
+  const newSql = buildManagedWarehouseFactTableSQL(finalColumns);
+  const sqlChanged = newSql !== ft.sql;
+
   if (
     columnsToAdd.length === 0 &&
     columnsToDelete.length === 0 &&
-    columnsToRename.length === 0
+    columnsToRename.length === 0 &&
+    !sqlChanged
   ) {
     return;
   }
@@ -338,7 +350,11 @@ async function syncManagedWarehouseEventsFactTable(
 
   await updateFactTableColumns(
     ft,
-    { columns: newColumns, userIdTypes: newIdentifierTypes },
+    {
+      columns: newColumns,
+      userIdTypes: newIdentifierTypes,
+      sql: newSql,
+    },
     context,
   );
 }

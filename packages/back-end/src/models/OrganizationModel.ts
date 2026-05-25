@@ -213,6 +213,12 @@ export async function createOrganization({
       // Default to the same attributes as the auto-wrapper for the Javascript SDK
       attributeSchema: [
         { property: "id", datatype: "string", hashAttribute: true },
+        // `deviceId` is also a hashAttribute so unauthenticated experiments
+        // can target by device. On Managed Warehouse this promotes the
+        // ingestor-written `device_id` built-in to an identifier and adds
+        // `device_id` to the auto-generated userIdTypes — matching the
+        // pre-attribute-flow warehouse default.
+        { property: "deviceId", datatype: "string", hashAttribute: true },
         { property: "url", datatype: "string" },
         { property: "path", datatype: "string" },
         { property: "host", datatype: "string" },

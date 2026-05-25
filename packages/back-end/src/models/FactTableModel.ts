@@ -346,6 +346,10 @@ const ALLOWED_COLUMN_UPDATE_FIELDS = [
   "columnsError",
   "columnRefreshPending",
   "userIdTypes",
+  // Managed Warehouse attribute sync rewrites the SELECT clause when its
+  // materialized columns change (to alias `matcol__X` back to `X`), so the
+  // SQL must move alongside the columns it projects.
+  "sql",
 ] as const;
 
 // This is called from a background cronjob to re-sync all of the columns

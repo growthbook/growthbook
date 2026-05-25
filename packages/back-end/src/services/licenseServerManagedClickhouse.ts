@@ -312,6 +312,11 @@ const sdkAttributeWireSchema = z.looseObject({
 
 const materializedColumnWireSchema = z.looseObject({
   columnName: z.string(),
+  // Optional for wire back-compat: legacy snapshots persisted before the
+  // matcol__ prefix landed don't carry this. The seed/sync layer treats
+  // missing as "physical name == columnName" so the next sync's diff still
+  // computes correctly.
+  physicalColumnName: z.string().optional(),
   sourceField: z.string(),
   datatype: factTableColumnTypeValidator,
   type: z.enum(["", "identifier", "dimension"]).optional(),

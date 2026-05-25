@@ -13,6 +13,7 @@
  * (e.g. `$groups`) would create a warehouse whose CREATE TABLE / ADD COLUMN
  * DDL fails with a CH syntax error.
  */
+import { MANAGED_WAREHOUSE_USER_ATTR_PREFIX } from "shared/constants";
 import type { MaterializedColumn } from "shared/types/datasource";
 import type { FactTableColumnType } from "shared/types/fact-table";
 import type { SDKAttribute } from "shared/types/organization";
@@ -79,6 +80,49 @@ const WAREHOUSE_BUILTIN_COLUMNS: MaterializedColumn[] = Object.entries(
   datatype: clickhouseTypeToFactTableType(type),
   type: "dimension",
 }));
+
+/**
+ * SDK auto-wrapper attribute names (typically camelCase) that semantically
+ * duplicate a snake_case warehouse built-in. The GrowthBook JS SDK writes
+ * BOTH halves of every entry below from the same source — e.g. parsing a
+ * URL's query produces both `utmSource` (into the `attributes` JSON for
+ * targeting) and `utm_source` (into the ingestor envelope as a top-level
+ * field) — so materializing the user attribute as a separate column would
+ * just be a duplicate of the built-in.
+ *
+ * When a user attribute's `property` is keyed here:
+ *   - We skip materializing it as its own column (it would be duplicate data)
+ *   - If the attribute has `hashAttribute: true`, the matching built-in is
+ *     promoted to `identifier` so SDK targeting against the attribute still
+ *     has a corresponding warehouse identifier
+ *
+ * Keep this map in lockstep with the LS-side copy in
+ * `central-license-server/src/services/managedWarehouseAttributes.ts`.
+ */
+const SDK_ATTRIBUTE_TO_BUILTIN_ALIAS: Record<string, string> = {
+  // Default attributes seeded on every org (see OrganizationModel.ts):
+  id: "user_id",
+  path: "url_path",
+  host: "url_host",
+  query: "url_query",
+  deviceType: "ua_device_type",
+  browser: "ua_browser",
+  utmSource: "utm_source",
+  utmMedium: "utm_medium",
+  utmCampaign: "utm_campaign",
+  utmTerm: "utm_term",
+  utmContent: "utm_content",
+  // Other common SDK auto-wrapper attributes — included so an org that
+  // expanded their schema beyond the defaults still benefits from shadowing:
+  deviceId: "device_id",
+  pageId: "page_id",
+  sessionId: "session_id",
+  pageTitle: "page_title",
+  urlPath: "url_path",
+  urlHost: "url_host",
+  urlQuery: "url_query",
+  urlFragment: "url_fragment",
+};
 
 // Mirrors central-license-server's `RESERVED_MANAGED_WAREHOUSE_COLUMN_NAMES`
 // (lowercased base-table columns + ingestor-written remaining columns).
@@ -210,12 +254,39 @@ function materializedColumnTypeFromAttribute(
  * Attributes whose `property` can't be used as a ClickHouse identifier are
  * skipped (and logged). Without this the seed would push invalid names into
  * the snapshot and break the first CREATE TABLE / ADD COLUMN run.
+ *
+ * Attributes listed in `SDK_ATTRIBUTE_TO_BUILTIN_ALIAS` are not materialized
+ * as their own columns — the SDK auto-wrapper double-writes them as
+ * snake_case top-level fields that the ingestor already exposes as built-in
+ * columns, so a per-attribute column would just be duplicate data. The
+ * attribute's `hashAttribute: true` flag (if set) is forwarded to the
+ * built-in so identifier targeting still works.
  */
 export function getWarehouseMaterializedColumns(
   attributes: SDKAttribute[],
-  { orgId }: { orgId?: string } = {},
+  {
+    orgId,
+    existingColumnNames,
+  }: {
+    orgId?: string;
+    /** Union of `columnName` + `sourceField` values from any prior snapshot
+     *  — i.e. the names under which a column may already be materializing
+     *  an attribute. Attributes whose `property` appears here skip the SDK
+     *  alias shadow so their existing column isn't silently dropped.
+     *
+     *  In production, the GB-side `getWarehouseMaterializedColumns` is only
+     *  called from the brand-new-datasource seed path (datasources.ts
+     *  controller) which has no snapshot — so callers don't pass this. The
+     *  parameter exists for parity with the LS-side derivation (where it
+     *  IS load-bearing) and to keep the unit tests for both sides
+     *  symmetric. */
+    existingColumnNames?: ReadonlySet<string>;
+  } = {},
 ): MaterializedColumn[] {
   const attributeColumns: MaterializedColumn[] = [];
+  // Built-ins that should be promoted from "dimension" to "identifier" because
+  // an SDK-aliased attribute targeting them had `hashAttribute: true`.
+  const promotedIdentifierBuiltins = new Set<string>();
   for (const attr of attributes) {
     if (attr.archived) continue;
     const matColType = materializedColumnTypeFromAttribute(attr.datatype);
@@ -245,8 +316,35 @@ export function getWarehouseMaterializedColumns(
         attr.datatype === "number" ||
         attr.datatype === "enum");
     const isIdentifier = canBeIdentifier && attr.hashAttribute === true;
+
+    // Shadow SDK auto-wrapper duplicates. If the attribute property is keyed
+    // in the alias map AND the corresponding built-in actually exists, skip
+    // materialization (the built-in carries the same data). Forward the
+    // identifier role if the attribute had it; otherwise the built-in stays
+    // a dimension. Array-typed attrs are excluded — no built-in is an array.
+    //
+    // Don't shadow when the column already exists — historical data lives in
+    // the customer's column, not the snake_case builtin (which may be empty
+    // for non-JS-SDK ingestion paths that only populated camelCase). Letting
+    // the column live alongside the builtin avoids a silent DROP COLUMN
+    // followed by metric/dimension breakage.
+    const aliasedBuiltin = SDK_ATTRIBUTE_TO_BUILTIN_ALIAS[attr.property];
+    if (
+      !isArray &&
+      aliasedBuiltin !== undefined &&
+      WAREHOUSE_BUILTIN_FIELD_TYPES[aliasedBuiltin] !== undefined &&
+      !existingColumnNames?.has(attr.property)
+    ) {
+      if (isIdentifier) promotedIdentifierBuiltins.add(aliasedBuiltin);
+      continue;
+    }
+
     attributeColumns.push({
       columnName: attr.property,
+      // User attribute columns are physically stored with a prefix so any
+      // future built-in column can't collide with an arbitrary attribute
+      // name. The fact-table SQL exposes them under the unprefixed name.
+      physicalColumnName: MANAGED_WAREHOUSE_USER_ATTR_PREFIX + attr.property,
       sourceField: attr.property,
       datatype: matColType.datatype,
       type: isIdentifier ? "identifier" : "dimension",
@@ -259,6 +357,10 @@ export function getWarehouseMaterializedColumns(
   );
   const unshadowedBuiltins = WAREHOUSE_BUILTIN_COLUMNS.filter(
     (c) => !attributeColumnNames.has(c.columnName),
+  ).map((c) =>
+    promotedIdentifierBuiltins.has(c.columnName)
+      ? { ...c, type: "identifier" as const }
+      : c,
   );
   return [...attributeColumns, ...unshadowedBuiltins];
 }

@@ -129,6 +129,20 @@ export const UNSUPPORTED_METRIC_EXPLORER_TYPES: readonly FactMetricType[] = [
 
 export const MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID = "ch_events";
 
+/**
+ * Prefix the Managed Warehouse uses on the actual ClickHouse column for
+ * user-defined attributes (anything materialized from an SDK attribute, as
+ * opposed to ingestor-written built-ins like `utm_source`). The user-facing
+ * name on the fact table stays unprefixed — the alias is applied in the
+ * generated fact-table SQL. This keeps any future built-in column from
+ * colliding with an arbitrary user attribute name.
+ *
+ * Must agree with the LS-side constant of the same name in
+ * `central-license-server/src/services/managedWarehouseAttributes.ts`. If
+ * one side updates this the other has to follow in lockstep.
+ */
+export const MANAGED_WAREHOUSE_USER_ATTR_PREFIX = "matcol__";
+
 export const sdkLanguages = [
   "nocode-webflow",
   "nocode-wordpress",
