@@ -3921,7 +3921,10 @@ export default function RampScheduleSection({
               {setSeed && (
                 <Collapsible
                   trigger={
-                    <div className="link-purple" style={{ marginTop: 4, display: "inline-block" }}>
+                    <div
+                      className="link-purple"
+                      style={{ marginTop: 4, display: "inline-block" }}
+                    >
                       <PiCaretRightFill className="chevron mr-1" />
                       Hashing &amp; seed options
                     </div>
@@ -4005,15 +4008,9 @@ export default function RampScheduleSection({
                           </Box>
                         </Flex>
                         {hashVersionSdkWarning && (
-                          <HelperText
-                            status="warning"
-                            size="sm"
-                            mb="0"
-                            mt="1"
-                          >
+                          <HelperText status="warning" size="sm" mb="0" mt="1">
                             Some SDK connections may not support V2 hashing.
-                            Unsupported SDKs will fall back to V1
-                            automatically.
+                            Unsupported SDKs will fall back to V1 automatically.
                           </HelperText>
                         )}
                       </>

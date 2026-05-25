@@ -189,7 +189,9 @@ export default function DraftSelector({
         transitionTime={75}
         contentInnerClassName="draft-selector-collapsible-content"
         open={isOpen}
-        handleTriggerClick={() => { if (!singleOption) setIsOpen((v) => !v); }}
+        handleTriggerClick={() => {
+          if (!singleOption) setIsOpen((v) => !v);
+        }}
       >
         <Box px="3" py="3" style={{ backgroundColor: "var(--violet-a3)" }}>
           <RadioGroup
