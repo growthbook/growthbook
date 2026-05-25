@@ -1,4 +1,7 @@
-import { isEventForwarderManagedExposureQuery } from "shared/util";
+import {
+  EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
+  isEventForwarderManagedExposureQuery,
+} from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import {
   getDataSourceById,
@@ -10,7 +13,7 @@ import { queueDelayedFactTableColumnsRefreshForDatasource } from "back-end/src/s
 import { queueRevalidateEventForwarderDataSourceQueriesAt } from "back-end/src/jobs/revalidateEventForwarderDataSourceQueries";
 import { logger } from "back-end/src/util/logger";
 
-export const EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS = 5 * 60 * 1000;
+export { EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS };
 
 export async function revalidateManagedEventForwarderDataSourceQueries(
   context: ReqContext,

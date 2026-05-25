@@ -1,5 +1,6 @@
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { FactTableInterface } from "shared/types/fact-table";
+import { EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS } from "shared/util";
 import {
   ensureEventForwarderEventsFactTable,
   findEventForwarderEventsFactTableForDatasource,
@@ -353,7 +354,9 @@ describe("queueDelayedFactTableColumnsRefreshForEventForwarderDatasources", () =
       ctx as never,
     );
 
-    const expectedRunAt = new Date("2026-01-01T00:05:00.000Z");
+    const expectedRunAt = new Date(
+      Date.now() + EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
+    );
     expect(mockedQueueFactTableColumnsRefreshAt).toHaveBeenCalledTimes(2);
     expect(mockedQueueFactTableColumnsRefreshAt).toHaveBeenCalledWith(
       ft1,

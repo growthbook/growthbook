@@ -3,6 +3,14 @@ import type { CreateColumnProps } from "shared/types/fact-table";
 /** BigQuery daily partition column for BigQueryStorageSink (timestamp-millis). */
 export const EVENT_FORWARDER_AVRO_PARTITION_FIELD = "received_at" as const;
 
+/**
+ * EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY — delay after schematization ping before
+ * refreshing fact table columns and re-validating managed exposure / feature usage
+ * queries. Increase here if warehouse tables need longer to materialize
+ * (currently 1 min; was 5 min).
+ */
+export const EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS = 1 * 60 * 1000;
+
 export const EVENT_FORWARDER_EVENTS_FACT_TABLE_ID_SUFFIX = "_events";
 export const EVENT_FORWARDER_EVENTS_FACT_TABLE_NAME_SUFFIX = " Events";
 

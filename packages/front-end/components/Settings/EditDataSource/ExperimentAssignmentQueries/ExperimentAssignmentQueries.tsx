@@ -5,7 +5,10 @@ import {
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPlus } from "react-icons/fa";
-import { isEventForwarderManagedExposureQuery } from "shared/util";
+import {
+  EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
+  isEventForwarderManagedExposureQuery,
+} from "shared/util";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
 import { DimensionSlicesInterface } from "shared/types/dimension";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
@@ -21,8 +24,6 @@ import Callout from "@/ui/Callout";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { CustomDimensionMetadata } from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
 import { useAuth } from "@/services/auth";
-
-const SCHEMATIZATION_SYNC_WAIT_MS = 5000;
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 type UIMode = "view" | "edit" | "add" | "dimension";
@@ -143,7 +144,7 @@ export const ExperimentAssignmentQueries: FC<
         { method: "POST" },
       );
       await new Promise((resolve) =>
-        setTimeout(resolve, SCHEMATIZATION_SYNC_WAIT_MS),
+        setTimeout(resolve, EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS),
       );
       await onSave(cloneDeep<DataSourceInterfaceWithParams>(dataSource));
       setSyncState("done");

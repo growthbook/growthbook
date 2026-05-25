@@ -6,6 +6,7 @@ import {
 import cloneDeep from "lodash/cloneDeep";
 import { FaPlus } from "react-icons/fa";
 import {
+  EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
   getActiveFeatureUsageQuery,
   isEventForwarderManagedFeatureUsageQuery,
 } from "shared/util";
@@ -20,8 +21,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import { FeatureEvaluationQueryModal } from "./FeatureEvaluationQueryModal";
-
-const SCHEMATIZATION_SYNC_WAIT_MS = 5000;
 
 type FeatureEvaluationQueriesProps = Omit<
   DataSourceQueryEditingModalBaseProps,
@@ -116,7 +115,7 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
         { method: "POST" },
       );
       await new Promise((resolve) =>
-        setTimeout(resolve, SCHEMATIZATION_SYNC_WAIT_MS),
+        setTimeout(resolve, EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS),
       );
       await onSave(cloneDeep<DataSourceInterfaceWithParams>(dataSource));
       setSyncState("done");

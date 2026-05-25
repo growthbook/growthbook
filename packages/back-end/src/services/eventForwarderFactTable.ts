@@ -8,6 +8,7 @@ import { EventForwarderConfigInterface } from "shared/validators";
 import {
   buildEventForwarderEventsFactTableColumns,
   buildEventForwarderEventsFactTableSql,
+  EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
   getEventForwarderEventsFactTableId,
   getEventForwarderEventsFactTableIdWithCollisionSuffix,
   getEventForwarderEventsFactTableName,
@@ -109,12 +110,10 @@ export async function queueEventForwarderEventsFactTablesColumnsRefresh(
   }
 }
 
-const EVENT_FORWARDER_FACT_TABLE_REFRESH_DELAY_MS = 5 * 60 * 1000;
-
 export async function queueDelayedFactTableColumnsRefreshForDatasource(
   context: ReqContext,
   datasourceId: string,
-  delayMs = EVENT_FORWARDER_FACT_TABLE_REFRESH_DELAY_MS,
+  delayMs = EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
 ): Promise<void> {
   const factTables = await getFactTablesForDatasource(context, datasourceId);
   const runAt = new Date(Date.now() + delayMs);
@@ -126,7 +125,7 @@ export async function queueDelayedFactTableColumnsRefreshForDatasource(
 
 export async function queueDelayedFactTableColumnsRefreshForEventForwarderDatasources(
   context: ReqContext,
-  delayMs = EVENT_FORWARDER_FACT_TABLE_REFRESH_DELAY_MS,
+  delayMs = EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
 ): Promise<void> {
   const configs = await context.models.eventForwarderConfigs.getAll();
   const datasourceIds = new Set(configs.map((config) => config.datasourceId));
