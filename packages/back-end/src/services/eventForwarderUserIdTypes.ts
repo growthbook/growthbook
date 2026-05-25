@@ -18,12 +18,15 @@ async function ensureExposureQueriesAfterUserIdTypesSync(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface,
   syncedUserIdTypes: string[],
+  attributeSchema: SDKAttributeSchema,
 ): Promise<void> {
   try {
     await ensureEventForwarderExposureQueries(
       context,
       eventForwarderConfig,
       syncedUserIdTypes,
+      undefined,
+      attributeSchema,
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -78,6 +81,7 @@ export async function initializeDatasourceUserIdTypesFromOrgAttributeSchema(
       context,
       eventForwarderConfig,
       toAdd.map((userIdType) => userIdType.userIdType),
+      context.org.settings?.attributeSchema ?? [],
     );
   }
 }
@@ -130,6 +134,7 @@ export async function syncAllEventForwarderDatasourceUserIdTypesFromAttributeSch
           context,
           config,
           toAdd.map((userIdType) => userIdType.userIdType),
+          attributeSchema,
         );
       } catch (error) {
         const message =

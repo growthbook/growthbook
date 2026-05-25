@@ -63,6 +63,7 @@ import {
   hasAnyEventForwarderConfig,
   refreshEventForwarderConfigCredentials,
   syncEventForwarderConfigFromDatasource,
+  isEventForwarderDraftUnchanged,
   toEventForwarderConfigDraft,
 } from "back-end/src/services/eventForwarderConfig";
 import {
@@ -686,33 +687,51 @@ export async function putDataSource(
       ...datasource,
       ...updates,
     };
+
     const integration = getSourceIntegrationObject(context, updatedDatasource);
     const eventForwarderDatasourceParams = getEventForwarderDatasourceParams(
       updatedDatasource.type,
       integration.params,
     );
 
+    if (eventForwarderConfig === null) {
+      res.status(400).json({
+        status: 400,
+        message:
+          "Cannot remove an Event Forwarder via datasource update. Use DELETE /datasource/:id/event-forwarder instead.",
+      });
+      return;
+    }
+
     if (eventForwarderConfig !== undefined) {
-      // Explicit event forwarder config change in the request → full provision flow.
       const existingEfBeforeSync = await getEventForwarderConfigForDatasource(
         context,
         updatedDatasource.id,
       );
-      const restartAfterProvision =
-        !!existingEfBeforeSync?.connectorName?.trim();
-      const syncedEventForwarderConfig =
-        await syncEventForwarderConfigFromDatasource({
+
+      if (
+        !isEventForwarderDraftUnchanged(
+          eventForwarderConfig,
+          existingEfBeforeSync,
+        )
+      ) {
+        // Explicit event forwarder config change in the request → full provision flow.
+        const restartAfterProvision =
+          !!existingEfBeforeSync?.connectorName?.trim();
+        const syncedEventForwarderConfig =
+          await syncEventForwarderConfigFromDatasource({
+            context,
+            datasource: updatedDatasource,
+            draft: eventForwarderConfig,
+            datasourceParams: eventForwarderDatasourceParams,
+          });
+        await provisionEventForwarderThroughLicenseServer(
           context,
-          datasource: updatedDatasource,
-          draft: eventForwarderConfig,
-          datasourceParams: eventForwarderDatasourceParams,
-        });
-      await provisionEventForwarderThroughLicenseServer(
-        context,
-        syncedEventForwarderConfig,
-        eventForwarderDatasourceParams,
-        { restartAfterProvision },
-      );
+          syncedEventForwarderConfig,
+          eventForwarderDatasourceParams,
+          { restartAfterProvision },
+        );
+      }
     } else if (params) {
       // Only connection credentials changed — re-sync stored credentials then
       // push them to the Confluent connector without touching topic or schema.
