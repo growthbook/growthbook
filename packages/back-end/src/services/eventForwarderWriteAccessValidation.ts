@@ -10,7 +10,6 @@ import {
 } from "shared/types/datasource";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
-import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import {
   BigQueryEventForwarderStoredConfig,
   SnowflakeEventForwarderStoredConfig,
@@ -36,12 +35,6 @@ type EventForwarderWriteAccessInput =
       datasource: DataSourceInterface;
       params: SnowflakeConnectionParams;
       config: SnowflakeEventForwarderStoredConfig;
-    }
-  | {
-      sinkType: "databricks";
-      datasource: DataSourceInterface;
-      params: DatabricksConnectionParams;
-      config: Record<string, string>;
     };
 
 type ServiceAccountKey = {
@@ -154,32 +147,47 @@ function getProbeTablePath({
   tableName: string;
   input: EventForwarderWriteAccessInput;
 }): string {
-  if (input.sinkType === "bigquery") {
-    const projectId =
-      input.params.defaultProject?.trim() || input.params.projectId?.trim();
-    return integration.generateTablePath(
-      tableName,
-      input.config.dataset.trim(),
-      projectId,
-      true,
-    );
+  switch (input.sinkType) {
+    case "bigquery": {
+      const projectId =
+        input.params.defaultProject?.trim() || input.params.projectId?.trim();
+      return integration.generateTablePath(
+        tableName,
+        input.config.dataset.trim(),
+        projectId,
+        true,
+      );
+    }
+    case "snowflake":
+      return integration.generateTablePath(
+        tableName,
+        input.config.schema.trim(),
+        input.config.database.trim(),
+        true,
+      );
+    default:
+      throw new Error(
+        "Unsupported event forwarder sink type for write access test",
+      );
   }
+}
 
-  if (input.sinkType === "snowflake") {
-    return integration.generateTablePath(
-      tableName,
-      input.config.schema.trim(),
-      input.config.database.trim(),
-      true,
-    );
+function getProbeParams(
+  input: EventForwarderWriteAccessInput,
+): DataSourceParams {
+  switch (input.sinkType) {
+    case "bigquery":
+      return getBigQueryProbeParams(
+        input.params,
+        input.config.serviceAccountKey,
+      );
+    case "snowflake":
+      return input.params;
+    default:
+      throw new Error(
+        "Unsupported event forwarder sink type for write access test",
+      );
   }
-
-  return integration.generateTablePath(
-    tableName,
-    undefined,
-    input.params.catalog,
-    false,
-  );
 }
 
 async function runProbe({
@@ -229,19 +237,17 @@ async function runProbe({
     }
   }
 
-  return failure
-    ? getEventForwarderWriteAccessFailedResponse(failure)
-    : success();
+  if (failure) {
+    return getEventForwarderWriteAccessFailedResponse(failure);
+  }
+  return success();
 }
 
 export async function testEventForwarderWriteAccess(
   context: ReqContext,
   input: EventForwarderWriteAccessInput,
 ): Promise<EventForwarderAccessTestResponse> {
-  const params =
-    input.sinkType === "bigquery"
-      ? getBigQueryProbeParams(input.params, input.config.serviceAccountKey)
-      : input.params;
+  const params = getProbeParams(input);
   const datasource = getProbeDatasource({
     datasource: input.datasource,
     params,

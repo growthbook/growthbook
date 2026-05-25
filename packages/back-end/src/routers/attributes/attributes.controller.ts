@@ -1,6 +1,9 @@
 import type { Response } from "express";
 import { SDKAttribute } from "shared/types/organization";
-import { recursiveWalk } from "shared/util";
+import {
+  attributeUpdateAffectsEventForwarderFactTableColumns,
+  recursiveWalk,
+} from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
@@ -11,6 +14,7 @@ import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { syncEventForwarderSchemasAfterAttributeSchemaChange } from "back-end/src/services/eventForwarderProvisioning";
 import { hasAnyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
 import { syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema } from "back-end/src/services/eventForwarderUserIdTypes";
+import { queueEventForwarderEventsFactTablesColumnsRefresh } from "back-end/src/services/eventForwarderFactTable";
 
 export const postAttribute = async (
   req: AuthRequest<SDKAttribute>,
@@ -165,6 +169,16 @@ export const putAttribute = async (
       context,
       attributeSchema,
     );
+  }
+
+  if (
+    hasEventForwarder &&
+    attributeUpdateAffectsEventForwarderFactTableColumns(
+      existing,
+      attributeSchema[index],
+    )
+  ) {
+    await queueEventForwarderEventsFactTablesColumnsRefresh(context);
   }
 
   await req.audit({

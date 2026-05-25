@@ -13,6 +13,7 @@ import {
   postRestartEventForwarderToLicenseServer,
   postResumeEventForwarderToLicenseServer,
   postTeardownEventForwarderToLicenseServer,
+  postInitialEventForwarderSchematizationPingToLicenseServer,
   postUpdateEventForwarderCredentialsToLicenseServer,
   postUpdateEventForwarderSchemaToLicenseServer,
 } from "back-end/src/enterprise/licenseUtil";
@@ -20,8 +21,13 @@ import { decryptEventForwarderConfigModel } from "back-end/src/services/eventFor
 import { resolveBigQueryEventForwarderTableName } from "back-end/src/services/eventForwarderBqTableResolution";
 import { testEventForwarderWriteAccess } from "back-end/src/services/eventForwarderWriteAccessValidation";
 import { initializeDatasourceUserIdTypesFromOrgAttributeSchema } from "back-end/src/services/eventForwarderUserIdTypes";
-import { ensureEventForwarderEventsFactTable } from "back-end/src/services/eventForwarderFactTable";
-import { ensureEventForwarderExposureQueries } from "back-end/src/services/eventForwarderExposureQueries";
+import {
+  ensureEventForwarderEventsFactTable,
+  queueDelayedFactTableColumnsRefreshForDatasource,
+  queueDelayedFactTableColumnsRefreshForEventForwarderDatasources,
+} from "back-end/src/services/eventForwarderFactTable";
+import { ensureEventForwarderFeatureUsageQuery } from "back-end/src/services/eventForwarderFeatureUsageQueries";
+import { queueDelayedEventForwarderWarehouseSyncForDatasource } from "back-end/src/services/eventForwarderWarehouseSync";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
@@ -51,10 +57,6 @@ export async function provisionEventForwarderThroughLicenseServer(
     return;
   }
 
-  if (eventForwarderConfig.sinkType === "databricks") {
-    return;
-  }
-
   try {
     const attributeSchema = context.org.settings?.attributeSchema ?? [];
     const datasource = await getDataSourceById(
@@ -70,80 +72,87 @@ export async function provisionEventForwarderThroughLicenseServer(
       connectorId: string;
     };
 
-    if (eventForwarderConfig.sinkType === "bigquery") {
-      const bigqueryConnectionParams = datasourceParams as
-        | BigQueryConnectionParams
-        | undefined;
-      const projectId =
-        bigqueryConnectionParams?.defaultProject?.trim() ||
-        bigqueryConnectionParams?.projectId?.trim() ||
-        "";
+    switch (eventForwarderConfig.sinkType) {
+      case "bigquery": {
+        const bigqueryConnectionParams = datasourceParams as
+          | BigQueryConnectionParams
+          | undefined;
+        const projectId =
+          bigqueryConnectionParams?.defaultProject?.trim() ||
+          bigqueryConnectionParams?.projectId?.trim() ||
+          "";
 
-      if (!projectId) {
-        throw new Error(
-          "Missing BigQuery connector project id for event forwarder provisioning",
+        if (!projectId) {
+          throw new Error(
+            "Missing BigQuery connector project id for event forwarder provisioning",
+          );
+        }
+
+        const resolvedTableName =
+          await resolveBigQueryEventForwarderTableName(eventForwarderConfig);
+
+        const decrypted =
+          decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
+            eventForwarderConfig,
+          );
+
+        assertEventForwarderWriteAccessResult(
+          await testEventForwarderWriteAccess(context, {
+            sinkType: "bigquery",
+            datasource,
+            params: bigqueryConnectionParams as BigQueryConnectionParams,
+            config: decrypted,
+          }),
         );
-      }
 
-      const resolvedTableName =
-        await resolveBigQueryEventForwarderTableName(eventForwarderConfig);
-
-      const decrypted =
-        decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
-          eventForwarderConfig,
-        );
-
-      assertEventForwarderWriteAccessResult(
-        await testEventForwarderWriteAccess(context, {
+        result = await postProvisionEventForwarderToLicenseServer({
+          organizationId: context.org.id,
+          datasourceId: eventForwarderConfig.datasourceId,
+          topic: eventForwarderConfig.topic,
           sinkType: "bigquery",
-          datasource,
-          params: bigqueryConnectionParams as BigQueryConnectionParams,
-          config: decrypted,
-        }),
-      );
+          bigqueryProjectId: projectId,
+          resolvedTableName,
+          bigqueryDataset: decrypted.dataset.trim(),
+          serviceAccountKeyJson: (decrypted.serviceAccountKey ?? "").trim(),
+          attributeSchema,
+          connectorName:
+            eventForwarderConfig.connectorName?.trim() || undefined,
+          connectorId: eventForwarderConfig.connectorId?.trim() || undefined,
+        });
+        break;
+      }
+      case "snowflake": {
+        const decrypted =
+          decryptEventForwarderConfigModel<SnowflakeEventForwarderStoredConfig>(
+            eventForwarderConfig,
+          );
 
-      result = await postProvisionEventForwarderToLicenseServer({
-        organizationId: context.org.id,
-        datasourceId: eventForwarderConfig.datasourceId,
-        topic: eventForwarderConfig.topic,
-        sinkType: "bigquery",
-        bigqueryProjectId: projectId,
-        resolvedTableName,
-        bigqueryDataset: decrypted.dataset.trim(),
-        serviceAccountKeyJson: (decrypted.serviceAccountKey ?? "").trim(),
-        attributeSchema,
-        connectorName: eventForwarderConfig.connectorName?.trim() || undefined,
-        connectorId: eventForwarderConfig.connectorId?.trim() || undefined,
-      });
-    } else if (eventForwarderConfig.sinkType === "snowflake") {
-      const decrypted =
-        decryptEventForwarderConfigModel<SnowflakeEventForwarderStoredConfig>(
-          eventForwarderConfig,
+        assertEventForwarderWriteAccessResult(
+          await testEventForwarderWriteAccess(context, {
+            sinkType: "snowflake",
+            datasource,
+            params: datasourceParams as SnowflakeConnectionParams,
+            config: decrypted,
+          }),
         );
 
-      assertEventForwarderWriteAccessResult(
-        await testEventForwarderWriteAccess(context, {
+        result = await postProvisionEventForwarderToLicenseServer({
+          organizationId: context.org.id,
+          datasourceId: eventForwarderConfig.datasourceId,
+          topic: eventForwarderConfig.topic,
           sinkType: "snowflake",
-          datasource,
-          params: datasourceParams as SnowflakeConnectionParams,
-          config: decrypted,
-        }),
-      );
-
-      result = await postProvisionEventForwarderToLicenseServer({
-        organizationId: context.org.id,
-        datasourceId: eventForwarderConfig.datasourceId,
-        topic: eventForwarderConfig.topic,
-        sinkType: "snowflake",
-        snowflake: decrypted,
-        attributeSchema,
-        connectorName: eventForwarderConfig.connectorName?.trim() || undefined,
-        connectorId: eventForwarderConfig.connectorId?.trim() || undefined,
-      });
-    } else {
-      throw new Error(
-        `Unsupported event forwarder sink type for provisioning: ${eventForwarderConfig.sinkType}`,
-      );
+          snowflake: decrypted,
+          attributeSchema,
+          connectorName:
+            eventForwarderConfig.connectorName?.trim() || undefined,
+          connectorId: eventForwarderConfig.connectorId?.trim() || undefined,
+        });
+        break;
+      }
+      default:
+        throw new Error(
+          `Unsupported event forwarder sink type for provisioning: ${String(eventForwarderConfig.sinkType)}`,
+        );
     }
 
     await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
@@ -173,7 +182,7 @@ export async function provisionEventForwarderThroughLicenseServer(
     }
 
     try {
-      await ensureEventForwarderExposureQueries(
+      await ensureEventForwarderFeatureUsageQuery(
         context,
         eventForwarderConfig,
         datasourceParams,
@@ -186,7 +195,7 @@ export async function provisionEventForwarderThroughLicenseServer(
           organizationId: context.org.id,
           error: message,
         },
-        "Failed to create exposure queries after event forwarder provisioning",
+        "Failed to create feature usage query after event forwarder provisioning",
       );
     }
 
@@ -241,7 +250,7 @@ export async function provisionEventForwarderThroughLicenseServer(
  * existing event forwarder. Called from `putDataSource` when the datasource
  * connection params change but no explicit `eventForwarderConfig` draft is
  * provided. Skips if no connector name is recorded (provisioning hasn't
- * completed) or if the sink type is `databricks`.
+ * completed).
  *
  * On success the config status is set to `ready`. On failure the error is
  * persisted as `status: "error"` and re-thrown so the HTTP response can
@@ -256,66 +265,67 @@ export async function updateEventForwarderCredentialsThroughLicenseServer(
     return;
   }
 
-  if (eventForwarderConfig.sinkType === "databricks") {
-    return;
-  }
-
   const connectorName = eventForwarderConfig.connectorName?.trim();
   if (!connectorName) {
     return;
   }
 
   try {
-    if (eventForwarderConfig.sinkType === "bigquery") {
-      const bigqueryConnectionParams = datasourceParams as
-        | BigQueryConnectionParams
-        | undefined;
-      const projectId =
-        bigqueryConnectionParams?.defaultProject?.trim() ||
-        bigqueryConnectionParams?.projectId?.trim() ||
-        "";
+    switch (eventForwarderConfig.sinkType) {
+      case "bigquery": {
+        const bigqueryConnectionParams = datasourceParams as
+          | BigQueryConnectionParams
+          | undefined;
+        const projectId =
+          bigqueryConnectionParams?.defaultProject?.trim() ||
+          bigqueryConnectionParams?.projectId?.trim() ||
+          "";
 
-      if (!projectId) {
-        throw new Error(
-          "Missing BigQuery project id for event forwarder credential update",
-        );
+        if (!projectId) {
+          throw new Error(
+            "Missing BigQuery project id for event forwarder credential update",
+          );
+        }
+
+        const resolvedTableName =
+          await resolveBigQueryEventForwarderTableName(eventForwarderConfig);
+
+        const decrypted =
+          decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
+            eventForwarderConfig,
+          );
+
+        await postUpdateEventForwarderCredentialsToLicenseServer({
+          organizationId: context.org.id,
+          datasourceId: eventForwarderConfig.datasourceId,
+          connectorName,
+          sinkType: "bigquery",
+          bigqueryProjectId: projectId,
+          resolvedTableName,
+          bigqueryDataset: decrypted.dataset.trim(),
+          serviceAccountKeyJson: (decrypted.serviceAccountKey ?? "").trim(),
+        });
+        break;
       }
+      case "snowflake": {
+        const decrypted =
+          decryptEventForwarderConfigModel<SnowflakeEventForwarderStoredConfig>(
+            eventForwarderConfig,
+          );
 
-      const resolvedTableName =
-        await resolveBigQueryEventForwarderTableName(eventForwarderConfig);
-
-      const decrypted =
-        decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
-          eventForwarderConfig,
+        await postUpdateEventForwarderCredentialsToLicenseServer({
+          organizationId: context.org.id,
+          datasourceId: eventForwarderConfig.datasourceId,
+          connectorName,
+          sinkType: "snowflake",
+          snowflake: decrypted,
+        });
+        break;
+      }
+      default:
+        throw new Error(
+          `Unsupported event forwarder sink type for credential update: ${String(eventForwarderConfig.sinkType)}`,
         );
-
-      await postUpdateEventForwarderCredentialsToLicenseServer({
-        organizationId: context.org.id,
-        datasourceId: eventForwarderConfig.datasourceId,
-        connectorName,
-        sinkType: "bigquery",
-        bigqueryProjectId: projectId,
-        resolvedTableName,
-        bigqueryDataset: decrypted.dataset.trim(),
-        serviceAccountKeyJson: (decrypted.serviceAccountKey ?? "").trim(),
-      });
-    } else if (eventForwarderConfig.sinkType === "snowflake") {
-      const decrypted =
-        decryptEventForwarderConfigModel<SnowflakeEventForwarderStoredConfig>(
-          eventForwarderConfig,
-        );
-
-      await postUpdateEventForwarderCredentialsToLicenseServer({
-        organizationId: context.org.id,
-        datasourceId: eventForwarderConfig.datasourceId,
-        connectorName,
-        sinkType: "snowflake",
-        snowflake: decrypted,
-      });
-    } else {
-      throw new Error(
-        `Unsupported event forwarder sink type for credential update: ${eventForwarderConfig.sinkType}`,
-      );
     }
 
     await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
@@ -356,10 +366,6 @@ export async function pauseEventForwarderThroughLicenseServer(
 ): Promise<void> {
   if (eventForwarderConfig.status !== "ready") {
     throw new Error("Only ready event forwarders can be paused");
-  }
-
-  if (eventForwarderConfig.sinkType === "databricks") {
-    throw new Error("Databricks event forwarders cannot be paused");
   }
 
   const connectorName = eventForwarderConfig.connectorName?.trim();
@@ -409,10 +415,6 @@ export async function resumeEventForwarderThroughLicenseServer(
     throw new Error("Only paused event forwarders can be resumed");
   }
 
-  if (eventForwarderConfig.sinkType === "databricks") {
-    throw new Error("Databricks event forwarders cannot be resumed");
-  }
-
   const connectorName = eventForwarderConfig.connectorName?.trim();
   if (!connectorName) {
     throw new Error("Cannot resume event forwarder without a connector name");
@@ -429,6 +431,20 @@ export async function resumeEventForwarderThroughLicenseServer(
       status: "ready",
       lastProvisioningError: "",
     });
+
+    const attributeSchema = context.org.settings?.attributeSchema ?? [];
+    const schemaChanged = await updateEventForwarderSchemaThroughLicenseServer(
+      context,
+      { ...eventForwarderConfig, status: "ready" },
+      attributeSchema,
+    );
+
+    if (schemaChanged) {
+      await queueDelayedFactTableColumnsRefreshForDatasource(
+        context,
+        eventForwarderConfig.datasourceId,
+      );
+    }
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown resume error";
@@ -450,11 +466,58 @@ export async function resumeEventForwarderThroughLicenseServer(
 }
 
 /**
+ * Manually evolves the forwarder schema (if needed) and always sends a gb-update
+ * ping so Confluent sinks re-schematize warehouse tables.
+ */
+export async function syncEventForwarderSchematizationThroughLicenseServer(
+  context: ReqContext,
+  eventForwarderConfig: EventForwarderConfigInterface,
+): Promise<{ schemaChanged: boolean; pingSent: boolean }> {
+  if (eventForwarderConfig.status !== "ready") {
+    throw new Error("Only ready event forwarders can sync schematization");
+  }
+
+  const topic = eventForwarderConfig.topic?.trim();
+  if (!topic) {
+    throw new Error("Cannot sync schematization without a forwarder topic");
+  }
+
+  const attributeSchema = context.org.settings?.attributeSchema ?? [];
+  const schemaChanged = await updateEventForwarderSchemaThroughLicenseServer(
+    context,
+    eventForwarderConfig,
+    attributeSchema,
+  );
+
+  const refreshed =
+    await context.models.eventForwarderConfigs.dangerousGetByDatasourceIdBypassPermission(
+      eventForwarderConfig.datasourceId,
+    );
+  const schemaId = refreshed?.schemaId ?? eventForwarderConfig.schemaId;
+  if (schemaId <= 0) {
+    throw new Error("Cannot sync schematization without a valid schema id");
+  }
+
+  await postInitialEventForwarderSchematizationPingToLicenseServer({
+    organizationId: context.org.id,
+    datasourceId: eventForwarderConfig.datasourceId,
+    topic,
+    schemaId,
+  });
+
+  await queueDelayedEventForwarderWarehouseSyncForDatasource(
+    context,
+    eventForwarderConfig.datasourceId,
+  );
+
+  return { schemaChanged, pingSent: true };
+}
+
+/**
  * After persisting attribute schema changes, evolves Confluent Schema Registry
  * for each event forwarder when the org has at least one forwarder config row.
  * Individual configs may still be skipped inside
- * {@link updateEventForwarderSchemaThroughLicenseServer} (e.g. not ready,
- * Databricks).
+ * {@link updateEventForwarderSchemaThroughLicenseServer} (e.g. not ready).
  */
 export async function syncEventForwarderSchemasAfterAttributeSchemaChange(
   context: ReqContext,
@@ -464,7 +527,7 @@ export async function syncEventForwarderSchemasAfterAttributeSchemaChange(
   if (configs.length === 0) {
     return;
   }
-  await Promise.all(
+  const schemaChangedResults = await Promise.all(
     configs.map((config) =>
       updateEventForwarderSchemaThroughLicenseServer(
         context,
@@ -473,6 +536,12 @@ export async function syncEventForwarderSchemasAfterAttributeSchemaChange(
       ),
     ),
   );
+
+  if (schemaChangedResults.some(Boolean)) {
+    await queueDelayedFactTableColumnsRefreshForEventForwarderDatasources(
+      context,
+    );
+  }
 }
 
 /**
@@ -486,13 +555,9 @@ export async function updateEventForwarderSchemaThroughLicenseServer(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface,
   attributeSchema: SDKAttributeSchema,
-): Promise<void> {
-  if (eventForwarderConfig.sinkType === "databricks") {
-    return;
-  }
-
+): Promise<boolean> {
   if (eventForwarderConfig.status !== "ready") {
-    return;
+    return false;
   }
 
   try {
@@ -511,6 +576,8 @@ export async function updateEventForwarderSchemaThroughLicenseServer(
       schemaId: result.schemaId,
       lastProvisioningError: "",
     });
+
+    return result.schemaChanged;
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown schema update error";
@@ -527,6 +594,8 @@ export async function updateEventForwarderSchemaThroughLicenseServer(
       lastProvisioningError: message,
     });
   }
+
+  return false;
 }
 
 /**
@@ -535,7 +604,7 @@ export async function updateEventForwarderSchemaThroughLicenseServer(
 export async function teardownBigQueryEventForwarderInfrastructureRemote(snapshot: {
   organizationId: string;
   datasourceId: string;
-  sinkType?: "bigquery" | "snowflake" | "databricks";
+  sinkType?: "bigquery" | "snowflake";
   topic?: string;
   connectorName?: string;
   connectorId?: string;

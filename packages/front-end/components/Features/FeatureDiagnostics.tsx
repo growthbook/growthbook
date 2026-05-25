@@ -3,7 +3,10 @@ import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { OrganizationSettings } from "shared/types/organization";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  getActiveFeatureUsageQuery,
+  isProjectListValidForProject,
+} from "shared/util";
 import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
 import { QueryStatistics } from "shared/types/query";
 import { Box, Flex } from "@radix-ui/themes";
@@ -60,10 +63,8 @@ function getDatasourceInitialFormValue(
   // Default to the first datasource with a feature usage query
   // If no datasource with a feature usage query is found, default to the default datasource
   const initialId =
-    validDatasources.find(
-      (d) =>
-        d.settings.queries?.featureUsage &&
-        d.settings.queries?.featureUsage.length > 0,
+    validDatasources.find((d) =>
+      getActiveFeatureUsageQuery(d.settings?.queries?.featureUsage),
     )?.id || settings.defaultDataSource;
 
   const initialDatasource =
@@ -112,10 +113,9 @@ export default function FeatureDiagnostics({
   const datasourceId = form.watch("datasourceId");
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
 
-  const datasourceHasFeatureUsageQuery =
-    datasource &&
-    datasource.settings.queries?.featureUsage &&
-    datasource.settings.queries.featureUsage.length > 0;
+  const datasourceHasFeatureUsageQuery = !!getActiveFeatureUsageQuery(
+    datasource?.settings?.queries?.featureUsage,
+  );
 
   // Extract all unique keys from results
   const columns = useMemo(() => {

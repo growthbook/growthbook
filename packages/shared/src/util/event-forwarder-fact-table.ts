@@ -1,23 +1,18 @@
-import type { SDKAttributeSchema } from "shared/types/organization";
-import type {
-  CreateColumnProps,
-  FactTableColumnType,
-} from "shared/types/fact-table";
-import {
-  EVENT_FORWARDER_AVRO_DEFAULT_FIELDS,
-  EVENT_FORWARDER_AVRO_PARTITION_FIELD,
-  sanitizeAvroFieldName,
-} from "../event-forwarder-avro";
-import { attributeMatchesDatasourceProjects } from "./datasource";
+import type { CreateColumnProps } from "shared/types/fact-table";
 
-export { EVENT_FORWARDER_AVRO_PARTITION_FIELD };
+/** BigQuery daily partition column for BigQueryStorageSink (timestamp-millis). */
+export const EVENT_FORWARDER_AVRO_PARTITION_FIELD = "received_at" as const;
+
+/**
+ * EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY — delay after schematization ping before
+ * refreshing fact table columns and re-validating managed exposure / feature usage
+ * queries. Increase here if warehouse tables need longer to materialize
+ * (currently 1 min; was 5 min).
+ */
+export const EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS = 1 * 60 * 1000;
 
 export const EVENT_FORWARDER_EVENTS_FACT_TABLE_ID_SUFFIX = "_events";
 export const EVENT_FORWARDER_EVENTS_FACT_TABLE_NAME_SUFFIX = " Events";
-
-const DEFAULT_FIELD_NAMES: Set<string> = new Set(
-  EVENT_FORWARDER_AVRO_DEFAULT_FIELDS.map((f) => f.name),
-);
 
 export function sanitizeDatasourceNameForFactTableId(name: string): string {
   const sanitized = name
@@ -139,86 +134,24 @@ export function buildEventForwarderEventsFactTableSql(
   return `SELECT *\nFROM ${tableRef}`;
 }
 
-function defaultAvroFieldDatatype(fieldName: string): FactTableColumnType {
-  if (
-    fieldName === "timestamp" ||
-    fieldName === EVENT_FORWARDER_AVRO_PARTITION_FIELD
-  ) {
-    return "date";
-  }
-  if (fieldName === "properties" || fieldName === "additional_attributes") {
-    return "json";
-  }
-  if (fieldName === "geo_lat" || fieldName === "geo_lon") {
-    return "number";
-  }
-  return "string";
-}
-
-function hashAttributeDatatype(datatype: string): FactTableColumnType {
-  if (datatype === "number" || datatype === "number[]") {
-    return "number";
-  }
-  if (datatype === "boolean") {
-    return "boolean";
-  }
-  return "string";
-}
-
 export function buildEventForwarderEventsFactTableColumns(
   userIdTypes: string[],
-  attributeSchema: SDKAttributeSchema = [],
-  datasourceProjects?: string[],
 ): CreateColumnProps[] {
   const columns: CreateColumnProps[] = [];
   const seen = new Set<string>();
 
-  const pushColumn = (column: CreateColumnProps) => {
-    const key = column.column.toLowerCase();
+  for (const userIdType of userIdTypes) {
+    const key = userIdType.toLowerCase();
     if (seen.has(key)) {
-      return;
+      continue;
     }
     seen.add(key);
     columns.push({
-      ...column,
-      name: column.name ?? column.column,
-      description: column.description ?? "",
-      numberFormat: column.numberFormat ?? "",
-    });
-  };
-
-  for (const userIdType of userIdTypes) {
-    pushColumn({
       column: userIdType,
+      name: userIdType,
+      description: "",
+      numberFormat: "",
       datatype: "string",
-    });
-  }
-
-  for (const field of EVENT_FORWARDER_AVRO_DEFAULT_FIELDS) {
-    pushColumn({
-      column: field.name,
-      datatype: defaultAvroFieldDatatype(field.name),
-      alwaysInlineFilter: field.name === "event_name" ? true : undefined,
-    });
-  }
-
-  for (const attr of attributeSchema) {
-    if (!attr.hashAttribute || attr.archived) {
-      continue;
-    }
-    if (!attributeMatchesDatasourceProjects(attr, datasourceProjects)) {
-      continue;
-    }
-
-    const column = sanitizeAvroFieldName(attr.property);
-    if (DEFAULT_FIELD_NAMES.has(column)) {
-      continue;
-    }
-
-    pushColumn({
-      column,
-      datatype: hashAttributeDatatype(attr.datatype),
-      description: attr.description ?? "",
     });
   }
 

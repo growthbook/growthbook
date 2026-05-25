@@ -1065,7 +1065,7 @@ export async function postProvisionEventForwarderToLicenseServer(
 export async function postTeardownEventForwarderToLicenseServer(params: {
   organizationId: string;
   datasourceId: string;
-  sinkType: "bigquery" | "snowflake" | "databricks";
+  sinkType: "bigquery" | "snowflake";
   topic?: string;
   connectorName?: string;
   connectorId?: string;
@@ -1157,7 +1157,7 @@ export type EventForwarderSchemaUpdateParams = {
   organizationId: string;
   datasourceId: string;
   topic: string;
-  sinkType: "bigquery" | "snowflake" | "databricks";
+  sinkType: "bigquery" | "snowflake";
   /** The schemaId currently stored on the EventForwarderConfig record. May be 0 if unknown; the license server will fall back to the latest registered schema. */
   schemaId: number;
   attributeSchema: SDKAttributeSchema;
@@ -1167,8 +1167,24 @@ export type EventForwarderSchemaUpdateParams = {
 
 export async function postUpdateEventForwarderSchemaToLicenseServer(
   params: EventForwarderSchemaUpdateParams,
-): Promise<{ schemaId: number }> {
+): Promise<{ schemaId: number; schemaChanged: boolean }> {
   const url = `${LICENSE_SERVER_URL}event-forwarder/update-schema`;
+  return callLicenseServer({
+    url,
+    body: JSON.stringify({
+      ...params,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
+}
+
+export async function postInitialEventForwarderSchematizationPingToLicenseServer(params: {
+  organizationId: string;
+  datasourceId: string;
+  topic: string;
+  schemaId: number;
+}): Promise<{ ok: true }> {
+  const url = `${LICENSE_SERVER_URL}event-forwarder/initial-schematization-ping`;
   return callLicenseServer({
     url,
     body: JSON.stringify({

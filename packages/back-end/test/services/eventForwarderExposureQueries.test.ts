@@ -56,9 +56,18 @@ function efConfig(sinkType: "bigquery" | "snowflake" = "bigquery") {
   };
 }
 
-function context() {
+function context(
+  attributeSchema: {
+    property: string;
+    datatype: "string";
+    hashAttribute?: boolean;
+  }[] = [
+    { property: "device_id", datatype: "string", hashAttribute: true },
+    { property: "user_id", datatype: "string", hashAttribute: true },
+  ],
+) {
   return {
-    org: { id: "org1", settings: { attributeSchema: [] } },
+    org: { id: "org1", settings: { attributeSchema } },
     userId: "user_1",
   };
 }
@@ -90,6 +99,7 @@ describe("ensureEventForwarderExposureQueries", () => {
     await ensureEventForwarderExposureQueries(
       context() as never,
       efConfig("bigquery"),
+      ["device_id"],
     );
 
     expect(mockedUpdate).toHaveBeenCalledWith(
@@ -111,7 +121,7 @@ describe("ensureEventForwarderExposureQueries", () => {
     );
   });
 
-  it("creates one exposure query per userIdType for BigQuery", async () => {
+  it("creates one exposure query per synced userIdType for BigQuery", async () => {
     const raw = ds({
       userIdTypes: [
         { userIdType: "user_id", description: "" },
@@ -130,6 +140,7 @@ describe("ensureEventForwarderExposureQueries", () => {
     await ensureEventForwarderExposureQueries(
       context() as never,
       efConfig("bigquery"),
+      ["user_id", "device_id"],
       { defaultProject: "my-project" } as never,
     );
 
@@ -186,12 +197,13 @@ describe("ensureEventForwarderExposureQueries", () => {
     await ensureEventForwarderExposureQueries(
       context() as never,
       efConfig("snowflake"),
+      ["user_id"],
     );
 
     const exposure =
       mockedUpdate.mock.calls[0][2].settings?.queries?.exposure ?? [];
     expect(exposure).toHaveLength(1);
-    expect(exposure[0].query).toContain("MY_DB.PUBLIC.experiment_viewed");
+    expect(exposure[0].query).toContain("MY_DB.PUBLIC.EXPERIMENT_VIEWED");
     expect(exposure[0].query).not.toContain("WHERE");
   });
 
@@ -221,6 +233,7 @@ describe("ensureEventForwarderExposureQueries", () => {
     await ensureEventForwarderExposureQueries(
       context() as never,
       efConfig("bigquery"),
+      ["user_id"],
       { defaultProject: "my-project" } as never,
     );
 
@@ -256,6 +269,7 @@ describe("ensureEventForwarderExposureQueries", () => {
     await ensureEventForwarderExposureQueries(
       context() as never,
       efConfig("bigquery"),
+      ["device_id"],
       { defaultProject: "my-project" } as never,
     );
 
@@ -266,12 +280,13 @@ describe("ensureEventForwarderExposureQueries", () => {
     expect(exposure[1].userIdType).toBe("device_id");
   });
 
-  it("skips when no userIdTypes on datasource", async () => {
+  it("skips when synced userIdTypes is empty", async () => {
     mockedGetRaw.mockResolvedValue(ds({ userIdTypes: [], queries: {} }));
 
     await ensureEventForwarderExposureQueries(
       context() as never,
       efConfig("bigquery"),
+      [],
       { defaultProject: "my-project" } as never,
     );
 
@@ -279,19 +294,50 @@ describe("ensureEventForwarderExposureQueries", () => {
     expect(mockedGetById).not.toHaveBeenCalled();
   });
 
-  it("skips databricks sink", async () => {
-    mockedGetRaw.mockResolvedValue(
-      ds({
-        userIdTypes: [{ userIdType: "user_id", description: "" }],
-      }),
-    );
-
-    await ensureEventForwarderExposureQueries(context() as never, {
-      ...efConfig("bigquery"),
-      sinkType: "databricks",
+  it("does not create exposure queries for non-hash synced userIdTypes", async () => {
+    const raw = ds({
+      userIdTypes: [
+        { userIdType: "anonymous_id", description: "Pre-existing" },
+        { userIdType: "device_id", description: "" },
+      ],
+      queries: { exposure: [] },
+    });
+    mockedGetRaw.mockResolvedValue(raw);
+    mockedGetById.mockResolvedValue(raw);
+    mockedDecrypt.mockReturnValue({
+      dataset: "analytics_123",
+      tableName: "gb_events",
+      serviceAccountKey: "{}",
     });
 
-    expect(mockedUpdate).not.toHaveBeenCalled();
-    expect(mockedGetRaw).not.toHaveBeenCalled();
+    await ensureEventForwarderExposureQueries(
+      context([
+        { property: "device_id", datatype: "string", hashAttribute: true },
+      ]) as never,
+      efConfig("bigquery"),
+      ["anonymous_id", "device_id"],
+      { defaultProject: "my-project" } as never,
+    );
+
+    expect(mockedUpdate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      {
+        settings: expect.objectContaining({
+          queries: {
+            exposure: [
+              expect.objectContaining({
+                userIdType: "device_id",
+              }),
+            ],
+          },
+        }),
+      },
+    );
+
+    const exposure =
+      mockedUpdate.mock.calls[0][2].settings?.queries?.exposure ?? [];
+    expect(exposure).toHaveLength(1);
+    expect(exposure.some((q) => q.userIdType === "anonymous_id")).toBe(false);
   });
 });

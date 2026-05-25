@@ -41,7 +41,6 @@ import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import type { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
-import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { SQLExecutionError } from "back-end/src/util/errors";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -74,6 +73,7 @@ import {
   pauseEventForwarderThroughLicenseServer,
   provisionEventForwarderThroughLicenseServer,
   resumeEventForwarderThroughLicenseServer,
+  syncEventForwarderSchematizationThroughLicenseServer,
   updateEventForwarderCredentialsThroughLicenseServer,
 } from "back-end/src/services/eventForwarderProvisioning";
 import { syncEventForwarderStatusFromLicenseServer } from "back-end/src/services/eventForwarderConnectorStatusSync";
@@ -142,7 +142,7 @@ function getCandidateDatasource({
   projects,
 }: {
   context: ReturnType<typeof getContextFromReq>;
-  type: "bigquery" | "snowflake" | "databricks";
+  type: "bigquery" | "snowflake";
   params: DataSourceParams;
   projects?: string[];
 }): DataSourceInterface {
@@ -164,6 +164,39 @@ function getEventForwarderAccessTestErrorResponse(error: unknown) {
   return getEventForwarderWriteAccessFailedResponse(
     error instanceof Error ? error.message : String(error),
   );
+}
+
+async function testEventForwarderWriteAccessForSink(
+  context: ReturnType<typeof getContextFromReq>,
+  args: {
+    sinkType: EventForwarderConfigDraft["sinkType"];
+    datasource: DataSourceInterface;
+    datasourceParams: EventForwarderDatasourceParams;
+    normalized:
+      | BigQueryEventForwarderStoredConfig
+      | SnowflakeEventForwarderStoredConfig;
+  },
+) {
+  switch (args.sinkType) {
+    case "bigquery":
+      return testEventForwarderWriteAccess(context, {
+        sinkType: "bigquery",
+        datasource: args.datasource,
+        params: args.datasourceParams as BigQueryConnectionParams,
+        config: args.normalized as BigQueryEventForwarderStoredConfig,
+      });
+    case "snowflake":
+      return testEventForwarderWriteAccess(context, {
+        sinkType: "snowflake",
+        datasource: args.datasource,
+        params: args.datasourceParams as SnowflakeConnectionParams,
+        config: args.normalized as SnowflakeEventForwarderStoredConfig,
+      });
+    default:
+      throw new Error(
+        `Unsupported event forwarder sink type for access test: ${String(args.sinkType)}`,
+      );
+  }
 }
 
 export async function deleteDataSource(
@@ -959,7 +992,6 @@ export async function postTestEventForwarderAccessForCreate(
     projects,
   });
   const datasourceParams = getEventForwarderDatasourceParams(type, params);
-  const databricksParams = params as DatabricksConnectionParams;
   try {
     const normalized = buildNormalizedEventForwarderSinkPayloadForTest(
       eventForwarderConfig as EventForwarderConfigDraft,
@@ -967,27 +999,12 @@ export async function postTestEventForwarderAccessForCreate(
       null,
     );
 
-    const result =
-      eventForwarderConfig.sinkType === "bigquery"
-        ? await testEventForwarderWriteAccess(context, {
-            sinkType: "bigquery",
-            datasource,
-            params: datasourceParams as BigQueryConnectionParams,
-            config: normalized as BigQueryEventForwarderStoredConfig,
-          })
-        : eventForwarderConfig.sinkType === "snowflake"
-          ? await testEventForwarderWriteAccess(context, {
-              sinkType: "snowflake",
-              datasource,
-              params: datasourceParams as SnowflakeConnectionParams,
-              config: normalized as SnowflakeEventForwarderStoredConfig,
-            })
-          : await testEventForwarderWriteAccess(context, {
-              sinkType: "databricks",
-              datasource,
-              params: databricksParams,
-              config: normalized as Record<string, string>,
-            });
+    const result = await testEventForwarderWriteAccessForSink(context, {
+      sinkType: eventForwarderConfig.sinkType,
+      datasource,
+      datasourceParams,
+      normalized,
+    });
 
     res.status(200).json(result);
   } catch (error) {
@@ -1054,7 +1071,6 @@ export async function postTestEventForwarderAccessForDatasource(
     datasource.type,
     integration.params as DataSourceParams,
   );
-  const databricksParams = integration.params as DatabricksConnectionParams;
   try {
     const normalized = buildNormalizedEventForwarderSinkPayloadForTest(
       draft,
@@ -1062,27 +1078,12 @@ export async function postTestEventForwarderAccessForDatasource(
       existingEventForwarderConfig,
     );
 
-    const result =
-      draft.sinkType === "bigquery"
-        ? await testEventForwarderWriteAccess(context, {
-            sinkType: "bigquery",
-            datasource: candidateDatasource,
-            params: datasourceParams as BigQueryConnectionParams,
-            config: normalized as BigQueryEventForwarderStoredConfig,
-          })
-        : draft.sinkType === "snowflake"
-          ? await testEventForwarderWriteAccess(context, {
-              sinkType: "snowflake",
-              datasource: candidateDatasource,
-              params: datasourceParams as SnowflakeConnectionParams,
-              config: normalized as SnowflakeEventForwarderStoredConfig,
-            })
-          : await testEventForwarderWriteAccess(context, {
-              sinkType: "databricks",
-              datasource: candidateDatasource,
-              params: databricksParams,
-              config: normalized as Record<string, string>,
-            });
+    const result = await testEventForwarderWriteAccessForSink(context, {
+      sinkType: draft.sinkType,
+      datasource: candidateDatasource,
+      datasourceParams,
+      normalized,
+    });
 
     res.status(200).json(result);
   } catch (error) {
@@ -1203,6 +1204,70 @@ export async function postResumeEventForwarder(
     res.status(200).json({ status: 200 });
   } catch (e) {
     req.log.error(e, "Failed to resume event forwarder");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function postEventForwarderSchematizationSync(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<
+    | { status: 200; schemaChanged: boolean; pingSent: boolean }
+    | {
+        status: 400 | 403 | 404;
+        message: string;
+      }
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const datasource = await getDataSourceById(context, id);
+  if (!datasource) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+    return;
+  }
+
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const eventForwarderConfig = await getEventForwarderConfigForDatasource(
+    context,
+    datasource.id,
+  );
+  if (!eventForwarderConfig) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find event forwarder config",
+    });
+    return;
+  }
+
+  if (eventForwarderConfig.status !== "ready") {
+    res.status(400).json({
+      status: 400,
+      message: "Only ready event forwarders can sync schematization",
+    });
+    return;
+  }
+
+  try {
+    const result = await syncEventForwarderSchematizationThroughLicenseServer(
+      context,
+      eventForwarderConfig,
+    );
+    res.status(200).json({
+      status: 200,
+      schemaChanged: result.schemaChanged,
+      pingSent: result.pingSent,
+    });
+  } catch (e) {
+    req.log.error(e, "Failed to sync event forwarder schematization");
     res.status(400).json({
       status: 400,
       message: e.message || "An error occurred",

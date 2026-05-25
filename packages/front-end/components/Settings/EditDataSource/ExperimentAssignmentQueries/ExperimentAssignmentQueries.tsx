@@ -5,7 +5,10 @@ import {
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPlus } from "react-icons/fa";
-import { isEventForwarderManagedExposureQuery } from "shared/util";
+import {
+  EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
+  isEventForwarderManagedExposureQuery,
+} from "shared/util";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
 import { DimensionSlicesInterface } from "shared/types/dimension";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
@@ -20,9 +23,11 @@ import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { CustomDimensionMetadata } from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
+import { useAuth } from "@/services/auth";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 type UIMode = "view" | "edit" | "add" | "dimension";
+type SyncState = "idle" | "syncing" | "done" | "error";
 export const ExperimentAssignmentQueries: FC<
   ExperimentAssignmentQueriesProps
 > = ({ dataSource, onSave, onCancel, canEdit = true }) => {
@@ -37,6 +42,7 @@ export const ExperimentAssignmentQueries: FC<
 
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
+  const { apiCall } = useAuth();
 
   const handleExpandCollapseForIndex = useCallback(
     (index) => () => {
@@ -59,6 +65,22 @@ export const ExperimentAssignmentQueries: FC<
     () => dataSource.settings?.queries?.exposure || [],
     [dataSource.settings?.queries?.exposure],
   );
+
+  const hasManagedForwarderQueries = useMemo(
+    () =>
+      experimentExposureQueries.some((query) =>
+        isEventForwarderManagedExposureQuery(query),
+      ),
+    [experimentExposureQueries],
+  );
+
+  const showSyncWarehouseSchemaButton =
+    canEdit &&
+    dataSource.eventForwarderConfig?.status === "ready" &&
+    hasManagedForwarderQueries;
+
+  const [syncState, setSyncState] = useState<SyncState>("idle");
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   const handleAdd = useCallback(() => {
     setUiMode("add");
@@ -113,6 +135,27 @@ export const ExperimentAssignmentQueries: FC<
     [dataSource, onSave],
   );
 
+  const handleSyncWarehouseSchema = useCallback(async () => {
+    setSyncState("syncing");
+    setSyncError(null);
+    try {
+      await apiCall(
+        `/datasource/${dataSource.id}/event-forwarder/schematization-sync`,
+        { method: "POST" },
+      );
+      await new Promise((resolve) =>
+        setTimeout(resolve, EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS),
+      );
+      await onSave(cloneDeep<DataSourceInterfaceWithParams>(dataSource));
+      setSyncState("done");
+    } catch (e) {
+      setSyncError(e instanceof Error ? e.message : "Sync failed");
+      setSyncState("error");
+    } finally {
+      window.setTimeout(() => setSyncState("idle"), 3000);
+    }
+  }, [apiCall, dataSource, onSave]);
+
   if (!dataSource) {
     console.error("ImplementationError: dataSource cannot be null");
     return null;
@@ -135,11 +178,22 @@ export const ExperimentAssignmentQueries: FC<
         </Box>
 
         {canEdit && (
-          <Box>
+          <Flex gap="2">
+            {showSyncWarehouseSchemaButton ? (
+              <Tooltip body="Pushes the latest Event Forwarder schema to your warehouse and re-validates assignment queries.">
+                <Button
+                  variant="outline"
+                  loading={syncState === "syncing"}
+                  onClick={handleSyncWarehouseSchema}
+                >
+                  Sync warehouse schema
+                </Button>
+              </Tooltip>
+            ) : null}
             <Button onClick={handleAdd}>
               <FaPlus className="mr-1" /> Add
             </Button>
-          </Box>
+          </Flex>
         )}
       </Flex>
       <p>
@@ -147,6 +201,17 @@ export const ExperimentAssignmentQueries: FC<
         Returns a record of which experiment variation was assigned to each
         user.
       </p>
+
+      {syncState === "done" ? (
+        <Callout status="success" mt="3">
+          Warehouse schema sync completed. Assignment queries were re-validated.
+        </Callout>
+      ) : null}
+      {syncState === "error" && syncError ? (
+        <Callout status="error" mt="3">
+          {syncError}
+        </Callout>
+      ) : null}
 
       {/* region Empty state */}
       {experimentExposureQueries.length === 0 ? (

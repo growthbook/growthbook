@@ -1,6 +1,21 @@
 import { UserIdType } from "shared/types/datasource";
 import { SDKAttribute, SDKAttributeSchema } from "shared/types/organization";
 
+const EVENT_FORWARDER_FACT_TABLE_COLUMN_FIELDS = [
+  "property",
+  "datatype",
+  "hashAttribute",
+] as const satisfies readonly (keyof SDKAttribute)[];
+
+export function attributeUpdateAffectsEventForwarderFactTableColumns(
+  before: SDKAttribute,
+  after: SDKAttribute,
+): boolean {
+  return EVENT_FORWARDER_FACT_TABLE_COLUMN_FIELDS.some(
+    (field) => before[field] !== after[field],
+  );
+}
+
 export function attributeMatchesDatasourceProjects(
   attribute: SDKAttribute,
   datasourceProjects: string[] | undefined,
@@ -78,14 +93,19 @@ export function isEventForwarderAllowedUserIdTypesChange(
   });
 }
 
-export function mergeUserIdTypes(
+export function getUserIdTypesToAdd(
   existing: UserIdType[],
   built: UserIdType[],
 ): UserIdType[] {
   const existingIds = new Set(existing.map((u) => u.userIdType.toLowerCase()));
-  const toAdd = built.filter(
-    (u) => !existingIds.has(u.userIdType.toLowerCase()),
-  );
+  return built.filter((u) => !existingIds.has(u.userIdType.toLowerCase()));
+}
+
+export function mergeUserIdTypes(
+  existing: UserIdType[],
+  built: UserIdType[],
+): UserIdType[] {
+  const toAdd = getUserIdTypesToAdd(existing, built);
   if (toAdd.length === 0) {
     return existing;
   }
