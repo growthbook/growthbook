@@ -1729,16 +1729,9 @@ export const autoAddGroupsAttribute = async (
       },
     };
 
-    const updates = {
-      settings: {
-        ...org.settings,
-        attributeSchema: newAttributeSchema,
-      },
-    };
-
     added = true;
 
-    await updateAttributeSchema(context, {
+    const { persistedAttributeSchema } = await updateAttributeSchema(context, {
       newAttributeSchema,
       // `$groups` isn't a valid ClickHouse identifier; skip the Managed
       // Warehouse name check so system-triggered auto-add always succeeds.
@@ -1746,6 +1739,16 @@ export const autoAddGroupsAttribute = async (
       // and the sync layer silently skips it from materialization.
       skipManagedWarehouseNameValidation: true,
     });
+
+    // Use `persistedAttributeSchema` (not `newAttributeSchema`) so the audit
+    // entry reflects any first-time-migration backfill that `updateAttributeSchema`
+    // folded in alongside the `$groups` add.
+    const updates = {
+      settings: {
+        ...org.settings,
+        attributeSchema: persistedAttributeSchema,
+      },
+    };
 
     await req.audit({
       event: "organization.update",

@@ -369,7 +369,7 @@ const DEFAULT_EXPOSURE_QUERY_SQL = `
 SELECT *
 FROM experiment_views
 WHERE
-  experiment_id LIKE '{{ experimentId }}'
+  experiment_id LIKE '{{experimentId}}'
   AND timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`.trim();
 
 /**
