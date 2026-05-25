@@ -32,9 +32,15 @@ export const postAttribute = createApiRequestHandler(postAttributeValidator)(
       await addTags(org.id, tags);
     }
 
-    await updateAttributeSchema(req.context, {
-      newAttributeSchema: [...(org.settings?.attributeSchema || []), attribute],
-    });
+    const { persistedAttributeSchema } = await updateAttributeSchema(
+      req.context,
+      {
+        newAttributeSchema: [
+          ...(org.settings?.attributeSchema || []),
+          attribute,
+        ],
+      },
+    );
 
     await req.audit({
       event: "attribute.create",
@@ -45,8 +51,16 @@ export const postAttribute = createApiRequestHandler(postAttributeValidator)(
       details: auditDetailsCreate(attribute),
     });
 
+    // Read back the canonical version from the persisted schema. On a
+    // first-time managed-warehouse migration `updateAttributeSchema` may
+    // fold in backfilled attributes alongside this create; this lookup
+    // ensures the response reflects exactly what's now stored.
+    const persistedAttribute =
+      persistedAttributeSchema.find((a) => a.property === attribute.property) ??
+      attribute;
+
     return {
-      attribute,
+      attribute: persistedAttribute,
     };
   },
 );

@@ -86,13 +86,8 @@ export async function updateAttributeSchema(
   const managedWarehouse =
     await dangerouslyGetGrowthbookDatasourceBypassPermission(org.id);
 
-  // Skip the LS sync when the warehouse exists but ClickHouse isn't ready yet.
-  // The async provisioning job picks up the saved attributeSchema once it
-  // runs, so all we need to do here is persist the org write.
-  if (
-    !managedWarehouse ||
-    isManagedWarehouseAwaitingProvisioning(managedWarehouse)
-  ) {
+  // No managed warehouse: nothing to back-fill against; just persist.
+  if (!managedWarehouse) {
     await updateOrganization(org.id, {
       settings: { ...org.settings, attributeSchema: newAttributeSchema },
     });
@@ -105,6 +100,12 @@ export async function updateAttributeSchema(
   // merge into the org write. Skipped on the steady-state path: once a sync
   // has run, `syncedMaterializedColumns` is populated and prepare would
   // unconditionally return an empty backfill — saves a round-trip per edit.
+  //
+  // Done before the pre-provisioning branch below so that orgs editing
+  // attributes during the awaiting-provisioning window still get the legacy
+  // `materializedColumns` migrated into `attributeSchema`. Otherwise the
+  // provisioning job would seed CH from a backfill-less schema and drop the
+  // org's pre-existing key attributes.
   let attributeBackfill: SDKAttribute[] = [];
   if (managedWarehouse.settings.syncedMaterializedColumns === undefined) {
     const prepared =
@@ -127,6 +128,15 @@ export async function updateAttributeSchema(
   // Rollback target: the post-migration but pre-edit state. Backfill stays
   // applied across rollback so retries don't replay migration.
   const postMigrationCurrentSchema = mergeWithBackfill(currentAttributeSchema);
+
+  // Skip the LS sync when ClickHouse isn't ready yet. The async provisioning
+  // job picks up the saved (now-backfilled) attributeSchema once it runs.
+  if (isManagedWarehouseAwaitingProvisioning(managedWarehouse)) {
+    await updateOrganization(org.id, {
+      settings: { ...org.settings, attributeSchema: finalAttributeSchema },
+    });
+    return { persistedAttributeSchema: finalAttributeSchema };
+  }
 
   // Phase 2: persist the org write before calling sync. If sync fails after
   // applying DDL, the rollback below restores the post-migration / pre-edit
@@ -175,6 +185,17 @@ export async function updateAttributeSchema(
     // `status` (e.g. 404, 400) instead of falling back to a generic 400.
     throw e;
   }
+
+  // The datasource snapshot itself (`syncedMaterializedColumns`,
+  // `userIdTypes`, `queries.exposure`, and the first-migration `$unset` of
+  // legacy `materializedColumns`) has already been persisted by the license
+  // server inside the sync call — LS's DataSourceModel writes via
+  // `useDb(GROWTHBOOK_DB_NAME)` directly into this same `datasources`
+  // collection, under the per-org lock LS holds for the duration of sync.
+  // We deliberately do NOT re-apply `syncResult` here: a follow-up write
+  // from GB would land outside that lock and could race a subsequent sync.
+  // `syncResult` is consumed below only as input to the fact-table
+  // reconciliation, which is a GB-owned concern.
 
   // CH and the org are in sync. Reconcile the events fact table's columns
   // so metric/dimension pickers reflect the new materialized-column set.

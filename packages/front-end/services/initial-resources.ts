@@ -61,17 +61,25 @@ export interface InitialDatasourceResources {
  * initial fact table can list user-attribute columns (e.g. `tier`) and alias
  * their physical `matcol__*` names back to the logical identifier.
  *
- * Returns `null` when the datasource has no snapshot yet (would only happen
- * for a malformed managed-warehouse row); the caller falls back to the
- * minimal built-in column set.
+ * Falls back to the legacy `materializedColumns` field for pre-migration orgs
+ * that haven't run an attribute-driven sync yet — without this, auto-seeded
+ * fact tables for those orgs would silently omit any key attributes they had
+ * configured under the old Key Attributes UI until the first sync.
+ *
+ * Returns `null` when the datasource has no snapshot under either field
+ * (would only happen for a malformed managed-warehouse row); the caller
+ * falls back to the minimal built-in column set.
  */
 function getManagedWarehouseMaterializedColumns(
   datasource: DataSourceInterfaceWithParams,
 ): MaterializedColumn[] | null {
   if (datasource.type !== "growthbook_clickhouse") return null;
-  const cols = (
-    datasource.settings as { syncedMaterializedColumns?: MaterializedColumn[] }
-  )?.syncedMaterializedColumns;
+  const settings = datasource.settings as {
+    syncedMaterializedColumns?: MaterializedColumn[];
+    materializedColumns?: MaterializedColumn[];
+  };
+  const cols =
+    settings?.syncedMaterializedColumns ?? settings?.materializedColumns;
   return cols ?? null;
 }
 
