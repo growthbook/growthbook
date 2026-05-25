@@ -4,6 +4,7 @@ import {
   BigQueryEventForwarderStoredConfig,
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
+import { SDKAttributeSchema } from "shared/types/organization";
 import { EventForwarderConfigInterface } from "shared/validators";
 import {
   GenerateEventForwarderExposureQueriesParams,
@@ -70,6 +71,7 @@ export async function ensureEventForwarderExposureQueries(
   eventForwarderConfig: EventForwarderConfigInterface,
   userIdTypes: string[],
   datasourceParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
+  attributeSchema?: SDKAttributeSchema,
 ): Promise<void> {
   if (userIdTypes.length === 0) {
     return;
@@ -83,9 +85,14 @@ export async function ensureEventForwarderExposureQueries(
     return;
   }
 
-  const attributeSchema = context.org.settings?.attributeSchema ?? [];
+  const resolvedAttributeSchema =
+    attributeSchema ?? context.org.settings?.attributeSchema ?? [];
   const syncedUserIdTypes = userIdTypes.filter((userIdType) =>
-    isHashAttributeUserIdType(userIdType, attributeSchema, raw.projects),
+    isHashAttributeUserIdType(
+      userIdType,
+      resolvedAttributeSchema,
+      raw.projects,
+    ),
   );
   if (syncedUserIdTypes.length === 0) {
     return;

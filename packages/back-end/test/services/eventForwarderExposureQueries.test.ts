@@ -340,4 +340,75 @@ describe("ensureEventForwarderExposureQueries", () => {
     expect(exposure).toHaveLength(1);
     expect(exposure.some((q) => q.userIdType === "anonymous_id")).toBe(false);
   });
+
+  it("uses passed attributeSchema when context org schema is stale", async () => {
+    const raw = ds({
+      userIdTypes: [{ userIdType: "device_id", description: "" }],
+      queries: { exposure: [] },
+    });
+    mockedGetRaw.mockResolvedValue(raw);
+    mockedGetById.mockResolvedValue(raw);
+    mockedDecrypt.mockReturnValue({
+      dataset: "analytics_123",
+      tableName: "gb_events",
+      serviceAccountKey: "{}",
+    });
+
+    const updatedAttributeSchema = [
+      {
+        property: "device_id",
+        datatype: "string" as const,
+        hashAttribute: true,
+      },
+    ];
+
+    await ensureEventForwarderExposureQueries(
+      context([]) as never,
+      efConfig("bigquery"),
+      ["device_id"],
+      { defaultProject: "my-project" } as never,
+      updatedAttributeSchema,
+    );
+
+    expect(mockedUpdate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      {
+        settings: expect.objectContaining({
+          queries: {
+            exposure: [
+              expect.objectContaining({
+                userIdType: "device_id",
+                id: "device_id",
+                managedBy: "api",
+              }),
+            ],
+          },
+        }),
+      },
+    );
+  });
+
+  it("skips hash attributes missing from stale context when attributeSchema is omitted", async () => {
+    const raw = ds({
+      userIdTypes: [{ userIdType: "device_id", description: "" }],
+      queries: { exposure: [] },
+    });
+    mockedGetRaw.mockResolvedValue(raw);
+    mockedGetById.mockResolvedValue(raw);
+    mockedDecrypt.mockReturnValue({
+      dataset: "analytics_123",
+      tableName: "gb_events",
+      serviceAccountKey: "{}",
+    });
+
+    await ensureEventForwarderExposureQueries(
+      context([]) as never,
+      efConfig("bigquery"),
+      ["device_id"],
+      { defaultProject: "my-project" } as never,
+    );
+
+    expect(mockedUpdate).not.toHaveBeenCalled();
+  });
 });
