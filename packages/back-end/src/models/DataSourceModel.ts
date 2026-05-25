@@ -18,6 +18,7 @@ import {
   getSourceIntegrationObject,
   testDataSourceConnection,
   testQueryValidity,
+  testFeatureUsageQueryValidity,
 } from "back-end/src/services/datasource";
 import {
   usingFileConfig,
@@ -220,6 +221,9 @@ export async function deleteDatasource(
   }
   await syncEventForwarderAfterDatasourceDeleted(context, datasource);
 
+  // Event forwarder managed artifacts (Events fact table, exposure queries,
+  // feature usage queries) are only removed when the datasource is deleted.
+  // Disconnecting the forwarder alone does not delete them.
   try {
     await deleteEventForwarderEventsFactTableForDatasource(context, datasource);
   } catch (e) {
@@ -399,6 +403,38 @@ export async function validateExposureQueriesAndAddMissingIds(
           exposure.error = await testQueryValidity(
             integration,
             exposure,
+            context.org.settings?.testQueryDays,
+          );
+        }
+      }),
+    );
+  }
+  if (updatesCopy.queries?.featureUsage) {
+    await Promise.all(
+      updatesCopy.queries.featureUsage.map(async (featureUsage) => {
+        if (isManagedWarehouseAwaitingProvisioning(datasource)) {
+          featureUsage.error = undefined;
+          return;
+        }
+
+        let checkValidity = forceCheckValidity;
+        if (!forceCheckValidity) {
+          const existingQuery = datasource.settings.queries?.featureUsage?.find(
+            (q) => q.id === featureUsage.id,
+          );
+          if (
+            !existingQuery ||
+            !isEqual(existingQuery, featureUsage) ||
+            existingQuery.error
+          ) {
+            checkValidity = true;
+          }
+        }
+        if (checkValidity) {
+          const integration = getSourceIntegrationObject(context, datasource);
+          featureUsage.error = await testFeatureUsageQueryValidity(
+            integration,
+            featureUsage,
             context.org.settings?.testQueryDays,
           );
         }

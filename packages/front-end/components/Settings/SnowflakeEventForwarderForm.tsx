@@ -61,7 +61,7 @@ const SnowflakeEventForwarderForm: FC<{
           value={snowflakeEventForwarderConfig.config.role || ""}
           onChange={(e) => updateConfig({ role: e.target.value })}
           placeholder=""
-          helpText="Snowflake role for the event forwarder connector. Defaults from the datasource connection."
+          helpText="Required. Snowflake role for the Confluent Snowflake Sink (Snowpipe Streaming + schema evolution). Defaults from the datasource connection."
         />
       </div>
       <div className="col-md-12 px-0">
