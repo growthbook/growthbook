@@ -17,7 +17,6 @@ import {
   createFactTable,
   getFactTable,
   deleteFactTable,
-  updateFactTable,
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
@@ -43,31 +42,6 @@ async function findEventForwarderEventsFactTableForDatasourceId(
     return null;
   }
   return factTable;
-}
-
-export async function syncEventForwarderEventsFactTableDisplayName(
-  context: ReqContext,
-  datasource: DataSourceInterface,
-): Promise<void> {
-  const factTable = await findEventForwarderEventsFactTableForDatasourceId(
-    context,
-    datasource,
-  );
-  if (!factTable) {
-    return;
-  }
-
-  const name = getEventForwarderEventsFactTableName(datasource.name);
-  if (factTable.name === name) {
-    return;
-  }
-
-  await updateFactTable(
-    context,
-    factTable,
-    { name },
-    { bypassManagedByCheck: true },
-  );
 }
 
 export async function queueEventForwarderEventsFactTablesColumnsRefresh(

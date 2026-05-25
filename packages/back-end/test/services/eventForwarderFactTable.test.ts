@@ -3,7 +3,6 @@ import type { FactTableInterface } from "shared/types/fact-table";
 import { EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS } from "shared/util";
 import {
   ensureEventForwarderEventsFactTable,
-  syncEventForwarderEventsFactTableDisplayName,
   deleteEventForwarderEventsFactTableForDatasource,
   queueEventForwarderEventsFactTablesColumnsRefresh,
   queueDelayedFactTableColumnsRefreshForEventForwarderDatasources,
@@ -28,10 +27,6 @@ const mockedGetFactTable = FactTableModel.getFactTable as jest.MockedFunction<
 const mockedCreateFactTable =
   FactTableModel.createFactTable as jest.MockedFunction<
     typeof FactTableModel.createFactTable
-  >;
-const mockedUpdateFactTable =
-  FactTableModel.updateFactTable as jest.MockedFunction<
-    typeof FactTableModel.updateFactTable
   >;
 const mockedDeleteFactTable =
   FactTableModel.deleteFactTable as jest.MockedFunction<
@@ -201,40 +196,6 @@ describe("ensureEventForwarderEventsFactTable", () => {
 
     expect(mockedCreateFactTable).not.toHaveBeenCalled();
     expect(mockedQueueFactTableColumnsRefresh).not.toHaveBeenCalled();
-  });
-});
-
-describe("syncEventForwarderEventsFactTableDisplayName", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it("updates display name when datasource is renamed", async () => {
-    const ft = eventsFactTable();
-    mockedGetFactTable.mockResolvedValue(ft as never);
-
-    await syncEventForwarderEventsFactTableDisplayName(
-      context() as never,
-      datasource({ name: "Prod Analytics" }),
-    );
-
-    expect(mockedUpdateFactTable).toHaveBeenCalledWith(
-      expect.anything(),
-      ft,
-      { name: "Prod Analytics Events" },
-      { bypassManagedByCheck: true },
-    );
-  });
-
-  it("skips when display name is already current", async () => {
-    mockedGetFactTable.mockResolvedValue(eventsFactTable() as never);
-
-    await syncEventForwarderEventsFactTableDisplayName(
-      context() as never,
-      datasource(),
-    );
-
-    expect(mockedUpdateFactTable).not.toHaveBeenCalled();
   });
 });
 

@@ -79,7 +79,6 @@ import {
 } from "back-end/src/services/eventForwarderProvisioning";
 import { syncEventForwarderStatusFromLicenseServer } from "back-end/src/services/eventForwarderConnectorStatusSync";
 import { deleteEventForwarderConfigForDatasource } from "back-end/src/services/eventForwarderDatasourceLifecycle";
-import { syncEventForwarderEventsFactTableDisplayName } from "back-end/src/services/eventForwarderFactTable";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import {
@@ -688,19 +687,6 @@ export async function putDataSource(
       ...datasource,
       ...updates,
     };
-
-    if (name && name !== datasource.name) {
-      const efConfigForRename = await getEventForwarderConfigForDatasource(
-        context,
-        updatedDatasource.id,
-      );
-      if (efConfigForRename) {
-        await syncEventForwarderEventsFactTableDisplayName(
-          context,
-          updatedDatasource,
-        );
-      }
-    }
 
     const integration = getSourceIntegrationObject(context, updatedDatasource);
     const eventForwarderDatasourceParams = getEventForwarderDatasourceParams(
