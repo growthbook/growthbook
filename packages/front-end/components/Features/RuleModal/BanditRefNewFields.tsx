@@ -23,7 +23,9 @@ import {
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
+import PrerequisiteInput, {
+  type RuleCyclicResult,
+} from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -72,6 +74,7 @@ export default function BanditRefNewFields({
   disableBanditConversionWindow,
   setDisableBanditConversionWindow,
   envScope,
+  onRuleCyclicChange,
 }: {
   step: number;
   source: "rule" | "experiment";
@@ -97,6 +100,7 @@ export default function BanditRefNewFields({
   disableBanditConversionWindow: boolean;
   setDisableBanditConversionWindow: (v: boolean) => void;
   envScope?: EnvScopeProps;
+  onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
 
@@ -271,6 +275,7 @@ export default function BanditRefNewFields({
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
+            onRuleCyclicChange={onRuleCyclicChange}
           />
           {isCyclic ? (
             <div className="alert alert-danger">

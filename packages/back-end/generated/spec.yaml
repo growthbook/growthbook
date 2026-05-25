@@ -192,6 +192,12 @@ tags:
   - name: segments
     x-displayName: Segments
     description: Segments used during experiment analysis
+  - name: reports
+    x-displayName: Experiment Reports
+    description: >-
+      Custom analysis reports built on top of experiment snapshots. Reports let
+      you re-run analysis with different metrics, date ranges, stats engines,
+      and other settings without modifying the underlying experiment.
   - name: sdk-connections
     x-displayName: SDK Connections
     description: Client keys and settings for connecting SDKs to a GrowthBook instance
@@ -256,7 +262,7 @@ tags:
     x-displayName: Ramp Schedule Templates
     description: Reusable step configurations for ramp schedules.
   - name: AnalyticsExploration_model
-    x-displayName: AnalyticsExploration
+    x-displayName: Analytics Exploration
     description: <SchemaDefinition schemaRef="#/components/schemas/AnalyticsExploration" />
   - name: Archetype_model
     x-displayName: Archetype
@@ -265,16 +271,16 @@ tags:
     x-displayName: Attribute
     description: <SchemaDefinition schemaRef="#/components/schemas/Attribute" />
   - name: CodeRef_model
-    x-displayName: CodeRef
+    x-displayName: Code Ref
     description: <SchemaDefinition schemaRef="#/components/schemas/CodeRef" />
   - name: CustomField_model
-    x-displayName: CustomField
+    x-displayName: Custom Field
     description: <SchemaDefinition schemaRef="#/components/schemas/CustomField" />
   - name: Dashboard_model
     x-displayName: Dashboard
     description: <SchemaDefinition schemaRef="#/components/schemas/Dashboard" />
   - name: DataSource_model
-    x-displayName: DataSource
+    x-displayName: Data Source
     description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
   - name: Dimension_model
     x-displayName: Dimension
@@ -285,119 +291,122 @@ tags:
   - name: Experiment_model
     x-displayName: Experiment
     description: <SchemaDefinition schemaRef="#/components/schemas/Experiment" />
+  - name: Experiment Rule_model
+    x-displayName: Experiment Rule
+    description: <SchemaDefinition schemaRef="#/components/schemas/Experiment Rule" />
   - name: ExperimentAnalysisSettings_model
-    x-displayName: ExperimentAnalysisSettings
+    x-displayName: Experiment Analysis Settings
     description: >-
       <SchemaDefinition
       schemaRef="#/components/schemas/ExperimentAnalysisSettings" />
   - name: ExperimentDecisionFrameworkSettings_model
-    x-displayName: ExperimentDecisionFrameworkSettings
+    x-displayName: Experiment Decision Framework Settings
     description: >-
       <SchemaDefinition
       schemaRef="#/components/schemas/ExperimentDecisionFrameworkSettings" />
   - name: ExperimentMetric_model
-    x-displayName: ExperimentMetric
+    x-displayName: Experiment Metric
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentMetric" />
   - name: ExperimentMetricOverrideEntry_model
-    x-displayName: ExperimentMetricOverrideEntry
+    x-displayName: Experiment Metric Override Entry
     description: >-
       <SchemaDefinition
       schemaRef="#/components/schemas/ExperimentMetricOverrideEntry" />
   - name: ExperimentResults_model
-    x-displayName: ExperimentResults
+    x-displayName: Experiment Results
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentResults" />
   - name: ExperimentSnapshot_model
-    x-displayName: ExperimentSnapshot
+    x-displayName: Experiment Snapshot
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentSnapshot" />
   - name: ExperimentTemplate_model
-    x-displayName: ExperimentTemplate
+    x-displayName: Experiment Template
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentTemplate" />
   - name: ExperimentWithEnhancedStatus_model
-    x-displayName: ExperimentWithEnhancedStatus
+    x-displayName: Experiment With Enhanced Status
     description: >-
       <SchemaDefinition
       schemaRef="#/components/schemas/ExperimentWithEnhancedStatus" />
   - name: FactMetric_model
-    x-displayName: FactMetric
+    x-displayName: Fact Metric
     description: <SchemaDefinition schemaRef="#/components/schemas/FactMetric" />
   - name: FactTable_model
-    x-displayName: FactTable
+    x-displayName: Fact Table
     description: <SchemaDefinition schemaRef="#/components/schemas/FactTable" />
   - name: FactTableColumn_model
-    x-displayName: FactTableColumn
+    x-displayName: Fact Table Column
     description: <SchemaDefinition schemaRef="#/components/schemas/FactTableColumn" />
   - name: FactTableFilter_model
-    x-displayName: FactTableFilter
+    x-displayName: Fact Table Filter
     description: <SchemaDefinition schemaRef="#/components/schemas/FactTableFilter" />
   - name: Feature_model
     x-displayName: Feature
     description: <SchemaDefinition schemaRef="#/components/schemas/Feature" />
   - name: FeatureBaseRule_model
-    x-displayName: FeatureBaseRule
+    x-displayName: Feature Base Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureBaseRule" />
   - name: FeatureDefinition_model
-    x-displayName: FeatureDefinition
+    x-displayName: Feature Definition
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureDefinition" />
   - name: FeatureEnvironment_model
-    x-displayName: FeatureEnvironment
+    x-displayName: Feature Environment
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureEnvironment" />
   - name: FeatureEnvironmentV2_model
-    x-displayName: FeatureEnvironmentV2
+    x-displayName: Feature Environment V2
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureEnvironmentV2" />
   - name: FeatureExperimentRefRule_model
-    x-displayName: FeatureExperimentRefRule
+    x-displayName: Feature Experiment Ref Rule
     description: >-
       <SchemaDefinition
       schemaRef="#/components/schemas/FeatureExperimentRefRule" />
   - name: FeatureExperimentRule_model
-    x-displayName: FeatureExperimentRule
+    x-displayName: Feature Experiment Rule
     description: >-
       <SchemaDefinition schemaRef="#/components/schemas/FeatureExperimentRule"
       />
   - name: FeatureForceRule_model
-    x-displayName: FeatureForceRule
+    x-displayName: Feature Force Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureForceRule" />
   - name: FeatureRevision_model
-    x-displayName: FeatureRevision
+    x-displayName: Feature Revision
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRevision" />
   - name: FeatureRevisionV2_model
-    x-displayName: FeatureRevisionV2
+    x-displayName: Feature Revision V2
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRevisionV2" />
   - name: FeatureRolloutRule_model
-    x-displayName: FeatureRolloutRule
+    x-displayName: Feature Rollout Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRolloutRule" />
   - name: FeatureRule_model
-    x-displayName: FeatureRule
+    x-displayName: Feature Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRule" />
   - name: FeatureRuleV2_model
-    x-displayName: FeatureRuleV2
+    x-displayName: Feature Rule V2
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRuleV2" />
   - name: FeatureSafeRolloutRule_model
-    x-displayName: FeatureSafeRolloutRule
+    x-displayName: Feature Safe Rollout Rule
     description: >-
       <SchemaDefinition schemaRef="#/components/schemas/FeatureSafeRolloutRule"
       />
   - name: FeatureV2_model
-    x-displayName: FeatureV2
+    x-displayName: Feature V2
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureV2" />
   - name: FeatureWithRevisions_model
-    x-displayName: FeatureWithRevisions
+    x-displayName: Feature With Revisions
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureWithRevisions" />
   - name: FeatureWithRevisionsV2_model
-    x-displayName: FeatureWithRevisionsV2
+    x-displayName: Feature With Revisions V2
     description: >-
       <SchemaDefinition schemaRef="#/components/schemas/FeatureWithRevisionsV2"
       />
   - name: InformationSchema_model
-    x-displayName: InformationSchema
+    x-displayName: Information Schema
     description: <SchemaDefinition schemaRef="#/components/schemas/InformationSchema" />
   - name: InformationSchemaTable_model
-    x-displayName: InformationSchemaTable
+    x-displayName: Information Schema Table
     description: >-
       <SchemaDefinition schemaRef="#/components/schemas/InformationSchemaTable"
       />
   - name: LookbackOverride_model
-    x-displayName: LookbackOverride
+    x-displayName: Lookback Override
     description: <SchemaDefinition schemaRef="#/components/schemas/LookbackOverride" />
   - name: Member_model
     x-displayName: Member
@@ -406,19 +415,19 @@ tags:
     x-displayName: Metric
     description: <SchemaDefinition schemaRef="#/components/schemas/Metric" />
   - name: MetricAnalysis_model
-    x-displayName: MetricAnalysis
+    x-displayName: Metric Analysis
     description: <SchemaDefinition schemaRef="#/components/schemas/MetricAnalysis" />
   - name: MetricGroup_model
-    x-displayName: MetricGroup
+    x-displayName: Metric Group
     description: <SchemaDefinition schemaRef="#/components/schemas/MetricGroup" />
   - name: MetricUsage_model
-    x-displayName: MetricUsage
+    x-displayName: Metric Usage
     description: <SchemaDefinition schemaRef="#/components/schemas/MetricUsage" />
   - name: Namespace_model
     x-displayName: Namespace
     description: <SchemaDefinition schemaRef="#/components/schemas/Namespace" />
   - name: NamespaceExperimentMember_model
-    x-displayName: NamespaceExperimentMember
+    x-displayName: Namespace Experiment Member
     description: >-
       <SchemaDefinition
       schemaRef="#/components/schemas/NamespaceExperimentMember" />
@@ -426,7 +435,7 @@ tags:
     x-displayName: Organization
     description: <SchemaDefinition schemaRef="#/components/schemas/Organization" />
   - name: PaginationFields_model
-    x-displayName: PaginationFields
+    x-displayName: Pagination Fields
     description: <SchemaDefinition schemaRef="#/components/schemas/PaginationFields" />
   - name: Project_model
     x-displayName: Project
@@ -435,19 +444,25 @@ tags:
     x-displayName: Query
     description: <SchemaDefinition schemaRef="#/components/schemas/Query" />
   - name: RampSchedule_model
-    x-displayName: RampSchedule
+    x-displayName: Ramp Schedule
     description: <SchemaDefinition schemaRef="#/components/schemas/RampSchedule" />
   - name: RampScheduleTemplate_model
-    x-displayName: RampScheduleTemplate
+    x-displayName: Ramp Schedule Template
     description: <SchemaDefinition schemaRef="#/components/schemas/RampScheduleTemplate" />
+  - name: Report_model
+    x-displayName: Report
+    description: <SchemaDefinition schemaRef="#/components/schemas/Report" />
+  - name: Safe Rollout Rule_model
+    x-displayName: Safe Rollout Rule
+    description: <SchemaDefinition schemaRef="#/components/schemas/Safe Rollout Rule" />
   - name: SavedGroup_model
-    x-displayName: SavedGroup
+    x-displayName: Saved Group
     description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroup" />
   - name: ScheduleRule_model
-    x-displayName: ScheduleRule
+    x-displayName: Schedule Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/ScheduleRule" />
   - name: SdkConnection_model
-    x-displayName: SdkConnection
+    x-displayName: Sdk Connection
     description: <SchemaDefinition schemaRef="#/components/schemas/SdkConnection" />
   - name: Segment_model
     x-displayName: Segment
@@ -455,14 +470,17 @@ tags:
   - name: Settings_model
     x-displayName: Settings
     description: <SchemaDefinition schemaRef="#/components/schemas/Settings" />
+  - name: Targeting Rule_model
+    x-displayName: Targeting Rule
+    description: <SchemaDefinition schemaRef="#/components/schemas/Targeting Rule" />
   - name: Team_model
     x-displayName: Team
     description: <SchemaDefinition schemaRef="#/components/schemas/Team" />
   - name: VisualChange_model
-    x-displayName: VisualChange
+    x-displayName: Visual Change
     description: <SchemaDefinition schemaRef="#/components/schemas/VisualChange" />
   - name: VisualChangeset_model
-    x-displayName: VisualChangeset
+    x-displayName: Visual Changeset
     description: <SchemaDefinition schemaRef="#/components/schemas/VisualChangeset" />
 security:
   - bearerAuth: []
@@ -3421,19 +3439,22 @@ paths:
                         properties:
                           trigger:
                             anyOf:
-                              - type: object
+                              - description: Fires automatically after a fixed delay.
+                                type: object
                                 properties:
                                   type:
                                     type: string
                                     const: interval
                                   seconds:
+                                    description: Seconds to wait before this step fires.
                                     type: number
                                     exclusiveMinimum: 0
                                 required:
                                   - type
                                   - seconds
                                 additionalProperties: false
-                              - type: object
+                              - description: Pauses the ramp until manually approved.
+                                type: object
                                 properties:
                                   type:
                                     type: string
@@ -3441,12 +3462,18 @@ paths:
                                 required:
                                   - type
                                 additionalProperties: false
-                              - type: object
+                              - description: Fires at a specific date and time.
+                                type: object
                                 properties:
                                   type:
                                     type: string
                                     const: scheduled
-                                  at: {}
+                                  at:
+                                    description: >-
+                                      ISO 8601 date-time, e.g.
+                                      "2025-06-01T00:00:00Z".
+                                    type: string
+                                    format: date-time
                                 required:
                                   - type
                                   - at
@@ -3601,20 +3628,30 @@ paths:
                           - patch
                         additionalProperties: false
                     startDate:
+                      description: >-
+                        ISO 8601 date-time, e.g. "2025-06-01T00:00:00Z". Absent
+                        or null means start immediately on publish.
                       anyOf:
                         - type: string
+                          format: date-time
                         - type: 'null'
                     endCondition:
                       type: object
                       properties:
                         trigger:
                           anyOf:
-                            - type: object
+                            - description: End the ramp at a specific date and time.
+                              type: object
                               properties:
                                 type:
                                   type: string
                                   const: scheduled
-                                at: {}
+                                at:
+                                  description: >-
+                                    ISO 8601 date-time, e.g.
+                                    "2025-07-01T00:00:00Z".
+                                  type: string
+                                  format: date-time
                               required:
                                 - type
                                 - at
@@ -3820,19 +3857,22 @@ paths:
                         properties:
                           trigger:
                             anyOf:
-                              - type: object
+                              - description: Fires automatically after a fixed delay.
+                                type: object
                                 properties:
                                   type:
                                     type: string
                                     const: interval
                                   seconds:
+                                    description: Seconds to wait before this step fires.
                                     type: number
                                     exclusiveMinimum: 0
                                 required:
                                   - type
                                   - seconds
                                 additionalProperties: false
-                              - type: object
+                              - description: Pauses the ramp until manually approved.
+                                type: object
                                 properties:
                                   type:
                                     type: string
@@ -3840,12 +3880,18 @@ paths:
                                 required:
                                   - type
                                 additionalProperties: false
-                              - type: object
+                              - description: Fires at a specific date and time.
+                                type: object
                                 properties:
                                   type:
                                     type: string
                                     const: scheduled
-                                  at: {}
+                                  at:
+                                    description: >-
+                                      ISO 8601 date-time, e.g.
+                                      "2025-06-01T00:00:00Z".
+                                    type: string
+                                    format: date-time
                                 required:
                                   - type
                                   - at
@@ -4000,20 +4046,30 @@ paths:
                           - patch
                         additionalProperties: false
                     startDate:
+                      description: >-
+                        ISO 8601 date-time, e.g. "2025-06-01T00:00:00Z". Absent
+                        or null means start immediately on publish.
                       anyOf:
                         - type: string
+                          format: date-time
                         - type: 'null'
                     endCondition:
                       type: object
                       properties:
                         trigger:
                           anyOf:
-                            - type: object
+                            - description: End the ramp at a specific date and time.
+                              type: object
                               properties:
                                 type:
                                   type: string
                                   const: scheduled
-                                at: {}
+                                at:
+                                  description: >-
+                                    ISO 8601 date-time, e.g.
+                                    "2025-07-01T00:00:00Z".
+                                  type: string
+                                  format: date-time
                               required:
                                 - type
                                 - at
@@ -4250,19 +4306,22 @@ paths:
                     properties:
                       trigger:
                         anyOf:
-                          - type: object
+                          - description: Fires automatically after a fixed delay.
+                            type: object
                             properties:
                               type:
                                 type: string
                                 const: interval
                               seconds:
+                                description: Seconds to wait before this step fires.
                                 type: number
                                 exclusiveMinimum: 0
                             required:
                               - type
                               - seconds
                             additionalProperties: false
-                          - type: object
+                          - description: Pauses the ramp until manually approved.
+                            type: object
                             properties:
                               type:
                                 type: string
@@ -4270,12 +4329,18 @@ paths:
                             required:
                               - type
                             additionalProperties: false
-                          - type: object
+                          - description: Fires at a specific date and time.
+                            type: object
                             properties:
                               type:
                                 type: string
                                 const: scheduled
-                              at: {}
+                              at:
+                                description: >-
+                                  ISO 8601 date-time, e.g.
+                                  "2025-06-01T00:00:00Z".
+                                type: string
+                                format: date-time
                             required:
                               - type
                               - at
@@ -4430,20 +4495,28 @@ paths:
                       - patch
                     additionalProperties: false
                 startDate:
+                  description: >-
+                    ISO 8601 date-time, e.g. "2025-06-01T00:00:00Z". Absent or
+                    null means start immediately on publish.
                   anyOf:
                     - type: string
+                      format: date-time
                     - type: 'null'
                 endCondition:
                   type: object
                   properties:
                     trigger:
                       anyOf:
-                        - type: object
+                        - description: End the ramp at a specific date and time.
+                          type: object
                           properties:
                             type:
                               type: string
                               const: scheduled
-                            at: {}
+                            at:
+                              description: ISO 8601 date-time, e.g. "2025-07-01T00:00:00Z".
+                              type: string
+                              format: date-time
                           required:
                             - type
                             - at
@@ -5074,8 +5147,12 @@ paths:
                               type: object
                               properties:
                                 timestamp:
+                                  description: >-
+                                    ISO 8601 date-time, e.g.
+                                    "2025-06-01T00:00:00Z".
                                   anyOf:
                                     - type: string
+                                      format: date-time
                                     - type: 'null'
                                 enabled:
                                   type: boolean
@@ -5153,8 +5230,12 @@ paths:
                               type: object
                               properties:
                                 timestamp:
+                                  description: >-
+                                    ISO 8601 date-time, e.g.
+                                    "2025-06-01T00:00:00Z".
                                   anyOf:
                                     - type: string
+                                      format: date-time
                                     - type: 'null'
                                 enabled:
                                   type: boolean
@@ -5245,8 +5326,12 @@ paths:
                               type: object
                               properties:
                                 timestamp:
+                                  description: >-
+                                    ISO 8601 date-time, e.g.
+                                    "2025-06-01T00:00:00Z".
                                   anyOf:
                                     - type: string
+                                      format: date-time
                                     - type: 'null'
                                 enabled:
                                   type: boolean
@@ -5338,8 +5423,12 @@ paths:
                               type: object
                               properties:
                                 timestamp:
+                                  description: >-
+                                    ISO 8601 date-time, e.g.
+                                    "2025-06-01T00:00:00Z".
                                   anyOf:
                                     - type: string
+                                      format: date-time
                                     - type: 'null'
                                 enabled:
                                   type: boolean
@@ -5576,8 +5665,12 @@ paths:
                               type: object
                               properties:
                                 timestamp:
+                                  description: >-
+                                    ISO 8601 date-time, e.g.
+                                    "2025-06-01T00:00:00Z".
                                   anyOf:
                                     - type: string
+                                      format: date-time
                                     - type: 'null'
                                 enabled:
                                   type: boolean
@@ -5655,8 +5748,12 @@ paths:
                               type: object
                               properties:
                                 timestamp:
+                                  description: >-
+                                    ISO 8601 date-time, e.g.
+                                    "2025-06-01T00:00:00Z".
                                   anyOf:
                                     - type: string
+                                      format: date-time
                                     - type: 'null'
                                 enabled:
                                   type: boolean
@@ -5747,8 +5844,12 @@ paths:
                               type: object
                               properties:
                                 timestamp:
+                                  description: >-
+                                    ISO 8601 date-time, e.g.
+                                    "2025-06-01T00:00:00Z".
                                   anyOf:
                                     - type: string
+                                      format: date-time
                                     - type: 'null'
                                 enabled:
                                   type: boolean
@@ -5840,8 +5941,12 @@ paths:
                               type: object
                               properties:
                                 timestamp:
+                                  description: >-
+                                    ISO 8601 date-time, e.g.
+                                    "2025-06-01T00:00:00Z".
                                   anyOf:
                                     - type: string
+                                      format: date-time
                                     - type: 'null'
                                 enabled:
                                   type: boolean
@@ -6208,13 +6313,14 @@ paths:
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v2/stale-features' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v2/revisions:
+  /v2/feature-revisions:
     get:
       operationId: listRevisionsV2
-      summary: List feature revisions
+      summary: List revisions across all features
       description: >-
         Returns a paginated list of feature revisions across all features in the
-        organization. Revision `rules` is a flat array with per-rule scope.
+        organization. Use the `featureId` query parameter to filter to a single
+        feature. Revision `rules` is a flat array with per-rule scope.
       tags:
         - feature-revisions-v2
       parameters:
@@ -6280,7 +6386,7 @@ paths:
       x-codeSamples:
         - lang: cURL
           source: |-
-            curl -X GET 'https://api.growthbook.io/api/v2/revisions' \
+            curl -X GET 'https://api.growthbook.io/api/v2/feature-revisions' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v2/features/{id}/revisions:
     get:
@@ -6654,8 +6760,14 @@ paths:
                 defaultValue:
                   type: string
                 revisionTitle:
+                  description: >-
+                    Title for a newly created draft. Only used when version is
+                    "new"; ignored for existing revisions.
                   type: string
                 revisionComment:
+                  description: >-
+                    Comment for a newly created draft. Only used when version is
+                    "new"; ignored for existing revisions.
                   type: string
               required:
                 - defaultValue
@@ -6722,8 +6834,14 @@ paths:
                       - condition
                     additionalProperties: false
                 revisionTitle:
+                  description: >-
+                    Title for a newly created draft. Only used when version is
+                    "new"; ignored for existing revisions.
                   type: string
                 revisionComment:
+                  description: >-
+                    Comment for a newly created draft. Only used when version is
+                    "new"; ignored for existing revisions.
                   type: string
               required:
                 - prerequisites
@@ -6790,8 +6908,14 @@ paths:
                       additionalProperties: false
                     - type: 'null'
                 revisionTitle:
+                  description: >-
+                    Title for a newly created draft. Only used when version is
+                    "new"; ignored for existing revisions.
                   type: string
                 revisionComment:
+                  description: >-
+                    Comment for a newly created draft. Only used when version is
+                    "new"; ignored for existing revisions.
                   type: string
               required:
                 - holdout
@@ -6847,8 +6971,14 @@ paths:
                 archived:
                   type: boolean
                 revisionTitle:
+                  description: >-
+                    Title for a newly created draft. Only used when version is
+                    "new"; ignored for existing revisions.
                   type: string
                 revisionComment:
+                  description: >-
+                    Comment for a newly created draft. Only used when version is
+                    "new"; ignored for existing revisions.
                   type: string
               required:
                 - archived
@@ -6906,8 +7036,14 @@ paths:
                 enabled:
                   type: boolean
                 revisionTitle:
+                  description: >-
+                    Title for a newly created draft. Only used when version is
+                    "new"; ignored for existing revisions.
                   type: string
                 revisionComment:
+                  description: >-
+                    Comment for a newly created draft. Only used when version is
+                    "new"; ignored for existing revisions.
                   type: string
               required:
                 - environment
@@ -6938,9 +7074,16 @@ paths:
       summary: Add a rule to a draft revision
       description: >-
         Appends a new rule to the revision's rule list. Supply `allEnvironments:
-        true` to target all environments, or `environments: [...]` to scope to
-        specific ones. Use `rampSchedule` for ramp configuration or `schedule`
-        for a simple start/end window.
+        true` on the rule to target all environments, or `environments: [...]`
+        to scope to specific ones.
+
+
+        **Scheduling:** For `force` and `rollout` rules, attach a schedule via
+        `rampSchedule` (multi-step ramp) or `schedule` (simple start/end window)
+        — these create standalone ramp actions and set `pendingRamp: "create"`
+        on the rule. For `experiment-ref` and `safe-rollout` rules, only
+        `schedule` is supported and is stored as legacy schedule fields on the
+        rule itself (`rampSchedule` is not available for these rule types).
       tags:
         - feature-revisions-v2
       parameters:
@@ -6968,343 +7111,14 @@ paths:
               properties:
                 rule:
                   anyOf:
-                    - type: object
-                      properties:
-                        description:
-                          type: string
-                        enabled:
-                          type: boolean
-                        condition:
-                          type: string
-                        savedGroups:
-                          type: array
-                          items:
-                            type: object
-                            properties:
-                              match:
-                                type: string
-                                enum:
-                                  - all
-                                  - none
-                                  - any
-                              ids:
-                                type: array
-                                items:
-                                  type: string
-                            required:
-                              - match
-                              - ids
-                            additionalProperties: false
-                        prerequisites:
-                          type: array
-                          items:
-                            type: object
-                            properties:
-                              id:
-                                type: string
-                              condition:
-                                type: string
-                            required:
-                              - id
-                              - condition
-                            additionalProperties: false
-                        scheduleRules:
-                          type: array
-                          items:
-                            type: object
-                            properties:
-                              timestamp:
-                                anyOf:
-                                  - type: string
-                                  - type: 'null'
-                              enabled:
-                                type: boolean
-                            required:
-                              - timestamp
-                              - enabled
-                            additionalProperties: false
-                        scheduleType:
-                          type: string
-                          enum:
-                            - none
-                            - schedule
-                            - ramp
-                        allEnvironments:
-                          description: >-
-                            When true the rule applies to all environments.
-                            Defaults to false.
-                          type: boolean
-                        environments:
-                          description: >-
-                            Specific environment IDs this rule applies to. Used
-                            when allEnvironments is false.
-                          type: array
-                          items:
-                            type: string
-                        type:
-                          type: string
-                          const: experiment-ref
-                        experimentId:
-                          type: string
-                        variations:
-                          type: array
-                          items:
-                            type: object
-                            properties:
-                              variationId:
-                                type: string
-                              value:
-                                type: string
-                            required:
-                              - value
-                            additionalProperties: false
-                      required:
-                        - type
-                        - experimentId
-                        - variations
-                      additionalProperties: false
-                    - type: object
-                      properties:
-                        description:
-                          type: string
-                        enabled:
-                          type: boolean
-                        condition:
-                          type: string
-                        savedGroups:
-                          type: array
-                          items:
-                            type: object
-                            properties:
-                              match:
-                                type: string
-                                enum:
-                                  - all
-                                  - none
-                                  - any
-                              ids:
-                                type: array
-                                items:
-                                  type: string
-                            required:
-                              - match
-                              - ids
-                            additionalProperties: false
-                        prerequisites:
-                          type: array
-                          items:
-                            type: object
-                            properties:
-                              id:
-                                type: string
-                              condition:
-                                type: string
-                            required:
-                              - id
-                              - condition
-                            additionalProperties: false
-                        scheduleRules:
-                          type: array
-                          items:
-                            type: object
-                            properties:
-                              timestamp:
-                                anyOf:
-                                  - type: string
-                                  - type: 'null'
-                              enabled:
-                                type: boolean
-                            required:
-                              - timestamp
-                              - enabled
-                            additionalProperties: false
-                        scheduleType:
-                          type: string
-                          enum:
-                            - none
-                            - schedule
-                            - ramp
-                        allEnvironments:
-                          description: >-
-                            When true the rule applies to all environments.
-                            Defaults to false.
-                          type: boolean
-                        environments:
-                          description: >-
-                            Specific environment IDs this rule applies to. Used
-                            when allEnvironments is false.
-                          type: array
-                          items:
-                            type: string
-                        type:
-                          type: string
-                          const: safe-rollout
-                        controlValue:
-                          type: string
-                        variationValue:
-                          type: string
-                        hashAttribute:
-                          type: string
-                        trackingKey:
-                          type: string
-                        seed:
-                          type: string
-                        safeRolloutFields:
-                          type: object
-                          properties:
-                            datasourceId:
-                              type: string
-                            exposureQueryId:
-                              type: string
-                            guardrailMetricIds:
-                              type: array
-                              items:
-                                type: string
-                            maxDuration:
-                              type: object
-                              properties:
-                                amount:
-                                  type: number
-                                  exclusiveMinimum: 0
-                                unit:
-                                  type: string
-                                  enum:
-                                    - weeks
-                                    - days
-                                    - hours
-                                    - minutes
-                              required:
-                                - amount
-                                - unit
-                              additionalProperties: false
-                            autoRollback:
-                              type: boolean
-                            rampUpSchedule:
-                              type: object
-                              properties:
-                                enabled:
-                                  type: boolean
-                                steps:
-                                  minItems: 1
-                                  type: array
-                                  items:
-                                    type: object
-                                    properties:
-                                      percent:
-                                        type: number
-                                        minimum: 0
-                                        maximum: 1
-                                    required:
-                                      - percent
-                                    additionalProperties: false
-                              required:
-                                - enabled
-                              additionalProperties: false
-                          required:
-                            - datasourceId
-                            - exposureQueryId
-                            - guardrailMetricIds
-                            - maxDuration
-                          additionalProperties: false
-                      required:
-                        - type
-                        - controlValue
-                        - variationValue
-                        - hashAttribute
-                        - safeRolloutFields
-                      additionalProperties: false
-                    - type: object
-                      properties:
-                        description:
-                          type: string
-                        enabled:
-                          type: boolean
-                        condition:
-                          type: string
-                        savedGroups:
-                          type: array
-                          items:
-                            type: object
-                            properties:
-                              match:
-                                type: string
-                                enum:
-                                  - all
-                                  - none
-                                  - any
-                              ids:
-                                type: array
-                                items:
-                                  type: string
-                            required:
-                              - match
-                              - ids
-                            additionalProperties: false
-                        prerequisites:
-                          type: array
-                          items:
-                            type: object
-                            properties:
-                              id:
-                                type: string
-                              condition:
-                                type: string
-                            required:
-                              - id
-                              - condition
-                            additionalProperties: false
-                        scheduleRules:
-                          type: array
-                          items:
-                            type: object
-                            properties:
-                              timestamp:
-                                anyOf:
-                                  - type: string
-                                  - type: 'null'
-                              enabled:
-                                type: boolean
-                            required:
-                              - timestamp
-                              - enabled
-                            additionalProperties: false
-                        scheduleType:
-                          type: string
-                          enum:
-                            - none
-                            - schedule
-                            - ramp
-                        allEnvironments:
-                          description: >-
-                            When true the rule applies to all environments.
-                            Defaults to false.
-                          type: boolean
-                        environments:
-                          description: >-
-                            Specific environment IDs this rule applies to. Used
-                            when allEnvironments is false.
-                          type: array
-                          items:
-                            type: string
-                        type:
-                          type: string
-                          enum:
-                            - force
-                            - rollout
-                        value:
-                          type: string
-                        coverage:
-                          type: number
-                          minimum: 0
-                          maximum: 1
-                        hashAttribute:
-                          type: string
-                        seed:
-                          type: string
-                      required:
-                        - value
-                      additionalProperties: false
+                    - $ref: '#/components/schemas/Targeting Rule'
+                    - $ref: '#/components/schemas/Experiment Rule'
+                    - $ref: '#/components/schemas/Safe Rollout Rule'
                 rampSchedule:
+                  description: >-
+                    Multi-step ramp schedule for force/rollout rules. Not
+                    supported for experiment-ref or safe-rollout rules. Mutually
+                    exclusive with `schedule`.
                   type: object
                   properties:
                     name:
@@ -7318,19 +7132,22 @@ paths:
                         properties:
                           trigger:
                             anyOf:
-                              - type: object
+                              - description: Fires automatically after a fixed delay.
+                                type: object
                                 properties:
                                   type:
                                     type: string
                                     const: interval
                                   seconds:
+                                    description: Seconds to wait before this step fires.
                                     type: number
                                     exclusiveMinimum: 0
                                 required:
                                   - type
                                   - seconds
                                 additionalProperties: false
-                              - type: object
+                              - description: Pauses the ramp until manually approved.
+                                type: object
                                 properties:
                                   type:
                                     type: string
@@ -7338,12 +7155,18 @@ paths:
                                 required:
                                   - type
                                 additionalProperties: false
-                              - type: object
+                              - description: Fires at a specific date and time.
+                                type: object
                                 properties:
                                   type:
                                     type: string
                                     const: scheduled
-                                  at: {}
+                                  at:
+                                    description: >-
+                                      ISO 8601 date-time, e.g.
+                                      "2025-06-01T00:00:00Z".
+                                    type: string
+                                    format: date-time
                                 required:
                                   - type
                                   - at
@@ -7498,20 +7321,30 @@ paths:
                           - patch
                         additionalProperties: false
                     startDate:
+                      description: >-
+                        ISO 8601 date-time, e.g. "2025-06-01T00:00:00Z". Absent
+                        or null means start immediately on publish.
                       anyOf:
                         - type: string
+                          format: date-time
                         - type: 'null'
                     endCondition:
                       type: object
                       properties:
                         trigger:
                           anyOf:
-                            - type: object
+                            - description: End the ramp at a specific date and time.
+                              type: object
                               properties:
                                 type:
                                   type: string
                                   const: scheduled
-                                at: {}
+                                at:
+                                  description: >-
+                                    ISO 8601 date-time, e.g.
+                                    "2025-07-01T00:00:00Z".
+                                  type: string
+                                  format: date-time
                               required:
                                 - type
                                 - at
@@ -7519,20 +7352,39 @@ paths:
                       additionalProperties: false
                   additionalProperties: false
                 schedule:
+                  description: >-
+                    Simple start/end date window. For force/rollout rules this
+                    creates a standalone ramp action; for
+                    experiment-ref/safe-rollout rules this sets legacy schedule
+                    fields on the rule. Mutually exclusive with `rampSchedule`.
                   type: object
                   properties:
                     startDate:
+                      description: >-
+                        ISO 8601 date-time, e.g. "2025-06-01T00:00:00Z". Rule is
+                        enabled at this time.
                       anyOf:
                         - type: string
+                          format: date-time
                         - type: 'null'
                     endDate:
+                      description: >-
+                        ISO 8601 date-time, e.g. "2025-07-01T00:00:00Z". Rule is
+                        disabled at this time.
                       anyOf:
                         - type: string
+                          format: date-time
                         - type: 'null'
                   additionalProperties: false
                 revisionTitle:
+                  description: >-
+                    Title for a newly created draft. Only used when version is
+                    "new"; ignored for existing revisions.
                   type: string
                 revisionComment:
+                  description: >-
+                    Comment for a newly created draft. Only used when version is
+                    "new"; ignored for existing revisions.
                   type: string
               required:
                 - rule
@@ -7564,6 +7416,14 @@ paths:
         Patches fields on an existing rule (identified by `ruleId`). The rule
         `type` cannot be changed. Scope can be updated via `allEnvironments` /
         `environments` patch fields.
+
+
+        **Scheduling:** For `force` and `rollout` rules, update the schedule via
+        `rampSchedule` (multi-step ramp) or `schedule` (simple start/end window)
+        — these manage standalone ramp actions and set `pendingRamp: "create"`
+        on the rule. For `experiment-ref` and `safe-rollout` rules, only
+        `schedule` is supported and updates legacy schedule fields on the rule
+        itself (`rampSchedule` is not available for these rule types).
       tags:
         - feature-revisions-v2
       parameters:
@@ -7631,31 +7491,6 @@ paths:
                           - id
                           - condition
                         additionalProperties: false
-                    scheduleRules:
-                      anyOf:
-                        - type: array
-                          items:
-                            type: object
-                            properties:
-                              timestamp:
-                                anyOf:
-                                  - type: string
-                                  - type: 'null'
-                              enabled:
-                                type: boolean
-                            required:
-                              - timestamp
-                              - enabled
-                            additionalProperties: false
-                        - type: 'null'
-                    scheduleType:
-                      anyOf:
-                        - type: string
-                          enum:
-                            - none
-                            - schedule
-                            - ramp
-                        - type: 'null'
                     type:
                       type: string
                       enum:
@@ -7700,6 +7535,10 @@ paths:
                         type: string
                   additionalProperties: false
                 rampSchedule:
+                  description: >-
+                    Multi-step ramp schedule for force/rollout rules. Not
+                    supported for experiment-ref or safe-rollout rules. Mutually
+                    exclusive with `schedule`.
                   type: object
                   properties:
                     name:
@@ -7713,19 +7552,22 @@ paths:
                         properties:
                           trigger:
                             anyOf:
-                              - type: object
+                              - description: Fires automatically after a fixed delay.
+                                type: object
                                 properties:
                                   type:
                                     type: string
                                     const: interval
                                   seconds:
+                                    description: Seconds to wait before this step fires.
                                     type: number
                                     exclusiveMinimum: 0
                                 required:
                                   - type
                                   - seconds
                                 additionalProperties: false
-                              - type: object
+                              - description: Pauses the ramp until manually approved.
+                                type: object
                                 properties:
                                   type:
                                     type: string
@@ -7733,12 +7575,18 @@ paths:
                                 required:
                                   - type
                                 additionalProperties: false
-                              - type: object
+                              - description: Fires at a specific date and time.
+                                type: object
                                 properties:
                                   type:
                                     type: string
                                     const: scheduled
-                                  at: {}
+                                  at:
+                                    description: >-
+                                      ISO 8601 date-time, e.g.
+                                      "2025-06-01T00:00:00Z".
+                                    type: string
+                                    format: date-time
                                 required:
                                   - type
                                   - at
@@ -7893,20 +7741,30 @@ paths:
                           - patch
                         additionalProperties: false
                     startDate:
+                      description: >-
+                        ISO 8601 date-time, e.g. "2025-06-01T00:00:00Z". Absent
+                        or null means start immediately on publish.
                       anyOf:
                         - type: string
+                          format: date-time
                         - type: 'null'
                     endCondition:
                       type: object
                       properties:
                         trigger:
                           anyOf:
-                            - type: object
+                            - description: End the ramp at a specific date and time.
+                              type: object
                               properties:
                                 type:
                                   type: string
                                   const: scheduled
-                                at: {}
+                                at:
+                                  description: >-
+                                    ISO 8601 date-time, e.g.
+                                    "2025-07-01T00:00:00Z".
+                                  type: string
+                                  format: date-time
                               required:
                                 - type
                                 - at
@@ -7914,20 +7772,40 @@ paths:
                       additionalProperties: false
                   additionalProperties: false
                 schedule:
+                  description: >-
+                    Simple start/end date window. For force/rollout rules this
+                    manages a standalone ramp action; for
+                    experiment-ref/safe-rollout rules this updates legacy
+                    schedule fields on the rule. Mutually exclusive with
+                    `rampSchedule`.
                   type: object
                   properties:
                     startDate:
+                      description: >-
+                        ISO 8601 date-time, e.g. "2025-06-01T00:00:00Z". Rule is
+                        enabled at this time.
                       anyOf:
                         - type: string
+                          format: date-time
                         - type: 'null'
                     endDate:
+                      description: >-
+                        ISO 8601 date-time, e.g. "2025-07-01T00:00:00Z". Rule is
+                        disabled at this time.
                       anyOf:
                         - type: string
+                          format: date-time
                         - type: 'null'
                   additionalProperties: false
                 revisionTitle:
+                  description: >-
+                    Title for a newly created draft. Only used when version is
+                    "new"; ignored for existing revisions.
                   type: string
                 revisionComment:
+                  description: >-
+                    Comment for a newly created draft. Only used when version is
+                    "new"; ignored for existing revisions.
                   type: string
               required:
                 - rule
@@ -7984,8 +7862,14 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: >-
+                    Title for a newly created draft. Only used when version is
+                    "new"; ignored for existing revisions.
                   type: string
                 revisionComment:
+                  description: >-
+                    Comment for a newly created draft. Only used when version is
+                    "new"; ignored for existing revisions.
                   type: string
               additionalProperties: false
       responses:
@@ -8045,8 +7929,14 @@ paths:
                   items:
                     type: string
                 revisionTitle:
+                  description: >-
+                    Title for a newly created draft. Only used when version is
+                    "new"; ignored for existing revisions.
                   type: string
                 revisionComment:
+                  description: >-
+                    Comment for a newly created draft. Only used when version is
+                    "new"; ignored for existing revisions.
                   type: string
               required:
                 - ruleIds
@@ -8074,6 +7964,12 @@ paths:
     put:
       operationId: putFeatureRevisionRuleRampScheduleV2
       summary: Set ramp schedule for a rule
+      description: >-
+        Creates or replaces the pending ramp schedule for a rule. The rule will
+        show `pendingRamp: "create"` in subsequent GET responses. The ramp is
+        created when the revision is published. If the rule already has a live
+        ramp schedule, this endpoint returns an error — update the live schedule
+        via `PUT /api/v1/ramp-schedules/{id}` instead.
       tags:
         - feature-revisions-v2
       parameters:
@@ -8111,19 +8007,22 @@ paths:
                     properties:
                       trigger:
                         anyOf:
-                          - type: object
+                          - description: Fires automatically after a fixed delay.
+                            type: object
                             properties:
                               type:
                                 type: string
                                 const: interval
                               seconds:
+                                description: Seconds to wait before this step fires.
                                 type: number
                                 exclusiveMinimum: 0
                             required:
                               - type
                               - seconds
                             additionalProperties: false
-                          - type: object
+                          - description: Pauses the ramp until manually approved.
+                            type: object
                             properties:
                               type:
                                 type: string
@@ -8131,12 +8030,18 @@ paths:
                             required:
                               - type
                             additionalProperties: false
-                          - type: object
+                          - description: Fires at a specific date and time.
+                            type: object
                             properties:
                               type:
                                 type: string
                                 const: scheduled
-                              at: {}
+                              at:
+                                description: >-
+                                  ISO 8601 date-time, e.g.
+                                  "2025-06-01T00:00:00Z".
+                                type: string
+                                format: date-time
                             required:
                               - type
                               - at
@@ -8291,20 +8196,28 @@ paths:
                       - patch
                     additionalProperties: false
                 startDate:
+                  description: >-
+                    ISO 8601 date-time, e.g. "2025-06-01T00:00:00Z". Absent or
+                    null means start immediately on publish.
                   anyOf:
                     - type: string
+                      format: date-time
                     - type: 'null'
                 endCondition:
                   type: object
                   properties:
                     trigger:
                       anyOf:
-                        - type: object
+                        - description: End the ramp at a specific date and time.
+                          type: object
                           properties:
                             type:
                               type: string
                               const: scheduled
-                            at: {}
+                            at:
+                              description: ISO 8601 date-time, e.g. "2025-07-01T00:00:00Z".
+                              type: string
+                              format: date-time
                           required:
                             - type
                             - at
@@ -8314,8 +8227,14 @@ paths:
                   deprecated: true
                   type: string
                 revisionTitle:
+                  description: >-
+                    Title for a newly created draft. Only used when version is
+                    "new"; ignored for existing revisions.
                   type: string
                 revisionComment:
+                  description: >-
+                    Comment for a newly created draft. Only used when version is
+                    "new"; ignored for existing revisions.
                   type: string
               additionalProperties: false
       responses:
@@ -8340,6 +8259,11 @@ paths:
     delete:
       operationId: deleteFeatureRevisionRuleRampScheduleV2
       summary: Remove ramp schedule from a rule
+      description: >-
+        Clears any pending ramp action for this rule. If a live ramp schedule
+        exists, queues a detach that removes it on publish — the rule will show
+        `pendingRamp: "detach"`. If only a pending create exists, it is removed
+        and `pendingRamp` is cleared.
       tags:
         - feature-revisions-v2
       parameters:
@@ -8367,8 +8291,14 @@ paths:
               type: object
               properties:
                 revisionTitle:
+                  description: >-
+                    Title for a newly created draft. Only used when version is
+                    "new"; ignored for existing revisions.
                   type: string
                 revisionComment:
+                  description: >-
+                    Comment for a newly created draft. Only used when version is
+                    "new"; ignored for existing revisions.
                   type: string
               additionalProperties: false
       responses:
@@ -8633,7 +8563,8 @@ paths:
       summary: Publish a draft revision
       description: >-
         Immediately publishes a draft revision, making it the live version of
-        the feature.
+        the feature. Any pending ramp actions (`pendingRamp` on rules) are
+        executed atomically — ramp schedules are created or detached as queued.
       tags:
         - feature-revisions-v2
       parameters:
@@ -9219,19 +9150,6 @@ paths:
                         type: string
                       coverage:
                         type: number
-                      trafficSplit:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            variationId:
-                              type: string
-                            weight:
-                              type: number
-                          required:
-                            - variationId
-                            - weight
-                          additionalProperties: false
                       namespace:
                         type: object
                         properties:
@@ -9255,8 +9173,6 @@ paths:
                         required:
                           - namespaceId
                         additionalProperties: false
-                      targetingCondition:
-                        type: string
                       prerequisites:
                         type: array
                         items:
@@ -9816,21 +9732,6 @@ paths:
                         type: string
                       coverage:
                         type: number
-                      trafficSplit:
-                        deprecated: true
-                        description: Deprecated and unused. Use variationWeights instead.
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            variationId:
-                              type: string
-                            weight:
-                              type: number
-                          required:
-                            - variationId
-                            - weight
-                          additionalProperties: false
                       namespace:
                         type: object
                         properties:
@@ -9848,8 +9749,6 @@ paths:
                           - namespaceId
                           - range
                         additionalProperties: false
-                      targetingCondition:
-                        type: string
                       prerequisites:
                         type: array
                         items:
@@ -10139,9 +10038,12 @@ paths:
               schema:
                 type: object
                 properties:
+                  experiment:
+                    $ref: '#/components/schemas/Experiment'
                   result:
                     $ref: '#/components/schemas/ExperimentResults'
                 required:
+                  - experiment
                   - result
                 additionalProperties: false
       x-codeSamples:
@@ -16795,8 +16697,6 @@ paths:
                   anyOf:
                     - type: string
                       format: date-time
-                      pattern: >-
-                        ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                     - type: 'null'
                 endCondition:
                   description: Optional hard deadline
@@ -16811,8 +16711,6 @@ paths:
                         at:
                           type: string
                           format: date-time
-                          pattern: >-
-                            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                       required:
                         - type
                         - at
@@ -17244,6 +17142,627 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/eject-target'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/reports:
+    get:
+      operationId: listReports
+      summary: Get all reports
+      tags:
+        - reports
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - name: experimentId
+          in: query
+          description: Filter reports by experiment id
+          schema:
+            description: Filter reports by experiment id
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      reports:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Report'
+                    required:
+                      - reports
+                    additionalProperties: false
+                  - $ref: '#/components/schemas/PaginationFields'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/reports' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: postReport
+      summary: Create a new report
+      tags:
+        - reports
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                experimentId:
+                  description: The experiment to create a report for
+                  type: string
+                title:
+                  description: Report title (defaults to experiment name)
+                  type: string
+                description:
+                  description: Report description
+                  type: string
+                statsEngine:
+                  description: Stats engine override
+                  type: string
+                  enum:
+                    - bayesian
+                    - frequentist
+                goalMetrics:
+                  description: Goal metric IDs (defaults to experiment's goal metrics)
+                  type: array
+                  items:
+                    type: string
+                secondaryMetrics:
+                  description: >-
+                    Secondary metric IDs (defaults to experiment's secondary
+                    metrics)
+                  type: array
+                  items:
+                    type: string
+                guardrailMetrics:
+                  description: >-
+                    Guardrail metric IDs (defaults to experiment's guardrail
+                    metrics)
+                  type: array
+                  items:
+                    type: string
+                activationMetric:
+                  description: Activation metric ID
+                  type: string
+                dimension:
+                  description: Dimension to cut results by
+                  type: string
+                dateStarted:
+                  format: date-time
+                  description: Analysis start date (ISO 8601)
+                  type: string
+                dateEnded:
+                  format: date-time
+                  description: Analysis end date (ISO 8601)
+                  type: string
+                regressionAdjustmentEnabled:
+                  description: Enable CUPED regression adjustment
+                  type: boolean
+                sequentialTestingEnabled:
+                  description: Enable sequential testing
+                  type: boolean
+                sequentialTestingTuningParameter:
+                  description: Tuning parameter for sequential testing (frequentist only)
+                  type: number
+                differenceType:
+                  description: >-
+                    How lifts are expressed in results. Defaults to experiment
+                    setting.
+                  type: string
+                  enum:
+                    - relative
+                    - absolute
+                    - scaled
+                attributionModel:
+                  description: >-
+                    Metric conversion window attribution model. Defaults to
+                    experiment setting.
+                  type: string
+                  enum:
+                    - firstExposure
+                    - experimentDuration
+                    - lookbackOverride
+                lookbackOverride:
+                  description: >-
+                    Lookback window when `attributionModel` is
+                    `lookbackOverride`
+                  anyOf:
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: date
+                        value: {}
+                      required:
+                        - type
+                        - value
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: window
+                        value:
+                          type: number
+                          minimum: 0
+                        valueUnit:
+                          type: string
+                          enum:
+                            - minutes
+                            - hours
+                            - days
+                            - weeks
+                      required:
+                        - type
+                        - value
+                        - valueUnit
+                      additionalProperties: false
+                metricOverrides:
+                  description: Per-metric window, risk, and regression-adjustment overrides
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      windowType:
+                        type: string
+                        enum:
+                          - conversion
+                          - lookback
+                          - ''
+                      windowHours:
+                        type: number
+                      delayHours:
+                        type: number
+                      winRisk:
+                        type: number
+                      loseRisk:
+                        type: number
+                      properPriorOverride:
+                        type: boolean
+                      properPriorEnabled:
+                        type: boolean
+                      properPriorMean:
+                        type: number
+                      properPriorStdDev:
+                        type: number
+                      regressionAdjustmentOverride:
+                        type: boolean
+                      regressionAdjustmentEnabled:
+                        type: boolean
+                      regressionAdjustmentDays:
+                        type: number
+                    required:
+                      - id
+                    additionalProperties: false
+                customMetricSlices:
+                  description: Custom metric slice definitions
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      slices:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            column:
+                              type: string
+                            levels:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - column
+                            - levels
+                          additionalProperties: false
+                    required:
+                      - slices
+                    additionalProperties: false
+                segment:
+                  description: >-
+                    Segment ID to filter users by. Defaults to experiment
+                    setting.
+                  type: string
+                queryFilter:
+                  description: >-
+                    Raw SQL WHERE clause added to the exposure query. Defaults
+                    to experiment setting.
+                  type: string
+                skipPartialData:
+                  description: >-
+                    When true, exclude users who have not completed the full
+                    conversion window.
+                  type: boolean
+                shareLevel:
+                  description: >-
+                    Visibility of the created report. Defaults to `private`. Set
+                    to `public` to receive a shareable `shareUrl` in the
+                    response.
+                  type: string
+                  enum:
+                    - public
+                    - organization
+                    - private
+              required:
+                - experimentId
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report:
+                    $ref: '#/components/schemas/Report'
+                required:
+                  - report
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/reports' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/reports/{id}:
+    get:
+      operationId: getReport
+      summary: Get a single report
+      tags:
+        - reports
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report:
+                    $ref: '#/components/schemas/Report'
+                required:
+                  - report
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/reports/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/reports/{id}/refresh:
+    post:
+      operationId: postReportRefresh
+      summary: Refresh a report by re-running its analysis
+      tags:
+        - reports
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report:
+                    $ref: '#/components/schemas/Report'
+                required:
+                  - report
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST 'https://api.growthbook.io/api/v1/reports/{id}/refresh'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/reports/{id}/metadata:
+    put:
+      operationId: putReportMetadata
+      summary: Update report metadata (title, description, visibility)
+      tags:
+        - reports
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  description: Report title
+                  type: string
+                description:
+                  description: Report description
+                  type: string
+                status:
+                  description: UI lifecycle marker for the report
+                  type: string
+                  enum:
+                    - published
+                    - private
+                shareLevel:
+                  description: >-
+                    Visibility of the report. Setting to `public` enables a
+                    shareable `shareUrl`; setting back to `organization` or
+                    `private` revokes public access (the share token is
+                    preserved, so re-publishing exposes the same URL).
+                  type: string
+                  enum:
+                    - public
+                    - organization
+                    - private
+                editLevel:
+                  description: >-
+                    Who can edit the report in the GrowthBook UI. `organization`
+                    allows any org member with the `createAnalyses` permission;
+                    `private` restricts editing to the report owner.
+                  type: string
+                  enum:
+                    - organization
+                    - private
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report:
+                    $ref: '#/components/schemas/Report'
+                required:
+                  - report
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT 'https://api.growthbook.io/api/v1/reports/{id}/metadata'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/reports/{id}/settings:
+    put:
+      operationId: putReportSettings
+      summary: Update report analysis settings
+      description: >-
+        Updates the analysis settings for an existing report. Changes are staged
+        and do not take effect until you call `POST /reports/:id/refresh`.
+      tags:
+        - reports
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                statsEngine:
+                  description: Stats engine override
+                  type: string
+                  enum:
+                    - bayesian
+                    - frequentist
+                goalMetrics:
+                  description: Goal metric IDs
+                  type: array
+                  items:
+                    type: string
+                secondaryMetrics:
+                  description: Secondary metric IDs
+                  type: array
+                  items:
+                    type: string
+                guardrailMetrics:
+                  description: Guardrail metric IDs
+                  type: array
+                  items:
+                    type: string
+                activationMetric:
+                  description: Activation metric ID
+                  type: string
+                metricOverrides:
+                  description: Per-metric window, risk, and regression-adjustment overrides
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      windowType:
+                        type: string
+                        enum:
+                          - conversion
+                          - lookback
+                          - ''
+                      windowHours:
+                        type: number
+                      delayHours:
+                        type: number
+                      winRisk:
+                        type: number
+                      loseRisk:
+                        type: number
+                      properPriorOverride:
+                        type: boolean
+                      properPriorEnabled:
+                        type: boolean
+                      properPriorMean:
+                        type: number
+                      properPriorStdDev:
+                        type: number
+                      regressionAdjustmentOverride:
+                        type: boolean
+                      regressionAdjustmentEnabled:
+                        type: boolean
+                      regressionAdjustmentDays:
+                        type: number
+                    required:
+                      - id
+                    additionalProperties: false
+                customMetricSlices:
+                  description: Custom metric slice definitions
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      slices:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            column:
+                              type: string
+                            levels:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - column
+                            - levels
+                          additionalProperties: false
+                    required:
+                      - slices
+                    additionalProperties: false
+                dimension:
+                  description: Dimension to cut results by
+                  type: string
+                differenceType:
+                  description: How lifts are expressed in results
+                  type: string
+                  enum:
+                    - relative
+                    - absolute
+                    - scaled
+                dateStarted:
+                  format: date-time
+                  description: Analysis start date (ISO 8601)
+                  type: string
+                dateEnded:
+                  description: >-
+                    Analysis end date (ISO 8601). Pass `null` to clear the end
+                    date and analyze through today.
+                  anyOf:
+                    - format: date-time
+                      type: string
+                    - type: 'null'
+                regressionAdjustmentEnabled:
+                  description: Enable CUPED regression adjustment
+                  type: boolean
+                sequentialTestingEnabled:
+                  description: Enable sequential testing
+                  type: boolean
+                sequentialTestingTuningParameter:
+                  description: Tuning parameter for sequential testing (frequentist only)
+                  type: number
+                attributionModel:
+                  description: Metric conversion window attribution model
+                  type: string
+                  enum:
+                    - firstExposure
+                    - experimentDuration
+                    - lookbackOverride
+                lookbackOverride:
+                  description: >-
+                    Lookback window when `attributionModel` is
+                    `lookbackOverride`
+                  anyOf:
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: date
+                        value: {}
+                      required:
+                        - type
+                        - value
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: window
+                        value:
+                          type: number
+                          minimum: 0
+                        valueUnit:
+                          type: string
+                          enum:
+                            - minutes
+                            - hours
+                            - days
+                            - weeks
+                      required:
+                        - type
+                        - value
+                        - valueUnit
+                      additionalProperties: false
+                segment:
+                  description: Segment ID to filter users by
+                  type: string
+                queryFilter:
+                  description: Raw SQL WHERE clause added to the exposure query
+                  type: string
+                skipPartialData:
+                  description: >-
+                    When true, exclude users who have not completed the full
+                    conversion window
+                  type: boolean
+                variations:
+                  description: >-
+                    Override variation names, keys, or traffic weights used in
+                    this report. Weights are merged into the latest phase.
+                    Changes take effect on the next refresh.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      key:
+                        type: string
+                      weight:
+                        description: Traffic weight (0–1)
+                        type: number
+                        minimum: 0
+                        maximum: 1
+                    required:
+                      - id
+                    additionalProperties: false
+                coverage:
+                  description: >-
+                    Traffic coverage (0–1) for the latest phase. Used when
+                    computing scaled impact.
+                  type: number
+                  minimum: 0
+                  maximum: 1
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report:
+                    $ref: '#/components/schemas/Report'
+                required:
+                  - report
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT 'https://api.growthbook.io/api/v1/reports/{id}/settings'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/namespaces:
@@ -20131,8 +20650,6 @@ paths:
                     - type: boolean
                     - type: string
                       format: date-time
-                      pattern: >-
-                        ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                     - type: string
                       format: date
                       pattern: >-
@@ -20150,8 +20667,6 @@ paths:
                       items:
                         type: string
                         format: date-time
-                        pattern: >-
-                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                     - type: array
                       items:
                         type: string
@@ -20332,8 +20847,6 @@ paths:
                     - type: boolean
                     - type: string
                       format: date-time
-                      pattern: >-
-                        ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                     - type: string
                       format: date
                       pattern: >-
@@ -20351,8 +20864,6 @@ paths:
                       items:
                         type: string
                         format: date-time
-                        pattern: >-
-                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                     - type: array
                       items:
                         type: string
@@ -21866,13 +22377,9 @@ paths:
                           dateCreated:
                             type: string
                             format: date-time
-                            pattern: >-
-                              ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                           dateUpdated:
                             type: string
                             format: date-time
-                            pattern: >-
-                              ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                           datasource:
                             type: string
                           status:
@@ -22518,13 +23025,9 @@ paths:
                           dateCreated:
                             type: string
                             format: date-time
-                            pattern: >-
-                              ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                           dateUpdated:
                             type: string
                             format: date-time
-                            pattern: >-
-                              ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                           datasource:
                             type: string
                           status:
@@ -23196,13 +23699,9 @@ paths:
                           dateCreated:
                             type: string
                             format: date-time
-                            pattern: >-
-                              ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                           dateUpdated:
                             type: string
                             format: date-time
-                            pattern: >-
-                              ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                           datasource:
                             type: string
                           status:
@@ -23669,19 +24168,22 @@ paths:
                     properties:
                       trigger:
                         anyOf:
-                          - type: object
+                          - description: Fires automatically after a fixed delay.
+                            type: object
                             properties:
                               type:
                                 type: string
                                 const: interval
                               seconds:
+                                description: Seconds to wait before this step fires.
                                 type: number
                                 exclusiveMinimum: 0
                             required:
                               - type
                               - seconds
                             additionalProperties: false
-                          - type: object
+                          - description: Pauses the ramp until manually approved.
+                            type: object
                             properties:
                               type:
                                 type: string
@@ -23689,16 +24191,18 @@ paths:
                             required:
                               - type
                             additionalProperties: false
-                          - type: object
+                          - description: Fires at a specific date and time.
+                            type: object
                             properties:
                               type:
                                 type: string
                                 const: scheduled
                               at:
+                                description: >-
+                                  ISO 8601 date-time, e.g.
+                                  "2025-06-01T00:00:00Z".
                                 type: string
                                 format: date-time
-                                pattern: >-
-                                  ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                             required:
                               - type
                               - at
@@ -23869,19 +24373,22 @@ paths:
                     properties:
                       trigger:
                         anyOf:
-                          - type: object
+                          - description: Fires automatically after a fixed delay.
+                            type: object
                             properties:
                               type:
                                 type: string
                                 const: interval
                               seconds:
+                                description: Seconds to wait before this step fires.
                                 type: number
                                 exclusiveMinimum: 0
                             required:
                               - type
                               - seconds
                             additionalProperties: false
-                          - type: object
+                          - description: Pauses the ramp until manually approved.
+                            type: object
                             properties:
                               type:
                                 type: string
@@ -23889,16 +24396,18 @@ paths:
                             required:
                               - type
                             additionalProperties: false
-                          - type: object
+                          - description: Fires at a specific date and time.
+                            type: object
                             properties:
                               type:
                                 type: string
                                 const: scheduled
                               at:
+                                description: >-
+                                  ISO 8601 date-time, e.g.
+                                  "2025-06-01T00:00:00Z".
                                 type: string
                                 format: date-time
-                                pattern: >-
-                                  ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                             required:
                               - type
                               - at
@@ -24375,8 +24884,6 @@ paths:
                   anyOf:
                     - type: string
                       format: date-time
-                      pattern: >-
-                        ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                     - type: 'null'
                 endCondition:
                   anyOf:
@@ -24391,8 +24898,6 @@ paths:
                             at:
                               type: string
                               format: date-time
-                              pattern: >-
-                                ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                           required:
                             - type
                             - at
@@ -25793,6 +26298,16 @@ components:
               type: array
               items:
                 type: string
+            pendingRamp:
+              description: >-
+                Present on draft revisions only. "create" means a ramp schedule
+                will be created for this rule on publish. "detach" means an
+                existing live ramp schedule will be removed on publish. Use
+                PUT/DELETE .../rules/{ruleId}/ramp-schedule to modify.
+              type: string
+              enum:
+                - create
+                - detach
           required:
             - allEnvironments
           additionalProperties: false
@@ -25966,6 +26481,298 @@ components:
         - status
         - rules
       additionalProperties: false
+    Targeting Rule:
+      description: >-
+        A targeting rule that serves a specific value to users matching the
+        conditions. Set coverage < 1 for a percentage rollout.
+      type: object
+      properties:
+        description:
+          type: string
+        enabled:
+          type: boolean
+        condition:
+          type: string
+        savedGroups:
+          type: array
+          items:
+            type: object
+            properties:
+              match:
+                type: string
+                enum:
+                  - all
+                  - none
+                  - any
+              ids:
+                type: array
+                items:
+                  type: string
+            required:
+              - match
+              - ids
+            additionalProperties: false
+        prerequisites:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              condition:
+                type: string
+            required:
+              - id
+              - condition
+            additionalProperties: false
+        allEnvironments:
+          description: When true the rule applies to all environments. Defaults to false.
+          type: boolean
+        environments:
+          description: >-
+            Specific environment IDs this rule applies to. Used when
+            allEnvironments is false.
+          type: array
+          items:
+            type: string
+        type:
+          description: >-
+            Use "force" for a standard targeting rule, or "rollout" for a
+            percentage rollout (coverage < 1). Defaults to "force". Both are
+            functionally equivalent; a force rule with coverage < 1 behaves as a
+            rollout.
+          type: string
+          enum:
+            - force
+            - rollout
+        value:
+          description: The value to serve when this rule matches.
+          type: string
+        coverage:
+          description: >-
+            Percentage of users to include (0–1). Defaults to 1. When less than
+            1, hashAttribute is required.
+          type: number
+          minimum: 0
+          maximum: 1
+        hashAttribute:
+          description: >-
+            Attribute to hash on for consistent assignment. Required when
+            coverage < 1.
+          type: string
+        seed:
+          type: string
+      required:
+        - value
+      additionalProperties: false
+    Experiment Rule:
+      description: An experiment rule that links a feature value to an existing experiment.
+      type: object
+      properties:
+        description:
+          type: string
+        enabled:
+          type: boolean
+        condition:
+          type: string
+        savedGroups:
+          type: array
+          items:
+            type: object
+            properties:
+              match:
+                type: string
+                enum:
+                  - all
+                  - none
+                  - any
+              ids:
+                type: array
+                items:
+                  type: string
+            required:
+              - match
+              - ids
+            additionalProperties: false
+        prerequisites:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              condition:
+                type: string
+            required:
+              - id
+              - condition
+            additionalProperties: false
+        allEnvironments:
+          description: When true the rule applies to all environments. Defaults to false.
+          type: boolean
+        environments:
+          description: >-
+            Specific environment IDs this rule applies to. Used when
+            allEnvironments is false.
+          type: array
+          items:
+            type: string
+        type:
+          description: Must be "experiment-ref" for an experiment rule.
+          type: string
+          const: experiment-ref
+        experimentId:
+          description: ID of the linked experiment.
+          type: string
+        variations:
+          type: array
+          items:
+            type: object
+            properties:
+              variationId:
+                type: string
+              value:
+                type: string
+            required:
+              - value
+            additionalProperties: false
+      required:
+        - type
+        - experimentId
+        - variations
+      additionalProperties: false
+    Safe Rollout Rule:
+      description: >-
+        A safe rollout rule with automated guardrail monitoring and optional
+        auto-rollback.
+      type: object
+      properties:
+        description:
+          type: string
+        enabled:
+          type: boolean
+        condition:
+          type: string
+        savedGroups:
+          type: array
+          items:
+            type: object
+            properties:
+              match:
+                type: string
+                enum:
+                  - all
+                  - none
+                  - any
+              ids:
+                type: array
+                items:
+                  type: string
+            required:
+              - match
+              - ids
+            additionalProperties: false
+        prerequisites:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              condition:
+                type: string
+            required:
+              - id
+              - condition
+            additionalProperties: false
+        allEnvironments:
+          description: When true the rule applies to all environments. Defaults to false.
+          type: boolean
+        environments:
+          description: >-
+            Specific environment IDs this rule applies to. Used when
+            allEnvironments is false.
+          type: array
+          items:
+            type: string
+        type:
+          description: Must be "safe-rollout" for a safe rollout rule.
+          type: string
+          const: safe-rollout
+        controlValue:
+          type: string
+        variationValue:
+          type: string
+        hashAttribute:
+          type: string
+        trackingKey:
+          type: string
+        seed:
+          type: string
+        safeRolloutFields:
+          type: object
+          properties:
+            datasourceId:
+              type: string
+            exposureQueryId:
+              type: string
+            guardrailMetricIds:
+              type: array
+              items:
+                type: string
+            maxDuration:
+              type: object
+              properties:
+                amount:
+                  type: number
+                  exclusiveMinimum: 0
+                unit:
+                  type: string
+                  enum:
+                    - weeks
+                    - days
+                    - hours
+                    - minutes
+              required:
+                - amount
+                - unit
+              additionalProperties: false
+            autoRollback:
+              type: boolean
+            rampUpSchedule:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                steps:
+                  minItems: 1
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      percent:
+                        type: number
+                        minimum: 0
+                        maximum: 1
+                    required:
+                      - percent
+                    additionalProperties: false
+              required:
+                - enabled
+              additionalProperties: false
+          required:
+            - datasourceId
+            - exposureQueryId
+            - guardrailMetricIds
+            - maxDuration
+          additionalProperties: false
+      required:
+        - type
+        - controlValue
+        - variationValue
+        - hashAttribute
+        - safeRolloutFields
+      additionalProperties: false
     Archetype:
       type: object
       properties:
@@ -26028,6 +26835,7 @@ components:
           enum:
             - standard
             - multi-armed-bandit
+            - holdout
         project:
           type: string
         hypothesis:
@@ -26618,12 +27426,16 @@ components:
                   properties:
                     metricId:
                       type: string
+                    metricName:
+                      type: string
                     variations:
                       type: array
                       items:
                         type: object
                         properties:
                           variationId:
+                            type: string
+                          variationName:
                             type: string
                           users:
                             type: number
@@ -26714,6 +27526,7 @@ components:
               enum:
                 - standard
                 - multi-armed-bandit
+                - holdout
             project:
               type: string
             hypothesis:
@@ -29124,13 +29937,9 @@ components:
         dateCreated:
           type: string
           format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
         dateUpdated:
           type: string
           format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
         name:
           type: string
         entityType:
@@ -29191,19 +30000,22 @@ components:
             properties:
               trigger:
                 anyOf:
-                  - type: object
+                  - description: Fires automatically after a fixed delay.
+                    type: object
                     properties:
                       type:
                         type: string
                         const: interval
                       seconds:
+                        description: Seconds to wait before this step fires.
                         type: number
                         exclusiveMinimum: 0
                     required:
                       - type
                       - seconds
                     additionalProperties: false
-                  - type: object
+                  - description: Pauses the ramp until manually approved.
+                    type: object
                     properties:
                       type:
                         type: string
@@ -29211,16 +30023,16 @@ components:
                     required:
                       - type
                     additionalProperties: false
-                  - type: object
+                  - description: Fires at a specific date and time.
+                    type: object
                     properties:
                       type:
                         type: string
                         const: scheduled
                       at:
+                        description: ISO 8601 date-time, e.g. "2025-06-01T00:00:00Z".
                         type: string
                         format: date-time
-                        pattern: >-
-                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                     required:
                       - type
                       - at
@@ -29394,8 +30206,6 @@ components:
           anyOf:
             - type: string
               format: date-time
-              pattern: >-
-                ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
             - type: 'null'
         endCondition:
           description: Optional hard deadline for standard (no-step) schedules
@@ -29404,16 +30214,16 @@ components:
               properties:
                 trigger:
                   anyOf:
-                    - type: object
+                    - description: End the ramp at a specific date and time.
+                      type: object
                       properties:
                         type:
                           type: string
                           const: scheduled
                         at:
+                          description: ISO 8601 date-time, e.g. "2025-07-01T00:00:00Z".
                           type: string
                           format: date-time
-                          pattern: >-
-                            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                       required:
                         - type
                         - at
@@ -29438,8 +30248,6 @@ components:
           anyOf:
             - type: string
               format: date-time
-              pattern: >-
-                ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
             - type: 'null'
         phaseStartedAt:
           description: >-
@@ -29448,15 +30256,11 @@ components:
           anyOf:
             - type: string
               format: date-time
-              pattern: >-
-                ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
             - type: 'null'
         pausedAt:
           anyOf:
             - type: string
               format: date-time
-              pattern: >-
-                ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
             - type: 'null'
         nextStepAt:
           description: >-
@@ -29465,15 +30269,11 @@ components:
           anyOf:
             - type: string
               format: date-time
-              pattern: >-
-                ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
             - type: 'null'
         nextProcessAt:
           anyOf:
             - type: string
               format: date-time
-              pattern: >-
-                ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
             - type: 'null'
         elapsedMs:
           description: Milliseconds since startedAt (computed at response time, not stored)
@@ -29492,6 +30292,301 @@ components:
         - status
         - currentStepIndex
         - nextStepAt
+      additionalProperties: false
+    Report:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+        dateUpdated:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        type:
+          description: >-
+            Report type. `experiment-snapshot` is the current shape and is what
+            `POST /reports` always creates. `experiment` is a deprecated legacy
+            shape that is read-only through this API; it cannot be created or
+            refreshed and is preserved only for backward compatibility when
+            reading reports created before the new shape existed.
+          type: string
+          enum:
+            - experiment-snapshot
+            - experiment
+        status:
+          description: >-
+            UI lifecycle marker. Note: this does NOT control public shareability
+            — see `shareLevel` for visibility controls.
+          type: string
+          enum:
+            - published
+            - private
+        shareLevel:
+          description: >-
+            Visibility of the report. `private` (default) restricts access to
+            the API caller and admins. `organization` makes it visible to all
+            members of the organization in the GrowthBook UI. `public`
+            additionally exposes it via a shareable URL (returned as
+            `shareUrl`); anyone with the URL can view it without authentication.
+          type: string
+          enum:
+            - public
+            - organization
+            - private
+        shareUrl:
+          description: >-
+            Public URL for viewing the report. Only present when `shareLevel` is
+            `public`.
+          type: string
+        experimentId:
+          type: string
+        snapshotId:
+          description: Snapshot ID (experiment-snapshot type only)
+          type: string
+        snapshotStatus:
+          description: Status of the latest snapshot (poll this after refresh)
+          type: string
+          enum:
+            - running
+            - success
+            - error
+        snapshotError:
+          description: Error message if snapshot failed
+          type: string
+        analysisSettings:
+          type: object
+          properties:
+            statsEngine:
+              type: string
+              enum:
+                - bayesian
+                - frequentist
+            goalMetrics:
+              type: array
+              items:
+                type: string
+            secondaryMetrics:
+              type: array
+              items:
+                type: string
+            guardrailMetrics:
+              type: array
+              items:
+                type: string
+            activationMetric:
+              type: string
+            metricOverrides:
+              description: Per-metric window, risk, and regression-adjustment overrides
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  windowType:
+                    type: string
+                    enum:
+                      - conversion
+                      - lookback
+                      - ''
+                  windowHours:
+                    type: number
+                  delayHours:
+                    type: number
+                  winRisk:
+                    type: number
+                  loseRisk:
+                    type: number
+                  properPriorOverride:
+                    type: boolean
+                  properPriorEnabled:
+                    type: boolean
+                  properPriorMean:
+                    type: number
+                  properPriorStdDev:
+                    type: number
+                  regressionAdjustmentOverride:
+                    type: boolean
+                  regressionAdjustmentEnabled:
+                    type: boolean
+                  regressionAdjustmentDays:
+                    type: number
+                required:
+                  - id
+                additionalProperties: false
+            customMetricSlices:
+              description: Custom metric slice definitions
+              type: array
+              items:
+                type: object
+                properties:
+                  slices:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        column:
+                          type: string
+                        levels:
+                          type: array
+                          items:
+                            type: string
+                      required:
+                        - column
+                        - levels
+                      additionalProperties: false
+                required:
+                  - slices
+                additionalProperties: false
+            dimension:
+              type: string
+            differenceType:
+              description: >-
+                How lifts are expressed in results: `relative` (% change),
+                `absolute` (raw difference), or `scaled` (scaled impact)
+              type: string
+              enum:
+                - relative
+                - absolute
+                - scaled
+            dateStarted:
+              format: date-time
+              type: string
+            dateEnded:
+              format: date-time
+              type: string
+            regressionAdjustmentEnabled:
+              type: boolean
+            sequentialTestingEnabled:
+              type: boolean
+            sequentialTestingTuningParameter:
+              description: Tuning parameter for sequential testing (frequentist only)
+              type: number
+            attributionModel:
+              description: >-
+                Metric conversion window attribution model: `firstExposure`,
+                `experimentDuration`, or `lookbackOverride`
+              type: string
+              enum:
+                - firstExposure
+                - experimentDuration
+                - lookbackOverride
+            lookbackOverride:
+              description: >-
+                Lookback window used when `attributionModel` is
+                `lookbackOverride`
+              anyOf:
+                - type: object
+                  properties:
+                    type:
+                      type: string
+                      const: date
+                    value: {}
+                  required:
+                    - type
+                    - value
+                  additionalProperties: false
+                - type: object
+                  properties:
+                    type:
+                      type: string
+                      const: window
+                    value:
+                      type: number
+                      minimum: 0
+                    valueUnit:
+                      type: string
+                      enum:
+                        - minutes
+                        - hours
+                        - days
+                        - weeks
+                  required:
+                    - type
+                    - value
+                    - valueUnit
+                  additionalProperties: false
+            trackingKey:
+              description: Tracking key used to identify experiment exposures
+              type: string
+            exposureQueryId:
+              description: Datasource exposure query ID (Assignment Table)
+              type: string
+            segment:
+              description: Segment ID to filter users by
+              type: string
+            queryFilter:
+              description: Raw SQL WHERE clause added to the exposure query
+              type: string
+            skipPartialData:
+              description: >-
+                When true, exclude users who have not completed the full
+                conversion window
+              type: boolean
+          additionalProperties: false
+        experimentMetadata:
+          type: object
+          properties:
+            type:
+              description: Experiment type
+              type: string
+              enum:
+                - standard
+                - multi-armed-bandit
+                - holdout
+            variations:
+              description: >-
+                Variation metadata with current traffic weights — use to label
+                result columns
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  name:
+                    type: string
+                  key:
+                    type: string
+                  weight:
+                    description: Traffic weight (0–1)
+                    type: number
+                required:
+                  - id
+                  - name
+                  - key
+                  - weight
+                additionalProperties: false
+            phases:
+              description: Experiment phases
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  dateStarted:
+                    type: string
+                  dateEnded:
+                    type: string
+                  coverage:
+                    description: Traffic coverage (0–1)
+                    type: number
+                additionalProperties: false
+          additionalProperties: false
+        results:
+          $ref: '#/components/schemas/ExperimentResults'
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - title
+        - description
+        - type
       additionalProperties: false
     Namespace:
       type: object
@@ -29633,23 +30728,15 @@ components:
         nextUpdate:
           type: string
           format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
         lastUpdated:
           type: string
           format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
         dateCreated:
           type: string
           format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
         dateUpdated:
           type: string
           format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
         blocks:
           type: array
           items:
@@ -31049,13 +32136,9 @@ components:
         dateCreated:
           type: string
           format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
         dateUpdated:
           type: string
           format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
         name:
           type: string
         description:
@@ -31069,8 +32152,6 @@ components:
             - type: boolean
             - type: string
               format: date-time
-              pattern: >-
-                ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
             - type: string
               format: date
               pattern: >-
@@ -31088,8 +32169,6 @@ components:
               items:
                 type: string
                 format: date-time
-                pattern: >-
-                  ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
             - type: array
               items:
                 type: string
@@ -31145,13 +32224,9 @@ components:
         dateCreated:
           type: string
           format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
         dateUpdated:
           type: string
           format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
@@ -31201,13 +32276,9 @@ components:
         dateCreated:
           type: string
           format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
         dateUpdated:
           type: string
           format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
         name:
           type: string
         createdBy:
@@ -31290,13 +32361,9 @@ components:
         dateCreated:
           type: string
           format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
         dateUpdated:
           type: string
           format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
         project:
           type: string
         owner:
@@ -31454,13 +32521,9 @@ components:
         dateCreated:
           type: string
           format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
         dateUpdated:
           type: string
           format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
         name:
           type: string
         steps:
@@ -31470,19 +32533,22 @@ components:
             properties:
               trigger:
                 anyOf:
-                  - type: object
+                  - description: Fires automatically after a fixed delay.
+                    type: object
                     properties:
                       type:
                         type: string
                         const: interval
                       seconds:
+                        description: Seconds to wait before this step fires.
                         type: number
                         exclusiveMinimum: 0
                     required:
                       - type
                       - seconds
                     additionalProperties: false
-                  - type: object
+                  - description: Pauses the ramp until manually approved.
+                    type: object
                     properties:
                       type:
                         type: string
@@ -31490,16 +32556,16 @@ components:
                     required:
                       - type
                     additionalProperties: false
-                  - type: object
+                  - description: Fires at a specific date and time.
+                    type: object
                     properties:
                       type:
                         type: string
                         const: scheduled
                       at:
+                        description: ISO 8601 date-time, e.g. "2025-06-01T00:00:00Z".
                         type: string
                         format: date-time
-                        pattern: >-
-                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                     required:
                       - type
                       - at
@@ -33657,6 +34723,7 @@ x-tagGroups:
       - snapshots
       - dimensions
       - segments
+      - reports
       - sdk-connections
       - visual-changesets
       - saved-groups
@@ -33687,6 +34754,7 @@ x-tagGroups:
       - Dimension_model
       - Environment_model
       - Experiment_model
+      - Experiment Rule_model
       - ExperimentAnalysisSettings_model
       - ExperimentDecisionFrameworkSettings_model
       - ExperimentMetric_model
@@ -33732,11 +34800,14 @@ x-tagGroups:
       - Query_model
       - RampSchedule_model
       - RampScheduleTemplate_model
+      - Report_model
+      - Safe Rollout Rule_model
       - SavedGroup_model
       - ScheduleRule_model
       - SdkConnection_model
       - Segment_model
       - Settings_model
+      - Targeting Rule_model
       - Team_model
       - VisualChange_model
       - VisualChangeset_model

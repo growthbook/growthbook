@@ -21,9 +21,10 @@ import styles from "./RampTimeline.module.scss";
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 export function formatTrigger(trigger: RampTrigger): ReactNode {
-  if (trigger.type === "approval") return <Text size="small">approval</Text>;
-  if (trigger.type === "scheduled") return formatScheduledDate(trigger.at);
-  const s = trigger.seconds;
+  if (trigger?.type === "approval") return <Text size="small">approval</Text>;
+  if (trigger?.type === "scheduled") return formatScheduledDate(trigger?.at);
+  const s = trigger?.seconds;
+  if (!s) return null;
   let duration: string;
   if (s < 60) duration = `${s}s`;
   else {
