@@ -10,16 +10,12 @@ import {
   buildEventForwarderEventsFactTableSql,
   EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
   getEventForwarderEventsFactTableId,
-  getEventForwarderEventsFactTableIdWithCollisionSuffix,
   getEventForwarderEventsFactTableName,
-  isEventForwarderEventsFactTableCandidate,
 } from "shared/util";
-import type { FactTableInterface } from "shared/types/fact-table";
 import type { DataSourceInterface } from "shared/types/datasource";
 import {
   createFactTable,
   getFactTable,
-  getFactTablesForDatasource,
   deleteFactTable,
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -34,55 +30,17 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
-export function findEventForwarderEventsFactTableForDatasource(
-  factTables: FactTableInterface[],
-  datasourceName: string,
-): FactTableInterface | null {
-  return (
-    factTables.find((ft) =>
-      isEventForwarderEventsFactTableCandidate(ft, datasourceName),
-    ) ?? null
-  );
-}
-
-async function resolveEventForwarderEventsFactTableId(
-  context: ReqContext,
-  datasource: DataSourceInterface,
-): Promise<{ factTableId: string; existing: FactTableInterface | null }> {
-  const baseId = getEventForwarderEventsFactTableId(datasource.name);
-  const existing = await getFactTable(context, baseId);
-  if (!existing || existing.datasource === datasource.id) {
-    return { factTableId: baseId, existing };
-  }
-
-  const factTableId = getEventForwarderEventsFactTableIdWithCollisionSuffix(
-    datasource.name,
-    datasource.id,
-  );
-  return {
-    factTableId,
-    existing: await getFactTable(context, factTableId),
-  };
-}
-
 async function findEventForwarderEventsFactTableForDatasourceId(
   context: ReqContext,
   datasource: DataSourceInterface,
-): Promise<FactTableInterface | null> {
-  const factTables = await getFactTablesForDatasource(context, datasource.id);
-  let factTable = findEventForwarderEventsFactTableForDatasource(
-    factTables,
-    datasource.name,
+) {
+  const factTable = await getFactTable(
+    context,
+    getEventForwarderEventsFactTableId(datasource.id),
   );
-
-  if (!factTable) {
-    const fallbackId = getEventForwarderEventsFactTableId(datasource.name);
-    factTable = await getFactTable(context, fallbackId);
-    if (factTable?.datasource !== datasource.id) {
-      factTable = null;
-    }
+  if (!factTable || factTable.datasource !== datasource.id) {
+    return null;
   }
-
   return factTable;
 }
 
@@ -117,12 +75,23 @@ export async function queueDelayedFactTableColumnsRefreshForDatasource(
   datasourceId: string,
   delayMs = EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
 ): Promise<void> {
-  const factTables = await getFactTablesForDatasource(context, datasourceId);
-  const runAt = new Date(Date.now() + delayMs);
-
-  for (const factTable of factTables) {
-    await queueFactTableColumnsRefreshAt(factTable, runAt);
+  const datasource = await getDataSourceById(context, datasourceId);
+  if (!datasource) {
+    return;
   }
+
+  const factTable = await findEventForwarderEventsFactTableForDatasourceId(
+    context,
+    datasource,
+  );
+  if (!factTable) {
+    return;
+  }
+
+  await queueFactTableColumnsRefreshAt(
+    factTable,
+    new Date(Date.now() + delayMs),
+  );
 }
 
 export async function queueDelayedFactTableColumnsRefreshForEventForwarderDatasources(
@@ -134,10 +103,20 @@ export async function queueDelayedFactTableColumnsRefreshForEventForwarderDataso
   const runAt = new Date(Date.now() + delayMs);
 
   for (const datasourceId of datasourceIds) {
-    const factTables = await getFactTablesForDatasource(context, datasourceId);
-    for (const factTable of factTables) {
-      await queueFactTableColumnsRefreshAt(factTable, runAt);
+    const datasource = await getDataSourceById(context, datasourceId);
+    if (!datasource) {
+      continue;
     }
+
+    const factTable = await findEventForwarderEventsFactTableForDatasourceId(
+      context,
+      datasource,
+    );
+    if (!factTable) {
+      continue;
+    }
+
+    await queueFactTableColumnsRefreshAt(factTable, runAt);
   }
 }
 
@@ -154,9 +133,11 @@ export async function ensureEventForwarderEventsFactTable(
     return;
   }
 
-  const { factTableId, existing } =
-    await resolveEventForwarderEventsFactTableId(context, datasource);
-  if (existing?.datasource === datasource.id) {
+  const existing = await findEventForwarderEventsFactTableForDatasourceId(
+    context,
+    datasource,
+  );
+  if (existing) {
     return;
   }
 
@@ -230,7 +211,7 @@ export async function ensureEventForwarderEventsFactTable(
   const columns = buildEventForwarderEventsFactTableColumns(userIdTypes);
 
   const factTable = await createFactTable(context, {
-    id: factTableId,
+    id: getEventForwarderEventsFactTableId(datasource.id),
     name: getEventForwarderEventsFactTableName(datasource.name),
     description: "",
     owner: "",
