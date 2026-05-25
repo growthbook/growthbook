@@ -136,7 +136,7 @@ function getHoldStatusPrefix(rampSchedule: RampScheduleInterface): string {
   return activeHold ? "Holding" : "Step may hold when complete";
 }
 
-function isHoldingNow(rampSchedule: RampScheduleInterface): boolean {
+export function isHoldingNow(rampSchedule: RampScheduleInterface): boolean {
   const step =
     rampSchedule.currentStepIndex >= 0
       ? rampSchedule.steps[rampSchedule.currentStepIndex]
@@ -154,7 +154,31 @@ function isHoldingNow(rampSchedule: RampScheduleInterface): boolean {
   return false;
 }
 
-function conservativeActionForSignals(
+// Returns true when we're past `threshold` (0–1) of the current step's
+// interval. Used to suppress "Awaiting Sample" noise early in a long step —
+// only surface it once there's reason to be concerned about pace.
+export function isNearingStepEnd(
+  rampSchedule: RampScheduleInterface,
+  threshold = 0.75,
+): boolean {
+  const step =
+    rampSchedule.currentStepIndex >= 0
+      ? rampSchedule.steps[rampSchedule.currentStepIndex]
+      : undefined;
+  if (
+    rampSchedule.status === "running" &&
+    step?.monitored &&
+    step.interval != null &&
+    rampSchedule.currentStepEnteredAt
+  ) {
+    const stepEnteredAt = getValidDate(rampSchedule.currentStepEnteredAt);
+    const elapsed = Date.now() - stepEnteredAt.getTime();
+    return elapsed >= step.interval * 1000 * threshold;
+  }
+  return false;
+}
+
+export function conservativeActionForSignals(
   signals: RampHealthSignal[],
   actions: Partial<Record<RampHealthSignal, SignalAction>>,
 ): SignalAction | undefined {
@@ -297,7 +321,10 @@ function computeSignals(
       ? rampSchedule.steps[rampSchedule.currentStepIndex]
       : undefined;
   const minSample = currentStep?.holdConditions?.minSampleSize;
-  if (minSample && totalUsers < minSample) {
+  // Only surface the below-min-sample signal once we're ≥75% through the
+  // step's interval — before that, being below the threshold is expected and
+  // showing it would create false alarm noise.
+  if (minSample && totalUsers < minSample && isNearingStepEnd(rampSchedule)) {
     signals.push("below-min-sample");
     details["below-min-sample"] =
       `${totalUsers.toLocaleString()} of ${minSample.toLocaleString()} required users collected`;
@@ -906,6 +933,35 @@ export function RampMonitoringCTAs({
       actions["multiple-exposures"] === "hold") ||
     (signals.includes("no-traffic") && actions["no-traffic"] === "hold");
   const activelyHolding = hasHoldSignal && isHoldingNow(rampSchedule);
+
+  // If the step is both awaiting approval AND actively held by a monitoring
+  // signal, show a single "Approve & Continue" that fires both actions —
+  // calling approve-step first then advance. Showing two separate buttons
+  // would be confusing, and "Approve Step" alone would leave the user still
+  // held after approving.
+  if (
+    activelyHolding &&
+    onApproveStep &&
+    onAdvance &&
+    isAwaitingApproval(rampSchedule) &&
+    conservativeAction === "hold"
+  ) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <Button
+          size={size}
+          variant="solid"
+          onClick={async () => {
+            await onApproveStep();
+            await onAdvance();
+          }}
+        >
+          Approve & Continue
+        </Button>
+        {rollbackButton("outline")}
+      </div>
+    );
+  }
 
   if (activelyHolding && onAdvance && conservativeAction === "hold") {
     return (
