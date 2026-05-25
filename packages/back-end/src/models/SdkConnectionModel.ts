@@ -134,6 +134,7 @@ export async function findSDKConnectionById(
   id: string,
 ) {
   const doc = await SDKConnectionModel.findOne({
+    organization: context.org.id,
     id,
   });
 
@@ -400,7 +401,7 @@ export async function editSDKConnection(
 
   await SDKConnectionModel.updateOne(
     {
-      organization: connection.organization,
+      organization: context.org.id,
       id: connection.id,
     },
     {
@@ -472,13 +473,14 @@ export async function markSDKConnectionUsed(key: string) {
 }
 
 export async function setProxyError(
+  context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,
   error: string,
 ) {
   const consecutiveFailures = (connection.proxy.consecutiveFailures || 0) + 1;
   await SDKConnectionModel.updateOne(
     {
-      organization: connection.organization,
+      organization: context.org.id,
       id: connection.id,
     },
     {
@@ -495,10 +497,13 @@ export async function setProxyError(
   );
 }
 
-export async function clearProxyError(connection: SDKConnectionInterface) {
+export async function clearProxyError(
+  context: ReqContext | ApiReqContext,
+  connection: SDKConnectionInterface,
+) {
   await SDKConnectionModel.updateOne(
     {
-      organization: connection.organization,
+      organization: context.org.id,
       id: connection.id,
     },
     {
@@ -514,6 +519,7 @@ export async function clearProxyError(connection: SDKConnectionInterface) {
 export async function testProxyConnection(
   connection: SDKConnectionInterface,
   updateDB: boolean = true,
+  context?: ReqContext | ApiReqContext,
 ): Promise<ProxyTestResult | undefined> {
   const proxy = connection.proxy;
   if (!proxy) {
@@ -568,9 +574,12 @@ export async function testProxyConnection(
     const version = res.data.proxyVersion;
 
     if (updateDB) {
+      if (!context) {
+        throw new Error("Context is required to update SDK connection status");
+      }
       await SDKConnectionModel.updateOne(
         {
-          organization: connection.organization,
+          organization: context.org.id,
           id: connection.id,
         },
         {
