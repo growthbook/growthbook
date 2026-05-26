@@ -35,6 +35,7 @@ import TabsStories from "@/ui/Tabs.stories";
 import ProgressBarStories from "@/ui/ProgressBar.stories";
 import VariationStatsTableStories from "@/ui/VariationStatsTable.stories";
 import ModalStories from "@/ui/Modal/Modal.stories";
+import ModalPagedStories from "@/ui/Modal/Patterns/ModalPaged.stories";
 
 type StoryEntry = {
   name: string;
@@ -99,6 +100,7 @@ export default function DesignSystemPage() {
     { name: "Table", Stories: TableStories },
     { name: "Tabs", Stories: TabsStories },
     { name: "Modal", Stories: ModalStories },
+    { name: "ModalPaged", Stories: ModalPagedStories },
   ] satisfies StoryEntry[];
 
   const entries = useMemo(

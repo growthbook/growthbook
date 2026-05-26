@@ -46,7 +46,7 @@ export default function ModalStories() {
             </Box>
           </Modal.Header>
           <Modal.Description>
-            {`This is a ${size === "md" ? "medium" : "large"} example modal`}
+            {`This is a ${size === "md" ? "medium" : size === "lg" ? "large" : "max"} example modal`}
           </Modal.Description>
           <Modal.Body>
             <Flex direction="column" gap="5">
@@ -79,6 +79,7 @@ export default function ModalStories() {
       <Flex direction="row" gap="3">
         <Button onClick={() => setSize("md")}>Medium Modal</Button>
         <Button onClick={() => setSize("lg")}>Large Modal</Button>
+        <Button onClick={() => setSize("max")}>Max Modal</Button>
       </Flex>
     </>
   );

@@ -1,4 +1,4 @@
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import clsx from "clsx";
 import { PiCheck, PiCircleDashed } from "react-icons/pi";
 
@@ -47,7 +47,6 @@ export default function Stepper({
             <a
               key={i}
               role="button"
-              className="nav-link"
               onClick={async (e) => {
                 e.preventDefault();
                 setError("");
@@ -59,7 +58,7 @@ export default function Stepper({
                 }
               }}
             >
-              <span className="step-number rounded-circle">
+              <Box as="span" className="step-number rounded-circle">
                 {i < step ? (
                   skipped?.has(i) ? (
                     <PiCircleDashed />
@@ -69,7 +68,7 @@ export default function Stepper({
                 ) : (
                   i + 1
                 )}
-              </span>
+              </Box>
               <span className="step-title">{label}</span>
             </a>
           </Flex>

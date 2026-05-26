@@ -3,7 +3,8 @@ import { QueryInterface } from "shared/types/query";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { SavedQuery } from "shared/validators";
 import useApi from "@/hooks/useApi";
-import Modal from "@/components/Modal";
+import Callout from "@/ui/Callout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -68,7 +69,7 @@ const AsyncQueriesModal: FC<{
   const contents = (
     <>
       {error && (
-        <div className="alert alert-danger">
+        <Callout status="error" mb="3">
           <div>
             <strong>Error Processing Query Results</strong>
           </div>
@@ -82,22 +83,22 @@ const AsyncQueriesModal: FC<{
               style={{ maxHeight: 500 }}
             />
           ) : null}
-        </div>
-      )}{" "}
+        </Callout>
+      )}
       {data && data.queries.filter((q) => q === null).length > 0 && (
-        <div className="alert alert-danger">
+        <Callout status="error" mb="3">
           Could not fetch information about one or more of these queries. Try
           running them again.
-        </div>
+        </Callout>
       )}
       {data &&
         data.queries.filter((q) => q?.status === "queued").length > 0 &&
         datasourceId && (
-          <div className="alert alert-warning">
+          <Callout status="warning" mb="3">
             One or more of these queries is waiting to run. Click{" "}
             <a href={`/datasources/queries/${datasourceId}`}>here</a> to see the
             status of all your queries
-          </div>
+          </Callout>
         )}
       {hasStats ? (
         <div className="mb-4">
@@ -166,12 +167,10 @@ const AsyncQueriesModal: FC<{
 
   if (inline) {
     if (apiError) {
-      return <div className="alert alert-danger">{apiError.message}</div>;
+      return <Callout status="error">{apiError.message}</Callout>;
     }
     if (savedQueryError) {
-      return (
-        <div className="alert alert-danger">{savedQueryError.message}</div>
-      );
+      return <Callout status="error">{savedQueryError.message}</Callout>;
     }
     if (!data) {
       return <LoadingSpinner />;
@@ -181,24 +180,23 @@ const AsyncQueriesModal: FC<{
   }
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="async-queries"
       close={close}
       header="Queries"
       open={true}
       size="max"
-      closeCta="Close"
     >
       {((!data && !apiError && queries.length > 0) ||
         (shouldFetchSavedQueries() && !savedQueryData && !savedQueryError)) && (
         <LoadingOverlay />
       )}
-      {apiError && <div className="alert alert-danger">{apiError.message}</div>}
+      {apiError && <Callout status="error">{apiError.message}</Callout>}
       {savedQueryError && (
-        <div className="alert alert-danger">{savedQueryError.message}</div>
+        <Callout status="error">{savedQueryError.message}</Callout>
       )}
       {contents}
-    </Modal>
+    </ModalStandard>
   );
 };
 

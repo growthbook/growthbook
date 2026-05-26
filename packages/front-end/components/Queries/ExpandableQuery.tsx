@@ -79,11 +79,11 @@ const ExpandableQuery: FC<{
       </h4>
       <Code language={query.language} code={query.query} expandable={true} />
       {query.error && (
-        <div className="alert alert-danger">
+        <Callout status="error" mb="3">
           <pre className="m-0 p-0" style={{ whiteSpace: "pre-wrap" }}>
             {query.error}
           </pre>
-        </div>
+        </Callout>
       )}
       {query.status === "succeeded" && (
         <>

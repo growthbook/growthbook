@@ -24,13 +24,14 @@ import ErrorDisplay from "../ErrorDisplay";
 import Text from "../Text";
 import styles from "./Modal.module.scss";
 
-export type Size = "md" | "lg";
-
+export type Size = "md" | "lg" | "max";
 function getRadixSize(size: Size): Responsive<"3" | "4"> {
   switch (size) {
     case "md":
       return "3";
     case "lg":
+      return "4";
+    case "max":
       return "4";
   }
 }
@@ -41,6 +42,8 @@ function getMaxWidth(size: Size) {
       return "500px";
     case "lg":
       return "800px";
+    case "max":
+      return "90vw";
   }
 }
 
@@ -167,7 +170,8 @@ function Root({
         ref={contentRef}
         size={getRadixSize(size)}
         maxWidth={getMaxWidth(size)}
-        maxHeight="85vh"
+        aria-describedby={undefined}
+        maxHeight={size === "max" ? "90vh" : "85vh"}
         style={
           {
             display: "flex",
@@ -214,9 +218,11 @@ function Title({ children }: { children: ReactNode }) {
 function Description({ children }: { children: ReactNode }) {
   return (
     <Box flexShrink="0" pr="7" mt="1">
-      <Text as="div" color="text-mid" size="large">
-        {children}
-      </Text>
+      <Dialog.Description>
+        <Text color="text-mid" size="large">
+          {children}
+        </Text>
+      </Dialog.Description>
     </Box>
   );
 }

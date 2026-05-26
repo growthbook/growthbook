@@ -283,11 +283,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/QueryModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/RefreshSnapshotButton.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1079,19 +1074,6 @@
     }
   },
   "packages/front-end/components/ProtectedPage.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Queries/AsyncQueriesModal.tsx": {
-    "local/no-alert-classname": {
-      "count": 7
-    },
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Queries/ExpandableQuery.tsx": {
     "local/no-alert-classname": {
       "count": 1
     }
