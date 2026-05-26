@@ -14,6 +14,17 @@ import CommercialFeature from '@site/src/components/CommercialFeature';
 
 URL Redirect tests are an alternative to using the Visual Editor and are ideal for testing big changes or complete page redesigns.
 
+Ensure you are using a GrowthBook SDK version that supports URL Redirects. The functionality for URL Redirects was introduced in the following versions of these SDKs:
+
+- JavaScript v0.36.0
+- React v0.26.0
+- Vue.js (all versions)
+- HTML <script> tag (all versions)
+- Edge (Cloudflare) v0.1.11
+- Edge (Fastly) v0.1.5
+- Edge (Lambda) v0.0.6
+- Edge (Other) v0.1.4
+
 ## How it Works
 
 You start by specifying an "Original URL". Users who visit this URL will be included in the experiment (assuming they meet all of the other targeting conditions).
