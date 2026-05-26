@@ -397,8 +397,7 @@ export function buildPatch(
 ): RampStepAction["patch"] {
   const out: RampStepAction["patch"] = { ruleId };
 
-  if (patch.coverage !== undefined)
-    out.coverage = patch.coverage / 100;
+  if (patch.coverage !== undefined) out.coverage = patch.coverage / 100;
   if (patch.condition !== undefined) {
     // `null` sentinel means "clear targeting" explicitly.
     if (patch.condition === null) {
@@ -4211,9 +4210,7 @@ export function reconstructUIPatch(
   if (!patch) return {};
   const p: UIStepPatch = {};
   if ((patch.coverage ?? null) !== null)
-    p.coverage = Math.round(
-      patch.coverage! * 100,
-    );
+    p.coverage = Math.round(patch.coverage! * 100);
   if ("condition" in patch) {
     const condition = patch.condition;
     p.condition =

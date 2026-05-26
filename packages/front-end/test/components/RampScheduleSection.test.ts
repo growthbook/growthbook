@@ -445,9 +445,10 @@ describe("reconstructUIPatch — backend→UI coverage conversion", () => {
   it("round-trips: buildPatch then reconstructUIPatch returns the original UI value", () => {
     for (const uiInput of [1, 10, 25, 40, 50]) {
       const backend = buildPatch({ coverage: uiInput }, "r");
-      const restored = reconstructUIPatch(
-        { ruleId: "r", coverage: backend.coverage },
-      );
+      const restored = reconstructUIPatch({
+        ruleId: "r",
+        coverage: backend.coverage,
+      });
       expect(restored.coverage).toBe(uiInput);
     }
   });
@@ -455,9 +456,10 @@ describe("reconstructUIPatch — backend→UI coverage conversion", () => {
   it("round-trips for unmonitored steps", () => {
     for (const uiInput of [1, 25, 50, 75, 100]) {
       const backend = buildPatch({ coverage: uiInput }, "r");
-      const restored = reconstructUIPatch(
-        { ruleId: "r", coverage: backend.coverage },
-      );
+      const restored = reconstructUIPatch({
+        ruleId: "r",
+        coverage: backend.coverage,
+      });
       expect(restored.coverage).toBe(uiInput);
     }
   });
