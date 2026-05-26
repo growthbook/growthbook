@@ -172,7 +172,7 @@ export default function Welcome({
                   {hero.body}
                 </Text>
               )}
-              {ctaText && ctaLink && (
+              {ctaText && ctaLink && /^https?:\/\//i.test(ctaLink) && (
                 <Box mt="5" mb="5">
                   <WhiteButton
                     variant="outline"
