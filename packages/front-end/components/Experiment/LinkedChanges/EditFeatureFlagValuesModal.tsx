@@ -413,11 +413,6 @@ export default function EditFeatureFlagValuesModal({
                             />
                           </Box>
                         </Flex>
-                        <Field
-                          label="Description"
-                          containerClassName="mb-0"
-                          {...form.register(`variations.${i}.description`)}
-                        />
                         <Box>
                           <Text as="label" weight="semibold">
                             Value
