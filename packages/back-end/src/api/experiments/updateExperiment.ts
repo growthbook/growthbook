@@ -262,6 +262,11 @@ export const updateExperiment = createApiRequestHandler(
     );
   }
 
+  if (req.body.statusUpdateSchedule) {
+    const effectiveType = req.body.type ?? experiment.type ?? "standard";
+    validateStatusUpdateSchedule(effectiveType, req.body.statusUpdateSchedule);
+  }
+
   const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
   const changes = updateExperimentApiPayloadToInterface(
     {
@@ -273,11 +278,7 @@ export const updateExperiment = createApiRequestHandler(
     req.organization,
   );
 
-  if (req.body.statusUpdateSchedule) {
-    const effectiveType = req.body.type ?? experiment.type ?? "standard";
-    validateStatusUpdateSchedule(effectiveType, req.body.statusUpdateSchedule);
-    normalizeStatusUpdateScheduleChanges(experiment, changes);
-  }
+  normalizeStatusUpdateScheduleChanges(experiment, changes);
 
   const isStartingFromDraft =
     experiment.status === "draft" && changes.status === "running";
