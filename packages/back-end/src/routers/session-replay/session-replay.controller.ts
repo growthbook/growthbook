@@ -30,8 +30,7 @@ export async function listSessions(
   const page = parseIntWithDefaultCapped(req.query.page, 1, 1_000_000);
   const pageSize = 100;
   const offset = (page - 1) * pageSize;
-  // Permission filtering happens inside the model: rows the caller can't
-  // read are dropped before they ever reach the response.
+
   const sessions = await context.models.sessionReplays.list({
     userId: req.query.userId,
     clientKey: req.query.clientKey,
@@ -53,10 +52,6 @@ export async function getSession(
   const metadata =
     await context.models.sessionReplays.getBySessionId(sessionId);
   if (!metadata) {
-    // Note: returns 404 both for "doesn't exist" and "no permission" — we
-    // deliberately don't distinguish, to avoid leaking session existence to
-    // unauthorized callers. Body includes `status` so the front-end's
-    // `apiCall` correctly throws on this response.
     res.status(404).json({ status: 404, message: "Session not found" });
     return;
   }
@@ -65,9 +60,7 @@ export async function getSession(
     metadata.storagePrefix,
   );
   if (!events.length) {
-    res
-      .status(404)
-      .json({ status: 404, message: "Session data not found" });
+    res.status(404).json({ status: 404, message: "Session data not found" });
     return;
   }
 

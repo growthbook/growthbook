@@ -1,10 +1,8 @@
 import type { recordOptions } from "rrweb";
 import type { eventWithTime } from "@rrweb/types";
 import type { SessionReplayUrlScrubberConfig } from "./session-replay-url-scrub";
-import type { SessionReplayRegexScrubberConfig } from "./session-replay-regex-scrub";
 
 export type { SessionReplayUrlScrubberConfig } from "./session-replay-url-scrub";
-export type { SessionReplayRegexScrubberConfig } from "./session-replay-regex-scrub";
 
 /**
  * Privacy controls for the session-replay SDK plugin.
@@ -114,15 +112,6 @@ export type SessionReplayPrivacyConfig = {
    * replaced with `[id]`, fragments dropped. Set knobs here to tune.
    */
   url?: SessionReplayUrlScrubberConfig;
-
-  /**
-   * Pre-transmission regex scrubbing config. A safety net that runs over
-   * every event payload before it leaves the browser, replacing things
-   * that look like credit cards / SSNs / emails with `[REDACTED]`. Set
-   * to `false` to disable entirely (not recommended); pass an object to
-   * customize patterns or wire up telemetry.
-   */
-  regex?: SessionReplayRegexScrubberConfig | false;
 };
 
 export type MaskableInputType =

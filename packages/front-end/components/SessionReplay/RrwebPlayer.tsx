@@ -19,17 +19,12 @@ export type RrwebPlayerHandle = {
 
 type Props = {
   events: eventWithTime[];
-  /**
-   * Optional explicit pixel dimensions. When omitted, the component
-   * measures its own container and computes a 16:9 fit within
-   * MIN_HEIGHT..MAX_HEIGHT, clamped to the container width. rrweb-player
-   * ignores CSS sizing on its target element — width/height MUST be
-   * passed to the constructor or it falls back to 1024×576.
-   */
-  width?: number;
-  height?: number;
 };
 
+// rrweb-player ignores CSS sizing on its target element — width/height MUST
+// be passed to the constructor or it falls back to 1024×576 which overflows
+// most viewports. The component measures its own container and computes a
+// 16:9 fit clamped to MIN_HEIGHT..MAX_HEIGHT and the container width.
 const PLAYER_CONTROLLER_PX = 80;
 const PLAYER_MIN_HEIGHT = 320;
 const PLAYER_MAX_HEIGHT = 560;
@@ -79,7 +74,7 @@ function measurePlayerDims(container: HTMLElement | null): {
  *     back-end fix).
  */
 const RrwebPlayer = forwardRef<RrwebPlayerHandle, Props>(function RrwebPlayer(
-  { events, width: explicitWidth, height: explicitHeight },
+  { events },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -99,11 +94,7 @@ const RrwebPlayer = forwardRef<RrwebPlayerHandle, Props>(function RrwebPlayer(
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Use explicit dimensions when provided; otherwise self-measure.
-    const measured =
-      explicitWidth != null && explicitHeight != null
-        ? { width: explicitWidth, height: explicitHeight }
-        : measurePlayerDims(containerRef.current);
+    const measured = measurePlayerDims(containerRef.current);
 
     // No-op logger drops warn/log; errors still go to the real console.
     const silentLogger = {
@@ -160,7 +151,7 @@ const RrwebPlayer = forwardRef<RrwebPlayerHandle, Props>(function RrwebPlayer(
         /* keep tearing down */
       }
     };
-  }, [events, explicitWidth, explicitHeight]);
+  }, [events]);
 
   return <div ref={containerRef} />;
 });

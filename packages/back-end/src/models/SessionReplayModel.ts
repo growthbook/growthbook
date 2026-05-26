@@ -14,18 +14,7 @@ import { getSessionReplayEventsByStoragePrefix } from "back-end/src/services/ses
 /**
  * Internal API model for Session Replay metadata.
  *
- * This intentionally does NOT extend `BaseModel` / `MakeModelClass` because
- * the underlying store is ClickHouse + S3, not MongoDB. The standard
- * BaseModel machinery (audit log on mongo _id, mongoose indexes, write
- * validators) doesn't apply. We do follow the same interface contract
- * BaseModel exposes — context-constructor, canRead/canCreate/canUpdate/
- * canDelete — so callers consume this through `req.context.models.sessionReplays`
- * just like any other model.
- *
- * Sessions are immutable from the customer's perspective: created by the
- * ingest endpoint (which bypasses these permission methods), state-bumped
- * by the idle-timeout sweeper, and finally deleted via DELETE handlers.
- * That's why canCreate/canUpdate return false here.
+ * Sessions are immutable from the customer's perspective: canCreate/canUpdate return false here.
  */
 export class SessionReplayModel {
   protected context: ReqContext;
@@ -44,16 +33,10 @@ export class SessionReplayModel {
   }
 
   protected canCreate(): boolean {
-    // Ingestion bypasses this model entirely — sessions are created by the
-    // public /ingest/session-replay endpoint authenticated by SDK
-    // client key, not by an authenticated UI user.
     return false;
   }
 
   protected canUpdate(): boolean {
-    // Sessions are immutable from the user's perspective. The sweeper
-    // updates `state` and `lastEventAt` directly (system-level), not
-    // through this model.
     return false;
   }
 
@@ -66,11 +49,6 @@ export class SessionReplayModel {
 
   // ---------- Read methods ----------
 
-  /**
-   * List recent session-replay metadata for the current org. Filtering and
-   * pagination are implemented in ClickHouse query options. Results are
-   * permission-filtered before returning.
-   */
   public async list(options?: {
     userId?: string;
     clientKey?: string;
@@ -85,11 +63,6 @@ export class SessionReplayModel {
       .filter((doc) => this.canRead(doc));
   }
 
-  /**
-   * Look up a single session by its session_id. Returns null if not found
-   * OR if the caller lacks permission — we deliberately don't distinguish
-   * between "not found" and "no permission" to avoid leaking existence.
-   */
   public async getBySessionId(
     sessionId: string,
   ): Promise<SessionReplayInterface | null> {
@@ -100,19 +73,9 @@ export class SessionReplayModel {
     return doc;
   }
 
-  /**
-   * Fetch the rrweb event stream for a session. Today this concatenates
-   * all chunks server-side; #12 will replace this with pre-signed S3 URLs
-   * served to the browser. Permission is enforced via getBySessionId
-   * before this is called by callers — this method itself trusts that.
-   */
   public async getEventsForStoragePrefix(
     storagePrefix: string,
   ): Promise<SessionReplayRrwebEvent[]> {
-    // Cast through unknown — the underlying loader currently returns
-    // unknown[] (rrweb event shape isn't validated server-side). The Zod
-    // schema in shared loosely validates {type, timestamp, data} for
-    // ingest, but stored events are read back without re-validation.
     const events = (await getSessionReplayEventsByStoragePrefix(
       storagePrefix,
     )) as unknown as SessionReplayRrwebEvent[];
@@ -126,10 +89,6 @@ export class SessionReplayModel {
    * `SessionReplayInterface` validator in `shared` uses camelCase. This
    * translates one to the other so the rest of the back-end and the
    * front-end can work in domain-shaped objects.
-   *
-   * The `id` / `organization` / `dateCreated` / `dateUpdated` fields come
-   * from the BaseModel-shape required by the validator; we synthesize them
-   * from the ClickHouse columns to match.
    */
   private toInterface(row: SessionReplayRow): SessionReplayInterface {
     const startedAt = parseClickHouseDate(row.started_at);

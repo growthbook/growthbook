@@ -1064,9 +1064,7 @@ app.delete(
 );
 app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
 app.use("/upload", uploadRouter);
-// Note: mount under root, NOT under /api — the /api prefix is reserved for
-// API-key auth / server-to-server endpoints that use `cors({origin:"*"})`,
-// which conflicts with the browser's `credentials: include` mode.
+
 app.use("/session-replay", sessionReplayRouter);
 
 // Teams

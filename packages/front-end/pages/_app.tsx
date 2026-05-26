@@ -8,10 +8,7 @@ import { AppProps } from "next/app";
 import Head from "next/head";
 import React, { useEffect, useState } from "react";
 import { GrowthBookProvider } from "@growthbook/growthbook-react";
-import {
-  growthbookTrackingPlugin,
-  sessionReplayPlugin,
-} from "@growthbook/growthbook/plugins";
+import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { Inter } from "next/font/google";
 import { Container } from "@radix-ui/themes";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
@@ -115,8 +112,6 @@ function App({
       },
       dedupeKeyAttributes: ["id", "organizationId"],
     })(growthbook);
-
-    sessionReplayPlugin({ trackingHost: getIngestorHost() })(growthbook);
   }, [ready]);
 
   useEffect(() => {

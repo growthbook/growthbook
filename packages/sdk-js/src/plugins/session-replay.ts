@@ -11,7 +11,6 @@ export type {
   SessionReplayPrivacyConfig,
   MaskableInputType,
   SessionReplayUrlScrubberConfig,
-  SessionReplayRegexScrubberConfig,
 } from "./session-replay-privacy";
 export {
   GB_BLOCK_CLASS,
@@ -19,7 +18,6 @@ export {
   GB_IGNORE_CLASS,
 } from "./session-replay-privacy";
 export { scrubUrl } from "./session-replay-url-scrub";
-export { scrubEventsPayload } from "./session-replay-regex-scrub";
 
 type PluginOptions = {
   trackingHost?: string;
@@ -34,18 +32,6 @@ type PluginOptions = {
    */
   enabled?: boolean;
   /**
-   * How long (ms) the user can be idle before the current session is
-   * finalized and a new one started. Idle = no mouse, keyboard, scroll,
-   * or touch events. Default: 15 minutes.
-   */
-  idleTimeoutMs?: number;
-  /**
-   * Hard cap (ms) on a single session's wall-clock length. When exceeded
-   * the session is finalized and a new one begins automatically.
-   * Default: 30 minutes.
-   */
-  maxDurationMs?: number;
-  /**
    * Privacy controls for what rrweb captures. Element-level privacy is
    * fully driven by GrowthBook's three shipped class names —
    * `gb-block`, `gb-mask`, and `gb-ignore` — and is not configurable
@@ -53,46 +39,6 @@ type PluginOptions = {
    * transform hooks. Defaults to deny-by-default (every input masked).
    */
   privacy?: SessionReplayPrivacyConfig;
-  /**
-   * Periodic flush cadence (ms). A flush also fires before any event
-   * that would push the buffer past `flushByteSize`. This is the
-   * upper bound on how stale buffered events can be before being
-   * shipped. Stretching this longer reduces request volume and
-   * improves gzip ratios at the cost of more potential data loss on
-   * a crash/close.
-   * Default: 60_000 (60s).
-   */
-  flushIntervalMs?: number;
-  /**
-   * Flush before any event whose addition would push the approximate
-   * serialized buffer size past this many bytes. Computed as the
-   * running sum of `JSON.stringify(event).length` since the last
-   * flush; not exact (JS strings are UTF-16) but a close enough
-   * upper-bound estimate to keep payloads under the ingest endpoint's
-   * 10MB limit and under fetch keepalive's 64KB body limit when
-   * gzipped (~8-15x ratio for rrweb data).
-   * Default: 262_144 (256KB).
-   */
-  flushByteSize?: number;
-  /**
-   * Hard cap on the in-memory event buffer. New events are dropped
-   * once the cap is hit so the buffer can't grow without bound if
-   * every flush is failing (e.g. user offline). Should be > `flushEventCount`
-   * — under normal conditions a flush will fire well before this cap
-   * is reached.
-   * Default: 500.
-   */
-  maxBufferedEvents?: number;
-  /**
-   * Gzip the request body via the browser's native `CompressionStream`
-   * before POSTing. When `CompressionStream` is unavailable
-   * (older Safari, etc.) or compression throws, falls back to sending
-   * uncompressed JSON. The ingest endpoint sees `Content-Encoding: gzip`
-   * and `express.json` inflates transparently — no server change
-   * required.
-   * Default: true.
-   */
-  compress?: boolean;
 };
 
 /**
@@ -162,12 +108,11 @@ const REPLAY_STORAGE_KEY = "gb_session_replay";
 
 /**
  * Maximum idle gap between chunks before a resume is rejected and a
- * fresh session is minted. Roughly aligned with the plugin's own idle
- * rotation threshold (idleTimeoutMs default 15 min) plus a buffer for
- * the gap between rotation and the next interaction that restarts
- * recording. Sessions that span longer than this between chunks are
- * almost certainly logical session boundaries, not "the same user
- * continuing the same task."
+ * fresh session is minted. Roughly aligned with IDLE_TIMEOUT_MS plus a
+ * buffer for the gap between rotation and the next interaction that
+ * restarts recording. Sessions that span longer than this between
+ * chunks are almost certainly logical session boundaries, not "the
+ * same user continuing the same task."
  */
 const RESUME_STALENESS_MS = 15 * 60 * 1000;
 
@@ -184,6 +129,58 @@ const RESUME_STALENESS_MS = 15 * 60 * 1000;
  */
 const AUTH_FAILURE_LIMIT = 3;
 
+/**
+ * Session lifecycle, flush cadence, and transport thresholds. Intentionally
+ * NOT exposed through the plugin options — letting customers tweak these
+ * would break implicit contracts elsewhere in the system: storage retention
+ * windows, billing units, the replay-viewer UI's idea of a single playback,
+ * server-side staleness windows, ingest-side rate and body-size budgeting,
+ * and the fetch keepalive 64KB body limit. Tune here when the product needs
+ * to change, not per-customer.
+ *
+ * IDLE_TIMEOUT_MS — how long the user can be idle (no mouse, keyboard,
+ * scroll, or touch) before the current session is finalized and a new
+ * one starts on the next interaction. 15 minutes matches what PostHog
+ * and Statsig ship as their default.
+ *
+ * MAX_DURATION_MS — hard cap on a single session's wall-clock length.
+ * When exceeded the session is finalized and a new one begins
+ * automatically, even if the user is still active. 30 minutes keeps any
+ * one playback to a reasonable length and ensures a long-running tab
+ * eventually rotates regardless of interaction.
+ *
+ * FLUSH_INTERVAL_MS — periodic flush cadence. A flush also fires before
+ * any event that would push the buffer past FLUSH_BYTE_SIZE, so this is
+ * the upper bound on how stale buffered events can be before being
+ * shipped. 60s is the same cadence PostHog and Statsig ship.
+ *
+ * FLUSH_BYTE_SIZE — flush before any event whose addition would push the
+ * approximate serialized buffer size past this. Computed as the running
+ * sum of JSON.stringify(event).length since the last flush — not exact
+ * (JS strings are UTF-16) but a close-enough upper bound to keep payloads
+ * under the ingest endpoint's 10MB limit AND under fetch keepalive's 64KB
+ * body limit once gzipped (~8-15x ratio for rrweb data). 256KB
+ * uncompressed → typically ~17-32KB on the wire.
+ *
+ * MAX_BUFFERED_EVENTS — hard cap on the in-memory event buffer. New events
+ * are dropped once the cap is hit so the buffer can't grow without bound
+ * if every flush is failing (e.g. user offline). Should be well above
+ * normal pre-flush event counts — under healthy conditions a flush fires
+ * long before this trips.
+ *
+ * COMPRESS_REQUESTS — gzip the request body via the browser's native
+ * CompressionStream before POSTing. The ingest endpoint sees
+ * Content-Encoding: gzip and express.json inflates transparently — no
+ * server change required. Falls back to uncompressed JSON when
+ * CompressionStream is unavailable (older Safari) or throws.
+ */
+const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
+const MAX_DURATION_MS = 30 * 60 * 1000;
+const FLUSH_INTERVAL_MS = 60_000;
+const FLUSH_BYTE_SIZE = 256 * 1024;
+const MAX_BUFFERED_EVENTS = 500;
+const COMPRESS_REQUESTS = true;
+
 function readPersistedReplayState(): PersistedReplayState | null {
   if (typeof sessionStorage === "undefined") return null;
   try {
@@ -194,16 +191,10 @@ function readPersistedReplayState(): PersistedReplayState | null {
       typeof parsed?.sessionId !== "string" ||
       !parsed.sessionId ||
       typeof parsed.sessionStartedAt !== "number" ||
-      typeof parsed.lastChunkIndex !== "number"
+      typeof parsed.lastChunkIndex !== "number" ||
+      typeof parsed.lastChunkAt !== "number"
     ) {
       return null;
-    }
-    // Older persisted states (before the staleness guard was added)
-    // don't carry lastChunkAt. Treat those as "unknown timestamp" and
-    // let the caller decide — typically by falling back to
-    // sessionStartedAt as a conservative substitute.
-    if (typeof parsed.lastChunkAt !== "number") {
-      parsed.lastChunkAt = parsed.sessionStartedAt;
     }
     return parsed;
   } catch {
@@ -241,13 +232,7 @@ export function sessionReplayPlugin({
   trackingHost = "",
   autoRecord = true,
   enabled = true,
-  idleTimeoutMs = 15 * 60 * 1000,
-  maxDurationMs = 30 * 60 * 1000,
   privacy,
-  flushIntervalMs = 60_000,
-  flushByteSize = 256 * 1024,
-  maxBufferedEvents = 500,
-  compress = true,
 }: PluginOptions = {}) {
   if (typeof window === "undefined" || typeof document === "undefined") {
     throw new Error("sessionReplayPlugin only works in the browser");
@@ -326,7 +311,7 @@ export function sessionReplayPlugin({
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-    if (compress) {
+    if (COMPRESS_REQUESTS) {
       const gz = await gzipString(payload);
       if (gz) {
         body = gz;
@@ -433,22 +418,8 @@ export function sessionReplayPlugin({
         })
         .sort((a, b) => a.timestamp - b.timestamp);
 
-      // Pre-transmission regex scrubbing — last line of defense. Replaces
-      // credit-card / SSN / email-shaped strings (and any customer-supplied
-      // patterns) with [REDACTED] anywhere they appear in the event tree,
-      // even fields rrweb's masking doesn't know about (custom event data,
-      // tooltip text, error messages, etc.). Pass `regex: false` in the
-      // privacy config to opt out — not recommended.
-      // Regex / retroactive-prefix scrubbing is currently DISABLED while we
-      // diagnose a replay-side leak that the type-aware refactor and prefix
-      // sweep didn't resolve. Buffer inspection showed only one Input event
-      // per typing burst (rrweb's `input: "last"` sampling) and zero text /
-      // attribute mutations carrying the partial typed value — yet the
-      // replay player was still showing character-by-character typing,
-      // which means the leak surface isn't where the scrubber dispatches.
-      //
-      // For now we lean entirely on rrweb-native privacy controls exposed
-      // via `SessionReplayPrivacyConfig` / `buildRrwebPrivacyOptions`:
+      // PII protection comes entirely from rrweb-native privacy controls
+      // exposed via SessionReplayPrivacyConfig / buildRrwebPrivacyOptions:
       //   - maskAllInputs (default true)
       //   - blockClass / blockSelector / .gb-block / [data-gb-block]
       //   - maskTextClass / maskTextSelector / .gb-mask / [data-gb-mask]
@@ -456,10 +427,11 @@ export function sessionReplayPlugin({
       //   - data-gb-allow opt-back-in
       //   - maskInputFn / maskTextFn customer hooks
       //
-      // Re-enable + fix the regex scrubber once we've identified the
-      // actual replay leak surface. The scrubEventsPayload function is
-      // still exported for tests and for the eventual re-enable.
-      const scrubbedEvents = events;
+      // The pre-transmission regex scrubber was removed pending diagnosis of
+      // the replay-side leak it was meant to catch — buffer inspection
+      // showed it wasn't dispatching against the surface that was actually
+      // leaking. When that diagnosis lands we'll reintroduce a corrected
+      // scrubber rather than restoring the previous one.
 
       const payload = JSON.stringify({
         clientKey,
@@ -467,7 +439,7 @@ export function sessionReplayPlugin({
         chunkIndex: chunkIndexBeingSent,
         sessionStartedAt,
         viewport: { width: viewportWidth, height: viewportHeight },
-        events: scrubbedEvents,
+        events,
         context,
       });
 
@@ -708,7 +680,7 @@ export function sessionReplayPlugin({
         if (
           hasUserInteraction &&
           window._gbReplayEvents.length > 0 &&
-          bufferedBytes + eventBytes > flushByteSize
+          bufferedBytes + eventBytes > FLUSH_BYTE_SIZE
         ) {
           void flushBuffer();
         }
@@ -719,7 +691,7 @@ export function sessionReplayPlugin({
         // fires well before this cap is hit. We drop NEW events rather than
         // evict old ones so the type-2 snapshot at the head of the buffer
         // (required for the player to initialize) is preserved.
-        if (window._gbReplayEvents.length >= maxBufferedEvents) return;
+        if (window._gbReplayEvents.length >= MAX_BUFFERED_EVENTS) return;
 
         window._gbReplayEvents.push(scrubbedEvent);
         bufferedBytes += eventBytes;
@@ -745,11 +717,11 @@ export function sessionReplayPlugin({
     stopFn = rrwebStop;
     isRecording = true;
 
-    flushInterval = setInterval(flushBuffer, flushIntervalMs);
+    flushInterval = setInterval(flushBuffer, FLUSH_INTERVAL_MS);
     idleCheckInterval = setInterval(checkAndRotate, 60_000);
     // setInterval is throttled (or frozen entirely) on backgrounded tabs in
     // most browsers, so a tab left idle in the background can blow past
-    // maxDurationMs without the timer firing. Re-evaluate when visibility
+    // MAX_DURATION_MS without the timer firing. Re-evaluate when visibility
     // changes too — gives us a chance to rotate as soon as the user returns.
     document.addEventListener("visibilitychange", onVisibilityChange);
   };
@@ -760,11 +732,12 @@ export function sessionReplayPlugin({
   const checkAndRotate = () => {
     if (!isRecording) return;
     const now = Date.now();
-    const tooLong = now - sessionStartedAt > maxDurationMs;
+    const tooLong = now - sessionStartedAt > MAX_DURATION_MS;
     // Idle rotation only applies once we've seen interaction — otherwise we'd
-    // loop forever rotating empty sessions on idle tabs. maxDuration is
+    // loop forever rotating empty sessions on idle tabs. MAX_DURATION_MS is
     // checked unconditionally so background tabs can't escape it.
-    const idle = hasUserInteraction && now - lastInteractionAt > idleTimeoutMs;
+    const idle =
+      hasUserInteraction && now - lastInteractionAt > IDLE_TIMEOUT_MS;
     if (!tooLong && !idle) return;
 
     stopRecording();

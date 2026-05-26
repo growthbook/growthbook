@@ -40,17 +40,6 @@ function errorDetailForLog(text: string, status: number): string {
   return trimmed;
 }
 
-/**
- * Allow overriding the license-server base URL for managed-clickhouse calls
- * only. Useful in dev where you want license validation / admin-page license
- * fetches to continue hitting the production license server (which has your
- * real license doc), but you need managed-clickhouse provisioning to flow
- * through a local license-server instance that has the dev ClickHouse Cloud
- * credentials. Falls back to LICENSE_SERVER_URL when unset.
- */
-const MANAGED_CLICKHOUSE_LICENSE_SERVER_URL =
-  process.env.MANAGED_CLICKHOUSE_LICENSE_SERVER_URL || LICENSE_SERVER_URL;
-
 async function postManagedClickhouse(
   path: string,
   body: unknown,
@@ -60,9 +49,9 @@ async function postManagedClickhouse(
       "CLOUD_SECRET must be set to use license server managed ClickHouse",
     );
   }
-  const base = MANAGED_CLICKHOUSE_LICENSE_SERVER_URL.endsWith("/")
-    ? MANAGED_CLICKHOUSE_LICENSE_SERVER_URL
-    : `${MANAGED_CLICKHOUSE_LICENSE_SERVER_URL}/`;
+  const base = LICENSE_SERVER_URL.endsWith("/")
+    ? LICENSE_SERVER_URL
+    : `${LICENSE_SERVER_URL}/`;
   const url = `${base}managed-clickhouse/${path}`;
 
   const abortController = new AbortController();
@@ -175,7 +164,6 @@ export async function createClickhouseUser(
  */
 export async function dangerousRecreateClickhouseTables(
   orgId: string,
-  _materializedColumns: MaterializedColumn[] = [],
 ): Promise<void> {
   await postManagedClickhouse("recreate-tables", { orgId });
 }

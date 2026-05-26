@@ -342,13 +342,6 @@ export const CLICKHOUSE_OVERAGE_TABLE =
 
 export const CLOUD_SECRET = process.env.CLOUD_SECRET ?? "";
 
-// When true, managed ClickHouse provisioning (create/delete/recreate/etc.) is
-// delegated to central-license-server's /managed-clickhouse/* routes instead
-// of running the SQL commands directly from this process.
-export const MANAGED_CLICKHOUSE_USE_LICENSE_SERVER = stringToBoolean(
-  process.env.MANAGED_CLICKHOUSE_USE_LICENSE_SERVER,
-);
-
 // Note: the Visual Editor relies on the information in this path, so disabling it will prevent some features from working correctly.
 export const DISABLE_API_ROOT_PATH = stringToBoolean(
   process.env.DISABLE_API_ROOT_PATH,

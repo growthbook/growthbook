@@ -4,7 +4,6 @@ export { thirdPartyTrackingPlugin } from "./third-party-tracking";
 export {
   sessionReplayPlugin,
   scrubUrl,
-  scrubEventsPayload,
   GB_BLOCK_CLASS,
   GB_MASK_CLASS,
   GB_IGNORE_CLASS,
@@ -29,6 +28,5 @@ export type {
 export type {
   SessionReplayPrivacyConfig,
   SessionReplayUrlScrubberConfig,
-  SessionReplayRegexScrubberConfig,
   MaskableInputType,
 } from "./session-replay";
