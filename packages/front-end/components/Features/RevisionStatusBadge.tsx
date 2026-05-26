@@ -1,5 +1,6 @@
 import React from "react";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { ActiveDraftStatus } from "shared/validators";
 import Badge from "@/ui/Badge";
 import { RadixColor } from "@/ui/HelperText";
 
